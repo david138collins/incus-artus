@@ -20,7 +20,8 @@ mod section;
 
 pub use block::BlockId;
 pub use edits::{
-    BlockChanged, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
+    BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
+    RefuseReason,
 };
 pub use raycast::{RayHit, cast_ray};
 #[allow(unused_imports)] // re-exported for later modules (rendering, saving)
@@ -35,6 +36,7 @@ pub use section::Section;
 
 use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, SettingsAppExt};
+use crate::events::EventLogAppExt;
 use bevy::prelude::*;
 use bevy_egui::egui;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -175,8 +177,8 @@ pub struct WorldStats {
     pub extra_states: usize,
 }
 
-/// The system set where block edit requests are applied. Systems that send requests
-/// run `.before(WorldEdits)` so their requests are handled the same frame.
+/// The system set (on ticks, in `FixedUpdate`) where block edit requests are applied.
+/// Simulation systems that should see this tick's edits run `.after(WorldEdits)`.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorldEdits;
 
@@ -192,8 +194,12 @@ impl Plugin for WorldPlugin {
             .init_resource::<RecentBlockChanges>()
             .add_message::<BlockEditRequest>()
             .add_message::<BlockChanged>()
+            .add_message::<BlockEditRefused>()
+            .log_event::<BlockEditRequest>()
+            .log_event::<BlockChanged>()
+            .log_event::<BlockEditRefused>()
             .add_systems(Startup, generate_on_startup)
-            .add_systems(Update, edits::apply_block_edits.in_set(WorldEdits))
+            .add_systems(FixedUpdate, edits::apply_block_edits.in_set(WorldEdits))
             .add_debug_page("World", world_debug_page);
     }
 }

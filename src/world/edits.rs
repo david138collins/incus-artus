@@ -1,24 +1,36 @@
 //! Edits — the one front door for changing blocks during play.
 //!
 //! Nobody (except world generation and the debug panel) calls `set_block` directly.
-//! Instead they send a **request** message ("please break the block at X, Y, Z").
-//! `apply_block_edits` checks each request against the rules, makes the change, and
-//! announces it with a **BlockChanged** message that anything can listen to (later:
-//! item drops, sounds, saving, settlers noticing a wall is gone, ...).
+//! Instead they send a **request** ("please break the block at X, Y, Z"; see `events`).
+//! On the next simulation tick, `apply_block_edits` checks each request against the rules,
+//! then either makes the change and announces it (**BlockChanged**), or refuses it and
+//! says why (**BlockEditRefused**). Anything can listen to both (later: item drops, sounds,
+//! saving, settlers noticing a wall is gone, ...).
 //!
-//! Step 6 (the event bus) builds on these: logging, a debug viewer, routing through ticks.
-//! For now requests are applied in the same frame they're made.
+//! Edits happen on ticks, so nothing changes while time is paused. (Plans laid over the
+//! world, like dig designations and blueprint ghosts, are a separate layer that will work
+//! while paused; see docs/decisions.md.)
 
 use super::{BlockId, VoxelWorld};
 use crate::data::BlockRegistry;
-use serde::{Deserialize, Serialize};
+use crate::events::{LoggedEvent, PlayerId};
+use crate::time::TimeControl;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-/// Who or what asked for a change.
+/// Who or what asked for a change. (Later: settlers, the structure editor, world events.)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EditSource {
-    Player,
+    Player(PlayerId),
+}
+
+impl std::fmt::Display for EditSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EditSource::Player(id) => write!(f, "{id}"),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,6 +54,83 @@ pub struct BlockChanged {
     pub old: BlockId,
     pub new: BlockId,
     pub source: EditSource,
+    pub tick: u64,
+}
+
+/// Why a request was turned down.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RefuseReason {
+    /// Breaking: there's nothing there.
+    NothingThere,
+    /// Breaking: the bottom layer is protected (a debug rule).
+    BottomLayerProtected,
+    /// Placing: something that can't be replaced is already there.
+    Occupied,
+    /// That part of the world isn't loaded (or is outside it).
+    NotLoaded,
+    /// Time is paused, so the world can't change.
+    TimePaused,
+}
+
+/// "That request was turned down, and here's why."
+#[derive(Message, Clone, Copy, Debug)]
+pub struct BlockEditRefused {
+    pub request: BlockEditRequest,
+    pub reason: RefuseReason,
+    pub tick: u64,
+}
+
+fn describe_kind(kind: EditKind, blocks: &BlockRegistry) -> String {
+    match kind {
+        EditKind::Break => "break".to_string(),
+        EditKind::Place(block) => format!("place {}", blocks.name(block)),
+    }
+}
+
+impl LoggedEvent for BlockEditRequest {
+    const KIND: &'static str = "edit request";
+    fn describe(&self, blocks: &BlockRegistry) -> String {
+        let p = self.position;
+        format!("{} asks to {} at {} {} {}", self.source, describe_kind(self.kind, blocks), p.x, p.y, p.z)
+    }
+}
+
+impl LoggedEvent for BlockChanged {
+    const KIND: &'static str = "block changed";
+    fn describe(&self, blocks: &BlockRegistry) -> String {
+        let p = self.position;
+        format!(
+            "{} {} {}: {} → {} (by {})",
+            p.x,
+            p.y,
+            p.z,
+            blocks.name(self.old),
+            blocks.name(self.new),
+            self.source
+        )
+    }
+    fn tick(&self) -> Option<u64> {
+        Some(self.tick)
+    }
+}
+
+impl LoggedEvent for BlockEditRefused {
+    const KIND: &'static str = "edit refused";
+    fn describe(&self, blocks: &BlockRegistry) -> String {
+        let p = self.request.position;
+        format!(
+            "{} {} {}: {} by {} refused: {:?}",
+            p.x,
+            p.y,
+            p.z,
+            describe_kind(self.request.kind, blocks),
+            self.request.source,
+            self.reason
+        )
+    }
+    fn tick(&self) -> Option<u64> {
+        Some(self.tick)
+    }
 }
 
 /// Tunable rules for edits (shown on the "Player" debug page).
@@ -69,20 +158,36 @@ pub struct RecentBlockChanges {
 
 const RECENT_LIMIT: usize = 12;
 
+/// Runs on every simulation tick: carry out or refuse each waiting request.
 pub fn apply_block_edits(
     mut requests: MessageReader<BlockEditRequest>,
     mut changed: MessageWriter<BlockChanged>,
+    mut refused: MessageWriter<BlockEditRefused>,
     mut world: ResMut<VoxelWorld>,
     rules: Res<EditRules>,
     registry: Res<BlockRegistry>,
+    time: Res<TimeControl>,
     mut recent: ResMut<RecentBlockChanges>,
 ) {
+    let tick = time.tick();
+    let mut refuse = |request: &BlockEditRequest, reason: RefuseReason, recent: &mut RecentBlockChanges| {
+        recent.refused += 1;
+        refused.write(BlockEditRefused {
+            request: *request,
+            reason,
+            tick,
+        });
+    };
     for request in requests.read() {
         let old = world.get_block(request.position);
         let new = match request.kind {
             EditKind::Break => {
-                if old.is_air() || (rules.protect_bottom_layer && request.position.z == 0) {
-                    recent.refused += 1;
+                if old.is_air() {
+                    refuse(request, RefuseReason::NothingThere, &mut recent);
+                    continue;
+                }
+                if rules.protect_bottom_layer && request.position.z == 0 {
+                    refuse(request, RefuseReason::BottomLayerProtected, &mut recent);
                     continue;
                 }
                 BlockId::AIR
@@ -91,7 +196,7 @@ pub fn apply_block_edits(
                 // Into air, or into something replaceable (like the grid), but never into the
                 // same block that's already there.
                 if !registry.is_replaceable(old) || old == block {
-                    recent.refused += 1;
+                    refuse(request, RefuseReason::Occupied, &mut recent);
                     continue;
                 }
                 block
@@ -99,7 +204,7 @@ pub fn apply_block_edits(
         };
         // `None` = not loaded / outside the world: nothing happened.
         if world.set_block(request.position, new).is_none() {
-            recent.refused += 1;
+            refuse(request, RefuseReason::NotLoaded, &mut recent);
             continue;
         }
         let change = BlockChanged {
@@ -107,9 +212,92 @@ pub fn apply_block_edits(
             old,
             new,
             source: request.source,
+            tick,
         };
         changed.write(change);
         recent.changes.push_front(change);
         recent.changes.truncate(RECENT_LIMIT);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::world::{TestBlocks, TestWorldSettings, generate_test_world};
+    use bevy::ecs::system::RunSystemOnce;
+
+    const PLAYER: EditSource = EditSource::Player(PlayerId(0));
+
+    /// A tiny app with just the test world and the edit system, run for one update.
+    fn run_requests(requests: &[BlockEditRequest]) -> (App, TestBlocks) {
+        let registry = BlockRegistry::default();
+        let blocks = TestBlocks::from_registry(&registry);
+        let mut voxels = VoxelWorld::default();
+        generate_test_world(&mut voxels, &TestWorldSettings::default(), &blocks);
+        let mut app = App::new();
+        app.insert_resource(registry)
+            .insert_resource(voxels)
+            .init_resource::<EditRules>()
+            .init_resource::<TimeControl>()
+            .init_resource::<RecentBlockChanges>()
+            .add_message::<BlockEditRequest>()
+            .add_message::<BlockChanged>()
+            .add_message::<BlockEditRefused>()
+            .add_systems(Update, apply_block_edits);
+        for request in requests {
+            app.world_mut().write_message(*request);
+        }
+        app.update();
+        (app, blocks)
+    }
+
+    fn refusals(app: &mut App) -> Vec<RefuseReason> {
+        app.world_mut()
+            .run_system_once(|mut refused: MessageReader<BlockEditRefused>| {
+                refused.read().map(|refusal| refusal.reason).collect::<Vec<_>>()
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn breaking_announces_the_change() {
+        let surface = IVec3::new(0, 0, 144);
+        let (mut app, blocks) = run_requests(&[BlockEditRequest { position: surface, kind: EditKind::Break, source: PLAYER }]);
+        let changes = app
+            .world_mut()
+            .run_system_once(|mut changed: MessageReader<BlockChanged>| changed.read().copied().collect::<Vec<_>>())
+            .unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].old, blocks.grass);
+        assert_eq!(changes[0].new, BlockId::AIR);
+        assert_eq!(app.world().resource::<VoxelWorld>().get_block(surface), BlockId::AIR);
+    }
+
+    #[test]
+    fn refusals_say_why() {
+        let stone = BlockRegistry::default().id("incus:stone").unwrap();
+        let (mut app, _) = run_requests(&[
+            BlockEditRequest { position: IVec3::new(0, 0, 200), kind: EditKind::Break, source: PLAYER },
+            BlockEditRequest { position: IVec3::new(0, 0, 0), kind: EditKind::Break, source: PLAYER },
+            BlockEditRequest { position: IVec3::new(0, 0, 144), kind: EditKind::Place(stone), source: PLAYER },
+        ]);
+        assert_eq!(
+            refusals(&mut app),
+            vec![RefuseReason::NothingThere, RefuseReason::BottomLayerProtected, RefuseReason::Occupied]
+        );
+    }
+
+    #[test]
+    fn placing_into_a_grid_block_replaces_it() {
+        let registry = BlockRegistry::default();
+        let grid = registry.id("incus:grid").unwrap();
+        let stone = registry.id("incus:stone").unwrap();
+        let cell = IVec3::new(0, 0, 145);
+        let (mut app, _) = run_requests(&[
+            BlockEditRequest { position: cell, kind: EditKind::Place(grid), source: PLAYER },
+            BlockEditRequest { position: cell, kind: EditKind::Place(stone), source: PLAYER },
+        ]);
+        assert!(refusals(&mut app).is_empty());
+        assert_eq!(app.world().resource::<VoxelWorld>().get_block(cell), stone);
     }
 }

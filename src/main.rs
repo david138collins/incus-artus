@@ -8,6 +8,7 @@
 //! - `debug`   — the developer debug panel; other modules add pages to it
 //! - `time`    — TimeControl: the single simulation clock (pause / speed / tick rate)
 //! - `coords`  — conversion between game axes (X north, Y east, Z up) and Bevy's axes
+//! - `events`  — the event bus: requests, announcements, player IDs, the event log
 //! - `data`    — registries of game content (block names ↔ numbers)
 //! - `kinematics` — the shapes of motion (ADSR envelopes) and their editor
 //! - `world`   — chunks, sections, block storage and queries
@@ -20,6 +21,7 @@ mod camera;
 mod coords;
 mod data;
 mod debug;
+mod events;
 mod kinematics;
 mod player;
 mod render;
@@ -47,6 +49,7 @@ fn main() {
         .add_plugins((
             debug::DebugPlugin,
             time::TimeControlPlugin,
+            events::EventsPlugin,
             data::DataPlugin,
             world::WorldPlugin,
             render::RenderPlugin,

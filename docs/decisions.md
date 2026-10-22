@@ -114,7 +114,9 @@ Reference: `Art/quartile minecraft illustration.png`
 
 - **[DECIDED]** 640×480 is the *UI art* resolution only (maybe 1280×960 later). UI is integer-upscaled.
   The 3D world renders at native resolution.
-- **[DECIDED]** Limited palette; full colour reserved for special effects. Master palette: `lorecraft/art/Palettes/masterpal.gpl` (256 colours).
+- **[DECIDED]** Limited palette; full colour reserved for special effects.
+- **[OPEN]** The master palette isn't chosen yet (`lorecraft/art/Palettes/masterpal.gpl` is an experiment, not final).
+  Current textures are placeholders; colours get coordinated once a visual style is visible. Don't check art against it.
 - **[DECIDED]** Block faces are 32×32 pixels.
 - **[DECIDED]** Placeholder UI during development: black boxes, magenta outlines, bright pink text.
 - **[DECIDED]** Plain lighting for now. Pretty lighting later.
@@ -175,6 +177,21 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** No save/load-game. Just worlds, Minecraft-style world folders.
 - **[DECIDED]** Only changed chunks are saved; untouched terrain regenerates from the seed.
 - **[DECIDED]** Settings in readable text; tuning saved as named presets (save / edit / save as).
+
+## Event Bus (step 6)
+
+- **[DECIDED]** Two kinds of message: **requests** (someone wants something; the owner checks it and carries it
+  out or refuses it *with a reason*) and **announcements** (facts that happened, stamped with their tick).
+  Systems never reach into each other to change things.
+- **[DECIDED]** Physical world changes happen on ticks, so a paused world is truly frozen; a player's break/place
+  while paused is refused ("TimePaused").
+- **[LATER]** **Plans** (dig designations, region outlines, blueprint ghosts snapping under the cursor) are a separate
+  layer over the world and work instantly while paused (plan while paused, settlers act when time runs). Ghosts
+  are drawing only. The structure editor's edits will be marked as coming from the editor and may apply while paused.
+- **[DECIDED]** Every player has a `PlayerId` and their own input; the one at this keyboard is the `LocalPlayer`.
+  Every request says who sent it.
+- **[DECIDED]** Event log: the Events debug page (filters, freeze, clear) and a file per session in `logs/`
+  (newest 20 kept), for bug reports.
 
 ## Dev Tools
 

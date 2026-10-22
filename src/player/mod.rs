@@ -34,10 +34,11 @@ use crate::camera::{FieldOfViewBoost, FlyCamera, LookTarget, MouseCapture};
 use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, SettingsAppExt, preset_bar};
 use crate::kinematics::{Envelope, EnvelopeState, envelope_editor};
-use crate::time::{InterpolationSettings, SimPosition, blend_fraction};
+use crate::events::{EventLogAppExt, LocalPlayer, LoggedEvent, PlayerId};
+use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
-    BlockEditRequest, BlockId, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
-    VoxelWorld, WORLD_HEIGHT, WorldEdits,
+    BlockEditRefused, BlockEditRequest, BlockId, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
+    RefuseReason, VoxelWorld, WORLD_HEIGHT, WorldEdits,
 };
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
@@ -51,7 +52,6 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ControlMode>()
             .init_resource::<PlayerSettings>()
-            .init_resource::<PawnInput>()
             .init_resource::<Hotbar>()
             .init_resource::<ActionCooldowns>()
             .init_resource::<SprintView>()
@@ -68,11 +68,14 @@ impl Plugin for PlayerPlugin {
                     read_walk_input,
                     follow_pawn.before(crate::camera::place_camera),
                     widen_view_when_sprinting.before(crate::camera::place_camera),
-                    block_actions.before(WorldEdits),
+                    block_actions,
                     notice_footsteps,
                 ),
             )
-            .add_systems(FixedUpdate, move_pawn)
+            // After this tick's block edits, so the body bumps into the world as it now is.
+            .add_systems(FixedUpdate, move_pawn.after(WorldEdits))
+            .log_event::<Footstep>()
+            .log_event::<Landed>()
             .add_systems(EguiPrimaryContextPass, draw_hotbar)
             .add_debug_page("Player", player_debug_page)
             .add_settings::<PlayerSettings>("player");
@@ -271,8 +274,10 @@ pub struct Pawn {
     pub ground_friction: f32,
 }
 
-/// What the keys say, gathered every frame and used on the next tick.
-#[derive(Resource, Default)]
+/// What a pawn's controls say, gathered every frame and used on the next tick. Each pawn has
+/// its own: the local player's comes from this keyboard; another player's could come from the
+/// network, or a recording.
+#[derive(Component, Default)]
 struct PawnInput {
     /// Wanted walking direction (level, game axes). Length 1 straight forwards; shorter
     /// sideways and backwards (the strafe and backward factors); 0 with no keys held.
@@ -294,18 +299,44 @@ struct PawnInput {
 /// while slowing down). A hook for step sounds, noise and stealth.
 #[derive(Message, Debug, Clone, Copy)]
 pub struct Footstep {
+    pub player: PlayerId,
     /// Where the feet were, game coordinates.
     pub position: Vec3,
+    pub tick: u64,
+}
+
+impl LoggedEvent for Footstep {
+    const KIND: &'static str = "footstep";
+    fn describe(&self, _blocks: &BlockRegistry) -> String {
+        let p = self.position;
+        format!("{} at {:.1} {:.1} {:.1}", self.player, p.x, p.y, p.z)
+    }
+    fn tick(&self) -> Option<u64> {
+        Some(self.tick)
+    }
 }
 
 /// Sent when the body touches down after being in the air. A hook for landing sounds,
 /// fall damage, stumbles and so on.
 #[derive(Message, Debug, Clone, Copy)]
 pub struct Landed {
+    pub player: PlayerId,
     /// Where the feet landed, game coordinates.
     pub position: Vec3,
     /// How fast it was falling at touchdown, blocks per second.
     pub speed: f32,
+    pub tick: u64,
+}
+
+impl LoggedEvent for Landed {
+    const KIND: &'static str = "landed";
+    fn describe(&self, _blocks: &BlockRegistry) -> String {
+        let p = self.position;
+        format!("{} at {:.1} {:.1} {:.1}, falling at {:.1} blocks/s", self.player, p.x, p.y, p.z, self.speed)
+    }
+    fn tick(&self) -> Option<u64> {
+        Some(self.tick)
+    }
 }
 
 /// For the on-screen "STEP" light and the debug page.
@@ -358,7 +389,13 @@ fn spawn_point(world: &VoxelWorld) -> Vec3 {
 }
 
 fn spawn_pawn(mut commands: Commands, world: Res<VoxelWorld>) {
-    commands.spawn((Pawn::default(), SimPosition::new(spawn_point(&world))));
+    commands.spawn((
+        Pawn::default(),
+        SimPosition::new(spawn_point(&world)),
+        PawnInput::default(),
+        PlayerId(0),
+        LocalPlayer,
+    ));
 }
 
 /// Are the keys free for the game (not being typed into a debug panel box)?
@@ -420,7 +457,7 @@ fn toggle_mode(
     world: Res<VoxelWorld>,
     registry: Res<BlockRegistry>,
     camera: Query<&FlyCamera>,
-    mut pawns: Query<(&mut Pawn, &mut SimPosition)>,
+    mut pawns: Query<(&mut Pawn, &mut SimPosition), With<LocalPlayer>>,
 ) {
     if !keys.just_pressed(KeyCode::KeyF) || !keys_are_ours(&capture, &egui_input) {
         return;
@@ -463,8 +500,11 @@ fn read_walk_input(
     settings: Res<PlayerSettings>,
     time: Res<Time<Real>>,
     camera: Query<&FlyCamera>,
-    mut input: ResMut<PawnInput>,
+    mut inputs: Query<&mut PawnInput, With<LocalPlayer>>,
 ) {
+    let Ok(mut input) = inputs.single_mut() else {
+        return;
+    };
     if *mode != ControlMode::Walk || !keys_are_ours(&capture, &egui_input) {
         input.direction = Vec3::ZERO;
         input.jump_held = false;
@@ -530,19 +570,21 @@ fn move_pawn(
     settings: Res<PlayerSettings>,
     world: Res<VoxelWorld>,
     registry: Res<BlockRegistry>,
-    mut input: ResMut<PawnInput>,
+    time_control: Res<TimeControl>,
     mut footsteps: MessageWriter<Footstep>,
     mut landings: MessageWriter<Landed>,
-    mut pawns: Query<(&mut Pawn, &mut SimPosition)>,
+    mut pawns: Query<(&mut Pawn, &mut SimPosition, &mut PawnInput, &PlayerId, Has<LocalPlayer>)>,
 ) {
-    let jump = input.jump_held || input.jump_tapped;
-    input.jump_tapped = false;
-    if *mode != ControlMode::Walk {
-        return;
-    }
     let dt = time.delta_secs();
+    let tick = time_control.tick();
     let solid = |cell: IVec3| registry.is_solid(world.get_block(cell));
-    for (mut pawn, mut position) in &mut pawns {
+    for (mut pawn, mut position, mut input, &player, local) in &mut pawns {
+        let jump = input.jump_held || input.jump_tapped;
+        input.jump_tapped = false;
+        // While this keyboard's player is flying the developer camera, its body waits.
+        if local && *mode != ControlMode::Walk {
+            continue;
+        }
         // Crouching: Ctrl held, or no room to stand up (you stay crouched under a low ceiling).
         let room_to_stand = !overlaps_solid(position.current, settings.body(), solid);
         pawn.crouched = input.crouch || (pawn.crouched && !room_to_stand);
@@ -566,7 +608,11 @@ fn move_pawn(
             pawn.run.update(&settings.run_envelope, input.run && moving, dt);
             pawn.sprint.update(&settings.sprint_envelope, sprinting, dt);
             if pawn.walk.just_triggered() {
-                footsteps.write(Footstep { position: position.current });
+                footsteps.write(Footstep {
+                    player,
+                    position: position.current,
+                    tick,
+                });
             }
         }
         // Walk speed, plus the run envelope's share of the step up to running, plus the sprint
@@ -635,8 +681,10 @@ fn move_pawn(
         // Touchdown: announce it (a hook for landing sounds, fall damage, stumbles…).
         if blocked.down && !pawn.on_ground {
             landings.write(Landed {
+                player,
                 position: feet,
                 speed: falling_speed.max(0.0),
+                tick,
             });
         }
         pawn.on_ground = blocked.down;
@@ -655,7 +703,7 @@ fn follow_pawn(
     settings: Res<PlayerSettings>,
     fixed_time: Res<Time<Fixed>>,
     smoothing: Res<InterpolationSettings>,
-    pawns: Query<(&Pawn, &SimPosition)>,
+    pawns: Query<(&Pawn, &SimPosition), With<LocalPlayer>>,
     mut cameras: Query<&mut FlyCamera>,
 ) {
     if *mode != ControlMode::Walk {
@@ -677,7 +725,7 @@ fn widen_view_when_sprinting(
     time: Res<Time>,
     mode: Res<ControlMode>,
     settings: Res<PlayerSettings>,
-    pawns: Query<&Pawn>,
+    pawns: Query<&Pawn, With<LocalPlayer>>,
     mut view: ResMut<SprintView>,
     mut boost: ResMut<FieldOfViewBoost>,
 ) {
@@ -706,18 +754,22 @@ fn notice_footsteps(
 }
 
 /// Left click breaks, right click places. Held buttons repeat after the cooldown.
+/// These send requests; the world carries them out on the next tick. While time is paused
+/// your hands are frozen with everything else, so the request is refused straight away.
 fn block_actions(
     mouse: Res<ButtonInput<MouseButton>>,
     capture: Res<MouseCapture>,
     mode: Res<ControlMode>,
     time: Res<Time<Real>>,
+    time_control: Res<TimeControl>,
     settings: Res<PlayerSettings>,
     target: Res<LookTarget>,
     hotbar: Res<Hotbar>,
     registry: Res<BlockRegistry>,
-    pawns: Query<&SimPosition, With<Pawn>>,
+    pawns: Query<(&SimPosition, &PlayerId), With<LocalPlayer>>,
     mut cooldowns: ResMut<ActionCooldowns>,
     mut requests: MessageWriter<BlockEditRequest>,
+    mut refused: MessageWriter<BlockEditRefused>,
 ) {
     // With the mouse free, clicks belong to the debug panel.
     if !capture.captured {
@@ -726,14 +778,28 @@ fn block_actions(
     let Some(hit) = target.hit else {
         return;
     };
+    let Ok((position, &player)) = pawns.single() else {
+        return;
+    };
     let now = time.elapsed_secs();
+    let mut send = |request: BlockEditRequest| {
+        if time_control.is_running() {
+            requests.write(request);
+        } else {
+            refused.write(BlockEditRefused {
+                request,
+                reason: RefuseReason::TimePaused,
+                tick: time_control.tick(),
+            });
+        }
+    };
 
     if mouse.pressed(MouseButton::Left) && now - cooldowns.last_break >= settings.break_cooldown {
         cooldowns.last_break = now;
-        requests.write(BlockEditRequest {
+        send(BlockEditRequest {
             position: hit.block,
             kind: EditKind::Break,
-            source: EditSource::Player,
+            source: EditSource::Player(player),
         });
     }
 
@@ -746,20 +812,18 @@ fn block_actions(
         };
         // Don't place a solid block inside your own body while walking.
         if *mode == ControlMode::Walk && registry.is_solid(block) {
-            if let Ok(position) = pawns.single() {
-                let (min, max) = body_bounds(position.current, settings.body());
-                let cell_min = cell.as_vec3();
-                let cell_max = cell_min + Vec3::ONE;
-                if min.cmplt(cell_max).all() && max.cmpgt(cell_min).all() {
-                    return;
-                }
+            let (min, max) = body_bounds(position.current, settings.body());
+            let cell_min = cell.as_vec3();
+            let cell_max = cell_min + Vec3::ONE;
+            if min.cmplt(cell_max).all() && max.cmpgt(cell_min).all() {
+                return;
             }
         }
         cooldowns.last_place = now;
-        requests.write(BlockEditRequest {
+        send(BlockEditRequest {
             position: cell,
             kind: EditKind::Place(block),
-            source: EditSource::Player,
+            source: EditSource::Player(player),
         });
     }
 }
@@ -849,7 +913,7 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
     let mut live_crouch = None;
     let live_view = world.resource::<SprintView>().envelope;
     {
-        let mut query = world.query::<(&Pawn, &SimPosition)>();
+        let mut query = world.query_filtered::<(&Pawn, &SimPosition), With<LocalPlayer>>();
         if let Ok((pawn, position)) = query.single(world) {
             live_walk = Some(pawn.walk);
             live_run = Some(pawn.run);
@@ -896,7 +960,7 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         let spawn = spawn_point(world.resource::<VoxelWorld>());
         world.resource_scope(|world, voxel: Mut<VoxelWorld>| {
             world.resource_scope(|world, registry: Mut<BlockRegistry>| {
-                let mut query = world.query::<(&mut Pawn, &mut SimPosition)>();
+                let mut query = world.query_filtered::<(&mut Pawn, &mut SimPosition), With<LocalPlayer>>();
                 if let Ok((mut pawn, mut position)) = query.single_mut(world) {
                     place_pawn(&mut pawn, &mut position, spawn, &settings, &voxel, &registry);
                 }
