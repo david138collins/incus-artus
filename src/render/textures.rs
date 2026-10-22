@@ -13,7 +13,7 @@
 //! Without them, pixel art sparkles and shimmers in the distance. For now they're generated
 //! automatically by averaging pixels; David may hand-touch them later.
 
-use crate::data::BlockRegistry;
+use crate::data::{BlockRegistry, block_texture_folder};
 use bevy::asset::RenderAssetUsages;
 use bevy::image::{
     CompressedImageFormats, ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor,
@@ -24,7 +24,6 @@ use bevy::render::render_resource::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
 };
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Block face textures must be this many pixels square.
 pub const TEXTURE_SIZE: u32 = 32;
@@ -42,20 +41,8 @@ pub struct BlockTextures {
     pub face_layers: Vec<[u32; 6]>,
 }
 
-/// Where the game's `assets` folder is. During development (`cargo run`) that's the project
-/// folder; in a shipped game it sits next to the program.
-pub fn assets_folder() -> PathBuf {
-    if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        return PathBuf::from(dir).join("assets");
-    }
-    std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|p| p.join("assets")))
-        .unwrap_or_else(|| PathBuf::from("assets"))
-}
-
 pub fn build_block_textures(registry: &BlockRegistry) -> BlockTextures {
-    let folder = assets_folder().join("textures").join("blocks");
+    let folder = block_texture_folder();
 
     let mut layers: Vec<Vec<u8>> = vec![missing_texture()];
     let mut layer_names = vec!["<missing>".to_string()];

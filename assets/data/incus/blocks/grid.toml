@@ -1,0 +1,7 @@
+# Grid: a see-through building aid. Every cell's faces are drawn, so a volume shows as a lattice.
+# Walk through it; placing a block into a grid cell replaces it.
+# This file defines the block "incus:grid". See docs/data-files.md for every setting.
+
+name = "Grid"
+look = "grid"
+textures = { all = "grid" }

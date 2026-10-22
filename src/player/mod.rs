@@ -859,8 +859,8 @@ fn draw_hotbar(
         painter.rect(rect, 0.0, egui::Color32::BLACK, stroke, egui::StrokeKind::Inside);
         let label = registry
             .id(name)
-            .map_or(*name, |id| registry.name(id))
-            .trim_start_matches("incus:");
+            .and_then(|id| registry.def(id))
+            .map_or(*name, |def| def.display_name.as_str());
         painter.text(
             rect.center(),
             egui::Align2::CENTER_CENTER,

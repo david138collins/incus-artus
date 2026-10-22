@@ -39,6 +39,7 @@ impl Plugin for RenderPlugin {
             .add_systems(
                 Update,
                 (
+                    rebuild_terrain_after_reload,
                     follow_block_rotations,
                     meshing::collect_dirty_sections,
                     meshing::start_jobs,
@@ -129,10 +130,13 @@ impl RenderSettings {
     }
 }
 
-/// What the terrain renderer built at startup.
+/// What the terrain renderer built from the block registry (at startup, and again whenever
+/// the data files or textures change).
 #[derive(Resource)]
 pub struct TerrainAssets {
     pub material: Handle<TerrainMaterial>,
+    /// The registry revision this was built from.
+    pub revision: u64,
     /// Per block number: opaque?
     pub opaque: Arc<Vec<bool>>,
     /// Per block number: see-through (drawn both sides, with holes)?
@@ -154,26 +158,60 @@ fn setup_terrain(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
 ) {
-    let textures = textures::build_block_textures(&registry);
+    let (image, terrain) = build_terrain(&registry, Handle::default());
+    let material = materials.add(TerrainMaterial {
+        textures: images.add(image),
+        settings: settings.shader_settings(SKY_COLOUR),
+    });
+    commands.insert_resource(TerrainAssets { material, ..terrain });
+}
+
+/// Load the block textures and build the per-block tables the mesher uses.
+fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>) -> (Image, TerrainAssets) {
+    let textures = textures::build_block_textures(registry);
     info!(
         "Block textures: {} layers, {} problem(s)",
         textures.layer_names.len(),
         textures.problems.len()
     );
-    let material = materials.add(TerrainMaterial {
-        textures: images.add(textures.image),
-        settings: settings.shader_settings(SKY_COLOUR),
-    });
-    commands.insert_resource(TerrainAssets {
+    let terrain = TerrainAssets {
         material,
+        revision: registry.revision(),
         opaque: Arc::new(registry.defs().iter().map(|def| def.opaque).collect()),
         see_through: Arc::new(registry.defs().iter().map(|def| def.see_through).collect()),
         inner_faces: Arc::new(registry.defs().iter().map(|def| def.inner_faces).collect()),
         face_layers: Arc::new(textures.face_layers),
-        face_random_rotation: Arc::new(rotation_table(&registry)),
+        face_random_rotation: Arc::new(rotation_table(registry)),
         layer_names: textures.layer_names,
         texture_problems: textures.problems,
-    });
+    };
+    (textures.image, terrain)
+}
+
+/// Live reload: when the registry's data or textures changed, rebuild the texture array and
+/// tables, and redraw every section.
+fn rebuild_terrain_after_reload(
+    registry: Res<BlockRegistry>,
+    terrain: Option<ResMut<TerrainAssets>>,
+    mut materials: ResMut<Assets<TerrainMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    mut state: ResMut<MeshingState>,
+) {
+    let Some(mut terrain) = terrain else {
+        return;
+    };
+    if terrain.revision == registry.revision() {
+        return;
+    }
+    let (image, rebuilt) = build_terrain(&registry, terrain.material.clone());
+    // A brand-new texture for the material (the old one is dropped). Changing the old
+    // texture in place doesn't re-upload its layers and mip levels correctly.
+    if let Some(mut material) = materials.get_mut(&terrain.material) {
+        material.textures = images.add(image);
+    }
+    *terrain = rebuilt;
+    let keys: Vec<SectionKey> = state.entities.keys().copied().collect();
+    state.waiting.extend(keys);
 }
 
 /// Per block number: is each face's texture randomly rotated?

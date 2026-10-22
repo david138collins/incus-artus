@@ -172,6 +172,15 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** Models: Blockbench now, a real 3D modeller later. We'll use a loading path that
   works for both (likely glTF, which both can export).
 
+- **[DECIDED]** (Step 7) Blocks are defined in `assets/data/<pack>/blocks/<name>.toml` → ID `<pack>:<name>`; the
+  base game's pack is `incus`. Only air is built in. Format and settings: `docs/data-files.md`.
+  `look = solid | grid | outline` sets the usual behaviour; `solid`/`targetable`/`replaceable` can override it.
+- **[DECIDED]** Misspelt settings are errors (reported with file and line); unknown face words are warnings.
+  Mistakes never crash: a bad file keeps the block's last good version; a missing test-world block gets a magenta
+  placeholder; a deleted file's block stays until restart (block numbers never change while running).
+- **[DECIDED]** Live reload covers data files *and* block texture PNGs (checked every second, real time).
+- **[LATER]** A "write this tweak into the block's file" button on the Blocks page (keeping comments).
+
 ## Saving
 
 - **[DECIDED]** No save/load-game. Just worlds, Minecraft-style world folders.

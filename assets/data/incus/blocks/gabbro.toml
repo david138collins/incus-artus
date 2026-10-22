@@ -1,0 +1,5 @@
+# Gabbro: the bedrock layer at the very bottom of the world.
+# This file defines the block "incus:gabbro". See docs/data-files.md for every setting.
+
+name = "Gabbro"
+textures = { all = "gabbro" }

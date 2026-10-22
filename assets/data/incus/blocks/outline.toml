@@ -1,0 +1,7 @@
+# Outline: see-through, but only the outside skin of a volume is drawn, so it reads as one box.
+# For marking exact 3D regions in the structure editor.
+# This file defines the block "incus:outline". See docs/data-files.md for every setting.
+
+name = "Outline"
+look = "outline"
+textures = { all = "grid" }

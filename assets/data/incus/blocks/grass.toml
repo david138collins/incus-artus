@@ -1,0 +1,8 @@
+# Grass: the surface of the test world (dirt underneath).
+# This file defines the block "incus:grass". See docs/data-files.md for every setting.
+
+name = "Grass"
+textures = { top = "grass_top", sides = "grass_side", bottom = "dirt" }
+
+# The top has no "up", so each block's top is turned at random to hide repetition.
+random_rotation = ["top"]

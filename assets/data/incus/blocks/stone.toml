@@ -1,0 +1,5 @@
+# Stone: the bulk of the test world.
+# This file defines the block "incus:stone". See docs/data-files.md for every setting.
+
+name = "Stone"
+textures = { all = "stone" }
