@@ -129,6 +129,9 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** Faces: `all`, or `top`/`side`/`bottom`, or six faces. Side faces: image top = up.
   Top/bottom faces: image top = north.
 - **[DECIDED]** Textures must tile seamlessly (greedy meshing repeats them across big surfaces).
+- **[DECIDED]** Each face of a block has a texture rotation: `fixed` (default) or `random` (each block
+  turned 0/90/180/270°, picked from its position so it never changes). Grass top is `random`. Use it only
+  on textures with no "up" direction. Randomly rotated textures must tile seamlessly in all four turns.
 - **[DECIDED]** Claude points out factual, functional problems in delivered art (seams, sizes, readability).
 - **[DECIDED]** Each soil type gets its own texture; the grass edge is one shared transparent overlay drawn on top of any soil.
 - **[LATER]** Distant (shrunk) textures: Claude generates the small versions for a few block types; David processes and touches them up; hand-made versions can then replace the generated ones.

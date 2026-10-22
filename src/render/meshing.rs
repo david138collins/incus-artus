@@ -225,5 +225,6 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         outside,
         opaque: terrain.opaque.clone(),
         face_layers: terrain.face_layers.clone(),
+        face_random_rotation: terrain.face_random_rotation.clone(),
     })
 }

@@ -40,6 +40,8 @@ pub struct TerrainShaderSettings {
     /// x = fog start distance, y = fog end distance, z = fog on (1) / off (0),
     /// w = debug view (0 normal, 1 colour each quad, 2 colour by face direction).
     pub fog_and_debug: Vec4,
+    /// x = random texture rotation on (1) / off (0), yzw unused.
+    pub options: Vec4,
 }
 
 impl Material for TerrainMaterial {

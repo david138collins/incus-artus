@@ -17,7 +17,7 @@ mod meshing;
 mod textures;
 
 use crate::coords::bevy_to_game;
-use crate::data::{BlockRegistry, FACE_NAMES};
+use crate::data::{BlockRegistry, FACE_NAMES, TextureRotation};
 use crate::debug::DebugAppExt;
 use crate::world::{CHUNK_SIZE, SectionKey, VoxelWorld};
 use bevy::prelude::*;
@@ -70,6 +70,8 @@ pub struct RenderSettings {
     pub fog_start: f32,
     pub fog_end: f32,
     pub debug_view: DebugView,
+    /// Turn faces marked "random rotation" (off = compare with every block the same way up).
+    pub random_rotation: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -94,6 +96,7 @@ impl Default for RenderSettings {
             fog_start: 150.0,
             fog_end: 380.0,
             debug_view: DebugView::Normal,
+            random_rotation: true,
         }
     }
 }
@@ -119,6 +122,7 @@ impl RenderSettings {
                     DebugView::Faces => 2.0,
                 },
             ),
+            options: Vec4::new(if self.random_rotation { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0),
         }
     }
 }
@@ -131,6 +135,8 @@ pub struct TerrainAssets {
     pub opaque: Arc<Vec<bool>>,
     /// Per block number: texture layer for each face.
     pub face_layers: Arc<Vec<[u32; 6]>>,
+    /// Per block number: is each face's texture randomly rotated?
+    pub face_random_rotation: Arc<Vec<[bool; 6]>>,
     pub layer_names: Vec<String>,
     pub texture_problems: Vec<String>,
 }
@@ -156,6 +162,13 @@ fn setup_terrain(
         material,
         opaque: Arc::new(registry.defs().iter().map(|def| def.opaque).collect()),
         face_layers: Arc::new(textures.face_layers),
+        face_random_rotation: Arc::new(
+            registry
+                .defs()
+                .iter()
+                .map(|def| def.rotations.map(|rotation| rotation == TextureRotation::Random))
+                .collect(),
+        ),
         layer_names: textures.layer_names,
         texture_problems: textures.problems,
     });
@@ -276,6 +289,7 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ui.selectable_value(&mut settings.debug_view, DebugView::Quads, "rectangles");
             ui.selectable_value(&mut settings.debug_view, DebugView::Faces, "face directions");
         });
+        ui.checkbox(&mut settings.random_rotation, "random texture rotation (faces marked for it)");
         if ui.button("Reset render settings").clicked() {
             *settings = RenderSettings::default();
         }

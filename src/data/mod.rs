@@ -15,6 +15,17 @@ use std::collections::HashMap;
 /// Face order used everywhere: north (+X), south (−X), east (+Y), west (−Y), top (+Z), bottom (−Z).
 pub const FACE_NAMES: [&str; 6] = ["north", "south", "east", "west", "top", "bottom"];
 
+/// How a face's texture is turned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TextureRotation {
+    /// Always drawn the same way up (needed for anything with a direction, like grass sides).
+    #[default]
+    Fixed,
+    /// Each block turned 0°, 90°, 180° or 270°, picked from its position (so it never
+    /// changes or flickers). Hides repetition on directionless textures such as grass tops.
+    Random,
+}
+
 /// Everything the game knows about one block type (more fields arrive with data files).
 #[derive(Debug, Clone)]
 pub struct BlockDef {
@@ -24,6 +35,8 @@ pub struct BlockDef {
     pub opaque: bool,
     /// Texture name for each face (see `FACE_NAMES` for the order). Empty = no texture.
     pub faces: [String; 6],
+    /// Texture rotation for each face (same order).
+    pub rotations: [TextureRotation; 6],
 }
 
 impl BlockDef {
@@ -33,6 +46,7 @@ impl BlockDef {
             name: name.to_string(),
             opaque: true,
             faces: std::array::from_fn(|_| texture.to_string()),
+            rotations: Default::default(),
         }
     }
 
@@ -42,6 +56,7 @@ impl BlockDef {
             name: name.to_string(),
             opaque: true,
             faces: [side, side, side, side, top, bottom].map(str::to_string),
+            rotations: Default::default(),
         }
     }
 
@@ -51,7 +66,14 @@ impl BlockDef {
             name: name.to_string(),
             opaque: false,
             faces: Default::default(),
+            rotations: Default::default(),
         }
+    }
+
+    /// Set the rotation of one face (face number as in `FACE_NAMES`).
+    pub fn with_rotation(mut self, face: usize, rotation: TextureRotation) -> Self {
+        self.rotations[face] = rotation;
+        self
     }
 }
 
@@ -72,12 +94,10 @@ impl Default for BlockRegistry {
         // TEMPORARY built-ins for the test world (replaced by data files in step 7).
         registry.register(BlockDef::uniform("incus:gabbro", "gabbro"));
         registry.register(BlockDef::uniform("incus:stone", "stone"));
-        registry.register(BlockDef::top_side_bottom(
-            "incus:grass",
-            "grass_top",
-            "grass_side",
-            "dirt",
-        ));
+        registry.register(
+            BlockDef::top_side_bottom("incus:grass", "grass_top", "grass_side", "dirt")
+                .with_rotation(4, TextureRotation::Random), // the top
+        );
         registry
     }
 }
@@ -133,6 +153,13 @@ fn blocks_debug_page(ui: &mut egui::Ui, world: &mut World) {
         if def.opaque {
             let [north, _, _, _, top, bottom] = &def.faces;
             ui.small(format!("        top: {top}   sides: {north}   bottom: {bottom}"));
+            let random: Vec<&str> = (0..6)
+                .filter(|&face| def.rotations[face] == TextureRotation::Random)
+                .map(|face| FACE_NAMES[face])
+                .collect();
+            if !random.is_empty() {
+                ui.small(format!("        randomly rotated: {}", random.join(", ")));
+            }
         }
     }
 }

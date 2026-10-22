@@ -194,12 +194,15 @@ fn look_around(
 fn fly(
     keys: Res<ButtonInput<KeyCode>>,
     egui_input: Res<EguiWantsInput>,
+    capture: Res<MouseCapture>,
     settings: Res<CameraSettings>,
     time: Res<Time<Real>>,
     mut cameras: Query<&mut FlyCamera>,
 ) {
-    // Typing in a debug panel text box shouldn't also fly the camera.
-    if egui_input.wants_any_keyboard_input() {
+    // With the mouse free, typing in a debug panel text box shouldn't also fly the camera.
+    // While flying, the keys always belong to the camera (`draw_crosshair` makes the panel
+    // let go of keyboard focus).
+    if !capture.captured && egui_input.wants_any_keyboard_input() {
         return;
     }
     let held = |key| keys.pressed(key);
@@ -304,8 +307,19 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
 
 /// A small crosshair at the screen centre while flying; a hint while the mouse is free.
 /// Placeholder look: magenta lines, pink text.
+///
+/// Also, while flying: egui (the panel's UI library) uses Tab to move keyboard focus
+/// between its buttons, so pressing Tab to fly would hand focus to a panel button,
+/// and Space would then click it. So while flying, the panel is made to let go of focus.
 fn draw_crosshair(mut contexts: EguiContexts, capture: Res<MouseCapture>) -> Result {
     let ctx = contexts.ctx_mut()?;
+    if capture.captured {
+        ctx.memory_mut(|memory| {
+            if let Some(focused) = memory.focused() {
+                memory.surrender_focus(focused);
+            }
+        });
+    }
     let painter = ctx.layer_painter(egui::LayerId::new(
         egui::Order::Background,
         egui::Id::new("crosshair"),

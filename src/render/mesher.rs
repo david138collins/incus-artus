@@ -18,7 +18,7 @@
 //! The shader converts them for drawing.
 //!
 //! ## Vertex format (8 bytes per corner)
-//! - word 0: x (6 bits) | y (6 bits) | z (6 bits) | face direction (3 bits)
+//! - word 0: x (6 bits) | y (6 bits) | z (6 bits) | face direction (3 bits) | random rotation (1 bit)
 //! - word 1: texture layer (16 bits) | quad number (16 bits, only used by the debug view)
 
 use crate::coords::game_to_bevy;
@@ -40,6 +40,8 @@ pub struct MeshInput {
     pub opaque: Arc<Vec<bool>>,
     /// Per block number: texture layer for each of the six faces.
     pub face_layers: Arc<Vec<[u32; 6]>>,
+    /// Per block number: is each face's texture randomly rotated?
+    pub face_random_rotation: Arc<Vec<[bool; 6]>>,
 }
 
 #[derive(Default)]
@@ -131,6 +133,10 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
                     .face_layers
                     .get(block.0 as usize)
                     .map_or(0, |layers| layers[face]);
+                let random_rotation = input
+                    .face_random_rotation
+                    .get(block.0 as usize)
+                    .is_some_and(|faces| faces[face]);
                 // The face of a block at `depth` lies on its far side when facing the positive way.
                 let plane_position = depth + positive as u32;
                 merge_plane(&mut plane, |u, v, width, height| {
@@ -143,7 +149,7 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
                         p[u_axis] = cu;
                         p[v_axis] = cv;
                         out.vertices.push([
-                            p[0] | p[1] << 6 | p[2] << 12 | (face as u32) << 18,
+                            p[0] | p[1] << 6 | p[2] << 12 | (face as u32) << 18 | (random_rotation as u32) << 21,
                             (layer & 0xFFFF) | quad_tag << 16,
                         ]);
                     }
@@ -209,6 +215,7 @@ mod tests {
             outside: [[0; N]; 6],
             opaque: Arc::new(vec![false, true, true]),
             face_layers: Arc::new(vec![[0; 6], [1; 6], [2; 6]]),
+            face_random_rotation: Arc::new(vec![[false; 6]; 3]),
         }
     }
 
@@ -250,6 +257,22 @@ mod tests {
         different[0] = STONE;
         different[1] = DIRT;
         assert_eq!(mesh_section(&input(different)).quads, 10);
+    }
+
+    #[test]
+    fn only_faces_marked_for_it_get_random_rotation() {
+        let mut blocks = empty();
+        blocks[5 + 5 * N + 5 * N * N] = STONE;
+        let mut data = input(blocks);
+        let mut stone = [false; 6];
+        stone[4] = true; // the top only
+        data.face_random_rotation = Arc::new(vec![[false; 6], stone, [false; 6]]);
+        let mesh = mesh_section(&data);
+        for vertex in &mesh.vertices {
+            let face = (vertex[0] >> 18) & 7;
+            let rotates = (vertex[0] >> 21) & 1 == 1;
+            assert_eq!(rotates, face == 4);
+        }
     }
 
     /// Every triangle must face outward (counter-clockwise seen from outside, in Bevy space).
