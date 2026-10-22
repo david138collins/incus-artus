@@ -9,14 +9,29 @@ been *decided and built*; this file records *where we're going*. Status tags as 
 
 ## In one paragraph
 
-An open-world **immersive survival and settlement simulation** (David's notes also say *horror*:
-see Open questions). **Minecraft-style first-person building and exploring**, combined with
+An open-world **immersive survival and settlement simulation**, with horror that comes from how
+enemies behave (see Threats). **Minecraft-style first-person building and exploring**, combined with
 **Dwarf Fortress-style living settlements**. You can stay a lone adventurer or grow from a campsite
 into a network of towns, moving freely between first-person play and an isometric management view.
 The world lives a normal lifetime of procedural events and then drifts into an endgame as evil
 grows, but it never pushes you too hard: you can ignore the world and live a Stardew Valley life
 on a farmstead (until the horde arrives, maybe). Commercial, standalone, Windows first, data-driven
 and moddable, with lightweight graphics so the computer's effort goes into making the world feel alive.
+
+## What it improves on  [IDEA]
+
+- Minecraft rebuilt from scratch with what's been learned since: the enhancements players broadly agree
+  on from hardcore-realism mods, RLCraft and Vintage Story. Enough extra depth of simulation and quality
+  of life that everyone can have their survival adventure their own way, with their own solutions,
+  while keeping the joy of Minecraft.
+- **Natural, logical solutions to everything.** No redstone: what a contraption does, a few farmhands
+  working for you do. Moving 10,000 rock blocks for a castle is solved with labor, wagons and donkeys,
+  not hours of mining and shulker boxes.
+- **Tangible storage** is fun to look at, so needing a wagon and two donkeys for a huge load is fine.
+- **Fair inventory balancing**, not strict realism: carrying several whole beds in the hotbar is the
+  kind of thing nobody thinks twice about, and stays.
+- **Races:** each is balanced to be fun to play; **humans are the standard choice**. Development starts
+  with **dwarves** because their settlement behavior is the biggest thing being added to Minecraft.
 
 ---
 
@@ -130,6 +145,20 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
 - Animation: possibly David's own cheap living-room motion capture for sword and axe arm motions,
   interpolated around the centre.
 - The ADSR "stickiness" in movement (sharp starts and ends) is meant to make this readable.
+- **How it gets built:** one stage of a swing at a time, each dialled in before the next is added,
+  until the structure of an attack exists. It comes after there are creatures that can attack and
+  block back, so well after the first dwarf and his behaviors.
+
+## Threats and horror  [IDEA]
+
+- The horror comes from **how enemies behave**, not from the art style. Example: sleeping at an inn on
+  your travels, you wake to a scream from the other side of the building. A woman has been stabbed by
+  a goblin. Another scream outside: they're everywhere, it's dark, they're two feet tall and weak but
+  cunning, cruel and armed with knives. The idyllic medieval world shattered by real crime and violence.
+- **No level scaling.** A weak, low-level player can meet very high-level enemies. There are weak
+  zombies and really strong zombies.
+- Threats must be taken seriously, so they stay engaging, pull you into the combat system, and reward
+  taking part in what's happening in the world instead of only being a hermit.
 
 ## Magic  [IDEA]
 
@@ -187,6 +216,50 @@ inhabitants, laying out regions and workshops, and the main questline.
 - Later: soil chemistry, irregular winters, emergent temperature, light, fog of war shared by the
   settlement.
 - A full world-gen stack with deep control panels, tuned before shipping.
+- **[IDEA] Big enough to be alone in.** Game modes with an empty world can come later.
+
+## Two simulations: local and world  [IDEA, architecturally important]
+
+See `docs/simulation.md` for the working design.
+
+- **Local simulation:** the full simulation, wherever the player is personally present (alone or with
+  followers) and in and around the player's settlements and their inhabitants.
+- **World simulation:** a lite version of the same thing, running everywhere else from the moment the
+  game starts. It approximates the same social outcomes on coarse ticks with summary math, no
+  pathfinding: "a spreadsheet of what's going on out there", a bit like a game of Risk in the background.
+  - **Villages have problems**, from malicious things nearby, from generated events (a criminal in town
+    starts a detective and social questline), or from a dire economic condition. Each is a potential
+    procedural quest; solving it earns reputation and a reward, and helps the village prosper and resist
+    the forces of evil.
+  - **Villages have local resources and trade for what they lack**, or appear to: trader caravans spawn
+    from need and surplus.
+  - **Villages raise guards and fighters** when they can and send them to raid hostile settlements.
+    No battle is played out; the result is calculated and applied (new structures, changed inhabitants,
+    "wealth" up after taking livestock). These abstractions drive lively, logical decisions that make the
+    world feel real.
+- The world simulation must be able to **hand the local simulation the world** wherever the player goes,
+  and take it back when the player leaves.
+
+## The world map  [IDEA]
+
+- World generation needs a **world map first**: a very explicit, literal visualisation of the generated
+  world for David, which becomes the map shown to the player when creating a new world.
+- **The player's version** may be a pencil-drawn fantasy map: roughly what the world looks like, not
+  exactly where you'll be, so you have to remember it.
+- **The manager's World Map** is the real version, built only from what you've **seen, learned, heard**,
+  and know through your settlements' people interacting with the world.
+- **Dev world-gen suite:** play with noise, border detection, noise mapping, tectonic continent forming
+  and so on, all as *data* on the map, before any terrain is generated.
+
+## Build order after the foundation  [DECIDED with Grok, 2026-10-22]
+
+1. A tentative **Fate service** for all future probabilistic events.
+2. The **two-scope simulation layer**: regions move into and out of the local simulation as they load and
+   unload; the world simulation covers the rest.
+3. A **save system** built for both simulations and Fate (basic save/load on the debug panel).
+4. The **world-gen suite and visualiser**, which grows into the world-creation map and the manager map.
+5. Tune world gen as data in the suite, without generating terrain.
+6. Later: terrain, the first dwarf in the world and his behaviors, and much later the combat processor.
 
 ## Building, resources and labor  [DECIDED]
 
@@ -207,8 +280,7 @@ inhabitants, laying out regions and workshops, and the main questline.
 
 ## Open questions
 
-1. **Horror:** the vault's concept note says "immersive *horror* survival-and-settlement". How much
-   horror, and what kind (dread and atmosphere, monsters at night, the undead, the God of Darkness)?
+1. ~~Horror~~: answered, see Threats and horror.
 2. **Death:** permadeath? Carry on as a follower or heir? What happens to your settlements?
 3. **Blocking and defence** details; ranged combat; how injuries are modelled.
 4. **The religion mechanics** for shrines and offerings (beyond Fate's hidden odds).
