@@ -11,8 +11,10 @@
 //! - `data`    — registries of game content (block names ↔ numbers)
 //! - `world`   — chunks, sections, block storage and queries
 //! - `render`  — meshing, textures, the block shader, culling
-//! - `sandbox` — TEMPORARY test helpers (viewer camera, compass markers, orbiting cube)
+//! - `camera`  — the free-fly developer camera and "what am I looking at?" raycast
+//! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
 
+mod camera;
 mod coords;
 mod data;
 mod debug;
@@ -44,6 +46,7 @@ fn main() {
             data::DataPlugin,
             world::WorldPlugin,
             render::RenderPlugin,
+            camera::CameraPlugin,
             sandbox::SandboxPlugin,
         ))
         .run();

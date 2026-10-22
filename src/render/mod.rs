@@ -264,7 +264,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.add(egui::Slider::new(&mut settings.shade_east_west, 0.0..=1.5).text("shade: east/west"));
         ui.checkbox(&mut settings.fog_enabled, "fog");
         ui.add(egui::Slider::new(&mut settings.fog_start, 0.0..=2000.0).text("fog start (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.fog_end, 0.0..=2000.0).text("fog end (blocks)"));
+        let fog_start = settings.fog_start;
+        // Fog end can't be closer than fog start (the fog gets thicker from start to end).
+        ui.add(egui::Slider::new(&mut settings.fog_end, fog_start..=2000.0).text("fog end (blocks)"));
+        if settings.fog_end < settings.fog_start {
+            settings.fog_end = settings.fog_start;
+        }
         ui.horizontal(|ui| {
             ui.label("View:");
             ui.selectable_value(&mut settings.debug_view, DebugView::Normal, "normal");

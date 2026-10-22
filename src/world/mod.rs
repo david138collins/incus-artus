@@ -14,9 +14,11 @@ mod block;
 mod chunk;
 mod generator;
 mod position;
+mod raycast;
 mod section;
 
 pub use block::BlockId;
+pub use raycast::{RayHit, cast_ray};
 #[allow(unused_imports)] // re-exported for later modules (rendering, saving)
 pub use chunk::{BlockExtra, Chunk, ColumnSummary};
 pub use generator::{TestBlocks, TestWorldSettings, generate_test_world};
@@ -64,6 +66,11 @@ impl VoxelWorld {
             self.mark_dirty_around(block);
         }
         Some(old)
+    }
+
+    /// First non-air block along a line (game axes), up to `max_distance` blocks away.
+    pub fn raycast(&self, origin: Vec3, direction: Vec3, max_distance: f32) -> Option<RayHit> {
+        cast_ray(origin, direction, max_distance, |block| !self.get_block(block).is_air())
     }
 
     pub fn chunk(&self, pos: ChunkPos) -> Option<&Chunk> {
