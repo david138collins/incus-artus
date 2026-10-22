@@ -118,9 +118,45 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     (single file, fan out, stay close with weapons out, be aggressive, ...).
 - **[DECIDED]** RPG system for NPCs and player alike. Attributes (from the mockup): Str, Con, End, Int,
   Wil, Cha, Spd, Dex, Agi. Skills such as Athletics (modulates sprinting).
-- **[IDEA] Food → spheres.** Each food has amounts of **protein, carbs and nutrition**:
-  protein feeds **red blood**, carbs feed **green stamina**, nutrition feeds **blue energy**.
-  Most food and farming comes over from Dwarf Fortress.
+- **[IDEA] Food → spheres.** Each food has amounts of **protein, carbs and nutrition**. Variety matters:
+  - **Carbs:** the biggest immediate stamina boost; also speed up blood regeneration and injury recovery.
+  - **Protein:** does more for blood regeneration and injury recovery.
+  - **Nutrition:** needed to get all your energy back each day. Low nutrition means weaker magic, lower
+    charisma, and an energy sphere you can't fully refill.
+  - Most food and farming comes over from Dwarf Fortress.
+
+## Life gauges: blood, stamina, energy  [IDEA]
+
+- There's no "health": it's **blood**, the red fluid in the middle sphere.
+- **The spheres are fluid simulations.** Each sphere is a 64-pixel circle in the 640×480 UI layer, and
+  each fluid pixel is a fraction of that gauge. It must be gorgeous eye candy (people should stand there
+  shaking the mouse to watch it slosh) but stay light.
+- **Blood:**
+  - Most blows cause **immediate blood loss** (the pool splashes and reacts; pixels flash and vanish or
+    do other things as they leave) plus **bleeding** over time that has to be dealt with.
+  - **Blunt hits** cause no bleeding, but immediate blood loss and they also destroy some stamina and energy.
+  - **Critical hits** can **crack the glass**: blood leaks out of the bottom and runs down in rivulets.
+  - **Bandaging** stops the bleeding.
+  - **Natural regeneration** shows as drops condensing at the top of the sphere, growing until they run
+    down the glass into the pool.
+  - **Health potions** are poured into the pool and react with it.
+- **Injuries:** on top of the gauges, a wide range of injuries, each with its own impediments. You get
+  grievously hurt quickly.
+- **Stamina** drains as you do things. Some recovers; some is lost until you sleep.
+- **Energy:** using magic makes blue pixels **sublimate** and vanish. Spells whose medium has gradients
+  work at **full effect only with a full sphere**: a fireball cast at full energy does more damage than
+  one cast with your last 10 blue pixels.
+- **Effects in the fluid:** lightning attacks send arcs through the pools, vaporising pixels. Status
+  effects in general show through changes in the fluids' behavior.
+
+## Death  [IDEA]
+
+- You wake in a **church or a ruined shrine** of a god, barely alive, with some of your things missing,
+  not knowing how you got there or survived.
+- **With living followers:** the local sim closes, and the world sim decides whether they could defeat or
+  escape the encounter. If they got away, you wake somewhere else *with them*: when you fell, they grabbed
+  you and got out.
+- A **hardcore permadeath** option can be added later.
 
 ## Combat  [IDEA]
 
@@ -281,8 +317,8 @@ See `docs/simulation.md` for the working design.
 ## Open questions
 
 1. ~~Horror~~: answered, see Threats and horror.
-2. **Death:** permadeath? Carry on as a follower or heir? What happens to your settlements?
-3. **Blocking and defence** details; ranged combat; how injuries are modelled.
+2. ~~Death~~: answered, see Death. Still open: what happens to your settlements in hardcore mode.
+3. **Blocking and defence** details; ranged combat; the injury list and its impediments.
 4. **The religion mechanics** for shrines and offerings (beyond Fate's hidden odds).
 5. **Character growth:** how skills improve; where attributes come from.
 6. **Dialogue and procedural quests:** how conversations work.
