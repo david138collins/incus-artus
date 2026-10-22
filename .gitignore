@@ -1,0 +1,11 @@
+# Files git should NOT keep in history.
+
+# Build output: cargo regenerates this; it gets to many gigabytes.
+/target/
+
+# IntelliJ's personal workspace state (window layout, open tabs).
+.idea/workspace.xml
+.idea/shelf/
+
+# Worlds created while testing.
+/worlds/

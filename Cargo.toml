@@ -1,0 +1,24 @@
+# Cargo.toml — the project's "shopping list".
+# It names the game and lists the libraries ("crates") it is built from.
+# Versions use "=" so they never change by surprise; upgrades are a deliberate decision.
+
+[package]
+name = "incus_artus"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# The game engine: window, input, rendering, ECS, asset loading, threads.
+bevy = "=0.20.0"
+# Immediate-mode GUI used for the developer debug panel (not the game's real UI).
+bevy_egui = "=0.43.1"
+
+# ── Build speed settings ────────────────────────────────────────────────
+# Bevy is huge and runs painfully slowly unoptimised. These settings optimise
+# the libraries fully (they rarely change, so it's a one-time cost) while
+# keeping our own code quick to recompile.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
