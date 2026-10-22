@@ -6,6 +6,8 @@
 //!   W A S D       fly forward / left / back / right (level, whatever the camera's tilt)
 //!   Space / Ctrl  fly up / down
 //!   Shift         fly faster
+//!   F             switch to walking (see the `player` module), where the camera rides
+//!                 at the walking body's eyes instead
 //!
 //! The camera runs on real time, not simulation time, so it still works while the game
 //! is paused: it's a tool for looking at the world, not part of the world.
@@ -17,6 +19,7 @@
 use crate::coords::game_to_bevy;
 use crate::data::{BlockRegistry, FACE_NAMES};
 use crate::debug::DebugAppExt;
+use crate::player::{ControlMode, PlayerSettings};
 use crate::world::{ChunkPos, RayHit, VoxelWorld};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
@@ -195,10 +198,15 @@ fn fly(
     keys: Res<ButtonInput<KeyCode>>,
     egui_input: Res<EguiWantsInput>,
     capture: Res<MouseCapture>,
+    mode: Res<ControlMode>,
     settings: Res<CameraSettings>,
     time: Res<Time<Real>>,
     mut cameras: Query<&mut FlyCamera>,
 ) {
+    // While walking, the player module moves the camera with the body instead.
+    if *mode != ControlMode::Fly {
+        return;
+    }
     // With the mouse free, typing in a debug panel text box shouldn't also fly the camera.
     // While flying, the keys always belong to the camera (`draw_crosshair` makes the panel
     // let go of keyboard focus).
@@ -242,7 +250,7 @@ fn fly(
 }
 
 /// Turn the game-terms camera state into Bevy's transform.
-fn place_camera(mut cameras: Query<(&FlyCamera, &mut Transform)>) {
+pub fn place_camera(mut cameras: Query<(&FlyCamera, &mut Transform)>) {
     for (camera, mut transform) in &mut cameras {
         *transform = Transform::from_translation(game_to_bevy(camera.position))
             .looking_to(game_to_bevy(camera.looking()), Vec3::Y);
@@ -260,16 +268,23 @@ fn apply_field_of_view(settings: Res<CameraSettings>, mut projections: Query<&mu
     }
 }
 
+/// While walking the ray only reaches as far as your arm; while flying, the debug ray length.
 fn find_look_target(
     world: Res<VoxelWorld>,
     settings: Res<CameraSettings>,
+    mode: Res<ControlMode>,
+    player: Res<PlayerSettings>,
     cameras: Query<&FlyCamera>,
     mut target: ResMut<LookTarget>,
 ) {
+    let length = match *mode {
+        ControlMode::Fly => settings.ray_length,
+        ControlMode::Walk => player.reach,
+    };
     target.hit = cameras
         .iter()
         .next()
-        .and_then(|camera| world.raycast(camera.position, camera.looking(), settings.ray_length));
+        .and_then(|camera| world.raycast(camera.position, camera.looking(), length));
 }
 
 /// Outline the targeted block (white) and the face being pointed at (magenta, with a cross).
@@ -431,7 +446,7 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.add(egui::Slider::new(&mut settings.mouse_sensitivity, 0.01..=0.5).text("mouse sensitivity (°/pixel)"));
     ui.checkbox(&mut settings.invert_mouse_y, "invert mouse up/down");
     ui.add(egui::Slider::new(&mut settings.field_of_view, 30.0..=110.0).text("field of view (°)"));
-    ui.add(egui::Slider::new(&mut settings.ray_length, 1.0..=256.0).text("ray length (blocks)"));
+    ui.add(egui::Slider::new(&mut settings.ray_length, 1.0..=256.0).text("ray length while flying (blocks)"));
     ui.checkbox(&mut settings.show_target_outline, "outline the block being looked at");
     if ui.button("Reset camera settings").clicked() {
         *settings = CameraSettings::default();

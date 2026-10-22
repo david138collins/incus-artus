@@ -12,12 +12,16 @@
 
 mod block;
 mod chunk;
+mod edits;
 mod generator;
 mod position;
 mod raycast;
 mod section;
 
 pub use block::BlockId;
+pub use edits::{
+    BlockChanged, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
+};
 pub use raycast::{RayHit, cast_ray};
 #[allow(unused_imports)] // re-exported for later modules (rendering, saving)
 pub use chunk::{BlockExtra, Chunk, ColumnSummary};
@@ -176,6 +180,11 @@ pub struct WorldStats {
     pub extra_states: usize,
 }
 
+/// The system set where block edit requests are applied. Systems that send requests
+/// run `.before(WorldEdits)` so their requests are handled the same frame.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WorldEdits;
+
 pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
@@ -183,7 +192,12 @@ impl Plugin for WorldPlugin {
         app.init_resource::<VoxelWorld>()
             .init_resource::<TestWorldSettings>()
             .init_resource::<WorldDebugState>()
+            .init_resource::<EditRules>()
+            .init_resource::<RecentBlockChanges>()
+            .add_message::<BlockEditRequest>()
+            .add_message::<BlockChanged>()
             .add_systems(Startup, generate_on_startup)
+            .add_systems(Update, edits::apply_block_edits.in_set(WorldEdits))
             .add_debug_page("World", world_debug_page);
     }
 }

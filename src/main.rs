@@ -12,12 +12,14 @@
 //! - `world`   — chunks, sections, block storage and queries
 //! - `render`  — meshing, textures, the block shader, culling
 //! - `camera`  — the free-fly developer camera and "what am I looking at?" raycast
+//! - `player`  — the walking body, fly/walk switching, breaking and placing blocks
 //! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
 
 mod camera;
 mod coords;
 mod data;
 mod debug;
+mod player;
 mod render;
 mod sandbox;
 mod time;
@@ -47,6 +49,7 @@ fn main() {
             world::WorldPlugin,
             render::RenderPlugin,
             camera::CameraPlugin,
+            player::PlayerPlugin,
             sandbox::SandboxPlugin,
         ))
         .run();

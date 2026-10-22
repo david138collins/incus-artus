@@ -16,7 +16,6 @@
 
 mod interpolation;
 
-#[allow(unused_imports)] // the player pawn will use SimPosition in step 5
 pub use interpolation::{InterpolationSettings, SimPosition};
 
 use crate::debug::DebugAppExt;

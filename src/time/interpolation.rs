@@ -22,7 +22,6 @@ pub struct SimPosition {
     pub previous: Vec3,
 }
 
-#[allow(dead_code)] // `teleport` is for the player pawn (step 5)
 impl SimPosition {
     pub fn new(position: Vec3) -> Self {
         Self {
@@ -35,6 +34,20 @@ impl SimPosition {
     pub fn teleport(&mut self, position: Vec3) {
         self.current = position;
         self.previous = position;
+    }
+
+    /// Where to draw it this frame (part-way between the last two ticks).
+    pub fn display(&self, fixed_time: &Time<Fixed>, settings: &InterpolationSettings) -> Vec3 {
+        self.previous.lerp(self.current, blend_fraction(fixed_time, settings))
+    }
+}
+
+/// 0.0 = just after a tick, 1.0 = the next tick is due. Always 1.0 with smoothing off.
+fn blend_fraction(fixed_time: &Time<Fixed>, settings: &InterpolationSettings) -> f32 {
+    if settings.enabled {
+        fixed_time.overstep_fraction()
+    } else {
+        1.0
     }
 }
 
@@ -75,14 +88,7 @@ fn draw_interpolated_positions(
     settings: Res<InterpolationSettings>,
     mut query: Query<(&SimPosition, &mut Transform)>,
 ) {
-    // 0.0 = just after a tick, 1.0 = the next tick is due.
-    let blend = if settings.enabled {
-        fixed_time.overstep_fraction()
-    } else {
-        1.0
-    };
     for (position, mut transform) in &mut query {
-        let game = position.previous.lerp(position.current, blend);
-        transform.translation = game_to_bevy(game);
+        transform.translation = game_to_bevy(position.display(&fixed_time, &settings));
     }
 }
