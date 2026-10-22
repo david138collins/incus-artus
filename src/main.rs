@@ -8,12 +8,16 @@
 //! - `debug`   — the developer debug panel; other modules add pages to it
 //! - `time`    — TimeControl: the single simulation clock (pause / speed / tick rate)
 //! - `coords`  — conversion between game axes (X north, Y east, Z up) and Bevy's axes
-//! - `sandbox` — TEMPORARY test scene used while the real world module doesn't exist yet
+//! - `data`    — registries of game content (block names ↔ numbers)
+//! - `world`   — chunks, sections, block storage and queries
+//! - `sandbox` — TEMPORARY test scene used until the world can be drawn (step 3)
 
 mod coords;
+mod data;
 mod debug;
 mod sandbox;
 mod time;
+mod world;
 
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
@@ -35,6 +39,8 @@ fn main() {
         .add_plugins((
             debug::DebugPlugin,
             time::TimeControlPlugin,
+            data::DataPlugin,
+            world::WorldPlugin,
             sandbox::SandboxPlugin,
         ))
         .run();
