@@ -22,8 +22,10 @@ pub use chunk::{BlockExtra, Chunk, ColumnSummary};
 pub use generator::{TestBlocks, TestWorldSettings, generate_test_world};
 #[allow(unused_imports)]
 pub use position::{
-    CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTIONS_PER_CHUNK, SectionKey, WORLD_HEIGHT, z_in_world,
+    CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTION_VOLUME, SECTIONS_PER_CHUNK, SectionKey,
+    WORLD_HEIGHT, z_in_world,
 };
+pub use section::Section;
 
 use crate::data::BlockRegistry;
 use crate::debug::DebugAppExt;
@@ -81,10 +83,14 @@ impl VoxelWorld {
         self.chunks.insert(pos, chunk);
     }
 
-    /// Remove every chunk.
+    /// Remove every chunk. Their sections are marked dirty so the renderer removes their meshes.
     pub fn clear(&mut self) {
+        for &pos in self.chunks.keys() {
+            for level in 0..SECTIONS_PER_CHUNK {
+                self.dirty.insert(SectionKey { chunk: pos, level: level as u8 });
+            }
+        }
         self.chunks.clear();
-        self.dirty.clear();
     }
 
     pub fn chunk_count(&self) -> usize {
@@ -96,7 +102,6 @@ impl VoxelWorld {
     }
 
     /// Hand over the list of changed sections and start a fresh one (used by the renderer).
-    #[allow(dead_code)] // used by meshing (step 3)
     pub fn take_dirty(&mut self) -> HashSet<SectionKey> {
         std::mem::take(&mut self.dirty)
     }

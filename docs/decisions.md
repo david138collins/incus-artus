@@ -120,6 +120,22 @@ Reference: `Art/quartile minecraft illustration.png`
 - Reference art: `lorecraft/art/references/inventoryequipsave.png` (personal/party view, newest),
   `lorecraft/art/bad art/three man.png` (manager view), `lorecraft/art/personaltest1.png` (earlier in-world overlay).
 
+## Textures & Assets
+
+- **[DECIDED]** `Art/` is David's messy workshop. `assets/` is the delivery folder: finished files go there
+  and the game reads only from there. Block textures: `assets/textures/blocks/<name>.png`.
+- **[DECIDED]** Block textures are exactly 32×32 PNGs (transparency allowed). Wrong size or missing →
+  magenta/black checkerboard, so problems are obvious.
+- **[DECIDED]** Faces: `all`, or `top`/`side`/`bottom`, or six faces. Side faces: image top = up.
+  Top/bottom faces: image top = north.
+- **[DECIDED]** Textures must tile seamlessly (greedy meshing repeats them across big surfaces).
+- **[DECIDED]** Claude points out factual, functional problems in delivered art (seams, sizes, readability).
+- **[DECIDED]** Each soil type gets its own texture; the grass edge is one shared transparent overlay drawn on top of any soil.
+- **[LATER]** Distant (shrunk) textures: Claude generates the small versions for a few block types; David processes and touches them up; hand-made versions can then replace the generated ones.
+- **[LATER]** Random texture variants, animated textures.
+- **[LATER]** Trees generate with quarter logs.
+- **[LATER]** A blueprint / structure suite for David to define trees and vanilla structures.
+
 ## Data & Modding
 
 - **[DECIDED]** Text IDs in data and save files (e.g. `incus:granite`); numbers only at runtime.

@@ -22,7 +22,6 @@ pub fn game_to_bevy(game: Vec3) -> Vec3 {
 }
 
 /// Bevy position → game position (e.g. turning a camera position back into game terms).
-#[allow(dead_code)] // first used when the camera reports its position (step 4)
 pub fn bevy_to_game(bevy: Vec3) -> Vec3 {
     Vec3::new(-bevy.z, bevy.x, bevy.y)
 }

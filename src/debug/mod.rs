@@ -13,10 +13,16 @@
 //! the debug panel. Its whole job is to look at, and poke, everything.
 //!
 //! Press F3 to show or hide the panel.
+//!
+//! Screenshots: press F12 to save one in the `screenshots/` folder (handy for showing Claude
+//! what you see). For automatic testing, starting the game with the environment variable
+//! `INCUS_SELFTEST_SECONDS=N` takes `screenshots/selftest.png` after N seconds, then quits.
 
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
+use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy_egui::{EguiContext, EguiPrimaryContextPass, PrimaryEguiContext, egui};
+use std::path::PathBuf;
 
 /// What a debug page is: a function that draws into the panel.
 pub type DebugPageFn = fn(&mut egui::Ui, &mut World);
@@ -65,7 +71,8 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
             .init_resource::<DebugPanel>()
-            .add_systems(Update, toggle_panel)
+            .init_resource::<SelfTest>()
+            .add_systems(Update, (toggle_panel, screenshot_key, run_self_test))
             .add_systems(EguiPrimaryContextPass, draw_panel)
             .add_debug_page("Overview", overview_page);
     }
@@ -74,6 +81,77 @@ impl Plugin for DebugPlugin {
 fn toggle_panel(keys: Res<ButtonInput<KeyCode>>, mut panel: ResMut<DebugPanel>) {
     if keys.just_pressed(KeyCode::F3) {
         panel.visible = !panel.visible;
+    }
+}
+
+/// The `screenshots/` folder (next to `assets/`).
+fn screenshot_folder() -> PathBuf {
+    let base = std::env::var("CARGO_MANIFEST_DIR")
+        .map(PathBuf::from)
+        .or_else(|_| {
+            std::env::current_exe().map(|exe| exe.parent().map(PathBuf::from).unwrap_or_default())
+        })
+        .unwrap_or_default();
+    base.join("screenshots")
+}
+
+fn take_screenshot(commands: &mut Commands, file_name: &str) {
+    let folder = screenshot_folder();
+    if let Err(error) = std::fs::create_dir_all(&folder) {
+        warn!("Couldn't create {}: {error}", folder.display());
+        return;
+    }
+    let path = folder.join(file_name);
+    info!("Saving screenshot to {}", path.display());
+    commands
+        .spawn(Screenshot::primary_window())
+        .observe(save_to_disk(path));
+}
+
+fn screenshot_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(KeyCode::F12) {
+        let seconds = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        take_screenshot(&mut commands, &format!("screenshot-{seconds}.png"));
+    }
+}
+
+/// Self-test mode (see the module notes): screenshot after N seconds, quit a moment later.
+#[derive(Resource)]
+struct SelfTest {
+    screenshot_after: Option<f32>,
+    screenshot_taken: bool,
+}
+
+impl Default for SelfTest {
+    fn default() -> Self {
+        Self {
+            screenshot_after: std::env::var("INCUS_SELFTEST_SECONDS")
+                .ok()
+                .and_then(|value| value.parse().ok()),
+            screenshot_taken: false,
+        }
+    }
+}
+
+fn run_self_test(
+    mut commands: Commands,
+    mut test: ResMut<SelfTest>,
+    time: Res<Time<Real>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let Some(after) = test.screenshot_after else {
+        return;
+    };
+    let elapsed = time.elapsed_secs();
+    if !test.screenshot_taken && elapsed >= after {
+        take_screenshot(&mut commands, "selftest.png");
+        test.screenshot_taken = true;
+    }
+    if elapsed >= after + 2.0 {
+        info!("Self-test finished, quitting");
+        exit.write(AppExit::Success);
     }
 }
 

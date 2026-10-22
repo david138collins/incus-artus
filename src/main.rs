@@ -10,11 +10,13 @@
 //! - `coords`  — conversion between game axes (X north, Y east, Z up) and Bevy's axes
 //! - `data`    — registries of game content (block names ↔ numbers)
 //! - `world`   — chunks, sections, block storage and queries
-//! - `sandbox` — TEMPORARY test scene used until the world can be drawn (step 3)
+//! - `render`  — meshing, textures, the block shader, culling
+//! - `sandbox` — TEMPORARY test helpers (viewer camera, compass markers, orbiting cube)
 
 mod coords;
 mod data;
 mod debug;
+mod render;
 mod sandbox;
 mod time;
 mod world;
@@ -41,6 +43,7 @@ fn main() {
             time::TimeControlPlugin,
             data::DataPlugin,
             world::WorldPlugin,
+            render::RenderPlugin,
             sandbox::SandboxPlugin,
         ))
         .run();
