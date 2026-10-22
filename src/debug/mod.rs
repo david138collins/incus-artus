@@ -17,6 +17,15 @@
 //! Screenshots: press F12 to save one in the `screenshots/` folder (handy for showing Claude
 //! what you see). For automatic testing, starting the game with the environment variable
 //! `INCUS_SELFTEST_SECONDS=N` takes `screenshots/selftest.png` after N seconds, then quits.
+//!
+//! Presets: pages can save and load their settings as named files (see `presets.rs`), and
+//! the Overview page saves and loads all of them at once (see `settings.rs`).
+
+mod presets;
+mod settings;
+
+pub use presets::preset_bar;
+pub use settings::SettingsAppExt;
 
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -71,6 +80,7 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
             .init_resource::<DebugPanel>()
+            .init_resource::<settings::SettingsGroups>()
             .init_resource::<SelfTest>()
             .add_systems(Update, (toggle_panel, screenshot_key, run_self_test))
             .add_systems(EguiPrimaryContextPass, draw_panel)
@@ -84,15 +94,19 @@ fn toggle_panel(keys: Res<ButtonInput<KeyCode>>, mut panel: ResMut<DebugPanel>) 
     }
 }
 
-/// The `screenshots/` folder (next to `assets/`).
-fn screenshot_folder() -> PathBuf {
-    let base = std::env::var("CARGO_MANIFEST_DIR")
+/// The project folder (the one holding `assets/`), or the game's own folder once it's shipped.
+pub fn project_folder() -> PathBuf {
+    std::env::var("CARGO_MANIFEST_DIR")
         .map(PathBuf::from)
         .or_else(|_| {
             std::env::current_exe().map(|exe| exe.parent().map(PathBuf::from).unwrap_or_default())
         })
-        .unwrap_or_default();
-    base.join("screenshots")
+        .unwrap_or_default()
+}
+
+/// The `screenshots/` folder (next to `assets/`).
+fn screenshot_folder() -> PathBuf {
+    project_folder().join("screenshots")
 }
 
 fn take_screenshot(commands: &mut Commands, file_name: &str) {
@@ -192,7 +206,8 @@ fn draw_panel(world: &mut World) {
                 }
                 ui.separator();
                 if let Some(page) = panel.pages.get(panel.active) {
-                    (page.draw)(ui, world);
+                    // Long pages scroll instead of running off the bottom of the screen.
+                    egui::ScrollArea::vertical().show(ui, |ui| (page.draw)(ui, world));
                 }
             });
     });
@@ -200,6 +215,9 @@ fn draw_panel(world: &mut World) {
 
 /// Overview page: general health of the program.
 fn overview_page(ui: &mut egui::Ui, world: &mut World) {
+    settings::everything_presets(ui, world);
+    ui.separator();
+
     let diagnostics = world.resource::<DiagnosticsStore>();
     let fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)

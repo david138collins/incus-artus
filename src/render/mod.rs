@@ -18,12 +18,13 @@ mod textures;
 
 use crate::coords::bevy_to_game;
 use crate::data::{BlockRegistry, FACE_NAMES, TextureRotation};
-use crate::debug::DebugAppExt;
+use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::world::{CHUNK_SIZE, SectionKey, VoxelWorld};
 use bevy::prelude::*;
 use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
 use meshing::{MeshingState, SectionMesh};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 pub struct RenderPlugin;
@@ -38,6 +39,7 @@ impl Plugin for RenderPlugin {
             .add_systems(
                 Update,
                 (
+                    follow_block_rotations,
                     meshing::collect_dirty_sections,
                     meshing::start_jobs,
                     meshing::finish_jobs,
@@ -46,15 +48,17 @@ impl Plugin for RenderPlugin {
                 )
                     .chain(),
             )
-            .add_debug_page("Render", render_debug_page);
+            .add_debug_page("Render", render_debug_page)
+            .add_settings::<RenderSettings>("render");
     }
 }
 
 /// Placeholder sky (also the fog colour).
 const SKY_COLOUR: Color = Color::srgb(0.53, 0.62, 0.75);
 
-/// Tunables for drawing (shown on the "Render" debug page).
-#[derive(Resource, Clone)]
+/// Tunables for drawing (shown on the "Render" debug page, and saved in "everything" presets).
+#[derive(Resource, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RenderSettings {
     /// How far away sections are drawn, in chunks (1 chunk = 32 blocks).
     pub render_distance_chunks: i32,
@@ -70,11 +74,9 @@ pub struct RenderSettings {
     pub fog_start: f32,
     pub fog_end: f32,
     pub debug_view: DebugView,
-    /// Turn faces marked "random rotation" (off = compare with every block the same way up).
-    pub random_rotation: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum DebugView {
     Normal,
     /// Each merged rectangle a different colour: shows greedy meshing at work.
@@ -96,7 +98,6 @@ impl Default for RenderSettings {
             fog_start: 150.0,
             fog_end: 380.0,
             debug_view: DebugView::Normal,
-            random_rotation: true,
         }
     }
 }
@@ -122,7 +123,8 @@ impl RenderSettings {
                     DebugView::Faces => 2.0,
                 },
             ),
-            options: Vec4::new(if self.random_rotation { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0),
+            // x: random rotation on. Always on now; it's switched per block on the Blocks page.
+            options: Vec4::new(1.0, 0.0, 0.0, 0.0),
         }
     }
 }
@@ -133,6 +135,10 @@ pub struct TerrainAssets {
     pub material: Handle<TerrainMaterial>,
     /// Per block number: opaque?
     pub opaque: Arc<Vec<bool>>,
+    /// Per block number: see-through (drawn both sides, with holes)?
+    pub see_through: Arc<Vec<bool>>,
+    /// Per block number: if see-through, are faces between neighbours drawn (grid) or not (outline)?
+    pub inner_faces: Arc<Vec<bool>>,
     /// Per block number: texture layer for each face.
     pub face_layers: Arc<Vec<[u32; 6]>>,
     /// Per block number: is each face's texture randomly rotated?
@@ -161,17 +167,44 @@ fn setup_terrain(
     commands.insert_resource(TerrainAssets {
         material,
         opaque: Arc::new(registry.defs().iter().map(|def| def.opaque).collect()),
+        see_through: Arc::new(registry.defs().iter().map(|def| def.see_through).collect()),
+        inner_faces: Arc::new(registry.defs().iter().map(|def| def.inner_faces).collect()),
         face_layers: Arc::new(textures.face_layers),
-        face_random_rotation: Arc::new(
-            registry
-                .defs()
-                .iter()
-                .map(|def| def.rotations.map(|rotation| rotation == TextureRotation::Random))
-                .collect(),
-        ),
+        face_random_rotation: Arc::new(rotation_table(&registry)),
         layer_names: textures.layer_names,
         texture_problems: textures.problems,
     });
+}
+
+/// Per block number: is each face's texture randomly rotated?
+fn rotation_table(registry: &BlockRegistry) -> Vec<[bool; 6]> {
+    registry
+        .defs()
+        .iter()
+        .map(|def| def.rotations.map(|rotation| rotation == TextureRotation::Random))
+        .collect()
+}
+
+/// When a block's rotation switches change (Blocks page), rebuild every mesh, since the
+/// rotation is stored in the mesh.
+fn follow_block_rotations(
+    registry: Res<BlockRegistry>,
+    terrain: Option<ResMut<TerrainAssets>>,
+    mut state: ResMut<MeshingState>,
+) {
+    let Some(mut terrain) = terrain else {
+        return;
+    };
+    if !registry.is_changed() {
+        return;
+    }
+    let wanted = rotation_table(&registry);
+    if *terrain.face_random_rotation == wanted {
+        return;
+    }
+    terrain.face_random_rotation = Arc::new(wanted);
+    let keys: Vec<SectionKey> = state.entities.keys().copied().collect();
+    state.waiting.extend(keys);
 }
 
 /// Hide sections beyond the render distance (measured horizontally, in chunks).
@@ -289,7 +322,7 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ui.selectable_value(&mut settings.debug_view, DebugView::Quads, "rectangles");
             ui.selectable_value(&mut settings.debug_view, DebugView::Faces, "face directions");
         });
-        ui.checkbox(&mut settings.random_rotation, "random texture rotation (faces marked for it)");
+        ui.small("Random texture rotation is switched per block, on the Blocks page.");
         if ui.button("Reset render settings").clicked() {
             *settings = RenderSettings::default();
         }

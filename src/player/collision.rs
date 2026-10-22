@@ -67,6 +67,15 @@ pub fn body_bounds(feet: Vec3, size: BodySize) -> (Vec3, Vec3) {
     )
 }
 
+/// Is there anything solid just under the body's footprint (something to stand on)?
+pub fn has_support(feet: Vec3, size: BodySize, solid: impl FnMut(IVec3) -> bool) -> bool {
+    let sliver = BodySize {
+        width: size.width,
+        height: 0.1,
+    };
+    overlaps_solid(feet - Vec3::Z * 0.1, sliver, solid)
+}
+
 /// Does the body overlap any solid block where it stands?
 pub fn overlaps_solid(feet: Vec3, size: BodySize, mut solid: impl FnMut(IVec3) -> bool) -> bool {
     let (min, max) = body_bounds(feet, size);
@@ -154,6 +163,17 @@ mod tests {
     /// Flat floor: blocks at Z ≤ 9 are solid, so the floor's top surface is Z = 10.
     fn floor(cell: IVec3) -> bool {
         cell.z <= 9
+    }
+
+    #[test]
+    fn support_ends_at_the_edge_of_a_ledge() {
+        // A ledge: floor only where X < 5.
+        let ledge = |cell: IVec3| floor(cell) && cell.x < 5;
+        assert!(has_support(Vec3::new(4.5, 0.5, 10.0), DWARF, ledge));
+        // Hanging part-way over the edge still has support…
+        assert!(has_support(Vec3::new(5.2, 0.5, 10.0), DWARF, ledge));
+        // …but fully past it there's nothing underneath.
+        assert!(!has_support(Vec3::new(5.6, 0.5, 10.0), DWARF, ledge));
     }
 
     #[test]

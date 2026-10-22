@@ -138,7 +138,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         uv = cell + f;
     }
 
-    var colour = textureSampleGrad(block_textures, block_sampler, uv, in.layer, uv_dx, uv_dy).rgb;
+    let sampled = textureSampleGrad(block_textures, block_sampler, uv, in.layer, uv_dx, uv_dy);
+    // See-through blocks (like the grid): pixels less than half opaque are cut out entirely.
+    // Ordinary block textures are fully opaque, so this never affects them.
+    if sampled.a < 0.5 {
+        discard;
+    }
+    var colour = sampled.rgb;
 
     let debug_view = u32(settings.fog_and_debug.w);
     if debug_view == 1u {

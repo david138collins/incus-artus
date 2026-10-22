@@ -12,6 +12,10 @@ edition = "2024"
 bevy = "=0.20.0"
 # Immediate-mode GUI used for the developer debug panel (not the game's real UI).
 bevy_egui = "=0.43.1"
+# Turns our settings into text and back ("serialising"), for presets and data files.
+serde = { version = "=1.0.229", features = ["derive"] }
+# The TOML text format (readable, allows comments) used for presets and data files.
+toml = "=1.1.8"
 
 # ── Build speed settings ────────────────────────────────────────────────
 # Bevy is huge and runs painfully slowly unoptimised. These settings optimise

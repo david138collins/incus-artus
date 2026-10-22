@@ -89,6 +89,12 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[LATER]** See-through indicators on people (at least when their character sheet is open), visible through walls and trees.
 
 ## Multiplayer
+- **[LATER, as late as possible]** Alpha-tester link: first an in-game note box that posts to a Discord webhook
+  (with screenshot, log, position, settings); later two-way chat; later a dev "drop-in" by joining the tester's game as
+  a guest. That last one is the same feature as hosting a friend: LAN-party / D&D-group scale, host-a-friend,
+  no server infrastructure. A built-in webhook address can be abused; hide it behind a tiny relay when it matters.
+- **[DECIDED]** Keep the refactor easy: every player action is a request (already true for break/place);
+  players get IDs and their own input instead of one global player (to do in step 6).
 
 - **[DECIDED]** Not a goal. A basic hookup may come later for testing. For now, player actions go through the
   event bus as requests ("player wants to break X"), so a network layer could inject them later without rewrites.
@@ -139,6 +145,21 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[LATER]** Trees generate with quarter logs.
 - **[LATER]** A blueprint / structure suite for David to define trees and vanilla structures.
 
+- **[DECIDED]** Optional **Panini projection** (full-screen pass): wide FOV with a natural-looking centre. Tunable
+  distance and crop-to-fit, on the Camera page. The FOV setting is vertical.
+- **[DECIDED]** See-through blocks, both using texture `grid.png`: drawn on both sides with hard-edged cut-out
+  transparency (pixels fully clear or fully solid, no grading), walk-through, targetable (switch per block),
+  replaceable (placing a block into one swaps it out). Two kinds:
+  - `incus:grid`: every cell visible (faces between grid neighbours are drawn).
+  - `incus:outline`: only the outside skin of a volume, so you see the far side's inner face through it.
+    For defining exact 3D regions in the creative/structure editor.
+- **[DECIDED]** Generated mip levels average colour only over visible pixels, so clear pixels never darken
+  coloured ones in the distance.
+- **[LATER]** In-game structure editor ("temple"): an adjustable grid to build vanilla structures in, with data-point
+  blocks (village-piece connectors for wave-function-collapse generation, tree structures for world gen and growth).
+- **[DECIDED]** Random texture rotation is switched per block on the Blocks page: one switch for blocks that look
+  the same all round, separate top / sides / bottom switches for blocks with a distinct top.
+
 ## Data & Modding
 
 - **[DECIDED]** Text IDs in data and save files (e.g. `incus:granite`); numbers only at runtime.
@@ -159,6 +180,58 @@ Reference: `Art/quartile minecraft illustration.png`
 
 - **[DECIDED]** Debug panel built with egui. Every tunable exposed the moment it exists.
 - **[DECIDED]** Event log on the panel, plus whatever diagnostics I need.
+- **[DECIDED]** Debug settings can be saved and loaded as named presets (TOML files in `presets/<category>/`).
+  Quick version now (Player page); full save-as / editing / per-actor profiles with data loading (step 7).
+- **[DECIDED]** An **everything preset** (Overview page) saves and loads every debug setting at once, so a good
+  combination can always be recovered exactly (the first change that made a later one work isn't forgotten).
+  One file in `presets/everything/`, one section per group. Every new tunable joins a group.
+- **[DECIDED]** Defaults: 100° vertical FOV with Panini on (distance 0.3, crop 1.0).
+- **[DECIDED]** Shrunk (mip) versions of textures keep the most opaque pixel of each 2×2, so thin cut-out lines
+  never vanish in the distance or at steep angles.
+- **[DECIDED]** Design philosophy: play with every setting; odd settings that feel neat might "be something".
+  Tools should make experimenting and keeping the results easy.
+
+## Motion & Kinematics
+
+- **[DECIDED]** Motion factors are shaped with ADSR envelopes (attack, decay, sustain, release, each with a
+  curve), edited on a draggable graph like a synth or Ableton automation.
+- **[DECIDED]** Keys: **Shift** = run, **double-tap Shift** = sprint, **Ctrl** = crouch (flying keeps Shift = fast,
+  Ctrl = down). Tuned so a clean jump clears a 2-block gap from a walk, 3 from a run, 4 from a sprint.
+- **[LATER]** Landing slide (carry momentum on touchdown so careless landings can slide you off an edge). Tried a
+  grip-reducing landing envelope; it didn't achieve much. Probably needs real momentum and mass; revisit with the
+  kinematics system.
+- **[DECIDED]** A `Landed` message (where, and how fast you hit the ground) fires on every touchdown: a hook for
+  landing sounds, fall damage, stumbles.
+- **[DECIDED]** Anything that changes on ticks and moves the camera is drawn blended between ticks (crouch included).
+- **[DECIDED]** Crouch: shorter body (1.2), lower eyes (1.05), slower (× 0.3), blended by a crouch envelope;
+  can't stand up without headroom; won't step off edges while crouched on the ground (switchable).
+- **[LATER]** Windows Sticky Keys pops up after 5 quick Shift presses; the game should switch that shortcut off
+  while running (as many PC games do) and restore it on exit.
+- **[DECIDED]** Three gaits: **walk**, **run**, **sprint** (forwards only).
+  Each step up has its own speed and envelope (walk → run → sprint). Defaults: run 5.612, sprint 7.5,
+  double-tap window 0.3 s.
+- **[LATER]** What it takes to start a sprint will be modulated by the Athletics skill and the Agility and Speed attributes.
+- **[DECIDED]** Sprinting widens the field of view (default +10°) through its own envelope.
+- **[DECIDED]** A `Footstep` message fires each time the walk envelope fires (e.g. tapping W to pace an NPC).
+  Hook for step sounds, noise and stealth; a STEP light flashes on screen for now.
+- **[DECIDED]** Run ramps up from walk speed through an envelope (default: 3.5 s attack, 1 s release).
+- **[DECIDED]** Walking has its own envelope (the legs pushing; default 0.15 s attack and release). While it
+  releases, you keep pushing in the last direction.
+- **[DECIDED]** Every block has a **friction** (1 = ordinary ground). Real speed eases towards what the legs want
+  at a rate of *ground grip × friction*, so you slide a bit when stopping, turning and landing (under a block
+  on normal ground by default), and much more on slippery blocks. Landing slide needs no special rule.
+- **[LATER]** Jump lift-off envelope (grading in the take-off). The jump arc itself stays as it is.
+- **[DECIDED]** Sideways and backwards movement are slower than forwards (ratios; defaults 0.8 and 0.65).
+- **[DECIDED]** The sprint envelope freezes in mid-air ("your feet aren't on the ground"); a debug toggle allows otherwise.
+- **[DECIDED]** Aim: minimal but not zero air control (visceral parkour feel). You can swing around a bit,
+  and move arms and legs to try to mantle. To be tuned.
+- **[LATER]** Mantling (maybe).
+- **[DECIDED]** Each moving ADSR stage has its own curve control. Sharp drop-offs at the start and end of
+  motion give "stickiness": movement that feels decisive and reads clearly (important for combat later).
+- **[DECIDED]** Speeds stay at Minecraft defaults for now. Realism comes from self-similarity, not slow walking
+  (avoid early-Morrowind drag). We're building the tools to balance with, not balancing yet.
+- **[LATER]** Profiles for different actors and situations: on a donkey, driving a two-horse wagon, a mule cart,
+  magic running shoes, etc. The kinematics system should unify the physical feel across all of them.
 
 ## First Test World
 

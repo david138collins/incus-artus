@@ -16,12 +16,12 @@
 
 mod interpolation;
 
-pub use interpolation::{InterpolationSettings, SimPosition};
+pub use interpolation::{InterpolationSettings, SimPosition, blend_fraction};
 
-use crate::debug::DebugAppExt;
+use crate::debug::{DebugAppExt, SettingsAppExt};
 use bevy::prelude::*;
 use bevy::time::TimeSystems;
-use bevy_egui::egui;
+use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
 /// Default simulation rate (ticks per second). See docs/decisions.md.
 pub const DEFAULT_TICK_RATE: f64 = 30.0;
@@ -112,8 +112,41 @@ impl Plugin for TimeControlPlugin {
             // At the very start of every tick: count it.
             .add_systems(FixedFirst, count_tick)
             .add_plugins(interpolation::InterpolationPlugin)
-            .add_debug_page("Time", time_debug_page);
+            .add_systems(EguiPrimaryContextPass, draw_time_notice)
+            .add_debug_page("Time", time_debug_page)
+            .add_settings::<InterpolationSettings>("smooth_motion");
     }
+}
+
+/// A placeholder notice at the top of the screen whenever time isn't running at normal speed,
+/// so a paused world never looks like a bug.
+fn draw_time_notice(mut contexts: EguiContexts, control: Res<TimeControl>) -> Result {
+    let text = if !control.is_running() {
+        "TIME PAUSED  (Time tab to resume)".to_string()
+    } else if control.speed != 1.0 {
+        format!("TIME ×{:.2}", control.speed)
+    } else {
+        return Ok(());
+    };
+    let ctx = contexts.ctx_mut()?;
+    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("time_notice")));
+    let screen = ctx.content_rect();
+    let rect = egui::Rect::from_center_size(egui::pos2(screen.center().x, screen.top() + 24.0), egui::vec2(260.0, 26.0));
+    painter.rect(
+        rect,
+        0.0,
+        egui::Color32::BLACK,
+        egui::Stroke::new(1.0, egui::Color32::from_rgb(255, 0, 255)),
+        egui::StrokeKind::Inside,
+    );
+    painter.text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        text,
+        egui::FontId::proportional(14.0),
+        egui::Color32::from_rgb(255, 140, 220),
+    );
+    Ok(())
 }
 
 /// Copies TimeControl into Bevy's clocks.

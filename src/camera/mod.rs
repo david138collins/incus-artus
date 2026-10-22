@@ -15,18 +15,23 @@
 //! Every frame a ray is cast from the camera through the crosshair. The block it hits is
 //! outlined in the world, and its details are shown on the "Camera" debug page. Step 5
 //! uses the same ray to break and place blocks.
+//!
+//! Optionally, the Panini projection (`panini.rs`) re-maps the image for wide fields of view.
+
+mod panini;
 
 use crate::coords::game_to_bevy;
 use crate::data::{BlockRegistry, FACE_NAMES};
-use crate::debug::DebugAppExt;
+use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::player::{ControlMode, PlayerSettings};
-use crate::world::{ChunkPos, RayHit, VoxelWorld};
+use crate::world::{ChunkPos, RayHit, VoxelWorld, cast_ray};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use bevy::render::view::{DebandDither, Tonemapping};
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use bevy_egui::input::EguiWantsInput;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use serde::{Deserialize, Serialize};
 
 pub struct CameraPlugin;
 
@@ -35,6 +40,8 @@ impl Plugin for CameraPlugin {
         app.init_resource::<CameraSettings>()
             .init_resource::<MouseCapture>()
             .init_resource::<LookTarget>()
+            .init_resource::<FieldOfViewBoost>()
+            .add_plugins(panini::PaniniPlugin)
             .add_systems(Startup, spawn_camera)
             .add_systems(
                 Update,
@@ -50,12 +57,14 @@ impl Plugin for CameraPlugin {
                     .chain(),
             )
             .add_systems(EguiPrimaryContextPass, draw_crosshair)
-            .add_debug_page("Camera", camera_debug_page);
+            .add_debug_page("Camera", camera_debug_page)
+            .add_settings::<CameraSettings>("camera");
     }
 }
 
-/// Tunables (shown on the "Camera" debug page).
-#[derive(Resource, Clone)]
+/// Tunables (shown on the "Camera" debug page, and saved in "everything" presets).
+#[derive(Resource, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct CameraSettings {
     /// Flying speed in blocks per second.
     pub fly_speed: f32,
@@ -78,7 +87,8 @@ impl Default for CameraSettings {
             fast_multiplier: 5.0,
             mouse_sensitivity: 0.1,
             invert_mouse_y: false,
-            field_of_view: 70.0,
+            // David's choice, 22 Oct 2026, with Panini on (distance 0.3, crop 1.0).
+            field_of_view: 100.0,
             ray_length: 64.0,
             show_target_outline: true,
         }
@@ -257,13 +267,23 @@ pub fn place_camera(mut cameras: Query<(&FlyCamera, &mut Transform)>) {
     }
 }
 
-fn apply_field_of_view(settings: Res<CameraSettings>, mut projections: Query<&mut Projection, With<FlyCamera>>) {
-    if !settings.is_changed() {
+/// Extra field of view, in degrees, added on top of the setting by other modules
+/// (the sprint's FOV boost). Each frame's value replaces the last.
+#[derive(Resource, Default, PartialEq)]
+pub struct FieldOfViewBoost(pub f32);
+
+fn apply_field_of_view(
+    settings: Res<CameraSettings>,
+    boost: Res<FieldOfViewBoost>,
+    mut projections: Query<&mut Projection, With<FlyCamera>>,
+) {
+    if !settings.is_changed() && !boost.is_changed() {
         return;
     }
+    let degrees = (settings.field_of_view + boost.0).clamp(10.0, 170.0);
     for mut projection in &mut projections {
         if let Projection::Perspective(perspective) = projection.as_mut() {
-            perspective.fov = settings.field_of_view.to_radians();
+            perspective.fov = degrees.to_radians();
         }
     }
 }
@@ -271,6 +291,7 @@ fn apply_field_of_view(settings: Res<CameraSettings>, mut projections: Query<&mu
 /// While walking the ray only reaches as far as your arm; while flying, the debug ray length.
 fn find_look_target(
     world: Res<VoxelWorld>,
+    registry: Res<BlockRegistry>,
     settings: Res<CameraSettings>,
     mode: Res<ControlMode>,
     player: Res<PlayerSettings>,
@@ -281,10 +302,13 @@ fn find_look_target(
         ControlMode::Fly => settings.ray_length,
         ControlMode::Walk => player.reach,
     };
+    // The ray passes through anything the crosshair can't target (air, and the grid if
+    // its "crosshair can target it" switch is off).
+    let stops = |cell: IVec3| registry.is_targetable(world.get_block(cell));
     target.hit = cameras
         .iter()
         .next()
-        .and_then(|camera| world.raycast(camera.position, camera.looking(), length));
+        .and_then(|camera| cast_ray(camera.position, camera.looking(), length, stops));
 }
 
 /// Outline the targeted block (white) and the face being pointed at (magenta, with a cross).
@@ -445,12 +469,15 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.add(egui::Slider::new(&mut settings.fast_multiplier, 1.0..=20.0).text("Shift speed ×"));
     ui.add(egui::Slider::new(&mut settings.mouse_sensitivity, 0.01..=0.5).text("mouse sensitivity (°/pixel)"));
     ui.checkbox(&mut settings.invert_mouse_y, "invert mouse up/down");
-    ui.add(egui::Slider::new(&mut settings.field_of_view, 30.0..=110.0).text("field of view (°)"));
+    ui.add(egui::Slider::new(&mut settings.field_of_view, 30.0..=150.0).text("field of view (°, up-down)"));
     ui.add(egui::Slider::new(&mut settings.ray_length, 1.0..=256.0).text("ray length while flying (blocks)"));
     ui.checkbox(&mut settings.show_target_outline, "outline the block being looked at");
     if ui.button("Reset camera settings").clicked() {
         *settings = CameraSettings::default();
     }
+
+    ui.separator();
+    panini::panini_debug_section(ui, world);
 }
 
 /// 0° → "north", 90° → "east", etc. (to the nearest of 8 directions).

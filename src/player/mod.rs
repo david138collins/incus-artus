@@ -5,10 +5,12 @@
 //!   F             switch between flying (no collision) and walking (collision + gravity)
 //!   W A S D       walk (in walking mode)
 //!   Space         jump (hold to keep jumping)
-//!   Ctrl          sprint
+//!   Shift         run (hold; builds up gradually through the run envelope)
+//!   Shift Shift   sprint (double-tap and hold, moving forwards only; widens the view)
+//!   Ctrl          crouch (hold; shorter, slower, and you won't step off edges)
 //!   left click    break the block under the crosshair (while the mouse is captured)
 //!   right click   place the selected block against the face under the crosshair
-//!   1 2 3         choose the block to place: stone, gabbro, grass (until there's an inventory)
+//!   1 2 3 4 5     choose the block to place: stone, gabbro, grass, grid, outline (until there's an inventory)
 //!
 //! The body moves on simulation ticks (`FixedUpdate`), like everything in the simulation, so
 //! it stops when the game is paused. The camera is drawn smoothly between ticks.
@@ -17,13 +19,22 @@
 //! (see `world/edits.rs`), which checks it, makes the change, and announces it.
 //!
 //! The test character is a dwarf: 1.5 blocks tall. Speeds and jump match Minecraft's defaults.
+//!
+//! Speeds don't switch on instantly: envelopes (attack / decay / sustain / release, like a
+//! synth) blend between them. The walk envelope is the legs pushing at all; the run envelope
+//! blends walk → run; the sprint envelope blends run → sprint. They only move while your
+//! feet are on the ground, since you can't push off the air.
+//!
+//! Each time the walk envelope fires (a movement key pressed from standing or slowing down),
+//! a `Footstep` message is sent: a hook for step sounds, noise and stealth later.
 
 mod collision;
 
-use crate::camera::{FlyCamera, LookTarget, MouseCapture};
+use crate::camera::{FieldOfViewBoost, FlyCamera, LookTarget, MouseCapture};
 use crate::data::BlockRegistry;
-use crate::debug::DebugAppExt;
-use crate::time::{InterpolationSettings, SimPosition};
+use crate::debug::{DebugAppExt, SettingsAppExt, preset_bar};
+use crate::kinematics::{Envelope, EnvelopeState, envelope_editor};
+use crate::time::{InterpolationSettings, SimPosition, blend_fraction};
 use crate::world::{
     BlockEditRequest, BlockId, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
     VoxelWorld, WORLD_HEIGHT, WorldEdits,
@@ -31,7 +42,8 @@ use crate::world::{
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
-use collision::{BodySize, body_bounds, move_body, overlaps_solid};
+use collision::{BodySize, body_bounds, has_support, move_body, overlaps_solid};
+use serde::{Deserialize, Serialize};
 
 pub struct PlayerPlugin;
 
@@ -42,6 +54,10 @@ impl Plugin for PlayerPlugin {
             .init_resource::<PawnInput>()
             .init_resource::<Hotbar>()
             .init_resource::<ActionCooldowns>()
+            .init_resource::<SprintView>()
+            .init_resource::<FootstepFlash>()
+            .add_message::<Footstep>()
+            .add_message::<Landed>()
             // PostStartup: after the world has been generated, so there's ground to stand on.
             .add_systems(PostStartup, spawn_pawn)
             .add_systems(
@@ -51,12 +67,15 @@ impl Plugin for PlayerPlugin {
                     choose_block,
                     read_walk_input,
                     follow_pawn.before(crate::camera::place_camera),
+                    widen_view_when_sprinting.before(crate::camera::place_camera),
                     block_actions.before(WorldEdits),
+                    notice_footsteps,
                 ),
             )
             .add_systems(FixedUpdate, move_pawn)
             .add_systems(EguiPrimaryContextPass, draw_hotbar)
-            .add_debug_page("Player", player_debug_page);
+            .add_debug_page("Player", player_debug_page)
+            .add_settings::<PlayerSettings>("player");
     }
 }
 
@@ -69,12 +88,48 @@ pub enum ControlMode {
     Walk,
 }
 
-/// Tunables (shown on the "Player" debug page).
-#[derive(Resource, Clone)]
+/// Tunables (shown on the "Player" debug page, and saved in player presets).
+/// `serde(default)`: a preset missing some settings fills them in from the defaults.
+#[derive(Resource, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct PlayerSettings {
     /// Blocks per second.
     pub walk_speed: f32,
+    /// Full running speed (Ctrl held), reached when the run envelope is at 1.
+    pub run_speed: f32,
+    /// Full sprint speed (Ctrl double-tapped), reached when the sprint envelope is at 1.
     pub sprint_speed: f32,
+    /// The second Ctrl press must come within this many seconds of the first to sprint.
+    /// (Later: modulated by the Athletics skill and the Agility and Speed attributes.)
+    pub sprint_double_tap: f32,
+    /// How many degrees the view widens at full sprint.
+    pub sprint_fov_boost: f32,
+    /// How the view widens when a sprint starts, and narrows when it ends.
+    pub sprint_fov_envelope: Envelope,
+    /// Sideways speed as a fraction of forwards speed (1 = as fast as forwards).
+    pub strafe_factor: f32,
+    /// Backwards speed as a fraction of forwards speed.
+    pub backward_factor: f32,
+    /// How your legs build up to walking speed (attack) and stop pushing (release).
+    pub walk_envelope: Envelope,
+    /// How running builds up (attack), holds (sustain) and fades back to walking (release).
+    pub run_envelope: Envelope,
+    /// How sprinting builds up from running speed, and fades back to it.
+    pub sprint_envelope: Envelope,
+    /// Off: the envelopes freeze while your feet are off the ground.
+    pub envelopes_in_air: bool,
+    /// How quickly your real speed catches up with what your legs want, on ground of
+    /// friction 1. Multiplied by the friction of the block you stand on. Lower = more sliding.
+    pub ground_grip: f32,
+    /// Body height while crouched (Ctrl).
+    pub crouch_height: f32,
+    pub crouch_eye_height: f32,
+    /// Speed while crouched, as a fraction of normal.
+    pub crouch_speed: f32,
+    /// How quickly you crouch down (attack) and stand back up (release).
+    pub crouch_envelope: Envelope,
+    /// While crouched on the ground, you won't step off an edge.
+    pub crouch_edge_guard: bool,
     /// How high a jump rises, in blocks.
     pub jump_height: f32,
     /// Blocks per second, per second.
@@ -98,15 +153,70 @@ pub struct PlayerSettings {
 impl Default for PlayerSettings {
     fn default() -> Self {
         Self {
-            walk_speed: 4.317,
-            sprint_speed: 5.612,
+            // David's tuning, 22 Oct 2026.
+            walk_speed: 3.2,
+            run_speed: 5.7,
+            sprint_speed: 7.2,
+            sprint_double_tap: 0.3,
+            sprint_fov_boost: 12.0,
+            sprint_fov_envelope: Envelope {
+                attack: 0.15,
+                attack_curve: 0.9,
+                decay: 0.0,
+                decay_curve: 0.0,
+                sustain: 1.0,
+                release: 0.4,
+                release_curve: 0.0,
+            },
+            strafe_factor: 0.75,
+            backward_factor: 0.5,
+            walk_envelope: Envelope {
+                attack: 0.15,
+                attack_curve: -0.5,
+                decay: 0.0,
+                decay_curve: 0.0,
+                sustain: 1.0,
+                release: 0.3,
+                release_curve: 1.0,
+            },
+            run_envelope: Envelope {
+                attack: 0.75,
+                attack_curve: 0.75,
+                decay: 0.0,
+                decay_curve: 0.0,
+                sustain: 1.0,
+                release: 0.6,
+                release_curve: 0.0,
+            },
+            sprint_envelope: Envelope {
+                attack: 0.3,
+                attack_curve: 0.5,
+                decay: 0.0,
+                decay_curve: 0.0,
+                sustain: 1.0,
+                release: 1.5,
+                release_curve: -0.15,
+            },
+            envelopes_in_air: false,
+            ground_grip: 10.0,
+            crouch_height: 1.2,
+            crouch_eye_height: 1.05,
+            crouch_speed: 0.3,
+            crouch_envelope: Envelope {
+                attack: 0.12,
+                decay: 0.0,
+                sustain: 1.0,
+                release: 0.12,
+                ..Envelope::default()
+            },
+            crouch_edge_guard: true,
             jump_height: 1.25,
             gravity: 32.0,
             max_fall_speed: 78.4,
             air_control: 1.9,
             body_height: 1.5,
-            body_width: 0.6,
-            eye_height: 1.35,
+            body_width: 0.75,
+            eye_height: 1.38,
             reach: 5.0,
             break_cooldown: 0.25,
             place_cooldown: 0.25,
@@ -116,10 +226,19 @@ impl Default for PlayerSettings {
 }
 
 impl PlayerSettings {
+    /// The standing body.
     fn body(&self) -> BodySize {
         BodySize {
             width: self.body_width,
             height: self.body_height,
+        }
+    }
+
+    /// The body as it is now: shorter while crouched.
+    fn body_for(&self, pawn: &Pawn) -> BodySize {
+        BodySize {
+            width: self.body_width,
+            height: if pawn.crouched { self.crouch_height.min(self.body_height) } else { self.body_height },
         }
     }
 }
@@ -131,20 +250,83 @@ pub struct Pawn {
     /// Blocks per second, game axes.
     pub velocity: Vec3,
     pub on_ground: bool,
+    /// The running walk envelope: how hard the legs are pushing (0 = not at all, 1 = fully).
+    pub walk: EnvelopeState,
+    /// The running run envelope: 0 = walking speed, 1 = full running speed.
+    pub run: EnvelopeState,
+    /// The running sprint envelope: 0 = running speed, 1 = full sprint speed.
+    pub sprint: EnvelopeState,
+    /// Is the sprint gate on (double-tapped Shift held, moving forwards)?
+    pub sprinting: bool,
+    /// Crouched (Ctrl held, or no room to stand up)?
+    pub crouched: bool,
+    /// 0 = standing, 1 = fully crouched (blends eye height and speed).
+    pub crouch: EnvelopeState,
+    /// The crouch level one tick earlier, so the eyes can be drawn smoothly between ticks.
+    pub crouch_previous: f32,
+    /// The last direction the keys asked for. The legs keep pushing this way while the walk
+    /// envelope releases after you let go.
+    pub last_direction: Vec3,
+    /// Friction of the ground under the feet (for the debug page).
+    pub ground_friction: f32,
 }
 
 /// What the keys say, gathered every frame and used on the next tick.
 #[derive(Resource, Default)]
 struct PawnInput {
-    /// Wanted walking direction (level, length 0 or 1, game axes).
+    /// Wanted walking direction (level, game axes). Length 1 straight forwards; shorter
+    /// sideways and backwards (the strafe and backward factors); 0 with no keys held.
     direction: Vec3,
+    /// Shift held.
+    run: bool,
+    /// Shift double-tapped and still held, while moving forwards.
     sprint: bool,
+    /// When Shift was last pressed (real seconds), to spot a double tap.
+    last_run_press: f32,
+    /// Ctrl held.
+    crouch: bool,
     jump_held: bool,
     /// A quick tap of Space between two ticks still counts.
     jump_tapped: bool,
 }
 
-/// The blocks keys 1, 2, 3 choose between.
+/// Sent each time the walk envelope fires (a movement key pressed from standing, or again
+/// while slowing down). A hook for step sounds, noise and stealth.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct Footstep {
+    /// Where the feet were, game coordinates.
+    pub position: Vec3,
+}
+
+/// Sent when the body touches down after being in the air. A hook for landing sounds,
+/// fall damage, stumbles and so on.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct Landed {
+    /// Where the feet landed, game coordinates.
+    pub position: Vec3,
+    /// How fast it was falling at touchdown, blocks per second.
+    pub speed: f32,
+}
+
+/// For the on-screen "STEP" light and the debug page.
+#[derive(Resource, Default)]
+struct FootstepFlash {
+    /// Real seconds when the last footstep happened.
+    last: Option<f32>,
+    last_position: Vec3,
+    count: u64,
+    landings: u64,
+    last_landing_speed: f32,
+    last_landing_position: Vec3,
+}
+
+/// The running sprint FOV envelope (it runs every frame, for smoothness, not on ticks).
+#[derive(Resource, Default)]
+struct SprintView {
+    envelope: EnvelopeState,
+}
+
+/// The blocks keys 1 to 5 choose between.
 #[derive(Resource)]
 pub struct Hotbar {
     pub slots: Vec<&'static str>,
@@ -154,7 +336,7 @@ pub struct Hotbar {
 impl Default for Hotbar {
     fn default() -> Self {
         Self {
-            slots: vec!["incus:stone", "incus:gabbro", "incus:grass"],
+            slots: vec!["incus:stone", "incus:gabbro", "incus:grass", "incus:grid", "incus:outline"],
             selected: 0,
         }
     }
@@ -185,15 +367,47 @@ fn keys_are_ours(capture: &MouseCapture, egui_input: &EguiWantsInput) -> bool {
 }
 
 /// Put the pawn at `feet` with no speed; if that's inside blocks, move it up until it isn't.
-fn place_pawn(pawn: &mut Pawn, position: &mut SimPosition, feet: Vec3, settings: &PlayerSettings, world: &VoxelWorld) {
+fn place_pawn(
+    pawn: &mut Pawn,
+    position: &mut SimPosition,
+    feet: Vec3,
+    settings: &PlayerSettings,
+    world: &VoxelWorld,
+    registry: &BlockRegistry,
+) {
     let mut feet = feet;
-    let solid = |cell: IVec3| !world.get_block(cell).is_air();
+    let solid = |cell: IVec3| registry.is_solid(world.get_block(cell));
     while overlaps_solid(feet, settings.body(), solid) && feet.z < WORLD_HEIGHT as f32 {
         feet.z = feet.z.floor() + 1.0;
     }
     position.teleport(feet);
     pawn.velocity = Vec3::ZERO;
     pawn.on_ground = false;
+    pawn.walk = EnvelopeState::default();
+    pawn.run = EnvelopeState::default();
+    pawn.sprint = EnvelopeState::default();
+    pawn.sprinting = false;
+    pawn.crouched = false;
+    pawn.crouch = EnvelopeState::default();
+    pawn.crouch_previous = 0.0;
+}
+
+/// The friction of the ground under a body: the average of the solid blocks just below its
+/// centre and four corners (so standing half over an edge blends the two).
+fn ground_friction(feet: Vec3, size: BodySize, world: &VoxelWorld, registry: &BlockRegistry) -> f32 {
+    let half = size.width / 2.0;
+    let below = feet.z - 0.01;
+    let mut total = 0.0;
+    let mut count = 0;
+    for (dx, dy) in [(0.0, 0.0), (-half, -half), (half, -half), (-half, half), (half, half)] {
+        let cell = Vec3::new(feet.x + dx, feet.y + dy, below).floor().as_ivec3();
+        let block = world.get_block(cell);
+        if registry.is_solid(block) {
+            total += registry.def(block).map_or(1.0, |def| def.friction);
+            count += 1;
+        }
+    }
+    if count == 0 { 1.0 } else { total / count as f32 }
 }
 
 /// F switches mode. Walking starts where the flying camera is; flying starts where your eyes were.
@@ -204,6 +418,7 @@ fn toggle_mode(
     mut mode: ResMut<ControlMode>,
     settings: Res<PlayerSettings>,
     world: Res<VoxelWorld>,
+    registry: Res<BlockRegistry>,
     camera: Query<&FlyCamera>,
     mut pawns: Query<(&mut Pawn, &mut SimPosition)>,
 ) {
@@ -214,7 +429,7 @@ fn toggle_mode(
         ControlMode::Fly => {
             if let (Ok(camera), Ok((mut pawn, mut position))) = (camera.single(), pawns.single_mut()) {
                 let feet = camera.position - Vec3::Z * settings.eye_height;
-                place_pawn(&mut pawn, &mut position, feet, &settings, &world);
+                place_pawn(&mut pawn, &mut position, feet, &settings, &world, &registry);
             }
             ControlMode::Walk
         }
@@ -232,7 +447,8 @@ fn choose_block(
     if !keys_are_ours(&capture, &egui_input) {
         return;
     }
-    for (slot, key) in [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3].into_iter().enumerate() {
+    let keys_in_order = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5];
+    for (slot, key) in keys_in_order.into_iter().enumerate() {
         if keys.just_pressed(key) && slot < hotbar.slots.len() {
             hotbar.selected = slot;
         }
@@ -244,13 +460,17 @@ fn read_walk_input(
     capture: Res<MouseCapture>,
     egui_input: Res<EguiWantsInput>,
     mode: Res<ControlMode>,
+    settings: Res<PlayerSettings>,
+    time: Res<Time<Real>>,
     camera: Query<&FlyCamera>,
     mut input: ResMut<PawnInput>,
 ) {
     if *mode != ControlMode::Walk || !keys_are_ours(&capture, &egui_input) {
         input.direction = Vec3::ZERO;
         input.jump_held = false;
+        input.run = false;
         input.sprint = false;
+        input.crouch = false;
         return;
     }
     let Ok(camera) = camera.single() else {
@@ -259,21 +479,44 @@ fn read_walk_input(
     let heading = camera.heading.to_radians();
     let forward = Vec3::new(heading.cos(), heading.sin(), 0.0);
     let right = Vec3::new(-heading.sin(), heading.cos(), 0.0);
-    let mut direction = Vec3::ZERO;
+    // First in "body" terms (x = forwards, y = to the right), so sideways and backwards
+    // can be slowed down; then turned to face where the camera looks.
+    let mut wanted = Vec2::ZERO;
     if keys.pressed(KeyCode::KeyW) {
-        direction += forward;
+        wanted.x += 1.0;
     }
     if keys.pressed(KeyCode::KeyS) {
-        direction -= forward;
+        wanted.x -= 1.0;
     }
     if keys.pressed(KeyCode::KeyD) {
-        direction += right;
+        wanted.y += 1.0;
     }
     if keys.pressed(KeyCode::KeyA) {
-        direction -= right;
+        wanted.y -= 1.0;
     }
-    input.direction = direction.normalize_or_zero();
-    input.sprint = keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let mut wanted = wanted.normalize_or_zero();
+    if wanted.x < 0.0 {
+        wanted.x *= settings.backward_factor;
+    }
+    wanted.y *= settings.strafe_factor;
+    input.direction = forward * wanted.x + right * wanted.y;
+
+    // Shift held = run. A second press soon after the first = sprint, for as long as Shift
+    // stays held and you keep moving forwards. Ctrl held = crouch.
+    let shift = [KeyCode::ShiftLeft, KeyCode::ShiftRight];
+    input.run = keys.any_pressed(shift);
+    input.crouch = keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    if keys.any_just_pressed(shift) {
+        let now = time.elapsed_secs();
+        if now - input.last_run_press <= settings.sprint_double_tap && wanted.x > 0.0 {
+            input.sprint = true;
+        }
+        input.last_run_press = now;
+    }
+    if !input.run || wanted.x <= 0.0 {
+        input.sprint = false;
+    }
+
     input.jump_held = keys.pressed(KeyCode::Space);
     if keys.just_pressed(KeyCode::Space) {
         input.jump_tapped = true;
@@ -286,7 +529,10 @@ fn move_pawn(
     mode: Res<ControlMode>,
     settings: Res<PlayerSettings>,
     world: Res<VoxelWorld>,
+    registry: Res<BlockRegistry>,
     mut input: ResMut<PawnInput>,
+    mut footsteps: MessageWriter<Footstep>,
+    mut landings: MessageWriter<Landed>,
     mut pawns: Query<(&mut Pawn, &mut SimPosition)>,
 ) {
     let jump = input.jump_held || input.jump_tapped;
@@ -295,21 +541,54 @@ fn move_pawn(
         return;
     }
     let dt = time.delta_secs();
+    let solid = |cell: IVec3| registry.is_solid(world.get_block(cell));
     for (mut pawn, mut position) in &mut pawns {
-        // Walking: on the ground you go exactly where the keys say; in the air you keep
-        // most of your momentum and can only steer gradually.
-        let speed = if input.sprint {
-            settings.sprint_speed
-        } else {
-            settings.walk_speed
-        };
-        let target = input.direction * speed;
+        // Crouching: Ctrl held, or no room to stand up (you stay crouched under a low ceiling).
+        let room_to_stand = !overlaps_solid(position.current, settings.body(), solid);
+        pawn.crouched = input.crouch || (pawn.crouched && !room_to_stand);
+        let crouched = pawn.crouched;
+        pawn.crouch_previous = pawn.crouch.level;
+        pawn.crouch.update(&settings.crouch_envelope, crouched, dt);
+        let body = settings.body_for(&pawn);
+
+        // The legs. Gates: walk = any movement key held; run = Shift held while moving;
+        // sprint = Shift double-tapped and held while moving forwards. With feet off the
+        // ground the envelopes stay where they are (unless the debug setting says otherwise),
+        // since you can't push off the air.
+        let moving = input.direction != Vec3::ZERO;
+        if moving {
+            pawn.last_direction = input.direction;
+        }
+        pawn.sprinting = input.sprint && moving;
+        if pawn.on_ground || settings.envelopes_in_air {
+            let sprinting = pawn.sprinting;
+            pawn.walk.update(&settings.walk_envelope, moving, dt);
+            pawn.run.update(&settings.run_envelope, input.run && moving, dt);
+            pawn.sprint.update(&settings.sprint_envelope, sprinting, dt);
+            if pawn.walk.just_triggered() {
+                footsteps.write(Footstep { position: position.current });
+            }
+        }
+        // Walk speed, plus the run envelope's share of the step up to running, plus the sprint
+        // envelope's share of the step up to sprinting.
+        let full_speed = settings.walk_speed
+            + (settings.run_speed - settings.walk_speed) * pawn.run.level
+            + (settings.sprint_speed - settings.run_speed) * pawn.sprint.level;
+        // Crouching slows you down, blended by the crouch envelope.
+        let crouch_factor = 1.0 + (settings.crouch_speed - 1.0) * pawn.crouch.level;
+        let target = pawn.last_direction * full_speed * pawn.walk.level * crouch_factor;
+
+        // The feet: your real speed eases towards what the legs want. On the ground, how
+        // quickly depends on grip × the block's friction (so you slide a little, more on
+        // slippery blocks). In the air you can only steer gradually (air control).
         let horizontal = Vec3::new(pawn.velocity.x, pawn.velocity.y, 0.0);
-        let horizontal = if pawn.on_ground {
-            target
+        let rate = if pawn.on_ground {
+            pawn.ground_friction = ground_friction(position.current, body, &world, &registry);
+            settings.ground_grip * pawn.ground_friction
         } else {
-            horizontal.lerp(target, 1.0 - (-settings.air_control * dt).exp())
+            settings.air_control
         };
+        let horizontal = horizontal.lerp(target, 1.0 - (-rate * dt).exp());
         pawn.velocity.x = horizontal.x;
         pawn.velocity.y = horizontal.y;
 
@@ -319,8 +598,30 @@ fn move_pawn(
         }
         pawn.velocity.z = (pawn.velocity.z - settings.gravity * dt).max(-settings.max_fall_speed);
 
-        let solid = |cell: IVec3| !world.get_block(cell).is_air();
-        let (feet, blocked) = move_body(position.current, settings.body(), pawn.velocity * dt, solid);
+        // Edge guard: crouched on the ground (and not jumping), a step that would leave
+        // nothing under you is cancelled, one direction at a time, so you can still edge along.
+        let mut motion = pawn.velocity * dt;
+        if crouched && settings.crouch_edge_guard && pawn.on_ground && pawn.velocity.z <= 0.0 {
+            let feet = position.current;
+            let supported = |offset: Vec3| has_support(feet + offset, body, solid);
+            if !supported(Vec3::new(motion.x, 0.0, 0.0)) {
+                motion.x = 0.0;
+                pawn.velocity.x = 0.0;
+            }
+            if !supported(Vec3::new(0.0, motion.y, 0.0)) {
+                motion.y = 0.0;
+                pawn.velocity.y = 0.0;
+            }
+            if !supported(Vec3::new(motion.x, motion.y, 0.0)) {
+                motion.x = 0.0;
+                motion.y = 0.0;
+                pawn.velocity.x = 0.0;
+                pawn.velocity.y = 0.0;
+            }
+        }
+
+        let falling_speed = -pawn.velocity.z;
+        let (feet, blocked) = move_body(position.current, body, motion, solid);
         position.current = feet;
         if blocked.x {
             pawn.velocity.x = 0.0;
@@ -331,12 +632,19 @@ fn move_pawn(
         if blocked.down || blocked.up {
             pawn.velocity.z = 0.0;
         }
+        // Touchdown: announce it (a hook for landing sounds, fall damage, stumbles…).
+        if blocked.down && !pawn.on_ground {
+            landings.write(Landed {
+                position: feet,
+                speed: falling_speed.max(0.0),
+            });
+        }
         pawn.on_ground = blocked.down;
 
         if feet.z < settings.respawn_below_z {
             info!("Fell out of the world: back to the spawn point");
             let spawn = spawn_point(&world);
-            place_pawn(&mut pawn, &mut position, spawn, &settings, &world);
+            place_pawn(&mut pawn, &mut position, spawn, &settings, &world, &registry);
         }
     }
 }
@@ -347,16 +655,54 @@ fn follow_pawn(
     settings: Res<PlayerSettings>,
     fixed_time: Res<Time<Fixed>>,
     smoothing: Res<InterpolationSettings>,
-    pawns: Query<&SimPosition, With<Pawn>>,
+    pawns: Query<(&Pawn, &SimPosition)>,
     mut cameras: Query<&mut FlyCamera>,
 ) {
     if *mode != ControlMode::Walk {
         return;
     }
-    let (Ok(position), Ok(mut camera)) = (pawns.single(), cameras.single_mut()) else {
+    let (Ok((pawn, position)), Ok(mut camera)) = (pawns.single(), cameras.single_mut()) else {
         return;
     };
-    camera.position = position.display(&fixed_time, &smoothing) + Vec3::Z * settings.eye_height;
+    // Eyes drop while crouching, blended by the crouch envelope. The envelope moves on ticks,
+    // so it's drawn part-way between its last two values, like the position.
+    let crouch = pawn.crouch_previous + (pawn.crouch.level - pawn.crouch_previous) * blend_fraction(&fixed_time, &smoothing);
+    let eyes = settings.eye_height + (settings.crouch_eye_height - settings.eye_height) * crouch;
+    camera.position = position.display(&fixed_time, &smoothing) + Vec3::Z * eyes;
+}
+
+/// Sprinting widens the field of view, shaped by its own envelope. This runs every frame
+/// (not on ticks) so the view changes smoothly; it still stops when time is paused.
+fn widen_view_when_sprinting(
+    time: Res<Time>,
+    mode: Res<ControlMode>,
+    settings: Res<PlayerSettings>,
+    pawns: Query<&Pawn>,
+    mut view: ResMut<SprintView>,
+    mut boost: ResMut<FieldOfViewBoost>,
+) {
+    let sprinting = *mode == ControlMode::Walk && pawns.single().is_ok_and(|pawn| pawn.sprinting);
+    let level = view.envelope.update(&settings.sprint_fov_envelope, sprinting, time.delta_secs());
+    boost.set_if_neq(FieldOfViewBoost(settings.sprint_fov_boost * level));
+}
+
+/// Remember the last footstep (for the "STEP" light) and the last landing (for the debug page).
+fn notice_footsteps(
+    time: Res<Time<Real>>,
+    mut footsteps: MessageReader<Footstep>,
+    mut landings: MessageReader<Landed>,
+    mut flash: ResMut<FootstepFlash>,
+) {
+    for step in footsteps.read() {
+        flash.last = Some(time.elapsed_secs());
+        flash.last_position = step.position;
+        flash.count += 1;
+    }
+    for landing in landings.read() {
+        flash.landings += 1;
+        flash.last_landing_speed = landing.speed;
+        flash.last_landing_position = landing.position;
+    }
 }
 
 /// Left click breaks, right click places. Held buttons repeat after the cooldown.
@@ -395,8 +741,11 @@ fn block_actions(
         let Some(cell) = hit.in_front() else {
             return;
         };
-        // Don't place a block inside your own body while walking.
-        if *mode == ControlMode::Walk {
+        let Some(block) = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)) else {
+            return;
+        };
+        // Don't place a solid block inside your own body while walking.
+        if *mode == ControlMode::Walk && registry.is_solid(block) {
             if let Ok(position) = pawns.single() {
                 let (min, max) = body_bounds(position.current, settings.body());
                 let cell_min = cell.as_vec3();
@@ -406,9 +755,6 @@ fn block_actions(
                 }
             }
         }
-        let Some(block) = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)) else {
-            return;
-        };
         cooldowns.last_place = now;
         requests.write(BlockEditRequest {
             position: cell,
@@ -424,6 +770,8 @@ fn draw_hotbar(
     hotbar: Res<Hotbar>,
     mode: Res<ControlMode>,
     registry: Res<BlockRegistry>,
+    time: Res<Time<Real>>,
+    flash: Res<FootstepFlash>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("hotbar")));
@@ -470,6 +818,16 @@ fn draw_hotbar(
         egui::FontId::proportional(13.0),
         pink,
     );
+
+    // The footstep light, to the left of the bar: lit pink for a moment after each footstep.
+    let lit = flash.last.is_some_and(|last| time.elapsed_secs() - last < 0.12);
+    let light = egui::Rect::from_min_size(
+        egui::pos2(screen.center().x - total_width / 2.0 - 56.0, top),
+        egui::vec2(48.0, slot_size.y),
+    );
+    let (fill, text) = if lit { (pink, egui::Color32::BLACK) } else { (egui::Color32::BLACK, pink) };
+    painter.rect(light, 0.0, fill, egui::Stroke::new(1.0, magenta), egui::StrokeKind::Inside);
+    painter.text(light.center(), egui::Align2::CENTER_CENTER, "STEP", egui::FontId::proportional(12.0), text);
     Ok(())
 }
 
@@ -485,9 +843,18 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
 
     // ── The pawn ──
     let mut respawn = false;
+    let mut live_walk = None;
+    let mut live_run = None;
+    let mut live_sprint = None;
+    let mut live_crouch = None;
+    let live_view = world.resource::<SprintView>().envelope;
     {
         let mut query = world.query::<(&Pawn, &SimPosition)>();
         if let Ok((pawn, position)) = query.single(world) {
+            live_walk = Some(pawn.walk);
+            live_run = Some(pawn.run);
+            live_sprint = Some(pawn.sprint);
+            live_crouch = Some(pawn.crouch);
             ui.strong("Body");
             let feet = position.current;
             ui.label(format!("Feet at: {:.2}, {:.2}, {:.2}", feet.x, feet.y, feet.z));
@@ -496,7 +863,29 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
                 "Speed: {horizontal:.2} blocks/s across, {:.2} up/down",
                 pawn.velocity.z
             ));
-            ui.label(if pawn.on_ground { "On the ground" } else { "In the air" });
+            ui.label(format!(
+                "{}{}",
+                if pawn.on_ground { "On the ground" } else { "In the air" },
+                if pawn.crouched { ", crouched" } else { "" }
+            ));
+            ui.label(format!(
+                "Legs: walk {:.0}% ({:?})  run {:.0}% ({:?})  sprint {:.0}% ({:?})",
+                pawn.walk.level * 100.0,
+                pawn.walk.stage,
+                pawn.run.level * 100.0,
+                pawn.run.stage,
+                pawn.sprint.level * 100.0,
+                pawn.sprint.stage
+            ));
+            ui.label(format!("Ground friction under feet: {:.2}", pawn.ground_friction));
+            let flash = world.resource::<FootstepFlash>();
+            let at = flash.last_position;
+            ui.label(format!("Footsteps so far: {}   last at {:.1}, {:.1}, {:.1}", flash.count, at.x, at.y, at.z));
+            let landed = flash.last_landing_position;
+            ui.label(format!(
+                "Landings so far: {}   last at {:.1}, {:.1}, {:.1}, hitting the ground at {:.1} blocks/s",
+                flash.landings, landed.x, landed.y, landed.z, flash.last_landing_speed
+            ));
         }
     }
     if ui.button("Respawn at the centre (and walk)").clicked() {
@@ -506,21 +895,57 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         let settings = world.resource::<PlayerSettings>().clone();
         let spawn = spawn_point(world.resource::<VoxelWorld>());
         world.resource_scope(|world, voxel: Mut<VoxelWorld>| {
-            let mut query = world.query::<(&mut Pawn, &mut SimPosition)>();
-            if let Ok((mut pawn, mut position)) = query.single_mut(world) {
-                place_pawn(&mut pawn, &mut position, spawn, &settings, &voxel);
-            }
+            world.resource_scope(|world, registry: Mut<BlockRegistry>| {
+                let mut query = world.query::<(&mut Pawn, &mut SimPosition)>();
+                if let Ok((mut pawn, mut position)) = query.single_mut(world) {
+                    place_pawn(&mut pawn, &mut position, spawn, &settings, &voxel, &registry);
+                }
+            });
         });
         *world.resource_mut::<ControlMode>() = ControlMode::Walk;
     }
 
     // ── Settings ──
     ui.separator();
-    ui.strong("Movement (Minecraft defaults)");
     {
         let mut settings = world.resource_mut::<PlayerSettings>();
+        // Saves / loads everything in this section (not the bottom-layer rule below).
+        preset_bar(ui, "player", &mut *settings);
+
+        ui.strong("Movement (Minecraft defaults)");
         ui.add(egui::Slider::new(&mut settings.walk_speed, 0.5..=20.0).text("walk speed (blocks/s)"));
-        ui.add(egui::Slider::new(&mut settings.sprint_speed, 0.5..=30.0).text("sprint speed (Ctrl)"));
+        ui.add(egui::Slider::new(&mut settings.run_speed, 0.5..=30.0).text("run speed (Shift)"));
+        ui.add(egui::Slider::new(&mut settings.sprint_speed, 0.5..=40.0).text("sprint speed (Shift Shift)"));
+        ui.add(egui::Slider::new(&mut settings.sprint_double_tap, 0.05..=1.0).text("sprint double-tap window (s)"));
+        ui.add(egui::Slider::new(&mut settings.strafe_factor, 0.0..=1.5).text("sideways speed × forwards"));
+        ui.add(egui::Slider::new(&mut settings.backward_factor, 0.0..=1.5).text("backwards speed × forwards"));
+        ui.add(egui::Slider::new(&mut settings.ground_grip, 0.5..=60.0).logarithmic(true).text("ground grip (× block friction)"));
+        ui.small("Lower grip = more slide when stopping, turning and landing.");
+
+        ui.small("Envelopes: square handles set times and sustain; round ones bend curves (double-click straightens).");
+        ui.strong("Walk envelope (legs pushing)");
+        envelope_editor(ui, "walk", &mut settings.walk_envelope, live_walk.as_ref());
+        ui.small("The walk envelope firing is a footstep (the STEP light by the block bar).");
+        ui.strong("Run envelope (walk → run)");
+        envelope_editor(ui, "run", &mut settings.run_envelope, live_run.as_ref());
+        ui.strong("Sprint envelope (run → sprint)");
+        envelope_editor(ui, "sprint", &mut settings.sprint_envelope, live_sprint.as_ref());
+        ui.checkbox(&mut settings.envelopes_in_air, "envelopes keep moving in the air");
+
+        ui.strong("Sprint view widening");
+        ui.add(egui::Slider::new(&mut settings.sprint_fov_boost, -30.0..=40.0).text("extra field of view at full sprint (°)"));
+        envelope_editor(ui, "sprint_fov", &mut settings.sprint_fov_envelope, Some(&live_view));
+
+        ui.strong("Crouch (Ctrl)");
+        let standing = settings.body_height;
+        ui.add(egui::Slider::new(&mut settings.crouch_height, 0.3..=standing).text("crouched height"));
+        let crouched_height = settings.crouch_height;
+        ui.add(egui::Slider::new(&mut settings.crouch_eye_height, 0.1..=crouched_height).text("crouched eye height"));
+        ui.add(egui::Slider::new(&mut settings.crouch_speed, 0.0..=1.0).text("crouched speed (× normal)"));
+        ui.checkbox(&mut settings.crouch_edge_guard, "won't step off edges while crouched");
+        envelope_editor(ui, "crouch", &mut settings.crouch_envelope, live_crouch.as_ref());
+
+        ui.strong("Jumping & falling");
         ui.add(egui::Slider::new(&mut settings.jump_height, 0.1..=5.0).text("jump height (blocks)"));
         ui.add(egui::Slider::new(&mut settings.gravity, 1.0..=100.0).text("gravity (blocks/s²)"));
         ui.add(egui::Slider::new(&mut settings.max_fall_speed, 1.0..=200.0).text("max fall speed"));
@@ -569,5 +994,28 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
             name(change.new),
             change.source
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_survive_a_preset_round_trip() {
+        let mut settings = PlayerSettings::default();
+        settings.sprint_envelope.attack = 2.25;
+        settings.walk_speed = 3.0;
+        let text = toml::to_string_pretty(&settings).expect("saves");
+        let loaded: PlayerSettings = toml::from_str(&text).expect("loads");
+        assert_eq!(loaded.sprint_envelope, settings.sprint_envelope);
+        assert_eq!(loaded.walk_speed, 3.0);
+    }
+
+    #[test]
+    fn old_presets_with_missing_settings_still_load() {
+        let loaded: PlayerSettings = toml::from_str("walk_speed = 2.0").expect("loads");
+        assert_eq!(loaded.walk_speed, 2.0);
+        assert_eq!(loaded.run_speed, PlayerSettings::default().run_speed);
     }
 }

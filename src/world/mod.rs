@@ -34,7 +34,7 @@ pub use position::{
 pub use section::Section;
 
 use crate::data::BlockRegistry;
-use crate::debug::DebugAppExt;
+use crate::debug::{DebugAppExt, SettingsAppExt};
 use bevy::prelude::*;
 use bevy_egui::egui;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -70,11 +70,6 @@ impl VoxelWorld {
             self.mark_dirty_around(block);
         }
         Some(old)
-    }
-
-    /// First non-air block along a line (game axes), up to `max_distance` blocks away.
-    pub fn raycast(&self, origin: Vec3, direction: Vec3, max_distance: f32) -> Option<RayHit> {
-        cast_ray(origin, direction, max_distance, |block| !self.get_block(block).is_air())
     }
 
     pub fn chunk(&self, pos: ChunkPos) -> Option<&Chunk> {
@@ -193,6 +188,7 @@ impl Plugin for WorldPlugin {
             .init_resource::<TestWorldSettings>()
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
+            .add_settings::<EditRules>("edit_rules")
             .init_resource::<RecentBlockChanges>()
             .add_message::<BlockEditRequest>()
             .add_message::<BlockChanged>()

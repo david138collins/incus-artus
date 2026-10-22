@@ -186,8 +186,10 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
     let chunk = world.chunk(key.chunk)?;
     let section = &chunk.sections()[key.level as usize];
     let is_opaque = |id: BlockId| terrain.opaque.get(id.0 as usize).copied().unwrap_or(true);
+    let is_see_through = |id: BlockId| terrain.see_through.get(id.0 as usize).copied().unwrap_or(false);
+    let is_grid = |id: BlockId| is_see_through(id) && terrain.inner_faces.get(id.0 as usize).copied().unwrap_or(false);
     if let Section::Uniform(id) = section {
-        if !is_opaque(*id) {
+        if !is_opaque(*id) && !is_see_through(*id) {
             return None;
         }
     }
@@ -198,6 +200,8 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
     let origin = section_origin(key);
     let size = SECTION_SIZE;
     let mut outside = [[0u32; 32]; 6];
+    let mut outside_outline = [[0u32; 32]; 6];
+    let mut outside_grid = [[0u32; 32]; 6];
     for axis in 0..3 {
         let (u_axis, v_axis) = plane_axes(axis);
         for positive in [true, false] {
@@ -211,9 +215,15 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
                     offset[v_axis] = v;
                     let position = origin + offset;
                     // Below the world counts as solid: nobody can see the underside of bedrock.
-                    let solid = position.z < 0 || is_opaque(world.get_block(position));
+                    let block = world.get_block(position);
+                    let solid = position.z < 0 || is_opaque(block);
                     if solid {
                         outside[face][v as usize] |= 1 << u;
+                    }
+                    if is_grid(block) {
+                        outside_grid[face][v as usize] |= 1 << u;
+                    } else if is_see_through(block) {
+                        outside_outline[face][v as usize] |= 1 << u;
                     }
                 }
             }
@@ -223,7 +233,11 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
     Some(MeshInput {
         blocks,
         outside,
+        outside_outline,
+        outside_grid,
         opaque: terrain.opaque.clone(),
+        see_through: terrain.see_through.clone(),
+        inner_faces: terrain.inner_faces.clone(),
         face_layers: terrain.face_layers.clone(),
         face_random_rotation: terrain.face_random_rotation.clone(),
     })

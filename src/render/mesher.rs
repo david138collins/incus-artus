@@ -14,6 +14,14 @@
 //!    block type). In each plane, runs of set bits are grown into the largest rectangles possible,
 //!    so a flat grass floor becomes one quad instead of 1,024.
 //!
+//! See-through blocks get their own runs of the same stages, with each face drawn twice (once
+//! facing each way) so it can be seen from inside too. Opaque faces behind a see-through block
+//! are still drawn, because the see-through block doesn't hide them.
+//! - **Outline** blocks: faces only where they touch something neither opaque nor see-through,
+//!   so a volume of them shows just its outside skin.
+//! - **Grid** blocks: faces everywhere except against opaque blocks, so every cell shows. Where
+//!   two grid blocks touch, only one of them draws the shared face (never two on top of each other).
+//!
 //! Positions use the game's axes (X north, Y east, Z up), measured inside the section (0 ..= 32).
 //! The shader converts them for drawing.
 //!
@@ -36,8 +44,16 @@ pub struct MeshInput {
     /// For each face direction, which blocks just outside the section on that side are opaque.
     /// One `u32` per row: row = the face plane's `v` axis, bit = its `u` axis (see `plane_axes`).
     pub outside: [[u32; N]; 6],
+    /// Same layout as `outside`: which of those blocks are outline blocks.
+    pub outside_outline: [[u32; N]; 6],
+    /// Same layout as `outside`: which of those blocks are grid blocks.
+    pub outside_grid: [[u32; N]; 6],
     /// Per block number: does it hide what's behind it?
     pub opaque: Arc<Vec<bool>>,
+    /// Per block number: is it see-through (drawn both sides, with holes)?
+    pub see_through: Arc<Vec<bool>>,
+    /// Per block number: if see-through, does it draw faces between neighbours (grid)?
+    pub inner_faces: Arc<Vec<bool>>,
     /// Per block number: texture layer for each of the six faces.
     pub face_layers: Arc<Vec<[u32; 6]>>,
     /// Per block number: is each face's texture randomly rotated?
@@ -61,17 +77,50 @@ pub fn face_index(axis: usize, positive: bool) -> usize {
     axis * 2 + if positive { 0 } else { 1 }
 }
 
+/// One bit column per line of blocks, for each of the three axes.
+type Columns = Vec<[u64; N * N]>;
+
 pub fn mesh_section(input: &MeshInput) -> MeshOutput {
     let is_opaque = |id: BlockId| input.opaque.get(id.0 as usize).copied().unwrap_or(true);
+    let is_see_through = |id: BlockId| input.see_through.get(id.0 as usize).copied().unwrap_or(false);
+    let is_grid = |id: BlockId| is_see_through(id) && input.inner_faces.get(id.0 as usize).copied().unwrap_or(false);
+    let is_outline = |id: BlockId| is_see_through(id) && !is_grid(id);
     let mut out = MeshOutput::default();
 
-    // ── 1. Solid columns, one set per axis ──
-    // Bit 0 = the block just before the section, bits 1..=32 = the section, bit 33 = just after.
+    // Opaque blocks: faces where they meet anything not opaque.
+    let opaque = build_columns(&input.blocks, is_opaque, &input.outside);
+    emit_faces(&mut out, input, &opaque, [&opaque, &opaque], false);
+
+    if !input.blocks.iter().any(|&id| is_see_through(id)) {
+        return out;
+    }
+    let grid = build_columns(&input.blocks, is_grid, &input.outside_grid);
+    let outline = build_columns(&input.blocks, is_outline, &input.outside_outline);
+    let union = |a: &Columns, b: &Columns, c: &Columns| -> Columns {
+        (0..3)
+            .map(|axis| std::array::from_fn(|i| a[axis][i] | b[axis][i] | c[axis][i]))
+            .collect()
+    };
+
+    // Outline blocks: faces where they meet anything neither opaque nor see-through.
+    let anything = union(&opaque, &grid, &outline);
+    emit_faces(&mut out, input, &outline, [&anything, &anything], true);
+
+    // Grid blocks: faces everywhere except against opaque blocks. A face shared by two grid
+    // blocks is drawn only once: by the block on its negative side, as that block's positive face.
+    let opaque_or_grid = union(&opaque, &grid, &grid);
+    emit_faces(&mut out, input, &grid, [&opaque, &opaque_or_grid], true);
+    out
+}
+
+/// Stage 1: the bit columns of every block that passes `include`.
+/// Bit 0 = the block just before the section, bits 1..=32 = the section, bit 33 = just after.
+fn build_columns(blocks: &[BlockId], include: impl Fn(BlockId) -> bool, outside: &[[u32; N]; 6]) -> Columns {
     let mut columns = vec![[0u64; N * N]; 3];
     for z in 0..N {
         for y in 0..N {
             for x in 0..N {
-                if is_opaque(input.blocks[x + y * N + z * N * N]) {
+                if include(blocks[x + y * N + z * N * N]) {
                     let p = [x, y, z];
                     for (axis, axis_columns) in columns.iter_mut().enumerate() {
                         let (u, v) = plane_axes(axis);
@@ -82,8 +131,8 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
         }
     }
     for (axis, axis_columns) in columns.iter_mut().enumerate() {
-        let before = &input.outside[face_index(axis, false)];
-        let after = &input.outside[face_index(axis, true)];
+        let before = &outside[face_index(axis, false)];
+        let after = &outside[face_index(axis, true)];
         for v in 0..N {
             for u in 0..N {
                 let column = &mut axis_columns[u + v * N];
@@ -96,8 +145,14 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
             }
         }
     }
+    columns
+}
 
-    // ── 2 & 3. Visible faces, sorted into planes, then merged ──
+/// Stages 2 and 3: a face shows where a block in `columns` has no blocker next to it.
+/// `blockers` = [what blocks positive-facing faces, what blocks negative-facing faces].
+/// Faces are merged into rectangles and added to `out`. `both_sides` also adds each
+/// rectangle facing the other way (for see-through blocks).
+fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blockers: [&Columns; 2], both_sides: bool) {
     for axis in 0..3 {
         let (u_axis, v_axis) = plane_axes(axis);
         for positive in [true, false] {
@@ -108,10 +163,11 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
             for v in 0..N {
                 for u in 0..N {
                     let column = columns[axis][u + v * N];
+                    let blocking = blockers[if positive { 0 } else { 1 }][axis][u + v * N];
                     let faces = if positive {
-                        column & !(column >> 1) // solid here, empty after
+                        column & !(blocking >> 1) // a block here, nothing blocking after
                     } else {
-                        column & !(column << 1) // solid here, empty before
+                        column & !(blocking << 1) // a block here, nothing blocking before
                     };
                     let mut bits = (faces >> 1) & 0xFFFF_FFFF; // drop the outside bits
                     while bits != 0 {
@@ -153,14 +209,18 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
                             (layer & 0xFFFF) | quad_tag << 16,
                         ]);
                     }
-                    let order: [u32; 6] = if flip { [0, 2, 1, 0, 3, 2] } else { [0, 1, 2, 0, 2, 3] };
-                    out.indices.extend(order.iter().map(|i| base + i));
+                    let front: [u32; 6] = [0, 1, 2, 0, 2, 3];
+                    let back: [u32; 6] = [0, 2, 1, 0, 3, 2];
+                    let (outward, inward) = if flip { (back, front) } else { (front, back) };
+                    out.indices.extend(outward.iter().map(|i| base + i));
+                    if both_sides {
+                        out.indices.extend(inward.iter().map(|i| base + i));
+                    }
                     out.quads += 1;
                 });
             }
         }
     }
-    out
 }
 
 /// Grow runs of set bits into the largest rectangles possible, clearing them as it goes.
@@ -213,10 +273,53 @@ mod tests {
         MeshInput {
             blocks,
             outside: [[0; N]; 6],
-            opaque: Arc::new(vec![false, true, true]),
-            face_layers: Arc::new(vec![[0; 6], [1; 6], [2; 6]]),
-            face_random_rotation: Arc::new(vec![[false; 6]; 3]),
+            outside_outline: [[0; N]; 6],
+            outside_grid: [[0; N]; 6],
+            opaque: Arc::new(vec![false, true, true, false, false]),
+            see_through: Arc::new(vec![false, false, false, true, true]),
+            inner_faces: Arc::new(vec![false, false, false, true, false]),
+            face_layers: Arc::new(vec![[0; 6], [1; 6], [2; 6], [3; 6], [3; 6]]),
+            face_random_rotation: Arc::new(vec![[false; 6]; 5]),
         }
+    }
+
+    const GRID: BlockId = BlockId(3);
+    const OUTLINE: BlockId = BlockId(4);
+
+    #[test]
+    fn outline_blocks_side_by_side_show_only_their_outside() {
+        let mut blocks = empty();
+        blocks[0] = OUTLINE;
+        blocks[1] = OUTLINE;
+        assert_eq!(mesh_section(&input(blocks)).quads, 6, "one merged box, no face between");
+    }
+
+    #[test]
+    fn grid_blocks_side_by_side_show_the_face_between_once() {
+        let mut blocks = empty();
+        blocks[0] = GRID;
+        blocks[1] = GRID;
+        // Two cells in a row along X: 2 end faces, plus the 4 long sides (merged), plus the
+        // one shared face in the middle, drawn once.
+        assert_eq!(mesh_section(&input(blocks)).quads, 7);
+    }
+
+    #[test]
+    fn see_through_block_is_drawn_from_both_sides() {
+        let mut blocks = empty();
+        blocks[5 + 5 * N + 5 * N * N] = GRID;
+        let mesh = mesh_section(&input(blocks));
+        assert_eq!(mesh.quads, 6);
+        assert_eq!(mesh.indices.len(), 6 * 12, "two triangles each way per face");
+    }
+
+    #[test]
+    fn opaque_block_behind_see_through_still_shows() {
+        let mut blocks = empty();
+        blocks[0] = STONE;
+        blocks[1] = GRID;
+        // Stone: all 6 faces (the grid doesn't hide it). Grid: 5 (the side against the stone is hidden).
+        assert_eq!(mesh_section(&input(blocks)).quads, 11);
     }
 
     fn empty() -> Vec<BlockId> {

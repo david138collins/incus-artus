@@ -9,6 +9,7 @@
 //! - `time`    — TimeControl: the single simulation clock (pause / speed / tick rate)
 //! - `coords`  — conversion between game axes (X north, Y east, Z up) and Bevy's axes
 //! - `data`    — registries of game content (block names ↔ numbers)
+//! - `kinematics` — the shapes of motion (ADSR envelopes) and their editor
 //! - `world`   — chunks, sections, block storage and queries
 //! - `render`  — meshing, textures, the block shader, culling
 //! - `camera`  — the free-fly developer camera and "what am I looking at?" raycast
@@ -19,6 +20,7 @@ mod camera;
 mod coords;
 mod data;
 mod debug;
+mod kinematics;
 mod player;
 mod render;
 mod sandbox;

@@ -12,6 +12,7 @@
 use crate::coords::game_to_bevy;
 use bevy::prelude::*;
 use bevy::transform::TransformSystems;
+use serde::{Deserialize, Serialize};
 
 /// A position owned by the simulation, in game coordinates (X north, Y east, Z up).
 #[derive(Component, Debug, Clone, Copy)]
@@ -43,7 +44,8 @@ impl SimPosition {
 }
 
 /// 0.0 = just after a tick, 1.0 = the next tick is due. Always 1.0 with smoothing off.
-fn blend_fraction(fixed_time: &Time<Fixed>, settings: &InterpolationSettings) -> f32 {
+/// Use it to draw any value that changes on ticks smoothly: `previous.lerp(current, fraction)`.
+pub fn blend_fraction(fixed_time: &Time<Fixed>, settings: &InterpolationSettings) -> f32 {
     if settings.enabled {
         fixed_time.overstep_fraction()
     } else {
@@ -52,7 +54,8 @@ fn blend_fraction(fixed_time: &Time<Fixed>, settings: &InterpolationSettings) ->
 }
 
 /// Lets the debug panel switch smoothing off, to see the raw ticks.
-#[derive(Resource)]
+#[derive(Resource, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct InterpolationSettings {
     pub enabled: bool,
 }

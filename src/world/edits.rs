@@ -10,6 +10,8 @@
 //! For now requests are applied in the same frame they're made.
 
 use super::{BlockId, VoxelWorld};
+use crate::data::BlockRegistry;
+use serde::{Deserialize, Serialize};
 use bevy::prelude::*;
 use std::collections::VecDeque;
 
@@ -43,7 +45,8 @@ pub struct BlockChanged {
 }
 
 /// Tunable rules for edits (shown on the "Player" debug page).
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct EditRules {
     /// TEMPORARY rule: the bottom layer (Z = 0) can't be broken, so you can't dig out of the world.
     pub protect_bottom_layer: bool,
@@ -71,6 +74,7 @@ pub fn apply_block_edits(
     mut changed: MessageWriter<BlockChanged>,
     mut world: ResMut<VoxelWorld>,
     rules: Res<EditRules>,
+    registry: Res<BlockRegistry>,
     mut recent: ResMut<RecentBlockChanges>,
 ) {
     for request in requests.read() {
@@ -84,7 +88,9 @@ pub fn apply_block_edits(
                 BlockId::AIR
             }
             EditKind::Place(block) => {
-                if !old.is_air() {
+                // Into air, or into something replaceable (like the grid), but never into the
+                // same block that's already there.
+                if !registry.is_replaceable(old) || old == block {
                     recent.refused += 1;
                     continue;
                 }

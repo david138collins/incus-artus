@@ -135,18 +135,32 @@ fn missing_texture() -> Vec<u8> {
 }
 
 /// Halve an RGBA image by averaging each 2 × 2 block of pixels.
+/// Colours are averaged only over the pixels that can be seen (weighted by opacity), so the
+/// clear pixels of a see-through texture don't darken its coloured ones in the distance.
+/// Opacity takes the *most* opaque of the four: a thin line stays solid in the shrunk
+/// versions instead of fading below the cut-out threshold and vanishing at a distance or a
+/// steep angle. (Ordinary blocks are fully opaque everywhere, so nothing changes for them.)
 fn shrink(pixels: &[u8], size: u32) -> Vec<u8> {
     let half = size / 2;
     let mut out = Vec::with_capacity((half * half * 4) as usize);
     for y in 0..half {
         for x in 0..half {
-            for channel in 0..4 {
-                let sample = |dx: u32, dy: u32| {
-                    pixels[(((y * 2 + dy) * size + (x * 2 + dx)) * 4 + channel) as usize] as u32
+            let sample = |dx: u32, dy: u32, channel: u32| {
+                pixels[(((y * 2 + dy) * size + (x * 2 + dx)) * 4 + channel) as usize] as u32
+            };
+            let corners = [(0, 0), (1, 0), (0, 1), (1, 1)];
+            let alpha_sum: u32 = corners.iter().map(|&(dx, dy)| sample(dx, dy, 3)).sum();
+            for channel in 0..3 {
+                let value = if alpha_sum == 0 {
+                    0
+                } else {
+                    let weighted: u32 = corners.iter().map(|&(dx, dy)| sample(dx, dy, channel) * sample(dx, dy, 3)).sum();
+                    (weighted + alpha_sum / 2) / alpha_sum
                 };
-                let sum = sample(0, 0) + sample(1, 0) + sample(0, 1) + sample(1, 1);
-                out.push(((sum + 2) / 4) as u8);
+                out.push(value as u8);
             }
+            let alpha_max = corners.iter().map(|&(dx, dy)| sample(dx, dy, 3)).max().unwrap_or(0);
+            out.push(alpha_max as u8);
         }
     }
     out
@@ -208,6 +222,14 @@ mod tests {
         // A 2 × 2 image of black and white pixels shrinks to one mid-grey pixel.
         let pixels = [0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 255];
         assert_eq!(shrink(&pixels, 2), vec![128, 128, 128, 255]);
+    }
+
+    #[test]
+    fn clear_pixels_dont_darken_coloured_ones() {
+        // One solid red pixel and three fully clear (black) ones: the shrunk pixel stays pure,
+        // solid red (so thin lines don't vanish in the distance).
+        let pixels = [255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        assert_eq!(shrink(&pixels, 2), vec![255, 0, 0, 255]);
     }
 
     #[test]
