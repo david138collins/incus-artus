@@ -49,6 +49,10 @@ like the event bus already does). Outside it, the world sim owns everything.
 - **Where they meet is where the stories are.** The goblin inn scene works because the world sim
   decided goblins raid that village tonight, and the player happened to be sleeping there, so the raid
   happens for real in the local sim instead of being a calculated result.
+- **Collapsing in the middle of something.** When the player falls with followers alive, the local sim
+  closes on a fight that's still going, and the world sim must finish it with summary math: did the
+  followers win or get away, and where did they carry the player? So the world sim needs to be able to
+  take over an *unfinished* encounter, not only quiet villages.
 - Moving a few regions in and out must never cause a stutter: expanding is spread over several frames.
 
 ## 4. People become real when noticed  [PROPOSED]
