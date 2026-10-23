@@ -231,10 +231,11 @@ Reference: `Art/quartile minecraft illustration.png`
   grip-reducing landing envelope; it didn't achieve much. Probably needs real momentum and mass; revisit with the
   kinematics system.
 - **[DECIDED, built 2026-10-22, to tune]** **Momentum**: a charge built while running or sprinting (momentum
-  envelope attack) and discharged after you stop pushing (release; frozen in the air, so it carries through a jump
-  and discharges after landing). While charged, slowing down only gets `momentum_grip` of the normal grip, scaled by
-  how fast you're going (a jog carries little, a dead sprint a lot). Pushing against it (backpedalling) brakes
-  `backpedal_brake` × harder. The "woah woah woah" stop; meant to make charging out of a sprint a skill.
+  envelope: attack = time to charge, sustain = how much charge). Stopping spends it by sliding: a charged body brakes
+  evenly, so a full charge stops a full sprint in **`slide_distance` blocks** (tested: 10 set → 9.9 slid). Slower
+  speeds slide less (speed squared), slippery blocks further. The charge is held during the slide and fades (release)
+  if you just slow to a walk; it's frozen in the air, so it carries through a jump. No special backpedal braking
+  (David: normal controls are enough). The "woah woah woah" stop; meant to make charging out of a sprint a skill.
 - **[DECIDED]** Player movement physics and world-gen "geology" stay separate systems (different scales and jobs);
   a shared kinematics layer will grow for bodies that move: players, NPCs, animals, carts, falling trees.
 - **[DECIDED]** A `Landed` message (where, and how fast you hit the ground) fires on every touchdown: a hook for

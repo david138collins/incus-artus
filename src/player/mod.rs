@@ -129,13 +129,12 @@ pub struct PlayerSettings {
     /// How quickly your real speed catches up with what your legs want, on ground of
     /// friction 1. Multiplied by the friction of the block you stand on. Lower = more sliding.
     pub ground_grip: f32,
-    /// Momentum: charged while running or sprinting (attack), discharged once you stop
-    /// (release). While charged, your feet can't shed speed as quickly.
+    /// Momentum charge: builds while running or sprinting (attack, decay, sustain = how much
+    /// charge). It's spent by sliding when you stop; if you just slow to a walk it fades (release).
     pub momentum_envelope: Envelope,
-    /// Grip left for slowing down when fully charged at full sprint (0.2 = a fifth of normal).
-    pub momentum_grip: f32,
-    /// Pushing against your momentum (backpedalling) brakes this many times harder.
-    pub backpedal_brake: f32,
+    /// How far a full charge carries you when you stop dead from a full sprint, in blocks
+    /// (on ground of friction 1). Slower speeds and smaller charges carry you less.
+    pub slide_distance: f32,
     /// Body height while crouched (Ctrl).
     pub crouch_height: f32,
     pub crouch_eye_height: f32,
@@ -223,8 +222,7 @@ impl Default for PlayerSettings {
                 release: 0.6,
                 release_curve: -0.5,
             },
-            momentum_grip: 0.15,
-            backpedal_brake: 3.0,
+            slide_distance: 3.0,
             crouch_height: 1.2,
             crouch_eye_height: 1.05,
             crouch_speed: 0.3,
@@ -726,9 +724,14 @@ fn move_pawn(
             pawn.walk.update(&settings.walk_envelope, moving, dt);
             pawn.run.update(&settings.run_envelope, input.run && moving, dt);
             pawn.sprint.update(&settings.sprint_envelope, sprinting, dt);
-            // Momentum charges while you're pushing on at a run, and starts to discharge when
-            // you stop pushing (or land with no keys held: in the air it stays as it was).
-            pawn.momentum.update(&settings.momentum_envelope, input.run && moving, dt);
+            // Momentum charges while you're pushing on at a run. While you're sliding to a stop
+            // the charge is held (the slide is what spends it); otherwise it fades. In the air
+            // it stays as it was, so it carries through a jump.
+            let speed = Vec2::new(pawn.velocity.x, pawn.velocity.y).length();
+            let sliding = !moving && speed > 0.05;
+            if !sliding {
+                pawn.momentum.update(&settings.momentum_envelope, input.run && moving, dt);
+            }
             if pawn.walk.just_triggered() {
                 footsteps.write(Footstep {
                     player,
@@ -752,27 +755,27 @@ fn move_pawn(
         let horizontal = Vec3::new(pawn.velocity.x, pawn.velocity.y, 0.0);
         let rate = if pawn.on_ground {
             pawn.ground_friction = ground_friction(position.current, body, &world, &registry);
-            let grip = settings.ground_grip * pawn.ground_friction;
-            // Momentum: when the legs want less speed than you have, the charge holds you to
-            // your course. How much depends on the charge and on how fast you're going (a jog
-            // carries little, a dead sprint a lot). Pushing against it brakes harder.
-            let speed = horizontal.length();
-            let slowing = target.length() < speed - 0.01 || target.dot(horizontal) < 0.0;
-            if slowing && speed > settings.walk_speed {
-                let fast = ((speed - settings.walk_speed) / (settings.sprint_speed - settings.walk_speed).max(0.01)).clamp(0.0, 1.0);
-                let hold = pawn.momentum.level * fast;
-                let mut rate = grip * (1.0 - hold * (1.0 - settings.momentum_grip));
-                if input.direction.dot(horizontal) < 0.0 {
-                    rate *= settings.backpedal_brake;
-                }
-                rate
-            } else {
-                grip
-            }
+            settings.ground_grip * pawn.ground_friction
         } else {
             settings.air_control
         };
-        let horizontal = horizontal.lerp(target, 1.0 - (-rate * dt).exp());
+        let mut new_horizontal = horizontal.lerp(target, 1.0 - (-rate * dt).exp());
+
+        // Momentum: when the legs want less speed than you have, a charged body brakes evenly,
+        // hard enough that a full charge stops a full sprint in exactly `slide_distance` blocks.
+        // Slower speeds slide less (distance grows with speed squared, like a real body), and
+        // slippery ground slides further. It only ever makes stopping gentler, never harsher.
+        let speed = horizontal.length();
+        let slowing = target.length() < speed - 0.01 || target.dot(horizontal) < 0.0;
+        let charge = pawn.momentum.level;
+        if pawn.on_ground && slowing && charge > 0.001 && settings.slide_distance > 0.0 {
+            let distance = settings.slide_distance * charge;
+            let braking = settings.sprint_speed.powi(2) / (2.0 * distance) * pawn.ground_friction;
+            let change = target - horizontal;
+            let gentle_step = (braking * dt).min((new_horizontal - horizontal).length());
+            new_horizontal = horizontal + change.clamp_length_max(gentle_step);
+        }
+        let horizontal = new_horizontal;
         pawn.velocity.x = horizontal.x;
         pawn.velocity.y = horizontal.y;
 
@@ -1137,11 +1140,10 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         envelope_editor(ui, "sprint", &mut settings.sprint_envelope, live_sprint.as_ref());
         ui.checkbox(&mut settings.envelopes_in_air, "envelopes keep moving in the air");
 
-        ui.strong("Momentum (charged by running, discharged when you stop)");
-        ui.small("Attack = how long running takes to fully charge. Release = how long the carry lasts after you stop.");
+        ui.strong("Momentum (charged by running, spent sliding when you stop)");
+        ui.small("Attack = how long running takes to charge; sustain = how much charge. The charge is held while you slide; release = how fast it fades if you just slow to a walk.");
         envelope_editor(ui, "momentum", &mut settings.momentum_envelope, live_momentum.as_ref());
-        ui.add(egui::Slider::new(&mut settings.momentum_grip, 0.0..=1.0).text("grip left at full charge (1 = no momentum)"));
-        ui.add(egui::Slider::new(&mut settings.backpedal_brake, 1.0..=10.0).text("backpedalling brakes × harder"));
+        ui.add(egui::Slider::new(&mut settings.slide_distance, 0.0..=20.0).text("slide from a full sprint at full charge (blocks)"));
 
         ui.strong("Sprint view widening");
         ui.add(egui::Slider::new(&mut settings.sprint_fov_boost, -30.0..=40.0).text("extra field of view at full sprint (°)"));
@@ -1221,6 +1223,64 @@ mod tests {
         let loaded: PlayerSettings = toml::from_str(&text).expect("loads");
         assert_eq!(loaded.sprint_envelope, settings.sprint_envelope);
         assert_eq!(loaded.walk_speed, 3.0);
+    }
+
+    /// Sprint north on the test world for a few seconds, let go of everything, and measure how
+    /// far the body carries on before it stops.
+    fn slide_after_sprinting(slide_distance: f32) -> f32 {
+        use bevy::ecs::system::RunSystemOnce;
+        use crate::world::{TestBlocks, TestWorldSettings, generate_test_world};
+
+        let mut world = World::new();
+        let registry = BlockRegistry::default();
+        let mut voxel = VoxelWorld::default();
+        let terrain = TestWorldSettings { radius: 120.0, ..default() };
+        generate_test_world(&mut voxel, &terrain, &TestBlocks::from_registry(&registry));
+        let settings = PlayerSettings { slide_distance, ..default() };
+        let start = Vec3::new(-100.0, 0.5, terrain.grass_z as f32 + 1.0);
+        world.insert_resource(registry);
+        world.insert_resource(voxel);
+        world.insert_resource(settings);
+        world.insert_resource(ControlMode::Walk);
+        world.insert_resource(TimeControl::default());
+        world.insert_resource(Time::<()>::default());
+        world.init_resource::<Messages<Footstep>>();
+        world.init_resource::<Messages<Landed>>();
+        let pawn = world
+            .spawn((
+                Pawn { on_ground: true, ..default() },
+                SimPosition::new(start),
+                PawnInput { direction: Vec3::X, run: true, sprint: true, ..default() },
+                PlayerId(0),
+            ))
+            .id();
+
+        let tick = std::time::Duration::from_secs_f64(1.0 / 30.0);
+        let step = |world: &mut World| {
+            world.resource_mut::<Time>().advance_by(tick);
+            world.run_system_once(move_pawn).expect("runs");
+        };
+        for _ in 0..(30 * 4) {
+            step(&mut world);
+        }
+        let speed = world.get::<Pawn>(pawn).unwrap().velocity.length();
+        assert!(speed > 7.0, "should be sprinting, going {speed}");
+        let released_at = world.get::<SimPosition>(pawn).unwrap().current;
+        *world.get_mut::<PawnInput>(pawn).unwrap() = PawnInput::default();
+        for _ in 0..(30 * 10) {
+            step(&mut world);
+        }
+        let stopped_at = world.get::<SimPosition>(pawn).unwrap().current;
+        assert!(world.get::<Pawn>(pawn).unwrap().velocity.length() < 0.01, "should have stopped");
+        stopped_at.x - released_at.x
+    }
+
+    #[test]
+    fn a_full_sprint_slides_about_the_set_distance() {
+        let none = slide_after_sprinting(0.0);
+        let ten = slide_after_sprinting(10.0);
+        assert!(none < 2.0, "no momentum slid {none}");
+        assert!((9.5..11.0).contains(&ten), "momentum 10 slid {ten}");
     }
 
     #[test]
