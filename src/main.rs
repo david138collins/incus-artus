@@ -16,6 +16,7 @@
 //! - `render`  — meshing, textures, the block shader, culling
 //! - `fate`    — the Goddess of Fate: one probability engine for every random roll
 //! - `sim`     — the world simulation: local / rich / thin levels, places, journeys, hooks
+//! - `people`  — named people: urges that charge up, pressures that lower the line, meetings
 //! - `camera`  — the free-fly developer camera and "what am I looking at?" raycast
 //! - `player`  — the walking body, fly/walk switching, breaking and placing blocks
 //! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
@@ -27,6 +28,7 @@ mod debug;
 mod events;
 mod fate;
 mod kinematics;
+mod people;
 mod player;
 mod render;
 mod sandbox;
@@ -53,7 +55,8 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         // Our modules. Debug goes first so its "Overview" page is the first tab.
         // The order also decides the order parts of a world are saved and loaded in
-        // (clock, terrain, fate, sim, player): terrain must be back before the player stands on it.
+        // (clock, terrain, fate, sim, people, player): terrain must be back before the player
+        // stands on it, and the sim's places before the people who live in them.
         .add_plugins((
             debug::DebugPlugin,
             time::TimeControlPlugin,
@@ -64,6 +67,7 @@ fn main() {
             render::RenderPlugin,
             fate::FatePlugin,
             sim::SimPlugin,
+            people::PeoplePlugin,
             camera::CameraPlugin,
             player::PlayerPlugin,
             sandbox::SandboxPlugin,

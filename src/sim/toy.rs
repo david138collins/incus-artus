@@ -34,6 +34,20 @@ pub fn test_world_places() -> SimWorld {
         last_update: 0.0,
         next_update: 0.0,
     };
+    // The player's own test settlement: the test world itself. Its people are real records
+    // (see the people module), so its condition numbers stay at zero and it follows no toy rules.
+    let settlement = sim.add_site(site("Test Settlement", "settlement", 0.0, 0.0, 50.0, Condition::default()));
+    let hook = sim.new_hook_id();
+    if let Some(home) = sim.sites.iter_mut().find(|s| s.id == settlement) {
+        // Owned by the player, so it stays Rich while you're away.
+        home.hooks.push(super::records::Hook {
+            id: hook,
+            kind: super::records::HookKind::Owner,
+            holder: Some(crate::events::PlayerId(0)),
+            label: "your settlement".to_string(),
+            expires_at: None,
+        });
+    }
     let village = sim.add_site(site(
         "Test Village",
         "village",
@@ -234,7 +248,9 @@ mod tests {
             let c = &site.condition;
             assert!(c.population.is_finite() && c.population >= 0.0, "{}: {c:?}", site.name);
             assert!(c.fighters >= 0.0 && c.wealth.is_finite(), "{}: {c:?}", site.name);
-            assert_eq!(site.level, SimLevel::Thin);
+            // Only the player's own settlement (owner hook) is rich.
+            let expected = if site.kind == "settlement" { SimLevel::Rich } else { SimLevel::Thin };
+            assert_eq!(site.level, expected, "{}", site.name);
         }
         // The caravan made trips.
         assert!(!out.arrivals.is_empty());
@@ -246,15 +262,16 @@ mod tests {
         let mut fate = Fate::new(2);
         let settings = SimSettings::default();
         let mut out = Outbox::default();
-        let village = sim.sites[0].at.vec();
+        let v = sim.sites.iter().position(|s| s.name == "Test Village").unwrap();
+        let village = sim.sites[v].at.vec();
         advance_world(&mut sim, &mut fate, &settings, 1.0, &[village], None, &mut out);
-        assert_eq!(sim.sites[0].level, SimLevel::Local);
+        assert_eq!(sim.sites[v].level, SimLevel::Local);
         // Just past the entry distance, but inside the "leave" distance: still local.
-        let edge = village + Vec2::new(sim.sites[0].radius + settings.local_margin + 5.0, 0.0);
+        let edge = village + Vec2::new(sim.sites[v].radius + settings.local_margin + 5.0, 0.0);
         advance_world(&mut sim, &mut fate, &settings, 2.0, &[edge], None, &mut out);
-        assert_eq!(sim.sites[0].level, SimLevel::Local);
+        assert_eq!(sim.sites[v].level, SimLevel::Local);
         advance_world(&mut sim, &mut fate, &settings, 3.0, &[village + Vec2::new(500.0, 0.0)], None, &mut out);
-        assert_eq!(sim.sites[0].level, SimLevel::Thin);
+        assert_eq!(sim.sites[v].level, SimLevel::Thin);
     }
 
     #[test]
@@ -264,7 +281,8 @@ mod tests {
         let settings = SimSettings::default();
         let mut out = Outbox::default();
         let far = [Vec2::new(30_000.0, 0.0)];
-        let town = sim.sites[2].id;
+        let t = sim.sites.iter().position(|s| s.name == "Test Market Town").unwrap();
+        let town = sim.sites[t].id;
         crate::sim::apply_hook_request(
             &mut sim,
             crate::sim::SiteHookRequest::Add {
@@ -276,10 +294,10 @@ mod tests {
             0.0,
         );
         advance_world(&mut sim, &mut fate, &settings, 50.0, &far, None, &mut out);
-        assert_eq!(sim.sites[2].level, SimLevel::Rich);
+        assert_eq!(sim.sites[t].level, SimLevel::Rich);
         advance_world(&mut sim, &mut fate, &settings, 150.0, &far, None, &mut out);
-        assert_eq!(sim.sites[2].level, SimLevel::Thin);
-        assert!(sim.sites[2].hooks.is_empty());
+        assert_eq!(sim.sites[t].level, SimLevel::Thin);
+        assert!(sim.sites[t].hooks.is_empty());
     }
 
     #[test]
@@ -287,7 +305,7 @@ mod tests {
         let sim = test_world_places();
         let text = toml::to_string_pretty(&sim).unwrap();
         let back: SimWorld = toml::from_str(&text).unwrap();
-        assert_eq!(back.sites.len(), 3);
+        assert_eq!(back.sites.len(), 4);
         assert_eq!(back.journeys[0].route, sim.journeys[0].route);
     }
 }

@@ -48,7 +48,12 @@ Brom went to the tavern.
   of the chat. Rolled through Fate (`social.chat`).
 - **The two levels drifting apart is good.** When you hang around a town, the full simulation won't come out
   exactly like the bookkeeping did, so things shift a bit as you settle in. That gives openings for
-  dissatisfactions, events and job changes.
+  dissatisfactions, events and job changes. The human eye can't see the lines between the tiles in all the
+  little details of the hustle and bustle: like Minecraft, the world is seen by squinting, through imagination.
+- **Exceptions:** some things must agree exactly between the levels, such as story advancement elements.
+  Those are marked as such and handled exactly.
+- **Self-balancing:** even a dwarf going nuts with several urges full will eventually sleep, as the pressure
+  grows.
 
 ## 3. Jobs and who makes them  [DECIDED]
 

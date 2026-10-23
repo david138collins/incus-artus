@@ -208,6 +208,18 @@ impl Fate {
         D20 { needed, rolled, success }
     }
 
+    /// A little background noise from 0 to 1, for the slight randomness on everything (impulses
+    /// wobbling, picking a spot to wander to). Nobody wants it either way, so it isn't bent or
+    /// logged, but it comes from the same saved dice.
+    pub fn noise(&mut self) -> f64 {
+        self.dice.next_f64()
+    }
+
+    /// Pick one of `count` things at random (0 to count − 1). Not bent or logged.
+    pub fn pick(&mut self, count: usize) -> usize {
+        if count == 0 { 0 } else { self.dice.range(0, count as u32 - 1) as usize }
+    }
+
     pub fn add_twist(&mut self, mut twist: Twist) -> u32 {
         twist.id = self.next_twist_id;
         self.next_twist_id += 1;

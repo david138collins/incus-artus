@@ -277,6 +277,11 @@ impl Outbox {
 
 // ── Plugin ──────────────────────────────────────────────────────────────────
 
+/// The system set (on ticks) where the world simulation decides levels and runs its rules.
+/// Things that depend on this tick's levels run `.after(WorldSimSet)`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WorldSimSet;
+
 pub struct SimPlugin;
 
 impl Plugin for SimPlugin {
@@ -294,7 +299,7 @@ impl Plugin for SimPlugin {
             .log_event::<RaidResolved>()
             .log_event::<RaidReachedLocal>()
             .log_event::<JourneyArrived>()
-            .add_systems(FixedUpdate, run_world_sim.after(WorldEdits))
+            .add_systems(FixedUpdate, run_world_sim.in_set(WorldSimSet).after(WorldEdits))
             .add_plugins(stand_ins::StandInPlugin)
             .init_resource::<debug::SimPageState>()
             .add_systems(EguiPrimaryContextPass, debug::draw_local_notice)
