@@ -38,6 +38,21 @@ needed for:
 Each pressure says what it presses on, how hard, why, and when it ends, so the debug page can show exactly why
 Brom went to the tavern.
 
+### Ideas from the first sketch  [DECIDED, to build]
+
+- **Opportunities are very localised pressures.** Pressures in general can be extremely broad (a whole
+  biome, a season, a mood); an opportunity is one right here, right now.
+- **Show urges as vertical bars, like volume meters,** with a **channel strip** under each (its fill speed
+  and normal threshold), like a mixing desk.
+- **Different interactions satisfy different amounts.** Meeting someone he doesn't like may only take the
+  socialise meter halfway down: other urges take over, but he wants to socialise again sooner. This works
+  naturally for many habits.
+- **Astrology** can be a factor to apply when there doesn't need to be any particular reason for something
+  (why two people just don't get on).
+- **Waves of weirdness become a field** defined by which kinds of chance events it acts on. Biomes with a
+  high weirdness factor are more likely to produce a vanilla pack of chance encounters (Ma'aiq the Liar,
+  the orc who desires an honourable death).
+
 ## 2. Opportunities and meetings  [DECIDED]
 
 - **Opportunities present themselves immediately to NPCs through chance.** Example: two villagers walk to
