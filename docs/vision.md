@@ -287,6 +287,23 @@ See `docs/simulation.md` for the working design.
 - **Dev world-gen suite:** play with noise, border detection, noise mapping, tectonic continent forming
   and so on, all as *data* on the map, before any terrain is generated.
 
+### Three maps, three purposes  [IDEA, 2026-10-23]
+
+- **The designer's suite** shows plain data, like it does now.
+- **The create-world map** isn't the real map exactly. It's a picture generated from the real map's data.
+  - **A circular viewport that rolls like a globe** as the player pans and zooms. It isn't really a globe, but
+    it should feel globe-like as it scrolls through the circle, out to the whole circle of water.
+  - **Ice at the poles** (to be added to generation).
+  - Delicious pixel art with sophisticated little modern effects, interpolated through the 8-bit dark mode.
+    From opening the game to starting one, the art is nostalgic for the beautifully crafted, atmospheric
+    fantasy games of the 90s and early 2000s.
+  - **Map stamps** (`Art/Game Textures/map stamps/`): 17×17 pictures (mountains, oak trees...). The centre
+    pixel is the point where the stamp goes onto the map. In David's example they overlap back to front over a
+    speckled ground, with rivers drawn in.
+  - Making the map beautiful is one of the last things to do.
+- **The in-game map** is literal, with useful overlays. It shows the regions you've explored or heard of, what
+  they're called and where they are, even before they have terrain data. (Later.)
+
 ## Build order after the foundation  [DECIDED with Grok, 2026-10-22]
 
 1. A tentative **Fate service** for all future probabilistic events.
@@ -311,6 +328,41 @@ See `docs/simulation.md` for the working design.
 
 - Not a goal. Later maybe LAN / host-a-friend scale; a Discord feedback pipe and dev drop-ins first.
 - Moddable: text IDs, content packs as folders, readable TOML.
+
+## Notes for later: the gods, volcanoes, darkness and crime  [IDEA, 2026-10-23]
+
+David's notes, kept for general consideration later.
+
+**The story.** The God of Fire lives at the centre of the planet. To him were born children of the Goddess of
+Fate and of the Goddess of Life and Death. The latter's husband had long slumbered in Planet X. When his
+elliptical orbit brought him round the star again, he was woken by a commotion of men striving for
+understanding. Looking closely, he saw what resemblance was borne in these creatures of the world. Knowing
+the infidelity, and with grim rancour at his disturbed rest, he swore an oath of revenge on this world. And
+so it was that darkness came to the lands of men and mer.
+
+**What follows for the world:**
+- **Volcanism:** volcano biomes you must brave to complete the quest for the God of Fire. Possibly dinosaurs
+  there. Definitely a structure in a lava lake that goes down and down.
+- **Weirdness and darkness are environmental layers,** like rainfall and temperature.
+  - **Weirdness** is "the gods have been here" clues. A volcano can spawn somewhere odd in a weird area, which
+    will be fun.
+  - **Darkness** means the darkness service is working there, above a certain threshold.
+
+**What follows for people.** Both layers are baked into the life-simulation architecture NPCs use to make
+decisions:
+- **Urges** are meters that fill over time and become a desire for an action (a drink at the bar).
+- **Pressure classes** push the thresholds down, so events and conditions drive changes in behaviour.
+- **Criminality** is a natural meter. For most people it fills very slowly and is depleted by other factors
+  besides satisfying it, so few ever get the desire to commit crime and get exposed to the Jobs that exist
+  for doing crimes.
+- **Deep in lands of darkness,** allies you thought were loyal might rob you and flee, from the evilness
+  pressure and perhaps an Opportunity (a localised pressure that turns up through a chance encounter).
+
+**The aim:** a system simple enough to run as a background spreadsheet that David can manipulate to create
+vanilla procedural story structures, yet complex enough that the interactions become emergent and too
+complicated to fully predict. Minecraft missions always led down a rabbit hole that could spin out of
+control; now the code can handle an unknowable number of cases, in convolution, in believable and authored
+ways.
 
 ---
 

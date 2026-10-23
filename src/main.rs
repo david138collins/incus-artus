@@ -20,7 +20,7 @@
 //! - `camera`  — the free-fly developer camera and "what am I looking at?" raycast
 //! - `player`  — the walking body, fly/walk switching, breaking and placing blocks
 //! - `screen`  — which screen is showing: the world, or the World Gen suite (F2)
-//! - `worldgen` — the World Gen suite: the workbench the world generator is built in
+//! - `worldgen` — the World Gen suite: the workbench the world generator is built in, one tool at a time
 //! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
 
 mod camera;

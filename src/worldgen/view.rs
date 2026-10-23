@@ -1,65 +1,45 @@
-//! The suite's screen. Placeholder looks: plain panels and a pixel map, high contrast.
+//! The suite's screen. Placeholder looks: plain panels and a greyscale field.
 //!
 //! ```text
-//! ┌──────────────── top: seed, map size, run controls ────────────────┐
-//! │ steps       │                                       │ layers      │
-//! │ (settings   │              the map                  │ inspector   │
-//! │  of the     │   drag = pan, scroll = zoom           │ (every value│
-//! │  open step) │                                       │  under the  │
-//! │ colours     │                                       │  mouse)     │
-//! │ presets     │                                       │             │
-//! ├──────────────── bottom: the generation log ───────────────────────┤
+//! ┌──────────── top: seed, field size, resolution ────────────┐
+//! │ Perlin field   │                          │ under the     │
+//! │ settings       │        the field         │ mouse         │
+//! │                │  drag = pan, scroll =    │               │
+//! │ noise presets  │  zoom                    │ the numbers,  │
+//! │                │                          │ histogram     │
+//! └────────────────┴──────────────────────────┴───────────────┘
 //! ```
 
-use super::colours::{KindColour, Look, Ramp, paint};
-use super::map::{LayerData, Map};
 use super::Suite;
+use super::noise::{Fade, PerlinSettings};
 use crate::debug::preset_bar;
 use bevy_egui::egui::{self, Color32, Pos2, Rect, Vec2};
-use std::collections::BTreeMap;
-use std::time::Instant;
 
 const PINK: Color32 = Color32::from_rgb(255, 140, 220);
 const MAGENTA: Color32 = Color32::from_rgb(255, 0, 255);
 
 pub struct ViewState {
-    /// The layer on show; `None` = the newest one.
-    layer: Option<String>,
-    ramps: BTreeMap<String, Ramp>,
-    borders: bool,
-    labels: bool,
-    /// Whose map is on show; `None` = the latest step that has one.
-    looking_at: Option<usize>,
-    /// Map position (in cells) at the middle of the screen, and pixels per cell.
+    /// Field position (in pixels) at the middle of the screen, and screen points per pixel.
     centre: Vec2,
     zoom: f32,
     fitted_for: (usize, usize),
     texture: Option<egui::TextureHandle>,
-    texture_key: String,
-    range: Option<(f32, f32)>,
+    texture_version: u64,
     picture_version: u64,
     hover: Option<(usize, usize)>,
-    highlight: Option<(Vec2, Instant)>,
     seed_text: String,
 }
 
 impl Default for ViewState {
     fn default() -> Self {
         Self {
-            layer: None,
-            ramps: BTreeMap::new(),
-            borders: true,
-            labels: true,
-            looking_at: None,
             centre: Vec2::ZERO,
             zoom: 1.0,
             fitted_for: (0, 0),
             texture: None,
-            texture_key: String::new(),
-            range: None,
+            texture_version: u64::MAX,
             picture_version: 0,
             hover: None,
-            highlight: None,
             seed_text: String::new(),
         }
     }
@@ -71,16 +51,6 @@ impl ViewState {
     }
 }
 
-/// Which step's map is on show.
-fn shown_step(suite: &Suite) -> Option<usize> {
-    if let Some(index) = suite.view.looking_at
-        && suite.results.get(index).is_some_and(|r| r.is_some())
-    {
-        return Some(index);
-    }
-    suite.results.iter().rposition(|result| result.is_some())
-}
-
 /// Draws the whole screen. Returns true when "Back to the world" was pressed.
 pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
     let mut root = egui::Ui::new(
@@ -90,12 +60,11 @@ pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
     );
     let mut close = false;
     egui::Panel::top("worldgen top").show(&mut root, |ui| close = top_bar(ui, suite));
-    egui::Panel::bottom("worldgen log").resizable(true).default_size(150.0).show(&mut root, |ui| log(ui, suite));
-    egui::Panel::left("worldgen steps").resizable(true).default_size(340.0).show(&mut root, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| steps_panel(ui, suite));
+    egui::Panel::left("worldgen settings").resizable(true).default_size(360.0).show(&mut root, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| settings_panel(ui, suite));
     });
-    egui::Panel::right("worldgen layers").resizable(true).default_size(250.0).show(&mut root, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| layers_panel(ui, suite));
+    egui::Panel::right("worldgen numbers").resizable(true).default_size(260.0).show(&mut root, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| numbers_panel(ui, suite));
     });
     egui::CentralPanel::no_frame().show(&mut root, |ui| canvas(ui, suite));
     close
@@ -113,218 +82,196 @@ fn top_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
         ui.separator();
 
         ui.label("Seed:");
+        let seed_id = egui::Id::new("worldgen seed");
         let view = &mut suite.view;
-        if view.seed_text.is_empty() || ui.ctx().memory(|m| !m.has_focus(egui::Id::new("worldgen seed"))) {
-            view.seed_text = format!("{:016X}", suite.stack.seed);
+        if ui.ctx().memory(|m| !m.has_focus(seed_id)) {
+            view.seed_text = format!("{:016X}", suite.seed);
         }
-        let edit = ui.add(egui::TextEdit::singleline(&mut view.seed_text).id(egui::Id::new("worldgen seed")).desired_width(140.0));
+        let edit = ui.add(egui::TextEdit::singleline(&mut view.seed_text).id(seed_id).desired_width(140.0));
         if edit.changed()
             && let Ok(seed) = u64::from_str_radix(view.seed_text.trim().trim_start_matches("0x"), 16)
         {
-            suite.stack.seed = seed;
+            suite.seed = seed;
         }
         if ui.button("New seed").clicked() {
             let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
-            suite.stack.seed = crate::fate::derive_seed(now as u64, "world gen seed");
+            suite.seed = crate::fate::derive_seed(now as u64, "world gen seed");
         }
         ui.separator();
 
-        ui.label("World:");
-        ui.add(egui::DragValue::new(&mut suite.stack.world_diameter).range(4_000.0..=200_000.0).speed(500.0).suffix(" blocks across"));
+        ui.label("Field:");
+        ui.add(
+            egui::DragValue::new(&mut suite.size_blocks)
+                .range(1_000.0..=200_000.0)
+                .speed(500.0)
+                .suffix(" blocks across"),
+        );
         ui.label("1 pixel =");
         for blocks in [256.0, 128.0, 64.0, 32.0] {
-            if ui.selectable_label(suite.stack.blocks_per_cell == blocks, format!("{blocks}")).clicked() {
-                suite.stack.blocks_per_cell = blocks;
+            if ui.selectable_label(suite.blocks_per_pixel == blocks, format!("{blocks}")).clicked() {
+                suite.blocks_per_pixel = blocks;
             }
         }
         ui.label("blocks");
-    });
-
-    ui.horizontal_wrapped(|ui| {
-        ui.checkbox(&mut suite.auto_run, "Run by itself").on_hover_text(
-            "On: any change re-runs the stack from that step down.\nOff: one step at a time, with Next step.",
-        );
-        if ui.button("Next step").clicked() {
-            suite.next_step();
-        }
-        if ui.button("Run all").clicked() {
-            let from = suite.first_unfinished().unwrap_or(suite.steps.len());
-            if from < suite.steps.len() {
-                suite.request_run(from, None);
-            }
-        }
-        if ui.button("Start over").on_hover_text("Clear every result and run again").clicked() {
-            for result in &mut suite.results {
-                *result = None;
-            }
-            suite.view.picture_changed();
-            if suite.auto_run {
-                suite.request_run(0, None);
-            }
-        }
-        if ui.add_enabled(suite.is_running(), egui::Button::new("Stop")).clicked() {
-            suite.stop();
-        }
         ui.separator();
-        let status = match (suite.running_step(), suite.first_unfinished()) {
-            (Some(step), _) => format!("Running {}…", suite.steps.get(step).map_or("", |s| s.name())),
-            (None, None) => "Up to date.".to_string(),
-            (None, Some(step)) => format!("Waiting at {} (Next step or Run all).", suite.steps[step].name()),
+        match (&suite.result, suite.is_making()) {
+            (_, true) => ui.label("Making…"),
+            (Some(result), false) => ui.label(format!("Made in {:.0} ms", result.millis)),
+            (None, false) => ui.label(""),
         };
-        ui.label(status);
-        let total: f64 = suite.results.iter().flatten().map(|r| r.millis).sum();
-        ui.label(format!("Total {total:.0} ms"));
     });
     close
 }
 
-// ── Steps, colours, presets ────────────────────────────────────────────────
+// ── The Perlin field's settings ────────────────────────────────────────────
 
-fn steps_panel(ui: &mut egui::Ui, suite: &mut Suite) {
-    ui.heading("Steps");
-    let running = suite.running_step();
-    let shown = shown_step(suite);
-    for index in 0..suite.steps.len() {
-        ui.horizontal(|ui| {
-            let name = suite.steps[index].name();
-            let state = match (&suite.results[index], running == Some(index)) {
-                (_, true) => "running…".to_string(),
-                (Some(result), _) if result.stale => format!("{:.0} ms (old)", result.millis),
-                (Some(result), _) => format!("{:.0} ms", result.millis),
-                (None, _) => "not run".to_string(),
-            };
-            if ui.selectable_label(suite.selected == index, format!("{}. {name}", index + 1)).clicked() {
-                suite.selected = index;
-            }
-            ui.small(state);
-            let showing = shown == Some(index) && suite.view.looking_at.is_some();
-            if ui
-                .add_enabled(suite.results[index].is_some(), egui::Button::selectable(showing, "map").small())
-                .on_hover_text("Show the map as it was after this step")
-                .clicked()
-            {
-                suite.view.looking_at = if showing { None } else { Some(index) };
-            }
-        });
-    }
-    if suite.view.looking_at.is_some() && ui.small_button("Show the latest map again").clicked() {
-        suite.view.looking_at = None;
-    }
+fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
+    ui.heading("Perlin field");
+    ui.small("Soft hills and hollows from a grid of random arrows, stacked in finer and fainter layers (octaves).");
 
-    ui.separator();
-    let index = suite.selected.min(suite.steps.len() - 1);
-    let step = &mut suite.steps[index];
-    ui.strong(step.name());
-    ui.small(step.about());
-    step.tune(ui);
+    let noise = &mut suite.noise;
+    section(ui, "Pattern", "What the noise is made of.");
+    ui.add(egui::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("size (blocks)"))
+        .on_hover_text("The size of the biggest features: one grid square of the first octave.");
+    ui.add(egui::Slider::new(&mut noise.octaves, 1..=16).text("octaves"))
+        .on_hover_text("How many layers are stacked. Each one adds finer detail.");
+    ui.add(egui::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
+        .on_hover_text("How strong each octave is compared with the one before.\n0.5 = half as strong. Higher = rougher.");
+    ui.add(egui::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
+        .on_hover_text("How much finer each octave is than the one before.\n2 = twice as fine.");
+
+    section(ui, "Placement", "Where the pattern sits and which way it leans.");
     ui.horizontal(|ui| {
-        if ui.button("Defaults").clicked() {
-            suite.steps[index].reset();
+        ui.label("slide");
+        ui.add(egui::DragValue::new(&mut noise.offset_north).speed(50.0).suffix(" N"));
+        ui.add(egui::DragValue::new(&mut noise.offset_east).speed(50.0).suffix(" E"));
+    })
+    .response
+    .on_hover_text("Moves the whole field, in blocks. Drag the numbers.");
+    ui.add(egui::Slider::new(&mut noise.stretch, 0.1..=10.0).logarithmic(true).text("stretch"))
+        .on_hover_text("1 = round features. 3 = three times as long as they are wide.");
+    ui.add(egui::Slider::new(&mut noise.stretch_angle, 0.0..=180.0).suffix("°").text("stretch direction"))
+        .on_hover_text("0° = stretched east–west, 90° = north–south.");
+    ui.add(egui::Slider::new(&mut noise.octave_turn, 0.0..=90.0).suffix("°").text("turn each octave"))
+        .on_hover_text("Turns each octave against the one before, so the grids don't line up\n(hides faint straight lines in the pattern).");
+
+    section(ui, "Maths", "How each octave is worked out.");
+    ui.horizontal(|ui| {
+        ui.label("fade:");
+        for fade in Fade::ALL {
+            ui.selectable_value(&mut noise.fade, fade, fade.name());
         }
-        if ui.button("Run from here").clicked() {
-            suite.request_run(index, if suite.auto_run { None } else { Some(index) });
+    })
+    .response
+    .on_hover_text("The curve that blends between grid posts.\nStraight shows the grid; smooth hides it.");
+    ui.horizontal_wrapped(|ui| {
+        ui.label("solo octave:");
+        if ui.selectable_label(noise.solo_octave == 0, "all").clicked() {
+            noise.solo_octave = 0;
         }
-    });
+        for octave in 1..=noise.octaves {
+            if ui.selectable_label(noise.solo_octave == octave, octave.to_string()).clicked() {
+                noise.solo_octave = octave;
+            }
+        }
+    })
+    .response
+    .on_hover_text("See one octave on its own, like soloing a channel on a mixing desk.");
+    if noise.solo_octave > noise.octaves {
+        noise.solo_octave = 0;
+    }
+
+    section(ui, "Output", "Shaping the values, without changing the pattern underneath.");
+    ui.checkbox(&mut noise.fill_range, "fill black to white")
+        .on_hover_text("Stretch the lowest value to black and the highest to white.\nOff: the raw values, −1 = black, 1 = white.");
+    ui.add(egui::Slider::new(&mut noise.contrast, 0.0..=5.0).text("contrast"));
+    ui.add(egui::Slider::new(&mut noise.brightness, -1.0..=1.0).text("brightness"));
+    ui.add(egui::Slider::new(&mut noise.curve, 0.1..=5.0).logarithmic(true).text("curve"))
+        .on_hover_text("Above 1: most of the field gets darker, peaks stay bright.\nBelow 1: most of it gets lighter.");
+    ui.checkbox(&mut noise.invert, "invert");
 
     ui.separator();
-    egui::CollapsingHeader::new("Colours").show(ui, |ui| colours(ui, &mut suite.stack.palette));
+    if ui.button("All settings back to defaults").clicked() {
+        *noise = PerlinSettings::default();
+    }
 
     ui.separator();
-    ui.label("The whole stack (seed, map size, colours, every step):");
-    let mut preset = suite.preset();
-    let before = toml::to_string(&preset).unwrap_or_default();
-    preset_bar(ui, "worldgen", &mut preset);
-    if toml::to_string(&preset).unwrap_or_default() != before {
-        suite.apply_preset(&preset);
-    }
+    ui.strong("Noise presets");
+    ui.small("Save a useful kind of noise by name. The seed isn't saved with it, so a preset works with any seed.");
+    preset_bar(ui, "noise", &mut suite.noise);
 }
 
-fn colours(ui: &mut egui::Ui, palette: &mut Vec<KindColour>) {
-    ui.small("One colour per kind of land, for every step. Magenta = no colour chosen yet.");
-    for colour in palette.iter_mut() {
-        ui.horizontal(|ui| {
-            ui.color_edit_button_srgb(&mut colour.rgb);
-            ui.label(&colour.kind);
-        });
-    }
-    if ui.small_button("Back to the starting colours").clicked() {
-        *palette = super::colours::default_palette();
-    }
+fn section(ui: &mut egui::Ui, title: &str, about: &str) {
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong(title);
+    ui.small(about);
 }
 
-// ── Layers and inspector ───────────────────────────────────────────────────
+// ── Under the mouse, and the numbers ───────────────────────────────────────
 
-fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
-    ui.heading("Layers");
-    let Some(index) = shown_step(suite) else {
-        ui.label("Nothing made yet.");
+fn numbers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
+    let Some(result) = &suite.result else {
+        ui.label("Making the first field…");
         return;
     };
-    let Some(result) = &suite.results[index] else { return };
-    let map = &result.map;
-    ui.small(format!("After step {}: {}", index + 1, suite.steps[index].name()));
-    let view = &mut suite.view;
-    if ui.selectable_label(view.layer.is_none(), "(the newest layer)").clicked() {
-        view.layer = None;
-    }
-    for layer in &map.layers {
-        let sort = match layer.data {
-            LayerData::Numbers(_) => "numbers",
-            LayerData::Kinds { .. } => "kinds",
-            LayerData::Regions { .. } => "regions",
-        };
-        let picked = view.layer.as_deref() == Some(layer.name.as_str());
-        if ui.selectable_label(picked, format!("{}   ({sort})", layer.name)).clicked() {
-            view.layer = Some(layer.name.clone());
-        }
-    }
+    let (raw, shaped, stats) = (&result.made.raw, &result.made.shaped, &result.made.stats);
 
-    let showing = shown_layer(map, view);
-    if let Some(layer) = showing.and_then(|name| map.layer(name))
-        && matches!(layer.data, LayerData::Numbers(_))
-    {
-        let ramp = view.ramps.entry(layer.name.clone()).or_default();
-        ui.horizontal(|ui| {
-            ui.label("Ramp:");
-            for choice in Ramp::ALL {
-                ui.selectable_value(ramp, choice, choice.name());
-            }
-        });
-        if let Some((low, high)) = view.range {
-            ui.small(format!("black = {low:.3}, brightest = {high:.3}"));
-        }
-    }
-    ui.checkbox(&mut view.borders, "Region borders");
-    ui.checkbox(&mut view.labels, "Names and marks");
-
-    ui.separator();
     ui.heading("Under the mouse");
-    match view.hover {
-        Some((col, row)) if col < map.width && row < map.height => {
-            let (north, east) = map.blocks_at(col, row);
-            ui.label(format!("Cell {col}, {row}"));
+    match suite.view.hover {
+        Some((col, row)) if col < shaped.width && row < shaped.height => {
+            let (north, east) = shaped.blocks_at(col, row);
+            let i = shaped.index(col, row);
+            ui.label(format!("Pixel {col}, {row}"));
             ui.label(format!("{}, {}", compass(north, "N", "S"), compass(east, "E", "W")));
-            if !map.in_world(col, row) {
-                ui.colored_label(PINK, "Off the edge of the world");
-            }
-            egui::Grid::new("inspector").striped(true).show(ui, |ui| {
-                for (name, value) in map.describe_cell(col, row) {
-                    ui.label(name);
-                    ui.label(value);
-                    ui.end_row();
-                }
-            });
+            ui.label(format!("raw noise   {:+.4}", raw.values[i]));
+            ui.label(format!("value       {:.4}", shaped.values[i]));
         }
         _ => {
-            ui.small("Point at the map.");
+            ui.small("Point at the field.");
         }
     }
+
+    ui.separator();
+    ui.heading("The field");
+    ui.label(format!("{} × {} pixels", shaped.width, shaped.height));
+    ui.label(format!("raw noise from {:+.3} to {:+.3}", stats.raw_low, stats.raw_high));
+    ui.label(format!("average value {:.3}", stats.mean));
+    let clipped = |share: f32| format!("{:.1}%", share * 100.0);
+    ui.label(format!("pure black {}   pure white {}", clipped(stats.clipped_black), clipped(stats.clipped_white)))
+        .on_hover_text("Pixels pushed all the way to black or white by the output shaping.\nDetail is lost there.");
+
+    ui.add_space(6.0);
+    ui.strong("Histogram");
+    ui.small("How many pixels have each value, black (left) to white (right).");
+    histogram(ui, &stats.histogram, stats.mean);
+}
+
+fn histogram(ui: &mut egui::Ui, counts: &[u32], mean: f32) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 90.0), egui::Sense::hover());
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(rect, 0.0, Color32::BLACK);
+    let highest = counts.iter().copied().max().unwrap_or(1).max(1) as f32;
+    let bar = rect.width() / counts.len() as f32;
+    for (i, &count) in counts.iter().enumerate() {
+        let height = count as f32 / highest * (rect.height() - 4.0);
+        let shade = (40.0 + 215.0 * i as f32 / (counts.len() - 1) as f32) as u8;
+        let x = rect.left() + i as f32 * bar;
+        painter.rect_filled(
+            Rect::from_min_max(Pos2::new(x, rect.bottom() - height), Pos2::new(x + bar - 0.5, rect.bottom())),
+            0.0,
+            Color32::from_gray(shade),
+        );
+    }
+    let x = rect.left() + mean * rect.width();
+    painter.line_segment([Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())], egui::Stroke::new(1.0, MAGENTA));
+    painter.rect_stroke(rect, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Inside);
+    ui.small("magenta line = average");
 }
 
 /// 1250.0, "N", "S" → "1,250 N"
 fn compass(blocks: f32, positive: &str, negative: &str) -> String {
-    let whole = blocks.abs().round() as u64;
-    let text = whole.to_string();
+    let text = (blocks.abs().round() as u64).to_string();
     let mut grouped = String::new();
     for (i, digit) in text.chars().enumerate() {
         if i > 0 && (text.len() - i) % 3 == 0 {
@@ -335,89 +282,43 @@ fn compass(blocks: f32, positive: &str, negative: &str) -> String {
     format!("{grouped} {}", if blocks >= 0.0 { positive } else { negative })
 }
 
-fn shown_layer<'a>(map: &'a Map, view: &'a ViewState) -> Option<&'a str> {
-    match &view.layer {
-        Some(name) if map.layer(name).is_some() => Some(name.as_str()),
-        _ => map.layers.last().map(|layer| layer.name.as_str()),
-    }
-}
-
-// ── Log ────────────────────────────────────────────────────────────────────
-
-fn log(ui: &mut egui::Ui, suite: &mut Suite) {
-    ui.horizontal(|ui| {
-        ui.strong("Log");
-        ui.small("(lines with ⌖ show where on the map when clicked)");
-    });
-    let mut jump = None;
-    egui::ScrollArea::vertical().auto_shrink(false).stick_to_bottom(true).show(ui, |ui| {
-        for result in suite.results.iter().flatten() {
-            for line in &result.lines {
-                let text = format!("{}: {}{}", line.step, if line.at.is_some() { "⌖ " } else { "" }, line.text);
-                let text = if result.stale { egui::RichText::new(text).weak() } else { egui::RichText::new(text) };
-                let response = ui.add(egui::Label::new(text).sense(egui::Sense::click()));
-                if let Some(at) = line.at
-                    && response.clicked()
-                {
-                    jump = Some(Vec2::new(at.0, at.1));
-                }
-            }
-        }
-    });
-    if let Some(at) = jump {
-        suite.view.centre = at;
-        suite.view.zoom = suite.view.zoom.max(4.0);
-        suite.view.highlight = Some((at, Instant::now()));
-    }
-}
-
-// ── The map ────────────────────────────────────────────────────────────────
+// ── The field ──────────────────────────────────────────────────────────────
 
 fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::BLACK);
-    let Some(index) = shown_step(suite) else {
-        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Nothing made yet", egui::FontId::proportional(18.0), PINK);
+    let Suite { result, view, .. } = suite;
+    let Some(result) = result else {
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Making the first field…", egui::FontId::proportional(18.0), PINK);
         return;
     };
-    let Suite { results, stack, view, .. } = suite;
-    let Some(result) = &results[index] else { return };
-    let map = &result.map;
+    let field = &result.made.shaped;
 
-    // Kinds without a colour join the palette (as magenta), so they can be given one.
-    if let Some(name) = shown_layer(map, view)
-        && let Some((_, names)) = map.kinds(name)
-    {
-        for kind in names {
-            if !stack.palette.iter().any(|c| &c.kind == kind) {
-                stack.palette.push(KindColour { kind: kind.clone(), rgb: [255, 0, 255] });
-            }
-        }
-    }
-
-    // Repaint the picture only when something it depends on changed.
-    let layer = shown_layer(map, view).unwrap_or("").to_string();
-    let ramp = view.ramps.get(&layer).copied().unwrap_or_default();
-    let key = format!("{index}:{}:{layer}:{ramp:?}:{}:{:?}", view.picture_version, view.borders, stack.palette);
-    if key != view.texture_key || view.texture.is_none() {
-        let look = Look { layer: &layer, ramp, palette: &stack.palette, borders: view.borders };
-        let (pixels, range) = paint(map, &look);
-        let image = egui::ColorImage::from_rgba_unmultiplied([map.width, map.height], &pixels);
+    // Repaint the picture only when a new field has arrived.
+    if view.texture_version != view.picture_version || view.texture.is_none() {
+        let pixels: Vec<Color32> = field.values.iter().map(|v| Color32::from_gray((v * 255.0).round() as u8)).collect();
+        let image = egui::ColorImage::new([field.width, field.height], pixels);
         match &mut view.texture {
             Some(texture) => texture.set(image, egui::TextureOptions::NEAREST),
-            None => view.texture = Some(ui.ctx().load_texture("worldgen map", image, egui::TextureOptions::NEAREST)),
+            None => view.texture = Some(ui.ctx().load_texture("worldgen field", image, egui::TextureOptions::NEAREST)),
         }
-        view.range = range;
-        view.texture_key = key;
+        view.texture_version = view.picture_version;
     }
 
-    // Fit the whole map on screen when its size changes.
-    let size = Vec2::new(map.width as f32, map.height as f32);
-    if view.fitted_for != (map.width, map.height) {
-        view.zoom = (rect.width() / size.x).min(rect.height() / size.y) * 0.95;
-        view.centre = size / 2.0;
-        view.fitted_for = (map.width, map.height);
+    // Fit the whole field on screen when its size changes (and on double-click).
+    let size = Vec2::new(field.width as f32, field.height as f32);
+    if response.double_clicked() || view.fitted_for != (field.width, field.height) {
+        if view.fitted_for != (0, 0) && view.fitted_for != (field.width, field.height) && !response.double_clicked() {
+            // Same view, new resolution: keep looking at the same place at the same size.
+            let ratio = field.width as f32 / view.fitted_for.0 as f32;
+            view.centre *= ratio;
+            view.zoom /= ratio;
+        } else {
+            view.zoom = (rect.width() / size.x).min(rect.height() / size.y) * 0.95;
+            view.centre = size / 2.0;
+        }
+        view.fitted_for = (field.width, field.height);
     }
 
     // Drag to pan, scroll to zoom (keeping the point under the mouse still).
@@ -433,11 +334,8 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
             view.centre = under - (mouse - rect.center()) / view.zoom;
         }
     }
-    if response.double_clicked() {
-        view.fitted_for = (0, 0);
-    }
     let (centre, zoom) = (view.centre, view.zoom);
-    let to_screen = |cell: Vec2| -> Pos2 { rect.center() + (cell - centre) * zoom };
+    let to_screen = |pixel: Vec2| -> Pos2 { rect.center() + (pixel - centre) * zoom };
 
     if let Some(texture) = &view.texture {
         let image_rect = Rect::from_min_size(to_screen(Vec2::ZERO), size * zoom);
@@ -445,45 +343,14 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
         painter.rect_stroke(image_rect, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Outside);
     }
 
-    // Names and marks, skipping any that would overlap one already drawn.
-    if view.labels {
-        let font = egui::FontId::proportional(12.0);
-        let mut taken: Vec<Rect> = Vec::new();
-        for mark in &map.marks {
-            let at = to_screen(Vec2::new(mark.col, mark.row));
-            if !rect.contains(at) {
-                continue;
-            }
-            let galley = painter.layout_no_wrap(mark.label.clone(), font.clone(), PINK);
-            let label = Rect::from_center_size(at + Vec2::new(0.0, -11.0), galley.size() + Vec2::new(6.0, 2.0));
-            if taken.iter().any(|other| other.intersects(label)) {
-                continue;
-            }
-            taken.push(label);
-            painter.circle_filled(at, 2.5, PINK);
-            painter.rect_filled(label, 0.0, Color32::from_black_alpha(200));
-            painter.galley(label.min + Vec2::new(3.0, 1.0), galley, PINK);
-        }
-    }
-
-    // The cell under the mouse, and a flash where a clicked log line points.
-    view.hover = hover.map(|mouse| view.centre + (mouse - rect.center()) / view.zoom).and_then(|cell| {
-        (cell.x >= 0.0 && cell.y >= 0.0 && cell.x < size.x && cell.y < size.y).then_some((cell.x as usize, cell.y as usize))
+    view.hover = hover.map(|mouse| centre + (mouse - rect.center()) / zoom).and_then(|pixel| {
+        (pixel.x >= 0.0 && pixel.y >= 0.0 && pixel.x < size.x && pixel.y < size.y).then_some((pixel.x as usize, pixel.y as usize))
     });
     if let Some((col, row)) = view.hover
         && zoom >= 4.0
     {
         let cell = Rect::from_min_size(to_screen(Vec2::new(col as f32, row as f32)), Vec2::splat(zoom));
         painter.rect_stroke(cell, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Outside);
-    }
-    if let Some((at, when)) = view.highlight {
-        let age = when.elapsed().as_secs_f32();
-        if age < 3.0 {
-            painter.circle_stroke(to_screen(at), 12.0 + age * 6.0, egui::Stroke::new(2.0, MAGENTA));
-            ui.ctx().request_repaint();
-        } else {
-            view.highlight = None;
-        }
     }
     painter.text(
         rect.left_bottom() + Vec2::new(8.0, -8.0),

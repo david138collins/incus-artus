@@ -26,28 +26,53 @@ we use to tune the system that generates terrain, world, history, villages and s
   | mountains | grey |
   | roads | yellow |
 
-### What's built (`src/worldgen/`)
+### Rebuilt one tool at a time  [DECIDED, 2026-10-23]
 
-- **Steps** stacked in order. Each step has its settings as sliders, and writes **layers**:
-  - numbers (height, moisture...), shown as a ramp: grey, heat or bands;
-  - kinds (ocean, plains...), shown in the palette;
-  - regions, shown as patches with borders.
+The first version (a four-step sample stack: height, moisture, land kinds, regions) showed where the suite is
+heading, but too much at once to evaluate, adjust and tune. So it was **peeled back to nuts and bolts**:
+- **One tool at a time.** David tries it, Claude gives options, and David picks the next one. Every element is
+  hand-selected and carefully considered before moving on.
+- **Noise first, not maps.** No forests or plains yet: just greyscale fields of different kinds, with many
+  controls over the maths that makes them. Then ways to find **edges and boundaries** around lumps of noise
+  (parts of a planet, areas of rainfall), saved as generic fields.
+- **A palette of field parameters,** saved as presets, which later gets painted with environmental properties
+  to derive world information from.
+- **Things to experiment with:** types of noise formula, cell creation, partitioning schemes, and ways to
+  interpolate between them.
 
-  Steps can also put down **marks** (dots with names).
-- **Runs in the background** and shows each step as soon as it's done. Moving a slider re-runs from that step
-  down, and the steps before it are kept.
-- **One step at a time:** turn off "Run by itself" and use "Next step" to watch the world being made.
-- **Look back:** the map as it was after any step ("map" button).
-- **Inspector:** every layer's value under the mouse, the cell and its position in blocks (north / east).
-- **Log:** every step's lines. Clicking one marked ⌖ shows where it happened.
-- **Presets** of the whole stack: seed, world size, resolution, colours and every step's settings
-  (`presets/worldgen/`).
-- **Each step rolls its own dice** (the world seed plus the step's name), so changing one step never changes
-  another step's randomness. The same seed and settings always make the same world.
-- **Steps work in blocks, not pixels,** so a coarser or finer map shows the same world in less or more detail.
-  Resolution: 1 pixel = 256, 128, 64 (the default: 1,125 pixels across the 72,000-block world) or 32 blocks.
-- **Four sample steps (TEMPORARY):** height, moisture, land kinds, regions. They're only there to prove the
-  suite works. The real steps get designed one by one.
+The first version is in git (commit 2513488) if any of it is wanted back. David looked at it with these
+settings:
+- 1 pixel = 256 blocks;
+- height: size 15,000, 6 layers, roughness 0.54, edge from 0.57, sinking 0.25;
+- moisture: 10,500, 12 layers, 0.9;
+- land: 70% water, 25% mountains, forest above 0.51;
+- regions: 1,800 blocks across, smallest patch 30%, 8 rounds.
+
+### Tools so far
+
+| # | Tool | State |
+|---|---|---|
+| 1 | **Perlin field** | BUILT, being tried |
+
+**Tool 1, the Perlin field** (`src/worldgen/noise.rs`):
+
+- **Pattern:** size (blocks), octaves, persistence, lacunarity.
+- **Placement:** slide north/east, stretch and its direction, turn each octave.
+- **Maths:** the fade curve (smooth 2002 / soft 1985 / straight), solo one octave.
+- **Output:** fill black to white, contrast, brightness, curve, invert.
+- **Readouts:**
+  - the raw and final value under the mouse, with its position in blocks;
+  - the raw range, the average, how much is clipped to pure black or white;
+  - a histogram.
+- **Noise presets** in `presets/noise/`. The seed isn't saved with a preset, so a preset is a *kind* of noise
+  that works with any seed.
+
+**What stays from the first version** (the plumbing, not tools):
+- the separate screen (F2), with the world off and the debug panel hidden;
+- making the field in the background;
+- pan and zoom;
+- resolutions of 256, 128, 64 or 32 blocks per pixel;
+- noise worked out in blocks, so resolution doesn't change the field.
 
 ## 2. Biomes, regions and factions  [DECIDED]
 
@@ -97,13 +122,6 @@ we use to tune the system that generates terrain, world, history, villages and s
   build roads, form larger factions and fight, over **1,000 years of history** before the game starts.
 - **You start in year 1000**, as an originless player character somewhere random, with not much to your name.
 
-## Next steps  [PROPOSED]
+## Next steps
 
-1. David tries the suite and its sample steps, and says what's missing from the workbench itself.
-2. Design the real stack together, one step at a time, starting at the bottom (the planet's shape and
-   plates, or straight to elevation).
-3. Steps the suite will need along the way:
-   - a **timeline** for the history steps (a year slider, play and pause);
-   - **icons** for marks (sites, dens, ruins);
-   - the **chronicle** (replacing the log);
-   - a **stress readout** (how long one simulated year takes).
+David tries the Perlin field, then picks the next tool.

@@ -4,14 +4,15 @@
 //! - simulation time is paused (no ticks: no physics, no world simulation, no people);
 //! - the mouse is released, and the camera, the walking body and the on-screen notices stop
 //!   reading input or drawing;
-//! - the suite covers the whole window.
+//! - the suite covers the whole window, and the debug panel hides (F3 still shows it).
 //!
-//! Coming back puts time back the way it was (paused stays paused).
+//! Coming back puts time and the debug panel back the way they were (paused stays paused).
 //!
 //! For automatic testing, starting the game with `INCUS_START_SCREEN=worldgen` opens the suite
 //! straight away.
 
 use crate::camera::MouseCapture;
+use crate::debug::DebugPanel;
 use crate::time::TimeControl;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
@@ -25,9 +26,13 @@ pub enum Screen {
     WorldGen,
 }
 
-/// Was time already paused when the suite opened? (So closing it doesn't un-pause by surprise.)
+/// How things were when the suite opened, to put them back after: was time already paused
+/// (so closing it doesn't un-pause by surprise), and was the debug panel showing?
 #[derive(Resource, Default)]
-struct PausedBeforeSuite(bool);
+struct BeforeSuite {
+    paused: bool,
+    debug_panel: bool,
+}
 
 pub struct ScreenPlugin;
 
@@ -38,7 +43,7 @@ impl Plugin for ScreenPlugin {
             _ => Screen::Play,
         };
         app.insert_state(start)
-            .init_resource::<PausedBeforeSuite>()
+            .init_resource::<BeforeSuite>()
             .add_systems(Update, switch_screen)
             .add_systems(OnEnter(Screen::WorldGen), switch_world_off)
             .add_systems(OnExit(Screen::WorldGen), switch_world_on);
@@ -56,12 +61,14 @@ fn switch_screen(keys: Res<ButtonInput<KeyCode>>, screen: Res<State<Screen>>, mu
 
 fn switch_world_off(
     mut control: ResMut<TimeControl>,
-    mut paused_before: ResMut<PausedBeforeSuite>,
+    mut before: ResMut<BeforeSuite>,
+    mut panel: ResMut<DebugPanel>,
     mut capture: ResMut<MouseCapture>,
     mut cursors: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
-    paused_before.0 = control.paused;
+    *before = BeforeSuite { paused: control.paused, debug_panel: panel.visible };
     control.paused = true;
+    panel.visible = false;
     capture.captured = false;
     for mut cursor in &mut cursors {
         cursor.grab_mode = CursorGrabMode::None;
@@ -69,6 +76,7 @@ fn switch_world_off(
     }
 }
 
-fn switch_world_on(mut control: ResMut<TimeControl>, paused_before: Res<PausedBeforeSuite>) {
-    control.paused = paused_before.0;
+fn switch_world_on(mut control: ResMut<TimeControl>, mut panel: ResMut<DebugPanel>, before: Res<BeforeSuite>) {
+    control.paused = before.paused;
+    panel.visible = before.debug_panel;
 }
