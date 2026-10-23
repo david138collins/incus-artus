@@ -1,13 +1,13 @@
-//! The runner — makes a field on a background thread, so the screen never freezes while you drag
+//! The runner — makes a layer on a background thread, so the screen never freezes while you drag
 //! a slider.
 
-use super::noise::{Made, PerlinSettings, make};
+use super::made::Made;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-/// What one field took to make, alongside the field itself.
+/// What one layer took to make, alongside the layer itself.
 pub struct Finished {
     pub made: Made,
     pub millis: f64,
@@ -28,13 +28,15 @@ pub enum Poll {
 }
 
 impl Job {
-    pub fn start(settings: PerlinSettings, seed: u64, size_blocks: f32, blocks_per_pixel: f32) -> Self {
+    /// Runs `work` in the background. It's handed the stop signal, and gives back `None` if it
+    /// noticed the signal and gave up.
+    pub fn start(work: impl FnOnce(&AtomicBool) -> Option<Made> + Send + 'static) -> Self {
         let (sender, receiver) = channel();
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = stop.clone();
         std::thread::spawn(move || {
             let started = Instant::now();
-            if let Some(made) = make(&settings, seed, size_blocks, blocks_per_pixel, &stop_flag) {
+            if let Some(made) = work(&stop_flag) {
                 let millis = started.elapsed().as_secs_f64() * 1000.0;
                 let _ = sender.send(Finished { made, millis });
             }

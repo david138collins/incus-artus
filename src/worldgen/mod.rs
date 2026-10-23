@@ -3,25 +3,30 @@
 //! Rebuilt from the bottom, one tool at a time: each tool is tried, tuned and kept (or changed)
 //! before the next one is added. See `docs/worldgen.md` for the order so far.
 //!
-//! **Tool 1: the Perlin field.** One greyscale field of Perlin noise, every mathematical setting
-//! on a slider, and noise presets: when a useful kind of noise turns up, save it by name.
+//! **A stack of layers, like a graphics editor.** It starts blank. Add a layer of a chosen type
+//! (a Perlin noise field, or an image from a PNG), name it, tune it, colour it with a palette.
+//! Noise presets save useful kinds of noise by name. What's on screen (or the whole field) can be
+//! exported as a PNG, for the art workflow.
 //!
-//! The suite is its own screen (F2), with the physical world switched off. The field is made on
-//! a background thread and remade whenever a setting changes.
-//!
-//! For the art workflow, a field can be coloured with a GIMP palette (`.gpl`), filtered by hue,
-//! saturation and lightness, and the picture in view (or the whole field) exported as a PNG.
+//! The suite is its own screen (F2), with the physical world switched off. Each layer is made on a
+//! background thread and remade whenever its settings change.
 //!
 //! Files:
 //! - `field.rs`   a field: one value per pixel
+//! - `made.rs`    what every kind of layer makes, and the output shaping they share
 //! - `noise.rs`   Perlin noise and its settings
-//! - `runner.rs`  making a field in the background
+//! - `image.rs`   image layers: PNG pictures laid onto the field
+//! - `layers.rs`  the layer stack
+//! - `runner.rs`  making a layer in the background
 //! - `palette.rs` colouring with a palette, the HSL filter, reading and writing `.gpl` files
 //! - `export.rs`  saving pictures as PNG
 //! - `view.rs`    the screen
 
 mod export;
 mod field;
+mod image;
+mod layers;
+mod made;
 mod noise;
 mod palette;
 mod runner;
@@ -30,91 +35,113 @@ mod view;
 use crate::debug::DebugAppExt;
 use crate::screen::Screen;
 use bevy::prelude::*;
+use bevy::window::FileDragAndDrop;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
-use noise::PerlinSettings;
-use runner::{Finished, Job, Poll};
+use layers::{Layer, LayerKind};
+use std::path::Path;
+use std::sync::Arc;
+
+/// Blocks along one side of a chunk (see `docs/decisions.md`).
+pub const CHUNK_BLOCKS: f32 = 32.0;
 
 #[derive(Resource)]
 pub struct Suite {
-    /// The field's seed. Kept apart from the noise settings, so a noise preset is a *kind* of
-    /// noise that can be tried with any seed.
-    pub seed: u64,
     /// The field is a square this many blocks across (the world is 72,000).
     pub size_blocks: f32,
-    pub blocks_per_pixel: f32,
-    pub noise: PerlinSettings,
-    /// How the field is coloured on screen and in exports. Only changes the picture, never the field.
-    pub colouring: palette::Colouring,
-    /// The latest field made.
-    pub result: Option<Finished>,
+    /// How many chunks wide one pixel is.
+    pub chunks_per_pixel: u32,
+    /// The layers, bottom first.
+    pub layers: Vec<Layer>,
+    /// The layer whose settings are open.
+    pub selected: Option<u32>,
     pub view: view::ViewState,
-
-    job: Option<Job>,
-    /// Settings changed since the job (or the result) started: make it again.
-    wanted: bool,
-    /// What the settings were last frame, to notice changes.
-    seen: (u64, f32, f32, PerlinSettings),
+    next_id: u32,
 }
 
 impl Default for Suite {
     fn default() -> Self {
-        let noise = PerlinSettings::default();
-        Self {
-            seed: 1,
+        let mut suite = Self {
             size_blocks: 72_000.0,
-            blocks_per_pixel: 128.0,
-            seen: (0, 0.0, 0.0, noise.clone()),
-            noise,
-            colouring: palette::Colouring::default(),
-            result: None,
+            chunks_per_pixel: 8,
+            layers: Vec::new(),
+            selected: None,
             view: view::ViewState::default(),
-            job: None,
-            wanted: true,
+            next_id: 1,
+        };
+        // For automatic testing: `INCUS_SELFTEST_SUITE=<a PNG>` starts with a Perlin layer and that
+        // picture on top of it, instead of a blank page.
+        if let Ok(path) = std::env::var("INCUS_SELFTEST_SUITE") {
+            suite.add_perlin();
+            if let Err(error) = suite.add_image(Path::new(&path)) {
+                warn!("Self-test picture: {error}");
+            }
         }
+        suite
     }
 }
 
 impl Suite {
+    pub fn blocks_per_pixel(&self) -> f32 {
+        self.chunks_per_pixel as f32 * CHUNK_BLOCKS
+    }
+
     pub fn is_making(&self) -> bool {
-        self.job.is_some()
+        self.layers.iter().any(|layer| layer.is_making())
     }
 
-    fn settings_now(&self) -> (u64, f32, f32, PerlinSettings) {
-        (self.seed, self.size_blocks, self.blocks_per_pixel, self.noise.clone())
+    pub fn selected_layer(&mut self) -> Option<&mut Layer> {
+        let id = self.selected?;
+        self.layers.iter_mut().find(|layer| layer.id == id)
     }
 
-    /// Notices changes, collects the finished field, and starts the next one when wanted.
-    ///
-    /// While a slider is being dragged, the running field is left to finish (so the picture keeps
-    /// up as fast as fields can be made) and the next one starts straight after with the newest
-    /// settings. A slow one (over a quarter of a second) is abandoned instead.
-    fn drive(&mut self) {
-        let now = self.settings_now();
-        if now != self.seen {
-            self.seen = now;
-            self.wanted = true;
+    /// Adds a layer on top of the stack and opens its settings.
+    pub fn add_layer(&mut self, kind: LayerKind) {
+        let name = layers::next_name(&self.layers, kind.type_name());
+        let id = self.next_id;
+        self.next_id += 1;
+        self.layers.push(Layer::new(id, name, kind));
+        self.selected = Some(id);
+    }
+
+    pub fn add_perlin(&mut self) {
+        let seed = crate::fate::derive_seed(fresh_number(), "perlin layer");
+        self.add_layer(LayerKind::Perlin { seed, settings: noise::PerlinSettings::default() });
+    }
+
+    /// Loads a PNG as a new image layer, shown at one picture pixel per field pixel, in the middle.
+    pub fn add_image(&mut self, path: &Path) -> Result<(), String> {
+        let picture = image::load_png(path)?;
+        let file = path.file_name().map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+        let placement = image::Placement { blocks_per_pixel: self.blocks_per_pixel(), ..image::Placement::default() };
+        let stem = path.file_stem().map_or_else(String::new, |stem| stem.to_string_lossy().into_owned());
+        self.add_layer(LayerKind::Image { file, picture: Arc::new(picture), placement });
+        // Image layers are named after their file.
+        if let Some(layer) = self.layers.last_mut() {
+            layer.name = stem;
         }
-        if let Some(job) = &self.job {
-            match job.poll() {
-                Poll::Done(finished) => {
-                    self.result = Some(*finished);
-                    self.view.picture_changed();
-                    self.job = None;
-                }
-                Poll::Over => self.job = None,
-                // A slow field that's already out of date isn't worth waiting for.
-                Poll::Waiting if self.wanted && job.started.elapsed().as_secs_f32() > 0.25 => {
-                    job.stop();
-                    self.job = None;
-                }
-                Poll::Waiting => return,
-            }
-        }
-        if self.wanted {
-            self.wanted = false;
-            self.job = Some(Job::start(self.noise.clone(), self.seed, self.size_blocks, self.blocks_per_pixel));
+        Ok(())
+    }
+
+    pub fn remove_layer(&mut self, id: u32) {
+        self.layers.retain(|layer| layer.id != id);
+        if self.selected == Some(id) {
+            self.selected = self.layers.last().map(|layer| layer.id);
         }
     }
+
+    /// Moves a layer up (toward the top) or down the stack.
+    pub fn move_layer(&mut self, id: u32, up: bool) {
+        let Some(at) = self.layers.iter().position(|layer| layer.id == id) else { return };
+        let to = if up { at + 1 } else { at.wrapping_sub(1) };
+        if to < self.layers.len() {
+            self.layers.swap(at, to);
+        }
+    }
+}
+
+/// A number that's different every time (for new seeds).
+pub fn fresh_number() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64)
 }
 
 pub struct WorldGenPlugin;
@@ -122,14 +149,30 @@ pub struct WorldGenPlugin;
 impl Plugin for WorldGenPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Suite>()
-            .add_systems(Update, run_suite.run_if(in_state(Screen::WorldGen)))
+            .add_systems(Update, (run_suite, take_dropped_files).run_if(in_state(Screen::WorldGen)))
             .add_systems(EguiPrimaryContextPass, draw_suite.run_if(in_state(Screen::WorldGen)))
             .add_debug_page("World Gen", world_gen_debug_page);
     }
 }
 
 fn run_suite(mut suite: ResMut<Suite>) {
-    suite.drive();
+    let (size, blocks) = (suite.size_blocks, suite.blocks_per_pixel());
+    for layer in &mut suite.layers {
+        layer.drive(size, blocks);
+    }
+}
+
+/// PNG files dragged onto the window become image layers.
+fn take_dropped_files(mut drops: MessageReader<FileDragAndDrop>, mut suite: ResMut<Suite>) {
+    for drop in drops.read() {
+        if let FileDragAndDrop::DroppedFile { path_buf, .. } = drop {
+            let message = match suite.add_image(path_buf) {
+                Ok(()) => format!("Added {}", path_buf.display()),
+                Err(error) => format!("Couldn't use {}: {error}", path_buf.display()),
+            };
+            suite.view.say(message);
+        }
+    }
 }
 
 fn draw_suite(mut contexts: EguiContexts, mut suite: ResMut<Suite>, mut next: ResMut<NextState<Screen>>) -> Result {
@@ -137,7 +180,7 @@ fn draw_suite(mut contexts: EguiContexts, mut suite: ResMut<Suite>, mut next: Re
     if view::draw(&ctx, &mut suite) {
         next.set(Screen::Play);
     }
-    // Keep redrawing while a field is being made, so it shows up the moment it's done.
+    // Keep redrawing while a layer is being made, so it shows up the moment it's done.
     if suite.is_making() {
         ctx.request_repaint();
     }

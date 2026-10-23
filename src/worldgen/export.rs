@@ -10,16 +10,24 @@ pub fn export_folder() -> PathBuf {
 }
 
 /// Saves `width × height` colours (row by row, from the top left) as `exports/<name>.png`.
-pub fn save_png(name: &str, width: usize, height: usize, colours: &[[u8; 3]]) -> Result<PathBuf, String> {
+/// `None` pixels (no layer there) are saved see-through.
+pub fn save_png(name: &str, width: usize, height: usize, colours: &[Option<[u8; 3]>]) -> Result<PathBuf, String> {
     let folder = export_folder();
     std::fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
     let path = folder.join(format!("{name}.png"));
     let file = std::fs::File::create(&path).map_err(|error| error.to_string())?;
     let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), width as u32, height as u32);
-    encoder.set_color(png::ColorType::Rgb);
+    encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
-    writer.write_image_data(colours.as_flattened()).map_err(|error| error.to_string())?;
+    let bytes: Vec<u8> = colours
+        .iter()
+        .flat_map(|colour| match colour {
+            Some([r, g, b]) => [*r, *g, *b, 255],
+            None => [0, 0, 0, 0],
+        })
+        .collect();
+    writer.write_image_data(&bytes).map_err(|error| error.to_string())?;
     writer.finish().map_err(|error| error.to_string())?;
     Ok(path)
 }

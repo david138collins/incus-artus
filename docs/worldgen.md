@@ -53,7 +53,38 @@ settings:
 | # | Tool | State |
 |---|---|---|
 | 1 | **Perlin field** | BUILT; David: "looking really great" |
-| 2 | **Export, palettes and the HSL filter** | BUILT, being tried |
+| 2 | **Export, palettes and the HSL filter** | BUILT |
+| 3 | **Layers, image layers, chunkier pixels** | BUILT, being tried |
+
+**Tool 3, layers** (`layers.rs`, `image.rs`) [DECIDED 2026-10-23, BUILT]:
+- **Starts blank.** "+ Add layer" in the upper left: a **Perlin noise field**, or an **image from a file** (from
+  `images/`, or drag a PNG onto the window).
+- **A Layers tab on the right**, like an image editor, top of the stack first. Each layer:
+  - can be named ("Perlin noise field 1", or an image's file name);
+  - can be shown or hidden, moved up or down, or deleted.
+
+  Under the list: everything under the mouse (each layer's value), then the open layer's numbers and
+  histogram.
+- **Layers are opaque:** you see the top visible layer, and the one below shows through where it doesn't cover
+  (outside an image, or see-through pixels). Below everything is a dark checkerboard. Exports are see-through
+  there. Blending layers is a later tool.
+- **Each layer has its own** seed, settings, output shaping and colouring.
+- **Image layers:**
+  - the picture's brightness becomes the values, and its own colours are kept;
+  - placed by centre (blocks N/E) and blocks per picture pixel;
+  - "1 picture pixel = 1 field pixel", "fit the field", and **repeat** to tile it;
+  - **what for:** stamps of David's textures (a rough burlap weave under an "ancient temple" for buried, eroded
+    structures), and the game's art workflow.
+- **The default palette** is generated: N greys from black to white (128 to start), saved as `.gpl` with
+  "Save .gpl". An image can show its own colours or any palette, and the HSL filter works on either.
+
+**Pixel size in chunks** [BUILT; David, 2026-10-23: "i really like 256", wanted chunkier]:
+- **1 pixel = 1 to 45 chunks** (32 to 1,440 blocks).
+- **These fit a 72,000-block field exactly:** 1, 2, 3, 5, 6, 9, 10, 15, 18, 25, 30 and 45 chunks. The others leave
+  a part-pixel at the edge, which the top bar says.
+- **Why chunks:** a chunk (32 blocks) is a storage and drawing convenience, not a terrain unit (see
+  `decisions.md`). Pixels don't have to match chunks. But whole-chunk pixels line up with the chunk files, which
+  will make it simple to hand world data to the terrain later, chunk by chunk. 720 blocks would be 22½ chunks.
 
 **Working horizontally for a while** [DECIDED, 2026-10-23]: elaborate what we've got before adding new kinds of
 field. **The next destination is a Layers tab**, like a graphics editor: start with a blank page and pick the
@@ -82,6 +113,10 @@ field type in the upper left (for now, the only type is Perlin field).
   colour, or **taken from the field** (for example, the palette's hues shaded by the noise).
 - **Save the filtered palette** as a `.gpl`.
 - The colour under the mouse shows in the inspector, as hex.
+
+**No dithering** [DECIDED, 2026-10-23]: programmatic dithering is kind of cheap and doesn't give useful patterns
+for natural terrain, so none of anything for now. It may come back later with the shaders and graphics
+refinements, in the 3D world, for things like sunsets, clouds or animated water.
 
 **Tool 1, the Perlin field** (`src/worldgen/noise.rs`):
 

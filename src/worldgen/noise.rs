@@ -17,6 +17,7 @@
 //! The randomness comes from Fate's `planet_hash`.
 
 use super::field::Field;
+use super::made::{Made, Shaping};
 use crate::fate::planet_hash;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -83,16 +84,9 @@ pub struct PerlinSettings {
     /// Hear one octave on its own (0 = all of them), like soloing a channel on a mixing desk.
     pub solo_octave: u32,
 
-    // ── Output ──
-    /// Stretch the lowest value to black and the highest to white.
-    pub fill_range: bool,
-    /// Above 1 pushes values away from middle grey; below 1 pulls them in.
-    pub contrast: f32,
-    /// Added after contrast (−1 to 1).
-    pub brightness: f32,
-    /// Bends the values: above 1 makes most of the field darker, below 1 lighter.
-    pub curve: f32,
-    pub invert: bool,
+    // ── Output ── (written alongside the other settings in presets, as before)
+    #[serde(flatten)]
+    pub output: Shaping,
 }
 
 impl Default for PerlinSettings {
@@ -109,11 +103,7 @@ impl Default for PerlinSettings {
             octave_turn: 0.0,
             fade: Fade::Smooth,
             solo_octave: 0,
-            fill_range: true,
-            contrast: 1.0,
-            brightness: 0.0,
-            curve: 1.0,
-            invert: false,
+            output: Shaping::default(),
         }
     }
 }
@@ -163,35 +153,6 @@ impl PerlinSettings {
         }
         total / strengths
     }
-
-    /// Contrast, brightness, curve and invert, on a value already between 0 and 1.
-    pub fn shape(&self, t: f32) -> f32 {
-        let t = ((t - 0.5) * self.contrast + 0.5 + self.brightness).clamp(0.0, 1.0);
-        let t = t.powf(self.curve.max(0.01));
-        if self.invert { 1.0 - t } else { t }
-    }
-}
-
-/// Numbers about a finished field, for judging it at a glance.
-#[derive(Clone, Debug, Default)]
-pub struct Stats {
-    pub raw_low: f32,
-    pub raw_high: f32,
-    pub mean: f32,
-    /// Share of pixels pushed to pure black or pure white by the shaping (detail lost there).
-    pub clipped_black: f32,
-    pub clipped_white: f32,
-    /// How many pixels fall in each of 64 equal steps from black to white.
-    pub histogram: Vec<u32>,
-}
-
-/// A finished field: the raw noise, the shaped result, and its numbers.
-pub struct Made {
-    pub raw: Field,
-    pub shaped: Field,
-    /// The shaped values in order, lowest first (for spreading a palette in equal shares).
-    pub sorted: Vec<f32>,
-    pub stats: Stats,
 }
 
 /// Makes the field. Returns `None` if `stop` was set part-way (a newer version is wanted).
@@ -201,32 +162,8 @@ pub fn make(settings: &PerlinSettings, seed: u64, size_blocks: f32, blocks_per_p
     if stop.load(Ordering::Relaxed) {
         return None;
     }
-    let (low, high) = raw.values.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
-    let span = (high - low).max(1e-6);
-
-    let mut shaped = raw.clone();
-    let mut histogram = vec![0u32; 64];
-    let (mut sum, mut black, mut white) = (0.0f64, 0usize, 0usize);
-    for value in &mut shaped.values {
-        let t = if settings.fill_range { (*value - low) / span } else { (*value * 0.5 + 0.5).clamp(0.0, 1.0) };
-        *value = settings.shape(t);
-        sum += *value as f64;
-        black += (*value <= 0.0) as usize;
-        white += (*value >= 1.0) as usize;
-        histogram[((*value * 64.0) as usize).min(63)] += 1;
-    }
-    let count = shaped.values.len().max(1) as f32;
-    let stats = Stats {
-        raw_low: low,
-        raw_high: high,
-        mean: (sum / count as f64) as f32,
-        clipped_black: black as f32 / count,
-        clipped_white: white as f32 / count,
-        histogram,
-    };
-    let mut sorted = shaped.values.clone();
-    sorted.sort_unstable_by(f32::total_cmp);
-    Some(Made { raw, shaped, sorted, stats })
+    // Unfilled, raw −1 is black and 1 is white.
+    Some(Made::finish(raw, None, None, &settings.output, |v| v * 0.5 + 0.5))
 }
 
 #[cfg(test)]
@@ -274,8 +211,22 @@ mod tests {
 
     #[test]
     fn a_preset_survives_being_written_and_read() {
-        let settings = PerlinSettings { octaves: 3, fade: Fade::Soft, invert: true, ..PerlinSettings::default() };
+        let output = Shaping { invert: true, ..Shaping::default() };
+        let settings = PerlinSettings { octaves: 3, fade: Fade::Soft, output, ..PerlinSettings::default() };
         let text = toml::to_string(&settings).unwrap();
         assert_eq!(toml::from_str::<PerlinSettings>(&text).unwrap(), settings);
+    }
+
+    #[test]
+    fn presets_saved_before_the_output_settings_moved_still_load() {
+        // Written the way presets were saved before image layers (output settings side by side).
+        let old = "scale = 9000.0\noctaves = 4\ninvert = true\ncontrast = 2.0\nfill_range = false\n";
+        let settings: PerlinSettings = toml::from_str(old).unwrap();
+        assert_eq!((settings.scale, settings.octaves), (9000.0, 4));
+        assert!(settings.output.invert && !settings.output.fill_range);
+        assert_eq!(settings.output.contrast, 2.0);
+        assert_eq!(settings.output.curve, 1.0, "settings not in the file keep their defaults");
+        // And they're still written side by side.
+        assert!(toml::to_string(&settings).unwrap().contains("\ninvert = true"));
     }
 }

@@ -137,13 +137,21 @@ pub enum Spread {
     EqualShares,
 }
 
+/// The palette every layer starts with: `shades` greys, evenly spaced from black to white.
+pub fn default_greys(shades: u32) -> Vec<[u8; 3]> {
+    let shades = shades.clamp(2, 256);
+    (0..shades).map(|k| [(k as f32 / (shades - 1) as f32 * 255.0).round() as u8; 3]).collect()
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Colouring {
-    /// Colour the field at all (off = plain greyscale).
-    pub on: bool,
-    /// The loaded palette's name, and its colours as read from the file.
+    /// The palette file's name, and its colours as read from the file. Empty = the default greys.
     pub name: String,
     pub colours: Vec<[u8; 3]>,
+    /// How many greys the default palette has.
+    pub shades: u32,
+    /// Images only: show the picture's own colours instead of a palette.
+    pub original: bool,
     pub spread: Spread,
     pub blend: bool,
     /// First colour on the peaks instead of in the valleys.
@@ -156,10 +164,11 @@ pub struct Colouring {
 impl Default for Colouring {
     fn default() -> Self {
         Self {
-            on: false,
             name: String::new(),
             colours: Vec::new(),
-            spread: Spread::EqualShares,
+            shades: 128,
+            original: false,
+            spread: Spread::EqualValues,
             blend: false,
             reverse: false,
             hue: Channel::Keep,
@@ -170,35 +179,67 @@ impl Default for Colouring {
 }
 
 impl Colouring {
+    /// The palette in use: the file's colours, or the default greys.
+    pub fn palette(&self) -> Vec<[u8; 3]> {
+        if self.name.is_empty() || self.colours.is_empty() { default_greys(self.shades) } else { self.colours.clone() }
+    }
+
+    /// The HSL filter's "set to" choices, on one colour.
+    fn set_channels(&self, colour: [u8; 3]) -> [u8; 3] {
+        let mut hsl = to_hsl(colour);
+        for (value, channel) in hsl.iter_mut().zip([self.hue, self.saturation, self.lightness]) {
+            if let Channel::Set(set) = channel {
+                *value = set;
+            }
+        }
+        from_hsl(hsl)
+    }
+
     /// The palette after the HSL filter's "set to" choices ("from the field" happens per pixel).
     pub fn filtered(&self) -> Vec<[u8; 3]> {
-        self.colours
-            .iter()
-            .map(|&colour| {
-                let mut hsl = to_hsl(colour);
-                for (value, channel) in hsl.iter_mut().zip([self.hue, self.saturation, self.lightness]) {
-                    if let Channel::Set(set) = channel {
-                        *value = set;
-                    }
-                }
-                from_hsl(hsl)
-            })
-            .collect()
+        self.palette().into_iter().map(|colour| self.set_channels(colour)).collect()
     }
 
     fn any_from_field(&self) -> bool {
         [self.hue, self.saturation, self.lightness].contains(&Channel::FromField)
     }
 
-    /// Colours a whole field (values 0–1). `sorted` is the same values in order, lowest first
-    /// (worked out once per field, for "equal shares"). Falls back to grey when off or without a
-    /// palette.
-    pub fn paint(&self, values: &[f32], sorted: &[f32]) -> Vec<[u8; 3]> {
-        let grey = |v: f32| [(v.clamp(0.0, 1.0) * 255.0).round() as u8; 3];
-        if !self.on || self.colours.is_empty() {
-            return values.iter().map(|&v| grey(v)).collect();
+    fn any_set(&self) -> bool {
+        [self.hue, self.saturation, self.lightness].iter().any(|c| matches!(c, Channel::Set(_)))
+    }
+
+    /// The HSL filter's "from the field" choices, on one pixel's colour.
+    fn from_field(&self, colour: [u8; 3], v: f32) -> [u8; 3] {
+        let mut hsl = to_hsl(colour);
+        let field = [v * 360.0, v, v];
+        for ((value, channel), from) in hsl.iter_mut().zip([self.hue, self.saturation, self.lightness]).zip(field) {
+            if channel == Channel::FromField {
+                *value = from;
+            }
+        }
+        from_hsl(hsl)
+    }
+
+    /// Colours a whole layer (values 0–1). `sorted` is the covered values in order, lowest first
+    /// (worked out once per layer, for "equal shares"). `original` is an image's own colours.
+    pub fn paint(&self, values: &[f32], sorted: &[f32], original: Option<&[[u8; 3]]>) -> Vec<[u8; 3]> {
+        if self.original
+            && let Some(original) = original
+        {
+            let (set, from_field) = (self.any_set(), self.any_from_field());
+            return original
+                .iter()
+                .zip(values)
+                .map(|(&colour, &v)| {
+                    let colour = if set { self.set_channels(colour) } else { colour };
+                    if from_field { self.from_field(colour, v) } else { colour }
+                })
+                .collect();
         }
         let mut colours = self.filtered();
+        if sorted.is_empty() {
+            return vec![[0, 0, 0]; values.len()];
+        }
         if self.reverse {
             colours.reverse();
         }
@@ -236,14 +277,7 @@ impl Colouring {
                     colours[slice]
                 };
                 if from_field {
-                    let mut hsl = to_hsl(colour);
-                    let field = [v * 360.0, v, v];
-                    for ((value, channel), from) in hsl.iter_mut().zip([self.hue, self.saturation, self.lightness]).zip(field) {
-                        if channel == Channel::FromField {
-                            *value = from;
-                        }
-                    }
-                    colour = from_hsl(hsl);
+                    colour = self.from_field(colour, v);
                 }
                 colour
             })
@@ -277,10 +311,15 @@ mod tests {
 
     #[test]
     fn equal_shares_give_every_colour_the_same_amount_of_picture() {
-        let colouring = Colouring { on: true, colours: read_gpl(GREENS).unwrap(), ..Colouring::default() };
+        let colouring = Colouring {
+            name: "greens".into(),
+            colours: read_gpl(GREENS).unwrap(),
+            spread: Spread::EqualShares,
+            ..Colouring::default()
+        };
         // Lopsided values: mostly dark.
         let values: Vec<f32> = (0..3000).map(|i| (i as f32 / 3000.0).powi(3)).collect();
-        let painted = colouring.paint(&values, &values);
+        let painted = colouring.paint(&values, &values, None);
         for colour in &colouring.colours {
             let count = painted.iter().filter(|c| *c == colour).count();
             assert!((900..1100).contains(&count), "{colour:?} covers {count} of 3000");
@@ -289,9 +328,33 @@ mod tests {
 
     #[test]
     fn setting_saturation_to_zero_makes_greys() {
-        let colouring = Colouring { colours: read_gpl(GREENS).unwrap(), saturation: Channel::Set(0.0), ..Colouring::default() };
+        let colouring = Colouring {
+            name: "greens".into(),
+            colours: read_gpl(GREENS).unwrap(),
+            saturation: Channel::Set(0.0),
+            ..Colouring::default()
+        };
         for [r, g, b] in colouring.filtered() {
             assert!(r == g && g == b);
         }
+    }
+
+    #[test]
+    fn the_default_palette_is_even_greys_from_black_to_white() {
+        let greys = default_greys(128);
+        assert_eq!(greys.len(), 128);
+        assert_eq!((greys[0], greys[127]), ([0, 0, 0], [255, 255, 255]));
+        // Without a palette file, a layer is shaded in those greys.
+        let painted = Colouring::default().paint(&[0.0, 0.5, 1.0], &[0.0, 0.5, 1.0], None);
+        assert_eq!(painted[0], [0, 0, 0]);
+        assert_eq!(painted[2], [255, 255, 255]);
+        assert!((painted[1][0] as i32 - 128).abs() <= 2);
+    }
+
+    #[test]
+    fn an_image_can_keep_its_own_colours() {
+        let colouring = Colouring { original: true, ..Colouring::default() };
+        let original = [[200, 10, 30], [5, 6, 7]];
+        assert_eq!(colouring.paint(&[0.3, 0.1], &[0.1, 0.3], Some(&original)), original.to_vec());
     }
 }
