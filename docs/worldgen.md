@@ -55,6 +55,25 @@ settings:
 | 1 | **Perlin field** | BUILT; David: "looking really great" |
 | 2 | **Export, palettes and the HSL filter** | BUILT |
 | 3 | **Layers, image layers, chunkier pixels** | BUILT, being tried |
+| 4 | **Mix modes and opacity** (layers affect each other) | BUILT, being tried |
+
+**Tool 4, mixing** (`blend.rs`) [DECIDED 2026-10-23, BUILT]:
+- **Every layer has a mix mode and an opacity:** normal, add, subtract, multiply, screen, overlay, dodge, burn,
+  lighten, darken, difference. Each one's hover text says what it's good for in terrain.
+- **Layers mix their numbers, not their colours** (David: "ultimately this software is translating numbers to
+  colors and colors to numbers"). The stack makes one field of 0–1 values, and **the result** (top of the Layers
+  list) has its own palette that colours it. This is what the world file needs.
+- **A layer's own colouring shows when it's shown alone** ("show: the open layer alone"). That's also where an
+  image's own colours show.
+- Where nothing is below a layer (the bottom layer, or outside an image), its own value is used as it is.
+- "Under the mouse" shows the result's value at the top. Opening the result shows its histogram.
+- **Next, probably:** adjustment layers (David's "interaction / mutation layers") that sit between layers with no
+  picture of their own and change everything below: thresholds, curves, "keep only where below is above X".
+- **Where it's heading:** a sequential "world type" file that builds the standard world. It will be made of
+  layers, mutation layers, groups, spline maps, and signal routing inside some layers to place features.
+
+**Side bars** can be dragged between about 220 (left) / 180 (right) and 900 pixels wide. Long layer names are
+cut short with "…", and hovering shows the full name.
 
 **Tool 3, layers** (`layers.rs`, `image.rs`) [DECIDED 2026-10-23, BUILT]:
 - **Starts blank.** "+ Add layer" in the upper left: a **Perlin noise field**, or an **image from a file** (from

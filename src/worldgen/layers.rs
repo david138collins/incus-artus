@@ -1,13 +1,19 @@
 //! Layers — the stack of fields, like the layers of a graphics editor.
 //!
-//! Layers are **opaque**: you see the top visible layer, and the one below shows through only
-//! where the top one doesn't cover (outside an image, or where it's see-through). Below all of
-//! them is a dark checkerboard: nothing there. Blending layers together is a tool for later.
+//! Each layer **mixes** with the layers below it (normal, add, multiply… see `blend.rs`), faded by
+//! its **opacity**. They mix their numbers, not their colours: the stack makes one field of values,
+//! and the result's palette colours it. Where a layer doesn't cover (outside an image, or where
+//! it's see-through), the layers below show through. Where no layer covers at all is a dark
+//! checkerboard: nothing there.
 //!
 //! Each layer has its own name, settings, colouring, and (for noise) its own seed, so two Perlin
-//! layers with the same settings still make different patterns.
+//! layers with the same settings still make different patterns. A layer's own colouring is what
+//! you see when it's shown alone.
 
+use super::blend::Mix;
+use super::field::Field;
 use super::image::{Picture, Placement};
+use super::made::{Made, Shaping};
 use super::noise::PerlinSettings;
 use super::palette::Colouring;
 use super::runner::{Finished, Job, Poll};
@@ -40,15 +46,13 @@ pub struct Layer {
     pub name: String,
     pub visible: bool,
     pub kind: LayerKind,
+    /// How it combines with the layers below, and how strongly (0 to 1).
+    pub mix: Mix,
+    pub opacity: f32,
     pub colouring: Colouring,
     pub result: Option<Finished>,
-    /// Goes up each time a new result arrives (so the picture knows to repaint).
+    /// Goes up each time a new result arrives (so the picture knows to rebuild).
     pub version: u64,
-    /// The picture as last painted, and what it was painted from.
-    pub painted: Vec<[u8; 3]>,
-    painted_for: Option<(u64, Colouring)>,
-    /// Goes up each time the picture is repainted (so the stacked picture knows to rebuild).
-    pub paint_version: u64,
 
     job: Option<Job>,
     seen: Option<(f32, f32, Recipe)>,
@@ -62,12 +66,11 @@ impl Layer {
             name,
             visible: true,
             kind,
+            mix: Mix::Normal,
+            opacity: 1.0,
             colouring: Colouring::default(),
             result: None,
             version: 0,
-            painted: Vec::new(),
-            painted_for: None,
-            paint_version: 0,
             job: None,
             seen: None,
             wanted: true,
@@ -125,19 +128,6 @@ impl Layer {
             });
         }
     }
-
-    /// Repaints the layer's picture if its result or colouring changed.
-    pub fn repaint(&mut self) {
-        let Some(result) = &self.result else { return };
-        let wanted = (self.version, self.colouring.clone());
-        if self.painted_for.as_ref() == Some(&wanted) {
-            return;
-        }
-        let made = &result.made;
-        self.painted = self.colouring.paint(&made.shaped.values, &made.sorted, made.original.as_deref());
-        self.painted_for = Some(wanted);
-        self.paint_version += 1;
-    }
 }
 
 /// Picks out the next free "Perlin noise field 3"-style name.
@@ -148,21 +138,38 @@ pub fn next_name(layers: &[Layer], type_name: &str) -> String {
         .unwrap_or_default()
 }
 
-/// The finished picture: for each pixel, the top visible layer that covers it. `None` where no
-/// layer does (drawn as a checkerboard on screen, black in exports).
-pub fn composite(layers: &[Layer], cells: usize) -> Vec<Option<[u8; 3]>> {
-    let mut picture = vec![None; cells];
-    // Bottom first, so higher layers paint over lower ones.
+/// The stack's result: every visible layer mixed into the ones below it, bottom first, as one
+/// field of values with its own numbers (range, histogram). Pixels no layer covers are left
+/// uncovered.
+pub fn stack(layers: &[Layer], width: usize, blocks_per_pixel: f32) -> Made {
+    let cells = width * width;
+    let mut values = vec![0.0; cells];
+    let mut covered = vec![false; cells];
     for layer in layers.iter().filter(|layer| layer.visible) {
         let Some(result) = &layer.result else { continue };
-        if layer.painted.len() != cells || result.made.shaped.values.len() != cells {
+        let this = &result.made.shaped.values;
+        if this.len() != cells {
             continue; // still being remade at a new size
         }
-        for (i, pixel) in picture.iter_mut().enumerate() {
-            if result.made.covers(i) {
-                *pixel = Some(layer.painted[i]);
+        for i in 0..cells {
+            if !result.made.covers(i) {
+                continue;
             }
+            // Where nothing is below, the layer's own value is used as it is.
+            values[i] = if covered[i] { layer.mix.over(values[i], this[i], layer.opacity) } else { this[i] };
+            covered[i] = true;
         }
     }
-    picture
+    let field = Field { width, height: width, blocks_per_pixel, values };
+    let covered = covered.contains(&false).then_some(covered);
+    // Already 0 to 1, so no shaping: the result's numbers are worked out as they are.
+    let as_it_is = Shaping { fill_range: false, ..Shaping::default() };
+    Made::finish(field, covered, None, &as_it_is, |v| v)
+}
+
+/// One colour per pixel from a layer's (or the stack's) values. `None` where it doesn't cover
+/// (drawn as a checkerboard on screen, see-through in exports).
+pub fn colour(made: &Made, colouring: &Colouring) -> Vec<Option<[u8; 3]>> {
+    let painted = colouring.paint(&made.shaped.values, &made.sorted, made.original.as_deref());
+    painted.into_iter().enumerate().map(|(i, colour)| made.covers(i).then_some(colour)).collect()
 }

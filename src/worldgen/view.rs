@@ -12,11 +12,12 @@
 //! └────────────────┴──────────────────────────┴────────────────┘
 //! ```
 
+use super::blend::Mix;
 use super::export;
 use super::image::{self, Placement};
-use super::Suite;
 use super::layers::{self, LayerKind};
-use super::made::Shaping;
+use super::made::{Made, Shaping};
+use super::{RESULT, Suite};
 use super::noise::{Fade, PerlinSettings};
 use super::palette::{self, Channel, Colouring, Spread};
 use crate::debug::preset_bar;
@@ -36,10 +37,12 @@ pub struct ViewState {
     /// to settle into their sizes when the suite opens).
     settling: u32,
     texture: Option<egui::TextureHandle>,
-    /// The stacked picture (one colour per field pixel, `None` = no layer), and what it was
-    /// stacked from: exports are cut from it.
+    /// The result: every layer mixed (its values and numbers).
+    stacked: Option<Made>,
+    /// The picture on screen (one colour per field pixel, `None` = no layer), and what it was
+    /// made from: exports are cut from it.
     composite: Vec<Option<[u8; 3]>>,
-    composite_for: Vec<(u32, bool, u64)>,
+    composite_for: Option<PictureKey>,
     size: (usize, usize),
     canvas: Rect,
     hover: Option<(usize, usize)>,
@@ -57,8 +60,9 @@ impl Default for ViewState {
             fitted_for: (0, 0),
             settling: 10,
             texture: None,
+            stacked: None,
             composite: Vec::new(),
-            composite_for: Vec::new(),
+            composite_for: None,
             size: (0, 0),
             canvas: Rect::NOTHING,
             hover: None,
@@ -75,11 +79,29 @@ impl ViewState {
     }
 }
 
+/// Everything the picture on screen is made from, to notice when it changes: each layer (id,
+/// shown, version, mix, opacity), the result's colouring, and the layer shown alone, if any.
+type PictureKey = (Vec<(u32, bool, u64, Mix, f32)>, Colouring, Option<(u32, Colouring)>);
+
+/// The layer shown on its own, when "the open layer alone" is on and a layer is open.
+fn alone(suite: &Suite) -> Option<usize> {
+    let id = suite.selected.filter(|&id| suite.show_alone && id != RESULT)?;
+    suite.layers.iter().position(|layer| layer.id == id)
+}
+
+fn picture_key(suite: &Suite) -> PictureKey {
+    let stack = suite.layers.iter().map(|l| (l.id, l.visible, l.version, l.mix, l.opacity)).collect();
+    let alone = alone(suite).map(|i| (suite.layers[i].id, suite.layers[i].colouring.clone()));
+    (stack, suite.colouring.clone(), alone)
+}
+
+/// "a-very-long-file-name" → "a-very-long-fi…" (for tight spots; hover shows the whole name).
+fn short(name: &str, most: usize) -> String {
+    if name.chars().count() <= most { name.to_string() } else { name.chars().take(most - 1).chain(['…']).collect() }
+}
+
 /// Draws the whole screen. Returns true when "Back to the world" was pressed.
 pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
-    for layer in &mut suite.layers {
-        layer.repaint();
-    }
     let mut root = egui::Ui::new(
         ctx.clone(),
         "world gen suite".into(),
@@ -87,12 +109,21 @@ pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
     );
     let mut close = false;
     egui::Panel::top("worldgen top").show(&mut root, |ui| close = top_bar(ui, suite));
-    egui::Panel::left("worldgen settings").resizable(true).default_size(360.0).show(&mut root, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| settings_panel(ui, suite));
-    });
-    egui::Panel::right("worldgen layers").resizable(true).default_size(270.0).show(&mut root, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| layers_panel(ui, suite));
-    });
+    // Both side bars can be dragged wider or narrower by their inner edge. Layer names (a picture's
+    // long file name, say) are cut short with "…" instead of pushing the bar wider; hover shows
+    // them in full.
+    egui::Panel::left("worldgen settings").resizable(true).default_size(360.0).size_range(220.0..=900.0).show(
+        &mut root,
+        |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| settings_panel(ui, suite));
+        },
+    );
+    egui::Panel::right("worldgen layers").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(
+        &mut root,
+        |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| layers_panel(ui, suite));
+        },
+    );
     egui::CentralPanel::no_frame().show(&mut root, |ui| canvas(ui, suite));
     close
 }
@@ -226,7 +257,19 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
 
     let blocks_per_pixel = suite.blocks_per_pixel();
     let size_blocks = suite.size_blocks;
-    let Suite { layers, selected, view, .. } = suite;
+    let Suite { layers, selected, view, colouring, show_alone, .. } = suite;
+    if *selected == Some(RESULT) {
+        ui.heading("The result");
+        ui.small(
+            "All the visible layers mixed together, bottom first, each by its own mix and opacity. \
+             Their numbers are mixed; the palette here colours what comes out.",
+        );
+        ui.add_space(10.0);
+        ui.separator();
+        ui.heading("Colour");
+        colour_panel(ui, colouring, false, view);
+        return;
+    }
     let Some(layer) = selected.and_then(|id| layers.iter_mut().find(|layer| layer.id == id)) else {
         ui.add_space(20.0);
         if layers.is_empty() {
@@ -244,6 +287,26 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     });
     ui.small(layer.kind.type_name());
 
+    section(ui, "Mix", "How this layer combines with the layers below it. Their numbers mix, not their colours.");
+    ui.horizontal(|ui| {
+        ui.label("mode:");
+        egui::ComboBox::from_id_salt("worldgen mix").selected_text(layer.mix.name()).show_ui(ui, |ui| {
+            for mix in Mix::ALL {
+                ui.selectable_value(&mut layer.mix, mix, mix.name()).on_hover_text(mix.about());
+            }
+        });
+    });
+    ui.small(layer.mix.about());
+    let mut percent = layer.opacity * 100.0;
+    if ui
+        .add(egui::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
+        .on_hover_text("0% = just the layers below. 100% = the full mix.")
+        .changed()
+    {
+        layer.opacity = percent / 100.0;
+    }
+    ui.small("(The bottom layer has nothing below, so its own values are used as they are.)");
+
     match &mut layer.kind {
         LayerKind::Perlin { seed, settings } => perlin_settings(ui, layer.id, seed, settings, view),
         LayerKind::Image { file, picture, placement } => {
@@ -253,8 +316,12 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
 
     ui.add_space(10.0);
     ui.separator();
-    ui.heading("Colour");
-    ui.small("Colours this layer's picture (on screen and in exports). Its values stay as they are.");
+    ui.heading("Colour when shown alone");
+    ui.small(
+        "How this layer looks on its own. In the result, the layers' numbers are mixed and the \
+         result's palette colours them, so these colours only show when the layer is shown alone.",
+    );
+    ui.checkbox(show_alone, "show the open layer alone");
     let is_image = matches!(layer.kind, LayerKind::Image { .. });
     colour_panel(ui, &mut layer.colouring, is_image, view);
 }
@@ -540,6 +607,22 @@ fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     ui.heading("Layers");
     if suite.layers.is_empty() {
         ui.small("None yet. \"+ Add layer\" is in the top left.");
+    } else {
+        ui.horizontal(|ui| {
+            ui.label("show:");
+            ui.selectable_value(&mut suite.show_alone, false, "the result")
+                .on_hover_text("All the visible layers mixed, coloured with the result's palette.");
+            ui.selectable_value(&mut suite.show_alone, true, "the open layer alone")
+                .on_hover_text("Just the open layer, in its own colours (an image in its own colours).");
+        });
+        let picked = suite.selected == Some(RESULT);
+        if ui
+            .add(egui::Button::selectable(picked, "▣ The result (all layers mixed)").truncate())
+            .on_hover_text("Open the result's colouring and numbers.")
+            .clicked()
+        {
+            suite.selected = Some(RESULT);
+        }
     }
     // Top of the stack first, as in image editors.
     let mut action = None;
@@ -547,13 +630,19 @@ fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
         ui.horizontal(|ui| {
             ui.checkbox(&mut layer.visible, "").on_hover_text("Show or hide this layer");
             let picked = suite.selected == Some(layer.id);
-            let label = if layer.is_making() { format!("{}  …", layer.name) } else { layer.name.clone() };
-            if ui.selectable_label(picked, label).on_hover_text(layer.kind.type_name()).clicked() {
+            let making = if layer.is_making() { "  …" } else { "" };
+            let mix = match (layer.mix, layer.opacity) {
+                (Mix::Normal, 1.0) => String::new(),
+                (mix, opacity) => format!("  [{} {:.0}%]", mix.name(), opacity * 100.0),
+            };
+            let label = format!("{}{making}{mix}", layer.name);
+            let hover = format!("{}\n{}\nmix: {} at {:.0}%", layer.name, layer.kind.type_name(), layer.mix.name(), layer.opacity * 100.0);
+            if ui.add(egui::Button::selectable(picked, label).truncate()).on_hover_text(hover).clicked() {
                 suite.selected = Some(layer.id);
             }
         });
     }
-    if let Some(id) = suite.selected {
+    if let Some(id) = suite.selected.filter(|&id| id != RESULT) {
         ui.horizontal(|ui| {
             if ui.small_button("Up").on_hover_text("Move the open layer up the stack").clicked() {
                 action = Some((id, Some(true)));
@@ -596,12 +685,23 @@ fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
                 }
             }
             egui::Grid::new("worldgen inspector").striped(true).show(ui, |ui| {
+                if let Some(stacked) = &suite.view.stacked
+                    && stacked.shaped.values.len() == width * height
+                {
+                    ui.strong("result");
+                    if stacked.covers(i) {
+                        ui.strong(format!("{:.4}", stacked.shaped.values[i]));
+                    } else {
+                        ui.small("(nothing)");
+                    }
+                    ui.end_row();
+                }
                 for layer in suite.layers.iter().rev() {
                     let Some(result) = &layer.result else { continue };
                     if result.made.shaped.values.len() != width * height {
                         continue;
                     }
-                    ui.label(&layer.name);
+                    ui.label(short(&layer.name, 18)).on_hover_text(format!("{}\nmix: {}", layer.name, layer.mix.name()));
                     if result.made.covers(i) {
                         ui.label(format!("{:.4}", result.made.shaped.values[i]));
                         ui.small(format!("raw {:+.4}", result.made.raw.values[i]));
@@ -618,14 +718,21 @@ fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     }
 
     ui.separator();
-    let Some(layer) = suite.selected_layer() else { return };
-    ui.heading(format!("{}", layer.name));
-    let Some(result) = &layer.result else {
-        ui.small("Being made…");
-        return;
+    let stats = if suite.selected == Some(RESULT) {
+        ui.heading("The result");
+        let Some(stacked) = &suite.view.stacked else { return };
+        ui.label(format!("covers {} pixels", stacked.stats.covered));
+        &stacked.stats
+    } else {
+        let Some(layer) = suite.selected_layer() else { return };
+        ui.add(egui::Label::new(egui::RichText::new(&layer.name).heading()).truncate()).on_hover_text(&layer.name);
+        let Some(result) = &layer.result else {
+            ui.small("Being made…");
+            return;
+        };
+        ui.label(format!("made in {:.0} ms, covers {} pixels", result.millis, result.made.stats.covered));
+        &result.made.stats
     };
-    let stats = &result.made.stats;
-    ui.label(format!("made in {:.0} ms, covers {} pixels", result.millis, stats.covered));
     ui.label(format!("raw from {:+.3} to {:+.3}", stats.raw_low, stats.raw_high));
     ui.label(format!("average value {:.3}", stats.mean));
     let clipped = |share: f32| format!("{:.1}%", share * 100.0);
@@ -686,12 +793,21 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
     let (width, height) = (across, across);
     let cells = width * height;
 
-    // Restack the picture only when a layer's picture, order, or visibility changed.
-    let wanted: Vec<(u32, bool, u64)> =
-        suite.layers.iter().map(|layer| (layer.id, layer.visible, layer.paint_version)).collect();
-    let view = &mut suite.view;
-    if wanted != view.composite_for || view.size != (width, height) || view.texture.is_none() {
-        view.composite = layers::composite(&suite.layers, cells);
+    // Remix the stack and repaint the picture only when something it's made from changed.
+    let wanted = picture_key(suite);
+    let alone = alone(suite);
+    let blocks = suite.blocks_per_pixel();
+    let Suite { layers: all, colouring, view, .. } = suite;
+    if view.composite_for.as_ref() != Some(&wanted) || view.size != (width, height) || view.texture.is_none() {
+        let stacked = layers::stack(all, width, blocks);
+        view.composite = match alone.map(|i| &all[i]) {
+            Some(layer) => match &layer.result {
+                Some(result) if result.made.shaped.values.len() == cells => layers::colour(&result.made, &layer.colouring),
+                _ => vec![None; cells],
+            },
+            None => layers::colour(&stacked, colouring),
+        };
+        view.stacked = Some(stacked);
         view.size = (width, height);
         let pixels: Vec<Color32> = view
             .composite
@@ -707,7 +823,7 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
             Some(texture) => texture.set(image, egui::TextureOptions::NEAREST),
             None => view.texture = Some(ui.ctx().load_texture("worldgen field", image, egui::TextureOptions::NEAREST)),
         }
-        view.composite_for = wanted;
+        view.composite_for = Some(wanted);
     }
 
     // Fit the whole field on screen when its size changes (and on double-click).
@@ -751,7 +867,7 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
         painter.image(texture.id(), image_rect, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
         painter.rect_stroke(image_rect, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Outside);
     }
-    if suite.layers.is_empty() {
+    if all.is_empty() {
         painter.text(rect.center(), egui::Align2::CENTER_CENTER, "A blank page: \"+ Add layer\", top left", egui::FontId::proportional(18.0), PINK);
     }
 

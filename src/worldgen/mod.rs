@@ -4,7 +4,9 @@
 //! before the next one is added. See `docs/worldgen.md` for the order so far.
 //!
 //! **A stack of layers, like a graphics editor.** It starts blank. Add a layer of a chosen type
-//! (a Perlin noise field, or an image from a PNG), name it, tune it, colour it with a palette.
+//! (a Perlin noise field, or an image from a PNG), name it, tune it, and choose how it mixes with
+//! the layers below (multiply, add…). Layers mix their numbers; the result is coloured with a
+//! palette. Numbers become colours, and colours (pictures) become numbers.
 //! Noise presets save useful kinds of noise by name. What's on screen (or the whole field) can be
 //! exported as a PNG, for the art workflow.
 //!
@@ -17,11 +19,13 @@
 //! - `noise.rs`   Perlin noise and its settings
 //! - `image.rs`   image layers: PNG pictures laid onto the field
 //! - `layers.rs`  the layer stack
+//! - `blend.rs`   how a layer mixes with the ones below it
 //! - `runner.rs`  making a layer in the background
 //! - `palette.rs` colouring with a palette, the HSL filter, reading and writing `.gpl` files
 //! - `export.rs`  saving pictures as PNG
 //! - `view.rs`    the screen
 
+mod blend;
 mod export;
 mod field;
 mod image;
@@ -38,11 +42,16 @@ use bevy::prelude::*;
 use bevy::window::FileDragAndDrop;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 use layers::{Layer, LayerKind};
+use palette::Colouring;
 use std::path::Path;
 use std::sync::Arc;
 
 /// Blocks along one side of a chunk (see `docs/decisions.md`).
 pub const CHUNK_BLOCKS: f32 = 32.0;
+
+/// `Suite::selected` for "the result" (all the layers mixed) rather than one layer. Layer ids
+/// start at 1.
+pub const RESULT: u32 = 0;
 
 #[derive(Resource)]
 pub struct Suite {
@@ -52,8 +61,12 @@ pub struct Suite {
     pub chunks_per_pixel: u32,
     /// The layers, bottom first.
     pub layers: Vec<Layer>,
-    /// The layer whose settings are open.
+    /// The layer whose settings are open, or `RESULT`.
     pub selected: Option<u32>,
+    /// How the result (all the layers mixed) is coloured.
+    pub colouring: Colouring,
+    /// Show only the open layer, in its own colours, instead of the result.
+    pub show_alone: bool,
     pub view: view::ViewState,
     next_id: u32,
 }
@@ -65,15 +78,22 @@ impl Default for Suite {
             chunks_per_pixel: 8,
             layers: Vec::new(),
             selected: None,
+            colouring: Colouring::default(),
+            show_alone: false,
             view: view::ViewState::default(),
             next_id: 1,
         };
         // For automatic testing: `INCUS_SELFTEST_SUITE=<a PNG>` starts with a Perlin layer and that
-        // picture on top of it, instead of a blank page.
+        // picture on top of it, multiplied in, instead of a blank page.
         if let Ok(path) = std::env::var("INCUS_SELFTEST_SUITE") {
             suite.add_perlin();
-            if let Err(error) = suite.add_image(Path::new(&path)) {
-                warn!("Self-test picture: {error}");
+            match suite.add_image(Path::new(&path)) {
+                Ok(()) => {
+                    if let Some(layer) = suite.layers.last_mut() {
+                        layer.mix = blend::Mix::Multiply;
+                    }
+                }
+                Err(error) => warn!("Self-test picture: {error}"),
             }
         }
         suite
