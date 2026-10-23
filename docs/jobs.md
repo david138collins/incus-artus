@@ -1,4 +1,4 @@
-# Incus Artus — Jobs (draft)
+# Incus Artus — People, Impulses and Jobs
 
 How people decide what to do. Sorted from David's notes, 2026-10-22. Tags as elsewhere:
 **[DECIDED]** David said so · **[PROPOSED]** Claude's suggestion, waiting for a yes · **[QUESTION]**.
@@ -7,97 +7,144 @@ The world depends on NPCs doing things of their own accord. **NPCs are creatures
 all**, and if they get the ones they like, they're happy campers. The hustle and bustle comes from workers
 solving their own problems through simple decisions and obvious default behaviors, before they give up.
 
+**You can't fully control NPCs.** You can do your best to keep them productive, and plan your village around
+productive routines and logistics (part of the fun of Dwarf Fortress), but it's never fully mechanical.
+
 ---
 
-## 1. Impulses  [DECIDED]
+## 1. Impulses and thresholds  [DECIDED]
 
-- Every person has **impulses**: work, eat, sleep, socialise, and so on. Each one rises over time, and the
-  strongest one decides what they set off to do.
-- **Work** is the generic will to go out and do things. It's the most common impulse and fills most of the
-  day. Following it means **going to work**, which means **looking for a Job**.
-- The other impulses come up less often and behave differently (eat finds food, sleep finds a bed).
+- Every person has **impulses**: work, eat, sleep, socialise, and more later. Each one **charges up** over time
+  (motivation), like the momentum charge.
+- An impulse becomes the person's **active goal** when its charge reaches its **threshold**. Example: 1,000
+  units of motivation are needed.
+- **Opportunities press the threshold down.** Something that presents itself lowers where the charge has to
+  get to: with a chance to chat right there, 800 is enough. Discrete opportunities *modulate the threshold*
+  instead of filling the charge.
+- **Work** is the generic will to go out and do things, and the most common impulse. Following it means going
+  to work, which means looking for a Job. The others come up less often and behave differently.
+- **Randomness** acts on every impulse slightly, all the time.
+- **Waves of weirdness** come by once in a while: they make people start doing things, or affect a number of
+  people at random, just to stir things up.
 
-## 2. Jobs  [DECIDED]
+**[PROPOSED] One dial for everything:** a "pressure" on a threshold (or on a charge rate) is the only tool
+needed for:
+- opportunities;
+- likes and dislikes (a liked job's threshold is lower);
+- schedules (night lowers sleep's threshold);
+- moods and weirdness;
+- Fate's twists.
 
-- **A Job is anything that needs to get done for the faction someone belongs to.** Each faction has a
-  **job board**.
+Each pressure says what it presses on, how hard, why, and when it ends, so the debug page can show exactly why
+Brom went to the tavern.
+
+## 2. Opportunities and meetings  [DECIDED]
+
+- **Opportunities present themselves immediately to NPCs through chance.** Example: two villagers walk to
+  work and meet every day. When they meet there's a chance they stop and talk for a moment. They'll probably
+  enjoy it at least a little, which satisfies their need to socialise. Because they see each other every day,
+  they become **friends**.
+- **In the bookkeeping:** check once in a blue moon how likely two people are to cross paths, times the chance
+  of the chat. Rolled through Fate (`social.chat`).
+- **The two levels drifting apart is good.** When you hang around a town, the full simulation won't come out
+  exactly like the bookkeeping did, so things shift a bit as you settle in. That gives openings for
+  dissatisfactions, events and job changes.
+
+## 3. Jobs and who makes them  [DECIDED]
+
+- **A Job is anything that needs to get done.** Many kinds of things can create jobs that apply to many kinds
+  of entities, wild animals included:
+  - a **village** makes lots of jobs;
+  - a **kingdom** makes courier jobs, so someone runs from town to town and brings you news of Remarkable
+    Events;
+  - a **goblin den's** jobs are a list of heinous crimes that fill themselves in opportunistically.
 - Where jobs come from:
-  - **Orders:** dig here, chop those trees, build this blueprint, make 5 chairs.
-  - **Settings:** derived from workshop and warehouse settings. A carpenter's workshop set to "keep wood
-    stocked" posts *haul wood here* jobs when it runs low; loose items post *haul this to a stockpile*.
-  - **Opportunity:** for hostile factions, the jobs are a list of heinous crimes that fill themselves in when
-    a chance appears (steal the livestock, burn the barn, kill the guard). **Goblins see jobs exactly the
-    way villagers do.** That keeps hostile expansion in the same cheap bookkeeping as everything else:
-    named people, job assignment, derived equipment, and borders that become real when you arrive.
-- **Idle people take jobs on their own.** Ten people doing nothing and a new dig order: they find pickaxes
-  if they can and start digging.
+  - **orders** (dig here, build this, make 5 chairs);
+  - **settings** (a workshop set to keep wood stocked posts "haul wood here");
+  - **opportunity**.
+- **Idle people take jobs on their own.** Ten people doing nothing and a dig order: they find pickaxes if they
+  can and start digging.
+- **[PROPOSED]** Each job says **who made it** (the village, the kingdom, the den) and **who can take it** (its
+  members, anyone, couriers only...).
 
-## 3. Assignments  [DECIDED]
+## 4. Occupations and assignments  [DECIDED]
 
-- You can **assign a worker to a workstation** (Brom is the carpenter in workshop 3). Going to work, an
-  assigned worker **always checks their station first**.
-- Anyone without an assignment, or whose station has nothing to do, takes the best job on the board.
+- You can **assign a worker to a workstation** (Brom, carpenter, in workshop 3). Going to work, an assigned
+  worker **checks their station first**.
+- **Each Occupation has a short list of places to look** for what it needs when it isn't where it normally
+  is. So the computer isn't really trying hard to solve it: it's a few obvious scavenging behaviors, not a
+  flowchart. Example for a carpenter needing wood:
+  1. my workshop's storage;
+  2. the warehouse linked to my workshop;
+  3. other warehouses whose filters take wood;
+  4. **the settlement's job list:** is any job carrying wood? A "haul wood to warehouse" job on the ground near
+     the chopped trees: **my job overrides it**. I take the wood straight to my workshop and make the chair.
+  5. give up.
+- Other tasks may not have such persistent problem-solving set up. But the player needs to get things done,
+  with some reliability from happy NPCs.
+- **[PROPOSED]** The lists are data (one per occupation), written by David, like the block files.
 
-## 4. Going to work: the decision ladder  [PROPOSED, from David's example]
+## 5. Giving up isn't the end of the world  [DECIDED]
 
-1. **My station** (if I'm assigned one): is there something to make? If it needs materials I don't have,
-   solve the problem (below).
-2. **The job board:** take the best open job I'm able to do. "Best" weighs how much I like it, my skill,
-   how urgent it is, and how far away it is.
-3. **Nothing to do:** idle (wander, chat). Being idle for long makes people unhappy.
+- A carpenter who can't do his job **gives up and looks for other work**: mining or construction jobs on the
+  board, or another workshop with work orders and nobody assigned to that slot.
+- The settlement's **player-visible event log** gets a line: *"Durthon Heffeg gives up trying to [work order]."*
+  It doesn't say what he did instead. To find out, look him up in the Inhabitants tab and jump to him on the
+  map, or check his "current activity" column.
+- **[PROPOSED]** He doesn't retry the same order for a while, unless what he needed turns up (a "wood stored"
+  announcement wakes everyone waiting for wood).
+- **[PROPOSED]** Whoever claims a job, an item or a station **reserves** it, so two people never walk to the
+  same log.
 
-## 5. Solving a problem: "I need wood"  [PROPOSED, from David's example]
+## 6. Likes, dislikes and happiness  [DECIDED]
 
-Simple, obvious steps in order, each a little more effort than the last:
+- People **take jobs they don't prefer** if that's the best option they have. They get less satisfaction, and
+  "have a drink at the tavern" overrides it more often (proposed: a disliked job presses down the thresholds
+  of leisure impulses).
+- Doing jobs they like makes them happy campers.
 
-1. **My workshop's own storage.**
-2. **The warehouse linked to my workshop** (linked in the manager).
-3. **Any other warehouse** whose filters accept wood.
-4. **Open hauling jobs carrying wood** (posted because of workshop settings): take one.
-5. **Wood lying on the ground** where woodcutters or a tree farm are working, or anywhere known.
-6. **Give up**, and do these:
-   - leave the need on the board ("workshop 3 needs wood"). That can create work for others: a
-     woodcutter sees a demand for logs;
-   - say so where the player will see it (the manager, or a complaint);
-   - go do something else, and try again later or **as soon as wood turns up** (a "wood stored"
-     announcement wakes up everyone waiting for wood).
+## 7. Hauling  [DECIDED: its own discussion later]
 
-**Tools work the same way.** A dig job needs a pickaxe: my hands, my belt, my workshop, warehouses,
-the ground, then give up ("no pickaxe anywhere").
+Warehouses and hauling get their own in-depth design, to be efficient for both the player and the NPCs. Until
+then, hauling jobs are simple: take this from here to there.
 
-**Reservations:** whoever claims a job, an item or a station **reserves** it, so two dwarves never walk to
-the same log.
+## 8. The three simulation levels  [PROPOSED]
 
-## 6. Happiness  [DECIDED]
+- **One set of rules, given however much time has passed.** Each person has a current activity with time
+  left. The same code runs **every tick** when Local (a few seconds at a time) and **every in-game hour** when
+  Rich (an hour at a time).
+- **Local:** later, bodies walk and carry for real; the decisions stay the same.
+- **Rich:** your settlement while you're away. People, the job board, and progress keep going as records.
+- **Thin:** no job board. Rare bookkeeping: meetings and friendships, moods, and production as numbers.
+- **[DECIDED] Everyone has a name from the very beginning.** Person records are small, so a whole world of them
+  is cheap.
 
-- People have likes and dislikes among kinds of work. Doing jobs they like makes them happy; doing jobs
-  they dislike, or having nothing to do, makes them unhappy.
+## 9. What gets saved  [PROPOSED]
 
-## 7. Jobs at the three simulation levels  [PROPOSED]
+- Every person: name, faction, home, occupation and assignment, impulse charges, pressures, likes,
+  relationships, current activity and job, "gave up on" list.
+- Every job: who made it, who can take it, source, what it needs, urgency, claimed by, progress, why it's stuck.
+- Places: workshops (slots, work orders, linked warehouse), warehouses (filters, contents), piles on the ground.
+- The settlement's event log.
+- **Not saved:** reservations. They're worked out again from the claimed jobs when the world loads.
 
-- **Local:** the full thing. People walk, fetch, carry and work stations you can watch.
-- **Rich** (your settlement while you're away): the job board keeps going, but jobs progress by summary
-  math from how many workers there are, their skills, and what materials are available ("wall 40% built").
-  The real result appears when you come back.
-- **Thin:** no board, just production and growth numbers per trade.
-- **Collapsing** keeps jobs in progress as records (who, what, how far along); **expanding** puts each
-  worker back where their job is.
+## Build plan  [PROPOSED]
 
-## 8. What gets saved  [PROPOSED]
+Before world generation, so everything after it is built on this. Each stage ends with something you can watch
+on the debug panel, with magenta stand-ins at the places people are.
 
-- Each faction's **job board**: every job, its source (order / setting / opportunity), what it needs,
-  urgency, who claimed it, how far along, and why it's stuck if it is.
-- Each person's **assignment**, **current job and step**, likes and dislikes, and impulse levels.
-- **Reservations are not saved**: they're worked out again from the claimed jobs when the world loads.
-  That's simpler and can't go wrong.
+1. **People and impulses:** person records, charges and thresholds, pressures, randomness, waves of weirdness.
+   A **test settlement** on the test world with about 8 people. A **People** tab with each person's impulse
+   bars and what's pressing on them.
+2. **Jobs:** job boards, who made them and who can take them, orders and settings, occupations and workstation
+   slots, work orders and test recipes, the occupation search lists, the haul override, reservations, giving up,
+   the event log.
+3. **Meetings:** chance meetings, chats and friendships, in both the full and bookkeeping versions.
+4. **Levels and saving:** the same rules Local and Rich, the Thin bookkeeping, and all of it in the world save.
 
-## Questions
+## Content David will need to provide (placeholders until then)
 
-1. **Taking a hauling job (step 4):** is it a hauling job that would bring wood *to my own* workshop
-   (so I go fetch it myself), or one taking wood somewhere else (so I redirect the wood to me, and the
-   other place goes short)?
-2. **Job boards:** one per settlement, or one per faction (a kingdom with several towns)?
-3. **Disliked jobs:** do people still take them if nothing else needs doing (just less happy), or refuse
-   them?
-4. **Who tells you when someone gives up:** a line in the manager, a foreman's complaint, the person
-   walking up to you if you're near?
+- **Name lists** for each race (given names, family names). Until then people are "Villager 1", "Villager 2"...
+- **Occupations**, and each one's short list of places to look.
+- **A few recipes** (what's made, from what, at which station, how long).
+- **Impulses:** the list, and roughly how fast each charges.
