@@ -32,6 +32,7 @@ use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::events::{EventLogAppExt, LoggedEvent};
 use crate::fate::{Fate, Wanted};
 use crate::save::{WorldFolder, WorldStateAppExt};
+use crate::screen::Screen;
 use crate::time::{DAY_SECONDS, HOUR_SECONDS, TimeControl, WorldClock};
 use crate::world::WorldEdits;
 use bevy::prelude::*;
@@ -302,7 +303,7 @@ impl Plugin for SimPlugin {
             .add_systems(FixedUpdate, run_world_sim.in_set(WorldSimSet).after(WorldEdits))
             .add_plugins(stand_ins::StandInPlugin)
             .init_resource::<debug::SimPageState>()
-            .add_systems(EguiPrimaryContextPass, debug::draw_local_notice)
+            .add_systems(EguiPrimaryContextPass, debug::draw_local_notice.run_if(in_state(Screen::Play)))
             .add_debug_page("Sim", debug::sim_debug_page);
     }
 }

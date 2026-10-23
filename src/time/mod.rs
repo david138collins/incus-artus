@@ -23,6 +23,7 @@ pub use interpolation::{InterpolationSettings, SimPosition, blend_fraction};
 
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::save::WorldStateAppExt;
+use crate::screen::Screen;
 use bevy::prelude::*;
 use bevy::time::TimeSystems;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
@@ -166,7 +167,7 @@ impl Plugin for TimeControlPlugin {
             // At the very start of every tick: count it.
             .add_systems(FixedFirst, count_tick)
             .add_plugins(interpolation::InterpolationPlugin)
-            .add_systems(EguiPrimaryContextPass, draw_time_notice)
+            .add_systems(EguiPrimaryContextPass, draw_time_notice.run_if(in_state(Screen::Play)))
             .add_debug_page("Time", time_debug_page)
             .add_settings::<InterpolationSettings>("smooth_motion");
     }

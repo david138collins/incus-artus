@@ -105,6 +105,11 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** Max speed 4× (dev tool; may not ship to players). Pause must be possible
   (dev + manager screen + optional setting).
 - **[DECIDED]** Calendar target: year = 4 seasons × 7 days; day = 15 min light + 15 min dark.
+- **[DECIDED]** The calendar is 0 at world generation until the world is populated, then runs through 1,000 years
+  of history. Play starts in year 1000. (The world clock currently starts at year 1; this changes when history
+  generation exists.) See `docs/worldgen.md`.
+- **[DECIDED]** World generation is built in a **suite**: a separate screen (F2) with the physical world switched
+  off. See `docs/worldgen.md`.
 - **[DECIDED]** Pawn movement runs on the fixed tick, input polled every frame,
   position interpolated between ticks for display.
 - **[DECIDED]** 30 simulation ticks per second (tunable on the debug panel). Heavy systems

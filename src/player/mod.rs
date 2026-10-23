@@ -36,6 +36,7 @@ use crate::debug::{DebugAppExt, SettingsAppExt, preset_bar};
 use crate::kinematics::{Envelope, EnvelopeState, envelope_editor};
 use crate::events::{EventLogAppExt, LocalPlayer, LoggedEvent, PlayerId};
 use crate::save::{WorldFolder, WorldStateAppExt};
+use crate::screen::Screen;
 use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
@@ -73,7 +74,8 @@ impl Plugin for PlayerPlugin {
                     block_actions,
                     notice_footsteps,
                     update_presence,
-                ),
+                )
+                    .run_if(in_state(Screen::Play)),
             )
             // Saved with each world: where you are and what you're looking at.
             .add_world_state_with("player", save_player, load_player, fresh_player)
@@ -81,7 +83,7 @@ impl Plugin for PlayerPlugin {
             .add_systems(FixedUpdate, move_pawn.after(WorldEdits))
             .log_event::<Footstep>()
             .log_event::<Landed>()
-            .add_systems(EguiPrimaryContextPass, draw_hotbar)
+            .add_systems(EguiPrimaryContextPass, draw_hotbar.run_if(in_state(Screen::Play)))
             .add_debug_page("Player", player_debug_page)
             .add_settings::<PlayerSettings>("player");
     }

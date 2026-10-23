@@ -27,6 +27,7 @@ use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::events::{EventLogAppExt, LoggedEvent};
 use crate::fate::Fate;
 use crate::save::{WorldFolder, WorldStateAppExt};
+use crate::screen::Screen;
 use crate::sim::{SimLevel, SimSettings, SimWorld, SiteId};
 use crate::time::{DAY_SECONDS, HOUR_SECONDS, TimeControl, WorldClock};
 use bevy::prelude::*;
@@ -262,7 +263,7 @@ impl Plugin for PeoplePlugin {
             .log_event::<MoodWave>()
             .add_systems(FixedUpdate, live.after(crate::sim::WorldSimSet))
             .add_plugins(stand_ins::PeopleStandInPlugin)
-            .add_systems(EguiPrimaryContextPass, debug::draw_labels)
+            .add_systems(EguiPrimaryContextPass, debug::draw_labels.run_if(in_state(Screen::Play)))
             .add_debug_page("People", debug::people_debug_page);
     }
 }

@@ -24,6 +24,7 @@ use crate::coords::game_to_bevy;
 use crate::data::{BlockRegistry, FACE_NAMES};
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::player::{ControlMode, PlayerSettings};
+use crate::screen::Screen;
 use crate::world::{ChunkPos, RayHit, VoxelWorld, cast_ray};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
@@ -54,9 +55,10 @@ impl Plugin for CameraPlugin {
                     find_look_target,
                     draw_look_target,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(Screen::Play)),
             )
-            .add_systems(EguiPrimaryContextPass, draw_crosshair)
+            .add_systems(EguiPrimaryContextPass, draw_crosshair.run_if(in_state(Screen::Play)))
             .add_debug_page("Camera", camera_debug_page)
             .add_settings::<CameraSettings>("camera");
     }

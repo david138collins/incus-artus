@@ -19,6 +19,8 @@
 //! - `people`  — named people: urges that charge up, pressures that lower the line, meetings
 //! - `camera`  — the free-fly developer camera and "what am I looking at?" raycast
 //! - `player`  — the walking body, fly/walk switching, breaking and placing blocks
+//! - `screen`  — which screen is showing: the world, or the World Gen suite (F2)
+//! - `worldgen` — the World Gen suite: the workbench the world generator is built in
 //! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
 
 mod camera;
@@ -33,9 +35,11 @@ mod player;
 mod render;
 mod sandbox;
 mod save;
+mod screen;
 mod sim;
 mod time;
 mod world;
+mod worldgen;
 
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
@@ -70,6 +74,8 @@ fn main() {
             people::PeoplePlugin,
             camera::CameraPlugin,
             player::PlayerPlugin,
+            screen::ScreenPlugin,
+            worldgen::WorldGenPlugin,
             sandbox::SandboxPlugin,
         ))
         .run();
