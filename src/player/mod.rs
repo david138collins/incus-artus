@@ -35,6 +35,8 @@ use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, SettingsAppExt, preset_bar};
 use crate::kinematics::{Envelope, EnvelopeState, envelope_editor};
 use crate::events::{EventLogAppExt, LocalPlayer, LoggedEvent, PlayerId};
+use crate::save::{WorldFolder, WorldStateAppExt};
+use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
@@ -70,8 +72,11 @@ impl Plugin for PlayerPlugin {
                     widen_view_when_sprinting.before(crate::camera::place_camera),
                     block_actions,
                     notice_footsteps,
+                    update_presence,
                 ),
             )
+            // Saved with each world: where you are and what you're looking at.
+            .add_world_state_with("player", save_player, load_player, fresh_player)
             // After this tick's block edits, so the body bumps into the world as it now is.
             .add_systems(FixedUpdate, move_pawn.after(WorldEdits))
             .log_event::<Footstep>()
@@ -389,13 +394,106 @@ fn spawn_point(world: &VoxelWorld) -> Vec3 {
 }
 
 fn spawn_pawn(mut commands: Commands, world: Res<VoxelWorld>) {
+    let feet = spawn_point(&world);
     commands.spawn((
         Pawn::default(),
-        SimPosition::new(spawn_point(&world)),
+        SimPosition::new(feet),
         PawnInput::default(),
         PlayerId(0),
         LocalPlayer,
+        Presence(feet),
     ));
+}
+
+/// The player's presence (what keeps the world around them local) is wherever they are: the
+/// flying camera while flying, the body while walking.
+fn update_presence(
+    mode: Res<ControlMode>,
+    camera: Query<&FlyCamera>,
+    mut pawns: Query<(&SimPosition, &mut Presence), With<LocalPlayer>>,
+) {
+    for (position, mut presence) in &mut pawns {
+        presence.0 = match (*mode, camera.single()) {
+            (ControlMode::Fly, Ok(camera)) => camera.position,
+            _ => position.current,
+        };
+    }
+}
+
+// ── Saved with the world ────────────────────────────────────────────────────
+
+/// What `player.toml` holds.
+#[derive(Serialize, Deserialize, Default)]
+#[serde(default)]
+struct PlayerSave {
+    /// Where the feet are (game axes).
+    feet: [f32; 3],
+    /// Where the flying camera is.
+    camera: [f32; 3],
+    heading: f32,
+    pitch: f32,
+    flying: bool,
+    selected_block: usize,
+}
+
+fn save_player(world: &World, folder: &WorldFolder) -> Result<String, String> {
+    let mut save = PlayerSave {
+        flying: *world.resource::<ControlMode>() == ControlMode::Fly,
+        selected_block: world.resource::<Hotbar>().selected,
+        ..default()
+    };
+    if let Some(mut query) = world.try_query_filtered::<&SimPosition, With<LocalPlayer>>() {
+        if let Some(position) = query.iter(world).next() {
+            save.feet = position.current.to_array();
+        }
+    }
+    if let Some(mut query) = world.try_query::<&FlyCamera>() {
+        if let Some(camera) = query.iter(world).next() {
+            save.camera = camera.position.to_array();
+            save.heading = camera.heading;
+            save.pitch = camera.pitch;
+        }
+    }
+    folder.write_toml(&save)?;
+    Ok(String::new())
+}
+
+fn load_player(world: &mut World, folder: &WorldFolder) -> Result<String, String> {
+    let Some(save) = folder.read_toml::<PlayerSave>()? else {
+        fresh_player(world, folder.seed);
+        return Ok("not in this world, put at the spawn point".to_string());
+    };
+    *world.resource_mut::<ControlMode>() = if save.flying { ControlMode::Fly } else { ControlMode::Walk };
+    world.resource_mut::<Hotbar>().selected = save.selected_block;
+    for mut camera in world.query::<&mut FlyCamera>().iter_mut(world) {
+        camera.position = Vec3::from_array(save.camera);
+        camera.heading = save.heading;
+        camera.pitch = save.pitch;
+    }
+    put_pawn_at(world, Vec3::from_array(save.feet));
+    Ok(String::new())
+}
+
+/// A fresh world: walking, at the spawn point.
+fn fresh_player(world: &mut World, _seed: u64) {
+    *world.resource_mut::<ControlMode>() = ControlMode::Walk;
+    let feet = spawn_point(world.resource::<VoxelWorld>());
+    put_pawn_at(world, feet);
+}
+
+/// Move the local player's body to `feet` (nothing happens before the body exists).
+fn put_pawn_at(world: &mut World, feet: Vec3) {
+    world.resource_scope(|world, settings: Mut<PlayerSettings>| {
+        world.resource_scope(|world, voxel: Mut<VoxelWorld>| {
+            world.resource_scope(|world, registry: Mut<BlockRegistry>| {
+                let mut pawns = world.query_filtered::<(&mut Pawn, &mut SimPosition, &mut Presence), With<LocalPlayer>>();
+                for (mut pawn, mut position, mut presence) in pawns.iter_mut(world) {
+                    place_pawn(&mut pawn, &mut position, feet, &settings, &voxel, &registry);
+                    presence.0 = position.current;
+                }
+            });
+        });
+    });
 }
 
 /// Are the keys free for the game (not being typed into a debug panel box)?

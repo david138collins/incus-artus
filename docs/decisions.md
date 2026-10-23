@@ -186,6 +186,10 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** No save/load-game. Just worlds, Minecraft-style world folders.
 - **[DECIDED]** Only changed chunks are saved; untouched terrain regenerates from the seed.
 - **[DECIDED]** Settings in readable text; tuning saved as named presets (save / edit / save as).
+- **[DECIDED, built 2026-10-22]** World folders in `worlds/`: each part of the game saves its own file (clock, terrain,
+  fate, sim, player), chunks store block *names*, every file carries a format version. Save page on the debug panel.
+  Details in `docs/simulation.md` section 9.
+- **[DECIDED, built]** Three simulation levels (local / rich / thin), hooks, journeys, Fate. See `docs/simulation.md`.
 
 ## Event Bus (step 6)
 

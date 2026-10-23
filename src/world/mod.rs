@@ -7,6 +7,9 @@
 //! knows which meshes to rebuild. A change on a section's edge also dirties the neighbour,
 //! because the neighbour's visible faces may have changed too.
 //!
+//! Separately, it remembers which *chunks* have been changed since the terrain was generated:
+//! only those are saved (see `storage.rs`).
+//!
 //! This module does not decide *why* blocks change. Mining, building and world generation
 //! are separate systems that call `set_block` and announce what they did on the event bus.
 
@@ -17,6 +20,7 @@ mod generator;
 mod position;
 mod raycast;
 mod section;
+mod storage;
 
 pub use block::BlockId;
 pub use edits::{
@@ -33,10 +37,13 @@ pub use position::{
     WORLD_HEIGHT, z_in_world,
 };
 pub use section::Section;
+#[cfg(test)]
+pub use storage::{fresh_terrain, load_terrain, save_terrain};
 
 use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::events::EventLogAppExt;
+use crate::save::WorldStateAppExt;
 use bevy::prelude::*;
 use bevy_egui::egui;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -47,6 +54,8 @@ use std::time::Instant;
 pub struct VoxelWorld {
     chunks: HashMap<ChunkPos, Chunk>,
     dirty: HashSet<SectionKey>,
+    /// Chunks changed since the terrain was generated (the ones that get saved).
+    changed: HashSet<ChunkPos>,
 }
 
 impl VoxelWorld {
@@ -70,8 +79,19 @@ impl VoxelWorld {
         let old = self.chunks.get_mut(&chunk_pos)?.set(block, id);
         if old != id {
             self.mark_dirty_around(block);
+            self.changed.insert(chunk_pos);
         }
         Some(old)
+    }
+
+    /// Chunks changed since the terrain was generated.
+    pub fn changed_chunks(&self) -> &HashSet<ChunkPos> {
+        &self.changed
+    }
+
+    /// Count a chunk as changed (e.g. one loaded from a save over the generated terrain).
+    pub fn mark_changed(&mut self, pos: ChunkPos) {
+        self.changed.insert(pos);
     }
 
     pub fn chunk(&self, pos: ChunkPos) -> Option<&Chunk> {
@@ -99,6 +119,7 @@ impl VoxelWorld {
             }
         }
         self.chunks.clear();
+        self.changed.clear();
     }
 
     pub fn chunk_count(&self) -> usize {
@@ -198,14 +219,11 @@ impl Plugin for WorldPlugin {
             .log_event::<BlockEditRequest>()
             .log_event::<BlockChanged>()
             .log_event::<BlockEditRefused>()
-            .add_systems(Startup, generate_on_startup)
+            // The terrain is made when a world starts (see the save module), and saved as "terrain".
+            .add_world_state_with("terrain", storage::save_terrain, storage::load_terrain, storage::fresh_terrain)
             .add_systems(FixedUpdate, edits::apply_block_edits.in_set(WorldEdits))
             .add_debug_page("World", world_debug_page);
     }
-}
-
-fn generate_on_startup(world: &mut World) {
-    regenerate_test_world(world);
 }
 
 /// Rebuild the test world from the current settings, timing how long it takes.
@@ -216,7 +234,9 @@ fn regenerate_test_world(world: &mut World) {
     let chunks = generate_test_world(&mut world.resource_mut::<VoxelWorld>(), &settings, &blocks);
     let millis = started.elapsed().as_secs_f64() * 1000.0;
     info!("Generated test world: {chunks} chunks in {millis:.1} ms");
-    world.resource_mut::<WorldDebugState>().last_generation_ms = millis;
+    if let Some(mut debug) = world.get_resource_mut::<WorldDebugState>() {
+        debug.last_generation_ms = millis;
+    }
 }
 
 // ── Debug page ──────────────────────────────────────────────────────────────
@@ -293,6 +313,10 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
         "Dirty sections (waiting to redraw): {}   Extra states: {}",
         voxel.dirty_count(),
         stats.extra_states
+    ));
+    ui.label(format!(
+        "Changed chunks (saved with the world): {}",
+        voxel.changed_chunks().len()
     ));
     let mut compact = false;
     if ui.button("Compact all sections").clicked() {

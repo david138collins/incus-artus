@@ -13,15 +13,20 @@
 //! it is copied into Bevy's own clocks (`Time<Virtual>` and `Time<Fixed>`), which then run
 //! the `FixedUpdate` schedule the right number of times. Simulation systems go in
 //! `FixedUpdate`; they never need to know about pausing or speed.
+//!
+//! `WorldClock` is the *world's* own time (the calendar), saved with the world. The tick counter
+//! in `TimeControl` only counts since the program started.
 
 mod interpolation;
 
 pub use interpolation::{InterpolationSettings, SimPosition, blend_fraction};
 
 use crate::debug::{DebugAppExt, SettingsAppExt};
+use crate::save::WorldStateAppExt;
 use bevy::prelude::*;
 use bevy::time::TimeSystems;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use serde::{Deserialize, Serialize};
 
 /// Default simulation rate (ticks per second). See docs/decisions.md.
 pub const DEFAULT_TICK_RATE: f64 = 30.0;
@@ -96,11 +101,60 @@ impl TimeControl {
     }
 }
 
+/// Simulated seconds in one in-game day (15 minutes light + 15 minutes dark).
+pub const DAY_SECONDS: f64 = 1800.0;
+pub const HOUR_SECONDS: f64 = DAY_SECONDS / 24.0;
+pub const DAYS_PER_SEASON: u64 = 7;
+const SEASONS: [&str; 4] = ["Spring", "Summer", "Autumn", "Winter"];
+
+/// The world's calendar: simulated seconds since the world began. Saved with the world, and
+/// it only moves on ticks, so pausing stops it and "TIME ×4" speeds it up.
+#[derive(Resource, Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorldClock {
+    pub seconds: f64,
+}
+
+impl WorldClock {
+    /// "Year 1, Spring day 3, 14:05"
+    pub fn describe(&self) -> String {
+        describe_moment(self.seconds)
+    }
+}
+
+/// A moment in world time, as a calendar date: "Year 1, Spring day 3, 14:05".
+pub fn describe_moment(seconds: f64) -> String {
+    let day = (seconds / DAY_SECONDS).floor().max(0.0) as u64;
+    let days_per_year = DAYS_PER_SEASON * SEASONS.len() as u64;
+    let year = day / days_per_year + 1;
+    let season = SEASONS[((day % days_per_year) / DAYS_PER_SEASON) as usize];
+    let day_of_season = day % DAYS_PER_SEASON + 1;
+    let minutes_into_day = ((seconds.max(0.0) % DAY_SECONDS) / HOUR_SECONDS * 60.0) as u64;
+    format!(
+        "Year {year}, {season} day {day_of_season}, {:02}:{:02}",
+        minutes_into_day / 60,
+        minutes_into_day % 60
+    )
+}
+
+/// A length of world time in plain words: "3 days 4 hours", "40 minutes".
+pub fn describe_span(seconds: f64) -> String {
+    let minutes = (seconds.max(0.0) / HOUR_SECONDS * 60.0).round() as u64;
+    let (days, hours, minutes) = (minutes / (24 * 60), (minutes / 60) % 24, minutes % 60);
+    match (days, hours) {
+        (0, 0) => format!("{minutes} minutes"),
+        (0, _) => format!("{hours} hours {minutes} minutes"),
+        _ => format!("{days} days {hours} hours"),
+    }
+}
+
 pub struct TimeControlPlugin;
 
 impl Plugin for TimeControlPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TimeControl>()
+            .init_resource::<WorldClock>()
+            .add_world_state::<WorldClock>("clock")
             .init_resource::<InterpolationSettings>()
             // Before Bevy updates its clocks each frame, hand it our settings.
             .add_systems(First, apply_time_control.before(TimeSystems))
@@ -180,11 +234,12 @@ fn prepare_ticks(mut control: ResMut<TimeControl>, mut fixed_time: ResMut<Time<F
     }
 }
 
-fn count_tick(mut control: ResMut<TimeControl>, time: Res<Time>) {
+fn count_tick(mut control: ResMut<TimeControl>, mut clock: ResMut<WorldClock>, time: Res<Time>) {
     // Inside a tick, `Time` is the fixed clock, so `delta` is exactly one tick long.
     control.tick += 1;
     control.sim_seconds += time.delta_secs_f64();
     control.ticks_this_frame += 1;
+    clock.seconds += time.delta_secs_f64();
 }
 
 // ── Debug page ──────────────────────────────────────────────────────────────
@@ -231,6 +286,9 @@ fn time_debug_page(ui: &mut egui::Ui, world: &mut World) {
     }
 
     ui.separator();
+    let clock = world.resource::<WorldClock>().describe();
+    let control = world.resource::<TimeControl>();
+    ui.label(format!("World clock: {clock}"));
     ui.label(format!("Tick: {}", control.tick()));
     ui.label(format!("Sim time: {}", format_duration(control.sim_seconds())));
     ui.label(format!("Ticks this frame: {}", control.ticks_this_frame()));

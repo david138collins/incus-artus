@@ -14,9 +14,11 @@ use super::section::Section;
 use super::VoxelWorld;
 use crate::data::BlockRegistry;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-/// Tunables for the test world (shown on the "World" debug page).
-#[derive(Resource, Clone)]
+/// Tunables for the test world (shown on the "World" debug page, and saved with each world).
+#[derive(Resource, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TestWorldSettings {
     /// Cylinder radius in blocks (50 = 100 blocks across).
     pub radius: f32,

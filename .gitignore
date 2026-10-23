@@ -15,3 +15,4 @@
 
 # Event logs (one per session; the newest 20 are kept).
 /logs/
+/worlds/

@@ -1,154 +1,163 @@
-# Incus Artus — Simulation Design (draft)
+# Incus Artus — Simulation Design
 
-How the game's living world is split into a **local** (full) and a **world** (lite) simulation, how the
-**Goddess of Fate** sits under every random roll, and how both get **saved**. This is a working draft
-for David to review. Tags: **[PROPOSED]** Claude's suggestion, waiting for a yes · **[DECIDED]** agreed ·
-**[QUESTION]** needs David's answer. When parts are agreed they move into `docs/decisions.md`.
+How the game's living world is split into **simulation levels**, how the **Goddess of Fate** sits under
+every random roll, and how all of it gets **saved**. Tags: **[DECIDED]** agreed with David ·
+**[PROPOSED]** Claude's suggestion, waiting for a yes · **[BUILT]** exists in code · **[LATER]**.
+
+The guiding idea (David): **only expose computational complexity when it's necessary**, for performance
+*and* to keep a very large, complicated world organised in the software's logic. The world is folded up
+like origami and **unfolds when discovered**.
 
 ---
 
-## 1. The two scopes
+## 1. Three levels  [DECIDED]
 
-| | Local simulation | World simulation |
-|---|---|---|
-| Where | Around the player (and party), and the player's settlements | Everywhere else |
-| What exists | Real blocks, every person and animal as a creature in the world | Rows in a table: sites, groups, journeys |
-| How often | Every tick (30 a second); heavy jobs every Nth tick | Coarse ticks, e.g. once per in-game hour (tunable) |
-| Movement | Pathfinding, physics, collision | Distance ÷ speed along a map of routes |
-| Fights | Played out, gestural combat | Calculated from strengths, then applied |
-| Trade | Real goods in real warehouses and stalls | Need and surplus numbers; caravans appear from them |
+| | **Local** | **Rich** | **Thin** |
+|---|---|---|---|
+| What | The literal game world you're involved in | Places you're *explicitly involved with* but not standing in | Everything in the background |
+| Examples | Where you are (alone or with followers); your settlement while you're there | Your settlement while you travel; a town where you took a quest or residence | Distant villages, dens, caravans you've never met |
+| Exists as | Real blocks, real people and animals | Records with granular, economy-focused detail | Bookkeeping: a few numbers and dice rolls |
+| How often | Every tick (30 a second) | Coarse ticks (default: every in-game hour) | Coarser ticks (default: every in-game day) |
+| Movement | Pathfinding, physics | Distance ÷ speed | A dot on a loop that moves once a day |
+| Fights | Played out | The generic fight resolution | "Village A needs a 16 to win this raid" |
 
-**[PROPOSED] The rule that keeps them from fighting:** any one place is run by exactly one simulation
-at a time. Inside the local area the world sim keeps its hands off and only *asks* (through requests,
-like the event bus already does). Outside it, the world sim owns everything.
+- **[DECIDED] One place, one level at a time.** While a place is local, the world simulation keeps its
+  hands off it and only sends requests.
+- **[DECIDED] Local areas follow natural boundaries:** a settlement's area of direct control (which runs
+  while you're controlling or just visiting it), or the area around you.
+- **[DECIDED]** Rich and Thin use the *same rules* at different coarseness, so they approximate the same
+  outcomes. Each rule is given "how much time has passed" and works it out in one go.
 
-## 2. Places and things the world sim knows about  [PROPOSED]
+## 2. Hooks: why a place is Rich  [DECIDED]
 
-- **Sites:** villages, towns, hostile sites (goblin den, bandit camp...), the player's settlements,
-  ruins, the Temple of Darkness. Each has a position, a footprint, and **condition numbers**:
-  population, wealth, food, safety, guards, morale, stockpiles by resource, plus a list of **problems**
-  (each a possible quest).
-- **Groups on the move:** caravans, raiding parties, armies, messengers, wandering monsters. Each has
-  where from, where to, how far along, and what they're carrying or intending.
-- **People who matter:** see the "people become real when noticed" idea below.
-- **Each site type has its own small rulebook** (data files later): how a goblin den grows, what a
-  farming village needs, when a village raises guards. The world tick runs those rules.
+- A place stays **Rich** while it has at least one **hook**: you took a quest there, took residence, own
+  it, have followers there, and so on. Each hook says what it is, who holds it, and (optionally) when it
+  **expires**.
+- When the last hook expires or is removed, the place **drops back to Thin automatically**. Nothing has
+  to remember to clean up.
+- Hooks are saved with the world, including their expiry, so transitions carry on correctly after a load.
 
-## 3. The handoff: expanding and collapsing  [PROPOSED]
+## 3. Places, journeys and people  [BUILT as test versions]
 
-- The world is divided into **regions** (proposed 512 × 512 blocks = 16 × 16 chunks, tunable). Like
-  chunks, regions are a bookkeeping unit only and never shape the terrain.
-- The **local area** is the set of regions near the player and near each player settlement
-  (radius tunable on the debug panel).
-- **Expand** (a region enters the local area): the world sim hands over what it knows. A village's
-  population number becomes actual villagers standing in it, its stockpile number becomes items in its
-  warehouse, a caravan on the road becomes wagons and donkeys on the road. Regions never visited before
-  get their terrain generated and their sites built from their records.
-- **Collapse** (a region leaves the local area): the local sim summarises back. Villagers become a
-  population number again, items become stockpile numbers, the region's changed chunks are saved.
-- **Where they meet is where the stories are.** The goblin inn scene works because the world sim
-  decided goblins raid that village tonight, and the player happened to be sleeping there, so the raid
-  happens for real in the local sim instead of being a calculated result.
-- **Collapsing in the middle of something.** When the player falls with followers alive, the local sim
-  closes on a fight that's still going, and the world sim must finish it with summary math: did the
-  followers win or get away, and where did they carry the player? So the world sim needs to be able to
-  take over an *unfinished* encounter, not only quiet villages.
-- Moving a few regions in and out must never cause a stutter: expanding is spread over several frames.
+- **Sites:** villages, towns, hostile sites, the player's settlements, ruins, the Temple of Darkness.
+  Position, footprint (its area of control), level, hooks, **condition numbers** (population, wealth,
+  food, fighters...) and **problems** (each a possible procedural quest).
+- **Journeys:** trader caravans, couriers, travellers, wanderers, raiding parties. A journey follows a
+  **route** of stops (chosen from what villages need and have, spread out by a distribution model).
+  It keeps track of how far along it would be from travel speed and road distance, stays a while in each
+  town, and goes on.
+- **Meeting a journey [DECIDED]:** if you're on its route near where it *theoretically* is, it becomes
+  more and more likely to be where you are, until it **enters the local simulation** (rolled through
+  Fate). Until then it's just a dot.
+- **[DECIDED] Everyone has a name from the very beginning.** People are stored compactly (a row each);
+  their detail unfolds when it's needed. **[LATER]** with the name lists.
 
-## 4. People become real when noticed  [PROPOSED]
+## 4. Expanding and collapsing  [BUILT as test versions]
 
-- Most villagers in the world sim are **just a number** ("population 120") until someone needs them.
-- The moment a person is **seen, talked to, named in news or a quest, or has done something notable**,
-  they become a **remembered person** with a name, skills and relationships, and stay that way forever,
-  even after their village collapses back into numbers.
-- This keeps the world sim cheap (hundreds of sites, not hundreds of thousands of people) while the
-  people you've met stay the same people.
+- **Expand** (a place becomes Local): its records become real things. A population number becomes
+  villagers standing there; a caravan's position becomes wagons on the road. Places never visited
+  before get their terrain generated and their buildings placed from their records.
+- **Collapse** (a place stops being Local): the local sim summarises back into the records.
+- **No flicker at the edges:** a place becomes local at its footprint plus a margin, and stops being
+  local only once you're a further distance away (both on the debug panel).
+- Every level change is **announced** on the event bus ("site level"), so any future system can hook
+  into expansion and collapse without the simulation knowing about it.
+- **Collapsing in the middle of something:** when the player falls with followers alive, the local sim
+  closes on a fight still going, and the world sim finishes it with a specific routine that's a
+  **subset of the generic fight resolution** villages use when one raids another.
 
-## 5. The player's own settlements  [QUESTION]
+## 5. Fights on the books  [BUILT as a first version]
 
-The player's settlement is where you spend the most effort, but keeping it fully simulated while you
-travel far away costs a lot of computer and limits how many settlements you can have. Options:
+- One **generic fight resolution** for every fight that isn't played out: compare strengths, work out
+  the d20 number the attacker needs, roll through Fate, then apply losses.
+  - Example (David): "Village A needs to roll a 16 to win this raid. They rolled a 10, so they lost 4 of
+    their 10 fighters."
+- Results update the places: fighters lost, wealth or livestock taken, new problems.
+- **News:** results can travel as news with couriers: "Lord Gherhart of Bluevalley crushes a bandit
+  hideout, and the people rejoice", if they rolled a 20.
 
-- **(a)** Always fully simulated, like Minecraft's spawn chunks. Simple and exact, but expensive and
-  caps the number of settlements.
-- **(b) [RECOMMENDED]** Fully simulated while you're near. When you're far away it collapses into a
-  **rich summary**: jobs and orders still progress by summary math ("the wall is 40% built", "3 days of
-  bread made"), and it expands again, with the results built, when you come back or look at it through
-  the manager.
-- **(c)** Frozen while you're away. Simple, but makes the world feel dead and breaks "orders only".
+## 6. Death with followers  [DECIDED]
 
-## 6. Time  [PROPOSED]
+You fall down; the camera lies on the ground and slowly fades to black, maybe with a subtitle from a
+party member ("[name]! No!"). If the followers are alive, they keep fighting for real long enough to reach
+a death or loading screen, where you wait to see what happens while the fight drops to the specific
+resolving routine (section 4). Then you wake in a shrine, or somewhere else with them if they got away.
 
-- One clock. The world sim runs off the same game time as everything else, so pausing pauses both and
-  "TIME ×4" speeds both.
-- World ticks are spread out (a few sites per frame), never all at once.
-- Calendar (already decided): year = 4 seasons × 7 days; day = 15 min light + 15 min dark.
+## 7. Time  [BUILT]
 
-## 7. The Goddess of Fate: one place for every random roll  [PROPOSED]
+- **The world clock** is part of the saved world (separate from the program's tick counter) and runs off
+  simulation time, so pausing pauses everything and "TIME ×4" speeds everything.
+- Calendar: day = 30 minutes (15 light + 15 dark), year = 4 seasons × 7 days.
+- Rich and Thin updates are **spread out**: only a few places are updated per tick, never all at once.
+- **Skip ahead** (debug): runs the world simulation forward days at a time, in one go.
+- **[DECIDED] World generation simulates ~1,000 years of history** to some degree (simpler than Dwarf
+  Fortress, but cleverer about unfolding), using the same rules and the same Fate engine.
 
-- **Two kinds of randomness, kept apart:**
-  - **Planet forming:** world generation. Fixed by the world seed and position, the same every time,
-    and *not* bendable by Fate (the mountains don't move).
-  - **Living world:** everything that happens while playing: hits, loot, events, weather, births,
-    the Dungeonmaster's card draws. **All of it goes through Fate.**
+## 8. The Goddess of Fate: one probability engine  [BUILT]
+
+- **One engine, separate streams of dice:**
+  - **Planet:** world generation's randomness, worked out from the world seed and the *position*, so the
+    same seed always makes the same world, in any order. Never bent by Fate.
+  - **Living world:** every roll while playing (and while history runs): hits, loot, events, encounters,
+    raids, Dungeonmaster draws. **All bendable by Fate.**
 - **Every roll says:**
-  - its **category**, a dotted name like `combat.hit`, `loot.rare`, `weather.storm`, `world.raid`,
-    `dungeonmaster.draw` (categories will live in data so packs can add them);
+  - its **category**, a dotted name like `world.raid`, `world.encounter`, `combat.hit`, `loot.rare`;
   - its **base chance**;
-  - **which way the player would want it to go:** good for the player, bad for the player, or neither.
-- **Twists:** Fate holds a list of active twists. Each says which categories it touches (`combat.*`,
-  `loot.rare`), how hard, whether it helps or hurts the player, why (for the debug page: "ignored the
-  Goddess's call") and when it ends.
-- **How a twist bends odds:** it shifts the chance on the "odds" scale gamblers use rather than adding
-  percentages, so a 1% chance can become 10% and a 99% chance never goes over 100%. Each twist is one
-  dial; several twists stack.
-- **Debug page:** recent rolls by category (chance before and after Fate, result), active twists,
-  buttons to add a test twist, and a "roll 1,000 times" tester to see the effect.
-- **Save-scumming [PROPOSED]:** Fate's dice are saved with the world, so reloading a save doesn't
-  re-roll what was about to happen.
+  - whether **the player wants it to happen**: yes, no, or doesn't care.
+- **Twists** bend the odds for matching categories (`world.*`, `loot.rare`, or `*` for everything),
+  each with a label (why it exists) and an optional end time. Two dials per twist:
+  - **luck:** towards whatever the player wants (negative = against the player);
+  - **strangeness:** towards things happening at all, whatever the player wants. This is how
+    "unlikely things become likely".
+- **Units:** +1 doubles the odds, −1 halves them. So a 1-in-100 chance with +3.3 becomes about 1-in-10,
+  and nothing ever goes past certain. A chance of exactly 0 or 1 is never bent: impossible stays
+  impossible.
+- **d20 rolls** (for the bookkeeping fights): Fate decides success with the bent odds, then shows an
+  honest-looking die face for the news ("needed 16, rolled 10").
+- Fate's dice and twists are **saved with the world**, so reloading doesn't re-roll what was about to happen.
 - Players are never told any of this exists.
 
-## 8. Saving  [PROPOSED]
+## 9. Saving  [BUILT, first version]
 
-Still Minecraft-style world folders, no separate save games (already decided). One world folder holds:
+Minecraft-style world folders, no separate save games:
 
 ```
 worlds/<world name>/
-  world.toml        name, seed, game version, game clock
-  fate.toml         Fate's dice and active twists
-  world_sim/        sites, groups on the move, remembered people, the player's knowledge of the world
-  player.toml       the player's position, inventory (later), settings for this world
-  regions/          changed chunks only, one file per region, compact binary
+  world.toml        format version, name, seed, when created and saved
+  clock.toml        the world clock
+  fate.toml         Fate's dice and twists
+  sim.toml          sites, hooks, routes, journeys (the whole world simulation)
+  player.toml       where the player is and looks, fly or walk, chosen block
+  terrain.toml      the test terrain's settings (replaced by world-gen settings later)
+  chunks/           changed chunks only, one compact binary file each
 ```
 
-- Readable text for everything except the chunks while we're developing, so you can open the files and
-  look. Chunks are binary because there are a lot of them.
-- **[PROPOSED] Debug panel:** a World page with New world, Save, Load (a list of world folders), and
-  Open worlds folder. Starting the game still makes a fresh test world, as you asked.
-- **Every saved file carries a version number**, so old worlds can be upgraded when the format changes
-  instead of breaking.
+- **Each part of the game saves its own file.** A module adds its part with one line, like the settings
+  groups: `app.add_world_state(...)`. A part that's missing from an older world starts fresh for that
+  world's seed, and the panel says so.
+- Chunks store block **names** (a little list per chunk), not numbers, so worlds survive block files
+  being added, removed or renamed. A block that no longer exists loads as air, with a warning.
+- Everything is readable text except chunks.
+- **Save page** on the debug panel: world name, New world, Save, Load (a list of world folders), Open
+  worlds folder. The game still starts in a fresh world.
+- **[LATER]** Region files (many chunks per file), autosave, keeping the last few saves, saving local
+  entities (people, animals, items) inside the chunks they're in.
 
-## 9. What we can build and test before world gen exists  [PROPOSED]
+## 10. Test stand-ins (temporary)
 
-There's no real terrain or villages yet, so each piece is tested with stand-ins:
+There's no world generation yet, so the simulation runs on three test sites and one caravan:
 
-1. **Fate** + its debug page. Testable on its own with the 1,000-roll tester.
-2. **Regions and the local area**, with simple chunk streaming over the test terrain, so walking or
-   flying far loads and unloads chunks. Debug overlay: region borders and which are local.
-3. **The world sim table** with a handful of **test sites** (say "Test Village" and "Test Goblin Den")
-   running toy rules: the den grows, the village raises guards, a raid gets calculated and logged. Its
-   debug page is literally a spreadsheet of rows.
-4. **The handoff:** walk to the test village and it expands (placeholder markers for its people and
-   stockpile), walk away and it collapses back into numbers.
-5. **A top-down debug map** of regions, sites and groups on the move. This is the first seed of the
-   world-gen visualiser and the World Map.
-6. **Saving and loading** all of the above.
+- **Test Village**, 150 blocks north of the centre (fly there with F).
+- **Test Goblin Den**, 600 blocks east.
+- **Test Market Town**, far away to the south-west, always in the background.
+- **A caravan** that loops between the village and the market town, passing near the test world.
+
+They follow **toy rules** (the den breeds goblins and raids, the village raises guards and raids back,
+the caravan trades) only to prove the machinery works. When a place goes Local, magenta cubes appear as
+stand-ins for its people; when it collapses, they vanish back into numbers.
 
 ## Open questions
 
-1. Player settlements while away: (a), (b) or (c) above?
-2. "People become real when noticed": does that match what you want?
-3. Should reloading a world be able to re-roll Fate? (Proposed: no.)
-4. Region size 512 blocks and the world sim's hourly tick: fine as starting values to tune later?
-5. Later, with world gen: should the world sim run some **history** before you arrive (Dwarf Fortress
-   style years of pre-history), so villages already have pasts, feuds and ruins?
+1. Default timings: Rich every in-game hour, Thin every in-game day? (Both are sliders.)
+2. Should the first world-gen suite step also produce a list of village and site *types* as data files,
+   so you can start writing their rules?
