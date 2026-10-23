@@ -17,7 +17,7 @@ use super::export;
 use super::image::{self, Placement};
 use super::layers::{self, LayerKind};
 use super::made::{Made, Shaping};
-use super::{RESULT, Suite};
+use super::{RESULT, Suite, Watch};
 use super::noise::{Fade, PerlinSettings};
 use super::palette::{self, Channel, Colouring, Spread};
 use crate::debug::preset_bar;
@@ -80,19 +80,30 @@ impl ViewState {
 }
 
 /// Everything the picture on screen is made from, to notice when it changes: each layer (id,
-/// shown, version, mix, opacity), the result's colouring, and the layer shown alone, if any.
-type PictureKey = (Vec<(u32, bool, u64, Mix, f32)>, Colouring, Option<(u32, Colouring)>);
+/// shown, version, mix, opacity), the result's colouring, what's watched, and the colouring of
+/// a layer watched alone.
+type PictureKey = (Vec<(u32, bool, u64, Mix, f32)>, Colouring, Watch, Option<Colouring>);
 
-/// The layer shown on its own, when "the open layer alone" is on and a layer is open.
+/// The layer watched on its own, if any.
 fn alone(suite: &Suite) -> Option<usize> {
-    let id = suite.selected.filter(|&id| suite.show_alone && id != RESULT)?;
+    let Watch::Alone(id) = suite.watch else { return None };
     suite.layers.iter().position(|layer| layer.id == id)
 }
 
 fn picture_key(suite: &Suite) -> PictureKey {
     let stack = suite.layers.iter().map(|l| (l.id, l.visible, l.version, l.mix, l.opacity)).collect();
-    let alone = alone(suite).map(|i| (suite.layers[i].id, suite.layers[i].colouring.clone()));
-    (stack, suite.colouring.clone(), alone)
+    let alone = alone(suite).map(|i| suite.layers[i].colouring.clone());
+    (stack, suite.colouring.clone(), suite.watch, alone)
+}
+
+/// "the result", "Perlin noise field 1 alone", "everything up to Perlin noise field 1".
+fn watch_name(suite: &Suite, watch: Watch) -> String {
+    let name = |id: u32| suite.layers.iter().find(|layer| layer.id == id).map_or("?".into(), |layer| short(&layer.name, 24));
+    match watch {
+        Watch::Result => "the result".into(),
+        Watch::Alone(id) => format!("{} alone", name(id)),
+        Watch::UpTo(id) => format!("everything up to {}", name(id)),
+    }
 }
 
 /// "a-very-long-file-name" → "a-very-long-fi…" (for tight spots; hover shows the whole name).
@@ -257,7 +268,7 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
 
     let blocks_per_pixel = suite.blocks_per_pixel();
     let size_blocks = suite.size_blocks;
-    let Suite { layers, selected, view, colouring, show_alone, .. } = suite;
+    let Suite { layers, selected, view, colouring, watch, .. } = suite;
     if *selected == Some(RESULT) {
         ui.heading("The result");
         ui.small(
@@ -321,7 +332,14 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
         "How this layer looks on its own. In the result, the layers' numbers are mixed and the \
          result's palette colours them, so these colours only show when the layer is shown alone.",
     );
-    ui.checkbox(show_alone, "show the open layer alone");
+    let alone = Watch::Alone(layer.id);
+    if *watch == alone {
+        if ui.button("Back to watching the result").clicked() {
+            *watch = Watch::Result;
+        }
+    } else if ui.button("Watch this layer alone").clicked() {
+        *watch = alone;
+    }
     let is_image = matches!(layer.kind, LayerKind::Image { .. });
     colour_panel(ui, &mut layer.colouring, is_image, view);
 }
@@ -603,18 +621,43 @@ fn swatches(ui: &mut egui::Ui, colours: &[[u8; 3]]) {
 
 // ── Right: layers, under the mouse, histogram ──────────────────────────────
 
+/// A button pressed under the Layers list (done after the list is drawn).
+enum LayerAction {
+    Move(u32, bool),
+    Duplicate(u32),
+    Delete(u32),
+}
+
 fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     ui.heading("Layers");
     if suite.layers.is_empty() {
         ui.small("None yet. \"+ Add layer\" is in the top left.");
     } else {
+        // What's on screen, chosen separately from the open layer: watch one thing while
+        // adjusting another.
         ui.horizontal(|ui| {
-            ui.label("show:");
-            ui.selectable_value(&mut suite.show_alone, false, "the result")
-                .on_hover_text("All the visible layers mixed, coloured with the result's palette.");
-            ui.selectable_value(&mut suite.show_alone, true, "the open layer alone")
-                .on_hover_text("Just the open layer, in its own colours (an image in its own colours).");
-        });
+            ui.label("watching:");
+            let mut watch = suite.watch;
+            egui::ComboBox::from_id_salt("worldgen watch")
+                .selected_text(watch_name(suite, watch))
+                .truncate()
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut watch, Watch::Result, "the result")
+                        .on_hover_text("All the visible layers mixed, in the result's colours.");
+                    for layer in suite.layers.iter().rev() {
+                        ui.separator();
+                        let up_to = Watch::UpTo(layer.id);
+                        ui.selectable_value(&mut watch, up_to, watch_name(suite, up_to))
+                            .on_hover_text("The layers from the bottom up to this one, mixed,\nbefore the ones above it mix in. In the result's colours.");
+                        let alone = Watch::Alone(layer.id);
+                        ui.selectable_value(&mut watch, alone, watch_name(suite, alone))
+                            .on_hover_text("Just this layer, in its own colours.");
+                    }
+                });
+            suite.watch = watch;
+        })
+        .response
+        .on_hover_text("What's on screen. It stays put while you open and adjust other layers.");
         let picked = suite.selected == Some(RESULT);
         if ui
             .add(egui::Button::selectable(picked, "▣ The result (all layers mixed)").truncate())
@@ -631,11 +674,12 @@ fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
             ui.checkbox(&mut layer.visible, "").on_hover_text("Show or hide this layer");
             let picked = suite.selected == Some(layer.id);
             let making = if layer.is_making() { "  …" } else { "" };
+            let watched = if suite.watch.layer() == Some(layer.id) { "» " } else { "" };
             let mix = match (layer.mix, layer.opacity) {
                 (Mix::Normal, 1.0) => String::new(),
                 (mix, opacity) => format!("  [{} {:.0}%]", mix.name(), opacity * 100.0),
             };
-            let label = format!("{}{making}{mix}", layer.name);
+            let label = format!("{watched}{}{making}{mix}", layer.name);
             let hover = format!("{}\n{}\nmix: {} at {:.0}%", layer.name, layer.kind.type_name(), layer.mix.name(), layer.opacity * 100.0);
             if ui.add(egui::Button::selectable(picked, label).truncate()).on_hover_text(hover).clicked() {
                 suite.selected = Some(layer.id);
@@ -645,19 +689,23 @@ fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     if let Some(id) = suite.selected.filter(|&id| id != RESULT) {
         ui.horizontal(|ui| {
             if ui.small_button("Up").on_hover_text("Move the open layer up the stack").clicked() {
-                action = Some((id, Some(true)));
+                action = Some(LayerAction::Move(id, true));
             }
             if ui.small_button("Down").clicked() {
-                action = Some((id, Some(false)));
+                action = Some(LayerAction::Move(id, false));
+            }
+            if ui.small_button("Duplicate").on_hover_text("Copy the open layer exactly as it is (same seed too), just above it").clicked() {
+                action = Some(LayerAction::Duplicate(id));
             }
             if ui.small_button("Delete").clicked() {
-                action = Some((id, None));
+                action = Some(LayerAction::Delete(id));
             }
         });
     }
     match action {
-        Some((id, Some(up))) => suite.move_layer(id, up),
-        Some((id, None)) => suite.remove_layer(id),
+        Some(LayerAction::Move(id, up)) => suite.move_layer(id, up),
+        Some(LayerAction::Duplicate(id)) => suite.duplicate_layer(id),
+        Some(LayerAction::Delete(id)) => suite.remove_layer(id),
         None => {}
     }
 
@@ -796,16 +844,18 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
     // Remix the stack and repaint the picture only when something it's made from changed.
     let wanted = picture_key(suite);
     let alone = alone(suite);
+    let watching = watch_name(suite, suite.watch);
     let blocks = suite.blocks_per_pixel();
-    let Suite { layers: all, colouring, view, .. } = suite;
+    let Suite { layers: all, colouring, view, watch, .. } = suite;
     if view.composite_for.as_ref() != Some(&wanted) || view.size != (width, height) || view.texture.is_none() {
-        let stacked = layers::stack(all, width, blocks);
-        view.composite = match alone.map(|i| &all[i]) {
-            Some(layer) => match &layer.result {
+        let stacked = layers::stack(all, width, blocks, None);
+        view.composite = match (alone.map(|i| &all[i]), *watch) {
+            (Some(layer), _) => match &layer.result {
                 Some(result) if result.made.shaped.values.len() == cells => layers::colour(&result.made, &layer.colouring),
                 _ => vec![None; cells],
             },
-            None => layers::colour(&stacked, colouring),
+            (None, Watch::UpTo(id)) => layers::colour(&layers::stack(all, width, blocks, Some(id)), colouring),
+            (None, _) => layers::colour(&stacked, colouring),
         };
         view.stacked = Some(stacked);
         view.size = (width, height);
@@ -869,6 +919,14 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
     }
     if all.is_empty() {
         painter.text(rect.center(), egui::Align2::CENTER_CENTER, "A blank page: \"+ Add layer\", top left", egui::FontId::proportional(18.0), PINK);
+    } else {
+        painter.text(
+            rect.left_top() + Vec2::new(8.0, 8.0),
+            egui::Align2::LEFT_TOP,
+            format!("watching: {watching}"),
+            egui::FontId::proportional(14.0),
+            PINK,
+        );
     }
 
     view.hover = hover.map(|mouse| centre + (mouse - rect.center()) / zoom).and_then(|pixel| {

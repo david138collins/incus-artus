@@ -53,6 +53,28 @@ pub const CHUNK_BLOCKS: f32 = 32.0;
 /// start at 1.
 pub const RESULT: u32 = 0;
 
+/// What's shown on screen.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum Watch {
+    /// All the visible layers mixed, in the result's colours.
+    #[default]
+    Result,
+    /// One layer on its own, in its own colours.
+    Alone(u32),
+    /// The layers from the bottom up to this one mixed (before the ones above mix in), in the
+    /// result's colours.
+    UpTo(u32),
+}
+
+impl Watch {
+    pub fn layer(self) -> Option<u32> {
+        match self {
+            Watch::Result => None,
+            Watch::Alone(id) | Watch::UpTo(id) => Some(id),
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct Suite {
     /// The field is a square this many blocks across (the world is 72,000).
@@ -65,8 +87,9 @@ pub struct Suite {
     pub selected: Option<u32>,
     /// How the result (all the layers mixed) is coloured.
     pub colouring: Colouring,
-    /// Show only the open layer, in its own colours, instead of the result.
-    pub show_alone: bool,
+    /// What's on screen. Separate from the open layer, so one layer can be watched while another
+    /// is adjusted.
+    pub watch: Watch,
     pub view: view::ViewState,
     next_id: u32,
 }
@@ -79,7 +102,7 @@ impl Default for Suite {
             layers: Vec::new(),
             selected: None,
             colouring: Colouring::default(),
-            show_alone: false,
+            watch: Watch::Result,
             view: view::ViewState::default(),
             next_id: 1,
         };
@@ -147,6 +170,29 @@ impl Suite {
         if self.selected == Some(id) {
             self.selected = self.layers.last().map(|layer| layer.id);
         }
+        if self.watch.layer() == Some(id) {
+            self.watch = Watch::Result;
+        }
+    }
+
+    /// Copies a layer exactly as it is (same seed, settings, mix and colours), just above it, and
+    /// opens the copy.
+    pub fn duplicate_layer(&mut self, id: u32) {
+        let Some(at) = self.layers.iter().position(|layer| layer.id == id) else { return };
+        let original = &self.layers[at];
+        let base = format!("{} copy", original.name);
+        let name = (1..)
+            .map(|n| if n == 1 { base.clone() } else { format!("{base} {n}") })
+            .find(|name| !self.layers.iter().any(|layer| &layer.name == name))
+            .unwrap_or_default();
+        let mut copy = Layer::new(self.next_id, name, original.kind.clone());
+        copy.visible = original.visible;
+        copy.mix = original.mix;
+        copy.opacity = original.opacity;
+        copy.colouring = original.colouring.clone();
+        self.next_id += 1;
+        self.selected = Some(copy.id);
+        self.layers.insert(at + 1, copy);
     }
 
     /// Moves a layer up (toward the top) or down the stack.
@@ -205,6 +251,48 @@ fn draw_suite(mut contexts: EguiContexts, mut suite: ResMut<Suite>, mut next: Re
         ctx.request_repaint();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_duplicate_is_an_exact_copy_just_above_the_original() {
+        let mut suite = Suite { layers: Vec::new(), ..Suite::default() };
+        suite.add_perlin();
+        suite.add_perlin();
+        let first = suite.layers[0].id;
+        suite.layers[0].mix = blend::Mix::Multiply;
+        suite.layers[0].opacity = 0.4;
+        suite.duplicate_layer(first);
+
+        assert_eq!(suite.layers.len(), 3);
+        let (original, copy) = (&suite.layers[0], &suite.layers[1]);
+        assert_eq!(copy.name, "Perlin noise field 1 copy");
+        assert_ne!(copy.id, original.id);
+        assert_eq!((copy.mix, copy.opacity), (original.mix, original.opacity));
+        let seed = |layer: &Layer| match &layer.kind {
+            LayerKind::Perlin { seed, .. } => *seed,
+            LayerKind::Image { .. } => 0,
+        };
+        assert_eq!(seed(copy), seed(original));
+        assert_eq!(suite.selected, Some(copy.id));
+
+        // A second copy gets its own name.
+        suite.duplicate_layer(first);
+        assert_eq!(suite.layers[1].name, "Perlin noise field 1 copy 2");
+    }
+
+    #[test]
+    fn deleting_the_watched_layer_goes_back_to_watching_the_result() {
+        let mut suite = Suite { layers: Vec::new(), ..Suite::default() };
+        suite.add_perlin();
+        let id = suite.layers[0].id;
+        suite.watch = Watch::Alone(id);
+        suite.remove_layer(id);
+        assert_eq!(suite.watch, Watch::Result);
+    }
 }
 
 fn world_gen_debug_page(ui: &mut egui::Ui, world: &mut World) {

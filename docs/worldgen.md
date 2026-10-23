@@ -72,6 +72,15 @@ settings:
 - **Where it's heading:** a sequential "world type" file that builds the standard world. It will be made of
   layers, mutation layers, groups, spline maps, and signal routing inside some layers to place features.
 
+**Watching and duplicating** [David, 2026-10-23, BUILT]:
+- **What's on screen is chosen separately from the open layer** ("watching:" at the top of the Layers tab), so
+  one thing can be watched while another is adjusted: see the effect, not the layer causing it. Choices:
+  - the result;
+  - any layer alone (its own colours);
+  - everything up to a layer (the stack as it stands there, before the layers above mix in).
+- The canvas says what's being watched, and the watched layer is marked » in the list.
+- **Duplicate** copies the open layer exactly (same seed, settings, mix, colours), just above it.
+
 **Side bars** can be dragged between about 220 (left) / 180 (right) and 900 pixels wide. Long layer names are
 cut short with "…", and hovering shows the full name.
 

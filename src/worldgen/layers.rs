@@ -19,6 +19,7 @@ use super::palette::Colouring;
 use super::runner::{Finished, Job, Poll};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub enum LayerKind {
     Perlin { seed: u64, settings: PerlinSettings },
     Image { file: String, picture: Arc<Picture>, placement: Placement },
@@ -140,12 +141,14 @@ pub fn next_name(layers: &[Layer], type_name: &str) -> String {
 
 /// The stack's result: every visible layer mixed into the ones below it, bottom first, as one
 /// field of values with its own numbers (range, histogram). Pixels no layer covers are left
-/// uncovered.
-pub fn stack(layers: &[Layer], width: usize, blocks_per_pixel: f32) -> Made {
+/// uncovered. With `up_to`, it stops after that layer (the stack as it stands there, before the
+/// layers above mix in).
+pub fn stack(layers: &[Layer], width: usize, blocks_per_pixel: f32, up_to: Option<u32>) -> Made {
     let cells = width * width;
     let mut values = vec![0.0; cells];
     let mut covered = vec![false; cells];
-    for layer in layers.iter().filter(|layer| layer.visible) {
+    let last = up_to.and_then(|id| layers.iter().position(|layer| layer.id == id)).unwrap_or(usize::MAX);
+    for layer in layers.iter().take(last.saturating_add(1)).filter(|layer| layer.visible) {
         let Some(result) = &layer.result else { continue };
         let this = &result.made.shaped.values;
         if this.len() != cells {
