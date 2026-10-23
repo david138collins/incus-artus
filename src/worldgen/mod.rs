@@ -9,14 +9,21 @@
 //! The suite is its own screen (F2), with the physical world switched off. The field is made on
 //! a background thread and remade whenever a setting changes.
 //!
+//! For the art workflow, a field can be coloured with a GIMP palette (`.gpl`), filtered by hue,
+//! saturation and lightness, and the picture in view (or the whole field) exported as a PNG.
+//!
 //! Files:
-//! - `field.rs`  a field: one value per pixel
-//! - `noise.rs`  Perlin noise and its settings
-//! - `runner.rs` making a field in the background
-//! - `view.rs`   the screen
+//! - `field.rs`   a field: one value per pixel
+//! - `noise.rs`   Perlin noise and its settings
+//! - `runner.rs`  making a field in the background
+//! - `palette.rs` colouring with a palette, the HSL filter, reading and writing `.gpl` files
+//! - `export.rs`  saving pictures as PNG
+//! - `view.rs`    the screen
 
+mod export;
 mod field;
 mod noise;
+mod palette;
 mod runner;
 mod view;
 
@@ -36,6 +43,8 @@ pub struct Suite {
     pub size_blocks: f32,
     pub blocks_per_pixel: f32,
     pub noise: PerlinSettings,
+    /// How the field is coloured on screen and in exports. Only changes the picture, never the field.
+    pub colouring: palette::Colouring,
     /// The latest field made.
     pub result: Option<Finished>,
     pub view: view::ViewState,
@@ -56,6 +65,7 @@ impl Default for Suite {
             blocks_per_pixel: 128.0,
             seen: (0, 0.0, 0.0, noise.clone()),
             noise,
+            colouring: palette::Colouring::default(),
             result: None,
             view: view::ViewState::default(),
             job: None,

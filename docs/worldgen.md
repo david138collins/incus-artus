@@ -52,7 +52,36 @@ settings:
 
 | # | Tool | State |
 |---|---|---|
-| 1 | **Perlin field** | BUILT, being tried |
+| 1 | **Perlin field** | BUILT; David: "looking really great" |
+| 2 | **Export, palettes and the HSL filter** | BUILT, being tried |
+
+**Working horizontally for a while** [DECIDED, 2026-10-23]: elaborate what we've got before adding new kinds of
+field. **The next destination is a Layers tab**, like a graphics editor: start with a blank page and pick the
+field type in the upper left (for now, the only type is Perlin field).
+
+**Why the suite is also an art tool** [DECIDED]:
+- **Using the tools to make the tools.** Truly versatile noise generators that work black to white, can be
+  colourised to a palette, and snipped out to fill areas of a UI element are surprisingly rare.
+- **Recursive, fun feedback loops** make it fun to make a fun game.
+- **Cohesion through David's hand on every step.** Using the world engine to make the shades of the menu's stone
+  panels creates connections in the instinctive, feeling part of people's brains.
+- **Palettes will tie directly into how the map is rendered**, in several different styles. So tight
+  integration now is right: colour must be a delicious, deliberate experience from top to bottom. Bundling the
+  work this software does into the work it makes keeps everything touching everything else.
+
+**Tool 2, export, palettes and the HSL filter** (`export.rs`, `palette.rs`):
+- **Export what's in view** or **the whole field** as PNG, one field pixel per picture pixel, coloured as on
+  screen. Saved in `exports/`.
+- **Load a GIMP palette (`.gpl`)** from `palettes/` (Aseprite: Palette → Save Palette). Its colours are spread
+  from the valleys to the peaks in the file's order:
+  - **equal shares** (each colour covers the same amount of the picture) or **equal steps** of value
+    (contour-style bands);
+  - hard bands or blended;
+  - reversible.
+- **HSL filter:** hue, saturation and lightness separately. Each can be kept, set to one value for every
+  colour, or **taken from the field** (for example, the palette's hues shaded by the noise).
+- **Save the filtered palette** as a `.gpl`.
+- The colour under the mouse shows in the inspector, as hex.
 
 **Tool 1, the Perlin field** (`src/worldgen/noise.rs`):
 

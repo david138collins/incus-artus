@@ -189,6 +189,8 @@ pub struct Stats {
 pub struct Made {
     pub raw: Field,
     pub shaped: Field,
+    /// The shaped values in order, lowest first (for spreading a palette in equal shares).
+    pub sorted: Vec<f32>,
     pub stats: Stats,
 }
 
@@ -222,7 +224,9 @@ pub fn make(settings: &PerlinSettings, seed: u64, size_blocks: f32, blocks_per_p
         clipped_white: white as f32 / count,
         histogram,
     };
-    Some(Made { raw, shaped, stats })
+    let mut sorted = shaped.values.clone();
+    sorted.sort_unstable_by(f32::total_cmp);
+    Some(Made { raw, shaped, sorted, stats })
 }
 
 #[cfg(test)]

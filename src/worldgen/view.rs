@@ -11,7 +11,9 @@
 //! ```
 
 use super::Suite;
+use super::export;
 use super::noise::{Fade, PerlinSettings};
+use super::palette::{self, Channel, Colouring, Spread};
 use crate::debug::preset_bar;
 use bevy_egui::egui::{self, Color32, Pos2, Rect, Vec2};
 
@@ -24,10 +26,17 @@ pub struct ViewState {
     zoom: f32,
     fitted_for: (usize, usize),
     texture: Option<egui::TextureHandle>,
-    texture_version: u64,
     picture_version: u64,
+    /// The picture as last painted (one colour per field pixel), what it was painted from, and
+    /// where on screen the field is drawn: exports are cut from these.
+    painted: Vec<[u8; 3]>,
+    painted_for: Option<(u64, Colouring)>,
+    canvas: Rect,
     hover: Option<(usize, usize)>,
     seed_text: String,
+    /// The last export's result, shown under the buttons.
+    status: Option<String>,
+    palette_name: String,
 }
 
 impl Default for ViewState {
@@ -37,11 +46,42 @@ impl Default for ViewState {
             zoom: 1.0,
             fitted_for: (0, 0),
             texture: None,
-            texture_version: u64::MAX,
             picture_version: 0,
+            painted: Vec::new(),
+            painted_for: None,
+            canvas: Rect::NOTHING,
             hover: None,
             seed_text: String::new(),
+            status: None,
+            palette_name: String::new(),
         }
+    }
+}
+
+/// The field pixels showing on screen: (first column, first row, width, height).
+fn visible_pixels(view: &ViewState, width: usize, height: usize) -> Option<(usize, usize, usize, usize)> {
+    let half = view.canvas.size() / 2.0 / view.zoom;
+    let (left, top) = ((view.centre.x - half.x).floor().max(0.0), (view.centre.y - half.y).floor().max(0.0));
+    let (right, bottom) = ((view.centre.x + half.x).ceil().min(width as f32), (view.centre.y + half.y).ceil().min(height as f32));
+    (right > left && bottom > top).then(|| (left as usize, top as usize, (right - left) as usize, (bottom - top) as usize))
+}
+
+fn export(view: &ViewState, width: usize, height: usize, whole: bool) -> String {
+    let (left, top, w, h) = if whole {
+        (0, 0, width, height)
+    } else {
+        match visible_pixels(view, width, height) {
+            Some(area) => area,
+            None => return "Nothing in view to export.".into(),
+        }
+    };
+    let mut colours = Vec::with_capacity(w * h);
+    for row in top..top + h {
+        colours.extend_from_slice(&view.painted[row * width + left..row * width + left + w]);
+    }
+    match export::save_png(&export::fresh_name("noise"), w, h, &colours) {
+        Ok(path) => format!("Saved {w} × {h}: {}", path.display()),
+        Err(error) => format!("Couldn't export: {error}"),
     }
 }
 
@@ -119,6 +159,33 @@ fn top_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
             (Some(result), false) => ui.label(format!("Made in {:.0} ms", result.millis)),
             (None, false) => ui.label(""),
         };
+    });
+
+    ui.horizontal_wrapped(|ui| {
+        let size = suite.result.as_ref().map(|r| (r.made.shaped.width, r.made.shaped.height));
+        let ready = size.is_some() && !suite.view.painted.is_empty();
+        let view = &mut suite.view;
+        if ui
+            .add_enabled(ready, egui::Button::new("Export what's in view"))
+            .on_hover_text("Saves the pixels on screen as a PNG, one field pixel per picture pixel,\ncoloured as you see them.")
+            .clicked()
+            && let Some((width, height)) = size
+        {
+            view.status = Some(export(view, width, height, false));
+        }
+        if ui.add_enabled(ready, egui::Button::new("Export the whole field")).clicked()
+            && let Some((width, height)) = size
+        {
+            view.status = Some(export(view, width, height, true));
+        }
+        if ui.small_button("Exports folder").clicked()
+            && let Err(error) = export::open_folder(&export::export_folder())
+        {
+            view.status = Some(format!("Couldn't open the folder: {error}"));
+        }
+        if let Some(status) = &view.status {
+            ui.small(status);
+        }
     });
     close
 }
@@ -199,6 +266,131 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     ui.strong("Noise presets");
     ui.small("Save a useful kind of noise by name. The seed isn't saved with it, so a preset works with any seed.");
     preset_bar(ui, "noise", &mut suite.noise);
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.heading("Colour");
+    ui.small("Colours the picture (on screen and in exports). The field itself stays greyscale.");
+    colour_panel(ui, &mut suite.colouring, &mut suite.view);
+}
+
+fn colour_panel(ui: &mut egui::Ui, colouring: &mut Colouring, view: &mut ViewState) {
+    ui.checkbox(&mut colouring.on, "colour with a palette");
+
+    ui.horizontal(|ui| {
+        let shown = if colouring.name.is_empty() { "choose…".to_string() } else { colouring.name.clone() };
+        egui::ComboBox::from_id_salt("worldgen palette").selected_text(shown).show_ui(ui, |ui| {
+            let names = palette::saved_palettes();
+            if names.is_empty() {
+                ui.label("(no .gpl files in the palettes folder yet)");
+            }
+            for name in names {
+                if ui.selectable_label(colouring.name == name, &name).clicked() {
+                    match palette::load_palette(&name) {
+                        Ok(colours) => {
+                            colouring.colours = colours;
+                            colouring.name = name;
+                            colouring.on = true;
+                        }
+                        Err(error) => view.status = Some(error),
+                    }
+                }
+            }
+        });
+        if ui.small_button("Palettes folder").on_hover_text("Put GIMP palette (.gpl) files here.\nAseprite: Palette menu → Save Palette, as .gpl.").clicked()
+            && let Err(error) = export::open_folder(&palette::palette_folder())
+        {
+            view.status = Some(format!("Couldn't open the folder: {error}"));
+        }
+    });
+    if colouring.colours.is_empty() {
+        ui.small("No palette loaded.");
+        return;
+    }
+
+    ui.small("From the palette file:");
+    swatches(ui, &colouring.colours);
+    ui.small("After the filter (valleys on the left, peaks on the right):");
+    let mut filtered = colouring.filtered();
+    if colouring.reverse {
+        filtered.reverse();
+    }
+    swatches(ui, &filtered);
+
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.label("spread:");
+        ui.selectable_value(&mut colouring.spread, Spread::EqualShares, "equal shares of the picture")
+            .on_hover_text("Every colour covers the same amount of the picture.");
+        ui.selectable_value(&mut colouring.spread, Spread::EqualValues, "equal steps of value")
+            .on_hover_text("Every colour gets the same slice of black-to-white, like contour bands.");
+    });
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut colouring.blend, "blend between colours")
+            .on_hover_text("Off: hard bands (posterised). On: smooth gradients.");
+        ui.checkbox(&mut colouring.reverse, "reverse")
+            .on_hover_text("First colour on the peaks instead of in the valleys.");
+    });
+
+    ui.add_space(4.0);
+    ui.strong("HSL filter");
+    channel_row(ui, "hue", &mut colouring.hue, 0.0..=360.0, 0.0);
+    channel_row(ui, "saturation", &mut colouring.saturation, 0.0..=1.0, 0.0);
+    channel_row(ui, "lightness", &mut colouring.lightness, 0.0..=1.0, 0.5);
+
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.label("Save the filtered palette:");
+        ui.add(egui::TextEdit::singleline(&mut view.palette_name).desired_width(110.0).hint_text("name"));
+        let name: String =
+            view.palette_name.trim().chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_' || *c == ' ').collect();
+        if ui.add_enabled(!name.is_empty(), egui::Button::new("Save .gpl")).clicked() {
+            view.status = Some(match palette::save_palette(&palette::palette_folder(), &name, &filtered) {
+                Ok(path) => format!("Saved {}", path.display()),
+                Err(error) => format!("Couldn't save the palette: {error}"),
+            });
+        }
+    });
+    ui.small("(\"From the field\" can't be saved: it's different for every pixel.)");
+}
+
+/// One HSL channel: keep it, set every colour to one value, or take it from the field.
+fn channel_row(ui: &mut egui::Ui, label: &str, channel: &mut Channel, range: std::ops::RangeInclusive<f32>, start: f32) {
+    ui.horizontal(|ui| {
+        ui.label(format!("{label}:"));
+        if ui.selectable_label(*channel == Channel::Keep, "keep").clicked() {
+            *channel = Channel::Keep;
+        }
+        let is_set = matches!(channel, Channel::Set(_));
+        if ui.selectable_label(is_set, "set to").clicked() && !is_set {
+            *channel = Channel::Set(start);
+        }
+        if ui
+            .selectable_label(*channel == Channel::FromField, "from the field")
+            .on_hover_text("Take it from the noise under each pixel.")
+            .clicked()
+        {
+            *channel = Channel::FromField;
+        }
+        if let Channel::Set(value) = channel {
+            ui.add(egui::Slider::new(value, range));
+        }
+    });
+}
+
+fn swatches(ui: &mut egui::Ui, colours: &[[u8; 3]]) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 18.0), egui::Sense::hover());
+    let painter = ui.painter_at(rect);
+    let each = rect.width() / colours.len().max(1) as f32;
+    for (i, [r, g, b]) in colours.iter().enumerate() {
+        let x = rect.left() + i as f32 * each;
+        painter.rect_filled(
+            Rect::from_min_max(Pos2::new(x, rect.top()), Pos2::new(x + each, rect.bottom())),
+            0.0,
+            Color32::from_rgb(*r, *g, *b),
+        );
+    }
+    painter.rect_stroke(rect, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Inside);
 }
 
 fn section(ui: &mut egui::Ui, title: &str, about: &str) {
@@ -226,6 +418,13 @@ fn numbers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
             ui.label(format!("{}, {}", compass(north, "N", "S"), compass(east, "E", "W")));
             ui.label(format!("raw noise   {:+.4}", raw.values[i]));
             ui.label(format!("value       {:.4}", shaped.values[i]));
+            if let Some([r, g, b]) = suite.view.painted.get(i).copied() {
+                ui.horizontal(|ui| {
+                    let (swatch, _) = ui.allocate_exact_size(Vec2::splat(14.0), egui::Sense::hover());
+                    ui.painter().rect_filled(swatch, 0.0, Color32::from_rgb(r, g, b));
+                    ui.label(format!("colour #{r:02X}{g:02X}{b:02X}"));
+                });
+            }
         }
         _ => {
             ui.small("Point at the field.");
@@ -288,22 +487,25 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::BLACK);
-    let Suite { result, view, .. } = suite;
+    let Suite { result, view, colouring, .. } = suite;
+    view.canvas = rect;
     let Some(result) = result else {
         painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Making the first field…", egui::FontId::proportional(18.0), PINK);
         return;
     };
     let field = &result.made.shaped;
 
-    // Repaint the picture only when a new field has arrived.
-    if view.texture_version != view.picture_version || view.texture.is_none() {
-        let pixels: Vec<Color32> = field.values.iter().map(|v| Color32::from_gray((v * 255.0).round() as u8)).collect();
+    // Repaint the picture only when a new field has arrived or the colouring changed.
+    let wanted = (view.picture_version, colouring.clone());
+    if view.painted_for.as_ref() != Some(&wanted) || view.texture.is_none() {
+        view.painted = colouring.paint(&field.values, &result.made.sorted);
+        let pixels: Vec<Color32> = view.painted.iter().map(|[r, g, b]| Color32::from_rgb(*r, *g, *b)).collect();
         let image = egui::ColorImage::new([field.width, field.height], pixels);
         match &mut view.texture {
             Some(texture) => texture.set(image, egui::TextureOptions::NEAREST),
             None => view.texture = Some(ui.ctx().load_texture("worldgen field", image, egui::TextureOptions::NEAREST)),
         }
-        view.texture_version = view.picture_version;
+        view.painted_for = Some(wanted);
     }
 
     // Fit the whole field on screen when its size changes (and on double-click).

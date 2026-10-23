@@ -16,6 +16,8 @@ bevy_egui = "=0.43.1"
 serde = { version = "=1.0.229", features = ["derive"] }
 # The TOML text format (readable, allows comments) used for presets and data files.
 toml = "=1.1.8"
+# Writes PNG pictures (exporting fields from the World Gen suite). Bevy already uses this version.
+png = "=0.18.1"
 
 # ── Build speed settings ────────────────────────────────────────────────
 # Bevy is huge and runs painfully slowly unoptimised. These settings optimise

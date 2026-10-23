@@ -13,6 +13,9 @@
 # Screenshots (F12 and self-tests).
 /screenshots/
 
+# Pictures exported from the World Gen suite.
+/exports/
+
 # Event logs (one per session; the newest 20 are kept).
 /logs/
 /worlds/
