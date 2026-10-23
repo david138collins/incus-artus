@@ -129,6 +129,13 @@ pub struct PlayerSettings {
     /// How quickly your real speed catches up with what your legs want, on ground of
     /// friction 1. Multiplied by the friction of the block you stand on. Lower = more sliding.
     pub ground_grip: f32,
+    /// Momentum: charged while running or sprinting (attack), discharged once you stop
+    /// (release). While charged, your feet can't shed speed as quickly.
+    pub momentum_envelope: Envelope,
+    /// Grip left for slowing down when fully charged at full sprint (0.2 = a fifth of normal).
+    pub momentum_grip: f32,
+    /// Pushing against your momentum (backpedalling) brakes this many times harder.
+    pub backpedal_brake: f32,
     /// Body height while crouched (Ctrl).
     pub crouch_height: f32,
     pub crouch_eye_height: f32,
@@ -207,6 +214,17 @@ impl Default for PlayerSettings {
             },
             envelopes_in_air: false,
             ground_grip: 10.0,
+            momentum_envelope: Envelope {
+                attack: 1.0,
+                attack_curve: 0.0,
+                decay: 0.0,
+                decay_curve: 0.0,
+                sustain: 1.0,
+                release: 0.6,
+                release_curve: -0.5,
+            },
+            momentum_grip: 0.15,
+            backpedal_brake: 3.0,
             crouch_height: 1.2,
             crouch_eye_height: 1.05,
             crouch_speed: 0.3,
@@ -264,6 +282,8 @@ pub struct Pawn {
     pub run: EnvelopeState,
     /// The running sprint envelope: 0 = running speed, 1 = full sprint speed.
     pub sprint: EnvelopeState,
+    /// The momentum charge: built up by running, let go of after you stop.
+    pub momentum: EnvelopeState,
     /// Is the sprint gate on (double-tapped Shift held, moving forwards)?
     pub sprinting: bool,
     /// Crouched (Ctrl held, or no room to stand up)?
@@ -521,6 +541,7 @@ fn place_pawn(
     pawn.walk = EnvelopeState::default();
     pawn.run = EnvelopeState::default();
     pawn.sprint = EnvelopeState::default();
+    pawn.momentum = EnvelopeState::default();
     pawn.sprinting = false;
     pawn.crouched = false;
     pawn.crouch = EnvelopeState::default();
@@ -705,6 +726,9 @@ fn move_pawn(
             pawn.walk.update(&settings.walk_envelope, moving, dt);
             pawn.run.update(&settings.run_envelope, input.run && moving, dt);
             pawn.sprint.update(&settings.sprint_envelope, sprinting, dt);
+            // Momentum charges while you're pushing on at a run, and starts to discharge when
+            // you stop pushing (or land with no keys held: in the air it stays as it was).
+            pawn.momentum.update(&settings.momentum_envelope, input.run && moving, dt);
             if pawn.walk.just_triggered() {
                 footsteps.write(Footstep {
                     player,
@@ -728,7 +752,23 @@ fn move_pawn(
         let horizontal = Vec3::new(pawn.velocity.x, pawn.velocity.y, 0.0);
         let rate = if pawn.on_ground {
             pawn.ground_friction = ground_friction(position.current, body, &world, &registry);
-            settings.ground_grip * pawn.ground_friction
+            let grip = settings.ground_grip * pawn.ground_friction;
+            // Momentum: when the legs want less speed than you have, the charge holds you to
+            // your course. How much depends on the charge and on how fast you're going (a jog
+            // carries little, a dead sprint a lot). Pushing against it brakes harder.
+            let speed = horizontal.length();
+            let slowing = target.length() < speed - 0.01 || target.dot(horizontal) < 0.0;
+            if slowing && speed > settings.walk_speed {
+                let fast = ((speed - settings.walk_speed) / (settings.sprint_speed - settings.walk_speed).max(0.01)).clamp(0.0, 1.0);
+                let hold = pawn.momentum.level * fast;
+                let mut rate = grip * (1.0 - hold * (1.0 - settings.momentum_grip));
+                if input.direction.dot(horizontal) < 0.0 {
+                    rate *= settings.backpedal_brake;
+                }
+                rate
+            } else {
+                grip
+            }
         } else {
             settings.air_control
         };
@@ -1009,6 +1049,7 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
     let mut live_run = None;
     let mut live_sprint = None;
     let mut live_crouch = None;
+    let mut live_momentum = None;
     let live_view = world.resource::<SprintView>().envelope;
     {
         let mut query = world.query_filtered::<(&Pawn, &SimPosition), With<LocalPlayer>>();
@@ -1017,6 +1058,7 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
             live_run = Some(pawn.run);
             live_sprint = Some(pawn.sprint);
             live_crouch = Some(pawn.crouch);
+            live_momentum = Some(pawn.momentum);
             ui.strong("Body");
             let feet = position.current;
             ui.label(format!("Feet at: {:.2}, {:.2}, {:.2}", feet.x, feet.y, feet.z));
@@ -1039,6 +1081,7 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
                 pawn.sprint.level * 100.0,
                 pawn.sprint.stage
             ));
+            ui.label(format!("Momentum charge: {:.0}% ({:?})", pawn.momentum.level * 100.0, pawn.momentum.stage));
             ui.label(format!("Ground friction under feet: {:.2}", pawn.ground_friction));
             let flash = world.resource::<FootstepFlash>();
             let at = flash.last_position;
@@ -1093,6 +1136,12 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.strong("Sprint envelope (run → sprint)");
         envelope_editor(ui, "sprint", &mut settings.sprint_envelope, live_sprint.as_ref());
         ui.checkbox(&mut settings.envelopes_in_air, "envelopes keep moving in the air");
+
+        ui.strong("Momentum (charged by running, discharged when you stop)");
+        ui.small("Attack = how long running takes to fully charge. Release = how long the carry lasts after you stop.");
+        envelope_editor(ui, "momentum", &mut settings.momentum_envelope, live_momentum.as_ref());
+        ui.add(egui::Slider::new(&mut settings.momentum_grip, 0.0..=1.0).text("grip left at full charge (1 = no momentum)"));
+        ui.add(egui::Slider::new(&mut settings.backpedal_brake, 1.0..=10.0).text("backpedalling brakes × harder"));
 
         ui.strong("Sprint view widening");
         ui.add(egui::Slider::new(&mut settings.sprint_fov_boost, -30.0..=40.0).text("extra field of view at full sprint (°)"));
