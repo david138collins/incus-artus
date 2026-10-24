@@ -19,6 +19,7 @@ use super::layers::{self, LayerKind};
 use super::made::{Made, Shaping};
 use super::{RESULT, Suite, Watch};
 use super::noise::{Fade, PerlinSettings};
+use super::worley::{Distance, Feature, WorleySettings};
 use super::palette::{self, Channel, Colouring, Spread};
 use crate::debug::preset_bar;
 use bevy_egui::egui::{self, Color32, Pos2, Rect, Vec2};
@@ -237,8 +238,12 @@ fn export_picture(view: &ViewState, whole: bool) -> String {
 fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     ui.horizontal(|ui| {
         ui.menu_button("+ Add layer", |ui| {
-            if ui.button("Perlin noise field").clicked() {
+            if ui.button("Perlin noise field").on_hover_text("Soft hills and hollows.").clicked() {
                 suite.add_perlin();
+                ui.close();
+            }
+            if ui.button("Worley noise field").on_hover_text("Cells: bubbles, cracks, patches (Voronoi).").clicked() {
+                suite.add_worley();
                 ui.close();
             }
             ui.menu_button("Image from a file", |ui| {
@@ -285,7 +290,7 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
         ui.add_space(20.0);
         if layers.is_empty() {
             ui.label("A blank page.");
-            ui.small("Add a layer to start: a Perlin noise field, or an image (drag a PNG onto the window).");
+            ui.small("Add a layer to start: a Perlin or Worley noise field, or an image (drag a PNG onto the window).");
         } else {
             ui.small("Pick a layer on the right to see its settings.");
         }
@@ -320,6 +325,7 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
 
     match &mut layer.kind {
         LayerKind::Perlin { seed, settings } => perlin_settings(ui, layer.id, seed, settings, view),
+        LayerKind::Worley { seed, settings } => worley_settings(ui, layer.id, seed, settings, view),
         LayerKind::Image { file, picture, placement } => {
             image_settings(ui, file, (picture.width, picture.height), placement, blocks_per_pixel, size_blocks)
         }
@@ -344,8 +350,8 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     colour_panel(ui, &mut layer.colouring, is_image, view);
 }
 
-fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut PerlinSettings, view: &mut ViewState) {
-    ui.small("Soft hills and hollows from a grid of random arrows, stacked in finer and fainter layers (octaves).");
+/// The seed, typed in hex or freshly rolled.
+fn seed_row(ui: &mut egui::Ui, id: u32, seed: &mut u64, view: &mut ViewState) {
     ui.horizontal(|ui| {
         ui.label("Seed:");
         let seed_id = egui::Id::new(("worldgen seed", id));
@@ -359,9 +365,81 @@ fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Perli
             *seed = typed;
         }
         if ui.button("New seed").clicked() {
-            *seed = crate::fate::derive_seed(super::fresh_number(), "perlin layer");
+            *seed = crate::fate::derive_seed(super::fresh_number(), "noise layer");
         }
     });
+}
+
+fn worley_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut WorleySettings, view: &mut ViewState) {
+    ui.small("Points scattered over a grid. Every spot belongs to its nearest point, which splits the world into cells (Voronoi).");
+    seed_row(ui, id, seed, view);
+
+    section(ui, "Cells", "The points, and what's measured from them.");
+    ui.add(egui::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("cell size (blocks)"))
+        .on_hover_text("About how far apart the points are: one grid square of the first octave.");
+    ui.add(egui::Slider::new(&mut noise.jitter, 0.0..=1.0).text("jitter"))
+        .on_hover_text("How far each point may wander inside its grid square.\n0 = a neat grid of identical cells. 1 = fully random.");
+    ui.horizontal_wrapped(|ui| {
+        ui.label("shows:");
+        for feature in Feature::ALL {
+            ui.selectable_value(&mut noise.feature, feature, feature.name()).on_hover_text(feature.about());
+        }
+    });
+    ui.small(noise.feature.about());
+    ui.horizontal_wrapped(|ui| {
+        ui.label("distance:");
+        for distance in Distance::ALL {
+            ui.selectable_value(&mut noise.distance, distance, distance.name());
+        }
+    })
+    .response
+    .on_hover_text("How distance to a point is measured, which sets the cells' shape.");
+
+    section(ui, "Octaves", "Finer, fainter copies stacked on top. 1 = plain cells.");
+    ui.add(egui::Slider::new(&mut noise.octaves, 1..=8).text("octaves"));
+    ui.add(egui::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
+        .on_hover_text("How strong each octave is compared with the one before.");
+    ui.add(egui::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
+        .on_hover_text("How much finer each octave is than the one before.");
+
+    placement_rows(
+        ui,
+        [&mut noise.offset_north, &mut noise.offset_east, &mut noise.stretch, &mut noise.stretch_angle, &mut noise.octave_turn],
+    );
+
+    output_settings(ui, &mut noise.output, "Stretch the lowest value to black and the highest to white.\nOff: the raw values (0 = black, 1 = white).");
+
+    ui.separator();
+    if ui.button("All settings back to defaults").clicked() {
+        *noise = WorleySettings::default();
+    }
+    ui.separator();
+    ui.strong("Worley presets");
+    ui.small("Save a useful kind of cells by name. The seed isn't saved with it.");
+    preset_bar(ui, "worley", noise);
+}
+
+/// Slide, stretch, stretch direction, turn each octave (shared by the noise layers).
+fn placement_rows(ui: &mut egui::Ui, [north, east, stretch, angle, turn]: [&mut f32; 5]) {
+    section(ui, "Placement", "Where the pattern sits and which way it leans.");
+    ui.horizontal(|ui| {
+        ui.label("slide");
+        ui.add(egui::DragValue::new(north).speed(50.0).suffix(" N"));
+        ui.add(egui::DragValue::new(east).speed(50.0).suffix(" E"));
+    })
+    .response
+    .on_hover_text("Moves the whole field, in blocks. Drag the numbers.");
+    ui.add(egui::Slider::new(stretch, 0.1..=10.0).logarithmic(true).text("stretch"))
+        .on_hover_text("1 = round features. 3 = three times as long as they are wide.");
+    ui.add(egui::Slider::new(angle, 0.0..=180.0).suffix("°").text("stretch direction"))
+        .on_hover_text("0° = stretched east–west, 90° = north–south.");
+    ui.add(egui::Slider::new(turn, 0.0..=90.0).suffix("°").text("turn each octave"))
+        .on_hover_text("Turns each octave against the one before, so the grids don't line up\n(hides faint straight lines in the pattern).");
+}
+
+fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut PerlinSettings, view: &mut ViewState) {
+    ui.small("Soft hills and hollows from a grid of random arrows, stacked in finer and fainter layers (octaves).");
+    seed_row(ui, id, seed, view);
 
     section(ui, "Pattern", "What the noise is made of.");
     ui.add(egui::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("size (blocks)"))
@@ -373,20 +451,10 @@ fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Perli
     ui.add(egui::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
         .on_hover_text("How much finer each octave is than the one before.\n2 = twice as fine.");
 
-    section(ui, "Placement", "Where the pattern sits and which way it leans.");
-    ui.horizontal(|ui| {
-        ui.label("slide");
-        ui.add(egui::DragValue::new(&mut noise.offset_north).speed(50.0).suffix(" N"));
-        ui.add(egui::DragValue::new(&mut noise.offset_east).speed(50.0).suffix(" E"));
-    })
-    .response
-    .on_hover_text("Moves the whole field, in blocks. Drag the numbers.");
-    ui.add(egui::Slider::new(&mut noise.stretch, 0.1..=10.0).logarithmic(true).text("stretch"))
-        .on_hover_text("1 = round features. 3 = three times as long as they are wide.");
-    ui.add(egui::Slider::new(&mut noise.stretch_angle, 0.0..=180.0).suffix("°").text("stretch direction"))
-        .on_hover_text("0° = stretched east–west, 90° = north–south.");
-    ui.add(egui::Slider::new(&mut noise.octave_turn, 0.0..=90.0).suffix("°").text("turn each octave"))
-        .on_hover_text("Turns each octave against the one before, so the grids don't line up\n(hides faint straight lines in the pattern).");
+    placement_rows(
+        ui,
+        [&mut noise.offset_north, &mut noise.offset_east, &mut noise.stretch, &mut noise.stretch_angle, &mut noise.octave_turn],
+    );
 
     section(ui, "Maths", "How each octave is worked out.");
     ui.horizontal(|ui| {

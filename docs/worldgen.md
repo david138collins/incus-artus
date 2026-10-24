@@ -56,6 +56,22 @@ settings:
 | 2 | **Export, palettes and the HSL filter** | BUILT |
 | 3 | **Layers, image layers, chunkier pixels** | BUILT, being tried |
 | 4 | **Mix modes and opacity** (layers affect each other) | BUILT, being tried |
+| 5 | **Worley noise field** (cellular / Voronoi) | BUILT, being tried |
+
+**Where colour stands** [David, 2026-10-23]: parts of how the suite works, colour particularly, will need
+rethinking, but David can't say exactly how yet. We keep tinkering with it as it is. If needed, the suite gets
+started over from scratch later.
+
+**Tool 5, Worley noise** (`worley.rs`) [BUILT 2026-10-23]: points scattered over a grid; every spot belongs to its
+nearest point, which splits the world into cells.
+- **Cells:** cell size (blocks); jitter (0 = a neat grid, 1 = fully random).
+- **Shows:**
+  - nearest (F1, bubbles);
+  - second nearest (F2, puffier);
+  - edges (F2 − F1, cracks and borders);
+  - cells (one random value per cell, the classic Voronoi patches).
+- **Distance:** straight (round cells), grid (diamond), longest side (square).
+- Octaves, placement and output as for Perlin. Its own presets (`presets/worley/`).
 
 **Tool 4, mixing** (`blend.rs`) [DECIDED 2026-10-23, BUILT]:
 - **Every layer has a mix mode and an opacity:** normal, add, subtract, multiply, screen, overlay, dodge, burn,

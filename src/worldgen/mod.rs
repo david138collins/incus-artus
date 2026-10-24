@@ -17,6 +17,7 @@
 //! - `field.rs`   a field: one value per pixel
 //! - `made.rs`    what every kind of layer makes, and the output shaping they share
 //! - `noise.rs`   Perlin noise and its settings
+//! - `worley.rs`  Worley (cellular, Voronoi) noise and its settings
 //! - `image.rs`   image layers: PNG pictures laid onto the field
 //! - `layers.rs`  the layer stack
 //! - `blend.rs`   how a layer mixes with the ones below it
@@ -35,6 +36,7 @@ mod noise;
 mod palette;
 mod runner;
 mod view;
+mod worley;
 
 use crate::debug::DebugAppExt;
 use crate::screen::Screen;
@@ -107,8 +109,11 @@ impl Default for Suite {
             next_id: 1,
         };
         // For automatic testing: `INCUS_SELFTEST_SUITE=<a PNG>` starts with a Perlin layer and that
-        // picture on top of it, multiplied in, instead of a blank page.
-        if let Ok(path) = std::env::var("INCUS_SELFTEST_SUITE") {
+        // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
+        // Worley layer instead.
+        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "worley") {
+            suite.add_worley();
+        } else if let Ok(path) = std::env::var("INCUS_SELFTEST_SUITE") {
             suite.add_perlin();
             match suite.add_image(Path::new(&path)) {
                 Ok(()) => {
@@ -149,6 +154,11 @@ impl Suite {
     pub fn add_perlin(&mut self) {
         let seed = crate::fate::derive_seed(fresh_number(), "perlin layer");
         self.add_layer(LayerKind::Perlin { seed, settings: noise::PerlinSettings::default() });
+    }
+
+    pub fn add_worley(&mut self) {
+        let seed = crate::fate::derive_seed(fresh_number(), "worley layer");
+        self.add_layer(LayerKind::Worley { seed, settings: worley::WorleySettings::default() });
     }
 
     /// Loads a PNG as a new image layer, shown at one picture pixel per field pixel, in the middle.
@@ -274,7 +284,7 @@ mod tests {
         assert_eq!((copy.mix, copy.opacity), (original.mix, original.opacity));
         let seed = |layer: &Layer| match &layer.kind {
             LayerKind::Perlin { seed, .. } => *seed,
-            LayerKind::Image { .. } => 0,
+            _ => 0,
         };
         assert_eq!(seed(copy), seed(original));
         assert_eq!(suite.selected, Some(copy.id));

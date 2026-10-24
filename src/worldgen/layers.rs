@@ -17,11 +17,13 @@ use super::made::{Made, Shaping};
 use super::noise::PerlinSettings;
 use super::palette::Colouring;
 use super::runner::{Finished, Job, Poll};
+use super::worley::WorleySettings;
 use std::sync::Arc;
 
 #[derive(Clone)]
 pub enum LayerKind {
     Perlin { seed: u64, settings: PerlinSettings },
+    Worley { seed: u64, settings: WorleySettings },
     Image { file: String, picture: Arc<Picture>, placement: Placement },
 }
 
@@ -29,6 +31,7 @@ impl LayerKind {
     pub fn type_name(&self) -> &'static str {
         match self {
             LayerKind::Perlin { .. } => "Perlin noise field",
+            LayerKind::Worley { .. } => "Worley noise field",
             LayerKind::Image { .. } => "Image",
         }
     }
@@ -39,6 +42,7 @@ impl LayerKind {
 #[derive(Clone, PartialEq)]
 enum Recipe {
     Perlin(u64, PerlinSettings),
+    Worley(u64, WorleySettings),
     Image(usize, Placement),
 }
 
@@ -85,6 +89,7 @@ impl Layer {
     fn recipe(&self) -> Recipe {
         match &self.kind {
             LayerKind::Perlin { seed, settings } => Recipe::Perlin(*seed, settings.clone()),
+            LayerKind::Worley { seed, settings } => Recipe::Worley(*seed, settings.clone()),
             LayerKind::Image { picture, placement, .. } => Recipe::Image(Arc::as_ptr(picture) as usize, placement.clone()),
         }
     }
@@ -121,6 +126,10 @@ impl Layer {
                 LayerKind::Perlin { seed, settings } => {
                     let (seed, settings) = (*seed, settings.clone());
                     Job::start(move |stop| super::noise::make(&settings, seed, size_blocks, blocks_per_pixel, stop))
+                }
+                LayerKind::Worley { seed, settings } => {
+                    let (seed, settings) = (*seed, settings.clone());
+                    Job::start(move |stop| super::worley::make(&settings, seed, size_blocks, blocks_per_pixel, stop))
                 }
                 LayerKind::Image { picture, placement, .. } => {
                     let (picture, placement) = (picture.clone(), placement.clone());
