@@ -60,6 +60,7 @@ struct Look {
     height_shown: f32,
     smoothness: u32,
     tear_open: f32,
+    seal_gaps: f32,
     squeeze: f32,
     water: f32,
 }
@@ -116,6 +117,8 @@ pub struct WorldGen {
     pub shading_smoothness: u32,
     /// A cracked triangle stretched past this many times its size stops being drawn: a rift.
     pub tear_open: f32,
+    /// Sea narrower than this (blocks) with rock on both sides is filled from the nearest rock.
+    pub seal_gaps: f32,
     pub show_bowl: bool,
     /// For automatic testing: start the simulation as soon as the plates are made.
     pub start_when_ready: bool,
@@ -186,6 +189,7 @@ impl Default for WorldGen {
             height_shown: 0.5,
             shading_smoothness: 3,
             tear_open: 2.0,
+            seal_gaps: 1_500.0,
             show_bowl: true,
             start_when_ready: false,
             send: None,
@@ -261,6 +265,7 @@ impl WorldGen {
             heights: self.heights.clone(),
             smoothing: self.shading_smoothness,
             tear_open: self.tear_open,
+            seal_gaps: self.seal_gaps,
             most_steps: self.most_steps,
             folder: bake::bakes_folder(),
         };
@@ -622,6 +627,7 @@ struct Show {
     shading_smoothness: u32,
     tears_open_past: f32,
     squeeze_direction: bool,
+    seal_gaps: f32,
 }
 
 impl Default for Show {
@@ -645,6 +651,7 @@ impl WorldGen {
             shading_smoothness: self.shading_smoothness,
             tears_open_past: self.tear_open,
             squeeze_direction: self.show_push,
+            seal_gaps: self.seal_gaps,
         }
     }
 
@@ -665,7 +672,7 @@ impl WorldGen {
             (show.cells, show.vertices, show.lines, show.arrows, show.boundaries, show.bowl);
         (self.arrow_steps, self.height_shown, self.shading_smoothness, self.tear_open) =
             (show.arrow_steps, show.thickness_as_white, show.shading_smoothness, show.tears_open_past);
-        self.show_push = show.squeeze_direction;
+        (self.show_push, self.seal_gaps) = (show.squeeze_direction, show.seal_gaps);
         // Anything being compared with the defaults is now replaced by the preset.
         (self.ab_plates, self.ab_tectonics, self.ab_heights) = (None, None, None);
     }
@@ -834,6 +841,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         .on_hover_text("How much speed every point loses each step. 0.01 = 1%.\nLower = they coast for longer.");
     ui.add(egui::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean rock's weight ×"))
         .on_hover_text("How heavy ocean rock is for its size, compared with land rock.\nLight plates get shoved and crumpled; heavy ones shove.");
+    ui.add(egui::Slider::new(&mut sim.stickiness, 0.0..=2.0).text("stickiness")).on_hover_text(
+        "Plates pressed together weld: their touching rock is joined, so they stay together instead of\ndrifting back apart and leaving a strip of sea. Welds can still crack if pulled hard enough.\n0 = plates never stick.",
+    );
     let mut bowl_percent = sim.bowl_start * 100.0;
     if ui
         .add(egui::Slider::new(&mut bowl_percent, 0.0..=99.0).suffix("%").text("bowl starts at"))
@@ -850,6 +860,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         );
     ui.add(egui::Slider::new(&mut world.shading_smoothness, 0..=20).text("shading smoothness")).on_hover_text(
         "Only changes the look: how many times the shading is blended with its neighbours.\n0 = sharp (you can see the grid's triangles). Higher = smooth fields.",
+    );
+    ui.add(egui::Slider::new(&mut world.seal_gaps, 0.0..=8_000.0).text("seal gaps up to (blocks)")).on_hover_text(
+        "Sea narrower than this with rock on both sides (such as a thin gap left between plates that met)\nis filled from the nearest rock, so a mountain range runs straight across it. Wider seas, straits and\nrifts are left open. 0 = seal nothing. Also used when baking.",
     );
     ui.add(egui::Slider::new(&mut world.tear_open, 1.1..=6.0).logarithmic(true).text("tears open past")).on_hover_text(
         "Only changes the look. A crack pulled open less than this (× its size) is drawn as thin, stretched rock;\npulled open further, it's a rift and shows the sea. Too high = plates smeared across wide gaps.",
@@ -1187,6 +1200,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         height_shown: world.height_shown,
         smoothness: world.shading_smoothness,
         tear_open: world.tear_open,
+        seal_gaps: world.seal_gaps,
         squeeze: world.heights.squeeze,
         water: world.heights.water,
     };
@@ -1211,7 +1225,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         let ocean_depth = (heights.water - heights.ocean).max(0.05);
         let (mut land, mut world_pixels) = (0usize, 0usize);
         if let Some(sim) = &world.sim {
-            world.moved = sim.paint(world.shading_smoothness, world.tear_open);
+            world.moved = sim.paint(world.shading_smoothness, world.tear_open, world.seal_gaps / made.blocks_per_pixel);
         }
         let mut pixels: Vec<Color32> = (0..width * width)
             .map(|i| {
@@ -1412,7 +1426,7 @@ mod tests {
         for _ in 0..60 {
             sim.step(&settings);
         }
-        world.moved = world.sim.as_ref().unwrap().paint(world.shading_smoothness, world.tear_open);
+        world.moved = world.sim.as_ref().unwrap().paint(world.shading_smoothness, world.tear_open, 0.0);
         world
     }
 

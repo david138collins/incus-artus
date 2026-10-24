@@ -484,6 +484,7 @@ mod tests {
             heights: Default::default(),
             smoothing: 3,
             tear_open: 2.0,
+            seal_gaps: 1_500.0,
             most_steps: 100,
             folder: folder.clone(),
         };

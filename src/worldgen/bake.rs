@@ -88,6 +88,8 @@ pub struct Order {
     /// as a rift.
     pub smoothing: u32,
     pub tear_open: f32,
+    /// Sea narrower than this (blocks) with rock on both sides is filled from the nearest rock.
+    pub seal_gaps: f32,
     /// Stop after this many steps even if things are still moving.
     pub most_steps: u32,
     /// Where to write it (normally `bakes_folder()`).
@@ -127,6 +129,8 @@ pub struct Settings {
     pub heights: HeightSettings,
     pub squeeze_smoothing: u32,
     pub tears_open_past: f32,
+    #[serde(default)]
+    pub seal_gaps: f32,
 }
 
 /// `map.toml`.
@@ -186,7 +190,7 @@ pub fn make(order: &Order, stop: &AtomicBool) -> Option<Maps> {
             return None;
         }
     }
-    let painted = sim.paint(order.smoothing, order.tear_open);
+    let painted = sim.paint(order.smoothing, order.tear_open, order.seal_gaps / order.blocks_per_pixel);
     let height_of = |spot: &Spot| terrain[spot.from as usize] + order.heights.squeeze * spot.squeeze;
     // Open sea (no plate) is as deep as the deepest plate rock.
     let deepest = painted.iter().flatten().map(height_of).fold(order.heights.ocean, f32::min);
@@ -288,6 +292,7 @@ fn write(order: &Order, maps: &Maps) -> Result<Baked, String> {
             heights: order.heights.clone(),
             squeeze_smoothing: order.smoothing,
             tears_open_past: order.tear_open,
+            seal_gaps: order.seal_gaps,
         },
     };
     let header = "# Incus Artus: a world baked by the Tectonic Sim.\n\
@@ -317,6 +322,7 @@ mod tests {
             heights: HeightSettings::default(),
             smoothing: 3,
             tear_open: 2.0,
+            seal_gaps: 1_500.0,
             most_steps: 200,
             folder: folder.to_path_buf(),
         }

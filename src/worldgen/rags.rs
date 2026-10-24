@@ -76,6 +76,9 @@ pub struct RagSettings {
     pub drag: f32,
     /// How heavy ocean rock is for its size, compared with land rock.
     pub ocean_weight: f32,
+    /// How strongly plates pressed together weld (0 = they never stick). Welds hold like the rock's
+    /// own springs, and crack if pulled hard enough.
+    pub stickiness: f32,
     /// The bowl starts this far out (a share of the world's radius).
     pub bowl_start: f32,
     /// How hard the bowl pushes back, in blocks per step each step, at the world's edge.
@@ -97,6 +100,7 @@ impl Default for RagSettings {
             friction: 0.3,
             drag: 0.01,
             ocean_weight: 0.4,
+            stickiness: 0.6,
             bowl_start: 0.8,
             bowl: 2.0,
         }
@@ -218,6 +222,8 @@ pub struct Sim {
     triangles: Vec<Triangle>,
     /// Where each plate's middle was at the start (for plates too small to have any points).
     middles: Vec<(f32, f32)>,
+    /// Pairs of points (from different plates) already welded together.
+    welded: std::collections::HashSet<(usize, usize)>,
     /// Steps taken so far.
     pub steps: u64,
     /// Whether everything has coasted to a stop.
@@ -314,6 +320,7 @@ impl Sim {
             springs,
             triangles,
             middles: plates.kept.iter().map(|plate| plate.middle).collect(),
+            welded: std::collections::HashSet::new(),
             steps: 0,
             settled: false,
         }
@@ -452,6 +459,19 @@ impl Sim {
             self.at[j] = (b.0 + past.0 * share * wj, b.1 + past.1 * share * wj);
         }
 
+        // Welding: points of different plates pressed into contact are joined by a new spring at
+        // that distance, so the plates stick instead of drifting back apart. (In the order the
+        // pairs were found, so the same run always welds the same way.)
+        if settings.stickiness > 0.0 {
+            for &(i, j) in &pairs {
+                let (a, b) = (self.at[i], self.at[j]);
+                let length = (a.0 - b.0).hypot(a.1 - b.1);
+                if length <= self.grain * 1.02 && self.welded.insert((i, j)) {
+                    self.springs.push(Spring { a: i, b: j, rest: self.grain, made: self.grain, strength: settings.stickiness, broken: false });
+                }
+            }
+        }
+
         // 5. The new speeds: how far each point actually moved.
         let mut fastest: f32 = 0.0;
         for k in 0..self.at.len() {
@@ -564,7 +584,18 @@ impl Sim {
     /// torn wide open (a cracked side stretched past `tear_open` times its length) isn't drawn: it
     /// would smear the plate across the gap. That gap is a real rift, and shows the sea. The
     /// shading (thickness, blended `smoothing` times) goes on top.
-    pub fn paint(&self, smoothing: u32, tear_open: f32) -> Vec<Option<Spot>> {
+    ///
+    /// Then any sea narrower than `seal` pixels with rock on both sides is filled from the nearest
+    /// rock (see `seal_gaps`).
+    pub fn paint(&self, smoothing: u32, tear_open: f32, seal: f32) -> Vec<Option<Spot>> {
+        let mut painted = self.paint_plates(smoothing, tear_open);
+        if seal > 0.0 {
+            seal_gaps(&mut painted, self.width, seal / 2.0);
+        }
+        painted
+    }
+
+    fn paint_plates(&self, smoothing: u32, tear_open: f32) -> Vec<Option<Spot>> {
         let width = self.width;
         let mut painted = vec![None; width * width];
         let thickness = self.thickness(smoothing, tear_open);
@@ -606,6 +637,53 @@ impl Sim {
             }
         }
         painted
+    }
+}
+
+/// For every pixel, how far it is (in pixels) from the nearest pixel where `from` is true, and
+/// which pixel that is. Two sweeps, each passing distances on to neighbours (1 across, 1.41
+/// diagonally).
+fn nearest(from: &[bool], width: usize) -> (Vec<f32>, Vec<usize>) {
+    let mut distance: Vec<f32> = from.iter().map(|&f| if f { 0.0 } else { f32::MAX }).collect();
+    let mut source: Vec<usize> = (0..from.len()).collect();
+    const DIAGONAL: f32 = std::f32::consts::SQRT_2;
+    let mut sweep = |rows: &mut dyn Iterator<Item = usize>, steps: [(i64, i64, f32); 4]| {
+        for row in rows {
+            let cols: Box<dyn Iterator<Item = usize>> = if steps[0].0 < 0 { Box::new(0..width) } else { Box::new((0..width).rev()) };
+            for col in cols {
+                let i = row * width + col;
+                for (dc, dr, step) in steps {
+                    let (c, r) = (col as i64 + dc, row as i64 + dr);
+                    if c < 0 || r < 0 || c as usize >= width || r as usize >= width {
+                        continue;
+                    }
+                    let j = r as usize * width + c as usize;
+                    if distance[j] + step < distance[i] {
+                        distance[i] = distance[j] + step;
+                        source[i] = source[j];
+                    }
+                }
+            }
+        }
+    };
+    sweep(&mut (0..width), [(-1, 0, 1.0), (0, -1, 1.0), (-1, -1, DIAGONAL), (1, -1, DIAGONAL)]);
+    sweep(&mut (0..width).rev(), [(1, 0, 1.0), (0, 1, 1.0), (1, 1, DIAGONAL), (-1, 1, DIAGONAL)]);
+    (distance, source)
+}
+
+/// Seals thin gaps of sea between rock: grows the rock outward by `reach` pixels, then shrinks it
+/// back by as much. Gaps narrower than twice `reach` stay filled; wider seas open again. Filled
+/// pixels take the nearest rock's values (so a crushed range runs across where the gap was).
+fn seal_gaps(painted: &mut [Option<Spot>], width: usize, reach: f32) {
+    let rock: Vec<bool> = painted.iter().map(Option::is_some).collect();
+    let (to_rock, nearest_rock) = nearest(&rock, width);
+    let grown: Vec<bool> = to_rock.iter().map(|&d| d <= reach).collect();
+    let outside: Vec<bool> = grown.iter().map(|&g| !g).collect();
+    let (to_outside, _) = nearest(&outside, width);
+    for i in 0..painted.len() {
+        if painted[i].is_none() && grown[i] && to_outside[i] > reach {
+            painted[i] = painted[nearest_rock[i]];
+        }
     }
 }
 
@@ -673,7 +751,7 @@ mod tests {
             sim.step(&settings);
         }
         assert!(sim.middle(0).0 < sim.middle(1).0, "they passed through each other");
-        let highest = sim.paint(0, f32::MAX).iter().flatten().map(|spot| spot.squeeze).fold(0.0, f32::max);
+        let highest = sim.paint(0, f32::MAX, 0.0).iter().flatten().map(|spot| spot.squeeze).fold(0.0, f32::max);
         assert!(highest > 0.1, "nothing rose: highest {highest}");
         // Given way: some springs are now shorter at rest than when made.
         assert!(sim.springs.iter().any(|s| s.rest < s.made * 0.97));
@@ -696,7 +774,7 @@ mod tests {
         assert!(sim.springs.iter().any(|s| s.broken), "nothing tore");
         // The tear shows as stretched, thin rock, not a hole: the plate covers at least as much
         // ground as before, and the middle of the tear is thinner than it started.
-        let painted = sim.paint(0, f32::MAX);
+        let painted = sim.paint(0, f32::MAX, 0.0);
         let before = plates.plate.iter().filter(|&&p| p == Some(0)).count();
         let after = painted.iter().flatten().filter(|spot| spot.plate == 0).count();
         assert!(after >= before, "the plate lost fill: {before} pixels before, {after} after");
@@ -710,7 +788,7 @@ mod tests {
         for _ in 0..30 {
             sim.step(&RagSettings { drag: 0.0, ..settings.clone() });
         }
-        let painted = sim.paint(0, 2.0);
+        let painted = sim.paint(0, 2.0, 0.0);
         let gap = (0..plates.width).filter(|&col| painted[60 * plates.width + col].is_none()).count();
         let row: Vec<bool> = (0..plates.width).map(|col| painted[60 * plates.width + col].is_some()).collect();
         let first = row.iter().position(|&on| on).unwrap();
@@ -743,9 +821,47 @@ mod tests {
         let settings = RagSettings { grain: 1_500.0, bowl: 0.0, ..RagSettings::default() };
         let mut sim = Sim::new(&made, &still, &settings, 1);
         sim.step(&settings);
-        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX).iter().map(|here| here.map(|spot| spot.plate)).collect();
+        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX, 0.0).iter().map(|here| here.map(|spot| spot.plate)).collect();
         let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
         assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
+    }
+
+    #[test]
+    fn thin_gaps_between_rock_are_sealed_and_wide_ones_stay_open() {
+        // Three strips of rock down a 40-pixel field: a 3-pixel gap, then a 12-pixel one.
+        let width = 40;
+        let rock = |col: usize| (2..10).contains(&col) || (13..20).contains(&col) || (32..38).contains(&col);
+        let mut painted: Vec<Option<Spot>> = (0..width * width)
+            .map(|i| rock(i % width).then_some(Spot { plate: (i % width / 13) as u8, squeeze: 0.5, from: 0, push: (0.0, 0.0) }))
+            .collect();
+        seal_gaps(&mut painted, width, 2.5);
+        let row = |col: usize| painted[20 * width + col].is_some();
+        assert!((10..13).all(row), "the thin gap wasn't sealed");
+        assert!((21..31).all(|col| !row(col)), "the wide gap was sealed");
+        // Filled from the nearest rock: its squeeze carries across.
+        assert_eq!(painted[20 * width + 11].map(|spot| spot.squeeze), Some(0.5));
+    }
+
+    #[test]
+    fn welded_plates_stay_together_when_pulled_back_apart() {
+        let apart = |stickiness: f32| {
+            let (plates, motions, settings) = head_on(100.0);
+            let settings = RagSettings { stickiness, ..settings };
+            let mut sim = Sim::new(&plates, &motions, &settings, 1);
+            for _ in 0..40 {
+                sim.step(&settings);
+            }
+            // Now pull them back apart, gently.
+            for k in 0..sim.at.len() {
+                sim.velocity[k] = (if sim.plate[k] == 0 { -0.3 } else { 0.3 }, 0.0);
+            }
+            for _ in 0..20 {
+                sim.step(&RagSettings { drag: 0.0, ..settings.clone() });
+            }
+            sim.middle(1).0 - sim.middle(0).0
+        };
+        let (welded, loose) = (apart(1.0), apart(0.0));
+        assert!(welded + 3.0 < loose, "welded {welded}, loose {loose}");
     }
 
     #[test]
@@ -783,7 +899,7 @@ mod tests {
             for _ in 0..100 {
                 sim.step(&settings);
             }
-            sim.paint(0, f32::MAX)
+            sim.paint(0, f32::MAX, 0.0)
         };
         assert_eq!(run(), run());
     }
