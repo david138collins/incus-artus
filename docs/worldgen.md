@@ -158,8 +158,14 @@ pushed down **darker**.
 - **[BUILT 2026-10-24]** First version, on the first bake (`first_world`): compiles 2,250 × 2,250 in
   under 50 ms. Mountain defaults lowered after seeing it (start at squeeze 0.05, fullest at 0.3): the
   first bake's crush belts are gentle.
-- **Later** [David]: use **splines** (a drawn curve from squeeze to mountain height) to make the
-  mountains more intense, instead of the fixed start/fullest ramp. For now worlds are baked one at a time to experiment on; **eventually**
+- **Mountain curve [BUILT 2026-10-24]** [David: mountains came out as plateaus]: a curve box (drag the
+  ends up and down, the middle to bend it) maps squeeze, from where mountains start to the bake's most
+  crushed rock, to height. A belt's most crushed line is its peak. A **ridges** slider sets how much
+  the ridge pattern carves in. (A full spline with more points can come later.)
+- **Plates stick [BUILT 2026-10-24]** [David: sea got caught between colliding plates, making canyons
+  through every range]: points pressed together **weld** (stickiness slider; welds crack if pulled
+  hard, so straits can still open), and sea narrower than **seal gaps up to** with rock on both sides
+  is filled from the nearest rock. Bakes made before this still have their gaps: bake again. For now worlds are baked one at a time to experiment on; **eventually**
   [David] the Tectonic Sim runs a world preset and hands its maps straight to the World Compiler, and
   concludes itself.
 
