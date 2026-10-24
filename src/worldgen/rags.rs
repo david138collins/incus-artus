@@ -41,7 +41,7 @@ use super::noise::{Fade, perlin};
 use super::plates::Plates;
 use super::tectonics::Motion;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -143,6 +143,15 @@ pub struct Sim {
     velocity: Vec<(f32, f32)>,
     plate: Vec<u8>,
     land: Vec<bool>,
+    /// Where each point started.
+    home: Vec<(f32, f32)>,
+    /// Whether it's on its plate (and so collides). The others are **outline points** just past
+    /// the plate's edge: they move with it, so its true outline can be carried along, but they
+    /// don't collide.
+    real: Vec<bool>,
+    /// Which plate each pixel was on at the start: the plates' true shapes, carried along by the
+    /// grid when painting.
+    shapes: Vec<Option<u8>>,
     springs: Vec<Spring>,
     triangles: Vec<Triangle>,
     /// Where each plate's middle was at the start (for plates too small to have any points).
@@ -158,70 +167,59 @@ impl Sim {
     pub fn new(plates: &Plates, motions: &[Motion], settings: &RagSettings, seed: u64) -> Self {
         let (width, blocks_per_pixel) = (plates.width, plates.blocks_per_pixel);
         let grain = (settings.grain / blocks_per_pixel).max(1.0);
-        let across = (width as f32 / grain).ceil() as usize;
 
-        // The grid: a point wherever its spot is on a plate.
-        let (mut at, mut velocity, mut plate, mut land, mut strength) = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
-        let mut point_at: HashMap<(usize, usize), usize> = HashMap::new();
-        let patch = (settings.patch_size / blocks_per_pixel).max(1.0);
-        for j in 0..across {
-            for i in 0..across {
-                let spot = ((i as f32 + 0.5) * grain, (j as f32 + 0.5) * grain);
-                let (col, row) = (spot.0 as usize, spot.1 as usize);
-                if col >= width || row >= width {
-                    continue;
-                }
-                let Some(p) = plates.plate[row * width + col] else { continue };
-                let Some(motion) = motions.get(p as usize) else { continue };
-                let v = motion.at(plates.kept[p as usize].middle, spot, blocks_per_pixel);
-                point_at.insert((i, j), at.len());
-                at.push(spot);
-                velocity.push((v.0 / blocks_per_pixel, v.1 / blocks_per_pixel));
-                plate.push(p);
-                land.push(plates.kept[p as usize].land);
-                let noise = perlin(seed, 0x5715_f0e5, Fade::Smooth, spot.0 / patch, spot.1 / patch) * 1.4;
-                strength.push((1.0 + settings.patchiness * noise).clamp(0.1, 2.0));
+        // Which grid spots each plate needs: the four corners of the grid square around each of
+        // its pixels, so every pixel of it sits inside its grid. (Sorted, so the same seed always
+        // gives the same run.) Spot (i, j) is at ((i + ½) × grain, (j + ½) × grain).
+        let mut needed: BTreeSet<(u8, i64, i64)> = BTreeSet::new();
+        for (index, here) in plates.plate.iter().enumerate() {
+            let Some(p) = *here else { continue };
+            let (x, y) = ((index % width) as f32 + 0.5, (index / width) as f32 + 0.5);
+            let (i, j) = ((x / grain - 0.5).floor() as i64, (y / grain - 0.5).floor() as i64);
+            for (di, dj) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                needed.insert((p, i + di, j + dj));
             }
+        }
+
+        // The points.
+        let (mut at, mut velocity, mut plate, mut land, mut real, mut strength) = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let mut point_at: HashMap<(u8, i64, i64), usize> = HashMap::new();
+        let patch = (settings.patch_size / blocks_per_pixel).max(1.0);
+        for &(p, i, j) in &needed {
+            let Some(motion) = motions.get(p as usize) else { continue };
+            let spot = ((i as f32 + 0.5) * grain, (j as f32 + 0.5) * grain);
+            let (col, row) = (spot.0.floor() as i64, spot.1.floor() as i64);
+            let on_it = col >= 0 && row >= 0 && (col as usize) < width && (row as usize) < width && plates.plate[row as usize * width + col as usize] == Some(p);
+            let v = motion.at(plates.kept[p as usize].middle, spot, blocks_per_pixel);
+            point_at.insert((p, i, j), at.len());
+            at.push(spot);
+            velocity.push((v.0 / blocks_per_pixel, v.1 / blocks_per_pixel));
+            plate.push(p);
+            land.push(plates.kept[p as usize].land);
+            real.push(on_it);
+            let noise = perlin(seed, 0x5715_f0e5, Fade::Smooth, spot.0 / patch, spot.1 / patch) * 1.4;
+            strength.push((1.0 + settings.patchiness * noise).clamp(0.1, 2.0));
         }
 
         // Springs to the neighbours on the same plate: across, down, and both diagonals.
         let mut springs = Vec::new();
         let mut spring_between: HashMap<(usize, usize), usize> = HashMap::new();
-        for (&(i, j), &a) in &point_at {
+        for &(p, i, j) in &needed {
+            let a = point_at[&(p, i, j)];
             for (di, dj) in [(1, 0), (0, 1), (1, 1), (-1, 1)] {
-                let (ni, nj) = (i as i64 + di, j as i64 + dj);
-                if ni < 0 {
-                    continue;
-                }
-                let Some(&b) = point_at.get(&(ni as usize, nj as usize)) else { continue };
-                if plate[a] != plate[b] {
-                    continue;
-                }
+                let Some(&b) = point_at.get(&(p, i + di, j + dj)) else { continue };
                 let length = (at[b].0 - at[a].0).hypot(at[b].1 - at[a].1);
                 spring_between.insert((a.min(b), a.max(b)), springs.len());
                 springs.push(Spring { a, b, rest: length, made: length, strength: (strength[a] + strength[b]) / 2.0, broken: false });
             }
         }
-        // The HashMap's order isn't fixed: sort, so the same seed always gives the same run.
-        let mut order: Vec<usize> = (0..springs.len()).collect();
-        order.sort_by_key(|&s| (springs[s].a.min(springs[s].b), springs[s].a.max(springs[s].b)));
-        let mut renumber = vec![0; springs.len()];
-        for (new, &old) in order.iter().enumerate() {
-            renumber[old] = new;
-        }
-        let mut sorted: Vec<Option<Spring>> = springs.into_iter().map(Some).collect();
-        let springs: Vec<Spring> = order.iter().map(|&old| sorted[old].take().unwrap()).collect();
-        for s in spring_between.values_mut() {
-            *s = renumber[*s];
-        }
 
-        // The triangles: each grid square makes two (or one, if a corner is missing or on another
-        // plate).
+        // The triangles: each grid square makes two (or one, if a corner is missing).
         let mut triangles = Vec::new();
         let side = |a: usize, b: usize| spring_between.get(&(a.min(b), a.max(b))).copied();
-        for j in 0..across {
-            for i in 0..across {
-                let corner = |di: usize, dj: usize| point_at.get(&(i + di, j + dj)).copied();
+        for &(p, i, j) in &needed {
+            {
+                let corner = |di: i64, dj: i64| point_at.get(&(p, i + di, j + dj)).copied();
                 let (c00, c10, c01, c11) = (corner(0, 0), corner(1, 0), corner(0, 1), corner(1, 1));
                 let threes: Vec<[usize; 3]> = match (c00, c10, c01, c11) {
                     (Some(a), Some(b), Some(c), Some(d)) => vec![[a, b, d], [a, d, c]],
@@ -244,10 +242,13 @@ impl Sim {
             width,
             blocks_per_pixel,
             grain,
+            home: at.clone(),
             at,
             velocity,
             plate,
             land,
+            real,
+            shapes: plates.plate.clone(),
             springs,
             triangles,
             middles: plates.kept.iter().map(|plate| plate.middle).collect(),
@@ -265,7 +266,7 @@ impl Sim {
     pub fn motion(&self, p: usize) -> Motion {
         let middle = self.middle(p);
         let (mut velocity, mut turn, mut spread, mut count) = ((0.0, 0.0), 0.0, 0.0, 0usize);
-        for k in (0..self.at.len()).filter(|&k| self.plate[k] as usize == p) {
+        for k in (0..self.at.len()).filter(|&k| self.real[k] && self.plate[k] as usize == p) {
             let v = self.velocity[k];
             let r = (self.at[k].0 - middle.0, self.at[k].1 - middle.1);
             velocity = (velocity.0 + v.0, velocity.1 + v.1);
@@ -281,7 +282,7 @@ impl Sim {
     /// Where plate `p`'s middle is now (the average of its points), in field pixels.
     pub fn middle(&self, p: usize) -> (f32, f32) {
         let (mut sum, mut count) = ((0.0, 0.0), 0usize);
-        for k in (0..self.at.len()).filter(|&k| self.plate[k] as usize == p) {
+        for k in (0..self.at.len()).filter(|&k| self.real[k] && self.plate[k] as usize == p) {
             sum = (sum.0 + self.at[k].0, sum.1 + self.at[k].1);
             count += 1;
         }
@@ -293,13 +294,14 @@ impl Sim {
         let cells = (self.width as f32 / self.grain).ceil() as usize + 1;
         let cell_of = |p: (f32, f32)| ((p.0 / self.grain).clamp(0.0, (cells - 1) as f32) as usize, (p.1 / self.grain).clamp(0.0, (cells - 1) as f32) as usize);
         let mut grid: Vec<Vec<usize>> = vec![Vec::new(); cells * cells];
-        for (k, &p) in self.at.iter().enumerate() {
+        // Only the real points collide (outline points just carry the outline).
+        for (k, &p) in self.at.iter().enumerate().filter(|&(k, _)| self.real[k]) {
             let (cx, cy) = cell_of(p);
             grid[cy * cells + cx].push(k);
         }
         let reach = self.grain * 1.5;
         let mut pairs = Vec::new();
-        for (k, &p) in self.at.iter().enumerate() {
+        for (k, &p) in self.at.iter().enumerate().filter(|&(k, _)| self.real[k]) {
             let (cx, cy) = cell_of(p);
             for ny in cy.saturating_sub(1)..=(cy + 1).min(cells - 1) {
                 for nx in cx.saturating_sub(1)..=(cx + 1).min(cells - 1) {
@@ -444,23 +446,14 @@ impl Sim {
 
     /// The plates where they are now: for each map pixel, the plate on it and how far the ground
     /// there has risen (+) or sunk (−): the rock's thickness now ÷ at the start, minus 1.
+    ///
+    /// The plates keep their true outlines: each spot inside a grid triangle now is traced back to
+    /// the same place in that triangle as it was at the start, and painted only if that pixel was
+    /// on the plate then. So the grid carries the outline along, bending it as the rock bends.
     pub fn paint(&self) -> Vec<Option<(u8, f32)>> {
         let width = self.width;
         let mut painted = vec![None; width * width];
         let thickness = self.thickness();
-        // Each point as a square a grain across first, so plates meet edge to edge (the triangles
-        // only reach between points)...
-        let half = self.grain / 2.0;
-        for (k, &(x, y)) in self.at.iter().enumerate() {
-            let rows = ((y - half).floor().max(0.0) as usize)..((y + half).ceil().clamp(0.0, width as f32) as usize);
-            for row in rows {
-                let cols = ((x - half).floor().max(0.0) as usize)..((x + half).ceil().clamp(0.0, width as f32) as usize);
-                for col in cols {
-                    painted[row * width + col] = Some((self.plate[k], thickness[k] - 1.0));
-                }
-            }
-        }
-        // ...then the triangles over them, with the thickness blended smoothly between corners.
         for triangle in self.whole_triangles() {
             let [a, b, c] = triangle.corners;
             let (pa, pb, pc) = (self.at[a], self.at[b], self.at[c]);
@@ -478,6 +471,16 @@ impl Sim {
                     // How much of each corner this spot is (all three ≥ 0 means inside).
                     let (wa, wb, wc) = (signed_area(p, pb, pc) / area, signed_area(pa, p, pc) / area, signed_area(pa, pb, p) / area);
                     if wa < 0.0 || wb < 0.0 || wc < 0.0 {
+                        continue;
+                    }
+                    // The same place in the triangle as it was at the start: was it on this plate?
+                    let (ha, hb, hc) = (self.home[a], self.home[b], self.home[c]);
+                    let was = (wa * ha.0 + wb * hb.0 + wc * hc.0, wa * ha.1 + wb * hb.1 + wc * hc.1);
+                    let (wcol, wrow) = (was.0.floor(), was.1.floor());
+                    if wcol < 0.0 || wrow < 0.0 || wcol >= width as f32 || wrow >= width as f32 {
+                        continue;
+                    }
+                    if self.shapes[wrow as usize * width + wcol as usize] != Some(self.plate[a]) {
                         continue;
                     }
                     let height = wa * thickness[a] + wb * thickness[b] + wc * thickness[c] - 1.0;
@@ -591,6 +594,19 @@ mod tests {
             }
         }
         assert!(sim.settled, "still moving: {:?}", sim.motion(0));
+    }
+
+    #[test]
+    fn plates_keep_their_true_outlines_however_coarse_the_grain() {
+        // Fine pixels (64 blocks) and a coarse grain (1,500 blocks: one point every 23 pixels).
+        let made = plates::make(&PlateSettings::default(), 5, 72_000.0, 64.0, &AtomicBool::new(false)).unwrap();
+        let still = vec![Motion { velocity: (0.0, 0.0), spin: 0.0 }; made.kept.len()];
+        let settings = RagSettings { grain: 1_500.0, bowl: 0.0, ..RagSettings::default() };
+        let mut sim = Sim::new(&made, &still, &settings, 1);
+        sim.step(&settings);
+        let painted: Vec<Option<u8>> = sim.paint().iter().map(|here| here.map(|(p, _)| p)).collect();
+        let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
+        assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
     }
 
     #[test]

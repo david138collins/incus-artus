@@ -147,6 +147,10 @@ impl Default for Suite {
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;
             suite.world.start_when_ready = std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world-run");
+            // `INCUS_SELFTEST_CHUNKS=1` starts at that pixel size.
+            if let Some(chunks) = std::env::var("INCUS_SELFTEST_CHUNKS").ok().and_then(|v| v.parse().ok()) {
+                suite.chunks_per_pixel = chunks;
+            }
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "worley") {
             suite.add_worley();
         } else if let Ok(path) = std::env::var("INCUS_SELFTEST_SUITE") {

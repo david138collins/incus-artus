@@ -724,10 +724,12 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
             }
         }
         let image = egui::ColorImage::new([width, width], pixels);
-        match &mut world.texture {
-            Some(texture) => texture.set(image, egui::TextureOptions::NEAREST),
-            None => world.texture = Some(ui.ctx().load_texture("world gen field", image, egui::TextureOptions::NEAREST)),
-        }
+        // Made tiny first, then given the picture: egui's first-make check assumes 2,048 pixels
+        // is the most a graphics card can take, which is too cautious (1 chunk per pixel is 2,250).
+        let texture = world.texture.get_or_insert_with(|| {
+            ui.ctx().load_texture("world gen field", egui::ColorImage::new([1, 1], vec![Color32::BLACK]), egui::TextureOptions::NEAREST)
+        });
+        texture.set(image, egui::TextureOptions::NEAREST);
         world.painted_for = Some(wanted);
     }
 
