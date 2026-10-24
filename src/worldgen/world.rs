@@ -102,7 +102,7 @@ pub struct WorldGen {
     /// The terrain of every pixel of the plates as made, worked out again when the plates or the
     /// height settings that shape it change.
     terrain: Vec<f32>,
-    terrain_for: Option<(u64, u64, [u32; 8])>,
+    terrain_for: Option<(u64, u64, [u32; 10])>,
     terrain_version: u64,
     /// How much of the world was above water when last painted.
     land_share: f32,
@@ -712,6 +712,14 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         .on_hover_text("Where land plates sit before the terrain noise. Around 0 (the usual water level) = about half land.");
     ui.add(egui::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
         .on_hover_text("Where ocean plates sit. Deep: only a hard squeeze lifts them above the water as islands.");
+    ui.add_space(4.0);
+    ui.label("Tilt (each plate tips a random way, on its middle):");
+    ui.add(egui::Slider::new(&mut h.tilt, 0.0..=2.0).text("most tilt")).on_hover_text(
+        "How far a plate can tip: about how high its rising side goes, and how low the other sinks.\nEach plate tips a random direction, by a random share (a third to all) of this.",
+    );
+    ui.add(egui::Slider::new(&mut h.blend, 0.0..=1.0).text("tilt ← blend → noise")).on_hover_text(
+        "Mixes the plain tilt and the terrain noise.\n0 = only tilt: simple plates, each sunk on one side. 1 = only the rolling noise. In between = both.",
+    );
     ui.add_space(4.0);
     ui.label("Terrain noise (one for the whole world, riding with the plates):");
     ui.add(egui::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(

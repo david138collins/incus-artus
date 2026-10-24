@@ -3,10 +3,14 @@
 //! A real plate isn't all land: it's rock at some height, and the coast is wherever that height
 //! crosses sea level. So each spot's height is three things added together:
 //! 1. **the plate's base height**: land plates sit around sea level, ocean plates deep;
-//! 2. **terrain noise**: rolling highs and lows, so a land plate is partly above water and partly
-//!    sunk. **One noise for the whole world**, read where each pixel *started*: so at the start
-//!    it flows straight across plate boundaries (a continent can straddle two plates), and then
-//!    it rides, bends and squashes with the rock;
+//! 2. **its shape**, a blend of two things (the **blend** slider mixes them):
+//!    - **tilt** [David]: each plate balances on its middle and tips a little, a random direction
+//!      and amount, so one side rises and the other sinks: a plain slope through the middle;
+//!    - **terrain noise**: rolling highs and lows, so a land plate is partly above water and partly
+//!      sunk. **One noise for the whole world**, so at the start it flows straight across plate
+//!      boundaries (a continent can straddle two plates).
+//!
+//!    Both are read where each pixel *started*, so they ride, bend and squash with the rock;
 //! 3. **sunken edges** (continental shelves): each plate slopes down toward its edges, so coasts
 //!    fall inside plates rather than along their outlines, and plates touching at the start don't
 //!    automatically make one landmass;
@@ -35,6 +39,11 @@ pub struct HeightSettings {
     /// Finer, fainter layers on top, and how strong each is compared with the one before.
     pub octaves: u32,
     pub roughness: f32,
+    /// The most a plate tips: how far its highest edge rises (and its lowest sinks), roughly.
+    /// Each plate tips a random direction, by a random share of this.
+    pub tilt: f32,
+    /// Mixes the tilt and the terrain noise: 0 = only tilt, 1 = only noise.
+    pub blend: f32,
     /// How far in from a plate's edge its ground starts sinking (blocks), and how far it sinks at
     /// the very edge.
     pub shelf_width: f32,
@@ -54,6 +63,8 @@ impl Default for HeightSettings {
             terrain_size: 15_000.0,
             octaves: 5,
             roughness: 0.5,
+            tilt: 0.8,
+            blend: 0.7,
             shelf_width: 2_500.0,
             shelf_depth: 0.2,
             squeeze: 0.6,
@@ -65,7 +76,7 @@ impl Default for HeightSettings {
 impl HeightSettings {
     /// The settings the terrain is worked out from (not the squeeze or the water level, which
     /// are applied as it's drawn).
-    pub fn shaping(&self) -> [u32; 8] {
+    pub fn shaping(&self) -> [u32; 10] {
         [
             self.land.to_bits(),
             self.ocean.to_bits(),
@@ -73,10 +84,38 @@ impl HeightSettings {
             self.terrain_size.to_bits(),
             self.octaves,
             self.roughness.to_bits(),
+            self.tilt.to_bits(),
+            self.blend.to_bits(),
             self.shelf_width.to_bits(),
             self.shelf_depth.to_bits(),
         ]
     }
+}
+
+/// One plate's tilt: which way its rising side faces (a unit direction, in field pixels), how far
+/// that side rises (height), and the plate's rough radius (pixels) that measures "a side".
+struct Tilt {
+    toward: (f32, f32),
+    rise: f32,
+    radius: f32,
+}
+
+/// Each plate's tilt: a random direction, and a random share (from a third to all) of the most.
+fn tilts(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<Tilt> {
+    let random = |p: usize, which: i64| (crate::fate::planet_hash(seed, 0x7117, p as i64, which, 0) >> 40) as f32 / (1u64 << 24) as f32;
+    plates
+        .kept
+        .iter()
+        .enumerate()
+        .map(|(p, plate)| {
+            let angle = random(p, 0) * std::f32::consts::TAU;
+            Tilt {
+                toward: (angle.cos(), angle.sin()),
+                rise: settings.tilt * (0.33 + 0.67 * random(p, 1)),
+                radius: (plate.pixels as f32 / std::f32::consts::PI).sqrt().max(1.0),
+            }
+        })
+        .collect()
 }
 
 /// For each pixel of a plate, how many pixels it is from the nearest pixel that isn't on the same
@@ -157,24 +196,33 @@ pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32
     let edges = edge_distance(plates);
     let noise = PerlinSettings { scale: settings.terrain_size, octaves: settings.octaves, persistence: settings.roughness, ..PerlinSettings::default() };
     let shelf = (settings.shelf_width / blocks).max(1e-3);
+    let tilts = tilts(plates, settings, crate::fate::derive_seed(seed, "tilt"));
+    let blend = settings.blend.clamp(0.0, 1.0);
     let mut heights = vec![settings.ocean; width * width];
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
     let rows_each = width.div_ceil(cores).max(1);
     std::thread::scope(|scope| {
         for (band, chunk) in heights.chunks_mut(rows_each * width).enumerate() {
-            let (noise, edges) = (&noise, &edges);
+            let (noise, edges, tilts) = (&noise, &edges, &tilts);
             scope.spawn(move || {
                 for (k, height) in chunk.iter_mut().enumerate() {
                     let i = band * rows_each * width + k;
                     let Some(p) = plates.plate[i] else { continue };
-                    let base = if plates.kept[p as usize].land { settings.land } else { settings.ocean };
+                    let plate = &plates.kept[p as usize];
+                    let base = if plate.land { settings.land } else { settings.ocean };
                     let (x, y) = ((i % width) as f32 + 0.5, (i / width) as f32 + 0.5);
                     let rolling = noise.raw(seed, y * blocks, x * blocks) * settings.terrain;
+                    // Tipped: up on the side the tilt faces, down on the other, nothing at the
+                    // middle.
+                    let tilt = &tilts[p as usize];
+                    let across = ((x - plate.middle.0) * tilt.toward.0 + (y - plate.middle.1) * tilt.toward.1) / tilt.radius;
+                    let tipped = tilt.rise * across.clamp(-1.5, 1.5);
+                    let shape = tipped * (1.0 - blend) + rolling * blend;
                     // Sinking toward the edge: smoothly from nothing at the shelf's width in, to
                     // the full depth at the edge.
                     let inward = (edges[i] / shelf).clamp(0.0, 1.0);
                     let sunk = settings.shelf_depth * (1.0 - inward * inward * (3.0 - 2.0 * inward));
-                    *height = base + rolling - sunk;
+                    *height = base + shape - sunk;
                 }
             });
         }
@@ -218,6 +266,25 @@ mod tests {
         let (land, ocean) = (share_above(true), share_above(false));
         assert!((0.2..0.9).contains(&land), "land plates above water: {land}");
         assert!(ocean < 0.05, "ocean plates above water: {ocean}");
+    }
+
+    #[test]
+    fn a_tilted_plate_rises_on_one_side_and_sinks_on_the_other() {
+        let made = made();
+        let settings = HeightSettings { blend: 0.0, shelf_depth: 0.0, ..HeightSettings::default() };
+        let heights = terrain(&made, &settings, 3);
+        let tilt = &tilts(&made, &settings, crate::fate::derive_seed(3, "tilt"))[0];
+        let plate = &made.kept[0];
+        // Step from the middle toward the rising side, and the same distance away from it.
+        let at = |sign: f32| {
+            let (x, y) = (plate.middle.0 + sign * tilt.toward.0 * tilt.radius * 0.6, plate.middle.1 + sign * tilt.toward.1 * tilt.radius * 0.6);
+            heights[y as usize * made.width + x as usize]
+        };
+        let middle = heights[plate.middle.1 as usize * made.width + plate.middle.0 as usize];
+        assert!(at(1.0) > middle && middle > at(-1.0), "uphill {}, middle {middle}, downhill {}", at(1.0), at(-1.0));
+        // Only noise: no tilt at all.
+        let flat = terrain(&made, &HeightSettings { blend: 1.0, terrain: 0.0, shelf_depth: 0.0, ..HeightSettings::default() }, 3);
+        assert_eq!(flat[plate.middle.1 as usize * made.width + plate.middle.0 as usize], settings.land);
     }
 
     #[test]

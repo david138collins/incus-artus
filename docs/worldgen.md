@@ -118,6 +118,12 @@ pushed down **darker**.
      live at any time, decides what's land; a readout shows how much of the world is land. Collisions
      are unchanged (submerged parts still collide). **Ocean plates squeezed above the water level show as
      land: islands** [David];
+     **Tilt** [David, 2026-10-24]: each plate also balances on its middle and tips a little, a random
+     direction and amount (up to a slider): a straight slope, one side up and the other sunk. A **blend**
+     slider mixes between plain tilt and the terrain noise. **The squeeze field (white haze) is a keeper**:
+     use it later to shape terrain in a second pass, or as a mountainousness mask. Wide tears show as
+     rifts (sea) once a cracked triangle stretches past "tears open past"; outline points never crack
+     off (that caused giant shards);
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map.
 
