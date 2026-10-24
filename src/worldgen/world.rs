@@ -21,22 +21,41 @@
 
 use super::Suite;
 use super::canvas::Camera;
+use super::heights::{self, HeightSettings};
 use super::palette::from_hsl;
 use super::plates::{self, LineNoise, LineStyle, PlateSettings, Plates};
 use super::runner::{Finished, Job, Poll};
-use super::rags::{RagSettings, Sim};
+use super::rags::{RagSettings, Sim, Spot};
 use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
 use super::view::{MAGENTA, PINK, compass, seed_row};
 use bevy_egui::egui::{self, Color32, Pos2, Vec2};
 
-/// Ocean inside the world, and the dark past its edge.
+/// Ocean inside the world (deep), shallow water, and the dark past its edge.
 const OCEAN: [u8; 3] = [18, 38, 82];
+const SHALLOW: [u8; 3] = [52, 104, 150];
+/// Ocean floor squeezed up above the water: islands.
+const ISLAND: [u8; 3] = [168, 160, 118];
 const BEYOND: [u8; 3] = [10, 10, 14];
 const VERTEX: Color32 = Color32::from_rgb(255, 220, 60);
 /// The boundaries: red colliding, blue pulling apart, green sliding.
 const COLLIDING: [u8; 3] = [235, 60, 55];
 const PULLING_APART: [u8; 3] = [80, 170, 255];
 const SLIDING: [u8; 3] = [70, 225, 110];
+
+/// Everything the picture depends on: when any of it changes, it's painted again.
+#[derive(Clone, PartialEq)]
+struct Look {
+    plates: u64,
+    motions: u64,
+    terrain: u64,
+    steps: Option<u64>,
+    show_cells: bool,
+    show_boundaries: bool,
+    height_shown: f32,
+    smoothness: u32,
+    squeeze: f32,
+    water: f32,
+}
 
 pub struct WorldGen {
     /// The world seed. Each step takes its own seed from it.
@@ -72,8 +91,18 @@ pub struct WorldGen {
     pub steps_per_second: f32,
     /// Steps owed since the last frame (part steps carry over).
     owed: f32,
-    /// The simulation as last painted: the plate and ground height on each pixel.
-    moved: Vec<Option<(u8, f32)>>,
+    /// The simulation as last painted: what's on each pixel.
+    moved: Vec<Option<Spot>>,
+
+    /// Heights and the water level.
+    pub heights: HeightSettings,
+    /// The terrain of every pixel of the plates as made, worked out again when the plates or the
+    /// height settings that shape it change.
+    terrain: Vec<f32>,
+    terrain_for: Option<(u64, u64, [u32; 8])>,
+    terrain_version: u64,
+    /// How much of the world was above water when last painted.
+    land_share: f32,
     /// How bright the most raised ground shows (a height of this = white).
     pub height_shown: f32,
     /// How many times the shading is blended with its neighbours (only changes the look).
@@ -90,7 +119,7 @@ pub struct WorldGen {
 
     camera: Camera,
     texture: Option<egui::TextureHandle>,
-    painted_for: Option<(u64, bool, u64, bool, Option<u64>, u32, u32)>,
+    painted_for: Option<Look>,
     hover: Option<(usize, usize)>,
     seed_text: String,
 }
@@ -118,6 +147,11 @@ impl Default for WorldGen {
             steps_per_second: 60.0,
             owed: 0.0,
             moved: Vec::new(),
+            heights: HeightSettings::default(),
+            terrain: Vec::new(),
+            terrain_for: None,
+            terrain_version: 0,
+            land_share: 0.0,
             height_shown: 0.5,
             shading_smoothness: 3,
             show_bowl: true,
@@ -165,6 +199,20 @@ impl WorldGen {
         self.motions_version += 1;
         // New plates or new motions: the old run no longer applies.
         self.reset();
+    }
+
+    /// Works out the terrain again if the plates or the height settings that shape it changed.
+    /// (The squeeze and the water level are applied as it's drawn, so they never need this.)
+    fn update_terrain(&mut self) {
+        let Some(result) = &self.result else { return };
+        let seed = crate::fate::derive_seed(self.seed, "terrain");
+        let now = (self.version, seed, self.heights.shaping());
+        if self.terrain_for.as_ref() == Some(&now) {
+            return;
+        }
+        self.terrain = heights::terrain(&result.made, &self.heights, seed);
+        self.terrain_for = Some(now);
+        self.terrain_version += 1;
     }
 
     /// Back to the start: the plates where they were made, with their starting motion.
@@ -238,6 +286,7 @@ impl WorldGen {
     pub fn drive(&mut self, size_blocks: f32, blocks_per_pixel: f32) {
         self.drive_plates(size_blocks, blocks_per_pixel);
         self.update_motions();
+        self.update_terrain();
         // The rags are made differently now: start again.
         if self.sim.is_some() && self.sim_made_with != self.sim_settings.making() {
             self.reset();
@@ -366,6 +415,11 @@ fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.add(egui::Slider::new(&mut world.steps_per_second, 1.0..=2_000.0).logarithmic(true).text("steps per second")).on_hover_text(
         "How fast to watch. It only changes how many steps are taken each second:\nthe steps themselves, and so the result, are always the same.",
     );
+    ui.separator();
+    ui.add(egui::Slider::new(&mut world.heights.water, -1.0..=1.0).text("water level")).on_hover_text(
+        "Below this height is sea. Change it at any time, running or paused:\nit only changes what's drawn as land, never the simulation.",
+    );
+    ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
 }
 
 fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
@@ -514,6 +568,44 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         world.motion = MotionSettings::default();
         world.sim_settings = RagSettings::default();
     }
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.heading("Heights and water");
+    ui.small(
+        "Every spot on a plate has a height: its plate's base height, plus terrain noise, minus sunken edges, \
+         plus how much it has been squeezed. Below the water level is sea. None of these change the \
+         simulation, only what's land, so they can be changed at any time.",
+    );
+    let h = &mut world.heights;
+    ui.add(egui::Slider::new(&mut h.land, -1.0..=1.0).text("land plates' base height"))
+        .on_hover_text("Where land plates sit before the terrain noise. Around 0 (the usual water level) = about half land.");
+    ui.add(egui::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
+        .on_hover_text("Where ocean plates sit. Deep: only a hard squeeze lifts them above the water as islands.");
+    ui.add_space(4.0);
+    ui.label("Terrain noise (one for the whole world, riding with the plates):");
+    ui.add(egui::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(
+        "How high and low the rolling terrain goes. More = land plates broken into more islands and bays.",
+    );
+    ui.add(egui::Slider::new(&mut h.terrain_size, 1_000.0..=50_000.0).logarithmic(true).text("size (blocks)"))
+        .on_hover_text("The size of the biggest hills and hollows. Big = whole regions above or below water.");
+    ui.add(egui::Slider::new(&mut h.octaves, 1..=8).text("detail (octaves)")).on_hover_text("Finer, fainter layers on top: more ragged coasts.");
+    ui.add(egui::Slider::new(&mut h.roughness, 0.0..=1.0).text("roughness")).on_hover_text("How strong each finer layer is.");
+    ui.add_space(4.0);
+    ui.label("Sunken edges (continental shelves):");
+    ui.add(egui::Slider::new(&mut h.shelf_width, 0.0..=15_000.0).text("reach in (blocks)")).on_hover_text(
+        "How far in from a plate's edge its ground starts sloping down.\nCoasts then fall inside plates, and plates touching at the start don't automatically join up.",
+    );
+    ui.add(egui::Slider::new(&mut h.shelf_depth, 0.0..=1.0).text("depth at the edge")).on_hover_text("How far the ground sinks at the very edge.");
+    ui.add_space(4.0);
+    ui.add(egui::Slider::new(&mut h.squeeze, 0.0..=3.0).text("squeeze lifts by")).on_hover_text(
+        "How much squeezed rock rises (rock twice as thick rises by this much), and stretched rock sinks.\nThis is what turns crumple belts into mountains and ocean floor into islands.",
+    );
+    ui.add(egui::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
+    ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
+    if ui.button("Height settings back to defaults").clicked() {
+        world.heights = HeightSettings::default();
+    }
 }
 
 /// One line mutator's controls.
@@ -570,23 +662,27 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
             ui.label(format!("Pixel {col}, {row}"));
             ui.label(format!("{}, {}", compass(north, "N", "S"), compass(east, "E", "W")));
             ui.label(if made.inside[i] { "inside the world" } else { "past the edge of the world" });
-            if world.has_moved() {
-                match world.moved.get(i).copied().flatten() {
-                    Some((p, height)) => {
-                        ui.label(plate_name(made, p as usize));
-                        let what = if height > 0.01 { "squeezed: higher" } else if height < -0.01 { "stretched: lower" } else { "as it was" };
-                        ui.label(format!("rock {:.2}× as thick ({what})", height + 1.0));
-                    }
-                    None => {
-                        ui.label("no plate (empty ocean)");
-                    }
-                }
-            } else {
+            if !world.has_moved() {
                 ui.label(format!("cell {}", made.cell[i]));
-                match made.plate[i] {
-                    Some(p) => ui.label(plate_name(made, p as usize)),
-                    None => ui.label("no plate (empty ocean)"),
-                };
+            }
+            match world.moved.get(i).copied().flatten() {
+                Some(spot) => {
+                    ui.label(plate_name(made, spot.plate as usize));
+                    let squeeze = spot.squeeze;
+                    let what = if squeeze > 0.01 { "squeezed: higher" } else if squeeze < -0.01 { "stretched: lower" } else { "as it was" };
+                    ui.label(format!("rock {:.2}× as thick ({what})", squeeze + 1.0));
+                    let terrain = world.terrain.get(spot.from as usize).copied().unwrap_or(0.0);
+                    let height = terrain + world.heights.squeeze * squeeze;
+                    let water = world.heights.water;
+                    ui.label(if height > water {
+                        format!("height {height:.2}: land, {:.2} above the water", height - water)
+                    } else {
+                        format!("height {height:.2}: sea, {:.2} deep", water - height)
+                    });
+                }
+                None => {
+                    ui.label("no plate (empty ocean)");
+                }
             }
             if !world.has_moved()
                 && let Some(Some(contact)) = world.contacts.get(i)
@@ -675,56 +771,75 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::BLACK);
+    // The plates are always drawn from the simulation: before it starts, it paints them exactly
+    // as made.
+    if world.result.is_some() && world.sim.is_none() {
+        let _ = world.sim();
+    }
     let Some(result) = &world.result else { return };
     let made = &result.made;
     let width = made.width;
 
     // Repaint only when the plates, the simulation or the look changed.
     let moved = world.has_moved();
-    let sim_steps = world.sim.as_ref().filter(|_| moved).map(|sim| sim.steps);
-    let wanted = (world.version, world.show_cells, world.motions_version, world.show_boundaries, sim_steps, world.height_shown.to_bits(), world.shading_smoothness);
-    if world.painted_for != Some(wanted) || world.texture.is_none() {
-        let ocean = |i: usize| match (made.inside[i], world.show_cells) {
-            (false, _) => BEYOND,
-            (true, true) => cell_shade(made.cell[i]),
-            (true, false) => OCEAN,
+    let wanted = Look {
+        plates: world.version,
+        motions: world.motions_version,
+        terrain: world.terrain_version,
+        steps: world.sim.as_ref().map(|sim| sim.steps),
+        show_cells: world.show_cells,
+        show_boundaries: world.show_boundaries,
+        height_shown: world.height_shown,
+        smoothness: world.shading_smoothness,
+        squeeze: world.heights.squeeze,
+        water: world.heights.water,
+    };
+    if world.painted_for.as_ref() != Some(&wanted) || world.texture.is_none() {
+        let heights = &world.heights;
+        // Open water: the ocean colour, lighter where it's shallow (`deep` 0 = at the water
+        // level, 1 = as deep as ocean plates are, or deeper).
+        let sea = |i: usize, deep: f32| {
+            let floor = match (made.inside[i], world.show_cells) {
+                (false, _) => return BEYOND,
+                (true, true) => cell_shade(made.cell[i]),
+                (true, false) => OCEAN,
+            };
+            let shallow = 1.0 - deep.clamp(0.0, 1.0);
+            [0, 1, 2].map(|k| (floor[k] as f32 + (SHALLOW[k] as f32 - floor[k] as f32) * shallow) as u8)
         };
-        let mut pixels: Vec<Color32>;
-        if let Some(sim) = world.sim.as_ref().filter(|_| moved) {
-            // The plates where they are now, raised ground lightened toward white.
+        // Lightened toward white (squeezed) or darkened toward black (stretched).
+        let shade = |base: [u8; 3], lift: f32| {
+            let toward = if lift >= 0.0 { 255.0 } else { 0.0 };
+            base.map(|c| (c as f32 + (toward - c as f32) * lift.abs()) as u8)
+        };
+        let ocean_depth = (heights.water - heights.ocean).max(0.05);
+        let (mut land, mut world_pixels) = (0usize, 0usize);
+        if let Some(sim) = &world.sim {
             world.moved = sim.paint(world.shading_smoothness);
-            pixels = world
-                .moved
-                .iter()
-                .enumerate()
-                .map(|(i, here)| {
-                    colour32(match *here {
-                        Some((p, height)) => {
-                            // Ocean plates look like the open ocean: only their squeezed rock
-                            // shows (white), so land and sea stay easy to tell apart.
-                            let land = made.kept[p as usize].land;
-                            let base = if land { plate_colour(p as usize, true) } else { ocean(i) };
-                            let lowest = if land { -1.0 } else { 0.0 };
-                            // Thicker toward white, thinner toward black.
-                            let lift = (height / world.height_shown).clamp(lowest, 1.0);
-                            let toward = if lift >= 0.0 { 255.0 } else { 0.0 };
-                            base.map(|c| (c as f32 + (toward - c as f32) * lift.abs()) as u8)
-                        }
-                        None => ocean(i),
-                    })
+        }
+        let mut pixels: Vec<Color32> = (0..width * width)
+            .map(|i| {
+                world_pixels += made.inside[i] as usize;
+                let boundary = (!moved && world.show_boundaries).then(|| world.contacts.get(i).copied().flatten()).flatten();
+                if let (true, Some(contact)) = (made.inside[i], boundary) {
+                    return colour32(boundary_colour(contact.kind));
+                }
+                let Some(spot) = world.moved.get(i).copied().flatten() else { return colour32(sea(i, 1.0)) };
+                let height = world.terrain.get(spot.from as usize).copied().unwrap_or(heights.ocean) + heights.squeeze * spot.squeeze;
+                let lift = (spot.squeeze / world.height_shown).clamp(-1.0, 1.0);
+                colour32(if height > heights.water {
+                    // Land: a land plate's colour, or an island of ocean floor squeezed up.
+                    land += made.inside[i] as usize;
+                    let plate_land = made.kept[spot.plate as usize].land;
+                    shade(if plate_land { plate_colour(spot.plate as usize, true) } else { ISLAND }, lift)
+                } else {
+                    // Under water: only squeezed rock shows (white).
+                    shade(sea(i, (heights.water - height) / ocean_depth), lift.max(0.0))
                 })
-                .collect();
-        } else {
-            pixels = (0..width * width)
-                .map(|i| {
-                    let boundary = world.show_boundaries.then(|| world.contacts.get(i).copied().flatten()).flatten();
-                    colour32(match (made.inside[i], made.plate[i], boundary) {
-                        (true, _, Some(contact)) => boundary_colour(contact.kind),
-                        (true, Some(p), None) if made.kept[p as usize].land => plate_colour(p as usize, true),
-                        _ => ocean(i),
-                    })
-                })
-                .collect();
+            })
+            .collect();
+        world.land_share = land as f32 / world_pixels.max(1) as f32;
+        if !moved {
             // Each plate's middle as a white pixel.
             for plate in &made.kept {
                 let (col, row) = (plate.middle.0 as usize, plate.middle.1 as usize);

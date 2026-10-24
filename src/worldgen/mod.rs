@@ -38,11 +38,13 @@
 //! - `plates.rs`  plates: Voronoi cells in the world's circle, and the ocean plates around them
 //! - `tectonics.rs` the plates' motion, and what it does at their boundaries
 //! - `rags.rs`    the tectonics simulation: plates as heavy rags that squash, bend and tear
+//! - `heights.rs` every spot's height (base, terrain noise, sunken edges, squeeze); the water level
 
 mod blend;
 mod canvas;
 mod export;
 mod field;
+mod heights;
 mod image;
 mod layers;
 mod made;

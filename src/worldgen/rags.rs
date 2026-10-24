@@ -110,6 +110,17 @@ impl RagSettings {
     }
 }
 
+/// What's on one map pixel as the simulation runs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Spot {
+    pub plate: u8,
+    /// How much thicker (+) or thinner (−) the rock is than at the start: 0.5 = half as thick
+    /// again.
+    pub squeeze: f32,
+    /// Which pixel of the plates as made this rock started on (so its terrain can be looked up).
+    pub from: u32,
+}
+
 struct Spring {
     a: usize,
     b: usize,
@@ -452,8 +463,7 @@ impl Sim {
         thickness
     }
 
-    /// The plates where they are now: for each map pixel, the plate on it and how far the ground
-    /// there has risen (+) or sunk (−): the rock's thickness now ÷ at the start, minus 1.
+    /// The plates where they are now: for each map pixel, what's there (see `Spot`).
     ///
     /// The plates keep their true outlines: each spot inside a grid triangle now is traced back to
     /// the same place in that triangle as it was at the start, and painted only if that pixel was
@@ -461,7 +471,7 @@ impl Sim {
     ///
     /// Every triangle is drawn, cracked or not, so the fill stays whole; the shading (thickness,
     /// blended `smoothing` times) goes on top.
-    pub fn paint(&self, smoothing: u32) -> Vec<Option<(u8, f32)>> {
+    pub fn paint(&self, smoothing: u32) -> Vec<Option<Spot>> {
         let width = self.width;
         let mut painted = vec![None; width * width];
         let thickness = self.thickness(smoothing);
@@ -491,11 +501,12 @@ impl Sim {
                     if wcol < 0.0 || wrow < 0.0 || wcol >= width as f32 || wrow >= width as f32 {
                         continue;
                     }
-                    if self.shapes[wrow as usize * width + wcol as usize] != Some(self.plate[a]) {
+                    let from = wrow as usize * width + wcol as usize;
+                    if self.shapes[from] != Some(self.plate[a]) {
                         continue;
                     }
-                    let height = wa * thickness[a] + wb * thickness[b] + wc * thickness[c] - 1.0;
-                    painted[row * width + col] = Some((self.plate[a], height));
+                    let squeeze = wa * thickness[a] + wb * thickness[b] + wc * thickness[c] - 1.0;
+                    painted[row * width + col] = Some(Spot { plate: self.plate[a], squeeze, from: from as u32 });
                 }
             }
         }
@@ -567,7 +578,7 @@ mod tests {
             sim.step(&settings);
         }
         assert!(sim.middle(0).0 < sim.middle(1).0, "they passed through each other");
-        let highest = sim.paint(0).iter().flatten().map(|h| h.1).fold(0.0, f32::max);
+        let highest = sim.paint(0).iter().flatten().map(|spot| spot.squeeze).fold(0.0, f32::max);
         assert!(highest > 0.1, "nothing rose: highest {highest}");
         // Given way: some springs are now shorter at rest than when made.
         assert!(sim.springs.iter().any(|s| s.rest < s.made * 0.97));
@@ -592,10 +603,10 @@ mod tests {
         // ground as before, and the middle of the tear is thinner than it started.
         let painted = sim.paint(0);
         let before = plates.plate.iter().filter(|&&p| p == Some(0)).count();
-        let after = painted.iter().flatten().filter(|&&(p, _)| p == 0).count();
+        let after = painted.iter().flatten().filter(|spot| spot.plate == 0).count();
         assert!(after >= before, "the plate lost fill: {before} pixels before, {after} after");
         let middle = painted[60 * plates.width + 35];
-        assert!(matches!(middle, Some((0, height)) if height < 0.0), "the tear's middle: {middle:?}");
+        assert!(matches!(middle, Some(Spot { plate: 0, squeeze, .. }) if squeeze < 0.0), "the tear's middle: {middle:?}");
     }
 
     #[test]
@@ -623,7 +634,7 @@ mod tests {
         let settings = RagSettings { grain: 1_500.0, bowl: 0.0, ..RagSettings::default() };
         let mut sim = Sim::new(&made, &still, &settings, 1);
         sim.step(&settings);
-        let painted: Vec<Option<u8>> = sim.paint(0).iter().map(|here| here.map(|(p, _)| p)).collect();
+        let painted: Vec<Option<u8>> = sim.paint(0).iter().map(|here| here.map(|spot| spot.plate)).collect();
         let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
         assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
     }

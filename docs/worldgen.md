@@ -108,6 +108,16 @@ pushed down **darker**.
      thicker shows brighter, thinner darker. Defaults found by measuring: 3 passes, stiffness 0.3, push
      back 0.3 (at 8 passes / 0.5, under 1% of the land thickened at all). Fold ridges wait until David has
      seen whether patchy stiffness already wrinkles enough;
+     **Heights and a water level** [DECIDED 2026-10-24, building] — David: the plates are flat floating
+     masses and squash into one blob almost every time; he wants **1 to 3 continents with ocean between**,
+     so land plates must be partly underwater before they collide. Every spot gets a height: the
+     plate's base height (land near sea level, ocean deep) + **one world-wide terrain noise** (read where
+     each pixel started, so it rides, bends and squashes with the plate, and flows across plate
+     boundaries at the start) − **sunken edges** (continental shelves, so coasts fall inside plates) +
+     **squeeze** (thickening raises ground: crumple belts become mountains). A **water level** slider,
+     live at any time, decides what's land; a readout shows how much of the world is land. Collisions
+     are unchanged (submerged parts still collide). **Ocean plates squeezed above the water level show as
+     land: islands** [David];
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map.
 
