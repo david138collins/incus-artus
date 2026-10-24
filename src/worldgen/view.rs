@@ -156,8 +156,9 @@ fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
         ui.separator();
         ui.selectable_value(&mut suite.kit, Kit::Graphics, "Graphics Kit")
             .on_hover_text("Noise, pictures, mixing and palettes: numbers into colours and colours into numbers.\nThe art pipeline.");
-        ui.selectable_value(&mut suite.kit, Kit::WorldGen, "World Gen")
-            .on_hover_text("Where pixels mean something (plates, ocean, rivers), and processes run over them.");
+        ui.selectable_value(&mut suite.kit, Kit::WorldGen, "Tectonic Sim")
+            .on_hover_text("The tectonic simulation: plates, their motion and collisions, heights and the water level.
+Its product will feed the World Compiler.");
         ui.separator();
 
         ui.label("Field:");

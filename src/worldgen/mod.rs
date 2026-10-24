@@ -145,7 +145,7 @@ impl Default for Suite {
         // For automatic testing: `INCUS_SELFTEST_SUITE=<a PNG>` starts with a Perlin layer and that
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
         // Worley layer instead.
-        // `=world` opens World Gen; `=world-run` also starts the tectonics simulation.
+        // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;
             suite.world.start_when_ready = std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world-run");
@@ -269,7 +269,7 @@ impl Plugin for WorldGenPlugin {
         app.init_resource::<Suite>()
             .add_systems(Update, (run_suite, take_dropped_files).run_if(in_state(Screen::WorldGen)))
             .add_systems(EguiPrimaryContextPass, draw_suite.run_if(in_state(Screen::WorldGen)))
-            .add_debug_page("World Gen", world_gen_debug_page);
+            .add_debug_page("Editor Suite", world_gen_debug_page);
     }
 }
 
@@ -349,7 +349,7 @@ mod tests {
 }
 
 fn world_gen_debug_page(ui: &mut egui::Ui, world: &mut World) {
-    ui.label("The Editor Suite (Graphics Kit and World Gen) is a separate screen. The world is switched off while it's open.");
+    ui.label("The Editor Suite (Graphics Kit and Tectonic Sim) is a separate screen. The world is switched off while it's open.");
     let in_suite = *world.resource::<State<Screen>>().get() == Screen::WorldGen;
     let label = if in_suite { "Back to the world  [F2]" } else { "Open the Editor Suite  [F2]" };
     if ui.button(label).clicked() {

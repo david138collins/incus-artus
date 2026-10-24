@@ -1,4 +1,4 @@
-//! World Gen — the half of the Editor Suite where pixels mean something (plates, later ocean,
+//! Tectonic Sim (was "World Gen") — the half of the Editor Suite where pixels mean something (plates, later ocean,
 //! mountains, rivers) and processes run over them. The other half, the Graphics Kit, is the art
 //! pipeline: numbers into colours and back, with no meaning attached.
 //!
@@ -22,6 +22,9 @@
 use super::Suite;
 use super::canvas::Camera;
 use super::heights::{self, HeightSettings};
+use super::image::{Picture, Placement};
+use super::layers::LayerKind;
+use std::sync::Arc;
 use super::palette::from_hsl;
 use super::plates::{self, LineNoise, LineStyle, PlateSettings, Plates};
 use super::runner::{Finished, Job, Poll};
@@ -115,6 +118,10 @@ pub struct WorldGen {
     pub show_bowl: bool,
     /// For automatic testing: start the simulation as soon as the plates are made.
     pub start_when_ready: bool,
+    /// A map waiting to be sent to the Graphics Kit as a layer (its name, the picture, and its
+    /// blocks per pixel), and a note saying what was last sent.
+    send: Option<(String, Picture, f32)>,
+    sent_note: String,
     /// Your own settings, kept aside while an A/B button shows the defaults instead.
     ab_plates: Option<PlateSettings>,
     ab_tectonics: Option<(MotionSettings, RagSettings)>,
@@ -166,6 +173,8 @@ impl Default for WorldGen {
             tear_open: 2.0,
             show_bowl: true,
             start_when_ready: false,
+            send: None,
+            sent_note: String::new(),
             ab_plates: None,
             ab_tectonics: None,
             ab_heights: None,
@@ -401,6 +410,57 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, world, blocks));
     });
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, world));
+
+    // A map sent to the Graphics Kit becomes a picture layer there, named after what it shows.
+    if let Some((name, picture, blocks_per_pixel)) = suite.world.send.take() {
+        let placement = Placement { blocks_per_pixel, ..Placement::default() };
+        suite.add_layer(LayerKind::Image { file: format!("{name} (from the Tectonic Sim)"), picture: Arc::new(picture), placement });
+        if let Some(layer) = suite.layers.last_mut() {
+            layer.name = name;
+        }
+    }
+}
+
+/// The maps that can be sent to the Graphics Kit.
+#[derive(Clone, Copy)]
+enum Map {
+    Squeeze,
+    Height,
+    Land,
+}
+
+impl WorldGen {
+    /// How high the ground is at a spot (terrain plus squeeze).
+    fn height_of(&self, spot: Spot) -> f32 {
+        self.terrain.get(spot.from as usize).copied().unwrap_or(self.heights.ocean) + self.heights.squeeze * spot.squeeze
+    }
+
+    /// One of the maps as a grey picture, as things are now.
+    fn map_picture(&self, map: Map) -> Option<Picture> {
+        let width = self.result.as_ref()?.made.width;
+        if self.moved.len() != width * width {
+            return None;
+        }
+        let grey = |value: f32| {
+            let v = (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+            [v, v, v, 255]
+        };
+        let pixels: Vec<[u8; 4]> = match map {
+            // Mid-grey = unchanged, brighter = squeezed, darker = stretched (on the same scale as
+            // the map's shading).
+            Map::Squeeze => self.moved.iter().map(|here| grey(0.5 + here.map_or(0.0, |spot| spot.squeeze) / self.height_shown / 2.0)).collect(),
+            // Black = the lowest point, white = the highest.
+            Map::Height => {
+                let heights: Vec<f32> = self.moved.iter().map(|here| here.map_or(self.heights.ocean, |spot| self.height_of(spot))).collect();
+                let (low, high) = heights.iter().fold((f32::MAX, f32::MIN), |(low, high), &h| (low.min(h), high.max(h)));
+                let span = (high - low).max(1e-6);
+                heights.iter().map(|&h| grey((h - low) / span)).collect()
+            }
+            // White = land, black = sea.
+            Map::Land => self.moved.iter().map(|here| grey(here.is_some_and(|spot| self.height_of(spot) > self.heights.water) as u8 as f32)).collect(),
+        };
+        Some(Picture { width, height: width, pixels })
+    }
 }
 
 /// Start / Pause, Step, Reset, the step count and the watching speed.
@@ -435,7 +495,7 @@ fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
 }
 
-/// Everything on World Gen's left-hand panel except the seed, saved and loaded as one preset. (A
+/// Everything on the Tectonic Sim's left-hand panel except the seed, saved and loaded as one preset. (A
 /// preset is a recipe: it works with any seed.)
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -742,6 +802,31 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.add(egui::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
     ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
     defaults_row(ui, "Height settings", &mut world.heights, &mut world.ab_heights);
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.heading("Send to the Graphics Kit");
+    ui.small("Any of these maps, as things are now (before, during or after a run), as a grey picture layer in the Graphics Kit, to see on its own or work with.");
+    ui.horizontal_wrapped(|ui| {
+        for (map, name, hover) in [
+            (Map::Squeeze, "squeeze", "The deformation map. Mid-grey = unchanged rock, brighter = squeezed, darker = stretched\n(on the same scale as \"thickness shown as white\"). Sea with no plate = mid-grey."),
+            (Map::Height, "height", "The full height (terrain + squeeze): black = the lowest point, white = the highest."),
+            (Map::Land, "land", "White = land, black = sea, at the current water level."),
+        ] {
+            if ui.button(name).on_hover_text(hover).clicked() {
+                match (world.map_picture(map), &world.result) {
+                    (Some(picture), Some(result)) => {
+                        world.send = Some((name.to_string(), picture, result.made.blocks_per_pixel));
+                        world.sent_note = format!("Sent \"{name}\" to the Graphics Kit as a layer.");
+                    }
+                    _ => world.sent_note = "Nothing to send yet.".to_string(),
+                }
+            }
+        }
+    });
+    if !world.sent_note.is_empty() {
+        ui.small(&world.sent_note);
+    }
 }
 
 /// One line mutator's controls.
@@ -1116,6 +1201,49 @@ mod tests {
         world.use_preset(preset.clone());
         assert_eq!(world.preset(), preset);
         assert!(world.ab_heights.is_none());
+    }
+
+    /// A Tectonic Sim with plates made (straight away, not in the background) and painted.
+    fn ready() -> WorldGen {
+        let mut world = WorldGen { seed: 5, ..WorldGen::default() };
+        let made = plates::make(&world.plates, world.plate_seed(), 72_000.0, 256.0, &std::sync::atomic::AtomicBool::new(false)).unwrap();
+        world.result = Some(Finished { made, millis: 0.0 });
+        world.version = 1;
+        world.update_motions();
+        world.update_terrain();
+        let settings = world.sim_settings.clone();
+        let sim = world.sim().unwrap();
+        for _ in 0..60 {
+            sim.step(&settings);
+        }
+        world.moved = world.sim.as_ref().unwrap().paint(world.shading_smoothness, world.tear_open);
+        world
+    }
+
+    #[test]
+    fn maps_sent_to_the_graphics_kit_show_what_the_sim_shows() {
+        let world = ready();
+        let width = world.result.as_ref().unwrap().made.width;
+        let land = world.map_picture(Map::Land).unwrap();
+        assert_eq!((land.width, land.height, land.pixels.len()), (width, width, width * width));
+        // White exactly where the ground is above the water.
+        for (pixel, here) in land.pixels.iter().zip(&world.moved) {
+            let above = here.is_some_and(|spot| world.height_of(spot) > world.heights.water);
+            assert_eq!(pixel[0] == 255, above);
+        }
+        // Squeezed rock is brighter than mid-grey, stretched darker, the open sea mid-grey.
+        let squeeze = world.map_picture(Map::Squeeze).unwrap();
+        for (pixel, here) in squeeze.pixels.iter().zip(&world.moved) {
+            match here {
+                Some(spot) if spot.squeeze > 0.05 => assert!(pixel[0] > 128),
+                Some(spot) if spot.squeeze < -0.05 => assert!(pixel[0] < 128),
+                None => assert!((127..=128).contains(&pixel[0])),
+                _ => {}
+            }
+        }
+        // Height runs from black to white.
+        let height = world.map_picture(Map::Height).unwrap();
+        assert!(height.pixels.iter().any(|p| p[0] == 0) && height.pixels.iter().any(|p| p[0] == 255));
     }
 
     #[test]
