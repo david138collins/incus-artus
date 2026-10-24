@@ -93,7 +93,7 @@ pub struct WorldGen {
     pub sim_settings: RagSettings,
     sim: Option<Sim>,
     /// The settings the rags were made with (when they change, the run starts again).
-    sim_made_with: [u32; 3],
+    sim_made_with: [u32; 7],
     running: bool,
     /// How fast to watch it. Only changes how many steps are taken each second, never the result.
     pub steps_per_second: f32,
@@ -179,7 +179,7 @@ impl Default for WorldGen {
             motions_version: 0,
             sim_settings: RagSettings::default(),
             sim: None,
-            sim_made_with: [0; 3],
+            sim_made_with: [0; 7],
             running: false,
             steps_per_second: 60.0,
             owed: 0.0,
@@ -880,6 +880,16 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     );
     ui.add(crate::debug::Slider::new(&mut sim.patch_size, 1_000.0..=40_000.0).logarithmic(true).text("patch size (blocks)"))
         .on_hover_text("How big the soft and stiff patches are.");
+    ui.checkbox(&mut sim.shake_grid, "shake the grid").on_hover_text(
+        "Nudge every point of the plates' grids a random way off its spot, and split each grid square\nalong a random diagonal. A perfectly even grid crushes into the same bump over and over, at its\nown spacing and lined up with its rows; a shaken one has no favourite spacing or direction.",
+    );
+    ui.add_enabled(sim.shake_grid, crate::debug::Slider::new(&mut sim.shake, 0.05..=0.3).text("shake (× grain)"))
+        .on_hover_text("How far a point can be nudged, as a share of the grain. Up to 0.3: any more and some grid squares would turn inside out.");
+    ui.checkbox(&mut sim.uneven_rock, "uneven rock").on_hover_text(
+        "The soft and stiff patches come in three sizes (the patch size, a third of it, a ninth), not one;\nand every spring gives way and cracks at its own point, so a crush front doesn't give way\nall along its length at once.",
+    );
+    ui.add_enabled(sim.uneven_rock, crate::debug::Slider::new(&mut sim.unevenness, 0.0..=0.9).text("unevenness"))
+        .on_hover_text("How much each spring's breaking point varies: 0.4 = anywhere from 60% to 140% of the usual.");
     ui.add_space(4.0);
     ui.label("How it behaves (can change while it runs; Reset replays):");
     ui.add(crate::debug::Slider::new(&mut sim.stiffness, 0.005..=1.0).logarithmic(true).text("stiffness")).on_hover_text(

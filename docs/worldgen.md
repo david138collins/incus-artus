@@ -221,6 +221,13 @@ a separate later system.)
   is filled from the nearest rock. Bakes made before this still have their gaps: bake again. For now worlds are baked one at a time to experiment on; **eventually**
   [David] the Tectonic Sim runs a world preset and hands its maps straight to the World Compiler, and
   concludes itself.
+- **Shake the grid / uneven rock [BUILT 2026-10-24, to A/B]** [David: "over and over, I see extremely
+  regular borders of mountains and coastlines... a solid series of the same bump"]. Cause: each plate is
+  a perfectly even grid of even rock, and an even sheet buckles at one wavelength (its grid spacing),
+  lined up with its rows; the outlines are carried by the same grid. Fixed at the source, so everything
+  downstream gains: *shake the grid* (points nudged up to 0.3 grain, squares split along the shorter
+  diagonal; contact distance shrinks to match, so plates start at rest) and *uneven rock* (patches at
+  three sizes, each spring its own breaking point). Both off by default so old presets are unchanged.
 
 - **Idea to investigate later** [David, 2026-10-24], once more of tectonics is built: instead of one cell
   per plate, use a **finer grid of cells that cluster together into plates**. That gives organic blob shapes
