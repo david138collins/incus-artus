@@ -56,7 +56,7 @@ mod heights;
 mod image;
 mod layers;
 mod made;
-mod noise;
+pub(crate) mod noise;
 mod palette;
 mod plates;
 mod rags;
@@ -314,9 +314,21 @@ fn take_dropped_files(mut drops: MessageReader<FileDragAndDrop>, mut suite: ResM
     }
 }
 
-fn draw_suite(mut contexts: EguiContexts, mut suite: ResMut<Suite>, mut next: ResMut<NextState<Screen>>) -> Result {
+fn draw_suite(
+    mut contexts: EguiContexts,
+    mut suite: ResMut<Suite>,
+    mut next: ResMut<NextState<Screen>>,
+    mut next_terrain: ResMut<crate::world::NextTerrain>,
+    mut requests: MessageWriter<crate::save::WorldFileRequest>,
+) -> Result {
     let ctx = contexts.ctx_mut()?.clone();
     if view::draw(&ctx, &mut suite) {
+        next.set(Screen::Play);
+    }
+    // "Render World and Spawn": a new world made from the compiled map, and back to the world.
+    if let Some((name, seed, map)) = suite.compiler.render.take() {
+        next_terrain.0 = Some(map);
+        requests.write(crate::save::WorldFileRequest::New { name, seed: Some(seed) });
         next.set(Screen::Play);
     }
     // Keep redrawing while something is being made, so it shows up the moment it's done.

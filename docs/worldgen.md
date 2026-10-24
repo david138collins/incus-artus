@@ -172,6 +172,34 @@ pushed down **darker**.
   measured against the most crushed, so it did almost nothing). Ranges re-centred so good results
   sit mid-knob.
 - **Next for the compiler: an erosion pass** [David] to wear down the rough edges.
+
+### Render World and Spawn  [DECIDED 2026-10-24, building]
+David: the maps are as wholesome as they can get from above; what's missing can only be judged by
+flying over the continents in person. So before the compiler grows more stages, build the path from a
+compiled world to a walkable one. (Grok's plan, agreed: minimal elevation → blocks first; walk it; then
+expand the compiler into Landmass → Climate & Drainage → Geology → Ecology, then Civilization. Caves are
+a separate later system.)
+- **Distant terrain like Distant Horizons** [David: "do it the right way"]: blocky LOD rings (2×, 4×,
+  8×… coarser further out) out to the whole world, made by sampling the same column function directly
+  (no full chunks needed far away). Soaring over the entire world in moments must stay smooth.
+- **Chunks generated on the fly**, in the background, as fast as possible without architectural
+  compromises. Only changed chunks are saved (as now).
+- **Performance target** [David]: hold today's 240–250 FPS on his RTX 5070 Ti laptop, as a proxy for
+  "playable on a GTX 980 Ti at 1080p on low settings". Potato PCs matter.
+- **Old saves don't matter** [David]: changing the generator may change old worlds; nothing to keep yet
+  but presets and movement settings.
+- **Interpreter settings** (detail noise and so on) live in a section at the end of the World
+  Compiler, next to the button, and are copied into each world.
+- **Blocks, for now** [David]: only the shape of the land matters. Gabbro on the highest peaks, stone on
+  moderate mountain heights, grass for the rest, plain **water** blocks (opaque blue, still) filling the
+  oceans to Z 128. Bedrock, dirt, sand, gravel come with the climate and geology stages.
+- **Spawn in the middle of the world.** A **reworked Camera debug page** for dialling in observer
+  flights (speed up to thousands of blocks a second, above the world's top).
+- **The test cylinder stays** for experiments with specific systems, with the test settlement and
+  villagers. Generated worlds have no settlement for now.
+- **Order:** (1) the column generator, world from a compiled bake, the button, spawn; (2) streaming
+  chunks around you in the background; (3) LOD rings and the observer camera; (4) walk and fly it, then
+  decide what the compiler needs.
 - **Principle** [David, 2026-10-24]: the terrain can't truly be judged until a world can be explored with
   trees and water. So get as close as we can now, and **leave room to adjust the back end** once
   worlds can be walked. Judge settings **across many seeds** (Shift+Space), not on one.

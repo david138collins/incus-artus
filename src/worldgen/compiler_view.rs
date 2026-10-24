@@ -55,6 +55,10 @@ pub struct Compiler {
     /// A picture waiting to be sent to the Graphics Kit as a layer (name, picture, blocks per
     /// pixel).
     send: Option<(String, Picture, f32)>,
+    /// "Render World and Spawn": the world name, seed and map waiting to be started.
+    pub render: Option<(String, u64, Arc<crate::world::CompiledMap>)>,
+    /// The name to give a rendered world (blank = the bake's name).
+    world_name: String,
     camera: Camera,
     texture: Option<egui::TextureHandle>,
     painted_for: Option<(u64, u32)>,
@@ -79,6 +83,8 @@ impl Default for Compiler {
             keep_settings: false,
             keep_name: String::new(),
             send: None,
+            render: None,
+            world_name: String::new(),
             camera: Camera::default(),
             texture: None,
             painted_for: None,
@@ -482,6 +488,52 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let pixels = relief_picture(&result.made, bake.info.blocks_per_pixel, compiler.relief).into_iter().map(|[r, g, b]| [r, g, b, 255]).collect();
         compiler.send = Some(("relief".to_string(), Picture { width, height: width, pixels }, bake.info.blocks_per_pixel));
         compiler.note = "Sent the relief map to the Graphics Kit as a layer.".to_string();
+    }
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.heading("Render World and Spawn");
+    ui.small(
+        "Makes a real world from this compiled map and puts you in its middle: the ground follows the map smoothly, \
+         with grass on land, stone on mountainsides, gabbro on the peaks, and water filling the sea to Z 128. The \
+         world keeps its own copy of the map, so changing things here afterwards never changes it.",
+    );
+    let i = &mut compiler.settings.interpreter;
+    ui.add(crate::debug::Slider::new(&mut i.detail, 0.0..=12.0).text("ground detail (blocks)"))
+        .on_hover_text("Small bumps on the ground, this high either way, so it isn't glassy smooth between the map's points.");
+    ui.add(crate::debug::Slider::new(&mut i.detail_size, 16.0..=512.0).logarithmic(true).text("detail size (blocks)"));
+    ui.add(crate::debug::Slider::new(&mut i.stone_from, SEA_LEVEL as i32..=HIGHEST as i32).text("bare stone from Z"))
+        .on_hover_text("The surface is stone from this height up (mountainsides).");
+    ui.add(crate::debug::Slider::new(&mut i.gabbro_from, SEA_LEVEL as i32..=HIGHEST as i32).text("gabbro from Z"))
+        .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance.");
+    ui.horizontal_wrapped(|ui| {
+        ui.label("World name:");
+        ui.add(egui::TextEdit::singleline(&mut compiler.world_name).desired_width(140.0).hint_text(bake.name.clone()));
+    });
+    if ui
+        .button("Render World and Spawn")
+        .on_hover_text("Starts a new world from this map (the world you're in now is replaced; save it first if you want it).")
+        .clicked()
+    {
+        compiler.press_render();
+    }
+}
+
+impl Compiler {
+    /// "Render World and Spawn": the compiled map, with the interpreter settings, handed over to
+    /// start a new world.
+    pub fn press_render(&mut self) {
+        let (Some(bake), Some(result)) = (&self.bake, &self.result) else { return };
+        let name = if self.world_name.trim().is_empty() { bake.name.clone() } else { self.world_name.clone() };
+        let seed = u64::from_str_radix(&bake.info.seed, 16).unwrap_or(0);
+        let map = crate::world::CompiledMap {
+            width: result.made.width,
+            blocks_per_pixel: bake.info.blocks_per_pixel,
+            z: result.made.z.clone(),
+            seed,
+            settings: self.settings.interpreter.clone(),
+        };
+        self.render = Some((name, seed, Arc::new(map)));
     }
 }
 

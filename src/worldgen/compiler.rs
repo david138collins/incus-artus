@@ -233,6 +233,8 @@ pub struct CompileSettings {
     /// Rolling hills on land: how high (blocks either way) and how big (blocks).
     pub hills: f32,
     pub hill_size: f32,
+    /// How the compiled map becomes blocks when a world is rendered (copied into the world).
+    pub interpreter: crate::world::InterpreterSettings,
 }
 
 impl Default for CompileSettings {
@@ -255,6 +257,7 @@ impl Default for CompileSettings {
             rift_depth: 30.0,
             hills: 6.0,
             hill_size: 1_500.0,
+            interpreter: crate::world::InterpreterSettings::default(),
         }
     }
 }

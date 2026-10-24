@@ -18,11 +18,14 @@ use super::block::BlockId;
 use super::chunk::Chunk;
 use super::position::{ChunkPos, SECTION_VOLUME, SECTIONS_PER_CHUNK};
 use super::section::Section;
-use super::{TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
+use super::{CompiledMap, InterpreterSettings, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
 use crate::data::BlockRegistry;
 use crate::save::{WorldFolder, write_file};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
+use std::path::Path;
+use std::sync::Arc;
 
 const MAGIC: &[u8; 4] = b"IACH";
 const CHUNK_FORMAT: u16 = 1;
@@ -160,9 +163,58 @@ pub fn decode_chunk(bytes: &[u8], registry: &BlockRegistry) -> Result<(Chunk, Ve
 
 // ── The "terrain" part of a saved world ─────────────────────────────────────
 
-/// Saves the test world's settings (as `terrain.toml`) and every changed chunk (in `chunks/`).
+/// What `compiled.toml` holds: how to read the world's own copy of its height map.
+#[derive(Serialize, Deserialize)]
+struct CompiledFile {
+    width: usize,
+    blocks_per_pixel: f32,
+    #[serde(with = "crate::save::hex_u64")]
+    seed: u64,
+    interpreter: InterpreterSettings,
+}
+
+/// Writes a compiled world's map into its folder: `compiled.toml`, and `elevation.png` (16-bit
+/// grey: the grey is the ground's Z).
+fn save_compiled(map: &CompiledMap, folder: &Path) -> Result<(), String> {
+    let info = CompiledFile { width: map.width, blocks_per_pixel: map.blocks_per_pixel, seed: map.seed, interpreter: map.settings.clone() };
+    let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
+    write_file(&folder.join("compiled.toml"), text.as_bytes())?;
+    let file = std::fs::File::create(folder.join("elevation.png")).map_err(|error| error.to_string())?;
+    let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), map.width as u32, map.width as u32);
+    encoder.set_color(png::ColorType::Grayscale);
+    encoder.set_depth(png::BitDepth::Sixteen);
+    let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
+    let bytes: Vec<u8> = map.z.iter().flat_map(|z| z.to_be_bytes()).collect();
+    writer.write_image_data(&bytes).map_err(|error| error.to_string())?;
+    writer.finish().map_err(|error| error.to_string())
+}
+
+/// Reads a compiled world's map back, or `None` if the world is the test cylinder.
+fn load_compiled(folder: &Path) -> Result<Option<CompiledMap>, String> {
+    let Ok(text) = std::fs::read_to_string(folder.join("compiled.toml")) else { return Ok(None) };
+    let info: CompiledFile = toml::from_str(&text).map_err(|error| format!("compiled.toml: {error}"))?;
+    let file = std::fs::File::open(folder.join("elevation.png")).map_err(|error| format!("elevation.png: {error}"))?;
+    let mut reader = png::Decoder::new(std::io::BufReader::new(file)).read_info().map_err(|error| format!("elevation.png: {error}"))?;
+    let mut buffer = vec![0; reader.output_buffer_size().ok_or("elevation.png is too big")?];
+    let frame = reader.next_frame(&mut buffer).map_err(|error| format!("elevation.png: {error}"))?;
+    if frame.bit_depth != png::BitDepth::Sixteen || frame.width as usize != info.width {
+        return Err("elevation.png isn't the 16-bit map compiled.toml describes".to_string());
+    }
+    let z = buffer[..frame.buffer_size()].chunks_exact(2).map(|b| u16::from_be_bytes([b[0], b[1]])).collect();
+    Ok(Some(CompiledMap { width: info.width, blocks_per_pixel: info.blocks_per_pixel, z, seed: info.seed, settings: info.interpreter }))
+}
+
+/// Saves the test world's settings (as `terrain.toml`), a compiled world's own copy of its map,
+/// and every changed chunk (in `chunks/`).
 pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, String> {
     folder.write_toml(world.resource::<TestWorldSettings>())?;
+    match world.get_resource::<Terrain>().unwrap_or(&Terrain::Test) {
+        Terrain::Compiled(map) => save_compiled(map, &folder.path)?,
+        Terrain::Test => {
+            let _ = std::fs::remove_file(folder.path.join("compiled.toml"));
+            let _ = std::fs::remove_file(folder.path.join("elevation.png"));
+        }
+    }
     let chunks_folder = folder.sub_folder("chunks")?;
     let voxel = world.resource::<VoxelWorld>();
     let registry = world.resource::<BlockRegistry>();
@@ -197,8 +249,18 @@ pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, Strin
 pub fn load_terrain(world: &mut World, folder: &WorldFolder) -> Result<String, String> {
     let settings = folder.read_toml::<TestWorldSettings>()?.unwrap_or_default();
     world.insert_resource(settings.clone());
-    let blocks = TestBlocks::from_registry(world.resource::<BlockRegistry>());
-    generate_test_world(&mut world.resource_mut::<VoxelWorld>(), &settings, &blocks);
+    match load_compiled(&folder.path)? {
+        Some(map) => {
+            let map = Arc::new(map);
+            world.insert_resource(Terrain::Compiled(map.clone()));
+            super::generate_compiled_world(world, &map);
+        }
+        None => {
+            world.insert_resource(Terrain::Test);
+            let blocks = TestBlocks::from_registry(world.resource::<BlockRegistry>());
+            generate_test_world(&mut world.resource_mut::<VoxelWorld>(), &settings, &blocks);
+        }
+    }
 
     let chunks_folder = folder.path.join("chunks");
     let mut loaded = 0;
@@ -235,9 +297,19 @@ pub fn load_terrain(world: &mut World, folder: &WorldFolder) -> Result<String, S
     Ok(note)
 }
 
-/// A fresh world: the test terrain from the current settings.
+/// A fresh world: a compiled world, if the World Compiler asked for one ("Render World and
+/// Spawn"), or else the test cylinder from the current settings.
 pub fn fresh_terrain(world: &mut World, _seed: u64) {
-    super::regenerate_test_world(world);
+    match world.get_resource_mut::<NextTerrain>().and_then(|mut next| next.0.take()) {
+        Some(map) => {
+            world.insert_resource(Terrain::Compiled(map.clone()));
+            super::generate_compiled_world(world, &map);
+        }
+        None => {
+            world.insert_resource(Terrain::Test);
+            super::regenerate_test_world(world);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -264,6 +336,27 @@ mod tests {
                 assert_eq!(back.get(block), chunk.get(block), "at {block}");
             }
         }
+    }
+
+    #[test]
+    fn a_compiled_worlds_own_map_survives_being_saved() {
+        let map = CompiledMap {
+            width: 16,
+            blocks_per_pixel: 32.0,
+            z: (0..256).map(|i| 60 + (i % 200) as u16).collect(),
+            seed: 0xABCD,
+            settings: InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() },
+        };
+        let folder = std::env::temp_dir().join(format!("incus-artus-compiled-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        save_compiled(&map, &folder).unwrap();
+        let back = load_compiled(&folder).unwrap().unwrap();
+        assert_eq!((back.width, back.blocks_per_pixel, back.seed), (map.width, map.blocks_per_pixel, map.seed));
+        assert_eq!(back.z, map.z);
+        assert_eq!(back.settings, map.settings);
+        // A folder without one is the test cylinder.
+        let _ = std::fs::remove_dir_all(&folder);
+        assert!(load_compiled(&folder).unwrap().is_none());
     }
 
     #[test]

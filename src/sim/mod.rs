@@ -546,6 +546,9 @@ fn load_sim(world: &mut World, folder: &WorldFolder) -> Result<String, String> {
     }
 }
 
+/// A fresh world: the test settlement and caravan on the test cylinder. A compiled world starts
+/// empty (no settlement yet: civilization comes after the natural world).
 fn fresh_sim(world: &mut World, _seed: u64) {
-    world.insert_resource(toy::test_world_places());
+    let compiled = world.get_resource::<crate::world::Terrain>().is_some_and(|terrain| terrain.compiled().is_some());
+    world.insert_resource(if compiled { SimWorld::default() } else { toy::test_world_places() });
 }

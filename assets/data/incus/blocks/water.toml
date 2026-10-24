@@ -1,0 +1,11 @@
+# Water: fills the oceans up to sea level (Z 127, so its surface is at Z 128).
+# For now a plain opaque blue block that doesn't flow: how water runs is decided later.
+# You fall through it (it isn't solid), the crosshair passes through it, and building into it
+# replaces it, like air.
+# This file defines the block "incus:water". See docs/data-files.md for every setting.
+
+name = "Water"
+textures = { all = "water" }
+solid = false
+targetable = false
+replaceable = true

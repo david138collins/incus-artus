@@ -21,6 +21,7 @@ mod position;
 mod raycast;
 mod section;
 mod storage;
+mod terrain;
 
 pub use block::BlockId;
 pub use edits::{
@@ -37,6 +38,7 @@ pub use position::{
     WORLD_HEIGHT, z_in_world,
 };
 pub use section::Section;
+pub use terrain::{CompiledMap, InterpreterSettings, NextTerrain, Terrain, TerrainBlocks};
 #[cfg(test)]
 pub use storage::{fresh_terrain, load_terrain, save_terrain};
 
@@ -209,6 +211,8 @@ impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<VoxelWorld>()
             .init_resource::<TestWorldSettings>()
+            .init_resource::<Terrain>()
+            .init_resource::<NextTerrain>()
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
             .add_settings::<EditRules>("edit_rules")
@@ -223,6 +227,24 @@ impl Plugin for WorldPlugin {
             .add_world_state_with("terrain", storage::save_terrain, storage::load_terrain, storage::fresh_terrain)
             .add_systems(FixedUpdate, edits::apply_block_edits.in_set(WorldEdits))
             .add_debug_page("World", world_debug_page);
+    }
+}
+
+/// How far around the middle of a compiled world chunks are made when it starts (until chunks
+/// stream in around you as you move).
+const COMPILED_RADIUS_CHUNKS: i32 = 16;
+
+/// Make the terrain of a compiled world around its middle, timing how long it takes.
+fn generate_compiled_world(world: &mut World, map: &CompiledMap) {
+    let blocks = TerrainBlocks::from_registry(world.resource::<BlockRegistry>());
+    let started = Instant::now();
+    let mut voxel = world.resource_mut::<VoxelWorld>();
+    voxel.clear();
+    let chunks = terrain::generate_around(&mut voxel, map, &blocks, ChunkPos::new(0, 0), COMPILED_RADIUS_CHUNKS);
+    let millis = started.elapsed().as_secs_f64() * 1000.0;
+    info!("Generated compiled world: {chunks} chunks in {millis:.1} ms");
+    if let Some(mut debug) = world.get_resource_mut::<WorldDebugState>() {
+        debug.last_generation_ms = millis;
     }
 }
 
