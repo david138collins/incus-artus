@@ -21,6 +21,7 @@ mod position;
 mod raycast;
 mod section;
 mod storage;
+mod streaming;
 mod terrain;
 
 pub use block::BlockId;
@@ -38,6 +39,7 @@ pub use position::{
     WORLD_HEIGHT, z_in_world,
 };
 pub use section::Section;
+pub use streaming::{StreamSettings, Streaming};
 pub use terrain::{CompiledMap, InterpreterSettings, NextTerrain, Terrain, TerrainBlocks};
 #[cfg(test)]
 pub use storage::{fresh_terrain, load_terrain, save_terrain};
@@ -111,6 +113,34 @@ impl VoxelWorld {
             self.dirty.insert(SectionKey { chunk: pos, level: level as u8 });
         }
         self.chunks.insert(pos, chunk);
+    }
+
+    /// Add a chunk without marking it for drawing (streaming draws it once its neighbours are in,
+    /// so its edges are right the first time; see `streaming.rs`).
+    pub fn insert_chunk_quiet(&mut self, chunk: Chunk) {
+        self.chunks.insert(chunk.pos(), chunk);
+    }
+
+    /// Mark all of a chunk's sections for (re)drawing.
+    pub fn mark_chunk_dirty(&mut self, pos: ChunkPos) {
+        for level in 0..SECTIONS_PER_CHUNK {
+            self.dirty.insert(SectionKey { chunk: pos, level: level as u8 });
+        }
+    }
+
+    /// Take a chunk out of the world (its meshes are removed). Changed chunks should be kept:
+    /// the caller decides.
+    pub fn remove_chunk(&mut self, pos: ChunkPos) -> Option<Chunk> {
+        let removed = self.chunks.remove(&pos);
+        if removed.is_some() {
+            self.mark_chunk_dirty(pos);
+        }
+        removed
+    }
+
+    /// Where every loaded chunk is.
+    pub fn chunk_positions(&self) -> impl Iterator<Item = ChunkPos> + '_ {
+        self.chunks.keys().copied()
     }
 
     /// Remove every chunk. Their sections are marked dirty so the renderer removes their meshes.
@@ -213,6 +243,10 @@ impl Plugin for WorldPlugin {
             .init_resource::<TestWorldSettings>()
             .init_resource::<Terrain>()
             .init_resource::<NextTerrain>()
+            .init_resource::<Streaming>()
+            .init_resource::<StreamSettings>()
+            .add_settings::<StreamSettings>("streaming")
+            .add_systems(Update, streaming::stream_chunks)
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
             .add_settings::<EditRules>("edit_rules")
@@ -230,9 +264,9 @@ impl Plugin for WorldPlugin {
     }
 }
 
-/// How far around the middle of a compiled world chunks are made when it starts (until chunks
-/// stream in around you as you move).
-const COMPILED_RADIUS_CHUNKS: i32 = 16;
+/// How far around the middle of a compiled world chunks are made at once when it starts, so
+/// there's ground under you straight away. The rest stream in (see `streaming.rs`).
+const COMPILED_RADIUS_CHUNKS: i32 = 2;
 
 /// Make the terrain of a compiled world around its middle, timing how long it takes.
 fn generate_compiled_world(world: &mut World, map: &CompiledMap) {
@@ -310,6 +344,25 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
         "Last generation: {:.1} ms",
         world.resource::<WorldDebugState>().last_generation_ms
     ));
+
+    // ── Streaming (compiled worlds) ──
+    ui.separator();
+    ui.strong("Streaming (compiled worlds)");
+    {
+        let mut settings = world.resource_mut::<StreamSettings>();
+        ui.add(crate::debug::Slider::new(&mut settings.radius, 2..=64).text("radius (chunks)"))
+            .on_hover_text("How far around you chunks are made and drawn. 32 chunks = 1,024 blocks.");
+        ui.add(crate::debug::Slider::new(&mut settings.ahead, 0.0..=0.9).text("ahead first"))
+            .on_hover_text("How much nearer chunks in front of you count. 0 = all directions alike.");
+        ui.add(crate::debug::Slider::new(&mut settings.most_at_once, 0..=32).text("most made at once (0 = one per core)"))
+            .on_hover_text("Fewer = less CPU at once (smoother), more = the world fills in faster.");
+        ui.add(crate::debug::Slider::new(&mut settings.insert_budget_ms, 0.1..=8.0).logarithmic(true).text("insert budget (ms per frame)"))
+            .on_hover_text("The most time each frame spent putting finished chunks into the world.");
+    }
+    {
+        let streaming = world.resource::<Streaming>();
+        ui.label(format!("Waiting: {}   being made: {}   made: {}   dropped: {}", streaming.queued(), streaming.being_made(), streaming.made, streaming.dropped));
+    }
 
     // ── Storage statistics ──
     ui.separator();

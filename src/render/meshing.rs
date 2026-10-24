@@ -70,19 +70,39 @@ pub fn start_jobs(
         return;
     }
 
-    // Nearest sections first, so what you're looking at appears first.
+    // Sections of chunks that are gone (dropped behind you): just remove their meshes, at once and
+    // without using up the frame's job slots.
+    let gone: Vec<SectionKey> = state.waiting.iter().copied().filter(|key| world.chunk(key.chunk).is_none()).collect();
+    for key in gone {
+        state.waiting.remove(&key);
+        state.running.remove(&key);
+        if let Some(entity) = state.entities.remove(&key) {
+            commands.entity(entity).despawn();
+        }
+    }
+
+    // Nearest sections first, so what you're looking at appears first. (Only the nearest few are
+    // picked out, not the whole list sorted: there can be tens of thousands waiting.)
     let camera_position = camera
         .iter()
         .next()
         .map_or(Vec3::ZERO, |t| bevy_to_game(t.translation));
-    let mut keys: Vec<SectionKey> = state.waiting.iter().copied().collect();
-    keys.sort_by_key(|key| {
+    let distance = |key: &SectionKey| {
         let centre = section_origin(*key).as_vec3() + Vec3::splat(SECTION_SIZE as f32 / 2.0);
         centre.distance_squared(camera_position) as i64
-    });
+    };
+    let mut keys: Vec<SectionKey> = state.waiting.iter().copied().collect();
+    let take = settings.max_jobs_per_frame.min(keys.len());
+    if take == 0 {
+        return;
+    }
+    if take < keys.len() {
+        keys.select_nth_unstable_by_key(take - 1, distance);
+        keys.truncate(take);
+    }
 
     let pool = AsyncComputeTaskPool::get();
-    for key in keys.into_iter().take(settings.max_jobs_per_frame) {
+    for key in keys {
         state.waiting.remove(&key);
         match gather_input(&world, key, &terrain) {
             Some(input) => {
@@ -181,6 +201,40 @@ pub fn section_origin(key: SectionKey) -> IVec3 {
     )
 }
 
+/// What's just past one side of a section.
+enum Beyond<'a> {
+    /// Below the world: counts as solid (nobody can see the underside of the bottom).
+    Below,
+    /// Above the world, or a chunk that isn't loaded: counts as air.
+    Nothing,
+    Section(&'a Section),
+}
+
+/// The section next to `key` on one side (`axis` 0 = north, 1 = east, 2 = up; `positive` = that
+/// way, otherwise the opposite).
+fn beyond(world: &VoxelWorld, key: SectionKey, axis: usize, positive: bool) -> Beyond<'_> {
+    let step = if positive { 1 } else { -1 };
+    let (mut chunk, mut level) = (key.chunk, key.level as i32);
+    match axis {
+        0 => chunk.x += step,
+        1 => chunk.y += step,
+        _ => level += step,
+    }
+    if level < 0 {
+        return Beyond::Below;
+    }
+    match world.chunk(chunk).and_then(|chunk| chunk.sections().get(level as usize)) {
+        Some(section) => Beyond::Section(section),
+        None => Beyond::Nothing,
+    }
+}
+
+/// Where a block sits in its section (x fastest, then y, then z), from its position inside it.
+fn index_of(local: IVec3) -> usize {
+    let size = SECTION_SIZE as usize;
+    local.x as usize + local.y as usize * size + local.z as usize * size * size
+}
+
 /// Copy everything the mesher needs out of the world. `None` = nothing to draw.
 fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) -> Option<MeshInput> {
     let chunk = world.chunk(key.chunk)?;
@@ -192,12 +246,27 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         if !is_opaque(*id) && !is_see_through(*id) {
             return None;
         }
+        // Buried: solid all through and walled in by solid on all six sides. Nothing shows.
+        let walled_in = (0..3).all(|axis| {
+            [true, false].into_iter().all(|positive| match beyond(world, key, axis, positive) {
+                Beyond::Below => true,
+                Beyond::Nothing => false,
+                Beyond::Section(Section::Uniform(other)) => is_opaque(*other),
+                Beyond::Section(_) => false,
+            })
+        });
+        if is_opaque(*id) && walled_in {
+            return None;
+        }
     }
 
-    let blocks: Vec<BlockId> = (0..SECTION_VOLUME).map(|i| section.get(i)).collect();
+    let blocks: Vec<BlockId> = match section {
+        Section::Uniform(id) => vec![*id; SECTION_VOLUME],
+        _ => (0..SECTION_VOLUME).map(|i| section.get(i)).collect(),
+    };
 
-    // The one-block layer just outside each of the six sides.
-    let origin = section_origin(key);
+    // The one-block layer just outside each of the six sides, read straight from the section
+    // next door.
     let size = SECTION_SIZE;
     let mut outside = [[0u32; 32]; 6];
     let mut outside_outline = [[0u32; 32]; 6];
@@ -206,18 +275,27 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         let (u_axis, v_axis) = plane_axes(axis);
         for positive in [true, false] {
             let face = face_index(axis, positive);
-            let depth = if positive { size } else { -1 };
+            let next = beyond(world, key, axis, positive);
+            // The layer of the next section that touches this one.
+            let depth = if positive { 0 } else { size - 1 };
             for v in 0..size {
                 for u in 0..size {
-                    let mut offset = IVec3::ZERO;
-                    offset[axis] = depth;
-                    offset[u_axis] = u;
-                    offset[v_axis] = v;
-                    let position = origin + offset;
-                    // Below the world counts as solid: nobody can see the underside of bedrock.
-                    let block = world.get_block(position);
-                    let solid = position.z < 0 || is_opaque(block);
-                    if solid {
+                    let block = match &next {
+                        Beyond::Below => {
+                            outside[face][v as usize] |= 1 << u;
+                            continue;
+                        }
+                        Beyond::Nothing => continue,
+                        Beyond::Section(Section::Uniform(id)) => *id,
+                        Beyond::Section(other) => {
+                            let mut local = IVec3::ZERO;
+                            local[axis] = depth;
+                            local[u_axis] = u;
+                            local[v_axis] = v;
+                            other.get(index_of(local))
+                        }
+                    };
+                    if is_opaque(block) {
                         outside[face][v as usize] |= 1 << u;
                     }
                     if is_grid(block) {

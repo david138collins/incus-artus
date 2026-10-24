@@ -14,6 +14,7 @@
 mod material;
 mod mesher;
 mod meshing;
+mod performance;
 mod textures;
 
 use crate::coords::bevy_to_game;
@@ -34,6 +35,8 @@ impl Plugin for RenderPlugin {
         app.add_plugins(MaterialPlugin::<TerrainMaterial>::default())
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
+            .init_resource::<performance::FrameTimes>()
+            .add_systems(Update, performance::record_frame_time)
             .insert_resource(ClearColor(SKY_COLOUR))
             .add_systems(Startup, setup_terrain)
             .add_systems(
@@ -50,6 +53,7 @@ impl Plugin for RenderPlugin {
                     .chain(),
             )
             .add_debug_page("Render", render_debug_page)
+            .add_debug_page("Performance", performance::performance_debug_page)
             .add_settings::<RenderSettings>("render");
     }
 }
@@ -89,15 +93,15 @@ pub enum DebugView {
 impl Default for RenderSettings {
     fn default() -> Self {
         Self {
-            render_distance_chunks: 12,
+            render_distance_chunks: 32,
             max_jobs_per_frame: 64,
             shade_top: 1.0,
             shade_bottom: 0.5,
             shade_north_south: 0.8,
             shade_east_west: 0.65,
             fog_enabled: true,
-            fog_start: 150.0,
-            fog_end: 380.0,
+            fog_start: 650.0,
+            fog_end: 1000.0,
             debug_view: DebugView::Normal,
         }
     }
