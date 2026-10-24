@@ -174,6 +174,11 @@ impl VoxelWorld {
         self.dirty.len()
     }
 
+    /// Sections changed but not yet handed to the renderer.
+    pub fn dirty_sections(&self) -> impl Iterator<Item = &SectionKey> {
+        self.dirty.iter()
+    }
+
     /// Hand over the list of changed sections and start a fresh one (used by the renderer).
     pub fn take_dirty(&mut self) -> HashSet<SectionKey> {
         std::mem::take(&mut self.dirty)

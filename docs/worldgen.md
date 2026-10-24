@@ -182,6 +182,10 @@ a separate later system.)
 - **Distant terrain like Distant Horizons** [David: "do it the right way"]: blocky LOD rings (2×, 4×,
   8×… coarser further out) out to the whole world, made by sampling the same column function directly
   (no full chunks needed far away). Soaring over the entire world in moments must stay smooth.
+  **The hand-off** (2026-10-24): distant terrain steps aside only over real chunks actually on screen
+  (a small texture marks them), never a fixed circle, so outflying the chunk loading shows distant
+  terrain, not a hole [David: "little things do matter"]. It runs one chunk under the edge of the real
+  chunks so no sky shows through the seam.
 - **Chunks generated on the fly**, in the background, as fast as possible without architectural
   compromises. Only changed chunks are saved (as now).
 - **Performance target** [David]: hold today's 240–250 FPS on his RTX 5070 Ti laptop, as a proxy for

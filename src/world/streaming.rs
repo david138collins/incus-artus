@@ -85,6 +85,11 @@ impl Streaming {
         self.making.len() + self.finished.len()
     }
 
+    /// Chunks that have been handed to the renderer.
+    pub fn drawn(&self) -> &HashSet<ChunkPos> {
+        &self.drawn
+    }
+
     /// Whether a chunk is in the world or known to be past the map.
     fn settled(&self, world: &VoxelWorld, pos: ChunkPos) -> bool {
         world.chunk(pos).is_some() || self.empty.contains(&pos)

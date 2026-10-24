@@ -4,8 +4,13 @@
 //! **Rings of tiles.** Around you are rings, each made of blocks twice as big as the ring inside
 //! it: 16-block cells just past the full-detail chunks, then 32, 64 … up to 1,024-block cells far
 //! away. Seven rings reach the edge of the world from anywhere. Each ring is 8 × 8 tiles of 32 × 32
-//! cells, with a hole in the middle where the next ring in sits (the finest ring has no hole: real
-//! chunks are drawn there, and the shader draws no distant terrain inside their circle).
+//! cells, with a hole in the middle where the next ring in sits (the finest ring has no hole: it
+//! lies under the real chunks).
+//!
+//! **The hand-off.** The shader draws no distant terrain over a real chunk that's on screen. A
+//! small texture marks those chunks, one pixel each, centred on the camera's chunk. Only chunks
+//! actually meshed are marked, so flying faster than chunks load shows distant terrain ahead of
+//! you, never a hole.
 //!
 //! **Each ring snaps to its own grid** (twice its tile size), so its hole lines up exactly with the
 //! ring inside, and as you move only the tiles at its edges change; the rest stay put.
@@ -21,12 +26,15 @@
 use super::RenderSettings;
 use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::data::{BlockRegistry, FACE_NAMES};
-use crate::world::{BlockId, CompiledMap, StreamSettings, Terrain, TerrainBlocks};
+use super::meshing::MeshingState;
+use crate::world::{BlockId, CHUNK_SIZE, ChunkPos, CompiledMap, Streaming, Terrain, TerrainBlocks, VoxelWorld};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology};
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError};
+use bevy::render::render_resource::{
+    AsBindGroup, Extent3d, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError, TextureDimension, TextureFormat,
+};
 use bevy::shader::ShaderRef;
 use bevy::tasks::{AsyncComputeTaskPool, Task, futures::check_ready};
 use serde::{Deserialize, Serialize};
@@ -37,6 +45,9 @@ use std::sync::Arc;
 const CELLS: i32 = 32;
 /// Tiles along a ring's side.
 const RING_TILES: i32 = 8;
+/// The side of the texture marking the chunks on screen, in chunks (centred on the camera's chunk:
+/// 128 each way, far past where real chunks ever reach).
+const SHOWN_SIZE: i32 = 256;
 
 /// Tunables (on the "Render" debug page, saved in "everything" presets).
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -49,14 +60,11 @@ pub struct DistantSettings {
     pub rings: u32,
     /// The most tiles being made at once (0 = one per CPU core).
     pub most_at_once: usize,
-    /// How far inside the full-detail chunks' edge distant terrain starts, in blocks (a little
-    /// overlap, so no gap shows at the hand-off).
-    pub overlap: f32,
 }
 
 impl Default for DistantSettings {
     fn default() -> Self {
-        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, overlap: 16.0 }
+        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0 }
     }
 }
 
@@ -275,6 +283,9 @@ pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, s
 pub struct DistantMaterial {
     #[uniform(0)]
     pub settings: DistantShaderSettings,
+    /// The chunks on screen (see the module notes).
+    #[texture(1)]
+    pub shown: Handle<Image>,
 }
 
 #[derive(ShaderType, Clone, Copy, Debug, Default)]
@@ -282,8 +293,8 @@ pub struct DistantShaderSettings {
     pub fog_color: Vec4,
     /// x fog start, y fog end, z fog on.
     pub fog: Vec4,
-    /// x = no distant terrain closer than this.
-    pub near: Vec4,
+    /// xy = the chunk the `shown` texture is centred on.
+    pub shown_centre: Vec4,
 }
 
 impl Material for DistantMaterial {
@@ -335,6 +346,11 @@ pub struct DistantState {
     /// The settings and the tile the wanted list was worked out for.
     wanted_for: Option<(DistantSettings, [f32; 3], IVec2)>,
     wanted: Vec<TileKey>,
+    /// The texture marking chunks on screen, the chunks it marks, and the centre and render
+    /// distance it was made for.
+    shown_texture: Option<Handle<Image>>,
+    shown: HashSet<ChunkPos>,
+    shown_for: Option<(IVec2, i32)>,
     // ── For the Performance page ──
     pub quads: u64,
 }
@@ -360,8 +376,18 @@ impl DistantState {
     }
 }
 
-pub fn setup_distant(mut state: ResMut<DistantState>, mut materials: ResMut<Assets<DistantMaterial>>) {
-    state.material = Some(materials.add(DistantMaterial { settings: DistantShaderSettings::default() }));
+pub fn setup_distant(mut state: ResMut<DistantState>, mut materials: ResMut<Assets<DistantMaterial>>, mut images: ResMut<Assets<Image>>) {
+    let side = SHOWN_SIZE as u32;
+    let texture = Image::new_fill(
+        Extent3d { width: side, height: side, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        &[0],
+        TextureFormat::R8Unorm,
+        RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+    );
+    let shown = images.add(texture);
+    state.shown_texture = Some(shown.clone());
+    state.material = Some(materials.add(DistantMaterial { settings: DistantShaderSettings::default(), shown }));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -474,28 +500,85 @@ pub fn update_distant(
     }
 }
 
-/// Keeps the distant terrain's fog the same as the near terrain's, and its near edge at the
-/// full-detail chunks' edge.
+/// Keeps the distant terrain's fog the same as the near terrain's.
 pub fn update_distant_material(
     render: Res<RenderSettings>,
-    stream: Res<StreamSettings>,
-    distant: Res<DistantSettings>,
     clear: Res<ClearColor>,
     state: Res<DistantState>,
     mut materials: ResMut<Assets<DistantMaterial>>,
 ) {
     let Some(handle) = &state.material else { return };
-    if !render.is_changed() && !stream.is_changed() && !distant.is_changed() && !clear.is_changed() {
+    if !render.is_changed() && !clear.is_changed() {
         return;
     }
     if let Some(mut material) = materials.get_mut(handle) {
         let fog = clear.0.to_linear();
-        let near = (stream.radius as f32 * crate::world::CHUNK_SIZE as f32 - distant.overlap).max(0.0);
-        material.settings = DistantShaderSettings {
-            fog_color: Vec4::new(fog.red, fog.green, fog.blue, 1.0),
-            fog: Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, 0.0),
-            near: Vec4::new(near, 0.0, 0.0, 0.0),
-        };
+        material.settings.fog_color = Vec4::new(fog.red, fog.green, fog.blue, 1.0);
+        material.settings.fog = Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, 0.0);
+    }
+}
+
+/// Marks which real chunks are on screen, for the hand-off (see the module notes): chunks handed
+/// to the renderer whose sections have all been meshed once, within the render distance. A chunk
+/// being meshed again after an edit stays marked (its old mesh is still showing).
+#[allow(clippy::too_many_arguments)]
+pub fn update_shown_chunks(
+    streaming: Res<Streaming>,
+    world: Res<VoxelWorld>,
+    meshing: Res<MeshingState>,
+    render: Res<RenderSettings>,
+    camera: Query<&Transform, With<Camera3d>>,
+    mut state: ResMut<DistantState>,
+    mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<DistantMaterial>>,
+) {
+    let (Some(material), Some(texture)) = (state.material.clone(), state.shown_texture.clone()) else { return };
+    let Some(camera) = camera.iter().next() else { return };
+    let at = bevy_to_game(camera.translation);
+    let centre = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
+
+    // Chunks with sections not meshed yet.
+    let pending: HashSet<ChunkPos> =
+        world.dirty_sections().chain(meshing.waiting.iter()).chain(meshing.running.keys()).map(|key| key.chunk).collect();
+    let drawn = streaming.drawn();
+    let before = state.shown.len();
+    state.shown.retain(|pos| drawn.contains(pos));
+    let mut changed = state.shown.len() != before;
+    for &pos in drawn {
+        if !pending.contains(&pos) && state.shown.insert(pos) {
+            changed = true;
+        }
+    }
+    let now = (centre, render.render_distance_chunks);
+    if !changed && state.shown_for == Some(now) {
+        return;
+    }
+    state.shown_for = Some(now);
+
+    // A chunk is marked if it and all 8 chunks around it are on screen. So along the edge of the
+    // real chunks, distant terrain is drawn under them too, one chunk deep: where the real ground
+    // is a little lower than the distant ground beside it, no sliver of sky shows through the seam.
+    let half = SHOWN_SIZE / 2;
+    let limit = render.render_distance_chunks.min(half - 2);
+    let on_screen = |pos: ChunkPos| {
+        let offset = IVec2::new(pos.x, pos.y) - centre;
+        // The same square the render distance hides sections outside of.
+        offset.x.abs().max(offset.y.abs()) <= limit && state.shown.contains(&pos)
+    };
+    let mut pixels = vec![0u8; (SHOWN_SIZE * SHOWN_SIZE) as usize];
+    for &pos in &state.shown {
+        let around = (-1..=1).flat_map(|x| (-1..=1).map(move |y| ChunkPos::new(pos.x + x, pos.y + y)));
+        if around.into_iter().all(on_screen) {
+            let offset = IVec2::new(pos.x, pos.y) - centre;
+            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
+        }
+    }
+    if let Some(mut image) = images.get_mut(&texture) {
+        image.data = Some(pixels);
+    }
+    // Touching the material also makes sure it picks up the new texture.
+    if let Some(mut material) = materials.get_mut(&material) {
+        material.settings.shown_centre = Vec4::new(centre.x as f32, centre.y as f32, 0.0, 0.0);
     }
 }
 

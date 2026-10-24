@@ -54,6 +54,7 @@ impl Plugin for RenderPlugin {
                     meshing::collect_dirty_sections,
                     meshing::start_jobs,
                     meshing::finish_jobs,
+                    distant::update_shown_chunks,
                     apply_render_distance,
                     update_shader_settings,
                 )

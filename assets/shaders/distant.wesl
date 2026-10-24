@@ -2,8 +2,9 @@
 //
 // Each corner carries its position and a colour (the block's average colour, already shaded by
 // which way the face points). The fragment part:
-//   - draws nothing close to the camera, inside the circle where real chunks are drawn, so the
-//     two never overlap: the hand-off is a clean line that follows you;
+//   - draws nothing over a real chunk that's on screen (the `shown` texture marks them, one pixel
+//     per chunk), so the two never overlap, and where real chunks haven't loaded yet the distant
+//     terrain still shows: no holes when you fly fast;
 //   - fades into the sky colour with distance, exactly like the near terrain's fog.
 
 import bevy_pbr::render::mesh_functions::get_world_from_local;
@@ -14,11 +15,12 @@ struct DistantShaderSettings {
     fog_color: vec4<f32>,
     // x fog start, y fog end, z fog on, w unused
     fog: vec4<f32>,
-    // x = no distant terrain closer than this (blocks, measured across the ground)
-    near: vec4<f32>,
+    // xy = the chunk (game axes) at the middle of the `shown` texture
+    shown_centre: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> settings: DistantShaderSettings;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var shown: texture_2d<f32>;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -44,9 +46,11 @@ fn vertex(in: Vertex) -> VertexOutput {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Across the ground only (Bevy's x and z): flying high doesn't change where the hand-off is.
-    let across = in.world_position.xz - view.world_position.xz;
-    if length(across) < settings.near.x {
+    // Which chunk this is in (game x = -Bevy z, game y = Bevy x), and so which pixel of `shown`.
+    let block = vec2<f32>(-in.world_position.z, in.world_position.x);
+    let size = vec2<i32>(textureDimensions(shown));
+    let pixel = vec2<i32>(floor(block / 32.0)) - vec2<i32>(settings.shown_centre.xy) + size / 2;
+    if all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > 0.5 {
         discard;
     }
     var colour = in.colour.rgb;
