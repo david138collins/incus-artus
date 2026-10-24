@@ -71,7 +71,8 @@ pub fn preset_bar<T: Serialize + DeserializeOwned>(ui: &mut egui::Ui, category: 
     let mut name: String = ui.data(|data| data.get_temp(id)).unwrap_or_default();
     let mut status: Option<String> = ui.data(|data| data.get_temp(status_id));
 
-    ui.horizontal(|ui| {
+    // Wraps onto a second line in a narrow panel, rather than forcing the panel wider.
+    ui.horizontal_wrapped(|ui| {
         ui.label("Preset:");
         ui.add(egui::TextEdit::singleline(&mut name).desired_width(110.0).hint_text("name"));
         let clean = clean_name(&name);

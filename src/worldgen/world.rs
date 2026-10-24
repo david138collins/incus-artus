@@ -28,7 +28,9 @@ use super::runner::{Finished, Job, Poll};
 use super::rags::{RagSettings, Sim, Spot};
 use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
 use super::view::{MAGENTA, PINK, compass, seed_row};
+use crate::debug::preset_bar;
 use bevy_egui::egui::{self, Color32, Pos2, Vec2};
+use serde::{Deserialize, Serialize};
 
 /// Ocean inside the world (deep), shallow water, and the dark past its edge.
 const OCEAN: [u8; 3] = [18, 38, 82];
@@ -110,6 +112,10 @@ pub struct WorldGen {
     pub show_bowl: bool,
     /// For automatic testing: start the simulation as soon as the plates are made.
     pub start_when_ready: bool,
+    /// Your own settings, kept aside while an A/B button shows the defaults instead.
+    ab_plates: Option<PlateSettings>,
+    ab_tectonics: Option<(MotionSettings, RagSettings)>,
+    ab_heights: Option<HeightSettings>,
 
     result: Option<Finished<Plates>>,
     job: Option<Job<Plates>>,
@@ -156,6 +162,9 @@ impl Default for WorldGen {
             shading_smoothness: 3,
             show_bowl: true,
             start_when_ready: false,
+            ab_plates: None,
+            ab_tectonics: None,
+            ab_heights: None,
             result: None,
             job: None,
             seen: None,
@@ -422,7 +431,120 @@ fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
 }
 
+/// Everything on World Gen's left-hand panel except the seed, saved and loaded as one preset. (A
+/// preset is a recipe: it works with any seed.)
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+struct WorldGenPreset {
+    plates: PlateSettings,
+    motion: MotionSettings,
+    rock: RagSettings,
+    heights: HeightSettings,
+    show: Show,
+}
+
+/// The display choices on the left-hand panel (they only change the look).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+struct Show {
+    cells: bool,
+    vertices: bool,
+    lines: bool,
+    arrows: bool,
+    boundaries: bool,
+    bowl: bool,
+    arrow_steps: f32,
+    thickness_as_white: f32,
+    shading_smoothness: u32,
+}
+
+impl Default for Show {
+    fn default() -> Self {
+        let world = WorldGen::default();
+        world.show()
+    }
+}
+
+impl WorldGen {
+    fn show(&self) -> Show {
+        Show {
+            cells: self.show_cells,
+            vertices: self.show_vertices,
+            lines: self.show_lines,
+            arrows: self.show_arrows,
+            boundaries: self.show_boundaries,
+            bowl: self.show_bowl,
+            arrow_steps: self.arrow_steps,
+            thickness_as_white: self.height_shown,
+            shading_smoothness: self.shading_smoothness,
+        }
+    }
+
+    fn preset(&self) -> WorldGenPreset {
+        WorldGenPreset {
+            plates: self.plates.clone(),
+            motion: self.motion.clone(),
+            rock: self.sim_settings.clone(),
+            heights: self.heights.clone(),
+            show: self.show(),
+        }
+    }
+
+    fn use_preset(&mut self, preset: WorldGenPreset) {
+        let show = preset.show;
+        (self.plates, self.motion, self.sim_settings, self.heights) = (preset.plates, preset.motion, preset.rock, preset.heights);
+        (self.show_cells, self.show_vertices, self.show_lines, self.show_arrows, self.show_boundaries, self.show_bowl) =
+            (show.cells, show.vertices, show.lines, show.arrows, show.boundaries, show.bowl);
+        (self.arrow_steps, self.height_shown, self.shading_smoothness) = (show.arrow_steps, show.thickness_as_white, show.shading_smoothness);
+        // Anything being compared with the defaults is now replaced by the preset.
+        (self.ab_plates, self.ab_tectonics, self.ab_heights) = (None, None, None);
+    }
+}
+
+/// "Back to defaults", and an A/B button beside it that swaps between the defaults and your own
+/// settings: the first press keeps yours aside and shows the defaults, the next puts yours back.
+fn defaults_row<T: Default + Clone>(ui: &mut egui::Ui, what: &str, value: &mut T, kept: &mut Option<T>) {
+    ui.horizontal_wrapped(|ui| {
+        if ui.button(format!("{what} back to defaults")).clicked() {
+            *value = T::default();
+            *kept = None;
+        }
+        let comparing = kept.is_some();
+        let label = if comparing { "A/B: back to mine" } else { "A/B: try the defaults" };
+        if ui
+            .selectable_label(comparing, label)
+            .on_hover_text(
+                "Flip between the defaults and your own settings, to see which differences matter.\n\
+                 While the defaults are showing, changes you make to them are thrown away when you flip back.",
+            )
+            .clicked()
+        {
+            match kept.take() {
+                Some(mine) => *value = mine,
+                None => *kept = Some(std::mem::replace(value, T::default())),
+            }
+        }
+    });
+    if kept.is_some() {
+        ui.colored_label(PINK, format!("Showing the default {}: press A/B again for yours.", what.to_lowercase()));
+    }
+}
+
 fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
+    ui.heading("Presets");
+    ui.small(
+        "Save everything on this panel (plates, tectonics, rock, heights and what's shown) as one preset. \
+         The seed isn't saved with it, so a preset is a recipe that works with any seed.",
+    );
+    let mut preset = world.preset();
+    let before = preset.clone();
+    preset_bar(ui, "worldgen", &mut preset);
+    if preset != before {
+        world.use_preset(preset);
+    }
+
+    ui.add_space(6.0);
+    ui.separator();
     ui.heading("World");
     ui.small("The world is the circle. The square around it is only there because pictures are square.");
     seed_row(ui, u32::MAX, &mut world.seed, &mut world.seed_text);
@@ -469,9 +591,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.checkbox(&mut world.show_vertices, "the vertices (yellow dots)");
     ui.checkbox(&mut world.show_lines, "the straight lines, before wobbling");
     ui.add_space(6.0);
-    if ui.button("Plate settings back to defaults").clicked() {
-        world.plates = PlateSettings::default();
-    }
+    defaults_row(ui, "Plate settings", &mut world.plates, &mut world.ab_plates);
 
     ui.add_space(6.0);
     ui.separator();
@@ -564,10 +684,10 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
 
     ui.add_space(6.0);
-    if ui.button("Tectonics settings back to defaults").clicked() {
-        world.motion = MotionSettings::default();
-        world.sim_settings = RagSettings::default();
-    }
+    // Motion and rock together, as one section.
+    let mut tectonics = (world.motion.clone(), world.sim_settings.clone());
+    defaults_row(ui, "Tectonics settings", &mut tectonics, &mut world.ab_tectonics);
+    (world.motion, world.sim_settings) = tectonics;
 
     ui.add_space(6.0);
     ui.separator();
@@ -603,9 +723,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     );
     ui.add(egui::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
     ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
-    if ui.button("Height settings back to defaults").clicked() {
-        world.heights = HeightSettings::default();
-    }
+    defaults_row(ui, "Height settings", &mut world.heights, &mut world.ab_heights);
 }
 
 /// One line mutator's controls.
@@ -948,5 +1066,43 @@ fn spin_arrow(painter: &egui::Painter, to_screen: &impl Fn((f32, f32)) -> Pos2, 
     outlined(painter, points, 1.5);
     for stroke in arrowhead(tip, tip - before) {
         outlined(painter, stroke, 1.5);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_world_gen_preset_survives_being_written_and_read() {
+        let mut world = WorldGen::default();
+        world.plates.plates = 4;
+        world.plates.rough.style = LineStyle::Perlin;
+        world.motion.inward = 0.9;
+        world.sim_settings.passes = 7;
+        world.heights.water = -0.25;
+        world.shading_smoothness = 9;
+        let text = toml::to_string_pretty(&world.preset()).unwrap();
+        let back: WorldGenPreset = toml::from_str(&text).unwrap();
+        assert_eq!(back, world.preset());
+    }
+
+    #[test]
+    fn using_a_preset_changes_the_settings_and_ends_any_comparison() {
+        let mut world = WorldGen::default();
+        let mut preset = world.preset();
+        preset.heights.water = 0.4;
+        preset.show.arrows = false;
+        world.ab_heights = Some(HeightSettings::default());
+        world.use_preset(preset.clone());
+        assert_eq!(world.preset(), preset);
+        assert!(world.ab_heights.is_none());
+    }
+
+    #[test]
+    fn an_old_preset_missing_settings_still_loads() {
+        let back: WorldGenPreset = toml::from_str("[heights]\nwater = 0.3\n").unwrap();
+        assert_eq!(back.heights.water, 0.3);
+        assert_eq!(back.plates, PlateSettings::default());
     }
 }
