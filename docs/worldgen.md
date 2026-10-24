@@ -41,7 +41,16 @@ the player, the circle is the boundary (the ice wall is past it; few players wil
 - **Defaults:** 7 plates covering 30% of the world's circle (David: "for now, just make sure we can vary it").
   Both are sliders, and the number of points scattered follows from them. The readout shows the coverage that
   actually came out, and each plate's share.
+- **Wobbly edges** [David, 2026-10-23, BUILT]:
+  - the vertices (where three cells meet) are found from the pixel map and made exact;
+  - each edge between two vertices is pushed sideways (perpendicular to it) by Perlin noise running along it;
+  - the push fades to nothing at the vertices, so the corners stay put;
+  - sliders: wobble (blocks), wobble size, octaves, roughness;
+  - the vertices and the straight lines can be shown over the picture.
+
+  This only reshapes the plates. Behaviours come after.
 - **Next steps, one tool at a time:**
+  - random properties and behaviours for the plates;
   - plates get heights;
   - they move and collide (mountains);
   - a water level;

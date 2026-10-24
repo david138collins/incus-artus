@@ -28,6 +28,7 @@ use bevy_egui::egui::{self, Color32, Vec2};
 /// Ocean inside the world, and the dark past its edge.
 const OCEAN: [u8; 3] = [18, 38, 82];
 const BEYOND: [u8; 3] = [10, 10, 14];
+const VERTEX: Color32 = Color32::from_rgb(255, 220, 60);
 
 pub struct WorldGen {
     /// The world seed. Each step takes its own seed from it.
@@ -35,6 +36,9 @@ pub struct WorldGen {
     pub plates: PlateSettings,
     /// Show the deleted cells faintly in the ocean.
     pub show_cells: bool,
+    /// Draw the vertices, and the straight edges as they were before wobbling, over the picture.
+    pub show_vertices: bool,
+    pub show_lines: bool,
 
     result: Option<Finished<Plates>>,
     job: Option<Job<Plates>>,
@@ -55,6 +59,8 @@ impl Default for WorldGen {
             seed: crate::fate::derive_seed(super::fresh_number(), "world seed"),
             plates: PlateSettings::default(),
             show_cells: true,
+            show_vertices: true,
+            show_lines: false,
             result: None,
             job: None,
             seen: None,
@@ -172,7 +178,30 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         "Each round moves every point to the middle of its cell, then splits again.\n0 = as scattered (very uneven). More = rounder, more even plates.",
     );
     ui.small(format!("{} points scattered over the field.", plates.points()));
-    ui.checkbox(&mut world.show_cells, "show the deleted cells faintly in the ocean");
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Wobbly edges");
+    ui.small(
+        "Each line between two cells is pushed sideways by Perlin noise running along it. The push fades \
+         to nothing at the vertices (where three cells meet), so the corners stay put and the lines still meet.",
+    );
+    ui.add(egui::Slider::new(&mut plates.wobble, 0.0..=10_000.0).text("wobble (blocks)"))
+        .on_hover_text("How far a line may be pushed sideways. 0 = straight lines.\nVery big wobbles get cut off where they run into other lines.");
+    ui.add(egui::Slider::new(&mut plates.wobble_size, 300.0..=40_000.0).logarithmic(true).text("wobble size (blocks)"))
+        .on_hover_text("How long the biggest wobbles are, along the line.");
+    ui.add(egui::Slider::new(&mut plates.wobble_octaves, 1..=8).text("octaves"))
+        .on_hover_text("Finer, fainter wobbles stacked on the big ones.");
+    ui.add(egui::Slider::new(&mut plates.wobble_roughness, 0.0..=1.0).text("roughness"))
+        .on_hover_text("How strong each finer wobble is compared with the one before.\nHigher = more jagged coastlines.");
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Show");
+    ui.checkbox(&mut world.show_cells, "the deleted cells, faintly in the ocean");
+    ui.checkbox(&mut world.show_vertices, "the vertices (yellow dots)");
+    ui.checkbox(&mut world.show_lines, "the straight lines, before wobbling");
+    ui.add_space(6.0);
     if ui.button("Plate settings back to defaults").clicked() {
         world.plates = PlateSettings::default();
     }
@@ -209,6 +238,7 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
     ui.heading("The plates");
     ui.label(format!("cover {:.1}% of the world (aiming for {:.0}%)", made.coverage * 100.0, world.plates.coverage * 100.0));
     ui.label(format!("{} cells, {} reached past the edge and were deleted", made.cells, made.past_the_edge));
+    ui.label(format!("{} vertices, {} lines between them", made.vertices.len(), made.edges.len()));
     if made.kept.len() < world.plates.plates as usize {
         ui.colored_label(PINK, format!("Only {} cells fit inside the world. Fewer plates, or less coverage?", made.kept.len()));
     }
@@ -270,6 +300,17 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         painter.rect_stroke(field, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Outside);
         // The edge of the world.
         painter.circle_stroke(field.center(), field.width() / 2.0, egui::Stroke::new(1.0, MAGENTA));
+    }
+    let to_screen = |(x, y): (f32, f32)| world.camera.to_screen(rect, Vec2::new(x, y));
+    if world.show_lines {
+        for edge in &made.edges {
+            painter.line_segment([to_screen(edge.from), to_screen(edge.to)], egui::Stroke::new(1.0, Color32::from_white_alpha(140)));
+        }
+    }
+    if world.show_vertices {
+        for vertex in &made.vertices {
+            painter.circle_filled(to_screen(vertex.at), 2.5, VERTEX);
+        }
     }
     world.camera.outline(&painter, rect, world.hover, MAGENTA);
     painter.text(
