@@ -141,9 +141,10 @@ impl Default for Suite {
         // For automatic testing: `INCUS_SELFTEST_SUITE=<a PNG>` starts with a Perlin layer and that
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
         // Worley layer instead.
-        // `=world` opens World Gen.
-        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world") {
+        // `=world` opens World Gen; `=world-run` also starts the tectonics simulation.
+        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;
+            suite.world.start_when_ready = std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world-run");
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "worley") {
             suite.add_worley();
         } else if let Ok(path) = std::env::var("INCUS_SELFTEST_SUITE") {

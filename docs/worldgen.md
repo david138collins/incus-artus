@@ -86,6 +86,13 @@ pushed down **darker**.
   1. ocean ring and plate properties (direction, speed, spin as arrows; boundaries coloured by what *would*
      happen: red colliding, blue pulling apart, green sliding). Nothing moves yet;
   2. rigid motion: Start / Pause / Step / Reset, the bowl, collisions and friction turning the plates;
+     **[BUILT 2026-10-24]** Each step: lay every plate's pixels on the map; where two overlap, push back,
+     give (soak up the meeting speed) and friction act at the middle of the overlap (friction off-centre
+     turns the plates); the bowl pushes back any part past its start; drag slows everything; it stops
+     when nothing moves a block per step. Crude height: overlapping ground on both plates rises with
+     closing speed, and rides with the plate. Every setting is a slider and can change mid-run (Reset
+     replays). Watching speed is steps per second only; a frame never spends more than 12 ms stepping,
+     so heavy runs play slower but give the same result;
   3. rags: springs, irregular stiffness, height from squeezing, fold ridges;
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map.

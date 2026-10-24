@@ -24,7 +24,7 @@ use super::canvas::Camera;
 use super::palette::from_hsl;
 use super::plates::{self, LineNoise, LineStyle, PlateSettings, Plates};
 use super::runner::{Finished, Job, Poll};
-use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
+use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings, Sim, SimSettings};
 use super::view::{MAGENTA, PINK, compass, seed_row};
 use bevy_egui::egui::{self, Color32, Pos2, Vec2};
 
@@ -60,6 +60,23 @@ pub struct WorldGen {
     motions_for: Option<(u64, u64, MotionSettings)>,
     motions_version: u64,
 
+    /// The simulation: made when Start or Step is first pressed, thrown away by Reset or by any
+    /// change to the plates or their motion.
+    pub sim_settings: SimSettings,
+    sim: Option<Sim>,
+    running: bool,
+    /// How fast to watch it. Only changes how many steps are taken each second, never the result.
+    pub steps_per_second: f32,
+    /// Steps owed since the last frame (part steps carry over).
+    owed: f32,
+    /// The simulation as last painted: the plate and ground height on each pixel.
+    moved: Vec<Option<(u8, f32)>>,
+    /// How bright the most raised ground shows (a height of this = white).
+    pub height_shown: f32,
+    pub show_bowl: bool,
+    /// For automatic testing: start the simulation as soon as the plates are made.
+    pub start_when_ready: bool,
+
     result: Option<Finished<Plates>>,
     job: Option<Job<Plates>>,
     seen: Option<(f32, f32, u64, PlateSettings)>,
@@ -68,7 +85,7 @@ pub struct WorldGen {
 
     camera: Camera,
     texture: Option<egui::TextureHandle>,
-    painted_for: Option<(u64, bool, u64, bool)>,
+    painted_for: Option<(u64, bool, u64, bool, Option<u64>, u32)>,
     hover: Option<(usize, usize)>,
     seed_text: String,
 }
@@ -89,6 +106,15 @@ impl Default for WorldGen {
             contacts: Vec::new(),
             motions_for: None,
             motions_version: 0,
+            sim_settings: SimSettings::default(),
+            sim: None,
+            running: false,
+            steps_per_second: 60.0,
+            owed: 0.0,
+            moved: Vec::new(),
+            height_shown: 1.0,
+            show_bowl: true,
+            start_when_ready: false,
             result: None,
             job: None,
             seen: None,
@@ -130,12 +156,83 @@ impl WorldGen {
         self.contacts = tectonics::boundaries(&result.made, &self.motions);
         self.motions_for = Some(now);
         self.motions_version += 1;
+        // New plates or new motions: the old run no longer applies.
+        self.reset();
+    }
+
+    /// Back to the start: the plates where they were made, with their starting motion.
+    fn reset(&mut self) {
+        self.sim = None;
+        self.running = false;
+        self.owed = 0.0;
+    }
+
+    /// The simulation, made from the plates and their motions if it isn't yet.
+    fn sim(&mut self) -> Option<&mut Sim> {
+        if self.sim.is_none() {
+            let result = self.result.as_ref()?;
+            self.sim = Some(Sim::new(&result.made, &self.motions));
+        }
+        self.sim.as_mut()
+    }
+
+    /// Whether the simulation has moved anything yet (if not, the plates show as made).
+    fn has_moved(&self) -> bool {
+        self.sim.as_ref().is_some_and(|sim| sim.steps > 0)
+    }
+
+    /// How plate `p` is moving: now, if the simulation has started, or its starting push.
+    fn motion_of(&self, p: usize) -> Option<Motion> {
+        match &self.sim {
+            Some(sim) => Some(sim.motion(p)),
+            None => self.motions.get(p).copied(),
+        }
+    }
+
+    /// Where plate `p`'s middle is now, in field pixels.
+    fn middle_of(&self, p: usize, made: &Plates) -> (f32, f32) {
+        self.sim.as_ref().map_or(made.kept[p].middle, |sim| sim.middle(p))
+    }
+
+    /// Takes the steps owed for the time that passed, at the chosen speed. Stops when everything
+    /// has coasted to a stop. Never spends more than a little time per frame, so the screen stays
+    /// smooth (if it can't keep up, it just plays slower; the result is the same).
+    fn run(&mut self, seconds: f32) {
+        if !self.running {
+            return;
+        }
+        self.owed += seconds * self.steps_per_second;
+        let started = std::time::Instant::now();
+        let settings = self.sim_settings.clone();
+        let mut owed = self.owed;
+        let Some(sim) = self.sim() else { return };
+        let mut settled = false;
+        while owed >= 1.0 {
+            sim.step(&settings);
+            owed -= 1.0;
+            if sim.settled {
+                settled = true;
+                break;
+            }
+            if started.elapsed().as_secs_f32() > 0.012 {
+                owed = owed.min(1.0);
+                break;
+            }
+        }
+        self.owed = owed;
+        if settled {
+            self.running = false;
+        }
     }
 
     /// Notices changes, collects finished work, and starts the next when wanted (as layers do).
     pub fn drive(&mut self, size_blocks: f32, blocks_per_pixel: f32) {
         self.drive_plates(size_blocks, blocks_per_pixel);
         self.update_motions();
+        if self.start_when_ready && self.result.is_some() {
+            self.start_when_ready = false;
+            self.running = self.sim().is_some();
+        }
     }
 
     fn drive_plates(&mut self, size_blocks: f32, blocks_per_pixel: f32) {
@@ -214,8 +311,14 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
             if let Some(result) = &world.result {
                 ui.small(format!("made in {:.0} ms", result.millis));
             }
+            ui.separator();
+            playback(ui, world);
         });
     });
+    world.run(root.input(|input| input.stable_dt).min(0.1));
+    if world.running {
+        root.ctx().request_repaint();
+    }
     egui::Panel::left("world gen settings").resizable(true).default_size(340.0).size_range(220.0..=900.0).show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| settings(ui, world));
     });
@@ -223,6 +326,33 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, world, blocks));
     });
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, world));
+}
+
+/// Start / Pause, Step, Reset, the step count and the watching speed.
+fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
+    ui.strong("Tectonics:");
+    let label = if world.running { "Pause" } else if world.has_moved() { "Carry on" } else { "Start" };
+    if ui.button(label).on_hover_text("Run the plates: each coasts on its starting push until drag stops it.").clicked() {
+        world.running = !world.running && world.sim().is_some();
+    }
+    if ui.button("Step").on_hover_text("One step, then pause.").clicked() {
+        world.running = false;
+        let settings = world.sim_settings.clone();
+        if let Some(sim) = world.sim() {
+            sim.step(&settings);
+        }
+    }
+    if ui.add_enabled(world.sim.is_some(), egui::Button::new("Reset")).on_hover_text("Back to the plates as made, with their starting push.").clicked() {
+        world.reset();
+    }
+    match &world.sim {
+        Some(sim) if sim.settled => ui.label(format!("step {}: everything has coasted to a stop", sim.steps)),
+        Some(sim) => ui.label(format!("step {}", sim.steps)),
+        None => ui.label("not started"),
+    };
+    ui.add(egui::Slider::new(&mut world.steps_per_second, 1.0..=2_000.0).logarithmic(true).text("steps per second")).on_hover_text(
+        "How fast to watch. It only changes how many steps are taken each second:\nthe steps themselves, and so the result, are always the same.",
+    );
 }
 
 fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
@@ -306,9 +436,49 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.checkbox(&mut world.show_boundaries, "boundaries: red colliding, blue pulling apart, green sliding").on_hover_text(
         "Where two plates touch, how they move against each other there.\nMost boundaries do a bit of everything; each spot shows what it does most.\nPlates against empty ocean aren't boundaries.",
     );
+
+    ui.add_space(6.0);
+    ui.strong("The simulation");
+    ui.small(
+        "Start it in the bar along the top. Plates coast on their starting push, collide, grip and turn \
+         each other, and slow down. These can be changed while it runs; Reset replays from the start.",
+    );
+    let sim = &mut world.sim_settings;
+    ui.add(egui::Slider::new(&mut sim.drag, 0.0001..=0.1).logarithmic(true).text("drag")).on_hover_text(
+        "How much speed and spin every plate loses each step. 0.01 = 1%.\nLower = they coast for longer.",
+    );
+    ui.add(egui::Slider::new(&mut sim.push, 0.0..=500.0).text("push back")).on_hover_text(
+        "How hard overlapping plates are shoved apart.\nLow = they crush deep into each other. High = they hardly overlap.",
+    );
+    ui.add(egui::Slider::new(&mut sim.give, 0.0..=200.0).text("give")).on_hover_text(
+        "How quickly the speed two plates meet with is soaked up.\nLow = they bounce off. High = they stop dead and stay together.",
+    );
+    ui.add(egui::Slider::new(&mut sim.friction, 0.0..=200.0).text("friction")).on_hover_text(
+        "How strongly plates sliding past each other grip and drag one another.\nThe drag acts at the boundary, off to one side of each plate's middle, so it turns them.",
+    );
+    ui.add(egui::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean plates' weight ×"))
+        .on_hover_text("How heavy ocean plates are for their size, compared with land plates.\nLight ones get shoved aside; heavy ones shove.");
+    let mut bowl_percent = sim.bowl_start * 100.0;
+    if ui
+        .add(egui::Slider::new(&mut bowl_percent, 0.0..=99.0).suffix("%").text("bowl starts at"))
+        .on_hover_text("The bowl keeps the plates from straying far from the middle (like a Beyblade arena).\nPast this share of the world's radius, the ground slopes up and pushes them back inward.")
+        .changed()
+    {
+        sim.bowl_start = bowl_percent / 100.0;
+    }
+    ui.add(egui::Slider::new(&mut sim.bowl, 0.0..=50.0).text("bowl steepness"))
+        .on_hover_text("How hard the bowl pushes back. The further out a plate goes, the harder.");
+    ui.add(egui::Slider::new(&mut sim.uplift, 0.0..=5.0).text("uplift")).on_hover_text(
+        "How much the ground rises where plates crush into each other (more when they meet faster).\nCrude for now: the real squeezing comes with the rags.",
+    );
+    ui.add(egui::Slider::new(&mut world.height_shown, 0.05..=10.0).logarithmic(true).text("height shown as white"))
+        .on_hover_text("Only changes the look: raised ground this high shows white, lower ground in between.");
+    ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
+
     ui.add_space(6.0);
     if ui.button("Tectonics settings back to defaults").clicked() {
         world.motion = MotionSettings::default();
+        world.sim_settings = SimSettings::default();
     }
 }
 
@@ -366,12 +536,26 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
             ui.label(format!("Pixel {col}, {row}"));
             ui.label(format!("{}, {}", compass(north, "N", "S"), compass(east, "E", "W")));
             ui.label(if made.inside[i] { "inside the world" } else { "past the edge of the world" });
-            ui.label(format!("cell {}", made.cell[i]));
-            match made.plate[i] {
-                Some(p) => ui.label(plate_name(made, p as usize)),
-                None => ui.label("no plate (empty ocean)"),
-            };
-            if let Some(Some(contact)) = world.contacts.get(i) {
+            if world.has_moved() {
+                match world.moved.get(i).copied().flatten() {
+                    Some((p, height)) => {
+                        ui.label(plate_name(made, p as usize));
+                        ui.label(format!("ground raised {height:.2}"));
+                    }
+                    None => {
+                        ui.label("no plate (empty ocean)");
+                    }
+                }
+            } else {
+                ui.label(format!("cell {}", made.cell[i]));
+                match made.plate[i] {
+                    Some(p) => ui.label(plate_name(made, p as usize)),
+                    None => ui.label("no plate (empty ocean)"),
+                };
+            }
+            if !world.has_moved()
+                && let Some(Some(contact)) = world.contacts.get(i)
+            {
                 let what = match contact.kind {
                     Boundary::Colliding => "colliding",
                     Boundary::PullingApart => "pulling apart",
@@ -432,7 +616,7 @@ fn plate_card(ui: &mut egui::Ui, world: &WorldGen, made: &Plates, p: usize, bloc
             });
             ui.small(format!("{:.1}% of the world", plate.share * 100.0));
             ui.small(format!("{} across", compass((plate.pixels as f32).sqrt() * blocks_per_pixel, "", "").trim()));
-            if let Some(motion) = world.motions.get(p) {
+            if let Some(motion) = world.motion_of(p) {
                 ui.small(format!("speed {:.0}", motion.speed()));
                 ui.small(format!("heading {:.0}° {}", motion.heading(), bearing(motion.heading())));
                 ui.small(format!("spin {:.2}°", motion.spin.abs().to_degrees()));
@@ -460,26 +644,52 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
     let made = &result.made;
     let width = made.width;
 
-    // Repaint only when the plates or the look changed.
-    let wanted = (world.version, world.show_cells, world.motions_version, world.show_boundaries);
+    // Repaint only when the plates, the simulation or the look changed.
+    let moved = world.has_moved();
+    let sim_steps = world.sim.as_ref().filter(|_| moved).map(|sim| sim.steps);
+    let wanted = (world.version, world.show_cells, world.motions_version, world.show_boundaries, sim_steps, world.height_shown.to_bits());
     if world.painted_for != Some(wanted) || world.texture.is_none() {
-        let mut pixels: Vec<Color32> = (0..width * width)
-            .map(|i| {
-                let boundary = world.show_boundaries.then(|| world.contacts.get(i).copied().flatten()).flatten();
-                colour32(match (made.inside[i], made.plate[i], boundary) {
-                    (false, _, _) => BEYOND,
-                    (true, _, Some(contact)) => boundary_colour(contact.kind),
-                    (true, Some(p), None) => plate_colour(p as usize, made.kept[p as usize].land),
-                    (true, None, _) if world.show_cells => cell_shade(made.cell[i]),
-                    (true, None, _) => OCEAN,
+        let ocean = |i: usize| match (made.inside[i], world.show_cells) {
+            (false, _) => BEYOND,
+            (true, true) => cell_shade(made.cell[i]),
+            (true, false) => OCEAN,
+        };
+        let mut pixels: Vec<Color32>;
+        if let Some(sim) = world.sim.as_ref().filter(|_| moved) {
+            // The plates where they are now, raised ground lightened toward white.
+            world.moved = sim.paint();
+            pixels = world
+                .moved
+                .iter()
+                .enumerate()
+                .map(|(i, here)| {
+                    colour32(match *here {
+                        Some((p, height)) => {
+                            let base = plate_colour(p as usize, made.kept[p as usize].land);
+                            let lift = (height / world.height_shown).clamp(0.0, 1.0);
+                            base.map(|c| (c as f32 + (255.0 - c as f32) * lift) as u8)
+                        }
+                        None => ocean(i),
+                    })
                 })
-            })
-            .collect();
-        // Each plate's middle as a white pixel.
-        for plate in &made.kept {
-            let (col, row) = (plate.middle.0 as usize, plate.middle.1 as usize);
-            if col < width && row < width {
-                pixels[row * width + col] = Color32::WHITE;
+                .collect();
+        } else {
+            pixels = (0..width * width)
+                .map(|i| {
+                    let boundary = world.show_boundaries.then(|| world.contacts.get(i).copied().flatten()).flatten();
+                    colour32(match (made.inside[i], made.plate[i], boundary) {
+                        (true, _, Some(contact)) => boundary_colour(contact.kind),
+                        (true, Some(p), None) => plate_colour(p as usize, made.kept[p as usize].land),
+                        _ => ocean(i),
+                    })
+                })
+                .collect();
+            // Each plate's middle as a white pixel.
+            for plate in &made.kept {
+                let (col, row) = (plate.middle.0 as usize, plate.middle.1 as usize);
+                if col < width && row < width {
+                    pixels[row * width + col] = Color32::WHITE;
+                }
             }
         }
         let image = egui::ColorImage::new([width, width], pixels);
@@ -495,27 +705,33 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         let field = world.camera.field_rect(rect, (width, width));
         painter.image(texture.id(), field, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
         painter.rect_stroke(field, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Outside);
-        // The edge of the world.
+        // The edge of the world, and where the bowl starts.
         painter.circle_stroke(field.center(), field.width() / 2.0, egui::Stroke::new(1.0, MAGENTA));
+        if world.show_bowl {
+            let bowl = field.width() / 2.0 * world.sim_settings.bowl_start;
+            painter.circle_stroke(field.center(), bowl, egui::Stroke::new(1.0, Color32::from_white_alpha(50)));
+        }
     }
     let to_screen = |(x, y): (f32, f32)| world.camera.to_screen(rect, Vec2::new(x, y));
-    if world.show_lines {
+    // The lines and vertices are where the plates were made: hidden once they move.
+    if world.show_lines && !moved {
         for edge in &made.edges {
             painter.line_segment([to_screen(edge.from), to_screen(edge.to)], egui::Stroke::new(1.0, Color32::from_white_alpha(140)));
         }
     }
-    if world.show_vertices {
+    if world.show_vertices && !moved {
         for vertex in &made.vertices {
             painter.circle_filled(to_screen(vertex.at), 2.5, VERTEX);
         }
     }
     if world.show_arrows {
-        for (plate, motion) in made.kept.iter().zip(&world.motions) {
-            heading_arrow(&painter, &to_screen, plate.middle, motion, world.arrow_steps, made.blocks_per_pixel);
-            // The curve shows spin compared with the fastest allowed: that would be three
-            // quarters of a circle. (Real turns are too small to see.)
-            let fastest = world.motion.spin.to_radians().max(1e-6);
-            spin_arrow(&painter, &to_screen, plate.middle, (plate.pixels as f32).sqrt() * 0.25, motion.spin / fastest * 1.5 * std::f32::consts::PI);
+        // The curve shows spin compared with the fastest allowed at the start: that would be three
+        // quarters of a circle. (Real turns are too small to see.)
+        let fastest = world.motion.spin.to_radians().max(1e-6);
+        for (p, plate) in made.kept.iter().enumerate() {
+            let (Some(motion), middle) = (world.motion_of(p), world.middle_of(p, made)) else { continue };
+            heading_arrow(&painter, &to_screen, middle, &motion, world.arrow_steps, made.blocks_per_pixel);
+            spin_arrow(&painter, &to_screen, middle, (plate.pixels as f32).sqrt() * 0.25, motion.spin / fastest * 1.5 * std::f32::consts::PI);
         }
     }
     world.camera.outline(&painter, rect, world.hover, MAGENTA);
