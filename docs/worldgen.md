@@ -197,6 +197,14 @@ a separate later system.)
   flights (speed up to thousands of blocks a second, above the world's top).
 - **The test cylinder stays** for experiments with specific systems, with the test settlement and
   villagers. Generated worlds have no settlement for now.
+- **Step 1 [BUILT 2026-10-24]**: 797 chunks around the middle in 45 ms, 244 FPS.
+- **Streaming decisions** [David, 2026-10-24]: at least **32 chunks of full-detail gameplay** around the
+  player (a city seen in the iso camera may span that); shoot high, dial back when a problem shows.
+  Every trick in the book, but keep the code understandable. Chunks left behind are dropped (changed
+  ones kept and saved). Nearest and **ahead first**: anything that can wait a second or two, waits, so
+  work spreads out instead of spiking. **240 FPS isn't holy**: build a way to see when we run out of
+  rope (a performance budget readout), so the art and design can be planned around a real limit;
+  for now, just see how it runs. Observer flight **keeps collision**.
 - **Order:** (1) the column generator, world from a compiled bake, the button, spawn; (2) streaming
   chunks around you in the background; (3) LOD rings and the observer camera; (4) walk and fly it, then
   decide what the compiler needs.
