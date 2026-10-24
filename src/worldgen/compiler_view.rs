@@ -52,6 +52,9 @@ pub struct Compiler {
     keep_settings: bool,
     /// The name to keep the scratch world under.
     keep_name: String,
+    /// A picture waiting to be sent to the Graphics Kit as a layer (name, picture, blocks per
+    /// pixel).
+    send: Option<(String, Picture, f32)>,
     camera: Camera,
     texture: Option<egui::TextureHandle>,
     painted_for: Option<(u64, u32)>,
@@ -75,6 +78,7 @@ impl Default for Compiler {
             ez: None,
             keep_settings: false,
             keep_name: String::new(),
+            send: None,
             camera: Camera::default(),
             texture: None,
             painted_for: None,
@@ -345,8 +349,8 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     egui::Panel::right("world compiler readouts").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, compiler));
     });
-    let mut send = None;
-    egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler, &mut send));
+    let send = compiler.send.take();
+    egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler));
 
     // EZ-Bake: the Tectonic Sim's world (a new one for Shift + Space) baked and read in here.
     if (new_world || same_world) && suite.compiler.ez.is_none() {
@@ -462,6 +466,36 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
             Err(error) => format!("Couldn't save: {error}"),
         };
     }
+    if ui
+        .button("Send elevation to the Graphics Kit")
+        .on_hover_text(
+            "The finished height map, as compiled with these settings, as a grey picture layer in the Graphics Kit:\n\
+             black = Z 0, white = Z 399 (sea level Z 128 is a dark mid-grey).",
+        )
+        .clicked()
+    {
+        compiler.send = Some(("elevation".to_string(), elevation_picture(&result.made), bake.info.blocks_per_pixel));
+        compiler.note = "Sent the elevation to the Graphics Kit as a layer.".to_string();
+    }
+    if ui.button("Send relief to the Graphics Kit").on_hover_text("The coloured, shaded map as you see it here.").clicked() {
+        let width = result.made.width;
+        let pixels = relief_picture(&result.made, bake.info.blocks_per_pixel, compiler.relief).into_iter().map(|[r, g, b]| [r, g, b, 255]).collect();
+        compiler.send = Some(("relief".to_string(), Picture { width, height: width, pixels }, bake.info.blocks_per_pixel));
+        compiler.note = "Sent the relief map to the Graphics Kit as a layer.".to_string();
+    }
+}
+
+/// The compiled world as a grey picture: black = Z 0, white = Z 399.
+fn elevation_picture(compiled: &Compiled) -> Picture {
+    let pixels = compiled
+        .z
+        .iter()
+        .map(|&z| {
+            let v = (z as f32 / TOP_OF_THE_WORLD as f32 * 255.0).round() as u8;
+            [v, v, v, 255]
+        })
+        .collect();
+    Picture { width: compiled.width, height: compiled.width, pixels }
 }
 
 /// A spline box: the curve over a grid, with its dots. Drag a dot to move it (the end dots stay
@@ -573,7 +607,7 @@ fn readouts(ui: &mut egui::Ui, compiler: &Compiler) {
     ui.small(format!("Sea level Z {SEA_LEVEL}; nothing past Z {HIGHEST}; the world's top is Z {TOP_OF_THE_WORLD}."));
 }
 
-fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, send: &mut Option<(String, Picture, f32)>) {
+fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::BLACK);
@@ -612,28 +646,6 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, send: &mut Option<(String,
         egui::FontId::proportional(12.0),
         PINK,
     );
-
-    // Sending to the Graphics Kit, from the bottom right.
-    let corner = rect.right_bottom() + Vec2::new(-8.0, -8.0);
-    let area = egui::Area::new(egui::Id::new("world compiler send")).fixed_pos(corner).pivot(egui::Align2::RIGHT_BOTTOM);
-    area.show(ui.ctx(), |ui| {
-        egui::Frame::popup(ui.style()).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.small("to the Graphics Kit:");
-                if ui.small_button("elevation").on_hover_text("Grey: black = Z 0, white = Z 399.").clicked() {
-                    let pixels = result.made.z.iter().map(|&z| {
-                        let v = (z as f32 / TOP_OF_THE_WORLD as f32 * 255.0).round() as u8;
-                        [v, v, v, 255]
-                    });
-                    *send = Some(("elevation".to_string(), Picture { width, height: width, pixels: pixels.collect() }, bake.info.blocks_per_pixel));
-                }
-                if ui.small_button("relief").on_hover_text("The coloured, shaded map as you see it.").clicked() {
-                    let pixels = relief_picture(&result.made, bake.info.blocks_per_pixel, compiler.relief).into_iter().map(|[r, g, b]| [r, g, b, 255]);
-                    *send = Some(("relief".to_string(), Picture { width, height: width, pixels: pixels.collect() }, bake.info.blocks_per_pixel));
-                }
-            });
-        });
-    });
 }
 
 #[cfg(test)]
