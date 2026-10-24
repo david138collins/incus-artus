@@ -162,6 +162,15 @@ pushed down **darker**.
   ends up and down, the middle to bend it) maps squeeze, from where mountains start to the bake's most
   crushed rock, to height. A belt's most crushed line is its peak. A **ridges** slider sets how much
   the ridge pattern carves in. (A full spline with more points can come later.)
+- **Splines, grading, foothills, passes [BUILT 2026-10-24]** [David]: land, sea and mountain curves
+  are **splines** (double-click to add a dot, drag, right-click to remove; smooth, no overshoot). The
+  mountain spline spans squeeze from none to the bake's most crushed rock (the start/right-end sliders
+  were always pinned at their ends, so they went). Bakes now save **tilt.png**; the compiler's
+  **grade** uses it to steepen each plate's high side (land and sea depth) and soften its low side.
+  **Foothills** blur a skirt around each range (keeping the peaks); **passes** dip the crest height
+  along each ridge. **Rift depth** is measured against the bake's most stretched rock (it used to be
+  measured against the most crushed, so it did almost nothing). Ranges re-centred so good results
+  sit mid-knob.
 - **Plates stick [BUILT 2026-10-24]** [David: sea got caught between colliding plates, making canyons
   through every range]: points pressed together **weld** (stickiness slider; welds crack if pulled
   hard, so straits can still open), and sea narrower than **seal gaps up to** with rock on both sides

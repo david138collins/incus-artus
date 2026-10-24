@@ -188,6 +188,25 @@ fn edge_distance(plates: &Plates) -> Vec<f32> {
     distance
 }
 
+/// Each pixel's tilt, as made: how far up (+) or down (−) its plate's slope it is, about −1.5 to
+/// 1.5 (0 at the plate's middle, ±1 about a plate's radius out, times that plate's random share of
+/// the most tilt). The same tilts as `terrain` uses (given the same seed), without the "most
+/// tilt" or the blend, so the World Compiler can grade land with it. 0 off the plates.
+pub fn tilt_field(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32> {
+    let unit = HeightSettings { tilt: 1.0, ..settings.clone() };
+    let tilts = tilts(plates, &unit, crate::fate::derive_seed(seed, "tilt"));
+    let width = plates.width;
+    (0..width * width)
+        .map(|i| {
+            let Some(p) = plates.plate[i] else { return 0.0 };
+            let (plate, tilt) = (&plates.kept[p as usize], &tilts[p as usize]);
+            let (x, y) = ((i % width) as f32 + 0.5, (i / width) as f32 + 0.5);
+            let across = ((x - plate.middle.0) * tilt.toward.0 + (y - plate.middle.1) * tilt.toward.1) / tilt.radius;
+            tilt.rise * across.clamp(-1.5, 1.5)
+        })
+        .collect()
+}
+
 /// The terrain of every pixel of the plates as made: base height + noise − sunken edges. (Pixels
 /// on no plate get the ocean plates' base height.) Uses all the computer's cores.
 pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32> {

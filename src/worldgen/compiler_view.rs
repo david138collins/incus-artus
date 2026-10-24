@@ -13,7 +13,7 @@
 use super::Suite;
 use super::bake;
 use super::canvas::Camera;
-use super::compiler::{self, Bake, CompileSettings, Compiled, Curve, HIGHEST, SEA_LEVEL, TOP_OF_THE_WORLD};
+use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
 use super::runner::{Finished, Job, Poll};
@@ -85,11 +85,10 @@ impl Compiler {
         if self.bake.as_ref().is_none_or(|bake| bake.name != chosen) {
             match compiler::load(&bake::bakes_folder().join(&chosen)) {
                 Ok(bake) => {
-                    // Start from the water level it was baked with, and with the curve's right
-                    // end at its most crushed rock.
+                    // Start from the water level it was baked with.
                     self.settings.water = bake.info.water_level;
-                    self.settings.squeeze_top = bake.info.squeeze.white;
-                    self.note = format!("Read \"{chosen}\": {} × {} pixels, {} blocks each.", bake.width, bake.width, bake.info.blocks_per_pixel);
+                    let tilt = if bake.tilt.iter().any(|&t| t != 0.0) { "" } else { " (made before tilt was saved: no grading)" };
+                    self.note = format!("Read \"{chosen}\": {} × {} pixels, {} blocks each{tilt}.", bake.width, bake.width, bake.info.blocks_per_pixel);
                     self.bake = Some(Arc::new(bake));
                     self.result = None;
                 }
@@ -266,44 +265,51 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     );
     ui.add(egui::Slider::new(&mut s.deepest, 1.0..=127.0).text("deepest sea floor (Z)")).on_hover_text("The Z the deepest ocean reaches.");
     ui.add(egui::Slider::new(&mut s.highlands, 129.0..=HIGHEST as f32).text("highlands (Z)"))
-        .on_hover_text("The Z the highest land reaches before mountains are added.");
-    ui.add(egui::Slider::new(&mut s.land_curve, 0.3..=4.0).logarithmic(true).text("land curve")).on_hover_text(
-        "How the land climbs from the coast to the highlands. 1 = evenly. Above 1 = mostly lowland,\nonly the highest parts climbing. Below 1 = most land high, falling steeply to the coast.",
-    );
-    ui.add(egui::Slider::new(&mut s.sea_curve, 0.3..=4.0).logarithmic(true).text("sea curve")).on_hover_text(
-        "How the sea floor falls from the coast to the deepest. Above 1 = shallow shelves near the coast,\nthen a deep drop. Below 1 = deep water right off the coast.",
+        .on_hover_text("The Z the highest land reaches before mountains are added (the top of the land spline).");
+    ui.add_space(4.0);
+    ui.label("Land: from the coast (left) to the bake's highest ground (right).");
+    let defaults = CompileSettings::default();
+    spline_box(ui, "land spline", &mut s.land, &defaults.land, "toward the highest ground", "up to the highlands");
+    ui.label("Sea: from the coast (left) to the bake's deepest point (right).");
+    spline_box(ui, "sea spline", &mut s.sea, &defaults.sea, "toward the deepest point", "down to the deepest floor");
+    ui.add(egui::Slider::new(&mut s.grade, 0.0..=1.0).text("grade by tilt")).on_hover_text(
+        "Each plate's tilt steepens its high side (land climbs faster, the sea drops off close in) and softens\nits low side (wide plains, shallow shelves). 0 = no grading. (Bakes made before tilt was saved can't grade.)",
     );
 
     ui.add_space(6.0);
     ui.separator();
     ui.strong("Mountains (from the squeeze map)");
     ui.small(
-        "Across: how crushed the rock is, from where mountains start to the right end (the most crushed rock in \
-         this bake). Up: how tall the mountains are, as a share of the room up to Z 333. Drag the ends up and \
-         down; drag the middle to bend the line.",
+        "Across: how crushed the rock is, from none (left) to the most crushed rock in this bake (right). Up: how \
+         tall the mountains are, as a share of the room up to Z 333. Keep the left part flat at the bottom to keep \
+         lightly squeezed land as plains.",
     );
-    curve_box(ui, &mut s.mountain_curve);
-    let most = bake.info.squeeze.white;
-    ui.add(egui::Slider::new(&mut s.mountains_start, 0.0..=most.max(0.1)).text("left end: start at squeeze"))
-        .on_hover_text("How crushed the rock must be (thickness gained) before mountains begin.");
-    ui.add(egui::Slider::new(&mut s.squeeze_top, 0.05..=most.max(0.1)).text("right end: squeeze"))
-        .on_hover_text("The squeeze at the curve's right end. Normally the most crushed rock in the bake, so a belt's\nmost crushed line is its peak. Lower = more of each belt reaches the curve's top (flatter tops).");
+    spline_box(ui, "mountain spline", &mut s.mountains, &defaults.mountains, "more squeeze", "taller (top = Z 333)");
     ui.add(egui::Slider::new(&mut s.ridges, 0.0..=1.0).text("ridges")).on_hover_text(
         "How much the ridge pattern carves into the mountains. 0 = smooth domes and spines, 1 = all ridges and valleys.",
     );
-    ui.add(egui::Slider::new(&mut s.ridge_spacing, 200.0..=10_000.0).logarithmic(true).text("ridge spacing (blocks)"))
+    ui.add(egui::Slider::new(&mut s.ridge_spacing, 400.0..=20_000.0).logarithmic(true).text("ridge spacing (blocks)"))
         .on_hover_text("How far apart the ridges are, across them.");
-    ui.add(egui::Slider::new(&mut s.ridge_length, 1_000.0..=50_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
+    ui.add(egui::Slider::new(&mut s.ridge_length, 2_000.0..=100_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
         "How far ridges run along themselves. Ridges are lined up across the squeeze direction;\nlonger = long parallel ranges, shorter = broken, lumpy ones.",
     );
-    ui.add(egui::Slider::new(&mut s.sharpness, 0.5..=6.0).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests.");
+    ui.add(egui::Slider::new(&mut s.sharpness, 0.3..=4.0).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests. Lower = broad, rounded ones.");
+    ui.add(egui::Slider::new(&mut s.passes, 0.0..=1.0).text("passes")).on_hover_text(
+        "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests.",
+    );
+    ui.add(egui::Slider::new(&mut s.pass_spacing, 3_000.0..=60_000.0).logarithmic(true).text("pass spacing (blocks)"))
+        .on_hover_text("How far apart the dips are along a ridge.");
+    ui.add(egui::Slider::new(&mut s.foothills, 0.0..=12_000.0).text("foothills (blocks)")).on_hover_text(
+        "How far each range spreads a skirt of lower slopes around it, so it rises from the plains instead of\njumping up. Peaks aren't lowered. 0 = no foothills.",
+    );
 
     ui.add_space(6.0);
     ui.separator();
     ui.strong("Rifts and hills");
-    ui.add(egui::Slider::new(&mut s.rift_depth, 0.0..=100.0).text("rift depth (blocks)")).on_hover_text("How far the most stretched rock sinks.");
-    ui.add(egui::Slider::new(&mut s.hills, 0.0..=40.0).text("hills (blocks)")).on_hover_text("Gentle rolling bumps on land, this high either way.");
-    ui.add(egui::Slider::new(&mut s.hill_size, 200.0..=10_000.0).logarithmic(true).text("hill size (blocks)"));
+    ui.add(egui::Slider::new(&mut s.rift_depth, 0.0..=80.0).text("rift depth (blocks)"))
+        .on_hover_text("How far the most stretched rock in this bake sinks (less stretched rock, less).");
+    ui.add(egui::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)")).on_hover_text("Gentle rolling bumps on land, this high either way.");
+    ui.add(egui::Slider::new(&mut s.hill_size, 300.0..=8_000.0).logarithmic(true).text("hill size (blocks)"));
     ui.add_space(4.0);
     defaults_row(ui, "Compiler settings", &mut compiler.settings, &mut compiler.ab);
 
@@ -330,11 +336,12 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     }
 }
 
-/// A curve box: the curve over a grid, with three handles. Drag the left and right handles up
-/// and down to move the ends; drag the middle handle to bend the line either way.
-fn curve_box(ui: &mut egui::Ui, curve: &mut Curve) {
-    let size = Vec2::new(ui.available_width().clamp(160.0, 320.0), 150.0);
-    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+/// A spline box: the curve over a grid, with its dots. Drag a dot to move it (the end dots stay
+/// at the edges and only move up and down); double-click to add a dot; right-click a middle dot to
+/// take it away.
+fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spline, across: &str, up: &str) {
+    let size = Vec2::new(ui.available_width().clamp(160.0, 320.0), 140.0);
+    let (rect, background) = ui.allocate_exact_size(size, egui::Sense::click());
     let inner = rect.shrink(10.0);
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 4.0, Color32::from_gray(22));
@@ -345,37 +352,53 @@ fn curve_box(ui: &mut egui::Ui, curve: &mut Curve) {
         painter.line_segment([egui::pos2(inner.left(), inner.top() + t * inner.height()), egui::pos2(inner.right(), inner.top() + t * inner.height())], stroke);
     }
     let to_screen = |x: f32, y: f32| egui::pos2(inner.left() + x * inner.width(), inner.bottom() - y.clamp(0.0, 1.0) * inner.height());
-    let from_screen_y = |y: f32| ((inner.bottom() - y) / inner.height()).clamp(0.0, 1.0);
-    let points: Vec<egui::Pos2> = (0..=48).map(|k| k as f32 / 48.0).map(|x| to_screen(x, curve.at(x))).collect();
-    painter.add(egui::Shape::line(points, egui::Stroke::new(2.0, Color32::from_rgb(255, 230, 120))));
-    painter.text(rect.left_bottom() + Vec2::new(12.0, -12.0), egui::Align2::LEFT_BOTTOM, "more squeeze to the right", egui::FontId::proportional(10.0), Color32::from_gray(140));
-    painter.text(rect.left_top() + Vec2::new(12.0, 12.0), egui::Align2::LEFT_TOP, "taller upward (top = Z 333)", egui::FontId::proportional(10.0), Color32::from_gray(140));
+    let from_screen = |p: egui::Pos2| (((p.x - inner.left()) / inner.width()).clamp(0.0, 1.0), ((inner.bottom() - p.y) / inner.height()).clamp(0.0, 1.0));
+    let line: Vec<egui::Pos2> = (0..=64).map(|k| k as f32 / 64.0).map(|x| to_screen(x, spline.at(x))).collect();
+    painter.add(egui::Shape::line(line, egui::Stroke::new(2.0, Color32::from_rgb(255, 230, 120))));
+    painter.text(rect.left_bottom() + Vec2::new(12.0, -12.0), egui::Align2::LEFT_BOTTOM, across, egui::FontId::proportional(10.0), Color32::from_gray(140));
+    painter.text(rect.left_top() + Vec2::new(12.0, 12.0), egui::Align2::LEFT_TOP, up, egui::FontId::proportional(10.0), Color32::from_gray(140));
 
-    // The three handles: left end, middle (bend), right end.
-    let handles = [(0.0, curve.start, "curve start"), (0.5, curve.at(0.5), "curve bend"), (1.0, curve.end, "curve end")];
-    for (x, y, name) in handles {
+    // The dots.
+    let last = spline.dots.len() - 1;
+    let mut remove = None;
+    for k in 0..spline.dots.len() {
+        let (x, y) = spline.dots[k];
         let at = to_screen(x, y);
-        let response = ui.interact(egui::Rect::from_center_size(at, Vec2::splat(18.0)), ui.id().with(name), egui::Sense::drag());
+        let response = ui.interact(egui::Rect::from_center_size(at, Vec2::splat(16.0)), ui.id().with((name, k)), egui::Sense::click_and_drag());
         let lit = response.hovered() || response.dragged();
-        painter.circle(at, if lit { 7.0 } else { 5.5 }, if lit { Color32::WHITE } else { Color32::from_rgb(255, 230, 120) }, egui::Stroke::new(1.5, Color32::BLACK));
+        painter.circle(at, if lit { 6.5 } else { 5.0 }, if lit { Color32::WHITE } else { Color32::from_rgb(255, 230, 120) }, egui::Stroke::new(1.5, Color32::BLACK));
         if response.dragged()
             && let Some(pointer) = response.interact_pointer_pos()
         {
-            let y = from_screen_y(pointer.y);
-            match name {
-                "curve start" => curve.start = y,
-                "curve end" => curve.end = y,
-                _ => curve.bend = curve.bend_through_middle(y),
-            }
+            let (px, py) = from_screen(pointer);
+            // The end dots stay at the edges; a middle dot stays between its neighbours.
+            let x = if k == 0 || k == last { x } else { px.clamp(spline.dots[k - 1].0 + 0.01, spline.dots[k + 1].0 - 0.01) };
+            spline.dots[k] = (x, py);
+        }
+        if response.secondary_clicked() && k != 0 && k != last {
+            remove = Some(k);
         }
         if lit {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+        }
+    }
+    if let Some(k) = remove {
+        spline.dots.remove(k);
+    }
+    // Double-click to add a dot where you clicked (not right on top of another).
+    if background.double_clicked()
+        && let Some(pointer) = background.interact_pointer_pos()
+    {
+        let (x, y) = from_screen(pointer);
+        if spline.dots.iter().all(|&(dx, _)| (dx - x).abs() > 0.02) {
+            let k = spline.dots.iter().position(|&(dx, _)| dx > x).unwrap_or(spline.dots.len());
+            spline.dots.insert(k, (x, y));
         }
     }
     ui.horizontal_wrapped(|ui| {
-        ui.small(format!("start {:.0}%   bend {:+.2}   end {:.0}%", curve.start * 100.0, curve.bend, curve.end * 100.0));
-        if ui.small_button("straighten").clicked() {
-            curve.bend = 0.0;
+        ui.small(format!("{} dots: double-click to add, drag to move, right-click to remove", spline.dots.len()));
+        if ui.small_button("reset").clicked() {
+            *spline = default.clone();
         }
     });
 }

@@ -104,7 +104,7 @@ pub struct Baked {
     pub land_share: f32,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Range {
     /// The value at grey 0 (black) and at the brightest grey (white).
     pub black: f32,
@@ -153,6 +153,9 @@ pub struct Info {
     pub squeeze: Range,
     /// `push_strength.png`'s range. (`push_direction.png` is always 0 to 180 degrees.)
     pub push_strength: Range,
+    /// `tilt.png`'s range (bakes made before tilt was saved have none).
+    #[serde(default)]
+    pub tilt: Range,
     pub plates: Vec<PlateRow>,
     pub settings: Settings,
 }
@@ -168,6 +171,8 @@ pub struct Maps {
     /// how strongly (0 = not at all).
     pub push_angle: Vec<f32>,
     pub push_strength: Vec<f32>,
+    /// How far up (+) or down (−) its plate's tilt each spot's rock is (see `heights::tilt_field`).
+    pub tilt: Vec<f32>,
     /// Each plate: land or ocean, and its share of the world when made.
     pub plates: Vec<(bool, f32)>,
     pub steps: u64,
@@ -180,6 +185,7 @@ pub fn make(order: &Order, stop: &AtomicBool) -> Option<Maps> {
     let made = plates::make(&order.plates, seeds.plates, order.size_blocks, order.blocks_per_pixel, stop)?;
     let motions = tectonics::motions(&order.motion, seeds.motion, &made);
     let terrain = heights::terrain(&made, &order.heights, seeds.terrain);
+    let tilt = heights::tilt_field(&made, &order.heights, seeds.terrain);
     let mut sim = Sim::new(&made, &motions, &order.rock, seeds.rock);
     while sim.steps < order.most_steps as u64 {
         sim.step(&order.rock);
@@ -201,6 +207,7 @@ pub fn make(order: &Order, stop: &AtomicBool) -> Option<Maps> {
         plate: painted.iter().map(|here| here.map(|spot| spot.plate)).collect(),
         push_angle: painted.iter().map(|here| here.map_or(0.0, |spot| spot.push_angle())).collect(),
         push_strength: painted.iter().map(|here| here.map_or(0.0, |spot| spot.push_strength())).collect(),
+        tilt: painted.iter().map(|here| here.map_or(0.0, |spot| tilt[spot.from as usize])).collect(),
         plates: made.kept.iter().map(|plate| (plate.land, plate.share)).collect(),
         steps: sim.steps,
         settled: sim.settled,
@@ -258,6 +265,8 @@ fn write(order: &Order, maps: &Maps) -> Result<Baked, String> {
     let squeeze = Range { black: -reach, white: reach };
     write_grey16(&folder.join("height.png"), maps.width, maps.height.iter().map(|&h| to_grey16(h, &height)))?;
     write_grey16(&folder.join("squeeze.png"), maps.width, maps.squeeze.iter().map(|&s| to_grey16(s, &squeeze)))?;
+    let tilt = Range { black: -1.5, white: 1.5 };
+    write_grey16(&folder.join("tilt.png"), maps.width, maps.tilt.iter().map(|&t| to_grey16(t, &tilt)))?;
 
     let count = maps.plates.len();
     write_grey8(&folder.join("plates.png"), maps.width, maps.plate.iter().map(|p| p.map_or(0, |p| plate_grey(p as usize, count))))?;
@@ -284,6 +293,7 @@ fn write(order: &Order, maps: &Maps) -> Result<Baked, String> {
         height,
         squeeze,
         push_strength: push,
+        tilt,
         plates: maps.plates.iter().enumerate().map(|(p, &(land, share))| PlateRow { grey: plate_grey(p, count), land, share }).collect(),
         settings: Settings {
             plates: order.plates.clone(),
@@ -300,6 +310,7 @@ fn write(order: &Order, maps: &Maps) -> Result<Baked, String> {
                   # push_direction.png is 16-bit grey: which way the rock was squeezed, 0 to 180 degrees\n\
                   # (0 = east-west, 90 = north-south); it only means something where push_strength isn't black.\n\
                   # Mountain ridges run across the squeeze, at 90 degrees to it.\n\
+                  # tilt.png is 16-bit grey: how far up (+) or down (-) its plate's tilt the rock is ([tilt] range).\n\
                   # plates.png is 8-bit grey: 0 = no plate; [[plates]] gives each plate's grey.\n\n";
     let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
     std::fs::write(folder.join("map.toml"), format!("{header}{text}")).map_err(|error| error.to_string())?;
@@ -334,7 +345,7 @@ mod tests {
         let order = order(&folder);
         let baked = bake(&order, &AtomicBool::new(false)).unwrap().unwrap();
         assert_eq!(baked.folder, folder.join("test_world"));
-        for file in ["height.png", "squeeze.png", "push_direction.png", "push_strength.png", "plates.png", "map.toml"] {
+        for file in ["height.png", "squeeze.png", "push_direction.png", "push_strength.png", "tilt.png", "plates.png", "map.toml"] {
             assert!(baked.folder.join(file).exists(), "{file} missing");
         }
         let info: Info = toml::from_str(&std::fs::read_to_string(baked.folder.join("map.toml")).unwrap()).unwrap();
