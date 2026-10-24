@@ -16,6 +16,7 @@ Status tags: **[DECIDED]** agreed · **[OPEN]** still needs an answer · **[LATE
   - Note for code: this is a *left-handed* system. Bevy (the engine) is right-handed and Y-up,
     so we convert only at the very edge where things get drawn. All game logic uses our axes.
 - **[DECIDED]** Vertical range Z = 0 (bedrock) to Z = 399. 400 layers.
+- **[DECIDED 2026-10-24]** Sea level is Z = 128. The tallest mountains reach Z = 333.
 - **[DECIDED]** World is a circle ~72,000 blocks across (radius ~36,000), ~70% water (tunable later).
   Float precision is fine at this size.
 

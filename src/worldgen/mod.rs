@@ -40,10 +40,16 @@
 //! - `rags.rs`    the tectonics simulation: plates as heavy rags that squash, bend and tear
 //! - `heights.rs` every spot's height (base, terrain noise, sunken edges, squeeze); the water level
 //! - `bake.rs`    the product: a baked world, as a folder of maps for the World Compiler
+//!
+//! **World Compiler:**
+//! - `compiler.rs` a bake into the ground's height in blocks (sea level Z 128, nothing past Z 333)
+//! - `compiler_view.rs` its screen
 
 mod blend;
 mod bake;
 mod canvas;
+mod compiler;
+mod compiler_view;
 mod export;
 mod field;
 mod heights;
@@ -83,6 +89,8 @@ pub enum Kit {
     #[default]
     Graphics,
     WorldGen,
+    /// The World Compiler: a baked world into the ground's height in blocks.
+    Compiler,
 }
 
 /// What's shown on screen.
@@ -113,6 +121,8 @@ pub struct Suite {
     /// World Gen's half (the rest of this is the Graphics Kit's, apart from the field and pixel
     /// size, which both use).
     pub world: world::WorldGen,
+    /// The World Compiler's tab.
+    pub compiler: compiler_view::Compiler,
     /// The field is a square this many blocks across (the world is 72,000).
     pub size_blocks: f32,
     /// How many chunks wide one pixel is.
@@ -135,6 +145,7 @@ impl Default for Suite {
         let mut suite = Self {
             kit: Kit::Graphics,
             world: world::WorldGen::default(),
+            compiler: compiler_view::Compiler::default(),
             size_blocks: 72_000.0,
             chunks_per_pixel: 8,
             layers: Vec::new(),
@@ -148,7 +159,10 @@ impl Default for Suite {
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
         // Worley layer instead.
         // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
-        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
+        // `=compiler` opens the World Compiler.
+        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler") {
+            suite.kit = Kit::Compiler;
+        } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;
             suite.world.start_when_ready = std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world-run");
             // `INCUS_SELFTEST_CHUNKS=1` starts at that pixel size.
@@ -281,6 +295,10 @@ fn run_suite(mut suite: ResMut<Suite>) {
         layer.drive(size, blocks);
     }
     suite.world.drive(size, blocks);
+    // The compiler only reads bakes once its tab has been opened.
+    if suite.kit == Kit::Compiler {
+        suite.compiler.drive();
+    }
 }
 
 /// PNG files dragged onto the window become image layers.
@@ -302,7 +320,7 @@ fn draw_suite(mut contexts: EguiContexts, mut suite: ResMut<Suite>, mut next: Re
         next.set(Screen::Play);
     }
     // Keep redrawing while something is being made, so it shows up the moment it's done.
-    if suite.is_making() || suite.world.is_making() {
+    if suite.is_making() || suite.world.is_making() || suite.compiler.is_making() {
         ctx.request_repaint();
     }
     Ok(())

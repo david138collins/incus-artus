@@ -673,7 +673,7 @@ impl WorldGen {
 
 /// "Back to defaults", and an A/B button beside it that swaps between the defaults and your own
 /// settings: the first press keeps yours aside and shows the defaults, the next puts yours back.
-fn defaults_row<T: Default + Clone>(ui: &mut egui::Ui, what: &str, value: &mut T, kept: &mut Option<T>) {
+pub(super) fn defaults_row<T: Default + Clone>(ui: &mut egui::Ui, what: &str, value: &mut T, kept: &mut Option<T>) {
     ui.horizontal_wrapped(|ui| {
         if ui.button(format!("{what} back to defaults")).clicked() {
             *value = T::default();

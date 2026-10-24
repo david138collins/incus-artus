@@ -142,8 +142,24 @@ pushed down **darker**.
   and how hard, from each grid triangle's change of shape. Mountain ridges run across it. Shown as
   short lines on the map.
 - **Open sea is as deep as the deepest plate rock** in the height map, so it reads as true deep ocean.
-- **Next: a World Compiler tab.** It reads a bake and turns it into the actual elevation map (and
-  later the rest of world gen). For now worlds are baked one at a time to experiment on; **eventually**
+- **Next: a World Compiler tab** [DECIDED: its own tab, after the Tectonic Sim]. It reads a bake and
+  turns it into the actual elevation map (and later the rest of world gen).
+
+### World Compiler, first version  [DECIDED 2026-10-24, building]
+- **Sea level Z = 128; the tallest mountains reach Z = 333** [David] (the world is Z 0 to 399).
+- Reads a bake and makes **the ground's height in blocks everywhere** (one Z per pixel, 32 blocks a
+  pixel). Sliders: which bake height is sea level (the land share shows), how deep the deepest ocean
+  goes, how high highlands go, the shape of the curves between.
+- **Mountains from the squeeze map**: crushed rock gets ridges, as tall as the crush is hard (never
+  past Z 333), lined up **across the squeeze direction**. Stretched rock sinks into rift valleys.
+- Shown as shaded relief coloured by height; pointing shows the ground's Z.
+- Saved into the bake's folder as `elevation.png` (16-bit: the grey is Z directly), and can be sent to
+  the Graphics Kit. Block-level detail is added later, when chunks are made.
+- **[BUILT 2026-10-24]** First version, on the first bake (`first_world`): compiles 2,250 × 2,250 in
+  under 50 ms. Mountain defaults lowered after seeing it (start at squeeze 0.05, fullest at 0.3): the
+  first bake's crush belts are gentle.
+- **Later** [David]: use **splines** (a drawn curve from squeeze to mountain height) to make the
+  mountains more intense, instead of the fixed start/fullest ramp. For now worlds are baked one at a time to experiment on; **eventually**
   [David] the Tectonic Sim runs a world preset and hands its maps straight to the World Compiler, and
   concludes itself.
 
