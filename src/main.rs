@@ -44,17 +44,34 @@ mod worldgen;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
+/// How the game talks to the graphics card. On Windows: **DirectX 12**. On 2026-10-24 we found
+/// that the other choice, Vulkan, sometimes gets stuck on this kind of machine (an NVIDIA laptop):
+/// handing each finished frame to the screen stalls, and the game drops to about 6 frames a second
+/// while DirectX 12 runs at 240, back to back. Setting `WGPU_BACKEND` (for example to `vulkan`)
+/// still chooses, for testing.
+fn graphics_settings() -> bevy::render::settings::WgpuSettings {
+    let mut settings = bevy::render::settings::WgpuSettings::default();
+    if cfg!(windows) && std::env::var("WGPU_BACKEND").is_err() {
+        settings.backends = Some(bevy::render::settings::Backends::DX12);
+    }
+    settings
+}
+
 fn main() {
     App::new()
         // Bevy's standard set: window, input, rendering, assets, audio, etc.
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Incus Artus".into(),
-                resolution: (1280, 960).into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Incus Artus".into(),
+                        resolution: (1280, 960).into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(bevy::render::RenderPlugin { render_creation: graphics_settings().into(), ..default() }),
+        )
         // egui draws the debug panel.
         .add_plugins(EguiPlugin::default())
         // Our modules. Debug goes first so its "Overview" page is the first tab.
