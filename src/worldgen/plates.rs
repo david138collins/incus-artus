@@ -34,7 +34,12 @@
 //!   amount; split each half and nudge their middles by less (times the roughness); and so on down
 //!   to the finest step. Jagged and coastline-like, and the ends never move.
 //!
-//! Only the vertices and lines that touch a plate are kept (the ones out in the ocean are culled).
+//! **Ocean plates.** The cells touching the land plates become ocean plates (a ring around the
+//! land, or more rings). They're plates too: they move, and where they meet land they make the coast
+//! types. Cells past them stay plain, empty ocean.
+//!
+//! Only the vertices and lines that touch a plate are kept (the ones out in the empty ocean are
+//! culled).
 
 use super::noise::{Fade, perlin};
 use crate::fate::planet_hash;
@@ -51,6 +56,8 @@ pub struct PlateSettings {
     pub coverage: f32,
     /// Rounds of spreading the points evenly (0 = as scattered).
     pub spread: u32,
+    /// Rings of ocean plates around the land plates (0 = none).
+    pub ocean_rings: u32,
 
     /// The two line mutators, added together.
     pub waves: LineNoise,
@@ -63,6 +70,7 @@ impl Default for PlateSettings {
             plates: 7,
             coverage: 0.30,
             spread: 2,
+            ocean_rings: 1,
             waves: LineNoise { on: true, style: LineStyle::Perlin, amount: 3_000.0, size: 15_000.0, octaves: 2, roughness: 0.5 },
             rough: LineNoise { on: true, style: LineStyle::Midpoint, amount: 800.0, size: 1_000.0, octaves: 3, roughness: 0.55 },
         }
@@ -117,6 +125,8 @@ impl PlateSettings {
 pub struct Plate {
     /// Which cell it is.
     pub cell: usize,
+    /// A land plate, or an ocean plate in the ring around them.
+    pub land: bool,
     pub pixels: usize,
     /// Its share of the world's circle.
     pub share: f32,
@@ -140,6 +150,8 @@ pub struct Edge {
 
 pub struct Plates {
     pub width: usize,
+    /// The pixel size they were made at.
+    pub blocks_per_pixel: f32,
     pub vertices: Vec<Vertex>,
     pub edges: Vec<Edge>,
     /// Which cell each pixel is in.
@@ -148,6 +160,7 @@ pub struct Plates {
     pub plate: Vec<Option<u8>>,
     /// Whether each pixel is inside the world's circle.
     pub inside: Vec<bool>,
+    /// The land plates first, then the ocean plates.
     pub kept: Vec<Plate>,
     /// How many cells there were, and how many reached past the circle (and were deleted).
     pub cells: usize,
@@ -401,6 +414,30 @@ fn middles(cell: &[u16], width: usize, count: usize) -> Vec<(f32, f32, usize)> {
     sums.into_iter().map(|(x, y, n)| (x as f32 / n.max(1) as f32, y as f32 / n.max(1) as f32, n)).collect()
 }
 
+/// Which cells touch which, from the pixel map (pixels side by side in different cells).
+fn neighbours(cell: &[u16], width: usize, count: usize) -> Vec<Vec<usize>> {
+    let mut touching: HashSet<(usize, usize)> = HashSet::new();
+    for row in 0..width {
+        for col in 0..width {
+            let here = cell[row * width + col] as usize;
+            for (c, r) in [(col + 1, row), (col, row + 1)] {
+                if c < width && r < width {
+                    let there = cell[r * width + c] as usize;
+                    if there != here {
+                        touching.insert((here.min(there), here.max(there)));
+                    }
+                }
+            }
+        }
+    }
+    let mut neighbours = vec![Vec::new(); count];
+    for (a, b) in touching {
+        neighbours[a].push(b);
+        neighbours[b].push(a);
+    }
+    neighbours
+}
+
 /// Finds the plates. Returns `None` if `stop` was set part-way (a newer version is wanted).
 pub fn make(settings: &PlateSettings, seed: u64, size_blocks: f32, blocks_per_pixel: f32, stop: &AtomicBool) -> Option<Plates> {
     let width = (size_blocks / blocks_per_pixel).ceil().max(1.0) as usize;
@@ -453,25 +490,57 @@ pub fn make(settings: &PlateSettings, seed: u64, size_blocks: f32, blocks_per_pi
     let from_middle = |c: usize| (middles[c].0 - centre).hypot(middles[c].1 - centre);
     candidates.sort_by(|&a, &b| from_middle(a).total_cmp(&from_middle(b)));
     candidates.truncate(settings.plates as usize);
+    let land = candidates.len();
+
+    // The rings of ocean plates: each ring is the cells touching the ones before (and not
+    // reaching past the edge).
+    let neighbours = neighbours(&cell, width, count);
+    let mut taken = vec![false; count];
+    for &c in &candidates {
+        taken[c] = true;
+    }
+    let mut ring_start = 0;
+    for _ in 0..settings.ocean_rings {
+        let mut ring: Vec<usize> = candidates[ring_start..]
+            .iter()
+            .flat_map(|&c| neighbours[c].iter().copied())
+            .filter(|&n| !past_edge[n] && middles[n].2 > 0)
+            .collect();
+        ring.sort_by(|&a, &b| from_middle(a).total_cmp(&from_middle(b)));
+        ring.retain(|&n| !std::mem::replace(&mut taken[n], true));
+        ring_start = candidates.len();
+        candidates.extend(ring);
+    }
+    // A plate number has to fit in a byte.
+    candidates.truncate(u8::MAX as usize);
 
     let world = inside.iter().filter(|&&i| i).count().max(1);
     let kept: Vec<Plate> = candidates
         .iter()
-        .map(|&c| Plate { cell: c, pixels: middles[c].2, share: middles[c].2 as f32 / world as f32, middle: (middles[c].0, middles[c].1) })
+        .enumerate()
+        .map(|(k, &c)| Plate {
+            cell: c,
+            land: k < land,
+            pixels: middles[c].2,
+            share: middles[c].2 as f32 / world as f32,
+            middle: (middles[c].0, middles[c].1),
+        })
         .collect();
     let mut plate_of_cell = vec![None; count];
     for (p, plate) in kept.iter().enumerate() {
         plate_of_cell[plate.cell] = Some(p as u8);
     }
     let plate = cell.iter().map(|&c| plate_of_cell[c as usize]).collect();
-    // Cull the vertices and lines out in the ocean: keep only those touching a plate.
+    // Cull the vertices and lines out in the empty ocean: keep only those touching a plate.
     let on_a_plate = |c: &usize| plate_of_cell[*c].is_some();
     vertices.retain(|vertex| vertex.cells.iter().any(on_a_plate));
     edges.retain(|edge| on_a_plate(&edge.cells.0) || on_a_plate(&edge.cells.1));
-    let coverage = kept.iter().map(|plate| plate.share).sum();
+    // Coverage counts the land plates only.
+    let coverage = kept.iter().filter(|plate| plate.land).map(|plate| plate.share).sum();
 
     Some(Plates {
         width,
+        blocks_per_pixel,
         vertices,
         edges,
         cell,
@@ -508,7 +577,7 @@ mod tests {
     fn it_keeps_as_many_plates_as_asked_and_roughly_the_coverage() {
         let settings = PlateSettings::default();
         let made = plates(&settings, 3);
-        assert_eq!(made.kept.len(), 7);
+        assert_eq!(made.kept.iter().filter(|plate| plate.land).count(), 7);
         assert!((0.15..0.45).contains(&made.coverage), "coverage {}", made.coverage);
     }
 
@@ -576,6 +645,28 @@ mod tests {
         assert_eq!(profile, midpoint_profile(&noise, 7, 3, 10_000.0), "same seed, same line");
         // Halved down to the finest step: 10,000 blocks in steps of about 100.
         assert_eq!(profile.len(), 129);
+    }
+
+    #[test]
+    fn the_ocean_ring_touches_the_land_and_stays_inside_the_world() {
+        let made = plates(&PlateSettings::default(), 2);
+        let land: Vec<usize> = made.kept.iter().filter(|plate| plate.land).map(|plate| plate.cell).collect();
+        let ocean: Vec<usize> = made.kept.iter().filter(|plate| !plate.land).map(|plate| plate.cell).collect();
+        assert!(!ocean.is_empty());
+        // The land plates come first.
+        assert!(made.kept[..land.len()].iter().all(|plate| plate.land));
+        let touching = neighbours(&made.cell, made.width, made.cells);
+        for &c in &ocean {
+            assert!(touching[c].iter().any(|n| land.contains(n)), "ocean plate cell {c} doesn't touch land");
+        }
+        for (i, plate) in made.plate.iter().enumerate() {
+            if plate.is_some() {
+                assert!(made.inside[i]);
+            }
+        }
+        // No ring, no ocean plates.
+        let none = plates(&PlateSettings { ocean_rings: 0, ..PlateSettings::default() }, 2);
+        assert!(none.kept.iter().all(|plate| plate.land));
     }
 
     #[test]

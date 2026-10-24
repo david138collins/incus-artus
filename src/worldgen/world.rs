@@ -6,7 +6,9 @@
 //! everything" rolls one number and the whole world changes. Cycle through it to see whether the
 //! settings routinely make good shapes.
 //!
-//! The first tool is **plates** (`plates.rs`).
+//! The first tool is **plates** (`plates.rs`); the second, **tectonics** (`tectonics.rs`), gives
+//! them motion. Arrows show where each plate is heading and how it spins, and the boundaries are
+//! coloured by what the motion would do there.
 //!
 //! ```text
 //! ┌──────────── top: new seeds for everything ───────────────────┐
@@ -22,13 +24,18 @@ use super::canvas::Camera;
 use super::palette::from_hsl;
 use super::plates::{self, LineNoise, LineStyle, PlateSettings, Plates};
 use super::runner::{Finished, Job, Poll};
+use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
 use super::view::{MAGENTA, PINK, compass, seed_row};
-use bevy_egui::egui::{self, Color32, Vec2};
+use bevy_egui::egui::{self, Color32, Pos2, Vec2};
 
 /// Ocean inside the world, and the dark past its edge.
 const OCEAN: [u8; 3] = [18, 38, 82];
 const BEYOND: [u8; 3] = [10, 10, 14];
 const VERTEX: Color32 = Color32::from_rgb(255, 220, 60);
+/// The boundaries: red colliding, blue pulling apart, green sliding.
+const COLLIDING: [u8; 3] = [235, 60, 55];
+const PULLING_APART: [u8; 3] = [80, 170, 255];
+const SLIDING: [u8; 3] = [70, 225, 110];
 
 pub struct WorldGen {
     /// The world seed. Each step takes its own seed from it.
@@ -40,6 +47,19 @@ pub struct WorldGen {
     pub show_vertices: bool,
     pub show_lines: bool,
 
+    /// How the plates move (tectonics).
+    pub motion: MotionSettings,
+    pub show_arrows: bool,
+    pub show_boundaries: bool,
+    /// The arrows show where each plate would get to in this many steps.
+    pub arrow_steps: f32,
+    /// Each plate's motion and what it does at each boundary pixel, worked out again when the
+    /// plates or the motion settings change.
+    motions: Vec<Motion>,
+    contacts: Vec<Option<Contact>>,
+    motions_for: Option<(u64, u64, MotionSettings)>,
+    motions_version: u64,
+
     result: Option<Finished<Plates>>,
     job: Option<Job<Plates>>,
     seen: Option<(f32, f32, u64, PlateSettings)>,
@@ -48,7 +68,7 @@ pub struct WorldGen {
 
     camera: Camera,
     texture: Option<egui::TextureHandle>,
-    painted_for: Option<(u64, bool)>,
+    painted_for: Option<(u64, bool, u64, bool)>,
     hover: Option<(usize, usize)>,
     seed_text: String,
 }
@@ -61,6 +81,14 @@ impl Default for WorldGen {
             show_cells: true,
             show_vertices: true,
             show_lines: false,
+            motion: MotionSettings::default(),
+            show_arrows: true,
+            show_boundaries: true,
+            arrow_steps: 100.0,
+            motions: Vec::new(),
+            contacts: Vec::new(),
+            motions_for: None,
+            motions_version: 0,
             result: None,
             job: None,
             seen: None,
@@ -85,8 +113,32 @@ impl WorldGen {
         crate::fate::derive_seed(self.seed, "plates")
     }
 
+    /// The tectonics step's own seed, taken from the world seed.
+    fn motion_seed(&self) -> u64 {
+        crate::fate::derive_seed(self.seed, "plate motion")
+    }
+
+    /// Works out the plates' motion and boundaries again if the plates or the motion settings
+    /// changed. (Quick, so it's done here rather than in the background.)
+    fn update_motions(&mut self) {
+        let Some(result) = &self.result else { return };
+        let now = (self.version, self.motion_seed(), self.motion.clone());
+        if self.motions_for.as_ref() == Some(&now) {
+            return;
+        }
+        self.motions = tectonics::motions(&self.motion, now.1, &result.made);
+        self.contacts = tectonics::boundaries(&result.made, &self.motions);
+        self.motions_for = Some(now);
+        self.motions_version += 1;
+    }
+
     /// Notices changes, collects finished work, and starts the next when wanted (as layers do).
     pub fn drive(&mut self, size_blocks: f32, blocks_per_pixel: f32) {
+        self.drive_plates(size_blocks, blocks_per_pixel);
+        self.update_motions();
+    }
+
+    fn drive_plates(&mut self, size_blocks: f32, blocks_per_pixel: f32) {
         let now = (size_blocks, blocks_per_pixel, self.seed, self.plates.clone());
         if self.seen.as_ref() != Some(&now) {
             self.seen = Some(now);
@@ -115,9 +167,30 @@ impl WorldGen {
     }
 }
 
-/// A plate's colour: hues spread around the wheel so neighbours differ.
-fn plate_colour(plate: usize) -> [u8; 3] {
-    from_hsl([(plate as f32 * 137.5) % 360.0, 0.45, 0.55])
+/// A plate's colour. Land: hues spread around the wheel so neighbours differ. Ocean: dim blues,
+/// each a little different.
+fn plate_colour(plate: usize, land: bool) -> [u8; 3] {
+    if land {
+        from_hsl([(plate as f32 * 137.5) % 360.0, 0.45, 0.55])
+    } else {
+        let wobble = (plate as u32).wrapping_mul(2_654_435_761) >> 27; // 0 to 31
+        from_hsl([200.0 + wobble as f32 * 1.3, 0.40, 0.24 + (wobble % 4) as f32 * 0.025])
+    }
+}
+
+/// A boundary's colour.
+fn boundary_colour(kind: Boundary) -> [u8; 3] {
+    match kind {
+        Boundary::Colliding => COLLIDING,
+        Boundary::PullingApart => PULLING_APART,
+        Boundary::Sliding => SLIDING,
+    }
+}
+
+/// Degrees clockwise from north as a compass word, for example 135 → "SE".
+fn bearing(degrees: f32) -> &'static str {
+    const NAMES: [&str; 8] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    NAMES[((degrees / 45.0).round() as usize) % 8]
 }
 
 /// A deleted cell, faintly, in the ocean.
@@ -178,6 +251,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         "Each round moves every point to the middle of its cell, then splits again.\n0 = as scattered (very uneven). More = rounder, more even plates.",
     );
     ui.small(format!("{} points scattered over the field.", plates.points()));
+    ui.add(egui::Slider::new(&mut plates.ocean_rings, 0..=3).text("rings of ocean plates")).on_hover_text(
+        "The cells touching the land plates become ocean plates (dim blue). They move too, and where they\nmeet land they make the coast types. More rings = more ocean plates further out.",
+    );
 
     ui.add_space(6.0);
     ui.separator();
@@ -198,6 +274,41 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.add_space(6.0);
     if ui.button("Plate settings back to defaults").clicked() {
         world.plates = PlateSettings::default();
+    }
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.heading("Tectonics");
+    ui.small(
+        "Each plate gets a speed, a direction and a spin, at random from the seed. Nothing moves yet: \
+         the arrows show what each plate would do, and the boundaries are coloured by what that would \
+         do there.",
+    );
+    let motion = &mut world.motion;
+    ui.add(egui::Slider::new(&mut motion.slowest, 0.0..=200.0).text("slowest (blocks per step)"))
+        .on_hover_text("Each plate's speed is picked at random between the slowest and the fastest.");
+    ui.add(egui::Slider::new(&mut motion.fastest, 0.0..=200.0).text("fastest (blocks per step)"));
+    ui.add(egui::Slider::new(&mut motion.ocean_speed, 0.0..=4.0).text("ocean plates' speed ×"))
+        .on_hover_text("Ocean plates' speed is multiplied by this. Real ocean plates are often the faster ones.");
+    ui.add(egui::Slider::new(&mut motion.spin, 0.0..=1.0).text("fastest spin (degrees per step)")).on_hover_text(
+        "Each plate spins at random up to this fast, either way.\nA spinning plate's far side swings one way and its near side the other,\nso one boundary can collide at one end and pull apart at the other.",
+    );
+    ui.add(egui::Slider::new(&mut motion.inward, 0.0..=1.0).text("lean toward the middle"))
+        .on_hover_text("0 = plates head any way at all.\n1 = every plate heads straight for the middle of the world (lots of collisions).");
+    ui.add_space(4.0);
+    ui.checkbox(&mut world.show_arrows, "arrows: heading and spin").on_hover_text(
+        "Straight arrow: where the plate is heading, and how fast.\nCurved arrow: which way it spins. Three quarters of a circle = the fastest spin allowed;\nreal turns are too small to see. The exact numbers are in the table.",
+    );
+    if world.show_arrows {
+        ui.add(egui::Slider::new(&mut world.arrow_steps, 10.0..=1_000.0).logarithmic(true).text("arrow length (steps)"))
+            .on_hover_text("Each straight arrow reaches where the plate's middle would be after this many steps.");
+    }
+    ui.checkbox(&mut world.show_boundaries, "boundaries: red colliding, blue pulling apart, green sliding").on_hover_text(
+        "Where two plates touch, how they move against each other there.\nMost boundaries do a bit of everything; each spot shows what it does most.\nPlates against empty ocean aren't boundaries.",
+    );
+    ui.add_space(6.0);
+    if ui.button("Tectonics settings back to defaults").clicked() {
+        world.motion = MotionSettings::default();
     }
 }
 
@@ -257,9 +368,24 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
             ui.label(if made.inside[i] { "inside the world" } else { "past the edge of the world" });
             ui.label(format!("cell {}", made.cell[i]));
             match made.plate[i] {
-                Some(p) => ui.label(format!("plate {}", p + 1)),
-                None => ui.label("no plate (ocean)"),
+                Some(p) => ui.label(plate_name(made, p as usize)),
+                None => ui.label("no plate (empty ocean)"),
             };
+            if let Some(Some(contact)) = world.contacts.get(i) {
+                let what = match contact.kind {
+                    Boundary::Colliding => "colliding",
+                    Boundary::PullingApart => "pulling apart",
+                    Boundary::Sliding => "sliding past each other",
+                };
+                ui.colored_label(colour32(boundary_colour(contact.kind)), format!("boundary: {what}"));
+                ui.small(format!("between {} and {}", plate_name(made, contact.plates.0 as usize), plate_name(made, contact.plates.1 as usize)));
+                ui.small(format!(
+                    "{} {:.0} blocks per step, sliding {:.0}",
+                    if contact.closing >= 0.0 { "closing" } else { "opening" },
+                    contact.closing.abs(),
+                    contact.sliding
+                ));
+            }
         }
         _ => {
             ui.small("Point at the world.");
@@ -272,21 +398,44 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
     ui.label(format!("{} cells, {} reached past the edge and were deleted", made.cells, made.past_the_edge));
     ui.label(format!("{} vertices and {} lines on the plates", made.vertices.len(), made.edges.len()))
         .on_hover_text("The ones out in the ocean are culled.");
-    if made.kept.len() < world.plates.plates as usize {
-        ui.colored_label(PINK, format!("Only {} cells fit inside the world. Fewer plates, or less coverage?", made.kept.len()));
+    let land = made.kept.iter().filter(|plate| plate.land).count();
+    if land < world.plates.plates as usize {
+        ui.colored_label(PINK, format!("Only {land} cells fit inside the world. Fewer plates, or less coverage?"));
     }
+    ui.label(format!("{land} land plates, {} ocean plates", made.kept.len() - land));
     egui::Grid::new("world gen plates").striped(true).show(ui, |ui| {
+        ui.label("");
+        ui.small("plate");
+        ui.small("of the world");
+        ui.small("across").on_hover_text("The side of a square with the same area, in blocks.");
+        ui.small("speed").on_hover_text("Blocks per step.");
+        ui.small("heading");
+        ui.small("spin").on_hover_text("Degrees per step.");
+        ui.end_row();
         for (p, plate) in made.kept.iter().enumerate() {
-            let [r, g, b] = plate_colour(p);
             let (swatch, _) = ui.allocate_exact_size(Vec2::splat(14.0), egui::Sense::hover());
-            ui.painter().rect_filled(swatch, 0.0, Color32::from_rgb(r, g, b));
-            ui.label(format!("plate {}", p + 1));
-            ui.label(format!("{:.1}% of the world", plate.share * 100.0));
-            ui.small(format!("about {} blocks across", compass((plate.pixels as f32).sqrt() * blocks_per_pixel, "", "").trim()))
-                .on_hover_text("The side of a square with the same area.");
+            ui.painter().rect_filled(swatch, 0.0, colour32(plate_colour(p, plate.land)));
+            ui.label(plate_name(made, p));
+            ui.label(format!("{:.1}%", plate.share * 100.0));
+            ui.small(compass((plate.pixels as f32).sqrt() * blocks_per_pixel, "", "").trim().to_string());
+            if let Some(motion) = world.motions.get(p) {
+                ui.small(format!("{:.0}", motion.speed()));
+                ui.small(format!("{:.0}° {}", motion.heading(), bearing(motion.heading())));
+                ui.small(format!("{:.2}° {}", motion.spin.abs().to_degrees(), if motion.spin >= 0.0 { "clockwise" } else { "anticlockwise" }));
+            }
             ui.end_row();
         }
     });
+}
+
+/// "plate 3" for a land plate, "ocean 2" for an ocean plate (numbered separately).
+fn plate_name(made: &Plates, p: usize) -> String {
+    let land = made.kept.iter().filter(|plate| plate.land).count();
+    if p < land { format!("plate {}", p + 1) } else { format!("ocean {}", p + 1 - land) }
+}
+
+fn colour32([r, g, b]: [u8; 3]) -> Color32 {
+    Color32::from_rgb(r, g, b)
 }
 
 fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
@@ -298,17 +447,18 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
     let width = made.width;
 
     // Repaint only when the plates or the look changed.
-    let wanted = (world.version, world.show_cells);
+    let wanted = (world.version, world.show_cells, world.motions_version, world.show_boundaries);
     if world.painted_for != Some(wanted) || world.texture.is_none() {
         let mut pixels: Vec<Color32> = (0..width * width)
             .map(|i| {
-                let [r, g, b] = match (made.inside[i], made.plate[i]) {
-                    (false, _) => BEYOND,
-                    (true, Some(p)) => plate_colour(p as usize),
-                    (true, None) if world.show_cells => cell_shade(made.cell[i]),
-                    (true, None) => OCEAN,
-                };
-                Color32::from_rgb(r, g, b)
+                let boundary = world.show_boundaries.then(|| world.contacts.get(i).copied().flatten()).flatten();
+                colour32(match (made.inside[i], made.plate[i], boundary) {
+                    (false, _, _) => BEYOND,
+                    (true, _, Some(contact)) => boundary_colour(contact.kind),
+                    (true, Some(p), None) => plate_colour(p as usize, made.kept[p as usize].land),
+                    (true, None, _) if world.show_cells => cell_shade(made.cell[i]),
+                    (true, None, _) => OCEAN,
+                })
             })
             .collect();
         // Each plate's middle as a white pixel.
@@ -345,6 +495,15 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
             painter.circle_filled(to_screen(vertex.at), 2.5, VERTEX);
         }
     }
+    if world.show_arrows {
+        for (plate, motion) in made.kept.iter().zip(&world.motions) {
+            heading_arrow(&painter, &to_screen, plate.middle, motion, world.arrow_steps, made.blocks_per_pixel);
+            // The curve shows spin compared with the fastest allowed: that would be three
+            // quarters of a circle. (Real turns are too small to see.)
+            let fastest = world.motion.spin.to_radians().max(1e-6);
+            spin_arrow(&painter, &to_screen, plate.middle, (plate.pixels as f32).sqrt() * 0.25, motion.spin / fastest * 1.5 * std::f32::consts::PI);
+        }
+    }
     world.camera.outline(&painter, rect, world.hover, MAGENTA);
     painter.text(
         rect.left_bottom() + Vec2::new(8.0, -8.0),
@@ -353,4 +512,53 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         egui::FontId::proportional(12.0),
         PINK,
     );
+}
+
+/// A line with a dark edge, so it shows on any colour.
+fn outlined(painter: &egui::Painter, points: Vec<Pos2>, width: f32) {
+    painter.add(egui::Shape::line(points.clone(), egui::Stroke::new(width + 2.0, Color32::from_black_alpha(200))));
+    painter.add(egui::Shape::line(points, egui::Stroke::new(width, Color32::WHITE)));
+}
+
+/// Two short strokes making an arrowhead at `tip`, pointing along `direction` (on screen).
+fn arrowhead(tip: Pos2, direction: Vec2) -> [Vec<Pos2>; 2] {
+    let back = -direction.normalized() * 7.0;
+    let side = Vec2::new(-back.y, back.x) * 0.6;
+    [vec![tip + back + side, tip], vec![tip + back - side, tip]]
+}
+
+/// A straight arrow from a plate's middle to where it would be after `steps` steps.
+fn heading_arrow(painter: &egui::Painter, to_screen: &impl Fn((f32, f32)) -> Pos2, middle: (f32, f32), motion: &Motion, steps: f32, blocks_per_pixel: f32) {
+    let travel = (motion.velocity.0 * steps / blocks_per_pixel, motion.velocity.1 * steps / blocks_per_pixel);
+    let (from, to) = (to_screen(middle), to_screen((middle.0 + travel.0, middle.1 + travel.1)));
+    if from.distance(to) < 3.0 {
+        return;
+    }
+    outlined(painter, vec![from, to], 2.0);
+    for stroke in arrowhead(to, to - from) {
+        outlined(painter, stroke, 2.0);
+    }
+}
+
+/// A curved arrow around a plate's middle, `turn` radians long (+ = clockwise). Starts at the
+/// top.
+fn spin_arrow(painter: &egui::Painter, to_screen: &impl Fn((f32, f32)) -> Pos2, middle: (f32, f32), radius: f32, turn: f32) {
+    // Never quite a full circle, so the arrow's start and end stay clear.
+    let turn = turn.clamp(-5.5, 5.5);
+    if turn.abs() < 0.05 {
+        return;
+    }
+    let pieces = ((turn.abs() * 12.0).ceil() as usize).max(2);
+    let points: Vec<Pos2> = (0..=pieces)
+        .map(|k| {
+            // From straight up (north), clockwise for + (south is down on the map).
+            let angle = -std::f32::consts::FRAC_PI_2 + turn * k as f32 / pieces as f32;
+            to_screen((middle.0 + radius * angle.cos(), middle.1 + radius * angle.sin()))
+        })
+        .collect();
+    let (tip, before) = (points[pieces], points[pieces - 1]);
+    outlined(painter, points, 1.5);
+    for stroke in arrowhead(tip, tip - before) {
+        outlined(painter, stroke, 1.5);
+    }
 }

@@ -35,7 +35,8 @@
 //!
 //! **World Gen:**
 //! - `world.rs`   its screen, the world seed
-//! - `plates.rs`  plates: Voronoi cells in the world's circle
+//! - `plates.rs`  plates: Voronoi cells in the world's circle, and the ocean plates around them
+//! - `tectonics.rs` the plates' motion, and what it does at their boundaries
 
 mod blend;
 mod canvas;
@@ -48,6 +49,7 @@ mod noise;
 mod palette;
 mod plates;
 mod runner;
+mod tectonics;
 mod view;
 mod world;
 mod worley;

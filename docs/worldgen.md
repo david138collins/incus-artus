@@ -58,10 +58,39 @@ the player, the circle is the boundary (the ice wall is past it; few players wil
   - the vertices and the straight lines can be shown over the picture.
 
   This only reshapes the plates. Behaviours come after.
-- **Next steps, one tool at a time:**
-  - random properties and behaviours for the plates;
-  - plates get heights;
-  - they move and collide (mountains);
+
+### World Gen tool 2: tectonics  [DECIDED 2026-10-24, building]
+David's picture: **plates are rags on a table being pushed around.** They wrinkle most at the edges, but their
+stiffness is irregular, so lesser wrinkles appear further back too. Land pushed up shows **brighter**, land
+pushed down **darker**.
+
+- **How:** each plate becomes a mesh of points joined by springs. Stiffness comes from a noise map. Each small
+  triangle keeps its amount of rock, so squeezed ground thickens (brighter, mountains) and stretched ground
+  thins (darker, rifts). Nobody places mountains; they're where rock got squeezed. Fold ridges are added at
+  right angles to the squeeze.
+- **Boundaries come from the same rules:** convergent (squeeze: ridges), divergent (stretch: rifts), transform
+  (sliding: friction grips and turns the plates).
+- **Ocean plates:** the ring of cells touching the land plates becomes ocean plates. They move too, and make
+  the coast types: ocean diving under land gives a trench and a mountain line just inland; ocean against
+  ocean gives island chains; land against land gives the biggest mountains.
+- **Ocean splitting** [David]: two plates pulling apart in the ocean leave a **V-shaped valley** between them,
+  widening at the top as they diverge. Some islands formed by plate motion near the continents are welcome,
+  but the ocean should become **empty very quickly** sailing out from land toward the edges.
+- **Motion** [David]: plates are **given their motion at the start, then coast until they slow down** (like
+  flicking a rag). The force, how slowly it dies away and so on are sliders, to find the tasty ranges.
+- **The edge** [David]: plates never reach it. If needed, an imaginary **bowl** surrounds them (like a
+  Beyblade arena): a radial slope from the border inward that keeps them from straying far from the middle.
+- **Watching** [David]: it runs **live**, with a **speed control that changes only how fast it plays**, never
+  the result. Same seed and settings, same mountains.
+- **Order, one launch each:**
+  1. ocean ring and plate properties (direction, speed, spin as arrows; boundaries coloured by what *would*
+     happen: red colliding, blue pulling apart, green sliding). Nothing moves yet;
+  2. rigid motion: Start / Pause / Step / Reset, the bowl, collisions and friction turning the plates;
+  3. rags: springs, irregular stiffness, height from squeezing, fold ridges;
+  4. subduction, rifts and new ocean floor (the V-shaped valleys);
+  5. bake the result into a height map.
+
+- **After tectonics, one tool at a time:**
   - a water level;
   - springs and rivers: a field of random dots culled to plausible springs, shown as light blue pixels, that
     run downhill and thicken as tributaries join, out to the ocean.
