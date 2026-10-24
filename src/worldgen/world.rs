@@ -1032,7 +1032,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         if let Some(chosen) = world.bake_chosen.clone().filter(|chosen| bakes.contains(chosen)) {
             ui.horizontal_wrapped(|ui| {
                 ui.small("to the Graphics Kit:");
-                for file in ["height", "squeeze", "push_direction", "push_strength", "plates"] {
+                for file in ["height", "squeeze", "push_direction", "push_strength", "tilt", "plates"] {
                     if ui.small_button(file).clicked() {
                         world.send_file = Some(bake::bakes_folder().join(&chosen).join(format!("{file}.png")));
                     }
