@@ -334,6 +334,19 @@ impl WorldGen {
         self.sim.as_mut()
     }
 
+    /// The Start / Pause button (and the space bar): pauses a run, carries on a paused one, and
+    /// once everything has coasted to a stop, starts again from the beginning.
+    fn start_or_pause(&mut self) {
+        if self.running {
+            self.running = false;
+            return;
+        }
+        if self.sim.as_ref().is_some_and(|sim| sim.settled) {
+            self.reset();
+        }
+        self.running = self.sim().is_some();
+    }
+
     /// Whether the simulation has moved anything yet (if not, the plates show as made).
     fn has_moved(&self) -> bool {
         self.sim.as_ref().is_some_and(|sim| sim.steps > 0)
@@ -464,6 +477,12 @@ fn cell_shade(cell: u16) -> [u8; 3] {
 pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let blocks = suite.blocks_per_pixel();
     let world = &mut suite.world;
+    // The space bar is Start / Pause (unless you're typing, say a preset's name). Taken before any
+    // button sees it, so a button that has just been clicked isn't pressed by it too.
+    let typing = root.ctx().egui_wants_keyboard_input();
+    if !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space)) {
+        world.start_or_pause();
+    }
     egui::Panel::top("world gen bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
             if ui
@@ -571,9 +590,20 @@ impl WorldGen {
 /// Start / Pause, Step, Reset, the step count and the watching speed.
 fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.strong("Tectonics:");
-    let label = if world.running { "Pause" } else if world.has_moved() { "Carry on" } else { "Start" };
-    if ui.button(label).on_hover_text("Run the plates: each coasts on its starting push until drag stops it.").clicked() {
-        world.running = !world.running && world.sim().is_some();
+    let settled = world.sim.as_ref().is_some_and(|sim| sim.settled);
+    let label = if world.running {
+        "Pause"
+    } else if world.has_moved() && !settled {
+        "Carry on"
+    } else {
+        "Start"
+    };
+    if ui
+        .button(format!("{label}  [Space]"))
+        .on_hover_text("Run the plates: each coasts on its starting push until drag stops it.\nOnce everything has stopped, Start runs it again from the beginning.\nThe space bar does the same, so you can change a setting and run again without moving your hands.")
+        .clicked()
+    {
+        world.start_or_pause();
     }
     if ui.button("Step").on_hover_text("One step, then pause.").clicked() {
         world.running = false;
@@ -1429,6 +1459,24 @@ mod tests {
         }
         world.moved = world.sim.as_ref().unwrap().paint(world.shading_smoothness, world.tear_open, 0.0);
         world
+    }
+
+    #[test]
+    fn start_pauses_carries_on_and_starts_over_once_everything_has_stopped() {
+        let mut world = ready();
+        // Paused part-way: Start carries on from where it was.
+        let before = world.sim.as_ref().unwrap().steps;
+        world.start_or_pause();
+        assert!(world.running);
+        assert_eq!(world.sim.as_ref().unwrap().steps, before);
+        // Running: it pauses.
+        world.start_or_pause();
+        assert!(!world.running);
+        // Everything has coasted to a stop: Start runs it again from the beginning.
+        world.sim.as_mut().unwrap().settled = true;
+        world.start_or_pause();
+        assert!(world.running);
+        assert_eq!(world.sim.as_ref().unwrap().steps, 0);
     }
 
     #[test]

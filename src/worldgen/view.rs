@@ -151,6 +151,13 @@ fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
     let mut close = false;
     ui.horizontal_wrapped(|ui| {
         ui.colored_label(PINK, "EDITOR SUITE");
+        // "making…" lives in a slot of its own that's always there (blank when nothing is being
+        // made), so it never pushes the bar around or changes its height.
+        let making = suite.is_making() || suite.world.is_making() || suite.compiler.is_making();
+        let (slot, _) = ui.allocate_exact_size(egui::vec2(58.0, ui.spacing().interact_size.y), egui::Sense::hover());
+        if making {
+            ui.painter().text(slot.left_center(), egui::Align2::LEFT_CENTER, "making…", egui::FontId::proportional(12.0), PINK);
+        }
         if ui.button("Back to the world  [F2]").clicked() {
             close = true;
         }
@@ -185,10 +192,6 @@ fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
             ui.small("(the last pixel runs past the edge)").on_hover_text(
                 "The field isn't a whole number of pixels this size.\nFor 72,000 blocks, these fit exactly: 1, 2, 3, 5, 6, 9, 10, 15, 18, 25, 30 and 45 chunks.",
             );
-        }
-        ui.separator();
-        if suite.is_making() || suite.world.is_making() {
-            ui.label("Making…");
         }
     });
     close
