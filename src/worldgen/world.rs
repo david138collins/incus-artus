@@ -20,7 +20,7 @@
 use super::Suite;
 use super::canvas::Camera;
 use super::palette::from_hsl;
-use super::plates::{self, PlateSettings, Plates};
+use super::plates::{self, LineNoise, LineStyle, PlateSettings, Plates};
 use super::runner::{Finished, Job, Poll};
 use super::view::{MAGENTA, PINK, compass, seed_row};
 use bevy_egui::egui::{self, Color32, Vec2};
@@ -183,17 +183,11 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.separator();
     ui.strong("Wobbly edges");
     ui.small(
-        "Each line between two cells is pushed sideways by Perlin noise running along it. The push fades \
-         to nothing at the vertices (where three cells meet), so the corners stay put and the lines still meet.",
+        "Each line between two cells is pushed sideways by two line mutators, added together. The push is \
+         nothing at the vertices (where three cells meet), so the corners stay put and the lines still meet.",
     );
-    ui.add(egui::Slider::new(&mut plates.wobble, 0.0..=10_000.0).text("wobble (blocks)"))
-        .on_hover_text("How far a line may be pushed sideways. 0 = straight lines.\nVery big wobbles get cut off where they run into other lines.");
-    ui.add(egui::Slider::new(&mut plates.wobble_size, 300.0..=40_000.0).logarithmic(true).text("wobble size (blocks)"))
-        .on_hover_text("How long the biggest wobbles are, along the line.");
-    ui.add(egui::Slider::new(&mut plates.wobble_octaves, 1..=8).text("octaves"))
-        .on_hover_text("Finer, fainter wobbles stacked on the big ones.");
-    ui.add(egui::Slider::new(&mut plates.wobble_roughness, 0.0..=1.0).text("roughness"))
-        .on_hover_text("How strong each finer wobble is compared with the one before.\nHigher = more jagged coastlines.");
+    line_noise(ui, "Large waves", &mut plates.waves);
+    line_noise(ui, "Small roughness", &mut plates.rough);
 
     ui.add_space(6.0);
     ui.separator();
@@ -204,6 +198,44 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.add_space(6.0);
     if ui.button("Plate settings back to defaults").clicked() {
         world.plates = PlateSettings::default();
+    }
+}
+
+/// One line mutator's controls.
+fn line_noise(ui: &mut egui::Ui, title: &str, noise: &mut LineNoise) {
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut noise.on, "");
+        ui.strong(title);
+    });
+    if !noise.on {
+        return;
+    }
+    ui.horizontal(|ui| {
+        ui.label("style:");
+        ui.selectable_value(&mut noise.style, LineStyle::Perlin, "Perlin noise")
+            .on_hover_text("Perlin noise running along the line. Smooth and rolling.");
+        ui.selectable_value(&mut noise.style, LineStyle::Midpoint, "midpoint displacement").on_hover_text(
+            "Halve the line and nudge the middle sideways at random; halve each half and nudge\ntheir middles by less; and so on down to the finest step. Jagged, like a coastline.",
+        );
+    });
+    let midpoint = noise.style == LineStyle::Midpoint;
+    ui.add(egui::Slider::new(&mut noise.amount, 0.0..=10_000.0).text("amount (blocks)")).on_hover_text(if midpoint {
+        "The first nudge, at the middle of each line. The smaller nudges are fractions of it."
+    } else {
+        "How far a line may be pushed sideways.\nVery big pushes get cut off where they run into other lines."
+    });
+    if midpoint {
+        ui.add(egui::Slider::new(&mut noise.size, 50.0..=20_000.0).logarithmic(true).text("finest step (blocks)"))
+            .on_hover_text("The halving stops when the pieces are this short. Smaller = finer detail.");
+        ui.add(egui::Slider::new(&mut noise.roughness, 0.0..=1.0).text("roughness"))
+            .on_hover_text("Each smaller nudge is this much of the one before.\n0.5 = natural-looking. Higher = jaggeder, lower = smoother.");
+    } else {
+        ui.add(egui::Slider::new(&mut noise.size, 300.0..=40_000.0).logarithmic(true).text("wave size (blocks)"))
+            .on_hover_text("How long the biggest wobbles are, along the line.");
+        ui.add(egui::Slider::new(&mut noise.octaves, 1..=8).text("octaves")).on_hover_text("Finer, fainter wobbles stacked on the big ones.");
+        ui.add(egui::Slider::new(&mut noise.roughness, 0.0..=1.0).text("roughness"))
+            .on_hover_text("How strong each finer wobble is compared with the one before.");
     }
 }
 
@@ -238,7 +270,8 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
     ui.heading("The plates");
     ui.label(format!("cover {:.1}% of the world (aiming for {:.0}%)", made.coverage * 100.0, world.plates.coverage * 100.0));
     ui.label(format!("{} cells, {} reached past the edge and were deleted", made.cells, made.past_the_edge));
-    ui.label(format!("{} vertices, {} lines between them", made.vertices.len(), made.edges.len()));
+    ui.label(format!("{} vertices and {} lines on the plates", made.vertices.len(), made.edges.len()))
+        .on_hover_text("The ones out in the ocean are culled.");
     if made.kept.len() < world.plates.plates as usize {
         ui.colored_label(PINK, format!("Only {} cells fit inside the world. Fewer plates, or less coverage?", made.kept.len()));
     }

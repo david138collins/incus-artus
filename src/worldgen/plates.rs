@@ -23,9 +23,18 @@
 //!   square holding three different cells; the exact spot is the one point the same distance from
 //!   all three cells' points (the centre of the circle through them).
 //! - **Find the edges**: each line between two cells runs from one vertex to another.
-//! - **Wobble each edge**: push the line sideways (perpendicular to itself) by Perlin noise running
-//!   along it. The push fades to nothing at both ends, so the vertices stay put and the edges still
-//!   meet. Pixels near a line go to whichever side of the wobbly line they're on.
+//! - **Wobble each edge**: push the line sideways (perpendicular to itself). The push is nothing at
+//!   both ends, so the vertices stay put and the edges still meet. Pixels near a line go to
+//!   whichever side of the wobbly line they're on.
+//!
+//! There are **two line mutators**, added together: **large waves** and **small roughness**. Each
+//! works one of two ways:
+//! - **Perlin noise** running along the line (faded to nothing at the ends): smooth, rolling.
+//! - **Midpoint displacement**: split the line in half and nudge the middle sideways by a random
+//!   amount; split each half and nudge their middles by less (times the roughness); and so on down
+//!   to the finest step. Jagged and coastline-like, and the ends never move.
+//!
+//! Only the vertices and lines that touch a plate are kept (the ones out in the ocean are culled).
 
 use super::noise::{Fade, perlin};
 use crate::fate::planet_hash;
@@ -43,20 +52,55 @@ pub struct PlateSettings {
     /// Rounds of spreading the points evenly (0 = as scattered).
     pub spread: u32,
 
-    // ── Wobbly edges ──
-    /// How far an edge may be pushed sideways, in blocks (0 = straight edges).
-    pub wobble: f32,
-    /// The size of the biggest wobbles along an edge, in blocks.
-    pub wobble_size: f32,
-    /// Finer, fainter wobbles stacked on top (as noise octaves).
-    pub wobble_octaves: u32,
-    /// How strong each finer wobble is compared with the one before.
-    pub wobble_roughness: f32,
+    /// The two line mutators, added together.
+    pub waves: LineNoise,
+    pub rough: LineNoise,
 }
 
 impl Default for PlateSettings {
     fn default() -> Self {
-        Self { plates: 7, coverage: 0.30, spread: 2, wobble: 1_500.0, wobble_size: 6_000.0, wobble_octaves: 4, wobble_roughness: 0.5 }
+        Self {
+            plates: 7,
+            coverage: 0.30,
+            spread: 2,
+            waves: LineNoise { on: true, style: LineStyle::Perlin, amount: 3_000.0, size: 15_000.0, octaves: 2, roughness: 0.5 },
+            rough: LineNoise { on: true, style: LineStyle::Midpoint, amount: 800.0, size: 1_000.0, octaves: 3, roughness: 0.55 },
+        }
+    }
+}
+
+/// How a line mutator pushes a line sideways.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LineStyle {
+    /// Perlin noise running along the line: smooth, rolling.
+    #[default]
+    Perlin,
+    /// Halve the line again and again, nudging each new middle sideways: jagged.
+    Midpoint,
+}
+
+/// One line mutator.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LineNoise {
+    pub on: bool,
+    pub style: LineStyle,
+    /// How far the line may be pushed sideways, in blocks. (Midpoint: the first nudge, at the
+    /// line's middle.)
+    pub amount: f32,
+    /// Perlin: how long the biggest wobbles are, along the line. Midpoint: the finest step, where
+    /// the halving stops. In blocks.
+    pub size: f32,
+    /// Perlin only: finer, fainter wobbles stacked on top.
+    pub octaves: u32,
+    /// How strong each finer wobble (Perlin) or each smaller nudge (midpoint) is compared with the
+    /// one before.
+    pub roughness: f32,
+}
+
+impl Default for LineNoise {
+    fn default() -> Self {
+        Self { on: true, style: LineStyle::Perlin, amount: 1_500.0, size: 6_000.0, octaves: 3, roughness: 0.5 }
     }
 }
 
@@ -220,28 +264,88 @@ pub fn find_edges(vertices: &[Vertex]) -> Vec<Edge> {
     edges
 }
 
-/// How far the wobbly edge is pushed sideways (in pixels, toward the edge's first cell) at `t`,
-/// from 0 at one vertex to 1 at the other.
-fn push(edge: &Edge, index: usize, t: f32, seed: u64, settings: &PlateSettings, blocks_per_pixel: f32) -> f32 {
-    let length = (edge.to.0 - edge.from.0).hypot(edge.to.1 - edge.from.1) * blocks_per_pixel;
-    let along = t * length / settings.wobble_size.max(1.0);
-    let (mut total, mut strength, mut strengths, mut scale) = (0.0, 1.0, 0.0, 1.0);
-    for octave in 0..settings.wobble_octaves.max(1) {
-        // Each edge gets its own noise (its own salt), so no two edges wobble alike.
-        let salt = (index as u64) << 8 | octave as u64;
-        total += perlin(seed, salt, Fade::Smooth, along * scale, 0.37) * strength;
-        strengths += strength;
-        strength *= settings.wobble_roughness;
-        scale *= 2.0;
+/// Each edge gets its own noise (its own salt, from its two cells), so no two edges wobble alike.
+fn edge_salt(edge: &Edge) -> u64 {
+    (edge.cells.0 as u64) << 24 | (edge.cells.1 as u64) << 4
+}
+
+/// Midpoint displacement along one edge `length` blocks long: the push (in blocks) at evenly
+/// spaced steps from one end (0) to the other (0).
+fn midpoint_profile(noise: &LineNoise, seed: u64, salt: u64, length: f32) -> Vec<f32> {
+    let levels = ((length / noise.size.max(1.0)).log2().ceil() as i32).clamp(1, 12) as u32;
+    let n = 1usize << levels;
+    let mut push = vec![0.0f32; n + 1];
+    let (mut step, mut nudge) = (n, noise.amount);
+    let mut level = 0;
+    while step > 1 {
+        let half = step / 2;
+        for i in (half..n).step_by(step) {
+            let random = (planet_hash(seed, salt, i as i64, level, 0) >> 40) as f32 / (1u64 << 24) as f32 * 2.0 - 1.0;
+            push[i] = (push[i - half] + push[i + half]) / 2.0 + random * nudge;
+        }
+        nudge *= noise.roughness;
+        step = half;
+        level += 1;
     }
-    // Fade to nothing at both vertices, so the edges still meet there.
-    let fade = (t * std::f32::consts::PI).sin();
-    total / strengths * fade * settings.wobble / blocks_per_pixel
+    push
+}
+
+/// One mutator, ready to use on every edge (midpoint profiles are worked out once per edge).
+struct Mutator<'a> {
+    noise: &'a LineNoise,
+    seed: u64,
+    profiles: Vec<Vec<f32>>,
+}
+
+impl<'a> Mutator<'a> {
+    fn new(noise: &'a LineNoise, seed: u64, edges: &[Edge], blocks_per_pixel: f32) -> Self {
+        let profiles = match noise.style {
+            LineStyle::Midpoint => edges.iter().map(|edge| midpoint_profile(noise, seed, edge_salt(edge), edge.length() * blocks_per_pixel)).collect(),
+            LineStyle::Perlin => Vec::new(),
+        };
+        Self { noise, seed, profiles }
+    }
+
+    /// The push in blocks at `t`, from 0 at one vertex to 1 at the other.
+    fn push(&self, edge: &Edge, index: usize, t: f32, blocks_per_pixel: f32) -> f32 {
+        match self.noise.style {
+            LineStyle::Perlin => {
+                let along = t * edge.length() * blocks_per_pixel / self.noise.size.max(1.0);
+                let (mut total, mut strength, mut strengths, mut scale) = (0.0, 1.0, 0.0, 1.0);
+                for octave in 0..self.noise.octaves.max(1) {
+                    total += perlin(self.seed, edge_salt(edge) | octave as u64, Fade::Smooth, along * scale, 0.37) * strength;
+                    strengths += strength;
+                    strength *= self.noise.roughness;
+                    scale *= 2.0;
+                }
+                // Fade to nothing at both vertices, so the edges still meet there.
+                total / strengths * (t * std::f32::consts::PI).sin() * self.noise.amount
+            }
+            LineStyle::Midpoint => {
+                let profile = &self.profiles[index];
+                let at = t * (profile.len() - 1) as f32;
+                let i = (at.floor() as usize).min(profile.len() - 2);
+                profile[i] + (profile[i + 1] - profile[i]) * (at - i as f32)
+            }
+        }
+    }
+}
+
+impl Edge {
+    /// In field pixels.
+    fn length(&self) -> f32 {
+        (self.to.0 - self.from.0).hypot(self.to.1 - self.from.1)
+    }
 }
 
 /// Moves pixels near each edge to whichever side of the wobbly line they're on.
 fn wobble(points: &[(f32, f32)], width: usize, cell: &mut [u16], edges: &[Edge], seed: u64, settings: &PlateSettings, blocks_per_pixel: f32) {
-    if settings.wobble <= 0.0 {
+    let mutators: Vec<Mutator> = [(&settings.waves, "waves"), (&settings.rough, "roughness")]
+        .into_iter()
+        .filter(|(noise, _)| noise.on && noise.amount > 0.0)
+        .map(|(noise, name)| Mutator::new(noise, crate::fate::derive_seed(seed, name), edges, blocks_per_pixel))
+        .collect();
+    if mutators.is_empty() {
         return;
     }
     let edge_of: HashMap<(usize, usize), usize> = edges.iter().enumerate().map(|(i, edge)| (edge.cells, i)).collect();
@@ -249,7 +353,7 @@ fn wobble(points: &[(f32, f32)], width: usize, cell: &mut [u16], edges: &[Edge],
     let rows_each = width.div_ceil(cores).max(1);
     std::thread::scope(|scope| {
         for (band, chunk) in cell.chunks_mut(rows_each * width).enumerate() {
-            let edge_of = &edge_of;
+            let (edge_of, mutators) = (&edge_of, &mutators);
             scope.spawn(move || {
                 for (i, nearest) in chunk.iter_mut().enumerate() {
                     let p = ((i % width) as f32 + 0.5, (band * rows_each + i / width) as f32 + 0.5);
@@ -272,7 +376,7 @@ fn wobble(points: &[(f32, f32)], width: usize, cell: &mut [u16], edges: &[Edge],
                     // How far along the edge it is.
                     let (dx, dy) = (edge.to.0 - edge.from.0, edge.to.1 - edge.from.1);
                     let t = (((p.0 - edge.from.0) * dx + (p.1 - edge.from.1) * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0);
-                    let pushed = push(edge, index, t, seed, settings, blocks_per_pixel);
+                    let pushed: f32 = mutators.iter().map(|m| m.push(edge, index, t, blocks_per_pixel)).sum::<f32>() / blocks_per_pixel;
                     // A push toward the edge's first cell takes ground from it, and gives ground to
                     // it when negative.
                     let toward_own = if a == edge.cells.0 { pushed } else { -pushed };
@@ -324,8 +428,8 @@ pub fn make(settings: &PlateSettings, seed: u64, size_blocks: f32, blocks_per_pi
     }
 
     // The vertices and edges of the straight cells, then the edges wobbled.
-    let vertices = find_vertices(&points, &cell, width);
-    let edges = find_edges(&vertices);
+    let mut vertices = find_vertices(&points, &cell, width);
+    let mut edges = find_edges(&vertices);
     let edge_seed = crate::fate::derive_seed(seed, "plate edges");
     wobble(&points, width, &mut cell, &edges, edge_seed, settings, blocks_per_pixel);
 
@@ -360,6 +464,10 @@ pub fn make(settings: &PlateSettings, seed: u64, size_blocks: f32, blocks_per_pi
         plate_of_cell[plate.cell] = Some(p as u8);
     }
     let plate = cell.iter().map(|&c| plate_of_cell[c as usize]).collect();
+    // Cull the vertices and lines out in the ocean: keep only those touching a plate.
+    let on_a_plate = |c: &usize| plate_of_cell[*c].is_some();
+    vertices.retain(|vertex| vertex.cells.iter().any(on_a_plate));
+    edges.retain(|edge| on_a_plate(&edge.cells.0) || on_a_plate(&edge.cells.1));
     let coverage = kept.iter().map(|plate| plate.share).sum();
 
     Some(Plates {
@@ -431,16 +539,43 @@ mod tests {
 
     #[test]
     fn wobbling_moves_the_borders_but_keeps_the_rules() {
-        let straight = plates(&PlateSettings { wobble: 0.0, ..PlateSettings::default() }, 4);
-        let wobbly = plates(&PlateSettings { wobble: 3_000.0, ..PlateSettings::default() }, 4);
-        assert_ne!(straight.cell, wobbly.cell, "the wobble should move some pixels");
-        // About two vertices per cell, as in any Voronoi diagram.
-        assert!(wobbly.vertices.len() > wobbly.cells, "{} vertices for {} cells", wobbly.vertices.len(), wobbly.cells);
-        for (i, plate) in wobbly.plate.iter().enumerate() {
-            if plate.is_some() {
-                assert!(wobbly.inside[i]);
+        let off = |noise: LineNoise| LineNoise { on: false, ..noise };
+        let defaults = PlateSettings::default();
+        let straight = plates(&PlateSettings { waves: off(defaults.waves.clone()), rough: off(defaults.rough.clone()), ..defaults.clone() }, 4);
+        for style in [LineStyle::Perlin, LineStyle::Midpoint] {
+            let waves = LineNoise { style, amount: 3_000.0, ..defaults.waves.clone() };
+            let wobbly = plates(&PlateSettings { waves, ..defaults.clone() }, 4);
+            assert_ne!(straight.cell, wobbly.cell, "the wobble should move some pixels");
+            for (i, plate) in wobbly.plate.iter().enumerate() {
+                if plate.is_some() {
+                    assert!(wobbly.inside[i]);
+                }
             }
         }
+    }
+
+    #[test]
+    fn only_vertices_and_lines_touching_a_plate_are_kept() {
+        let made = plates(&PlateSettings::default(), 6);
+        assert!(!made.vertices.is_empty());
+        let on_a_plate = |c: usize| made.kept.iter().any(|plate| plate.cell == c);
+        for vertex in &made.vertices {
+            assert!(vertex.cells.iter().any(|&c| on_a_plate(c)));
+        }
+        for edge in &made.edges {
+            assert!(on_a_plate(edge.cells.0) || on_a_plate(edge.cells.1));
+        }
+    }
+
+    #[test]
+    fn midpoint_displacement_never_moves_the_ends() {
+        let noise = LineNoise { style: LineStyle::Midpoint, amount: 500.0, size: 100.0, roughness: 0.6, ..LineNoise::default() };
+        let profile = midpoint_profile(&noise, 7, 3, 10_000.0);
+        assert_eq!((profile[0], profile[profile.len() - 1]), (0.0, 0.0));
+        assert!(profile.iter().any(|&p| p != 0.0));
+        assert_eq!(profile, midpoint_profile(&noise, 7, 3, 10_000.0), "same seed, same line");
+        // Halved down to the finest step: 10,000 blocks in steps of about 100.
+        assert_eq!(profile.len(), 129);
     }
 
     #[test]

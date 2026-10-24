@@ -45,7 +45,16 @@ the player, the circle is the boundary (the ice wall is past it; few players wil
   - the vertices (where three cells meet) are found from the pixel map and made exact;
   - each edge between two vertices is pushed sideways (perpendicular to it) by Perlin noise running along it;
   - the push fades to nothing at the vertices, so the corners stay put;
-  - sliders: wobble (blocks), wobble size, octaves, roughness;
+  - **two line mutators added together:** **large waves** and **small roughness**, each switchable on or off;
+  - **each has a style switch:**
+    - **Perlin noise** along the line, faded to nothing at the ends: smooth and rolling. Its controls are
+      amount, wave size, octaves and roughness.
+    - **Midpoint displacement:** halve the line and nudge the middle sideways at random, then halve again with
+      smaller nudges, down to the finest step. Jagged and coastline-like, and the ends never move. Its
+      controls are amount (the first nudge), finest step and roughness.
+  - the defaults are Perlin waves (3,000 blocks across 15,000-block waves) plus midpoint roughness (800
+    blocks, down to 1,000-block steps);
+  - **vertices and lines out in the ocean are culled.** Only those touching a plate are kept and shown;
   - the vertices and the straight lines can be shown over the picture.
 
   This only reshapes the plates. Behaviours come after.
