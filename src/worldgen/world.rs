@@ -76,6 +76,8 @@ pub struct WorldGen {
     moved: Vec<Option<(u8, f32)>>,
     /// How bright the most raised ground shows (a height of this = white).
     pub height_shown: f32,
+    /// How many times the shading is blended with its neighbours (only changes the look).
+    pub shading_smoothness: u32,
     pub show_bowl: bool,
     /// For automatic testing: start the simulation as soon as the plates are made.
     pub start_when_ready: bool,
@@ -88,7 +90,7 @@ pub struct WorldGen {
 
     camera: Camera,
     texture: Option<egui::TextureHandle>,
-    painted_for: Option<(u64, bool, u64, bool, Option<u64>, u32)>,
+    painted_for: Option<(u64, bool, u64, bool, Option<u64>, u32, u32)>,
     hover: Option<(usize, usize)>,
     seed_text: String,
 }
@@ -117,6 +119,7 @@ impl Default for WorldGen {
             owed: 0.0,
             moved: Vec::new(),
             height_shown: 0.5,
+            shading_smoothness: 3,
             show_bowl: true,
             start_when_ready: false,
             result: None,
@@ -501,6 +504,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         .on_hover_text(
             "Only changes the look. 0.5 = rock half as thick again shows white, and rock half as thin shows black.\nLower = small squeezes show strongly.",
         );
+    ui.add(egui::Slider::new(&mut world.shading_smoothness, 0..=20).text("shading smoothness")).on_hover_text(
+        "Only changes the look: how many times the shading is blended with its neighbours.\n0 = sharp (you can see the grid's triangles). Higher = smooth fields.",
+    );
     ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
 
     ui.add_space(6.0);
@@ -676,7 +682,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
     // Repaint only when the plates, the simulation or the look changed.
     let moved = world.has_moved();
     let sim_steps = world.sim.as_ref().filter(|_| moved).map(|sim| sim.steps);
-    let wanted = (world.version, world.show_cells, world.motions_version, world.show_boundaries, sim_steps, world.height_shown.to_bits());
+    let wanted = (world.version, world.show_cells, world.motions_version, world.show_boundaries, sim_steps, world.height_shown.to_bits(), world.shading_smoothness);
     if world.painted_for != Some(wanted) || world.texture.is_none() {
         let ocean = |i: usize| match (made.inside[i], world.show_cells) {
             (false, _) => BEYOND,
@@ -686,7 +692,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         let mut pixels: Vec<Color32>;
         if let Some(sim) = world.sim.as_ref().filter(|_| moved) {
             // The plates where they are now, raised ground lightened toward white.
-            world.moved = sim.paint();
+            world.moved = sim.paint(world.shading_smoothness);
             pixels = world
                 .moved
                 .iter()
