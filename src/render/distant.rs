@@ -1,0 +1,553 @@
+//! Distant terrain — the landscape out to the edge of the world, beyond the full-detail chunks
+//! (like Distant Horizons).
+//!
+//! **Rings of tiles.** Around you are rings, each made of blocks twice as big as the ring inside
+//! it: 16-block cells just past the full-detail chunks, then 32, 64 … up to 1,024-block cells far
+//! away. Seven rings reach the edge of the world from anywhere. Each ring is 8 × 8 tiles of 32 × 32
+//! cells, with a hole in the middle where the next ring in sits (the finest ring has no hole: real
+//! chunks are drawn there, and the shader draws no distant terrain inside their circle).
+//!
+//! **Each ring snaps to its own grid** (twice its tile size), so its hole lines up exactly with the
+//! ring inside, and as you move only the tiles at its edges change; the rest stay put.
+//!
+//! **A tile** is a blocky height field: each cell is one column, its top at the ground's height in
+//! the middle of the cell (the same column function the real chunks use), coloured by its surface
+//! block (the block texture's average colour), with sides down to lower neighbours. Water fills to
+//! sea level. Neighbouring cells on the same row with the same height and colour share one top.
+//!
+//! Tiles are made in the background, coarsest rings first (so the whole world appears quickly),
+//! then nearest first.
+
+use super::RenderSettings;
+use crate::coords::{bevy_to_game, game_to_bevy};
+use crate::data::{BlockRegistry, FACE_NAMES};
+use crate::world::{BlockId, CompiledMap, StreamSettings, Terrain, TerrainBlocks};
+use bevy::asset::RenderAssetUsages;
+use bevy::mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology};
+use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
+use bevy::prelude::*;
+use bevy::render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError};
+use bevy::shader::ShaderRef;
+use bevy::tasks::{AsyncComputeTaskPool, Task, futures::check_ready};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+/// Cells along a tile's side.
+const CELLS: i32 = 32;
+/// Tiles along a ring's side.
+const RING_TILES: i32 = 8;
+
+/// Tunables (on the "Render" debug page, saved in "everything" presets).
+#[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DistantSettings {
+    pub enabled: bool,
+    /// The finest ring's cell size, in blocks (each ring out doubles it).
+    pub finest_cell: i32,
+    /// How many rings.
+    pub rings: u32,
+    /// The most tiles being made at once (0 = one per CPU core).
+    pub most_at_once: usize,
+    /// How far inside the full-detail chunks' edge distant terrain starts, in blocks (a little
+    /// overlap, so no gap shows at the hand-off).
+    pub overlap: f32,
+}
+
+impl Default for DistantSettings {
+    fn default() -> Self {
+        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, overlap: 16.0 }
+    }
+}
+
+/// One tile: which ring (0 = finest), and where in that ring's grid of tiles (north, east).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct TileKey {
+    pub ring: u8,
+    pub x: i32,
+    pub y: i32,
+}
+
+/// The tiles wanted around a spot (game axes, blocks): every ring's 8 × 8 tiles, less the hole
+/// where the ring inside sits.
+pub fn wanted_tiles(at: Vec3, finest_cell: i32, rings: u32) -> Vec<TileKey> {
+    let mut tiles = Vec::new();
+    for ring in 0..rings {
+        let size = (finest_cell * CELLS) as f32 * 2f32.powi(ring as i32);
+        // Snapped to twice the tile size, so the hole lines up with the ring inside.
+        let start = |v: f32| 2 * (v / (2.0 * size)).floor() as i32 - RING_TILES / 2;
+        let (sx, sy) = (start(at.x), start(at.y));
+        // The ring inside covers 4 × 4 of this ring's tiles, around the tile you're in.
+        let hole = |v: f32| (v / size).floor() as i32 - 2;
+        let (hx, hy) = (hole(at.x), hole(at.y));
+        for x in sx..sx + RING_TILES {
+            for y in sy..sy + RING_TILES {
+                let in_hole = ring > 0 && (hx..hx + 4).contains(&x) && (hy..hy + 4).contains(&y);
+                if !in_hole {
+                    tiles.push(TileKey { ring: ring as u8, x, y });
+                }
+            }
+        }
+    }
+    tiles
+}
+
+/// The colours distant terrain uses, from the block textures' average colours (linear RGB).
+#[derive(Clone, Copy, Debug)]
+pub struct Palette {
+    pub grass_top: [f32; 3],
+    pub grass_side: [f32; 3],
+    pub stone: [f32; 3],
+    pub gabbro: [f32; 3],
+    pub water: [f32; 3],
+}
+
+impl Palette {
+    /// Averages each block's top and side textures from `assets/textures/blocks/`.
+    pub fn from_textures(registry: &BlockRegistry, blocks: &TerrainBlocks) -> Self {
+        let face = |id: BlockId, which: &str| {
+            let index = FACE_NAMES.iter().position(|&name| name == which).unwrap_or(0);
+            registry.def(id).map(|def| def.faces[index].clone()).unwrap_or_default()
+        };
+        let average = |texture: String| average_colour(&texture).unwrap_or([0.5, 0.5, 0.5]);
+        Self {
+            grass_top: average(face(blocks.grass, "top")),
+            grass_side: average(face(blocks.grass, "north")),
+            stone: average(face(blocks.stone, "top")),
+            gabbro: average(face(blocks.gabbro, "top")),
+            water: average(face(blocks.water, "top")),
+        }
+    }
+
+    fn top(&self, block: BlockId, blocks: &TerrainBlocks) -> [f32; 3] {
+        if block == blocks.grass {
+            self.grass_top
+        } else if block == blocks.gabbro {
+            self.gabbro
+        } else if block == blocks.water {
+            self.water
+        } else {
+            self.stone
+        }
+    }
+
+    fn side(&self, block: BlockId, blocks: &TerrainBlocks) -> [f32; 3] {
+        if block == blocks.grass { self.grass_side } else { self.top(block, blocks) }
+    }
+}
+
+/// The average colour of `assets/textures/blocks/<name>.png`, in linear RGB (as the shaders work).
+fn average_colour(name: &str) -> Option<[f32; 3]> {
+    let path = crate::data::assets_folder().join("textures").join("blocks").join(format!("{name}.png"));
+    let mut decoder = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(path).ok()?));
+    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut reader = decoder.read_info().ok()?;
+    let mut buffer = vec![0; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buffer).ok()?;
+    let channels = info.color_type.samples();
+    let (mut sum, mut count) = ([0.0f32; 3], 0.0);
+    for pixel in buffer[..info.buffer_size()].chunks_exact(channels) {
+        if channels == 4 && pixel[3] < 128 {
+            continue;
+        }
+        for k in 0..3 {
+            let v = pixel[k.min(channels - 1)] as f32 / 255.0;
+            // sRGB to linear, so the colours mix like the textures do on the GPU.
+            sum[k] += if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) };
+        }
+        count += 1.0;
+    }
+    (count > 0.0).then(|| sum.map(|s| s / count))
+}
+
+/// A tile's mesh, in Bevy's axes, relative to the tile's corner.
+pub struct TileMesh {
+    pub positions: Vec<[f32; 3]>,
+    pub colours: Vec<[f32; 4]>,
+    pub indices: Vec<u32>,
+    /// The tile's north-west-bottom corner... the corner it's placed at (game axes).
+    pub corner: Vec3,
+}
+
+/// Face brightness: top, north/south sides, east/west sides.
+#[derive(Clone, Copy)]
+pub struct Shade {
+    pub top: f32,
+    pub north_south: f32,
+    pub east_west: f32,
+}
+
+impl TileMesh {
+    /// Adds a quad with corners `a b c d` (game axes, going round), facing `normal` (game axes).
+    fn quad(&mut self, corners: [Vec3; 4], normal: Vec3, colour: [f32; 3], shade: f32) {
+        let start = self.positions.len() as u32;
+        let points: Vec<Vec3> = corners.iter().map(|&p| game_to_bevy(p - self.corner)).collect();
+        for p in &points {
+            self.positions.push(p.to_array());
+            self.colours.push([colour[0] * shade, colour[1] * shade, colour[2] * shade, 1.0]);
+        }
+        // Wound so the front faces `normal` (Bevy draws counter-clockwise fronts).
+        let facing = (points[1] - points[0]).cross(points[2] - points[0]).dot(game_to_bevy(normal));
+        let order: [u32; 6] = if facing > 0.0 { [0, 1, 2, 0, 2, 3] } else { [0, 2, 1, 0, 3, 2] };
+        self.indices.extend(order.iter().map(|k| start + k));
+    }
+}
+
+/// Makes one tile's mesh, or `None` if it's wholly past the map.
+pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32) -> Option<TileMesh> {
+    let cell = (finest_cell << key.ring) as f32;
+    let size = cell * CELLS as f32;
+    let corner = Vec3::new(key.x as f32 * size, key.y as f32 * size, 0.0);
+    // Each cell's top (a Z, the top of the block) and surface block, with a one-cell border for
+    // the sides. `None` = past the map.
+    let n = (CELLS + 2) as usize;
+    let mut tops: Vec<Option<(i32, BlockId)>> = vec![None; n * n];
+    for j in 0..n {
+        for i in 0..n {
+            let x = corner.x + (i as f32 - 1.0 + 0.5) * cell;
+            let y = corner.y + (j as f32 - 1.0 + 0.5) * cell;
+            tops[j * n + i] = map.height(x, y).map(|h| {
+                let ground = (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1);
+                if ground < crate::world::SEA_LEVEL { (crate::world::SEA_LEVEL, blocks.water) } else { (ground + 1, map.surface(ground, blocks)) }
+            });
+        }
+    }
+    let at = |i: i32, j: i32| tops[(j + 1) as usize * n + (i + 1) as usize];
+    if (0..CELLS).all(|j| (0..CELLS).all(|i| at(i, j).is_none())) {
+        return None;
+    }
+    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), indices: Vec::new(), corner };
+    let cell_corner = |i: i32, j: i32| corner + Vec3::new(i as f32 * cell, j as f32 * cell, 0.0);
+    for j in 0..CELLS {
+        // Tops: runs along the row with the same height and block share one quad.
+        let mut i = 0;
+        while i < CELLS {
+            let Some((h, block)) = at(i, j) else {
+                i += 1;
+                continue;
+            };
+            let mut end = i + 1;
+            while end < CELLS && at(end, j) == Some((h, block)) {
+                end += 1;
+            }
+            let (a, b) = (cell_corner(i, j), cell_corner(end, j + 1));
+            let z = h as f32;
+            mesh.quad(
+                [Vec3::new(a.x, a.y, z), Vec3::new(b.x, a.y, z), Vec3::new(b.x, b.y, z), Vec3::new(a.x, b.y, z)],
+                Vec3::Z,
+                palette.top(block, blocks),
+                shade.top,
+            );
+            i = end;
+        }
+        // Sides, down to each lower neighbour.
+        for i in 0..CELLS {
+            let Some((h, block)) = at(i, j) else { continue };
+            let colour = palette.side(block, blocks);
+            for (di, dj) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let Some((low, _)) = at(i + di, j + dj) else { continue };
+                if low >= h {
+                    continue;
+                }
+                let (z0, z1) = (low as f32, h as f32);
+                let (p, q) = match (di, dj) {
+                    (1, 0) => (cell_corner(i + 1, j), cell_corner(i + 1, j + 1)),
+                    (-1, 0) => (cell_corner(i, j), cell_corner(i, j + 1)),
+                    (0, 1) => (cell_corner(i, j + 1), cell_corner(i + 1, j + 1)),
+                    _ => (cell_corner(i, j), cell_corner(i + 1, j)),
+                };
+                let side_shade = if di != 0 { shade.north_south } else { shade.east_west };
+                mesh.quad(
+                    [Vec3::new(p.x, p.y, z0), Vec3::new(q.x, q.y, z0), Vec3::new(q.x, q.y, z1), Vec3::new(p.x, p.y, z1)],
+                    Vec3::new(di as f32, dj as f32, 0.0),
+                    colour,
+                    side_shade,
+                );
+            }
+        }
+    }
+    Some(mesh)
+}
+
+// ── The material ────────────────────────────────────────────────────────────
+
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct DistantMaterial {
+    #[uniform(0)]
+    pub settings: DistantShaderSettings,
+}
+
+#[derive(ShaderType, Clone, Copy, Debug, Default)]
+pub struct DistantShaderSettings {
+    pub fog_color: Vec4,
+    /// x fog start, y fog end, z fog on.
+    pub fog: Vec4,
+    /// x = no distant terrain closer than this.
+    pub near: Vec4,
+}
+
+impl Material for DistantMaterial {
+    fn vertex_shader() -> ShaderRef {
+        "shaders/distant.wesl".into()
+    }
+
+    fn fragment_shader() -> ShaderRef {
+        "shaders/distant.wesl".into()
+    }
+
+    fn enable_prepass() -> bool {
+        false
+    }
+
+    fn enable_shadows() -> bool {
+        false
+    }
+
+    fn specialize(
+        _pipeline: &MaterialPipeline,
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayoutRef,
+        _key: MaterialPipelineKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        let vertex_layout = layout.0.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0), Mesh::ATTRIBUTE_COLOR.at_shader_location(1)])?;
+        descriptor.vertex.buffers = vec![vertex_layout];
+        Ok(())
+    }
+}
+
+// ── Keeping the tiles up to date ────────────────────────────────────────────
+
+/// A drawn tile.
+#[derive(Component)]
+pub struct DistantTile {
+    pub quads: u32,
+}
+
+#[derive(Resource, Default)]
+pub struct DistantState {
+    material: Option<Handle<DistantMaterial>>,
+    /// The map the tiles were made from.
+    map: Option<Arc<CompiledMap>>,
+    palette: Option<Palette>,
+    /// Tiles drawn (an entity), or known empty (`None`).
+    tiles: HashMap<TileKey, Option<Entity>>,
+    making: HashMap<TileKey, Task<Option<TileMesh>>>,
+    /// The settings and the tile the wanted list was worked out for.
+    wanted_for: Option<(DistantSettings, [f32; 3], IVec2)>,
+    wanted: Vec<TileKey>,
+    // ── For the Performance page ──
+    pub quads: u64,
+}
+
+impl DistantState {
+    pub fn tiles_drawn(&self) -> usize {
+        self.tiles.values().filter(|tile| tile.is_some()).count()
+    }
+
+    pub fn being_made(&self) -> usize {
+        self.making.len()
+    }
+
+    fn clear(&mut self, commands: &mut Commands) {
+        for (_, entity) in self.tiles.drain() {
+            if let Some(entity) = entity {
+                commands.entity(entity).despawn();
+            }
+        }
+        self.making.clear();
+        self.wanted_for = None;
+        self.quads = 0;
+    }
+}
+
+pub fn setup_distant(mut state: ResMut<DistantState>, mut materials: ResMut<Assets<DistantMaterial>>) {
+    state.material = Some(materials.add(DistantMaterial { settings: DistantShaderSettings::default() }));
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn update_distant(
+    mut commands: Commands,
+    terrain: Res<Terrain>,
+    settings: Res<DistantSettings>,
+    render: Res<RenderSettings>,
+    registry: Res<BlockRegistry>,
+    camera: Query<&Transform, With<Camera3d>>,
+    mut state: ResMut<DistantState>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    tiles: Query<&DistantTile>,
+) {
+    let map = match terrain.compiled() {
+        Some(map) if settings.enabled => map.clone(),
+        _ => {
+            if !state.tiles.is_empty() || !state.making.is_empty() {
+                state.clear(&mut commands);
+            }
+            return;
+        }
+    };
+    let blocks = TerrainBlocks::from_registry(&registry);
+    if state.map.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &map)) {
+        state.clear(&mut commands);
+        state.map = Some(map.clone());
+        state.palette = Some(Palette::from_textures(&registry, &blocks));
+    }
+    let Some(camera) = camera.iter().next() else { return };
+    let at = bevy_to_game(camera.translation);
+    let shade = Shade { top: render.shade_top, north_south: render.shade_north_south, east_west: render.shade_east_west };
+
+    // Which tiles are wanted: worked out again when you move into another finest tile (or the
+    // settings change).
+    let finest_tile = (settings.finest_cell * CELLS) as f32;
+    let here = IVec2::new((at.x / finest_tile).floor() as i32, (at.y / finest_tile).floor() as i32);
+    let look = [shade.top, shade.north_south, shade.east_west];
+    let now = (settings.clone(), look, here);
+    if state.wanted_for.as_ref() != Some(&now) {
+        // Shading changed: every tile has to be made again.
+        if state.wanted_for.as_ref().is_some_and(|(_, old, _)| *old != look) {
+            state.clear(&mut commands);
+        }
+        let wanted = wanted_tiles(at, settings.finest_cell, settings.rings);
+        let keep: HashSet<TileKey> = wanted.iter().copied().collect();
+        let gone: Vec<TileKey> = state.tiles.keys().copied().filter(|key| !keep.contains(key)).collect();
+        for key in gone {
+            if let Some(Some(entity)) = state.tiles.remove(&key) {
+                if let Ok(tile) = tiles.get(entity) {
+                    state.quads = state.quads.saturating_sub(tile.quads as u64);
+                }
+                commands.entity(entity).despawn();
+            }
+        }
+        state.making.retain(|key, _| keep.contains(key));
+        // Best last: coarsest rings first (the whole world shows quickly), then nearest.
+        let mut wanted: Vec<TileKey> = wanted.into_iter().filter(|key| !state.tiles.contains_key(key)).collect();
+        let distance = |key: &TileKey| {
+            let size = finest_tile * 2f32.powi(key.ring as i32);
+            let middle = Vec2::new((key.x as f32 + 0.5) * size, (key.y as f32 + 0.5) * size);
+            middle.distance(Vec2::new(at.x, at.y))
+        };
+        wanted.sort_by(|a, b| a.ring.cmp(&b.ring).then(distance(b).total_cmp(&distance(a))));
+        state.wanted = wanted;
+        state.wanted_for = Some(now);
+    }
+
+    // Finished tiles become meshes.
+    let mut done = Vec::new();
+    state.making.retain(|&key, task| match check_ready(task) {
+        Some(mesh) => {
+            done.push((key, mesh));
+            false
+        }
+        None => true,
+    });
+    let material = state.material.clone();
+    for (key, mesh) in done {
+        let Some(tile) = mesh else {
+            state.tiles.insert(key, None);
+            continue;
+        };
+        let quads = (tile.indices.len() / 6) as u32;
+        let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
+        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
+        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
+        bevy_mesh.insert_indices(Indices::U32(tile.indices));
+        let Some(material) = material.clone() else { continue };
+        let entity = commands
+            .spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), DistantTile { quads }))
+            .id();
+        state.quads += quads as u64;
+        state.tiles.insert(key, Some(entity));
+    }
+
+    // Start more.
+    let most = if settings.most_at_once == 0 { std::thread::available_parallelism().map_or(4, |n| n.get()) } else { settings.most_at_once };
+    let pool = AsyncComputeTaskPool::get();
+    let palette = state.palette.unwrap_or_else(|| Palette::from_textures(&registry, &blocks));
+    let finest = settings.finest_cell;
+    while state.making.len() < most {
+        let Some(key) = state.wanted.pop() else { break };
+        if state.tiles.contains_key(&key) || state.making.contains_key(&key) {
+            continue;
+        }
+        let map = map.clone();
+        let task = pool.spawn(async move { tile_mesh(&map, &blocks, &palette, shade, key, finest) });
+        state.making.insert(key, task);
+    }
+}
+
+/// Keeps the distant terrain's fog the same as the near terrain's, and its near edge at the
+/// full-detail chunks' edge.
+pub fn update_distant_material(
+    render: Res<RenderSettings>,
+    stream: Res<StreamSettings>,
+    distant: Res<DistantSettings>,
+    clear: Res<ClearColor>,
+    state: Res<DistantState>,
+    mut materials: ResMut<Assets<DistantMaterial>>,
+) {
+    let Some(handle) = &state.material else { return };
+    if !render.is_changed() && !stream.is_changed() && !distant.is_changed() && !clear.is_changed() {
+        return;
+    }
+    if let Some(mut material) = materials.get_mut(handle) {
+        let fog = clear.0.to_linear();
+        let near = (stream.radius as f32 * crate::world::CHUNK_SIZE as f32 - distant.overlap).max(0.0);
+        material.settings = DistantShaderSettings {
+            fog_color: Vec4::new(fog.red, fog.green, fog.blue, 1.0),
+            fog: Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, 0.0),
+            near: Vec4::new(near, 0.0, 0.0, 0.0),
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::world::InterpreterSettings;
+
+    #[test]
+    fn rings_fit_inside_each_other_with_no_gaps_or_overlaps() {
+        // Cover a patch of the ground and check every spot is covered by exactly one ring's tile
+        // (outside the finest ring's middle, which the full-detail chunks cover).
+        for at in [Vec3::new(0.0, 0.0, 150.0), Vec3::new(1234.0, -5678.0, 150.0), Vec3::new(-20_000.0, 17_000.0, 300.0)] {
+            let tiles = wanted_tiles(at, 16, 4);
+            let cover = |x: f32, y: f32| {
+                tiles
+                    .iter()
+                    .filter(|key| {
+                        let size = 512.0 * 2f32.powi(key.ring as i32);
+                        (key.x as f32 * size..(key.x + 1) as f32 * size).contains(&x) && (key.y as f32 * size..(key.y + 1) as f32 * size).contains(&y)
+                    })
+                    .count()
+            };
+            for dx in (-14_000..14_000).step_by(997) {
+                for dy in (-14_000..14_000).step_by(1009) {
+                    let (x, y) = (at.x + dx as f32, at.y + dy as f32);
+                    let count = cover(x, y);
+                    assert!(count <= 1, "{count} rings overlap at {x}, {y}");
+                    // Within the finest ring's reach the spot must be covered.
+                    if (dx as f32).abs() < 2_000.0 && (dy as f32).abs() < 2_000.0 {
+                        assert_eq!(count, 1, "nothing covers {x}, {y}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_tile_is_a_blocky_height_field_and_past_the_map_is_nothing() {
+        let width = 64;
+        // Sea in the west, land from 256 blocks east of the middle (inside the tile tested).
+        let z = (0..width * width).map(|i| if i % width < 40 { 100 } else { 180 }).collect();
+        let map = CompiledMap { width, blocks_per_pixel: 32.0, z, seed: 1, settings: InterpreterSettings { detail: 0.0, ..InterpreterSettings::default() } };
+        let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
+        let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
+        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.6 };
+        let mesh = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 0, x: -1, y: 0 }, 16).unwrap();
+        assert!(!mesh.indices.is_empty() && mesh.indices.len() % 6 == 0);
+        assert_eq!(mesh.positions.len(), mesh.colours.len());
+        // Water and grass both show.
+        assert!(mesh.colours.iter().any(|c| c[2] > 0.9) && mesh.colours.iter().any(|c| c[1] > 0.9));
+        // Far past the map: nothing.
+        assert!(tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 0, x: 100, y: 100 }, 16).is_none());
+    }
+}

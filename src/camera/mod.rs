@@ -154,8 +154,9 @@ fn spawn_camera(mut commands: Commands, settings: Res<CameraSettings>) {
         DebandDither::Disabled,
         Projection::Perspective(PerspectiveProjection {
             fov: settings.field_of_view.to_radians(),
-            // Far enough for the longest render distance on the Render page (64 chunks).
-            far: 5000.0,
+            // Far enough to see the whole world (72,000 blocks across) from its edge, distant
+            // terrain included.
+            far: 200_000.0,
             ..default()
         }),
         Transform::default(),

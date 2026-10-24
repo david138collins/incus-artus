@@ -11,6 +11,7 @@
 //! - **Distance culling** is done here: sections beyond the render distance are hidden.
 //!   (Simulation distance is a separate setting, added when there's simulation to limit.)
 
+mod distant;
 mod material;
 mod mesher;
 mod meshing;
@@ -33,6 +34,12 @@ pub struct RenderPlugin;
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(MaterialPlugin::<TerrainMaterial>::default())
+            .add_plugins(MaterialPlugin::<distant::DistantMaterial>::default())
+            .init_resource::<distant::DistantState>()
+            .init_resource::<distant::DistantSettings>()
+            .add_settings::<distant::DistantSettings>("distant")
+            .add_systems(Startup, distant::setup_distant)
+            .add_systems(Update, (distant::update_distant, distant::update_distant_material))
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
             .init_resource::<performance::FrameTimes>()
@@ -100,8 +107,8 @@ impl Default for RenderSettings {
             shade_north_south: 0.8,
             shade_east_west: 0.65,
             fog_enabled: true,
-            fog_start: 650.0,
-            fog_end: 1000.0,
+            fog_start: 6_000.0,
+            fog_end: 60_000.0,
             debug_view: DebugView::Normal,
         }
     }

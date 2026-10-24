@@ -101,6 +101,8 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
         }
     }
     ui.label(format!("Sections: {sections}   quads: {quads}   vertices: {vertices}"));
+    let distant = world.resource::<super::distant::DistantState>();
+    ui.label(format!("Distant terrain: {} tiles, {} quads   (being made: {})", distant.tiles_drawn(), distant.quads, distant.being_made()));
 }
 
 #[cfg(test)]
