@@ -78,5 +78,14 @@ fn main() {
             worldgen::WorldGenPlugin,
             sandbox::SandboxPlugin,
         ))
+        .add_systems(Startup, fill_the_screen)
         .run();
+}
+
+/// Starts the window maximised, so it fills the screen above the taskbar (1280 × 960 is only
+/// its size when un-maximised).
+fn fill_the_screen(mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>) {
+    for mut window in &mut windows {
+        window.set_maximized(true);
+    }
 }
