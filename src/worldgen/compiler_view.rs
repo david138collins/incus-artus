@@ -263,24 +263,39 @@ fn relief_picture(compiled: &Compiled, blocks_per_pixel: f32, relief: f32) -> Ve
 }
 
 pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
-    // The space bar is EZ-Bake here (unless you're typing, say a preset's name).
+    // Space: EZ-Bake this world again (the same seed) with the Tectonic Sim's settings as they are
+    // now. Shift + Space: EZ-Bake a new world (a new seed). Not while typing, say a preset's name.
     let typing = root.ctx().egui_wants_keyboard_input();
-    let mut ez = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space));    let compiler = &mut suite.compiler;
+    let mut new_world = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::SHIFT, egui::Key::Space));
+    let mut same_world = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space));
+    let compiler = &mut suite.compiler;
     egui::Panel::top("world compiler bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
             if compiler.ez.is_some() {
                 ui.spinner();
                 ui.label("EZ-Baking…");
-            } else if ui
-                .button("EZ-Bake  [Space]")
-                .on_hover_text(
-                    "A new world in one go: the Tectonic Sim's current settings with a new world seed, baked (into\n\
-                     \"_ez-bake\", replaced each time) and read straight in here, keeping these compiler settings.\n\
-                     The new seed becomes the Tectonic Sim's too, so you can go and watch that world run.",
-                )
-                .clicked()
-            {
-                ez = true;
+            } else {
+                if ui
+                    .button("EZ-Bake  [Space]")
+                    .on_hover_text(
+                        "This world again, with the Tectonic Sim's settings as they are now (the same seed), baked\n\
+                         (into \"_ez-bake\", replaced each time) and read straight in here, keeping these compiler\n\
+                         settings. For seeing what a tectonics change does to the finished world.",
+                    )
+                    .clicked()
+                {
+                    same_world = true;
+                }
+                if ui
+                    .button("EZ-Bake a new world  [Shift+Space]")
+                    .on_hover_text(
+                        "The same, with a new world seed: for seeing how these settings do across many worlds.\n\
+                         The new seed becomes the Tectonic Sim's too, so you can go and watch that world run.",
+                    )
+                    .clicked()
+                {
+                    new_world = true;
+                }
             }
             ui.separator();
             ui.label("Bake:");
@@ -333,9 +348,11 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let mut send = None;
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler, &mut send));
 
-    // EZ-Bake: a new world seed for the Tectonic Sim, and its world baked and read in here.
-    if ez && suite.compiler.ez.is_none() {
-        suite.world.seed = crate::fate::derive_seed(super::fresh_number(), "world seed");
+    // EZ-Bake: the Tectonic Sim's world (a new one for Shift + Space) baked and read in here.
+    if (new_world || same_world) && suite.compiler.ez.is_none() {
+        if new_world {
+            suite.world.seed = crate::fate::derive_seed(super::fresh_number(), "world seed");
+        }
         let order = suite.world.bake_order(EZ_BAKE);
         suite.compiler.start_ez(order);
     }
