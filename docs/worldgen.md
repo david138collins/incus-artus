@@ -5,6 +5,54 @@ From David's notes, 2026-10-23. Tags as elsewhere:
 
 ---
 
+## 0. The Editor Suite: Graphics Kit and World Gen  [DECIDED 2026-10-23, BUILT]
+
+The suite turned out bigger than first planned. It's now **the Editor Suite**, with a switch at the top:
+
+- **The Graphics Kit** is everything built so far (tools 1–5): noise, pictures, mixing, palettes, export. It's
+  the art pipeline: grading and colourising assets, getting a handle on the palettes and the game's colour
+  philosophy, and visual effects. David found effects in it that will be handy later with **oscillators and a
+  loop recorder** (settings that change over time). Kept as it is.
+- **World Gen** is where pixels **mean** something (plate, ocean, mountain, spring, river). It **sorts** values
+  into what they become (a water level), and runs **processes in steps** (plates moving, rivers flowing
+  downhill).
+- **Where a feature goes:**
+  - a pure pixel operation (masks, radial gradients, thresholds) belongs to the shared engine, for both;
+  - anything that attaches meaning, or runs over time and steps, belongs to World Gen.
+
+  So **rivers belong to World Gen.** World Gen can use the Graphics Kit's noise, presets and palettes as
+  ingredients.
+- **Shared:** the field and pixel size (in the suite's bar), pan and zoom, palettes and presets.
+- Master craftsmen spend much of their time making and maintaining tools; this is that. It may get messy. If it
+  does, the editor can be started over later with a more focused logic, now that we know more.
+
+**The world is the circle** inside the square field. The square exists only because image files are square. For
+the player, the circle is the boundary (the ice wall is past it; few players will sail that far).
+
+### World Gen tool 1: plates  [BUILT 2026-10-23]
+- **"New seeds for everything"** at the top of World Gen. There's one **world seed**, and each step takes its own
+  seed from it, so one press changes the whole world. Cycle it to see whether the settings routinely make good
+  shapes.
+- **How the plates are found** (`plates.rs`):
+  1. Scatter points and split the field into Voronoi cells.
+  2. Optionally spread them evenly (Lloyd's relaxation, in rounds).
+  3. Delete every cell outside the circle or touching its edge.
+  4. Keep the cells nearest the middle.
+- **Defaults:** 7 plates covering 30% of the world's circle (David: "for now, just make sure we can vary it").
+  Both are sliders, and the number of points scattered follows from them. The readout shows the coverage that
+  actually came out, and each plate's share.
+- **Next steps, one tool at a time:**
+  - plates get heights;
+  - they move and collide (mountains);
+  - a water level;
+  - springs and rivers: a field of random dots culled to plausible springs, shown as light blue pixels, that
+    run downhill and thicken as tributaries join, out to the ocean.
+
+**Open question** [David]: start from Perlin noise (continents cut out with a radial mask), or simulate plates
+before history starts? Having both lets them be compared, or combined (plates for the big shapes, noise for
+detail). A **mask layer** (radial, linear, ring, with a falloff curve) is wanted either way: for example, lowering
+land toward the edge so the continents are surrounded by ocean.
+
 ## 1. The suite, not the generator  [DECIDED, first version BUILT]
 
 **We're not building the world gen, we're building the suite we build the world gen with.** It's the stack

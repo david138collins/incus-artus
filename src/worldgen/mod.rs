@@ -1,8 +1,14 @@
-//! World Gen — the suite we build the world generator with.
+//! The Editor Suite — the tools we build the game's content with. Two kits, switched at the top:
+//!
+//! - **The Graphics Kit:** noise, pictures, mixing and palettes, with no meaning attached. The art
+//!   pipeline: numbers into colours and colours into numbers. (Most of the files below.)
+//! - **World Gen** (`world.rs`): where pixels mean something (plates, later ocean, mountains,
+//!   rivers) and processes run over them.
 //!
 //! Rebuilt from the bottom, one tool at a time: each tool is tried, tuned and kept (or changed)
 //! before the next one is added. See `docs/worldgen.md` for the order so far.
 //!
+//! **The Graphics Kit:**
 //! **A stack of layers, like a graphics editor.** It starts blank. Add a layer of a chosen type
 //! (a Perlin noise field, or an image from a PNG), name it, tune it, and choose how it mixes with
 //! the layers below (multiply, add…). Layers mix their numbers; the result is coloured with a
@@ -24,9 +30,15 @@
 //! - `runner.rs`  making a layer in the background
 //! - `palette.rs` colouring with a palette, the HSL filter, reading and writing `.gpl` files
 //! - `export.rs`  saving pictures as PNG
-//! - `view.rs`    the screen
+//! - `view.rs`    the screen (and the suite's bar along the top)
+//! - `canvas.rs`  pan and zoom over a field (both kits)
+//!
+//! **World Gen:**
+//! - `world.rs`   its screen, the world seed
+//! - `plates.rs`  plates: Voronoi cells in the world's circle
 
 mod blend;
+mod canvas;
 mod export;
 mod field;
 mod image;
@@ -34,8 +46,10 @@ mod layers;
 mod made;
 mod noise;
 mod palette;
+mod plates;
 mod runner;
 mod view;
+mod world;
 mod worley;
 
 use crate::debug::DebugAppExt;
@@ -54,6 +68,14 @@ pub const CHUNK_BLOCKS: f32 = 32.0;
 /// `Suite::selected` for "the result" (all the layers mixed) rather than one layer. Layer ids
 /// start at 1.
 pub const RESULT: u32 = 0;
+
+/// Which half of the Editor Suite is open.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Kit {
+    #[default]
+    Graphics,
+    WorldGen,
+}
 
 /// What's shown on screen.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -79,6 +101,10 @@ impl Watch {
 
 #[derive(Resource)]
 pub struct Suite {
+    pub kit: Kit,
+    /// World Gen's half (the rest of this is the Graphics Kit's, apart from the field and pixel
+    /// size, which both use).
+    pub world: world::WorldGen,
     /// The field is a square this many blocks across (the world is 72,000).
     pub size_blocks: f32,
     /// How many chunks wide one pixel is.
@@ -99,6 +125,8 @@ pub struct Suite {
 impl Default for Suite {
     fn default() -> Self {
         let mut suite = Self {
+            kit: Kit::Graphics,
+            world: world::WorldGen::default(),
             size_blocks: 72_000.0,
             chunks_per_pixel: 8,
             layers: Vec::new(),
@@ -111,7 +139,10 @@ impl Default for Suite {
         // For automatic testing: `INCUS_SELFTEST_SUITE=<a PNG>` starts with a Perlin layer and that
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
         // Worley layer instead.
-        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "worley") {
+        // `=world` opens World Gen.
+        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world") {
+            suite.kit = Kit::WorldGen;
+        } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "worley") {
             suite.add_worley();
         } else if let Ok(path) = std::env::var("INCUS_SELFTEST_SUITE") {
             suite.add_perlin();
@@ -236,6 +267,7 @@ fn run_suite(mut suite: ResMut<Suite>) {
     for layer in &mut suite.layers {
         layer.drive(size, blocks);
     }
+    suite.world.drive(size, blocks);
 }
 
 /// PNG files dragged onto the window become image layers.
@@ -256,8 +288,8 @@ fn draw_suite(mut contexts: EguiContexts, mut suite: ResMut<Suite>, mut next: Re
     if view::draw(&ctx, &mut suite) {
         next.set(Screen::Play);
     }
-    // Keep redrawing while a layer is being made, so it shows up the moment it's done.
-    if suite.is_making() {
+    // Keep redrawing while something is being made, so it shows up the moment it's done.
+    if suite.is_making() || suite.world.is_making() {
         ctx.request_repaint();
     }
     Ok(())
@@ -306,9 +338,9 @@ mod tests {
 }
 
 fn world_gen_debug_page(ui: &mut egui::Ui, world: &mut World) {
-    ui.label("The World Gen suite is a separate screen. The world is switched off while it's open.");
+    ui.label("The Editor Suite (Graphics Kit and World Gen) is a separate screen. The world is switched off while it's open.");
     let in_suite = *world.resource::<State<Screen>>().get() == Screen::WorldGen;
-    let label = if in_suite { "Back to the world  [F2]" } else { "Open the World Gen suite  [F2]" };
+    let label = if in_suite { "Back to the world  [F2]" } else { "Open the Editor Suite  [F2]" };
     if ui.button(label).clicked() {
         world.resource_mut::<NextState<Screen>>().set(if in_suite { Screen::Play } else { Screen::WorldGen });
     }

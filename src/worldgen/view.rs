@@ -1,7 +1,11 @@
-//! The suite's screen. Placeholder looks: plain panels and the field.
+//! The Editor Suite's screen. Placeholder looks: plain panels and the field.
+//!
+//! The bar along the top is shared: the switch between the **Graphics Kit** and **World Gen**,
+//! and the field and pixel size both use. Below it, the Graphics Kit (this file) looks like this;
+//! World Gen draws its own (`world.rs`).
 //!
 //! ```text
-//! ┌──────────── top: field size, pixel size, export ─────────────┐
+//! ┌──────────── top: export ─────────────────────────────────────┐
 //! │ + Add layer    │                          │ Layers         │
 //! │                │                          │  (top first)   │
 //! │ the open       │        the field         │                │
@@ -13,30 +17,25 @@
 //! ```
 
 use super::blend::Mix;
+use super::canvas::Camera;
 use super::export;
 use super::image::{self, Placement};
 use super::layers::{self, LayerKind};
 use super::made::{Made, Shaping};
-use super::{RESULT, Suite, Watch};
+use super::{Kit, RESULT, Suite, Watch};
 use super::noise::{Fade, PerlinSettings};
 use super::worley::{Distance, Feature, WorleySettings};
 use super::palette::{self, Channel, Colouring, Spread};
 use crate::debug::preset_bar;
 use bevy_egui::egui::{self, Color32, Pos2, Rect, Vec2};
 
-const PINK: Color32 = Color32::from_rgb(255, 140, 220);
-const MAGENTA: Color32 = Color32::from_rgb(255, 0, 255);
+pub const PINK: Color32 = Color32::from_rgb(255, 140, 220);
+pub const MAGENTA: Color32 = Color32::from_rgb(255, 0, 255);
 /// The checkerboard where no layer covers the field (as in image editors, but dark).
 const EMPTY: [[u8; 3]; 2] = [[24, 24, 28], [40, 40, 46]];
 
 pub struct ViewState {
-    /// Field position (in pixels) at the middle of the screen, and screen points per pixel.
-    centre: Vec2,
-    zoom: f32,
-    fitted_for: (usize, usize),
-    /// Frames left in which to keep fitting the field to the screen (the panels take a few frames
-    /// to settle into their sizes when the suite opens).
-    settling: u32,
+    camera: Camera,
     texture: Option<egui::TextureHandle>,
     /// The result: every layer mixed (its values and numbers).
     stacked: Option<Made>,
@@ -56,10 +55,7 @@ pub struct ViewState {
 impl Default for ViewState {
     fn default() -> Self {
         Self {
-            centre: Vec2::ZERO,
-            zoom: 1.0,
-            fitted_for: (0, 0),
-            settling: 10,
+            camera: Camera::default(),
             texture: None,
             stacked: None,
             composite: Vec::new(),
@@ -108,7 +104,7 @@ fn watch_name(suite: &Suite, watch: Watch) -> String {
 }
 
 /// "a-very-long-file-name" → "a-very-long-fi…" (for tight spots; hover shows the whole name).
-fn short(name: &str, most: usize) -> String {
+pub fn short(name: &str, most: usize) -> String {
     if name.chars().count() <= most { name.to_string() } else { name.chars().take(most - 1).chain(['…']).collect() }
 }
 
@@ -116,39 +112,52 @@ fn short(name: &str, most: usize) -> String {
 pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
     let mut root = egui::Ui::new(
         ctx.clone(),
-        "world gen suite".into(),
+        "editor suite".into(),
         egui::UiBuilder::new().layer_id(egui::LayerId::background()).max_rect(ctx.viewport_rect()),
     );
     let mut close = false;
-    egui::Panel::top("worldgen top").show(&mut root, |ui| close = top_bar(ui, suite));
+    egui::Panel::top("editor suite bar").show(&mut root, |ui| close = suite_bar(ui, suite));
+    match suite.kit {
+        Kit::Graphics => graphics_kit(&mut root, suite),
+        Kit::WorldGen => super::world::draw(&mut root, suite),
+    }
+    close
+}
+
+fn graphics_kit(root: &mut egui::Ui, suite: &mut Suite) {
+    egui::Panel::top("graphics kit bar").show(root, |ui| top_bar(ui, suite));
     // Both side bars can be dragged wider or narrower by their inner edge. Layer names (a picture's
     // long file name, say) are cut short with "…" instead of pushing the bar wider; hover shows
     // them in full.
     egui::Panel::left("worldgen settings").resizable(true).default_size(360.0).size_range(220.0..=900.0).show(
-        &mut root,
+        root,
         |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| settings_panel(ui, suite));
         },
     );
     egui::Panel::right("worldgen layers").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(
-        &mut root,
+        root,
         |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| layers_panel(ui, suite));
         },
     );
-    egui::CentralPanel::no_frame().show(&mut root, |ui| canvas(ui, suite));
-    close
+    egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, suite));
 }
 
-// ── Top bar ────────────────────────────────────────────────────────────────
+// ── The suite's bar: which kit, the field and pixel size ──────────────────
 
-fn top_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
+fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
     let mut close = false;
     ui.horizontal_wrapped(|ui| {
-        ui.colored_label(PINK, "WORLD GEN SUITE");
+        ui.colored_label(PINK, "EDITOR SUITE");
         if ui.button("Back to the world  [F2]").clicked() {
             close = true;
         }
+        ui.separator();
+        ui.selectable_value(&mut suite.kit, Kit::Graphics, "Graphics Kit")
+            .on_hover_text("Noise, pictures, mixing and palettes: numbers into colours and colours into numbers.\nThe art pipeline.");
+        ui.selectable_value(&mut suite.kit, Kit::WorldGen, "World Gen")
+            .on_hover_text("Where pixels mean something (plates, ocean, rivers), and processes run over them.");
         ui.separator();
 
         ui.label("Field:");
@@ -174,11 +183,16 @@ fn top_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
             );
         }
         ui.separator();
-        if suite.is_making() {
+        if suite.is_making() || suite.world.is_making() {
             ui.label("Making…");
         }
     });
+    close
+}
 
+// ── The Graphics Kit's bar: export ─────────────────────────────────────────
+
+fn top_bar(ui: &mut egui::Ui, suite: &mut Suite) {
     ui.horizontal_wrapped(|ui| {
         let ready = !suite.view.composite.is_empty();
         let view = &mut suite.view;
@@ -201,16 +215,6 @@ fn top_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
             ui.small(status);
         }
     });
-    close
-}
-
-/// The field pixels showing on screen: (first column, first row, width, height).
-fn visible_pixels(view: &ViewState) -> Option<(usize, usize, usize, usize)> {
-    let (width, height) = view.size;
-    let half = view.canvas.size() / 2.0 / view.zoom;
-    let (left, top) = ((view.centre.x - half.x).floor().max(0.0), (view.centre.y - half.y).floor().max(0.0));
-    let (right, bottom) = ((view.centre.x + half.x).ceil().min(width as f32), (view.centre.y + half.y).ceil().min(height as f32));
-    (right > left && bottom > top).then(|| (left as usize, top as usize, (right - left) as usize, (bottom - top) as usize))
 }
 
 fn export_picture(view: &ViewState, whole: bool) -> String {
@@ -218,7 +222,7 @@ fn export_picture(view: &ViewState, whole: bool) -> String {
     let (left, top, w, h) = if whole {
         (0, 0, width, height)
     } else {
-        match visible_pixels(view) {
+        match view.camera.visible_pixels(view.canvas, view.size) {
             Some(area) => area,
             None => return "Nothing in view to export.".into(),
         }
@@ -350,17 +354,17 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     colour_panel(ui, &mut layer.colouring, is_image, view);
 }
 
-/// The seed, typed in hex or freshly rolled.
-fn seed_row(ui: &mut egui::Ui, id: u32, seed: &mut u64, view: &mut ViewState) {
+/// The seed, typed in hex or freshly rolled. `text` holds what's being typed.
+pub fn seed_row(ui: &mut egui::Ui, id: u32, seed: &mut u64, text: &mut String) {
     ui.horizontal(|ui| {
         ui.label("Seed:");
         let seed_id = egui::Id::new(("worldgen seed", id));
         if ui.ctx().memory(|m| !m.has_focus(seed_id)) {
-            view.seed_text = format!("{seed:016X}");
+            *text = format!("{seed:016X}");
         }
-        let edit = ui.add(egui::TextEdit::singleline(&mut view.seed_text).id(seed_id).desired_width(140.0));
+        let edit = ui.add(egui::TextEdit::singleline(text).id(seed_id).desired_width(140.0));
         if edit.changed()
-            && let Ok(typed) = u64::from_str_radix(view.seed_text.trim().trim_start_matches("0x"), 16)
+            && let Ok(typed) = u64::from_str_radix(text.trim().trim_start_matches("0x"), 16)
         {
             *seed = typed;
         }
@@ -372,7 +376,7 @@ fn seed_row(ui: &mut egui::Ui, id: u32, seed: &mut u64, view: &mut ViewState) {
 
 fn worley_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut WorleySettings, view: &mut ViewState) {
     ui.small("Points scattered over a grid. Every spot belongs to its nearest point, which splits the world into cells (Voronoi).");
-    seed_row(ui, id, seed, view);
+    seed_row(ui, id, seed, &mut view.seed_text);
 
     section(ui, "Cells", "The points, and what's measured from them.");
     ui.add(egui::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("cell size (blocks)"))
@@ -439,7 +443,7 @@ fn placement_rows(ui: &mut egui::Ui, [north, east, stretch, angle, turn]: [&mut 
 
 fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut PerlinSettings, view: &mut ViewState) {
     ui.small("Soft hills and hollows from a grid of random arrows, stacked in finer and fainter layers (octaves).");
-    seed_row(ui, id, seed, view);
+    seed_row(ui, id, seed, &mut view.seed_text);
 
     section(ui, "Pattern", "What the noise is made of.");
     ui.add(egui::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("size (blocks)"))
@@ -884,7 +888,7 @@ fn histogram(ui: &mut egui::Ui, counts: &[u32], mean: f32) {
 }
 
 /// 1250.0, "N", "S" → "1,250 N"
-fn compass(blocks: f32, positive: &str, negative: &str) -> String {
+pub fn compass(blocks: f32, positive: &str, negative: &str) -> String {
     let text = (blocks.abs().round() as u64).to_string();
     let mut grouped = String::new();
     for (i, digit) in text.chars().enumerate() {
@@ -944,44 +948,9 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
         view.composite_for = Some(wanted);
     }
 
-    // Fit the whole field on screen when its size changes (and on double-click).
-    let size = Vec2::new(width as f32, height as f32);
-    if view.settling > 0 {
-        view.settling -= 1;
-        view.fitted_for = (0, 0);
-        ui.ctx().request_repaint();
-    }
-    if response.double_clicked() || view.fitted_for != (width, height) {
-        if view.fitted_for != (0, 0) && !response.double_clicked() {
-            // Same view, new pixel size: keep looking at the same place at the same size.
-            let ratio = width as f32 / view.fitted_for.0 as f32;
-            view.centre *= ratio;
-            view.zoom /= ratio;
-        } else {
-            view.zoom = (rect.width() / size.x).min(rect.height() / size.y) * 0.95;
-            view.centre = size / 2.0;
-        }
-        view.fitted_for = (width, height);
-    }
-
-    // Drag to pan, scroll to zoom (keeping the point under the mouse still).
-    if response.dragged() {
-        view.centre -= response.drag_delta() / view.zoom;
-    }
-    let hover = response.hover_pos();
-    if let Some(mouse) = hover {
-        let scroll = ui.input(|input| input.smooth_scroll_delta.y);
-        if scroll != 0.0 {
-            let under = view.centre + (mouse - rect.center()) / view.zoom;
-            view.zoom = (view.zoom * (scroll * 0.003).exp()).clamp(0.1, 256.0);
-            view.centre = under - (mouse - rect.center()) / view.zoom;
-        }
-    }
-    let (centre, zoom) = (view.centre, view.zoom);
-    let to_screen = |pixel: Vec2| -> Pos2 { rect.center() + (pixel - centre) * zoom };
-
+    view.hover = view.camera.update(ui, rect, &response, (width, height));
     if let Some(texture) = &view.texture {
-        let image_rect = Rect::from_min_size(to_screen(Vec2::ZERO), size * zoom);
+        let image_rect = view.camera.field_rect(rect, (width, height));
         painter.image(texture.id(), image_rect, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
         painter.rect_stroke(image_rect, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Outside);
     }
@@ -997,15 +966,7 @@ fn canvas(ui: &mut egui::Ui, suite: &mut Suite) {
         );
     }
 
-    view.hover = hover.map(|mouse| centre + (mouse - rect.center()) / zoom).and_then(|pixel| {
-        (pixel.x >= 0.0 && pixel.y >= 0.0 && pixel.x < size.x && pixel.y < size.y).then_some((pixel.x as usize, pixel.y as usize))
-    });
-    if let Some((col, row)) = view.hover
-        && zoom >= 4.0
-    {
-        let cell = Rect::from_min_size(to_screen(Vec2::new(col as f32, row as f32)), Vec2::splat(zoom));
-        painter.rect_stroke(cell, 0.0, egui::Stroke::new(1.0, MAGENTA), egui::StrokeKind::Outside);
-    }
+    view.camera.outline(&painter, rect, view.hover, MAGENTA);
     painter.text(
         rect.left_bottom() + Vec2::new(8.0, -8.0),
         egui::Align2::LEFT_BOTTOM,
