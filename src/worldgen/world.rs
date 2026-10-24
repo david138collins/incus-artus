@@ -700,9 +700,13 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
                 .map(|(i, here)| {
                     colour32(match *here {
                         Some((p, height)) => {
-                            let base = plate_colour(p as usize, made.kept[p as usize].land);
+                            // Ocean plates look like the open ocean: only their squeezed rock
+                            // shows (white), so land and sea stay easy to tell apart.
+                            let land = made.kept[p as usize].land;
+                            let base = if land { plate_colour(p as usize, true) } else { ocean(i) };
+                            let lowest = if land { -1.0 } else { 0.0 };
                             // Thicker toward white, thinner toward black.
-                            let lift = (height / world.height_shown).clamp(-1.0, 1.0);
+                            let lift = (height / world.height_shown).clamp(lowest, 1.0);
                             let toward = if lift >= 0.0 { 255.0 } else { 0.0 };
                             base.map(|c| (c as f32 + (toward - c as f32) * lift.abs()) as u8)
                         }
@@ -716,7 +720,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
                     let boundary = world.show_boundaries.then(|| world.contacts.get(i).copied().flatten()).flatten();
                     colour32(match (made.inside[i], made.plate[i], boundary) {
                         (true, _, Some(contact)) => boundary_colour(contact.kind),
-                        (true, Some(p), None) => plate_colour(p as usize, made.kept[p as usize].land),
+                        (true, Some(p), None) if made.kept[p as usize].land => plate_colour(p as usize, true),
                         _ => ocean(i),
                     })
                 })
