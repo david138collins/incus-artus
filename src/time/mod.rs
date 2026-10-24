@@ -276,9 +276,9 @@ fn time_debug_page(ui: &mut egui::Ui, world: &mut World) {
             }
         }
     });
-    ui.add(egui::Slider::new(&mut control.speed, 0.0..=MAX_SPEED).text("speed ×"));
+    ui.add(crate::debug::Slider::new(&mut control.speed, 0.0..=MAX_SPEED).text("speed ×"));
     ui.add(
-        egui::Slider::new(&mut control.tick_rate, 1.0..=120.0)
+        crate::debug::Slider::new(&mut control.tick_rate, 1.0..=120.0)
             .text("ticks / second")
             .integer(),
     );

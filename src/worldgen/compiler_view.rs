@@ -260,11 +260,11 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.separator();
     ui.strong("Sea level and the curves");
     let (low, high) = (bake.info.height.black, bake.info.height.white);
-    ui.add(egui::Slider::new(&mut s.water, low..=high).text("bake height at sea level")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut s.water, low..=high).text("bake height at sea level")).on_hover_text(
         "Which of the bake's heights becomes sea level (Z 128). Higher = more sea. Watch the land share in the bar along the top.",
     );
-    ui.add(egui::Slider::new(&mut s.deepest, 1.0..=127.0).text("deepest sea floor (Z)")).on_hover_text("The Z the deepest ocean reaches.");
-    ui.add(egui::Slider::new(&mut s.highlands, 129.0..=HIGHEST as f32).text("highlands (Z)"))
+    ui.add(crate::debug::Slider::new(&mut s.deepest, 1.0..=127.0).text("deepest sea floor (Z)")).on_hover_text("The Z the deepest ocean reaches.");
+    ui.add(crate::debug::Slider::new(&mut s.highlands, 129.0..=HIGHEST as f32).text("highlands (Z)"))
         .on_hover_text("The Z the highest land reaches before mountains are added (the top of the land spline).");
     ui.add_space(4.0);
     ui.label("Land: from the coast (left) to the bake's highest ground (right).");
@@ -272,7 +272,7 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     spline_box(ui, "land spline", &mut s.land, &defaults.land, "toward the highest ground", "up to the highlands");
     ui.label("Sea: from the coast (left) to the bake's deepest point (right).");
     spline_box(ui, "sea spline", &mut s.sea, &defaults.sea, "toward the deepest point", "down to the deepest floor");
-    ui.add(egui::Slider::new(&mut s.grade, 0.0..=1.0).text("grade by tilt")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut s.grade, 0.0..=1.0).text("grade by tilt")).on_hover_text(
         "Each plate's tilt steepens its high side (land climbs faster, the sea drops off close in) and softens\nits low side (wide plains, shallow shelves). 0 = no grading. (Bakes made before tilt was saved can't grade.)",
     );
 
@@ -285,38 +285,38 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
          lightly squeezed land as plains.",
     );
     spline_box(ui, "mountain spline", &mut s.mountains, &defaults.mountains, "more squeeze", "taller (top = Z 333)");
-    ui.add(egui::Slider::new(&mut s.ridges, 0.0..=1.0).text("ridges")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut s.ridges, 0.0..=1.0).text("ridges")).on_hover_text(
         "How much the ridge pattern carves into the mountains. 0 = smooth domes and spines, 1 = all ridges and valleys.",
     );
-    ui.add(egui::Slider::new(&mut s.ridge_spacing, 400.0..=20_000.0).logarithmic(true).text("ridge spacing (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut s.ridge_spacing, 400.0..=20_000.0).logarithmic(true).text("ridge spacing (blocks)"))
         .on_hover_text("How far apart the ridges are, across them.");
-    ui.add(egui::Slider::new(&mut s.ridge_length, 2_000.0..=100_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut s.ridge_length, 2_000.0..=100_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
         "How far ridges run along themselves. Ridges are lined up across the squeeze direction;\nlonger = long parallel ranges, shorter = broken, lumpy ones.",
     );
-    ui.add(egui::Slider::new(&mut s.sharpness, 0.3..=4.0).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests. Lower = broad, rounded ones.");
-    ui.add(egui::Slider::new(&mut s.passes, 0.0..=1.0).text("passes")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut s.sharpness, 0.3..=4.0).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests. Lower = broad, rounded ones.");
+    ui.add(crate::debug::Slider::new(&mut s.passes, 0.0..=1.0).text("passes")).on_hover_text(
         "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests.",
     );
-    ui.add(egui::Slider::new(&mut s.pass_spacing, 3_000.0..=60_000.0).logarithmic(true).text("pass spacing (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 3_000.0..=60_000.0).logarithmic(true).text("pass spacing (blocks)"))
         .on_hover_text("How far apart the dips are along a ridge.");
-    ui.add(egui::Slider::new(&mut s.foothills, 0.0..=12_000.0).text("foothills (blocks)")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut s.foothills, 0.0..=12_000.0).text("foothills (blocks)")).on_hover_text(
         "How far each range spreads a skirt of lower slopes around it, so it rises from the plains instead of\njumping up. Peaks aren't lowered. 0 = no foothills.",
     );
 
     ui.add_space(6.0);
     ui.separator();
     ui.strong("Rifts and hills");
-    ui.add(egui::Slider::new(&mut s.rift_depth, 0.0..=80.0).text("rift depth (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut s.rift_depth, 0.0..=80.0).text("rift depth (blocks)"))
         .on_hover_text("How far the most stretched rock in this bake sinks (less stretched rock, less).");
-    ui.add(egui::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)")).on_hover_text("Gentle rolling bumps on land, this high either way.");
-    ui.add(egui::Slider::new(&mut s.hill_size, 300.0..=8_000.0).logarithmic(true).text("hill size (blocks)"));
+    ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)")).on_hover_text("Gentle rolling bumps on land, this high either way.");
+    ui.add(crate::debug::Slider::new(&mut s.hill_size, 300.0..=8_000.0).logarithmic(true).text("hill size (blocks)"));
     ui.add_space(4.0);
     defaults_row(ui, "Compiler settings", &mut compiler.settings, &mut compiler.ab);
 
     ui.add_space(6.0);
     ui.separator();
     ui.strong("Look");
-    ui.add(egui::Slider::new(&mut compiler.relief, 0.0..=10.0).text("relief shading")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut compiler.relief, 0.0..=10.0).text("relief shading")).on_hover_text(
         "Only changes the look: how strongly slopes are shaded (lit from the northwest).",
     );
 

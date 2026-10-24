@@ -50,13 +50,13 @@ pub(super) fn sim_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.separator();
     egui::CollapsingHeader::new("Settings").show(ui, |ui| {
         let mut settings = world.resource_mut::<SimSettings>();
-        ui.add(egui::Slider::new(&mut settings.rich_every_hours, 0.1..=12.0).text("rich: update every (in-game hours)"));
-        ui.add(egui::Slider::new(&mut settings.thin_every_days, 0.1..=7.0).text("thin: update every (in-game days)"));
-        ui.add(egui::Slider::new(&mut settings.local_margin, 0.0..=256.0).text("local: within footprint + (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.leave_extra, 0.0..=128.0).text("stop being local: further by (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.encounter_range, 10.0..=1000.0).text("journeys can be met within (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.encounter_check_minutes, 1.0..=120.0).text("\"are they here?\" roll every (in-game minutes)"));
-        ui.add(egui::Slider::new(&mut settings.updates_per_tick, 1..=64).text("updates per tick, at most"));
+        ui.add(crate::debug::Slider::new(&mut settings.rich_every_hours, 0.1..=12.0).text("rich: update every (in-game hours)"));
+        ui.add(crate::debug::Slider::new(&mut settings.thin_every_days, 0.1..=7.0).text("thin: update every (in-game days)"));
+        ui.add(crate::debug::Slider::new(&mut settings.local_margin, 0.0..=256.0).text("local: within footprint + (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.leave_extra, 0.0..=128.0).text("stop being local: further by (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.encounter_range, 10.0..=1000.0).text("journeys can be met within (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.encounter_check_minutes, 1.0..=120.0).text("\"are they here?\" roll every (in-game minutes)"));
+        ui.add(crate::debug::Slider::new(&mut settings.updates_per_tick, 1..=64).text("updates per tick, at most"));
         ui.checkbox(&mut settings.show_stand_ins, "show magenta stand-ins for local things");
         if ui.button("Reset to defaults").clicked() {
             *settings = SimSettings::default();

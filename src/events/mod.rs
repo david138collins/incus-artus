@@ -213,7 +213,7 @@ fn events_debug_page(ui: &mut egui::Ui, world: &mut World) {
     {
         let mut settings = world.resource_mut::<EventLogSettings>();
         ui.checkbox(&mut settings.write_to_file, "write events to a log file");
-        ui.add(egui::Slider::new(&mut settings.keep, 50..=5000).logarithmic(true).text("events kept on this page"));
+        ui.add(crate::debug::Slider::new(&mut settings.keep, 50..=5000).logarithmic(true).text("events kept on this page"));
     }
     let mut log = world.resource_mut::<EventLog>();
     match (&log.file_path, &log.file_problem) {

@@ -110,8 +110,8 @@ fn sandbox_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.label("Blue = north (+X). Red = east (+Y).");
     ui.label("They sit at a fixed height (Z 145), so they float or get buried if the grass layer moves.");
     ui.add(
-        egui::Slider::new(&mut settings.orbit_turns_per_second, 0.0..=2.0)
+        crate::debug::Slider::new(&mut settings.orbit_turns_per_second, 0.0..=2.0)
             .text("orbit turns / sec"),
     );
-    ui.add(egui::Slider::new(&mut settings.orbit_radius, 0.5..=5.0).text("orbit radius"));
+    ui.add(crate::debug::Slider::new(&mut settings.orbit_radius, 0.5..=5.0).text("orbit radius"));
 }

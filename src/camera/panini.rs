@@ -128,8 +128,8 @@ pub fn panini_debug_section(ui: &mut egui::Ui, world: &mut World) {
     let mut settings = world.resource_mut::<PaniniSettings>();
     ui.strong("Panini projection");
     ui.checkbox(&mut settings.enabled, "on");
-    ui.add(egui::Slider::new(&mut settings.distance, 0.0..=1.0).text("distance (0 = normal, 1 = full)"));
-    ui.add(egui::Slider::new(&mut settings.crop_to_fit, 0.0..=1.0).text("crop to fit (hide empty corners)"));
+    ui.add(crate::debug::Slider::new(&mut settings.distance, 0.0..=1.0).text("distance (0 = normal, 1 = full)"));
+    ui.add(crate::debug::Slider::new(&mut settings.crop_to_fit, 0.0..=1.0).text("crop to fit (hide empty corners)"));
     if let Some((fov, aspect)) = view {
         let extents = view_extents(fov, aspect);
         let scale = if settings.enabled { scale_for(&settings, extents) } else { 1.0 };

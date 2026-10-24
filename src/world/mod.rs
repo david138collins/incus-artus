@@ -270,8 +270,8 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
     let mut regenerate = false;
     {
         let mut settings = world.resource_mut::<TestWorldSettings>();
-        ui.add(egui::Slider::new(&mut settings.radius, 1.0..=120.0).text("radius (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.grass_z, 1..=WORLD_HEIGHT - 2).text("grass layer Z"));
+        ui.add(crate::debug::Slider::new(&mut settings.radius, 1.0..=120.0).text("radius (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.grass_z, 1..=WORLD_HEIGHT - 2).text("grass layer Z"));
         ui.horizontal(|ui| {
             if ui.button("Regenerate").clicked() {
                 regenerate = true;

@@ -66,28 +66,28 @@ pub(super) fn people_debug_page(ui: &mut egui::Ui, world: &mut World) {
         for urge in Urge::ALL {
             ui.strong(urge.to_string());
             let rule = settings.rule_mut(urge);
-            ui.add(egui::Slider::new(&mut rule.rate_per_hour, 0.0..=1000.0).text("charge per hour"));
-            ui.add(egui::Slider::new(&mut rule.threshold, 100.0..=5000.0).text("threshold"));
-            ui.add(egui::Slider::new(&mut rule.drain_per_hour, 10.0..=5000.0).logarithmic(true).text("satisfied per hour"));
+            ui.add(crate::debug::Slider::new(&mut rule.rate_per_hour, 0.0..=1000.0).text("charge per hour"));
+            ui.add(crate::debug::Slider::new(&mut rule.threshold, 100.0..=5000.0).text("threshold"));
+            ui.add(crate::debug::Slider::new(&mut rule.drain_per_hour, 10.0..=5000.0).logarithmic(true).text("satisfied per hour"));
         }
         ui.separator();
-        ui.add(egui::Slider::new(&mut settings.interrupt_ratio, 1.0..=4.0).text("interrupt when another urge is × fuller"));
-        ui.add(egui::Slider::new(&mut settings.night_sleep_pressure, 0.0..=1000.0).text("night presses sleep down by"));
-        ui.add(egui::Slider::new(&mut settings.night_from_hour, 0.0..=24.0).text("night from (hour)"));
-        ui.add(egui::Slider::new(&mut settings.night_to_hour, 0.0..=24.0).text("night until (hour)"));
-        ui.add(egui::Slider::new(&mut settings.asleep_charge_factor, 0.0..=1.0).text("asleep, other urges charge ×"));
-        ui.add(egui::Slider::new(&mut settings.randomness, 0.0..=1.0).text("random wobble on charging (±)"));
-        ui.add(egui::Slider::new(&mut settings.walk_speed, 0.2..=6.0).text("walking speed (blocks/s)"));
+        ui.add(crate::debug::Slider::new(&mut settings.interrupt_ratio, 1.0..=4.0).text("interrupt when another urge is × fuller"));
+        ui.add(crate::debug::Slider::new(&mut settings.night_sleep_pressure, 0.0..=1000.0).text("night presses sleep down by"));
+        ui.add(crate::debug::Slider::new(&mut settings.night_from_hour, 0.0..=24.0).text("night from (hour)"));
+        ui.add(crate::debug::Slider::new(&mut settings.night_to_hour, 0.0..=24.0).text("night until (hour)"));
+        ui.add(crate::debug::Slider::new(&mut settings.asleep_charge_factor, 0.0..=1.0).text("asleep, other urges charge ×"));
+        ui.add(crate::debug::Slider::new(&mut settings.randomness, 0.0..=1.0).text("random wobble on charging (±)"));
+        ui.add(crate::debug::Slider::new(&mut settings.walk_speed, 0.2..=6.0).text("walking speed (blocks/s)"));
         ui.separator();
-        ui.add(egui::Slider::new(&mut settings.chat_distance, 0.5..=10.0).text("notice each other within (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.chat_chance, 0.0..=1.0).text("chance to notice (more for friends)"));
-        ui.add(egui::Slider::new(&mut settings.chat_pressure, 0.0..=1000.0).text("noticing presses socialise down by"));
-        ui.add(egui::Slider::new(&mut settings.chat_minutes, 1.0..=60.0).text("a chat lasts (in-game minutes)"));
-        ui.add(egui::Slider::new(&mut settings.chat_satisfaction, 0.0..=1000.0).text("a chat satisfies"));
-        ui.add(egui::Slider::new(&mut settings.chat_friendship, 0.0..=0.5).text("a chat adds friendship"));
+        ui.add(crate::debug::Slider::new(&mut settings.chat_distance, 0.5..=10.0).text("notice each other within (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.chat_chance, 0.0..=1.0).text("chance to notice (more for friends)"));
+        ui.add(crate::debug::Slider::new(&mut settings.chat_pressure, 0.0..=1000.0).text("noticing presses socialise down by"));
+        ui.add(crate::debug::Slider::new(&mut settings.chat_minutes, 1.0..=60.0).text("a chat lasts (in-game minutes)"));
+        ui.add(crate::debug::Slider::new(&mut settings.chat_satisfaction, 0.0..=1000.0).text("a chat satisfies"));
+        ui.add(crate::debug::Slider::new(&mut settings.chat_friendship, 0.0..=0.5).text("a chat adds friendship"));
         ui.separator();
-        ui.add(egui::Slider::new(&mut settings.weirdness_per_hour, 0.0..=1.0).text("waves of weirdness: chance per hour"));
-        ui.add(egui::Slider::new(&mut settings.weirdness_pressure, 0.0..=2000.0).text("a wave presses its urge down by"));
+        ui.add(crate::debug::Slider::new(&mut settings.weirdness_per_hour, 0.0..=1.0).text("waves of weirdness: chance per hour"));
+        ui.add(crate::debug::Slider::new(&mut settings.weirdness_pressure, 0.0..=2000.0).text("a wave presses its urge down by"));
         ui.checkbox(&mut settings.show_labels, "names over the cubes");
         if ui.button("Reset to defaults").clicked() {
             *settings = PeopleSettings::default();

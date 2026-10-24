@@ -1123,13 +1123,13 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         preset_bar(ui, "player", &mut *settings);
 
         ui.strong("Movement (Minecraft defaults)");
-        ui.add(egui::Slider::new(&mut settings.walk_speed, 0.5..=20.0).text("walk speed (blocks/s)"));
-        ui.add(egui::Slider::new(&mut settings.run_speed, 0.5..=30.0).text("run speed (Shift)"));
-        ui.add(egui::Slider::new(&mut settings.sprint_speed, 0.5..=40.0).text("sprint speed (Shift Shift)"));
-        ui.add(egui::Slider::new(&mut settings.sprint_double_tap, 0.05..=1.0).text("sprint double-tap window (s)"));
-        ui.add(egui::Slider::new(&mut settings.strafe_factor, 0.0..=1.5).text("sideways speed × forwards"));
-        ui.add(egui::Slider::new(&mut settings.backward_factor, 0.0..=1.5).text("backwards speed × forwards"));
-        ui.add(egui::Slider::new(&mut settings.ground_grip, 0.5..=60.0).logarithmic(true).text("ground grip (× block friction)"));
+        ui.add(crate::debug::Slider::new(&mut settings.walk_speed, 0.5..=20.0).text("walk speed (blocks/s)"));
+        ui.add(crate::debug::Slider::new(&mut settings.run_speed, 0.5..=30.0).text("run speed (Shift)"));
+        ui.add(crate::debug::Slider::new(&mut settings.sprint_speed, 0.5..=40.0).text("sprint speed (Shift Shift)"));
+        ui.add(crate::debug::Slider::new(&mut settings.sprint_double_tap, 0.05..=1.0).text("sprint double-tap window (s)"));
+        ui.add(crate::debug::Slider::new(&mut settings.strafe_factor, 0.0..=1.5).text("sideways speed × forwards"));
+        ui.add(crate::debug::Slider::new(&mut settings.backward_factor, 0.0..=1.5).text("backwards speed × forwards"));
+        ui.add(crate::debug::Slider::new(&mut settings.ground_grip, 0.5..=60.0).logarithmic(true).text("ground grip (× block friction)"));
         ui.small("Lower grip = more slide when stopping, turning and landing.");
 
         ui.small("Envelopes: square handles set times and sustain; round ones bend curves (double-click straightens).");
@@ -1145,41 +1145,41 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.strong("Momentum (charged by running, spent sliding when you stop)");
         ui.small("Attack = how long running takes to charge; sustain = how much charge. The charge is held while you slide; release = how fast it fades if you just slow to a walk.");
         envelope_editor(ui, "momentum", &mut settings.momentum_envelope, live_momentum.as_ref());
-        ui.add(egui::Slider::new(&mut settings.slide_distance, 0.0..=20.0).text("slide from a full sprint at full charge (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.slide_distance, 0.0..=20.0).text("slide from a full sprint at full charge (blocks)"));
 
         ui.strong("Sprint view widening");
-        ui.add(egui::Slider::new(&mut settings.sprint_fov_boost, -30.0..=40.0).text("extra field of view at full sprint (°)"));
+        ui.add(crate::debug::Slider::new(&mut settings.sprint_fov_boost, -30.0..=40.0).text("extra field of view at full sprint (°)"));
         envelope_editor(ui, "sprint_fov", &mut settings.sprint_fov_envelope, Some(&live_view));
 
         ui.strong("Crouch (Ctrl)");
         let standing = settings.body_height;
-        ui.add(egui::Slider::new(&mut settings.crouch_height, 0.3..=standing).text("crouched height"));
+        ui.add(crate::debug::Slider::new(&mut settings.crouch_height, 0.3..=standing).text("crouched height"));
         let crouched_height = settings.crouch_height;
-        ui.add(egui::Slider::new(&mut settings.crouch_eye_height, 0.1..=crouched_height).text("crouched eye height"));
-        ui.add(egui::Slider::new(&mut settings.crouch_speed, 0.0..=1.0).text("crouched speed (× normal)"));
+        ui.add(crate::debug::Slider::new(&mut settings.crouch_eye_height, 0.1..=crouched_height).text("crouched eye height"));
+        ui.add(crate::debug::Slider::new(&mut settings.crouch_speed, 0.0..=1.0).text("crouched speed (× normal)"));
         ui.checkbox(&mut settings.crouch_edge_guard, "won't step off edges while crouched");
         envelope_editor(ui, "crouch", &mut settings.crouch_envelope, live_crouch.as_ref());
 
         ui.strong("Jumping & falling");
-        ui.add(egui::Slider::new(&mut settings.jump_height, 0.1..=5.0).text("jump height (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.gravity, 1.0..=100.0).text("gravity (blocks/s²)"));
-        ui.add(egui::Slider::new(&mut settings.max_fall_speed, 1.0..=200.0).text("max fall speed"));
-        ui.add(egui::Slider::new(&mut settings.air_control, 0.0..=20.0).text("air control"));
+        ui.add(crate::debug::Slider::new(&mut settings.jump_height, 0.1..=5.0).text("jump height (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.gravity, 1.0..=100.0).text("gravity (blocks/s²)"));
+        ui.add(crate::debug::Slider::new(&mut settings.max_fall_speed, 1.0..=200.0).text("max fall speed"));
+        ui.add(crate::debug::Slider::new(&mut settings.air_control, 0.0..=20.0).text("air control"));
 
         ui.strong("Body (dwarf)");
-        ui.add(egui::Slider::new(&mut settings.body_height, 0.5..=3.0).text("height"));
-        ui.add(egui::Slider::new(&mut settings.body_width, 0.2..=0.98).text("width"));
+        ui.add(crate::debug::Slider::new(&mut settings.body_height, 0.5..=3.0).text("height"));
+        ui.add(crate::debug::Slider::new(&mut settings.body_width, 0.2..=0.98).text("width"));
         let height = settings.body_height;
-        ui.add(egui::Slider::new(&mut settings.eye_height, 0.1..=height).text("eye height"));
+        ui.add(crate::debug::Slider::new(&mut settings.eye_height, 0.1..=height).text("eye height"));
         if settings.eye_height > settings.body_height {
             settings.eye_height = settings.body_height;
         }
 
         ui.strong("Breaking & placing");
-        ui.add(egui::Slider::new(&mut settings.reach, 1.0..=20.0).text("reach while walking (blocks)"));
-        ui.add(egui::Slider::new(&mut settings.break_cooldown, 0.0..=2.0).text("break repeat (s)"));
-        ui.add(egui::Slider::new(&mut settings.place_cooldown, 0.0..=2.0).text("place repeat (s)"));
-        ui.add(egui::Slider::new(&mut settings.respawn_below_z, -400.0..=0.0).text("respawn when below Z"));
+        ui.add(crate::debug::Slider::new(&mut settings.reach, 1.0..=20.0).text("reach while walking (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.break_cooldown, 0.0..=2.0).text("break repeat (s)"));
+        ui.add(crate::debug::Slider::new(&mut settings.place_cooldown, 0.0..=2.0).text("place repeat (s)"));
+        ui.add(crate::debug::Slider::new(&mut settings.respawn_below_z, -400.0..=0.0).text("respawn when below Z"));
         if ui.button("Reset player settings").clicked() {
             *settings = PlayerSettings::default();
         }

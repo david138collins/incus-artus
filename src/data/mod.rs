@@ -481,7 +481,7 @@ fn blocks_debug_page(ui: &mut egui::Ui, world: &mut World) {
     {
         let mut settings = world.resource_mut::<DataSettings>();
         ui.checkbox(&mut settings.live_reload, "live reload (data files and block textures)");
-        ui.add(egui::Slider::new(&mut settings.check_every, 0.2..=10.0).text("check every (s)"));
+        ui.add(crate::debug::Slider::new(&mut settings.check_every, 0.2..=10.0).text("check every (s)"));
     }
     ui.horizontal(|ui| {
         if ui.button("Reload now").clicked() {
@@ -522,7 +522,7 @@ fn blocks_debug_page(ui: &mut egui::Ui, world: &mut World) {
             }
             rotation_checkboxes(ui, def);
             if def.solid {
-                ui.add(egui::Slider::new(&mut def.friction, 0.0..=3.0).text("friction (1 = normal ground)"));
+                ui.add(crate::debug::Slider::new(&mut def.friction, 0.0..=3.0).text("friction (1 = normal ground)"));
             }
             ui.horizontal(|ui| {
                 ui.add_space(40.0);

@@ -197,6 +197,6 @@ pub fn envelope_editor(ui: &mut egui::Ui, id_salt: &str, envelope: &mut Envelope
         ui.add(curve(&mut envelope.release_curve));
         ui.end_row();
     });
-    ui.add(egui::Slider::new(&mut view_seconds, 0.25..=30.0).logarithmic(true).text("graph shows (s)"));
+    ui.add(crate::debug::Slider::new(&mut view_seconds, 0.25..=30.0).logarithmic(true).text("graph shows (s)"));
     ui.data_mut(|data| data.insert_temp(view_id, view_seconds));
 }

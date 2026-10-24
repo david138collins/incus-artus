@@ -173,7 +173,7 @@ fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
         );
         ui.separator();
         ui.label("1 pixel =");
-        ui.add(egui::Slider::new(&mut suite.chunks_per_pixel, 1..=45).suffix(" chunks"))
+        ui.add(crate::debug::Slider::new(&mut suite.chunks_per_pixel, 1..=45).suffix(" chunks"))
             .on_hover_text("A chunk is 32 × 32 blocks. Bigger = chunkier, fewer pixels.");
         let blocks = suite.blocks_per_pixel();
         let across = (suite.size_blocks / blocks).ceil();
@@ -323,7 +323,7 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     ui.small(layer.mix.about());
     let mut percent = layer.opacity * 100.0;
     if ui
-        .add(egui::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
+        .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
         .on_hover_text("0% = just the layers below. 100% = the full mix.")
         .changed()
     {
@@ -383,9 +383,9 @@ fn worley_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Worle
     seed_row(ui, id, seed, &mut view.seed_text);
 
     section(ui, "Cells", "The points, and what's measured from them.");
-    ui.add(egui::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("cell size (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("cell size (blocks)"))
         .on_hover_text("About how far apart the points are: one grid square of the first octave.");
-    ui.add(egui::Slider::new(&mut noise.jitter, 0.0..=1.0).text("jitter"))
+    ui.add(crate::debug::Slider::new(&mut noise.jitter, 0.0..=1.0).text("jitter"))
         .on_hover_text("How far each point may wander inside its grid square.\n0 = a neat grid of identical cells. 1 = fully random.");
     ui.horizontal_wrapped(|ui| {
         ui.label("shows:");
@@ -404,10 +404,10 @@ fn worley_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Worle
     .on_hover_text("How distance to a point is measured, which sets the cells' shape.");
 
     section(ui, "Octaves", "Finer, fainter copies stacked on top. 1 = plain cells.");
-    ui.add(egui::Slider::new(&mut noise.octaves, 1..=8).text("octaves"));
-    ui.add(egui::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
+    ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=8).text("octaves"));
+    ui.add(crate::debug::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
         .on_hover_text("How strong each octave is compared with the one before.");
-    ui.add(egui::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
+    ui.add(crate::debug::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
         .on_hover_text("How much finer each octave is than the one before.");
 
     placement_rows(
@@ -437,11 +437,11 @@ fn placement_rows(ui: &mut egui::Ui, [north, east, stretch, angle, turn]: [&mut 
     })
     .response
     .on_hover_text("Moves the whole field, in blocks. Drag the numbers.");
-    ui.add(egui::Slider::new(stretch, 0.1..=10.0).logarithmic(true).text("stretch"))
+    ui.add(crate::debug::Slider::new(stretch, 0.1..=10.0).logarithmic(true).text("stretch"))
         .on_hover_text("1 = round features. 3 = three times as long as they are wide.");
-    ui.add(egui::Slider::new(angle, 0.0..=180.0).suffix("°").text("stretch direction"))
+    ui.add(crate::debug::Slider::new(angle, 0.0..=180.0).suffix("°").text("stretch direction"))
         .on_hover_text("0° = stretched east–west, 90° = north–south.");
-    ui.add(egui::Slider::new(turn, 0.0..=90.0).suffix("°").text("turn each octave"))
+    ui.add(crate::debug::Slider::new(turn, 0.0..=90.0).suffix("°").text("turn each octave"))
         .on_hover_text("Turns each octave against the one before, so the grids don't line up\n(hides faint straight lines in the pattern).");
 }
 
@@ -450,13 +450,13 @@ fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Perli
     seed_row(ui, id, seed, &mut view.seed_text);
 
     section(ui, "Pattern", "What the noise is made of.");
-    ui.add(egui::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("size (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("size (blocks)"))
         .on_hover_text("The size of the biggest features: one grid square of the first octave.");
-    ui.add(egui::Slider::new(&mut noise.octaves, 1..=16).text("octaves"))
+    ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=16).text("octaves"))
         .on_hover_text("How many layers are stacked. Each one adds finer detail.");
-    ui.add(egui::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
+    ui.add(crate::debug::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
         .on_hover_text("How strong each octave is compared with the one before.\n0.5 = half as strong. Higher = rougher.");
-    ui.add(egui::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
+    ui.add(crate::debug::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
         .on_hover_text("How much finer each octave is than the one before.\n2 = twice as fine.");
 
     placement_rows(
@@ -521,7 +521,7 @@ fn image_settings(
     .response
     .on_hover_text("Where the picture's middle is, in blocks from the field's centre. Drag the numbers.");
     ui.add(
-        egui::Slider::new(&mut placement.blocks_per_pixel, 1.0..=4096.0)
+        crate::debug::Slider::new(&mut placement.blocks_per_pixel, 1.0..=4096.0)
             .logarithmic(true)
             .text("blocks per picture pixel"),
     );
@@ -550,9 +550,9 @@ fn image_settings(
 fn output_settings(ui: &mut egui::Ui, output: &mut Shaping, fill_help: &str) {
     section(ui, "Output", "Shaping the values, without changing the pattern underneath.");
     ui.checkbox(&mut output.fill_range, "fill black to white").on_hover_text(fill_help);
-    ui.add(egui::Slider::new(&mut output.contrast, 0.0..=5.0).text("contrast"));
-    ui.add(egui::Slider::new(&mut output.brightness, -1.0..=1.0).text("brightness"));
-    ui.add(egui::Slider::new(&mut output.curve, 0.1..=5.0).logarithmic(true).text("curve"))
+    ui.add(crate::debug::Slider::new(&mut output.contrast, 0.0..=5.0).text("contrast"));
+    ui.add(crate::debug::Slider::new(&mut output.brightness, -1.0..=1.0).text("brightness"));
+    ui.add(crate::debug::Slider::new(&mut output.curve, 0.1..=5.0).logarithmic(true).text("curve"))
         .on_hover_text("Above 1: most of the field gets darker, peaks stay bright.\nBelow 1: most of it gets lighter.");
     ui.checkbox(&mut output.invert, "invert");
 }
@@ -599,7 +599,7 @@ fn colour_panel(ui: &mut egui::Ui, colouring: &mut Colouring, is_image: bool, vi
             }
         });
         if colouring.name.is_empty() {
-            ui.add(egui::Slider::new(&mut colouring.shades, 2..=256).text("shades of grey"))
+            ui.add(crate::debug::Slider::new(&mut colouring.shades, 2..=256).text("shades of grey"))
                 .on_hover_text("The default palette: this many greys, evenly spaced from black to white.");
         } else {
             ui.small("From the palette file:");
@@ -675,7 +675,7 @@ fn channel_row(ui: &mut egui::Ui, label: &str, channel: &mut Channel, range: std
             *channel = Channel::FromField;
         }
         if let Channel::Set(value) = channel {
-            ui.add(egui::Slider::new(value, range));
+            ui.add(crate::debug::Slider::new(value, range));
         }
     });
 }

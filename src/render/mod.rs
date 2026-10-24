@@ -340,17 +340,17 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.strong("Settings");
     {
         let mut settings = world.resource_mut::<RenderSettings>();
-        ui.add(egui::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"));
-        ui.add(egui::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / frame"));
-        ui.add(egui::Slider::new(&mut settings.shade_top, 0.0..=1.5).text("shade: top"));
-        ui.add(egui::Slider::new(&mut settings.shade_bottom, 0.0..=1.5).text("shade: bottom"));
-        ui.add(egui::Slider::new(&mut settings.shade_north_south, 0.0..=1.5).text("shade: north/south"));
-        ui.add(egui::Slider::new(&mut settings.shade_east_west, 0.0..=1.5).text("shade: east/west"));
+        ui.add(crate::debug::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / frame"));
+        ui.add(crate::debug::Slider::new(&mut settings.shade_top, 0.0..=1.5).text("shade: top"));
+        ui.add(crate::debug::Slider::new(&mut settings.shade_bottom, 0.0..=1.5).text("shade: bottom"));
+        ui.add(crate::debug::Slider::new(&mut settings.shade_north_south, 0.0..=1.5).text("shade: north/south"));
+        ui.add(crate::debug::Slider::new(&mut settings.shade_east_west, 0.0..=1.5).text("shade: east/west"));
         ui.checkbox(&mut settings.fog_enabled, "fog");
-        ui.add(egui::Slider::new(&mut settings.fog_start, 0.0..=2000.0).text("fog start (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.fog_start, 0.0..=2000.0).text("fog start (blocks)"));
         let fog_start = settings.fog_start;
         // Fog end can't be closer than fog start (the fog gets thicker from start to end).
-        ui.add(egui::Slider::new(&mut settings.fog_end, fog_start..=2000.0).text("fog end (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.fog_end, fog_start..=2000.0).text("fog end (blocks)"));
         if settings.fog_end < settings.fog_start {
             settings.fog_end = settings.fog_start;
         }

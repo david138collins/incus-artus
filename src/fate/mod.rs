@@ -343,8 +343,8 @@ fn fate_debug_page(ui: &mut egui::Ui, world: &mut World) {
                     ui.label("categories");
                     ui.add(egui::TextEdit::singleline(&mut twist.categories).desired_width(120.0));
                 });
-                ui.add(egui::Slider::new(&mut twist.luck, -6.0..=6.0).text("luck (for the player)"));
-                ui.add(egui::Slider::new(&mut twist.strangeness, -6.0..=6.0).text("strangeness"));
+                ui.add(crate::debug::Slider::new(&mut twist.luck, -6.0..=6.0).text("luck (for the player)"));
+                ui.add(crate::debug::Slider::new(&mut twist.strangeness, -6.0..=6.0).text("strangeness"));
                 match twist.ends_at {
                     Some(end) => {
                         ui.horizontal(|ui| {
@@ -384,7 +384,7 @@ fn fate_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ui.add(egui::TextEdit::singleline(&mut tester.category).desired_width(120.0));
         });
         ui.add(
-            egui::Slider::new(&mut tester.chance, 0.0001..=1.0)
+            crate::debug::Slider::new(&mut tester.chance, 0.0001..=1.0)
                 .logarithmic(true)
                 .text("base chance"),
         );

@@ -467,12 +467,12 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.separator();
     ui.strong("Settings");
     let mut settings = world.resource_mut::<CameraSettings>();
-    ui.add(egui::Slider::new(&mut settings.fly_speed, 1.0..=200.0).text("fly speed (blocks/s)"));
-    ui.add(egui::Slider::new(&mut settings.fast_multiplier, 1.0..=20.0).text("Shift speed ×"));
-    ui.add(egui::Slider::new(&mut settings.mouse_sensitivity, 0.01..=0.5).text("mouse sensitivity (°/pixel)"));
+    ui.add(crate::debug::Slider::new(&mut settings.fly_speed, 1.0..=200.0).text("fly speed (blocks/s)"));
+    ui.add(crate::debug::Slider::new(&mut settings.fast_multiplier, 1.0..=20.0).text("Shift speed ×"));
+    ui.add(crate::debug::Slider::new(&mut settings.mouse_sensitivity, 0.01..=0.5).text("mouse sensitivity (°/pixel)"));
     ui.checkbox(&mut settings.invert_mouse_y, "invert mouse up/down");
-    ui.add(egui::Slider::new(&mut settings.field_of_view, 30.0..=150.0).text("field of view (°, up-down)"));
-    ui.add(egui::Slider::new(&mut settings.ray_length, 1.0..=256.0).text("ray length while flying (blocks)"));
+    ui.add(crate::debug::Slider::new(&mut settings.field_of_view, 30.0..=150.0).text("field of view (°, up-down)"));
+    ui.add(crate::debug::Slider::new(&mut settings.ray_length, 1.0..=256.0).text("ray length while flying (blocks)"));
     ui.checkbox(&mut settings.show_target_outline, "outline the block being looked at");
     if ui.button("Reset camera settings").clicked() {
         *settings = CameraSettings::default();

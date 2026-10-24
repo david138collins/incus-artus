@@ -23,8 +23,10 @@
 
 mod presets;
 mod settings;
+mod slider;
 
 pub use presets::preset_bar;
+pub use slider::Slider;
 pub use settings::SettingsAppExt;
 
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
