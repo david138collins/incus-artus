@@ -132,10 +132,11 @@ struct Spring {
     broken: bool,
 }
 
-/// One of the grid's small triangles: its corners, and its area at the start (signed: the sign
-/// says which way round the corners go).
+/// One of the grid's small triangles: its corners, its sides (springs), and its area at the start
+/// (signed: the sign says which way round the corners go).
 struct Triangle {
     corners: [usize; 3],
+    sides: [usize; 3],
     area: f32,
 }
 
@@ -241,8 +242,8 @@ impl Sim {
                 };
                 for corners in threes {
                     let [a, b, c] = corners;
-                    if side(a, b).is_some() && side(b, c).is_some() && side(c, a).is_some() {
-                        triangles.push(Triangle { corners, area: signed_area(at[a], at[b], at[c]) });
+                    if let (Some(ab), Some(bc), Some(ca)) = (side(a, b), side(b, c), side(c, a)) {
+                        triangles.push(Triangle { corners, sides: [ab, bc, ca], area: signed_area(at[a], at[b], at[c]) });
                     }
                 }
             }
@@ -409,12 +410,15 @@ impl Sim {
 
         // 6. Give way and crack.
         let creep = settings.creep.clamp(0.0, 1.0);
+        let real = &self.real;
         for spring in self.springs.iter_mut().filter(|s| !s.broken) {
             let (a, b) = (self.at[spring.a], self.at[spring.b]);
             let length = (b.0 - a.0).hypot(b.1 - a.1);
             // Cracking is measured from the length it started with: rock can stretch and give way
-            // only so far in all before it snaps.
-            if length / spring.made - 1.0 > settings.crack * spring.strength {
+            // only so far in all before it snaps. (Springs to outline points never snap, so the
+            // outline can't break loose and drift off.)
+            let between_real = real[spring.a] && real[spring.b];
+            if between_real && length / spring.made - 1.0 > settings.crack * spring.strength {
                 spring.broken = true;
                 continue;
             }
@@ -434,15 +438,26 @@ impl Sim {
         self.settled = fastest * self.blocks_per_pixel < 1.0;
     }
 
+    /// Whether a triangle has been torn wide open: one of its sides is cracked and stretched to
+    /// more than `tear_open` times its length at the start. (Only cracked sides tear: an unbroken
+    /// spring is still holding the rock together.)
+    fn torn(&self, triangle: &Triangle, tear_open: f32) -> bool {
+        triangle.sides.iter().any(|&s| {
+            let spring = &self.springs[s];
+            let (a, b) = (self.at[spring.a], self.at[spring.b]);
+            spring.broken && (b.0 - a.0).hypot(b.1 - a.1) > spring.made * tear_open
+        })
+    }
+
     /// How thick the rock is at each point, compared with at the start (1 = unchanged): the
-    /// average over its triangles of start area ÷ area now. Cracked triangles count too: a crack
-    /// pulled open is thin, stretched rock (a rift), not a hole.
+    /// average over its triangles of start area ÷ area now. Cracked triangles count too (a crack
+    /// pulled a little open is thin, stretched rock), until they're torn wide open.
     ///
     /// Then blended `smoothing` times with each point's neighbours, so the shading reads as smooth
     /// fields rather than the grid's triangles.
-    fn thickness(&self, smoothing: u32) -> Vec<f32> {
+    fn thickness(&self, smoothing: u32, tear_open: f32) -> Vec<f32> {
         let mut sum = vec![(0.0f32, 0u32); self.at.len()];
-        for triangle in &self.triangles {
+        for triangle in self.triangles.iter().filter(|t| !self.torn(t, tear_open)) {
             let [a, b, c] = triangle.corners;
             // Folded over counts as crushed (its area, whichever way round).
             let now = signed_area(self.at[a], self.at[b], self.at[c]).abs().max(1e-6);
@@ -469,13 +484,15 @@ impl Sim {
     /// the same place in that triangle as it was at the start, and painted only if that pixel was
     /// on the plate then. So the grid carries the outline along, bending it as the rock bends.
     ///
-    /// Every triangle is drawn, cracked or not, so the fill stays whole; the shading (thickness,
-    /// blended `smoothing` times) goes on top.
-    pub fn paint(&self, smoothing: u32) -> Vec<Option<Spot>> {
+    /// Triangles are drawn cracked or not, so small cracks don't punch holes in the fill; but one
+    /// torn wide open (a cracked side stretched past `tear_open` times its length) isn't drawn: it
+    /// would smear the plate across the gap. That gap is a real rift, and shows the sea. The
+    /// shading (thickness, blended `smoothing` times) goes on top.
+    pub fn paint(&self, smoothing: u32, tear_open: f32) -> Vec<Option<Spot>> {
         let width = self.width;
         let mut painted = vec![None; width * width];
-        let thickness = self.thickness(smoothing);
-        for triangle in &self.triangles {
+        let thickness = self.thickness(smoothing, tear_open);
+        for triangle in self.triangles.iter().filter(|t| !self.torn(t, tear_open)) {
             let [a, b, c] = triangle.corners;
             let (pa, pb, pc) = (self.at[a], self.at[b], self.at[c]);
             let area = signed_area(pa, pb, pc);
@@ -578,7 +595,7 @@ mod tests {
             sim.step(&settings);
         }
         assert!(sim.middle(0).0 < sim.middle(1).0, "they passed through each other");
-        let highest = sim.paint(0).iter().flatten().map(|spot| spot.squeeze).fold(0.0, f32::max);
+        let highest = sim.paint(0, f32::MAX).iter().flatten().map(|spot| spot.squeeze).fold(0.0, f32::max);
         assert!(highest > 0.1, "nothing rose: highest {highest}");
         // Given way: some springs are now shorter at rest than when made.
         assert!(sim.springs.iter().any(|s| s.rest < s.made * 0.97));
@@ -592,7 +609,7 @@ mod tests {
         // Pull the left plate's two halves apart.
         for k in 0..sim.at.len() {
             if sim.plate[k] == 0 {
-                sim.velocity[k] = (if sim.at[k].0 < 35.0 { -3.0 } else { 3.0 }, 0.0);
+                sim.velocity[k] = (if sim.at[k].0 < 35.0 { -1.0 } else { 1.0 }, 0.0);
             }
         }
         for _ in 0..10 {
@@ -601,12 +618,26 @@ mod tests {
         assert!(sim.springs.iter().any(|s| s.broken), "nothing tore");
         // The tear shows as stretched, thin rock, not a hole: the plate covers at least as much
         // ground as before, and the middle of the tear is thinner than it started.
-        let painted = sim.paint(0);
+        let painted = sim.paint(0, f32::MAX);
         let before = plates.plate.iter().filter(|&&p| p == Some(0)).count();
         let after = painted.iter().flatten().filter(|spot| spot.plate == 0).count();
         assert!(after >= before, "the plate lost fill: {before} pixels before, {after} after");
         let middle = painted[60 * plates.width + 35];
         assert!(matches!(middle, Some(Spot { plate: 0, squeeze, .. }) if squeeze < 0.0), "the tear's middle: {middle:?}");
+        // The outline never breaks loose: springs to outline points don't snap.
+        assert!(sim.springs.iter().filter(|s| !sim.real[s.a] || !sim.real[s.b]).all(|s| !s.broken));
+
+        // Pulled much further, the crack is torn wide open: it shows as a gap (sea), not the
+        // plate smeared across it.
+        for _ in 0..30 {
+            sim.step(&RagSettings { drag: 0.0, ..settings.clone() });
+        }
+        let painted = sim.paint(0, 2.0);
+        let gap = (0..plates.width).filter(|&col| painted[60 * plates.width + col].is_none()).count();
+        let row: Vec<bool> = (0..plates.width).map(|col| painted[60 * plates.width + col].is_some()).collect();
+        let first = row.iter().position(|&on| on).unwrap();
+        let last = row.iter().rposition(|&on| on).unwrap();
+        assert!(row[first..=last].iter().any(|&on| !on), "no gap opened across the tear ({gap} empty pixels in the row)");
     }
 
     #[test]
@@ -634,7 +665,7 @@ mod tests {
         let settings = RagSettings { grain: 1_500.0, bowl: 0.0, ..RagSettings::default() };
         let mut sim = Sim::new(&made, &still, &settings, 1);
         sim.step(&settings);
-        let painted: Vec<Option<u8>> = sim.paint(0).iter().map(|here| here.map(|spot| spot.plate)).collect();
+        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX).iter().map(|here| here.map(|spot| spot.plate)).collect();
         let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
         assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
     }
@@ -649,7 +680,7 @@ mod tests {
             for _ in 0..100 {
                 sim.step(&settings);
             }
-            sim.paint(0)
+            sim.paint(0, f32::MAX)
         };
         assert_eq!(run(), run());
     }

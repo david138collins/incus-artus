@@ -55,6 +55,7 @@ struct Look {
     show_boundaries: bool,
     height_shown: f32,
     smoothness: u32,
+    tear_open: f32,
     squeeze: f32,
     water: f32,
 }
@@ -109,6 +110,8 @@ pub struct WorldGen {
     pub height_shown: f32,
     /// How many times the shading is blended with its neighbours (only changes the look).
     pub shading_smoothness: u32,
+    /// A cracked triangle stretched past this many times its size stops being drawn: a rift.
+    pub tear_open: f32,
     pub show_bowl: bool,
     /// For automatic testing: start the simulation as soon as the plates are made.
     pub start_when_ready: bool,
@@ -160,6 +163,7 @@ impl Default for WorldGen {
             land_share: 0.0,
             height_shown: 0.5,
             shading_smoothness: 3,
+            tear_open: 2.0,
             show_bowl: true,
             start_when_ready: false,
             ab_plates: None,
@@ -456,6 +460,7 @@ struct Show {
     arrow_steps: f32,
     thickness_as_white: f32,
     shading_smoothness: u32,
+    tears_open_past: f32,
 }
 
 impl Default for Show {
@@ -477,6 +482,7 @@ impl WorldGen {
             arrow_steps: self.arrow_steps,
             thickness_as_white: self.height_shown,
             shading_smoothness: self.shading_smoothness,
+            tears_open_past: self.tear_open,
         }
     }
 
@@ -495,7 +501,8 @@ impl WorldGen {
         (self.plates, self.motion, self.sim_settings, self.heights) = (preset.plates, preset.motion, preset.rock, preset.heights);
         (self.show_cells, self.show_vertices, self.show_lines, self.show_arrows, self.show_boundaries, self.show_bowl) =
             (show.cells, show.vertices, show.lines, show.arrows, show.boundaries, show.bowl);
-        (self.arrow_steps, self.height_shown, self.shading_smoothness) = (show.arrow_steps, show.thickness_as_white, show.shading_smoothness);
+        (self.arrow_steps, self.height_shown, self.shading_smoothness, self.tear_open) =
+            (show.arrow_steps, show.thickness_as_white, show.shading_smoothness, show.tears_open_past);
         // Anything being compared with the defaults is now replaced by the preset.
         (self.ab_plates, self.ab_tectonics, self.ab_heights) = (None, None, None);
     }
@@ -680,6 +687,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         );
     ui.add(egui::Slider::new(&mut world.shading_smoothness, 0..=20).text("shading smoothness")).on_hover_text(
         "Only changes the look: how many times the shading is blended with its neighbours.\n0 = sharp (you can see the grid's triangles). Higher = smooth fields.",
+    );
+    ui.add(egui::Slider::new(&mut world.tear_open, 1.1..=6.0).logarithmic(true).text("tears open past")).on_hover_text(
+        "Only changes the look. A crack pulled open less than this (× its size) is drawn as thin, stretched rock;\npulled open further, it's a rift and shows the sea. Too high = plates smeared across wide gaps.",
     );
     ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
 
@@ -909,6 +919,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         show_boundaries: world.show_boundaries,
         height_shown: world.height_shown,
         smoothness: world.shading_smoothness,
+        tear_open: world.tear_open,
         squeeze: world.heights.squeeze,
         water: world.heights.water,
     };
@@ -933,7 +944,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         let ocean_depth = (heights.water - heights.ocean).max(0.05);
         let (mut land, mut world_pixels) = (0usize, 0usize);
         if let Some(sim) = &world.sim {
-            world.moved = sim.paint(world.shading_smoothness);
+            world.moved = sim.paint(world.shading_smoothness, world.tear_open);
         }
         let mut pixels: Vec<Color32> = (0..width * width)
             .map(|i| {
