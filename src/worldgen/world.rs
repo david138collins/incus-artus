@@ -156,6 +156,9 @@ pub struct WorldGen {
     painted_for: Option<Look>,
     hover: Option<(usize, usize)>,
     seed_text: String,
+    /// The world seed the plates being made, and the plates made, are for.
+    job_for: u64,
+    result_for: u64,
 }
 
 impl Default for WorldGen {
@@ -215,6 +218,8 @@ impl Default for WorldGen {
             painted_for: None,
             hover: None,
             seed_text: String::new(),
+            job_for: 0,
+            result_for: 0,
         }
     }
 }
@@ -347,6 +352,13 @@ impl WorldGen {
         self.running = self.sim().is_some();
     }
 
+    /// A new world seed, and the run started as soon as its plates are made (Shift + Space).
+    fn new_world_and_start(&mut self) {
+        self.seed = crate::fate::derive_seed(super::fresh_number(), "world seed");
+        self.reset();
+        self.start_when_ready = true;
+    }
+
     /// Whether the simulation has moved anything yet (if not, the plates show as made).
     fn has_moved(&self) -> bool {
         self.sim.as_ref().is_some_and(|sim| sim.steps > 0)
@@ -407,7 +419,8 @@ impl WorldGen {
         if self.sim.is_some() && self.sim_made_with != self.sim_settings.making() {
             self.reset();
         }
-        if self.start_when_ready && self.result.is_some() {
+        // Start once the plates for the current seed are made (not ones left from before it changed).
+        if self.start_when_ready && self.result.is_some() && self.result_for == self.seed && self.job.is_none() {
             self.start_when_ready = false;
             self.running = self.sim().is_some();
         }
@@ -423,6 +436,7 @@ impl WorldGen {
             match job.poll() {
                 Poll::Done(finished) => {
                     self.result = Some(*finished);
+                    self.result_for = self.job_for;
                     self.version += 1;
                     self.job = None;
                 }
@@ -437,6 +451,7 @@ impl WorldGen {
         if self.wanted {
             self.wanted = false;
             let (settings, seed) = (self.plates.clone(), self.plate_seed());
+            self.job_for = self.seed;
             self.job = Some(Job::start(move |stop| plates::make(&settings, seed, size_blocks, blocks_per_pixel, stop)));
         }
     }
@@ -479,7 +494,11 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let world = &mut suite.world;
     // The space bar is Start / Pause (unless you're typing, say a preset's name). Taken before any
     // button sees it, so a button that has just been clicked isn't pressed by it too.
+    // Shift + Space: a new world seed, then run it.
     let typing = root.ctx().egui_wants_keyboard_input();
+    if !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::SHIFT, egui::Key::Space)) {
+        world.new_world_and_start();
+    }
     if !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space)) {
         world.start_or_pause();
     }
@@ -491,6 +510,13 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
                 .clicked()
             {
                 world.seed = crate::fate::derive_seed(super::fresh_number(), "world seed");
+            }
+            if ui
+                .button("New world and run  [Shift+Space]")
+                .on_hover_text("A new world seed, and the tectonics run on it as soon as its plates are made.\nShift + Space does the same: see how your settings do across many worlds, quickly.")
+                .clicked()
+            {
+                world.new_world_and_start();
             }
             if let Some(result) = &world.result {
                 ui.small(format!("made in {:.0} ms", result.millis));
@@ -1477,6 +1503,26 @@ mod tests {
         world.start_or_pause();
         assert!(world.running);
         assert_eq!(world.sim.as_ref().unwrap().steps, 0);
+    }
+
+    #[test]
+    fn a_new_world_runs_only_once_its_own_plates_are_made() {
+        let mut world = ready();
+        world.result_for = world.seed;
+        let old = world.seed;
+        world.new_world_and_start();
+        assert_ne!(world.seed, old);
+        // The old plates are still showing: it doesn't run on them.
+        world.drive(72_000.0, 256.0);
+        assert!(!world.running);
+        // Once plates for the new seed arrive, it runs.
+        let mut waited = 0;
+        while !world.running && waited < 400 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            world.drive(72_000.0, 256.0);
+            waited += 1;
+        }
+        assert!(world.running && world.result_for == world.seed);
     }
 
     #[test]

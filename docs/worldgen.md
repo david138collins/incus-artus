@@ -171,6 +171,10 @@ pushed down **darker**.
   along each ridge. **Rift depth** is measured against the bake's most stretched rock (it used to be
   measured against the most crushed, so it did almost nothing). Ranges re-centred so good results
   sit mid-knob.
+- **Next for the compiler: an erosion pass** [David] to wear down the rough edges.
+- **Principle** [David, 2026-10-24]: the terrain can't truly be judged until a world can be explored with
+  trees and water. So get as close as we can now, and **leave room to adjust the back end** once
+  worlds can be walked. Judge settings **across many seeds** (Shift+Space), not on one.
 - **Plates stick [BUILT 2026-10-24]** [David: sea got caught between colliding plates, making canyons
   through every range]: points pressed together **weld** (stickiness slider; welds crack if pulled
   hard, so straits can still open), and sea narrower than **seal gaps up to** with rock on both sides
