@@ -259,8 +259,16 @@ impl WorldGen {
     /// background.
     fn start_bake(&mut self) {
         let name = if bake::clean_name(&self.bake_name).is_empty() { format!("world-{:016X}", self.seed) } else { self.bake_name.clone() };
-        let order = Order {
-            name: name.clone(),
+        let order = self.bake_order(&name);
+        self.baking = Some(Job::start(move |stop| bake::bake(&order, stop)));
+        self.bake_note = format!("Baking \"{}\"…", bake::clean_name(&name));
+    }
+
+    /// Everything a bake of the world these settings and this seed make needs (at 1 chunk per
+    /// pixel, into the bakes folder). The World Compiler's EZ-Bake uses it too.
+    pub(super) fn bake_order(&self, name: &str) -> Order {
+        Order {
+            name: name.to_string(),
             seed: self.seed,
             size_blocks: self.size_blocks,
             blocks_per_pixel: super::CHUNK_BLOCKS,
@@ -273,9 +281,7 @@ impl WorldGen {
             seal_gaps: self.seal_gaps,
             most_steps: self.most_steps,
             folder: bake::bakes_folder(),
-        };
-        self.baking = Some(Job::start(move |stop| bake::bake(&order, stop)));
-        self.bake_note = format!("Baking \"{}\"…", bake::clean_name(&name));
+        }
     }
 
     /// Picks up a finished bake.

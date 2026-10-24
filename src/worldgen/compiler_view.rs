@@ -11,7 +11,7 @@
 //! ```
 
 use super::Suite;
-use super::bake;
+use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
 use super::image::{Picture, Placement};
@@ -19,11 +19,14 @@ use super::layers::LayerKind;
 use super::runner::{Finished, Job, Poll};
 use super::view::{MAGENTA, PINK, compass};
 use super::world::defaults_row;
+use crate::debug::preset_bar;
 use bevy_egui::egui::{self, Color32, Vec2};
 use std::sync::Arc;
 
 /// Past the edge of the world.
 const BEYOND: [u8; 3] = [10, 10, 14];
+/// The scratch bake EZ-Bake writes (and overwrites) each time.
+const EZ_BAKE: &str = "_ez-bake";
 
 pub struct Compiler {
     pub settings: CompileSettings,
@@ -42,6 +45,13 @@ pub struct Compiler {
     pub relief: f32,
     /// Your own settings, kept aside while the A/B button shows the defaults.
     ab: Option<CompileSettings>,
+    /// EZ-Bake: a scratch world being baked from the Tectonic Sim's settings; and whether the next
+    /// bake read should keep the compiler's settings (an EZ-Bake reload) rather than take the
+    /// bake's own water level.
+    ez: Option<Job<Result<Baked, String>>>,
+    keep_settings: bool,
+    /// The name to keep the scratch world under.
+    keep_name: String,
     camera: Camera,
     texture: Option<egui::TextureHandle>,
     painted_for: Option<(u64, u32)>,
@@ -62,6 +72,9 @@ impl Default for Compiler {
             version: 0,
             relief: 5.0,
             ab: None,
+            ez: None,
+            keep_settings: false,
+            keep_name: String::new(),
             camera: Camera::default(),
             texture: None,
             painted_for: None,
@@ -72,12 +85,47 @@ impl Default for Compiler {
 
 impl Compiler {
     pub fn is_making(&self) -> bool {
-        self.job.is_some()
+        self.job.is_some() || self.ez.is_some()
+    }
+
+    /// Starts an EZ-Bake: the world `order` describes, baked in the background into the scratch
+    /// bake.
+    fn start_ez(&mut self, mut order: bake::Order) {
+        order.name = EZ_BAKE.to_string();
+        self.ez = Some(Job::start(move |stop| bake::bake(&order, stop)));
+        self.note = "EZ-Baking a new world from the Tectonic Sim's settings…".to_string();
+    }
+
+    /// Picks up a finished EZ-Bake and reads it in, keeping the compiler's settings.
+    fn collect_ez(&mut self) {
+        let Some(job) = &self.ez else { return };
+        match job.poll() {
+            Poll::Done(finished) => {
+                self.ez = None;
+                match finished.made {
+                    Ok(baked) => {
+                        let ending = if baked.settled { "everything stopped" } else { "step limit" };
+                        self.note = format!("EZ-Baked in {:.1} s ({} steps, {ending}).", finished.millis / 1000.0, baked.steps);
+                        self.chosen = Some(EZ_BAKE.to_string());
+                        // Read it again even though the name is the same, keeping these settings.
+                        self.bake = None;
+                        self.keep_settings = true;
+                    }
+                    Err(error) => self.note = format!("EZ-Bake failed: {error}"),
+                }
+            }
+            Poll::Over => {
+                self.ez = None;
+                self.note = "EZ-Bake stopped.".to_string();
+            }
+            Poll::Waiting => {}
+        }
     }
 
     /// Reads the chosen bake if it isn't read yet (the newest bake, if none is chosen), compiles
     /// again when the bake or the settings change, and collects finished work.
     pub fn drive(&mut self) {
+        self.collect_ez();
         if self.chosen.is_none() {
             self.chosen = newest_bake();
         }
@@ -85,8 +133,11 @@ impl Compiler {
         if self.bake.as_ref().is_none_or(|bake| bake.name != chosen) {
             match compiler::load(&bake::bakes_folder().join(&chosen)) {
                 Ok(bake) => {
-                    // Start from the water level it was baked with.
-                    self.settings.water = bake.info.water_level;
+                    // Start from the water level it was baked with (unless this is an EZ-Bake
+                    // being read again: then keep everything as it is).
+                    if !std::mem::take(&mut self.keep_settings) {
+                        self.settings.water = bake.info.water_level;
+                    }
                     let tilt = if bake.tilt.iter().any(|&t| t != 0.0) { "" } else { " (made before tilt was saved: no grading)" };
                     self.note = format!("Read \"{chosen}\": {} × {} pixels, {} blocks each{tilt}.", bake.width, bake.width, bake.info.blocks_per_pixel);
                     self.bake = Some(Arc::new(bake));
@@ -128,6 +179,18 @@ impl Compiler {
             self.job = Some(Job::start(move |stop| compiler::compile(&bake, &settings, stop)));
         }
     }
+}
+
+/// Copies a bake's folder (its files; bakes have no folders inside) to `to`, replacing what's
+/// there.
+fn copy_folder(from: &std::path::Path, to: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(to).map_err(|error| error.to_string())?;
+    for entry in std::fs::read_dir(from).map_err(|error| error.to_string())?.flatten() {
+        if entry.path().is_file() {
+            std::fs::copy(entry.path(), to.join(entry.file_name())).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
 }
 
 /// The most recently made bake.
@@ -197,9 +260,27 @@ fn relief_picture(compiled: &Compiled, blocks_per_pixel: f32, relief: f32) -> Ve
 }
 
 pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
+    // The space bar is EZ-Bake here (unless you're typing, say a preset's name).
+    let typing = root.ctx().egui_wants_keyboard_input();
+    let mut ez = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space));
     let compiler = &mut suite.compiler;
     egui::Panel::top("world compiler bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
+            if compiler.ez.is_some() {
+                ui.spinner();
+                ui.label("EZ-Baking…");
+            } else if ui
+                .button("EZ-Bake  [Space]")
+                .on_hover_text(
+                    "A new world in one go: the Tectonic Sim's current settings with a new world seed, baked (into\n\
+                     \"_ez-bake\", replaced each time) and read straight in here, keeping these compiler settings.\n\
+                     The new seed becomes the Tectonic Sim's too, so you can go and watch that world run.",
+                )
+                .clicked()
+            {
+                ez = true;
+            }
+            ui.separator();
             ui.label("Bake:");
             let bakes = bake::saved_bakes();
             egui::ComboBox::from_id_salt("world compiler bake").selected_text(compiler.chosen.clone().unwrap_or_else(|| "none yet".to_string())).show_ui(ui, |ui| {
@@ -214,6 +295,23 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
                 && let Err(error) = super::export::open_folder(&bake::bakes_folder())
             {
                 compiler.note = format!("Couldn't open the folder: {error}");
+            }
+            // An EZ-Baked world worth keeping: copy it to a bake of its own.
+            if compiler.chosen.as_deref() == Some(EZ_BAKE) && compiler.ez.is_none() {
+                ui.separator();
+                ui.add(egui::TextEdit::singleline(&mut compiler.keep_name).desired_width(110.0).hint_text("name"));
+                let name = bake::clean_name(&compiler.keep_name);
+                if ui
+                    .add_enabled(!name.is_empty() && name != EZ_BAKE, egui::Button::new("Keep this world"))
+                    .on_hover_text("Copies this EZ-Baked world to a bake of its own, under this name, so the next EZ-Bake doesn't replace it.")
+                    .clicked()
+                {
+                    let folder = bake::bakes_folder();
+                    compiler.note = match copy_folder(&folder.join(EZ_BAKE), &folder.join(&name)) {
+                        Ok(()) => format!("Kept this world as \"{name}\"."),
+                        Err(error) => format!("Couldn't keep it: {error}"),
+                    };
+                }
             }
             ui.separator();
             if let Some(result) = &compiler.result {
@@ -233,6 +331,13 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let mut send = None;
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler, &mut send));
 
+    // EZ-Bake: a new world seed for the Tectonic Sim, and its world baked and read in here.
+    if ez && suite.compiler.ez.is_none() {
+        suite.world.seed = crate::fate::derive_seed(super::fresh_number(), "world seed");
+        let order = suite.world.bake_order(EZ_BAKE);
+        suite.compiler.start_ez(order);
+    }
+
     if let Some((name, picture, blocks_per_pixel)) = send {
         suite.add_layer(LayerKind::Image { file: format!("{name} (from the World Compiler)"), picture: Arc::new(picture), placement: Placement { blocks_per_pixel, ..Placement::default() } });
         if let Some(layer) = suite.layers.last_mut() {
@@ -250,6 +355,10 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     if !compiler.note.is_empty() {
         ui.small(&compiler.note);
     }
+    ui.add_space(4.0);
+    ui.strong("Presets");
+    ui.small("Save every compiler setting (the splines too) as a preset, to try on any bake.");
+    preset_bar(ui, "compiler", &mut compiler.settings);
     let Some(bake) = compiler.bake.clone() else {
         ui.colored_label(PINK, "No bake read yet.");
         return;
