@@ -402,29 +402,43 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
     if land < world.plates.plates as usize {
         ui.colored_label(PINK, format!("Only {land} cells fit inside the world. Fewer plates, or less coverage?"));
     }
-    ui.label(format!("{land} land plates, {} ocean plates", made.kept.len() - land));
-    egui::Grid::new("world gen plates").striped(true).show(ui, |ui| {
-        ui.label("");
-        ui.small("plate");
-        ui.small("of the world");
-        ui.small("across").on_hover_text("The side of a square with the same area, in blocks.");
-        ui.small("speed").on_hover_text("Blocks per step.");
-        ui.small("heading");
-        ui.small("spin").on_hover_text("Degrees per step.");
-        ui.end_row();
-        for (p, plate) in made.kept.iter().enumerate() {
-            let (swatch, _) = ui.allocate_exact_size(Vec2::splat(14.0), egui::Sense::hover());
-            ui.painter().rect_filled(swatch, 0.0, colour32(plate_colour(p, plate.land)));
-            ui.label(plate_name(made, p));
-            ui.label(format!("{:.1}%", plate.share * 100.0));
-            ui.small(compass((plate.pixels as f32).sqrt() * blocks_per_pixel, "", "").trim().to_string());
-            if let Some(motion) = world.motions.get(p) {
-                ui.small(format!("{:.0}", motion.speed()));
-                ui.small(format!("{:.0}° {}", motion.heading(), bearing(motion.heading())));
-                ui.small(format!("{:.2}° {}", motion.spin.abs().to_degrees(), if motion.spin >= 0.0 { "clockwise" } else { "anticlockwise" }));
+    ui.label(format!("{land} land plates, {} ocean plates", made.kept.len() - land)).on_hover_text(
+        "Each card: share of the world; blocks across (the side of a square with the same area);\nspeed in blocks per step; heading; spin in degrees per step.",
+    );
+    // Cards rather than a table, so the panel can stay thin: as many columns as fit, row by row.
+    const CARD: f32 = 104.0;
+    let gap = ui.spacing().item_spacing.x;
+    let columns = (((ui.available_width() + gap) / (CARD + 14.0 + gap)).floor() as usize).max(1);
+    let cards: Vec<usize> = (0..made.kept.len()).collect();
+    for row in cards.chunks(columns) {
+        ui.horizontal(|ui| {
+            for &p in row {
+                plate_card(ui, world, made, p, blocks_per_pixel, CARD);
             }
-            ui.end_row();
-        }
+        });
+    }
+}
+
+/// One plate's card in the readouts.
+fn plate_card(ui: &mut egui::Ui, world: &WorldGen, made: &Plates, p: usize, blocks_per_pixel: f32, width: f32) {
+    let plate = &made.kept[p];
+    egui::Frame::group(ui.style()).inner_margin(6.0).show(ui, |ui| {
+        ui.set_width(width);
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                let (swatch, _) = ui.allocate_exact_size(Vec2::splat(12.0), egui::Sense::hover());
+                ui.painter().rect_filled(swatch, 0.0, colour32(plate_colour(p, plate.land)));
+                ui.strong(plate_name(made, p));
+            });
+            ui.small(format!("{:.1}% of the world", plate.share * 100.0));
+            ui.small(format!("{} across", compass((plate.pixels as f32).sqrt() * blocks_per_pixel, "", "").trim()));
+            if let Some(motion) = world.motions.get(p) {
+                ui.small(format!("speed {:.0}", motion.speed()));
+                ui.small(format!("heading {:.0}° {}", motion.heading(), bearing(motion.heading())));
+                ui.small(format!("spin {:.2}°", motion.spin.abs().to_degrees()));
+                ui.small(if motion.spin >= 0.0 { "clockwise" } else { "anticlockwise" });
+            }
+        });
     });
 }
 

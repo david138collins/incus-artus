@@ -90,6 +90,11 @@ pushed down **darker**.
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map.
 
+- **Idea to investigate later** [David, 2026-10-24], once more of tectonics is built: instead of one cell
+  per plate, use a **finer grid of cells that cluster together into plates**. That gives organic blob shapes
+  even before the line noise, and lets the ocean plates bordering the land be smaller. The early
+  subdivisions could be kept and reused later if they're useful (for example for regions).
+
 - **After tectonics, one tool at a time:**
   - a water level;
   - springs and rivers: a field of random dots culled to plausible springs, shown as light blue pixels, that
