@@ -21,6 +21,7 @@
 
 use super::Suite;
 use super::canvas::Camera;
+use super::bake::{self, Baked, Order, Seeds};
 use super::heights::{self, HeightSettings};
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
@@ -122,6 +123,20 @@ pub struct WorldGen {
     /// blocks per pixel), and a note saying what was last sent.
     send: Option<(String, Picture, f32)>,
     sent_note: String,
+    /// A baked map file waiting to be loaded into the Graphics Kit.
+    send_file: Option<std::path::PathBuf>,
+
+    /// Baking: the name to bake under, the most steps to run, the bake under way, what happened
+    /// last, and which saved bake the Graphics Kit buttons send from.
+    pub bake_name: String,
+    pub most_steps: u32,
+    baking: Option<Job<Result<Baked, String>>>,
+    bake_note: String,
+    bake_chosen: Option<String>,
+    /// The field size, kept from the suite for baking.
+    size_blocks: f32,
+    /// Draw which way the rock was squeezed, as short lines.
+    pub show_push: bool,
     /// Your own settings, kept aside while an A/B button shows the defaults instead.
     ab_plates: Option<PlateSettings>,
     ab_tectonics: Option<(MotionSettings, RagSettings)>,
@@ -175,6 +190,14 @@ impl Default for WorldGen {
             start_when_ready: false,
             send: None,
             sent_note: String::new(),
+            send_file: None,
+            bake_name: String::new(),
+            most_steps: 4_000,
+            baking: None,
+            bake_note: String::new(),
+            bake_chosen: None,
+            size_blocks: 72_000.0,
+            show_push: false,
             ab_plates: None,
             ab_tectonics: None,
             ab_heights: None,
@@ -199,12 +222,12 @@ impl WorldGen {
 
     /// The plates step's own seed, taken from the world seed.
     fn plate_seed(&self) -> u64 {
-        crate::fate::derive_seed(self.seed, "plates")
+        Seeds::of(self.seed).plates
     }
 
     /// The tectonics step's own seed, taken from the world seed.
     fn motion_seed(&self) -> u64 {
-        crate::fate::derive_seed(self.seed, "plate motion")
+        Seeds::of(self.seed).motion
     }
 
     /// Works out the plates' motion and boundaries again if the plates or the motion settings
@@ -223,11 +246,62 @@ impl WorldGen {
         self.reset();
     }
 
+    /// Starts baking the world these settings and this seed make, at 1 chunk per pixel, in the
+    /// background.
+    fn start_bake(&mut self) {
+        let name = if bake::clean_name(&self.bake_name).is_empty() { format!("world-{:016X}", self.seed) } else { self.bake_name.clone() };
+        let order = Order {
+            name: name.clone(),
+            seed: self.seed,
+            size_blocks: self.size_blocks,
+            blocks_per_pixel: super::CHUNK_BLOCKS,
+            plates: self.plates.clone(),
+            motion: self.motion.clone(),
+            rock: self.sim_settings.clone(),
+            heights: self.heights.clone(),
+            smoothing: self.shading_smoothness,
+            tear_open: self.tear_open,
+            most_steps: self.most_steps,
+            folder: bake::bakes_folder(),
+        };
+        self.baking = Some(Job::start(move |stop| bake::bake(&order, stop)));
+        self.bake_note = format!("Baking \"{}\"…", bake::clean_name(&name));
+    }
+
+    /// Picks up a finished bake.
+    fn collect_bake(&mut self) {
+        let Some(job) = &self.baking else { return };
+        match job.poll() {
+            Poll::Done(finished) => {
+                self.bake_note = match finished.made {
+                    Ok(baked) => {
+                        let name = baked.folder.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                        let ending = if baked.settled { "everything had stopped" } else { "stopped at the step limit" };
+                        self.bake_chosen = Some(name.clone());
+                        format!(
+                            "Baked \"{name}\" in {:.0} s: {} steps ({ending}), land {:.0}% at the water level.",
+                            finished.millis / 1000.0,
+                            baked.steps,
+                            baked.land_share * 100.0
+                        )
+                    }
+                    Err(error) => format!("Couldn't bake: {error}"),
+                };
+                self.baking = None;
+            }
+            Poll::Over => {
+                self.bake_note = "Baking stopped.".to_string();
+                self.baking = None;
+            }
+            Poll::Waiting => {}
+        }
+    }
+
     /// Works out the terrain again if the plates or the height settings that shape it changed.
     /// (The squeeze and the water level are applied as it's drawn, so they never need this.)
     fn update_terrain(&mut self) {
         let Some(result) = &self.result else { return };
-        let seed = crate::fate::derive_seed(self.seed, "terrain");
+        let seed = Seeds::of(self.seed).terrain;
         let now = (self.version, seed, self.heights.shaping());
         if self.terrain_for.as_ref() == Some(&now) {
             return;
@@ -248,7 +322,7 @@ impl WorldGen {
     fn sim(&mut self) -> Option<&mut Sim> {
         if self.sim.is_none() {
             let result = self.result.as_ref()?;
-            let seed = crate::fate::derive_seed(self.seed, "rock stiffness");
+            let seed = Seeds::of(self.seed).rock;
             self.sim = Some(Sim::new(&result.made, &self.motions, &self.sim_settings, seed));
             self.sim_made_with = self.sim_settings.making();
         }
@@ -306,6 +380,8 @@ impl WorldGen {
 
     /// Notices changes, collects finished work, and starts the next when wanted (as layers do).
     pub fn drive(&mut self, size_blocks: f32, blocks_per_pixel: f32) {
+        self.size_blocks = size_blocks;
+        self.collect_bake();
         self.drive_plates(size_blocks, blocks_per_pixel);
         self.update_motions();
         self.update_terrain();
@@ -411,6 +487,13 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     });
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, world));
 
+    // A baked map file, loaded into the Graphics Kit.
+    if let Some(path) = suite.world.send_file.take() {
+        suite.world.bake_note = match suite.add_image(&path) {
+            Ok(()) => format!("Sent {} to the Graphics Kit as a layer.", path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            Err(error) => format!("Couldn't load {}: {error}", path.display()),
+        };
+    }
     // A map sent to the Graphics Kit becomes a picture layer there, named after what it shows.
     if let Some((name, picture, blocks_per_pixel)) = suite.world.send.take() {
         let placement = Placement { blocks_per_pixel, ..Placement::default() };
@@ -427,6 +510,7 @@ enum Map {
     Squeeze,
     Height,
     Land,
+    Push,
 }
 
 impl WorldGen {
@@ -451,13 +535,29 @@ impl WorldGen {
             Map::Squeeze => self.moved.iter().map(|here| grey(0.5 + here.map_or(0.0, |spot| spot.squeeze) / self.height_shown / 2.0)).collect(),
             // Black = the lowest point, white = the highest.
             Map::Height => {
-                let heights: Vec<f32> = self.moved.iter().map(|here| here.map_or(self.heights.ocean, |spot| self.height_of(spot))).collect();
+                // Open sea (no plate) is as deep as the deepest plate rock.
+                let deepest = self.moved.iter().flatten().map(|&spot| self.height_of(spot)).fold(self.heights.ocean, f32::min);
+                let heights: Vec<f32> = self.moved.iter().map(|here| here.map_or(deepest, |spot| self.height_of(spot))).collect();
                 let (low, high) = heights.iter().fold((f32::MAX, f32::MIN), |(low, high), &h| (low.min(h), high.max(h)));
                 let span = (high - low).max(1e-6);
                 heights.iter().map(|&h| grey((h - low) / span)).collect()
             }
             // White = land, black = sea.
             Map::Land => self.moved.iter().map(|here| grey(here.is_some_and(|spot| self.height_of(spot) > self.heights.water) as u8 as f32)).collect(),
+            // Direction as colour, strength as brightness (the strongest = full brightness).
+            Map::Push => {
+                let strongest = self.moved.iter().flatten().fold(0.0f32, |most, spot| most.max(spot.push_strength())).max(1e-6);
+                self.moved
+                    .iter()
+                    .map(|here| match here {
+                        Some(spot) => {
+                            let [r, g, b] = from_hsl([spot.push_angle() * 2.0, 0.9, 0.5 * (spot.push_strength() / strongest).min(1.0)]);
+                            [r, g, b, 255]
+                        }
+                        None => [0, 0, 0, 255],
+                    })
+                    .collect()
+            }
         };
         Some(Picture { width, height: width, pixels })
     }
@@ -521,6 +621,7 @@ struct Show {
     thickness_as_white: f32,
     shading_smoothness: u32,
     tears_open_past: f32,
+    squeeze_direction: bool,
 }
 
 impl Default for Show {
@@ -543,6 +644,7 @@ impl WorldGen {
             thickness_as_white: self.height_shown,
             shading_smoothness: self.shading_smoothness,
             tears_open_past: self.tear_open,
+            squeeze_direction: self.show_push,
         }
     }
 
@@ -563,6 +665,7 @@ impl WorldGen {
             (show.cells, show.vertices, show.lines, show.arrows, show.boundaries, show.bowl);
         (self.arrow_steps, self.height_shown, self.shading_smoothness, self.tear_open) =
             (show.arrow_steps, show.thickness_as_white, show.shading_smoothness, show.tears_open_past);
+        self.show_push = show.squeeze_direction;
         // Anything being compared with the defaults is now replaced by the preset.
         (self.ab_plates, self.ab_tectonics, self.ab_heights) = (None, None, None);
     }
@@ -752,6 +855,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         "Only changes the look. A crack pulled open less than this (× its size) is drawn as thin, stretched rock;\npulled open further, it's a rift and shows the sea. Too high = plates smeared across wide gaps.",
     );
     ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
+    ui.checkbox(&mut world.show_push, "show which way the rock was squeezed (lines)").on_hover_text(
+        "Short lines lying along the squeeze: longer = squeezed harder. Mountain ridges would run across them, at right angles.",
+    );
 
     ui.add_space(6.0);
     // Motion and rock together, as one section.
@@ -805,6 +911,68 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
 
     ui.add_space(6.0);
     ui.separator();
+    ui.heading("Bake");
+    ui.small(
+        "Makes the world these settings and this seed make, from scratch at 1 chunk per pixel, runs it until \
+         everything stops (or the step limit), and saves its maps in \"world bakes\": height, squeeze, squeeze \
+         direction and strength, and plates, with map.toml saying how to read them. The World Compiler will \
+         build on a bake. It runs in the background.",
+    );
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Name:");
+        ui.add(egui::TextEdit::singleline(&mut world.bake_name).desired_width(140.0).hint_text(format!("world-{:016X}", world.seed)));
+    });
+    ui.add(egui::Slider::new(&mut world.most_steps, 200..=20_000).logarithmic(true).text("most steps")).on_hover_text(
+        "A bake stops when everything has coasted to a stop, or after this many steps, whichever comes first.\nWith very low drag, plates can drift for a long time.",
+    );
+    ui.horizontal_wrapped(|ui| {
+        if world.baking.is_some() {
+            let seconds = world.baking.as_ref().map_or(0.0, |job| job.started.elapsed().as_secs_f32());
+            if ui.button("Stop baking").clicked() {
+                if let Some(job) = &world.baking {
+                    job.stop();
+                }
+            }
+            ui.spinner();
+            ui.label(format!("{seconds:.0} s"));
+            ui.ctx().request_repaint();
+        } else if ui.button("Bake").on_hover_text("Bake this world at 1 chunk per pixel.").clicked() {
+            world.start_bake();
+        }
+        if ui.small_button("Bakes folder").clicked()
+            && let Err(error) = super::export::open_folder(&bake::bakes_folder())
+        {
+            world.bake_note = format!("Couldn't open the folder: {error}");
+        }
+    });
+    if !world.bake_note.is_empty() {
+        ui.small(&world.bake_note);
+    }
+    // A saved bake's maps, into the Graphics Kit.
+    let bakes = bake::saved_bakes();
+    if !bakes.is_empty() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label("A bake's maps:");
+            egui::ComboBox::from_id_salt("world gen bakes").selected_text(world.bake_chosen.clone().unwrap_or_else(|| "choose…".to_string())).show_ui(ui, |ui| {
+                for name in &bakes {
+                    ui.selectable_value(&mut world.bake_chosen, Some(name.clone()), name);
+                }
+            });
+        });
+        if let Some(chosen) = world.bake_chosen.clone().filter(|chosen| bakes.contains(chosen)) {
+            ui.horizontal_wrapped(|ui| {
+                ui.small("to the Graphics Kit:");
+                for file in ["height", "squeeze", "push_direction", "push_strength", "plates"] {
+                    if ui.small_button(file).clicked() {
+                        world.send_file = Some(bake::bakes_folder().join(&chosen).join(format!("{file}.png")));
+                    }
+                }
+            });
+        }
+    }
+
+    ui.add_space(6.0);
+    ui.separator();
     ui.heading("Send to the Graphics Kit");
     ui.small("Any of these maps, as things are now (before, during or after a run), as a grey picture layer in the Graphics Kit, to see on its own or work with.");
     ui.horizontal_wrapped(|ui| {
@@ -812,6 +980,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
             (Map::Squeeze, "squeeze", "The deformation map. Mid-grey = unchanged rock, brighter = squeezed, darker = stretched\n(on the same scale as \"thickness shown as white\"). Sea with no plate = mid-grey."),
             (Map::Height, "height", "The full height (terrain + squeeze): black = the lowest point, white = the highest."),
             (Map::Land, "land", "White = land, black = sea, at the current water level."),
+            (Map::Push, "squeeze direction", "Which way the rock was squeezed, as colour (round the colour wheel once from east–west,\nthrough north–south, and back), and how hard as brightness (black = not squeezed)."),
         ] {
             if ui.button(name).on_hover_text(hover).clicked() {
                 match (world.map_picture(map), &world.result) {
@@ -892,6 +1061,11 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
                     let squeeze = spot.squeeze;
                     let what = if squeeze > 0.01 { "squeezed: higher" } else if squeeze < -0.01 { "stretched: lower" } else { "as it was" };
                     ui.label(format!("rock {:.2}× as thick ({what})", squeeze + 1.0));
+                    if spot.push_strength() >= 0.02 {
+                        let angle = spot.push_angle();
+                        let along = ["east–west", "northeast–southwest", "north–south", "northwest–southeast"][((angle / 45.0).round() as usize) % 4];
+                        ui.label(format!("squeezed {along} ({angle:.0}°), strength {:.2}", spot.push_strength()));
+                    }
                     let terrain = world.terrain.get(spot.from as usize).copied().unwrap_or(0.0);
                     let height = terrain + world.heights.squeeze * squeeze;
                     let water = world.heights.water;
@@ -1112,6 +1286,28 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
             let (Some(motion), middle) = (world.motion_of(p), world.middle_of(p, made)) else { continue };
             heading_arrow(&painter, &to_screen, middle, &motion, world.arrow_steps, made.blocks_per_pixel);
             spin_arrow(&painter, &to_screen, middle, (plate.pixels as f32).sqrt() * 0.25, motion.spin / fastest * 1.5 * std::f32::consts::PI);
+        }
+    }
+    if world.show_push && world.moved.len() == width * width {
+        // A short line every few pixels, lying along the squeeze, longer where it was harder.
+        let spacing = (width / 70).max(3);
+        for row in (spacing / 2..width).step_by(spacing) {
+            for col in (spacing / 2..width).step_by(spacing) {
+                let Some(spot) = world.moved[row * width + col] else { continue };
+                let strength = spot.push_strength();
+                if strength < 0.02 {
+                    continue;
+                }
+                // Halve the doubled angle (in the field's own axes, rows running south).
+                let angle = spot.push.1.atan2(spot.push.0) / 2.0;
+                let reach = spacing as f32 * 0.45 * (strength / 0.1).min(1.0).max(0.35);
+                let (dx, dy) = (angle.cos() * reach, angle.sin() * reach);
+                let middle = (col as f32 + 0.5, row as f32 + 0.5);
+                painter.line_segment(
+                    [to_screen((middle.0 - dx, middle.1 - dy)), to_screen((middle.0 + dx, middle.1 + dy))],
+                    egui::Stroke::new(2.0, Color32::from_rgb(255, 230, 120)),
+                );
+            }
         }
     }
     world.camera.outline(&painter, rect, world.hover, MAGENTA);

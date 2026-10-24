@@ -125,7 +125,27 @@ pushed down **darker**.
      rifts (sea) once a cracked triangle stretches past "tears open past"; outline points never crack
      off (that caused giant shards);
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
-  5. bake the result into a height map.
+  5. bake the result into a height map. **[BUILT 2026-10-24]**, see "The Tectonic Sim's product" below.
+
+### The Tectonic Sim's product, and the World Compiler  [DECIDED 2026-10-24]
+- **Renamed:** the World Gen tab is now the **Tectonic Sim**. It's a sophisticated machine; once it's set
+  up well it goes "in the closet", opened again only for fine tuning or to make new **world types** for
+  players (each a different preset of tectonics settings).
+- **Its product is a bake** [David]: Bake makes the world the current settings and seed make, from
+  scratch at **1 chunk per pixel** (2,250 × 2,250, 32 blocks a pixel), runs it until everything stops
+  (or a step limit), and writes `world bakes/<name>/`: `height.png`, `squeeze.png`,
+  `push_direction.png`, `push_strength.png` (16-bit grey) and `plates.png` (8-bit), with `map.toml`
+  saying how to read the greys, and holding the seed and every setting so it can be baked again. A
+  full bake takes a few seconds. Any of the maps can be sent to the Graphics Kit; so can the live
+  squeeze, height, land and squeeze-direction maps.
+- **Squeeze direction** [David: "include it so I can see it"]: which way each spot was squashed most,
+  and how hard, from each grid triangle's change of shape. Mountain ridges run across it. Shown as
+  short lines on the map.
+- **Open sea is as deep as the deepest plate rock** in the height map, so it reads as true deep ocean.
+- **Next: a World Compiler tab.** It reads a bake and turns it into the actual elevation map (and
+  later the rest of world gen). For now worlds are baked one at a time to experiment on; **eventually**
+  [David] the Tectonic Sim runs a world preset and hands its maps straight to the World Compiler, and
+  concludes itself.
 
 - **Idea to investigate later** [David, 2026-10-24], once more of tectonics is built: instead of one cell
   per plate, use a **finer grid of cells that cluster together into plates**. That gives organic blob shapes

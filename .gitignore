@@ -19,3 +19,6 @@
 # Event logs (one per session; the newest 20 are kept).
 /logs/
 /worlds/
+
+# Worlds baked by the Tectonic Sim (each is ~5 MB; its map.toml can bake it again).
+/world bakes/

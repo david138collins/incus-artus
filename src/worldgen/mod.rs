@@ -39,8 +39,10 @@
 //! - `tectonics.rs` the plates' motion, and what it does at their boundaries
 //! - `rags.rs`    the tectonics simulation: plates as heavy rags that squash, bend and tear
 //! - `heights.rs` every spot's height (base, terrain noise, sunken edges, squeeze); the water level
+//! - `bake.rs`    the product: a baked world, as a folder of maps for the World Compiler
 
 mod blend;
+mod bake;
 mod canvas;
 mod export;
 mod field;

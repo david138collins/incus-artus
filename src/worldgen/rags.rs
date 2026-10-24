@@ -119,6 +119,57 @@ pub struct Spot {
     pub squeeze: f32,
     /// Which pixel of the plates as made this rock started on (so its terrain can be looked up).
     pub from: u32,
+    /// Which way, and how hard, the rock here was squeezed, as a "doubled-angle" arrow: its
+    /// direction is twice the squeeze's angle, so squeezed east–west and west–east (the same
+    /// thing) add up instead of cancelling. Its length is how hard (0 = not squeezed).
+    pub push: (f32, f32),
+}
+
+impl Spot {
+    /// Which way the rock was squeezed, in degrees from 0 to 180, anticlockwise from east as on
+    /// the map: 0 = east–west, 45 = northeast–southwest, 90 = north–south.
+    pub fn push_angle(&self) -> f32 {
+        // The field's rows run south, so north is −y.
+        ((-self.push.1).atan2(self.push.0).to_degrees() / 2.0).rem_euclid(180.0)
+    }
+
+    /// How hard (0 = not at all; 0.3 = squashed to about 70% along that direction).
+    pub fn push_strength(&self) -> f32 {
+        self.push.0.hypot(self.push.1)
+    }
+}
+
+/// How a triangle has been squashed: its doubled-angle arrow (see `Spot::push`), from its corners
+/// at the start (`was`) and now (`now`).
+///
+/// The triangle's change of shape is measured as a stretch in every direction: the direction it
+/// was stretched least (squashed most) is the squeeze, and how far below its old length that
+/// direction now is, is how hard.
+fn squash(was: [(f32, f32); 3], now: [(f32, f32); 3]) -> (f32, f32) {
+    // The two sides from the first corner, at the start and now.
+    let (a, b) = ((was[1].0 - was[0].0, was[1].1 - was[0].1), (was[2].0 - was[0].0, was[2].1 - was[0].1));
+    let (c, d) = ((now[1].0 - now[0].0, now[1].1 - now[0].1), (now[2].0 - now[0].0, now[2].1 - now[0].1));
+    let det = a.0 * b.1 - b.0 * a.1;
+    if det.abs() < 1e-9 {
+        return (0.0, 0.0);
+    }
+    // The change of shape (how start positions map to positions now): F = [c d] × [a b]⁻¹.
+    let inv = [[b.1 / det, -b.0 / det], [-a.1 / det, a.0 / det]];
+    let f = [[c.0 * inv[0][0] + d.0 * inv[1][0], c.0 * inv[0][1] + d.0 * inv[1][1]], [c.1 * inv[0][0] + d.1 * inv[1][0], c.1 * inv[0][1] + d.1 * inv[1][1]]];
+    // How much each direction (as it lies now) has been stretched, squared: F × Fᵀ.
+    let (p, q, r) = (f[0][0] * f[0][0] + f[0][1] * f[0][1], f[0][0] * f[1][0] + f[0][1] * f[1][1], f[1][0] * f[1][0] + f[1][1] * f[1][1]);
+    let middle = (p + r) / 2.0;
+    let spread = (((p - r) / 2.0).powi(2) + q * q).sqrt();
+    let least = (middle - spread).max(0.0);
+    let hard = (1.0 - least.sqrt()).max(0.0);
+    // The most-stretched direction's doubled angle is atan2(2q, p − r); the least-stretched one is
+    // at right angles to it, which doubled is the opposite way.
+    let (x, y) = (p - r, 2.0 * q);
+    let length = x.hypot(y);
+    if length < 1e-9 || hard <= 0.0 {
+        return (0.0, 0.0);
+    }
+    (-x / length * hard, -y / length * hard)
 }
 
 struct Spring {
@@ -478,6 +529,31 @@ impl Sim {
         thickness
     }
 
+    /// Which way, and how hard, the rock at each point was squeezed (see `Spot::push`): the
+    /// average over its triangles (until they're torn open), blended `smoothing` times with its
+    /// neighbours like the thickness.
+    fn pushes(&self, smoothing: u32, tear_open: f32) -> Vec<(f32, f32)> {
+        let mut sum = vec![((0.0f32, 0.0f32), 0u32); self.at.len()];
+        for triangle in self.triangles.iter().filter(|t| !self.torn(t, tear_open)) {
+            let [a, b, c] = triangle.corners;
+            let push = squash([self.home[a], self.home[b], self.home[c]], [self.at[a], self.at[b], self.at[c]]);
+            for k in triangle.corners {
+                sum[k] = ((sum[k].0.0 + push.0, sum[k].0.1 + push.1), sum[k].1 + 1);
+            }
+        }
+        let mut pushes: Vec<(f32, f32)> = sum.into_iter().map(|(total, n)| if n == 0 { (0.0, 0.0) } else { (total.0 / n as f32, total.1 / n as f32) }).collect();
+        for _ in 0..smoothing {
+            let mut blended: Vec<((f32, f32), u32)> = pushes.iter().map(|&p| (p, 1)).collect();
+            for spring in &self.springs {
+                let (pa, pb) = (pushes[spring.a], pushes[spring.b]);
+                blended[spring.a] = ((blended[spring.a].0.0 + pb.0, blended[spring.a].0.1 + pb.1), blended[spring.a].1 + 1);
+                blended[spring.b] = ((blended[spring.b].0.0 + pa.0, blended[spring.b].0.1 + pa.1), blended[spring.b].1 + 1);
+            }
+            pushes = blended.into_iter().map(|(total, n)| (total.0 / n as f32, total.1 / n as f32)).collect();
+        }
+        pushes
+    }
+
     /// The plates where they are now: for each map pixel, what's there (see `Spot`).
     ///
     /// The plates keep their true outlines: each spot inside a grid triangle now is traced back to
@@ -492,6 +568,7 @@ impl Sim {
         let width = self.width;
         let mut painted = vec![None; width * width];
         let thickness = self.thickness(smoothing, tear_open);
+        let pushes = self.pushes(smoothing, tear_open);
         for triangle in self.triangles.iter().filter(|t| !self.torn(t, tear_open)) {
             let [a, b, c] = triangle.corners;
             let (pa, pb, pc) = (self.at[a], self.at[b], self.at[c]);
@@ -523,7 +600,8 @@ impl Sim {
                         continue;
                     }
                     let squeeze = wa * thickness[a] + wb * thickness[b] + wc * thickness[c] - 1.0;
-                    painted[row * width + col] = Some(Spot { plate: self.plate[a], squeeze, from: from as u32 });
+                    let push = (wa * pushes[a].0 + wb * pushes[b].0 + wc * pushes[c].0, wa * pushes[a].1 + wb * pushes[b].1 + wc * pushes[c].1);
+                    painted[row * width + col] = Some(Spot { plate: self.plate[a], squeeze, from: from as u32, push });
                 }
             }
         }
@@ -668,6 +746,31 @@ mod tests {
         let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX).iter().map(|here| here.map(|spot| spot.plate)).collect();
         let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
         assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
+    }
+
+    #[test]
+    fn squeeze_directions_point_the_way_the_rock_was_squashed() {
+        let was = [(0.0, 0.0), (10.0, 0.0), (0.0, 10.0)];
+        let spot = |push| Spot { plate: 0, squeeze: 0.0, from: 0, push };
+        // Squashed east–west to 70%: 0 degrees, strength 0.3.
+        let east_west = spot(squash(was, [(0.0, 0.0), (7.0, 0.0), (0.0, 10.0)]));
+        assert!(east_west.push_angle().min(180.0 - east_west.push_angle()) < 0.5, "{}", east_west.push_angle());
+        assert!((east_west.push_strength() - 0.3).abs() < 0.01);
+        // Squashed north–south: 90 degrees.
+        let north_south = spot(squash(was, [(0.0, 0.0), (10.0, 0.0), (0.0, 6.0)]));
+        assert!((north_south.push_angle() - 90.0).abs() < 0.5, "{}", north_south.push_angle());
+        // Squashed along the northeast–southwest line (rows run south, so north-east is +x, −y).
+        let (c, s) = (std::f32::consts::FRAC_1_SQRT_2, -std::f32::consts::FRAC_1_SQRT_2);
+        let squashed = |(x, y): (f32, f32)| {
+            let along = (x * c + y * s) * 0.5;
+            let across = -x * s + y * c;
+            (along * c - across * s, along * s + across * c)
+        };
+        let diagonal = spot(squash(was, was.map(squashed)));
+        assert!((diagonal.push_angle() - 45.0).abs() < 0.5, "{}", diagonal.push_angle());
+        // Moved and turned, but not squashed: no squeeze.
+        let turned = squash(was, [(5.0, 5.0), (5.0, 15.0), (-5.0, 5.0)]);
+        assert!(spot(turned).push_strength() < 1e-4);
     }
 
     #[test]
