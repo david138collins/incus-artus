@@ -64,6 +64,7 @@ pub fn generate_test_world(
     blocks: &TestBlocks,
 ) -> usize {
     world.clear();
+    world.set_spawn(IVec2::ZERO);
     let reach = settings.radius.ceil() as i32;
     let min = (-reach).div_euclid(CHUNK_SIZE);
     let max = (reach - 1).div_euclid(CHUNK_SIZE);

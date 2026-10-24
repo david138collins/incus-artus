@@ -326,8 +326,8 @@ fn draw_suite(
         next.set(Screen::Play);
     }
     // "Render World and Spawn": a new world made from the compiled map, and back to the world.
-    if let Some((name, seed, map)) = suite.compiler.render.take() {
-        next_terrain.0 = Some(map);
+    if let Some((name, seed, map, spawn)) = suite.compiler.render.take() {
+        next_terrain.0 = Some((map, spawn));
         requests.write(crate::save::WorldFileRequest::New { name, seed: Some(seed) });
         next.set(Screen::Play);
     }

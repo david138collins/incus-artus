@@ -210,10 +210,10 @@ impl Terrain {
     }
 }
 
-/// The compiled world the next new world is made from (set by the World Compiler's "Render World
-/// and Spawn"; used once).
+/// The compiled world the next new world is made from, and where to spawn in it (north, east): set
+/// by the World Compiler's "Render World and Spawn"; used once.
 #[derive(Resource, Default)]
-pub struct NextTerrain(pub Option<Arc<CompiledMap>>);
+pub struct NextTerrain(pub Option<(Arc<CompiledMap>, IVec2)>);
 
 /// Makes every chunk within `radius` chunks of `centre` (a circle), on all the computer's cores,
 /// and puts them in the world. Returns how many were made.

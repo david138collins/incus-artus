@@ -60,6 +60,9 @@ pub struct VoxelWorld {
     dirty: HashSet<SectionKey>,
     /// Chunks changed since the terrain was generated (the ones that get saved).
     changed: HashSet<ChunkPos>,
+    /// Where new arrivals start (north, east): the middle of the test cylinder, or the spot chosen
+    /// on a compiled world's map.
+    spawn: IVec2,
 }
 
 impl VoxelWorld {
@@ -86,6 +89,15 @@ impl VoxelWorld {
             self.changed.insert(chunk_pos);
         }
         Some(old)
+    }
+
+    /// Where new arrivals start (north, east).
+    pub fn spawn(&self) -> IVec2 {
+        self.spawn
+    }
+
+    pub fn set_spawn(&mut self, spawn: IVec2) {
+        self.spawn = spawn;
     }
 
     /// Chunks changed since the terrain was generated.
@@ -268,13 +280,16 @@ impl Plugin for WorldPlugin {
 /// there's ground under you straight away. The rest stream in (see `streaming.rs`).
 const COMPILED_RADIUS_CHUNKS: i32 = 2;
 
-/// Make the terrain of a compiled world around its middle, timing how long it takes.
-fn generate_compiled_world(world: &mut World, map: &CompiledMap) {
+/// Make the terrain of a compiled world around its spawn spot (north, east), timing how long it
+/// takes.
+fn generate_compiled_world(world: &mut World, map: &CompiledMap, spawn: IVec2) {
     let blocks = TerrainBlocks::from_registry(world.resource::<BlockRegistry>());
     let started = Instant::now();
     let mut voxel = world.resource_mut::<VoxelWorld>();
     voxel.clear();
-    let chunks = terrain::generate_around(&mut voxel, map, &blocks, ChunkPos::new(0, 0), COMPILED_RADIUS_CHUNKS);
+    voxel.set_spawn(spawn);
+    let centre = ChunkPos::of_block(IVec3::new(spawn.x, spawn.y, 0));
+    let chunks = terrain::generate_around(&mut voxel, map, &blocks, centre, COMPILED_RADIUS_CHUNKS);
     let millis = started.elapsed().as_secs_f64() * 1000.0;
     info!("Generated compiled world: {chunks} chunks in {millis:.1} ms");
     if let Some(mut debug) = world.get_resource_mut::<WorldDebugState>() {

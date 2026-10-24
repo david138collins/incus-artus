@@ -40,7 +40,7 @@ use crate::screen::Screen;
 use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
-    BlockEditRefused, BlockEditRequest, BlockId, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
+    BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason, VoxelWorld, WORLD_HEIGHT, WorldEdits,
 };
 use bevy::prelude::*;
@@ -404,13 +404,17 @@ struct ActionCooldowns {
     last_place: f32,
 }
 
-/// Where a respawn puts your feet: on top of the highest block at the world's centre.
+/// Where a respawn puts your feet: on top of the highest block at the world's spawn spot (the
+/// middle of the test cylinder, or the spot chosen on a compiled world's map).
 fn spawn_point(world: &VoxelWorld) -> Vec3 {
+    let spawn = world.spawn();
+    let chunk = ChunkPos::of_block(IVec3::new(spawn.x, spawn.y, 0));
+    let local = spawn.rem_euclid(IVec2::splat(CHUNK_SIZE));
     let top = world
-        .chunk(ChunkPos::new(0, 0))
-        .and_then(|chunk| chunk.surface_at(0, 0))
+        .chunk(chunk)
+        .and_then(|chunk| chunk.surface_at(local.x, local.y))
         .map_or(WORLD_HEIGHT, |(z, _)| z + 1);
-    Vec3::new(0.5, 0.5, top as f32)
+    Vec3::new(spawn.x as f32 + 0.5, spawn.y as f32 + 0.5, top as f32)
 }
 
 fn spawn_pawn(mut commands: Commands, world: Res<VoxelWorld>) {
@@ -1098,7 +1102,7 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ));
         }
     }
-    if ui.button("Respawn at the centre (and walk)").clicked() {
+    if ui.button("Respawn at the spawn point (and walk)").clicked() {
         respawn = true;
     }
     if respawn {
