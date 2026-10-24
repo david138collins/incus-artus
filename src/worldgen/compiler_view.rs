@@ -142,6 +142,9 @@ impl Compiler {
                     self.note = format!("Read \"{chosen}\": {} × {} pixels, {} blocks each{tilt}.", bake.width, bake.width, bake.info.blocks_per_pixel);
                     self.bake = Some(Arc::new(bake));
                     self.result = None;
+                    // A new bake always needs compiling, even under the same name with the same
+                    // settings (every EZ-Bake is called "_ez-bake").
+                    self.seen = None;
                 }
                 Err(error) => {
                     self.note = format!("Couldn't read \"{chosen}\": {error}");
@@ -262,8 +265,7 @@ fn relief_picture(compiled: &Compiled, blocks_per_pixel: f32, relief: f32) -> Ve
 pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     // The space bar is EZ-Bake here (unless you're typing, say a preset's name).
     let typing = root.ctx().egui_wants_keyboard_input();
-    let mut ez = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space));
-    let compiler = &mut suite.compiler;
+    let mut ez = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space));    let compiler = &mut suite.compiler;
     egui::Panel::top("world compiler bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
             if compiler.ez.is_some() {
@@ -559,7 +561,14 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, send: &mut Option<(String,
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::BLACK);
     let (Some(bake), Some(result)) = (compiler.bake.clone(), &compiler.result) else {
-        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "No bake compiled yet. Bake a world in the Tectonic Sim.", egui::FontId::proportional(14.0), PINK);
+        let message = if compiler.ez.is_some() {
+            "EZ-Baking a new world…"
+        } else if compiler.is_making() || compiler.bake.is_some() {
+            "Compiling…"
+        } else {
+            "No bake yet. Press EZ-Bake (Space), or bake a world in the Tectonic Sim."
+        };
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER, message, egui::FontId::proportional(14.0), PINK);
         return;
     };
     let width = result.made.width;
