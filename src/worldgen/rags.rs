@@ -79,6 +79,9 @@ pub struct RagSettings {
     /// How strongly plates pressed together weld (0 = they never stick). Welds hold like the rock's
     /// own springs, and crack if pulled hard enough.
     pub stickiness: f32,
+    /// The most rock can thicken: crushed to 1 ÷ this of its area, it pushes back instead of
+    /// folding over itself.
+    pub thickest: f32,
     /// The bowl starts this far out (a share of the world's radius).
     pub bowl_start: f32,
     /// How hard the bowl pushes back, in blocks per step each step, at the world's edge.
@@ -101,6 +104,7 @@ impl Default for RagSettings {
             drag: 0.01,
             ocean_weight: 0.4,
             stickiness: 0.6,
+            thickest: 4.0,
             bowl_start: 0.8,
             bowl: 2.0,
         }
@@ -437,6 +441,7 @@ impl Sim {
                 self.at[i] = (a.0 + dx * apart * wi, a.1 + dy * apart * wi);
                 self.at[j] = (b.0 - dx * apart * wj, b.1 - dy * apart * wj);
             }
+            self.keep_from_folding(&lightness, settings.thickest);
         }
 
         // 4. Friction: touching points drag each other along (the part of their movement past
@@ -509,6 +514,39 @@ impl Sim {
         self.settled = fastest * self.blocks_per_pixel < 1.0;
     }
 
+    /// Rock can't be crushed thinner than a share of its area, nor fold over onto itself: any
+    /// triangle squashed to less than 1 ÷ `thickest` of its area at the start is pushed back open
+    /// to that (its corners moved straight away from the side opposite them, lighter rock moving
+    /// more). So crushed rock thickens up to `thickest` times and then pushes back, spreading the
+    /// crush further out, instead of folding into overlapping layers (which drew as sawtooth
+    /// "zipper teeth" on the squeeze map).
+    fn keep_from_folding(&mut self, lightness: &[f32], thickest: f32) {
+        let least = 1.0 / thickest.max(1.01);
+        for triangle in &self.triangles {
+            let [a, b, c] = triangle.corners;
+            // Area measured the same way round as at the start, so a fold reads as negative.
+            let sign = triangle.area.signum();
+            let (pa, pb, pc) = (self.at[a], self.at[b], self.at[c]);
+            let now = signed_area(pa, pb, pc) * sign;
+            let want = triangle.area.abs() * least;
+            if now >= want {
+                continue;
+            }
+            // How each corner moving changes the area (half the opposite side, turned outward).
+            let outward = |from: (f32, f32), to: (f32, f32)| ((from.1 - to.1) * 0.5 * sign, (to.0 - from.0) * 0.5 * sign);
+            let gradients = [outward(pb, pc), outward(pc, pa), outward(pa, pb)];
+            let weights = [lightness[a], lightness[b], lightness[c]];
+            let total: f32 = gradients.iter().zip(&weights).map(|(g, w)| w * (g.0 * g.0 + g.1 * g.1)).sum();
+            if total < 1e-9 {
+                continue;
+            }
+            let scale = (want - now) / total;
+            for ((k, g), w) in [a, b, c].into_iter().zip(gradients).zip(weights) {
+                self.at[k] = (self.at[k].0 + g.0 * scale * w, self.at[k].1 + g.1 * scale * w);
+            }
+        }
+    }
+
     /// Whether a triangle has been torn wide open: one of its sides is cracked and stretched to
     /// more than `tear_open` times its length at the start. (Only cracked sides tear: an unbroken
     /// spring is still holding the rock together.)
@@ -532,7 +570,7 @@ impl Sim {
             let [a, b, c] = triangle.corners;
             // Folded over counts as crushed (its area, whichever way round).
             let now = signed_area(self.at[a], self.at[b], self.at[c]).abs().max(1e-6);
-            let ratio = (triangle.area.abs() / now).clamp(0.25, 4.0);
+            let ratio = (triangle.area.abs() / now).clamp(0.25, 10.0);
             for k in triangle.corners {
                 sum[k] = (sum[k].0 + ratio, sum[k].1 + 1);
             }
@@ -827,6 +865,28 @@ mod tests {
     }
 
     #[test]
+    fn rock_thickens_but_never_folds_over_itself() {
+        // A hard head-on smash with soft rock (as fast as the real sim allows: about half a grid
+        // cell a step): plenty to fold, without the guard.
+        let (plates, motions, settings) = head_on(100.0);
+        let settings = RagSettings { stiffness: 0.05, passes: 2, push: 0.1, ..settings };
+        let mut sim = Sim::new(&plates, &motions, &settings, 1);
+        for _ in 0..60 {
+            sim.step(&settings);
+        }
+        let mut thinnest: f32 = f32::MAX;
+        for triangle in &sim.triangles {
+            let [a, b, c] = triangle.corners;
+            let now = signed_area(sim.at[a], sim.at[b], sim.at[c]) * triangle.area.signum();
+            thinnest = thinnest.min(now / triangle.area.abs());
+        }
+        // Never folded: no triangle turned over onto itself.
+        assert!(thinnest > 0.0, "a triangle folded over: {thinnest} of its area");
+        // And the crush is still there: some rock did thicken.
+        assert!(sim.paint(0, f32::MAX, 0.0).iter().flatten().any(|spot| spot.squeeze > 0.5));
+    }
+
+    #[test]
     fn thin_gaps_between_rock_are_sealed_and_wide_ones_stay_open() {
         // Three strips of rock down a 40-pixel field: a 3-pixel gap, then a 12-pixel one.
         let width = 40;
@@ -853,15 +913,26 @@ mod tests {
             }
             // Now pull them back apart, gently.
             for k in 0..sim.at.len() {
-                sim.velocity[k] = (if sim.plate[k] == 0 { -0.3 } else { 0.3 }, 0.0);
+                sim.velocity[k] = (if sim.plate[k] == 0 { -1.0 } else { 1.0 }, 0.0);
             }
-            for _ in 0..20 {
+            for _ in 0..40 {
                 sim.step(&RagSettings { drag: 0.0, ..settings.clone() });
             }
-            sim.middle(1).0 - sim.middle(0).0
+            // How much sea opened between them: empty pixels between the two plates, along the rows
+            // where they met.
+            let painted = sim.paint(0, f32::MAX, 0.0);
+            let width = plates.width;
+            let mut gap = 0;
+            for row in 44..76 {
+                let line: Vec<bool> = (0..width).map(|col| painted[row * width + col].is_some()).collect();
+                if let (Some(first), Some(last)) = (line.iter().position(|&on| on), line.iter().rposition(|&on| on)) {
+                    gap += line[first..=last].iter().filter(|&&on| !on).count();
+                }
+            }
+            gap
         };
         let (welded, loose) = (apart(1.0), apart(0.0));
-        assert!(welded + 3.0 < loose, "welded {welded}, loose {loose}");
+        assert!(welded * 2 < loose, "sea between them: welded {welded} pixels, loose {loose}");
     }
 
     #[test]

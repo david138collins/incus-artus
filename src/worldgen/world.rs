@@ -907,6 +907,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.add(crate::debug::Slider::new(&mut sim.stickiness, 0.0..=2.0).text("stickiness")).on_hover_text(
         "Plates pressed together weld: their touching rock is joined, so they stay together instead of\ndrifting back apart and leaving a strip of sea. Welds can still crack if pulled hard enough.\n0 = plates never stick.",
     );
+    ui.add(crate::debug::Slider::new(&mut sim.thickest, 1.5..=10.0).logarithmic(true).text("rock thickens up to ×")).on_hover_text(
+        "The most rock can be crushed: this many times as thick, and then it pushes back and the crush spreads\nfurther out, instead of folding over itself. Lower = wide, rounded crush belts. Higher = narrow, sharp ones.\n(Rock that folded over itself drew as sawtooth \"zipper teeth\" along ridgelines.)",
+    );
     let mut bowl_percent = sim.bowl_start * 100.0;
     if ui
         .add(crate::debug::Slider::new(&mut bowl_percent, 0.0..=99.0).suffix("%").text("bowl starts at"))
