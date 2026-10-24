@@ -13,7 +13,7 @@
 use super::Suite;
 use super::bake;
 use super::canvas::Camera;
-use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, TOP_OF_THE_WORLD};
+use super::compiler::{self, Bake, CompileSettings, Compiled, Curve, HIGHEST, SEA_LEVEL, TOP_OF_THE_WORLD};
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
 use super::runner::{Finished, Job, Poll};
@@ -85,8 +85,10 @@ impl Compiler {
         if self.bake.as_ref().is_none_or(|bake| bake.name != chosen) {
             match compiler::load(&bake::bakes_folder().join(&chosen)) {
                 Ok(bake) => {
-                    // Start from the water level it was baked with.
+                    // Start from the water level it was baked with, and with the curve's right
+                    // end at its most crushed rock.
                     self.settings.water = bake.info.water_level;
+                    self.settings.squeeze_top = bake.info.squeeze.white;
                     self.note = format!("Read \"{chosen}\": {} × {} pixels, {} blocks each.", bake.width, bake.width, bake.info.blocks_per_pixel);
                     self.bake = Some(Arc::new(bake));
                     self.result = None;
@@ -275,13 +277,20 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.add_space(6.0);
     ui.separator();
     ui.strong("Mountains (from the squeeze map)");
-    ui.add(egui::Slider::new(&mut s.mountains, 0.0..=1.0).text("how tall")).on_hover_text(
-        "How much of the room up to Z 333 the most crushed rock fills. 1 = right up to it.",
+    ui.small(
+        "Across: how crushed the rock is, from where mountains start to the right end (the most crushed rock in \
+         this bake). Up: how tall the mountains are, as a share of the room up to Z 333. Drag the ends up and \
+         down; drag the middle to bend the line.",
     );
-    ui.add(egui::Slider::new(&mut s.mountains_start, 0.0..=1.0).text("start at squeeze"))
+    curve_box(ui, &mut s.mountain_curve);
+    let most = bake.info.squeeze.white;
+    ui.add(egui::Slider::new(&mut s.mountains_start, 0.0..=most.max(0.1)).text("left end: start at squeeze"))
         .on_hover_text("How crushed the rock must be (thickness gained) before mountains begin.");
-    ui.add(egui::Slider::new(&mut s.mountains_full, 0.05..=2.0).text("fullest at squeeze"))
-        .on_hover_text("How crushed the rock must be for the mountains to be at their tallest.");
+    ui.add(egui::Slider::new(&mut s.squeeze_top, 0.05..=most.max(0.1)).text("right end: squeeze"))
+        .on_hover_text("The squeeze at the curve's right end. Normally the most crushed rock in the bake, so a belt's\nmost crushed line is its peak. Lower = more of each belt reaches the curve's top (flatter tops).");
+    ui.add(egui::Slider::new(&mut s.ridges, 0.0..=1.0).text("ridges")).on_hover_text(
+        "How much the ridge pattern carves into the mountains. 0 = smooth domes and spines, 1 = all ridges and valleys.",
+    );
     ui.add(egui::Slider::new(&mut s.ridge_spacing, 200.0..=10_000.0).logarithmic(true).text("ridge spacing (blocks)"))
         .on_hover_text("How far apart the ridges are, across them.");
     ui.add(egui::Slider::new(&mut s.ridge_length, 1_000.0..=50_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
@@ -319,6 +328,56 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
             Err(error) => format!("Couldn't save: {error}"),
         };
     }
+}
+
+/// A curve box: the curve over a grid, with three handles. Drag the left and right handles up
+/// and down to move the ends; drag the middle handle to bend the line either way.
+fn curve_box(ui: &mut egui::Ui, curve: &mut Curve) {
+    let size = Vec2::new(ui.available_width().clamp(160.0, 320.0), 150.0);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+    let inner = rect.shrink(10.0);
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(rect, 4.0, Color32::from_gray(22));
+    for k in 0..=4 {
+        let t = k as f32 / 4.0;
+        let stroke = egui::Stroke::new(1.0, Color32::from_gray(if k == 0 || k == 4 { 70 } else { 40 }));
+        painter.line_segment([egui::pos2(inner.left() + t * inner.width(), inner.top()), egui::pos2(inner.left() + t * inner.width(), inner.bottom())], stroke);
+        painter.line_segment([egui::pos2(inner.left(), inner.top() + t * inner.height()), egui::pos2(inner.right(), inner.top() + t * inner.height())], stroke);
+    }
+    let to_screen = |x: f32, y: f32| egui::pos2(inner.left() + x * inner.width(), inner.bottom() - y.clamp(0.0, 1.0) * inner.height());
+    let from_screen_y = |y: f32| ((inner.bottom() - y) / inner.height()).clamp(0.0, 1.0);
+    let points: Vec<egui::Pos2> = (0..=48).map(|k| k as f32 / 48.0).map(|x| to_screen(x, curve.at(x))).collect();
+    painter.add(egui::Shape::line(points, egui::Stroke::new(2.0, Color32::from_rgb(255, 230, 120))));
+    painter.text(rect.left_bottom() + Vec2::new(12.0, -12.0), egui::Align2::LEFT_BOTTOM, "more squeeze to the right", egui::FontId::proportional(10.0), Color32::from_gray(140));
+    painter.text(rect.left_top() + Vec2::new(12.0, 12.0), egui::Align2::LEFT_TOP, "taller upward (top = Z 333)", egui::FontId::proportional(10.0), Color32::from_gray(140));
+
+    // The three handles: left end, middle (bend), right end.
+    let handles = [(0.0, curve.start, "curve start"), (0.5, curve.at(0.5), "curve bend"), (1.0, curve.end, "curve end")];
+    for (x, y, name) in handles {
+        let at = to_screen(x, y);
+        let response = ui.interact(egui::Rect::from_center_size(at, Vec2::splat(18.0)), ui.id().with(name), egui::Sense::drag());
+        let lit = response.hovered() || response.dragged();
+        painter.circle(at, if lit { 7.0 } else { 5.5 }, if lit { Color32::WHITE } else { Color32::from_rgb(255, 230, 120) }, egui::Stroke::new(1.5, Color32::BLACK));
+        if response.dragged()
+            && let Some(pointer) = response.interact_pointer_pos()
+        {
+            let y = from_screen_y(pointer.y);
+            match name {
+                "curve start" => curve.start = y,
+                "curve end" => curve.end = y,
+                _ => curve.bend = curve.bend_through_middle(y),
+            }
+        }
+        if lit {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+        }
+    }
+    ui.horizontal_wrapped(|ui| {
+        ui.small(format!("start {:.0}%   bend {:+.2}   end {:.0}%", curve.start * 100.0, curve.bend, curve.end * 100.0));
+        if ui.small_button("straighten").clicked() {
+            curve.bend = 0.0;
+        }
+    });
 }
 
 fn readouts(ui: &mut egui::Ui, compiler: &Compiler) {

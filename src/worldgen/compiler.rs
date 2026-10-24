@@ -10,11 +10,13 @@
 //!    it fall toward the **deepest** sea floor. Each side has a **curve**: above 1, most land stays
 //!    low and only the highest parts climb (and seas stay shallow near the coast); below 1, the
 //!    reverse.
-//! 2. **Mountains** from the squeeze map: where rock was crushed thicker (past `mountains_start`,
-//!    fully by `mountains_full`) ridges rise, lined up **across the squeeze direction** (ridges run
-//!    at right angles to the push, as real ranges do). Where the direction is unclear (weak pushes)
-//!    the ridges wander every way. Mountains only use the room left below Z 333, so nothing goes
-//!    past it.
+//! 2. **Mountains** from the squeeze map: where rock was crushed thicker (past `mountains_start`),
+//!    mountains rise as tall as the **mountain curve** says, from that squeeze up to the most
+//!    crushed rock in the bake: so the most crushed line of a belt is its peak, not a plateau.
+//!    They're carved (by `ridges`) into ridges lined up **across the squeeze direction** (ridges run
+//!    at right angles to the push, as real ranges do); where the direction is unclear (weak
+//!    pushes) the ridges wander every way. Mountains only use the room left below Z 333, so nothing
+//!    goes past it.
 //! 3. **Rifts**: rock stretched thinner sinks.
 //! 4. **Hills**: gentle rolling bumps on land, for now. (Block-level detail comes later, when chunks
 //!    are made.)
@@ -111,11 +113,15 @@ pub struct CompileSettings {
     /// 1 = straight; above 1 = stays low (shallow) near the coast, climbing (deepening) late.
     pub land_curve: f32,
     pub sea_curve: f32,
-    /// How crushed rock must be for mountains to start, and to be at their fullest.
+    /// How crushed rock must be for mountains to start (the curve's left end), and the squeeze at
+    /// its right end (normally the most crushed rock in the bake, so the most crushed line of a
+    /// belt is its peak).
     pub mountains_start: f32,
-    pub mountains_full: f32,
-    /// How much of the room up to Z 333 the fullest mountains fill (0 to 1).
-    pub mountains: f32,
+    pub squeeze_top: f32,
+    /// How tall mountains are along that range of squeeze: a share of the room up to Z 333.
+    pub mountain_curve: Curve,
+    /// How much the ridge pattern carves into the mountains: 0 = smooth domes, 1 = all ridges.
+    pub ridges: f32,
     /// How far apart ridges are (across them), and how long they run (along them), in blocks.
     pub ridge_spacing: f32,
     pub ridge_length: f32,
@@ -137,8 +143,9 @@ impl Default for CompileSettings {
             land_curve: 1.6,
             sea_curve: 1.5,
             mountains_start: 0.05,
-            mountains_full: 0.3,
-            mountains: 0.85,
+            squeeze_top: 1.0,
+            mountain_curve: Curve { start: 0.0, end: 0.9, bend: -0.3 },
+            ridges: 0.6,
             ridge_spacing: 1_800.0,
             ridge_length: 7_000.0,
             sharpness: 2.0,
@@ -146,6 +153,47 @@ impl Default for CompileSettings {
             hills: 8.0,
             hill_size: 1_500.0,
         }
+    }
+}
+
+/// A curve from 0 to 1 across: its height at the left end, at the right end, and how it bends
+/// between (−1 to 1: above 0 bows up, rising early then levelling; below 0 bows down, staying low
+/// then rising late; 0 = straight).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Curve {
+    pub start: f32,
+    pub end: f32,
+    pub bend: f32,
+}
+
+impl Default for Curve {
+    fn default() -> Self {
+        Self { start: 0.0, end: 1.0, bend: 0.0 }
+    }
+}
+
+impl Curve {
+    /// How far along the rise the curve is at `x` (0 to 1): x raised to a power set by the bend.
+    fn shape(&self, x: f32) -> f32 {
+        x.clamp(0.0, 1.0).powf(4f32.powf(-self.bend.clamp(-1.0, 1.0)))
+    }
+
+    /// The curve's height at `x` (0 to 1 across).
+    pub fn at(&self, x: f32) -> f32 {
+        self.start + (self.end - self.start) * self.shape(x)
+    }
+
+    /// The bend that puts the middle of the curve (x = ½) at height `y`.
+    pub fn bend_through_middle(&self, y: f32) -> f32 {
+        let rise = self.end - self.start;
+        if rise.abs() < 1e-4 {
+            return self.bend;
+        }
+        let share = ((y - self.start) / rise).clamp(0.02, 0.98);
+        // ½ ^ (4 ^ −bend) = share  →  bend = −log₄(log½(share)).
+        let power = share.ln() / 0.5f32.ln();
+        (-power.ln() / 4f32.ln()).clamp(-1.0, 1.0)
     }
 }
 
@@ -196,10 +244,13 @@ fn ground(bake: &Bake, settings: &CompileSettings, seed: u64, i: usize) -> f32 {
         (sea - 1.0) - (sea - 1.0 - settings.deepest).max(0.0) * t.clamp(0.0, 1.0).powf(settings.sea_curve.max(0.05))
     };
 
-    // 2. Mountains, lined up across the squeeze where its direction is clear.
+    // 2. Mountains: as tall as the curve says for this much squeeze (so the most crushed line of a
+    // belt is its peak), carved into ridges lined up across the squeeze where its direction is
+    // clear.
     let squeeze = bake.squeeze[i];
-    let mask = smooth((squeeze - settings.mountains_start) / (settings.mountains_full - settings.mountains_start).max(1e-6));
-    if mask > 0.0 {
+    if squeeze > settings.mountains_start {
+        let across_range = (squeeze - settings.mountains_start) / (settings.squeeze_top - settings.mountains_start).max(1e-6);
+        let tall = settings.mountain_curve.at(across_range).clamp(0.0, 1.0);
         // The push's direction on the map (north is −y in the field's rows).
         let angle = bake.push_angle[i].to_radians();
         let push = (angle.cos(), -angle.sin());
@@ -209,13 +260,15 @@ fn ground(bake: &Bake, settings: &CompileSettings, seed: u64, i: usize) -> f32 {
         let wandering = ridges(seed ^ 0x5eed, x / settings.ridge_spacing.max(1.0), y / settings.ridge_spacing.max(1.0), settings.sharpness);
         let clear = smooth(bake.push_strength[i] / 0.1);
         let crest = wandering + (lined_up - wandering) * clear;
+        let carved = 1.0 - settings.ridges.clamp(0.0, 1.0) * (1.0 - crest);
         let room = (HIGHEST as f32 - z).max(0.0);
-        z += room * settings.mountains.clamp(0.0, 1.0) * mask * (0.35 + 0.65 * crest);
+        z += room * tall * carved;
     }
 
-    // 3. Rifts.
+    // 3. Rifts: the most stretched rock (as stretched as the most crushed is crushed) sinks the
+    // full depth.
     if squeeze < 0.0 {
-        z -= settings.rift_depth * (-squeeze / settings.mountains_full.max(1e-6)).min(1.0);
+        z -= settings.rift_depth * (-squeeze / settings.squeeze_top.max(1e-6)).min(1.0);
     }
 
     // 4. Hills, on land only.
@@ -345,8 +398,43 @@ mod tests {
         // The crushed band stands well above the plain next to it.
         assert!(at(31) > at(26) + 30.0, "band {} plain {}", at(31), at(26));
         // No mountains, no band.
-        let flat = compiled(&bake, &CompileSettings { hills: 0.0, mountains: 0.0, ..CompileSettings::default() });
+        let none = Curve { start: 0.0, end: 0.0, bend: 0.0 };
+        let flat = compiled(&bake, &CompileSettings { hills: 0.0, mountain_curve: none, ..CompileSettings::default() });
         assert!((flat.z[32 * 64 + 31] as f32 - flat.z[32 * 64 + 30] as f32).abs() < 10.0);
+    }
+
+    #[test]
+    fn the_curve_runs_from_end_to_end_and_bends_either_way() {
+        let straight = Curve { start: 0.2, end: 0.8, bend: 0.0 };
+        assert!((straight.at(0.0) - 0.2).abs() < 1e-6 && (straight.at(1.0) - 0.8).abs() < 1e-6);
+        assert!((straight.at(0.5) - 0.5).abs() < 1e-6);
+        let up = Curve { bend: 0.6, ..straight.clone() };
+        let down = Curve { bend: -0.6, ..straight.clone() };
+        assert!(up.at(0.5) > 0.5 && down.at(0.5) < 0.5);
+        // Dragging the middle to a height finds the bend that goes through it.
+        for y in [0.3, 0.45, 0.6, 0.7] {
+            let bent = Curve { bend: straight.bend_through_middle(y), ..straight.clone() };
+            assert!((bent.at(0.5) - y).abs() < 0.01, "{y}: {}", bent.at(0.5));
+        }
+    }
+
+    #[test]
+    fn the_most_crushed_line_of_a_belt_is_its_peak() {
+        // A belt whose crush rises to a spine in the middle, far past the old "fullest" point.
+        let mut bake = bake(0.0);
+        for row in 0..64 {
+            for col in 0..64 {
+                bake.height[row * 64 + col] = 0.2;
+                bake.squeeze[row * 64 + col] = (1.6 - (col as f32 - 32.0).abs() * 0.1).max(0.0);
+            }
+        }
+        let settings = CompileSettings { hills: 0.0, ridges: 0.0, squeeze_top: 1.6, ..CompileSettings::default() };
+        let world = compiled(&bake, &settings);
+        let row: Vec<u16> = (0..64).map(|col| world.z[32 * 64 + col]).collect();
+        let peak = (0..64).max_by_key(|&col| row[col]).unwrap();
+        assert!((31..=33).contains(&peak), "peak at column {peak}: {row:?}");
+        // It climbs steadily to the peak rather than levelling into a plateau.
+        assert!(row[32] > row[28] && row[28] > row[24] && row[24] > row[20]);
     }
 
     #[test]
