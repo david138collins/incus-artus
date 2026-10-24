@@ -93,7 +93,21 @@ pushed down **darker**.
      closing speed, and rides with the plate. Every setting is a slider and can change mid-run (Reset
      replays). Watching speed is steps per second only; a frame never spends more than 12 ms stepping,
      so heavy runs play slower but give the same result;
+     **David's verdict** (2026-10-24): it feels like billiard balls, "six Australias shaken up in a bag".
+     The controls are good (ranges to refine later), but plates must **deform and squash one another**.
+     They should feel like **large, heavy objects**: you can't spin something big by hitting it, because
+     the rest of the body resists, more the further away it is, and you're likely to **crack it or bend
+     it** instead. So the rigid pieces are replaced by the rags;
   3. rags: springs, irregular stiffness, height from squeezing, fold ridges;
+     **[BUILT 2026-10-24, all but the fold ridges]** (`rags.rs`). Each plate is a grid of points (`grain`,
+     750 blocks) joined by springs, diagonals included. Each point only feels its neighbours, so a hit is
+     felt first where it lands and travels through the plate about one point per pass; few passes = a
+     heavy plate whose far side keeps coming while the near side crumples. Springs past **give-way** creep
+     to a new resting length for good; stretched past **crack** (measured from how they started) they
+     snap. Patchy stiffness from noise. Thickness = start area ÷ area now of the grid's triangles:
+     thicker shows brighter, thinner darker. Defaults found by measuring: 3 passes, stiffness 0.3, push
+     back 0.3 (at 8 passes / 0.5, under 1% of the land thickened at all). Fold ridges wait until David has
+     seen whether patchy stiffness already wrinkles enough;
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map.
 

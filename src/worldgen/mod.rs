@@ -37,6 +37,7 @@
 //! - `world.rs`   its screen, the world seed
 //! - `plates.rs`  plates: Voronoi cells in the world's circle, and the ocean plates around them
 //! - `tectonics.rs` the plates' motion, and what it does at their boundaries
+//! - `rags.rs`    the tectonics simulation: plates as heavy rags that squash, bend and tear
 
 mod blend;
 mod canvas;
@@ -48,6 +49,7 @@ mod made;
 mod noise;
 mod palette;
 mod plates;
+mod rags;
 mod runner;
 mod tectonics;
 mod view;

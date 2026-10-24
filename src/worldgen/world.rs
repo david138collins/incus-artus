@@ -24,7 +24,8 @@ use super::canvas::Camera;
 use super::palette::from_hsl;
 use super::plates::{self, LineNoise, LineStyle, PlateSettings, Plates};
 use super::runner::{Finished, Job, Poll};
-use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings, Sim, SimSettings};
+use super::rags::{RagSettings, Sim};
+use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
 use super::view::{MAGENTA, PINK, compass, seed_row};
 use bevy_egui::egui::{self, Color32, Pos2, Vec2};
 
@@ -62,8 +63,10 @@ pub struct WorldGen {
 
     /// The simulation: made when Start or Step is first pressed, thrown away by Reset or by any
     /// change to the plates or their motion.
-    pub sim_settings: SimSettings,
+    pub sim_settings: RagSettings,
     sim: Option<Sim>,
+    /// The settings the rags were made with (when they change, the run starts again).
+    sim_made_with: [u32; 3],
     running: bool,
     /// How fast to watch it. Only changes how many steps are taken each second, never the result.
     pub steps_per_second: f32,
@@ -106,13 +109,14 @@ impl Default for WorldGen {
             contacts: Vec::new(),
             motions_for: None,
             motions_version: 0,
-            sim_settings: SimSettings::default(),
+            sim_settings: RagSettings::default(),
             sim: None,
+            sim_made_with: [0; 3],
             running: false,
             steps_per_second: 60.0,
             owed: 0.0,
             moved: Vec::new(),
-            height_shown: 1.0,
+            height_shown: 0.5,
             show_bowl: true,
             start_when_ready: false,
             result: None,
@@ -171,7 +175,9 @@ impl WorldGen {
     fn sim(&mut self) -> Option<&mut Sim> {
         if self.sim.is_none() {
             let result = self.result.as_ref()?;
-            self.sim = Some(Sim::new(&result.made, &self.motions));
+            let seed = crate::fate::derive_seed(self.seed, "rock stiffness");
+            self.sim = Some(Sim::new(&result.made, &self.motions, &self.sim_settings, seed));
+            self.sim_made_with = self.sim_settings.making();
         }
         self.sim.as_mut()
     }
@@ -229,6 +235,10 @@ impl WorldGen {
     pub fn drive(&mut self, size_blocks: f32, blocks_per_pixel: f32) {
         self.drive_plates(size_blocks, blocks_per_pixel);
         self.update_motions();
+        // The rags are made differently now: start again.
+        if self.sim.is_some() && self.sim_made_with != self.sim_settings.making() {
+            self.reset();
+        }
         if self.start_when_ready && self.result.is_some() {
             self.start_when_ready = false;
             self.running = self.sim().is_some();
@@ -440,24 +450,43 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.add_space(6.0);
     ui.strong("The simulation");
     ui.small(
-        "Start it in the bar along the top. Plates coast on their starting push, collide, grip and turn \
-         each other, and slow down. These can be changed while it runs; Reset replays from the start.",
+        "Start it in the bar along the top. Each plate is a heavy rag: a grid of points joined by springs. \
+         Plates coast on their starting push, squash and bend where they meet, and slow down. Squeezed \
+         rock is thicker (brighter); stretched rock is thinner (darker).",
     );
     let sim = &mut world.sim_settings;
-    ui.add(egui::Slider::new(&mut sim.drag, 0.0001..=0.1).logarithmic(true).text("drag")).on_hover_text(
-        "How much speed and spin every plate loses each step. 0.01 = 1%.\nLower = they coast for longer.",
+    ui.add_space(4.0);
+    ui.label("The rock (changing these starts the run again):");
+    ui.add(egui::Slider::new(&mut sim.grain, 200.0..=3_000.0).logarithmic(true).text("grain (blocks)"))
+        .on_hover_text("How far apart a plate's points are. Smaller = finer wrinkles and tears, but slower.");
+    ui.add(egui::Slider::new(&mut sim.patchiness, 0.0..=1.0).text("patchiness")).on_hover_text(
+        "How much the rock's stiffness and strength vary from place to place.\n0 = all the same: only the edges crumple. Higher = soft patches give way deep inside plates too.",
     );
-    ui.add(egui::Slider::new(&mut sim.push, 0.0..=500.0).text("push back")).on_hover_text(
-        "How hard overlapping plates are shoved apart.\nLow = they crush deep into each other. High = they hardly overlap.",
+    ui.add(egui::Slider::new(&mut sim.patch_size, 1_000.0..=40_000.0).logarithmic(true).text("patch size (blocks)"))
+        .on_hover_text("How big the soft and stiff patches are.");
+    ui.add_space(4.0);
+    ui.label("How it behaves (can change while it runs; Reset replays):");
+    ui.add(egui::Slider::new(&mut sim.stiffness, 0.0..=1.0).text("stiffness"))
+        .on_hover_text("How firmly the springs pull back each pass.\nLow = soft, floppy rags. High = stiff sheets.");
+    ui.add(egui::Slider::new(&mut sim.passes, 1..=30).text("passes per step")).on_hover_text(
+        "How far a push travels through a plate each step: about one point per pass.\nFew = the far side lags far behind a hit (the plate crumples). Many = it feels the hit almost at once (stiffer, slower to work out).",
     );
-    ui.add(egui::Slider::new(&mut sim.give, 0.0..=200.0).text("give")).on_hover_text(
-        "How quickly the speed two plates meet with is soaked up.\nLow = they bounce off. High = they stop dead and stay together.",
+    ui.add(egui::Slider::new(&mut sim.give_way, 0.0..=0.2).text("gives way at")).on_hover_text(
+        "How far rock can be squeezed or stretched (0.02 = 2%) before it gives way for good.\nLow = it squashes and stays squashed easily. High = springy.",
     );
-    ui.add(egui::Slider::new(&mut sim.friction, 0.0..=200.0).text("friction")).on_hover_text(
-        "How strongly plates sliding past each other grip and drag one another.\nThe drag acts at the boundary, off to one side of each plate's middle, so it turns them.",
+    ui.add(egui::Slider::new(&mut sim.creep, 0.0..=1.0).text("creep"))
+        .on_hover_text("Once past giving way, how quickly the new shape becomes permanent.");
+    ui.add(egui::Slider::new(&mut sim.crack, 0.05..=2.0).logarithmic(true).text("cracks at")).on_hover_text(
+        "How far rock can be stretched (0.4 = 40% longer) before it snaps and the plate tears there.",
     );
-    ui.add(egui::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean plates' weight ×"))
-        .on_hover_text("How heavy ocean plates are for their size, compared with land plates.\nLight ones get shoved aside; heavy ones shove.");
+    ui.add(egui::Slider::new(&mut sim.push, 0.0..=1.0).text("push back"))
+        .on_hover_text("How firmly plates are kept from overlapping.\nLow = they crush into each other. High = hard edges.");
+    ui.add(egui::Slider::new(&mut sim.friction, 0.0..=1.0).text("friction"))
+        .on_hover_text("How much plates sliding past each other drag each other along.\nAt the edge, that shears and bends them.");
+    ui.add(egui::Slider::new(&mut sim.drag, 0.0001..=0.1).logarithmic(true).text("drag"))
+        .on_hover_text("How much speed every point loses each step. 0.01 = 1%.\nLower = they coast for longer.");
+    ui.add(egui::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean rock's weight ×"))
+        .on_hover_text("How heavy ocean rock is for its size, compared with land rock.\nLight plates get shoved and crumpled; heavy ones shove.");
     let mut bowl_percent = sim.bowl_start * 100.0;
     if ui
         .add(egui::Slider::new(&mut bowl_percent, 0.0..=99.0).suffix("%").text("bowl starts at"))
@@ -466,19 +495,18 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     {
         sim.bowl_start = bowl_percent / 100.0;
     }
-    ui.add(egui::Slider::new(&mut sim.bowl, 0.0..=50.0).text("bowl steepness"))
+    ui.add(egui::Slider::new(&mut sim.bowl, 0.0..=20.0).text("bowl steepness"))
         .on_hover_text("How hard the bowl pushes back. The further out a plate goes, the harder.");
-    ui.add(egui::Slider::new(&mut sim.uplift, 0.0..=5.0).text("uplift")).on_hover_text(
-        "How much the ground rises where plates crush into each other (more when they meet faster).\nCrude for now: the real squeezing comes with the rags.",
-    );
-    ui.add(egui::Slider::new(&mut world.height_shown, 0.05..=10.0).logarithmic(true).text("height shown as white"))
-        .on_hover_text("Only changes the look: raised ground this high shows white, lower ground in between.");
+    ui.add(egui::Slider::new(&mut world.height_shown, 0.05..=3.0).logarithmic(true).text("thickness shown as white"))
+        .on_hover_text(
+            "Only changes the look. 0.5 = rock half as thick again shows white, and rock half as thin shows black.\nLower = small squeezes show strongly.",
+        );
     ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
 
     ui.add_space(6.0);
     if ui.button("Tectonics settings back to defaults").clicked() {
         world.motion = MotionSettings::default();
-        world.sim_settings = SimSettings::default();
+        world.sim_settings = RagSettings::default();
     }
 }
 
@@ -540,7 +568,8 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
                 match world.moved.get(i).copied().flatten() {
                     Some((p, height)) => {
                         ui.label(plate_name(made, p as usize));
-                        ui.label(format!("ground raised {height:.2}"));
+                        let what = if height > 0.01 { "squeezed: higher" } else if height < -0.01 { "stretched: lower" } else { "as it was" };
+                        ui.label(format!("rock {:.2}× as thick ({what})", height + 1.0));
                     }
                     None => {
                         ui.label("no plate (empty ocean)");
@@ -666,8 +695,10 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
                     colour32(match *here {
                         Some((p, height)) => {
                             let base = plate_colour(p as usize, made.kept[p as usize].land);
-                            let lift = (height / world.height_shown).clamp(0.0, 1.0);
-                            base.map(|c| (c as f32 + (255.0 - c as f32) * lift) as u8)
+                            // Thicker toward white, thinner toward black.
+                            let lift = (height / world.height_shown).clamp(-1.0, 1.0);
+                            let toward = if lift >= 0.0 { 255.0 } else { 0.0 };
+                            base.map(|c| (c as f32 + (toward - c as f32) * lift.abs()) as u8)
                         }
                         None => ocean(i),
                     })
