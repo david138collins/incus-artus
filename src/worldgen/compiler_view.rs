@@ -921,7 +921,25 @@ fn readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
 /// layer switches, and the cross-section.
 fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("Terrain lab");
-    let close = compiler.camera.zoom >= lab::TAKES_OVER_AT;
+    let close = compiler.lab.close(compiler.camera.zoom);
+    ui.horizontal(|ui| {
+        ui.label("View:");
+        for (view, name, about) in [
+            (lab::View::Auto, "auto", "The map from afar; the close-up once you zoom in."),
+            (lab::View::Map, "map", "Always the compiler's map (a pixel every 32 blocks: too coarse for hills or ground detail)."),
+            (lab::View::CloseUp, "close-up", "Always the close-up, the ground as the Interpreter makes it, even zoomed right out. Slower further out: the last picture stays up until the new one is drawn."),
+        ] {
+            ui.selectable_value(&mut compiler.lab.view, view, name).on_hover_text(about);
+        }
+    });
+    ui.horizontal(|ui| {
+        ui.label("Sharpness:");
+        for (sharper, name) in [(0, "1×"), (1, "2×"), (2, "4×")] {
+            ui.selectable_value(&mut compiler.lab.sharper, sharper, name).on_hover_text(
+                "Close-up samples per screen point. Sharper shows finer ground detail from further out; 2× takes about 4 times as long, 4× about 16.",
+            );
+        }
+    });
     if !close {
         ui.small("Zoom in on the map (scroll) and it becomes a live close-up of the ground, block by block, as the Interpreter makes it. Move the Interpreter's sliders while you watch.");
     } else if let Some(frame) = &compiler.lab.frame {
@@ -1078,7 +1096,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
     // The terrain lab's close-up, once zoomed in far enough.
     let map = compiler.lab.recipe(&compiled_map, &compiler.settings.interpreter);
-    let close = zoom >= lab::TAKES_OVER_AT;
+    let close = compiler.lab.close(zoom);
     let view = close.then(|| (to_blocks(rect.left_top()), to_blocks(rect.right_bottom()), blocks / zoom));
     compiler.lab.drive(&map, view);
     if close {

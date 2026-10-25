@@ -11,6 +11,9 @@
 //! - **A cross-section:** Shift + drag across the map draws a line; its side view (the ground's Z
 //!   along it, with sea level) shows under the map.
 //! - **Cost:** how long the last close-up took, and what that comes to per chunk.
+//! - **View and sharpness:** the close-up can be forced on at any zoom (to see the whole world as the
+//!   Interpreter makes it, ground detail and all; slower further out) or off, and can take 2 or 4
+//!   samples per screen point instead of 1.
 
 use super::runner::{Job, Poll};
 use crate::world::{CompiledMap, InterpreterSettings, Mutes};
@@ -19,8 +22,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// The close-up takes over once a map pixel covers this many screen points.
 pub const TAKES_OVER_AT: f32 = 3.0;
-/// The most samples across or down a close-up (more and the step between samples grows).
+/// The most samples across or down a close-up at sharpness 1× (more and the step between samples
+/// grows); sharper close-ups may take 2 or 4 times as many, up to `LARGEST`.
 const MOST_SAMPLES: f32 = 900.0;
+/// The largest picture the graphics card is sure to take, across or down.
+const LARGEST: f32 = 8192.0;
 /// Close-ups are laid on a grid of this many samples, so small pans don't redraw.
 const SNAP: f32 = 64.0;
 
@@ -46,9 +52,22 @@ pub struct Frame {
     pub millis: f64,
 }
 
+/// When the close-up shows instead of the map.
+#[derive(Clone, Copy, PartialEq, Default)]
+pub enum View {
+    /// Once a map pixel covers `TAKES_OVER_AT` screen points.
+    #[default]
+    Auto,
+    Map,
+    CloseUp,
+}
+
 #[derive(Default)]
 pub struct Lab {
     pub mutes: Mutes,
+    pub view: View,
+    /// Close-up samples per screen point: 1, 2 or 4 (as 0, 1, 2).
+    pub sharper: u32,
     /// The close-up being made, and what it shows.
     job: Option<(Request, Job<Frame>)>,
     /// The compiler's maps drawn over the map and the close-up.
@@ -66,6 +85,15 @@ pub struct Lab {
 impl Lab {
     pub fn is_making(&self) -> bool {
         self.job.is_some()
+    }
+
+    /// Whether the close-up shows (rather than the map) at this zoom.
+    pub fn close(&self, zoom: f32) -> bool {
+        match self.view {
+            View::Auto => zoom >= TAKES_OVER_AT,
+            View::Map => false,
+            View::CloseUp => true,
+        }
     }
 
     /// The recipe as it is now: the compiled maps, read with these settings and switches.
@@ -95,10 +123,13 @@ impl Lab {
             }
         }
         let Some(((north, west), (south, east), blocks_per_point)) = view else { return };
-        // One sample per screen point, in whole powers of two blocks (so zooming a little doesn't
-        // redraw), and never more than `MOST_SAMPLES` across.
-        let mut step = 2f32.powi(blocks_per_point.max(1.0).log2().ceil() as i32);
-        while ((east - west) / step).max((north - south) / step) > MOST_SAMPLES {
+        // One sample per screen point (2 or 4 when sharper), in whole powers of two blocks (so
+        // zooming a little doesn't redraw), never finer than a block, and never more than
+        // `MOST_SAMPLES` across (2 or 4 times that when sharper).
+        let sharper = 2f32.powi(self.sharper.min(2) as i32);
+        let mut step = (2f32.powi(blocks_per_point.max(1.0).log2().ceil() as i32) / sharper).max(1.0);
+        let most = (MOST_SAMPLES * sharper).min(LARGEST - 2.0 * SNAP);
+        while ((east - west) / step).max((north - south) / step) > most {
             step *= 2.0;
         }
         let grid = step * SNAP;
