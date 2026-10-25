@@ -296,6 +296,14 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** Claude writes all code and explains what and why as it goes; David runs the game and gives feedback.
   Stop after each step, and whenever there's a real design choice.
 
+## World Creation
+
+- **[DECIDED 2026-10-25]** A new world is made completely before you enter it, every spring and creek
+  included, and saved; nothing about the ground's shape is worked out at runtime. Budget: about
+  10 minutes on a slightly below-average PC, shown as a loading screen with the generation drawn live,
+  with lore and art. While designing: live sliders, a fast make (seconds) and a full make (minutes).
+  Pipeline and reasons in `docs/worldgen.md` ("The pipeline after the landform").
+
 ---
 
 ## Performance Plan (for reference)

@@ -232,6 +232,51 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
 its own: a spinner, what it's working out (compiling, EZ-baking, drawing the close-up, baking,
 making plates, simulating, making layers) and for how long; "ready" otherwise.
 
+### The pipeline after the landform  [DECIDED 2026-10-25, not built]
+Worked out between David, Claude and Grok. The order, and who owns what:
+
+```
+Tectonic Sim
+  -> TERRAIN COMPILER  (all of it runs at world creation and is saved)
+       1. Landform + additive mountains
+       2. Climate (rain, wind, temperature): before rivers, which need the rain
+       3. Rivers & erosion (whole map)
+       4. Streams & springs (every tile, at about 2 blocks, on the real ground)
+       5. Sediment, soil, ore zones
+  -> ECOLOGY        reads the ground, never changes it: biomes, plant density, species, animal ranges
+  -> CIVILIZATION   towns, roads, territories, plus ground edits (road strips, flat building pads)
+  -> INTERPRETER    reads the saved results: cuts channels, applies edits, places trees, ore veins
+                    and surface blocks. Never simulates water. Same code for the lab and the world.
+```
+
+- **The compiler decides, the interpreter draws.** The compiler's output is *final* (every decision about
+  the ground is made there) but not *literal*: at one block per column the world is ~4 billion columns,
+  and finished heights on coarse pixels is exactly what made the repeating mounds. So it hands over
+  smooth maps and crisp lines (rivers with bed heights along them, a carve map, soil and ore zones), and
+  the interpreter makes the sharp shape at each block.
+- **Every spring and creek is worked out when the world is made, and saved.** [David: the shape of a
+  creek bed shouldn't be derived at runtime; pay the cost once, in one place, and never move it again.]
+  The fine pass runs tile by tile (512-block tiles, ~15,500 of them) at about 2 blocks, running the
+  interpreter's own recipe so the water follows the ground you'll walk on. Each tile is worked out only
+  from the whole-map river network around it, so a tile made alone is the same as in a full make.
+  Water always runs downhill and always connects: channels are carved to the bed height saved along
+  each line, not "the ground minus 2".
+- **Each stage caches its result.** Changing a slider redoes that stage and the ones after it, never
+  the ones before.
+- **World creation budget:** about 10 minutes on a slightly below-average PC (a GTX 980 Ti-era machine
+  with 4-6 cores), so roughly a couple of minutes on David's laptop. Players get a loading screen with
+  the generation shown live, with lore and art. [David: the wait makes a world feel like a committed
+  artifact, and discourages rolling ten worlds looking for a perfect one.] Show the timings on the
+  processing meter as each stage is built, so we hit that wall knowingly.
+- **Three speeds for designing, all the same code:**
+  - *Live* (instant): the lab close-up and late-stage sliders (texture, surface blocks, ecology looks).
+  - *Fast make* (seconds): the whole world at map scale (landform, climate, big rivers, erosion), no
+    streams. This is the inspection camera for hunting the right settings.
+  - *Full make* (minutes, loading screen): everything, exactly what a player gets; spawn in to judge
+    in person. The lab can full-make just the area it's zoomed into.
+- **The cost we accept:** sliders that change where water runs (mountain shape, ridges) stop being
+  instant once erosion exists; they need a fast make.
+
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
 flying over the continents in person. So before the compiler grows more stages, build the path from a
