@@ -187,9 +187,10 @@ struct CompiledFile {
 }
 
 /// The compiler's maps, by file name.
-fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 8] {
+fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 9] {
     [
         ("coast", &maps.coast),
+        ("coast_distance", &maps.coast_distance),
         ("height", &maps.height),
         ("tilt", &maps.tilt),
         ("squeeze", &maps.squeeze),
@@ -252,17 +253,27 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         }
         Ok(buffer[..frame.buffer_size()].chunks_exact(2).map(|b| low + u16::from_be_bytes([b[0], b[1]]) as f32 / 65_535.0 * (high - low)).collect())
     };
+    let coast = read("coast")?;
+    let skirt = read("skirt")?;
+    // Worlds saved before the coast distance was kept work it out again.
+    let coast_distance = if info.ranges.contains_key("coast_distance") {
+        read("coast_distance")?
+    } else {
+        super::coast_distance(&coast, info.width, info.blocks_per_pixel)
+    };
     let maps = Maps {
         width: info.width,
         blocks_per_pixel: info.blocks_per_pixel,
-        coast: read("coast")?,
+        highest_skirt: skirt.iter().copied().fold(0.0, f32::max),
+        coast,
+        coast_distance,
         height: read("height")?,
         tilt: read("tilt")?,
         squeeze: read("squeeze")?,
         push_x: read("push_x")?,
         push_y: read("push_y")?,
         push_strength: read("push_strength")?,
-        skirt: read("skirt")?,
+        skirt,
         water: info.water,
         lowest: info.lowest,
         highest: info.highest,

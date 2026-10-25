@@ -37,10 +37,13 @@
 //!    share of the room up to Z 333; carved into **ridges** across the squeeze direction, whose
 //!    crests dip into **passes**; never below the compiler's **foothill skirt**.
 //! 5. **Rifts:** stretched rock sinks.
-//! 6. **Hills** on land, and a little **detail** everywhere.
+//! 6. **Hills** on land, and a little **detail** everywhere: each is a Perlin field, the same as a
+//!    Graphics Kit Perlin layer, laid on the ground this many blocks up and down, and faded in and
+//!    out by a **mask** that follows one of the maps (distance from the coast, height, mountains,
+//!    foothills or squeeze) through a curve.
 
 use super::terrain::SEA_LEVEL;
-use crate::worldgen::noise::{Fade, perlin};
+use crate::worldgen::noise::{Fade, PerlinSettings, perlin};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -187,12 +190,16 @@ pub struct InterpreterSettings {
     pub pass_spacing: f32,
     /// How deep the most stretched rock sinks, in blocks.
     pub rift_depth: f32,
-    /// Rolling hills on land: how high (blocks either way) and how big (blocks).
+    /// Rolling hills on land: how high (blocks either way), the Perlin field that shapes them, and
+    /// where they show.
     pub hills: f32,
-    pub hill_size: f32,
-    /// Small bumps on the ground: how high (blocks either way) and how wide (blocks).
+    pub hill_noise: PerlinSettings,
+    pub hill_mask: Mask,
+    /// Small bumps on the ground: how high (blocks either way), their Perlin field, and where they
+    /// show.
     pub detail: f32,
-    pub detail_size: f32,
+    pub detail_noise: PerlinSettings,
+    pub detail_mask: Mask,
     /// The surface is bare stone from this Z up, and gabbro (the peaks) from this Z up.
     pub stone_from: i32,
     pub gabbro_from: i32,
@@ -221,12 +228,79 @@ impl Default for InterpreterSettings {
             pass_spacing: 12_000.0,
             rift_depth: 30.0,
             hills: 6.0,
-            hill_size: 1_500.0,
+            // Two octaves, the second 2.3 times finer and 0.43 as strong (as hills always were).
+            hill_noise: PerlinSettings { scale: 1_500.0, octaves: 2, persistence: 0.43, lacunarity: 2.3, ..PerlinSettings::default() },
+            hill_mask: Mask::default(),
             detail: 3.0,
-            detail_size: 96.0,
+            detail_noise: PerlinSettings { scale: 96.0, octaves: 1, ..PerlinSettings::default() },
+            detail_mask: Mask::default(),
             stone_from: 215,
             gabbro_from: 285,
         }
+    }
+}
+
+/// Which map a mask follows.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MaskSource {
+    /// No mask: the same everywhere.
+    #[default]
+    Everywhere,
+    /// Distance from the coast: far out to sea (left), the coastline (middle), far inland (right).
+    Coast,
+    /// The ground's height: Z 0 (left) to Z 333 (right).
+    Height,
+    /// How much of the room above the ground mountains take: none (left) to all of it (right).
+    Mountains,
+    /// The foothill skirt: none (left) to the highest skirt on the map (right).
+    Foothills,
+    /// The squeeze: most stretched (left), neither (middle), most crushed (right).
+    Squeeze,
+}
+
+impl MaskSource {
+    pub const ALL: [MaskSource; 6] = [MaskSource::Everywhere, MaskSource::Coast, MaskSource::Height, MaskSource::Mountains, MaskSource::Foothills, MaskSource::Squeeze];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            MaskSource::Everywhere => "everywhere",
+            MaskSource::Coast => "coast distance",
+            MaskSource::Height => "height",
+            MaskSource::Mountains => "mountains",
+            MaskSource::Foothills => "foothills",
+            MaskSource::Squeeze => "squeeze",
+        }
+    }
+
+    /// What the curve's left and right edges stand for.
+    pub fn ends(self) -> (&'static str, &'static str) {
+        match self {
+            MaskSource::Everywhere => ("", ""),
+            MaskSource::Coast => ("out to sea · coast · inland", "inland"),
+            MaskSource::Height => ("Z 0", "Z 333"),
+            MaskSource::Mountains => ("no mountains", "tallest"),
+            MaskSource::Foothills => ("no skirt", "highest skirt"),
+            MaskSource::Squeeze => ("stretched · neither · crushed", "crushed"),
+        }
+    }
+}
+
+/// Fades a layer (hills, detail) in and out across the world: it follows one of the maps, read
+/// through a curve (up = how much of the layer shows, 0 to 1).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Mask {
+    pub source: MaskSource,
+    /// Read the map the other way round (left becomes right).
+    pub invert: bool,
+    pub curve: Spline,
+    /// For coast distance: how many blocks from the coastline the curve's edges stand for.
+    pub reach: f32,
+}
+
+impl Default for Mask {
+    fn default() -> Self {
+        Self { source: MaskSource::Everywhere, invert: false, curve: Spline::default(), reach: 4_000.0 }
     }
 }
 
@@ -254,6 +328,10 @@ pub struct Maps {
     pub push_strength: Vec<f32>,
     /// The foothill skirt: mountains are never lower than this (blocks above the ground).
     pub skirt: Vec<f32>,
+    /// Blocks to the coastline: + on land, − at sea.
+    pub coast_distance: Vec<f32>,
+    /// The highest foothill skirt on the map (blocks).
+    pub highest_skirt: f32,
     /// The bake's height at sea level, its lowest and highest heights, and its most crushed and
     /// most stretched rock.
     pub water: f32,
@@ -261,6 +339,66 @@ pub struct Maps {
     pub highest: f32,
     pub most_crushed: f32,
     pub most_stretched: f32,
+}
+
+/// Blocks to the coastline from every pixel of a coast map (+ on land, − at sea), measured pixel to
+/// pixel (straight steps 1, diagonal steps √2: within a few percent of the true distance).
+pub fn coast_distance(coast: &[f32], width: usize, blocks_per_pixel: f32) -> Vec<f32> {
+    let w = width;
+    let land = |i: usize| coast[i] >= 0.0;
+    let mut d = vec![f32::MAX; w * w];
+    // The coast itself: pixels with the other side next door, half a pixel from the line.
+    for row in 0..w {
+        for col in 0..w {
+            let i = row * w + col;
+            let other = (col + 1 < w && land(i + 1) != land(i)) || (col > 0 && land(i - 1) != land(i)) || (row + 1 < w && land(i + w) != land(i)) || (row > 0 && land(i - w) != land(i));
+            if other {
+                d[i] = 0.5;
+            }
+        }
+    }
+    let diagonal = std::f32::consts::SQRT_2;
+    // Down and across, then back up.
+    for row in 0..w {
+        for col in 0..w {
+            let i = row * w + col;
+            let mut best = d[i];
+            if col > 0 {
+                best = best.min(d[i - 1] + 1.0);
+            }
+            if row > 0 {
+                best = best.min(d[i - w] + 1.0);
+                if col > 0 {
+                    best = best.min(d[i - w - 1] + diagonal);
+                }
+                if col + 1 < w {
+                    best = best.min(d[i - w + 1] + diagonal);
+                }
+            }
+            d[i] = best;
+        }
+    }
+    for row in (0..w).rev() {
+        for col in (0..w).rev() {
+            let i = row * w + col;
+            let mut best = d[i];
+            if col + 1 < w {
+                best = best.min(d[i + 1] + 1.0);
+            }
+            if row + 1 < w {
+                best = best.min(d[i + w] + 1.0);
+                if col + 1 < w {
+                    best = best.min(d[i + w + 1] + diagonal);
+                }
+                if col > 0 {
+                    best = best.min(d[i + w - 1] + diagonal);
+                }
+            }
+            d[i] = best;
+        }
+    }
+    let far = w as f32;
+    (0..w * w).map(|i| if land(i) { 1.0 } else { -1.0 } * d[i].min(far) * blocks_per_pixel).collect()
 }
 
 /// The maps' values at one spot.
@@ -274,6 +412,7 @@ pub struct Here {
     pub push_y: f32,
     pub push_strength: f32,
     pub skirt: f32,
+    pub coast_distance: f32,
 }
 
 /// The recipe's pieces at one spot, before they're put together.
@@ -309,6 +448,14 @@ pub struct CompiledMap {
     land: Curve,
     sea: Curve,
     mountains: Curve,
+    hill_mask: Curve,
+    detail_mask: Curve,
+}
+
+/// A Perlin field (as a Graphics Kit layer makes it, output shaping and all) at a spot, about −1
+/// to 1. (Filling black to white needs the whole field at once, so it has no say here.)
+fn noise_at(noise: &PerlinSettings, seed: u64, north: f32, east: f32) -> f32 {
+    noise.output.shape(noise.raw(seed, north, east) * 0.5 + 0.5) * 2.0 - 1.0
 }
 
 fn smooth(t: f32) -> f32 {
@@ -353,6 +500,8 @@ impl CompiledMap {
             land: settings.land.curve(),
             sea: settings.sea.curve(),
             mountains: settings.mountains.curve(),
+            hill_mask: settings.hill_mask.curve.curve(),
+            detail_mask: settings.detail_mask.curve.curve(),
             mutes: Mutes::default(),
             maps,
             seed,
@@ -372,6 +521,7 @@ impl CompiledMap {
             push_y: m.push_y[i],
             push_strength: m.push_strength[i],
             skirt: m.skirt[i],
+            coast_distance: m.coast_distance[i],
         }
     }
 
@@ -402,6 +552,7 @@ impl CompiledMap {
             push_y: blend(&m.push_y),
             push_strength: blend(&m.push_strength),
             skirt: blend(&m.skirt),
+            coast_distance: blend(&m.coast_distance),
         }
     }
 
@@ -494,25 +645,43 @@ impl CompiledMap {
     }
 
     /// The pieces put together, with hills on land (6), before detail.
-    pub fn put_together(&self, parts: Parts, x: f32, y: f32) -> f32 {
+    pub fn put_together(&self, parts: Parts, here: &Here, x: f32, y: f32) -> f32 {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
         let mut z = (parts.ground + parts.mountains).min(HIGHEST) - parts.rift;
-        if z >= sea && !self.mutes.hills {
-            let size = s.hill_size.max(1.0);
-            let rolling = perlin(self.noise_seed, 0x4111, Fade::Smooth, x / size, y / size) * 0.7
-                + perlin(self.noise_seed, 0x4112, Fade::Smooth, x * 2.3 / size, y * 2.3 / size) * 0.3;
-            // Never drowns land.
-            z = (z + rolling * s.hills).max(sea);
+        if z >= sea && !self.mutes.hills && s.hills != 0.0 {
+            let shown = self.mask(&s.hill_mask, &self.hill_mask, here, z);
+            if shown > 0.0 {
+                let rolling = noise_at(&s.hill_noise, self.noise_seed ^ 0x4111, -y, x);
+                // Never drowns land.
+                z = (z + rolling * s.hills * shown).max(sea);
+            }
         }
         z.clamp(1.0, HIGHEST)
+    }
+
+    /// How much of a masked layer shows at a spot (0 to 1), with the ground at `z` there.
+    fn mask(&self, mask: &Mask, curve: &Curve, here: &Here, z: f32) -> f32 {
+        let m = &self.maps;
+        let t = match mask.source {
+            MaskSource::Everywhere => return 1.0,
+            MaskSource::Coast => 0.5 + 0.5 * (here.coast_distance / mask.reach.max(1.0)).clamp(-1.0, 1.0),
+            MaskSource::Height => z / HIGHEST,
+            MaskSource::Mountains => self.mountain_share(here),
+            MaskSource::Foothills => here.skirt / m.highest_skirt.max(1e-6),
+            MaskSource::Squeeze if here.squeeze >= 0.0 => 0.5 + 0.5 * here.squeeze / m.most_crushed.max(1e-6),
+            MaskSource::Squeeze => 0.5 - 0.5 * here.squeeze / m.most_stretched.min(-1e-6),
+        };
+        let t = t.clamp(0.0, 1.0);
+        curve.at(if mask.invert { 1.0 - t } else { t }).clamp(0.0, 1.0)
     }
 
     /// The ground's height at pixel `i`'s centre, without the block-sized detail: what the World
     /// Compiler shows.
     pub fn at_pixel(&self, i: usize) -> f32 {
         let (x, y) = self.pixel_spot(i);
-        self.put_together(self.parts(&self.pixel(i), x, y), x, y)
+        let here = self.pixel(i);
+        self.put_together(self.parts(&here, x, y), &here, x, y)
     }
 
     /// Pixel `i`'s centre, in blocks east and south of the map's north-west corner.
@@ -533,9 +702,14 @@ impl CompiledMap {
             return None;
         }
         let (x, y) = (east + half * blocks, half * blocks - north);
-        let ground = self.put_together(self.parts(&self.blended(col, row), x, y), x, y);
-        let size = self.settings.detail_size.max(1.0);
-        let detail = if self.mutes.detail { 0.0 } else { perlin(self.seed, 0xde7a11, Fade::Smooth, north / size, east / size) * self.settings.detail };
+        let here = self.blended(col, row);
+        let ground = self.put_together(self.parts(&here, x, y), &here, x, y);
+        let s = &self.settings;
+        if self.mutes.detail || s.detail == 0.0 {
+            return Some(ground);
+        }
+        let shown = self.mask(&s.detail_mask, &self.detail_mask, &here, ground);
+        let detail = if shown > 0.0 { noise_at(&s.detail_noise, self.seed ^ 0xde7a11, north, east) * s.detail * shown } else { 0.0 };
         Some(ground + detail)
     }
 
@@ -546,8 +720,9 @@ impl CompiledMap {
         let sea = SEA_LEVEL as f32;
         // Land: Z 128 + 205 × height (height 0 to 1). Sea: Z 127 − 126 × depth (height 0 to −1).
         let height: Vec<f32> = z.iter().map(|&z| if z >= sea { (z - sea) / (HIGHEST - sea) } else { -((sea - 1.0) - z) / (sea - 2.0) }).collect();
-        let coast = height.iter().map(|&h| if h >= 0.0 { h.max(1e-6) } else { h }).collect();
+        let coast: Vec<f32> = height.iter().map(|&h| if h >= 0.0 { h.max(1e-6) } else { h }).collect();
         let cells = width * width;
+        let coast_distance = coast_distance(&coast, width, blocks_per_pixel);
         let maps = Maps {
             width,
             blocks_per_pixel,
@@ -559,6 +734,8 @@ impl CompiledMap {
             push_y: vec![0.0; cells],
             push_strength: vec![0.0; cells],
             skirt: vec![0.0; cells],
+            coast_distance,
+            highest_skirt: 0.0,
             water: 0.0,
             lowest: -1.0,
             highest: 1.0,
@@ -644,6 +821,39 @@ mod tests {
         // are crushed together and the steady ones aren't.
         assert!(count(&steady, far) < count(&steady, near) * 2 + 4, "steady: {} near, {} far", count(&steady, near), count(&steady, far));
         assert!(count(&old, far) > count(&steady, far) * 2, "old {} vs steady {} far out", count(&old, far), count(&steady, far));
+    }
+
+    #[test]
+    fn coast_distance_grows_away_from_the_coast_on_both_sides() {
+        // Land on the left half, sea on the right.
+        let width = 20;
+        let coast: Vec<f32> = (0..width * width).map(|i| if i % width < 10 { 0.01 } else { -0.01 }).collect();
+        let d = coast_distance(&coast, width, 32.0);
+        let at = |col: usize| d[5 * width + col];
+        assert_eq!(at(9), 16.0);
+        assert_eq!(at(10), -16.0);
+        assert!((at(4) - (5.5 * 32.0)).abs() < 0.01, "{}", at(4));
+        assert!((at(15) + 5.5 * 32.0).abs() < 0.01, "{}", at(15));
+    }
+
+    #[test]
+    fn a_mask_fades_hills_out_by_its_curve() {
+        // Land at Z 200 everywhere, hills 20 blocks high.
+        let width = 16;
+        let flat = CompiledMap::of_heights(width, 32.0, &vec![200.0; width * width]);
+        let hilly = |mask: Mask| {
+            let settings = InterpreterSettings { hills: 20.0, hill_mask: mask, ..flat.settings.clone() };
+            let map = flat.with(settings, Mutes::default());
+            // How far the ground strays from Z 200 over a stretch.
+            (0..200).map(|k| (map.height(0.0, k as f32 * 2.0 - 200.0).unwrap() - 200.0).abs()).fold(0.0, f32::max)
+        };
+        assert!(hilly(Mask::default()) > 2.0, "hills everywhere show");
+        // Following height (Z 200 is 0.6 across), through a curve that's 0 there: no hills.
+        let none_here = Spline::through(&[(0.0, 1.0), (0.5, 0.0), (1.0, 0.0)]);
+        assert_eq!(hilly(Mask { source: MaskSource::Height, curve: none_here.clone(), ..Mask::default() }), 0.0);
+        // Inverted, the same curve reads 0.4 across: 0.2 of the hills show.
+        let some = hilly(Mask { source: MaskSource::Height, curve: none_here, invert: true, ..Mask::default() });
+        assert!(some > 0.0 && some < hilly(Mask::default()), "{some}");
     }
 
     #[test]

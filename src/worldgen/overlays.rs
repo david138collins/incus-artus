@@ -13,7 +13,7 @@ use super::runner::{Job, Poll, every_pixel};
 use crate::world::{CompiledMap, Spline};
 use bevy_egui::egui::Color32;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 
 /// Which overlays are switched on.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -42,19 +42,11 @@ struct Key {
     band: f32,
 }
 
-/// What depends only on the compiled maps, not the recipe: worked out once per compile.
-pub struct Fields {
-    maps: usize,
-    /// Blocks to the coastline from each pixel: + on land, − at sea.
-    pub coast_distance: Vec<f32>,
-}
-
 /// A finished overlay picture, and the values behind it (for the readouts under the mouse).
 pub struct Painted {
     key: Key,
     pub width: usize,
     pub pixels: Vec<Color32>,
-    pub fields: Arc<Fields>,
     /// The mountain share at each pixel (0 to 1), and the strongest squeeze push on the map.
     pub share: Vec<f32>,
     pub strongest_push: f32,
@@ -112,9 +104,8 @@ impl Overlays {
             job.stop();
             self.job = None;
         }
-        let fields = self.painted.as_ref().filter(|painted| painted.fields.maps == key.maps).map(|painted| painted.fields.clone());
         let (map, bake, making) = (map.clone(), bake.clone(), key.clone());
-        self.job = Some((key, Job::start(move |stop| paint(&map, &bake, making, fields, stop))));
+        self.job = Some((key, Job::start(move |stop| paint(&map, &bake, making, stop))));
     }
 }
 
@@ -127,66 +118,6 @@ fn plate_colour(grey: u8) -> [u8; 3] {
         value - value * saturation * k.min(4.0 - k).clamp(0.0, 1.0)
     };
     [k(5.0), k(3.0), k(1.0)].map(|c| (c * 255.0) as u8)
-}
-
-/// Blocks to the coastline from every pixel (+ on land, − at sea), measured pixel to pixel (straight
-/// steps 1, diagonal steps √2: within a few percent of the true distance).
-fn coast_distance(coast: &[f32], width: usize, blocks_per_pixel: f32) -> Vec<f32> {
-    let w = width;
-    let land = |i: usize| coast[i] >= 0.0;
-    let mut d = vec![f32::MAX; w * w];
-    // The coast itself: pixels with the other side next door, half a pixel from the line.
-    for row in 0..w {
-        for col in 0..w {
-            let i = row * w + col;
-            let other = (col + 1 < w && land(i + 1) != land(i)) || (col > 0 && land(i - 1) != land(i)) || (row + 1 < w && land(i + w) != land(i)) || (row > 0 && land(i - w) != land(i));
-            if other {
-                d[i] = 0.5;
-            }
-        }
-    }
-    let diagonal = std::f32::consts::SQRT_2;
-    // Down and across, then back up.
-    for row in 0..w {
-        for col in 0..w {
-            let i = row * w + col;
-            let mut best = d[i];
-            if col > 0 {
-                best = best.min(d[i - 1] + 1.0);
-            }
-            if row > 0 {
-                best = best.min(d[i - w] + 1.0);
-                if col > 0 {
-                    best = best.min(d[i - w - 1] + diagonal);
-                }
-                if col + 1 < w {
-                    best = best.min(d[i - w + 1] + diagonal);
-                }
-            }
-            d[i] = best;
-        }
-    }
-    for row in (0..w).rev() {
-        for col in (0..w).rev() {
-            let i = row * w + col;
-            let mut best = d[i];
-            if col + 1 < w {
-                best = best.min(d[i + 1] + 1.0);
-            }
-            if row + 1 < w {
-                best = best.min(d[i + w] + 1.0);
-                if col + 1 < w {
-                    best = best.min(d[i + w + 1] + diagonal);
-                }
-                if col > 0 {
-                    best = best.min(d[i + w - 1] + diagonal);
-                }
-            }
-            d[i] = best;
-        }
-    }
-    let far = w as f32;
-    (0..w * w).map(|i| if land(i) { 1.0 } else { -1.0 } * d[i].min(far) * blocks_per_pixel).collect()
 }
 
 /// Whether a pixel is on the crest line of a mountain range: higher than its neighbours both ways
@@ -212,25 +143,18 @@ fn on_spine(share: &[f32], width: usize, col: usize, row: usize) -> bool {
 }
 
 /// Paints the overlays switched on in `key`, on all the computer's cores. `None` if `stop` was set.
-fn paint(map: &CompiledMap, bake: &Bake, key: Key, fields: Option<Arc<Fields>>, stop: &AtomicBool) -> Option<Painted> {
+fn paint(map: &CompiledMap, bake: &Bake, key: Key, stop: &AtomicBool) -> Option<Painted> {
     let m = &map.maps;
     let w = m.width;
-    let fields = match fields {
-        Some(fields) => fields,
-        None => Arc::new(Fields { maps: key.maps, coast_distance: coast_distance(&m.coast, w, m.blocks_per_pixel) }),
-    };
-    if stop.load(Ordering::Relaxed) {
-        return None;
-    }
     let share = every_pixel(w, stop, |i| map.mountain_share(&map.pixel(i)))?;
     // The spines follow a lightly smoothed share, so single-pixel wobbles in the squeeze map don't
     // break them into dashes.
     let mut smooth_share = share.clone();
     blur(&mut smooth_share, w, 1);
-    let highest_skirt = m.skirt.iter().copied().fold(0.0, f32::max).max(1e-6);
+    let highest_skirt = m.highest_skirt.max(1e-6);
     let strongest_push = m.push_strength.iter().copied().fold(0.0, f32::max);
     let (shown, band) = (key.shown, key.band.max(1.0));
-    let distance = &fields.coast_distance;
+    let distance = &m.coast_distance;
     let plates = bake.plate.len() == w * w;
 
     let pixels = every_pixel(w, stop, |i| {
@@ -295,25 +219,12 @@ fn paint(map: &CompiledMap, bake: &Bake, key: Key, fields: Option<Arc<Fields>>, 
         let [r, g, b] = colour.map(|c| (c / cover).min(255.0) as u8);
         Color32::from_rgba_unmultiplied(r, g, b, (cover * 255.0) as u8)
     })?;
-    Some(Painted { key, width: w, pixels, fields, share, strongest_push })
+    Some(Painted { key, width: w, pixels, share, strongest_push })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn coast_distance_grows_away_from_the_coast_on_both_sides() {
-        // Land on the left half, sea on the right.
-        let width = 20;
-        let coast: Vec<f32> = (0..width * width).map(|i| if i % width < 10 { 0.01 } else { -0.01 }).collect();
-        let d = coast_distance(&coast, width, 32.0);
-        let at = |col: usize| d[5 * width + col];
-        assert_eq!(at(9), 16.0);
-        assert_eq!(at(10), -16.0);
-        assert!((at(4) - (5.5 * 32.0)).abs() < 0.01, "{}", at(4));
-        assert!((at(15) + 5.5 * 32.0).abs() < 0.01, "{}", at(15));
-    }
 
     #[test]
     fn a_ridge_of_mountains_has_a_one_pixel_spine_and_a_flat_top_has_none() {

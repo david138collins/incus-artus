@@ -553,7 +553,7 @@ fn worley_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Worle
         [&mut noise.offset_north, &mut noise.offset_east, &mut noise.stretch, &mut noise.stretch_angle, &mut noise.octave_turn],
     );
 
-    output_settings(ui, &mut noise.output, "Stretch the lowest value to black and the highest to white.\nOff: the raw values (0 = black, 1 = white).");
+    output_settings(ui, &mut noise.output, Some("Stretch the lowest value to black and the highest to white.\nOff: the raw values (0 = black, 1 = white)."));
 
     ui.separator();
     if ui.button("All settings back to defaults").clicked() {
@@ -586,9 +586,24 @@ fn placement_rows(ui: &mut egui::Ui, [north, east, stretch, angle, turn]: [&mut 
 fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut PerlinSettings, view: &mut ViewState) {
     ui.small("Soft hills and hollows from a grid of random arrows, stacked in finer and fainter layers (octaves).");
     seed_row(ui, id, seed, &mut view.seed_text);
+    perlin_rows(ui, noise, 100.0..=72_000.0, Some("Stretch the lowest value to black and the highest to white.\nOff: the raw values, −1 = black, 1 = white."));
 
+    ui.separator();
+    if ui.button("All settings back to defaults").clicked() {
+        *noise = PerlinSettings::default();
+    }
+    ui.separator();
+    ui.strong("Noise presets");
+    ui.small("Save a useful kind of noise by name. The seed isn't saved with it, so a preset works with any seed.");
+    preset_bar(ui, "noise", noise);
+}
+
+/// A Perlin field's settings: pattern, placement, maths and output. Shared by Graphics Kit Perlin
+/// layers and the World Interpreter's hills and ground detail. `fill_help` shows the "fill black
+/// to white" switch (which needs the whole field at once, so the Interpreter leaves it out).
+pub fn perlin_rows(ui: &mut egui::Ui, noise: &mut PerlinSettings, sizes: std::ops::RangeInclusive<f32>, fill_help: Option<&str>) {
     section(ui, "Pattern", "What the noise is made of.");
-    ui.add(crate::debug::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("size (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut noise.scale, sizes).logarithmic(true).text("size (blocks)"))
         .on_hover_text("The size of the biggest features: one grid square of the first octave.");
     ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=16).text("octaves"))
         .on_hover_text("How many layers are stacked. Each one adds finer detail.");
@@ -628,16 +643,7 @@ fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Perli
         noise.solo_octave = 0;
     }
 
-    output_settings(ui, &mut noise.output, "Stretch the lowest value to black and the highest to white.\nOff: the raw values, −1 = black, 1 = white.");
-
-    ui.separator();
-    if ui.button("All settings back to defaults").clicked() {
-        *noise = PerlinSettings::default();
-    }
-    ui.separator();
-    ui.strong("Noise presets");
-    ui.small("Save a useful kind of noise by name. The seed isn't saved with it, so a preset works with any seed.");
-    preset_bar(ui, "noise", noise);
+    output_settings(ui, &mut noise.output, fill_help);
 }
 
 fn image_settings(
@@ -679,15 +685,17 @@ fn image_settings(
     });
     ui.checkbox(&mut placement.repeat, "repeat (tile it across the whole field)");
 
-    output_settings(ui, &mut placement.output, "Stretch the picture's darkest pixel to black and its brightest to white.");
+    output_settings(ui, &mut placement.output, Some("Stretch the picture's darkest pixel to black and its brightest to white."));
     if ui.button("Placement and output back to defaults").clicked() {
         *placement = Placement { blocks_per_pixel: placement.blocks_per_pixel, ..Placement::default() };
     }
 }
 
-fn output_settings(ui: &mut egui::Ui, output: &mut Shaping, fill_help: &str) {
+fn output_settings(ui: &mut egui::Ui, output: &mut Shaping, fill_help: Option<&str>) {
     section(ui, "Output", "Shaping the values, without changing the pattern underneath.");
-    ui.checkbox(&mut output.fill_range, "fill black to white").on_hover_text(fill_help);
+    if let Some(fill_help) = fill_help {
+        ui.checkbox(&mut output.fill_range, "fill black to white").on_hover_text(fill_help);
+    }
     ui.add(crate::debug::Slider::new(&mut output.contrast, 0.0..=5.0).text("contrast"));
     ui.add(crate::debug::Slider::new(&mut output.brightness, -1.0..=1.0).text("brightness"));
     ui.add(crate::debug::Slider::new(&mut output.curve, 0.1..=5.0).logarithmic(true).text("curve"))

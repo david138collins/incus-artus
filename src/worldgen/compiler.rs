@@ -224,10 +224,13 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
     }
     // The squeeze's direction as a doubled-angle arrow, so it blends between pixels.
     let (push_x, push_y): (Vec<f32>, Vec<f32>) = bake.push_angle.iter().map(|a| ((2.0 * a.to_radians()).cos(), (2.0 * a.to_radians()).sin())).unzip();
+    let coast_distance = crate::world::coast_distance(&coast, width, blocks);
     let maps = Maps {
         width,
         blocks_per_pixel: blocks,
         coast,
+        coast_distance,
+        highest_skirt: 0.0,
         height,
         tilt,
         squeeze: bake.squeeze.clone(),
@@ -256,7 +259,9 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
             map.parts(&map.pixel(i), x, y).mountains
         })?;
         blur(&mut skirt, width, foothills);
-        Arc::make_mut(&mut map.maps).skirt = skirt;
+        let maps = Arc::make_mut(&mut map.maps);
+        maps.highest_skirt = skirt.iter().copied().fold(0.0, f32::max);
+        maps.skirt = skirt;
     }
 
     // 3. The ground at each pixel's centre, as the Interpreter makes it (less the block-sized
@@ -357,6 +362,23 @@ mod tests {
         // And written back the same way: one flat list.
         let written = toml::to_string_pretty(&settings).unwrap();
         assert!(written.contains("ridges = 0.89") && !written.contains("[interpreter]"), "{written}");
+    }
+
+    #[test]
+    fn presets_from_before_hills_and_detail_were_perlin_fields_still_load() {
+        // As David's "hope" was saved: sizes side by side, no noise or mask tables.
+        let text = "ridges = 1.0\nhills = 6.0\nhill_size = 1500.0\ndetail = 3.0\ndetail_size = 96.0\n";
+        let settings: CompileSettings = toml::from_str(text).unwrap();
+        let defaults = InterpreterSettings::default();
+        assert_eq!(settings.interpreter.ridges, 1.0);
+        assert_eq!((settings.interpreter.hill_noise.scale, settings.interpreter.detail_noise.scale), (1_500.0, 96.0));
+        assert_eq!(settings.interpreter.hill_mask, defaults.hill_mask);
+        // And a preset with them all survives being written and read.
+        let mut changed = settings.clone();
+        changed.interpreter.hill_mask.source = crate::world::MaskSource::Coast;
+        changed.interpreter.detail_noise.octaves = 4;
+        let back: CompileSettings = toml::from_str(&toml::to_string_pretty(&changed).unwrap()).unwrap();
+        assert_eq!(back, changed);
     }
 
     /// `plain`, with the Interpreter's recipe changed by `change`.

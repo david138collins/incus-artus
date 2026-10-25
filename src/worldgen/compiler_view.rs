@@ -16,7 +16,8 @@ use super::Suite;
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
-use crate::world::InterpreterSettings;
+use crate::world::{InterpreterSettings, Mask, MaskSource};
+use super::noise::PerlinSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
 use super::runner::{Finished, Job, Poll};
@@ -637,12 +638,16 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.strong("Rifts, hills and detail");
     ui.add(crate::debug::Slider::new(&mut s.rift_depth, 0.0..=80.0).text("rift depth (blocks)"))
         .on_hover_text("How far the most stretched rock in this bake sinks (less stretched rock, less).");
-    ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)")).on_hover_text("Gentle rolling bumps on land, this high either way.");
-    ui.add(crate::debug::Slider::new(&mut s.hill_size, 300.0..=8_000.0).logarithmic(true).text("hill size (blocks)"));
+    ui.add_space(4.0);
+    ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)"))
+        .on_hover_text("Gentle rolling bumps on land: a Perlin field laid on the ground, this many blocks up and down.");
+    masked_noise(ui, "hills", &mut s.hill_noise, &defaults.hill_noise, 300.0..=8_000.0, &mut s.hill_mask);
+    ui.add_space(4.0);
     ui.add(crate::debug::Slider::new(&mut s.detail, 0.0..=12.0).text("ground detail (blocks)")).on_hover_text(
-        "Small bumps on the ground, this high either way, so it isn't glassy smooth. Only in the world:\nthey're smaller than one of this map's pixels.",
+        "Small bumps on the ground, so it isn't glassy smooth: a Perlin field laid on the ground, this many blocks\n\
+         up and down. Only in the world (and the close-up): they're smaller than one of this map's pixels.",
     );
-    ui.add(crate::debug::Slider::new(&mut s.detail_size, 16.0..=512.0).logarithmic(true).text("detail size (blocks)"));
+    masked_noise(ui, "ground detail", &mut s.detail_noise, &defaults.detail_noise, 16.0..=512.0, &mut s.detail_mask);
 
     ui.add_space(6.0);
     ui.separator();
@@ -742,6 +747,42 @@ fn elevation_picture(compiled: &Compiled) -> Picture {
 /// A spline box: the curve over a grid, with its dots. Drag a dot to move it (the end dots stay
 /// at the edges and only move up and down); double-click to add a dot; right-click a middle dot to
 /// take it away.
+/// A layer of the ground that's a Perlin field (hills, ground detail): its noise, as a Graphics Kit
+/// Perlin layer has it, and its mask, each folded away until opened.
+fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default: &PerlinSettings, sizes: std::ops::RangeInclusive<f32>, mask: &mut Mask) {
+    egui::CollapsingHeader::new(format!("{name}: Perlin noise")).id_salt((name, "noise")).show(ui, |ui| {
+        ui.small(format!("The same Perlin noise as a Graphics Kit Perlin layer, laid on the ground as {name}."));
+        super::view::perlin_rows(ui, noise, sizes, None);
+        if ui.small_button("This noise back to defaults").clicked() {
+            *noise = default.clone();
+        }
+    });
+    let heading = if mask.source == MaskSource::Everywhere { format!("{name}: mask (everywhere)") } else { format!("{name}: mask (follows {})", mask.source.name()) };
+    egui::CollapsingHeader::new(heading).id_salt((name, "mask")).show(ui, |ui| {
+        ui.small(format!(
+            "Fades {name} in and out across the world: pick a map to follow (the overlays show them), and the curve\n\
+             says how much shows (up) for each value of it (across)."
+        ));
+        ui.horizontal_wrapped(|ui| {
+            ui.label("follows:");
+            for source in MaskSource::ALL {
+                ui.selectable_value(&mut mask.source, source, source.name());
+            }
+        });
+        if mask.source == MaskSource::Everywhere {
+            return;
+        }
+        ui.checkbox(&mut mask.invert, "invert").on_hover_text("Read the map the other way round: what was on the left is on the right.");
+        if mask.source == MaskSource::Coast {
+            ui.add(crate::debug::Slider::new(&mut mask.reach, 250.0..=16_000.0).logarithmic(true).text("reach (blocks)"))
+                .on_hover_text("How far from the coastline the curve's edges are: the left edge is this far out to sea, the right this far inland.");
+        }
+        let (left, right) = mask.source.ends();
+        let (left, right) = if mask.invert { (right, left) } else { (left, right) };
+        spline_box(ui, &format!("{name} mask"), &mut mask.curve, &Spline::default(), &format!("{left}  →  {right}"), &format!("how much {name} shows"));
+    });
+}
+
 fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spline, across: &str, up: &str) {
     let size = Vec2::new(ui.available_width().clamp(160.0, 320.0), 140.0);
     let (rect, background) = ui.allocate_exact_size(size, egui::Sense::click());
@@ -853,7 +894,7 @@ fn readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 && painted.width == width
             {
                 ui.small("From the overlays (this pixel):");
-                let d = painted.fields.coast_distance[i];
+                let d = result.made.map.maps.coast_distance[i];
                 ui.small(if d >= 0.0 { format!("{d:.0} blocks inland") } else { format!("{:.0} blocks out to sea", -d) });
                 ui.small(format!("mountain share {:.0}%", painted.share[i] * 100.0))
                     .on_hover_text("How much of the room above the ground the mountains take here, before ridges and passes carve them.");
