@@ -24,6 +24,7 @@ use super::layers::{self, LayerKind};
 use super::made::{Made, Shaping};
 use super::{Kit, RESULT, Suite, Watch};
 use super::noise::{Fade, PerlinSettings};
+use super::warp::{WarpMode, WarpSettings};
 use super::worley::{Distance, Feature, WorleySettings};
 use super::palette::{self, Channel, Colouring, Spread};
 use crate::debug::preset_bar;
@@ -257,6 +258,10 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
                 suite.add_worley();
                 ui.close();
             }
+            if ui.button("Warp").on_hover_text("A filter: bends the layer below it (domain warping).\nStraight things meander, round things swirl.").clicked() {
+                suite.add_warp();
+                ui.close();
+            }
             ui.menu_button("Image from a file", |ui| {
                 let names = image::saved_images();
                 if names.is_empty() {
@@ -314,31 +319,23 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     });
     ui.small(layer.kind.type_name());
 
-    section(ui, "Mix", "How this layer combines with the layers below it. Their numbers mix, not their colours.");
-    ui.horizontal(|ui| {
-        ui.label("mode:");
-        egui::ComboBox::from_id_salt("worldgen mix").selected_text(layer.mix.name()).show_ui(ui, |ui| {
-            for mix in Mix::ALL {
-                ui.selectable_value(&mut layer.mix, mix, mix.name()).on_hover_text(mix.about());
-            }
-        });
-    });
-    ui.small(layer.mix.about());
-    let mut percent = layer.opacity * 100.0;
-    if ui
-        .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
-        .on_hover_text("0% = just the layers below. 100% = the full mix.")
-        .changed()
-    {
-        layer.opacity = percent / 100.0;
+    if let LayerKind::Warp { warp, .. } = &mut layer.kind {
+        warp_settings(ui, warp, &mut layer.opacity);
+    } else {
+        mix_settings(ui, layer);
     }
-    ui.small("(The bottom layer has nothing below, so its own values are used as they are.)");
 
     match &mut layer.kind {
         LayerKind::Perlin { seed, settings } => perlin_settings(ui, layer.id, seed, settings, view),
         LayerKind::Worley { seed, settings } => worley_settings(ui, layer.id, seed, settings, view),
         LayerKind::Image { file, picture, placement } => {
             image_settings(ui, file, (picture.width, picture.height), placement, blocks_per_pixel, size_blocks)
+        }
+        LayerKind::Warp { seed, settings, .. } => {
+            ui.add_space(6.0);
+            ui.heading("The warp's own noise");
+            ui.small("Where the push is strong and which way it goes, read from this field. Big, soft noise (few octaves) bends smoothly; fine detail just jitters.");
+            perlin_settings(ui, layer.id, seed, settings, view)
         }
     }
 
@@ -359,6 +356,72 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
     }
     let is_image = matches!(layer.kind, LayerKind::Image { .. });
     colour_panel(ui, &mut layer.colouring, is_image, view);
+}
+
+/// How a warp bends the layer below it (see `warp.rs`).
+fn warp_settings(ui: &mut egui::Ui, warp: &mut WarpSettings, opacity: &mut f32) {
+    section(
+        ui,
+        "Warp",
+        "Bends the layer below: each pixel shows what that layer has a little way off, by an amount read from this layer's own noise. Nothing is added; the same shapes, bent.",
+    );
+    ui.horizontal(|ui| {
+        ui.label("mode:");
+        for mode in WarpMode::ALL {
+            ui.selectable_value(&mut warp.mode, mode, mode.name()).on_hover_text(mode.about());
+        }
+    });
+    ui.small(warp.mode.about());
+    ui.add(crate::debug::Slider::new(&mut warp.amount, 50.0..=20_000.0).logarithmic(true).text("amount (blocks)"))
+        .on_hover_text("How far the push reaches. About the size of the shapes below = strong bending; much more = smeared.");
+    match warp.mode {
+        WarpMode::Swirl => {
+            ui.add(crate::debug::Slider::new(&mut warp.turns, 0.1..=4.0).text("turns")).on_hover_text(
+                "How many times round the compass the push turns, from the warp's darkest value to its brightest.\nMore = tighter curls.",
+            );
+            ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("start"))
+                .on_hover_text("Which way the darkest value pushes (0 = east, 90 = north). Turns the whole swirl.");
+        }
+        WarpMode::Push => {
+            ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("direction"))
+                .on_hover_text("Which way bright values push (0 = east, 90 = north); dark values push the opposite way.");
+        }
+        WarpMode::Flow => {}
+    }
+    let mut percent = *opacity * 100.0;
+    if ui
+        .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
+        .on_hover_text("0% = not bent at all. 100% = fully bent.")
+        .changed()
+    {
+        *opacity = percent / 100.0;
+    }
+    ui.checkbox(&mut warp.everything_below, "bend everything below").on_hover_text(
+        "Off: bends only the layer just below, before it mixes in.\nOn: bends the whole stack beneath it, as it stands there.",
+    );
+}
+
+/// How a layer mixes with the layers below it.
+fn mix_settings(ui: &mut egui::Ui, layer: &mut layers::Layer) {
+    section(ui, "Mix", "How this layer combines with the layers below it. Their numbers mix, not their colours.");
+    ui.horizontal(|ui| {
+        ui.label("mode:");
+        egui::ComboBox::from_id_salt("worldgen mix").selected_text(layer.mix.name()).show_ui(ui, |ui| {
+            for mix in Mix::ALL {
+                ui.selectable_value(&mut layer.mix, mix, mix.name()).on_hover_text(mix.about());
+            }
+        });
+    });
+    ui.small(layer.mix.about());
+    let mut percent = layer.opacity * 100.0;
+    if ui
+        .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
+        .on_hover_text("0% = just the layers below. 100% = the full mix.")
+        .changed()
+    {
+        layer.opacity = percent / 100.0;
+    }
+    ui.small("(The bottom layer has nothing below, so its own values are used as they are.)");
 }
 
 /// The seed, typed in hex or freshly rolled. `text` holds what's being typed.
@@ -754,9 +817,13 @@ fn layers_panel(ui: &mut egui::Ui, suite: &mut Suite) {
             let picked = suite.selected == Some(layer.id);
             let making = if layer.is_making() { "  …" } else { "" };
             let watched = if suite.watch.layer() == Some(layer.id) { "» " } else { "" };
-            let mix = match (layer.mix, layer.opacity) {
-                (Mix::Normal, 1.0) => String::new(),
-                (mix, opacity) => format!("  [{} {:.0}%]", mix.name(), opacity * 100.0),
+            let mix = match (&layer.kind, layer.mix, layer.opacity) {
+                (LayerKind::Warp { warp, .. }, _, opacity) => {
+                    let what = if warp.everything_below { "everything below" } else { "the layer below" };
+                    format!("  [{} {what} {:.0}%]", warp.mode.name(), opacity * 100.0)
+                }
+                (_, Mix::Normal, 1.0) => String::new(),
+                (_, mix, opacity) => format!("  [{} {:.0}%]", mix.name(), opacity * 100.0),
             };
             let label = format!("{watched}{}{making}{mix}", layer.name);
             let hover = format!("{}\n{}\nmix: {} at {:.0}%", layer.name, layer.kind.type_name(), layer.mix.name(), layer.opacity * 100.0);

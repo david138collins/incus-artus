@@ -17,6 +17,7 @@ use super::made::{Made, Shaping};
 use super::noise::PerlinSettings;
 use super::palette::Colouring;
 use super::runner::{Finished, Job, Poll};
+use super::warp::WarpSettings;
 use super::worley::WorleySettings;
 use std::sync::Arc;
 
@@ -25,6 +26,8 @@ pub enum LayerKind {
     Perlin { seed: u64, settings: PerlinSettings },
     Worley { seed: u64, settings: WorleySettings },
     Image { file: String, picture: Arc<Picture>, placement: Placement },
+    /// A filter: its own Perlin field bends the layer below (see `warp.rs`).
+    Warp { seed: u64, settings: PerlinSettings, warp: WarpSettings },
 }
 
 impl LayerKind {
@@ -33,6 +36,7 @@ impl LayerKind {
             LayerKind::Perlin { .. } => "Perlin noise field",
             LayerKind::Worley { .. } => "Worley noise field",
             LayerKind::Image { .. } => "Image",
+            LayerKind::Warp { .. } => "Warp",
         }
     }
 }
@@ -44,6 +48,9 @@ enum Recipe {
     Perlin(u64, PerlinSettings),
     Worley(u64, WorleySettings),
     Image(usize, Placement),
+    // The warp settings don't change the layer's own field, but are here so that changing them
+    // remakes it, which tells the picture to bend the stack again.
+    Warp(u64, PerlinSettings, WarpSettings),
 }
 
 pub struct Layer {
@@ -91,6 +98,7 @@ impl Layer {
             LayerKind::Perlin { seed, settings } => Recipe::Perlin(*seed, settings.clone()),
             LayerKind::Worley { seed, settings } => Recipe::Worley(*seed, settings.clone()),
             LayerKind::Image { picture, placement, .. } => Recipe::Image(Arc::as_ptr(picture) as usize, placement.clone()),
+            LayerKind::Warp { seed, settings, warp } => Recipe::Warp(*seed, settings.clone(), warp.clone()),
         }
     }
 
@@ -123,7 +131,7 @@ impl Layer {
         if self.wanted {
             self.wanted = false;
             self.job = Some(match &self.kind {
-                LayerKind::Perlin { seed, settings } => {
+                LayerKind::Perlin { seed, settings } | LayerKind::Warp { seed, settings, .. } => {
                     let (seed, settings) = (*seed, settings.clone());
                     Job::start(move |stop| super::noise::make(&settings, seed, size_blocks, blocks_per_pixel, stop))
                 }
@@ -152,19 +160,36 @@ pub fn next_name(layers: &[Layer], type_name: &str) -> String {
 /// field of values with its own numbers (range, histogram). Pixels no layer covers are left
 /// uncovered. With `up_to`, it stops after that layer (the stack as it stands there, before the
 /// layers above mix in).
+///
+/// A warp layer isn't mixed in: it bends the layer just below it before that one mixes in, or
+/// (set to bend everything below) the whole stack so far.
 pub fn stack(layers: &[Layer], width: usize, blocks_per_pixel: f32, up_to: Option<u32>) -> Made {
     let cells = width * width;
     let mut values = vec![0.0; cells];
     let mut covered = vec![false; cells];
     let last = up_to.and_then(|id| layers.iter().position(|layer| layer.id == id)).unwrap_or(usize::MAX);
-    for layer in layers.iter().take(last.saturating_add(1)).filter(|layer| layer.visible) {
+    // Each shown layer with a result at this size (others are still being made).
+    let ready = |layer: &&Layer| layer.visible && layer.result.as_ref().is_some_and(|r| r.made.shaped.values.len() == cells);
+    let shown: Vec<&Layer> = layers.iter().take(last.saturating_add(1)).filter(ready).collect();
+    for (n, layer) in shown.iter().enumerate() {
         let Some(result) = &layer.result else { continue };
-        let this = &result.made.shaped.values;
-        if this.len() != cells {
-            continue; // still being remade at a new size
+        if let LayerKind::Warp { warp, .. } = &layer.kind {
+            if warp.everything_below {
+                (values, covered) = super::warp::bend(&values, &covered, &result.made.shaped.values, width, blocks_per_pixel, warp, layer.opacity);
+            }
+            continue;
+        }
+        let mut this = result.made.shaped.values.clone();
+        let mut this_covers: Vec<bool> = (0..cells).map(|i| result.made.covers(i)).collect();
+        // Bent first by a warp just above it, set to bend only this layer.
+        if let Some(above) = shown.get(n + 1)
+            && let (LayerKind::Warp { warp, .. }, Some(bender)) = (&above.kind, &above.result)
+            && !warp.everything_below
+        {
+            (this, this_covers) = super::warp::bend(&this, &this_covers, &bender.made.shaped.values, width, blocks_per_pixel, warp, above.opacity);
         }
         for i in 0..cells {
-            if !result.made.covers(i) {
+            if !this_covers[i] {
                 continue;
             }
             // Where nothing is below, the layer's own value is used as it is.

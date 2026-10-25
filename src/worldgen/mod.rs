@@ -24,6 +24,7 @@
 //! - `made.rs`    what every kind of layer makes, and the output shaping they share
 //! - `noise.rs`   Perlin noise and its settings
 //! - `worley.rs`  Worley (cellular, Voronoi) noise and its settings
+//! - `warp.rs`    warp layers: a filter that bends the layer below it (domain warping)
 //! - `image.rs`   image layers: PNG pictures laid onto the field
 //! - `layers.rs`  the layer stack
 //! - `blend.rs`   how a layer mixes with the ones below it
@@ -64,6 +65,7 @@ mod runner;
 mod tectonics;
 mod view;
 mod world;
+mod warp;
 mod worley;
 
 use crate::debug::DebugAppExt;
@@ -217,6 +219,14 @@ impl Suite {
     pub fn add_worley(&mut self) {
         let seed = crate::fate::derive_seed(fresh_number(), "worley layer");
         self.add_layer(LayerKind::Worley { seed, settings: worley::WorleySettings::default() });
+    }
+
+    /// A warp, bending the layer below it. Its own noise starts big and soft (few octaves): fine
+    /// detail in a warp just jitters what's below.
+    pub fn add_warp(&mut self) {
+        let seed = crate::fate::derive_seed(fresh_number(), "warp layer");
+        let settings = noise::PerlinSettings { scale: 20_000.0, octaves: 3, ..noise::PerlinSettings::default() };
+        self.add_layer(LayerKind::Warp { seed, settings, warp: warp::WarpSettings::default() });
     }
 
     /// Loads a PNG as a new image layer, shown at one picture pixel per field pixel, in the middle.
