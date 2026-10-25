@@ -20,12 +20,6 @@
 //! **Irregular stiffness.** A noise map sets how stiff and how strong the rock is from place to
 //! place. Soft patches give way deep inside a plate, not just at its edges.
 //!
-//! **No favourite fold** (both can be switched off, to compare). An even grid of even rock crushes
-//! into the same bump over and over, at the grid's spacing and lined up with its rows, which drew
-//! as robotic, repeating ridges and coasts. *Shake the grid* nudges every point off its spot and
-//! splits each square along its shorter diagonal (then a random one); *uneven rock* layers the soft
-//! and stiff patches at three sizes and gives every spring its own breaking point.
-//!
 //! **Height comes from the squeeze.** The grid's small triangles each keep their amount of rock.
 //! Squeeze one to half its area and the rock there is twice as thick: **brighter**. Stretch it and
 //! it thins: **darker**. Nobody places mountains; they're where rock was crowded together.
@@ -44,7 +38,6 @@
 //! give the same result, however fast it's played.
 
 use super::noise::{Fade, perlin};
-use crate::fate::planet_hash;
 use super::plates::Plates;
 use super::tectonics::Motion;
 use serde::{Deserialize, Serialize};
@@ -60,18 +53,6 @@ pub struct RagSettings {
     pub patchiness: f32,
     /// How big the soft and stiff patches are, in blocks.
     pub patch_size: f32,
-    /// Shake the grid: nudge each point a random way off its spot (up to `shake` × the grain, at
-    /// most 0.3: past about 0.35 some squares would turn inside out), and split each grid square
-    /// along its shorter diagonal, which is then a random one. A perfectly regular grid crushes into the
-    /// same bump over and over, at its own spacing and lined up with its own rows; a shaken one has
-    /// no favourite spacing or direction to fold at.
-    pub shake_grid: bool,
-    pub shake: f32,
-    /// Uneven rock: stiffness varies at three sizes (patch size, a third of it, a ninth), not just
-    /// one; and each spring gives way and cracks at its own point (up to ± `unevenness` of the
-    /// usual), so a crush front doesn't give way all along its length at once.
-    pub uneven_rock: bool,
-    pub unevenness: f32,
 
     // How they behave (can change while it runs).
     /// How firmly each spring pulls back, each pass (0 to 1).
@@ -113,11 +94,6 @@ impl Default for RagSettings {
             grain: 750.0,
             patchiness: 0.6,
             patch_size: 8_000.0,
-            // Off by default, so presets saved before these existed come out as they did.
-            shake_grid: false,
-            shake: 0.25,
-            uneven_rock: false,
-            unevenness: 0.4,
             stiffness: 0.3,
             passes: 3,
             give_way: 0.02,
@@ -137,16 +113,8 @@ impl Default for RagSettings {
 
 impl RagSettings {
     /// The settings the rags are made with: when these change, the run starts again.
-    pub fn making(&self) -> [u32; 7] {
-        [
-            self.grain.to_bits(),
-            self.patchiness.to_bits(),
-            self.patch_size.to_bits(),
-            self.shake_grid as u32,
-            self.shake.to_bits(),
-            self.uneven_rock as u32,
-            self.unevenness.to_bits(),
-        ]
+    pub fn making(&self) -> [u32; 3] {
+        [self.grain.to_bits(), self.patchiness.to_bits(), self.patch_size.to_bits()]
     }
 }
 
@@ -220,8 +188,6 @@ struct Spring {
     made: f32,
     /// How stiff and strong the rock is here (1 = ordinary).
     strength: f32,
-    /// How far past the usual this spring gives way and cracks (1 = the usual; see `uneven_rock`).
-    toughness: f32,
     broken: bool,
 }
 
@@ -242,9 +208,6 @@ pub struct Sim {
     blocks_per_pixel: f32,
     /// Field pixels between grid points.
     grain: f32,
-    /// How close points of different plates come before they touch (and push apart): the grain,
-    /// less twice the shake (shaken, neighbouring plates' edge points can start that close).
-    contact: f32,
     /// Each point: where it is, how fast it's moving (pixels per step), and whose it is.
     at: Vec<(f32, f32)>,
     velocity: Vec<(f32, f32)>,
@@ -279,24 +242,16 @@ impl Sim {
 
         // Which grid spots each plate needs: the four corners of the grid square around each of
         // its pixels, so every pixel of it sits inside its grid. (Sorted, so the same seed always
-        // gives the same run.) Spot (i, j) is at ((i + ½) × grain, (j + ½) × grain), or near it
-        // when the grid is shaken; then a pixel can end up in a neighbouring square's triangles, so
-        // one more ring of spots is needed all round.
-        let shake = if settings.shake_grid { settings.shake.clamp(0.0, 0.3) * grain } else { 0.0 };
-        let reach = if shake > 0.0 { -1..=2 } else { 0..=1 };
+        // gives the same run.) Spot (i, j) is at ((i + ½) × grain, (j + ½) × grain).
         let mut needed: BTreeSet<(u8, i64, i64)> = BTreeSet::new();
         for (index, here) in plates.plate.iter().enumerate() {
             let Some(p) = *here else { continue };
             let (x, y) = ((index % width) as f32 + 0.5, (index / width) as f32 + 0.5);
             let (i, j) = ((x / grain - 0.5).floor() as i64, (y / grain - 0.5).floor() as i64);
-            for di in reach.clone() {
-                for dj in reach.clone() {
-                    needed.insert((p, i + di, j + dj));
-                }
+            for (di, dj) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                needed.insert((p, i + di, j + dj));
             }
         }
-        // A random number from 0 to 1 for a grid spot (the same for every plate there).
-        let dice = |salt: u64, i: i64, j: i64| (planet_hash(seed, salt, i, j, 0) >> 40) as f32 / (1u64 << 24) as f32;
 
         // The points.
         let (mut at, mut velocity, mut plate, mut land, mut real, mut strength) = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
@@ -304,12 +259,7 @@ impl Sim {
         let patch = (settings.patch_size / blocks_per_pixel).max(1.0);
         for &(p, i, j) in &needed {
             let Some(motion) = motions.get(p as usize) else { continue };
-            let mut spot = ((i as f32 + 0.5) * grain, (j as f32 + 0.5) * grain);
-            if shake > 0.0 {
-                // Anywhere in a circle around its spot (square root: spread evenly over it).
-                let (angle, distance) = (dice(0x5a4e_0001, i, j) * std::f32::consts::TAU, dice(0x5a4e_0002, i, j).sqrt() * shake);
-                spot = (spot.0 + angle.cos() * distance, spot.1 + angle.sin() * distance);
-            }
+            let spot = ((i as f32 + 0.5) * grain, (j as f32 + 0.5) * grain);
             let (col, row) = (spot.0.floor() as i64, spot.1.floor() as i64);
             let on_it = col >= 0 && row >= 0 && (col as usize) < width && (row as usize) < width && plates.plate[row as usize * width + col as usize] == Some(p);
             let v = motion.at(plates.kept[p as usize].middle, spot, blocks_per_pixel);
@@ -319,14 +269,7 @@ impl Sim {
             plate.push(p);
             land.push(plates.kept[p as usize].land);
             real.push(on_it);
-            let mut noise = perlin(seed, 0x5715_f0e5, Fade::Smooth, spot.0 / patch, spot.1 / patch) * 1.4;
-            if settings.uneven_rock {
-                // Smaller patches inside the big ones: a third and a ninth the size, each half as
-                // strong as the one before.
-                let third = perlin(seed, 0x5715_f0e6, Fade::Smooth, spot.0 * 3.0 / patch, spot.1 * 3.0 / patch) * 1.4;
-                let ninth = perlin(seed, 0x5715_f0e7, Fade::Smooth, spot.0 * 9.0 / patch, spot.1 * 9.0 / patch) * 1.4;
-                noise = (noise + third * 0.5 + ninth * 0.25) / 1.75 * 1.3;
-            }
+            let noise = perlin(seed, 0x5715_f0e5, Fade::Smooth, spot.0 / patch, spot.1 / patch) * 1.4;
             strength.push((1.0 + settings.patchiness * noise).clamp(0.1, 2.0));
         }
 
@@ -338,31 +281,19 @@ impl Sim {
             for (di, dj) in [(1, 0), (0, 1), (1, 1), (-1, 1)] {
                 let Some(&b) = point_at.get(&(p, i + di, j + dj)) else { continue };
                 let length = (at[b].0 - at[a].0).hypot(at[b].1 - at[a].1);
-                let toughness = if settings.uneven_rock {
-                    let roll = planet_hash(seed, 0x7006_4e55, a.min(b) as i64, a.max(b) as i64, 0) >> 40;
-                    (1.0 + settings.unevenness * (roll as f32 / (1u64 << 24) as f32 * 2.0 - 1.0)).max(0.1)
-                } else {
-                    1.0
-                };
                 spring_between.insert((a.min(b), a.max(b)), springs.len());
-                springs.push(Spring { a, b, rest: length, made: length, strength: (strength[a] + strength[b]) / 2.0, toughness, broken: false });
+                springs.push(Spring { a, b, rest: length, made: length, strength: (strength[a] + strength[b]) / 2.0, broken: false });
             }
         }
 
-        // The triangles: each grid square makes two (or one, if a corner is missing), split along
-        // the same diagonal every time, or a random one when the grid is shaken.
+        // The triangles: each grid square makes two (or one, if a corner is missing).
         let mut triangles = Vec::new();
         let side = |a: usize, b: usize| spring_between.get(&(a.min(b), a.max(b))).copied();
         for &(p, i, j) in &needed {
             {
                 let corner = |di: i64, dj: i64| point_at.get(&(p, i + di, j + dj)).copied();
                 let (c00, c10, c01, c11) = (corner(0, 0), corner(1, 0), corner(0, 1), corner(1, 1));
-                // Along the shorter diagonal: the healthier pair of triangles. (On an even grid both are
-                // the same length and it takes the usual one; on a shaken grid it varies at random.)
-                let length = |a: Option<usize>, b: Option<usize>| match (a, b) { (Some(a), Some(b)) => (at[b].0 - at[a].0).hypot(at[b].1 - at[a].1), _ => f32::MAX };
-                let other_diagonal = length(c10, c01) < length(c00, c11) * 0.999;
                 let threes: Vec<[usize; 3]> = match (c00, c10, c01, c11) {
-                    (Some(a), Some(b), Some(c), Some(d)) if other_diagonal => vec![[a, b, c], [b, d, c]],
                     (Some(a), Some(b), Some(c), Some(d)) => vec![[a, b, d], [a, d, c]],
                     (None, Some(b), Some(c), Some(d)) => vec![[b, d, c]],
                     (Some(a), None, Some(c), Some(d)) => vec![[a, d, c]],
@@ -383,7 +314,6 @@ impl Sim {
             width,
             blocks_per_pixel,
             grain,
-            contact: grain - 2.0 * shake,
             home: at.clone(),
             at,
             velocity,
@@ -503,11 +433,11 @@ impl Sim {
                 let (a, b) = (self.at[i], self.at[j]);
                 let (dx, dy) = (a.0 - b.0, a.1 - b.1);
                 let length = dx.hypot(dy).max(1e-6);
-                if length >= self.contact {
+                if length >= self.grain {
                     continue;
                 }
                 let (wi, wj) = (lightness[i], lightness[j]);
-                let apart = push * (self.contact - length) / length / (wi + wj);
+                let apart = push * (self.grain - length) / length / (wi + wj);
                 self.at[i] = (a.0 + dx * apart * wi, a.1 + dy * apart * wi);
                 self.at[j] = (b.0 - dx * apart * wj, b.1 - dy * apart * wj);
             }
@@ -521,7 +451,7 @@ impl Sim {
             let (a, b) = (self.at[i], self.at[j]);
             let (dx, dy) = (a.0 - b.0, a.1 - b.1);
             let length = dx.hypot(dy).max(1e-6);
-            if length > self.contact * 1.05 {
+            if length > self.grain * 1.05 {
                 continue;
             }
             let n = (dx / length, dy / length);
@@ -541,8 +471,8 @@ impl Sim {
             for &(i, j) in &pairs {
                 let (a, b) = (self.at[i], self.at[j]);
                 let length = (a.0 - b.0).hypot(a.1 - b.1);
-                if length <= self.contact * 1.02 && self.welded.insert((i, j)) {
-                    self.springs.push(Spring { a: i, b: j, rest: self.contact, made: self.contact, strength: settings.stickiness, toughness: 1.0, broken: false });
+                if length <= self.grain * 1.02 && self.welded.insert((i, j)) {
+                    self.springs.push(Spring { a: i, b: j, rest: self.grain, made: self.grain, strength: settings.stickiness, broken: false });
                 }
             }
         }
@@ -564,12 +494,12 @@ impl Sim {
             // only so far in all before it snaps. (Springs to outline points never snap, so the
             // outline can't break loose and drift off.)
             let between_real = real[spring.a] && real[spring.b];
-            if between_real && length / spring.made - 1.0 > settings.crack * spring.strength * spring.toughness {
+            if between_real && length / spring.made - 1.0 > settings.crack * spring.strength {
                 spring.broken = true;
                 continue;
             }
             let strain = length / spring.rest - 1.0;
-            let give = settings.give_way * spring.strength * spring.toughness;
+            let give = settings.give_way * spring.strength;
             if strain.abs() > give {
                 // Creep toward the length that would be exactly at give-way.
                 let settled_at = length / (1.0 + give * strain.signum());
@@ -996,38 +926,6 @@ mod tests {
         let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX, 0.0, 0.0).iter().map(|here| here.map(|spot| spot.plate)).collect();
         let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
         assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
-    }
-
-    #[test]
-    fn a_shaken_grid_keeps_the_true_outlines_too() {
-        let made = plates::make(&PlateSettings::default(), 5, 72_000.0, 64.0, &AtomicBool::new(false)).unwrap();
-        let still = vec![Motion { velocity: (0.0, 0.0), spin: 0.0 }; made.kept.len()];
-        let settings = RagSettings { grain: 1_500.0, bowl: 0.0, shake_grid: true, shake: 0.3, uneven_rock: true, ..RagSettings::default() };
-        let mut sim = Sim::new(&made, &still, &settings, 1);
-        // Really shaken: points are off their even spots.
-        let grain = 1_500.0 / 64.0;
-        let off = sim.home.iter().filter(|p| ((p.0 / grain - 0.5) - (p.0 / grain - 0.5).round()).abs() > 0.05).count();
-        assert!(off > sim.home.len() / 2, "only {off} of {} points moved", sim.home.len());
-        sim.step(&settings);
-        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX, 0.0, 0.0).iter().map(|here| here.map(|spot| spot.plate)).collect();
-        let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
-        assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
-    }
-
-    #[test]
-    fn shaken_uneven_rock_still_never_folds_over_itself() {
-        let (plates, motions, settings) = head_on(100.0);
-        let settings = RagSettings { stiffness: 0.05, passes: 2, push: 0.1, shake_grid: true, uneven_rock: true, patchiness: 0.6, ..settings };
-        let mut sim = Sim::new(&plates, &motions, &settings, 1);
-        for _ in 0..60 {
-            sim.step(&settings);
-        }
-        for triangle in &sim.triangles {
-            let [a, b, c] = triangle.corners;
-            let now = signed_area(sim.at[a], sim.at[b], sim.at[c]) * triangle.area.signum();
-            assert!(now > 0.0, "a triangle folded over");
-        }
-        assert!(sim.paint(0, f32::MAX, 0.0, 0.0).iter().flatten().any(|spot| spot.squeeze > 0.5));
     }
 
     #[test]

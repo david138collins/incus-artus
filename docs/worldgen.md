@@ -221,15 +221,16 @@ a separate later system.)
   is filled from the nearest rock. Bakes made before this still have their gaps: bake again. For now worlds are baked one at a time to experiment on; **eventually**
   [David] the Tectonic Sim runs a world preset and hands its maps straight to the World Compiler, and
   concludes itself.
-- **Shake the grid / uneven rock [BUILT 2026-10-24, to A/B]** [David: "over and over, I see extremely
-  regular borders of mountains and coastlines... a solid series of the same bump"]. Cause: each plate is
-  a perfectly even grid of even rock, and an even sheet buckles at one wavelength (its grid spacing),
-  lined up with its rows; the outlines are carried by the same grid. Fixed at the source, so everything
-  downstream gains: *shake the grid* (points nudged up to 0.3 grain, squares split along the shorter
-  diagonal; contact distance shrinks to match, so plates start at rest) and *uneven rock* (patches at
-  three sizes, each spring its own breaking point). Both off by default so old presets are unchanged.
-  **David's verdict:** "they seem to do little or nothing", so the even grid wasn't the main cause.
-  The repeating bumps need finding at the root before more fixes (see the rethink below).
+- **The repeating coastal mounds: found and fixed at the root** [David: "over and over, I see extremely
+  regular borders of mountains and coastlines... a solid series of the same bump"]. First guess (an even
+  grid of even rock buckling at one spacing) was wrong: a grid shaker and uneven rock were built, did
+  "little or nothing" [David], and were removed. Found by elimination on David's own world: the bake and
+  the compiled map (32 blocks a pixel) are smooth; the mounds are one per compiler pixel. The compiler
+  applied its sharp curves (a coast that drops ~90 blocks within a pixel, steep mountain curves) to each
+  pixel, and the interpreter then curved between pixels (Catmull-Rom), swinging past every step: one hump
+  per pixel along a coastline that is itself a pixel staircase (a plate outline on a grid). Fix (see "The
+  interpreter" below): blend smooth inputs first and apply the curves at every block, with the coastline
+  softened slightly so the staircase becomes a curve.
 - **The crust has no holes [BUILT 2026-10-24]** [David: deep-ocean "bubbles" drifting round collision
   zones]. Measured on midstart over 6 seeds: 77–118 enclosed pockets of nothing per world, the same
   with tearing off, so not rifts: each point keeps other plates' points at arm's length, and where
