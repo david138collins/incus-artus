@@ -299,6 +299,10 @@ fn generate_compiled_world(world: &mut World, map: &CompiledMap, spawn: IVec2) {
     let chunks = terrain::generate_around(&mut voxel, map, &blocks, centre, COMPILED_RADIUS_CHUNKS);
     let millis = started.elapsed().as_secs_f64() * 1000.0;
     info!("Generated compiled world: {chunks} chunks in {millis:.1} ms");
+    // Streaming starts over too, even for the same map (spawning again somewhere else).
+    if let Some(mut streaming) = world.get_resource_mut::<Streaming>() {
+        *streaming = Streaming::default();
+    }
     if let Some(mut debug) = world.get_resource_mut::<WorldDebugState>() {
         debug.last_generation_ms = millis;
     }

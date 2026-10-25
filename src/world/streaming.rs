@@ -96,6 +96,19 @@ impl Streaming {
         world.chunk(pos).is_some() || self.empty.contains(&pos)
     }
 
+    /// Starting over for a new world. Chunks already in (the first ones round the spawn, made before
+    /// streaming starts) are drawn now if their neighbours are in too, or as their neighbours
+    /// arrive, like any other. (Found 2026-10-25: the middle ones used to be on screen but never
+    /// counted as drawn, so the distant terrain showed through them round the spawn.)
+    fn start_over(map: Arc<CompiledMap>, world: &mut VoxelWorld) -> Self {
+        let mut streaming = Self { map: Some(map), ..Self::default() };
+        let already: Vec<ChunkPos> = world.chunk_positions().collect();
+        for pos in already {
+            streaming.draw_if_ready(world, pos);
+        }
+        streaming
+    }
+
     /// Hands a loaded chunk to the renderer if all four of its neighbours are in.
     fn draw_if_ready(&mut self, world: &mut VoxelWorld, pos: ChunkPos) {
         if self.drawn.contains(&pos) || world.chunk(pos).is_none() {
@@ -161,7 +174,7 @@ pub fn stream_chunks(
     // A new world: start over (chunks already in, such as the first ones around the middle, are
     // drawn as their neighbours arrive).
     if streaming.map.as_ref().is_none_or(|old| !Arc::ptr_eq(old, map)) {
-        *streaming = Streaming { map: Some(map.clone()), ..Streaming::default() };
+        *streaming = Streaming::start_over(map.clone(), &mut world);
     }
     let Some((position, facing)) = focus(&camera) else { return };
     let centre = ChunkPos::of_block(position.floor().as_ivec3());
@@ -279,5 +292,23 @@ mod tests {
         // And only once.
         streaming.draw_if_ready(&mut world, ChunkPos::new(0, 0));
         assert!(world.take_dirty().is_empty());
+    }
+
+    #[test]
+    fn chunks_made_before_streaming_starts_count_as_drawn_once_their_neighbours_are_in() {
+        // The first chunks round the spawn: a 3 × 3 block of them.
+        let mut world = VoxelWorld::default();
+        let empty = |pos| Chunk::from_sections(pos, (0..crate::world::SECTIONS_PER_CHUNK).map(|_| crate::world::Section::Uniform(crate::world::BlockId::AIR)).collect());
+        for x in -1..=1 {
+            for y in -1..=1 {
+                world.insert_chunk_quiet(empty(ChunkPos::new(x, y)));
+            }
+        }
+        let map = Arc::new(CompiledMap::of_heights(4, 32.0, &[130.0; 16]));
+        let streaming = Streaming::start_over(map, &mut world);
+        // The middle one has all four neighbours in; the ones round the edge wait for theirs.
+        assert!(streaming.drawn().contains(&ChunkPos::new(0, 0)));
+        assert!(!streaming.drawn().contains(&ChunkPos::new(1, 0)));
+        assert_eq!(streaming.drawn().len(), 1);
     }
 }
