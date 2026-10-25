@@ -1,34 +1,32 @@
-//! World Compiler — turns a baked world (the Tectonic Sim's product) into the ground's height in
-//! blocks, everywhere.
+//! World Compiler — turns a baked world (the Tectonic Sim's product) into smooth maps the
+//! Interpreter makes the ground from.
 //!
 //! The world is Z 0 (bedrock) to Z 399. **Sea level is Z 128**, and **the tallest mountains reach
 //! Z 333** [David]. Ground at Z 128 or above is dry land; below it is sea floor.
 //!
-//! **How a bake's heights become blocks** (one Z per pixel, 32 blocks a pixel):
+//! **The compiler does the jobs that need the whole map at once:**
 //! 1. **Sea level**: one of the bake's heights is chosen as sea level (the `water` slider; the land
-//!    share shows). The **land spline** says how land climbs from the coast (Z 128) to the
-//!    **highlands**, and the **sea spline** how the sea floor falls from the coast to the
-//!    **deepest**. Splines are curves through dots you place.
-//! 2. **Grade** [David]: each plate's tilt (saved in the bake) scales the land's height above the sea
-//!    and the sea's depth below it: on a plate's high side both are steeper (steep coasts, deep water
-//!    close in), on its low side gentler (wide plains, shallow shelves).
-//! 3. **Mountains** from the squeeze map: the **mountain spline** says how tall mountains are for
-//!    each amount of squeeze, from none to the most crushed rock in the bake, as a share of the room
-//!    up to Z 333 (so nothing goes past it). A belt's most crushed line is its peak. They're carved
-//!    (by `ridges`) into ridges lined up **across the squeeze direction**; where the direction is
-//!    unclear the ridges wander every way. **Passes** [David]: the crest height rises and dips along
-//!    each ridge. **Foothills**: each range spreads a skirt of lower slopes around it, so it rises
-//!    from the plains instead of jumping up.
-//! 4. **Rifts**: stretched rock sinks, the most stretched rock in the bake sinking `rift_depth`.
-//! 5. **Hills**: gentle rolling bumps on land, for now. (Block-level detail comes later, when chunks
-//!    are made.)
+//!    share shows).
+//! 2. **Soften the coastline**: the bake's coast is a plate's outline on a grid of pixels (a
+//!    staircase); softened a little, it's a smooth curve between pixels. The heights and tilt near
+//!    it are softened as much.
+//! 3. **Foothills**: each range spreads a skirt of lower slopes around it (the mountains blurred),
+//!    so it rises from the plains instead of jumping up.
+//!
+//! **The recipe** for the ground (land and sea curves, grading, mountains, ridges, passes, rifts,
+//! hills, detail) is the Interpreter's (`crate::world::interpreter`), worked out at every block as
+//! the world is made. Here it's worked out at each pixel's centre, to show the world in relief, and
+//! for the foothills. [Moved 2026-10-24: worked out per pixel and then smoothed between pixels, its
+//! sharp curves made a row of humps along every coast and cliff.]
 //!
 //! Everything is worked out on all the computer's cores, in the background.
 
 use super::bake::{self, Info};
-use super::noise::{Fade, perlin};
+pub use crate::world::Spline;
+use crate::world::{CompiledMap, InterpreterSettings, Maps};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// The world's water surface: ground at this Z or above is dry land.
@@ -126,166 +124,38 @@ pub fn load(folder: &Path) -> Result<Bake, String> {
     .measured())
 }
 
-/// A curve through dots, from 0 to 1 across. The first dot is always at the left edge and the last
-/// at the right; the line flows smoothly through all of them, without overshooting (a flat stretch
-/// stays flat, and it never bulges past a dot).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Spline {
-    /// (across, up), left to right.
-    pub dots: Vec<(f32, f32)>,
-}
-
-impl Default for Spline {
-    fn default() -> Self {
-        Self { dots: vec![(0.0, 0.0), (1.0, 1.0)] }
-    }
-}
-
-impl Spline {
-    pub fn through(dots: &[(f32, f32)]) -> Self {
-        Self { dots: dots.to_vec() }
-    }
-
-    /// The curve's height at `x` (0 to 1 across).
-    pub fn at(&self, x: f32) -> f32 {
-        let dots = &self.dots;
-        match dots.len() {
-            0 => return 0.0,
-            1 => return dots[0].1,
-            _ => {}
-        }
-        let x = x.clamp(dots[0].0, dots[dots.len() - 1].0);
-        let k = dots.windows(2).position(|pair| x <= pair[1].0).unwrap_or(dots.len() - 2);
-        let slopes = self.slopes();
-        let ((x0, y0), (x1, y1)) = (dots[k], dots[k + 1]);
-        let h = (x1 - x0).max(1e-6);
-        let t = (x - x0) / h;
-        // Hermite: the two dots and the curve's steepness at each.
-        let (t2, t3) = (t * t, t * t * t);
-        (2.0 * t3 - 3.0 * t2 + 1.0) * y0 + (t3 - 2.0 * t2 + t) * h * slopes[k] + (-2.0 * t3 + 3.0 * t2) * y1 + (t3 - t2) * h * slopes[k + 1]
-    }
-
-    /// How steep the curve is at each dot: the average of the slopes either side, flattened where
-    /// the line turns (so it never overshoots), and kept gentle enough not to bulge (Fritsch and
-    /// Carlson's rule).
-    fn slopes(&self) -> Vec<f32> {
-        let dots = &self.dots;
-        let n = dots.len();
-        let between: Vec<f32> = dots.windows(2).map(|p| (p[1].1 - p[0].1) / (p[1].0 - p[0].0).max(1e-6)).collect();
-        let mut slopes = vec![0.0; n];
-        slopes[0] = between[0];
-        slopes[n - 1] = between[n - 2];
-        for k in 1..n - 1 {
-            slopes[k] = if between[k - 1] * between[k] <= 0.0 { 0.0 } else { (between[k - 1] + between[k]) / 2.0 };
-        }
-        for k in 0..n - 1 {
-            if between[k].abs() < 1e-9 {
-                (slopes[k], slopes[k + 1]) = (0.0, 0.0);
-                continue;
-            }
-            let (a, b) = (slopes[k] / between[k], slopes[k + 1] / between[k]);
-            let size = a * a + b * b;
-            if size > 9.0 {
-                let shrink = 3.0 / size.sqrt();
-                (slopes[k], slopes[k + 1]) = (shrink * a * between[k], shrink * b * between[k]);
-            }
-        }
-        slopes
-    }
-}
-
+/// How the bake becomes the compiler's maps. The recipe for the ground (the curves, mountains,
+/// ridges, hills, detail) is the Interpreter's, kept in here too so one preset holds both panels;
+/// in the preset file its settings sit alongside these, as before.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CompileSettings {
     /// Which of the bake's heights is sea level.
     pub water: f32,
-    /// The Z of the deepest sea floor, and of the highest land (before mountains).
-    pub deepest: f32,
-    pub highlands: f32,
-    /// How land climbs from the coast (left) to the bake's highest ground (right): up = a share of
-    /// the way from Z 128 to the highlands.
-    pub land: Spline,
-    /// How the sea floor falls from the coast (left) to the bake's deepest point (right): up = a
-    /// share of the way from just below Z 128 down to the deepest.
-    pub sea: Spline,
-    /// How strongly each plate's tilt grades it: steeper coasts on its high side, gentler on its low
-    /// side (0 = no grading).
-    pub grade: f32,
-    /// How tall mountains are for each amount of squeeze, from none (left) to the most crushed rock
-    /// in the bake (right): up = a share of the room up to Z 333.
-    pub mountains: Spline,
-    /// How much the ridge pattern carves into the mountains: 0 = smooth domes, 1 = all ridges.
-    pub ridges: f32,
-    /// How far apart ridges are (across them), and how long they run (along them), in blocks.
-    pub ridge_spacing: f32,
-    pub ridge_length: f32,
-    /// Higher = narrower, sharper ridge crests.
-    pub sharpness: f32,
-    /// How deeply the crest height dips into passes along each ridge (0 = even crests), and how far
-    /// apart the dips are, in blocks.
-    pub passes: f32,
-    pub pass_spacing: f32,
+    /// How much the coastline (and the heights and tilt near it) is softened, in blocks: the bake's
+    /// coast is a plate's outline on a grid of pixels, a staircase, and softening it this much
+    /// makes it a smooth curve (0 = none: the staircase shows).
+    pub soften: f32,
     /// How far a range's skirt of lower slopes spreads around it, in blocks (0 = none).
     pub foothills: f32,
-    /// How deep the most stretched rock sinks, in blocks.
-    pub rift_depth: f32,
-    /// Rolling hills on land: how high (blocks either way) and how big (blocks).
-    pub hills: f32,
-    pub hill_size: f32,
-    /// How the compiled map becomes blocks when a world is rendered (copied into the world).
-    pub interpreter: crate::world::InterpreterSettings,
+    #[serde(flatten)]
+    pub interpreter: InterpreterSettings,
 }
 
 impl Default for CompileSettings {
     fn default() -> Self {
-        Self {
-            water: 0.0,
-            deepest: 30.0,
-            highlands: 200.0,
-            land: Spline::through(&[(0.0, 0.0), (0.4, 0.2), (0.75, 0.6), (1.0, 1.0)]),
-            sea: Spline::through(&[(0.0, 0.0), (0.4, 0.25), (1.0, 1.0)]),
-            grade: 0.4,
-            mountains: Spline::through(&[(0.0, 0.0), (0.08, 0.0), (0.5, 0.35), (1.0, 0.9)]),
-            ridges: 0.5,
-            ridge_spacing: 3_000.0,
-            ridge_length: 15_000.0,
-            sharpness: 1.2,
-            passes: 0.4,
-            pass_spacing: 12_000.0,
-            foothills: 2_500.0,
-            rift_depth: 30.0,
-            hills: 6.0,
-            hill_size: 1_500.0,
-            interpreter: crate::world::InterpreterSettings::default(),
-        }
+        Self { water: 0.0, soften: 64.0, foothills: 2_500.0, interpreter: InterpreterSettings::default() }
     }
 }
 
-/// A compiled world: the ground's Z at every pixel.
+/// A compiled world: the maps and the recipe (what a world is made from), and the ground's Z at
+/// each pixel's centre (what the compiler shows).
 pub struct Compiled {
     pub width: usize,
     pub z: Vec<u16>,
     /// How much of the world's circle is dry land.
     pub land_share: f32,
-}
-
-fn smooth(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
-
-/// A ridge pattern, 0 to 1 (1 = a crest): stacked "folded" noise, whose creases are the crests.
-fn ridges(seed: u64, u: f32, v: f32, sharpness: f32) -> f32 {
-    let (mut total, mut strength, mut strengths, mut scale) = (0.0, 1.0, 0.0, 1.0);
-    for octave in 0..3 {
-        let crest = 1.0 - perlin(seed, 0xa11 + octave, Fade::Smooth, u * scale, v * scale).abs().min(1.0);
-        total += crest.powf(sharpness.max(0.1)) * strength;
-        strengths += strength;
-        strength *= 0.45;
-        scale *= 2.1;
-    }
-    total / strengths
+    pub map: Arc<CompiledMap>,
 }
 
 /// The bake's seed, as a number.
@@ -293,60 +163,10 @@ fn seed_of(info: &Info) -> u64 {
     u64::from_str_radix(&info.seed, 16).unwrap_or(0)
 }
 
-/// One pixel before foothills and hills: the ground from the splines and grading, the mountains to
-/// add on top, and how far a rift sinks it.
-struct Parts {
-    ground: f32,
-    mountains: f32,
-    rift: f32,
-}
-
-fn parts(bake: &Bake, settings: &CompileSettings, seed: u64, i: usize) -> Parts {
-    let blocks = bake.info.blocks_per_pixel;
-    let (x, y) = (((i % bake.width) as f32 + 0.5) * blocks, ((i / bake.width) as f32 + 0.5) * blocks);
-    let sea = SEA_LEVEL as f32;
-    let h = bake.height[i];
-
-    // 1 and 2. Sea level, the splines, and grading by the plate's tilt.
-    let steep = (1.0 + settings.grade * bake.tilt[i]).max(0.15);
-    let ground = if h >= settings.water {
-        let t = (h - settings.water) / (bake.info.height.white - settings.water).max(1e-6);
-        sea + (settings.highlands - sea).max(0.0) * settings.land.at(t).clamp(0.0, 1.0) * steep
-    } else {
-        let t = (settings.water - h) / (settings.water - bake.info.height.black).max(1e-6);
-        (sea - 1.0) - (sea - 1.0 - settings.deepest).max(0.0) * settings.sea.at(t).clamp(0.0, 1.0) * steep
-    };
-
-    // 3. Mountains.
-    let squeeze = bake.squeeze[i];
-    let mut mountains = 0.0;
-    let tall = settings.mountains.at(squeeze / bake.most_crushed.max(1e-6)).clamp(0.0, 1.0);
-    if squeeze > 0.0 && tall > 0.0 {
-        // The push's direction on the map (north is −y in the field's rows), and the ridges lined
-        // up across it, blended into wandering ridges where the direction is unclear.
-        let angle = bake.push_angle[i].to_radians();
-        let push = (angle.cos(), -angle.sin());
-        let across = x * push.0 + y * push.1;
-        let along = -x * push.1 + y * push.0;
-        let spacing = settings.ridge_spacing.max(1.0);
-        let lined_up = ridges(seed, across / spacing, along / settings.ridge_length.max(1.0), settings.sharpness);
-        let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, settings.sharpness);
-        let clear = smooth(bake.push_strength[i] / 0.1);
-        let crest = wandering + (lined_up - wandering) * clear;
-        let carved = 1.0 - settings.ridges.clamp(0.0, 1.0) * (1.0 - crest);
-        // Passes: the crest height rises and dips along the ridge.
-        let pass_size = settings.pass_spacing.max(1.0);
-        let along_ridge = perlin(seed, 0x9a55, Fade::Smooth, along / pass_size, across / (pass_size * 3.0));
-        let wandering_passes = perlin(seed, 0x9a56, Fade::Smooth, x / pass_size, y / pass_size);
-        let wave = wandering_passes + (along_ridge - wandering_passes) * clear;
-        let dipped = 1.0 - settings.passes.clamp(0.0, 1.0) * (0.5 - 0.5 * wave);
-        mountains = (HIGHEST as f32 - ground).max(0.0) * tall * carved * dipped;
-    }
-
-    // 4. Rifts.
-    let rift = if squeeze < 0.0 { settings.rift_depth * smooth(squeeze / bake.most_stretched.min(-1e-6)) } else { 0.0 };
-    Parts { ground, mountains, rift }
-}
+/// How far from sea level the coast map looks (in the bake's height units): heights further above
+/// or below count the same. So softening the coast is even on both sides, and the coastline stays
+/// where it was, only smoothed.
+const COAST_REACH: f32 = 0.03;
 
 /// Blurs a map with three passes of a box `reach` pixels wide each way (close to a soft, round
 /// blur), across and then down.
@@ -385,64 +205,84 @@ fn blur(values: &mut [f32], width: usize, reach: usize) {
     }
 }
 
-/// Compiles a bake. Returns `None` if `stop` was set part-way.
-pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Option<Compiled> {
-    let width = bake.width;
-    let seed = crate::fate::derive_seed(seed_of(&bake.info), "world compiler");
+/// `f` for every pixel, on all the computer's cores. `None` if `stop` was set part-way.
+fn every_pixel(width: usize, stop: &AtomicBool, f: impl Fn(usize) -> f32 + Sync) -> Option<Vec<f32>> {
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
     let rows_each = width.div_ceil(cores).max(1);
-
-    // Each pixel's parts, on all cores.
-    let mut ground = vec![0.0f32; width * width];
-    let mut mountains = vec![0.0f32; width * width];
-    let mut rift = vec![0.0f32; width * width];
+    let mut out = vec![0.0f32; width * width];
     std::thread::scope(|scope| {
-        let bands = ground.chunks_mut(rows_each * width).zip(mountains.chunks_mut(rows_each * width)).zip(rift.chunks_mut(rows_each * width));
-        for (band, ((ground, mountains), rift)) in bands.enumerate() {
+        for (band, part) in out.chunks_mut(rows_each * width).enumerate() {
+            let f = &f;
             scope.spawn(move || {
-                for k in 0..ground.len() {
+                for (k, value) in part.iter_mut().enumerate() {
                     if k % width == 0 && stop.load(Ordering::Relaxed) {
                         return;
                     }
-                    let here = parts(bake, settings, seed, band * rows_each * width + k);
-                    (ground[k], mountains[k], rift[k]) = (here.ground, here.mountains, here.rift);
+                    *value = f(band * rows_each * width + k);
                 }
             });
         }
     });
-    if stop.load(Ordering::Relaxed) {
-        return None;
-    }
+    (!stop.load(Ordering::Relaxed)).then_some(out)
+}
 
-    // Foothills: a soft skirt around each range, wherever it's higher than the range itself.
-    let reach = (settings.foothills / bake.info.blocks_per_pixel / 2.0).round() as usize;
-    if reach > 0 {
-        let mut skirt = mountains.clone();
-        blur(&mut skirt, width, reach);
-        for (mountain, skirt) in mountains.iter_mut().zip(skirt) {
-            *mountain = mountain.max(skirt);
-        }
-    }
-    if stop.load(Ordering::Relaxed) {
-        return None;
-    }
-
-    // Together, with hills on land.
-    let sea = SEA_LEVEL as f32;
-    let size = settings.hill_size.max(1.0);
+/// Compiles a bake: the whole-map jobs, then the ground at each pixel's centre to show. Returns
+/// `None` if `stop` was set part-way.
+pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Option<Compiled> {
+    let width = bake.width;
     let blocks = bake.info.blocks_per_pixel;
-    let z: Vec<u16> = (0..width * width)
-        .map(|i| {
-            let mut z = (ground[i] + mountains[i]).min(HIGHEST as f32) - rift[i];
-            if z >= sea {
-                let (x, y) = (((i % width) as f32 + 0.5) * blocks, ((i / width) as f32 + 0.5) * blocks);
-                let rolling = perlin(seed, 0x4111, Fade::Smooth, x / size, y / size) * 0.7 + perlin(seed, 0x4112, Fade::Smooth, x * 2.3 / size, y * 2.3 / size) * 0.3;
-                // Never drowns land.
-                z = (z + rolling * settings.hills).max(sea);
-            }
-            z.clamp(1.0, HIGHEST as f32).round() as u16
-        })
-        .collect();
+    let reach = |blocks_across: f32| (blocks_across / blocks / 2.0).round() as usize;
+
+    // 1. Sea level, and the coastline softened into a curve (with the heights and tilt beside it,
+    // so nothing near the coast keeps the staircase).
+    let soften = reach(settings.soften);
+    let mut coast: Vec<f32> = bake.height.iter().map(|&h| (h - settings.water).clamp(-COAST_REACH, COAST_REACH)).collect();
+    let mut height = bake.height.clone();
+    let mut tilt = bake.tilt.clone();
+    for map in [&mut coast, &mut height, &mut tilt] {
+        blur(map, width, soften);
+    }
+    // The squeeze's direction as a doubled-angle arrow, so it blends between pixels.
+    let (push_x, push_y): (Vec<f32>, Vec<f32>) = bake.push_angle.iter().map(|a| ((2.0 * a.to_radians()).cos(), (2.0 * a.to_radians()).sin())).unzip();
+    let maps = Maps {
+        width,
+        blocks_per_pixel: blocks,
+        coast,
+        height,
+        tilt,
+        squeeze: bake.squeeze.clone(),
+        push_x,
+        push_y,
+        push_strength: bake.push_strength.clone(),
+        skirt: vec![0.0; width * width],
+        water: settings.water,
+        lowest: bake.info.height.black,
+        highest: bake.info.height.white,
+        most_crushed: bake.most_crushed,
+        most_stretched: bake.most_stretched,
+    };
+    let seed = seed_of(&bake.info);
+    let mut map = CompiledMap::new(maps, seed, settings.interpreter.clone());
+    if stop.load(Ordering::Relaxed) {
+        return None;
+    }
+
+    // 2. Foothills: a soft skirt around each range (the mountains blurred), which mountains are
+    // never lower than.
+    let foothills = reach(settings.foothills);
+    if foothills > 0 {
+        let mut skirt = every_pixel(width, stop, |i| {
+            let (x, y) = map.pixel_spot(i);
+            map.parts(&map.pixel(i), x, y).mountains
+        })?;
+        blur(&mut skirt, width, foothills);
+        map.maps.skirt = skirt;
+    }
+
+    // 3. The ground at each pixel's centre, as the Interpreter makes it (less the block-sized
+    // detail), to show.
+    let z = every_pixel(width, stop, |i| map.at_pixel(i))?;
+    let z: Vec<u16> = z.into_iter().map(|z| z.round() as u16).collect();
 
     // Land share, inside the world's circle.
     let half = width as f32 / 2.0;
@@ -454,7 +294,7 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
             land += (z >= SEA_LEVEL) as usize;
         }
     }
-    Some(Compiled { width, z, land_share: land as f32 / inside.max(1) as f32 })
+    Some(Compiled { width, z, land_share: land as f32 / inside.max(1) as f32, map: Arc::new(map) })
 }
 
 /// Saves a compiled world into its bake's folder: `elevation.png` (16-bit grey, the grey is the
@@ -522,7 +362,28 @@ mod tests {
 
     /// No hills, foothills or passes: only what a test is looking at.
     fn plain() -> CompileSettings {
-        CompileSettings { hills: 0.0, foothills: 0.0, passes: 0.0, ..CompileSettings::default() }
+        CompileSettings { foothills: 0.0, interpreter: InterpreterSettings { hills: 0.0, passes: 0.0, ..InterpreterSettings::default() }, ..CompileSettings::default() }
+    }
+
+    #[test]
+    fn a_preset_holds_both_panels_in_one_flat_list_as_before() {
+        // Presets saved before the recipe moved to the Interpreter list everything side by side.
+        let text = "water = -0.003\nsoften = 96.0\nfoothills = 6900.0\nridges = 0.89\nhills = 14.0\nstone_from = 220\n\
+                    [land]\ndots = [[0.0, 0.0], [1.0, 0.98]]\n";
+        let settings: CompileSettings = toml::from_str(text).unwrap();
+        assert_eq!((settings.water, settings.soften, settings.foothills), (-0.003, 96.0, 6900.0));
+        assert_eq!((settings.interpreter.ridges, settings.interpreter.hills, settings.interpreter.stone_from), (0.89, 14.0, 220));
+        assert_eq!(settings.interpreter.land.dots, vec![(0.0, 0.0), (1.0, 0.98)]);
+        // And written back the same way: one flat list.
+        let written = toml::to_string_pretty(&settings).unwrap();
+        assert!(written.contains("ridges = 0.89") && !written.contains("[interpreter]"), "{written}");
+    }
+
+    /// `plain`, with the Interpreter's recipe changed by `change`.
+    fn recipe(change: impl FnOnce(&mut InterpreterSettings)) -> CompileSettings {
+        let mut settings = plain();
+        change(&mut settings.interpreter);
+        settings
     }
 
     #[test]
@@ -549,30 +410,8 @@ mod tests {
         assert!(at(31) > at(26) + 30.0, "band {} plain {}", at(31), at(26));
         // A flat-zero mountain spline: no band.
         let none = Spline::through(&[(0.0, 0.0), (1.0, 0.0)]);
-        let flat = compiled(&bake, &CompileSettings { mountains: none, ..plain() });
+        let flat = compiled(&bake, &recipe(|i| i.mountains = none));
         assert!((flat.z[32 * 64 + 31] as f32 - flat.z[32 * 64 + 30] as f32).abs() < 10.0);
-    }
-
-    #[test]
-    fn a_spline_passes_through_its_dots_without_overshooting() {
-        let spline = Spline::through(&[(0.0, 0.0), (0.3, 0.2), (0.6, 0.2), (1.0, 1.0)]);
-        for &(x, y) in &spline.dots {
-            assert!((spline.at(x) - y).abs() < 1e-5);
-        }
-        // Flat between two equal dots, and never below the lower or above the higher dot of a stretch.
-        for k in 0..=20 {
-            let x = 0.3 + 0.3 * k as f32 / 20.0;
-            assert!((spline.at(x) - 0.2).abs() < 1e-5, "{x}: {}", spline.at(x));
-        }
-        for k in 0..=100 {
-            let x = k as f32 / 100.0;
-            assert!((-1e-5..=1.0 + 1e-5).contains(&spline.at(x)));
-        }
-        // Smooth: no sudden jumps.
-        for k in 0..100 {
-            let (a, b) = (spline.at(k as f32 / 100.0), spline.at((k + 1) as f32 / 100.0));
-            assert!((a - b).abs() < 0.05);
-        }
     }
 
     #[test]
@@ -586,7 +425,7 @@ mod tests {
             }
         }
         let bake = bake.measured();
-        let world = compiled(&bake, &CompileSettings { ridges: 0.0, ..plain() });
+        let world = compiled(&bake, &recipe(|i| i.ridges = 0.0));
         let row: Vec<u16> = (0..64).map(|col| world.z[32 * 64 + col]).collect();
         let peak = (0..64).max_by_key(|&col| row[col]).unwrap();
         assert!((31..=33).contains(&peak), "peak at column {peak}: {row:?}");
@@ -597,8 +436,8 @@ mod tests {
     #[test]
     fn foothills_spread_a_skirt_without_lowering_the_peaks() {
         let bake = bake(0.0);
-        let bare = compiled(&bake, &CompileSettings { ridges: 0.0, ..plain() });
-        let skirted = compiled(&bake, &CompileSettings { ridges: 0.0, foothills: 2_000.0, ..plain() });
+        let bare = compiled(&bake, &recipe(|i| i.ridges = 0.0));
+        let skirted = compiled(&bake, &CompileSettings { foothills: 2_000.0, ..recipe(|i| i.ridges = 0.0) });
         let at = |world: &Compiled, col: usize| world.z[32 * 64 + col];
         // Beside the band, the ground now rises toward it; on the band, no lower than before.
         assert!(at(&skirted, 26) > at(&bare, 26) + 5, "{} vs {}", at(&skirted, 26), at(&bare, 26));
@@ -614,8 +453,8 @@ mod tests {
                 bake.tilt[row * 64 + col] = if col >= 32 { 1.0 } else { -1.0 };
             }
         }
-        let flat = compiled(&bake, &CompileSettings { grade: 0.0, ..plain() });
-        let graded = compiled(&bake, &CompileSettings { grade: 0.5, ..plain() });
+        let flat = compiled(&bake, &recipe(|i| i.grade = 0.0));
+        let graded = compiled(&bake, &recipe(|i| i.grade = 0.5));
         let at = |world: &Compiled, col: usize| world.z[20 * 64 + col] as i32;
         assert!(at(&graded, 44) > at(&flat, 44), "high side not higher");
         assert!(at(&graded, 20) <= at(&flat, 20), "low side not gentler");
@@ -628,8 +467,8 @@ mod tests {
         let mut bake = bake(0.0);
         bake.squeeze[20 * 64 + 20] = -0.2;
         let bake = bake.measured();
-        let none = compiled(&bake, &CompileSettings { rift_depth: 0.0, ..plain() });
-        let rifted = compiled(&bake, &CompileSettings { rift_depth: 30.0, ..plain() });
+        let none = compiled(&bake, &recipe(|i| i.rift_depth = 0.0));
+        let rifted = compiled(&bake, &recipe(|i| i.rift_depth = 30.0));
         let sunk = none.z[20 * 64 + 20] as i32 - rifted.z[20 * 64 + 20] as i32;
         assert!((29..=31).contains(&sunk), "sank {sunk}");
     }
@@ -645,10 +484,10 @@ mod tests {
             }
         }
         let bake = bake.measured();
-        let settings = CompileSettings { ridges: 0.0, pass_spacing: 2_000.0, ..plain() };
+        let settings = recipe(|i| (i.ridges, i.pass_spacing) = (0.0, 2_000.0));
         let along = |world: &Compiled| (4..60).map(|row| world.z[row * 64 + 32]).collect::<Vec<u16>>();
         let even = along(&compiled(&bake, &settings));
-        let passes = along(&compiled(&bake, &CompileSettings { passes: 0.8, ..settings.clone() }));
+        let passes = along(&compiled(&bake, &{ let mut s = settings.clone(); s.interpreter.passes = 0.8; s }));
         let spread = |v: &[u16]| v.iter().max().unwrap() - v.iter().min().unwrap();
         assert!(spread(&passes) > spread(&even) + 20, "even {even:?}, with passes {passes:?}");
     }
@@ -666,7 +505,7 @@ mod tests {
             }
         }
         let bake = bake.measured();
-        let settings = CompileSettings { ridges: 1.0, ridge_spacing: 600.0, ridge_length: 20_000.0, sharpness: 2.0, ..plain() };
+        let settings = recipe(|i| (i.ridges, i.ridge_spacing, i.ridge_length, i.sharpness) = (1.0, 600.0, 20_000.0, 2.0));
         let roughness = |world: &Compiled, step: (usize, usize)| {
             let mut total = 0.0;
             for row in 8..56 {

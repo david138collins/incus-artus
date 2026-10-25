@@ -1,10 +1,7 @@
-//! Terrain from a compiled world — the interpreter that turns the World Compiler's height map into
-//! chunks you can walk on.
+//! Terrain from a compiled world — chunks you can walk on.
 //!
-//! The compiled map gives one ground height (a Z, 0 to 399) for every 32 × 32 blocks. Each column
-//! of blocks reads it **smoothly interpolated** between those points (Catmull–Rom, so slopes run
-//! on without steps or creases), plus a little **detail noise** so the ground isn't glassy, and is
-//! filled:
+//! Each column of blocks gets its ground height from the Interpreter (`interpreter.rs`: the World
+//! Compiler's smooth maps, with the recipe worked out at that column), and is filled:
 //! - **stone** below the surface;
 //! - the **surface** block: grass on land, stone on mountainsides (from `stone_from`), gabbro on
 //!   the peaks (from `gabbro_from`) so they stand out from a distance, stone on the sea floor;
@@ -23,45 +20,12 @@ use super::position::{CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTION_VOLUME, SECTIO
 use super::section::Section;
 use super::VoxelWorld;
 use crate::data::BlockRegistry;
-use crate::worldgen::noise::{Fade, perlin};
+use super::interpreter::CompiledMap;
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// Ground at this Z or above is dry land; water fills everything below it down to the sea floor.
 pub const SEA_LEVEL: i32 = 128;
-
-/// How the interpreter turns the map into blocks. Set at the end of the World Compiler, copied
-/// into each world.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct InterpreterSettings {
-    /// Small bumps on the ground: how high (blocks either way) and how wide (blocks).
-    pub detail: f32,
-    pub detail_size: f32,
-    /// The surface is bare stone from this Z up, and gabbro (the peaks) from this Z up.
-    pub stone_from: i32,
-    pub gabbro_from: i32,
-}
-
-impl Default for InterpreterSettings {
-    fn default() -> Self {
-        Self { detail: 3.0, detail_size: 96.0, stone_from: 215, gabbro_from: 285 }
-    }
-}
-
-/// A compiled world's height map and how to read it.
-#[derive(Clone, Debug)]
-pub struct CompiledMap {
-    /// Pixels across (the map is square), and blocks per pixel.
-    pub width: usize,
-    pub blocks_per_pixel: f32,
-    /// The ground's Z at each pixel, row by row from the north-west corner.
-    pub z: Vec<u16>,
-    /// For the detail noise.
-    pub seed: u64,
-    pub settings: InterpreterSettings,
-}
 
 /// The blocks the interpreter uses.
 #[derive(Clone, Copy)]
@@ -79,39 +43,9 @@ impl TerrainBlocks {
     }
 }
 
-/// Catmull–Rom: the smooth curve through four evenly spaced values, at `t` (0 to 1) between the
-/// middle two.
-fn catmull_rom(p: [f32; 4], t: f32) -> f32 {
-    let (t2, t3) = (t * t, t * t * t);
-    0.5 * (2.0 * p[1] + (p[2] - p[0]) * t + (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3]) * t2 + (3.0 * (p[1] - p[2]) + p[3] - p[0]) * t3)
-}
-
+/// Filling columns with blocks (the ground's height itself is the interpreter's: see
+/// `interpreter.rs`).
 impl CompiledMap {
-    /// The ground's height (a Z, with fractions) at a spot `north` and `east` blocks from the
-    /// middle of the world, or `None` past the edge of the map.
-    pub fn height(&self, north: f32, east: f32) -> Option<f32> {
-        let half = self.width as f32 / 2.0;
-        // Which pixel, counting pixel centres (the compiler's field: columns run east, rows south).
-        let (col, row) = (east / self.blocks_per_pixel + half - 0.5, half - north / self.blocks_per_pixel - 0.5);
-        let last = self.width as f32 - 0.5;
-        if col < -0.5 || row < -0.5 || col > last || row > last {
-            return None;
-        }
-        let (c0, r0) = (col.floor() as i64, row.floor() as i64);
-        let (tc, tr) = (col - c0 as f32, row - r0 as f32);
-        let w = self.width as i64;
-        let at = |c: i64, r: i64| self.z[(r.clamp(0, w - 1) * w + c.clamp(0, w - 1)) as usize] as f32;
-        let mut rows = [0.0; 4];
-        for (k, row) in rows.iter_mut().enumerate() {
-            let r = r0 - 1 + k as i64;
-            *row = catmull_rom([at(c0 - 1, r), at(c0, r), at(c0 + 1, r), at(c0 + 2, r)], tc);
-        }
-        let ground = catmull_rom(rows, tr);
-        let size = self.settings.detail_size.max(1.0);
-        let detail = perlin(self.seed, 0xde7a11, Fade::Smooth, north / size, east / size) * self.settings.detail;
-        Some(ground + detail)
-    }
-
     /// The ground's Z in the column of blocks at (`x` north, `y` east), or `None` past the map.
     pub fn ground(&self, x: i32, y: i32) -> Option<i32> {
         self.height(x as f32 + 0.5, y as f32 + 0.5).map(|z| (z.round() as i32).clamp(1, WORLD_HEIGHT - 1))
@@ -247,8 +181,8 @@ mod tests {
     /// east.
     fn map() -> CompiledMap {
         let width = 8;
-        let z = (0..width * width).map(|i| 100 + ((i % width) as u16) * 22).collect();
-        CompiledMap { width, blocks_per_pixel: 32.0, z, seed: 1, settings: InterpreterSettings { detail: 0.0, ..InterpreterSettings::default() } }
+        let z: Vec<f32> = (0..width * width).map(|i| 100.0 + (i % width) as f32 * 22.0).collect();
+        CompiledMap::of_heights(width, 32.0, &z)
     }
 
     fn blocks() -> TerrainBlocks {

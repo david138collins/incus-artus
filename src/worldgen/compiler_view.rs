@@ -1,19 +1,22 @@
-//! The World Compiler's screen: pick a bake, shape how its heights become blocks, and see the
-//! result as shaded relief. (The work itself is in `compiler.rs`.)
+//! The World Compiler's screen: pick a bake, set the compiler's whole-map jobs and the
+//! Interpreter's recipe, and see the result as shaded relief. (The work itself is in `compiler.rs`
+//! and `crate::world::interpreter`.)
 //!
 //! ```text
-//! ┌──── top: which bake, land share ─────────────────────────────┐
-//! │ sea level      │                          │ under the mouse │
-//! │ mountains      │   the world, in relief   │                 │
-//! │ rifts, hills   │                          │                 │
-//! │ save, send     │                          │                 │
-//! └────────────────┴──────────────────────────┴─────────────────┘
+//! ┌──── top: which bake, land share ──────────────────────────────────────────┐
+//! │ World Compiler │ Interpreter    │                          │ under the    │
+//! │ sea level      │ the chain      │   the world, in relief   │ mouse        │
+//! │ coastline      │ land and sea   │                          │              │
+//! │ foothills      │ mountains      │                          │              │
+//! │ save, render   │ hills, blocks  │                          │              │
+//! └────────────────┴────────────────┴──────────────────────────┴──────────────┘
 //! ```
 
 use super::Suite;
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
+use crate::world::InterpreterSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
 use super::runner::{Finished, Job, Poll};
@@ -353,8 +356,11 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
             }
         });
     });
-    egui::Panel::left("world compiler settings").resizable(true).default_size(340.0).size_range(220.0..=900.0).show(root, |ui| {
+    egui::Panel::left("world compiler settings").resizable(true).default_size(320.0).size_range(220.0..=900.0).show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| settings(ui, compiler));
+    });
+    egui::Panel::left("world interpreter settings").resizable(true).default_size(320.0).size_range(220.0..=900.0).show(root, |ui| {
+        egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
     });
     egui::Panel::right("world compiler readouts").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, compiler));
@@ -385,15 +391,15 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
 fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("World Compiler");
     ui.small(
-        "Turns a baked world into the ground's height in blocks. Sea level is Z 128; nothing goes past Z 333 (the \
-         world's top is Z 399). Bake worlds in the Tectonic Sim, then pick one in the bar along the top.",
+        "Turns a baked world into smooth maps, doing the jobs that need the whole map at once. The Interpreter (the \
+         next panel) makes the ground from them. Bake worlds in the Tectonic Sim, then pick one in the bar along the top.",
     );
     if !compiler.note.is_empty() {
         ui.small(&compiler.note);
     }
     ui.add_space(4.0);
     ui.strong("Presets");
-    ui.small("Save every compiler setting (the splines too) as a preset, to try on any bake.");
+    ui.small("Save every setting on both panels (the curves too) as a preset, to try on any bake.");
     preset_bar(ui, "compiler", &mut compiler.settings);
     let Some(bake) = compiler.bake.clone() else {
         ui.colored_label(PINK, "No bake read yet.");
@@ -403,60 +409,25 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
     ui.add_space(6.0);
     ui.separator();
-    ui.strong("Sea level and the curves");
+    ui.strong("Sea level and the coastline");
     let (low, high) = (bake.info.height.black, bake.info.height.white);
     ui.add(crate::debug::Slider::new(&mut s.water, low..=high).text("bake height at sea level")).on_hover_text(
         "Which of the bake's heights becomes sea level (Z 128). Higher = more sea. Watch the land share in the bar along the top.",
     );
-    ui.add(crate::debug::Slider::new(&mut s.deepest, 1.0..=127.0).text("deepest sea floor (Z)")).on_hover_text("The Z the deepest ocean reaches.");
-    ui.add(crate::debug::Slider::new(&mut s.highlands, 129.0..=HIGHEST as f32).text("highlands (Z)"))
-        .on_hover_text("The Z the highest land reaches before mountains are added (the top of the land spline).");
-    ui.add_space(4.0);
-    ui.label("Land: from the coast (left) to the bake's highest ground (right).");
-    let defaults = CompileSettings::default();
-    spline_box(ui, "land spline", &mut s.land, &defaults.land, "toward the highest ground", "up to the highlands");
-    ui.label("Sea: from the coast (left) to the bake's deepest point (right).");
-    spline_box(ui, "sea spline", &mut s.sea, &defaults.sea, "toward the deepest point", "down to the deepest floor");
-    ui.add(crate::debug::Slider::new(&mut s.grade, 0.0..=1.0).text("grade by tilt")).on_hover_text(
-        "Each plate's tilt steepens its high side (land climbs faster, the sea drops off close in) and softens\nits low side (wide plains, shallow shelves). 0 = no grading. (Bakes made before tilt was saved can't grade.)",
+    ui.add(crate::debug::Slider::new(&mut s.soften, 0.0..=512.0).text("soften the coastline (blocks)")).on_hover_text(
+        "The bake's coastline is the edge of a plate traced on a grid of pixels: a staircase of 32-block steps.\n\
+         Softened a little, the Interpreter finds a smooth curve between the pixels instead, at every block.\n\
+         The heights and tilt near the coast are softened as much, so nothing there keeps the steps.\n\
+         About 64 blocks (two pixels) hides the steps; more rounds off small capes and inlets.\n\
+         0 = none: the staircase shows (as rows of humps or steps along every coast).",
     );
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.strong("Mountains (from the squeeze map)");
-    ui.small(
-        "Across: how crushed the rock is, from none (left) to the most crushed rock in this bake (right). Up: how \
-         tall the mountains are, as a share of the room up to Z 333. Keep the left part flat at the bottom to keep \
-         lightly squeezed land as plains.",
-    );
-    spline_box(ui, "mountain spline", &mut s.mountains, &defaults.mountains, "more squeeze", "taller (top = Z 333)");
-    ui.add(crate::debug::Slider::new(&mut s.ridges, 0.0..=1.0).text("ridges")).on_hover_text(
-        "How much the ridge pattern carves into the mountains. 0 = smooth domes and spines, 1 = all ridges and valleys.",
-    );
-    ui.add(crate::debug::Slider::new(&mut s.ridge_spacing, 400.0..=20_000.0).logarithmic(true).text("ridge spacing (blocks)"))
-        .on_hover_text("How far apart the ridges are, across them.");
-    ui.add(crate::debug::Slider::new(&mut s.ridge_length, 2_000.0..=100_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
-        "How far ridges run along themselves. Ridges are lined up across the squeeze direction;\nlonger = long parallel ranges, shorter = broken, lumpy ones.",
-    );
-    ui.add(crate::debug::Slider::new(&mut s.sharpness, 0.3..=4.0).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests. Lower = broad, rounded ones.");
-    ui.add(crate::debug::Slider::new(&mut s.passes, 0.0..=1.0).text("passes")).on_hover_text(
-        "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests.",
-    );
-    ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 3_000.0..=60_000.0).logarithmic(true).text("pass spacing (blocks)"))
-        .on_hover_text("How far apart the dips are along a ridge.");
     ui.add(crate::debug::Slider::new(&mut s.foothills, 0.0..=12_000.0).text("foothills (blocks)")).on_hover_text(
-        "How far each range spreads a skirt of lower slopes around it, so it rises from the plains instead of\njumping up. Peaks aren't lowered. 0 = no foothills.",
+        "How far each range spreads a skirt of lower slopes around it, so it rises from the plains instead of\n\
+         jumping up. Peaks aren't lowered. 0 = no foothills.\n\
+         (Here rather than on the Interpreter: a skirt is the mountains blurred, which needs the whole map at once.)",
     );
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.strong("Rifts and hills");
-    ui.add(crate::debug::Slider::new(&mut s.rift_depth, 0.0..=80.0).text("rift depth (blocks)"))
-        .on_hover_text("How far the most stretched rock in this bake sinks (less stretched rock, less).");
-    ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)")).on_hover_text("Gentle rolling bumps on land, this high either way.");
-    ui.add(crate::debug::Slider::new(&mut s.hill_size, 300.0..=8_000.0).logarithmic(true).text("hill size (blocks)"));
     ui.add_space(4.0);
-    defaults_row(ui, "Compiler settings", &mut compiler.settings, &mut compiler.ab);
+    defaults_row(ui, "Both panels' settings", &mut compiler.settings, &mut compiler.ab);
 
     ui.add_space(6.0);
     ui.separator();
@@ -471,7 +442,10 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     let Some(result) = &compiler.result else { return };
     if ui
         .button("Save elevation into the bake")
-        .on_hover_text("Writes elevation.png (16-bit: the grey is the ground's Z) and compile.toml (these settings) into the bake's folder.")
+        .on_hover_text(
+            "Writes elevation.png (16-bit: the grey is the ground's Z, at each pixel's centre) and compile.toml\n\
+             (these settings) into the bake's folder.",
+        )
         .clicked()
     {
         compiler.note = match compiler::save(&bake::bakes_folder().join(&bake.name), &result.made, &compiler.settings) {
@@ -501,18 +475,9 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.separator();
     ui.heading("Render World and Spawn");
     ui.small(
-        "Makes a real world from this compiled map and puts you in its middle: the ground follows the map smoothly, \
-         with grass on land, stone on mountainsides, gabbro on the peaks, and water filling the sea to Z 128. The \
-         world keeps its own copy of the map, so changing things here afterwards never changes it.",
+        "Makes a real world from these maps and the Interpreter's recipe, and puts you where you pick. The world keeps \
+         its own copy of both, so changing things here afterwards never changes it.",
     );
-    let i = &mut compiler.settings.interpreter;
-    ui.add(crate::debug::Slider::new(&mut i.detail, 0.0..=12.0).text("ground detail (blocks)"))
-        .on_hover_text("Small bumps on the ground, this high either way, so it isn't glassy smooth between the map's points.");
-    ui.add(crate::debug::Slider::new(&mut i.detail_size, 16.0..=512.0).logarithmic(true).text("detail size (blocks)"));
-    ui.add(crate::debug::Slider::new(&mut i.stone_from, SEA_LEVEL as i32..=HIGHEST as i32).text("bare stone from Z"))
-        .on_hover_text("The surface is stone from this height up (mountainsides).");
-    ui.add(crate::debug::Slider::new(&mut i.gabbro_from, SEA_LEVEL as i32..=HIGHEST as i32).text("gabbro from Z"))
-        .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance.");
     ui.horizontal_wrapped(|ui| {
         ui.label("World name:");
         ui.add(egui::TextEdit::singleline(&mut compiler.world_name).desired_width(140.0).hint_text(bake.name.clone()));
@@ -527,21 +492,114 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     }
 }
 
+/// The signal chain, for the top of the Interpreter panel.
+const CHAIN: &str = "\
+Tectonic Sim → bake (32-block pixels)
+      ↓
+World Compiler · whole map, once:
+  sea level · soften coast · foothills
+      ↓ smooth maps
+Interpreter · every block, as the
+  world is made (this panel):
+  blend the maps to the block, then
+  curves · grade · mountains · ridges
+  passes · rifts · hills · detail
+      ↓
+the ground (and the distant terrain)";
+
+/// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
+fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
+    ui.heading("Interpreter");
+    ui.small(
+        "The end of the chain: the recipe that gives every column of blocks its height, worked out at that block as the \
+         world is made. The map here shows it worked out at each pixel's centre.",
+    );
+    ui.add(egui::Label::new(egui::RichText::new(CHAIN).monospace().small())).on_hover_text(
+        "Moved here from the World Compiler: the compiler used to work this recipe out once per 32-block\n\
+         pixel and hand over finished heights, which were then smoothed between pixels. The recipe has\n\
+         sharp curves in it (a coast can drop 90 blocks within one pixel), and smoothing between finished\n\
+         heights swings past every sharp step: one hump per pixel, in rows along every coast and cliff.\n\
+         Now the smooth maps are blended to each block first, and the sharp curves applied after.",
+    );
+    if compiler.bake.is_none() {
+        return;
+    }
+    let defaults = InterpreterSettings::default();
+    let s = &mut compiler.settings.interpreter;
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Land and sea");
+    ui.add(crate::debug::Slider::new(&mut s.deepest, 1.0..=127.0).text("deepest sea floor (Z)")).on_hover_text("The Z the deepest ocean reaches.");
+    ui.add(crate::debug::Slider::new(&mut s.highlands, 129.0..=HIGHEST as f32).text("highlands (Z)"))
+        .on_hover_text("The Z the highest land reaches before mountains are added (the top of the land curve).");
+    ui.add_space(4.0);
+    ui.label("Land: from the coast (left) to the bake's highest ground (right).");
+    spline_box(ui, "land spline", &mut s.land, &defaults.land, "toward the highest ground", "up to the highlands");
+    ui.label("Sea: from the coast (left) to the bake's deepest point (right).");
+    spline_box(ui, "sea spline", &mut s.sea, &defaults.sea, "toward the deepest point", "down to the deepest floor");
+    ui.small("A steep start to the sea curve makes cliffs at the coast; a gentle one, shallow shelves.");
+    ui.add(crate::debug::Slider::new(&mut s.grade, 0.0..=1.0).text("grade by tilt")).on_hover_text(
+        "Each plate's tilt steepens its high side (land climbs faster, the sea drops off close in) and softens\nits low side (wide plains, shallow shelves). 0 = no grading. (Bakes made before tilt was saved can't grade.)",
+    );
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Mountains (from the squeeze map)");
+    ui.small(
+        "Across: how crushed the rock is, from none (left) to the most crushed rock in this bake (right). Up: how \
+         tall the mountains are, as a share of the room up to Z 333. Keep the left part flat at the bottom to keep \
+         lightly squeezed land as plains.",
+    );
+    spline_box(ui, "mountain spline", &mut s.mountains, &defaults.mountains, "more squeeze", "taller (top = Z 333)");
+    ui.add(crate::debug::Slider::new(&mut s.ridges, 0.0..=1.0).text("ridges")).on_hover_text(
+        "How much the ridge pattern carves into the mountains. 0 = smooth domes and spines, 1 = all ridges and valleys.\n\
+         (Now worked out at every block, so ridges are sharp down to single blocks, not stretched pixels.)",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.ridge_spacing, 400.0..=20_000.0).logarithmic(true).text("ridge spacing (blocks)"))
+        .on_hover_text("How far apart the ridges are, across them.");
+    ui.add(crate::debug::Slider::new(&mut s.ridge_length, 2_000.0..=100_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
+        "How far ridges run along themselves. Ridges are lined up across the squeeze direction;\nlonger = long parallel ranges, shorter = broken, lumpy ones.\n\
+         (Shorter than the spacing, they turn to run across the range instead of along it.)",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.sharpness, 0.3..=4.0).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests. Lower = broad, rounded ones.");
+    ui.add(crate::debug::Slider::new(&mut s.passes, 0.0..=1.0).text("passes")).on_hover_text(
+        "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests.",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 3_000.0..=60_000.0).logarithmic(true).text("pass spacing (blocks)"))
+        .on_hover_text("How far apart the dips are along a ridge.");
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Rifts, hills and detail");
+    ui.add(crate::debug::Slider::new(&mut s.rift_depth, 0.0..=80.0).text("rift depth (blocks)"))
+        .on_hover_text("How far the most stretched rock in this bake sinks (less stretched rock, less).");
+    ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)")).on_hover_text("Gentle rolling bumps on land, this high either way.");
+    ui.add(crate::debug::Slider::new(&mut s.hill_size, 300.0..=8_000.0).logarithmic(true).text("hill size (blocks)"));
+    ui.add(crate::debug::Slider::new(&mut s.detail, 0.0..=12.0).text("ground detail (blocks)")).on_hover_text(
+        "Small bumps on the ground, this high either way, so it isn't glassy smooth. Only in the world:\nthey're smaller than one of this map's pixels.",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.detail_size, 16.0..=512.0).logarithmic(true).text("detail size (blocks)"));
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Surface blocks");
+    ui.add(crate::debug::Slider::new(&mut s.stone_from, SEA_LEVEL as i32..=HIGHEST as i32).text("bare stone from Z"))
+        .on_hover_text("The surface is stone from this height up (mountainsides).");
+    ui.add(crate::debug::Slider::new(&mut s.gabbro_from, SEA_LEVEL as i32..=HIGHEST as i32).text("gabbro from Z"))
+        .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance.");
+    ui.add_space(4.0);
+    ui.small("Presets, and back-to-defaults, are on the World Compiler panel: they cover both.");
+}
+
 impl Compiler {
-    /// "Render World and Spawn": the compiled map, with the interpreter settings, handed over to
+    /// "Render World and Spawn": the compiled maps, with the Interpreter's recipe, handed over to
     /// start a new world.
     pub fn press_render(&mut self, spawn: IVec2) {
         let (Some(bake), Some(result)) = (&self.bake, &self.result) else { return };
         let name = if self.world_name.trim().is_empty() { bake.name.clone() } else { self.world_name.clone() };
         let seed = u64::from_str_radix(&bake.info.seed, 16).unwrap_or(0);
-        let map = crate::world::CompiledMap {
-            width: result.made.width,
-            blocks_per_pixel: bake.info.blocks_per_pixel,
-            z: result.made.z.clone(),
-            seed,
-            settings: self.settings.interpreter.clone(),
-        };
-        self.render = Some((name, seed, Arc::new(map), spawn));
+        self.render = Some((name, seed, result.made.map.clone(), spawn));
         self.picking = false;
     }
 }

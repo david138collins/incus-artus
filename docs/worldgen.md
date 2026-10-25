@@ -173,6 +173,31 @@ pushed down **darker**.
   sit mid-knob.
 - **Next for the compiler: an erosion pass** [David] to wear down the rough edges.
 
+### The Interpreter  [DECIDED and BUILT 2026-10-24]
+The end of the chain, now with its own panel beside the World Compiler [David: "it's at the end of the
+signal chain... it's now doing more than just repeating what it's told"].
+```text
+Tectonic Sim → bake (32-block pixels)
+World Compiler (whole map, once): sea level · soften the coastline · foothill skirts
+      → smooth maps: coast, height, tilt, squeeze, squeeze direction, skirt
+Interpreter (every block, as the world is made): blend the maps to the block, then
+      land & sea curves · grade · mountains · ridges · passes · rifts · hills · detail · surface blocks
+      → the ground, and the distant terrain (the same recipe, sampled coarsely)
+```
+- **Why:** the compiler worked the recipe out per pixel and handed over finished heights; smoothing
+  between those swung past every sharp step the curves made (one hump per pixel along coasts and
+  cliffs). Rule: **blend smooth inputs, then apply sharp curves**, never the other way round.
+- **Blending:** Catmull–Rom through the 4 × 4 pixels round the spot, held within the four nearest
+  pixels' values (smooth, and it can't swing past them).
+- **Soften the coastline** (default 64 blocks, two pixels): the coast map is the bake's height near
+  sea level (clamped to ±0.03 so both sides soften evenly and the coast doesn't move), blurred; the
+  heights and tilt near it are blurred as much. Turns the pixel staircase into a curve.
+- **Foothills stay in the compiler:** a skirt is the mountains blurred, which needs the whole map.
+- **Presets:** one compiler preset still holds both panels, as one flat list (old presets load).
+- **Worlds save** the compiler's maps (`map-<name>.png`, 16-bit, each with its range in
+  `compiled.toml`) and the recipe, so a world never changes when the panels do.
+- **Cost:** about 0.7 ms per chunk's worth of columns on one core (spread over all cores).
+
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
 flying over the continents in person. So before the compiler grows more stages, build the path from a

@@ -612,7 +612,6 @@ pub fn update_shown_chunks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::InterpreterSettings;
 
     #[test]
     fn rings_fit_inside_each_other_with_no_gaps_or_overlaps() {
@@ -647,8 +646,8 @@ mod tests {
     fn a_tile_is_a_blocky_height_field_and_past_the_map_is_nothing() {
         let width = 64;
         // Sea in the west, land from 256 blocks east of the middle (inside the tile tested).
-        let z = (0..width * width).map(|i| if i % width < 40 { 100 } else { 180 }).collect();
-        let map = CompiledMap { width, blocks_per_pixel: 32.0, z, seed: 1, settings: InterpreterSettings { detail: 0.0, ..InterpreterSettings::default() } };
+        let z: Vec<f32> = (0..width * width).map(|i| if i % width < 40 { 100.0 } else { 180.0 }).collect();
+        let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
         let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.6 };

@@ -19,7 +19,8 @@
 //! Only compiled worlds stream; the test cylinder is made whole.
 
 use super::position::ChunkPos;
-use super::terrain::{CompiledMap, Terrain, TerrainBlocks};
+use super::interpreter::CompiledMap;
+use super::terrain::{Terrain, TerrainBlocks};
 use super::{Chunk, VoxelWorld};
 use crate::coords::bevy_to_game;
 use crate::data::BlockRegistry;
@@ -239,12 +240,11 @@ pub fn stream_chunks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::InterpreterSettings;
 
     #[test]
     fn nearest_and_ahead_come_first() {
         let width = 64;
-        let map = CompiledMap { width, blocks_per_pixel: 32.0, z: vec![140; width * width], seed: 1, settings: InterpreterSettings::default() };
+        let map = CompiledMap::of_heights(width, 32.0, &vec![140.0; width * width]);
         let streaming = Streaming { map: Some(Arc::new(map)), ..Streaming::default() };
         let world = VoxelWorld::default();
         let settings = StreamSettings { radius: 4, ahead: 0.5, ..StreamSettings::default() };

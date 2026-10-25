@@ -18,12 +18,12 @@ use super::block::BlockId;
 use super::chunk::Chunk;
 use super::position::{ChunkPos, SECTION_VOLUME, SECTIONS_PER_CHUNK};
 use super::section::Section;
-use super::{CompiledMap, InterpreterSettings, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
+use super::{CompiledMap, InterpreterSettings, Maps, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
 use crate::data::BlockRegistry;
 use crate::save::{WorldFolder, write_file};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -163,49 +163,113 @@ pub fn decode_chunk(bytes: &[u8], registry: &BlockRegistry) -> Result<(Chunk, Ve
 
 // ── The "terrain" part of a saved world ─────────────────────────────────────
 
-/// What `compiled.toml` holds: how to read the world's own copy of its height map.
+/// What `compiled.toml` holds: how to read the world's own copy of the World Compiler's maps, and
+/// the Interpreter's recipe for them.
 #[derive(Serialize, Deserialize)]
 struct CompiledFile {
     width: usize,
     blocks_per_pixel: f32,
     #[serde(with = "crate::save::hex_u64")]
     seed: u64,
+    /// The bake's height at sea level, its lowest and highest heights, and its most crushed and
+    /// most stretched rock.
+    water: f32,
+    lowest: f32,
+    highest: f32,
+    most_crushed: f32,
+    most_stretched: f32,
+    /// Each map's file (`map-<name>.png`, 16-bit grey): the values black and white stand for.
+    ranges: BTreeMap<String, [f32; 2]>,
     interpreter: InterpreterSettings,
     /// Where new arrivals start (north, east).
     #[serde(default)]
     spawn: [i32; 2],
 }
 
-/// Writes a compiled world's map into its folder: `compiled.toml`, and `elevation.png` (16-bit
-/// grey: the grey is the ground's Z).
-fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), String> {
-    let info = CompiledFile { width: map.width, blocks_per_pixel: map.blocks_per_pixel, seed: map.seed, interpreter: map.settings.clone(), spawn: spawn.to_array() };
-    let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
-    write_file(&folder.join("compiled.toml"), text.as_bytes())?;
-    let file = std::fs::File::create(folder.join("elevation.png")).map_err(|error| error.to_string())?;
-    let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), map.width as u32, map.width as u32);
-    encoder.set_color(png::ColorType::Grayscale);
-    encoder.set_depth(png::BitDepth::Sixteen);
-    let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
-    let bytes: Vec<u8> = map.z.iter().flat_map(|z| z.to_be_bytes()).collect();
-    writer.write_image_data(&bytes).map_err(|error| error.to_string())?;
-    writer.finish().map_err(|error| error.to_string())
+/// The compiler's maps, by file name.
+fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 8] {
+    [
+        ("coast", &maps.coast),
+        ("height", &maps.height),
+        ("tilt", &maps.tilt),
+        ("squeeze", &maps.squeeze),
+        ("push_x", &maps.push_x),
+        ("push_y", &maps.push_y),
+        ("push_strength", &maps.push_strength),
+        ("skirt", &maps.skirt),
+    ]
 }
 
-/// Reads a compiled world's map and spawn spot back, or `None` if the world is the test cylinder.
+/// Writes a compiled world's maps into its folder: `compiled.toml`, and one `map-<name>.png` each
+/// (16-bit grey, stretched over the map's own range, which `compiled.toml` records).
+fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), String> {
+    let m = &map.maps;
+    let mut ranges = BTreeMap::new();
+    for (name, values) in named_maps(m) {
+        let (low, high) = values.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+        let (low, high) = if low > high { (0.0, 0.0) } else { (low, high) };
+        ranges.insert(name.to_string(), [low, high]);
+        let span = (high - low).max(1e-12);
+        let file = std::fs::File::create(folder.join(format!("map-{name}.png"))).map_err(|error| error.to_string())?;
+        let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), m.width as u32, m.width as u32);
+        encoder.set_color(png::ColorType::Grayscale);
+        encoder.set_depth(png::BitDepth::Sixteen);
+        let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
+        let bytes: Vec<u8> = values.iter().flat_map(|&v| (((v - low) / span * 65_535.0).round() as u16).to_be_bytes()).collect();
+        writer.write_image_data(&bytes).map_err(|error| error.to_string())?;
+        writer.finish().map_err(|error| error.to_string())?;
+    }
+    let info = CompiledFile {
+        width: m.width,
+        blocks_per_pixel: m.blocks_per_pixel,
+        seed: map.seed,
+        water: m.water,
+        lowest: m.lowest,
+        highest: m.highest,
+        most_crushed: m.most_crushed,
+        most_stretched: m.most_stretched,
+        ranges,
+        interpreter: map.settings.clone(),
+        spawn: spawn.to_array(),
+    };
+    let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
+    write_file(&folder.join("compiled.toml"), text.as_bytes())
+}
+
+/// Reads a compiled world's maps and spawn spot back, or `None` if the world is the test cylinder.
 fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> {
     let Ok(text) = std::fs::read_to_string(folder.join("compiled.toml")) else { return Ok(None) };
     let info: CompiledFile = toml::from_str(&text).map_err(|error| format!("compiled.toml: {error}"))?;
-    let file = std::fs::File::open(folder.join("elevation.png")).map_err(|error| format!("elevation.png: {error}"))?;
-    let mut reader = png::Decoder::new(std::io::BufReader::new(file)).read_info().map_err(|error| format!("elevation.png: {error}"))?;
-    let mut buffer = vec![0; reader.output_buffer_size().ok_or("elevation.png is too big")?];
-    let frame = reader.next_frame(&mut buffer).map_err(|error| format!("elevation.png: {error}"))?;
-    if frame.bit_depth != png::BitDepth::Sixteen || frame.width as usize != info.width {
-        return Err("elevation.png isn't the 16-bit map compiled.toml describes".to_string());
-    }
-    let z = buffer[..frame.buffer_size()].chunks_exact(2).map(|b| u16::from_be_bytes([b[0], b[1]])).collect();
-    let map = CompiledMap { width: info.width, blocks_per_pixel: info.blocks_per_pixel, z, seed: info.seed, settings: info.interpreter };
-    Ok(Some((map, IVec2::from_array(info.spawn))))
+    let read = |name: &str| -> Result<Vec<f32>, String> {
+        let file_name = format!("map-{name}.png");
+        let [low, high] = *info.ranges.get(name).ok_or(format!("compiled.toml has no range for {file_name}"))?;
+        let file = std::fs::File::open(folder.join(&file_name)).map_err(|error| format!("{file_name}: {error}"))?;
+        let mut reader = png::Decoder::new(std::io::BufReader::new(file)).read_info().map_err(|error| format!("{file_name}: {error}"))?;
+        let mut buffer = vec![0; reader.output_buffer_size().ok_or(format!("{file_name} is too big"))?];
+        let frame = reader.next_frame(&mut buffer).map_err(|error| format!("{file_name}: {error}"))?;
+        if frame.bit_depth != png::BitDepth::Sixteen || frame.width as usize != info.width {
+            return Err(format!("{file_name} isn't the 16-bit map compiled.toml describes"));
+        }
+        Ok(buffer[..frame.buffer_size()].chunks_exact(2).map(|b| low + u16::from_be_bytes([b[0], b[1]]) as f32 / 65_535.0 * (high - low)).collect())
+    };
+    let maps = Maps {
+        width: info.width,
+        blocks_per_pixel: info.blocks_per_pixel,
+        coast: read("coast")?,
+        height: read("height")?,
+        tilt: read("tilt")?,
+        squeeze: read("squeeze")?,
+        push_x: read("push_x")?,
+        push_y: read("push_y")?,
+        push_strength: read("push_strength")?,
+        skirt: read("skirt")?,
+        water: info.water,
+        lowest: info.lowest,
+        highest: info.highest,
+        most_crushed: info.most_crushed,
+        most_stretched: info.most_stretched,
+    };
+    Ok(Some((CompiledMap::new(maps, info.seed, info.interpreter), IVec2::from_array(info.spawn))))
 }
 
 /// Saves the test world's settings (as `terrain.toml`), a compiled world's own copy of its map,
@@ -216,7 +280,9 @@ pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, Strin
         Terrain::Compiled(map) => save_compiled(map, world.resource::<VoxelWorld>().spawn(), &folder.path)?,
         Terrain::Test => {
             let _ = std::fs::remove_file(folder.path.join("compiled.toml"));
-            let _ = std::fs::remove_file(folder.path.join("elevation.png"));
+            for (name, _) in named_maps(&Maps::default()) {
+                let _ = std::fs::remove_file(folder.path.join(format!("map-{name}.png")));
+            }
         }
     }
     let chunks_folder = folder.sub_folder("chunks")?;
@@ -344,21 +410,27 @@ mod tests {
 
     #[test]
     fn a_compiled_worlds_own_map_survives_being_saved() {
-        let map = CompiledMap {
-            width: 16,
-            blocks_per_pixel: 32.0,
-            z: (0..256).map(|i| 60 + (i % 200) as u16).collect(),
-            seed: 0xABCD,
-            settings: InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() },
-        };
+        let z: Vec<f32> = (0..256).map(|i| 60.0 + (i % 200) as f32).collect();
+        let mut map = CompiledMap::of_heights(16, 32.0, &z);
+        // Some squeeze and a skirt, so every map has something in it.
+        for i in 0..256 {
+            map.maps.squeeze[i] = (i as f32 * 0.37).sin();
+            map.maps.skirt[i] = (i % 7) as f32 * 3.0;
+        }
+        let map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });
         let folder = std::env::temp_dir().join(format!("incus-artus-compiled-{}", std::process::id()));
         std::fs::create_dir_all(&folder).unwrap();
         save_compiled(&map, IVec2::new(-1234, 5678), &folder).unwrap();
         let (back, spawn) = load_compiled(&folder).unwrap().unwrap();
         assert_eq!(spawn, IVec2::new(-1234, 5678));
-        assert_eq!((back.width, back.blocks_per_pixel, back.seed), (map.width, map.blocks_per_pixel, map.seed));
-        assert_eq!(back.z, map.z);
+        assert_eq!((back.maps.width, back.maps.blocks_per_pixel, back.seed), (map.maps.width, map.maps.blocks_per_pixel, map.seed));
         assert_eq!(back.settings, map.settings);
+        // 16-bit maps: the ground comes back within a small fraction of a block, everywhere.
+        for k in 0..64 {
+            let (north, east) = (-200.0 + k as f32 * 6.3, 170.0 - k as f32 * 5.1);
+            let (a, b) = (map.height(north, east).unwrap(), back.height(north, east).unwrap());
+            assert!((a - b).abs() < 0.05, "{a} vs {b} at {north}, {east}");
+        }
         // A folder without one is the test cylinder.
         let _ = std::fs::remove_dir_all(&folder);
         assert!(load_compiled(&folder).unwrap().is_none());

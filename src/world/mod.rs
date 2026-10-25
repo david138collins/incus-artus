@@ -22,6 +22,7 @@ mod raycast;
 mod section;
 mod storage;
 mod streaming;
+mod interpreter;
 mod terrain;
 
 pub use block::BlockId;
@@ -40,7 +41,8 @@ pub use position::{
 };
 pub use section::Section;
 pub use streaming::{StreamSettings, Streaming};
-pub use terrain::{CompiledMap, InterpreterSettings, NextTerrain, SEA_LEVEL, Terrain, TerrainBlocks};
+pub use interpreter::{CompiledMap, InterpreterSettings, Maps, Spline};
+pub use terrain::{NextTerrain, SEA_LEVEL, Terrain, TerrainBlocks};
 #[cfg(test)]
 pub use storage::{fresh_terrain, load_terrain, save_terrain};
 
