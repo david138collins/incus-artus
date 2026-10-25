@@ -1,14 +1,14 @@
-//! The Interpreter — the end of the world-making chain: the recipe that gives every column of
+//! The World Interpreter — the end of the world-making chain: the recipe that gives every column of
 //! blocks its ground height, worked out **at that block**, as the world is made.
 //!
 //! ```text
 //! Tectonic Sim ──► bake (32-block pixels: height, squeeze, tilt…)
 //!     │
-//! World Compiler — whole-map jobs, done once:
+//! Terrain Compiler — whole-map jobs, done once:
 //!     sea level · soften the coastline · foothill skirts
 //!     │
 //!     ▼  smooth maps (coast, height, tilt, squeeze and its direction, skirt)
-//! Interpreter — at every block, as chunks are made (this file):
+//! World Interpreter — at every block, as chunks are made (this file):
 //!     blend the maps smoothly to this spot, then:
 //!     land & sea curves · grading · mountains · ridges · passes · rifts · hills · detail
 //!     │
@@ -141,7 +141,7 @@ impl Curve {
 // ── The recipe's settings ───────────────────────────────────────────────────
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, and which blocks cover it.
-/// Set on the Interpreter panel, next to the World Compiler; copied into each world.
+/// Set on the Interpreter panel, next to the Terrain Compiler; copied into each world.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct InterpreterSettings {
@@ -211,7 +211,7 @@ impl Default for InterpreterSettings {
 
 // ── The compiler's maps ─────────────────────────────────────────────────────
 
-/// What the World Compiler hands over: smooth maps, one value per pixel, and the bake's ranges the
+/// What the Terrain Compiler hands over: smooth maps, one value per pixel, and the bake's ranges the
 /// recipe measures against.
 #[derive(Clone, Debug, Default)]
 pub struct Maps {

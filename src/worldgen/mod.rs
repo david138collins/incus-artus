@@ -40,11 +40,11 @@
 //! - `tectonics.rs` the plates' motion, and what it does at their boundaries
 //! - `rags.rs`    the tectonics simulation: plates as heavy rags that squash, bend and tear
 //! - `heights.rs` every spot's height (base, terrain noise, sunken edges, squeeze); the water level
-//! - `bake.rs`    the product: a baked world, as a folder of maps for the World Compiler
+//! - `bake.rs`    the product: a baked world, as a folder of maps for the Terrain Compiler
 //!
-//! **World Compiler:**
+//! **Terrain Compiler:**
 //! - `compiler.rs` a bake into the ground's height in blocks (sea level Z 128, nothing past Z 333)
-//! - `compiler_view.rs` its screen (the World Compiler and Interpreter panels)
+//! - `compiler_view.rs` its screen (the Terrain Compiler and Interpreter panels)
 //! - `lab.rs`      the terrain lab: the map, zoomed in, as a live close-up of the ground
 
 mod blend;
@@ -93,7 +93,7 @@ pub enum Kit {
     #[default]
     Graphics,
     WorldGen,
-    /// The World Compiler: a baked world into the ground's height in blocks.
+    /// The Terrain Compiler: a baked world into the ground's height in blocks.
     Compiler,
 }
 
@@ -125,7 +125,7 @@ pub struct Suite {
     /// World Gen's half (the rest of this is the Graphics Kit's, apart from the field and pixel
     /// size, which both use).
     pub world: world::WorldGen,
-    /// The World Compiler's tab.
+    /// The Terrain Compiler's tab.
     pub compiler: compiler_view::Compiler,
     /// The field is a square this many blocks across (the world is 72,000).
     pub size_blocks: f32,
@@ -166,7 +166,7 @@ impl Default for Suite {
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
         // Worley layer instead.
         // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
-        // `=compiler` opens the World Compiler.
+        // `=compiler` opens the Terrain Compiler.
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler") {
             suite.kit = Kit::Compiler;
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {

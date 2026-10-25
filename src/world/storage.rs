@@ -163,7 +163,7 @@ pub fn decode_chunk(bytes: &[u8], registry: &BlockRegistry) -> Result<(Chunk, Ve
 
 // ── The "terrain" part of a saved world ─────────────────────────────────────
 
-/// What `compiled.toml` holds: how to read the world's own copy of the World Compiler's maps, and
+/// What `compiled.toml` holds: how to read the world's own copy of the Terrain Compiler's maps, and
 /// the Interpreter's recipe for them.
 #[derive(Serialize, Deserialize)]
 struct CompiledFile {
@@ -367,7 +367,7 @@ pub fn load_terrain(world: &mut World, folder: &WorldFolder) -> Result<String, S
     Ok(note)
 }
 
-/// A fresh world: a compiled world, if the World Compiler asked for one ("Render World and
+/// A fresh world: a compiled world, if the Terrain Compiler asked for one ("Render World and
 /// Spawn"), or else the test cylinder from the current settings.
 pub fn fresh_terrain(world: &mut World, _seed: u64) {
     match world.get_resource_mut::<NextTerrain>().and_then(|mut next| next.0.take()) {

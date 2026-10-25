@@ -283,7 +283,7 @@ impl WorldGen {
     }
 
     /// Everything a bake of the world these settings and this seed make needs (at 1 chunk per
-    /// pixel, into the bakes folder). The World Compiler's EZ-Bake uses it too.
+    /// pixel, into the bakes folder). The Terrain Compiler's EZ-Bake uses it too.
     pub(super) fn bake_order(&self, name: &str) -> Order {
         Order {
             name: name.to_string(),
@@ -1018,7 +1018,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.small(
         "Makes the world these settings and this seed make, from scratch at 1 chunk per pixel, runs it until \
          everything stops (or the step limit), and saves its maps in \"world bakes\": height, squeeze, squeeze \
-         direction and strength, and plates, with map.toml saying how to read them. The World Compiler will \
+         direction and strength, and plates, with map.toml saying how to read them. The Terrain Compiler will \
          build on a bake. It runs in the background.",
     );
     ui.horizontal_wrapped(|ui| {

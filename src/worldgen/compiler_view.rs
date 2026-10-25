@@ -1,15 +1,15 @@
-//! The World Compiler's screen: pick a bake, set the compiler's whole-map jobs and the
+//! The Terrain Compiler's screen: pick a bake, set the compiler's whole-map jobs and the
 //! Interpreter's recipe, and see the result as shaded relief. (The work itself is in `compiler.rs`
 //! and `crate::world::interpreter`.)
 //!
 //! ```text
-//! ┌──── top: which bake, land share ──────────────────────────────────────────┐
-//! │ World Compiler │ Interpreter    │                          │ under the    │
-//! │ sea level      │ the chain      │   the world, in relief   │ mouse        │
-//! │ coastline      │ land and sea   │                          │              │
-//! │ foothills      │ mountains      │                          │              │
-//! │ save, render   │ hills, blocks  │                          │              │
-//! └────────────────┴────────────────┴──────────────────────────┴──────────────┘
+//! ┌──── top: which bake, land share ───────────────────────────────────────────────┐
+//! │ Terrain Compiler │ World Interpreter │                          │ under the    │
+//! │ sea level        │ the chain         │   the world, in relief   │ mouse        │
+//! │ coastline        │ land and sea      │                          │              │
+//! │ foothills        │ mountains         │                          │              │
+//! │ save, render     │ hills, blocks     │                          │              │
+//! └──────────────────┴───────────────────┴──────────────────────────┴──────────────┘
 //! ```
 
 use super::Suite;
@@ -405,7 +405,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     }
 
     if let Some((name, picture, blocks_per_pixel)) = send {
-        suite.add_layer(LayerKind::Image { file: format!("{name} (from the World Compiler)"), picture: Arc::new(picture), placement: Placement { blocks_per_pixel, ..Placement::default() } });
+        suite.add_layer(LayerKind::Image { file: format!("{name} (from the Terrain Compiler)"), picture: Arc::new(picture), placement: Placement { blocks_per_pixel, ..Placement::default() } });
         if let Some(layer) = suite.layers.last_mut() {
             layer.name = name;
         }
@@ -413,7 +413,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
 }
 
 fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
-    ui.heading("World Compiler");
+    ui.heading("Terrain Compiler");
     ui.small(
         "Turns a baked world into smooth maps, doing the jobs that need the whole map at once. The Interpreter (the \
          next panel) makes the ground from them. Bake worlds in the Tectonic Sim, then pick one in the bar along the top.",
@@ -520,11 +520,11 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
 const CHAIN: &str = "\
 Tectonic Sim -> bake (32-block pixels)
       |
-World Compiler · whole map, once:
+Terrain Compiler · whole map, once:
   sea level · soften coast · foothills
       |  smooth maps
-Interpreter · every block, as the
-  world is made (this panel):
+World Interpreter · every block, as
+  the world is made (this panel):
   blend the maps to the block, then
   curves · grade · mountains · ridges
   passes · rifts · hills · detail
@@ -533,13 +533,13 @@ the ground (and the distant terrain)";
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
 fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
-    ui.heading("Interpreter");
+    ui.heading("World Interpreter");
     ui.small(
         "The end of the chain: the recipe that gives every column of blocks its height, worked out at that block as the \
          world is made. The map here shows it worked out at each pixel's centre.",
     );
     ui.add(egui::Label::new(egui::RichText::new(CHAIN).monospace().small())).on_hover_text(
-        "Moved here from the World Compiler: the compiler used to work this recipe out once per 32-block\n\
+        "Moved here from the Terrain Compiler: the compiler used to work this recipe out once per 32-block\n\
          pixel and hand over finished heights, which were then smoothed between pixels. The recipe has\n\
          sharp curves in it (a coast can drop 90 blocks within one pixel), and smoothing between finished\n\
          heights swings past every sharp step: one hump per pixel, in rows along every coast and cliff.\n\
@@ -613,7 +613,7 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.add(crate::debug::Slider::new(&mut s.gabbro_from, SEA_LEVEL as i32..=HIGHEST as i32).text("gabbro from Z"))
         .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance.");
     ui.add_space(4.0);
-    ui.small("Presets, and back-to-defaults, are on the World Compiler panel: they cover both.");
+    ui.small("Presets, and back-to-defaults, are on the Terrain Compiler panel: they cover both.");
 }
 
 impl Compiler {

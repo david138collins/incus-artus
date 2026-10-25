@@ -1,4 +1,4 @@
-//! The terrain lab — the World Compiler's map, zoomed in, becomes a live view of the ground block by
+//! The terrain lab — the Terrain Compiler's map, zoomed in, becomes a live view of the ground block by
 //! block, exactly as the Interpreter will make it in the world. Park it over any patch and move the
 //! Interpreter's sliders: it follows them as they move.
 //!

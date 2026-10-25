@@ -127,7 +127,7 @@ pushed down **darker**.
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map. **[BUILT 2026-10-24]**, see "The Tectonic Sim's product" below.
 
-### The Tectonic Sim's product, and the World Compiler  [DECIDED 2026-10-24]
+### The Tectonic Sim's product, and the Terrain Compiler  [DECIDED 2026-10-24]
 - **Renamed:** the World Gen tab is now the **Tectonic Sim**. It's a sophisticated machine; once it's set
   up well it goes "in the closet", opened again only for fine tuning or to make new **world types** for
   players (each a different preset of tectonics settings).
@@ -142,10 +142,10 @@ pushed down **darker**.
   and how hard, from each grid triangle's change of shape. Mountain ridges run across it. Shown as
   short lines on the map.
 - **Open sea is as deep as the deepest plate rock** in the height map, so it reads as true deep ocean.
-- **Next: a World Compiler tab** [DECIDED: its own tab, after the Tectonic Sim]. It reads a bake and
+- **Next: a Terrain Compiler tab** [DECIDED: its own tab, after the Tectonic Sim]. It reads a bake and
   turns it into the actual elevation map (and later the rest of world gen).
 
-### World Compiler, first version  [DECIDED 2026-10-24, building]
+### Terrain Compiler, first version  [DECIDED 2026-10-24, building]
 - **Sea level Z = 128; the tallest mountains reach Z = 333** [David] (the world is Z 0 to 399).
 - Reads a bake and makes **the ground's height in blocks everywhere** (one Z per pixel, 32 blocks a
   pixel). Sliders: which bake height is sea level (the land share shows), how deep the deepest ocean
@@ -173,12 +173,12 @@ pushed down **darker**.
   sit mid-knob.
 - **Next for the compiler: an erosion pass** [David] to wear down the rough edges.
 
-### The Interpreter  [DECIDED and BUILT 2026-10-24]
-The end of the chain, now with its own panel beside the World Compiler [David: "it's at the end of the
+### The World Interpreter  [DECIDED and BUILT 2026-10-24]
+The end of the chain, now with its own panel beside the Terrain Compiler [David: "it's at the end of the
 signal chain... it's now doing more than just repeating what it's told"].
 ```text
 Tectonic Sim → bake (32-block pixels)
-World Compiler (whole map, once): sea level · soften the coastline · foothill skirts
+Terrain Compiler (whole map, once): sea level · soften the coastline · foothill skirts
       → smooth maps: coast, height, tilt, squeeze, squeeze direction, skirt
 Interpreter (every block, as the world is made): blend the maps to the block, then
       land & sea curves · grade · mountains · ridges · passes · rifts · hills · detail · surface blocks
@@ -200,7 +200,7 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
 
 ### The terrain lab  [DECIDED 2026-10-24; core BUILT]
 A true-scale inspection tool, so terrain can be judged without going in and out of worlds [David].
-- **Built:** zooming into the World Compiler's map turns it into a **live close-up** of the ground as
+- **Built:** zooming into the Terrain Compiler's map turns it into a **live close-up** of the ground as
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
   copied. **Layer switches** leave parts of the recipe out (mountains, ridges, passes, rifts, hills,
@@ -261,6 +261,12 @@ Tectonic Sim
   from the whole-map river network around it, so a tile made alone is the same as in a full make.
   Water always runs downhill and always connects: channels are carved to the bed height saved along
   each line, not "the ground minus 2".
+- **Names** [David, 2026-10-25]: the World Compiler is now the **Terrain Compiler** (it owns only the
+  ground) and the Interpreter the **World Interpreter** (it makes the world from everything before it).
+  **Ecology** (paints life onto the compiled terrain: plants, trees, animal habitat zones) and
+  **Civilization** (people and hostile NPCs; a few local edits for roads, villages and structures) will
+  be tabs before the interpreter, once the current scope is wrapped up. "EZ-Bake" stays as the way a
+  stage bundles its result for the next one. Ask David before naming or placing any new tab or panel.
 - **Each stage caches its result.** Changing a slider redoes that stage and the ones after it, never
   the ones before.
 - **World creation budget:** about 10 minutes on a slightly below-average PC (a GTX 980 Ti-era machine
@@ -323,7 +329,7 @@ a separate later system.)
   through every range]: points pressed together **weld** (stickiness slider; welds crack if pulled
   hard, so straits can still open), and sea narrower than **seal gaps up to** with rock on both sides
   is filled from the nearest rock. Bakes made before this still have their gaps: bake again. For now worlds are baked one at a time to experiment on; **eventually**
-  [David] the Tectonic Sim runs a world preset and hands its maps straight to the World Compiler, and
+  [David] the Tectonic Sim runs a world preset and hands its maps straight to the Terrain Compiler, and
   concludes itself.
 - **The repeating coastal mounds: found and fixed at the root** [David: "over and over, I see extremely
   regular borders of mountains and coastlines... a solid series of the same bump"]. First guess (an even
