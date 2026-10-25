@@ -378,10 +378,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.add(crate::debug::Slider::new(&mut settings.shade_north_south, 0.0..=1.5).text("shade: north/south"));
         ui.add(crate::debug::Slider::new(&mut settings.shade_east_west, 0.0..=1.5).text("shade: east/west"));
         ui.checkbox(&mut settings.fog_enabled, "fog");
-        ui.add(crate::debug::Slider::new(&mut settings.fog_start, 0.0..=2000.0).text("fog start (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.fog_start, 0.0..=12_000.0).text("fog start (blocks)"))
+            .on_hover_text("Where the haze begins. Closer haze makes far things look farther: a strong depth cue from the air.");
         let fog_start = settings.fog_start;
         // Fog end can't be closer than fog start (the fog gets thicker from start to end).
-        ui.add(crate::debug::Slider::new(&mut settings.fog_end, fog_start..=2000.0).text("fog end (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.fog_end, fog_start..=120_000.0).text("fog end (blocks)"))
+            .on_hover_text("Where the haze is total (the sky's colour).");
         if settings.fog_end < settings.fog_start {
             settings.fog_end = settings.fog_start;
         }
@@ -394,6 +396,27 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.small("Random texture rotation is switched per block, on the Blocks page.");
         if ui.button("Reset render settings").clicked() {
             *settings = RenderSettings::default();
+        }
+    }
+
+    // ── Distant terrain ──
+    ui.separator();
+    ui.strong("Distant terrain");
+    ui.small("The landscape past the real chunks, in rings of coarser and coarser cells.");
+    {
+        let mut settings = world.resource_mut::<distant::DistantSettings>();
+        ui.checkbox(&mut settings.enabled, "show distant terrain");
+        ui.add(crate::debug::Slider::new(&mut settings.rings, 1..=10).text("rings")).on_hover_text("Each ring out has cells twice the size: more rings, further you see.");
+        ui.add(crate::debug::Slider::new(&mut settings.finest_cell, 4..=64).text("finest cell (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.hill_shading, 0.0..=0.6).text("hill shading")).on_hover_text(
+            "Lights each patch by its slope toward the sun, so hills and valleys read from afar. 0 = flat colour.\n\
+             (Only the distant terrain: the real chunks show their slopes as block steps.)",
+        );
+        ui.add(crate::debug::Slider::new(&mut settings.sun_from, 0.0..=360.0).suffix("°").text("sun from")).on_hover_text("The compass direction the light comes from: 0° north, 90° east, 315° north-west.");
+        ui.add(crate::debug::Slider::new(&mut settings.sun_height, 5.0..=90.0).suffix("°").text("sun height")).on_hover_text("Lower = longer, stronger shading on slopes.");
+        ui.add(crate::debug::Slider::new(&mut settings.height_tint, 0.0..=0.3).text("height tint")).on_hover_text("Land a little lighter the higher it is.");
+        if ui.button("Reset distant terrain settings").clicked() {
+            *settings = distant::DistantSettings::default();
         }
     }
 

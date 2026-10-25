@@ -60,11 +60,21 @@ pub struct DistantSettings {
     pub rings: u32,
     /// The most tiles being made at once (0 = one per CPU core).
     pub most_at_once: usize,
+    /// Hill shading: each cell's top lit by its slope toward the sun, so hills and valleys read from
+    /// afar (0 = flat colour). Measured per cell, so far rings (bigger cells) shade as strongly on
+    /// screen as near ones.
+    pub hill_shading: f32,
+    /// Where the sun is: the compass direction it shines from (degrees: 0 north, 90 east, 315
+    /// north-west) and how high it stands (degrees above the horizon).
+    pub sun_from: f32,
+    pub sun_height: f32,
+    /// Land a little lighter the higher it is (0 = none).
+    pub height_tint: f32,
 }
 
 impl Default for DistantSettings {
     fn default() -> Self {
-        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0 }
+        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, hill_shading: 0.3, sun_from: 315.0, sun_height: 40.0, height_tint: 0.15 }
     }
 }
 
@@ -177,12 +187,39 @@ pub struct TileMesh {
     pub corner: Vec3,
 }
 
-/// Face brightness: top, north/south sides, east/west sides.
-#[derive(Clone, Copy)]
+/// Face brightness: top, north/south sides, east/west sides; and the hill shading on tops (how
+/// strong, the sun's direction in game axes, and the height tint).
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Shade {
     pub top: f32,
     pub north_south: f32,
     pub east_west: f32,
+    pub hills: f32,
+    pub sun: Vec3,
+    pub height_tint: f32,
+}
+
+impl Shade {
+    /// The face brightnesses from the render settings, and the hill shading from the distant
+    /// terrain's.
+    pub fn new(render: &RenderSettings, settings: &DistantSettings) -> Self {
+        let (from, up) = (settings.sun_from.to_radians(), settings.sun_height.clamp(5.0, 90.0).to_radians());
+        Self {
+            top: render.shade_top,
+            north_south: render.shade_north_south,
+            east_west: render.shade_east_west,
+            hills: settings.hill_shading,
+            sun: Vec3::new(up.cos() * from.cos(), up.cos() * from.sin(), up.sin()),
+            height_tint: settings.height_tint,
+        }
+    }
+
+    /// How brightly a top is lit, with the ground rising `north` and `east` blocks per cell across
+    /// it: 1 on flat ground, more facing the sun, less facing away.
+    fn hill(&self, north: f32, east: f32) -> f32 {
+        let normal = Vec3::new(-north * self.hills, -east * self.hills, 1.0).normalize();
+        (normal.dot(self.sun) / self.sun.z).clamp(0.35, 1.6)
+    }
 }
 
 impl TileMesh {
@@ -226,16 +263,30 @@ pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, s
     }
     let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), indices: Vec::new(), corner };
     let cell_corner = |i: i32, j: i32| corner + Vec3::new(i as f32 * cell, j as f32 * cell, 0.0);
+    // Each top's brightness: hill shading from its neighbours' heights (the slope across it, in
+    // blocks per cell), and the height tint; in 32 steps, so neighbours alike still share a quad.
+    // Water stays flat.
+    let lit = |i: i32, j: i32| -> i32 {
+        let Some((h, block)) = at(i, j) else { return 32 };
+        if block == blocks.water {
+            return 32;
+        }
+        let z = |di: i32, dj: i32| at(i + di, j + dj).map_or(h, |(z, _)| z) as f32;
+        let hill = shade.hill((z(1, 0) - z(-1, 0)) / 2.0, (z(0, 1) - z(0, -1)) / 2.0);
+        let tint = 1.0 + shade.height_tint * (h - crate::world::SEA_LEVEL) as f32 / (crate::world::HIGHEST - crate::world::SEA_LEVEL as f32);
+        (hill * tint * 32.0).round() as i32
+    };
     for j in 0..CELLS {
-        // Tops: runs along the row with the same height and block share one quad.
+        // Tops: runs along the row with the same height, block and brightness share one quad.
         let mut i = 0;
         while i < CELLS {
             let Some((h, block)) = at(i, j) else {
                 i += 1;
                 continue;
             };
+            let light = lit(i, j);
             let mut end = i + 1;
-            while end < CELLS && at(end, j) == Some((h, block)) {
+            while end < CELLS && at(end, j) == Some((h, block)) && lit(end, j) == light {
                 end += 1;
             }
             let (a, b) = (cell_corner(i, j), cell_corner(end, j + 1));
@@ -244,7 +295,7 @@ pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, s
                 [Vec3::new(a.x, a.y, z), Vec3::new(b.x, a.y, z), Vec3::new(b.x, b.y, z), Vec3::new(a.x, b.y, z)],
                 Vec3::Z,
                 palette.top(block, blocks),
-                shade.top,
+                shade.top * light as f32 / 32.0,
             );
             i = end;
         }
@@ -346,7 +397,7 @@ pub struct DistantState {
     /// Tiles no longer wanted, still drawn until the tiles taking their place are in.
     retiring: Vec<(TileKey, Entity)>,
     /// The settings and the tile the wanted list was worked out for.
-    wanted_for: Option<(DistantSettings, [f32; 3], IVec2)>,
+    wanted_for: Option<(DistantSettings, Shade, IVec2)>,
     wanted: Vec<TileKey>,
     /// The texture marking chunks on screen, the chunks it marks, and the centre and render
     /// distance it was made for.
@@ -424,13 +475,13 @@ pub fn update_distant(
     }
     let Some(camera) = camera.iter().next() else { return };
     let at = bevy_to_game(camera.translation);
-    let shade = Shade { top: render.shade_top, north_south: render.shade_north_south, east_west: render.shade_east_west };
+    let shade = Shade::new(&render, &settings);
 
     // Which tiles are wanted: worked out again when you move into another finest tile (or the
     // settings change).
     let finest_tile = (settings.finest_cell * CELLS) as f32;
     let here = IVec2::new((at.x / finest_tile).floor() as i32, (at.y / finest_tile).floor() as i32);
-    let look = [shade.top, shade.north_south, shade.east_west];
+    let look = shade;
     let now = (settings.clone(), look, here);
     if state.wanted_for.as_ref() != Some(&now) {
         // Shading changed: every tile has to be made again.
@@ -643,6 +694,15 @@ mod tests {
     }
 
     #[test]
+    fn slopes_facing_the_sun_are_lighter_and_flat_ground_is_as_it_was() {
+        let shade = Shade::new(&RenderSettings::default(), &DistantSettings { hill_shading: 0.3, sun_from: 315.0, sun_height: 40.0, ..DistantSettings::default() });
+        assert!((shade.hill(0.0, 0.0) - 1.0).abs() < 1e-5);
+        // Ground falling away to the north-west faces the sun; rising toward it, faces away.
+        let (facing, away) = (shade.hill(-4.0, 4.0), shade.hill(4.0, -4.0));
+        assert!(facing > 1.05 && away < 0.95, "facing {facing}, away {away}");
+    }
+
+    #[test]
     fn a_tile_is_a_blocky_height_field_and_past_the_map_is_nothing() {
         let width = 64;
         // Sea in the west, land from 256 blocks east of the middle (inside the tile tested).
@@ -650,7 +710,7 @@ mod tests {
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
-        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.6 };
+        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.6, hills: 0.0, sun: Vec3::Z, height_tint: 0.0 };
         let mesh = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 0, x: -1, y: 0 }, 16).unwrap();
         assert!(!mesh.indices.is_empty() && mesh.indices.len() % 6 == 0);
         assert_eq!(mesh.positions.len(), mesh.colours.len());
