@@ -833,6 +833,11 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.add(crate::debug::Slider::new(&mut plates.ocean_rings, 0..=3).text("rings of ocean plates")).on_hover_text(
         "The cells touching the land plates become ocean plates (dim blue). They move too, and where they\nmeet land they make the coast types. More rings = more ocean plates further out.",
     );
+    ui.add(crate::debug::Slider::new(&mut plates.ocean_among_land, 0..=6).text("ocean plates among the land")).on_hover_text(
+        "Ocean plates in the middle of the land plates (picked from the cells most surrounded by land).\n\
+         They get caught as the land closes in and bite bays and inland seas out of it, so the continent\n\
+         comes out less round. The land plates stay as many as you asked for.",
+    );
 
     ui.add_space(6.0);
     ui.separator();

@@ -36,7 +36,10 @@
 //!
 //! **Ocean plates.** The cells touching the land plates become ocean plates (a ring around the
 //! land, or more rings). They're plates too: they move, and where they meet land they make the coast
-//! types. Cells past them stay plain, empty ocean.
+//! types. Cells past them stay plain, empty ocean. **Ocean plates among the land** [David,
+//! 2026-10-25]: some of the cells kept nearest the middle are made ocean instead, the ones most
+//! surrounded by the others, so they get caught in the land as it closes in and bite bays and
+//! inland seas out of it: a continent shaped less like a blob, more like a letter.
 //!
 //! Only the vertices and lines that touch a plate are kept (the ones out in the empty ocean are
 //! culled).
@@ -58,6 +61,8 @@ pub struct PlateSettings {
     pub spread: u32,
     /// Rings of ocean plates around the land plates (0 = none).
     pub ocean_rings: u32,
+    /// Ocean plates in among the land plates, caught in the middle of them (0 = none).
+    pub ocean_among_land: u32,
 
     /// The two line mutators, added together.
     pub waves: LineNoise,
@@ -71,6 +76,7 @@ impl Default for PlateSettings {
             coverage: 0.30,
             spread: 2,
             ocean_rings: 1,
+            ocean_among_land: 0,
             waves: LineNoise { on: true, style: LineStyle::Perlin, amount: 3_000.0, size: 15_000.0, octaves: 2, roughness: 0.5 },
             rough: LineNoise { on: true, style: LineStyle::Midpoint, amount: 800.0, size: 1_000.0, octaves: 3, roughness: 0.55 },
         }
@@ -125,7 +131,7 @@ impl PlateSettings {
 pub struct Plate {
     /// Which cell it is.
     pub cell: usize,
-    /// A land plate, or an ocean plate in the ring around them.
+    /// A land plate, or an ocean plate (in the rings around them, or among them).
     pub land: bool,
     pub pixels: usize,
     /// Its share of the world's circle.
@@ -489,12 +495,27 @@ pub fn make(settings: &PlateSettings, seed: u64, size_blocks: f32, blocks_per_pi
     let mut candidates: Vec<usize> = (0..count).filter(|&c| !past_edge[c] && middles[c].2 > 0).collect();
     let from_middle = |c: usize| (middles[c].0 - centre).hypot(middles[c].1 - centre);
     candidates.sort_by(|&a, &b| from_middle(a).total_cmp(&from_middle(b)));
-    candidates.truncate(settings.plates as usize);
-    let land = candidates.len();
+    candidates.truncate((settings.plates + settings.ocean_among_land) as usize);
+    let neighbours = neighbours(&cell, width, count);
+
+    // Ocean plates among the land: of the cells kept, those most surrounded by the others (with a
+    // little chance mixed in) become ocean, so they're caught in the middle of the land and bite
+    // into it instead of rounding it off.
+    let among = (settings.ocean_among_land as usize).min(candidates.len().saturating_sub(1));
+    if among > 0 {
+        let cluster: HashSet<usize> = candidates.iter().copied().collect();
+        let surrounded = |c: usize| neighbours[c].iter().filter(|n| cluster.contains(n)).count() as f32 + unit(seed ^ 0x0cea, c, 0) * 2.0;
+        let mut by_surrounded = candidates.clone();
+        by_surrounded.sort_by(|&a, &b| surrounded(b).total_cmp(&surrounded(a)));
+        let sea: HashSet<usize> = by_surrounded[..among].iter().copied().collect();
+        // The land plates first, then the ocean ones (in the order they were kept).
+        let (land_cells, sea_cells): (Vec<usize>, Vec<usize>) = candidates.iter().partition(|c| !sea.contains(c));
+        candidates = land_cells.into_iter().chain(sea_cells).collect();
+    }
+    let land = candidates.len() - among;
 
     // The rings of ocean plates: each ring is the cells touching the ones before (and not
     // reaching past the edge).
-    let neighbours = neighbours(&cell, width, count);
     let mut taken = vec![false; count];
     for &c in &candidates {
         taken[c] = true;
@@ -667,6 +688,25 @@ mod tests {
         // No ring, no ocean plates.
         let none = plates(&PlateSettings { ocean_rings: 0, ..PlateSettings::default() }, 2);
         assert!(none.kept.iter().all(|plate| plate.land));
+    }
+
+    #[test]
+    fn ocean_plates_among_the_land_are_caught_between_land_plates() {
+        for seed in 1..=4 {
+            let settings = PlateSettings { plates: 14, ocean_rings: 0, ocean_among_land: 3, ..PlateSettings::default() };
+            let made = plates(&settings, seed);
+            let land: Vec<usize> = made.kept.iter().filter(|plate| plate.land).map(|plate| plate.cell).collect();
+            let ocean: Vec<usize> = made.kept.iter().filter(|plate| !plate.land).map(|plate| plate.cell).collect();
+            // As many land plates as asked for, the land first, and three ocean plates.
+            assert_eq!((land.len(), ocean.len()), (14, 3), "seed {seed}");
+            assert!(made.kept[..land.len()].iter().all(|plate| plate.land));
+            // Each is in among the land: touching at least three land plates.
+            let touching = neighbours(&made.cell, made.width, made.cells);
+            for &c in &ocean {
+                let around = touching[c].iter().filter(|n| land.contains(n)).count();
+                assert!(around >= 3, "seed {seed}: ocean plate cell {c} touches only {around} land plates");
+            }
+        }
     }
 
     #[test]
