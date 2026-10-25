@@ -613,6 +613,18 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         "How readily ridges line up across the squeeze direction (see the 'squeeze direction' overlay).\n\
          0 = wandering every way, 1 = lined up wherever the squeeze is clear, 2 = lined up even where it's faint.",
     );
+    ui.checkbox(&mut s.steady_ridges, "steady ridges").on_hover_text(
+        "On: ridges keep their spacing where the squeeze direction bends (laid out in 12 fixed directions,\n\
+         each spot blending the two nearest its squeeze).\n\
+         Off: the old way, which turns the whole pattern to follow the squeeze and crushes ridges into\n\
+         rows of thin grooves wherever it bends (the 'giant fingerprint'). For A/B.",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.ridge_wander, 0.0..=2_000.0).text("ridge wander (blocks)")).on_hover_text(
+        "How far ridges are nudged sideways by a slow swirl: they bend, change direction, and stop lining up with their\n\
+         neighbours. 0 = straight. Around the ridge spacing and up bends them strongly.",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.ridge_wander_size, 250.0..=16_000.0).logarithmic(true).text("wander size (blocks)"))
+        .on_hover_text("How big the swirls that nudge the ridges are. Smaller = ridges kink more often.");
     ui.add(crate::debug::Slider::new(&mut s.passes, 0.0..=2.0).text("passes")).on_hover_text(
         "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests;\n\
          past 1, the deepest passes cut right through to the ground, leaving separate peaks.",

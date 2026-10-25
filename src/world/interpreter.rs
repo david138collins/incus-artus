@@ -169,6 +169,12 @@ pub struct InterpreterSettings {
     /// How readily ridges line up across the squeeze direction: 0 = wandering every way, 1 = lined up
     /// wherever the squeeze is clear, 2 = lined up even where it's faint.
     pub ridge_alignment: f32,
+    /// Steady ridges: laid out in fixed directions, so their spacing holds where the squeeze bends
+    /// (off = the old way, which crushes them into grooves there).
+    pub steady_ridges: bool,
+    /// How far (blocks) ridges are nudged sideways by a slow noise, and how big its swirls are.
+    pub ridge_wander: f32,
+    pub ridge_wander_size: f32,
     /// How far apart ridges are (across them), and how long they run (along them), in blocks.
     pub ridge_spacing: f32,
     pub ridge_length: f32,
@@ -205,6 +211,9 @@ impl Default for InterpreterSettings {
             ridge_layers: 3,
             ridge_roughness: 0.45,
             ridge_alignment: 1.0,
+            steady_ridges: true,
+            ridge_wander: 0.0,
+            ridge_wander_size: 2_000.0,
             ridge_spacing: 3_000.0,
             ridge_length: 15_000.0,
             sharpness: 1.2,
@@ -313,6 +322,9 @@ fn catmull_rom(p: [f32; 4], t: f32) -> f32 {
     let (t2, t3) = (t * t, t * t * t);
     0.5 * (2.0 * p[1] + (p[2] - p[0]) * t + (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3]) * t2 + (3.0 * (p[1] - p[2]) + p[3] - p[0]) * t3)
 }
+
+/// How many fixed directions steady ridges are laid out in (across half a turn: every 15°).
+const RIDGE_DIRECTIONS: usize = 12;
 
 /// A ridge pattern, 0 to 1 (1 = a crest): `layers` of "folded" noise stacked, each 2.1 times finer
 /// and `roughness` times as strong as the last, whose creases are the crests.
@@ -426,20 +438,49 @@ impl CompiledMap {
             // ridges lined up across it, blended into wandering ridges where the direction is
             // unclear.
             let angle = here.push_y.atan2(here.push_x) / 2.0;
-            let push = (angle.cos(), -angle.sin());
-            let across = x * push.0 + y * push.1;
-            let along = -x * push.1 + y * push.0;
             let spacing = s.ridge_spacing.max(1.0);
             let seed = self.noise_seed;
             let (layers, roughness) = (s.ridge_layers.clamp(1, 8), s.ridge_roughness.clamp(0.0, 1.0));
-            let lined_up = ridges(seed, across / spacing, along / s.ridge_length.max(1.0), s.sharpness, layers, roughness);
+            let pass_size = s.pass_spacing.max(1.0);
+            // Wander: the ridges' spot nudged sideways by a slow noise, so they bend and their
+            // bases shift instead of running dead straight side by side.
+            let (x, y) = if s.ridge_wander > 0.0 {
+                let size = s.ridge_wander_size.max(1.0);
+                let nudge = |k| perlin(seed, k, Fade::Smooth, x / size, y / size) * s.ridge_wander;
+                (x + nudge(0x3a1), y + nudge(0x3a2))
+            } else {
+                (x, y)
+            };
+            // The ridges (and the passes along them) lined up across one direction.
+            let lined = |direction: f32, k: u64| {
+                let push = (direction.cos(), -direction.sin());
+                let across = x * push.0 + y * push.1;
+                let along = -x * push.1 + y * push.0;
+                let crest = ridges(seed ^ k.wrapping_mul(0x9e37_79b9), across / spacing, along / s.ridge_length.max(1.0), s.sharpness, layers, roughness);
+                (crest, perlin(seed, 0x9a55 + k, Fade::Smooth, along / pass_size, across / (pass_size * 3.0)))
+            };
+            let (lined_up, along_ridge) = if s.steady_ridges {
+                // Steady: each of a few fixed directions has its own pattern laid across the whole
+                // map, and a spot blends the two nearest its push. Turning the pattern to follow
+                // the push itself (the old way, below) swings it round the map's corner, which
+                // crushes ridges together wherever the push bends, worse the further out: rows of
+                // grooves a few blocks wide (found 2026-10-25, David's "giant fingerprint").
+                let step = std::f32::consts::PI / RIDGE_DIRECTIONS as f32;
+                let k = (angle + std::f32::consts::FRAC_PI_2) / step;
+                let first = k.floor();
+                let t = smooth(k - first);
+                let [a, b] = [first as usize % RIDGE_DIRECTIONS, (first as usize + 1) % RIDGE_DIRECTIONS];
+                let toward = |i: usize| lined(-std::f32::consts::FRAC_PI_2 + i as f32 * step, i as u64 + 1);
+                let ((crest_a, pass_a), (crest_b, pass_b)) = (toward(a), toward(b));
+                (crest_a + (crest_b - crest_a) * t, pass_a + (pass_b - pass_a) * t)
+            } else {
+                lined(angle, 0)
+            };
             let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness, layers, roughness);
             let clear = smooth(here.push_strength * s.ridge_alignment.max(0.0) / 0.1);
             let crest = wandering + (lined_up - wandering) * clear;
             let carved = if self.mutes.ridges { 1.0 } else { (1.0 - s.ridges.max(0.0) * (1.0 - crest)).max(0.0) };
             // Passes: the crest height rises and dips along the ridge.
-            let pass_size = s.pass_spacing.max(1.0);
-            let along_ridge = perlin(seed, 0x9a55, Fade::Smooth, along / pass_size, across / (pass_size * 3.0));
             let wandering_passes = perlin(seed, 0x9a56, Fade::Smooth, x / pass_size, y / pass_size);
             let wave = wandering_passes + (along_ridge - wandering_passes) * clear;
             let dipped = if self.mutes.passes { 1.0 } else { (1.0 - s.passes.max(0.0) * (0.5 - 0.5 * wave)).max(0.0) };
@@ -563,6 +604,46 @@ mod tests {
             let (a, b) = (spline.at(k as f32 / 100.0), spline.at((k + 1) as f32 / 100.0));
             assert!((a - b).abs() < 0.05);
         }
+    }
+
+    /// Ridge crests counted along 4,000 blocks of a line running east from `east` blocks.
+    fn crests_along(map: &CompiledMap, east: f32, south: f32) -> usize {
+        let at = |x: f32| map.parts(&map.blended(x / map.maps.blocks_per_pixel - 0.5, south / map.maps.blocks_per_pixel - 0.5), x, south).mountains;
+        let samples: Vec<f32> = (0..1000).map(|k| at(east + k as f32 * 4.0)).collect();
+        samples.windows(3).filter(|w| w[1] > w[0] && w[1] >= w[2]).count()
+    }
+
+    #[test]
+    fn steady_ridges_keep_their_spacing_where_the_squeeze_bends_far_from_the_corner() {
+        // Squeezed everywhere, the push turning slowly from west to east across the map.
+        let width = 64;
+        let mut map = CompiledMap::of_heights(width, 1024.0, &vec![150.0; width * width]);
+        let maps = Arc::make_mut(&mut map.maps);
+        maps.most_crushed = 1.0;
+        for i in 0..width * width {
+            let turn = (i % width) as f32 * 0.04;
+            maps.squeeze[i] = 1.0;
+            maps.push_strength[i] = 1.0;
+            (maps.push_x[i], maps.push_y[i]) = ((2.0 * turn).cos(), (2.0 * turn).sin());
+        }
+        let recipe = |steady| InterpreterSettings {
+            mountains: Spline::through(&[(0.0, 1.0), (1.0, 1.0)]),
+            ridges: 1.0,
+            ridge_layers: 1,
+            sharpness: 1.0,
+            passes: 0.0,
+            ridge_spacing: 400.0,
+            ridge_length: 2_000.0,
+            steady_ridges: steady,
+            ..InterpreterSettings::default()
+        };
+        let (steady, old) = (map.with(recipe(true), Mutes::default()), map.with(recipe(false), Mutes::default()));
+        let (near, far) = ((2_000.0, 30_000.0), (55_000.0, 30_000.0));
+        let count = |map: &CompiledMap, (east, south): (f32, f32)| crests_along(map, east, south);
+        // Near the corner both are about one crest per few hundred blocks; far out, the old way's
+        // are crushed together and the steady ones aren't.
+        assert!(count(&steady, far) < count(&steady, near) * 2 + 4, "steady: {} near, {} far", count(&steady, near), count(&steady, far));
+        assert!(count(&old, far) > count(&steady, far) * 2, "old {} vs steady {} far out", count(&old, far), count(&steady, far));
     }
 
     #[test]

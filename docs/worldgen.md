@@ -248,6 +248,15 @@ those values (ridges and passes run to 2: past 1, valleys and passes reach the g
 ridge pattern's hidden numbers are sliders: ridge layers (3), ridge roughness (0.45), ridge
 alignment (1; how readily ridges line up across the squeeze).
 
+**The giant fingerprint** [found 2026-10-25]: with hope's settings, some ranges were "perfectly
+scalloped and irregular peaks" and others "a giant fingerprint, 20 blocks deep and 3 wide at the
+grooves". Cause: the ridge pattern was turned to follow the squeeze direction by rotating the map's
+own coordinates (measured from its corner, up to 72,000 blocks out), so wherever the squeeze bent,
+the pattern swung round and crushed the ridges together, worse the further from the corner. Fix
+("steady ridges", a checkbox for A/B): 12 fixed directions, each with its own pattern laid across
+the whole map; each spot blends the two nearest its squeeze. Plus **ridge wander**: a slow noise
+nudges the ridges sideways, so they bend and stop lining up with their neighbours.
+
 ### The processing meter  [BUILT 2026-10-24]
 [David: reassurance whenever the computer has to think.] In the Editor Suite's top bar, in a slot of
 its own: a spinner, what it's working out (compiling, EZ-baking, drawing the close-up, baking,
