@@ -148,17 +148,46 @@ fn graphics_kit(root: &mut egui::Ui, suite: &mut Suite) {
 
 // ── The suite's bar: which kit, the field and pixel size ──────────────────
 
+/// The processing meter: whenever the suite is working something out (compiling, baking, drawing
+/// the close-up, making layers…), a spinner, what it's doing and for how long; otherwise "ready".
+/// It has a slot of its own that's always there, so it never pushes the bar around.
+fn processing_meter(ui: &mut egui::Ui, suite: &mut Suite) {
+    let working = suite.compiler.working().or(suite.world.working()).or(suite.is_making().then_some("making layers"));
+    suite.busy = match (working, suite.busy) {
+        // Still busy (perhaps with the next step): the clock keeps running from the start.
+        (Some(what), Some((_, since))) => Some((what, since)),
+        (Some(what), None) => Some((what, std::time::Instant::now())),
+        (None, _) => None,
+    };
+    let height = ui.spacing().interact_size.y;
+    let (slot, response) = ui.allocate_exact_size(egui::vec2(230.0, height), egui::Sense::hover());
+    let font = egui::FontId::proportional(12.0);
+    match suite.busy {
+        Some((what, since)) => {
+            let spinner = egui::Rect::from_center_size(slot.left_center() + egui::vec2(8.0, 0.0), egui::Vec2::splat(14.0));
+            egui::Spinner::new().size(14.0).color(PINK).paint_at(ui, spinner);
+            let seconds = since.elapsed().as_secs_f32();
+            let text = if seconds >= 0.5 { format!("{what}  {seconds:.1} s") } else { what.to_string() };
+            ui.painter().text(slot.left_center() + egui::vec2(22.0, 0.0), egui::Align2::LEFT_CENTER, text, font, PINK);
+            ui.ctx().request_repaint();
+        }
+        None => {
+            ui.painter().circle_filled(slot.left_center() + egui::vec2(8.0, 0.0), 4.0, Color32::from_gray(90));
+            ui.painter().text(slot.left_center() + egui::vec2(22.0, 0.0), egui::Align2::LEFT_CENTER, "ready", font, Color32::from_gray(120));
+        }
+    }
+    response.on_hover_text(
+        "The processing meter. While the suite is working something out (compiling, baking, simulating, drawing\n\
+         the close-up, making layers), it spins and says what, and for how long. Settings that ask a lot can\n\
+         take a moment: everything keeps working meanwhile, and the result appears when it's ready.",
+    );
+}
+
 fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
     let mut close = false;
     ui.horizontal_wrapped(|ui| {
         ui.colored_label(PINK, "EDITOR SUITE");
-        // "making…" lives in a slot of its own that's always there (blank when nothing is being
-        // made), so it never pushes the bar around or changes its height.
-        let making = suite.is_making() || suite.world.is_making() || suite.compiler.is_making();
-        let (slot, _) = ui.allocate_exact_size(egui::vec2(58.0, ui.spacing().interact_size.y), egui::Sense::hover());
-        if making {
-            ui.painter().text(slot.left_center(), egui::Align2::LEFT_CENTER, "making…", egui::FontId::proportional(12.0), PINK);
-        }
+        processing_meter(ui, suite);
         if ui.button("Back to the world  [F2]").clicked() {
             close = true;
         }

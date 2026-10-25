@@ -42,6 +42,7 @@
 use super::terrain::SEA_LEVEL;
 use crate::worldgen::noise::{Fade, perlin};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// No ground goes higher than this [David].
 pub const HIGHEST: f32 = 333.0;
@@ -262,13 +263,27 @@ pub struct Parts {
     pub rift: f32,
 }
 
+/// Parts of the recipe the terrain lab can leave out, to see what each one does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Mutes {
+    pub mountains: bool,
+    pub ridges: bool,
+    pub passes: bool,
+    pub rifts: bool,
+    pub hills: bool,
+    pub detail: bool,
+}
+
 /// A compiled world: the compiler's maps, and the recipe that reads them.
 #[derive(Clone, Debug)]
 pub struct CompiledMap {
-    pub maps: Maps,
+    /// Shared: a new recipe over the same maps (as the Interpreter panel's sliders move) costs nothing.
+    pub maps: Arc<Maps>,
     /// The bake's seed (the detail noise uses it; the recipe's noise a seed made from it).
     pub seed: u64,
     pub settings: InterpreterSettings,
+    /// Parts of the recipe left out (the terrain lab's layer switches; a world never leaves any out).
+    pub mutes: Mutes,
     noise_seed: u64,
     land: Curve,
     sea: Curve,
@@ -301,12 +316,19 @@ fn ridges(seed: u64, u: f32, v: f32, sharpness: f32) -> f32 {
 }
 
 impl CompiledMap {
-    pub fn new(maps: Maps, seed: u64, settings: InterpreterSettings) -> Self {
+    /// The same maps read with another recipe, leaving out `mutes`: no copying, so the terrain lab
+    /// can follow a slider as it moves.
+    pub fn with(&self, settings: InterpreterSettings, mutes: Mutes) -> Self {
+        Self { mutes, ..Self::new(self.maps.clone(), self.seed, settings) }
+    }
+
+    pub fn new(maps: Arc<Maps>, seed: u64, settings: InterpreterSettings) -> Self {
         Self {
             noise_seed: crate::fate::derive_seed(seed, "world compiler"),
             land: settings.land.curve(),
             sea: settings.sea.curve(),
             mountains: settings.mountains.curve(),
+            mutes: Mutes::default(),
             maps,
             seed,
             settings,
@@ -377,7 +399,7 @@ impl CompiledMap {
         // 4. Mountains.
         let mut mountains = 0.0;
         let tall = self.mountains.at(here.squeeze / m.most_crushed.max(1e-6)).clamp(0.0, 1.0);
-        if here.squeeze > 0.0 && tall > 0.0 {
+        if here.squeeze > 0.0 && tall > 0.0 && !self.mutes.mountains {
             // The push's direction on the map (north is −y), from the doubled-angle arrow, and the
             // ridges lined up across it, blended into wandering ridges where the direction is
             // unclear.
@@ -391,19 +413,19 @@ impl CompiledMap {
             let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness);
             let clear = smooth(here.push_strength / 0.1);
             let crest = wandering + (lined_up - wandering) * clear;
-            let carved = 1.0 - s.ridges.clamp(0.0, 1.0) * (1.0 - crest);
+            let carved = if self.mutes.ridges { 1.0 } else { 1.0 - s.ridges.clamp(0.0, 1.0) * (1.0 - crest) };
             // Passes: the crest height rises and dips along the ridge.
             let pass_size = s.pass_spacing.max(1.0);
             let along_ridge = perlin(seed, 0x9a55, Fade::Smooth, along / pass_size, across / (pass_size * 3.0));
             let wandering_passes = perlin(seed, 0x9a56, Fade::Smooth, x / pass_size, y / pass_size);
             let wave = wandering_passes + (along_ridge - wandering_passes) * clear;
-            let dipped = 1.0 - s.passes.clamp(0.0, 1.0) * (0.5 - 0.5 * wave);
+            let dipped = if self.mutes.passes { 1.0 } else { 1.0 - s.passes.clamp(0.0, 1.0) * (0.5 - 0.5 * wave) };
             mountains = (HIGHEST - ground).max(0.0) * tall * carved * dipped;
         }
-        let mountains = mountains.max(here.skirt);
+        let mountains = if self.mutes.mountains { 0.0 } else { mountains.max(here.skirt) };
 
         // 5. Rifts.
-        let rift = if here.squeeze < 0.0 { s.rift_depth * smooth(here.squeeze / m.most_stretched.min(-1e-6)) } else { 0.0 };
+        let rift = if here.squeeze < 0.0 && !self.mutes.rifts { s.rift_depth * smooth(here.squeeze / m.most_stretched.min(-1e-6)) } else { 0.0 };
         Parts { ground, mountains, rift }
     }
 
@@ -412,7 +434,7 @@ impl CompiledMap {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
         let mut z = (parts.ground + parts.mountains).min(HIGHEST) - parts.rift;
-        if z >= sea {
+        if z >= sea && !self.mutes.hills {
             let size = s.hill_size.max(1.0);
             let rolling = perlin(self.noise_seed, 0x4111, Fade::Smooth, x / size, y / size) * 0.7
                 + perlin(self.noise_seed, 0x4112, Fade::Smooth, x * 2.3 / size, y * 2.3 / size) * 0.3;
@@ -449,7 +471,7 @@ impl CompiledMap {
         let (x, y) = (east + half * blocks, half * blocks - north);
         let ground = self.put_together(self.parts(&self.blended(col, row), x, y), x, y);
         let size = self.settings.detail_size.max(1.0);
-        let detail = perlin(self.seed, 0xde7a11, Fade::Smooth, north / size, east / size) * self.settings.detail;
+        let detail = if self.mutes.detail { 0.0 } else { perlin(self.seed, 0xde7a11, Fade::Smooth, north / size, east / size) * self.settings.detail };
         Some(ground + detail)
     }
 
@@ -490,7 +512,7 @@ impl CompiledMap {
             detail: 0.0,
             ..InterpreterSettings::default()
         };
-        Self::new(maps, 1, settings)
+        Self::new(Arc::new(maps), 1, settings)
     }
 }
 
@@ -542,7 +564,7 @@ mod tests {
         let mut map = CompiledMap::of_heights(width, 32.0, &vec![140.0; width * width]);
         for i in 0..width * width {
             let (col, row) = ((i % width) as f32 + 0.5, (i / width) as f32 + 0.5);
-            map.maps.coast[i] = (row - col * 0.5 - 4.0) * 0.01;
+            Arc::make_mut(&mut map.maps).coast[i] = (row - col * 0.5 - 4.0) * 0.01;
         }
         // For each block row (pixel rows 6 to 10), the first sea column east of the land: it should
         // move steadily, 2 blocks east per block south, never in 32-block jumps.

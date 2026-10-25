@@ -1,0 +1,233 @@
+//! The terrain lab — the World Compiler's map, zoomed in, becomes a live view of the ground block by
+//! block, exactly as the Interpreter will make it in the world. Park it over any patch and move the
+//! Interpreter's sliders: it follows them as they move.
+//!
+//! - **The close-up** takes over from the map once a map pixel covers a few screen points. It works
+//!   out every column in view (one sample per block when zoomed right in; every 2nd, 4th… block
+//!   further out, so it stays quick), on all the computer's cores, and draws it in shaded relief.
+//!   Changing a slider reads the same maps with the new recipe (nothing is copied), so it can redraw
+//!   while the slider moves; the whole-map compile catches up behind it.
+//! - **Layer switches** leave parts of the recipe out, to see what each does.
+//! - **A cross-section:** Shift + drag across the map draws a line; its side view (the ground's Z
+//!   along it, with sea level) shows under the map.
+//! - **Cost:** how long the last close-up took, and what that comes to per chunk.
+
+use super::runner::{Job, Poll};
+use crate::world::{CompiledMap, InterpreterSettings, Mutes};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// The close-up takes over once a map pixel covers this many screen points.
+pub const TAKES_OVER_AT: f32 = 3.0;
+/// The most samples across or down a close-up (more and the step between samples grows).
+const MOST_SAMPLES: f32 = 900.0;
+/// Close-ups are laid on a grid of this many samples, so small pans don't redraw.
+const SNAP: f32 = 64.0;
+
+/// What a close-up shows: which recipe, and which blocks.
+#[derive(Clone, PartialEq)]
+pub struct Request {
+    maps: usize,
+    settings: InterpreterSettings,
+    mutes: Mutes,
+    /// The north-west corner (blocks), the blocks between samples, and how many samples.
+    pub north: f32,
+    pub east: f32,
+    pub step: f32,
+    pub cols: usize,
+    pub rows: usize,
+}
+
+/// A finished close-up: the ground's Z at each sample, row by row from the north-west (`NaN` past
+/// the map).
+pub struct Frame {
+    pub request: Request,
+    pub heights: Vec<f32>,
+    pub millis: f64,
+}
+
+#[derive(Default)]
+pub struct Lab {
+    pub mutes: Mutes,
+    job: Option<Job<Frame>>,
+    pub frame: Option<Frame>,
+    /// Goes up with each new frame (so the picture knows to repaint).
+    pub version: u64,
+    /// The recipe being shown, for readouts and the cross-section.
+    pub map: Option<Arc<CompiledMap>>,
+    /// The cross-section's ends (north, east, in blocks), and where a Shift-drag started.
+    pub section: Option<((f32, f32), (f32, f32))>,
+    pub drawing_from: Option<(f32, f32)>,
+}
+
+impl Lab {
+    pub fn is_making(&self) -> bool {
+        self.job.is_some()
+    }
+
+    /// The recipe as it is now: the compiled maps, read with these settings and switches.
+    pub fn recipe(&mut self, compiled: &Arc<CompiledMap>, settings: &InterpreterSettings) -> Arc<CompiledMap> {
+        let current = self.map.as_ref().is_some_and(|map| {
+            Arc::ptr_eq(&map.maps, &compiled.maps) && &map.settings == settings && map.mutes == self.mutes
+        });
+        if !current {
+            self.map = Some(Arc::new(compiled.with(settings.clone(), self.mutes)));
+        }
+        self.map.clone().unwrap()
+    }
+
+    /// Asks for the close-up of `wanted` (blocks: north-west corner, south-east corner, and blocks
+    /// per screen point), collects finished frames, and starts the next one when the view or the
+    /// recipe has changed.
+    pub fn drive(&mut self, map: &Arc<CompiledMap>, view: Option<((f32, f32), (f32, f32), f32)>) {
+        if let Some(job) = &self.job {
+            match job.poll() {
+                Poll::Done(finished) => {
+                    self.frame = Some(finished.made);
+                    self.version += 1;
+                    self.job = None;
+                }
+                Poll::Over => self.job = None,
+                Poll::Waiting => {}
+            }
+        }
+        let Some(((north, west), (south, east), blocks_per_point)) = view else { return };
+        // One sample per screen point, in whole powers of two blocks (so zooming a little doesn't
+        // redraw), and never more than `MOST_SAMPLES` across.
+        let mut step = 2f32.powi(blocks_per_point.max(1.0).log2().ceil() as i32);
+        while ((east - west) / step).max((north - south) / step) > MOST_SAMPLES {
+            step *= 2.0;
+        }
+        let grid = step * SNAP;
+        let (top, left) = ((north / grid).ceil() * grid, (west / grid).floor() * grid);
+        let (bottom, right) = ((south / grid).floor() * grid, (east / grid).ceil() * grid);
+        let request = Request {
+            maps: Arc::as_ptr(&map.maps) as usize,
+            settings: map.settings.clone(),
+            mutes: map.mutes,
+            north: top,
+            east: left,
+            step,
+            cols: ((right - left) / step).round() as usize,
+            rows: ((top - bottom) / step).round() as usize,
+        };
+        let shown = self.frame.as_ref().is_some_and(|frame| frame.request == request);
+        if shown {
+            return;
+        }
+        if let Some(job) = &self.job {
+            // Let a quick one finish (the next starts straight after, with the newest view); a slow
+            // one is abandoned.
+            if job.started.elapsed().as_secs_f32() < 0.15 {
+                return;
+            }
+            job.stop();
+            self.job = None;
+        }
+        let map = map.clone();
+        self.job = Some(Job::start(move |stop| close_up(&map, request, stop)));
+    }
+}
+
+/// Works out a close-up on all the computer's cores.
+fn close_up(map: &CompiledMap, request: Request, stop: &AtomicBool) -> Option<Frame> {
+    let started = std::time::Instant::now();
+    let (cols, rows) = (request.cols, request.rows);
+    if cols == 0 || rows == 0 {
+        return Some(Frame { request, heights: Vec::new(), millis: 0.0 });
+    }
+    let mut heights = vec![f32::NAN; cols * rows];
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let rows_each = rows.div_ceil(cores).max(1);
+    // Zoomed in close, the ground as whole blocks (as the world has it); further out, smooth.
+    let whole_blocks = request.step <= 2.0;
+    std::thread::scope(|scope| {
+        for (band, part) in heights.chunks_mut(rows_each * cols.max(1)).enumerate() {
+            let request = &request;
+            scope.spawn(move || {
+                for (k, value) in part.iter_mut().enumerate() {
+                    if k % cols == 0 && stop.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    let (col, row) = (k % cols, band * rows_each + k / cols);
+                    let north = request.north - (row as f32 + 0.5) * request.step;
+                    let east = request.east + (col as f32 + 0.5) * request.step;
+                    if let Some(z) = map.height(north, east) {
+                        *value = if whole_blocks { z.round() } else { z };
+                    }
+                }
+            });
+        }
+    });
+    if stop.load(Ordering::Relaxed) {
+        return None;
+    }
+    Some(Frame { request, heights, millis: started.elapsed().as_secs_f64() * 1000.0 })
+}
+
+/// The ground's Z along the cross-section, every `step` blocks or so (at most `most` samples): pairs
+/// of (blocks along the line, Z), leaving out what's past the map.
+pub fn profile(map: &CompiledMap, from: (f32, f32), to: (f32, f32), most: usize) -> Vec<(f32, f32)> {
+    let length = (to.0 - from.0).hypot(to.1 - from.1);
+    let samples = (length.ceil() as usize).clamp(2, most);
+    (0..samples)
+        .filter_map(|k| {
+            let t = k as f32 / (samples - 1) as f32;
+            let (north, east) = (from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t);
+            map.height(north, east).map(|z| (length * t, z))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_close_up_matches_the_interpreter_column_for_column() {
+        let width = 16;
+        let z: Vec<f32> = (0..width * width).map(|i| 100.0 + ((i % width) * 9 + (i / width) * 3) as f32).collect();
+        let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
+        let mut lab = Lab::default();
+        let recipe = lab.recipe(&map, &map.settings.clone());
+        // One block per screen point: the close-up samples every block.
+        lab.drive(&recipe, Some(((100.0, -100.0), (-100.0, 100.0), 1.0)));
+        let started = std::time::Instant::now();
+        while lab.frame.is_none() && started.elapsed().as_secs() < 10 {
+            lab.drive(&recipe, Some(((100.0, -100.0), (-100.0, 100.0), 1.0)));
+        }
+        let frame = lab.frame.as_ref().expect("no close-up made");
+        assert_eq!(frame.request.step, 1.0);
+        // It covers the view, snapped outward to its grid.
+        assert!(frame.request.north >= 100.0 && frame.request.east <= -100.0);
+        for (row, col) in [(0, 0), (5, 17), (60, 99)] {
+            let (north, east) = (frame.request.north - row as f32 - 0.5, frame.request.east + col as f32 + 0.5);
+            assert_eq!(frame.heights[row * frame.request.cols + col], map.height(north, east).unwrap().round());
+        }
+    }
+
+    #[test]
+    fn switching_a_layer_off_gives_a_new_recipe_over_the_same_maps() {
+        let map = Arc::new(CompiledMap::of_heights(8, 32.0, &[140.0; 64]));
+        let mut lab = Lab::default();
+        let first = lab.recipe(&map, &map.settings.clone());
+        assert!(Arc::ptr_eq(&first, &lab.recipe(&map, &map.settings.clone())), "remade for nothing");
+        lab.mutes.hills = true;
+        let second = lab.recipe(&map, &map.settings.clone());
+        assert!(!Arc::ptr_eq(&first, &second));
+        assert!(Arc::ptr_eq(&first.maps, &second.maps), "the maps were copied");
+        assert!(second.mutes.hills);
+    }
+
+    #[test]
+    fn a_profile_runs_along_the_line_at_the_grounds_heights() {
+        let width = 8;
+        let z: Vec<f32> = (0..width * width).map(|i| 100.0 + (i % width) as f32 * 20.0).collect();
+        let map = CompiledMap::of_heights(width, 32.0, &z);
+        let line = profile(&map, (0.0, -100.0), (0.0, 100.0), 500);
+        assert!(line.len() > 150);
+        assert!((line.last().unwrap().0 - 200.0).abs() < 1e-3);
+        // West to east the ground climbs.
+        assert!(line.first().unwrap().1 < line.last().unwrap().1);
+    }
+}

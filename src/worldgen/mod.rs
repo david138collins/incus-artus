@@ -44,7 +44,8 @@
 //!
 //! **World Compiler:**
 //! - `compiler.rs` a bake into the ground's height in blocks (sea level Z 128, nothing past Z 333)
-//! - `compiler_view.rs` its screen
+//! - `compiler_view.rs` its screen (the World Compiler and Interpreter panels)
+//! - `lab.rs`      the terrain lab: the map, zoomed in, as a live close-up of the ground
 
 mod blend;
 mod bake;
@@ -55,6 +56,7 @@ mod export;
 mod field;
 mod heights;
 mod image;
+mod lab;
 mod layers;
 mod made;
 pub(crate) mod noise;
@@ -140,6 +142,8 @@ pub struct Suite {
     pub watch: Watch,
     pub view: view::ViewState,
     next_id: u32,
+    /// The processing meter: what the suite is busy with, and since when.
+    pub busy: Option<(&'static str, std::time::Instant)>,
 }
 
 impl Default for Suite {
@@ -156,6 +160,7 @@ impl Default for Suite {
             watch: Watch::Result,
             view: view::ViewState::default(),
             next_id: 1,
+            busy: None,
         };
         // For automatic testing: `INCUS_SELFTEST_SUITE=<a PNG>` starts with a Perlin layer and that
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a

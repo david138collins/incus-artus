@@ -269,7 +269,7 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         most_crushed: info.most_crushed,
         most_stretched: info.most_stretched,
     };
-    Ok(Some((CompiledMap::new(maps, info.seed, info.interpreter), IVec2::from_array(info.spawn))))
+    Ok(Some((CompiledMap::new(Arc::new(maps), info.seed, info.interpreter), IVec2::from_array(info.spawn))))
 }
 
 /// Saves the test world's settings (as `terrain.toml`), a compiled world's own copy of its map,
@@ -414,8 +414,8 @@ mod tests {
         let mut map = CompiledMap::of_heights(16, 32.0, &z);
         // Some squeeze and a skirt, so every map has something in it.
         for i in 0..256 {
-            map.maps.squeeze[i] = (i as f32 * 0.37).sin();
-            map.maps.skirt[i] = (i % 7) as f32 * 3.0;
+            Arc::make_mut(&mut map.maps).squeeze[i] = (i as f32 * 0.37).sin();
+            Arc::make_mut(&mut map.maps).skirt[i] = (i % 7) as f32 * 3.0;
         }
         let map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });
         let folder = std::env::temp_dir().join(format!("incus-artus-compiled-{}", std::process::id()));

@@ -41,7 +41,7 @@ pub use position::{
 };
 pub use section::Section;
 pub use streaming::{StreamSettings, Streaming};
-pub use interpreter::{CompiledMap, InterpreterSettings, Maps, Spline};
+pub use interpreter::{CompiledMap, InterpreterSettings, Maps, Mutes, Spline};
 pub use terrain::{NextTerrain, SEA_LEVEL, Terrain, TerrainBlocks};
 #[cfg(test)]
 pub use storage::{fresh_terrain, load_terrain, save_terrain};

@@ -262,7 +262,7 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
         most_stretched: bake.most_stretched,
     };
     let seed = seed_of(&bake.info);
-    let mut map = CompiledMap::new(maps, seed, settings.interpreter.clone());
+    let mut map = CompiledMap::new(Arc::new(maps), seed, settings.interpreter.clone());
     if stop.load(Ordering::Relaxed) {
         return None;
     }
@@ -276,7 +276,7 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
             map.parts(&map.pixel(i), x, y).mountains
         })?;
         blur(&mut skirt, width, foothills);
-        map.maps.skirt = skirt;
+        Arc::make_mut(&mut map.maps).skirt = skirt;
     }
 
     // 3. The ground at each pixel's centre, as the Interpreter makes it (less the block-sized

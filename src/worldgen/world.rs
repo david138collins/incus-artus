@@ -234,6 +234,19 @@ impl WorldGen {
         self.job.is_some()
     }
 
+    /// What it's busy with, if anything (for the suite's processing meter).
+    pub fn working(&self) -> Option<&'static str> {
+        if self.baking.is_some() {
+            Some("baking")
+        } else if self.job.is_some() {
+            Some("making plates")
+        } else if self.running {
+            Some("simulating")
+        } else {
+            None
+        }
+    }
+
     /// The plates step's own seed, taken from the world seed.
     fn plate_seed(&self) -> u64 {
         Seeds::of(self.seed).plates

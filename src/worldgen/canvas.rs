@@ -11,11 +11,13 @@ pub struct Camera {
     /// Frames left in which to keep fitting the field to the screen (the panels take a few frames
     /// to settle into their sizes when the suite opens).
     settling: u32,
+    /// Dragging doesn't pan (the drag is drawing something, such as a cross-section).
+    pub hold_pan: bool,
 }
 
 impl Default for Camera {
     fn default() -> Self {
-        Self { centre: Vec2::ZERO, zoom: 1.0, fitted_for: (0, 0), settling: 10 }
+        Self { centre: Vec2::ZERO, zoom: 1.0, fitted_for: (0, 0), settling: 10, hold_pan: false }
     }
 }
 
@@ -44,7 +46,7 @@ impl Camera {
         }
 
         // Drag to pan, scroll to zoom (keeping the point under the mouse still).
-        if response.dragged() {
+        if response.dragged() && !self.hold_pan {
             self.centre -= response.drag_delta() / self.zoom;
         }
         let mouse = response.hover_pos()?;

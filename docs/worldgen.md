@@ -198,6 +198,40 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
   `compiled.toml`) and the recipe, so a world never changes when the panels do.
 - **Cost:** about 0.7 ms per chunk's worth of columns on one core (spread over all cores).
 
+### The terrain lab  [DECIDED 2026-10-24; core BUILT]
+A true-scale inspection tool, so terrain can be judged without going in and out of worlds [David].
+- **Built:** zooming into the World Compiler's map turns it into a **live close-up** of the ground as
+  the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
+  follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
+  copied. **Layer switches** leave parts of the recipe out (mountains, ridges, passes, rifts, hills,
+  detail). **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
+  shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
+- **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
+  the output map. Using the clean modalities we can capture, we will drive a variety of scattering and
+  particle systems to look for ways that can generate a second layer of mountains that only look
+  wrong to a geologist, not a Skyrim fan."
+- **Next: the modalities as overlays** on the lab: areas (mountain mask, distance from the coast and
+  from a range, plate regions), lines (ridgelines, coastlines, each range's spine), fields (the squeeze
+  direction as arrows or flow lines, and any flow field we build), points (what scatterers make).
+- **Then the first scatterers, side by side on the same range:** Grok's particle streams (emitters on
+  the real ranges, streaming outward, following the squeeze direction, each stamping a sharp short
+  ridge rather than a round cone, with uneven spacing, stopping at the sea); a noise-ridge amplifier;
+  and **fractal external rays** [David's idea, from his exchange with Grok]: a Mandelbrot set (and
+  Julia sets, whose one complex dial morphs the shape smoothly) laid out in each range's own
+  coordinates (along its spine, out from it), so every range gets it bent to follow it rather than
+  fitting a range to the cardioid. Points spaced evenly by external angle land densely on exposed
+  tips and sparsely in crevices (naturally dithered); the rays are a flow field outward; the body has
+  its own interior fields. Cautions: self-similar motifs (bulbs on bulbs) are recognisable, so keep
+  to one zoom and blend it in; it's costly (hundreds of iterations a sample), so it's worked out at
+  compile time and the Interpreter stamps from it.
+- **Live expectations:** Interpreter sliders follow as they move; compiler sliders take a moment
+  (whole-map work); Tectonic Sim changes need a rerun.
+
+### The processing meter  [BUILT 2026-10-24]
+[David: reassurance whenever the computer has to think.] In the Editor Suite's top bar, in a slot of
+its own: a spinner, what it's working out (compiling, EZ-baking, drawing the close-up, baking,
+making plates, simulating, making layers) and for how long; "ready" otherwise.
+
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
 flying over the continents in person. So before the compiler grows more stages, build the path from a

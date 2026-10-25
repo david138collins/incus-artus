@@ -20,6 +20,7 @@ use crate::world::InterpreterSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
 use super::runner::{Finished, Job, Poll};
+use super::lab::{self, Lab};
 use super::view::{MAGENTA, PINK, compass};
 use super::world::defaults_row;
 use crate::debug::preset_bar;
@@ -68,6 +69,12 @@ pub struct Compiler {
     camera: Camera,
     texture: Option<egui::TextureHandle>,
     painted_for: Option<(u64, u32)>,
+    /// The terrain lab (the close-up, its layer switches and cross-section), its picture, and the
+    /// block under the mouse in it (north, east, Z).
+    pub lab: Lab,
+    lab_texture: Option<egui::TextureHandle>,
+    lab_painted_for: Option<(u64, u32)>,
+    lab_hover: Option<(f32, f32, f32)>,
     hover: Option<(usize, usize)>,
 }
 
@@ -95,6 +102,10 @@ impl Default for Compiler {
             camera: Camera::default(),
             texture: None,
             painted_for: None,
+            lab: Lab::default(),
+            lab_texture: None,
+            lab_painted_for: None,
+            lab_hover: None,
             hover: None,
         }
     }
@@ -103,6 +114,19 @@ impl Default for Compiler {
 impl Compiler {
     pub fn is_making(&self) -> bool {
         self.job.is_some() || self.ez.is_some()
+    }
+
+    /// What it's busy with, if anything (for the suite's processing meter).
+    pub fn working(&self) -> Option<&'static str> {
+        if self.ez.is_some() {
+            Some("EZ-baking")
+        } else if self.job.is_some() {
+            Some("compiling")
+        } else if self.lab.is_making() {
+            Some("drawing the close-up")
+        } else {
+            None
+        }
     }
 
     /// Starts an EZ-Bake: the world `order` describes, baked in the background into the scratch
@@ -494,17 +518,17 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
 /// The signal chain, for the top of the Interpreter panel.
 const CHAIN: &str = "\
-Tectonic Sim → bake (32-block pixels)
-      ↓
+Tectonic Sim -> bake (32-block pixels)
+      |
 World Compiler · whole map, once:
   sea level · soften coast · foothills
-      ↓ smooth maps
+      |  smooth maps
 Interpreter · every block, as the
   world is made (this panel):
   blend the maps to the block, then
   curves · grade · mountains · ridges
   passes · rifts · hills · detail
-      ↓
+      |
 the ground (and the distant terrain)";
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
@@ -743,28 +767,43 @@ fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spli
     });
 }
 
-fn readouts(ui: &mut egui::Ui, compiler: &Compiler) {
+fn readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
+    lab_readouts(ui, compiler);
+    ui.separator();
     ui.heading("Under the mouse");
     let (Some(bake), Some(result)) = (&compiler.bake, &compiler.result) else {
         ui.small("Nothing compiled yet.");
         return;
     };
     let width = result.made.width;
+    if let Some((north, east, z)) = compiler.lab_hover {
+        // In the close-up: the very block.
+        ui.label(format!("{}, {}", compass(north, "N", "S"), compass(east, "E", "W")));
+        ui.heading(format!("Z {z:.0}"));
+        if z >= SEA_LEVEL as f32 {
+            ui.label(format!("land, {:.0} blocks above the sea", z.round() - SEA_LEVEL as f32));
+        } else {
+            ui.label(format!("sea, {:.0} blocks deep", SEA_LEVEL as f32 - z.round()));
+        }
+        ui.small("(this block, as the Interpreter makes it)");
+    }
     match compiler.hover {
         Some((col, row)) if col < width && row < width => {
             let i = row * width + col;
-            let blocks = bake.info.blocks_per_pixel;
-            let half = width as f32 / 2.0;
-            ui.label(format!("{}, {}", compass((half - row as f32 - 0.5) * blocks, "N", "S"), compass((col as f32 + 0.5 - half) * blocks, "E", "W")));
-            let z = result.made.z[i];
-            ui.heading(format!("Z {z}"));
-            if z >= SEA_LEVEL {
-                ui.label(format!("land, {} blocks above the sea", z - SEA_LEVEL));
-            } else {
-                ui.label(format!("sea, {} blocks deep", SEA_LEVEL - z));
+            if compiler.lab_hover.is_none() {
+                let blocks = bake.info.blocks_per_pixel;
+                let half = width as f32 / 2.0;
+                ui.label(format!("{}, {}", compass((half - row as f32 - 0.5) * blocks, "N", "S"), compass((col as f32 + 0.5 - half) * blocks, "E", "W")));
+                let z = result.made.z[i];
+                ui.heading(format!("Z {z}"));
+                if z >= SEA_LEVEL {
+                    ui.label(format!("land, {} blocks above the sea", z - SEA_LEVEL));
+                } else {
+                    ui.label(format!("sea, {} blocks deep", SEA_LEVEL - z));
+                }
             }
             ui.separator();
-            ui.small("From the bake:");
+            ui.small("From the bake (this pixel):");
             ui.small(format!("height {:.3}", bake.height[i]));
             ui.small(format!("squeeze {:+.2}", bake.squeeze[i]));
             if bake.push_strength[i] > 0.02 {
@@ -785,10 +824,99 @@ fn readouts(ui: &mut egui::Ui, compiler: &Compiler) {
     ui.small(format!("Sea level Z {SEA_LEVEL}; nothing past Z {HIGHEST}; the world's top is Z {TOP_OF_THE_WORLD}."));
 }
 
+/// The terrain lab's part of the right-hand panel: what the close-up is showing, what it cost, the
+/// layer switches, and the cross-section.
+fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
+    ui.heading("Terrain lab");
+    let close = compiler.camera.zoom >= lab::TAKES_OVER_AT;
+    if !close {
+        ui.small("Zoom in on the map (scroll) and it becomes a live close-up of the ground, block by block, as the Interpreter makes it. Move the Interpreter's sliders while you watch.");
+    } else if let Some(frame) = &compiler.lab.frame {
+        let r = &frame.request;
+        let columns = r.cols * r.rows;
+        let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+        let per_chunk = frame.millis * cores as f64 / columns.max(1) as f64 * 1024.0;
+        let every = if r.step <= 1.0 { "every block".to_string() } else { format!("every {} blocks", r.step) };
+        ui.label(format!("Close-up: {every}, {} × {} blocks", r.cols as f32 * r.step, r.rows as f32 * r.step));
+        ui.small(format!("drawn in {:.0} ms: {columns} columns on {cores} cores", frame.millis))
+            .on_hover_text(format!(
+                "About {per_chunk:.2} ms per chunk (1,024 columns) on one core: what making a chunk's ground costs\n\
+                 with this recipe. Streaming makes chunks in the background, on all cores."
+            ));
+    } else {
+        ui.small("Drawing the close-up…");
+    }
+    ui.add_space(4.0);
+    ui.label("Show:").on_hover_text("Leave parts of the Interpreter's recipe out, to see what each one does. Only here: worlds always use the whole recipe.");
+    let m = &mut compiler.lab.mutes;
+    ui.horizontal_wrapped(|ui| {
+        for (name, muted, about) in [
+            ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges, passes and foothill skirts)."),
+            ("ridges", &mut m.ridges, "The ridge pattern carved into the mountains (off: smooth domes)."),
+            ("passes", &mut m.passes, "The dips along each ridge's crest (off: even crests)."),
+            ("rifts", &mut m.rifts, "Stretched rock sinking."),
+            ("hills", &mut m.hills, "The rolling hills on land."),
+            ("detail", &mut m.detail, "The small block-sized bumps."),
+        ] {
+            let mut shown = !*muted;
+            if ui.checkbox(&mut shown, name).on_hover_text(about).changed() {
+                *muted = !shown;
+            }
+        }
+    });
+    ui.add_space(4.0);
+    ui.label("Cross-section:");
+    if compiler.lab.section.is_some() {
+        if ui.small_button("Clear the cross-section").on_hover_text("Or right-click the map.").clicked() {
+            compiler.lab.section = None;
+        }
+    } else {
+        ui.small("Shift + drag across the map to draw one: its side view shows under the map, live.");
+    }
+}
+
+/// A close-up's picture: coloured by height, slopes lit from the northwest; past the map is
+/// `BEYOND`.
+fn close_up_picture(frame: &lab::Frame, relief: f32) -> Vec<Color32> {
+    let (cols, rows, step) = (frame.request.cols, frame.request.rows, frame.request.step);
+    let z = |col: usize, row: usize| frame.heights[row.min(rows - 1) * cols + col.min(cols - 1)];
+    let light = {
+        let (x, y, up) = (-1.0f32, -1.0f32, 1.4f32);
+        let length = (x * x + y * y + up * up).sqrt();
+        (x / length, y / length, up / length)
+    };
+    // Slopes are real slopes here (blocks up per block across); the relief slider exaggerates them
+    // as it does the map's (5 = as they are).
+    let exaggerate = relief / 5.0;
+    (0..cols * rows)
+        .map(|i| {
+            let (col, row) = (i % cols, i / cols);
+            let here = z(col, row);
+            if here.is_nan() {
+                let [r, g, b] = BEYOND;
+                return Color32::from_rgb(r, g, b);
+            }
+            let colour = colour_at(here);
+            if here < SEA_LEVEL as f32 {
+                return Color32::from_rgb(colour[0], colour[1], colour[2]);
+            }
+            let or_here = |v: f32| if v.is_nan() { here } else { v };
+            let east = (or_here(z(col + 1, row)) - or_here(z(col.saturating_sub(1), row))) / (2.0 * step) * exaggerate;
+            let south = (or_here(z(col, row + 1)) - or_here(z(col, row.saturating_sub(1)))) / (2.0 * step) * exaggerate;
+            let length = (east * east + south * south + 1.0).sqrt();
+            let lit = (-east * light.0 - south * light.1 + light.2) / length;
+            let shade = (lit / light.2).clamp(0.35, 1.5);
+            let [r, g, b] = colour.map(|c| (c as f32 * shade).min(255.0) as u8);
+            Color32::from_rgb(r, g, b)
+        })
+        .collect()
+}
+
 fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::BLACK);
+    compiler.lab_hover = None;
     let (Some(bake), Some(result)) = (compiler.bake.clone(), &compiler.result) else {
         let message = if compiler.ez.is_some() {
             "EZ-Baking a new world…"
@@ -801,6 +929,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         return;
     };
     let width = result.made.width;
+    let compiled_map = result.made.map.clone();
     let wanted = (compiler.version, compiler.relief.to_bits());
     if compiler.painted_for != Some(wanted) || compiler.texture.is_none() {
         let pixels: Vec<Color32> = relief_picture(&result.made, bake.info.blocks_per_pixel, compiler.relief).into_iter().map(|[r, g, b]| Color32::from_rgb(r, g, b)).collect();
@@ -810,20 +939,118 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         texture.set(image, egui::TextureOptions::NEAREST);
         compiler.painted_for = Some(wanted);
     }
+    // Shift + drag draws a cross-section instead of moving the map.
+    let shift = ui.input(|input| input.modifiers.shift);
+    compiler.camera.hold_pan = shift;
     compiler.hover = compiler.camera.update(ui, rect, &response, (width, width));
     if let Some(texture) = &compiler.texture {
         let field = compiler.camera.field_rect(rect, (width, width));
         painter.image(texture.id(), field, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
         painter.circle_stroke(field.center(), field.width() / 2.0, egui::Stroke::new(1.0, MAGENTA));
     }
-    compiler.camera.outline(&painter, rect, compiler.hover, MAGENTA);
-    painter.text(
-        rect.left_bottom() + Vec2::new(8.0, -8.0),
-        egui::Align2::LEFT_BOTTOM,
-        "drag = move   scroll = zoom   double-click = fit   north is up",
-        egui::FontId::proportional(12.0),
-        PINK,
-    );
+
+    // Blocks (north, east) and the screen, both ways.
+    let (centre, zoom, blocks, half) = (compiler.camera.centre, compiler.camera.zoom, bake.info.blocks_per_pixel, width as f32 / 2.0);
+    let to_blocks = |pos: egui::Pos2| {
+        let p = centre + (pos - rect.center()) / zoom;
+        ((half - p.y) * blocks, (p.x - half) * blocks)
+    };
+    let to_screen = |(north, east): (f32, f32)| rect.center() + (Vec2::new(east / blocks + half, half - north / blocks) - centre) * zoom;
+
+    // The terrain lab's close-up, once zoomed in far enough.
+    let map = compiler.lab.recipe(&compiled_map, &compiler.settings.interpreter);
+    let close = zoom >= lab::TAKES_OVER_AT;
+    let view = close.then(|| (to_blocks(rect.left_top()), to_blocks(rect.right_bottom()), blocks / zoom));
+    compiler.lab.drive(&map, view);
+    if close {
+        if let Some(frame) = &compiler.lab.frame
+            && !frame.heights.is_empty()
+        {
+            let wanted = (compiler.lab.version, compiler.relief.to_bits());
+            if compiler.lab_painted_for != Some(wanted) || compiler.lab_texture.is_none() {
+                let image = egui::ColorImage::new([frame.request.cols, frame.request.rows], close_up_picture(frame, compiler.relief));
+                let texture = compiler.lab_texture.get_or_insert_with(|| ui.ctx().load_texture("terrain lab", egui::ColorImage::new([1, 1], vec![Color32::BLACK]), egui::TextureOptions::NEAREST));
+                texture.set(image, egui::TextureOptions::NEAREST);
+                compiler.lab_painted_for = Some(wanted);
+            }
+            if let Some(texture) = &compiler.lab_texture {
+                let r = &frame.request;
+                let corner = to_screen((r.north, r.east));
+                let far = to_screen((r.north - r.rows as f32 * r.step, r.east + r.cols as f32 * r.step));
+                painter.image(texture.id(), egui::Rect::from_min_max(corner, far), egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
+            }
+        }
+        if let Some(mouse) = response.hover_pos() {
+            let (north, east) = to_blocks(mouse);
+            if let Some(z) = map.height(north, east) {
+                compiler.lab_hover = Some((north, east, z));
+            }
+        }
+    } else {
+        compiler.camera.outline(&painter, rect, compiler.hover, MAGENTA);
+    }
+
+    // The cross-section: Shift + drag to draw, right-click to clear.
+    if let Some(mouse) = response.interact_pointer_pos().or(response.hover_pos()) {
+        if shift && response.drag_started() {
+            compiler.lab.drawing_from = Some(to_blocks(mouse));
+        }
+        if let Some(from) = compiler.lab.drawing_from {
+            compiler.lab.section = Some((from, to_blocks(mouse)));
+        }
+    }
+    if response.drag_stopped() || !shift {
+        compiler.lab.drawing_from = None;
+    }
+    if response.secondary_clicked() {
+        compiler.lab.section = None;
+    }
+    if let Some((from, to)) = compiler.lab.section {
+        let (a, b) = (to_screen(from), to_screen(to));
+        painter.line_segment([a, b], egui::Stroke::new(2.0, PINK));
+        painter.circle_filled(a, 4.0, PINK);
+        painter.circle_filled(b, 4.0, MAGENTA);
+        side_view(&painter, rect, &map, from, to);
+    }
+
+    let help = if close {
+        "close-up: every column as the Interpreter makes it   drag = move   scroll = zoom   Shift + drag = cross-section   double-click = fit"
+    } else {
+        "drag = move   scroll = zoom (in close for the live close-up)   Shift + drag = cross-section   double-click = fit   north is up"
+    };
+    painter.text(rect.left_bottom() + Vec2::new(8.0, -8.0), egui::Align2::LEFT_BOTTOM, help, egui::FontId::proportional(12.0), PINK);
+}
+
+/// The cross-section's side view, along the bottom of the map: the ground's Z from the pink end to
+/// the magenta one, with sea level.
+fn side_view(painter: &egui::Painter, rect: egui::Rect, map: &crate::world::CompiledMap, from: (f32, f32), to: (f32, f32)) {
+    let line = lab::profile(map, from, to, 1_000);
+    if line.len() < 2 {
+        return;
+    }
+    let area = egui::Rect::from_min_max(egui::Pos2::new(rect.left() + 8.0, rect.bottom() - 200.0), egui::Pos2::new(rect.right() - 8.0, rect.bottom() - 28.0));
+    painter.rect_filled(area, 4.0, Color32::from_black_alpha(215));
+    let length = line.last().map_or(1.0, |&(along, _)| along).max(1.0);
+    let sea = SEA_LEVEL as f32;
+    let (mut low, mut high) = line.iter().fold((sea, sea), |(lo, hi), &(_, z)| (lo.min(z), hi.max(z)));
+    let pad = ((high - low) * 0.08).max(4.0);
+    (low, high) = (low - pad, high + pad);
+    let inner = area.shrink2(Vec2::new(8.0, 18.0));
+    let at = |along: f32, z: f32| egui::Pos2::new(inner.left() + along / length * inner.width(), inner.bottom() - (z - low) / (high - low) * inner.height());
+    // Sea level, then the ground (filled below, so its shape reads at a glance).
+    let sea_y = at(0.0, sea).y;
+    painter.line_segment([egui::Pos2::new(inner.left(), sea_y), egui::Pos2::new(inner.right(), sea_y)], egui::Stroke::new(1.0, Color32::from_rgb(70, 140, 220)));
+    for pair in line.windows(2) {
+        let (a, b) = (at(pair[0].0, pair[0].1), at(pair[1].0, pair[1].1));
+        let base = inner.bottom();
+        let fill = if pair[0].1 < sea { Color32::from_rgb(25, 60, 115) } else { Color32::from_rgb(70, 90, 60) };
+        painter.add(egui::Shape::convex_polygon(vec![a, b, egui::Pos2::new(b.x, base), egui::Pos2::new(a.x, base)], fill, egui::Stroke::NONE));
+    }
+    let points: Vec<egui::Pos2> = line.iter().map(|&(along, z)| at(along, z)).collect();
+    painter.add(egui::Shape::line(points, egui::Stroke::new(1.5, Color32::WHITE)));
+    let font = egui::FontId::proportional(11.0);
+    painter.text(area.left_top() + Vec2::new(8.0, 3.0), egui::Align2::LEFT_TOP, format!("cross-section: {length:.0} blocks, Z {:.0} to {:.0}  (sea level Z {SEA_LEVEL})", low + pad, high - pad), font.clone(), PINK);
+    painter.text(area.right_bottom() + Vec2::new(-8.0, -3.0), egui::Align2::RIGHT_BOTTOM, "right-click to clear", font, PINK);
 }
 
 #[cfg(test)]
