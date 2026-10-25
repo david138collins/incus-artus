@@ -61,6 +61,7 @@ struct Look {
     smoothness: u32,
     tear_open: f32,
     seal_gaps: f32,
+    fill_holes: f32,
     squeeze: f32,
     water: f32,
 }
@@ -119,6 +120,9 @@ pub struct WorldGen {
     pub tear_open: f32,
     /// Sea narrower than this (blocks) with rock on both sides is filled from the nearest rock.
     pub seal_gaps: f32,
+    /// Holes with rock all round them, no bigger than a circle this many blocks across, are filled
+    /// (see `rags::fill_holes`).
+    pub fill_holes: f32,
     pub show_bowl: bool,
     /// For automatic testing: start the simulation as soon as the plates are made.
     pub start_when_ready: bool,
@@ -193,6 +197,7 @@ impl Default for WorldGen {
             shading_smoothness: 3,
             tear_open: 2.0,
             seal_gaps: 1_500.0,
+            fill_holes: 10_000.0,
             show_bowl: true,
             start_when_ready: false,
             send: None,
@@ -279,6 +284,7 @@ impl WorldGen {
             smoothing: self.shading_smoothness,
             tear_open: self.tear_open,
             seal_gaps: self.seal_gaps,
+            fill_holes: self.fill_holes,
             most_steps: self.most_steps,
             folder: bake::bakes_folder(),
         }
@@ -690,6 +696,7 @@ struct Show {
     tears_open_past: f32,
     squeeze_direction: bool,
     seal_gaps: f32,
+    fill_holes: f32,
 }
 
 impl Default for Show {
@@ -714,6 +721,7 @@ impl WorldGen {
             tears_open_past: self.tear_open,
             squeeze_direction: self.show_push,
             seal_gaps: self.seal_gaps,
+            fill_holes: self.fill_holes,
         }
     }
 
@@ -734,7 +742,7 @@ impl WorldGen {
             (show.cells, show.vertices, show.lines, show.arrows, show.boundaries, show.bowl);
         (self.arrow_steps, self.height_shown, self.shading_smoothness, self.tear_open) =
             (show.arrow_steps, show.thickness_as_white, show.shading_smoothness, show.tears_open_past);
-        (self.show_push, self.seal_gaps) = (show.squeeze_direction, show.seal_gaps);
+        (self.show_push, self.seal_gaps, self.fill_holes) = (show.squeeze_direction, show.seal_gaps, show.fill_holes);
         // Anything being compared with the defaults is now replaced by the preset.
         (self.ab_plates, self.ab_tectonics, self.ab_heights) = (None, None, None);
     }
@@ -939,6 +947,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     );
     ui.add(crate::debug::Slider::new(&mut world.seal_gaps, 0.0..=8_000.0).text("seal gaps up to (blocks)")).on_hover_text(
         "Sea narrower than this with rock on both sides (such as a thin gap left between plates that met)\nis filled from the nearest rock, so a mountain range runs straight across it. Wider seas, straits and\nrifts are left open. 0 = seal nothing. Also used when baking.",
+    );
+    ui.add(crate::debug::Slider::new(&mut world.fill_holes, 0.0..=30_000.0).text("fill holes up to (blocks across)")).on_hover_text(
+        "The crust has no holes. Where plates crowd together, their rock can't always pack the space, and pockets\nof nothing open between them (deep-ocean \"bubbles\" drifting round collision zones). A hole with rock\nall round it, no bigger than a circle this wide, is filled from the nearest rock. Bigger ones, such as a\nrift torn wide open, stay sea. Seas joined to the open ocean are never filled. 0 = fill nothing. Also used when baking.",
     );
     ui.add(crate::debug::Slider::new(&mut world.tear_open, 1.1..=6.0).logarithmic(true).text("tears open past")).on_hover_text(
         "Only changes the look. A crack pulled open less than this (× its size) is drawn as thin, stretched rock;\npulled open further, it's a rift and shows the sea. Too high = plates smeared across wide gaps.",
@@ -1277,6 +1288,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         smoothness: world.shading_smoothness,
         tear_open: world.tear_open,
         seal_gaps: world.seal_gaps,
+        fill_holes: world.fill_holes,
         squeeze: world.heights.squeeze,
         water: world.heights.water,
     };
@@ -1301,7 +1313,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         let ocean_depth = (heights.water - heights.ocean).max(0.05);
         let (mut land, mut world_pixels) = (0usize, 0usize);
         if let Some(sim) = &world.sim {
-            world.moved = sim.paint(world.shading_smoothness, world.tear_open, world.seal_gaps / made.blocks_per_pixel);
+            world.moved = sim.paint(world.shading_smoothness, world.tear_open, world.seal_gaps / made.blocks_per_pixel, world.fill_holes / made.blocks_per_pixel);
         }
         let mut pixels: Vec<Color32> = (0..width * width)
             .map(|i| {
@@ -1502,7 +1514,7 @@ mod tests {
         for _ in 0..60 {
             sim.step(&settings);
         }
-        world.moved = world.sim.as_ref().unwrap().paint(world.shading_smoothness, world.tear_open, 0.0);
+        world.moved = world.sim.as_ref().unwrap().paint(world.shading_smoothness, world.tear_open, 0.0, 0.0);
         world
     }
 

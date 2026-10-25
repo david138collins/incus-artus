@@ -343,6 +343,8 @@ pub struct DistantState {
     /// Tiles drawn (an entity), or known empty (`None`).
     tiles: HashMap<TileKey, Option<Entity>>,
     making: HashMap<TileKey, Task<Option<TileMesh>>>,
+    /// Tiles no longer wanted, still drawn until the tiles taking their place are in.
+    retiring: Vec<(TileKey, Entity)>,
     /// The settings and the tile the wanted list was worked out for.
     wanted_for: Option<(DistantSettings, [f32; 3], IVec2)>,
     wanted: Vec<TileKey>,
@@ -369,6 +371,9 @@ impl DistantState {
             if let Some(entity) = entity {
                 commands.entity(entity).despawn();
             }
+        }
+        for (_, entity) in self.retiring.drain(..) {
+            commands.entity(entity).despawn();
         }
         self.making.clear();
         self.wanted_for = None;
@@ -437,10 +442,7 @@ pub fn update_distant(
         let gone: Vec<TileKey> = state.tiles.keys().copied().filter(|key| !keep.contains(key)).collect();
         for key in gone {
             if let Some(Some(entity)) = state.tiles.remove(&key) {
-                if let Ok(tile) = tiles.get(entity) {
-                    state.quads = state.quads.saturating_sub(tile.quads as u64);
-                }
-                commands.entity(entity).despawn();
+                state.retiring.push((key, entity));
             }
         }
         state.making.retain(|key, _| keep.contains(key));
@@ -482,6 +484,31 @@ pub fn update_distant(
             .id();
         state.quads += quads as u64;
         state.tiles.insert(key, Some(entity));
+    }
+
+    // Tiles no longer wanted stay until every tile taking their place is in, so moving never opens
+    // a hole (sky showing through for a frame or two).
+    if !state.retiring.is_empty() {
+        let area = |key: &TileKey| {
+            let size = finest_tile * 2f32.powi(key.ring as i32);
+            (key.x as f32 * size, key.y as f32 * size, size)
+        };
+        let overlap = |a: (f32, f32, f32), b: (f32, f32, f32)| a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.2 && b.1 < a.1 + a.2;
+        let waiting: Vec<(f32, f32, f32)> = state.wanted.iter().chain(state.making.keys()).map(area).collect();
+        let mut done_with = Vec::new();
+        state.retiring.retain(|(key, entity)| {
+            let still_needed = waiting.iter().any(|&w| overlap(area(key), w));
+            if !still_needed {
+                done_with.push(*entity);
+            }
+            still_needed
+        });
+        for entity in done_with {
+            if let Ok(tile) = tiles.get(entity) {
+                state.quads = state.quads.saturating_sub(tile.quads as u64);
+            }
+            commands.entity(entity).despawn();
+        }
     }
 
     // Start more.

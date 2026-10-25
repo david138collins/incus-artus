@@ -702,6 +702,7 @@ mod tests {
             smoothing: 3,
             tear_open: 2.0,
             seal_gaps: 1_500.0,
+            fill_holes: 10_000.0,
             most_steps: 100,
             folder: folder.clone(),
         };

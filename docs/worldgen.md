@@ -228,6 +228,15 @@ a separate later system.)
   downstream gains: *shake the grid* (points nudged up to 0.3 grain, squares split along the shorter
   diagonal; contact distance shrinks to match, so plates start at rest) and *uneven rock* (patches at
   three sizes, each spring its own breaking point). Both off by default so old presets are unchanged.
+  **David's verdict:** "they seem to do little or nothing", so the even grid wasn't the main cause.
+  The repeating bumps need finding at the root before more fixes (see the rethink below).
+- **The crust has no holes [BUILT 2026-10-24]** [David: deep-ocean "bubbles" drifting round collision
+  zones]. Measured on midstart over 6 seeds: 77–118 enclosed pockets of nothing per world, the same
+  with tearing off, so not rifts: each point keeps other plates' points at arm's length, and where
+  three plates meet (or a corner jams into a notch) the points can't pack the space. Seal gaps filled
+  the thin ones and rounded the rest into octagons. Rule: any hole with rock all round it (not joined
+  to the open sea) no bigger than *fill holes up to* (default 10,000 blocks across) is filled from the
+  nearest rock. After it, 0 left on all 6 seeds.
 
 - **Idea to investigate later** [David, 2026-10-24], once more of tectonics is built: instead of one cell
   per plate, use a **finer grid of cells that cluster together into plates**. That gives organic blob shapes

@@ -695,10 +695,16 @@ impl Sim {
     ///
     /// Then any sea narrower than `seal` pixels with rock on both sides is filled from the nearest
     /// rock (see `seal_gaps`).
-    pub fn paint(&self, smoothing: u32, tear_open: f32, seal: f32) -> Vec<Option<Spot>> {
+    ///
+    /// Last, any hole no bigger than a circle `fill` pixels across, with rock all round it, is
+    /// filled from the nearest rock (see `fill_holes`).
+    pub fn paint(&self, smoothing: u32, tear_open: f32, seal: f32, fill: f32) -> Vec<Option<Spot>> {
         let mut painted = self.paint_plates(smoothing, tear_open);
         if seal > 0.0 {
             seal_gaps(&mut painted, self.width, seal / 2.0);
+        }
+        if fill > 0.0 {
+            fill_holes(&mut painted, self.width, std::f32::consts::FRAC_PI_4 * fill * fill);
         }
         painted
     }
@@ -795,6 +801,64 @@ fn seal_gaps(painted: &mut [Option<Spot>], width: usize, reach: f32) {
     }
 }
 
+/// The crust has no holes. Each point of a plate keeps other plates' points at arm's length, so
+/// where three plates meet, or one plate's corner is jammed into another's notch, the points can't
+/// pack the space and a pocket of nothing opens between them: drawn as deep-ocean "bubbles" drifting
+/// round collision zones. Real plates leave no such space. So any hole with rock all round it (not
+/// joined to the open sea round the plates) and no bigger than `most` pixels is filled from the
+/// nearest rock, as `seal_gaps` fills thin gaps. Bigger ones (a rift torn wide open) stay.
+fn fill_holes(painted: &mut [Option<Spot>], width: usize, most: f32) {
+    // Which empty pixels are joined to the field's edge (the open sea): flood in from it.
+    let mut open = vec![false; painted.len()];
+    let mut stack: Vec<usize> = (0..painted.len())
+        .filter(|&i| {
+            let (col, row) = (i % width, i / width);
+            (col == 0 || row == 0 || col == width - 1 || row == width - 1) && painted[i].is_none()
+        })
+        .collect();
+    for &i in &stack {
+        open[i] = true;
+    }
+    let neighbours = |i: usize| {
+        let (col, row) = (i % width, i / width);
+        [(col > 0).then(|| i - 1), (col + 1 < width).then(|| i + 1), (row > 0).then(|| i - width), (row + 1 < width).then(|| i + width)]
+    };
+    while let Some(i) = stack.pop() {
+        for j in neighbours(i).into_iter().flatten() {
+            if !open[j] && painted[j].is_none() {
+                open[j] = true;
+                stack.push(j);
+            }
+        }
+    }
+    // Each hole: its pixels; small ones are filled.
+    let rock: Vec<bool> = painted.iter().map(Option::is_some).collect();
+    let (_, nearest_rock) = nearest(&rock, width);
+    let mut seen = open;
+    for start in 0..painted.len() {
+        if seen[start] || painted[start].is_some() {
+            continue;
+        }
+        seen[start] = true;
+        let mut hole = vec![start];
+        let mut next = 0;
+        while next < hole.len() {
+            for j in neighbours(hole[next]).into_iter().flatten() {
+                if !seen[j] && painted[j].is_none() {
+                    seen[j] = true;
+                    hole.push(j);
+                }
+            }
+            next += 1;
+        }
+        if hole.len() as f32 <= most {
+            for i in hole {
+                painted[i] = painted[nearest_rock[i]];
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -859,7 +923,7 @@ mod tests {
             sim.step(&settings);
         }
         assert!(sim.middle(0).0 < sim.middle(1).0, "they passed through each other");
-        let highest = sim.paint(0, f32::MAX, 0.0).iter().flatten().map(|spot| spot.squeeze).fold(0.0, f32::max);
+        let highest = sim.paint(0, f32::MAX, 0.0, 0.0).iter().flatten().map(|spot| spot.squeeze).fold(0.0, f32::max);
         assert!(highest > 0.1, "nothing rose: highest {highest}");
         // Given way: some springs are now shorter at rest than when made.
         assert!(sim.springs.iter().any(|s| s.rest < s.made * 0.97));
@@ -882,7 +946,7 @@ mod tests {
         assert!(sim.springs.iter().any(|s| s.broken), "nothing tore");
         // The tear shows as stretched, thin rock, not a hole: the plate covers at least as much
         // ground as before, and the middle of the tear is thinner than it started.
-        let painted = sim.paint(0, f32::MAX, 0.0);
+        let painted = sim.paint(0, f32::MAX, 0.0, 0.0);
         let before = plates.plate.iter().filter(|&&p| p == Some(0)).count();
         let after = painted.iter().flatten().filter(|spot| spot.plate == 0).count();
         assert!(after >= before, "the plate lost fill: {before} pixels before, {after} after");
@@ -896,7 +960,7 @@ mod tests {
         for _ in 0..30 {
             sim.step(&RagSettings { drag: 0.0, ..settings.clone() });
         }
-        let painted = sim.paint(0, 2.0, 0.0);
+        let painted = sim.paint(0, 2.0, 0.0, 0.0);
         let gap = (0..plates.width).filter(|&col| painted[60 * plates.width + col].is_none()).count();
         let row: Vec<bool> = (0..plates.width).map(|col| painted[60 * plates.width + col].is_some()).collect();
         let first = row.iter().position(|&on| on).unwrap();
@@ -929,7 +993,7 @@ mod tests {
         let settings = RagSettings { grain: 1_500.0, bowl: 0.0, ..RagSettings::default() };
         let mut sim = Sim::new(&made, &still, &settings, 1);
         sim.step(&settings);
-        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX, 0.0).iter().map(|here| here.map(|spot| spot.plate)).collect();
+        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX, 0.0, 0.0).iter().map(|here| here.map(|spot| spot.plate)).collect();
         let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
         assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
     }
@@ -945,7 +1009,7 @@ mod tests {
         let off = sim.home.iter().filter(|p| ((p.0 / grain - 0.5) - (p.0 / grain - 0.5).round()).abs() > 0.05).count();
         assert!(off > sim.home.len() / 2, "only {off} of {} points moved", sim.home.len());
         sim.step(&settings);
-        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX, 0.0).iter().map(|here| here.map(|spot| spot.plate)).collect();
+        let painted: Vec<Option<u8>> = sim.paint(0, f32::MAX, 0.0, 0.0).iter().map(|here| here.map(|spot| spot.plate)).collect();
         let wrong = painted.iter().zip(&made.plate).filter(|(a, b)| a != b).count();
         assert_eq!(wrong, 0, "{wrong} pixels differ from the plates as made");
     }
@@ -963,7 +1027,7 @@ mod tests {
             let now = signed_area(sim.at[a], sim.at[b], sim.at[c]) * triangle.area.signum();
             assert!(now > 0.0, "a triangle folded over");
         }
-        assert!(sim.paint(0, f32::MAX, 0.0).iter().flatten().any(|spot| spot.squeeze > 0.5));
+        assert!(sim.paint(0, f32::MAX, 0.0, 0.0).iter().flatten().any(|spot| spot.squeeze > 0.5));
     }
 
     #[test]
@@ -985,7 +1049,28 @@ mod tests {
         // Never folded: no triangle turned over onto itself.
         assert!(thinnest > 0.0, "a triangle folded over: {thinnest} of its area");
         // And the crush is still there: some rock did thicken.
-        assert!(sim.paint(0, f32::MAX, 0.0).iter().flatten().any(|spot| spot.squeeze > 0.5));
+        assert!(sim.paint(0, f32::MAX, 0.0, 0.0).iter().flatten().any(|spot| spot.squeeze > 0.5));
+    }
+
+    #[test]
+    fn small_holes_in_the_rock_are_filled_and_big_ones_and_open_sea_stay() {
+        // A 40-pixel field: sea along the left edge (cols 0..4), rock elsewhere, with a 3 × 3 hole
+        // and a 10 × 10 hole in it.
+        let width = 40;
+        let spot = Spot { plate: 0, squeeze: 0.2, from: 0, push: (0.0, 0.0) };
+        let mut painted: Vec<Option<Spot>> = (0..width * width)
+            .map(|i| {
+                let (col, row) = (i % width, i / width);
+                let small = (10..13).contains(&col) && (10..13).contains(&row);
+                let big = (20..30).contains(&col) && (20..30).contains(&row);
+                (col >= 4 && !small && !big).then_some(spot)
+            })
+            .collect();
+        // Up to a circle 6 pixels across (about 28 pixels): the 9-pixel hole, not the 100-pixel one.
+        fill_holes(&mut painted, width, std::f32::consts::FRAC_PI_4 * 36.0);
+        assert_eq!(painted[11 * width + 11], Some(spot), "the small hole wasn't filled");
+        assert!(painted[25 * width + 25].is_none(), "the big hole was filled");
+        assert!(painted[20 * width + 2].is_none(), "the open sea was filled");
     }
 
     #[test]
@@ -1022,7 +1107,7 @@ mod tests {
             }
             // How much sea opened between them: empty pixels between the two plates, along the rows
             // where they met.
-            let painted = sim.paint(0, f32::MAX, 0.0);
+            let painted = sim.paint(0, f32::MAX, 0.0, 0.0);
             let width = plates.width;
             let mut gap = 0;
             for row in 44..76 {
@@ -1072,7 +1157,7 @@ mod tests {
             for _ in 0..100 {
                 sim.step(&settings);
             }
-            sim.paint(0, f32::MAX, 0.0)
+            sim.paint(0, f32::MAX, 0.0, 0.0)
         };
         assert_eq!(run(), run());
     }
