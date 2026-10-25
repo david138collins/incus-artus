@@ -56,3 +56,25 @@ impl<T: Send + 'static> Job<T> {
         }
     }
 }
+
+/// `f` for every pixel of a `width` × `width` map, on all the computer's cores. `None` if `stop`
+/// was set part-way.
+pub fn every_pixel<T: Copy + Default + Send>(width: usize, stop: &AtomicBool, f: impl Fn(usize) -> T + Sync) -> Option<Vec<T>> {
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let rows_each = width.div_ceil(cores).max(1);
+    let mut out = vec![T::default(); width * width];
+    std::thread::scope(|scope| {
+        for (band, part) in out.chunks_mut(rows_each * width).enumerate() {
+            let f = &f;
+            scope.spawn(move || {
+                for (k, value) in part.iter_mut().enumerate() {
+                    if k % width == 0 && stop.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    *value = f(band * rows_each * width + k);
+                }
+            });
+        }
+    });
+    (!stop.load(Ordering::Relaxed)).then_some(out)
+}

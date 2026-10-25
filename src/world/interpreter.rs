@@ -380,6 +380,15 @@ impl CompiledMap {
         }
     }
 
+    /// How much of the room above the ground mountains take at a spot, 0 to 1, before ridges and
+    /// passes carve them (the mountains curve read at its squeeze; 0 where the rock isn't crushed).
+    pub fn mountain_share(&self, here: &Here) -> f32 {
+        if here.squeeze <= 0.0 {
+            return 0.0;
+        }
+        self.mountains.at(here.squeeze / self.maps.most_crushed.max(1e-6)).clamp(0.0, 1.0)
+    }
+
     /// The recipe's pieces at a spot with these map values; `x` east and `y` south are blocks from
     /// the map's north-west corner (where the noise patterns are laid).
     pub fn parts(&self, here: &Here, x: f32, y: f32) -> Parts {
@@ -398,8 +407,8 @@ impl CompiledMap {
 
         // 4. Mountains.
         let mut mountains = 0.0;
-        let tall = self.mountains.at(here.squeeze / m.most_crushed.max(1e-6)).clamp(0.0, 1.0);
-        if here.squeeze > 0.0 && tall > 0.0 && !self.mutes.mountains {
+        let tall = self.mountain_share(here);
+        if tall > 0.0 && !self.mutes.mountains {
             // The push's direction on the map (north is −y), from the doubled-angle arrow, and the
             // ridges lined up across it, blended into wandering ridges where the direction is
             // unclear.

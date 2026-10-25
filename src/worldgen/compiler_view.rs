@@ -75,6 +75,9 @@ pub struct Compiler {
     lab_texture: Option<egui::TextureHandle>,
     lab_painted_for: Option<(u64, u32)>,
     lab_hover: Option<(f32, f32, f32)>,
+    /// The overlays' picture, and which of their pictures it holds.
+    overlay_texture: Option<egui::TextureHandle>,
+    overlay_painted_for: Option<u64>,
     hover: Option<(usize, usize)>,
 }
 
@@ -106,6 +109,8 @@ impl Default for Compiler {
             lab_texture: None,
             lab_painted_for: None,
             lab_hover: None,
+            overlay_texture: None,
+            overlay_painted_for: None,
             hover: None,
         }
     }
@@ -124,6 +129,8 @@ impl Compiler {
             Some("compiling")
         } else if self.lab.is_making() {
             Some("drawing the close-up")
+        } else if self.lab.overlays.is_making() {
+            Some("drawing overlays")
         } else {
             None
         }
@@ -810,6 +817,19 @@ fn readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ui.small(format!("squeezed at {:.0}°, strength {:.2}", bake.push_angle[i], bake.push_strength[i]));
             }
             ui.small(if bake.plate[i] == 0 { "no plate".to_string() } else { format!("plate grey {}", bake.plate[i]) });
+            if let Some(painted) = &compiler.lab.overlays.painted
+                && painted.width == width
+            {
+                ui.small("From the overlays (this pixel):");
+                let d = painted.fields.coast_distance[i];
+                ui.small(if d >= 0.0 { format!("{d:.0} blocks inland") } else { format!("{:.0} blocks out to sea", -d) });
+                ui.small(format!("mountain share {:.0}%", painted.share[i] * 100.0))
+                    .on_hover_text("How much of the room above the ground the mountains take here, before ridges and passes carve them.");
+                let skirt = result.made.map.maps.skirt[i];
+                if skirt > 0.0 {
+                    ui.small(format!("foothill skirt {skirt:.0} blocks"));
+                }
+            }
         }
         _ => {
             ui.small("Point at the world.");
@@ -864,6 +884,32 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             }
         }
     });
+    ui.add_space(4.0);
+    ui.label("Overlays:").on_hover_text(
+        "The compiler's maps drawn over the map and the close-up, one value per map pixel (32 blocks): the areas\n\
+         and lines hidden in them. Later, these are what the scatterers (second-layer mountains) will be driven by.",
+    );
+    let o = &mut compiler.lab.overlays;
+    ui.horizontal_wrapped(|ui| {
+        let s = &mut o.shown;
+        for (name, shown, about) in [
+            ("plates", &mut s.plates, "Each plate in its own colour, with its outline."),
+            ("squeeze", &mut s.squeeze, "Crushed rock in red, stretched rock in blue: the stronger, the deeper the colour."),
+            ("mountains", &mut s.mountains, "Where mountains rise (orange: the deeper, the taller the mountains curve makes them), and their foothill skirts (yellow)."),
+            ("range spines", &mut s.spines, "The crest line of each mountain range: where its mountains are strongest, across the range."),
+            ("coast distance", &mut s.coast, "The coastline (cyan), and lines every so many blocks inland (white) and out to sea (pale blue)."),
+            ("squeeze direction", &mut s.direction, "Which way the rock was squeezed: longer strokes, harder squeezing. Ridges line up across the strokes."),
+        ] {
+            ui.checkbox(shown, name).on_hover_text(about);
+        }
+    });
+    let any = o.shown != super::overlays::Shown::default();
+    if any {
+        ui.add(crate::debug::Slider::new(&mut o.opacity, 0.1..=1.0).text("overlay strength")).on_hover_text("How strongly the overlays cover the map.");
+    }
+    if o.shown.coast {
+        ui.add(crate::debug::Slider::new(&mut o.band, 250.0..=8_000.0).text("coast lines every (blocks)")).on_hover_text("The blocks between the coast-distance lines.");
+    }
     ui.add_space(4.0);
     ui.label("Cross-section:");
     if compiler.lab.section.is_some() {
@@ -990,6 +1036,29 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         compiler.camera.outline(&painter, rect, compiler.hover, MAGENTA);
     }
 
+    // The overlays, over the map and the close-up alike.
+    compiler.lab.overlays.drive(&map, &bake);
+    let overlays = &compiler.lab.overlays;
+    if overlays.shown != super::overlays::Shown::default()
+        && let Some(painted) = &overlays.painted
+        && painted.width == width
+    {
+        let tint = Color32::WHITE.gamma_multiply(overlays.opacity);
+        if compiler.overlay_painted_for != Some(overlays.version) || compiler.overlay_texture.is_none() {
+            let image = egui::ColorImage::new([width, width], painted.pixels.clone());
+            let texture = compiler.overlay_texture.get_or_insert_with(|| ui.ctx().load_texture("terrain lab overlays", egui::ColorImage::new([1, 1], vec![Color32::TRANSPARENT]), egui::TextureOptions::LINEAR));
+            texture.set(image, egui::TextureOptions::LINEAR);
+            compiler.overlay_painted_for = Some(overlays.version);
+        }
+        if let Some(texture) = &compiler.overlay_texture {
+            let field = compiler.camera.field_rect(rect, (width, width));
+            painter.image(texture.id(), field, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), tint);
+        }
+        if overlays.shown.direction {
+            squeeze_strokes(&painter, rect, &compiler.camera, &compiled_map.maps, painted.strongest_push, tint);
+        }
+    }
+
     // The cross-section: Shift + drag to draw, right-click to clear.
     if let Some(mouse) = response.interact_pointer_pos().or(response.hover_pos()) {
         if shift && response.drag_started() {
@@ -1019,6 +1088,33 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         "drag = move   scroll = zoom (in close for the live close-up)   Shift + drag = cross-section   double-click = fit   north is up"
     };
     painter.text(rect.left_bottom() + Vec2::new(8.0, -8.0), egui::Align2::LEFT_BOTTOM, help, egui::FontId::proportional(12.0), PINK);
+}
+
+/// The squeeze direction overlay: a short stroke every so many screen points, along the way the rock
+/// was squeezed there, longer where it was squeezed harder.
+fn squeeze_strokes(painter: &egui::Painter, rect: egui::Rect, camera: &Camera, maps: &crate::world::Maps, strongest: f32, tint: Color32) {
+    const EVERY: f32 = 28.0;
+    let width = maps.width;
+    let stroke = egui::Stroke::new(1.5, Color32::WHITE.gamma_multiply(tint.a() as f32 / 255.0));
+    let (across, down) = ((rect.width() / EVERY) as usize + 1, (rect.height() / EVERY) as usize + 1);
+    for row in 0..down {
+        for col in 0..across {
+            let at = rect.left_top() + Vec2::new((col as f32 + 0.5) * EVERY, (row as f32 + 0.5) * EVERY);
+            let pixel = camera.centre + (at - rect.center()) / camera.zoom;
+            if pixel.x < 0.0 || pixel.y < 0.0 || pixel.x >= width as f32 || pixel.y >= width as f32 {
+                continue;
+            }
+            let i = pixel.y as usize * width + pixel.x as usize;
+            let strength = maps.push_strength[i] / strongest.max(1e-6);
+            if strength < 0.05 {
+                continue;
+            }
+            // The doubled-angle arrow back to a direction (on screen, down is south).
+            let angle = maps.push_y[i].atan2(maps.push_x[i]) / 2.0;
+            let half = Vec2::new(angle.cos(), -angle.sin()) * (3.0 + 9.0 * strength.sqrt());
+            painter.line_segment([at - half, at + half], stroke);
+        }
+    }
 }
 
 /// The cross-section's side view, along the bottom of the map: the ground's Z from the pink end to

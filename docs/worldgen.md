@@ -227,6 +227,17 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
 - **Live expectations:** Interpreter sliders follow as they move; compiler sliders take a moment
   (whole-map work); Tectonic Sim changes need a rerun.
 
+### Terrain lab overlays  [BUILT 2026-10-25]
+Phase 2 of the lab: the compiler's maps drawn over the map and the close-up, a switch each, with an
+overall strength: **plates** (a colour each, outlined), **squeeze** (crushed red, stretched blue),
+**mountains** (where the mountains curve raises them, orange, and the foothill skirts, yellow),
+**range spines** (the crest line of each range: where the mountain share peaks across it), **coast
+distance** (the coastline in cyan, and lines every so many blocks inland and out to sea), and
+**squeeze direction** (strokes along the push; ridges line up across them). Under the mouse: blocks
+from the coast, mountain share, foothill skirt. One value per map pixel, painted on all cores in the
+background (about 0.2 s on a 2,250-pixel map; the meter says "drawing overlays"); only the mountains
+curve and the switches repaint it. These are the first "modalities" for the scatterers to read.
+
 ### The processing meter  [BUILT 2026-10-24]
 [David: reassurance whenever the computer has to think.] In the Editor Suite's top bar, in a slot of
 its own: a spinner, what it's working out (compiling, EZ-baking, drawing the close-up, baking,

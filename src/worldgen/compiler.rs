@@ -22,6 +22,7 @@
 //! Everything is worked out on all the computer's cores, in the background.
 
 use super::bake::{self, Info};
+use super::runner::every_pixel;
 pub use crate::world::Spline;
 use crate::world::{CompiledMap, InterpreterSettings, Maps};
 use serde::{Deserialize, Serialize};
@@ -170,7 +171,7 @@ const COAST_REACH: f32 = 0.03;
 
 /// Blurs a map with three passes of a box `reach` pixels wide each way (close to a soft, round
 /// blur), across and then down.
-fn blur(values: &mut [f32], width: usize, reach: usize) {
+pub fn blur(values: &mut [f32], width: usize, reach: usize) {
     if reach == 0 {
         return;
     }
@@ -203,27 +204,6 @@ fn blur(values: &mut [f32], width: usize, reach: usize) {
             }
         }
     }
-}
-
-/// `f` for every pixel, on all the computer's cores. `None` if `stop` was set part-way.
-fn every_pixel(width: usize, stop: &AtomicBool, f: impl Fn(usize) -> f32 + Sync) -> Option<Vec<f32>> {
-    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
-    let rows_each = width.div_ceil(cores).max(1);
-    let mut out = vec![0.0f32; width * width];
-    std::thread::scope(|scope| {
-        for (band, part) in out.chunks_mut(rows_each * width).enumerate() {
-            let f = &f;
-            scope.spawn(move || {
-                for (k, value) in part.iter_mut().enumerate() {
-                    if k % width == 0 && stop.load(Ordering::Relaxed) {
-                        return;
-                    }
-                    *value = f(band * rows_each * width + k);
-                }
-            });
-        }
-    });
-    (!stop.load(Ordering::Relaxed)).then_some(out)
 }
 
 /// Compiles a bake: the whole-map jobs, then the ground at each pixel's centre to show. Returns

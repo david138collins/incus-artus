@@ -49,7 +49,10 @@ pub struct Frame {
 #[derive(Default)]
 pub struct Lab {
     pub mutes: Mutes,
-    job: Option<Job<Frame>>,
+    /// The close-up being made, and what it shows.
+    job: Option<(Request, Job<Frame>)>,
+    /// The compiler's maps drawn over the map and the close-up.
+    pub overlays: super::overlays::Overlays,
     pub frame: Option<Frame>,
     /// Goes up with each new frame (so the picture knows to repaint).
     pub version: u64,
@@ -80,7 +83,7 @@ impl Lab {
     /// per screen point), collects finished frames, and starts the next one when the view or the
     /// recipe has changed.
     pub fn drive(&mut self, map: &Arc<CompiledMap>, view: Option<((f32, f32), (f32, f32), f32)>) {
-        if let Some(job) = &self.job {
+        if let Some((_, job)) = &self.job {
             match job.poll() {
                 Poll::Done(finished) => {
                     self.frame = Some(finished.made);
@@ -115,17 +118,17 @@ impl Lab {
         if shown {
             return;
         }
-        if let Some(job) = &self.job {
-            // Let a quick one finish (the next starts straight after, with the newest view); a slow
-            // one is abandoned.
-            if job.started.elapsed().as_secs_f32() < 0.15 {
+        if let Some((making, job)) = &self.job {
+            // Already making this one; or let a quick one finish (the next starts straight after, with
+            // the newest view). A slow one for an old view is abandoned.
+            if *making == request || job.started.elapsed().as_secs_f32() < 0.15 {
                 return;
             }
             job.stop();
             self.job = None;
         }
         let map = map.clone();
-        self.job = Some(Job::start(move |stop| close_up(&map, request, stop)));
+        self.job = Some((request.clone(), Job::start(move |stop| close_up(&map, request, stop))));
     }
 }
 

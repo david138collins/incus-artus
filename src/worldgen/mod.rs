@@ -46,6 +46,7 @@
 //! - `compiler.rs` a bake into the ground's height in blocks (sea level Z 128, nothing past Z 333)
 //! - `compiler_view.rs` its screen (the Terrain Compiler and Interpreter panels)
 //! - `lab.rs`      the terrain lab: the map, zoomed in, as a live close-up of the ground
+//! - `overlays.rs` the terrain lab's overlays: the compiler's maps drawn over the map
 
 mod blend;
 mod bake;
@@ -59,6 +60,7 @@ mod image;
 mod lab;
 mod layers;
 mod made;
+mod overlays;
 pub(crate) mod noise;
 mod palette;
 mod plates;
@@ -166,9 +168,14 @@ impl Default for Suite {
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
         // Worley layer instead.
         // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
-        // `=compiler` opens the Terrain Compiler.
-        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler") {
+        // `=compiler` opens the Terrain Compiler; `=compiler-overlays` also switches on the
+        // mountains, range spines, coast distance and squeeze direction overlays.
+        if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler" || v == "compiler-overlays") {
             suite.kit = Kit::Compiler;
+            if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler-overlays") {
+                let shown = &mut suite.compiler.lab.overlays.shown;
+                (shown.plates, shown.squeeze, shown.mountains, shown.spines, shown.coast, shown.direction) = (false, false, true, true, true, true);
+            }
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;
             suite.world.start_when_ready = std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world-run");
