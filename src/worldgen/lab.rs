@@ -12,7 +12,7 @@
 //!   along it, with sea level) shows under the map.
 //! - **Cost:** how long the last close-up took, and what that comes to per chunk.
 //! - **View and sharpness:** the close-up can be forced on at any zoom (to see the whole world as the
-//!   Interpreter makes it, ground detail and all; slower further out) or off, and can take 2 or 4
+//!   Interpreter makes it, ground detail and all; slower further out) or off, and can take 2 to 16
 //!   samples per screen point instead of 1.
 
 use super::runner::{Job, Poll};
@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// The close-up takes over once a map pixel covers this many screen points.
 pub const TAKES_OVER_AT: f32 = 3.0;
 /// The most samples across or down a close-up at sharpness 1× (more and the step between samples
-/// grows); sharper close-ups may take 2 or 4 times as many, up to `LARGEST`.
+/// grows); sharper close-ups may take up to 16 times as many, up to `LARGEST`.
 const MOST_SAMPLES: f32 = 900.0;
 /// The largest picture the graphics card is sure to take, across or down.
 const LARGEST: f32 = 8192.0;
@@ -66,7 +66,7 @@ pub enum View {
 pub struct Lab {
     pub mutes: Mutes,
     pub view: View,
-    /// Close-up samples per screen point: 1, 2 or 4 (as 0, 1, 2).
+    /// Close-up samples per screen point: 1, 2, 4, 8 or 16 (as 0 to 4).
     pub sharper: u32,
     /// The close-up being made, and what it shows.
     job: Option<(Request, Job<Frame>)>,
@@ -123,10 +123,10 @@ impl Lab {
             }
         }
         let Some(((north, west), (south, east), blocks_per_point)) = view else { return };
-        // One sample per screen point (2 or 4 when sharper), in whole powers of two blocks (so
+        // One sample per screen point (up to 16 when sharper), in whole powers of two blocks (so
         // zooming a little doesn't redraw), never finer than a block, and never more than
-        // `MOST_SAMPLES` across (2 or 4 times that when sharper).
-        let sharper = 2f32.powi(self.sharper.min(2) as i32);
+        // `MOST_SAMPLES` across (more when sharper, up to `LARGEST`).
+        let sharper = 2f32.powi(self.sharper.min(4) as i32);
         let mut step = (2f32.powi(blocks_per_point.max(1.0).log2().ceil() as i32) / sharper).max(1.0);
         let most = (MOST_SAMPLES * sharper).min(LARGEST - 2.0 * SNAP);
         while ((east - west) / step).max((north - south) / step) > most {

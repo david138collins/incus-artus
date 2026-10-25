@@ -934,9 +934,9 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
     });
     ui.horizontal(|ui| {
         ui.label("Sharpness:");
-        for (sharper, name) in [(0, "1×"), (1, "2×"), (2, "4×")] {
+        for (sharper, name) in [(0, "1×"), (1, "2×"), (2, "4×"), (3, "8×"), (4, "16×")] {
             ui.selectable_value(&mut compiler.lab.sharper, sharper, name).on_hover_text(
-                "Close-up samples per screen point. Sharper shows finer ground detail from further out; 2× takes about 4 times as long, 4× about 16.",
+                "Close-up samples per screen point. Sharper shows finer ground detail from further out; Each step up takes about 4 times as long; 16× is for screenshots.",
             );
         }
     });
