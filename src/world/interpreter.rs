@@ -159,15 +159,24 @@ pub struct InterpreterSettings {
     /// How tall mountains are for each amount of squeeze, from none (left) to the most crushed rock
     /// in the bake (right): up = a share of the room up to Z 333.
     pub mountains: Spline,
-    /// How much the ridge pattern carves into the mountains: 0 = smooth domes, 1 = all ridges.
+    /// How much the ridge pattern carves into the mountains: 0 = smooth domes, 1 = all ridges; past
+    /// 1, the valleys between crests reach right down to the ground over wider stretches.
     pub ridges: f32,
+    /// How many layers of ridges are stacked (each finer than the last), and how strong each finer
+    /// layer is next to the one before (higher = rougher, more broken crests).
+    pub ridge_layers: u32,
+    pub ridge_roughness: f32,
+    /// How readily ridges line up across the squeeze direction: 0 = wandering every way, 1 = lined up
+    /// wherever the squeeze is clear, 2 = lined up even where it's faint.
+    pub ridge_alignment: f32,
     /// How far apart ridges are (across them), and how long they run (along them), in blocks.
     pub ridge_spacing: f32,
     pub ridge_length: f32,
     /// Higher = narrower, sharper ridge crests.
     pub sharpness: f32,
-    /// How deeply the crest height dips into passes along each ridge (0 = even crests), and how far
-    /// apart the dips are, in blocks.
+    /// How deeply the crest height dips into passes along each ridge (0 = even crests; past 1 the
+    /// deepest passes cut right through to the ground, leaving separate peaks), and how far apart the
+    /// dips are, in blocks.
     pub passes: f32,
     pub pass_spacing: f32,
     /// How deep the most stretched rock sinks, in blocks.
@@ -193,6 +202,9 @@ impl Default for InterpreterSettings {
             grade: 0.4,
             mountains: Spline::through(&[(0.0, 0.0), (0.08, 0.0), (0.5, 0.35), (1.0, 0.9)]),
             ridges: 0.5,
+            ridge_layers: 3,
+            ridge_roughness: 0.45,
+            ridge_alignment: 1.0,
             ridge_spacing: 3_000.0,
             ridge_length: 15_000.0,
             sharpness: 1.2,
@@ -302,14 +314,15 @@ fn catmull_rom(p: [f32; 4], t: f32) -> f32 {
     0.5 * (2.0 * p[1] + (p[2] - p[0]) * t + (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3]) * t2 + (3.0 * (p[1] - p[2]) + p[3] - p[0]) * t3)
 }
 
-/// A ridge pattern, 0 to 1 (1 = a crest): stacked "folded" noise, whose creases are the crests.
-fn ridges(seed: u64, u: f32, v: f32, sharpness: f32) -> f32 {
+/// A ridge pattern, 0 to 1 (1 = a crest): `layers` of "folded" noise stacked, each 2.1 times finer
+/// and `roughness` times as strong as the last, whose creases are the crests.
+fn ridges(seed: u64, u: f32, v: f32, sharpness: f32, layers: u32, roughness: f32) -> f32 {
     let (mut total, mut strength, mut strengths, mut scale) = (0.0, 1.0, 0.0, 1.0);
-    for octave in 0..3 {
+    for octave in 0..layers.max(1) as u64 {
         let crest = 1.0 - perlin(seed, 0xa11 + octave, Fade::Smooth, u * scale, v * scale).abs().min(1.0);
         total += crest.powf(sharpness.max(0.1)) * strength;
         strengths += strength;
-        strength *= 0.45;
+        strength *= roughness;
         scale *= 2.1;
     }
     total / strengths
@@ -418,17 +431,18 @@ impl CompiledMap {
             let along = -x * push.1 + y * push.0;
             let spacing = s.ridge_spacing.max(1.0);
             let seed = self.noise_seed;
-            let lined_up = ridges(seed, across / spacing, along / s.ridge_length.max(1.0), s.sharpness);
-            let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness);
-            let clear = smooth(here.push_strength / 0.1);
+            let (layers, roughness) = (s.ridge_layers.clamp(1, 8), s.ridge_roughness.clamp(0.0, 1.0));
+            let lined_up = ridges(seed, across / spacing, along / s.ridge_length.max(1.0), s.sharpness, layers, roughness);
+            let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness, layers, roughness);
+            let clear = smooth(here.push_strength * s.ridge_alignment.max(0.0) / 0.1);
             let crest = wandering + (lined_up - wandering) * clear;
-            let carved = if self.mutes.ridges { 1.0 } else { 1.0 - s.ridges.clamp(0.0, 1.0) * (1.0 - crest) };
+            let carved = if self.mutes.ridges { 1.0 } else { (1.0 - s.ridges.max(0.0) * (1.0 - crest)).max(0.0) };
             // Passes: the crest height rises and dips along the ridge.
             let pass_size = s.pass_spacing.max(1.0);
             let along_ridge = perlin(seed, 0x9a55, Fade::Smooth, along / pass_size, across / (pass_size * 3.0));
             let wandering_passes = perlin(seed, 0x9a56, Fade::Smooth, x / pass_size, y / pass_size);
             let wave = wandering_passes + (along_ridge - wandering_passes) * clear;
-            let dipped = if self.mutes.passes { 1.0 } else { 1.0 - s.passes.clamp(0.0, 1.0) * (0.5 - 0.5 * wave) };
+            let dipped = if self.mutes.passes { 1.0 } else { (1.0 - s.passes.max(0.0) * (0.5 - 0.5 * wave)).max(0.0) };
             mountains = (HIGHEST - ground).max(0.0) * tall * carved * dipped;
         }
         let mountains = if self.mutes.mountains { 0.0 } else { mountains.max(here.skirt) };

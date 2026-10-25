@@ -588,21 +588,36 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
          lightly squeezed land as plains.",
     );
     spline_box(ui, "mountain spline", &mut s.mountains, &defaults.mountains, "more squeeze", "taller (top = Z 333)");
-    ui.add(crate::debug::Slider::new(&mut s.ridges, 0.0..=1.0).text("ridges")).on_hover_text(
-        "How much the ridge pattern carves into the mountains. 0 = smooth domes and spines, 1 = all ridges and valleys.\n\
-         (Now worked out at every block, so ridges are sharp down to single blocks, not stretched pixels.)",
+    // The ranges are centred on David's "hope" preset (2026-10-25), which had every one of these
+    // pinned at the end of its old range.
+    ui.add(crate::debug::Slider::new(&mut s.ridges, 0.0..=2.0).text("ridges")).on_hover_text(
+        "How much the ridge pattern carves into the mountains. 0 = smooth domes and spines, 1 = all ridges and valleys;\n\
+         past 1, the valleys between crests reach right down to the ground over wider stretches.\n\
+         (Worked out at every block, so ridges are sharp down to single blocks.)",
     );
-    ui.add(crate::debug::Slider::new(&mut s.ridge_spacing, 400.0..=20_000.0).logarithmic(true).text("ridge spacing (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut s.ridge_spacing, 50.0..=3_200.0).logarithmic(true).text("ridge spacing (blocks)"))
         .on_hover_text("How far apart the ridges are, across them.");
-    ui.add(crate::debug::Slider::new(&mut s.ridge_length, 2_000.0..=100_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
+    ui.add(crate::debug::Slider::new(&mut s.ridge_length, 250.0..=16_000.0).logarithmic(true).text("ridge length (blocks)")).on_hover_text(
         "How far ridges run along themselves. Ridges are lined up across the squeeze direction;\nlonger = long parallel ranges, shorter = broken, lumpy ones.\n\
          (Shorter than the spacing, they turn to run across the range instead of along it.)",
     );
-    ui.add(crate::debug::Slider::new(&mut s.sharpness, 0.3..=4.0).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests. Lower = broad, rounded ones.");
-    ui.add(crate::debug::Slider::new(&mut s.passes, 0.0..=1.0).text("passes")).on_hover_text(
-        "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests.",
+    ui.add(crate::debug::Slider::new(&mut s.sharpness, 1.0..=16.0).logarithmic(true).text("ridge sharpness")).on_hover_text("Higher = narrower, sharper crests. Lower = broad, rounded ones.");
+    ui.add(crate::debug::Slider::new(&mut s.ridge_layers, 1..=8).text("ridge layers")).on_hover_text(
+        "How many layers of ridges are stacked, each about twice as fine as the last: 1 = one clean set of ridges,\n\
+         more = smaller ridges branching off the big ones (spurs, gullies).",
     );
-    ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 3_000.0..=60_000.0).logarithmic(true).text("pass spacing (blocks)"))
+    ui.add(crate::debug::Slider::new(&mut s.ridge_roughness, 0.0..=1.0).text("ridge roughness")).on_hover_text(
+        "How strong each finer layer of ridges is next to the one before. Low = clean, smooth-sided ridges; high = rough, broken ones.",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.ridge_alignment, 0.0..=2.0).text("ridge alignment")).on_hover_text(
+        "How readily ridges line up across the squeeze direction (see the 'squeeze direction' overlay).\n\
+         0 = wandering every way, 1 = lined up wherever the squeeze is clear, 2 = lined up even where it's faint.",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.passes, 0.0..=2.0).text("passes")).on_hover_text(
+        "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests;\n\
+         past 1, the deepest passes cut right through to the ground, leaving separate peaks.",
+    );
+    ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 375.0..=24_000.0).logarithmic(true).text("pass spacing (blocks)"))
         .on_hover_text("How far apart the dips are along a ridge.");
 
     ui.add_space(6.0);

@@ -238,6 +238,16 @@ from the coast, mountain share, foothill skirt. One value per map pixel, painted
 background (about 0.2 s on a 2,250-pixel map; the meter says "drawing overlays"); only the mountains
 curve and the switches repaint it. These are the first "modalities" for the scatterers to read.
 
+### Mountains: "hope"  [FOUND 2026-10-25]
+[David: "breathtaking results... we've stuck gold."] His preset `hope` had all six mountain sliders
+pinned at the ends of their ranges: ridges 1 (most), ridge spacing 400 (least), ridge length 2,000
+(least), sharpness 4 (most), passes 1 (most), pass spacing 3,000 (least), with a mountains curve
+flat until the most crushed rock (0.84 → 0.125, then up to 1). Small, sharp, short ridges, broken
+into peaks every few thousand blocks, only on the most crushed rock. The ranges are now centred on
+those values (ridges and passes run to 2: past 1, valleys and passes reach the ground), and the
+ridge pattern's hidden numbers are sliders: ridge layers (3), ridge roughness (0.45), ridge
+alignment (1; how readily ridges line up across the squeeze).
+
 ### The processing meter  [BUILT 2026-10-24]
 [David: reassurance whenever the computer has to think.] In the Editor Suite's top bar, in a slot of
 its own: a spinner, what it's working out (compiling, EZ-baking, drawing the close-up, baking,
