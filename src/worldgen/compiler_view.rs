@@ -79,6 +79,8 @@ pub struct Compiler {
     overlay_texture: Option<egui::TextureHandle>,
     overlay_painted_for: Option<u64>,
     hover: Option<(usize, usize)>,
+    /// The Terrain Compiler and World Interpreter panels, folded away to thin strips.
+    pub folded: [bool; 2],
 }
 
 impl Default for Compiler {
@@ -112,6 +114,7 @@ impl Default for Compiler {
             overlay_texture: None,
             overlay_painted_for: None,
             hover: None,
+            folded: [false; 2],
         }
     }
 }
@@ -387,12 +390,14 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
             }
         });
     });
-    egui::Panel::left("world compiler settings").resizable(true).default_size(320.0).size_range(220.0..=900.0).show(root, |ui| {
+    let mut folded = compiler.folded;
+    super::view::foldable_left(root, "world compiler settings", "Terrain Compiler", &mut folded[0], 320.0, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| settings(ui, compiler));
     });
-    egui::Panel::left("world interpreter settings").resizable(true).default_size(320.0).size_range(220.0..=900.0).show(root, |ui| {
+    super::view::foldable_left(root, "world interpreter settings", "World Interpreter", &mut folded[1], 320.0, |ui| {
         egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
     });
+    compiler.folded = folded;
     egui::Panel::right("world compiler readouts").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, compiler));
     });

@@ -23,6 +23,7 @@ use crate::data::{BlockRegistry, FACE_NAMES, TextureRotation};
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::world::{CHUNK_SIZE, SectionKey, VoxelWorld};
 use bevy::prelude::*;
+use bevy::render::error_handler::{ErrorType, RenderError, RenderErrorHandler, RenderErrorPolicy};
 use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
 use meshing::{MeshingState, SectionMesh};
@@ -31,9 +32,27 @@ use std::sync::Arc;
 
 pub struct RenderPlugin;
 
+/// What to do when the graphics card reports an error. Bevy's own answer is to quit the game for
+/// any of them, but minimizing the window on DirectX 12 always reports one, harmlessly: the window's
+/// picture can't be resized to nothing ("window is in use"), nothing is drawn while it's minimized,
+/// and the picture is resized again when it comes back. So an error while the window is minimized
+/// is let past; any other still quits, as before.
+fn on_render_error(error: &RenderError, main_world: &mut World, _render_world: &mut World) -> RenderErrorPolicy {
+    let mut windows = main_world.query::<&Window>();
+    let minimized = windows.iter(main_world).any(|window| window.physical_width() == 0 || window.physical_height() == 0);
+    if minimized && error.ty == ErrorType::Validation {
+        warn!("Graphics error while the window is minimized; carrying on (it's harmless)");
+        return RenderErrorPolicy::Ignore;
+    }
+    error!("Quitting the game because of a {:?} graphics error", error.ty);
+    main_world.write_message(AppExit::error());
+    RenderErrorPolicy::StopRendering
+}
+
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(MaterialPlugin::<TerrainMaterial>::default())
+        app.insert_resource(RenderErrorHandler(on_render_error))
+            .add_plugins(MaterialPlugin::<TerrainMaterial>::default())
             .add_plugins(MaterialPlugin::<distant::DistantMaterial>::default())
             .init_resource::<distant::DistantState>()
             .init_resource::<distant::DistantSettings>()

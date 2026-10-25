@@ -17,6 +17,8 @@
 //! Screenshots: press F12 to save one in the `screenshots/` folder (handy for showing Claude
 //! what you see). For automatic testing, starting the game with the environment variable
 //! `INCUS_SELFTEST_SECONDS=N` takes `screenshots/selftest.png` after N seconds, then quits.
+//! With `INCUS_SELFTEST_MINIMIZE=1` as well, it minimizes the window 8 seconds before the
+//! screenshot and restores it a second later (minimizing once closed the game).
 //!
 //! Presets: pages can save and load their settings as named files (see `presets.rs`), and
 //! the Overview page saves and loads all of them at once (see `settings.rs`).
@@ -138,6 +140,8 @@ fn screenshot_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
 struct SelfTest {
     screenshot_after: Option<f32>,
     screenshot_taken: bool,
+    /// Minimize and restore the window before the screenshot.
+    minimize: bool,
 }
 
 impl Default for SelfTest {
@@ -147,6 +151,7 @@ impl Default for SelfTest {
                 .ok()
                 .and_then(|value| value.parse().ok()),
             screenshot_taken: false,
+            minimize: std::env::var("INCUS_SELFTEST_MINIMIZE").is_ok(),
         }
     }
 }
@@ -156,11 +161,25 @@ fn run_self_test(
     mut test: ResMut<SelfTest>,
     time: Res<Time<Real>>,
     mut exit: MessageWriter<AppExit>,
+    mut windows: Query<&mut Window>,
 ) {
     let Some(after) = test.screenshot_after else {
         return;
     };
     let elapsed = time.elapsed_secs();
+    if test.minimize
+        && let Ok(mut window) = windows.single_mut()
+    {
+        let previous = elapsed - time.delta_secs();
+        if previous < after - 8.0 && elapsed >= after - 8.0 {
+            info!("Self-test: minimizing the window");
+            window.set_minimized(true);
+        }
+        if previous < after - 7.0 && elapsed >= after - 7.0 {
+            info!("Self-test: restoring the window");
+            window.set_minimized(false);
+        }
+    }
     if !test.screenshot_taken && elapsed >= after {
         take_screenshot(&mut commands, "selftest.png");
         test.screenshot_taken = true;
