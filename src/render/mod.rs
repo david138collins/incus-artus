@@ -12,6 +12,7 @@
 //!   (Simulation distance is a separate setting, added when there's simulation to limit.)
 
 mod distant;
+mod frame_cap;
 mod light;
 mod material;
 mod mesher;
@@ -70,6 +71,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<MeshingState>()
             .init_resource::<performance::FrameTimes>()
             .add_systems(Update, performance::record_frame_time)
+            .add_systems(Last, frame_cap::cap_frames)
             .insert_resource(ClearColor(SKY_COLOUR))
             .add_systems(Startup, setup_terrain)
             .add_systems(
@@ -119,6 +121,9 @@ pub struct RenderSettings {
     pub survey: bool,
     pub survey_every: i32,
     pub survey_darkness: f32,
+    /// Draw a frame every this many refreshes of the screen (1 = every one; 2 = half as many…),
+    /// or 0 = as fast as possible, vsync off (see `frame_cap.rs`).
+    pub frame_cap: u32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -146,6 +151,8 @@ impl Default for RenderSettings {
             survey: false,
             survey_every: 4,
             survey_darkness: 0.35,
+            // Every other refresh: 120 on a 240 screen, smooth, and much cooler than 240.
+            frame_cap: 2,
         }
     }
 }
@@ -400,7 +407,19 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.separator();
     ui.strong("Settings");
     {
+        let refresh = frame_cap::refresh_rate(world.query_filtered::<&bevy::window::Monitor, With<bevy::window::PrimaryMonitor>>().iter(world).map(|monitor| monitor.refresh_rate_millihertz));
         let mut settings = world.resource_mut::<RenderSettings>();
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Frame cap:");
+            for (cap, name) in [(1, "every refresh"), (2, "1/2"), (3, "1/3"), (4, "1/4")] {
+                ui.selectable_value(&mut settings.frame_cap, cap, format!("{name} ({:.0})", refresh / cap as f32));
+            }
+            ui.selectable_value(&mut settings.frame_cap, 0, "uncapped").on_hover_text("Vsync off, as fast as it can: for measuring top speed. Hot, and the picture can tear.");
+        })
+        .response
+        .on_hover_text(format!(
+            "Frames a second, as a share of the screen's {refresh:.0} refreshes a second: each frame shows for the same number of refreshes, so motion stays even. Fewer frames = less heat and power."
+        ));
         ui.add(crate::debug::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"));
         ui.add(crate::debug::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / 240th of a second"))
             .on_hover_text("Per 240th of a second, not per frame: at 60 FPS each frame starts four times as many, so terrain fills in as fast on a slower machine.");
