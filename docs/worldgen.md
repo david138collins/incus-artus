@@ -735,4 +735,23 @@ refinements, in the 3D world, for things like sunsets, clouds or animated water.
 
 ## Next steps
 
-David tries the Perlin field, then picks the next tool.
+David is exploring and improving the terrain gen again. **Soon after, on the to-do list [David
+2026-10-26]:**
+
+- **Raise the build height, and free the terrain from Z 333.** Both limits are arbitrary (a Minecraft
+  habit); nothing should stop a Tower of Babel, and the Lift's points are cut flat at 333. The
+  assessment, so it needn't be redone:
+  - *Build height:* cheap, since empty sky sections are already one value each. Suggested top
+    Z 4,096 (two miles above the sea is ~3,350); section levels are a `u8`, so up to ~8,160 needs
+    nothing more, and truly unlimited would mean cubic chunks (not worth it). With it: a chunk file
+    format bump (old saves pad with air); queue for drawing only up to a chunk's highest non-air
+    section (10× more empty sections otherwise); and the near light window's height byte should
+    run sea → highest ground, not sea → world top (too coarse at 4,096, and it matches the
+    distant terrain's tint that way).
+  - *Terrain ceiling:* mountains are sized as a share of the room up to 333, so raising it rescales
+    every tuned world. Gentlest: keep 333 as the mountains' measuring stick and move only the final
+    cut-off (which also flattens the Lift and hills) to its own setting. Height tint and survey
+    scale to 333 too.
+  - *Left for later:* builds don't reach the distant terrain or the light map (tall towers vanish
+    past render distance and cast no long shadows); block light / daylight must skip empty sky.
+  - Changes `docs/decisions.md` (Z 0 to 399) when built.
