@@ -28,6 +28,34 @@ pub struct TerrainMaterial {
     pub textures: Handle<Image>,
     #[uniform(2)]
     pub settings: TerrainShaderSettings,
+    /// The world light map (shadows, valleys, relief: see `light.rs`).
+    #[texture(3)]
+    #[sampler(4)]
+    pub light_map: Handle<Image>,
+    /// The ground's slope and height in a window around you, for hill shading (see `light.rs`).
+    #[texture(5)]
+    #[sampler(6)]
+    pub near_map: Handle<Image>,
+    /// Kept apart from `settings` so the light (`light.rs`) and the render settings (`mod.rs`)
+    /// each update their own.
+    #[uniform(7)]
+    pub light: TerrainLight,
+}
+
+/// How the near chunks are lit (see `light.rs`).
+#[derive(ShaderType, Clone, Copy, Debug, Default, PartialEq)]
+pub struct TerrainLight {
+    /// The world light map: x on, y shadows, z sky, w relief (strengths).
+    pub light: Vec4,
+    /// x the map's half width, y the light map's width (blocks).
+    pub light_area: Vec4,
+    /// xyz toward the sun (game axes), w hill shading strength.
+    pub sun: Vec4,
+    /// The window: x north and y east of its north-west corner, z its side (blocks), w on.
+    pub near_area: Vec4,
+    /// x height tint, y the distance slopes are measured over (blocks: the distant terrain's finest
+    /// cell, so both shade alike), z sea level, w the highest a height can be.
+    pub hill: Vec4,
 }
 
 /// Values the shader reads every frame. Kept to `Vec4`s, which the GPU handles most simply.

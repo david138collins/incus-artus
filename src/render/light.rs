@@ -22,12 +22,17 @@
 //! are worked out again in the background. The heights, sky and relief don't depend on the sun and
 //! are kept, so moving the sun only redoes the shadows (a fraction of a second).
 //!
-//! **Left open for later** (see docs/worldgen.md, "Graphics: the light map"): the near chunks can
-//! read a finer window of the same thing (step D), the distant tiles' hill shading can move in
-//! here, and the day/night cycle only has to turn the sun.
+//! **The near chunks** read the same light map, plus a window of the ground around them for hill
+//! shading (see "The near window" below), so near and far are lit alike.
+//!
+//! **Left open for later** (see docs/worldgen.md, "Graphics: the light map"): the distant tiles'
+//! hill shading can move in here, and the day/night cycle only has to turn the sun.
 
-use super::distant::{DistantMaterial, DistantState};
-use crate::world::{CompiledMap, SEA_LEVEL, Terrain};
+use super::distant::{DistantMaterial, DistantSettings, DistantState};
+use super::material::{TerrainLight, TerrainMaterial};
+use super::{RenderSettings, TerrainAssets};
+use crate::coords::bevy_to_game;
+use crate::world::{CHUNK_SIZE, CompiledMap, SEA_LEVEL, Terrain, WORLD_HEIGHT};
 use crate::worldgen::runner::every_pixel;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::{ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
@@ -69,6 +74,10 @@ pub struct LightSettings {
     pub relief_reach: f32,
     /// Blocks per light map pixel.
     pub detail: f32,
+    /// Light the near chunks like the distant terrain (hill shading from a window of the ground
+    /// around you, and the light map), and blocks per pixel of that window.
+    pub near: bool,
+    pub near_detail: f32,
 }
 
 impl Default for LightSettings {
@@ -84,6 +93,8 @@ impl Default for LightSettings {
             relief: 0.5,
             relief_reach: 2_000.0,
             detail: 32.0,
+            near: true,
+            near_detail: 2.0,
         }
     }
 }
@@ -184,21 +195,26 @@ fn picture_image(picture: Picture) -> Image {
 }
 
 /// Keeps the light map up to date with the world and the settings, and hands it to the distant
-/// terrain's material.
+/// terrain's material and the near chunks'.
+#[allow(clippy::too_many_arguments)]
 pub fn update_light(
     terrain: Res<Terrain>,
     settings: Res<LightSettings>,
     distant: Res<DistantState>,
+    near: Option<Res<TerrainAssets>>,
     mut state: ResMut<LightState>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<DistantMaterial>>,
+    mut near_materials: ResMut<Assets<TerrainMaterial>>,
 ) {
     let Some(handle) = distant.material.clone() else { return };
+    let near_handle = near.map(|near| near.material.clone());
     let map = match terrain.compiled() {
         Some(map) if settings.on => map.clone(),
         _ => {
-            // Nothing to light (or switched off): the shader leaves the colours as they are.
+            // Nothing to light (or switched off): the shaders leave the colours as they are.
             set_uniforms(&mut materials, &handle, settings.for_shader(false), Vec4::ZERO);
+            set_near_uniforms(&mut near_materials, near_handle.as_ref(), settings.for_shader(false), Vec4::ZERO);
             return;
         }
     };
@@ -247,7 +263,10 @@ pub fn update_light(
             }
             let image = images.add(picture_image(picture));
             if let Some(mut material) = materials.get_mut(&handle) {
-                material.light = image;
+                material.light = image.clone();
+            }
+            if let Some(mut material) = near_handle.as_ref().and_then(|near| near_materials.get_mut(near)) {
+                material.light_map = image;
             }
             state.shown = Some(made_for);
             state.status = format!("Light map: {0} × {0} pixels, shadows in {ms} ms", ground.width);
@@ -261,6 +280,161 @@ pub fn update_light(
 
     let area = Vec4::new(ground.half, ground.width as f32 * ground.detail, 0.0, 0.0);
     set_uniforms(&mut materials, &handle, settings.for_shader(state.shown.is_some()), area);
+    let near_light = if settings.near { settings.for_shader(state.shown.is_some()) } else { Vec4::ZERO };
+    set_near_uniforms(&mut near_materials, near_handle.as_ref(), near_light, area);
+}
+
+/// The same for the near chunks' material.
+fn set_near_uniforms(materials: &mut Assets<TerrainMaterial>, handle: Option<&Handle<TerrainMaterial>>, light: Vec4, area: Vec4) {
+    let Some(handle) = handle else { return };
+    let Some(material) = materials.get(handle) else { return };
+    if material.light.light == light && (light.x == 0.0 || material.light.light_area == area) {
+        return;
+    }
+    if let Some(mut material) = materials.get_mut(handle) {
+        material.light.light = light;
+        material.light.light_area = area;
+    }
+}
+
+// ── The near window ─────────────────────────────────────────────────────────
+//
+// The near chunks' tops are all flat (it's a block world), so lighting them by which way each face
+// points can't show the lie of the land. Like the distant terrain, they're lit by the slope of the
+// ground under them instead: a window of the ground around you, `near_detail` blocks a pixel, as
+// wide as the render distance, holding each spot's slope and height. The shader works out the hill
+// shading from the slope, with the same sun and the same sums as the distant tiles, so the two match
+// at the hand-off and moving the sun costs nothing. The window is made again in the background when
+// you've moved a quarter of the way to its edge (the old one shows until then).
+
+/// Slopes up to this (blocks up per block across) are kept; steeper ones count as this.
+const STEEPEST: f32 = 4.0;
+/// The most pixels along the window's side.
+const NEAR_MOST: f32 = 2048.0;
+
+/// What a near window was made for: the map, its north-west corner (north, east), its side
+/// (blocks) and blocks per pixel.
+#[derive(Clone)]
+struct NearKey {
+    map: Arc<CompiledMap>,
+    corner: Vec2,
+    side: f32,
+    detail: f32,
+}
+
+#[derive(Resource, Default)]
+pub struct NearLightState {
+    /// The window showing, and the one being made (with its stop switch).
+    shown: Option<NearKey>,
+    job: Option<(NearKey, Arc<AtomicBool>, Task<Option<Picture>>)>,
+}
+
+/// Keeps the window of the ground around you up to date, and the near chunks' sun and hill shading
+/// the same as the distant terrain's.
+#[allow(clippy::too_many_arguments)]
+pub fn update_near_light(
+    terrain: Res<Terrain>,
+    settings: Res<LightSettings>,
+    distant: Res<DistantSettings>,
+    render: Res<RenderSettings>,
+    near: Option<Res<TerrainAssets>>,
+    camera: Query<&Transform, With<Camera3d>>,
+    mut state: ResMut<NearLightState>,
+    mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<TerrainMaterial>>,
+) {
+    let Some(handle) = near.map(|near| near.material.clone()) else { return };
+    let sea = SEA_LEVEL as f32;
+    let mut wanted = TerrainLight {
+        sun: settings.sun().extend(distant.hill_shading),
+        hill: Vec4::new(distant.height_tint, distant.finest_cell as f32, sea, WORLD_HEIGHT as f32),
+        ..default()
+    };
+    let map = terrain.compiled().filter(|_| settings.near).cloned();
+    if let (Some(map), Some(camera)) = (map, camera.iter().next()) {
+        // Wide enough for the render distance (and a chunk more), pixels permitting.
+        let side = ((render.render_distance_chunks * 2 + 2) * CHUNK_SIZE) as f32;
+        let detail = settings.near_detail.max(side / NEAR_MOST).max(0.5);
+        let at = bevy_to_game(camera.translation).truncate();
+        let fits = |key: &NearKey| {
+            let middle = key.corner + Vec2::new(-key.side, key.side) / 2.0;
+            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && (at - middle).abs().max_element() < side / 4.0
+        };
+        if !state.shown.as_ref().is_some_and(fits) && !state.job.as_ref().is_some_and(|(key, ..)| fits(key)) {
+            if let Some((_, stop, _)) = state.job.take() {
+                stop.store(true, Ordering::Relaxed);
+            }
+            // Centred on you, snapped to whole pixels.
+            let snap = |v: f32| (v / detail).round() * detail;
+            let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail };
+            let (made, stop) = (key.clone(), Arc::new(AtomicBool::new(false)));
+            let flag = stop.clone();
+            let task = AsyncComputeTaskPool::get().spawn(async move { make_near(&made, &flag) });
+            state.job = Some((key, stop, task));
+        }
+        if let Some((key, _, task)) = state.job.as_mut() {
+            if let Some(made) = check_ready(task) {
+                let key = key.clone();
+                state.job = None;
+                if let Some(picture) = made {
+                    let image = images.add(picture_image(picture));
+                    if let Some(mut material) = materials.get_mut(&handle) {
+                        material.near_map = image;
+                    }
+                    state.shown = Some(key);
+                }
+            }
+        }
+        if let Some(key) = &state.shown {
+            wanted.near_area = Vec4::new(key.corner.x, key.corner.y, key.side, 1.0);
+        }
+    }
+    let Some(material) = materials.get(&handle) else { return };
+    let now = material.light;
+    if (now.sun, now.hill, now.near_area) != (wanted.sun, wanted.hill, wanted.near_area) {
+        if let Some(mut material) = materials.get_mut(&handle) {
+            material.light.sun = wanted.sun;
+            material.light.hill = wanted.hill;
+            material.light.near_area = wanted.near_area;
+        }
+    }
+}
+
+/// The window's picture: red and green the slope rising north and east (blocks up per block
+/// across, 0.5 = flat, square-rooted each way out to `STEEPEST`), blue the surface's height (sea
+/// level to the top of the world), alpha 1 on the map. The sea's surface is flat. `None` if stopped.
+fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<Picture> {
+    let width = (key.side / key.detail).round() as usize;
+    let sea = SEA_LEVEL as f32;
+    let raw = every_pixel(width, stop, |i| {
+        let (north, east) = (key.corner.x - ((i / width) as f32 + 0.5) * key.detail, key.corner.y + ((i % width) as f32 + 0.5) * key.detail);
+        key.map.height(north, east).map_or(f32::NAN, |h| h.max(sea))
+    })?;
+    let at = |c: usize, r: usize| {
+        let h = raw[r.min(width - 1) * width + c.min(width - 1)];
+        if h.is_nan() { sea } else { h }
+    };
+    let slope = |g: f32| {
+        let g = (g / STEEPEST).clamp(-1.0, 1.0);
+        0.5 + 0.5 * g.signum() * g.abs().sqrt()
+    };
+    let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let mut data = Vec::with_capacity(width * width * 4);
+    for r in 0..width {
+        for c in 0..width {
+            // Rows run south, so the row above is to the north.
+            let north = (at(c, r.saturating_sub(1)) - at(c, r + 1)) / (2.0 * key.detail);
+            let east = (at(c + 1, r) - at(c.saturating_sub(1), r)) / (2.0 * key.detail);
+            let h = raw[r * width + c];
+            data.extend_from_slice(&[
+                byte(slope(north)),
+                byte(slope(east)),
+                byte((at(c, r) - sea) / (WORLD_HEIGHT as f32 - sea)),
+                if h.is_nan() { 0 } else { 255 },
+            ]);
+        }
+    }
+    Some(Picture { width: width as u32, levels: 1, data })
 }
 
 /// Sets the material's light uniforms, only when they change (touching a material re-sends it).
@@ -485,6 +659,25 @@ mod tests {
         assert!(ground.sky[row + 5] < ground.sky[row + 34] / 4.0, "far away {}", ground.sky[row + 5]);
         // The ridge stands above its surroundings, the ground beside it below them.
         assert!(ground.relief[row + 32] > 50.0 && ground.relief[row + 35] < 0.0);
+    }
+
+    #[test]
+    fn the_near_window_holds_the_slope_and_height() {
+        // Ground rising 2 blocks every 32 east, level north to south.
+        let width = 64;
+        let z: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 2.0).collect();
+        let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
+        let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0 };
+        let picture = make_near(&key, &AtomicBool::new(false)).unwrap();
+        assert_eq!(picture.width, 128);
+        let pixel = |c: usize, r: usize| &picture.data[(r * 128 + c) * 4..(r * 128 + c) * 4 + 4];
+        let middle = pixel(64, 64);
+        // Rising east 1/16 of a block per block: 0.5 + 0.5 × √(0.0625 / 4) ≈ 0.56.
+        assert!((138..150).contains(&middle[1]), "east {}", middle[1]);
+        assert!((middle[0] as i32 - 128).abs() <= 2, "north {}", middle[0]);
+        assert_eq!(middle[3], 255);
+        // Higher to the east.
+        assert!(pixel(120, 64)[2] > pixel(8, 64)[2]);
     }
 
     #[test]

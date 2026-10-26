@@ -63,7 +63,8 @@ impl Plugin for RenderPlugin {
             .init_resource::<light::LightSettings>()
             .init_resource::<light::LightState>()
             .add_settings::<light::LightSettings>("light")
-            .add_systems(Update, light::update_light)
+            .init_resource::<light::NearLightState>()
+            .add_systems(Update, (light::update_light, light::update_near_light))
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
             .init_resource::<performance::FrameTimes>()
@@ -217,6 +218,9 @@ fn setup_terrain(
     let material = materials.add(TerrainMaterial {
         textures: images.add(image),
         settings: settings.shader_settings(SKY_COLOUR),
+        light_map: images.add(light::placeholder()),
+        near_map: images.add(light::placeholder()),
+        light: default(),
     });
     commands.insert_resource(TerrainAssets { material, ..terrain });
 }
@@ -471,6 +475,14 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
                 .on_hover_text("How wide \"the ground around it\" is. Short picks out hills and dips; long picks out whole ranges and basins.");
             ui.add(crate::debug::Slider::new(&mut s.detail, 16.0..=128.0).logarithmic(true).text("light map detail (blocks a pixel)"))
                 .on_hover_text("Finer is sharper but slower to work out, and takes more graphics memory (16 is four times 32).");
+        });
+        ui.checkbox(&mut s.near, "light the near chunks like the distant terrain").on_hover_text(
+            "Hill shading on the real chunks' tops, from the slope of the ground under them, with the same sun and strength as the distant terrain; \
+             and the light map's shadows and valleys. Faces well under the ground (caves) keep their plain light.",
+        );
+        ui.add_enabled_ui(s.near, |ui| {
+            ui.add(crate::debug::Slider::new(&mut s.near_detail, 1.0..=8.0).logarithmic(true).text("near detail (blocks a pixel)"))
+                .on_hover_text("How finely the slope under the near chunks is measured. Coarser is smoother and quicker to make as you move. (A long render distance may coarsen it.)");
         });
         if ui.button("Reset light settings").clicked() {
             *s = light::LightSettings::default();

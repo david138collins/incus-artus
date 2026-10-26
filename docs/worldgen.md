@@ -459,7 +459,7 @@ before history starts? Having both lets them be compared, or combined (plates fo
 detail). A **mask layer** (radial, linear, ring, with a falloff curve) is wanted either way: for example, lowering
 land toward the edge so the continents are surrounded by ocean.
 
-### Graphics: the light map  [DECIDED 2026-10-26; survey view and step C BUILT]
+### Graphics: the light map  [DECIDED 2026-10-26; survey view, steps C and D BUILT]
 David: the limiting factor in tuning the terrain is being able to *see* it at great distances. The
 distant terrain already reads better than real chunks (its hill shading lights each patch by its
 slope; chunks only by which way each face points), so he flies at render distance 1.
@@ -491,10 +491,15 @@ slope; chunks only by which way each face points), so he flies at render distanc
     surroundings and lightening what stands above.
   - The sea takes only the shadows. **One sun** (Render page, Light): the distant hill shading uses it
     too.
+- **D. Near chunks lit the same way** [BUILT]: the near shader reads the world light map (shadows,
+  valleys, relief) and a window of the ground around you (*near detail* blocks a pixel, as wide as the
+  render distance, made again in the background as you move) holding each spot's slope and height.
+  Tops get the distant terrain's hill shading from that slope (same sun, same strength, same sums,
+  slopes measured over the distant terrain's finest cell), so near and far match at the hand-off.
+  Faces more than about 12 blocks under the ground (caves, overhangs) keep their plain light until
+  real block light. Shadows near you are only as sharp as the light map (32 blocks a pixel); sharper
+  ones nearby are a later layer (near shadow maps, below).
 - **Left open, in order** (each a layer on top, nothing to undo):
-  - **D. Near chunks lit the same way**: a finer window of the light map (1 block a pixel, about
-    1,000 blocks around you, scrolling) read by the near shader, only on faces near the surface (caves
-    and overhangs wait for real block light). Removes the near/far seam.
   - Hill shading moved from the distant tiles' corners into the light map (so moving the sun doesn't
     rebuild tiles, and in shadow, slopes facing the sun stop being lit).
   - Corner darkening on near blocks (classic voxel ambient occlusion, worked out while meshing).

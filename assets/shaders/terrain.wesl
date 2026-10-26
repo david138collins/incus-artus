@@ -27,6 +27,28 @@ struct TerrainShaderSettings {
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var block_sampler: sampler;
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var<uniform> settings: TerrainShaderSettings;
 
+// How the ground is lit (src/render/light.rs).
+struct TerrainLight {
+    // The world light map: x on, y shadows, z sky, w relief (strengths)
+    light: vec4<f32>,
+    // x the map's half width, y the light map's width (blocks)
+    light_area: vec4<f32>,
+    // xyz toward the sun (game axes), w hill shading strength
+    sun: vec4<f32>,
+    // The window of the ground around you: x north and y east of its north-west corner, z its side
+    // (blocks), w on
+    near_area: vec4<f32>,
+    // x height tint, y the distance slopes are measured over (blocks), z sea level, w the highest a
+    // height can be
+    hill: vec4<f32>,
+}
+
+@group(constants::MATERIAL_BIND_GROUP) @binding(3) var light_map: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(4) var light_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(5) var near_map: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(6) var near_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(7) var<uniform> lighting: TerrainLight;
+
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) packed: vec2<u32>,
@@ -114,6 +136,56 @@ fn debug_colour(n: u32) -> vec3<f32> {
     return vec3<f32>(f32(h & 255u), f32((h >> 8u) & 255u), f32((h >> 16u) & 255u)) / 255.0;
 }
 
+// A value stored square-rooted each way around 0.5 (see light.rs), back to -1 to 1.
+fn unroot(v: f32) -> f32 {
+    let b = v * 2.0 - 1.0;
+    return sign(b) * b * b;
+}
+
+// How lit this spot is (1 = as painted), the same way the distant terrain is lit, so the two match:
+//   - the world light map (shadows, valley darkening, relief), on every face, as distant.wesl does;
+//   - hill shading on tops, from the slope of the ground under them (a block world's tops are all
+//     flat, so which way the face points says nothing about the lie of the land), with the same
+//     sums as the distant tiles (src/render/distant.rs, `Shade::hill`), and the height tint.
+// Faces well below the ground (caves, overhangs) keep their plain light, for now.
+fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
+    let north = -world_position.z;
+    let east = world_position.x;
+    let up = world_position.y;
+    var light = 1.0;
+
+    if lighting.light.x > 0.5 {
+        let uv = vec2<f32>(east + lighting.light_area.x, lighting.light_area.x - north) / max(lighting.light_area.y, 1.0);
+        let map = textureSampleLevel(light_map, light_sampler, uv, 0.0);
+        let sun = 1.0 - lighting.light.y * (1.0 - map.r);
+        let sky = 1.0 - min(lighting.light.z * map.g * map.g, 0.9);
+        let relief = max(1.0 + lighting.light.w * unroot(map.b), 0.2);
+        light = sun * mix(1.0, sky * relief, map.a);
+    }
+
+    if lighting.near_area.w > 0.5 {
+        let uv = vec2<f32>(east - lighting.near_area.y, lighting.near_area.x - north) / lighting.near_area.z;
+        let near = textureSampleLevel(near_map, near_sampler, uv, 0.0);
+        if all(uv >= vec2<f32>(0.0)) && all(uv <= vec2<f32>(1.0)) && near.a > 0.5 {
+            let sea = lighting.hill.z;
+            let surface = sea + near.b * (lighting.hill.w - sea);
+            if face == 4u {
+                // The rise across one distant cell, as the distant tiles measure it.
+                let rise = vec2<f32>(unroot(near.r), unroot(near.g)) * 4.0 * lighting.hill.y;
+                let normal = normalize(vec3<f32>(-rise.x * lighting.sun.w, -rise.y * lighting.sun.w, 1.0));
+                let hill = clamp(dot(normal, lighting.sun.xyz) / lighting.sun.z, 0.35, 1.6);
+                let tint = 1.0 + lighting.hill.x * (up - sea) / (lighting.hill.w - sea);
+                // The sea's surface stays flat, as on the distant terrain.
+                let water = surface <= sea + 0.5 && up <= sea + 0.5;
+                light = light * select(hill * tint, 1.0, water);
+            }
+            // Well below the ground: plain light.
+            light = mix(1.0, light, smoothstep(surface - 24.0, surface - 12.0, up));
+        }
+    }
+    return light;
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let base_uv = face_uv(in.face, in.local);
@@ -164,7 +236,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else if in.face <= 3u {
         shade = settings.face_shade.w;
     }
-    colour = colour * shade;
+    colour = colour * shade * ground_light(in.world_position, in.face);
 
     // Survey view: every Nth level of blocks above sea level darkened, like a contour map's bands.
     if settings.survey.x > 0.5 {
