@@ -5,7 +5,7 @@
 //! ```text
 //! ┌──── top: panels shown, which bake, land share ─────────────────────────────────────────────┐
 //! │ Landmass     │ Additives      │ World Interpreter │                        │ under the    │
-//! │ sea level    │ ridge streams  │ the chain         │  the world, in relief  │ mouse        │
+//! │ sea level    │ grain drift    │ the chain         │  the world, in relief  │ mouse        │
 //! │ coastline    │                │ land and sea      │                        │              │
 //! │ foothills    │                │ mountains         │                        │              │
 //! │ save, render │                │ hills, blocks     │                        │              │
@@ -13,7 +13,7 @@
 //! ```
 
 use super::Suite;
-use super::additives::{Additives, Sides};
+use super::additives::{Additives, DriftWay, Sides};
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
@@ -577,7 +577,14 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
          know; next, they'll drive features in the ground. (Saved in the presets with the other panels.)",
     );
     ui.add_space(4.0);
-    ui.checkbox(&mut compiler.additives.show, "show the dots").on_hover_text("Draws the dots over the map and the close-up.");
+    ui.horizontal_wrapped(|ui| {
+        ui.checkbox(&mut compiler.additives.show, "show the dots").on_hover_text("Draws the dots over the map and the close-up.");
+        ui.label("size:");
+        for size in [1.0, 2.0, 4.0, 8.0] {
+            ui.selectable_value(&mut compiler.additives.dot_size, size, format!("{size}x"))
+                .on_hover_text("Draws the dots this many times bigger (the seeds stay as they are), to see them from further out.");
+        }
+    });
     let a = &mut compiler.settings.additives;
 
     ui.add_space(6.0);
@@ -596,40 +603,122 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
     ui.add_space(6.0);
     ui.separator();
-    ui.strong("Ridge streams");
+    ui.checkbox(&mut a.drift_on, egui::RichText::new("Grain drift").strong());
+    ui.small("Seeds (blue) scattered over the mountains send dots (yellow) drifting the way the range runs, spreading sideways and thinning out. In knots they just scatter round the seed.");
+    ui.add_enabled_ui(a.drift_on, |ui| {
+        ui.add(crate::debug::Slider::new(&mut a.drift_spacing, 200.0..=5_000.0).logarithmic(true).text("seed spacing (blocks)"))
+            .on_hover_text("About how far apart the seeds are where the mountains are strongest (scattered, not even); further apart where they're weaker.");
+        ui.add(crate::debug::Slider::new(&mut a.drift_least, 0.0..=1.0).text("least mountains")).on_hover_text(
+            "No seeds where the mountains are weaker than this (0 to 1, as the mountain overlay shows).",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.drift_most, 0.0..=1.0).text("most mountains")).on_hover_text(
+            "No seeds where the mountains are stronger than this: trims off the strongest, as least mountains trims off the weakest.\n\
+             (Between the two, seeds come thicker the stronger the mountains.)",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.drift_distance, 500.0..=100_000.0).logarithmic(true).text("distance (blocks)"))
+            .on_hover_text("How far the dots drift from their seed along the range.");
+        ui.add(crate::debug::Slider::new(&mut a.drift_dots, 1..=64).text("dots per seed"));
+        ui.add(crate::debug::Slider::new(&mut a.drift_spread, 0.0..=1.0).text("spread")).on_hover_text(
+            "How far the dots spread sideways off the range by the far end, as a share of the distance. 0 = all in a line along it.",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.drift_lean, -1.0..=1.0).text("lean")).on_hover_text(
+            "Which side they spread to, looking the way they drift: -1 all to the left, 0 both sides, 1 all to the right.",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.drift_thin, 0.0..=1.0).text("thin out")).on_hover_text(
+            "How many fewer dots there are toward the far end. 0 = as many all the way, 1 = none at the very end.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            ui.label("drift:");
+            for way in DriftWay::ALL {
+                ui.selectable_value(&mut a.drift_way, way, way.name());
+            }
+        })
+        .response
+        .on_hover_text(
+            "A range runs two ways. To the range's tip: each range's own thin end (a carrot's point; the white arrows),\n\
+             the way it reaches furthest from its middle. To a bearing: the same way for every range. Or both ways.",
+        );
+        ui.add_enabled(
+            a.drift_way != DriftWay::Both,
+            crate::debug::Slider::new(&mut a.drift_toward, 0.0..=360.0).text("bearing"),
+        )
+        .on_hover_text(
+            "The compass bearing (0 north, 90 east, 180 south, 270 west) dots drift nearer to, like a prevailing wind:\n\
+             for every range when drifting to a bearing, and for seeds outside any range when drifting to the tip.",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.range_cut, 0.0..=1.0).text("range cut")).on_hover_text(
+            "Where the mountains are weaker than this, they're cut into separate ranges, each with its own middle (white\n\
+             ring) and tip (white arrow, longer the more lopsided). Lower: ranges join up into bigger ones.",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.tip_pull, 0.0..=1.0).text("tip pull")).on_hover_text(
+            "How hard each range pulls its dots toward its tip as they drift, so they carry on out past the range's end.\n\
+             0 = follow the grain only; 1 = straight at the tip. Weaker for ranges that are less lopsided (none for an egg).",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.coherence, 0.0..=1.0).text("coherence")).on_hover_text(
+            "How much each range's dots come together into one stream: they're drawn in toward the range's middle line\n\
+             (through its white ring, along its arrow) as they travel, and the spread and knot scatter are turned down.\n\
+             0 = as scattered as the sliders above make them; 1 = one tight stream out of each range.",
+        );
+        ui.add(crate::debug::Slider::new(&mut a.spiral, -1.0..=1.0).text("spiral")).on_hover_text(
+            "Every dot turns to swirl in round the map's middle as it goes: positive clockwise, negative anticlockwise,\n\
+             0 = no spiral. Further out, it bends more.",
+        );
+        ui.add_enabled(a.spiral != 0.0, crate::debug::Slider::new(&mut a.spiral_exponent, 0.25..=4.0).logarithmic(true).text("spiral exponent"))
+            .on_hover_text(
+                "How the spiral's turning grows along each dot's way: 1 = steadily; above 1 = hardly at first, then hard\n\
+                 near the end; below 1 = early on, then easing off.",
+            );
+        ui.add(crate::debug::Slider::new(&mut a.knot_scatter, 0.0..=1.0).text("knot scatter")).on_hover_text(
+            "In knots (yellow on the \"string or knot\" overlay), how far round the seed the dots scatter, as a share of the\n\
+             distance. Partly-knotted spots blend the scatter with the drift.",
+        );
+    });
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.checkbox(&mut a.streams_on, egui::RichText::new("Ridge streams").strong());
     ui.small("Dots placed along each range's spine (the \"range spines\" overlay) stream off it, curving with it.");
-    ui.add(crate::debug::Slider::new(&mut a.spacing, 50.0..=4_000.0).logarithmic(true).text("spacing (blocks)"))
-        .on_hover_text("Blocks between the streams' starts along a spine (scattered, not even).");
-    ui.add(crate::debug::Slider::new(&mut a.distance, 0.0..=6_000.0).text("distance (blocks)"))
-        .on_hover_text("How far each stream runs from the spine.");
-    ui.add(crate::debug::Slider::new(&mut a.dots, 1..=64).text("dots per stream"));
-    ui.add(crate::debug::Slider::new(&mut a.bend, -4.0..=4.0).text("bend")).on_hover_text(
-        "How much the spine's curve steers the streams as they go: they turn to sweep along the ridge, all the same way\n\
-         round a curve on both sides (like a pinwheel), so neighbours curve together. The sharper the spine curves,\n\
-         the more they turn. 0 = straight off the spine; negative = sweeping the other way.",
-    );
-    ui.horizontal_wrapped(|ui| {
-        ui.label("sides:");
-        for sides in Sides::ALL {
-            ui.selectable_value(&mut a.sides, sides, sides.name());
-        }
-    })
-    .response
-    .on_hover_text("Which side of the spine streams leave from: both, the side it curves toward, or the side it curves away from.");
-    ui.add(crate::debug::Slider::new(&mut a.least_mountains, 0.0..=1.0).text("least mountains")).on_hover_text(
-        "Streams start only where the mountains are at least this strong (0 to 1, as the mountain overlay shows),\n\
-         to keep them to the main ranges.",
-    );
-    if ui.small_button("Reset ridge streams").clicked() {
+    ui.add_enabled_ui(a.streams_on, |ui| {
+        ui.add(crate::debug::Slider::new(&mut a.spacing, 50.0..=4_000.0).logarithmic(true).text("spacing (blocks)"))
+            .on_hover_text("Blocks between the streams' starts along a spine (scattered, not even).");
+        ui.add(crate::debug::Slider::new(&mut a.distance, 0.0..=6_000.0).text("distance (blocks)"))
+            .on_hover_text("How far each stream runs from the spine.");
+        ui.add(crate::debug::Slider::new(&mut a.dots, 1..=64).text("dots per stream"));
+        ui.add(crate::debug::Slider::new(&mut a.bend, -4.0..=4.0).text("bend")).on_hover_text(
+            "How much the spine's curve steers the streams as they go: they turn to sweep along the ridge, all the same way\n\
+             round a curve on both sides (like a pinwheel), so neighbours curve together. The sharper the spine curves,\n\
+             the more they turn. 0 = straight off the spine; negative = sweeping the other way.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            ui.label("sides:");
+            for sides in Sides::ALL {
+                ui.selectable_value(&mut a.sides, sides, sides.name());
+            }
+        })
+        .response
+        .on_hover_text("Which side of the spine streams leave from: both, the side it curves toward, or the side it curves away from.");
+        ui.add(crate::debug::Slider::new(&mut a.least_mountains, 0.0..=1.0).text("least mountains")).on_hover_text(
+            "Streams start only where the mountains are at least this strong (0 to 1, as the mountain overlay shows),\n\
+             to keep them to the main ranges.",
+        );
+    });
+    ui.add_space(6.0);
+    if ui.small_button("Reset the Additives").clicked() {
         *a = Default::default();
     }
     let additives = &compiler.additives;
     if !additives.show {
         ui.small("The dots are hidden.");
-    } else if additives.spines.is_none() {
-        ui.small("Finding the range spines…");
+    } else if additives.found.is_none() || additives.is_making() {
+        ui.small("Finding the range spines and grain…");
     } else {
-        ui.small(format!("{} streams, {} dots", additives.streams, additives.dots.len()));
+        ui.small(format!(
+            "grain drift: {} seeds, {} dots · ridge streams: {} streams, {} dots",
+            additives.seeds.len(),
+            additives.drift.len(),
+            additives.streams,
+            additives.dots.len()
+        ));
     }
 }
 
@@ -1262,7 +1351,40 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
             let at = compiler.camera.to_screen(rect, Vec2::new(dot.at.0, dot.at.1));
             if rect.contains(at) {
                 let colour = Color32::WHITE.gamma_multiply(1.0 - 0.7 * dot.along);
-                painter.rect_filled(egui::Rect::from_center_size(at, Vec2::splat(size)), 0.0, colour);
+                painter.rect_filled(egui::Rect::from_center_size(at, Vec2::splat(size * compiler.additives.dot_size)), 0.0, colour);
+            }
+        }
+        // Each range's middle (a ring) and tip (an arrow, as long as the range is lopsided, up to
+        // half its size), for the bigger ranges.
+        if compiler.settings.additives.drift_on
+            && let Some((_, _, ranges)) = &compiler.additives.ranges
+        {
+            let stroke = egui::Stroke::new(2.0, Color32::WHITE);
+            for range in ranges.list.iter().filter(|r| r.size >= 40) {
+                let centre = compiler.camera.to_screen(rect, Vec2::new(range.centre.0, range.centre.1));
+                if !rect.contains(centre) {
+                    continue;
+                }
+                painter.circle_stroke(centre, 5.0, stroke);
+                let reach = 0.5 * (range.size as f32).sqrt() * range.lopsided;
+                let tip = compiler.camera.to_screen(rect, Vec2::new(range.centre.0 + range.tip.0 * reach, range.centre.1 + range.tip.1 * reach));
+                if (tip - centre).length() > 8.0 {
+                    painter.arrow(centre, tip - centre, stroke);
+                }
+            }
+        }
+        // The grain drift: yellow dots fading as they go, blue seeds on top.
+        for dot in &compiler.additives.drift {
+            let at = compiler.camera.to_screen(rect, Vec2::new(dot.at.0, dot.at.1));
+            if rect.contains(at) {
+                let colour = Color32::from_rgb(230, 220, 0).gamma_multiply(1.0 - 0.6 * dot.along);
+                painter.circle_filled(at, size * 0.6 * compiler.additives.dot_size, colour);
+            }
+        }
+        for &(x, y) in &compiler.additives.seeds {
+            let at = compiler.camera.to_screen(rect, Vec2::new(x, y));
+            if rect.contains(at) {
+                painter.rect_filled(egui::Rect::from_center_size(at, Vec2::splat(size + 1.0)), 0.0, Color32::from_rgb(40, 80, 255));
             }
         }
     }

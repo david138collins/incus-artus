@@ -349,8 +349,34 @@ mountains first, other kinds of features later, as David needs them.
   *string or knot* (blue / yellow).
 - **David's picture of the dots** (For Claude/visionofparticlestreaming.png): seeds along a range,
   dots leaving on one side and carried onward the way the range is heading, scattered (not in rows)
-  and thinning out with distance. Next: seeds at local summits or scattered by share, drifting along
-  the grain, spreading sideways, one side or both; in knots, just scattered.
+  and thinning out with distance.
+- **Grain drift** (BUILT 2026-10-26): seeds (blue) scattered over the mountains, thicker where
+  they're stronger, between *least* and *most mountains* (both ends trimmed independently). Dots
+  (yellow, fading with distance) follow the grain step by step, spread sideways (*spread*, *lean*)
+  and thin out; in knots they scatter round the seed instead, blended by string-or-knot. Distance
+  goes to 100,000 blocks. The ridge streams are kept (off by default) for later use.
+- **Ranges and their tips** (BUILT): the mountains are cut into separate ranges where weaker than
+  the *range cut*; each has a middle (white ring) and a tip (white arrow). David's idea: a carrot's
+  middle sits near its fat end, but more of it reaches out the thin end; measured by the skew along
+  the range's main axis, so an egg or sausage gets no tip. Dots drift toward their own range's tip
+  (or to a bearing, or both ways); *tip pull* steers them that way, so they stream on out past it.
+- **Coherence** (BUILT): draws each range's dots in toward its middle line (ring to arrow), over
+  about one range length, and turns down spread and knot scatter: one tight stream at 1.
+- **Spiral** (BUILT): every dot turns to swirl round the map's middle (60 degrees off straight in),
+  harder the further it has gone; *spiral exponent* shapes how the turning grows (David picked the
+  map's middle, and distance travelled).
+- **The dots are a viewing aid** for now: a 1x / 2x / 4x / 8x size switch, not saved.
+
+### Lift  [DECIDED 2026-10-26, next]
+David: "a tablecloth draped over a series of points floating in the area, with the edges of the
+cloth tapering and ending just before the coast lines". Exposed land is raised toward mountain
+points: lift = *max lift* x a spline (nearness to the nearest point, over a *reach*; left the coast
+side, right the peak) x a *coast pad* brake (from the coast distance, with a width and falloff, so
+the coastline never moves). Very fine controls, so the edge can creep toward the coast until it
+can't be seen. A switch picks the points: seed-like points or range middles. They're their own set
+(not the scatterer's dots), found from the bake's own crush rather than the mountain curve, with
+their own least / most / spacing / range cut. Controls in the World Interpreter panel. May tie in
+later with reworking hills and ground detail.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
