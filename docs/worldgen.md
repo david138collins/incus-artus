@@ -464,10 +464,12 @@ David: the limiting factor in tuning the terrain is being able to *see* it at gr
 distant terrain already reads better than real chunks (its hill shading lights each patch by its
 slope; chunks only by which way each face points), so he flies at render distance 1.
 - **The goal for graphics** [David]: layered, as well-made games do, each method used where it's most
-  effective so players never see behind the curtain. The **world is not snapped to a palette**: the
+  effective so players never see behind the curtain. The **world is not snapped to the 256-colour palette**: that
   256-colour palette is for the UI and HUD (rendered at a lower resolution). The world uses a carefully
   chosen selection of colours, so tones and kinds of colour can carry information, and the final
-  lighting passes lighten and darken them freely. FX (magic and so on) may use every colour, to dazzle
+  lighting passes must be able to lighten and darken them (whether the finished frame is then held to
+  the world's ~600 colours is open until the art-refinement phase, see `docs/decisions.md` Look & UI and
+  watch list item 15: the light map only multiplies brightness, so either answer stays possible). FX (magic and so on) may use every colour, to dazzle
   or to add another meaningful layer. Atmosphere and fog matter little (fog is for looks, e.g. mountains
   fading along a coast).
 - **For now** [David]: only the first tasks, ones that won't cause trouble if we change our minds. The
