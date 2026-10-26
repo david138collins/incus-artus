@@ -159,6 +159,9 @@ pub struct InterpreterSettings {
     pub sea: Spline,
     /// How strongly each plate's tilt grades it (0 = no grading).
     pub grade: f32,
+    /// The lift: land raised toward the mountains, like a tablecloth draped over points floating
+    /// above them, its edges tapering off just before the coast.
+    pub lift: Lift,
     /// How tall mountains are for each amount of squeeze, from none (left) to the most crushed rock
     /// in the bake (right): up = a share of the room up to Z 333.
     pub mountains: Spline,
@@ -213,6 +216,7 @@ impl Default for InterpreterSettings {
             land: Spline::through(&[(0.0, 0.0), (0.4, 0.2), (0.75, 0.6), (1.0, 1.0)]),
             sea: Spline::through(&[(0.0, 0.0), (0.4, 0.25), (1.0, 1.0)]),
             grade: 0.4,
+            lift: Lift::default(),
             mountains: Spline::through(&[(0.0, 0.0), (0.08, 0.0), (0.5, 0.35), (1.0, 0.9)]),
             ridges: 0.5,
             ridge_layers: 3,
@@ -236,6 +240,63 @@ impl Default for InterpreterSettings {
             detail_mask: Mask::default(),
             stone_from: 215,
             gabbro_from: 285,
+        }
+    }
+}
+
+/// Where the lift's points are: scattered over the mountains, or one in the middle of each range.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LiftFrom {
+    #[default]
+    Points,
+    Ranges,
+}
+
+/// The lift's settings. The points are found from the bake's own crush (how squeezed the rock is,
+/// against the most crushed in the bake, 0 to 1), not the mountains curve, so they hold still as
+/// the mountains are reshaped.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Lift {
+    /// How high (blocks) the land is raised right under a point, at the curve's top (0 = no lift).
+    pub height: f32,
+    /// How far (blocks) the cloth spreads from its points before it's down to the curve's left end.
+    pub reach: f32,
+    /// How the cloth falls away from its points: across, from `reach` away (left) to right under a
+    /// point (right); up, the share of `height`.
+    pub curve: Spline,
+    /// The coast pad: within this many blocks of the coast, the lift is braked down to nothing at
+    /// the coastline (so the coast never moves); `pad_falloff` is how hard (1 = evenly, above 1 =
+    /// braking from further in, below 1 = only close to the coast).
+    pub pad: f32,
+    pub pad_falloff: f32,
+    pub from: LiftFrom,
+    /// Points only where the crush is between these (0 to 1); ranges, only those whose most crushed
+    /// spot is.
+    pub least: f32,
+    pub most: f32,
+    /// About how many blocks apart the points are, where the rock is most crushed.
+    pub spacing: f32,
+    /// Ranges: cut apart where the crush is weaker than this, and only those at least this many
+    /// blocks across.
+    pub range_cut: f32,
+    pub smallest_range: f32,
+}
+
+impl Default for Lift {
+    fn default() -> Self {
+        Self {
+            height: 0.0,
+            reach: 8_000.0,
+            curve: Spline::default(),
+            pad: 1_500.0,
+            pad_falloff: 1.0,
+            from: LiftFrom::Points,
+            least: 0.25,
+            most: 1.0,
+            spacing: 3_000.0,
+            range_cut: 0.2,
+            smallest_range: 2_000.0,
         }
     }
 }
@@ -330,6 +391,8 @@ pub struct Maps {
     pub skirt: Vec<f32>,
     /// Blocks to the coastline: + on land, − at sea.
     pub coast_distance: Vec<f32>,
+    /// Blocks to the nearest of the lift's points (the map's width in blocks where there are none).
+    pub lift_distance: Vec<f32>,
     /// The highest foothill skirt on the map (blocks).
     pub highest_skirt: f32,
     /// The bake's height at sea level, its lowest and highest heights, and its most crushed and
@@ -401,6 +464,69 @@ pub fn coast_distance(coast: &[f32], width: usize, blocks_per_pixel: f32) -> Vec
     (0..w * w).map(|i| if land(i) { 1.0 } else { -1.0 } * d[i].min(far) * blocks_per_pixel).collect()
 }
 
+/// Blocks from every pixel's centre to the nearest of `points` (pixel indices), or the map's width
+/// in blocks if there are none. Each pixel passes on which point is nearest to it, and the distance
+/// is measured straight to that point, so it's round, not the octagons step counting gives.
+pub fn point_distance(points: &[usize], width: usize, blocks_per_pixel: f32) -> Vec<f32> {
+    let w = width;
+    let far = w as f32 * blocks_per_pixel;
+    if points.is_empty() {
+        return vec![far; w * w];
+    }
+    let mut nearest = vec![usize::MAX; w * w];
+    for &p in points {
+        nearest[p] = p;
+    }
+    let apart = |i: usize, p: usize| {
+        let (dx, dy) = ((i % w) as f32 - (p % w) as f32, (i / w) as f32 - (p / w) as f32);
+        dx * dx + dy * dy
+    };
+    let consider = |nearest: &mut [usize], i: usize, n: usize| {
+        let p = nearest[n];
+        if p != usize::MAX && (nearest[i] == usize::MAX || apart(i, p) < apart(i, nearest[i])) {
+            nearest[i] = p;
+        }
+    };
+    // Down and across, then back up (twice, to settle the few the first round misses).
+    for _ in 0..2 {
+        for row in 0..w {
+            for col in 0..w {
+                let i = row * w + col;
+                if col > 0 {
+                    consider(&mut nearest, i, i - 1);
+                }
+                if row > 0 {
+                    consider(&mut nearest, i, i - w);
+                    if col > 0 {
+                        consider(&mut nearest, i, i - w - 1);
+                    }
+                    if col + 1 < w {
+                        consider(&mut nearest, i, i - w + 1);
+                    }
+                }
+            }
+        }
+        for row in (0..w).rev() {
+            for col in (0..w).rev() {
+                let i = row * w + col;
+                if col + 1 < w {
+                    consider(&mut nearest, i, i + 1);
+                }
+                if row + 1 < w {
+                    consider(&mut nearest, i, i + w);
+                    if col + 1 < w {
+                        consider(&mut nearest, i, i + w + 1);
+                    }
+                    if col > 0 {
+                        consider(&mut nearest, i, i + w - 1);
+                    }
+                }
+            }
+        }
+    }
+    (0..w * w).map(|i| (apart(i, nearest[i]).sqrt() * blocks_per_pixel).min(far)).collect()
+}
+
 /// The maps' values at one spot.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Here {
@@ -413,6 +539,7 @@ pub struct Here {
     pub push_strength: f32,
     pub skirt: f32,
     pub coast_distance: f32,
+    pub lift_distance: f32,
 }
 
 /// The recipe's pieces at one spot, before they're put together.
@@ -426,6 +553,7 @@ pub struct Parts {
 /// Parts of the recipe the terrain lab can leave out, to see what each one does.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Mutes {
+    pub lift: bool,
     pub mountains: bool,
     pub ridges: bool,
     pub passes: bool,
@@ -448,6 +576,7 @@ pub struct CompiledMap {
     land: Curve,
     sea: Curve,
     mountains: Curve,
+    lift: Curve,
     hill_mask: Curve,
     detail_mask: Curve,
 }
@@ -500,6 +629,7 @@ impl CompiledMap {
             land: settings.land.curve(),
             sea: settings.sea.curve(),
             mountains: settings.mountains.curve(),
+            lift: settings.lift.curve.curve(),
             hill_mask: settings.hill_mask.curve.curve(),
             detail_mask: settings.detail_mask.curve.curve(),
             mutes: Mutes::default(),
@@ -522,6 +652,7 @@ impl CompiledMap {
             push_strength: m.push_strength[i],
             skirt: m.skirt[i],
             coast_distance: m.coast_distance[i],
+            lift_distance: m.lift_distance[i],
         }
     }
 
@@ -553,6 +684,7 @@ impl CompiledMap {
             push_strength: blend(&m.push_strength),
             skirt: blend(&m.skirt),
             coast_distance: blend(&m.coast_distance),
+            lift_distance: blend(&m.lift_distance),
         }
     }
 
@@ -580,6 +712,7 @@ impl CompiledMap {
             let t = (m.water - here.height).max(0.0) / (m.water - m.lowest).max(1e-6);
             (sea - 1.0) - (sea - 1.0 - s.deepest).max(0.0) * self.sea.at(t).clamp(0.0, 1.0) * steep
         };
+        let ground = ground + self.lift(here);
 
         // 4. Mountains.
         let mut mountains = 0.0;
@@ -642,6 +775,18 @@ impl CompiledMap {
         // 5. Rifts.
         let rift = if here.squeeze < 0.0 && !self.mutes.rifts { s.rift_depth * smooth(here.squeeze / m.most_stretched.min(-1e-6)) } else { 0.0 };
         Parts { ground, mountains, rift }
+    }
+
+    /// How much the lift raises the land at a spot (blocks; none at sea): the curve read at how near
+    /// the nearest lift point is, braked by the coast pad down to nothing at the coastline.
+    pub fn lift(&self, here: &Here) -> f32 {
+        let lift = &self.settings.lift;
+        if lift.height <= 0.0 || here.coast < 0.0 || self.mutes.lift {
+            return 0.0;
+        }
+        let near = 1.0 - (here.lift_distance / lift.reach.max(1.0)).clamp(0.0, 1.0);
+        let pad = smooth(here.coast_distance / lift.pad.max(1.0)).powf(lift.pad_falloff.max(0.01));
+        lift.height * self.lift.at(near).clamp(0.0, 1.0) * pad
     }
 
     /// The pieces put together, with hills on land (6), before detail.
@@ -735,6 +880,7 @@ impl CompiledMap {
             push_strength: vec![0.0; cells],
             skirt: vec![0.0; cells],
             coast_distance,
+            lift_distance: point_distance(&[], width, blocks_per_pixel),
             highest_skirt: 0.0,
             water: 0.0,
             lowest: -1.0,
@@ -760,6 +906,50 @@ impl CompiledMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_distance_to_the_nearest_point_is_measured_straight() {
+        let width = 128;
+        let points = [64 * width + 64, 10 * width + 10];
+        let d = point_distance(&points, width, 32.0);
+        // 30 east and 40 south of the middle point: 50 pixels.
+        assert!((d[104 * width + 94] - 50.0 * 32.0).abs() < 1.0, "{} blocks", d[104 * width + 94]);
+        // Diagonally from the corner point, 45 degrees: as round as straight across.
+        assert!((d[30 * width + 30] - 20.0 * std::f32::consts::SQRT_2 * 32.0).abs() < 1.0, "{} blocks", d[30 * width + 30]);
+        assert_eq!(d[10 * width + 10], 0.0);
+        assert_eq!(point_distance(&[], width, 32.0)[0], 128.0 * 32.0);
+    }
+
+    #[test]
+    fn the_lift_raises_land_toward_its_points_and_leaves_the_coast_and_sea_alone() {
+        // An island (Z 150) of radius 28 pixels in a sea (Z 100), with a lift point in its middle.
+        let width = 64;
+        let island: Vec<f32> = (0..width * width)
+            .map(|i| {
+                let (x, y) = ((i % width) as f32 + 0.5 - 32.0, (i / width) as f32 + 0.5 - 32.0);
+                if x * x + y * y < 28.0 * 28.0 { 150.0 } else { 100.0 }
+            })
+            .collect();
+        let mut map = CompiledMap::of_heights(width, 32.0, &island);
+        let middle = 32 * width + 32;
+        Arc::make_mut(&mut map.maps).lift_distance = point_distance(&[middle], width, 32.0);
+        let before: Vec<f32> = (0..width * width).map(|i| map.at_pixel(i)).collect();
+        let mut settings = map.settings.clone();
+        settings.lift = Lift { height: 50.0, reach: 30.0 * 32.0, pad: 200.0, ..Lift::default() };
+        let lifted = map.with(settings, Mutes::default());
+        // Right under the point: the full lift.
+        assert!((lifted.at_pixel(middle) - before[middle] - 50.0).abs() < 0.5, "{} lifted to {}", before[middle], lifted.at_pixel(middle));
+        // Halfway out (the curve is straight): half, as the coast is far enough off.
+        let halfway = 32 * width + 32 + 15;
+        assert!((lifted.at_pixel(halfway) - before[halfway] - 25.0).abs() < 2.0);
+        // At the coast and out at sea: not raised (so the coastline stays put).
+        for i in 0..width * width {
+            let shore = map.maps.coast[i] >= 0.0 && map.maps.coast_distance[i] < 40.0;
+            if map.maps.coast[i] < 0.0 || shore {
+                assert!((lifted.at_pixel(i) - before[i]).abs() < 0.5, "pixel {i} went from {} to {}", before[i], lifted.at_pixel(i));
+            }
+        }
+    }
 
     #[test]
     fn a_spline_passes_through_its_dots_without_overshooting() {

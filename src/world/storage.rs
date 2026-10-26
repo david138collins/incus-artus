@@ -187,10 +187,11 @@ struct CompiledFile {
 }
 
 /// The compiler's maps, by file name.
-fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 9] {
+fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 10] {
     [
         ("coast", &maps.coast),
         ("coast_distance", &maps.coast_distance),
+        ("lift_distance", &maps.lift_distance),
         ("height", &maps.height),
         ("tilt", &maps.tilt),
         ("squeeze", &maps.squeeze),
@@ -261,12 +262,19 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
     } else {
         super::coast_distance(&coast, info.width, info.blocks_per_pixel)
     };
+    // Worlds saved before the lift have no lift points: everywhere is as far as can be from one.
+    let lift_distance = if info.ranges.contains_key("lift_distance") {
+        read("lift_distance")?
+    } else {
+        super::point_distance(&[], info.width, info.blocks_per_pixel)
+    };
     let maps = Maps {
         width: info.width,
         blocks_per_pixel: info.blocks_per_pixel,
         highest_skirt: skirt.iter().copied().fold(0.0, f32::max),
         coast,
         coast_distance,
+        lift_distance,
         height: read("height")?,
         tilt: read("tilt")?,
         squeeze: read("squeeze")?,

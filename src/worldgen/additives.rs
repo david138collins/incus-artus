@@ -229,6 +229,8 @@ pub struct Range {
     pub size: usize,
     /// About how long it is, end to end along its main axis (pixels).
     pub length: f32,
+    /// Its strongest spot (0 to 1).
+    pub peak: f32,
 }
 
 /// The ranges, and which one each map pixel belongs to (`NONE` where none).
@@ -307,6 +309,7 @@ pub fn find_ranges(share: &[f32], width: usize, cut: f32) -> Ranges {
             lopsided: (skewness.abs() / 0.57).min(1.0),
             size: members.len(),
             length: 3.5 * spread.sqrt(),
+            peak: members.iter().map(|&i| share[i]).fold(0.0, f32::max),
         });
     }
     Ranges { of_pixel, list }
@@ -544,12 +547,23 @@ fn dice(seed: u64, pixel: usize, k: u32, n: u32) -> f32 {
     (planet_hash(seed, 0xd21f7, pixel as i64, k as i64, n as i64) >> 40) as f32 / (1u64 << 24) as f32
 }
 
+/// Scatters points (pixel indices) over a 0-to-1 map such as the mountain share: about one every
+/// `spacing` blocks each way where it's 1, fewer as it weakens toward `least`, none below `least`
+/// or above `most`. The same each time for the same `seed`. (The grain drift's seeds and the
+/// lift's points both come from here.)
+pub fn pick_seeds(share: &[f32], spacing: f32, least: f32, most: f32, seed: u64, blocks_per_pixel: f32) -> Vec<usize> {
+    let per_pixel = (blocks_per_pixel / spacing.max(1.0)).powi(2);
+    let least = least.min(0.99);
+    (0..share.len())
+        .filter(|&i| {
+            let strength = ((share[i] - least) / (1.0 - least)).clamp(0.0, 1.0);
+            strength > 0.0 && share[i] <= most && dice(seed, i, 0, 0) < per_pixel * strength
+        })
+        .collect()
+}
+
 /// The grain drift's seeds and dots (map pixels, x east and y south).
 pub fn grain_drift(share: &[f32], grain: &Grain, ranges: &Ranges, width: usize, settings: &AdditiveSettings, seed: u64, blocks_per_pixel: f32) -> (Vec<(f32, f32)>, Vec<Dot>) {
-    // A seed every `drift_spacing` blocks each way where the mountains are strongest, so this share
-    // of pixels there; fewer as they weaken toward `drift_least`.
-    let per_pixel = (blocks_per_pixel / settings.drift_spacing.max(1.0)).powi(2);
-    let least = settings.drift_least.min(0.99);
     let length = settings.drift_distance.max(0.0) / blocks_per_pixel;
     // The path along the grain is followed in steps of about a pixel and a half (32 at least, 1024
     // at most).
@@ -566,11 +580,7 @@ pub fn grain_drift(share: &[f32], grain: &Grain, ranges: &Ranges, width: usize, 
     let toward = (bearing.sin(), -bearing.cos());
     let pixel_at = |(x, y): (f32, f32)| (y.clamp(0.0, width as f32 - 1.0) as usize) * width + x.clamp(0.0, width as f32 - 1.0) as usize;
     let (mut seeds, mut dots) = (Vec::new(), Vec::new());
-    for (i, &here) in share.iter().enumerate() {
-        let strength = ((here - least) / (1.0 - least)).clamp(0.0, 1.0);
-        if strength <= 0.0 || here > settings.drift_most || dice(seed, i, 0, 0) >= per_pixel * strength {
-            continue;
-        }
+    for i in pick_seeds(share, settings.drift_spacing, settings.drift_least, settings.drift_most, seed, blocks_per_pixel) {
         let start = ((i % width) as f32 + 0.5, (i / width) as f32 + 0.5);
         seeds.push(start);
         // The range this seed is in: its tip, and how hard it pulls toward it (none if the seed is
@@ -699,6 +709,7 @@ mod tests {
             push_strength: vec![1.0; cells],
             skirt: vec![0.0; cells],
             coast_distance: vec![1_000.0; cells],
+            lift_distance: vec![32.0 * width as f32; cells],
             highest_skirt: 0.0,
             water: 0.0,
             lowest: -1.0,

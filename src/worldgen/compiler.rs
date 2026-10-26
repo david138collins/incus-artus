@@ -21,11 +21,11 @@
 //!
 //! Everything is worked out on all the computer's cores, in the background.
 
-use super::additives::AdditiveSettings;
+use super::additives::{self, AdditiveSettings};
 use super::bake::{self, Info};
 use super::runner::every_pixel;
 pub use crate::world::Spline;
-use crate::world::{CompiledMap, InterpreterSettings, Maps};
+use crate::world::{CompiledMap, InterpreterSettings, Lift, LiftFrom, Maps};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -160,6 +160,8 @@ pub struct Compiled {
     /// How much of the world's circle is dry land.
     pub land_share: f32,
     pub map: Arc<CompiledMap>,
+    /// The lift's points (pixel indices), to show.
+    pub lift_points: Vec<usize>,
 }
 
 /// The bake's seed, as a number.
@@ -228,11 +230,18 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
     // The squeeze's direction as a doubled-angle arrow, so it blends between pixels.
     let (push_x, push_y): (Vec<f32>, Vec<f32>) = bake.push_angle.iter().map(|a| ((2.0 * a.to_radians()).cos(), (2.0 * a.to_radians()).sin())).unzip();
     let coast_distance = crate::world::coast_distance(&coast, width, blocks);
+    let seed = seed_of(&bake.info);
+
+    // The lift's points, from the bake's own crush (so the mountains curve doesn't move them), and
+    // how far every pixel is from the nearest.
+    let lift_points = lift_points(bake, &settings.interpreter.lift, seed);
+    let lift_distance = crate::world::point_distance(&lift_points, width, blocks);
     let maps = Maps {
         width,
         blocks_per_pixel: blocks,
         coast,
         coast_distance,
+        lift_distance,
         highest_skirt: 0.0,
         height,
         tilt,
@@ -247,7 +256,6 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
         most_crushed: bake.most_crushed,
         most_stretched: bake.most_stretched,
     };
-    let seed = seed_of(&bake.info);
     let mut map = CompiledMap::new(Arc::new(maps), seed, settings.interpreter.clone());
     if stop.load(Ordering::Relaxed) {
         return None;
@@ -282,7 +290,24 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
             land += (z >= SEA_LEVEL) as usize;
         }
     }
-    Some(Compiled { width, z, land_share: land as f32 / inside.max(1) as f32, map: Arc::new(map) })
+    Some(Compiled { width, z, land_share: land as f32 / inside.max(1) as f32, map: Arc::new(map), lift_points })
+}
+
+/// The lift's points (pixel indices): scattered over the crushed rock, or one in the middle of each
+/// range of it. The crush is the bake's squeeze against its most crushed, 0 to 1, lightly smoothed.
+fn lift_points(bake: &Bake, lift: &Lift, seed: u64) -> Vec<usize> {
+    let (width, blocks) = (bake.width, bake.info.blocks_per_pixel);
+    let mut crush: Vec<f32> = bake.squeeze.iter().map(|&s| (s / bake.most_crushed.max(1e-6)).clamp(0.0, 1.0)).collect();
+    blur(&mut crush, width, 1);
+    match lift.from {
+        LiftFrom::Points => additives::pick_seeds(&crush, lift.spacing, lift.least, lift.most, seed ^ 0x11f7, blocks),
+        LiftFrom::Ranges => additives::find_ranges(&crush, width, lift.range_cut)
+            .list
+            .iter()
+            .filter(|r| r.peak >= lift.least && r.peak <= lift.most && (r.size as f32).sqrt() * blocks >= lift.smallest_range)
+            .map(|r| (r.centre.1 as usize).min(width - 1) * width + (r.centre.0 as usize).min(width - 1))
+            .collect(),
+    }
 }
 
 /// Saves a compiled world into its bake's folder: `elevation.png` (16-bit grey, the grey is the

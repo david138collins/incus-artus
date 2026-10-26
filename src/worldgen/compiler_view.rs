@@ -17,7 +17,7 @@ use super::additives::{Additives, DriftWay, Sides};
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
-use crate::world::{InterpreterSettings, Mask, MaskSource};
+use crate::world::{InterpreterSettings, LiftFrom, Mask, MaskSource};
 use super::noise::PerlinSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
@@ -85,6 +85,8 @@ pub struct Compiler {
     hover: Option<(usize, usize)>,
     /// The Additives panel's dots.
     pub additives: Additives,
+    /// Whether the lift's points are drawn over the map.
+    pub show_lift_points: bool,
     /// The Landmass, Additives and World Interpreter panels: shown (the buttons along the top),
     /// and folded away to thin strips.
     pub shown: [bool; 3],
@@ -123,6 +125,7 @@ impl Default for Compiler {
             overlay_painted_for: None,
             hover: None,
             additives: Additives::default(),
+            show_lift_points: true,
             shown: [true; 3],
             folded: [false; 3],
         }
@@ -740,6 +743,7 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         return;
     }
     let defaults = InterpreterSettings::default();
+    let lift_points = compiler.result.as_ref().map(|r| r.made.lift_points.len());
     let s = &mut compiler.settings.interpreter;
 
     ui.add_space(6.0);
@@ -757,6 +761,57 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.add(crate::debug::Slider::new(&mut s.grade, 0.0..=1.0).text("grade by tilt")).on_hover_text(
         "Each plate's tilt steepens its high side (land climbs faster, the sea drops off close in) and softens\nits low side (wide plains, shallow shelves). 0 = no grading. (Bakes made before tilt was saved can't grade.)",
     );
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Lift");
+    ui.small(
+        "Land raised toward the mountains, like a tablecloth draped over points floating above them (cyan), its edges \
+         tapering off just before the coast. The points come from the bake's own crush, so the mountains curve doesn't \
+         move them. Roll the mouse wheel over a slider to nudge it; hold Shift for finer steps.",
+    );
+    let lift = &mut s.lift;
+    ui.add(crate::debug::Slider::new(&mut lift.height, 0.0..=200.0).text("max lift (blocks)"))
+        .on_hover_text("How high the land is raised right under a point, at the top of the curve. 0 = no lift.");
+    ui.add(crate::debug::Slider::new(&mut lift.reach, 500.0..=60_000.0).logarithmic(true).text("reach (blocks)"))
+        .on_hover_text("How far the cloth spreads out from its points: the curve's left end is this far from the nearest point.");
+    ui.label("The cloth: from reach away (left) to right under a point (right).");
+    spline_box(ui, "lift spline", &mut lift.curve, &defaults.lift.curve, "toward the nearest point", "share of the max lift");
+    ui.add(crate::debug::Slider::new(&mut lift.pad, 32.0..=20_000.0).logarithmic(true).text("coast pad (blocks)")).on_hover_text(
+        "Within this far of the coast, the lift is braked, down to nothing at the coastline, so the coast never moves.",
+    );
+    ui.add(crate::debug::Slider::new(&mut lift.pad_falloff, 0.1..=10.0).logarithmic(true).text("pad falloff")).on_hover_text(
+        "How the pad brakes: 1 = evenly across it; above 1 = braking hard from further in; below 1 = only right at the\n\
+         coast, so the lift runs nearly to the shore.",
+    );
+    ui.horizontal(|ui| {
+        ui.label("points:");
+        ui.selectable_value(&mut lift.from, LiftFrom::Points, "scattered").on_hover_text("Scattered over the crushed rock, thicker where it's more crushed.");
+        ui.selectable_value(&mut lift.from, LiftFrom::Ranges, "range middles").on_hover_text("One in the middle of each range of crushed rock.");
+    });
+    ui.add(crate::debug::Slider::new(&mut lift.least, 0.0..=1.0).text("least crush"))
+        .on_hover_text("No points where the rock is less crushed than this (0 to 1, against the bake's most crushed); ranges: none whose most crushed spot is.");
+    ui.add(crate::debug::Slider::new(&mut lift.most, 0.0..=1.0).text("most crush"))
+        .on_hover_text("No points where the rock is more crushed than this; ranges: none whose most crushed spot is.");
+    match lift.from {
+        LiftFrom::Points => {
+            ui.add(crate::debug::Slider::new(&mut lift.spacing, 300.0..=20_000.0).logarithmic(true).text("spacing (blocks)"))
+                .on_hover_text("About how far apart the points are where the rock is most crushed (scattered, not even).");
+        }
+        LiftFrom::Ranges => {
+            ui.add(crate::debug::Slider::new(&mut lift.range_cut, 0.0..=1.0).text("range cut"))
+                .on_hover_text("Where the crush is weaker than this, it's cut into separate ranges. Lower: ranges join into bigger ones.");
+            ui.add(crate::debug::Slider::new(&mut lift.smallest_range, 250.0..=50_000.0).logarithmic(true).text("smallest range (blocks)"))
+                .on_hover_text("Only ranges at least about this many blocks across get a point.");
+        }
+    }
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut compiler.show_lift_points, "show the points");
+        if let Some(count) = lift_points {
+            ui.small(format!("{count} points"));
+        }
+    });
+    let s = &mut compiler.settings.interpreter;
 
     ui.add_space(6.0);
     ui.separator();
@@ -1339,6 +1394,19 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
             && let Some(grain) = &painted.grain
         {
             grain_strokes(&painter, rect, &compiler.camera, grain, &painted.share, width, tint);
+        }
+    }
+
+    // The lift's points (the World Interpreter panel's), as cyan rings.
+    if compiler.show_lift_points
+        && let Some(result) = &compiler.result
+    {
+        let w = result.made.width;
+        for &i in &result.made.lift_points {
+            let at = compiler.camera.to_screen(rect, Vec2::new((i % w) as f32 + 0.5, (i / w) as f32 + 0.5));
+            if rect.contains(at) {
+                painter.circle_stroke(at, 4.0, egui::Stroke::new(2.0, Color32::from_rgb(0, 230, 255)));
+            }
         }
     }
 
