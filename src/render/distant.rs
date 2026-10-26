@@ -410,6 +410,8 @@ pub struct DistantState {
     shown_texture: Option<Handle<Image>>,
     shown: HashSet<ChunkPos>,
     shown_for: Option<(IVec2, i32)>,
+    /// What the hand-off was last looked over for (see `update_shown_chunks`).
+    looked_over: Option<(u64, u64, usize, IVec2, i32)>,
     // ── For the Performance page ──
     pub quads: u64,
 }
@@ -623,6 +625,12 @@ pub fn update_shown_chunks(
     let Some(camera) = camera.iter().next() else { return };
     let at = bevy_to_game(camera.translation);
     let centre = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
+    // Nothing to look over again unless the meshing, the chunks handed over, or the view moved on.
+    let looked = (meshing.changes, streaming.drawn_changes(), streaming.drawn().len(), centre, render.render_distance_chunks);
+    if state.looked_over == Some(looked) {
+        return;
+    }
+    state.looked_over = Some(looked);
 
     // Chunks with sections not meshed yet.
     let pending: HashSet<ChunkPos> =

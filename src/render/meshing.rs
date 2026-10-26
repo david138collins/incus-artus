@@ -1,8 +1,13 @@
 //! Meshing jobs — rebuilding section meshes on background threads.
 //!
 //! Every frame:
-//! 1. **Collect** the sections the world marked as changed ("dirty") into a waiting list.
-//! 2. **Start** jobs for the waiting sections nearest the camera, up to a per-frame limit.
+//! 1. **Collect** the sections the world marked as changed ("dirty") into a waiting list. Two
+//!    kinds are settled at once instead, without waiting: sections of chunks that are gone (their
+//!    meshes are removed), and empty sky with no mesh (nothing to draw, nothing to remove). Most of
+//!    a chunk is sky, so this keeps them from using up the job slots.
+//! 2. **Start** jobs for the waiting sections nearest the camera, up to a limit: so many per
+//!    240th of a second, so terrain fills in as fast at 60 FPS as at 240 (a limit per frame
+//!    meant a slow machine also built terrain four times slower, and fell behind as you flew).
 //!    Starting a job means copying that section's blocks (plus a one-block border from its
 //!    neighbours) and handing the copy to a worker thread. The game never waits for it.
 //! 3. **Finish** any jobs that are done: upload the new mesh and show it.
@@ -42,6 +47,9 @@ pub struct MeshingState {
     pub running: HashMap<SectionKey, Task<JobResult>>,
     /// The entity drawing each section (sections with nothing to draw have none).
     pub entities: HashMap<SectionKey, Entity>,
+    /// Goes up whenever the lists above may have changed (so the distant terrain's hand-off only
+    /// looks them over again then).
+    pub changes: u64,
     // ── Statistics for the debug panel ──
     pub jobs_finished: u64,
     pub total_job_micros: u64,
@@ -53,9 +61,34 @@ pub struct JobResult {
     micros: u64,
 }
 
-pub fn collect_dirty_sections(mut world: ResMut<VoxelWorld>, mut state: ResMut<MeshingState>) {
+pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWorld>, mut state: ResMut<MeshingState>) {
     let dirty = world.take_dirty();
-    state.waiting.extend(dirty);
+    if dirty.is_empty() {
+        return;
+    }
+    state.changes += 1;
+    for key in dirty {
+        let section = world.chunk(key.chunk).map(|chunk| &chunk.sections()[key.level as usize]);
+        match section {
+            // A chunk that's gone (dropped behind you): just remove its meshes.
+            None => {
+                state.waiting.remove(&key);
+                state.running.remove(&key);
+                if let Some(entity) = state.entities.remove(&key) {
+                    commands.entity(entity).despawn();
+                }
+            }
+            // Empty sky never draws anything (the faces of the ground below belong to the
+            // ground's own section): only one that had blocks a moment ago has a mesh to remove.
+            Some(Section::Uniform(id)) if id.is_air() && !state.entities.contains_key(&key) => {
+                state.waiting.remove(&key);
+                state.running.remove(&key);
+            }
+            Some(_) => {
+                state.waiting.insert(key);
+            }
+        }
+    }
 }
 
 pub fn start_jobs(
@@ -63,23 +96,14 @@ pub fn start_jobs(
     world: Res<VoxelWorld>,
     terrain: Res<TerrainAssets>,
     settings: Res<RenderSettings>,
+    time: Res<Time<Real>>,
     mut state: ResMut<MeshingState>,
     camera: Query<&Transform, With<Camera3d>>,
 ) {
     if state.waiting.is_empty() {
         return;
     }
-
-    // Sections of chunks that are gone (dropped behind you): just remove their meshes, at once and
-    // without using up the frame's job slots.
-    let gone: Vec<SectionKey> = state.waiting.iter().copied().filter(|key| world.chunk(key.chunk).is_none()).collect();
-    for key in gone {
-        state.waiting.remove(&key);
-        state.running.remove(&key);
-        if let Some(entity) = state.entities.remove(&key) {
-            commands.entity(entity).despawn();
-        }
-    }
+    state.changes += 1;
 
     // Nearest sections first, so what you're looking at appears first. (Only the nearest few are
     // picked out, not the whole list sorted: there can be tens of thousands waiting.)
@@ -92,7 +116,10 @@ pub fn start_jobs(
         centre.distance_squared(camera_position) as i64
     };
     let mut keys: Vec<SectionKey> = state.waiting.iter().copied().collect();
-    let take = settings.max_jobs_per_frame.min(keys.len());
+    // The setting is per 240th of a second: a slower frame starts more (up to 8 times as many,
+    // so one long hitch doesn't start thousands at once).
+    let frames = (time.delta_secs() * 240.0).clamp(1.0, 8.0);
+    let take = ((settings.max_jobs_per_frame as f32 * frames).round() as usize).min(keys.len());
     if take == 0 {
         return;
     }
@@ -142,6 +169,9 @@ pub fn finish_jobs(
         }
     }
 
+    if !done.is_empty() {
+        state.changes += 1;
+    }
     for (key, result) in done {
         state.running.remove(&key);
         state.jobs_finished += 1;

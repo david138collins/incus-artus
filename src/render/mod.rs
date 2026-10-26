@@ -101,7 +101,8 @@ const SKY_COLOUR: Color = Color::srgb(0.53, 0.62, 0.75);
 pub struct RenderSettings {
     /// How far away sections are drawn, in chunks (1 chunk = 32 blocks).
     pub render_distance_chunks: i32,
-    /// How many new mesh jobs may start per frame (spreads big rebuilds over several frames).
+    /// How many new mesh jobs may start per 240th of a second (spreads big rebuilds over several
+    /// frames; a slower frame starts more, see `meshing.rs`).
     pub max_jobs_per_frame: usize,
     /// Face brightness: top, bottom, north/south, east/west.
     pub shade_top: f32,
@@ -401,7 +402,8 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     {
         let mut settings = world.resource_mut::<RenderSettings>();
         ui.add(crate::debug::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"));
-        ui.add(crate::debug::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / frame"));
+        ui.add(crate::debug::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / 240th of a second"))
+            .on_hover_text("Per 240th of a second, not per frame: at 60 FPS each frame starts four times as many, so terrain fills in as fast on a slower machine.");
         ui.add(crate::debug::Slider::new(&mut settings.shade_top, 0.0..=1.5).text("shade: top"));
         ui.add(crate::debug::Slider::new(&mut settings.shade_bottom, 0.0..=1.5).text("shade: bottom"));
         ui.add(crate::debug::Slider::new(&mut settings.shade_north_south, 0.0..=1.5).text("shade: north/south"));

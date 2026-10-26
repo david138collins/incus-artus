@@ -13,8 +13,9 @@
 //!    the first time: no wall of faces at the edge of the loaded area to draw and then undo, so each
 //!    chunk is meshed once. (That's why one extra ring is made: it lets the ring inside it be drawn.)
 //! 6. **Drop chunks** more than `radius + 3` away (a margin, so wandering back and forth over a
-//!    border doesn't load and drop the same chunks over and over). Changed chunks are kept: they're
-//!    saved with the world.
+//!    border doesn't load and drop the same chunks over and over). Changed chunks are put away
+//!    instead (kept, and saved with the world, but not drawn), and come back from there, not made
+//!    again, when they're wanted.
 //!
 //! Only compiled worlds stream; the test cylinder is made whole.
 
@@ -67,8 +68,10 @@ pub struct Streaming {
     /// Chunks past the edge of the map (they'll never exist, but count as "in" for their
     /// neighbours).
     empty: HashSet<ChunkPos>,
-    /// Chunks that have been handed to the renderer.
+    /// Chunks that have been handed to the renderer, and a count that goes up whenever that list
+    /// changes.
     drawn: HashSet<ChunkPos>,
+    drawn_changes: u64,
     /// Where the queue was made from, and when.
     queued_at: Option<ChunkPos>,
     queued_when: Option<Instant>,
@@ -89,6 +92,11 @@ impl Streaming {
     /// Chunks that have been handed to the renderer.
     pub fn drawn(&self) -> &HashSet<ChunkPos> {
         &self.drawn
+    }
+
+    /// Goes up whenever `drawn` changes.
+    pub fn drawn_changes(&self) -> u64 {
+        self.drawn_changes
     }
 
     /// Whether a chunk is in the world or known to be past the map.
@@ -118,6 +126,7 @@ impl Streaming {
         if neighbours.iter().all(|&n| self.settled(world, n)) {
             world.mark_chunk_dirty(pos);
             self.drawn.insert(pos);
+            self.drawn_changes += 1;
         }
     }
 }
@@ -214,18 +223,23 @@ pub fn stream_chunks(
         streaming.queue = queue;
         streaming.queued_at = Some(centre);
         streaming.queued_when = Some(Instant::now());
-        // Drop chunks well behind (not changed ones).
+        // Drop chunks well behind (changed ones are put away).
         let keep = settings.radius + KEEP_MARGIN;
         let far: Vec<ChunkPos> = world
             .chunk_positions()
             .filter(|pos| {
                 let (x, y) = (pos.x - centre.x, pos.y - centre.y);
-                x * x + y * y > keep * keep && !world.changed_chunks().contains(pos)
+                x * x + y * y > keep * keep
             })
             .collect();
         for pos in far {
-            world.remove_chunk(pos);
+            if world.changed_chunks().contains(&pos) {
+                world.put_away(pos);
+            } else {
+                world.remove_chunk(pos);
+            }
             streaming.drawn.remove(&pos);
+            streaming.drawn_changes += 1;
             streaming.dropped += 1;
         }
         streaming.empty.retain(|pos| {
@@ -241,6 +255,11 @@ pub fn stream_chunks(
     while streaming.making.len() < most {
         let Some(pos) = streaming.queue.pop() else { break };
         if streaming.settled(&world, pos) || streaming.making.contains_key(&pos) {
+            continue;
+        }
+        // A changed chunk comes back as it was left, ready to go in next frame.
+        if let Some(chunk) = world.take_put_away(pos) {
+            streaming.finished.push((pos, Some(chunk)));
             continue;
         }
         let map = map.clone();
@@ -292,6 +311,27 @@ mod tests {
         // And only once.
         streaming.draw_if_ready(&mut world, ChunkPos::new(0, 0));
         assert!(world.take_dirty().is_empty());
+    }
+
+    #[test]
+    fn a_changed_chunk_put_away_is_kept_for_saving_and_comes_back_as_it_was() {
+        let mut world = VoxelWorld::default();
+        let empty = |pos| Chunk::from_sections(pos, (0..crate::world::SECTIONS_PER_CHUNK).map(|_| crate::world::Section::Uniform(crate::world::BlockId::AIR)).collect());
+        let pos = ChunkPos::new(2, 3);
+        world.insert_chunk(empty(pos));
+        let block = IVec3::new(70, 100, 50);
+        world.set_block(block, crate::world::BlockId(1));
+        world.take_dirty();
+        world.put_away(pos);
+        // Gone from the world (its meshes are removed), but still there to save.
+        assert!(world.chunk(pos).is_none());
+        assert_eq!(world.take_dirty().len(), crate::world::SECTIONS_PER_CHUNK);
+        assert!(world.changed_chunks().contains(&pos));
+        assert_eq!(world.changed_chunk(pos).unwrap().get(block), crate::world::BlockId(1));
+        // Back, edit and all.
+        let back = world.take_put_away(pos).unwrap();
+        assert_eq!(back.get(block), crate::world::BlockId(1));
+        assert!(world.take_put_away(pos).is_none());
     }
 
     #[test]

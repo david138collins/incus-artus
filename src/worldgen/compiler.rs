@@ -31,12 +31,14 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+// The world's own numbers (set in `world`), as the whole Zs the compiler's maps are kept in: one
+// place to change them.
 /// The world's water surface: ground at this Z or above is dry land.
-pub const SEA_LEVEL: u16 = 128;
+pub const SEA_LEVEL: u16 = crate::world::SEA_LEVEL as u16;
 /// No ground goes higher than this.
-pub const HIGHEST: u16 = 333;
+pub const HIGHEST: u16 = crate::world::HIGHEST as u16;
 /// The top of the world.
-pub const TOP_OF_THE_WORLD: u16 = 399;
+pub const TOP_OF_THE_WORLD: u16 = (crate::world::WORLD_HEIGHT - 1) as u16;
 
 /// A baked world, read back from its folder.
 pub struct Bake {

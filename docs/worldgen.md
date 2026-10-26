@@ -744,8 +744,9 @@ David is exploring and improving the terrain gen again. **Soon after, on the to-
   - *Build height:* cheap, since empty sky sections are already one value each. Suggested top
     Z 4,096 (two miles above the sea is ~3,350); section levels are a `u8`, so up to ~8,160 needs
     nothing more, and truly unlimited would mean cubic chunks (not worth it). With it: a chunk file
-    format bump (old saves pad with air); queue for drawing only up to a chunk's highest non-air
-    section (10× more empty sections otherwise); and the near light window's height byte should
+    format bump (old saves pad with air); a chunk still marks every section for drawing, but empty
+    sky is now settled without a meshing job (2026-10-26), so 10× more of them costs a little
+    bookkeeping, not job slots; and the near light window's height byte should
     run sea → highest ground, not sea → world top (too coarse at 4,096, and it matches the
     distant terrain's tint that way).
   - *Terrain ceiling:* mountains are sized as a share of the room up to 333, so raising it rescales

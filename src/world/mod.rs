@@ -62,6 +62,9 @@ pub struct VoxelWorld {
     dirty: HashSet<SectionKey>,
     /// Chunks changed since the terrain was generated (the ones that get saved).
     changed: HashSet<ChunkPos>,
+    /// Changed chunks put away while you're far from them: kept (they can't be made again from the
+    /// map), but not drawn or counted as loaded. Streaming brings them back as you come near.
+    put_away: HashMap<ChunkPos, Chunk>,
     /// Where new arrivals start (north, east): the middle of the test cylinder, or the spot chosen
     /// on a compiled world's map.
     spawn: IVec2,
@@ -152,6 +155,24 @@ impl VoxelWorld {
         removed
     }
 
+    /// Take a changed chunk out of the world but keep it (its meshes are removed), to come back
+    /// with `take_put_away` when it's wanted again.
+    pub fn put_away(&mut self, pos: ChunkPos) {
+        if let Some(chunk) = self.remove_chunk(pos) {
+            self.put_away.insert(pos, chunk);
+        }
+    }
+
+    /// A changed chunk that was put away, taken back out to be loaded again.
+    pub fn take_put_away(&mut self, pos: ChunkPos) -> Option<Chunk> {
+        self.put_away.remove(&pos)
+    }
+
+    /// A changed chunk, loaded or put away (for saving).
+    pub fn changed_chunk(&self, pos: ChunkPos) -> Option<&Chunk> {
+        self.chunks.get(&pos).or_else(|| self.put_away.get(&pos))
+    }
+
     /// Where every loaded chunk is.
     pub fn chunk_positions(&self) -> impl Iterator<Item = ChunkPos> + '_ {
         self.chunks.keys().copied()
@@ -159,6 +180,7 @@ impl VoxelWorld {
 
     /// Remove every chunk. Their sections are marked dirty so the renderer removes their meshes.
     pub fn clear(&mut self) {
+        self.put_away.clear();
         for &pos in self.chunks.keys() {
             for level in 0..SECTIONS_PER_CHUNK {
                 self.dirty.insert(SectionKey { chunk: pos, level: level as u8 });

@@ -310,7 +310,7 @@ pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, Strin
 
     let mut written = BTreeSet::new();
     for &pos in voxel.changed_chunks() {
-        if let Some(chunk) = voxel.chunk(pos) {
+        if let Some(chunk) = voxel.changed_chunk(pos) {
             let file_name = format!("{}.{}.chunk", pos.x, pos.y);
             write_file(&chunks_folder.join(&file_name), &encode_chunk(chunk, registry))?;
             written.insert(file_name);
