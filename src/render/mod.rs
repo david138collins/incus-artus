@@ -12,6 +12,7 @@
 //!   (Simulation distance is a separate setting, added when there's simulation to limit.)
 
 mod distant;
+mod light;
 mod material;
 mod mesher;
 mod meshing;
@@ -59,6 +60,10 @@ impl Plugin for RenderPlugin {
             .add_settings::<distant::DistantSettings>("distant")
             .add_systems(Startup, distant::setup_distant)
             .add_systems(Update, (distant::update_distant, distant::update_distant_material))
+            .init_resource::<light::LightSettings>()
+            .init_resource::<light::LightState>()
+            .add_settings::<light::LightSettings>("light")
+            .add_systems(Update, light::update_light)
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
             .init_resource::<performance::FrameTimes>()
@@ -106,6 +111,11 @@ pub struct RenderSettings {
     pub fog_start: f32,
     pub fog_end: f32,
     pub debug_view: DebugView,
+    /// Survey view: every `survey_every`th level of blocks above sea level darkened by
+    /// `survey_darkness`, near and far, so the land reads in bands like a contour map.
+    pub survey: bool,
+    pub survey_every: i32,
+    pub survey_darkness: f32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -130,11 +140,24 @@ impl Default for RenderSettings {
             fog_start: 6_000.0,
             fog_end: 60_000.0,
             debug_view: DebugView::Normal,
+            survey: false,
+            survey_every: 4,
+            survey_darkness: 0.35,
         }
     }
 }
 
 impl RenderSettings {
+    /// The survey view for both shaders: x on, y every how many levels, z darkness, w sea level.
+    pub fn survey_for_shader(&self) -> Vec4 {
+        Vec4::new(
+            if self.survey { 1.0 } else { 0.0 },
+            self.survey_every.max(1) as f32,
+            self.survey_darkness,
+            crate::world::SEA_LEVEL as f32,
+        )
+    }
+
     fn shader_settings(&self, fog_colour: Color) -> TerrainShaderSettings {
         let fog = fog_colour.to_linear();
         TerrainShaderSettings {
@@ -157,6 +180,7 @@ impl RenderSettings {
             ),
             // x: random rotation on. Always on now; it's switched per block on the Blocks page.
             options: Vec4::new(1.0, 0.0, 0.0, 0.0),
+            survey: self.survey_for_shader(),
         }
     }
 }
@@ -393,6 +417,14 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ui.selectable_value(&mut settings.debug_view, DebugView::Quads, "rectangles");
             ui.selectable_value(&mut settings.debug_view, DebugView::Faces, "face directions");
         });
+        ui.checkbox(&mut settings.survey, "survey view").on_hover_text(
+            "Darkens every few levels of blocks, counted up from sea level, near and far: the land reads in bands like a contour map.",
+        );
+        ui.add_enabled_ui(settings.survey, |ui| {
+            ui.add(crate::debug::Slider::new(&mut settings.survey_every, 1..=64).text("every (levels)"))
+                .on_hover_text("How many block levels from one dark band to the next. The first dark band is the first level above the sea.");
+            ui.add(crate::debug::Slider::new(&mut settings.survey_darkness, 0.0..=1.0).text("band darkness"));
+        });
         ui.small("Random texture rotation is switched per block, on the Blocks page.");
         if ui.button("Reset render settings").clicked() {
             *settings = RenderSettings::default();
@@ -412,13 +444,39 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             "Lights each patch by its slope toward the sun, so hills and valleys read from afar. 0 = flat colour.\n\
              (Only the distant terrain: the real chunks show their slopes as block steps.)",
         );
-        ui.add(crate::debug::Slider::new(&mut settings.sun_from, 0.0..=360.0).suffix("°").text("sun from")).on_hover_text("The compass direction the light comes from: 0° north, 90° east, 315° north-west.");
-        ui.add(crate::debug::Slider::new(&mut settings.sun_height, 5.0..=90.0).suffix("°").text("sun height")).on_hover_text("Lower = longer, stronger shading on slopes.");
         ui.add(crate::debug::Slider::new(&mut settings.height_tint, 0.0..=0.3).text("height tint")).on_hover_text("Land a little lighter the higher it is.");
         if ui.button("Reset distant terrain settings").clicked() {
             *settings = distant::DistantSettings::default();
         }
     }
+
+    // ── Light ──
+    ui.separator();
+    ui.strong("Light");
+    ui.small("One sun for everything. The light map adds mountains' shadows and darker valleys to the distant terrain, worked out from the ground's heights in the background.");
+    {
+        let mut s = world.resource_mut::<light::LightSettings>();
+        ui.add(crate::debug::Slider::new(&mut s.sun_from, 0.0..=360.0).suffix("°").text("sun from")).on_hover_text("The compass direction the light comes from: 0° north, 90° east, 315° north-west.");
+        ui.add(crate::debug::Slider::new(&mut s.sun_height, 5.0..=90.0).suffix("°").text("sun height")).on_hover_text("Lower = longer shadows, and stronger shading on slopes.");
+        ui.checkbox(&mut s.on, "light map");
+        ui.add_enabled_ui(s.on, |ui| {
+            ui.add(crate::debug::Slider::new(&mut s.shadows, 0.0..=1.0).text("shadows")).on_hover_text("How dark a mountain's shadow is. 0 = none, 1 = black.");
+            ui.add(crate::debug::Slider::new(&mut s.softness, 0.0..=15.0).suffix("°").text("shadow softness"))
+                .on_hover_text("How soft the shadows' edges are, in degrees of the sun's height. The real sun's is about half a degree.");
+            ui.add(crate::debug::Slider::new(&mut s.sky, 0.0..=10.0).text("valley darkening")).on_hover_text("How much darker a spot gets for the sky it can't see: valleys, gorges, the feet of cliffs.");
+            ui.add(crate::debug::Slider::new(&mut s.sky_reach, 200.0..=20_000.0).logarithmic(true).text("valley reach (blocks)"))
+                .on_hover_text("How far away a rise still hides sky. Short: only tight gorges darken. Long: whole basins between ranges.");
+            ui.add(crate::debug::Slider::new(&mut s.relief, 0.0..=4.0).text("relief")).on_hover_text("Darkens what sits below the ground around it, and lightens what stands above it.");
+            ui.add(crate::debug::Slider::new(&mut s.relief_reach, 200.0..=20_000.0).logarithmic(true).text("relief reach (blocks)"))
+                .on_hover_text("How wide \"the ground around it\" is. Short picks out hills and dips; long picks out whole ranges and basins.");
+            ui.add(crate::debug::Slider::new(&mut s.detail, 16.0..=128.0).logarithmic(true).text("light map detail (blocks a pixel)"))
+                .on_hover_text("Finer is sharper but slower to work out, and takes more graphics memory (16 is four times 32).");
+        });
+        if ui.button("Reset light settings").clicked() {
+            *s = light::LightSettings::default();
+        }
+    }
+    ui.small(world.resource::<light::LightState>().status.clone());
 
     // ── Textures ──
     ui.separator();

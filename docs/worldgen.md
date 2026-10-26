@@ -367,7 +367,7 @@ mountains first, other kinds of features later, as David needs them.
   map's middle, and distance travelled).
 - **The dots are a viewing aid** for now: a 1x / 2x / 4x / 8x size switch, not saved.
 
-### Lift  [DECIDED 2026-10-26, next]
+### Lift  [DECIDED and BUILT 2026-10-26]
 David: "a tablecloth draped over a series of points floating in the area, with the edges of the
 cloth tapering and ending just before the coast lines". Exposed land is raised toward mountain
 points: lift = *max lift* x a spline (nearness to the nearest point, over a *reach*; left the coast
@@ -458,6 +458,48 @@ a separate later system.)
 before history starts? Having both lets them be compared, or combined (plates for the big shapes, noise for
 detail). A **mask layer** (radial, linear, ring, with a falloff curve) is wanted either way: for example, lowering
 land toward the edge so the continents are surrounded by ocean.
+
+### Graphics: the light map  [DECIDED 2026-10-26; survey view and step C BUILT]
+David: the limiting factor in tuning the terrain is being able to *see* it at great distances. The
+distant terrain already reads better than real chunks (its hill shading lights each patch by its
+slope; chunks only by which way each face points), so he flies at render distance 1.
+- **The goal for graphics** [David]: layered, as well-made games do, each method used where it's most
+  effective so players never see behind the curtain. The **world is not snapped to a palette**: the
+  256-colour palette is for the UI and HUD (rendered at a lower resolution). The world uses a carefully
+  chosen selection of colours, so tones and kinds of colour can carry information, and the final
+  lighting passes lighten and darken them freely. FX (magic and so on) may use every colour, to dazzle
+  or to add another meaningful layer. Atmosphere and fog matter little (fog is for looks, e.g. mountains
+  fading along a coast).
+- **For now** [David]: only the first tasks, ones that won't cause trouble if we change our minds. The
+  cheap methods first, left open for more sophisticated ones later.
+- **Survey view** [BUILT]: Render page. Every Nth level of blocks above sea level darkened (default
+  every 4), near and far, so the land reads in bands like a contour map. The first band is the first
+  level above the sea, so the coast gets one.
+- **The light map** [BUILT, step C] (`src/render/light.rs`): the ground is a height field, so its light
+  is worked out in 2D, in the background, as a picture over the whole world (32 blocks a pixel by
+  default), and the distant shader multiplies its colour by it. A stage after the ground: it reads the
+  compiled map's heights and feeds nothing back. Three ingredients, each with a strength (applied in
+  the shader, free to move) and, where it has one, a reach (worked out again):
+  - **shadows**: from each spot, look toward the sun for ground rising above the line to it (a march
+    that stops once the line clears the highest ground), with a soft edge. Moving the sun redoes only
+    this part.
+  - **valley darkening** (sky-view factor): how much sky a spot can't see, from the horizon's height in
+    8 directions out to a reach. Doesn't depend on the sun, so it's worked out once per world.
+  - **relief**: height minus a blurred copy (two box blurs), darkening what sits below its
+    surroundings and lightening what stands above.
+  - The sea takes only the shadows. **One sun** (Render page, Light): the distant hill shading uses it
+    too.
+- **Left open, in order** (each a layer on top, nothing to undo):
+  - **D. Near chunks lit the same way**: a finer window of the light map (1 block a pixel, about
+    1,000 blocks around you, scrolling) read by the near shader, only on faces near the surface (caves
+    and overhangs wait for real block light). Removes the near/far seam.
+  - Hill shading moved from the distant tiles' corners into the light map (so moving the sun doesn't
+    rebuild tiles, and in shadow, slopes facing the sun stop being lit).
+  - Corner darkening on near blocks (classic voxel ambient occlusion, worked out while meshing).
+  - Bevy's shadow maps, near you only, for buildings, trees and people.
+  - Block light (torches, the Light property) and the day/night cycle (which only turns the sun).
+  - Rejected for landscape scale: screen-space ambient occlusion (reach tied to the screen, so far land
+    gets none) and per-vertex light in the meshes (breaks the merged rectangles).
 
 ## 1. The suite, not the generator  [DECIDED, first version BUILT]
 

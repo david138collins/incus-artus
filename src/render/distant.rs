@@ -24,6 +24,7 @@
 //! then nearest first.
 
 use super::RenderSettings;
+use super::light::LightSettings;
 use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::data::{BlockRegistry, FACE_NAMES};
 use super::meshing::MeshingState;
@@ -64,17 +65,13 @@ pub struct DistantSettings {
     /// afar (0 = flat colour). Measured per cell, so far rings (bigger cells) shade as strongly on
     /// screen as near ones.
     pub hill_shading: f32,
-    /// Where the sun is: the compass direction it shines from (degrees: 0 north, 90 east, 315
-    /// north-west) and how high it stands (degrees above the horizon).
-    pub sun_from: f32,
-    pub sun_height: f32,
     /// Land a little lighter the higher it is (0 = none).
     pub height_tint: f32,
 }
 
 impl Default for DistantSettings {
     fn default() -> Self {
-        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, hill_shading: 0.3, sun_from: 315.0, sun_height: 40.0, height_tint: 0.15 }
+        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, hill_shading: 0.3, height_tint: 0.15 }
     }
 }
 
@@ -200,16 +197,15 @@ pub struct Shade {
 }
 
 impl Shade {
-    /// The face brightnesses from the render settings, and the hill shading from the distant
-    /// terrain's.
-    pub fn new(render: &RenderSettings, settings: &DistantSettings) -> Self {
-        let (from, up) = (settings.sun_from.to_radians(), settings.sun_height.clamp(5.0, 90.0).to_radians());
+    /// The face brightnesses from the render settings, the hill shading from the distant
+    /// terrain's, and the sun from the light map's (one sun for everything).
+    pub fn new(render: &RenderSettings, settings: &DistantSettings, light: &LightSettings) -> Self {
         Self {
             top: render.shade_top,
             north_south: render.shade_north_south,
             east_west: render.shade_east_west,
             hills: settings.hill_shading,
-            sun: Vec3::new(up.cos() * from.cos(), up.cos() * from.sin(), up.sin()),
+            sun: light.sun(),
             height_tint: settings.height_tint,
         }
     }
@@ -337,6 +333,10 @@ pub struct DistantMaterial {
     /// The chunks on screen (see the module notes).
     #[texture(1)]
     pub shown: Handle<Image>,
+    /// How lit the ground is (see `light.rs`).
+    #[texture(2)]
+    #[sampler(3)]
+    pub light: Handle<Image>,
 }
 
 #[derive(ShaderType, Clone, Copy, Debug, Default)]
@@ -346,6 +346,12 @@ pub struct DistantShaderSettings {
     pub fog: Vec4,
     /// xy = the chunk the `shown` texture is centred on.
     pub shown_centre: Vec4,
+    /// Survey view: x on, y every how many levels, z darkness, w sea level.
+    pub survey: Vec4,
+    /// The light map: x on, y shadows, z sky, w relief (strengths); and its area: x the map's half
+    /// width (blocks), y the light map's width (blocks).
+    pub light: Vec4,
+    pub light_area: Vec4,
 }
 
 impl Material for DistantMaterial {
@@ -387,7 +393,7 @@ pub struct DistantTile {
 
 #[derive(Resource, Default)]
 pub struct DistantState {
-    material: Option<Handle<DistantMaterial>>,
+    pub(super) material: Option<Handle<DistantMaterial>>,
     /// The map the tiles were made from.
     map: Option<Arc<CompiledMap>>,
     palette: Option<Palette>,
@@ -443,7 +449,8 @@ pub fn setup_distant(mut state: ResMut<DistantState>, mut materials: ResMut<Asse
     );
     let shown = images.add(texture);
     state.shown_texture = Some(shown.clone());
-    state.material = Some(materials.add(DistantMaterial { settings: DistantShaderSettings::default(), shown }));
+    let light = images.add(super::light::placeholder());
+    state.material = Some(materials.add(DistantMaterial { settings: DistantShaderSettings::default(), shown, light }));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -452,6 +459,7 @@ pub fn update_distant(
     terrain: Res<Terrain>,
     settings: Res<DistantSettings>,
     render: Res<RenderSettings>,
+    light: Res<LightSettings>,
     registry: Res<BlockRegistry>,
     camera: Query<&Transform, With<Camera3d>>,
     mut state: ResMut<DistantState>,
@@ -475,7 +483,7 @@ pub fn update_distant(
     }
     let Some(camera) = camera.iter().next() else { return };
     let at = bevy_to_game(camera.translation);
-    let shade = Shade::new(&render, &settings);
+    let shade = Shade::new(&render, &settings, &light);
 
     // Which tiles are wanted: worked out again when you move into another finest tile (or the
     // settings change).
@@ -578,7 +586,7 @@ pub fn update_distant(
     }
 }
 
-/// Keeps the distant terrain's fog the same as the near terrain's.
+/// Keeps the distant terrain's fog and survey view the same as the near terrain's.
 pub fn update_distant_material(
     render: Res<RenderSettings>,
     clear: Res<ClearColor>,
@@ -593,6 +601,7 @@ pub fn update_distant_material(
         let fog = clear.0.to_linear();
         material.settings.fog_color = Vec4::new(fog.red, fog.green, fog.blue, 1.0);
         material.settings.fog = Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, 0.0);
+        material.settings.survey = render.survey_for_shader();
     }
 }
 
@@ -695,7 +704,8 @@ mod tests {
 
     #[test]
     fn slopes_facing_the_sun_are_lighter_and_flat_ground_is_as_it_was() {
-        let shade = Shade::new(&RenderSettings::default(), &DistantSettings { hill_shading: 0.3, sun_from: 315.0, sun_height: 40.0, ..DistantSettings::default() });
+        let light = LightSettings { sun_from: 315.0, sun_height: 40.0, ..LightSettings::default() };
+        let shade = Shade::new(&RenderSettings::default(), &DistantSettings { hill_shading: 0.3, ..DistantSettings::default() }, &light);
         assert!((shade.hill(0.0, 0.0) - 1.0).abs() < 1e-5);
         // Ground falling away to the north-west faces the sun; rising toward it, faces away.
         let (facing, away) = (shade.hill(-4.0, 4.0), shade.hill(4.0, -4.0));

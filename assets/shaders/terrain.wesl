@@ -19,6 +19,8 @@ struct TerrainShaderSettings {
     fog_and_debug: vec4<f32>,
     // x random texture rotation on
     options: vec4<f32>,
+    // Survey view: x on, y every how many levels, z darkness, w sea level
+    survey: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var block_textures: texture_2d_array<f32>;
@@ -163,6 +165,17 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         shade = settings.face_shade.w;
     }
     colour = colour * shade;
+
+    // Survey view: every Nth level of blocks above sea level darkened, like a contour map's bands.
+    if settings.survey.x > 0.5 {
+        let in_block = in.local - face_normal(in.face) * 0.5;
+        let z = in.section_origin.z + i32(floor(in_block.z));
+        let every = max(i32(settings.survey.y), 1);
+        let level = z - i32(settings.survey.w);
+        if ((level % every) + every) % every == 0 {
+            colour = colour * (1.0 - settings.survey.z);
+        }
+    }
 
     // Fog: fade into the sky colour with distance.
     if settings.fog_and_debug.z > 0.5 {

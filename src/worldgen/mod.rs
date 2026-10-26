@@ -66,7 +66,7 @@ pub(crate) mod noise;
 mod palette;
 mod plates;
 mod rags;
-mod runner;
+pub(crate) mod runner;
 mod tectonics;
 mod view;
 mod world;

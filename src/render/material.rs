@@ -42,6 +42,8 @@ pub struct TerrainShaderSettings {
     pub fog_and_debug: Vec4,
     /// x = random texture rotation on (1) / off (0), yzw unused.
     pub options: Vec4,
+    /// Survey view: x on, y every how many levels, z darkness, w sea level.
+    pub survey: Vec4,
 }
 
 impl Material for TerrainMaterial {
