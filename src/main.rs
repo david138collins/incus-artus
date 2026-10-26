@@ -38,6 +38,7 @@ mod save;
 mod screen;
 mod sim;
 mod soak;
+mod temperatures;
 mod time;
 mod world;
 mod worldgen;
@@ -96,7 +97,7 @@ fn main() {
             worldgen::WorldGenPlugin,
             sandbox::SandboxPlugin,
         ))
-        .add_plugins(soak::SoakPlugin)
+        .add_plugins((soak::SoakPlugin, temperatures::TemperaturesPlugin))
         .add_systems(Startup, fill_the_screen)
         .run();
 }

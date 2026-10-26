@@ -103,6 +103,10 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.label(format!("Sections: {sections}   quads: {quads}   vertices: {vertices}"));
     let distant = world.resource::<super::distant::DistantState>();
     ui.label(format!("Distant terrain: {} tiles, {} quads   (being made: {})", distant.tiles_drawn(), distant.quads, distant.being_made()));
+
+    ui.separator();
+    ui.strong("Temperatures");
+    crate::temperatures::temperatures_settings(ui, world);
 }
 
 /// The page's numbers on one line, plus how many of each kind of thing the engine is holding (a
