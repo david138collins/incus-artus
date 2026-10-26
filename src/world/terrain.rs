@@ -47,8 +47,14 @@ impl TerrainBlocks {
 /// `interpreter.rs`).
 impl CompiledMap {
     /// The ground's Z in the column of blocks at (`x` north, `y` east), or `None` past the map.
+    /// Sea floor is at least one block under the water's surface: ground at Z 127 would leave no
+    /// room for water above it, a stone floor flush with the sea that the distant terrain and the
+    /// terrain lab both draw as water.
     pub fn ground(&self, x: i32, y: i32) -> Option<i32> {
-        self.height(x as f32 + 0.5, y as f32 + 0.5).map(|z| (z.round() as i32).clamp(1, WORLD_HEIGHT - 1))
+        self.height(x as f32 + 0.5, y as f32 + 0.5).map(|z| {
+            let z = (z.round() as i32).clamp(1, WORLD_HEIGHT - 1);
+            if z < SEA_LEVEL { z.min(SEA_LEVEL - 2) } else { z }
+        })
     }
 
     /// The block on top of a column whose ground is at `z`.
@@ -218,6 +224,7 @@ mod tests {
             assert_eq!(at(g - 1), blocks.stone);
             assert_eq!(at(g), map.surface(g, &blocks));
             if g < SEA_LEVEL {
+                assert!(g < SEA_LEVEL - 1, "a sea floor flush with the surface");
                 assert_eq!(at(g + 1), blocks.water);
                 assert_eq!(at(SEA_LEVEL - 1), blocks.water);
                 assert_eq!(at(SEA_LEVEL), BlockId::AIR);

@@ -104,15 +104,27 @@ fn watch_name(suite: &Suite, watch: Watch) -> String {
     }
 }
 
-/// "a-very-long-file-name" → "a-very-long-fi…" (for tight spots; hover shows the whole name).
 /// A left-hand side panel that can be folded away to a thin strip, for more room for the map. Open,
 /// it has a small `<` in its top right corner; folded, the strip shows a `>` and the panel's name
 /// down its length. `id` names the panel (it remembers its width), `title` is shown on the strip.
 pub fn foldable_left(root: &mut egui::Ui, id: &str, title: &str, folded: &mut bool, default_size: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
+    foldable(root, false, id, title, folded, default_size, 220.0, add_contents);
+}
+
+/// The same for a right-hand panel: its `>` sits in its top left corner and folds it to the right.
+pub fn foldable_right(root: &mut egui::Ui, id: &str, title: &str, folded: &mut bool, default_size: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
+    foldable(root, true, id, title, folded, default_size, 180.0, add_contents);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn foldable(root: &mut egui::Ui, right: bool, id: &str, title: &str, folded: &mut bool, default_size: f32, narrowest: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
+    let panel = |id: String| if right { egui::Panel::right(id) } else { egui::Panel::left(id) };
+    // The arrows point the way the panel goes: out from the screen's edge to open, back to fold.
+    let (open, fold) = if right { ("<", ">") } else { (">", "<") };
     if *folded {
-        egui::Panel::left(format!("{id} folded")).resizable(false).exact_size(26.0).show(root, |ui| {
+        panel(format!("{id} folded")).resizable(false).exact_size(26.0).show(root, |ui| {
             ui.vertical_centered(|ui| {
-                if ui.small_button(">").on_hover_text(format!("Open the {title} panel")).clicked() {
+                if ui.small_button(open).on_hover_text(format!("Open the {title} panel")).clicked() {
                     *folded = false;
                 }
                 ui.add_space(6.0);
@@ -131,23 +143,25 @@ pub fn foldable_left(root: &mut egui::Ui, id: &str, title: &str, folded: &mut bo
         });
         return;
     }
-    egui::Panel::left(id.to_string()).resizable(true).default_size(default_size).size_range(220.0..=900.0).show(root, |ui| {
-        // The fold button, drawn over the top right corner afterwards (so it takes no room from the
-        // panel, and sits on top of it).
-        let corner = Rect::from_min_size(Pos2::new(ui.max_rect().right() - 20.0, ui.max_rect().top()), Vec2::splat(20.0));
+    panel(id.to_string()).resizable(true).default_size(default_size).size_range(narrowest..=900.0).show(root, |ui| {
+        // The fold button, drawn over the top corner on the map's side afterwards (so it takes no
+        // room from the panel, and sits on top of it).
+        let x = if right { ui.max_rect().left() } else { ui.max_rect().right() - 20.0 };
+        let corner = Rect::from_min_size(Pos2::new(x, ui.max_rect().top()), Vec2::splat(20.0));
         add_contents(ui);
         let button = ui.interact(corner, egui::Id::new((id, "fold")), egui::Sense::click()).on_hover_text(format!("Fold the {title} panel away (more room for the map)"));
         let painter = ui.painter();
         if button.hovered() {
             painter.rect_filled(corner, 3.0, ui.visuals().widgets.hovered.bg_fill);
         }
-        painter.text(corner.center(), egui::Align2::CENTER_CENTER, "<", egui::FontId::proportional(14.0), PINK);
+        painter.text(corner.center(), egui::Align2::CENTER_CENTER, fold, egui::FontId::proportional(14.0), PINK);
         if button.clicked() {
             *folded = true;
         }
     });
 }
 
+/// "a-very-long-file-name" → "a-very-long-fi…" (for tight spots; hover shows the whole name).
 pub fn short(name: &str, most: usize) -> String {
     if name.chars().count() <= most { name.to_string() } else { name.chars().take(most - 1).chain(['…']).collect() }
 }

@@ -91,6 +91,8 @@ pub struct Compiler {
     /// and folded away to thin strips.
     pub shown: [bool; 3],
     pub folded: [bool; 3],
+    /// The readouts panel on the right, folded away to a thin strip.
+    pub readouts_folded: bool,
 }
 
 impl Default for Compiler {
@@ -128,6 +130,7 @@ impl Default for Compiler {
             show_lift_points: true,
             shown: [true; 3],
             folded: [false; 3],
+            readouts_folded: false,
         }
     }
 }
@@ -427,9 +430,11 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
         });
     }
     compiler.folded = folded;
-    egui::Panel::right("world compiler readouts").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(root, |ui| {
+    let mut readouts_folded = compiler.readouts_folded;
+    super::view::foldable_right(root, "world compiler readouts", "readouts", &mut readouts_folded, 270.0, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, compiler));
     });
+    compiler.readouts_folded = readouts_folded;
     let send = compiler.send.take();
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler));
     if compiler.picking {
@@ -1274,8 +1279,11 @@ fn close_up_picture(frame: &lab::Frame, relief: f32) -> Vec<Color32> {
                 let [r, g, b] = BEYOND;
                 return Color32::from_rgb(r, g, b);
             }
-            let colour = colour_at(here);
-            if here < SEA_LEVEL as f32 {
+            // Land or sea as the world decides it, by the whole block (zoomed out the heights are
+            // smooth, and Z 127.6 is land in the world, not sea).
+            let sea = SEA_LEVEL as f32;
+            let colour = colour_at(if here.round() < sea { here.min(sea - 1.0) } else { here.max(sea) });
+            if here.round() < sea {
                 return Color32::from_rgb(colour[0], colour[1], colour[2]);
             }
             let or_here = |v: f32| if v.is_nan() { here } else { v };
