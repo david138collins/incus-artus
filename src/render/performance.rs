@@ -105,6 +105,26 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.label(format!("Distant terrain: {} tiles, {} quads   (being made: {})", distant.tiles_drawn(), distant.quads, distant.being_made()));
 }
 
+/// The page's numbers on one line, plus how many of each kind of thing the engine is holding (a
+/// count that keeps climbing on a long flight is a leak): for the soak test's log.
+pub fn soak_line(world: &mut World) -> String {
+    let fps = summary(&world.resource::<FrameTimes>().0).map_or("no frames".to_string(), |(average, low, worst)| format!("{average:.0} fps, 1% low {low:.0}, worst {worst:.1} ms"));
+    let streaming = world.resource::<Streaming>();
+    let (queued, making, made, dropped) = (streaming.queued(), streaming.being_made(), streaming.made, streaming.dropped);
+    let chunks = world.resource::<VoxelWorld>().chunk_count();
+    let meshing = world.resource::<MeshingState>();
+    let (waiting, meshing_now, section_entities) = (meshing.waiting.len(), meshing.running.len(), meshing.entities.len());
+    let distant = world.resource::<super::distant::DistantState>();
+    let (tiles, tiles_making) = (distant.tiles_drawn(), distant.being_made());
+    let entities = world.query::<Entity>().iter(world).count();
+    let meshes = world.resource::<Assets<Mesh>>().len();
+    let images = world.resource::<Assets<Image>>().len();
+    let materials = world.resource::<Assets<super::material::TerrainMaterial>>().len() + world.resource::<Assets<super::distant::DistantMaterial>>().len();
+    format!(
+        "{fps} | chunks {chunks} (queued {queued}, making {making}, made {made}, dropped {dropped}) | sections drawn {section_entities}, waiting {waiting}, meshing {meshing_now} | distant tiles {tiles} (making {tiles_making}) | entities {entities}, meshes {meshes}, images {images}, materials {materials}"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

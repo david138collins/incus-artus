@@ -315,7 +315,7 @@ impl Plugin for WorldGenPlugin {
     }
 }
 
-fn run_suite(mut suite: ResMut<Suite>) {
+fn run_suite(mut suite: ResMut<Suite>, mut soak_pressed: Local<bool>) {
     let (size, blocks) = (suite.size_blocks, suite.blocks_per_pixel());
     for layer in &mut suite.layers {
         layer.drive(size, blocks);
@@ -324,6 +324,12 @@ fn run_suite(mut suite: ResMut<Suite>) {
     // The compiler only reads bakes once its tab has been opened.
     if suite.kit == Kit::Compiler {
         suite.compiler.drive();
+        // The soak test (`soak.rs`): the newest bake rendered once it's compiled, spawning in the
+        // middle.
+        if crate::soak::wanted() && !*soak_pressed && suite.compiler.is_compiled() {
+            *soak_pressed = true;
+            suite.compiler.press_render(IVec2::ZERO);
+        }
     }
 }
 

@@ -28,6 +28,7 @@ use bevy::render::error_handler::{ErrorType, RenderError, RenderErrorHandler, Re
 use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
 use meshing::{MeshingState, SectionMesh};
+pub(crate) use performance::soak_line;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 

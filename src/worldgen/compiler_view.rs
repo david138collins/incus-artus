@@ -140,6 +140,11 @@ impl Compiler {
         self.job.is_some() || self.ez.is_some()
     }
 
+    /// A compiled world is ready to render.
+    pub fn is_compiled(&self) -> bool {
+        self.result.is_some() && self.job.is_none()
+    }
+
     /// What it's busy with, if anything (for the suite's processing meter).
     pub fn working(&self) -> Option<&'static str> {
         if self.ez.is_some() {
