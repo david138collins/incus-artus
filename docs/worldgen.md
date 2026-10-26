@@ -297,6 +297,11 @@ Tectonic Sim
   **Civilization** (people and hostile NPCs; a few local edits for roads, villages and structures) will
   be tabs before the interpreter, once the current scope is wrapped up. "EZ-Bake" stays as the way a
   stage bundles its result for the next one. Ask David before naming or placing any new tab or panel.
+  [David, 2026-10-26] The Terrain Compiler page (still called that in the suite's row) has three
+  left-hand panels, shown or hidden by a row of buttons along its top: **Landmass** (what was the
+  Terrain Compiler panel: sea level, coastline, foothills), **Additives** (geographic features added
+  onto the landmass before erosion and hydrology: dots scattered from the maps, then features driven
+  by them; first scatterer: ridge streams off the range spines) and the **World Interpreter**.
 - **Each stage caches its result.** Changing a slider redoes that stage and the ones after it, never
   the ones before.
 - **World creation budget:** about 10 minutes on a slightly below-average PC (a GTX 980 Ti-era machine

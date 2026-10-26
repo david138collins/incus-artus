@@ -48,6 +48,7 @@
 //! - `lab.rs`      the terrain lab: the map, zoomed in, as a live close-up of the ground
 //! - `overlays.rs` the terrain lab's overlays: the compiler's maps drawn over the map
 
+mod additives;
 mod blend;
 mod bake;
 mod canvas;
@@ -170,13 +171,13 @@ impl Default for Suite {
         // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
         // `=compiler` opens the Terrain Compiler; `=compiler-overlays` also switches on the
         // mountains, range spines, coast distance and squeeze direction overlays, and folds the
-        // Terrain Compiler panel away.
+        // Landmass and World Interpreter panels away (leaving Additives open, with its dots).
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler" || v == "compiler-overlays") {
             suite.kit = Kit::Compiler;
             if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler-overlays") {
                 let shown = &mut suite.compiler.lab.overlays.shown;
                 (shown.plates, shown.squeeze, shown.mountains, shown.spines, shown.coast, shown.direction) = (false, false, true, true, true, true);
-                suite.compiler.folded[0] = true;
+                (suite.compiler.folded[0], suite.compiler.folded[2]) = (true, true);
             }
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;

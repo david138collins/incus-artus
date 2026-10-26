@@ -1,18 +1,19 @@
-//! The Terrain Compiler's screen: pick a bake, set the compiler's whole-map jobs and the
-//! Interpreter's recipe, and see the result as shaded relief. (The work itself is in `compiler.rs`
-//! and `crate::world::interpreter`.)
+//! The Terrain Compiler's screen: pick a bake, set the compiler's whole-map jobs, the additives and
+//! the Interpreter's recipe, and see the result as shaded relief. (The work itself is in
+//! `compiler.rs`, `additives.rs` and `crate::world::interpreter`.)
 //!
 //! ```text
-//! ┌──── top: which bake, land share ───────────────────────────────────────────────┐
-//! │ Terrain Compiler │ World Interpreter │                          │ under the    │
-//! │ sea level        │ the chain         │   the world, in relief   │ mouse        │
-//! │ coastline        │ land and sea      │                          │              │
-//! │ foothills        │ mountains         │                          │              │
-//! │ save, render     │ hills, blocks     │                          │              │
-//! └──────────────────┴───────────────────┴──────────────────────────┴──────────────┘
+//! ┌──── top: panels shown, which bake, land share ─────────────────────────────────────────────┐
+//! │ Landmass     │ Additives      │ World Interpreter │                        │ under the    │
+//! │ sea level    │ ridge streams  │ the chain         │  the world, in relief  │ mouse        │
+//! │ coastline    │                │ land and sea      │                        │              │
+//! │ foothills    │                │ mountains         │                        │              │
+//! │ save, render │                │ hills, blocks     │                        │              │
+//! └──────────────┴────────────────┴───────────────────┴────────────────────────┴──────────────┘
 //! ```
 
 use super::Suite;
+use super::additives::{Additives, Sides};
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
@@ -33,6 +34,8 @@ use std::sync::Arc;
 const BEYOND: [u8; 3] = [10, 10, 14];
 /// The scratch bake EZ-Bake writes (and overwrites) each time.
 const EZ_BAKE: &str = "_ez-bake";
+/// The left-hand panels, in the order things happen.
+const PANELS: [&str; 3] = ["Landmass", "Additives", "World Interpreter"];
 
 pub struct Compiler {
     pub settings: CompileSettings,
@@ -80,8 +83,12 @@ pub struct Compiler {
     overlay_texture: Option<egui::TextureHandle>,
     overlay_painted_for: Option<u64>,
     hover: Option<(usize, usize)>,
-    /// The Terrain Compiler and World Interpreter panels, folded away to thin strips.
-    pub folded: [bool; 2],
+    /// The Additives panel's dots.
+    pub additives: Additives,
+    /// The Landmass, Additives and World Interpreter panels: shown (the buttons along the top),
+    /// and folded away to thin strips.
+    pub shown: [bool; 3],
+    pub folded: [bool; 3],
 }
 
 impl Default for Compiler {
@@ -115,7 +122,9 @@ impl Default for Compiler {
             overlay_texture: None,
             overlay_painted_for: None,
             hover: None,
-            folded: [false; 2],
+            additives: Additives::default(),
+            shown: [true; 3],
+            folded: [false; 3],
         }
     }
 }
@@ -135,6 +144,8 @@ impl Compiler {
             Some("drawing the close-up")
         } else if self.lab.overlays.is_making() {
             Some("drawing overlays")
+        } else if self.additives.is_making() {
+            Some("finding range spines")
         } else {
             None
         }
@@ -206,7 +217,8 @@ impl Compiler {
                 }
             }
         }
-        let now = (chosen, self.settings.clone());
+        // The additives aren't compiled (moving their sliders compiles nothing again).
+        let now = (chosen, CompileSettings { additives: Default::default(), ..self.settings.clone() });
         if self.seen.as_ref() != Some(&now) {
             self.seen = Some(now);
             self.wanted = true;
@@ -323,6 +335,10 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let compiler = &mut suite.compiler;
     egui::Panel::top("world compiler bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
+            for (shown, name) in compiler.shown.iter_mut().zip(PANELS) {
+                ui.toggle_value(shown, name).on_hover_text(format!("Show or hide the {name} panel"));
+            }
+            ui.separator();
             if compiler.ez.is_some() {
                 ui.spinner();
                 ui.label("EZ-Baking…");
@@ -391,13 +407,22 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
             }
         });
     });
-    let mut folded = compiler.folded;
-    super::view::foldable_left(root, "world compiler settings", "Terrain Compiler", &mut folded[0], 320.0, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| settings(ui, compiler));
-    });
-    super::view::foldable_left(root, "world interpreter settings", "World Interpreter", &mut folded[1], 320.0, |ui| {
-        egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
-    });
+    let (mut folded, shown) = (compiler.folded, compiler.shown);
+    if shown[0] {
+        super::view::foldable_left(root, "world compiler settings", PANELS[0], &mut folded[0], 320.0, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| settings(ui, compiler));
+        });
+    }
+    if shown[1] {
+        super::view::foldable_left(root, "additives settings", PANELS[1], &mut folded[1], 300.0, |ui| {
+            egui::ScrollArea::vertical().id_salt("additives").show(ui, |ui| additives_panel(ui, compiler));
+        });
+    }
+    if shown[2] {
+        super::view::foldable_left(root, "world interpreter settings", PANELS[2], &mut folded[2], 320.0, |ui| {
+            egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
+        });
+    }
     compiler.folded = folded;
     egui::Panel::right("world compiler readouts").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, compiler));
@@ -426,10 +451,10 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
 }
 
 fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
-    ui.heading("Terrain Compiler");
+    ui.heading("Landmass");
     ui.small(
-        "Turns a baked world into smooth maps, doing the jobs that need the whole map at once. The Interpreter (the \
-         next panel) makes the ground from them. Bake worlds in the Tectonic Sim, then pick one in the bar along the top.",
+        "Turns a baked world into smooth maps, doing the jobs that need the whole map at once. The World Interpreter \
+         makes the ground from them. Bake worlds in the Tectonic Sim, then pick one in the bar along the top.",
     );
     if !compiler.note.is_empty() {
         ui.small(&compiler.note);
@@ -543,6 +568,54 @@ World Interpreter · every block, as
   passes · rifts · hills · detail
       |
 the ground (and the distant terrain)";
+
+/// The Additives panel: dots scattered from what the maps know (for now, the ridge streams).
+fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
+    ui.heading("Additives");
+    ui.small(
+        "Features added onto the landmass, before erosion and the water. Dots are scattered from what the maps already \
+         know; next, they'll drive features in the ground. (Saved in the presets with the other panels.)",
+    );
+    ui.add_space(4.0);
+    ui.checkbox(&mut compiler.additives.show, "show the dots").on_hover_text("Draws the dots over the map and the close-up.");
+    let a = &mut compiler.settings.additives;
+
+    ui.add_space(6.0);
+    ui.separator();
+    ui.strong("Ridge streams");
+    ui.small("Dots placed along each range's spine (the \"range spines\" overlay) stream off it, curving with it.");
+    ui.add(crate::debug::Slider::new(&mut a.spacing, 50.0..=4_000.0).logarithmic(true).text("spacing (blocks)"))
+        .on_hover_text("Blocks between the streams' starts along a spine (scattered, not even).");
+    ui.add(crate::debug::Slider::new(&mut a.distance, 0.0..=6_000.0).text("distance (blocks)"))
+        .on_hover_text("How far each stream runs from the spine.");
+    ui.add(crate::debug::Slider::new(&mut a.dots, 1..=64).text("dots per stream"));
+    ui.add(crate::debug::Slider::new(&mut a.bend, -4.0..=4.0).text("bend")).on_hover_text(
+        "How much the spine's curve steers the streams as they go: they turn to sweep along the ridge, all the same way\n\
+         round a curve on both sides (like a pinwheel), so neighbours curve together. The sharper the spine curves,\n\
+         the more they turn. 0 = straight off the spine; negative = sweeping the other way.",
+    );
+    ui.horizontal_wrapped(|ui| {
+        ui.label("sides:");
+        for sides in Sides::ALL {
+            ui.selectable_value(&mut a.sides, sides, sides.name());
+        }
+    })
+    .response
+    .on_hover_text("Which side of the spine streams leave from: both, the side it curves toward, or the side it curves away from.");
+    ui.add(crate::debug::Slider::new(&mut a.least_mountains, 0.0..=1.0).text("least mountains")).on_hover_text(
+        "Streams start only where the mountains are at least this strong (0 to 1, as the mountain overlay shows),\n\
+         to keep them to the main ranges.",
+    );
+    if ui.small_button("Reset ridge streams").clicked() {
+        *a = Default::default();
+    }
+    let additives = &compiler.additives;
+    if additives.spines.is_none() {
+        ui.small("Finding the range spines…");
+    } else {
+        ui.small(format!("{} streams, {} dots", additives.streams, additives.dots.len()));
+    }
+}
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
 fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
@@ -1147,6 +1220,20 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
         if overlays.shown.direction {
             squeeze_strokes(&painter, rect, &compiler.camera, &compiled_map.maps, painted.strongest_push, tint);
+        }
+    }
+
+    // The Additives panel's dots, over the map and the close-up alike: bright at the spine, fading
+    // along each stream.
+    compiler.additives.drive(&map, &compiler.settings.additives, blocks);
+    if compiler.additives.show {
+        let size = (zoom * 0.75).clamp(1.5, 5.0);
+        for dot in &compiler.additives.dots {
+            let at = compiler.camera.to_screen(rect, Vec2::new(dot.at.0, dot.at.1));
+            if rect.contains(at) {
+                let colour = Color32::WHITE.gamma_multiply(1.0 - 0.7 * dot.along);
+                painter.rect_filled(egui::Rect::from_center_size(at, Vec2::splat(size)), 0.0, colour);
+            }
         }
     }
 

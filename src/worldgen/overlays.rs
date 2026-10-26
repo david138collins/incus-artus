@@ -123,7 +123,7 @@ fn plate_colour(grey: u8) -> [u8; 3] {
 /// Whether a pixel is on the crest line of a mountain range: higher than its neighbours both ways
 /// along the direction the mountain share bends down most sharply (so along a range's spine, not
 /// across a flat top).
-fn on_spine(share: &[f32], width: usize, col: usize, row: usize) -> bool {
+pub(super) fn on_spine(share: &[f32], width: usize, col: usize, row: usize) -> bool {
     if col == 0 || row == 0 || col + 1 >= width || row + 1 >= width {
         return false;
     }

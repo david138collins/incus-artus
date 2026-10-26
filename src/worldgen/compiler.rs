@@ -21,6 +21,7 @@
 //!
 //! Everything is worked out on all the computer's cores, in the background.
 
+use super::additives::AdditiveSettings;
 use super::bake::{self, Info};
 use super::runner::every_pixel;
 pub use crate::world::Spline;
@@ -141,11 +142,13 @@ pub struct CompileSettings {
     pub foothills: f32,
     #[serde(flatten)]
     pub interpreter: InterpreterSettings,
+    /// The Additives panel's (not part of compiling: changing them doesn't compile again).
+    pub additives: AdditiveSettings,
 }
 
 impl Default for CompileSettings {
     fn default() -> Self {
-        Self { water: 0.0, soften: 64.0, foothills: 2_500.0, interpreter: InterpreterSettings::default() }
+        Self { water: 0.0, soften: 64.0, foothills: 2_500.0, interpreter: InterpreterSettings::default(), additives: AdditiveSettings::default() }
     }
 }
 
@@ -377,6 +380,8 @@ mod tests {
         let mut changed = settings.clone();
         changed.interpreter.hill_mask.source = crate::world::MaskSource::Coast;
         changed.interpreter.detail_noise.octaves = 4;
+        changed.additives.sides = super::super::additives::Sides::Inside;
+        changed.additives.bend = -2.5;
         let back: CompileSettings = toml::from_str(&toml::to_string_pretty(&changed).unwrap()).unwrap();
         assert_eq!(back, changed);
     }
