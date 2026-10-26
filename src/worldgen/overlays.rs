@@ -1,13 +1,15 @@
 //! Terrain lab overlays — the compiler's maps drawn over the map and the close-up, one switch each,
 //! so the shapes hidden in them can be seen: where the plates are, how crushed or stretched the rock
 //! is, where mountains rise and the crest line of each range, bands of distance from the coast, and
-//! which way the rock was squeezed. These are the clean areas and lines ("modalities") the
-//! scatterers will later be driven by.
+//! which way the rock was squeezed, and the mountains' grain (which way each range runs, and where
+//! it's a string or a knot; see `additives::grain`). These are the clean areas and lines
+//! ("modalities") the additives are driven by.
 //!
-//! Everything but the squeeze direction is painted into one picture, a map pixel (32 blocks) per
-//! picture pixel, on all the computer's cores in the background. The squeeze direction is drawn as
-//! short strokes on the screen, so it stays readable at any zoom.
+//! Everything but the two directions is painted into one picture, a map pixel (32 blocks) per
+//! picture pixel, on all the computer's cores in the background. The squeeze direction and range
+//! grain are drawn as short strokes on the screen, so they stay readable at any zoom.
 
+use super::additives::{Grain, grain};
 use super::compiler::{Bake, blur};
 use super::runner::{Job, Poll, every_pixel};
 use crate::world::{CompiledMap, Spline};
@@ -24,12 +26,14 @@ pub struct Shown {
     pub spines: bool,
     pub coast: bool,
     pub direction: bool,
+    pub grain: bool,
+    pub knots: bool,
 }
 
 impl Shown {
     /// Any of the overlays painted into the picture (the squeeze direction isn't).
     fn painted(&self) -> bool {
-        self.plates || self.squeeze || self.mountains || self.spines || self.coast
+        self.plates || self.squeeze || self.mountains || self.spines || self.coast || self.knots
     }
 }
 
@@ -40,6 +44,8 @@ struct Key {
     mountains: Spline,
     shown: Shown,
     band: f32,
+    /// The grain's reach (blocks) and how much it comes from the squeeze, as bits.
+    grain: (u32, u32),
 }
 
 /// A finished overlay picture, and the values behind it (for the readouts under the mouse).
@@ -50,6 +56,8 @@ pub struct Painted {
     /// The mountain share at each pixel (0 to 1), and the strongest squeeze push on the map.
     pub share: Vec<f32>,
     pub strongest_push: f32,
+    /// The mountains' grain, when either of its overlays is on.
+    pub grain: Option<Grain>,
 }
 
 pub struct Overlays {
@@ -77,7 +85,7 @@ impl Overlays {
 
     /// Collects a finished picture, and starts the next one when the maps, the mountains curve or
     /// the switches have changed.
-    pub fn drive(&mut self, map: &Arc<CompiledMap>, bake: &Arc<Bake>) {
+    pub fn drive(&mut self, map: &Arc<CompiledMap>, bake: &Arc<Bake>, (grain_reach, from_squeeze): (f32, f32)) {
         if let Some((_, job)) = &self.job {
             match job.poll() {
                 Poll::Done(finished) => {
@@ -89,10 +97,10 @@ impl Overlays {
                 Poll::Waiting => {}
             }
         }
-        if !self.shown.painted() && !self.shown.direction {
+        if !self.shown.painted() && !self.shown.direction && !self.shown.grain {
             return;
         }
-        let key = Key { maps: Arc::as_ptr(&map.maps) as usize, mountains: map.settings.mountains.clone(), shown: self.shown, band: self.band };
+        let key = Key { maps: Arc::as_ptr(&map.maps) as usize, mountains: map.settings.mountains.clone(), shown: self.shown, band: self.band, grain: (grain_reach.to_bits(), from_squeeze.to_bits()) };
         if self.painted.as_ref().is_some_and(|painted| painted.key == key) {
             return;
         }
@@ -156,6 +164,10 @@ fn paint(map: &CompiledMap, bake: &Bake, key: Key, stop: &AtomicBool) -> Option<
     let (shown, band) = (key.shown, key.band.max(1.0));
     let distance = &m.coast_distance;
     let plates = bake.plate.len() == w * w;
+    let found_grain = (shown.grain || shown.knots).then(|| {
+        let (reach, from_squeeze) = (f32::from_bits(key.grain.0), f32::from_bits(key.grain.1));
+        grain(&share, m, (reach / m.blocks_per_pixel).round() as usize, from_squeeze)
+    });
 
     let pixels = every_pixel(w, stop, |i| {
         let (col, row) = (i % w, i / w);
@@ -210,6 +222,16 @@ fn paint(map: &CompiledMap, bake: &Bake, key: Key, stop: &AtomicBool) -> Option<
                 over(rgb, amount);
             }
         }
+        if shown.knots
+            && let Some(Grain { string, .. }) = &found_grain
+            && share[i] > 0.02
+        {
+            // Strings blue, knots yellow, over the mountains (the stronger, the deeper; even weak
+            // mountains show which they are).
+            let t = string[i];
+            let mix = |knot: u8, line: u8| (knot as f32 + (line as f32 - knot as f32) * t) as u8;
+            over([mix(250, 50), mix(215, 150), mix(40, 255)], 0.35 + share[i].sqrt() * 0.6);
+        }
         if shown.spines && on_spine(&smooth_share, w, col, row) {
             over([255, 60, 220], 1.0);
         }
@@ -219,7 +241,7 @@ fn paint(map: &CompiledMap, bake: &Bake, key: Key, stop: &AtomicBool) -> Option<
         let [r, g, b] = colour.map(|c| (c / cover).min(255.0) as u8);
         Color32::from_rgba_unmultiplied(r, g, b, (cover * 255.0) as u8)
     })?;
-    Some(Painted { key, width: w, pixels, share, strongest_push })
+    Some(Painted { key, width: w, pixels, share, strongest_push, grain: found_grain })
 }
 
 #[cfg(test)]

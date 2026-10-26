@@ -318,6 +318,40 @@ Tectonic Sim
 - **The cost we accept:** sliders that change where water runs (mountain shape, ridges) stop being
   instant once erosion exists; they need a fast make.
 
+### Additives  [DECIDED 2026-10-26, building]
+
+The Terrain Compiler's middle panel: geographic features *added* onto the landmass, before erosion
+and hydrology. The broad heading for everything generated rather than read straight off the maps;
+mountains first, other kinds of features later, as David needs them.
+
+- **The road** [David, 2026-10-26]:
+  1. Throw dots around mountains until it routinely looks right: dot scattering and streaming only,
+     nothing drives the ground yet. Expect to try and scrap several methods.
+  2. A mountain synthesizer driven by the dots; experiment with it. The aim: pleasant ranges of
+     fantasy mountains (taller than they are wide), which mostly run in strings, sometimes bundles.
+  3. Rework hills and ground detail in light of what the additives can now add (today they're good
+     at times but change the whole map in unintended ways).
+  4. Shift work between the compiler (cheap, whole-map) and the additives (expensive synthesis) until
+     both sides feel right.
+  5. Grow the additives into other features.
+- **Mountains as a field, not lines** [2026-10-26]. A first try seeded dots on the "range spines"
+  (one-pixel crest lines) and streamed them off sideways: wrong tool; the spine detector finds
+  straight lines through gentle hills, spurs down curving slopes, and has no answer for a bundle.
+  Instead, every mountain spot is measured: *how mountainous* (the share), *which way the range
+  runs* (its grain), *how string-like or knot-like* (0 to 1), and later *where across the range*
+  (core, flank, edge) and *local prominence* (standing above its own surroundings, for summits).
+  Dots blend their behaviour by string-or-knot, so odd formations get a gentler treatment rather
+  than a wrong one.
+- **The grain** (BUILT): a structure tensor over the mountain share (round each spot, do the
+  slopes face across one line or every way?) gives the direction and string-or-knot; the squeeze
+  gives a second opinion (ranges run across the push, as fold belts do). "From squeeze" blends the
+  directions; "grain reach" sets how big a patch decides. Overlays: *range grain* (strokes) and
+  *string or knot* (blue / yellow).
+- **David's picture of the dots** (For Claude/visionofparticlestreaming.png): seeds along a range,
+  dots leaving on one side and carried onward the way the range is heading, scattered (not in rows)
+  and thinning out with distance. Next: seeds at local summits or scattered by share, drifting along
+  the grain, spreading sideways, one side or both; in knots, just scattered.
+
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
 flying over the continents in person. So before the compiler grows more stages, build the path from a

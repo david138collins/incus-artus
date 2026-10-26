@@ -170,13 +170,14 @@ impl Default for Suite {
         // Worley layer instead.
         // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
         // `=compiler` opens the Terrain Compiler; `=compiler-overlays` also switches on the
-        // mountains, range spines, coast distance and squeeze direction overlays, and folds the
+        // range spines, coast distance, range grain and string-or-knot overlays, and folds the
         // Landmass and World Interpreter panels away (leaving Additives open, with its dots).
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler" || v == "compiler-overlays") {
             suite.kit = Kit::Compiler;
             if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler-overlays") {
                 let shown = &mut suite.compiler.lab.overlays.shown;
-                (shown.plates, shown.squeeze, shown.mountains, shown.spines, shown.coast, shown.direction) = (false, false, true, true, true, true);
+                (shown.spines, shown.coast, shown.grain, shown.knots) = (false, true, true, true);
+                suite.compiler.additives.show = false;
                 (suite.compiler.folded[0], suite.compiler.folded[2]) = (true, true);
             }
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {

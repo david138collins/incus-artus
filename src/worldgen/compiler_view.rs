@@ -582,6 +582,20 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
     ui.add_space(6.0);
     ui.separator();
+    ui.strong("Mountain grain");
+    ui.small("Which way the mountains run at each spot, and whether they're a string (a range running one way) or a knot. See it with the \"range grain\" and \"string or knot\" overlays.");
+    ui.add(crate::debug::Slider::new(&mut a.grain_reach, 250.0..=8_000.0).logarithmic(true).text("grain reach (blocks)")).on_hover_text(
+        "How far round each spot is looked at to tell which way the mountains run. Small: every spur and bump has its\n\
+         own direction. Large: only whole ranges do (and small knots blend into the range around them).",
+    );
+    ui.add(crate::debug::Slider::new(&mut a.grain_from_squeeze, 0.0..=1.0).text("from squeeze")).on_hover_text(
+        "Where the direction comes from. 0 = the mountains' own shape (which way their slopes face); 1 = the squeeze\n\
+         (ranges run across the way the rock was pushed, as real fold belts do); between = a blend.\n\
+         String or knot always comes from the shape.",
+    );
+
+    ui.add_space(6.0);
+    ui.separator();
     ui.strong("Ridge streams");
     ui.small("Dots placed along each range's spine (the \"range spines\" overlay) stream off it, curving with it.");
     ui.add(crate::debug::Slider::new(&mut a.spacing, 50.0..=4_000.0).logarithmic(true).text("spacing (blocks)"))
@@ -610,7 +624,9 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         *a = Default::default();
     }
     let additives = &compiler.additives;
-    if additives.spines.is_none() {
+    if !additives.show {
+        ui.small("The dots are hidden.");
+    } else if additives.spines.is_none() {
         ui.small("Finding the range spines…");
     } else {
         ui.small(format!("{} streams, {} dots", additives.streams, additives.dots.len()));
@@ -971,6 +987,12 @@ fn readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ui.small(if d >= 0.0 { format!("{d:.0} blocks inland") } else { format!("{:.0} blocks out to sea", -d) });
                 ui.small(format!("mountain share {:.0}%", painted.share[i] * 100.0))
                     .on_hover_text("How much of the room above the ground the mountains take here, before ridges and passes carve them.");
+                if let Some(grain) = &painted.grain
+                    && painted.share[i] > 0.02
+                {
+                    ui.small(format!("string {:.0}% (knot {:.0}%)", grain.string[i] * 100.0, (1.0 - grain.string[i]) * 100.0))
+                        .on_hover_text("How clearly the mountains round here run one way (string) rather than every which way (knot).");
+                }
                 let skirt = result.made.map.maps.skirt[i];
                 if skirt > 0.0 {
                     ui.small(format!("foothill skirt {skirt:.0} blocks"));
@@ -1063,6 +1085,8 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ("range spines", &mut s.spines, "The crest line of each mountain range: where its mountains are strongest, across the range."),
             ("coast distance", &mut s.coast, "The coastline (cyan), and lines every so many blocks inland (white) and out to sea (pale blue)."),
             ("squeeze direction", &mut s.direction, "Which way the rock was squeezed: longer strokes, harder squeezing. Ridges line up across the strokes."),
+            ("range grain", &mut s.grain, "Which way the mountains run (the Additives panel's mountain grain): longer strokes where it's clearer."),
+            ("string or knot", &mut s.knots, "Mountains that clearly run one way, strings, in blue; knots and bundles with no one direction in yellow."),
         ] {
             ui.checkbox(shown, name).on_hover_text(about);
         }
@@ -1201,7 +1225,8 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
     }
 
     // The overlays, over the map and the close-up alike.
-    compiler.lab.overlays.drive(&map, &bake);
+    let a = &compiler.settings.additives;
+    compiler.lab.overlays.drive(&map, &bake, (a.grain_reach, a.grain_from_squeeze));
     let overlays = &compiler.lab.overlays;
     if overlays.shown != super::overlays::Shown::default()
         && let Some(painted) = &overlays.painted
@@ -1220,6 +1245,11 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
         if overlays.shown.direction {
             squeeze_strokes(&painter, rect, &compiler.camera, &compiled_map.maps, painted.strongest_push, tint);
+        }
+        if overlays.shown.grain
+            && let Some(grain) = &painted.grain
+        {
+            grain_strokes(&painter, rect, &compiler.camera, grain, &painted.share, width, tint);
         }
     }
 
@@ -1290,6 +1320,31 @@ fn squeeze_strokes(painter: &egui::Painter, rect: egui::Rect, camera: &Camera, m
             // The doubled-angle arrow back to a direction (on screen, down is south).
             let angle = maps.push_y[i].atan2(maps.push_x[i]) / 2.0;
             let half = Vec2::new(angle.cos(), -angle.sin()) * (3.0 + 9.0 * strength.sqrt());
+            painter.line_segment([at - half, at + half], stroke);
+        }
+    }
+}
+
+/// The range grain overlay: a short stroke every so many screen points over the mountains, along
+/// the way the range runs there, longer where it's more string-like.
+fn grain_strokes(painter: &egui::Painter, rect: egui::Rect, camera: &Camera, grain: &super::additives::Grain, share: &[f32], width: usize, tint: Color32) {
+    const EVERY: f32 = 24.0;
+    let stroke = egui::Stroke::new(1.5, Color32::from_rgb(150, 255, 190).gamma_multiply(tint.a() as f32 / 255.0));
+    let (across, down) = ((rect.width() / EVERY) as usize + 1, (rect.height() / EVERY) as usize + 1);
+    for row in 0..down {
+        for col in 0..across {
+            let at = rect.left_top() + Vec2::new((col as f32 + 0.5) * EVERY, (row as f32 + 0.5) * EVERY);
+            let pixel = camera.centre + (at - rect.center()) / camera.zoom;
+            if pixel.x < 0.0 || pixel.y < 0.0 || pixel.x >= width as f32 || pixel.y >= width as f32 {
+                continue;
+            }
+            let i = pixel.y as usize * width + pixel.x as usize;
+            if share[i] < 0.05 {
+                continue;
+            }
+            // East = 0, turning toward south: the same way round as the screen.
+            let angle = grain.angle[i];
+            let half = Vec2::new(angle.cos(), angle.sin()) * (3.0 + 8.0 * grain.string[i]);
             painter.line_segment([at - half, at + half], stroke);
         }
     }

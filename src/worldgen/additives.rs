@@ -15,7 +15,7 @@ use super::compiler::blur;
 use super::overlays::on_spine;
 use super::runner::{Job, Poll, every_pixel};
 use crate::fate::planet_hash;
-use crate::world::{CompiledMap, Spline};
+use crate::world::{CompiledMap, Maps, Spline};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -59,12 +59,73 @@ pub struct AdditiveSettings {
     pub sides: Sides,
     /// Spines only where the mountains are at least this strong (0 to 1).
     pub least_mountains: f32,
+    /// The mountains' grain: how far round each spot (blocks) is looked at to tell which way the
+    /// range runs, and how much that comes from the squeeze (1) rather than the mountains' shape (0).
+    pub grain_reach: f32,
+    pub grain_from_squeeze: f32,
 }
 
 impl Default for AdditiveSettings {
     fn default() -> Self {
-        Self { spacing: 400.0, distance: 1500.0, dots: 16, bend: 1.0, sides: Sides::Both, least_mountains: 0.12 }
+        Self {
+            spacing: 400.0,
+            distance: 1500.0,
+            dots: 16,
+            bend: 1.0,
+            sides: Sides::Both,
+            least_mountains: 0.12,
+            grain_reach: 1_500.0,
+            grain_from_squeeze: 0.5,
+        }
     }
+}
+
+/// The mountains' grain at each map pixel: which way the range runs (an angle, radians, east = 0,
+/// turning toward south), and how string-like it is there (1 = a clear range running that way, 0 =
+/// a knot or bundle with no one direction).
+pub struct Grain {
+    pub angle: Vec<f32>,
+    pub string: Vec<f32>,
+}
+
+/// Works out the grain from the mountain share. The shape's opinion: round each spot (`reach`
+/// pixels), do the slopes all face across one line (a string, running along that line) or every
+/// which way (a knot)? (The "structure tensor".) The squeeze's opinion: ranges run across the way the
+/// rock was pushed. `from_squeeze` blends the two directions; how string-like is the shape's alone.
+pub fn grain(share: &[f32], maps: &Maps, reach: usize, from_squeeze: f32) -> Grain {
+    let width = maps.width;
+    let mut smooth = share.to_vec();
+    blur(&mut smooth, width, 1);
+    let at = |col: usize, row: usize| smooth[row.min(width - 1) * width + col.min(width - 1)];
+    // Each pixel's slope, as the three products the tensor is made of, gathered over the reach.
+    let (mut xx, mut xy, mut yy) = (vec![0.0f32; width * width], vec![0.0f32; width * width], vec![0.0f32; width * width]);
+    for row in 0..width {
+        for col in 0..width {
+            let east = (at(col + 1, row) - at(col.saturating_sub(1), row)) / 2.0;
+            let south = (at(col, row + 1) - at(col, row.saturating_sub(1))) / 2.0;
+            let i = row * width + col;
+            (xx[i], xy[i], yy[i]) = (east * east, east * south, south * south);
+        }
+    }
+    for field in [&mut xx, &mut xy, &mut yy] {
+        blur(field, width, reach.max(1));
+    }
+    let mut angle = vec![0.0f32; width * width];
+    let mut string = vec![0.0f32; width * width];
+    for i in 0..width * width {
+        // Directions as doubled angles (half a turn apart is the same direction). The slopes face
+        // across the range, so the range runs a quarter turn round: the doubled arrow reversed.
+        let total = xx[i] + yy[i];
+        let shape = if total > 1e-12 { ((yy[i] - xx[i]) / total, -2.0 * xy[i] / total) } else { (0.0, 0.0) };
+        string[i] = (shape.0 * shape.0 + shape.1 * shape.1).sqrt().min(1.0);
+        // The push, from north-up to south-down, then turned a quarter turn.
+        let push = (maps.push_x[i], -maps.push_y[i]);
+        let length = (push.0 * push.0 + push.1 * push.1).sqrt();
+        let squeeze = if length > 1e-9 { (-push.0 / length, -push.1 / length) } else { (0.0, 0.0) };
+        let blend = (shape.0 * (1.0 - from_squeeze) + squeeze.0 * from_squeeze, shape.1 * (1.0 - from_squeeze) + squeeze.1 * from_squeeze);
+        angle[i] = blend.1.atan2(blend.0) / 2.0;
+    }
+    Grain { angle, string }
 }
 
 /// A point on a range's spine, in map pixels (x east, y south, from the map's north-west corner).
@@ -281,6 +342,60 @@ mod tests {
             .collect()
     }
 
+    /// Flat maps `width` across, with the rock pushed `push` (doubled-angle arrow, north up).
+    fn maps(width: usize, push: (f32, f32)) -> Maps {
+        let cells = width * width;
+        Maps {
+            width,
+            blocks_per_pixel: 32.0,
+            coast: vec![1.0; cells],
+            height: vec![0.5; cells],
+            tilt: vec![0.0; cells],
+            squeeze: vec![0.0; cells],
+            push_x: vec![push.0; cells],
+            push_y: vec![push.1; cells],
+            push_strength: vec![1.0; cells],
+            skirt: vec![0.0; cells],
+            coast_distance: vec![1_000.0; cells],
+            highest_skirt: 0.0,
+            water: 0.0,
+            lowest: -1.0,
+            highest: 1.0,
+            most_crushed: 1.0,
+            most_stretched: -1.0,
+        }
+    }
+
+    /// How far apart two grain angles are (radians, 0 to a quarter turn; half a turn apart is the
+    /// same direction).
+    fn apart(a: f32, b: f32) -> f32 {
+        let d = (a - b).rem_euclid(std::f32::consts::PI);
+        d.min(std::f32::consts::PI - d)
+    }
+
+    #[test]
+    fn a_straight_range_is_a_string_running_its_own_way_and_a_round_massif_is_a_knot() {
+        use std::f32::consts::FRAC_PI_2;
+        let width = 120;
+        let middle = width as f32 / 2.0;
+        // A range running north to south down the middle, the rock pushed from the north (so the
+        // squeeze says the range runs east to west).
+        let range: Vec<f32> = (0..width * width).map(|i| (-((i % width) as f32 - middle).powi(2) / 50.0).exp()).collect();
+        let pushed_from_north = maps(width, (-1.0, 0.0));
+        let i = 60 * width + 64;
+        let shape = grain(&range, &pushed_from_north, 8, 0.0);
+        assert!(apart(shape.angle[i], FRAC_PI_2) < 0.05, "runs at {} radians", shape.angle[i]);
+        assert!(shape.string[i] > 0.9, "only {} a string", shape.string[i]);
+        let squeeze = grain(&range, &pushed_from_north, 8, 1.0);
+        assert!(apart(squeeze.angle[i], 0.0) < 0.05, "the squeeze says {} radians", squeeze.angle[i]);
+        // A round massif: slopes face every way round its middle.
+        let massif: Vec<f32> = (0..width * width)
+            .map(|i| (-(((i % width) as f32 - middle).powi(2) + ((i / width) as f32 - middle).powi(2)) / 200.0).exp())
+            .collect();
+        let knot = grain(&massif, &pushed_from_north, 12, 0.0);
+        assert!(knot.string[60 * width + 60] < 0.2, "the massif's middle is {} a string", knot.string[60 * width + 60]);
+    }
+
     #[test]
     fn a_ring_shaped_range_bends_toward_its_middle_as_sharply_as_it_curves() {
         let (width, radius) = (200, 60.0);
@@ -305,7 +420,7 @@ mod tests {
     fn streams_off_a_ring_curve_inward_and_go_as_far_as_asked() {
         let (width, radius, blocks) = (200, 60.0, 32.0);
         let points = spine_points(&ring(width, radius), width);
-        let settings = AdditiveSettings { spacing: 32.0 * 8.0, distance: 32.0 * 20.0, dots: 10, bend: 0.0, sides: Sides::Inside, least_mountains: 0.1 };
+        let settings = AdditiveSettings { spacing: 32.0 * 8.0, distance: 32.0 * 20.0, dots: 10, bend: 0.0, sides: Sides::Inside, least_mountains: 0.1, ..AdditiveSettings::default() };
         let middle = width as f32 / 2.0;
         let from_middle = |(x, y): (f32, f32)| ((x - middle).powi(2) + (y - middle).powi(2)).sqrt();
         // Straight, inward: each stream's last dot is 20 pixels in.
