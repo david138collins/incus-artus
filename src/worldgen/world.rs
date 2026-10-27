@@ -31,7 +31,7 @@ use super::plates::{self, LineNoise, LineStyle, PlateSettings, Plates};
 use super::runner::{Finished, Job, Poll};
 use super::rags::{RagSettings, Sim, Spot};
 use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
-use super::view::{MAGENTA, PINK, compass, seed_row};
+use super::view::{MAGENTA, PINK, compass, fold_section, seed_row};
 use crate::debug::preset_bar;
 use bevy_egui::egui::{self, Color32, Pos2, Vec2};
 use serde::{Deserialize, Serialize};
@@ -791,319 +791,303 @@ pub(super) fn defaults_row<T: Default + Clone>(ui: &mut egui::Ui, what: &str, va
 }
 
 fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
-    ui.heading("Presets");
-    ui.small(
-        "Save everything on this panel (plates, tectonics, rock, heights and what's shown) as one preset. \
-         The seed isn't saved with it, so a preset is a recipe that works with any seed.",
-    );
-    let mut preset = world.preset();
-    let before = preset.clone();
-    preset_bar(ui, "worldgen", &mut preset);
-    if preset != before {
-        world.use_preset(preset);
-    }
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.heading("World");
-    ui.small("The world is the circle. The square around it is only there because pictures are square.");
-    seed_row(ui, u32::MAX, &mut world.seed, &mut world.seed_text);
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.heading("Plates");
-    ui.small(
-        "Voronoi cells over the field. Cells that reach past the edge of the world are deleted, and the ones \
-         nearest the middle are kept as plates: the big pieces the continents will grow from.",
-    );
-    let plates = &mut world.plates;
-    ui.add(crate::debug::Slider::new(&mut plates.plates, 1..=20).text("plates"));
-    let mut percent = plates.coverage * 100.0;
-    if ui
-        .add(crate::debug::Slider::new(&mut percent, 5.0..=80.0).suffix("%").text("cover this much of the world"))
-        .on_hover_text("Sets how big the cells are: 7 plates covering 30% means each is about 30% ÷ 7 of the world.\nWhat comes out is close, not exact (cells vary in size); the readout shows it.")
-        .changed()
-    {
-        plates.coverage = percent / 100.0;
-    }
-    ui.add(crate::debug::Slider::new(&mut plates.spread, 0..=10).text("spread evenly (rounds)")).on_hover_text(
-        "Each round moves every point to the middle of its cell, then splits again.\n0 = as scattered (very uneven). More = rounder, more even plates.",
-    );
-    ui.small(format!("{} points scattered over the field.", plates.points()));
-    ui.add(crate::debug::Slider::new(&mut plates.ocean_rings, 0..=3).text("rings of ocean plates")).on_hover_text(
-        "The cells touching the land plates become ocean plates (dim blue). They move too, and where they\nmeet land they make the coast types. More rings = more ocean plates further out.",
-    );
-    ui.add(crate::debug::Slider::new(&mut plates.ocean_among_land, 0..=6).text("ocean plates among the land")).on_hover_text(
-        "Ocean plates in the middle of the land plates (picked from the cells most surrounded by land).\n\
-         They get caught as the land closes in and bite bays and inland seas out of it, so the continent\n\
-         comes out less round. The land plates stay as many as you asked for.",
-    );
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.strong("Wobbly edges");
-    ui.small(
-        "Each line between two cells is pushed sideways by two line mutators, added together. The push is \
-         nothing at the vertices (where three cells meet), so the corners stay put and the lines still meet.",
-    );
-    line_noise(ui, "Large waves", &mut plates.waves);
-    line_noise(ui, "Small roughness", &mut plates.rough);
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.strong("Show");
-    ui.checkbox(&mut world.show_cells, "the deleted cells, faintly in the ocean");
-    ui.checkbox(&mut world.show_vertices, "the vertices (yellow dots)");
-    ui.checkbox(&mut world.show_lines, "the straight lines, before wobbling");
-    ui.add_space(6.0);
-    defaults_row(ui, "Plate settings", &mut world.plates, &mut world.ab_plates);
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.heading("Tectonics");
-    ui.small(
-        "Each plate gets a speed, a direction and a spin, at random from the seed. Nothing moves yet: \
-         the arrows show what each plate would do, and the boundaries are coloured by what that would \
-         do there.",
-    );
-    let motion = &mut world.motion;
-    ui.add(crate::debug::Slider::new(&mut motion.slowest, 0.0..=200.0).text("slowest (blocks per step)"))
-        .on_hover_text("Each plate's speed is picked at random between the slowest and the fastest.");
-    ui.add(crate::debug::Slider::new(&mut motion.fastest, 0.0..=200.0).text("fastest (blocks per step)"));
-    ui.add(crate::debug::Slider::new(&mut motion.ocean_speed, 0.0..=4.0).text("ocean plates' speed ×"))
-        .on_hover_text("Ocean plates' speed is multiplied by this. Real ocean plates are often the faster ones.");
-    ui.add(crate::debug::Slider::new(&mut motion.spin, 0.0..=1.0).text("fastest spin (degrees per step)")).on_hover_text(
-        "Each plate spins at random up to this fast, either way.\nA spinning plate's far side swings one way and its near side the other,\nso one boundary can collide at one end and pull apart at the other.",
-    );
-    ui.add(crate::debug::Slider::new(&mut motion.inward, 0.0..=1.0).text("lean toward the middle"))
-        .on_hover_text("0 = plates head any way at all.\n1 = every plate heads straight for the middle of the world (lots of collisions).");
-    ui.add_space(4.0);
-    ui.checkbox(&mut world.show_arrows, "arrows: heading and spin").on_hover_text(
-        "Straight arrow: where the plate is heading, and how fast.\nCurved arrow: which way it spins. Three quarters of a circle = the fastest spin allowed;\nreal turns are too small to see. The exact numbers are in the table.",
-    );
-    if world.show_arrows {
-        ui.add(crate::debug::Slider::new(&mut world.arrow_steps, 10.0..=1_000.0).logarithmic(true).text("arrow length (steps)"))
-            .on_hover_text("Each straight arrow reaches where the plate's middle would be after this many steps.");
-    }
-    ui.checkbox(&mut world.show_boundaries, "boundaries: red colliding, blue pulling apart, green sliding").on_hover_text(
-        "Where two plates touch, how they move against each other there.\nMost boundaries do a bit of everything; each spot shows what it does most.\nPlates against empty ocean aren't boundaries.",
-    );
-
-    ui.add_space(6.0);
-    ui.strong("The simulation");
-    ui.small(
-        "Start it in the bar along the top. Each plate is a heavy rag: a grid of points joined by springs. \
-         Plates coast on their starting push, squash and bend where they meet, and slow down. Squeezed \
-         rock is thicker (brighter); stretched rock is thinner (darker).",
-    );
-    let sim = &mut world.sim_settings;
-    ui.add_space(4.0);
-    ui.label("The rock (changing these starts the run again):");
-    ui.add(crate::debug::Slider::new(&mut sim.grain, 200.0..=3_000.0).logarithmic(true).text("grain (blocks)"))
-        .on_hover_text("How far apart a plate's points are. Smaller = finer wrinkles and tears, but slower.");
-    ui.add(crate::debug::Slider::new(&mut sim.patchiness, 0.0..=1.0).text("patchiness")).on_hover_text(
-        "How much the rock's stiffness and strength vary from place to place.\n0 = all the same: only the edges crumple. Higher = soft patches give way deep inside plates too.",
-    );
-    ui.add(crate::debug::Slider::new(&mut sim.patch_size, 1_000.0..=40_000.0).logarithmic(true).text("patch size (blocks)"))
-        .on_hover_text("How big the soft and stiff patches are.");
-    ui.add_space(4.0);
-    ui.label("How it behaves (can change while it runs; Reset replays):");
-    ui.add(crate::debug::Slider::new(&mut sim.stiffness, 0.005..=1.0).logarithmic(true).text("stiffness")).on_hover_text(
-        "How firmly the springs pull back each pass.\nLow = soft, floppy rags. High = stiff sheets.\n(Spread out at the low end, where the useful settings are.)",
-    );
-    ui.add(crate::debug::Slider::new(&mut sim.passes, 1..=30).text("passes per step")).on_hover_text(
-        "How far a push travels through a plate each step: about one point per pass.\nFew = the far side lags far behind a hit (the plate crumples). Many = it feels the hit almost at once (stiffer, slower to work out).",
-    );
-    ui.add(crate::debug::Slider::new(&mut sim.give_way, 0.0..=0.2).text("gives way at")).on_hover_text(
-        "How far rock can be squeezed or stretched (0.02 = 2%) before it gives way for good.\nLow = it squashes and stays squashed easily. High = springy.",
-    );
-    ui.add(crate::debug::Slider::new(&mut sim.creep, 0.0..=1.0).text("creep"))
-        .on_hover_text("Once past giving way, how quickly the new shape becomes permanent.");
-    ui.add(crate::debug::Slider::new(&mut sim.crack, 0.05..=2.0).logarithmic(true).text("cracks at")).on_hover_text(
-        "How far rock can be stretched (0.4 = 40% longer) before it snaps and the plate tears there.",
-    );
-    ui.add(crate::debug::Slider::new(&mut sim.push, 0.0..=1.0).text("push back"))
-        .on_hover_text("How firmly plates are kept from overlapping.\nLow = they crush into each other. High = hard edges.");
-    ui.add(crate::debug::Slider::new(&mut sim.friction, 0.0..=1.0).text("friction"))
-        .on_hover_text("How much plates sliding past each other drag each other along.\nAt the edge, that shears and bends them.");
-    ui.add(crate::debug::Slider::new(&mut sim.drag, 0.0001..=0.1).logarithmic(true).text("drag"))
-        .on_hover_text("How much speed every point loses each step. 0.01 = 1%.\nLower = they coast for longer.");
-    ui.add(crate::debug::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean rock's weight ×"))
-        .on_hover_text("How heavy ocean rock is for its size, compared with land rock.\nLight plates get shoved and crumpled; heavy ones shove.");
-    ui.add(crate::debug::Slider::new(&mut sim.stickiness, 0.0..=2.0).text("stickiness")).on_hover_text(
-        "Plates pressed together weld: their touching rock is joined, so they stay together instead of\ndrifting back apart and leaving a strip of sea. Welds can still crack if pulled hard enough.\n0 = plates never stick.",
-    );
-    ui.add(crate::debug::Slider::new(&mut sim.thickest, 1.5..=10.0).logarithmic(true).text("rock thickens up to ×")).on_hover_text(
-        "The most rock can be crushed: this many times as thick, and then it pushes back and the crush spreads\nfurther out, instead of folding over itself. Lower = wide, rounded crush belts. Higher = narrow, sharp ones.\n(Rock that folded over itself drew as sawtooth \"zipper teeth\" along ridgelines.)",
-    );
-    let mut bowl_percent = sim.bowl_start * 100.0;
-    if ui
-        .add(crate::debug::Slider::new(&mut bowl_percent, 0.0..=99.0).suffix("%").text("bowl starts at"))
-        .on_hover_text("The bowl keeps the plates from straying far from the middle (like a Beyblade arena).\nPast this share of the world's radius, the ground slopes up and pushes them back inward.")
-        .changed()
-    {
-        sim.bowl_start = bowl_percent / 100.0;
-    }
-    ui.add(crate::debug::Slider::new(&mut sim.bowl, 0.0..=20.0).text("bowl steepness"))
-        .on_hover_text("How hard the bowl pushes back. The further out a plate goes, the harder.");
-    ui.add(crate::debug::Slider::new(&mut world.height_shown, 0.05..=3.0).logarithmic(true).text("thickness shown as white"))
-        .on_hover_text(
-            "Only changes the look. 0.5 = rock half as thick again shows white, and rock half as thin shows black.\nLower = small squeezes show strongly.",
+    fold_section(ui, "Presets", |ui| {
+        ui.small(
+            "Save everything on this panel (plates, tectonics, rock, heights and what's shown) as one preset. \
+             The seed isn't saved with it, so a preset is a recipe that works with any seed.",
         );
-    ui.add(crate::debug::Slider::new(&mut world.shading_smoothness, 0..=20).text("shading smoothness")).on_hover_text(
-        "Only changes the look: how many times the shading is blended with its neighbours.\n0 = sharp (you can see the grid's triangles). Higher = smooth fields.",
-    );
-    ui.add(crate::debug::Slider::new(&mut world.seal_gaps, 0.0..=8_000.0).text("seal gaps up to (blocks)")).on_hover_text(
-        "Sea narrower than this with rock on both sides (such as a thin gap left between plates that met)\nis filled from the nearest rock, so a mountain range runs straight across it. Wider seas, straits and\nrifts are left open. 0 = seal nothing. Also used when baking.",
-    );
-    ui.add(crate::debug::Slider::new(&mut world.fill_holes, 0.0..=30_000.0).text("fill holes up to (blocks across)")).on_hover_text(
-        "The crust has no holes. Where plates crowd together, their rock can't always pack the space, and pockets\nof nothing open between them (deep-ocean \"bubbles\" drifting round collision zones). A hole with rock\nall round it, no bigger than a circle this wide, is filled from the nearest rock. Bigger ones, such as a\nrift torn wide open, stay sea. Seas joined to the open ocean are never filled. 0 = fill nothing. Also used when baking.",
-    );
-    ui.add(crate::debug::Slider::new(&mut world.tear_open, 1.1..=6.0).logarithmic(true).text("tears open past")).on_hover_text(
-        "Only changes the look. A crack pulled open less than this (× its size) is drawn as thin, stretched rock;\npulled open further, it's a rift and shows the sea. Too high = plates smeared across wide gaps.",
-    );
-    ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
-    ui.checkbox(&mut world.show_push, "show which way the rock was squeezed (lines)").on_hover_text(
-        "Short lines lying along the squeeze: longer = squeezed harder. Mountain ridges would run across them, at right angles.",
-    );
-
-    ui.add_space(6.0);
-    // Motion and rock together, as one section.
-    let mut tectonics = (world.motion.clone(), world.sim_settings.clone());
-    defaults_row(ui, "Tectonics settings", &mut tectonics, &mut world.ab_tectonics);
-    (world.motion, world.sim_settings) = tectonics;
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.heading("Heights and water");
-    ui.small(
-        "Every spot on a plate has a height: its plate's base height, plus terrain noise, minus sunken edges, \
-         plus how much it has been squeezed. Below the water level is sea. None of these change the \
-         simulation, only what's land, so they can be changed at any time.",
-    );
-    let h = &mut world.heights;
-    ui.add(crate::debug::Slider::new(&mut h.land, -1.0..=1.0).text("land plates' base height"))
-        .on_hover_text("Where land plates sit before the terrain noise. Around 0 (the usual water level) = about half land.");
-    ui.add(crate::debug::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
-        .on_hover_text("Where ocean plates sit. Deep: only a hard squeeze lifts them above the water as islands.");
-    ui.add_space(4.0);
-    ui.label("Tilt (each plate tips a random way, on its middle):");
-    ui.add(crate::debug::Slider::new(&mut h.tilt, 0.0..=2.0).text("most tilt")).on_hover_text(
-        "How far a plate can tip: about how high its rising side goes, and how low the other sinks.\nEach plate tips a random direction, by a random share (a third to all) of this.",
-    );
-    ui.add(crate::debug::Slider::new(&mut h.blend, 0.0..=1.0).text("tilt ← blend → noise")).on_hover_text(
-        "Mixes the plain tilt and the terrain noise.\n0 = only tilt: simple plates, each sunk on one side. 1 = only the rolling noise. In between = both.",
-    );
-    ui.add_space(4.0);
-    ui.label("Terrain noise (one for the whole world, riding with the plates):");
-    ui.add(crate::debug::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(
-        "How high and low the rolling terrain goes. More = land plates broken into more islands and bays.",
-    );
-    ui.add(crate::debug::Slider::new(&mut h.terrain_size, 1_000.0..=50_000.0).logarithmic(true).text("size (blocks)"))
-        .on_hover_text("The size of the biggest hills and hollows. Big = whole regions above or below water.");
-    ui.add(crate::debug::Slider::new(&mut h.octaves, 1..=8).text("detail (octaves)")).on_hover_text("Finer, fainter layers on top: more ragged coasts.");
-    ui.add(crate::debug::Slider::new(&mut h.roughness, 0.0..=1.0).text("roughness")).on_hover_text("How strong each finer layer is.");
-    ui.add_space(4.0);
-    ui.label("Sunken edges (continental shelves):");
-    ui.add(crate::debug::Slider::new(&mut h.shelf_width, 0.0..=15_000.0).text("reach in (blocks)")).on_hover_text(
-        "How far in from a plate's edge its ground starts sloping down.\nCoasts then fall inside plates, and plates touching at the start don't automatically join up.",
-    );
-    ui.add(crate::debug::Slider::new(&mut h.shelf_depth, 0.0..=1.0).text("depth at the edge")).on_hover_text("How far the ground sinks at the very edge.");
-    ui.add_space(4.0);
-    ui.add(crate::debug::Slider::new(&mut h.squeeze, 0.0..=3.0).text("squeeze lifts by")).on_hover_text(
-        "How much squeezed rock rises (rock twice as thick rises by this much), and stretched rock sinks.\nThis is what turns crumple belts into mountains and ocean floor into islands.",
-    );
-    ui.add(crate::debug::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
-    ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
-    defaults_row(ui, "Height settings", &mut world.heights, &mut world.ab_heights);
-
-    ui.add_space(6.0);
-    ui.separator();
-    ui.heading("Bake");
-    ui.small(
-        "Makes the world these settings and this seed make, from scratch at 1 chunk per pixel, runs it until \
-         everything stops (or the step limit), and saves its maps in \"world bakes\": height, squeeze, squeeze \
-         direction and strength, and plates, with map.toml saying how to read them. The Terrain Compiler will \
-         build on a bake. It runs in the background.",
-    );
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Name:");
-        ui.add(egui::TextEdit::singleline(&mut world.bake_name).desired_width(140.0).hint_text(format!("world-{:016X}", world.seed)));
-    });
-    ui.add(crate::debug::Slider::new(&mut world.most_steps, 200..=20_000).logarithmic(true).text("most steps")).on_hover_text(
-        "A bake stops when everything has coasted to a stop, or after this many steps, whichever comes first.\nWith very low drag, plates can drift for a long time.",
-    );
-    ui.horizontal_wrapped(|ui| {
-        if world.baking.is_some() {
-            let seconds = world.baking.as_ref().map_or(0.0, |job| job.started.elapsed().as_secs_f32());
-            if ui.button("Stop baking").clicked() {
-                if let Some(job) = &world.baking {
-                    job.stop();
-                }
-            }
-            ui.spinner();
-            ui.label(format!("{seconds:.0} s"));
-            ui.ctx().request_repaint();
-        } else if ui.button("Bake").on_hover_text("Bake this world at 1 chunk per pixel.").clicked() {
-            world.start_bake();
+        let mut preset = world.preset();
+        let before = preset.clone();
+        preset_bar(ui, "worldgen", &mut preset);
+        if preset != before {
+            world.use_preset(preset);
         }
-        if ui.small_button("Bakes folder").clicked()
-            && let Err(error) = super::export::open_folder(&bake::bakes_folder())
+    });
+    fold_section(ui, "World", |ui| {
+        ui.small("The world is the circle. The square around it is only there because pictures are square.");
+        seed_row(ui, u32::MAX, &mut world.seed, &mut world.seed_text);
+    });
+    fold_section(ui, "Plates", |ui| {
+        ui.small(
+            "Voronoi cells over the field. Cells that reach past the edge of the world are deleted, and the ones \
+             nearest the middle are kept as plates: the big pieces the continents will grow from.",
+        );
+        let plates = &mut world.plates;
+        ui.add(crate::debug::Slider::new(&mut plates.plates, 1..=20).text("plates"));
+        let mut percent = plates.coverage * 100.0;
+        if ui
+            .add(crate::debug::Slider::new(&mut percent, 5.0..=80.0).suffix("%").text("cover this much of the world"))
+            .on_hover_text("Sets how big the cells are: 7 plates covering 30% means each is about 30% ÷ 7 of the world.\nWhat comes out is close, not exact (cells vary in size); the readout shows it.")
+            .changed()
         {
-            world.bake_note = format!("Couldn't open the folder: {error}");
+            plates.coverage = percent / 100.0;
         }
+        ui.add(crate::debug::Slider::new(&mut plates.spread, 0..=10).text("spread evenly (rounds)")).on_hover_text(
+            "Each round moves every point to the middle of its cell, then splits again.\n0 = as scattered (very uneven). More = rounder, more even plates.",
+        );
+        ui.small(format!("{} points scattered over the field.", plates.points()));
+        ui.add(crate::debug::Slider::new(&mut plates.ocean_rings, 0..=3).text("rings of ocean plates")).on_hover_text(
+            "The cells touching the land plates become ocean plates (dim blue). They move too, and where they\nmeet land they make the coast types. More rings = more ocean plates further out.",
+        );
+        ui.add(crate::debug::Slider::new(&mut plates.ocean_among_land, 0..=6).text("ocean plates among the land")).on_hover_text(
+            "Ocean plates in the middle of the land plates (picked from the cells most surrounded by land).\n\
+             They get caught as the land closes in and bite bays and inland seas out of it, so the continent\n\
+             comes out less round. The land plates stay as many as you asked for.",
+        );
     });
-    if !world.bake_note.is_empty() {
-        ui.small(&world.bake_note);
-    }
-    // A saved bake's maps, into the Graphics Kit.
-    let bakes = bake::saved_bakes();
-    if !bakes.is_empty() {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("A bake's maps:");
-            egui::ComboBox::from_id_salt("world gen bakes").selected_text(world.bake_chosen.clone().unwrap_or_else(|| "choose…".to_string())).show_ui(ui, |ui| {
-                for name in &bakes {
-                    ui.selectable_value(&mut world.bake_chosen, Some(name.clone()), name);
-                }
-            });
-        });
-        if let Some(chosen) = world.bake_chosen.clone().filter(|chosen| bakes.contains(chosen)) {
-            ui.horizontal_wrapped(|ui| {
-                ui.small("to the Graphics Kit:");
-                for file in ["height", "squeeze", "push_direction", "push_strength", "tilt", "plates"] {
-                    if ui.small_button(file).clicked() {
-                        world.send_file = Some(bake::bakes_folder().join(&chosen).join(format!("{file}.png")));
-                    }
-                }
-            });
+    fold_section(ui, "Wobbly edges", |ui| {
+        ui.small(
+            "Each line between two cells is pushed sideways by two line mutators, added together. The push is \
+             nothing at the vertices (where three cells meet), so the corners stay put and the lines still meet.",
+        );
+        line_noise(ui, "Large waves", &mut world.plates.waves);
+        line_noise(ui, "Small roughness", &mut world.plates.rough);
+    });
+    fold_section(ui, "Show", |ui| {
+        ui.checkbox(&mut world.show_cells, "the deleted cells, faintly in the ocean");
+        ui.checkbox(&mut world.show_vertices, "the vertices (yellow dots)");
+        ui.checkbox(&mut world.show_lines, "the straight lines, before wobbling");
+        ui.add_space(6.0);
+        defaults_row(ui, "Plate settings", &mut world.plates, &mut world.ab_plates);
+    });
+    fold_section(ui, "Tectonics", |ui| {
+        ui.small(
+            "Each plate gets a speed, a direction and a spin, at random from the seed. Nothing moves yet: \
+             the arrows show what each plate would do, and the boundaries are coloured by what that would \
+             do there.",
+        );
+        let motion = &mut world.motion;
+        ui.add(crate::debug::Slider::new(&mut motion.slowest, 0.0..=200.0).text("slowest (blocks per step)"))
+            .on_hover_text("Each plate's speed is picked at random between the slowest and the fastest.");
+        ui.add(crate::debug::Slider::new(&mut motion.fastest, 0.0..=200.0).text("fastest (blocks per step)"));
+        ui.add(crate::debug::Slider::new(&mut motion.ocean_speed, 0.0..=4.0).text("ocean plates' speed ×"))
+            .on_hover_text("Ocean plates' speed is multiplied by this. Real ocean plates are often the faster ones.");
+        ui.add(crate::debug::Slider::new(&mut motion.spin, 0.0..=1.0).text("fastest spin (degrees per step)")).on_hover_text(
+            "Each plate spins at random up to this fast, either way.\nA spinning plate's far side swings one way and its near side the other,\nso one boundary can collide at one end and pull apart at the other.",
+        );
+        ui.add(crate::debug::Slider::new(&mut motion.inward, 0.0..=1.0).text("lean toward the middle"))
+            .on_hover_text("0 = plates head any way at all.\n1 = every plate heads straight for the middle of the world (lots of collisions).");
+        ui.add_space(4.0);
+        ui.checkbox(&mut world.show_arrows, "arrows: heading and spin").on_hover_text(
+            "Straight arrow: where the plate is heading, and how fast.\nCurved arrow: which way it spins. Three quarters of a circle = the fastest spin allowed;\nreal turns are too small to see. The exact numbers are in the table.",
+        );
+        if world.show_arrows {
+            ui.add(crate::debug::Slider::new(&mut world.arrow_steps, 10.0..=1_000.0).logarithmic(true).text("arrow length (steps)"))
+                .on_hover_text("Each straight arrow reaches where the plate's middle would be after this many steps.");
         }
-    }
+        ui.checkbox(&mut world.show_boundaries, "boundaries: red colliding, blue pulling apart, green sliding").on_hover_text(
+            "Where two plates touch, how they move against each other there.\nMost boundaries do a bit of everything; each spot shows what it does most.\nPlates against empty ocean aren't boundaries.",
+        );
+    });
+    fold_section(ui, "The simulation", |ui| {
+        ui.small(
+            "Start it in the bar along the top. Each plate is a heavy rag: a grid of points joined by springs. \
+             Plates coast on their starting push, squash and bend where they meet, and slow down. Squeezed \
+             rock is thicker (brighter); stretched rock is thinner (darker).",
+        );
+        let sim = &mut world.sim_settings;
+        ui.add_space(4.0);
+        ui.label("The rock (changing these starts the run again):");
+        ui.add(crate::debug::Slider::new(&mut sim.grain, 200.0..=3_000.0).logarithmic(true).text("grain (blocks)"))
+            .on_hover_text("How far apart a plate's points are. Smaller = finer wrinkles and tears, but slower.");
+        ui.add(crate::debug::Slider::new(&mut sim.patchiness, 0.0..=1.0).text("patchiness")).on_hover_text(
+            "How much the rock's stiffness and strength vary from place to place.\n0 = all the same: only the edges crumple. Higher = soft patches give way deep inside plates too.",
+        );
+        ui.add(crate::debug::Slider::new(&mut sim.patch_size, 1_000.0..=40_000.0).logarithmic(true).text("patch size (blocks)"))
+            .on_hover_text("How big the soft and stiff patches are.");
+        ui.add_space(4.0);
+        ui.label("How it behaves (can change while it runs; Reset replays):");
+        ui.add(crate::debug::Slider::new(&mut sim.stiffness, 0.005..=1.0).logarithmic(true).text("stiffness")).on_hover_text(
+            "How firmly the springs pull back each pass.\nLow = soft, floppy rags. High = stiff sheets.\n(Spread out at the low end, where the useful settings are.)",
+        );
+        ui.add(crate::debug::Slider::new(&mut sim.passes, 1..=30).text("passes per step")).on_hover_text(
+            "How far a push travels through a plate each step: about one point per pass.\nFew = the far side lags far behind a hit (the plate crumples). Many = it feels the hit almost at once (stiffer, slower to work out).",
+        );
+        ui.add(crate::debug::Slider::new(&mut sim.give_way, 0.0..=0.2).text("gives way at")).on_hover_text(
+            "How far rock can be squeezed or stretched (0.02 = 2%) before it gives way for good.\nLow = it squashes and stays squashed easily. High = springy.",
+        );
+        ui.add(crate::debug::Slider::new(&mut sim.creep, 0.0..=1.0).text("creep"))
+            .on_hover_text("Once past giving way, how quickly the new shape becomes permanent.");
+        ui.add(crate::debug::Slider::new(&mut sim.crack, 0.05..=2.0).logarithmic(true).text("cracks at")).on_hover_text(
+            "How far rock can be stretched (0.4 = 40% longer) before it snaps and the plate tears there.",
+        );
+        ui.add(crate::debug::Slider::new(&mut sim.push, 0.0..=1.0).text("push back"))
+            .on_hover_text("How firmly plates are kept from overlapping.\nLow = they crush into each other. High = hard edges.");
+        ui.add(crate::debug::Slider::new(&mut sim.friction, 0.0..=1.0).text("friction"))
+            .on_hover_text("How much plates sliding past each other drag each other along.\nAt the edge, that shears and bends them.");
+        ui.add(crate::debug::Slider::new(&mut sim.drag, 0.0001..=0.1).logarithmic(true).text("drag"))
+            .on_hover_text("How much speed every point loses each step. 0.01 = 1%.\nLower = they coast for longer.");
+        ui.add(crate::debug::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean rock's weight ×"))
+            .on_hover_text("How heavy ocean rock is for its size, compared with land rock.\nLight plates get shoved and crumpled; heavy ones shove.");
+        ui.add(crate::debug::Slider::new(&mut sim.stickiness, 0.0..=2.0).text("stickiness")).on_hover_text(
+            "Plates pressed together weld: their touching rock is joined, so they stay together instead of\ndrifting back apart and leaving a strip of sea. Welds can still crack if pulled hard enough.\n0 = plates never stick.",
+        );
+        ui.add(crate::debug::Slider::new(&mut sim.thickest, 1.5..=10.0).logarithmic(true).text("rock thickens up to ×")).on_hover_text(
+            "The most rock can be crushed: this many times as thick, and then it pushes back and the crush spreads\nfurther out, instead of folding over itself. Lower = wide, rounded crush belts. Higher = narrow, sharp ones.\n(Rock that folded over itself drew as sawtooth \"zipper teeth\" along ridgelines.)",
+        );
+        let mut bowl_percent = sim.bowl_start * 100.0;
+        if ui
+            .add(crate::debug::Slider::new(&mut bowl_percent, 0.0..=99.0).suffix("%").text("bowl starts at"))
+            .on_hover_text("The bowl keeps the plates from straying far from the middle (like a Beyblade arena).\nPast this share of the world's radius, the ground slopes up and pushes them back inward.")
+            .changed()
+        {
+            sim.bowl_start = bowl_percent / 100.0;
+        }
+        ui.add(crate::debug::Slider::new(&mut sim.bowl, 0.0..=20.0).text("bowl steepness"))
+            .on_hover_text("How hard the bowl pushes back. The further out a plate goes, the harder.");
+        ui.add(crate::debug::Slider::new(&mut world.height_shown, 0.05..=3.0).logarithmic(true).text("thickness shown as white"))
+            .on_hover_text(
+                "Only changes the look. 0.5 = rock half as thick again shows white, and rock half as thin shows black.\nLower = small squeezes show strongly.",
+            );
+        ui.add(crate::debug::Slider::new(&mut world.shading_smoothness, 0..=20).text("shading smoothness")).on_hover_text(
+            "Only changes the look: how many times the shading is blended with its neighbours.\n0 = sharp (you can see the grid's triangles). Higher = smooth fields.",
+        );
+        ui.add(crate::debug::Slider::new(&mut world.seal_gaps, 0.0..=8_000.0).text("seal gaps up to (blocks)")).on_hover_text(
+            "Sea narrower than this with rock on both sides (such as a thin gap left between plates that met)\nis filled from the nearest rock, so a mountain range runs straight across it. Wider seas, straits and\nrifts are left open. 0 = seal nothing. Also used when baking.",
+        );
+        ui.add(crate::debug::Slider::new(&mut world.fill_holes, 0.0..=30_000.0).text("fill holes up to (blocks across)")).on_hover_text(
+            "The crust has no holes. Where plates crowd together, their rock can't always pack the space, and pockets\nof nothing open between them (deep-ocean \"bubbles\" drifting round collision zones). A hole with rock\nall round it, no bigger than a circle this wide, is filled from the nearest rock. Bigger ones, such as a\nrift torn wide open, stay sea. Seas joined to the open ocean are never filled. 0 = fill nothing. Also used when baking.",
+        );
+        ui.add(crate::debug::Slider::new(&mut world.tear_open, 1.1..=6.0).logarithmic(true).text("tears open past")).on_hover_text(
+            "Only changes the look. A crack pulled open less than this (× its size) is drawn as thin, stretched rock;\npulled open further, it's a rift and shows the sea. Too high = plates smeared across wide gaps.",
+        );
+        ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
+        ui.checkbox(&mut world.show_push, "show which way the rock was squeezed (lines)").on_hover_text(
+            "Short lines lying along the squeeze: longer = squeezed harder. Mountain ridges would run across them, at right angles.",
+        );
 
-    ui.add_space(6.0);
-    ui.separator();
-    ui.heading("Send to the Graphics Kit");
-    ui.small("Any of these maps, as things are now (before, during or after a run), as a grey picture layer in the Graphics Kit, to see on its own or work with.");
-    ui.horizontal_wrapped(|ui| {
-        for (map, name, hover) in [
-            (Map::Squeeze, "squeeze", "The deformation map. Mid-grey = unchanged rock, brighter = squeezed, darker = stretched\n(on the same scale as \"thickness shown as white\"). Sea with no plate = mid-grey."),
-            (Map::Height, "height", "The full height (terrain + squeeze): black = the lowest point, white = the highest."),
-            (Map::Land, "land", "White = land, black = sea, at the current water level."),
-            (Map::Push, "squeeze direction", "Which way the rock was squeezed, as colour (round the colour wheel once from east–west,\nthrough north–south, and back), and how hard as brightness (black = not squeezed)."),
-        ] {
-            if ui.button(name).on_hover_text(hover).clicked() {
-                match (world.map_picture(map), &world.result) {
-                    (Some(picture), Some(result)) => {
-                        world.send = Some((name.to_string(), picture, result.made.blocks_per_pixel));
-                        world.sent_note = format!("Sent \"{name}\" to the Graphics Kit as a layer.");
+        ui.add_space(6.0);
+        // Motion and rock together, as one section.
+        let mut tectonics = (world.motion.clone(), world.sim_settings.clone());
+        defaults_row(ui, "Tectonics settings", &mut tectonics, &mut world.ab_tectonics);
+        (world.motion, world.sim_settings) = tectonics;
+    });
+    fold_section(ui, "Heights and water", |ui| {
+        ui.small(
+            "Every spot on a plate has a height: its plate's base height, plus terrain noise, minus sunken edges, \
+             plus how much it has been squeezed. Below the water level is sea. None of these change the \
+             simulation, only what's land, so they can be changed at any time.",
+        );
+        let h = &mut world.heights;
+        ui.add(crate::debug::Slider::new(&mut h.land, -1.0..=1.0).text("land plates' base height"))
+            .on_hover_text("Where land plates sit before the terrain noise. Around 0 (the usual water level) = about half land.");
+        ui.add(crate::debug::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
+            .on_hover_text("Where ocean plates sit. Deep: only a hard squeeze lifts them above the water as islands.");
+        ui.add_space(4.0);
+        ui.label("Tilt (each plate tips a random way, on its middle):");
+        ui.add(crate::debug::Slider::new(&mut h.tilt, 0.0..=2.0).text("most tilt")).on_hover_text(
+            "How far a plate can tip: about how high its rising side goes, and how low the other sinks.\nEach plate tips a random direction, by a random share (a third to all) of this.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.blend, 0.0..=1.0).text("tilt ← blend → noise")).on_hover_text(
+            "Mixes the plain tilt and the terrain noise.\n0 = only tilt: simple plates, each sunk on one side. 1 = only the rolling noise. In between = both.",
+        );
+        ui.add_space(4.0);
+        ui.label("Terrain noise (one for the whole world, riding with the plates):");
+        ui.add(crate::debug::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(
+            "How high and low the rolling terrain goes. More = land plates broken into more islands and bays.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.terrain_size, 1_000.0..=50_000.0).logarithmic(true).text("size (blocks)"))
+            .on_hover_text("The size of the biggest hills and hollows. Big = whole regions above or below water.");
+        ui.add(crate::debug::Slider::new(&mut h.octaves, 1..=8).text("detail (octaves)")).on_hover_text("Finer, fainter layers on top: more ragged coasts.");
+        ui.add(crate::debug::Slider::new(&mut h.roughness, 0.0..=1.0).text("roughness")).on_hover_text("How strong each finer layer is.");
+        ui.add_space(4.0);
+        ui.label("Sunken edges (continental shelves):");
+        ui.add(crate::debug::Slider::new(&mut h.shelf_width, 0.0..=15_000.0).text("reach in (blocks)")).on_hover_text(
+            "How far in from a plate's edge its ground starts sloping down.\nCoasts then fall inside plates, and plates touching at the start don't automatically join up.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.shelf_depth, 0.0..=1.0).text("depth at the edge")).on_hover_text("How far the ground sinks at the very edge.");
+        ui.add_space(4.0);
+        ui.add(crate::debug::Slider::new(&mut h.squeeze, 0.0..=3.0).text("squeeze lifts by")).on_hover_text(
+            "How much squeezed rock rises (rock twice as thick rises by this much), and stretched rock sinks.\nThis is what turns crumple belts into mountains and ocean floor into islands.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
+        ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
+        defaults_row(ui, "Height settings", &mut world.heights, &mut world.ab_heights);
+    });
+    fold_section(ui, "Bake", |ui| {
+        ui.small(
+            "Makes the world these settings and this seed make, from scratch at 1 chunk per pixel, runs it until \
+             everything stops (or the step limit), and saves its maps in \"world bakes\": height, squeeze, squeeze \
+             direction and strength, and plates, with map.toml saying how to read them. The Terrain Compiler will \
+             build on a bake. It runs in the background.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Name:");
+            ui.add(egui::TextEdit::singleline(&mut world.bake_name).desired_width(140.0).hint_text(format!("world-{:016X}", world.seed)));
+        });
+        ui.add(crate::debug::Slider::new(&mut world.most_steps, 200..=20_000).logarithmic(true).text("most steps")).on_hover_text(
+            "A bake stops when everything has coasted to a stop, or after this many steps, whichever comes first.\nWith very low drag, plates can drift for a long time.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            if world.baking.is_some() {
+                let seconds = world.baking.as_ref().map_or(0.0, |job| job.started.elapsed().as_secs_f32());
+                if ui.button("Stop baking").clicked() {
+                    if let Some(job) = &world.baking {
+                        job.stop();
                     }
-                    _ => world.sent_note = "Nothing to send yet.".to_string(),
                 }
+                ui.spinner();
+                ui.label(format!("{seconds:.0} s"));
+                ui.ctx().request_repaint();
+            } else if ui.button("Bake").on_hover_text("Bake this world at 1 chunk per pixel.").clicked() {
+                world.start_bake();
+            }
+            if ui.small_button("Bakes folder").clicked()
+                && let Err(error) = super::export::open_folder(&bake::bakes_folder())
+            {
+                world.bake_note = format!("Couldn't open the folder: {error}");
+            }
+        });
+        if !world.bake_note.is_empty() {
+            ui.small(&world.bake_note);
+        }
+        // A saved bake's maps, into the Graphics Kit.
+        let bakes = bake::saved_bakes();
+        if !bakes.is_empty() {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("A bake's maps:");
+                egui::ComboBox::from_id_salt("world gen bakes").selected_text(world.bake_chosen.clone().unwrap_or_else(|| "choose…".to_string())).show_ui(ui, |ui| {
+                    for name in &bakes {
+                        ui.selectable_value(&mut world.bake_chosen, Some(name.clone()), name);
+                    }
+                });
+            });
+            if let Some(chosen) = world.bake_chosen.clone().filter(|chosen| bakes.contains(chosen)) {
+                ui.horizontal_wrapped(|ui| {
+                    ui.small("to the Graphics Kit:");
+                    for file in ["height", "squeeze", "push_direction", "push_strength", "tilt", "plates"] {
+                        if ui.small_button(file).clicked() {
+                            world.send_file = Some(bake::bakes_folder().join(&chosen).join(format!("{file}.png")));
+                        }
+                    }
+                });
             }
         }
     });
-    if !world.sent_note.is_empty() {
-        ui.small(&world.sent_note);
-    }
+    fold_section(ui, "Send to the Graphics Kit", |ui| {
+        ui.small("Any of these maps, as things are now (before, during or after a run), as a grey picture layer in the Graphics Kit, to see on its own or work with.");
+        ui.horizontal_wrapped(|ui| {
+            for (map, name, hover) in [
+                (Map::Squeeze, "squeeze", "The deformation map. Mid-grey = unchanged rock, brighter = squeezed, darker = stretched\n(on the same scale as \"thickness shown as white\"). Sea with no plate = mid-grey."),
+                (Map::Height, "height", "The full height (terrain + squeeze): black = the lowest point, white = the highest."),
+                (Map::Land, "land", "White = land, black = sea, at the current water level."),
+                (Map::Push, "squeeze direction", "Which way the rock was squeezed, as colour (round the colour wheel once from east–west,\nthrough north–south, and back), and how hard as brightness (black = not squeezed)."),
+            ] {
+                if ui.button(name).on_hover_text(hover).clicked() {
+                    match (world.map_picture(map), &world.result) {
+                        (Some(picture), Some(result)) => {
+                            world.send = Some((name.to_string(), picture, result.made.blocks_per_pixel));
+                            world.sent_note = format!("Sent \"{name}\" to the Graphics Kit as a layer.");
+                        }
+                        _ => world.sent_note = "Nothing to send yet.".to_string(),
+                    }
+                }
+            }
+        });
+        if !world.sent_note.is_empty() {
+            ui.small(&world.sent_note);
+        }
+    });
 }
 
 /// One line mutator's controls.

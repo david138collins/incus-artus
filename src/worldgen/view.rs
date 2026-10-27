@@ -161,6 +161,25 @@ fn foldable(root: &mut egui::Ui, right: bool, id: &str, title: &str, folded: &mu
     });
 }
 
+/// A section of a panel, under a heading that folds it away when clicked (so the eye isn't drawn to
+/// what isn't being worked on). Open to begin with; remembered while the game runs.
+pub fn fold_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) -> egui::Response {
+    ui.add_space(6.0);
+    ui.separator();
+    egui::CollapsingHeader::new(egui::RichText::new(title).strong()).default_open(true).show(ui, add_contents).header_response
+}
+
+/// The same for a section with a switch in its heading (the whole feature on or off); its contents
+/// are greyed out while it's off.
+pub fn switched_section(ui: &mut egui::Ui, title: &str, on: &mut bool, add_contents: impl FnOnce(&mut egui::Ui)) {
+    ui.add_space(6.0);
+    ui.separator();
+    let id = ui.make_persistent_id((title, "section"));
+    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, true)
+        .show_header(ui, |ui| ui.checkbox(on, egui::RichText::new(title).strong()))
+        .body(|ui| ui.add_enabled_ui(*on, add_contents));
+}
+
 /// "a-very-long-file-name" → "a-very-long-fi…" (for tight spots; hover shows the whole name).
 pub fn short(name: &str, most: usize) -> String {
     if name.chars().count() <= most { name.to_string() } else { name.chars().take(most - 1).chain(['…']).collect() }
@@ -425,89 +444,86 @@ fn settings_panel(ui: &mut egui::Ui, suite: &mut Suite) {
         }
     }
 
-    ui.add_space(10.0);
-    ui.separator();
-    ui.heading("Colour when shown alone");
-    ui.small(
-        "How this layer looks on its own. In the result, the layers' numbers are mixed and the \
-         result's palette colours them, so these colours only show when the layer is shown alone.",
-    );
-    let alone = Watch::Alone(layer.id);
-    if *watch == alone {
-        if ui.button("Back to watching the result").clicked() {
-            *watch = Watch::Result;
+    fold_section(ui, "Colour when shown alone", |ui| {
+        ui.small(
+            "How this layer looks on its own. In the result, the layers' numbers are mixed and the \
+             result's palette colours them, so these colours only show when the layer is shown alone.",
+        );
+        let alone = Watch::Alone(layer.id);
+        if *watch == alone {
+            if ui.button("Back to watching the result").clicked() {
+                *watch = Watch::Result;
+            }
+        } else if ui.button("Watch this layer alone").clicked() {
+            *watch = alone;
         }
-    } else if ui.button("Watch this layer alone").clicked() {
-        *watch = alone;
-    }
-    let is_image = matches!(layer.kind, LayerKind::Image { .. });
-    colour_panel(ui, &mut layer.colouring, is_image, view);
+        let is_image = matches!(layer.kind, LayerKind::Image { .. });
+        colour_panel(ui, &mut layer.colouring, is_image, view);
+    });
 }
 
 /// How a warp bends the layer below it (see `warp.rs`).
 fn warp_settings(ui: &mut egui::Ui, warp: &mut WarpSettings, opacity: &mut f32) {
-    section(
-        ui,
-        "Warp",
-        "Bends the layer below: each pixel shows what that layer has a little way off, by an amount read from this layer's own noise. Nothing is added; the same shapes, bent.",
-    );
-    ui.horizontal(|ui| {
-        ui.label("mode:");
-        for mode in WarpMode::ALL {
-            ui.selectable_value(&mut warp.mode, mode, mode.name()).on_hover_text(mode.about());
+    section(ui, "Warp", "Bends the layer below: each pixel shows what that layer has a little way off, by an amount read from this layer's own noise. Nothing is added; the same shapes, bent.", |ui| {
+        ui.horizontal(|ui| {
+            ui.label("mode:");
+            for mode in WarpMode::ALL {
+                ui.selectable_value(&mut warp.mode, mode, mode.name()).on_hover_text(mode.about());
+            }
+        });
+        ui.small(warp.mode.about());
+        ui.add(crate::debug::Slider::new(&mut warp.amount, 50.0..=20_000.0).logarithmic(true).text("amount (blocks)"))
+            .on_hover_text("How far the push reaches. About the size of the shapes below = strong bending; much more = smeared.");
+        match warp.mode {
+            WarpMode::Swirl => {
+                ui.add(crate::debug::Slider::new(&mut warp.turns, 0.1..=4.0).text("turns")).on_hover_text(
+                    "How many times round the compass the push turns, from the warp's darkest value to its brightest.\nMore = tighter curls.",
+                );
+                ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("start"))
+                    .on_hover_text("Which way the darkest value pushes (0 = east, 90 = north). Turns the whole swirl.");
+            }
+            WarpMode::Push => {
+                ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("direction"))
+                    .on_hover_text("Which way bright values push (0 = east, 90 = north); dark values push the opposite way.");
+            }
+            WarpMode::Flow => {}
         }
+        let mut percent = *opacity * 100.0;
+        if ui
+            .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
+            .on_hover_text("0% = not bent at all. 100% = fully bent.")
+            .changed()
+        {
+            *opacity = percent / 100.0;
+        }
+        ui.checkbox(&mut warp.everything_below, "bend everything below").on_hover_text(
+            "Off: bends only the layer just below, before it mixes in.\nOn: bends the whole stack beneath it, as it stands there.",
+        );
     });
-    ui.small(warp.mode.about());
-    ui.add(crate::debug::Slider::new(&mut warp.amount, 50.0..=20_000.0).logarithmic(true).text("amount (blocks)"))
-        .on_hover_text("How far the push reaches. About the size of the shapes below = strong bending; much more = smeared.");
-    match warp.mode {
-        WarpMode::Swirl => {
-            ui.add(crate::debug::Slider::new(&mut warp.turns, 0.1..=4.0).text("turns")).on_hover_text(
-                "How many times round the compass the push turns, from the warp's darkest value to its brightest.\nMore = tighter curls.",
-            );
-            ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("start"))
-                .on_hover_text("Which way the darkest value pushes (0 = east, 90 = north). Turns the whole swirl.");
-        }
-        WarpMode::Push => {
-            ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("direction"))
-                .on_hover_text("Which way bright values push (0 = east, 90 = north); dark values push the opposite way.");
-        }
-        WarpMode::Flow => {}
-    }
-    let mut percent = *opacity * 100.0;
-    if ui
-        .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
-        .on_hover_text("0% = not bent at all. 100% = fully bent.")
-        .changed()
-    {
-        *opacity = percent / 100.0;
-    }
-    ui.checkbox(&mut warp.everything_below, "bend everything below").on_hover_text(
-        "Off: bends only the layer just below, before it mixes in.\nOn: bends the whole stack beneath it, as it stands there.",
-    );
 }
 
 /// How a layer mixes with the layers below it.
 fn mix_settings(ui: &mut egui::Ui, layer: &mut layers::Layer) {
-    section(ui, "Mix", "How this layer combines with the layers below it. Their numbers mix, not their colours.");
-    ui.horizontal(|ui| {
-        ui.label("mode:");
-        egui::ComboBox::from_id_salt("worldgen mix").selected_text(layer.mix.name()).show_ui(ui, |ui| {
-            for mix in Mix::ALL {
-                ui.selectable_value(&mut layer.mix, mix, mix.name()).on_hover_text(mix.about());
-            }
+    section(ui, "Mix", "How this layer combines with the layers below it. Their numbers mix, not their colours.", |ui| {
+        ui.horizontal(|ui| {
+            ui.label("mode:");
+            egui::ComboBox::from_id_salt("worldgen mix").selected_text(layer.mix.name()).show_ui(ui, |ui| {
+                for mix in Mix::ALL {
+                    ui.selectable_value(&mut layer.mix, mix, mix.name()).on_hover_text(mix.about());
+                }
+            });
         });
+        ui.small(layer.mix.about());
+        let mut percent = layer.opacity * 100.0;
+        if ui
+            .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
+            .on_hover_text("0% = just the layers below. 100% = the full mix.")
+            .changed()
+        {
+            layer.opacity = percent / 100.0;
+        }
+        ui.small("(The bottom layer has nothing below, so its own values are used as they are.)");
     });
-    ui.small(layer.mix.about());
-    let mut percent = layer.opacity * 100.0;
-    if ui
-        .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))
-        .on_hover_text("0% = just the layers below. 100% = the full mix.")
-        .changed()
-    {
-        layer.opacity = percent / 100.0;
-    }
-    ui.small("(The bottom layer has nothing below, so its own values are used as they are.)");
 }
 
 /// The seed, typed in hex or freshly rolled. `text` holds what's being typed.
@@ -534,33 +550,35 @@ fn worley_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Worle
     ui.small("Points scattered over a grid. Every spot belongs to its nearest point, which splits the world into cells (Voronoi).");
     seed_row(ui, id, seed, &mut view.seed_text);
 
-    section(ui, "Cells", "The points, and what's measured from them.");
-    ui.add(crate::debug::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("cell size (blocks)"))
-        .on_hover_text("About how far apart the points are: one grid square of the first octave.");
-    ui.add(crate::debug::Slider::new(&mut noise.jitter, 0.0..=1.0).text("jitter"))
-        .on_hover_text("How far each point may wander inside its grid square.\n0 = a neat grid of identical cells. 1 = fully random.");
-    ui.horizontal_wrapped(|ui| {
-        ui.label("shows:");
-        for feature in Feature::ALL {
-            ui.selectable_value(&mut noise.feature, feature, feature.name()).on_hover_text(feature.about());
-        }
+    section(ui, "Cells", "The points, and what's measured from them.", |ui| {
+        ui.add(crate::debug::Slider::new(&mut noise.scale, 100.0..=72_000.0).logarithmic(true).text("cell size (blocks)"))
+            .on_hover_text("About how far apart the points are: one grid square of the first octave.");
+        ui.add(crate::debug::Slider::new(&mut noise.jitter, 0.0..=1.0).text("jitter"))
+            .on_hover_text("How far each point may wander inside its grid square.\n0 = a neat grid of identical cells. 1 = fully random.");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("shows:");
+            for feature in Feature::ALL {
+                ui.selectable_value(&mut noise.feature, feature, feature.name()).on_hover_text(feature.about());
+            }
+        });
+        ui.small(noise.feature.about());
+        ui.horizontal_wrapped(|ui| {
+            ui.label("distance:");
+            for distance in Distance::ALL {
+                ui.selectable_value(&mut noise.distance, distance, distance.name());
+            }
+        })
+        .response
+        .on_hover_text("How distance to a point is measured, which sets the cells' shape.");
     });
-    ui.small(noise.feature.about());
-    ui.horizontal_wrapped(|ui| {
-        ui.label("distance:");
-        for distance in Distance::ALL {
-            ui.selectable_value(&mut noise.distance, distance, distance.name());
-        }
-    })
-    .response
-    .on_hover_text("How distance to a point is measured, which sets the cells' shape.");
 
-    section(ui, "Octaves", "Finer, fainter copies stacked on top. 1 = plain cells.");
-    ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=8).text("octaves"));
-    ui.add(crate::debug::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
-        .on_hover_text("How strong each octave is compared with the one before.");
-    ui.add(crate::debug::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
-        .on_hover_text("How much finer each octave is than the one before.");
+    section(ui, "Octaves", "Finer, fainter copies stacked on top. 1 = plain cells.", |ui| {
+        ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=8).text("octaves"));
+        ui.add(crate::debug::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
+            .on_hover_text("How strong each octave is compared with the one before.");
+        ui.add(crate::debug::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
+            .on_hover_text("How much finer each octave is than the one before.");
+    });
 
     placement_rows(
         ui,
@@ -573,28 +591,29 @@ fn worley_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Worle
     if ui.button("All settings back to defaults").clicked() {
         *noise = WorleySettings::default();
     }
-    ui.separator();
-    ui.strong("Worley presets");
-    ui.small("Save a useful kind of cells by name. The seed isn't saved with it.");
-    preset_bar(ui, "worley", noise);
+    fold_section(ui, "Worley presets", |ui| {
+        ui.small("Save a useful kind of cells by name. The seed isn't saved with it.");
+        preset_bar(ui, "worley", noise);
+    });
 }
 
 /// Slide, stretch, stretch direction, turn each octave (shared by the noise layers).
 fn placement_rows(ui: &mut egui::Ui, [north, east, stretch, angle, turn]: [&mut f32; 5]) {
-    section(ui, "Placement", "Where the pattern sits and which way it leans.");
-    ui.horizontal(|ui| {
-        ui.label("slide");
-        ui.add(egui::DragValue::new(north).speed(50.0).suffix(" N"));
-        ui.add(egui::DragValue::new(east).speed(50.0).suffix(" E"));
-    })
-    .response
-    .on_hover_text("Moves the whole field, in blocks. Drag the numbers.");
-    ui.add(crate::debug::Slider::new(stretch, 0.1..=10.0).logarithmic(true).text("stretch"))
-        .on_hover_text("1 = round features. 3 = three times as long as they are wide.");
-    ui.add(crate::debug::Slider::new(angle, 0.0..=180.0).suffix("°").text("stretch direction"))
-        .on_hover_text("0° = stretched east–west, 90° = north–south.");
-    ui.add(crate::debug::Slider::new(turn, 0.0..=90.0).suffix("°").text("turn each octave"))
-        .on_hover_text("Turns each octave against the one before, so the grids don't line up\n(hides faint straight lines in the pattern).");
+    section(ui, "Placement", "Where the pattern sits and which way it leans.", |ui| {
+        ui.horizontal(|ui| {
+            ui.label("slide");
+            ui.add(egui::DragValue::new(north).speed(50.0).suffix(" N"));
+            ui.add(egui::DragValue::new(east).speed(50.0).suffix(" E"));
+        })
+        .response
+        .on_hover_text("Moves the whole field, in blocks. Drag the numbers.");
+        ui.add(crate::debug::Slider::new(stretch, 0.1..=10.0).logarithmic(true).text("stretch"))
+            .on_hover_text("1 = round features. 3 = three times as long as they are wide.");
+        ui.add(crate::debug::Slider::new(angle, 0.0..=180.0).suffix("°").text("stretch direction"))
+            .on_hover_text("0° = stretched east–west, 90° = north–south.");
+        ui.add(crate::debug::Slider::new(turn, 0.0..=90.0).suffix("°").text("turn each octave"))
+            .on_hover_text("Turns each octave against the one before, so the grids don't line up\n(hides faint straight lines in the pattern).");
+    });
 }
 
 fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut PerlinSettings, view: &mut ViewState) {
@@ -606,56 +625,58 @@ fn perlin_settings(ui: &mut egui::Ui, id: u32, seed: &mut u64, noise: &mut Perli
     if ui.button("All settings back to defaults").clicked() {
         *noise = PerlinSettings::default();
     }
-    ui.separator();
-    ui.strong("Noise presets");
-    ui.small("Save a useful kind of noise by name. The seed isn't saved with it, so a preset works with any seed.");
-    preset_bar(ui, "noise", noise);
+    fold_section(ui, "Noise presets", |ui| {
+        ui.small("Save a useful kind of noise by name. The seed isn't saved with it, so a preset works with any seed.");
+        preset_bar(ui, "noise", noise);
+    });
 }
 
 /// A Perlin field's settings: pattern, placement, maths and output. Shared by Graphics Kit Perlin
 /// layers and the World Interpreter's hills and ground detail. `fill_help` shows the "fill black
 /// to white" switch (which needs the whole field at once, so the Interpreter leaves it out).
 pub fn perlin_rows(ui: &mut egui::Ui, noise: &mut PerlinSettings, sizes: std::ops::RangeInclusive<f32>, fill_help: Option<&str>) {
-    section(ui, "Pattern", "What the noise is made of.");
-    ui.add(crate::debug::Slider::new(&mut noise.scale, sizes).logarithmic(true).text("size (blocks)"))
-        .on_hover_text("The size of the biggest features: one grid square of the first octave.");
-    ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=16).text("octaves"))
-        .on_hover_text("How many layers are stacked. Each one adds finer detail.");
-    ui.add(crate::debug::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
-        .on_hover_text("How strong each octave is compared with the one before.\n0.5 = half as strong. Higher = rougher.");
-    ui.add(crate::debug::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
-        .on_hover_text("How much finer each octave is than the one before.\n2 = twice as fine.");
+    section(ui, "Pattern", "What the noise is made of.", |ui| {
+        ui.add(crate::debug::Slider::new(&mut noise.scale, sizes).logarithmic(true).text("size (blocks)"))
+            .on_hover_text("The size of the biggest features: one grid square of the first octave.");
+        ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=16).text("octaves"))
+            .on_hover_text("How many layers are stacked. Each one adds finer detail.");
+        ui.add(crate::debug::Slider::new(&mut noise.persistence, 0.0..=1.0).text("persistence"))
+            .on_hover_text("How strong each octave is compared with the one before.\n0.5 = half as strong. Higher = rougher.");
+        ui.add(crate::debug::Slider::new(&mut noise.lacunarity, 1.1..=4.0).text("lacunarity"))
+            .on_hover_text("How much finer each octave is than the one before.\n2 = twice as fine.");
+    });
 
     placement_rows(
         ui,
         [&mut noise.offset_north, &mut noise.offset_east, &mut noise.stretch, &mut noise.stretch_angle, &mut noise.octave_turn],
     );
 
-    section(ui, "Maths", "How each octave is worked out.");
-    ui.horizontal(|ui| {
-        ui.label("fade:");
-        for fade in Fade::ALL {
-            ui.selectable_value(&mut noise.fade, fade, fade.name());
-        }
-    })
-    .response
-    .on_hover_text("The curve that blends between grid posts.\nStraight shows the grid; smooth hides it.");
-    ui.horizontal_wrapped(|ui| {
-        ui.label("solo octave:");
-        if ui.selectable_label(noise.solo_octave == 0, "all").clicked() {
+    section(ui, "Maths", "How each octave is worked out.", |ui| {
+        ui.horizontal(|ui| {
+            ui.label("fade:");
+            for fade in Fade::ALL {
+                ui.selectable_value(&mut noise.fade, fade, fade.name());
+            }
+        })
+        .response
+        .on_hover_text("The curve that blends between grid posts.\nStraight shows the grid; smooth hides it.");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("solo octave:");
+            if ui.selectable_label(noise.solo_octave == 0, "all").clicked() {
+                noise.solo_octave = 0;
+            }
+            for octave in 1..=noise.octaves {
+                if ui.selectable_label(noise.solo_octave == octave, octave.to_string()).clicked() {
+                    noise.solo_octave = octave;
+                }
+            }
+        })
+        .response
+        .on_hover_text("See one octave on its own, like soloing a channel on a mixing desk.");
+        if noise.solo_octave > noise.octaves {
             noise.solo_octave = 0;
         }
-        for octave in 1..=noise.octaves {
-            if ui.selectable_label(noise.solo_octave == octave, octave.to_string()).clicked() {
-                noise.solo_octave = octave;
-            }
-        }
-    })
-    .response
-    .on_hover_text("See one octave on its own, like soloing a channel on a mixing desk.");
-    if noise.solo_octave > noise.octaves {
-        noise.solo_octave = 0;
-    }
+    });
 
     output_settings(ui, &mut noise.output, fill_help);
 }
@@ -670,34 +691,35 @@ fn image_settings(
 ) {
     ui.small(format!("{file}: {width} × {height} pixels. Its brightness is the layer's values; its own colours are kept too."));
 
-    section(ui, "Placement", "Where the picture sits in the world, and how big.");
-    ui.horizontal(|ui| {
-        ui.label("centre");
-        ui.add(egui::DragValue::new(&mut placement.centre_north).speed(50.0).suffix(" N"));
-        ui.add(egui::DragValue::new(&mut placement.centre_east).speed(50.0).suffix(" E"));
-    })
-    .response
-    .on_hover_text("Where the picture's middle is, in blocks from the field's centre. Drag the numbers.");
-    ui.add(
-        crate::debug::Slider::new(&mut placement.blocks_per_pixel, 1.0..=4096.0)
-            .logarithmic(true)
-            .text("blocks per picture pixel"),
-    );
-    ui.small(format!(
-        "The picture covers {:.0} × {:.0} blocks.",
-        width as f32 * placement.blocks_per_pixel,
-        height as f32 * placement.blocks_per_pixel
-    ));
-    ui.horizontal(|ui| {
-        if ui.button("1 picture pixel = 1 field pixel").clicked() {
-            placement.blocks_per_pixel = blocks_per_pixel;
-        }
-        if ui.button("Fit the field").clicked() {
-            placement.blocks_per_pixel = size_blocks / width.max(height).max(1) as f32;
-            (placement.centre_north, placement.centre_east) = (0.0, 0.0);
-        }
+    section(ui, "Placement", "Where the picture sits in the world, and how big.", |ui| {
+        ui.horizontal(|ui| {
+            ui.label("centre");
+            ui.add(egui::DragValue::new(&mut placement.centre_north).speed(50.0).suffix(" N"));
+            ui.add(egui::DragValue::new(&mut placement.centre_east).speed(50.0).suffix(" E"));
+        })
+        .response
+        .on_hover_text("Where the picture's middle is, in blocks from the field's centre. Drag the numbers.");
+        ui.add(
+            crate::debug::Slider::new(&mut placement.blocks_per_pixel, 1.0..=4096.0)
+                .logarithmic(true)
+                .text("blocks per picture pixel"),
+        );
+        ui.small(format!(
+            "The picture covers {:.0} × {:.0} blocks.",
+            width as f32 * placement.blocks_per_pixel,
+            height as f32 * placement.blocks_per_pixel
+        ));
+        ui.horizontal(|ui| {
+            if ui.button("1 picture pixel = 1 field pixel").clicked() {
+                placement.blocks_per_pixel = blocks_per_pixel;
+            }
+            if ui.button("Fit the field").clicked() {
+                placement.blocks_per_pixel = size_blocks / width.max(height).max(1) as f32;
+                (placement.centre_north, placement.centre_east) = (0.0, 0.0);
+            }
+        });
+        ui.checkbox(&mut placement.repeat, "repeat (tile it across the whole field)");
     });
-    ui.checkbox(&mut placement.repeat, "repeat (tile it across the whole field)");
 
     output_settings(ui, &mut placement.output, Some("Stretch the picture's darkest pixel to black and its brightest to white."));
     if ui.button("Placement and output back to defaults").clicked() {
@@ -706,22 +728,24 @@ fn image_settings(
 }
 
 fn output_settings(ui: &mut egui::Ui, output: &mut Shaping, fill_help: Option<&str>) {
-    section(ui, "Output", "Shaping the values, without changing the pattern underneath.");
-    if let Some(fill_help) = fill_help {
-        ui.checkbox(&mut output.fill_range, "fill black to white").on_hover_text(fill_help);
-    }
-    ui.add(crate::debug::Slider::new(&mut output.contrast, 0.0..=5.0).text("contrast"));
-    ui.add(crate::debug::Slider::new(&mut output.brightness, -1.0..=1.0).text("brightness"));
-    ui.add(crate::debug::Slider::new(&mut output.curve, 0.1..=5.0).logarithmic(true).text("curve"))
-        .on_hover_text("Above 1: most of the field gets darker, peaks stay bright.\nBelow 1: most of it gets lighter.");
-    ui.checkbox(&mut output.invert, "invert");
+    section(ui, "Output", "Shaping the values, without changing the pattern underneath.", |ui| {
+        if let Some(fill_help) = fill_help {
+            ui.checkbox(&mut output.fill_range, "fill black to white").on_hover_text(fill_help);
+        }
+        ui.add(crate::debug::Slider::new(&mut output.contrast, 0.0..=5.0).text("contrast"));
+        ui.add(crate::debug::Slider::new(&mut output.brightness, -1.0..=1.0).text("brightness"));
+        ui.add(crate::debug::Slider::new(&mut output.curve, 0.1..=5.0).logarithmic(true).text("curve"))
+            .on_hover_text("Above 1: most of the field gets darker, peaks stay bright.\nBelow 1: most of it gets lighter.");
+        ui.checkbox(&mut output.invert, "invert");
+    });
 }
 
-fn section(ui: &mut egui::Ui, title: &str, about: &str) {
-    ui.add_space(6.0);
-    ui.separator();
-    ui.strong(title);
-    ui.small(about);
+/// A foldable section with a line saying what it is.
+fn section(ui: &mut egui::Ui, title: &str, about: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
+    fold_section(ui, title, |ui| {
+        ui.small(about);
+        add_contents(ui);
+    });
 }
 
 fn colour_panel(ui: &mut egui::Ui, colouring: &mut Colouring, is_image: bool, view: &mut ViewState) {
