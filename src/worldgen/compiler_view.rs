@@ -66,8 +66,10 @@ pub struct Compiler {
     send: Option<(String, Picture, f32)>,
     /// "Render World and Spawn": the world name, seed and map waiting to be started.
     pub render: Option<(String, u64, Arc<crate::world::CompiledMap>, IVec2)>,
-    /// The spawn picker is open (after "Render World and Spawn").
+    /// Picking where to start, on the map (after "Render World and Spawn"): the next click there
+    /// starts the world; and Space was pressed again while picking (it picks the spot under the mouse).
     picking: bool,
+    space_pick: bool,
     /// The name to give a rendered world (blank = the bake's name).
     world_name: String,
     camera: Camera,
@@ -118,6 +120,7 @@ impl Default for Compiler {
             send: None,
             render: None,
             picking: false,
+            space_pick: false,
             world_name: String::new(),
             camera: Camera::default(),
             texture: None,
@@ -350,7 +353,12 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let mut same_world = false;
     let compiler = &mut suite.compiler;
     if !typing && compiler.result.is_some() && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space)) {
-        compiler.picking = true;
+        // The first press starts picking on the map; a second picks the spot under the mouse.
+        if compiler.picking {
+            compiler.space_pick = true;
+        } else {
+            compiler.picking = true;
+        }
     }
     save_shortcut(root.ctx(), "compiler", || compiler.settings.clone());
     egui::Panel::top("world compiler bar").show(root, |ui| {
@@ -453,9 +461,6 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     compiler.readouts_folded = readouts_folded;
     let send = compiler.send.take();
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler));
-    if compiler.picking {
-        spawn_picker(root.ctx(), compiler);
-    }
 
     // EZ-Bake: the Tectonic Sim's world (a new one for Shift + Space) baked and read in here.
     if (new_world || same_world) && suite.compiler.ez.is_none() {
@@ -513,8 +518,11 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
         });
         if ui
             .button("Render World and Spawn  [Space]")
-            .on_hover_text("Opens a map of the world: click where you want to start. The world you're in now is replaced
-(save it first if you want it).")
+            .on_hover_text(
+                "Then click on the map where you want to start (or press Space again over the spot); Esc or right-click\n\
+                 cancels. You start 3 blocks above the ground, facing north. The world you're in now is replaced\n\
+                 (save it first if you want it).",
+            )
             .clicked()
         {
             compiler.picking = true;
@@ -956,65 +964,7 @@ impl Compiler {
         let seed = u64::from_str_radix(&bake.info.seed, 16).unwrap_or(0);
         self.render = Some((name, seed, result.made.map.clone(), spawn));
         self.picking = false;
-    }
-}
-
-/// The spawn picker: the world's relief map in a window; click where you want to start, or pick
-/// the middle. Shows where the mouse is and how high the ground is there.
-fn spawn_picker(ctx: &egui::Context, compiler: &mut Compiler) {
-    let (Some(bake), Some(result), Some(texture)) = (compiler.bake.clone(), compiler.result.as_ref(), compiler.texture.clone()) else {
-        compiler.picking = false;
-        return;
-    };
-    let width = result.made.width;
-    let blocks = bake.info.blocks_per_pixel;
-    // The spot (north, east, in blocks) at a point on the map, from 0 to 1 across and down.
-    let spot = |u: f32, v: f32| {
-        let half = width as f32 / 2.0;
-        IVec2::new(((half - v * width as f32) * blocks).round() as i32, ((u * width as f32 - half) * blocks).round() as i32)
-    };
-    let mut chosen = None;
-    let mut open = true;
-    egui::Window::new("Where to spawn")
-        .collapsible(false)
-        .resizable(false)
-        .open(&mut open)
-        .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
-        .show(ctx, |ui| {
-            ui.label("Click where you want to start.");
-            let size = (ctx.content_rect().height() - 220.0).clamp(240.0, 720.0);
-            let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), egui::Sense::click());
-            let painter = ui.painter_at(rect);
-            painter.image(texture.id(), rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
-            painter.circle_stroke(rect.center(), rect.width() / 2.0, egui::Stroke::new(1.0, MAGENTA));
-            if let Some(pointer) = response.hover_pos() {
-                let (u, v) = ((pointer.x - rect.left()) / rect.width(), (pointer.y - rect.top()) / rect.height());
-                let at = spot(u, v);
-                let (col, row) = ((u * width as f32) as usize, (v * width as f32) as usize);
-                let z = result.made.z[row.min(width - 1) * width + col.min(width - 1)];
-                let what = if z >= SEA_LEVEL { format!("land, Z {z}") } else { format!("sea, {} deep", SEA_LEVEL - z) };
-                ui.label(format!("{}, {}: {what}", compass(at.x as f32, "N", "S"), compass(at.y as f32, "E", "W")));
-                painter.circle_stroke(pointer, 6.0, egui::Stroke::new(2.0, Color32::WHITE));
-                if response.clicked() {
-                    chosen = Some(at);
-                }
-            } else {
-                ui.label(" ");
-            }
-            ui.horizontal(|ui| {
-                if ui.button("The middle").clicked() {
-                    chosen = Some(IVec2::ZERO);
-                }
-                if ui.button("Cancel").clicked() {
-                    compiler.picking = false;
-                }
-            });
-        });
-    if !open {
-        compiler.picking = false;
-    }
-    if let Some(spawn) = chosen {
-        compiler.press_render(spawn);
+        self.space_pick = false;
     }
 }
 
@@ -1605,6 +1555,38 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         painter.circle_filled(a, 4.0, PINK);
         painter.circle_filled(b, 4.0, MAGENTA);
         side_view(&painter, rect, &map, from, to);
+    }
+
+    // Picking where to start (after "Render World and Spawn"): a click on the map, or Space again
+    // over the spot, starts the world there; Esc or right-click cancels.
+    if compiler.picking {
+        let half = width as f32 / 2.0;
+        let blocks = bake.info.blocks_per_pixel;
+        let spot = response.hover_pos().and_then(|mouse| {
+            let pixel = compiler.camera.centre + (mouse - rect.center()) / compiler.camera.zoom;
+            (pixel.x >= 0.0 && pixel.y >= 0.0 && pixel.x < width as f32 && pixel.y < width as f32)
+                .then(|| (mouse, IVec2::new(((half - pixel.y) * blocks).round() as i32, ((pixel.x - half) * blocks).round() as i32)))
+        });
+        painter.text(
+            rect.center_top() + Vec2::new(0.0, 12.0),
+            egui::Align2::CENTER_TOP,
+            "Click where you want to start (or press Space over the spot).   Esc or right-click cancels.",
+            egui::FontId::proportional(16.0),
+            Color32::WHITE,
+        );
+        if let Some((mouse, _)) = spot {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+            painter.circle_stroke(mouse, 8.0, egui::Stroke::new(4.0, Color32::BLACK));
+            painter.circle_stroke(mouse, 8.0, egui::Stroke::new(2.0, Color32::WHITE));
+        }
+        let space = std::mem::take(&mut compiler.space_pick);
+        if let Some((_, at)) = spot
+            && (response.clicked() || space)
+        {
+            compiler.press_render(at);
+        } else if response.secondary_clicked() || ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+            compiler.picking = false;
+        }
     }
 
     let help = if close {

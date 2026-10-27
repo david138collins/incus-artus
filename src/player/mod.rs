@@ -498,10 +498,17 @@ fn load_player(world: &mut World, folder: &WorldFolder) -> Result<String, String
     Ok(String::new())
 }
 
-/// A fresh world: walking, at the spawn point.
+/// How far above the ground a fresh world drops you [David, 2026-10-27].
+const DROPPED_FROM: f32 = 3.0;
+
+/// A fresh world: walking, dropped from a little above the spawn point, facing north (level).
 fn fresh_player(world: &mut World, _seed: u64) {
     *world.resource_mut::<ControlMode>() = ControlMode::Walk;
-    let feet = spawn_point(world.resource::<VoxelWorld>());
+    let feet = spawn_point(world.resource::<VoxelWorld>()) + Vec3::Z * DROPPED_FROM;
+    let mut cameras = world.query::<&mut FlyCamera>();
+    for mut camera in cameras.iter_mut(world) {
+        (camera.heading, camera.pitch) = (0.0, 0.0);
+    }
     put_pawn_at(world, feet);
 }
 
