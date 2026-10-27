@@ -140,6 +140,11 @@ pub struct CompileSettings {
     /// coast is a plate's outline on a grid of pixels, a staircase, and softening it this much
     /// makes it a smooth curve (0 = none: the staircase shows).
     pub soften: f32,
+    /// The same for the mountains' maps (the squeeze, and the push's direction and strength): each
+    /// is the rock traced on the same grid of pixels, and the mountain curve and the ridges laid
+    /// across the push showed its 32-block steps, as rows of notches along every range's flanks
+    /// (0 = none).
+    pub soften_mountains: f32,
     /// How far a range's skirt of lower slopes spreads around it, in blocks (0 = none).
     pub foothills: f32,
     #[serde(flatten)]
@@ -150,7 +155,14 @@ pub struct CompileSettings {
 
 impl Default for CompileSettings {
     fn default() -> Self {
-        Self { water: 0.0, soften: 64.0, foothills: 2_500.0, interpreter: InterpreterSettings::default(), additives: AdditiveSettings::default() }
+        Self {
+            water: 0.0,
+            soften: 64.0,
+            soften_mountains: 64.0,
+            foothills: 2_500.0,
+            interpreter: InterpreterSettings::default(),
+            additives: AdditiveSettings::default(),
+        }
     }
 }
 
@@ -230,7 +242,17 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
         blur(map, width, soften);
     }
     // The squeeze's direction as a doubled-angle arrow, so it blends between pixels.
-    let (push_x, push_y): (Vec<f32>, Vec<f32>) = bake.push_angle.iter().map(|a| ((2.0 * a.to_radians()).cos(), (2.0 * a.to_radians()).sin())).unzip();
+    let (mut push_x, mut push_y): (Vec<f32>, Vec<f32>) = bake.push_angle.iter().map(|a| ((2.0 * a.to_radians()).cos(), (2.0 * a.to_radians()).sin())).unzip();
+    // The mountains' maps softened too (as the coast is), so ranges don't keep the pixels' steps.
+    // (The arrow is softened as its two parts: that averages directions properly.) The most crushed
+    // and stretched are measured again after, so the tallest peaks stay as tall.
+    let mut squeeze = bake.squeeze.clone();
+    let mut push_strength = bake.push_strength.clone();
+    let soften_mountains = reach(settings.soften_mountains);
+    for map in [&mut squeeze, &mut push_x, &mut push_y, &mut push_strength] {
+        blur(map, width, soften_mountains);
+    }
+    let (most_crushed, most_stretched) = (squeeze.iter().copied().fold(0.0, f32::max), squeeze.iter().copied().fold(0.0, f32::min));
     let coast_distance = crate::world::coast_distance(&coast, width, blocks);
     let seed = seed_of(&bake.info);
 
@@ -247,16 +269,16 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
         highest_skirt: 0.0,
         height,
         tilt,
-        squeeze: bake.squeeze.clone(),
+        squeeze,
         push_x,
         push_y,
-        push_strength: bake.push_strength.clone(),
+        push_strength,
         skirt: vec![0.0; width * width],
         water: settings.water,
         lowest: bake.info.height.black,
         highest: bake.info.height.white,
-        most_crushed: bake.most_crushed,
-        most_stretched: bake.most_stretched,
+        most_crushed,
+        most_stretched,
     };
     let mut map = CompiledMap::new(Arc::new(maps), seed, settings.interpreter.clone());
     if stop.load(Ordering::Relaxed) {
@@ -433,6 +455,36 @@ mod tests {
             }
         }
         assert!(world.land_share > 0.1 && world.land_share < 0.5, "land {}", world.land_share);
+    }
+
+    #[test]
+    fn softening_the_mountains_takes_the_pixels_steps_off_a_ranges_flank() {
+        // A range whose edge runs diagonally across the pixels: on the grid, a staircase.
+        let mut bake = bake(45.0);
+        for row in 0..64 {
+            for col in 0..64 {
+                bake.height[row * 64 + col] = 0.2;
+                bake.squeeze[row * 64 + col] = if col > row { 0.8 } else { 0.0 };
+            }
+        }
+        let bake = bake.measured();
+        // Along the edge (pixel col − row = 0, as continuous pixel positions), the ground should be
+        // the same all the way: any wobble is the staircase showing.
+        let wobble = |soften: f32| {
+            let settings = CompileSettings { soften_mountains: soften, ..recipe(|i| (i.ridges, i.detail) = (0.0, 0.0)) };
+            let map = compiled(&bake, &settings).map;
+            let blocks = bake.info.blocks_per_pixel;
+            let along: Vec<f32> = (0..160)
+                .map(|k| {
+                    let t = 20.0 + k as f32 * 0.1;
+                    map.height((32.0 - t) * blocks, (t - 32.0) * blocks).unwrap()
+                })
+                .collect();
+            along.iter().copied().fold(f32::MIN, f32::max) - along.iter().copied().fold(f32::MAX, f32::min)
+        };
+        let (stepped, softened) = (wobble(0.0), wobble(512.0));
+        assert!(stepped > 5.0, "the staircase didn't show unsoftened: {stepped}");
+        assert!(softened < stepped / 4.0, "softened {softened} vs {stepped}");
     }
 
     #[test]

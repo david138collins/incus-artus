@@ -501,6 +501,12 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
          jumping up. Peaks aren't lowered. 0 = no foothills.\n\
          (Here rather than on the Interpreter: a skirt is the mountains blurred, which needs the whole map at once.)",
     );
+    ui.add(crate::debug::Slider::new(&mut s.soften_mountains, 0.0..=512.0).text("soften the mountains (blocks)")).on_hover_text(
+        "The bake's squeeze, and which way and how hard the rock was pushed, are traced on the same grid of 32-block pixels.\n\
+         Unsoftened, the mountains and the ridges laid across the push show those steps: rows of notches along a range's flanks.\n\
+         About 64 blocks (two pixels) hides them; more spreads ranges a little wider and rounds off their small shapes.\n\
+         The tallest peaks stay as tall (the most crushed rock is measured again after softening). 0 = as baked.",
+    );
     ui.add_space(4.0);
     defaults_row(ui, "Both panels' settings", &mut compiler.settings, &mut compiler.ab);
 

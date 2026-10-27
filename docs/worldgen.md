@@ -192,6 +192,12 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
 - **Soften the coastline** (default 64 blocks, two pixels): the coast map is the bake's height near
   sea level (clamped to ±0.03 so both sides soften evenly and the coast doesn't move), blurred; the
   heights and tilt near it are blurred as much. Turns the pixel staircase into a curve.
+- **Soften the mountains** (default 64 blocks; BUILT 2026-10-26): the squeeze and the push's
+  direction and strength were handed over raw, so the mountain curve and the ridges laid across the
+  push showed the pixels' steps: rows of notches along range flanks, in step with the 32-block grid
+  (David's screenshot). Now blurred the same way (the direction as its doubled-angle arrow, so
+  directions average properly), and the most crushed and stretched measured again after, so the
+  tallest peaks stay as tall. Old presets get the default.
 - **Foothills stay in the compiler:** a skirt is the mountains blurred, which needs the whole map.
 - **Presets:** one compiler preset still holds both panels, as one flat list (old presets load).
 - **Worlds save** the compiler's maps (`map-<name>.png`, 16-bit, each with its range in
