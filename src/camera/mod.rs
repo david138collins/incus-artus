@@ -60,6 +60,7 @@ impl Plugin for CameraPlugin {
             )
             .add_systems(EguiPrimaryContextPass, draw_crosshair.run_if(in_state(Screen::Play)))
             .add_debug_page("Camera", camera_debug_page)
+            .add_page_preset("camera", &["camera", "panini"])
             .add_settings::<CameraSettings>("camera");
     }
 }
@@ -395,6 +396,8 @@ fn draw_crosshair(mut contexts: EguiContexts, capture: Res<MouseCapture>) -> Res
 // ── Debug page ──────────────────────────────────────────────────────────────
 
 fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
+    crate::debug::page_presets(ui, world, "camera");
+    ui.separator();
     let captured = world.resource::<MouseCapture>().captured;
     ui.label(if captured {
         "Mouse: captured (Tab to release)"
@@ -476,7 +479,7 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.add(crate::debug::Slider::new(&mut settings.ray_length, 1.0..=256.0).text("ray length while flying (blocks)"));
     ui.checkbox(&mut settings.show_target_outline, "outline the block being looked at");
     if ui.button("Reset camera settings").clicked() {
-        *settings = CameraSettings::default();
+        *settings = crate::debug::page_default("camera", "camera");
     }
 
     ui.separator();

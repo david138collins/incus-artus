@@ -143,7 +143,7 @@ pub fn panini_debug_section(ui: &mut egui::Ui, world: &mut World) {
         ui.label(format!("The centre of the screen looks like {:.0}° up-down.", centre.to_degrees()));
     }
     if ui.small_button("Reset Panini settings").clicked() {
-        *settings = PaniniSettings::default();
+        *settings = crate::debug::page_default("camera", "panini");
     }
 }
 

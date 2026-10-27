@@ -29,7 +29,7 @@ mod slider;
 
 pub use presets::{default_light, default_preset, preset_bar, save_shortcut};
 pub use slider::Slider;
-pub use settings::SettingsAppExt;
+pub use settings::{SettingsAppExt, page_default, page_presets};
 
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -86,6 +86,8 @@ impl Plugin for DebugPlugin {
             .init_resource::<DebugPanel>()
             .init_resource::<settings::SettingsGroups>()
             .init_resource::<SelfTest>()
+            // Pages with a "default" preset start with it.
+            .add_systems(PostStartup, settings::use_default_page_presets)
             .add_debug_page("Overview", overview_page);
         // The panel, screenshots and self-tests are developer tools: a player's copy has the
         // pages registered (harmless) but never shows them (see `dev` in Cargo.toml).

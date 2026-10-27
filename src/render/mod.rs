@@ -89,6 +89,7 @@ impl Plugin for RenderPlugin {
                     .chain(),
             )
             .add_debug_page("Render", render_debug_page)
+            .add_page_preset("render", &["render", "distant", "light"])
             .add_debug_page("Performance", performance::performance_debug_page)
             .add_settings::<RenderSettings>("render");
     }
@@ -360,6 +361,8 @@ fn update_shader_settings(
 // ── Debug page ──────────────────────────────────────────────────────────────
 
 fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
+    crate::debug::page_presets(ui, world, "render");
+    ui.separator();
     // ── Statistics ──
     let mut sections = 0usize;
     let mut drawn = 0usize;
@@ -454,7 +457,7 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         });
         ui.small("Random texture rotation is switched per block, on the Blocks page.");
         if ui.button("Reset render settings").clicked() {
-            *settings = RenderSettings::default();
+            *settings = crate::debug::page_default("render", "render");
         }
     }
 
@@ -477,7 +480,7 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         );
         ui.add(crate::debug::Slider::new(&mut settings.height_tint, 0.0..=0.3).text("height tint")).on_hover_text("Land a little lighter the higher it is.");
         if ui.button("Reset distant terrain settings").clicked() {
-            *settings = distant::DistantSettings::default();
+            *settings = crate::debug::page_default("render", "distant");
         }
     }
 
@@ -527,7 +530,7 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             );
         });
         if ui.button("Reset light settings").clicked() {
-            *s = light::LightSettings::default();
+            *s = crate::debug::page_default("render", "light");
         }
     }
     ui.small(world.resource::<light::LightState>().status.clone());
