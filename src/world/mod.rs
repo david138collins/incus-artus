@@ -301,8 +301,21 @@ impl Plugin for WorldPlugin {
             // The terrain is made when a world starts (see the save module), and saved as "terrain".
             .add_world_state_with("terrain", storage::save_terrain, storage::load_terrain, storage::fresh_terrain)
             .add_systems(FixedUpdate, edits::apply_block_edits.in_set(WorldEdits))
+            .add_systems(bevy_egui::EguiPrimaryContextPass, show_left_out.run_if(in_state(crate::screen::Screen::Play)))
             .add_debug_page("World", world_debug_page);
     }
+}
+
+/// Along the top of the screen, while a world spawned with some of the recipe switched off is
+/// showing: what's left out, so a stripped world is never mistaken for the real one.
+fn show_left_out(mut contexts: bevy_egui::EguiContexts, terrain: Res<Terrain>) {
+    let Some(left_out) = terrain.compiled().map(|map| map.mutes.left_out()).filter(|names| !names.is_empty()) else { return };
+    let Ok(ctx) = contexts.ctx_mut() else { return };
+    egui::Area::new(egui::Id::new("recipe left out")).anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 8.0)).order(egui::Order::Foreground).interactable(false).show(ctx, |ui| {
+        egui::Frame::popup(ui.style()).show(ui, |ui| {
+            ui.colored_label(egui::Color32::from_rgb(255, 0, 255), format!("Not the whole recipe: {} left out", left_out.join(", ")));
+        });
+    });
 }
 
 /// How far around the middle of a compiled world chunks are made at once when it starts, so

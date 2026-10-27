@@ -17,7 +17,7 @@ use super::additives::{Additives, DriftWay, Sides};
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
-use crate::world::{InterpreterSettings, LiftFrom, Mask, MaskSource};
+use crate::world::{InterpreterSettings, LiftFrom, Mask, MaskSource, Mutes};
 use super::noise::PerlinSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
@@ -972,12 +972,15 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
 impl Compiler {
     /// "Render World and Spawn": the compiled maps, with the Interpreter's recipe, handed over to
-    /// start a new world.
+    /// start a new world, leaving out what the Show switches leave out [David, 2026-10-27: "lets
+    /// have the spawning follow the show switches"].
     pub fn press_render(&mut self, spawn: IVec2) {
         let (Some(bake), Some(result)) = (&self.bake, &self.result) else { return };
         let name = if self.world_name.trim().is_empty() { bake.name.clone() } else { self.world_name.clone() };
         let seed = u64::from_str_radix(&bake.info.seed, 16).unwrap_or(0);
-        self.render = Some((name, seed, result.made.map.clone(), spawn));
+        let map = &result.made.map;
+        let map = if self.lab.mutes == Mutes::default() { map.clone() } else { Arc::new(map.with(map.settings.clone(), self.lab.mutes)) };
+        self.render = Some((name, seed, map, spawn));
         self.picking = false;
         self.space_pick = false;
     }
@@ -1288,7 +1291,9 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             }
         });
     })
-    .on_hover_text("Leave parts of the Interpreter's recipe out, to see what each one does. Only here: worlds always use the whole recipe.");
+    .on_hover_text(
+        "Leave parts of the Interpreter's recipe out, to see what each one does.\nRender World and Spawn leaves out the same: the world says which along the top of the screen,\nand remembers them when saved.",
+    );
     fold_section(ui, "Overlays", |ui| {
         let o = &mut compiler.lab.overlays;
         ui.horizontal_wrapped(|ui| {

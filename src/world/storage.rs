@@ -181,6 +181,10 @@ struct CompiledFile {
     /// Each map's file (`map-<name>.png`, 16-bit grey): the values black and white stand for.
     ranges: BTreeMap<String, [f32; 2]>,
     interpreter: InterpreterSettings,
+    /// Parts of the recipe left out (the Terrain Compiler's Show switches when it was spawned), so
+    /// the ground streamed in later matches. None, in worlds saved before.
+    #[serde(default)]
+    left_out: super::Mutes,
     /// Where new arrivals start (north, east).
     #[serde(default)]
     spawn: [i32; 2],
@@ -232,6 +236,7 @@ fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), S
         most_stretched: m.most_stretched,
         ranges,
         interpreter: map.settings.clone(),
+        left_out: map.mutes,
         spawn: spawn.to_array(),
     };
     let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
@@ -288,7 +293,9 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         most_crushed: info.most_crushed,
         most_stretched: info.most_stretched,
     };
-    Ok(Some((CompiledMap::new(Arc::new(maps), info.seed, info.interpreter), IVec2::from_array(info.spawn))))
+    let mut map = CompiledMap::new(Arc::new(maps), info.seed, info.interpreter);
+    map.mutes = info.left_out;
+    Ok(Some((map, IVec2::from_array(info.spawn))))
 }
 
 /// Saves the test world's settings (as `terrain.toml`), a compiled world's own copy of its map,
@@ -436,7 +443,9 @@ mod tests {
             Arc::make_mut(&mut map.maps).squeeze[i] = (i as f32 * 0.37).sin();
             Arc::make_mut(&mut map.maps).skirt[i] = (i % 7) as f32 * 3.0;
         }
-        let map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });
+        let mutes = crate::world::Mutes { hills: true, passes: true, ..Default::default() };
+        let mut map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });
+        map.mutes = mutes;
         let folder = std::env::temp_dir().join(format!("incus-artus-compiled-{}", std::process::id()));
         std::fs::create_dir_all(&folder).unwrap();
         save_compiled(&map, IVec2::new(-1234, 5678), &folder).unwrap();
@@ -444,6 +453,7 @@ mod tests {
         assert_eq!(spawn, IVec2::new(-1234, 5678));
         assert_eq!((back.maps.width, back.maps.blocks_per_pixel, back.seed), (map.maps.width, map.maps.blocks_per_pixel, map.seed));
         assert_eq!(back.settings, map.settings);
+        assert_eq!(back.mutes, mutes, "the parts left out are remembered");
         // 16-bit maps: the ground comes back within a small fraction of a block, everywhere.
         for k in 0..64 {
             let (north, east) = (-200.0 + k as f32 * 6.3, 170.0 - k as f32 * 5.1);

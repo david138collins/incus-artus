@@ -265,7 +265,7 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
   copied. **Layer switches** leave parts of the recipe out (raised coast, lift, mountains, foothills,
-  ridges, passes, hills, torn coast, detail). Only the close-up follows them; the big map and worlds use the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
+  ridges, passes, hills, torn coast, detail). The close-up follows them, and so does Render World and Spawn: the world says along the top of the screen what it leaves out, and its save remembers them, so chunks streamed in later match. The big map always uses the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
   the output map. Using the clean modalities we can capture, we will drive a variety of scattering and

@@ -626,8 +626,10 @@ pub struct Parts {
     pub mountains: f32,
 }
 
-/// Parts of the recipe the terrain lab can leave out, to see what each one does.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Parts of the recipe the terrain lab's Show switches leave out, to see what each one does. A
+/// world spawned from the lab leaves out the same, and its save remembers them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Mutes {
     pub lift: bool,
     pub mountains: bool,
@@ -641,6 +643,26 @@ pub struct Mutes {
     pub detail: bool,
 }
 
+impl Mutes {
+    /// The parts left out, by the names the Show switches give them (none for a whole world).
+    pub fn left_out(&self) -> Vec<&'static str> {
+        [
+            ("edge rise", self.raised_coast),
+            ("lift", self.lift),
+            ("mountains", self.mountains),
+            ("foothills", self.foothills),
+            ("ridges", self.ridges),
+            ("passes", self.passes),
+            ("hills", self.hills),
+            ("torn coast", self.torn_coast),
+            ("detail", self.detail),
+        ]
+        .into_iter()
+        .filter_map(|(name, off)| off.then_some(name))
+        .collect()
+    }
+}
+
 /// A compiled world: the compiler's maps, and the recipe that reads them.
 #[derive(Clone, Debug)]
 pub struct CompiledMap {
@@ -649,7 +671,7 @@ pub struct CompiledMap {
     /// The bake's seed (the detail noise uses it; the recipe's noise a seed made from it).
     pub seed: u64,
     pub settings: InterpreterSettings,
-    /// Parts of the recipe left out (the terrain lab's layer switches; a world never leaves any out).
+    /// Parts of the recipe left out (the terrain lab's Show switches, which a world spawned from it follows).
     pub mutes: Mutes,
     noise_seed: u64,
     land: Curve,
