@@ -227,6 +227,10 @@ pub struct InterpreterSettings {
     /// dips are, in blocks.
     pub passes: f32,
     pub pass_spacing: f32,
+    /// The ridges carved into the foothill skirt: how deeply (0 = a smooth skirt, 1 = all ridges and
+    /// valleys) and how far apart, in blocks. The rest of their pattern is the mountains'.
+    pub foothill_ridges: f32,
+    pub foothill_ridge_spacing: f32,
     /// Rolling hills on land: how high (blocks either way), the Perlin field that shapes them, and
     /// where they show.
     pub hills: f32,
@@ -272,6 +276,8 @@ impl Default for InterpreterSettings {
             sharpness: 1.2,
             passes: 0.4,
             pass_spacing: 12_000.0,
+            foothill_ridges: 0.7,
+            foothill_ridge_spacing: 700.0,
             hills: 6.0,
             // Two octaves, the second 2.3 times finer and 0.43 as strong (as hills always were).
             hill_noise: PerlinSettings { scale: 1_500.0, octaves: 2, persistence: 0.43, lacunarity: 2.3, ..PerlinSettings::default() },
@@ -638,6 +644,7 @@ pub struct Mutes {
     pub raised_coast: bool,
     pub ridges: bool,
     pub passes: bool,
+    pub foothill_ridges: bool,
     pub hills: bool,
     pub torn_coast: bool,
     pub detail: bool,
@@ -653,6 +660,7 @@ impl Mutes {
             ("foothills", self.foothills),
             ("ridges", self.ridges),
             ("passes", self.passes),
+            ("foothill ridges", self.foothill_ridges),
             ("hills", self.hills),
             ("torn coast", self.torn_coast),
             ("detail", self.detail),
@@ -821,62 +829,79 @@ impl CompiledMap {
         let mut mountains = 0.0;
         let tall = self.mountain_share(here);
         if tall > 0.0 && !self.mutes.mountains {
-            // The push's direction on the map (north is −y), from the doubled-angle arrow, and the
-            // ridges lined up across it, blended into wandering ridges where the direction is
-            // unclear.
-            let angle = here.push_y.atan2(here.push_x) / 2.0;
-            let spacing = s.ridge_spacing.max(1.0);
-            let seed = self.noise_seed;
-            let (layers, roughness) = (s.ridge_layers.clamp(1, 8), s.ridge_roughness.clamp(0.0, 1.0));
-            let pass_size = s.pass_spacing.max(1.0);
-            // Wander: the ridges' spot nudged sideways by a slow noise, so they bend and their
-            // bases shift instead of running dead straight side by side.
-            let (x, y) = if s.ridge_wander > 0.0 {
-                let size = s.ridge_wander_size.max(1.0);
-                let nudge = |k| perlin(seed, k, Fade::Smooth, x / size, y / size) * s.ridge_wander;
-                (x + nudge(0x3a1), y + nudge(0x3a2))
-            } else {
-                (x, y)
-            };
-            // The ridges (and the passes along them) lined up across one direction.
-            let lined = |direction: f32, k: u64| {
-                let push = (direction.cos(), -direction.sin());
-                let across = x * push.0 + y * push.1;
-                let along = -x * push.1 + y * push.0;
-                let crest = ridges(seed ^ k.wrapping_mul(0x9e37_79b9), across / spacing, along / s.ridge_length.max(1.0), s.sharpness, layers, roughness);
-                (crest, perlin(seed, 0x9a55 + k, Fade::Smooth, along / pass_size, across / (pass_size * 3.0)))
-            };
-            let (lined_up, along_ridge) = if s.steady_ridges {
-                // Steady: each of a few fixed directions has its own pattern laid across the whole
-                // map, and a spot blends the two nearest its push. Turning the pattern to follow
-                // the push itself (the old way, below) swings it round the map's corner, which
-                // crushes ridges together wherever the push bends, worse the further out: rows of
-                // grooves a few blocks wide (found 2026-10-25, David's "giant fingerprint").
-                let step = std::f32::consts::PI / RIDGE_DIRECTIONS as f32;
-                let k = (angle + std::f32::consts::FRAC_PI_2) / step;
-                let first = k.floor();
-                let t = smooth(k - first);
-                let [a, b] = [first as usize % RIDGE_DIRECTIONS, (first as usize + 1) % RIDGE_DIRECTIONS];
-                let toward = |i: usize| lined(-std::f32::consts::FRAC_PI_2 + i as f32 * step, i as u64 + 1);
-                let ((crest_a, pass_a), (crest_b, pass_b)) = (toward(a), toward(b));
-                (crest_a + (crest_b - crest_a) * t, pass_a + (pass_b - pass_a) * t)
-            } else {
-                lined(angle, 0)
-            };
-            let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness, layers, roughness);
-            let clear = smooth(here.push_strength * s.ridge_alignment.max(0.0) / 0.1);
-            let crest = wandering + (lined_up - wandering) * clear;
+            let (crest, wave) = self.ridge_pattern(here, x, y, s.ridge_spacing, s.ridge_length);
             let carved = if self.mutes.ridges { 1.0 } else { (1.0 - s.ridges.max(0.0) * (1.0 - crest)).max(0.0) };
             // Passes: the crest height rises and dips along the ridge.
-            let wandering_passes = perlin(seed, 0x9a56, Fade::Smooth, x / pass_size, y / pass_size);
-            let wave = wandering_passes + (along_ridge - wandering_passes) * clear;
             let dipped = if self.mutes.passes { 1.0 } else { (1.0 - s.passes.max(0.0) * (0.5 - 0.5 * wave)).max(0.0) };
             mountains = (HIGHEST - ground).max(0.0) * tall * carved * dipped;
         }
-        // The foothill skirt under them (shown with or without the mountains).
-        let mountains = if self.mutes.foothills { mountains } else { mountains.max(here.skirt) };
+        // The foothill skirt under them (shown with or without the mountains), with its own ridges
+        // carved in: the same pattern as the mountains', at the foothills' own spacing (the length
+        // kept in proportion), so they read as spurs running out of the range.
+        if !self.mutes.foothills && here.skirt > 0.0 {
+            let carved = if self.mutes.foothill_ridges || s.foothill_ridges <= 0.0 {
+                1.0
+            } else {
+                let length = s.ridge_length * s.foothill_ridge_spacing / s.ridge_spacing.max(1.0);
+                let (crest, _) = self.ridge_pattern(here, x, y, s.foothill_ridge_spacing, length);
+                (1.0 - s.foothill_ridges * (1.0 - crest)).max(0.0)
+            };
+            mountains = mountains.max(here.skirt * carved);
+        }
 
         Parts { ground, mountains }
+    }
+
+    /// The ridge pattern at a spot, 0 to 1 (1 = a crest), `spacing` blocks apart across and `length`
+    /// along, and the wave along the ridges their passes dip with (−1 to 1).
+    fn ridge_pattern(&self, here: &Here, x: f32, y: f32, spacing: f32, length: f32) -> (f32, f32) {
+        let s = &self.settings;
+        // The push's direction on the map (north is −y), from the doubled-angle arrow, and the
+        // ridges lined up across it, blended into wandering ridges where the direction is
+        // unclear.
+        let angle = here.push_y.atan2(here.push_x) / 2.0;
+        let spacing = spacing.max(1.0);
+        let seed = self.noise_seed;
+        let (layers, roughness) = (s.ridge_layers.clamp(1, 8), s.ridge_roughness.clamp(0.0, 1.0));
+        let pass_size = s.pass_spacing.max(1.0);
+        // Wander: the ridges' spot nudged sideways by a slow noise, so they bend and their
+        // bases shift instead of running dead straight side by side.
+        let (x, y) = if s.ridge_wander > 0.0 {
+            let size = s.ridge_wander_size.max(1.0);
+            let nudge = |k| perlin(seed, k, Fade::Smooth, x / size, y / size) * s.ridge_wander;
+            (x + nudge(0x3a1), y + nudge(0x3a2))
+        } else {
+            (x, y)
+        };
+        // The ridges (and the passes along them) lined up across one direction.
+        let lined = |direction: f32, k: u64| {
+            let push = (direction.cos(), -direction.sin());
+            let across = x * push.0 + y * push.1;
+            let along = -x * push.1 + y * push.0;
+            let crest = ridges(seed ^ k.wrapping_mul(0x9e37_79b9), across / spacing, along / length.max(1.0), s.sharpness, layers, roughness);
+            (crest, perlin(seed, 0x9a55 + k, Fade::Smooth, along / pass_size, across / (pass_size * 3.0)))
+        };
+        let (lined_up, along_ridge) = if s.steady_ridges {
+            // Steady: each of a few fixed directions has its own pattern laid across the whole
+            // map, and a spot blends the two nearest its push. Turning the pattern to follow
+            // the push itself (the old way, below) swings it round the map's corner, which
+            // crushes ridges together wherever the push bends, worse the further out: rows of
+            // grooves a few blocks wide (found 2026-10-25, David's "giant fingerprint").
+            let step = std::f32::consts::PI / RIDGE_DIRECTIONS as f32;
+            let k = (angle + std::f32::consts::FRAC_PI_2) / step;
+            let first = k.floor();
+            let t = smooth(k - first);
+            let [a, b] = [first as usize % RIDGE_DIRECTIONS, (first as usize + 1) % RIDGE_DIRECTIONS];
+            let toward = |i: usize| lined(-std::f32::consts::FRAC_PI_2 + i as f32 * step, i as u64 + 1);
+            let ((crest_a, pass_a), (crest_b, pass_b)) = (toward(a), toward(b));
+            (crest_a + (crest_b - crest_a) * t, pass_a + (pass_b - pass_a) * t)
+        } else {
+            lined(angle, 0)
+        };
+        let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness, layers, roughness);
+        let clear = smooth(here.push_strength * s.ridge_alignment.max(0.0) / 0.1);
+        let wandering_passes = perlin(seed, 0x9a56, Fade::Smooth, x / pass_size, y / pass_size);
+        (wandering + (lined_up - wandering) * clear, wandering_passes + (along_ridge - wandering_passes) * clear)
     }
 
     /// How much the lift raises the land at a spot (blocks; none at sea): the curve read at how near

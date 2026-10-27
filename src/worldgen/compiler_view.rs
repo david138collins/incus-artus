@@ -559,11 +559,21 @@ fn sea_and_coast(ui: &mut egui::Ui, compiler: &mut Compiler, bake: &Bake) {
          About 64 blocks (two pixels) hides the steps; more rounds off small capes and inlets.\n\
          0 = none: the staircase shows (as rows of humps or steps along every coast).",
     );
-    ui.add(crate::debug::Slider::new(&mut s.foothills, 0.0..=12_000.0).text("foothills (blocks)")).on_hover_text(
-        "How far each range spreads a skirt of lower slopes around it, so it rises from the plains instead of\n\
-         jumping up. Peaks aren't lowered. 0 = no foothills.\n\
-         (Here rather than on the Interpreter: a skirt is the mountains blurred, which needs the whole map at once.)",
+    // Foothills: reach, height and falloff, each its own [David, 2026-10-27: "it almost seems like i
+    // have no way of controlling the 'foothills' (sub ridges) in how far they go from the mountains"].
+    ui.add_space(4.0);
+    ui.label("Foothills: a skirt of lower slopes round each range (their ridges are on the World Interpreter):");
+    ui.add(crate::debug::Slider::new(&mut s.foothills, 0.0..=20_000.0).logarithmic(true).text("foothills reach (blocks)")).on_hover_text(
+        "How far out from a range its foothills go. 0 = no foothills.\n\
+         (Here rather than on the Interpreter: how far a spot is from the mountains needs the whole map at once.)",
     );
+    ui.add(crate::debug::Slider::new(&mut s.foothill_height, 0.0..=1.0).text("foothills height")).on_hover_text(
+        "How tall the foothills are where they leave the range, as a share of the mountains there.\n\
+         They never lower the mountains, but in a range's valleys they fill up to this.",
+    );
+    let fall = CompileSettings::default().foothill_falloff;
+    spline_box(ui, "foothill falloff", &mut s.foothill_falloff, &fall, "from the range out to the reach", "share of the foothills height");
+    ui.add_space(4.0);
     ui.add(crate::debug::Slider::new(&mut s.soften_mountains, 0.0..=512.0).text("soften the mountains (blocks)")).on_hover_text(
         "The bake's squeeze, and which way and how hard the rock was pushed, are traced on the same grid of 32-block pixels.\n\
          Unsoftened, the mountains and the ridges laid across the push show those steps: rows of notches along a range's flanks.\n\
@@ -915,6 +925,16 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 375.0..=24_000.0).logarithmic(true).text("pass spacing (blocks)"))
             .on_hover_text("How far apart the dips are along a ridge.");
+    });
+    fold_section(ui, "Foothill ridges", |ui| {
+        ui.small("Ridges carved into the foothills (whose reach, height and falloff are on the Landmass panel), so they read as spurs running out of the range. The rest of their pattern (sharpness, layers, alignment, wander) is the mountains'.");
+        ui.add(crate::debug::Slider::new(&mut s.foothill_ridges, 0.0..=1.0).text("foothill ridges")).on_hover_text(
+            "How deeply ridges are carved into the foothills. 0 = a smooth skirt, 1 = all ridges and valleys.",
+        );
+        ui.add(crate::debug::Slider::new(&mut s.foothill_ridge_spacing, 50.0..=3_200.0).logarithmic(true).text("foothill ridge spacing (blocks)")).on_hover_text(
+            "How far apart the foothills' ridges are. The same as the mountains' ridge spacing = they carry on the\n\
+             mountains' own ridges; smaller = finer spurs. (Their length keeps the mountains' proportion.)",
+        );
     });
     fold_section(ui, "Hills", |ui| {
         ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)"))
@@ -1277,9 +1297,10 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("edge rise", &mut m.raised_coast, "The land rising inland from the coast on a plate's high side."),
                 ("lift", &mut m.lift, "The lift: land raised toward the mountains, like a tablecloth draped over its points."),
                 ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges and passes)."),
-                ("foothills", &mut m.foothills, "The foothill skirts round each range (as compiled: switching ridges or passes off doesn't reshape them)."),
+                ("foothills", &mut m.foothills, "The foothill skirts round each range, and their ridges."),
                 ("ridges", &mut m.ridges, "The ridge pattern carved into the mountains (off: smooth domes)."),
                 ("passes", &mut m.passes, "The dips along each ridge's crest (off: even crests)."),
+                ("foothill ridges", &mut m.foothill_ridges, "The ridges carved into the foothills (off: a smooth skirt)."),
                 ("hills", &mut m.hills, "The rolling hills on land."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),

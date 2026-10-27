@@ -253,7 +253,7 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
   - **Hills:** David is setting them to 0 while the coast is reworked; their future (perhaps the
     scalloped climbs toward the mountains he wants, so a peak can be seen over the ground in front)
     is the next question.
-- **Foothills stay in the compiler:** a skirt is the mountains blurred, which needs the whole map.
+- **Foothills stay in the compiler:** how far a spot is from the mountains needs the whole map. **Reworked 2026-10-27** (David: "i have no way of controlling the 'foothills' (sub ridges) in how far they go from the mountains"): the skirt was the ridged mountains blurred, so its reach and height were one slider pulling against itself, and it smeared the ridges into lower, fatter copies (the only useful setting was about one pixel). Now, on the Landmass panel, **foothills reach**, **foothills height** (a share of the nearby mountains, measured on the smooth range before ridges and passes) and a **foothill falloff** spline (range out to the reach) are separate. The **Foothill ridges** section of the World Interpreter carves ridges into the skirt live (how deep, and their spacing; the rest of the pattern is the mountains'), with its own Show switch.
 - **Presets:** one compiler preset still holds both panels, as one flat list (old presets load).
 - **Worlds save** the compiler's maps (`map-<name>.png`, 16-bit, each with its range in
   `compiled.toml`) and the recipe, so a world never changes when the panels do.
