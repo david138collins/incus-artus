@@ -817,18 +817,14 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("No points where the rock is less crushed than this (0 to 1, against the bake's most crushed); ranges: none whose most crushed spot is.");
         ui.add(crate::debug::Slider::new(&mut lift.most, 0.0..=1.0).text("most crush"))
             .on_hover_text("No points where the rock is more crushed than this; ranges: none whose most crushed spot is.");
-        match lift.from {
-            LiftFrom::Points => {
-                ui.add(crate::debug::Slider::new(&mut lift.spacing, 300.0..=20_000.0).logarithmic(true).text("spacing (blocks)"))
-                    .on_hover_text("About how far apart the points are where the rock is most crushed (scattered, not even).");
-            }
-            LiftFrom::Ranges => {
-                ui.add(crate::debug::Slider::new(&mut lift.range_cut, 0.0..=1.0).text("range cut"))
-                    .on_hover_text("Where the crush is weaker than this, it's cut into separate ranges. Lower: ranges join into bigger ones.");
-                ui.add(crate::debug::Slider::new(&mut lift.smallest_range, 250.0..=50_000.0).logarithmic(true).text("smallest range (blocks)"))
-                    .on_hover_text("Only ranges at least about this many blocks across get a point.");
-            }
-        }
+        // Both kinds' settings show, the one not chosen greyed out.
+        let scattered = lift.from == LiftFrom::Points;
+        ui.add_enabled(scattered, crate::debug::Slider::new(&mut lift.spacing, 300.0..=20_000.0).logarithmic(true).text("spacing (blocks)"))
+            .on_hover_text("Scattered points: about how far apart they are where the rock is most crushed (scattered, not even).");
+        ui.add_enabled(!scattered, crate::debug::Slider::new(&mut lift.range_cut, 0.0..=1.0).text("range cut"))
+            .on_hover_text("Range middles: where the crush is weaker than this, it's cut into separate ranges. Lower: ranges join into bigger ones.");
+        ui.add_enabled(!scattered, crate::debug::Slider::new(&mut lift.smallest_range, 250.0..=50_000.0).logarithmic(true).text("smallest range (blocks)"))
+            .on_hover_text("Range middles: only ranges at least about this many blocks across get a point.");
         ui.horizontal(|ui| {
             ui.checkbox(&mut compiler.show_lift_points, "show the points");
             if let Some(count) = lift_points {
@@ -1056,19 +1052,20 @@ fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, defau
             ui.selectable_value(&mut mask.source, source, source.name());
         }
     });
-    if mask.source == MaskSource::Everywhere {
-        ui.small(format!("Everywhere: {name} show the same all over. Pick a map to follow to fade them, with a curve."));
-        return;
+    // Everything below is always there, greyed out until it applies (David's convention).
+    let everywhere = mask.source == MaskSource::Everywhere;
+    if everywhere {
+        ui.small(format!("Everywhere: {name} show the same all over. Pick a map to follow to fade them by the curve below."));
     }
-    ui.checkbox(&mut mask.invert, "invert").on_hover_text("Read the map the other way round: what was on the left is on the right.");
-    if mask.source == MaskSource::Coast {
-        ui.add(crate::debug::Slider::new(&mut mask.reach, 250.0..=16_000.0).logarithmic(true).text("reach from the coast (blocks)"))
-            .on_hover_text("How far from the coastline the curve's edges are: the left edge is this far out to sea, the right this far inland.");
-    }
-    let (left, right) = mask.source.ends();
-    let (left, right) = if mask.invert { (right, left) } else { (left, right) };
-    ui.label("The falloff: how much shows (up) along the map it follows (across).");
-    spline_box(ui, &format!("{name} mask"), &mut mask.curve, &Spline::default(), &format!("{left}  →  {right}"), &format!("how much {name} shows"));
+    ui.add_enabled_ui(!everywhere, |ui| {
+        ui.checkbox(&mut mask.invert, "invert").on_hover_text("Read the map the other way round: what was on the left is on the right.");
+        ui.add_enabled(mask.source == MaskSource::Coast, crate::debug::Slider::new(&mut mask.reach, 250.0..=16_000.0).logarithmic(true).text("reach from the coast (blocks)"))
+            .on_hover_text("When following coast distance: how far from the coastline the curve's edges are. The left edge is this far\nout to sea, the right this far inland.");
+        let (left, right) = mask.source.ends();
+        let (left, right) = if mask.invert { (right, left) } else { (left, right) };
+        ui.label("The falloff: how much shows (up) along the map it follows (across).");
+        spline_box(ui, &format!("{name} mask"), &mut mask.curve, &Spline::default(), &format!("{left}  →  {right}"), &format!("how much {name} shows"));
+    });
 }
 
 fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spline, across: &str, up: &str) {
@@ -1296,12 +1293,9 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             }
         });
         let any = o.shown != super::overlays::Shown::default();
-        if any {
-            ui.add(crate::debug::Slider::new(&mut o.opacity, 0.1..=1.0).text("overlay strength")).on_hover_text("How strongly the overlays cover the map.");
-        }
-        if o.shown.coast {
-            ui.add(crate::debug::Slider::new(&mut o.band, 250.0..=8_000.0).text("coast lines every (blocks)")).on_hover_text("The blocks between the coast-distance lines.");
-        }
+        ui.add_enabled(any, crate::debug::Slider::new(&mut o.opacity, 0.1..=1.0).text("overlay strength")).on_hover_text("How strongly the overlays cover the map.");
+        ui.add_enabled(o.shown.coast, crate::debug::Slider::new(&mut o.band, 250.0..=8_000.0).text("coast lines every (blocks)"))
+            .on_hover_text("With the coast distance overlay: the blocks between its lines.");
     })
     .on_hover_text(
         "The compiler's maps drawn over the map and the close-up, one value per map pixel (32 blocks): the areas\n\

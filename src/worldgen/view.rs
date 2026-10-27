@@ -474,20 +474,16 @@ fn warp_settings(ui: &mut egui::Ui, warp: &mut WarpSettings, opacity: &mut f32) 
         ui.small(warp.mode.about());
         ui.add(crate::debug::Slider::new(&mut warp.amount, 50.0..=20_000.0).logarithmic(true).text("amount (blocks)"))
             .on_hover_text("How far the push reaches. About the size of the shapes below = strong bending; much more = smeared.");
-        match warp.mode {
-            WarpMode::Swirl => {
-                ui.add(crate::debug::Slider::new(&mut warp.turns, 0.1..=4.0).text("turns")).on_hover_text(
-                    "How many times round the compass the push turns, from the warp's darkest value to its brightest.\nMore = tighter curls.",
-                );
-                ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("start"))
-                    .on_hover_text("Which way the darkest value pushes (0 = east, 90 = north). Turns the whole swirl.");
-            }
-            WarpMode::Push => {
-                ui.add(crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text("direction"))
-                    .on_hover_text("Which way bright values push (0 = east, 90 = north); dark values push the opposite way.");
-            }
-            WarpMode::Flow => {}
-        }
+        // Greyed out for the modes that don't use them, not hidden.
+        let swirl = warp.mode == WarpMode::Swirl;
+        ui.add_enabled(swirl, crate::debug::Slider::new(&mut warp.turns, 0.1..=4.0).text("turns")).on_hover_text(
+            "Swirl: how many times round the compass the push turns, from the warp's darkest value to its brightest.\nMore = tighter curls.",
+        );
+        ui.add_enabled(warp.mode != WarpMode::Flow, crate::debug::Slider::new(&mut warp.direction, 0.0..=360.0).suffix("°").text(if swirl { "start" } else { "direction" }))
+            .on_hover_text(
+                "Push: which way bright values push (0 = east, 90 = north); dark values push the opposite way.\n\
+                 Swirl: which way the darkest value pushes, turning the whole swirl.",
+            );
         let mut percent = *opacity * 100.0;
         if ui
             .add(crate::debug::Slider::new(&mut percent, 0.0..=100.0).suffix("%").text("opacity"))

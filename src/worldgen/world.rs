@@ -909,10 +909,8 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         ui.checkbox(&mut world.show_arrows, "arrows: heading and spin").on_hover_text(
             "Straight arrow: where the plate is heading, and how fast.\nCurved arrow: which way it spins. Three quarters of a circle = the fastest spin allowed;\nreal turns are too small to see. The exact numbers are in the table.",
         );
-        if world.show_arrows {
-            ui.add(crate::debug::Slider::new(&mut world.arrow_steps, 10.0..=1_000.0).logarithmic(true).text("arrow length (steps)"))
-                .on_hover_text("Each straight arrow reaches where the plate's middle would be after this many steps.");
-        }
+        ui.add_enabled(world.show_arrows, crate::debug::Slider::new(&mut world.arrow_steps, 10.0..=1_000.0).logarithmic(true).text("arrow length (steps)"))
+            .on_hover_text("With the arrows on: each straight arrow reaches where the plate's middle would be after this many steps.");
         ui.checkbox(&mut world.show_boundaries, "boundaries: red colliding, blue pulling apart, green sliding").on_hover_text(
             "Where two plates touch, how they move against each other there.\nMost boundaries do a bit of everything; each spot shows what it does most.\nPlates against empty ocean aren't boundaries.",
         );
@@ -1133,35 +1131,39 @@ fn line_noise(ui: &mut egui::Ui, title: &str, noise: &mut LineNoise) {
         ui.checkbox(&mut noise.on, "");
         ui.strong(title);
     });
-    if !noise.on {
-        return;
-    }
-    ui.horizontal(|ui| {
-        ui.label("style:");
-        ui.selectable_value(&mut noise.style, LineStyle::Perlin, "Perlin noise")
-            .on_hover_text("Perlin noise running along the line. Smooth and rolling.");
-        ui.selectable_value(&mut noise.style, LineStyle::Midpoint, "midpoint displacement").on_hover_text(
-            "Halve the line and nudge the middle sideways at random; halve each half and nudge\ntheir middles by less; and so on down to the finest step. Jagged, like a coastline.",
-        );
+    // Greyed out while it's off, not hidden (David's convention).
+    ui.add_enabled_ui(noise.on, |ui| {
+        ui.horizontal(|ui| {
+            ui.label("style:");
+            ui.selectable_value(&mut noise.style, LineStyle::Perlin, "Perlin noise")
+                .on_hover_text("Perlin noise running along the line. Smooth and rolling.");
+            ui.selectable_value(&mut noise.style, LineStyle::Midpoint, "midpoint displacement").on_hover_text(
+                "Halve the line and nudge the middle sideways at random; halve each half and nudge\ntheir middles by less; and so on down to the finest step. Jagged, like a coastline.",
+            );
+        });
+        let midpoint = noise.style == LineStyle::Midpoint;
+        ui.add(crate::debug::Slider::new(&mut noise.amount, 0.0..=10_000.0).text("amount (blocks)")).on_hover_text(if midpoint {
+            "The first nudge, at the middle of each line. The smaller nudges are fractions of it."
+        } else {
+            "How far a line may be pushed sideways.\nVery big pushes get cut off where they run into other lines."
+        });
+        // The same two settings mean different things for each style, so they change with it;
+        // octaves are Perlin's only, greyed for midpoint.
+        if midpoint {
+            ui.add(crate::debug::Slider::new(&mut noise.size, 50.0..=20_000.0).logarithmic(true).text("finest step (blocks)"))
+                .on_hover_text("The halving stops when the pieces are this short. Smaller = finer detail.");
+        } else {
+            ui.add(crate::debug::Slider::new(&mut noise.size, 300.0..=40_000.0).logarithmic(true).text("wave size (blocks)"))
+                .on_hover_text("How long the biggest wobbles are, along the line.");
+        }
+        ui.add_enabled(!midpoint, crate::debug::Slider::new(&mut noise.octaves, 1..=8).text("octaves"))
+            .on_hover_text("Perlin noise only: finer, fainter wobbles stacked on the big ones.");
+        ui.add(crate::debug::Slider::new(&mut noise.roughness, 0.0..=1.0).text("roughness")).on_hover_text(if midpoint {
+            "Each smaller nudge is this much of the one before.\n0.5 = natural-looking. Higher = jaggeder, lower = smoother."
+        } else {
+            "How strong each finer wobble is compared with the one before."
+        });
     });
-    let midpoint = noise.style == LineStyle::Midpoint;
-    ui.add(crate::debug::Slider::new(&mut noise.amount, 0.0..=10_000.0).text("amount (blocks)")).on_hover_text(if midpoint {
-        "The first nudge, at the middle of each line. The smaller nudges are fractions of it."
-    } else {
-        "How far a line may be pushed sideways.\nVery big pushes get cut off where they run into other lines."
-    });
-    if midpoint {
-        ui.add(crate::debug::Slider::new(&mut noise.size, 50.0..=20_000.0).logarithmic(true).text("finest step (blocks)"))
-            .on_hover_text("The halving stops when the pieces are this short. Smaller = finer detail.");
-        ui.add(crate::debug::Slider::new(&mut noise.roughness, 0.0..=1.0).text("roughness"))
-            .on_hover_text("Each smaller nudge is this much of the one before.\n0.5 = natural-looking. Higher = jaggeder, lower = smoother.");
-    } else {
-        ui.add(crate::debug::Slider::new(&mut noise.size, 300.0..=40_000.0).logarithmic(true).text("wave size (blocks)"))
-            .on_hover_text("How long the biggest wobbles are, along the line.");
-        ui.add(crate::debug::Slider::new(&mut noise.octaves, 1..=8).text("octaves")).on_hover_text("Finer, fainter wobbles stacked on the big ones.");
-        ui.add(crate::debug::Slider::new(&mut noise.roughness, 0.0..=1.0).text("roughness"))
-            .on_hover_text("How strong each finer wobble is compared with the one before.");
-    }
 }
 
 fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
