@@ -181,7 +181,8 @@ Tectonic Sim → bake (32-block pixels)
 Terrain Compiler (whole map, once): sea level · soften the coastline · foothill skirts
       → smooth maps: coast, height, tilt, squeeze, squeeze direction, skirt
 Interpreter (every block, as the world is made): blend the maps to the block, then
-      land & sea curves · grade · mountains · ridges · passes · rifts · hills · detail · surface blocks
+      land & sea curves · grade · raised coast · lift · mountains · ridges · passes · rifts · hills
+      · torn coast · detail · surface blocks
       → the ground, and the distant terrain (the same recipe, sampled coarsely)
 ```
 - **Why:** the compiler worked the recipe out per pixel and handed over finished heights; smoothing
@@ -198,6 +199,30 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
   (David's screenshot). Now blurred the same way (the direction as its doubled-angle arrow, so
   directions average properly), and the most crushed and stretched measured again after, so the
   tallest peaks stay as tall. Old presets get the default.
+- **Coasts: each control does one job** [BUILT 2026-10-27, from "controls do what they say"]. Before,
+  hills and ground detail set the coastline by accident: land starts at exactly Z 128 at the coast,
+  hills flattened anything they'd have drowned to Z 128, and detail (±3 blocks everywhere) then decided
+  block by block which of those flats was land, so a small move swung whole coastlines. David loves
+  what it made (ponds, inlets, tide pools, islets and shoals: "it gives the whole continent a realistic
+  feel when the coast in some areas is tore up and spotty"), so it became its own part:
+  - **Torn coast** (Interpreter, between hills and detail; name is a placeholder): in a band along the
+    coastline (reach inland, reach out to sea), a Perlin field pushes the ground back and forth across
+    the waterline, by an amount; a slow pattern picks which stretches of coast are torn (how much is
+    torn, stretch size); a balance leans it toward water (ponds, inlets) or land (islets, shoals). Reads
+    the distance from the coast directly, so the land curve doesn't change what it does.
+  - **Ground detail keeps off the waterline** (switch, on by default): near the waterline its bumps
+    are held back so they never cross it. Off is the old way, for A/B. Old presets get it on, so their
+    coasts change: the torn coast is how to get that look back.
+  - **Raised coast** (Land and sea section) [David: tilt should "raise it above sea level on the ground
+    side as well, with a smoothing spline on the exposed edge"]: before, tilt only changed how fast
+    land climbed from the coast, and every coast met the sea at Z 128, so tilt could never make a
+    cliff. Now, on a plate's high side, the land stands up out of the sea by the raised coast (blocks
+    at tilt 1, more where tilted further, none on the low side), across an edge width, shaped by the
+    edge curve (start it high for a sheer face at the water; low for a slope up from a beach). The
+    coastline itself doesn't move. Off by default (0).
+  - **Hills:** David is setting them to 0 while the coast is reworked; their future (perhaps the
+    scalloped climbs toward the mountains he wants, so a peak can be seen over the ground in front)
+    is the next question.
 - **Foothills stay in the compiler:** a skirt is the mountains blurred, which needs the whole map.
 - **Presets:** one compiler preset still holds both panels, as one flat list (old presets load).
 - **Worlds save** the compiler's maps (`map-<name>.png`, 16-bit, each with its range in
@@ -209,8 +234,8 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
 - **Built:** zooming into the Terrain Compiler's map turns it into a **live close-up** of the ground as
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
-  copied. **Layer switches** leave parts of the recipe out (lift, mountains, foothills, ridges, passes,
-  rifts, hills, detail). Only the close-up follows them; the big map and worlds use the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
+  copied. **Layer switches** leave parts of the recipe out (raised coast, lift, mountains, foothills,
+  ridges, passes, rifts, hills, torn coast, detail). Only the close-up follows them; the big map and worlds use the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
   the output map. Using the clean modalities we can capture, we will drive a variety of scattering and
@@ -741,8 +766,17 @@ refinements, in the 3D world, for things like sunsets, clouds or animated water.
 
 ## Next steps
 
-David is exploring and improving the terrain gen again. **Soon after, on the to-do list [David
-2026-10-26]:**
+David is exploring and improving the terrain gen again. **The Interpreter rework** [David,
+2026-10-27], as it goes:
+- **Eliminate or repurpose controls that mean nothing to David.** First noticed: rifts "seem to do
+  nothing except make a couple ocean spots a little deeper".
+- **Rebalance a preset's slider ranges** once the reworks settle: go through a preset David likes and
+  move each slider's range so the preset sits near the middle. Several controls now have a sweet spot
+  only 1 to 3 mouse-wheel steps wide on the whole bar.
+- **The climb to the mountains:** David wants scalloped ramps from the lowlands up to the peaks, since
+  a giant mountain is hard to see over a few-block grade right in front of you. Next after the coast.
+
+**Soon after, on the to-do list [David 2026-10-26]:**
 
 - **Raise the build height, and free the terrain from Z 333.** Both limits are arbitrary (a Minecraft
   habit); nothing should stop a Tower of Babel, and the Lift's points are cut flat at 333. The

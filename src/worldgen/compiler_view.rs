@@ -585,8 +585,9 @@ Terrain Compiler · whole map, once:
 World Interpreter · every block, as
   the world is made (this panel):
   blend the maps to the block, then
-  curves · grade · mountains · ridges
-  passes · rifts · hills · detail
+  curves · grade · raised coast · lift
+  mountains · ridges · passes · rifts
+  hills · torn coast · detail
       |
 the ground (and the distant terrain)";
 
@@ -770,6 +771,17 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut s.grade, 0.0..=1.0).text("grade by tilt")).on_hover_text(
             "Each plate's tilt steepens its high side (land climbs faster, the sea drops off close in) and softens\nits low side (wide plains, shallow shelves). 0 = no grading. (Bakes made before tilt was saved can't grade.)",
         );
+        ui.add_space(4.0);
+        ui.add(crate::debug::Slider::new(&mut s.coast_rise, 0.0..=80.0).text("raised coast (blocks)")).on_hover_text(
+            "On a plate's high side, the land stands up out of the sea at the coast: this high where the plate is tilted up\n\
+             by 1 (more where it's tilted further, none on its low side, which meets the sea at Z 128 as beaches).\n\
+             Cliffs and bluffs on the high side, beaches on the low. 0 = off.",
+        );
+        ui.add(crate::debug::Slider::new(&mut s.coast_edge_width, 1.0..=2_000.0).logarithmic(true).text("edge width (blocks)"))
+            .on_hover_text("How far inland the exposed edge reaches before the land is fully raised. Narrow = cliffs; wide = bluffs and slopes.");
+        ui.label("The exposed edge: from the waterline (left) to the edge width inland (right).");
+        spline_box(ui, "coast edge spline", &mut s.coast_edge, &defaults.coast_edge, "inland", "share of the raised coast");
+        ui.small("Start the curve high at the left for a sheer cliff face at the water; low, for a slope up from a beach.");
     });
     fold_section(ui, "Lift", |ui| {
         ui.small(
@@ -879,10 +891,42 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("Gentle rolling bumps on land: a Perlin field laid on the ground, this many blocks up and down.");
         masked_noise(ui, "hills", &mut s.hill_noise, &defaults.hill_noise, 300.0..=8_000.0, &mut s.hill_mask);
     });
+    fold_section(ui, "Torn coast", |ui| {
+        ui.small(
+            "Ponds, tide pools and inlets on land, islets and shoals at sea: in a band along the coastline, a pattern pushes \
+             the ground back and forth across the waterline, in patches (some stretches of coast torn up, others clean). \
+             The one part of the recipe meant to move the coast.",
+        );
+        let t = &mut s.torn_coast;
+        let d = &defaults.torn_coast;
+        ui.add(crate::debug::Slider::new(&mut t.amount, 0.0..=24.0).text("amount (blocks)")).on_hover_text(
+            "How far the ground is pushed up and down at the coastline. Land a few blocks above the sea is torn by a little;\n\
+             higher ground (a raised coast, cliffs) needs more to reach the water. 0 = off.",
+        );
+        ui.add(crate::debug::Slider::new(&mut t.inland, 0.0..=4_000.0).text("reach inland (blocks)"))
+            .on_hover_text("How far in from the coast the band reaches (it fades out toward its edge): how far inland the ponds go.");
+        ui.add(crate::debug::Slider::new(&mut t.out_to_sea, 0.0..=4_000.0).text("reach out to sea (blocks)"))
+            .on_hover_text("How far out from the coast the band reaches: how far out the islets and shoals go.");
+        ui.add(crate::debug::Slider::new(&mut t.balance, -1.0..=1.0).text("water ← balance → land")).on_hover_text(
+            "-1 = mostly pushed down (ponds, inlets, a drowned, broken shore); 1 = mostly pushed up (islets, shoals,\n\
+             land reaching out into the sea); 0 = even.",
+        );
+        ui.add(crate::debug::Slider::new(&mut t.patches, 0.0..=1.0).text("how much is torn")).on_hover_text(
+            "How much of the coast is torn up: 1 = all of it, 0 = none. Between, a slow pattern picks the stretches,\n\
+             and the rest of the coast stays clean.",
+        );
+        ui.add(crate::debug::Slider::new(&mut t.patch_size, 500.0..=40_000.0).logarithmic(true).text("stretch size (blocks)"))
+            .on_hover_text("About how long the torn and clean stretches of coast are.");
+        noise_box(ui, "torn coast", &mut t.noise, &d.noise, 16.0..=2_000.0);
+    });
     fold_section(ui, "Ground detail", |ui| {
         ui.add(crate::debug::Slider::new(&mut s.detail, 0.0..=12.0).text("ground detail (blocks)")).on_hover_text(
             "Small bumps on the ground, so it isn't glassy smooth: a Perlin field laid on the ground, this many blocks\n\
              up and down. Only in the world (and the close-up): they're smaller than one of this map's pixels.",
+        );
+        ui.checkbox(&mut s.detail_keeps_coast, "keeps off the waterline").on_hover_text(
+            "On: near the waterline the bumps are held back so they never cross it, and moving ground detail never\n\
+             changes the coast (that's the torn coast's job). Off: the old way, where detail tore coasts up. For A/B.",
         );
         masked_noise(ui, "ground detail", &mut s.detail_noise, &defaults.detail_noise, 16.0..=512.0, &mut s.detail_mask);
     });
@@ -985,7 +1029,8 @@ fn elevation_picture(compiled: &Compiled) -> Picture {
 /// take it away.
 /// A layer of the ground that's a Perlin field (hills, ground detail): its noise, as a Graphics Kit
 /// Perlin layer has it, and its mask, each folded away until opened.
-fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default: &PerlinSettings, sizes: std::ops::RangeInclusive<f32>, mask: &mut Mask) {
+/// A recipe part's Perlin noise settings, folded away under one heading.
+fn noise_box(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default: &PerlinSettings, sizes: std::ops::RangeInclusive<f32>) {
     egui::CollapsingHeader::new(format!("{name}: Perlin noise")).id_salt((name, "noise")).show(ui, |ui| {
         ui.small(format!("The same Perlin noise as a Graphics Kit Perlin layer, laid on the ground as {name}."));
         super::view::perlin_rows(ui, noise, sizes, None);
@@ -993,6 +1038,10 @@ fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, defau
             *noise = default.clone();
         }
     });
+}
+
+fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default: &PerlinSettings, sizes: std::ops::RangeInclusive<f32>, mask: &mut Mask) {
+    noise_box(ui, name, noise, default, sizes);
     let heading = if mask.source == MaskSource::Everywhere { format!("{name}: mask (everywhere)") } else { format!("{name}: mask (follows {})", mask.source.name()) };
     egui::CollapsingHeader::new(heading).id_salt((name, "mask")).show(ui, |ui| {
         ui.small(format!(
@@ -1208,6 +1257,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let m = &mut compiler.lab.mutes;
         ui.horizontal_wrapped(|ui| {
             for (name, muted, about) in [
+                ("raised coast", &mut m.raised_coast, "The land standing up out of the sea on a plate's high side (cliffs, bluffs)."),
                 ("lift", &mut m.lift, "The lift: land raised toward the mountains, like a tablecloth draped over its points."),
                 ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges and passes)."),
                 ("foothills", &mut m.foothills, "The foothill skirts round each range (as compiled: switching ridges or passes off doesn't reshape them)."),
@@ -1215,6 +1265,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("passes", &mut m.passes, "The dips along each ridge's crest (off: even crests)."),
                 ("rifts", &mut m.rifts, "Stretched rock sinking."),
                 ("hills", &mut m.hills, "The rolling hills on land."),
+                ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),
             ] {
                 let mut shown = !*muted;

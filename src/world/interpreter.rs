@@ -10,7 +10,8 @@
 //!     ▼  smooth maps (coast, height, tilt, squeeze and its direction, skirt)
 //! World Interpreter — at every block, as chunks are made (this file):
 //!     blend the maps smoothly to this spot, then:
-//!     land & sea curves · grading · mountains · ridges · passes · rifts · hills · detail
+//!     land & sea curves · grading · raised coast · mountains · ridges · passes · rifts · hills
+//!     · torn coast · detail
 //!     │
 //!     ▼
 //! the ground you walk on, and the distant terrain (the same recipe, sampled coarsely)
@@ -33,6 +34,8 @@
 //! 2. **Land and sea curves:** land climbs from the coast (Z 128) to the **highlands**, the sea floor
 //!    falls to the **deepest**, along curves through dots (`Spline`).
 //! 3. **Grade:** each plate's tilt steepens its high side and softens its low side.
+//!    **Raised coast:** on a plate's high side the land stands up out of the sea (cliffs, bluffs),
+//!    its exposed edge shaped by a curve; on the low side it meets the sea at Z 128 (beaches).
 //! 4. **Mountains** from the squeeze: the **mountain curve** says how tall for how much squeeze, as a
 //!    share of the room up to Z 333; carved into **ridges** across the squeeze direction, whose
 //!    crests dip into **passes**; never below the compiler's **foothill skirt**.
@@ -40,7 +43,11 @@
 //! 6. **Hills** on land, and a little **detail** everywhere: each is a Perlin field, the same as a
 //!    Graphics Kit Perlin layer, laid on the ground this many blocks up and down, and faded in and
 //!    out by a **mask** that follows one of the maps (distance from the coast, height, mountains,
-//!    foothills or squeeze) through a curve.
+//!    foothills or squeeze) through a curve. Hills never drown land, and detail (unless switched
+//!    to) never moves the coast.
+//! 7. **Torn coast** (between hills and detail): in a band along the coastline, a Perlin field
+//!    pushes the ground back and forth across the waterline, in patches, making ponds, tide pools,
+//!    inlets, islets and shoals. The one part of the recipe meant to move the coast.
 
 use super::terrain::SEA_LEVEL;
 use crate::worldgen::noise::{Fade, PerlinSettings, perlin};
@@ -159,6 +166,13 @@ pub struct InterpreterSettings {
     pub sea: Spline,
     /// How strongly each plate's tilt grades it (0 = no grading).
     pub grade: f32,
+    /// The raised coast: how high (blocks) the land stands out of the sea at the coast where a plate
+    /// is tilted up by 1 (more where it's tilted up further; none on its low side; 0 = off).
+    pub coast_rise: f32,
+    /// How far inland (blocks) the exposed edge reaches before the land is fully raised, and its
+    /// shape: from the waterline (left) to that far in (right); up = the share of the rise.
+    pub coast_edge_width: f32,
+    pub coast_edge: Spline,
     /// The lift: land raised toward the mountains, like a tablecloth draped over points floating
     /// above them, its edges tapering off just before the coast.
     pub lift: Lift,
@@ -203,6 +217,10 @@ pub struct InterpreterSettings {
     pub detail: f32,
     pub detail_noise: PerlinSettings,
     pub detail_mask: Mask,
+    /// Detail never moves the coast: near the waterline its bumps are held back so they don't
+    /// cross it (off = the old way, where detail tore coasts up; that's the torn coast's job now).
+    pub detail_keeps_coast: bool,
+    pub torn_coast: TornCoast,
     /// The surface is bare stone from this Z up, and gabbro (the peaks) from this Z up.
     pub stone_from: i32,
     pub gabbro_from: i32,
@@ -216,6 +234,9 @@ impl Default for InterpreterSettings {
             land: Spline::through(&[(0.0, 0.0), (0.4, 0.2), (0.75, 0.6), (1.0, 1.0)]),
             sea: Spline::through(&[(0.0, 0.0), (0.4, 0.25), (1.0, 1.0)]),
             grade: 0.4,
+            coast_rise: 0.0,
+            coast_edge_width: 64.0,
+            coast_edge: Spline::through(&[(0.0, 0.0), (0.35, 0.75), (1.0, 1.0)]),
             lift: Lift::default(),
             mountains: Spline::through(&[(0.0, 0.0), (0.08, 0.0), (0.5, 0.35), (1.0, 0.9)]),
             ridges: 0.5,
@@ -238,6 +259,8 @@ impl Default for InterpreterSettings {
             detail: 3.0,
             detail_noise: PerlinSettings { scale: 96.0, octaves: 1, ..PerlinSettings::default() },
             detail_mask: Mask::default(),
+            detail_keeps_coast: true,
+            torn_coast: TornCoast::default(),
             stone_from: 215,
             gabbro_from: 285,
         }
@@ -297,6 +320,40 @@ impl Default for Lift {
             spacing: 3_000.0,
             range_cut: 0.2,
             smallest_range: 2_000.0,
+        }
+    }
+}
+
+/// The torn coast: in a band along the coastline, a Perlin field pushes the ground back and forth
+/// across the waterline, making ponds and tide pools on land and islets and shoals at sea, in
+/// patches (some stretches of coast torn up, others clean).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TornCoast {
+    /// How far (blocks) the ground is pushed up and down at the coastline (0 = off).
+    pub amount: f32,
+    /// How far the band reaches inland and out to sea (blocks), fading to nothing at its edges.
+    pub inland: f32,
+    pub out_to_sea: f32,
+    /// The pattern that pushes (its size is the ponds' and islets' size).
+    pub noise: PerlinSettings,
+    /// How much of the coast is torn (0 to 1; the rest is clean), and how big the stretches are.
+    pub patches: f32,
+    pub patch_size: f32,
+    /// −1 = mostly water (ponds and inlets), 1 = mostly land (islets and shoals), 0 = even.
+    pub balance: f32,
+}
+
+impl Default for TornCoast {
+    fn default() -> Self {
+        Self {
+            amount: 4.0,
+            inland: 400.0,
+            out_to_sea: 300.0,
+            noise: PerlinSettings { scale: 120.0, octaves: 3, persistence: 0.5, lacunarity: 2.2, ..PerlinSettings::default() },
+            patches: 0.6,
+            patch_size: 6_000.0,
+            balance: 0.0,
         }
     }
 }
@@ -557,10 +614,12 @@ pub struct Mutes {
     pub mountains: bool,
     /// The foothill skirts (which mountains are never lower than).
     pub foothills: bool,
+    pub raised_coast: bool,
     pub ridges: bool,
     pub passes: bool,
     pub rifts: bool,
     pub hills: bool,
+    pub torn_coast: bool,
     pub detail: bool,
 }
 
@@ -579,6 +638,7 @@ pub struct CompiledMap {
     sea: Curve,
     mountains: Curve,
     lift: Curve,
+    coast_edge: Curve,
     hill_mask: Curve,
     detail_mask: Curve,
 }
@@ -632,6 +692,7 @@ impl CompiledMap {
             sea: settings.sea.curve(),
             mountains: settings.mountains.curve(),
             lift: settings.lift.curve.curve(),
+            coast_edge: settings.coast_edge.curve(),
             hill_mask: settings.hill_mask.curve.curve(),
             detail_mask: settings.detail_mask.curve.curve(),
             mutes: Mutes::default(),
@@ -714,7 +775,7 @@ impl CompiledMap {
             let t = (m.water - here.height).max(0.0) / (m.water - m.lowest).max(1e-6);
             (sea - 1.0) - (sea - 1.0 - s.deepest).max(0.0) * self.sea.at(t).clamp(0.0, 1.0) * steep
         };
-        let ground = ground + self.lift(here);
+        let ground = ground + self.raised_coast(here) + self.lift(here);
 
         // 4. Mountains.
         let mut mountains = 0.0;
@@ -792,7 +853,47 @@ impl CompiledMap {
         lift.height * self.lift.at(near).clamp(0.0, 1.0) * pad
     }
 
-    /// The pieces put together, with hills on land (6), before detail.
+    /// How much the raised coast lifts the land at a spot (blocks; none at sea or on a plate's low
+    /// side): the rise for the plate's tilt there, shaped by the edge curve over the edge width.
+    pub fn raised_coast(&self, here: &Here) -> f32 {
+        let s = &self.settings;
+        if s.coast_rise <= 0.0 || here.coast < 0.0 || here.tilt <= 0.0 || self.mutes.raised_coast {
+            return 0.0;
+        }
+        let across = (here.coast_distance / s.coast_edge_width.max(1.0)).clamp(0.0, 1.0);
+        s.coast_rise * here.tilt * self.coast_edge.at(across).clamp(0.0, 1.0)
+    }
+
+    /// How far the torn coast pushes the ground at a spot (blocks, up or down): its pattern, faded
+    /// out across the band and in the clean stretches between patches.
+    fn torn_coast(&self, here: &Here, x: f32, y: f32) -> f32 {
+        let t = &self.settings.torn_coast;
+        if t.amount == 0.0 || self.mutes.torn_coast {
+            return 0.0;
+        }
+        let d = here.coast_distance;
+        let band = if d >= 0.0 { 1.0 - d / t.inland.max(1.0) } else { 1.0 + d / t.out_to_sea.max(1.0) };
+        if band <= 0.0 {
+            return 0.0;
+        }
+        // The patches: a slow pattern, torn where it's above the cut (more patches, lower cut).
+        let shown = if t.patches >= 1.0 {
+            1.0
+        } else if t.patches <= 0.0 {
+            0.0
+        } else {
+            let size = t.patch_size.max(1.0);
+            let patch = perlin(self.noise_seed, 0x7042, Fade::Smooth, x / size, y / size) * 0.5 + 0.5;
+            smooth((patch - (1.0 - t.patches)) * 5.0 + 0.5)
+        };
+        if shown <= 0.0 {
+            return 0.0;
+        }
+        let push = noise_at(&t.noise, self.noise_seed ^ 0x70c0a5, -y, x) + t.balance;
+        push * t.amount * smooth(band) * shown
+    }
+
+    /// The pieces put together, with hills on land (6) and the torn coast (7), before detail.
     pub fn put_together(&self, parts: Parts, here: &Here, x: f32, y: f32) -> f32 {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
@@ -805,6 +906,7 @@ impl CompiledMap {
                 z = (z + rolling * s.hills * shown).max(sea);
             }
         }
+        z += self.torn_coast(here, x, y);
         z.clamp(1.0, HIGHEST)
     }
 
@@ -857,7 +959,13 @@ impl CompiledMap {
             return Some(ground);
         }
         let shown = self.mask(&s.detail_mask, &self.detail_mask, &here, ground);
-        let detail = if shown > 0.0 { noise_at(&s.detail_noise, self.seed ^ 0xde7a11, north, east) * s.detail * shown } else { 0.0 };
+        let mut detail = if shown > 0.0 { noise_at(&s.detail_noise, self.seed ^ 0xde7a11, north, east) * s.detail * shown } else { 0.0 };
+        if s.detail_keeps_coast {
+            // Held back from the waterline (a block is land from Z 127.5, as it's rounded): land
+            // bumps down no further than it, sea floor bumps up no further.
+            let waterline = SEA_LEVEL as f32 - 0.5;
+            detail = if ground >= waterline { detail.max(waterline + 0.01 - ground) } else { detail.min(waterline - 0.01 - ground) };
+        }
         Some(ground + detail)
     }
 
@@ -900,6 +1008,7 @@ impl CompiledMap {
             grade: 0.0,
             hills: 0.0,
             detail: 0.0,
+            torn_coast: TornCoast { amount: 0.0, ..TornCoast::default() },
             ..InterpreterSettings::default()
         };
         Self::new(Arc::new(maps), 1, settings)
@@ -952,6 +1061,81 @@ mod tests {
                 assert!((lifted.at_pixel(i) - before[i]).abs() < 0.5, "pixel {i} went from {} to {}", before[i], lifted.at_pixel(i));
             }
         }
+    }
+
+    /// Low land (Z 130) in the west half, shallow sea (Z 125) in the east: the coast runs north–south
+    /// through the middle (east 0).
+    fn low_coast() -> CompiledMap {
+        let width = 32;
+        let z: Vec<f32> = (0..width * width).map(|i| if i % width < width / 2 { 130.0 } else { 125.0 }).collect();
+        CompiledMap::of_heights(width, 32.0, &z)
+    }
+
+    /// Is the block at (`north`, `east`) land, as the world rounds it?
+    fn is_land(map: &CompiledMap, north: f32, east: f32) -> bool {
+        map.height(north, east).unwrap().round() >= SEA_LEVEL as f32
+    }
+
+    #[test]
+    fn ground_detail_keeps_off_the_waterline_unless_switched_to_the_old_way() {
+        let plain = low_coast();
+        let with = |keeps| plain.with(InterpreterSettings { detail: 12.0, detail_keeps_coast: keeps, ..plain.settings.clone() }, Mutes::default());
+        let (kept, old) = (with(true), with(false));
+        let (mut moved_kept, mut moved_old) = (0, 0);
+        for north in (-200..200).step_by(3) {
+            for east in (-150..150).step_by(3) {
+                let (north, east) = (north as f32, east as f32);
+                let before = is_land(&plain, north, east);
+                moved_kept += (is_land(&kept, north, east) != before) as usize;
+                moved_old += (is_land(&old, north, east) != before) as usize;
+            }
+        }
+        assert_eq!(moved_kept, 0, "detail moved the coast");
+        assert!(moved_old > 100, "the old way should tear the coast up ({moved_old} blocks changed)");
+    }
+
+    #[test]
+    fn the_torn_coast_moves_the_coast_both_ways_only_inside_its_band() {
+        let plain = low_coast();
+        let torn = plain.with(
+            InterpreterSettings { torn_coast: TornCoast { amount: 10.0, inland: 120.0, out_to_sea: 120.0, patches: 1.0, ..TornCoast::default() }, ..plain.settings.clone() },
+            Mutes::default(),
+        );
+        let (mut drowned, mut raised, mut outside) = (0, 0, 0);
+        for north in (-300..300).step_by(3) {
+            for east in (-400..400).step_by(3) {
+                let (north, east) = (north as f32, east as f32);
+                let (before, after) = (is_land(&plain, north, east), is_land(&torn, north, east));
+                drowned += (before && !after) as usize;
+                raised += (!before && after) as usize;
+                // Well past the band (and the blending's half a pixel), nothing changes.
+                if east.abs() > 200.0 {
+                    outside += (plain.height(north, east) != torn.height(north, east)) as usize;
+                }
+            }
+        }
+        assert!(drowned > 50 && raised > 50, "ponds {drowned}, islets {raised}");
+        assert_eq!(outside, 0);
+        // Switched off in the lab, it's gone.
+        let muted = torn.with(torn.settings.clone(), Mutes { torn_coast: true, ..Mutes::default() });
+        assert_eq!(muted.height(10.0, -20.0), plain.height(10.0, -20.0));
+    }
+
+    #[test]
+    fn a_raised_coast_stands_up_on_a_plates_high_side_only() {
+        let mut map = low_coast();
+        let width = map.maps.width;
+        // The north half tilted up, the south half down.
+        Arc::make_mut(&mut map.maps).tilt = (0..width * width).map(|i| if i / width < width / 2 { 1.0 } else { -1.0 }).collect();
+        let straight = Spline::through(&[(0.0, 0.0), (1.0, 1.0)]);
+        let raised = map.with(InterpreterSettings { coast_rise: 30.0, coast_edge_width: 64.0, coast_edge: straight, ..map.settings.clone() }, Mutes::default());
+        let rise = |north: f32, east: f32| raised.height(north, east).unwrap() - map.height(north, east).unwrap();
+        // Well inland on the high side: the whole rise; on the low side, none.
+        assert!((rise(300.0, -300.0) - 30.0).abs() < 0.5, "{}", rise(300.0, -300.0));
+        assert!(rise(-300.0, -300.0).abs() < 0.01);
+        // The sea isn't touched, and the coast doesn't move: the edge starts at the waterline.
+        assert!(rise(300.0, 200.0).abs() < 0.01);
+        assert!(rise(300.0, -40.0) < rise(300.0, -150.0));
     }
 
     #[test]
