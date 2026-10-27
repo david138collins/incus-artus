@@ -403,6 +403,15 @@ mod tests {
     }
 
     #[test]
+    fn a_saved_preset_reads_back_exactly_as_it_was() {
+        // The "default" light compares settings with the saved preset exactly.
+        let mut settings = CompileSettings { water: -0.003, soften: 96.7, ..CompileSettings::default() };
+        settings.interpreter.coast_rise = 12.345;
+        let back: CompileSettings = toml::from_str(&toml::to_string_pretty(&settings).unwrap()).unwrap();
+        assert!(back == settings);
+    }
+
+    #[test]
     fn a_preset_holds_both_panels_in_one_flat_list_as_before() {
         // Presets saved before the recipe moved to the Interpreter list everything side by side.
         let text = "water = -0.003\nsoften = 96.0\nfoothills = 6900.0\nridges = 0.89\nhills = 14.0\nstone_from = 220\n\

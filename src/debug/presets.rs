@@ -69,6 +69,33 @@ pub fn default_preset<T: DeserializeOwned>(category: &str) -> Option<T> {
     load(&preset_folder(category), DEFAULT).ok()
 }
 
+/// A small light that's on while `value` is exactly the category's "default" preset, and off once
+/// anything is changed (saving the changes as "default" lights it again). The preset is read again
+/// only when its file changes.
+pub fn default_light<T: DeserializeOwned + PartialEq + Clone + Send + Sync + 'static>(ui: &mut egui::Ui, category: &str, value: &T) {
+    let path = preset_folder(category).join(format!("{DEFAULT}.toml"));
+    let modified = std::fs::metadata(&path).and_then(|meta| meta.modified()).ok();
+    let id = egui::Id::new(("default preset", category));
+    let cached: Option<(Option<std::time::SystemTime>, Option<T>)> = ui.data(|data| data.get_temp(id));
+    let default = match cached {
+        Some((when, default)) if when == modified => default,
+        _ => {
+            let default = modified.and_then(|_| load::<T>(&preset_folder(category), DEFAULT).ok());
+            ui.data_mut(|data| data.insert_temp(id, (modified, default.clone())));
+            default
+        }
+    };
+    let on = default.as_ref() == Some(value);
+    let (text, colour) = if on { ("● default", egui::Color32::from_rgb(120, 230, 120)) } else { ("○ default", egui::Color32::from_gray(110)) };
+    ui.label(egui::RichText::new(text).color(colour)).on_hover_text(if default.is_none() {
+        "No 'default' preset saved for this page yet: name one 'default' (Presets) and save it."
+    } else if on {
+        "These settings are exactly the 'default' preset."
+    } else {
+        "Changed from the 'default' preset. Save under the name 'default' (Ctrl+S) to make these the default."
+    });
+}
+
 /// The preset name that becomes a page's default.
 const DEFAULT: &str = "default";
 

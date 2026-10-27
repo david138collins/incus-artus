@@ -25,7 +25,7 @@ use super::runner::{Finished, Job, Poll};
 use super::lab::{self, Lab};
 use super::view::{MAGENTA, PINK, compass, fold_section, switched_section};
 use super::world::defaults_row;
-use crate::debug::{default_preset, preset_bar, save_shortcut};
+use crate::debug::{default_light, default_preset, preset_bar, save_shortcut};
 use bevy::math::IVec2;
 use bevy_egui::egui::{self, Color32, Vec2};
 use std::sync::Arc;
@@ -351,6 +351,8 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     save_shortcut(root.ctx(), "compiler", || compiler.settings.clone());
     egui::Panel::top("world compiler bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
+            default_light(ui, "compiler", &compiler.settings);
+            ui.separator();
             for (shown, name) in compiler.shown.iter_mut().zip(PANELS) {
                 ui.toggle_value(shown, name).on_hover_text(format!("Show or hide the {name} panel"));
             }

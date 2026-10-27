@@ -32,7 +32,7 @@ use super::runner::{Finished, Job, Poll};
 use super::rags::{RagSettings, Sim, Spot};
 use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
 use super::view::{MAGENTA, PINK, compass, fold_section, seed_row};
-use crate::debug::{default_preset, preset_bar, save_shortcut};
+use crate::debug::{default_light, default_preset, preset_bar, save_shortcut};
 use bevy_egui::egui::{self, Color32, Pos2, Vec2};
 use serde::{Deserialize, Serialize};
 
@@ -540,6 +540,8 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     }
     egui::Panel::top("world gen bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
+            default_light(ui, "worldgen", &world.preset());
+            ui.separator();
             if ui
                 .button("New seeds for everything")
                 .on_hover_text("Rolls a new world seed. Every World Gen step takes its seed from it.\nPress it a few times to see whether these settings routinely make good shapes.")
@@ -1506,6 +1508,15 @@ fn spin_arrow(painter: &egui::Painter, to_screen: &impl Fn((f32, f32)) -> Pos2, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_saved_preset_reads_back_exactly_as_it_was() {
+        // The "default" light compares settings with the saved preset exactly.
+        let mut preset = WorldGen::default().preset();
+        preset.heights.water = 0.0137;
+        let back: WorldGenPreset = toml::from_str(&toml::to_string_pretty(&preset).unwrap()).unwrap();
+        assert!(back == preset);
+    }
 
     #[test]
     fn a_world_gen_preset_survives_being_written_and_read() {
