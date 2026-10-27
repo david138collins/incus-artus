@@ -879,7 +879,8 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         ui.add_enabled(plates.ocean_among_land > 0, crate::debug::Slider::new(&mut plates.ocean_edge, 0.0..=1.0).text("inside ← from → edge")).on_hover_text(
             "Which cells those ocean plates are picked from. 0 = the ones most surrounded by land: inland seas.\n\
              1 = ones on the outside edge of the land group: they bite bays and gulfs in from the coast.\n\
-             Between = a mix, more by chance.",
+             Between = a mix, more by chance. Past the middle, they're always touching one another:\n\
+             one bite (a C, H or E), never bites all round a round middle (an O).",
         );
     });
     fold_section(ui, "Wobbly edges", |ui| {

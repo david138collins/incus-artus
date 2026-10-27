@@ -39,7 +39,9 @@
 //! types. Cells past them stay plain, empty ocean. **Ocean plates among the land** [David,
 //! 2026-10-25]: some of the cells kept nearest the middle are made ocean instead, the ones most
 //! surrounded by the others, so they get caught in the land as it closes in and bite bays and
-//! inland seas out of it: a continent shaped less like a blob, more like a letter.
+//! inland seas out of it: a continent shaped less like a blob, more like a letter. Picked from the
+//! land's edge instead (past the middle of "inside ← from → edge"), they're always touching one
+//! another, so they bite one gulf (a C, H or E) rather than ringing a round middle (an O).
 //!
 //! Only the vertices and lines that touch a plate are kept (the ones out in the empty ocean are
 //! culled).
@@ -526,7 +528,21 @@ pub fn make(settings: &PlateSettings, seed: u64, size_blocks: f32, blocks_per_pi
         let surrounded = |c: usize| neighbours[c].iter().filter(|n| cluster.contains(n)).count() as f32 * toward_inside + unit(seed ^ 0x0cea, c, 0) * 2.0;
         let mut by_surrounded = candidates.clone();
         by_surrounded.sort_by(|&a, &b| surrounded(b).total_cmp(&surrounded(a)));
-        let sea: HashSet<usize> = by_surrounded[..among].iter().copied().collect();
+        // Toward the edge, each one after the first is the best of those touching the ones already
+        // picked, so together they make one bite: a C, H or E, never a ring of bites round a round
+        // middle (an O) [David, 2026-10-27: "they should always be touching one another"].
+        let picked = if settings.ocean_edge > 0.5 {
+            let mut left = by_surrounded.clone();
+            let mut picked = vec![left.remove(0)];
+            while picked.len() < among {
+                let next = left.iter().position(|c| picked.iter().any(|p| neighbours[*p].contains(c))).unwrap_or(0);
+                picked.push(left.remove(next));
+            }
+            picked
+        } else {
+            by_surrounded[..among].to_vec()
+        };
+        let sea: HashSet<usize> = picked.into_iter().collect();
         // The land plates first, then the ocean ones (in the order they were kept).
         let (land_cells, sea_cells): (Vec<usize>, Vec<usize>) = candidates.iter().partition(|c| !sea.contains(c));
         candidates = land_cells.into_iter().chain(sea_cells).collect();
@@ -744,6 +760,29 @@ mod tests {
         };
         let (inside, edge) = (touching_land(0.0), touching_land(1.0));
         assert!(edge < inside, "edge {edge}, inside {inside}");
+    }
+
+    #[test]
+    fn ocean_plates_toward_the_edge_touch_one_another() {
+        for seed in 1..=8 {
+            let made = plates(&PlateSettings { plates: 14, ocean_rings: 0, ocean_among_land: 4, ocean_edge: 1.0, ..PlateSettings::default() }, seed);
+            let ocean: Vec<usize> = made.kept.iter().filter(|plate| !plate.land).map(|plate| plate.cell).collect();
+            assert_eq!(ocean.len(), 4, "seed {seed}");
+            // One group: every ocean plate can be reached from the first through ocean plates.
+            let touching = neighbours(&made.cell, made.width, made.cells);
+            let mut reached = vec![ocean[0]];
+            let mut k = 0;
+            while k < reached.len() {
+                let c = reached[k];
+                for &n in &touching[c] {
+                    if ocean.contains(&n) && !reached.contains(&n) {
+                        reached.push(n);
+                    }
+                }
+                k += 1;
+            }
+            assert_eq!(reached.len(), ocean.len(), "seed {seed}: ocean plates {ocean:?} aren't one group");
+        }
     }
 
     #[test]
