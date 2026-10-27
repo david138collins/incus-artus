@@ -1113,8 +1113,36 @@ fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spli
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
         }
     }
+    // The hollow handles, one on each stretch between two dots: drag up or down to bow it,
+    // right-click to straighten it.
+    for k in 0..spline.dots.len() - 1 {
+        let x = (spline.dots[k].0 + spline.dots[k + 1].0) / 2.0;
+        let at = to_screen(x, spline.at(x));
+        let response = ui.interact(egui::Rect::from_center_size(at, Vec2::splat(14.0)), ui.id().with((name, "bend", k)), egui::Sense::click_and_drag());
+        let lit = response.hovered() || response.dragged();
+        painter.circle(at, if lit { 5.0 } else { 3.5 }, Color32::from_gray(22), egui::Stroke::new(1.5, if lit { Color32::WHITE } else { Color32::from_rgb(255, 230, 120) }));
+        let bend = spline.bends.get(k).copied().unwrap_or(0.0);
+        let mut wanted = bend;
+        if response.dragged() {
+            wanted = (bend - response.drag_delta().y / inner.height() * 2.0).clamp(-1.0, 1.0);
+        }
+        if response.secondary_clicked() {
+            wanted = 0.0;
+        }
+        if wanted != bend {
+            spline.bends.resize(spline.dots.len() - 1, 0.0);
+            spline.bends[k] = wanted;
+        }
+        if lit {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+        }
+    }
     if let Some(k) = remove {
         spline.dots.remove(k);
+        // Its two stretches become one, keeping the first's bend.
+        if k < spline.bends.len() {
+            spline.bends.remove(k);
+        }
     }
     // Double-click to add a dot where you clicked (not right on top of another).
     if background.double_clicked()
@@ -1124,10 +1152,21 @@ fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spli
         if spline.dots.iter().all(|&(dx, _)| (dx - x).abs() > 0.02) {
             let k = spline.dots.iter().position(|&(dx, _)| dx > x).unwrap_or(spline.dots.len());
             spline.dots.insert(k, (x, y));
+            // The stretch it splits becomes two, both as it was bowed.
+            if k > 0 && k - 1 < spline.bends.len() {
+                spline.bends.insert(k, spline.bends[k - 1]);
+            }
         }
     }
+    // All straight is kept as none, so an untouched curve still matches its saved preset.
+    if spline.bends.iter().all(|&b| b == 0.0) {
+        spline.bends.clear();
+    }
     ui.horizontal_wrapped(|ui| {
-        ui.small(format!("{} dots: double-click to add, drag to move, right-click to remove", spline.dots.len()));
+        ui.small(format!(
+            "{} dots: double-click to add, drag to move, right-click to remove. Hollow handles: drag up or down to bow, right-click to straighten",
+            spline.dots.len()
+        ));
         if ui.small_button("reset").clicked() {
             *spline = default.clone();
         }

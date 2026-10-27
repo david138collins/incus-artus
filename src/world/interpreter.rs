@@ -66,17 +66,22 @@ pub const HIGHEST: f32 = 333.0;
 pub struct Spline {
     /// (across, up), left to right.
     pub dots: Vec<(f32, f32)>,
+    /// How each stretch between two dots is bowed, -1 to 1 (0 = the smooth curve; up bows it up,
+    /// down bows it down, like the hollow handles in curve editors) [David, 2026-10-27]. One per
+    /// stretch; missing ones are 0, and all 0 is kept as none, so older presets read the same.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub bends: Vec<f32>,
 }
 
 impl Default for Spline {
     fn default() -> Self {
-        Self { dots: vec![(0.0, 0.0), (1.0, 1.0)] }
+        Self { dots: vec![(0.0, 0.0), (1.0, 1.0)], bends: Vec::new() }
     }
 }
 
 impl Spline {
     pub fn through(dots: &[(f32, f32)]) -> Self {
-        Self { dots: dots.to_vec() }
+        Self { dots: dots.to_vec(), bends: Vec::new() }
     }
 
     /// The curve's height at `x` (0 to 1 across).
@@ -86,7 +91,7 @@ impl Spline {
 
     /// The curve ready to be read many times (its steepness at each dot worked out once).
     pub fn curve(&self) -> Curve {
-        Curve { dots: self.dots.clone(), slopes: self.slopes() }
+        Curve { dots: self.dots.clone(), slopes: self.slopes(), bends: self.bends.clone() }
     }
 
     /// How steep the curve is at each dot: the average of the slopes either side, flattened where
@@ -126,6 +131,7 @@ impl Spline {
 pub struct Curve {
     dots: Vec<(f32, f32)>,
     slopes: Vec<f32>,
+    bends: Vec<f32>,
 }
 
 impl Curve {
@@ -140,11 +146,21 @@ impl Curve {
         let k = dots.windows(2).position(|pair| x <= pair[1].0).unwrap_or(dots.len() - 2);
         let ((x0, y0), (x1, y1)) = (dots[k], dots[k + 1]);
         let h = (x1 - x0).max(1e-6);
-        let t = (x - x0) / h;
+        let t = bowed((x - x0) / h, self.bends.get(k).copied().unwrap_or(0.0) * (y1 - y0).signum());
         // Hermite: the two dots and the curve's steepness at each.
         let (t2, t3) = (t * t, t * t * t);
         (2.0 * t3 - 3.0 * t2 + 1.0) * y0 + (t3 - 2.0 * t2 + t) * h * self.slopes[k] + (-2.0 * t3 + 3.0 * t2) * y1 + (t3 - t2) * h * self.slopes[k + 1]
     }
+}
+
+/// How far along a stretch of curve `t` (0 to 1) is read, bowed by `bend` (-1 to 1): above 0 it
+/// hurries early and eases late, below 0 the other way, as a power curve (up to 8 times either way).
+/// The ends stay put, so the stretch still runs from dot to dot.
+fn bowed(t: f32, bend: f32) -> f32 {
+    if bend == 0.0 {
+        return t;
+    }
+    t.clamp(0.0, 1.0).powf(8f32.powf(-bend.clamp(-1.0, 1.0)))
 }
 
 // ── The recipe's settings ───────────────────────────────────────────────────
@@ -1128,6 +1144,26 @@ mod tests {
         // The sea isn't touched, and the coast doesn't move: the edge starts at the waterline.
         assert!(rise(300.0, 200.0).abs() < 0.01);
         assert!(rise(300.0, -40.0) < rise(300.0, -150.0));
+    }
+
+    #[test]
+    fn a_bend_bows_a_stretch_up_or_down_and_keeps_its_ends() {
+        let straight = Spline::through(&[(0.0, 0.0), (0.5, 0.2), (1.0, 1.0)]);
+        let up = Spline { bends: vec![0.0, 0.6], ..straight.clone() };
+        let down = Spline { bends: vec![0.0, -0.6], ..straight.clone() };
+        // The bowed stretch, up and down; the other stretch and every dot as they were.
+        assert!(up.at(0.75) > straight.at(0.75) + 0.05 && down.at(0.75) < straight.at(0.75) - 0.05);
+        for x in [0.0, 0.25, 0.5, 1.0] {
+            assert!((up.at(x) - straight.at(x)).abs() < 1e-5 && (down.at(x) - straight.at(x)).abs() < 1e-5, "moved at {x}");
+        }
+        // A falling stretch bowed up bows up too.
+        let falling = Spline::through(&[(0.0, 1.0), (1.0, 0.0)]);
+        assert!(Spline { bends: vec![0.6], ..falling.clone() }.at(0.5) > falling.at(0.5) + 0.05);
+        // Old presets (no bends) read as straight, and a straight curve saves without them.
+        let old: Spline = toml::from_str("dots = [[0.0, 0.0], [1.0, 1.0]]").unwrap();
+        assert!(old == Spline::default() && !toml::to_string(&old).unwrap().contains("bends"));
+        let back: Spline = toml::from_str(&toml::to_string(&up).unwrap()).unwrap();
+        assert!(back == up);
     }
 
     #[test]
