@@ -78,6 +78,12 @@ pub struct LightSettings {
     /// around you, and the light map), and blocks per pixel of that window.
     pub near: bool,
     pub near_detail: f32,
+    /// Keep ledge tops lit: hill shading never darkens a block top that stands above the block just
+    /// downhill of it (the smooth slope under a step otherwise darkened its top edge too). And how
+    /// many times the near slopes are softened (each pass a 3 × 3 average), so shading fades in and
+    /// out more gradually. [David, 2026-10-27]
+    pub ledge_tops: bool,
+    pub near_soften: u32,
 }
 
 impl Default for LightSettings {
@@ -95,6 +101,8 @@ impl Default for LightSettings {
             detail: 32.0,
             near: true,
             near_detail: 2.0,
+            ledge_tops: true,
+            near_soften: 2,
         }
     }
 }
@@ -320,6 +328,8 @@ struct NearKey {
     corner: Vec2,
     side: f32,
     detail: f32,
+    /// How many times its slopes are softened.
+    soften: u32,
 }
 
 #[derive(Resource, Default)]
@@ -358,7 +368,7 @@ pub fn update_near_light(
         let at = bevy_to_game(camera.translation).truncate();
         let fits = |key: &NearKey| {
             let middle = key.corner + Vec2::new(-key.side, key.side) / 2.0;
-            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && (at - middle).abs().max_element() < side / 4.0
+            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && key.soften == settings.near_soften && (at - middle).abs().max_element() < side / 4.0
         };
         if !state.shown.as_ref().is_some_and(fits) && !state.job.as_ref().is_some_and(|(key, ..)| fits(key)) {
             if let Some((_, stop, _)) = state.job.take() {
@@ -366,7 +376,7 @@ pub fn update_near_light(
             }
             // Centred on you, snapped to whole pixels.
             let snap = |v: f32| (v / detail).round() * detail;
-            let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail };
+            let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail, soften: settings.near_soften };
             let (made, stop) = (key.clone(), Arc::new(AtomicBool::new(false)));
             let flag = stop.clone();
             let task = AsyncComputeTaskPool::get().spawn(async move { make_near(&made, &flag) });
@@ -386,7 +396,8 @@ pub fn update_near_light(
             }
         }
         if let Some(key) = &state.shown {
-            wanted.near_area = Vec4::new(key.corner.x, key.corner.y, key.side, 1.0);
+            // w: 1 on, 2 on with ledge tops kept lit.
+            wanted.near_area = Vec4::new(key.corner.x, key.corner.y, key.side, if settings.ledge_tops { 2.0 } else { 1.0 });
         }
     }
     let Some(material) = materials.get(&handle) else { return };
@@ -400,9 +411,15 @@ pub fn update_near_light(
     }
 }
 
+/// What alpha says about a pixel of the window: on the map and a ledge top (on the map is 1, off
+/// it 0). Between 1 and this the shader blends, so a ledge top's edge is soft too.
+const LEDGE_TOP: u8 = 160;
+
 /// The window's picture: red and green the slope rising north and east (blocks up per block
-/// across, 0.5 = flat, square-rooted each way out to `STEEPEST`), blue the surface's height (sea
-/// level to the top of the world), alpha 1 on the map. The sea's surface is flat. `None` if stopped.
+/// across, 0.5 = flat, square-rooted each way out to `STEEPEST`), softened `key.soften` times;
+/// blue the surface's height (sea level to the top of the world); alpha 1 on the map, `LEDGE_TOP`
+/// on a ledge top (its block stands above the block just downhill of it), 0 off it. The sea's
+/// surface is flat. `None` if stopped.
 fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<Picture> {
     let width = (key.side / key.detail).round() as usize;
     let sea = SEA_LEVEL as f32;
@@ -419,22 +436,66 @@ fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<Picture> {
         0.5 + 0.5 * g.signum() * g.abs().sqrt()
     };
     let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    // The slopes (rows run south, so the row above is to the north), softened.
+    let (mut north, mut east) = (vec![0.0f32; width * width], vec![0.0f32; width * width]);
+    for r in 0..width {
+        for c in 0..width {
+            north[r * width + c] = (at(c, r.saturating_sub(1)) - at(c, r + 1)) / (2.0 * key.detail);
+            east[r * width + c] = (at(c + 1, r) - at(c.saturating_sub(1), r)) / (2.0 * key.detail);
+        }
+    }
+    for _ in 0..key.soften {
+        north = box3(&north, width);
+        east = box3(&east, width);
+    }
+    // A ledge top: its block (rounded, as the world has it) stands above the block a pixel downhill.
+    let ledge_top = |c: usize, r: usize, i: usize| {
+        let (n, e) = (north[i], east[i]);
+        let length = n.hypot(e);
+        if length < 1e-4 {
+            return false;
+        }
+        // Downhill: against the slope (south is +rows, east is +columns).
+        let (dc, dr) = ((-e / length).round() as isize, (n / length).round() as isize);
+        let (c2, r2) = (c as isize + dc, r as isize + dr);
+        if c2 < 0 || r2 < 0 || c2 as usize >= width || r2 as usize >= width {
+            return false;
+        }
+        at(c, r).round() > at(c2 as usize, r2 as usize).round()
+    };
     let mut data = Vec::with_capacity(width * width * 4);
     for r in 0..width {
         for c in 0..width {
-            // Rows run south, so the row above is to the north.
-            let north = (at(c, r.saturating_sub(1)) - at(c, r + 1)) / (2.0 * key.detail);
-            let east = (at(c + 1, r) - at(c.saturating_sub(1), r)) / (2.0 * key.detail);
-            let h = raw[r * width + c];
-            data.extend_from_slice(&[
-                byte(slope(north)),
-                byte(slope(east)),
-                byte((at(c, r) - sea) / (WORLD_HEIGHT as f32 - sea)),
-                if h.is_nan() { 0 } else { 255 },
-            ]);
+            let i = r * width + c;
+            let alpha = if raw[i].is_nan() { 0 } else if ledge_top(c, r, i) { LEDGE_TOP } else { 255 };
+            data.extend_from_slice(&[byte(slope(north[i])), byte(slope(east[i])), byte((at(c, r) - sea) / (WORLD_HEIGHT as f32 - sea)), alpha]);
         }
     }
     Some(Picture { width: width as u32, levels: 1, data })
+}
+
+/// Each value the average of the 3 × 3 round it (fewer at the edges): across, then down.
+fn box3(values: &[f32], width: usize) -> Vec<f32> {
+    let pass = |values: &[f32], step: usize, along: fn(usize, usize) -> usize| -> Vec<f32> {
+        (0..values.len())
+            .map(|i| {
+                let k = along(i, width);
+                let mut sum = values[i];
+                let mut n = 1.0;
+                if k > 0 {
+                    sum += values[i - step];
+                    n += 1.0;
+                }
+                if k + 1 < width {
+                    sum += values[i + step];
+                    n += 1.0;
+                }
+                sum / n
+            })
+            .collect()
+    };
+    let across = pass(values, 1, |i, width| i % width);
+    pass(&across, width, |i, width| i / width)
 }
 
 /// Sets the material's light uniforms, only when they change (touching a material re-sends it).
@@ -667,7 +728,7 @@ mod tests {
         let width = 64;
         let z: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 2.0).collect();
         let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
-        let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0 };
+        let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, soften: 0 };
         let picture = make_near(&key, &AtomicBool::new(false)).unwrap();
         assert_eq!(picture.width, 128);
         let pixel = |c: usize, r: usize| &picture.data[(r * 128 + c) * 4..(r * 128 + c) * 4 + 4];
@@ -675,9 +736,26 @@ mod tests {
         // Rising east 1/16 of a block per block: 0.5 + 0.5 × √(0.0625 / 4) ≈ 0.56.
         assert!((138..150).contains(&middle[1]), "east {}", middle[1]);
         assert!((middle[0] as i32 - 128).abs() <= 2, "north {}", middle[0]);
-        assert_eq!(middle[3], 255);
+        assert!(middle[3] == 255 || middle[3] == LEDGE_TOP);
         // Higher to the east.
         assert!(pixel(120, 64)[2] > pixel(8, 64)[2]);
+    }
+
+    #[test]
+    fn ledge_tops_are_marked_where_a_block_stands_above_the_one_downhill() {
+        // Rising 1 block every 16 east: as blocks, a step every 16 blocks, so about 1 pixel in 4
+        // (4 blocks a pixel) is the top of a step. Flat ground has none.
+        let width = 64;
+        let ramp: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 2.0).collect();
+        let flat = vec![150.0; width * width];
+        let ledges = |z: &[f32]| {
+            let key = NearKey { map: Arc::new(CompiledMap::of_heights(width, 32.0, z)), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, soften: 2 };
+            let picture = make_near(&key, &AtomicBool::new(false)).unwrap();
+            (0..128).filter(|&c| picture.data[(64 * 128 + c) * 4 + 3] == LEDGE_TOP).count()
+        };
+        let on_ramp = ledges(&ramp);
+        assert!((24..=40).contains(&on_ramp), "{on_ramp} ledge tops along the row");
+        assert_eq!(ledges(&flat), 0);
     }
 
     #[test]

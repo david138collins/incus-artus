@@ -173,7 +173,13 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
                 // The rise across one distant cell, as the distant tiles measure it.
                 let rise = vec2<f32>(unroot(near.r), unroot(near.g)) * 4.0 * lighting.hill.y;
                 let normal = normalize(vec3<f32>(-rise.x * lighting.sun.w, -rise.y * lighting.sun.w, 1.0));
-                let hill = clamp(dot(normal, lighting.sun.xyz) / lighting.sun.z, 0.35, 1.6);
+                var hill = clamp(dot(normal, lighting.sun.xyz) / lighting.sun.z, 0.35, 1.6);
+                // A ledge top (alpha below 1, see light.rs) is never darkened: the smooth slope
+                // under a step reaches onto its top edge, which faces the sky like any top.
+                if lighting.near_area.w > 1.5 {
+                    let ledge = clamp((1.0 - near.a) / (1.0 - 160.0 / 255.0), 0.0, 1.0);
+                    hill = mix(hill, max(hill, 1.0), ledge);
+                }
                 let tint = 1.0 + lighting.hill.x * (up - sea) / (lighting.hill.w - sea);
                 // The sea's surface stays flat, as on the distant terrain.
                 let water = surface <= sea + 0.5 && up <= sea + 0.5;

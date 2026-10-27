@@ -505,6 +505,14 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.add_enabled_ui(s.near, |ui| {
             ui.add(crate::debug::Slider::new(&mut s.near_detail, 1.0..=8.0).logarithmic(true).text("near detail (blocks a pixel)"))
                 .on_hover_text("How finely the slope under the near chunks is measured. Coarser is smoother and quicker to make as you move. (A long render distance may coarsen it.)");
+            ui.checkbox(&mut s.ledge_tops, "keep ledge tops lit").on_hover_text(
+                "Hill shading never darkens a block top that stands above the block just downhill of it. The smooth slope under a
+\n                 step reaches onto its top edge; off, that edge darkens with the ground below it (for A/B).",
+            );
+            ui.add(crate::debug::Slider::new(&mut s.near_soften, 0..=6).text("soften the near shading")).on_hover_text(
+                "How many times the slope under the near chunks is softened (each a 3 × 3 average): shading fades in and out
+\n                 more gradually. 0 = as measured.",
+            );
         });
         if ui.button("Reset light settings").clicked() {
             *s = light::LightSettings::default();
