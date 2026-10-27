@@ -62,8 +62,10 @@ pub struct DistantSettings {
     /// The most tiles being made at once (0 = one per CPU core).
     pub most_at_once: usize,
     /// Hill shading: each cell's top lit by its slope toward the sun, so hills and valleys read from
-    /// afar (0 = flat colour). Measured per cell, so far rings (bigger cells) shade as strongly on
-    /// screen as near ones.
+    /// afar (0 = flat colour). The slope is measured per finest cell in every ring (as the near
+    /// chunks' lighting measures it), so the rings shade alike and meet without a seam. [It was
+    /// measured per cell, so each ring out shaded twice as strongly, and the rings' square edges
+    /// showed as straight bands across the land (David's screenshot, 2026-10-27).]
     pub hill_shading: f32,
     /// Land a little lighter the higher it is (0 = none).
     pub height_tint: f32,
@@ -210,8 +212,8 @@ impl Shade {
         }
     }
 
-    /// How brightly a top is lit, with the ground rising `north` and `east` blocks per cell across
-    /// it: 1 on flat ground, more facing the sun, less facing away.
+    /// How brightly a top is lit, with the ground rising `north` and `east` blocks per finest cell
+    /// across it (in any ring): 1 on flat ground, more facing the sun, less facing away.
     fn hill(&self, north: f32, east: f32) -> f32 {
         let normal = Vec3::new(-north * self.hills, -east * self.hills, 1.0).normalize();
         (normal.dot(self.sun) / self.sun.z).clamp(0.35, 1.6)
@@ -260,15 +262,16 @@ pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, s
     let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), indices: Vec::new(), corner };
     let cell_corner = |i: i32, j: i32| corner + Vec3::new(i as f32 * cell, j as f32 * cell, 0.0);
     // Each top's brightness: hill shading from its neighbours' heights (the slope across it, in
-    // blocks per cell), and the height tint; in 32 steps, so neighbours alike still share a quad.
-    // Water stays flat.
+    // blocks per finest cell, whatever the ring), and the height tint; in 32 steps, so neighbours
+    // alike still share a quad. Water stays flat.
+    let per_finest = 1.0 / (1u32 << key.ring) as f32;
     let lit = |i: i32, j: i32| -> i32 {
         let Some((h, block)) = at(i, j) else { return 32 };
         if block == blocks.water {
             return 32;
         }
         let z = |di: i32, dj: i32| at(i + di, j + dj).map_or(h, |(z, _)| z) as f32;
-        let hill = shade.hill((z(1, 0) - z(-1, 0)) / 2.0, (z(0, 1) - z(0, -1)) / 2.0);
+        let hill = shade.hill((z(1, 0) - z(-1, 0)) / 2.0 * per_finest, (z(0, 1) - z(0, -1)) / 2.0 * per_finest);
         let tint = 1.0 + shade.height_tint * (h - crate::world::SEA_LEVEL) as f32 / (crate::world::HIGHEST - crate::world::SEA_LEVEL as f32);
         (hill * tint * 32.0).round() as i32
     };
@@ -718,6 +721,33 @@ mod tests {
         // Ground falling away to the north-west faces the sun; rising toward it, faces away.
         let (facing, away) = (shade.hill(-4.0, 4.0), shade.hill(4.0, -4.0));
         assert!(facing > 1.05 && away < 0.95, "facing {facing}, away {away}");
+    }
+
+    #[test]
+    fn the_same_slope_is_lit_the_same_in_every_ring() {
+        // An even, gentle slope rising east from the middle (2 blocks per 32-block pixel), all grass, under
+        // Z 333 to the map's edge.
+        let width: usize = 64;
+        let z: Vec<f32> = (0..width * width).map(|i| 130.0 + (i % width).saturating_sub(32) as f32 * 2.0).collect();
+        let map = CompiledMap::of_heights(width, 32.0, &z);
+        let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
+        let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
+        let light = LightSettings { sun_from: 270.0, sun_height: 40.0, ..LightSettings::default() };
+        let shade = Shade::new(&RenderSettings::default(), &DistantSettings { hill_shading: 0.3, height_tint: 0.0, ..DistantSettings::default() }, &light);
+        // The tops' brightness most of a tile shows (grass tops are pure green).
+        let lit = |ring: u8| {
+            let mesh = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring, x: 0, y: 0 }, 16).unwrap();
+            let mut counts: HashMap<u32, usize> = HashMap::new();
+            for c in mesh.colours.iter().filter(|c| c[0] == 0.0 && c[2] == 0.0 && c[1] > 0.0) {
+                *counts.entry((c[1] * 1000.0).round() as u32).or_default() += 1;
+            }
+            counts.into_iter().max_by_key(|&(_, n)| n).unwrap().0
+        };
+        let (near, further) = (lit(0), lit(1));
+        assert_ne!(near, 1000, "the slope isn't shaded at all");
+        // Alike, give or take the whole-block rounding (measured per cell, ring 1 shaded about twice
+        // as strongly).
+        assert!(near.abs_diff(further) <= 15, "ring 0 lit {near}, ring 1 lit {further} (per mille)");
     }
 
     #[test]
