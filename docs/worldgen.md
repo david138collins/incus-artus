@@ -533,6 +533,19 @@ slope; chunks only by which way each face points), so he flies at render distanc
   Faces more than about 12 blocks under the ground (caves, overhangs) keep their plain light until
   real block light. Shadows near you are only as sharp as the light map (32 blocks a pixel); sharper
   ones nearby are a later layer (near shadow maps, below).
+- **Steps: the cone map** [BUILT 2026-10-27, David: "something that we would want to deliberately build to
+  use pretty generally ... at a lower cost"]. Hill shading read from the smooth ground spills across a
+  one-block step (anything blended does), so a ledge's top darkened with its foot. Now the near slope is
+  only the *broad lie of the land* (the smooth slope averaged over 32 blocks), and the steps you can see
+  come from a **cone map**: every block top casts a cone down round itself (its height, less a fall per
+  block of distance), and each pixel holds the highest cone over it. The shader compares each block top's
+  exact height with it: at or above, nothing near stands higher (a top, a rim, open ground), so it's never
+  darkened; below, it's a foot, darkest at the face and fading out, further for a taller step. Two maps:
+  all round (*foot shading*) and only from the sun's side (*step shadows*); *shade reach* is blocks of
+  shade per block of height. Cost: two sweeps when the near window is made, one read per pixel a frame.
+  **Meant to be reused**: it answers "how much higher is the ground near me, and how close?", so the same
+  map can drive grass or snow on rims and tops, dirt and moss at feet, damp at cliff bases, shore wash,
+  and (with the cone's fall set by the sun's height) cheap true cast shadows from terrain near you.
 - **Left open, in order** (each a layer on top, nothing to undo):
   - Hill shading moved from the distant tiles' corners into the light map (so moving the sun doesn't
     rebuild tiles, and in shadow, slopes facing the sun stop being lit).
