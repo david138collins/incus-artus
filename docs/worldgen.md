@@ -796,3 +796,7 @@ David is exploring and improving the terrain gen again. **The Interpreter rework
   - *Left for later:* builds don't reach the distant terrain or the light map (tall towers vanish
     past render distance and cast no long shadows); block light / daylight must skip empty sky.
   - Changes `docs/decisions.md` (Z 0 to 399) when built.
+**Idea for later: a rejector layer** [David, 2026-10-27]: run the tectonics a few times, quickly, for
+a few hundred steps each (the Tectonic Sim's run length), and check each run against rules for whether
+it should be rejected, before baking. The run length (built 2026-10-27) is the first piece.
+
