@@ -11,7 +11,7 @@
 //!    staircase); softened a little, it's a smooth curve between pixels. The heights and tilt near
 //!    it are softened as much.
 //!
-//! **The recipe** for the ground (land and sea curves, grading, mountains, ridges, passes,
+//! **The recipe** for the ground (land and sea curves, grading, mountains, ridges,
 //! hills, detail) is the Interpreter's (`crate::world::interpreter`), worked out at every block as
 //! the world is made. Here it's worked out at each pixel's centre, to show the world in relief.
 //! [Moved 2026-10-24: worked out per pixel and then smoothed between pixels, its
@@ -376,9 +376,9 @@ mod tests {
         compile(bake, settings, &AtomicBool::new(false)).unwrap()
     }
 
-    /// No hills or passes: only what a test is looking at.
+    /// No hills: only what a test is looking at.
     fn plain() -> CompileSettings {
-        CompileSettings { interpreter: InterpreterSettings { hills: 0.0, passes: 0.0, ..InterpreterSettings::default() }, ..CompileSettings::default() }
+        CompileSettings { interpreter: InterpreterSettings { hills: 0.0, ..InterpreterSettings::default() }, ..CompileSettings::default() }
     }
 
     #[test]
@@ -525,25 +525,6 @@ mod tests {
         assert!(at(&graded, 20) <= at(&flat, 20), "low side not gentler");
         // And the sea beside the high side is deeper.
         assert!(at(&graded, 50) < at(&flat, 50));
-    }
-
-    #[test]
-    fn passes_vary_the_crest_height_along_a_ridge() {
-        // Squeezed east–west, so ridges run north–south: walk along one.
-        let mut bake = bake(0.0);
-        for row in 0..64 {
-            for col in 0..64 {
-                bake.height[row * 64 + col] = 0.2;
-                bake.squeeze[row * 64 + col] = 0.8;
-            }
-        }
-        let bake = bake.measured();
-        let settings = recipe(|i| (i.ridges, i.pass_spacing) = (0.0, 2_000.0));
-        let along = |world: &Compiled| (4..60).map(|row| world.z[row * 64 + 32]).collect::<Vec<u16>>();
-        let even = along(&compiled(&bake, &settings));
-        let passes = along(&compiled(&bake, &{ let mut s = settings.clone(); s.interpreter.passes = 0.8; s }));
-        let spread = |v: &[u16]| v.iter().max().unwrap() - v.iter().min().unwrap();
-        assert!(spread(&passes) > spread(&even) + 20, "even {even:?}, with passes {passes:?}");
     }
 
     #[test]

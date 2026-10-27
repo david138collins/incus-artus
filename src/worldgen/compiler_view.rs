@@ -615,7 +615,7 @@ World Interpreter · every block, as
   the world is made (this panel):
   blend the maps to the block, then
   curves · grade · edge rise · lift
-  mountains · ridges · passes
+  mountains · ridges
   hills · torn coast · detail
       |
 the ground (and the distant terrain)";
@@ -904,12 +904,6 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         ui.add(crate::debug::Slider::new(&mut s.ridge_wander_size, 250.0..=16_000.0).logarithmic(true).text("wander size (blocks)"))
             .on_hover_text("How big the swirls that nudge the ridges are. Smaller = ridges kink more often.");
-        ui.add(crate::debug::Slider::new(&mut s.passes, 0.0..=2.0).text("passes")).on_hover_text(
-            "How deeply the crest height dips along each ridge, into passes between higher peaks. 0 = even crests;\n\
-             past 1, the deepest passes cut right through to the ground, leaving separate peaks.",
-        );
-        ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 375.0..=24_000.0).logarithmic(true).text("pass spacing (blocks)"))
-            .on_hover_text("How far apart the dips are along a ridge.");
     });
     fold_section(ui, "Hills", |ui| {
         ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)"))
@@ -1205,7 +1199,7 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 let d = result.made.map.maps.coast_distance[i];
                 ui.small(if d >= 0.0 { format!("{d:.0} blocks inland") } else { format!("{:.0} blocks out to sea", -d) });
                 ui.small(format!("mountain share {:.0}%", painted.share[i] * 100.0))
-                    .on_hover_text("How much of the room above the ground the mountains take here, before ridges and passes carve them.");
+                    .on_hover_text("How much of the room above the ground the mountains take here, before ridges carve them.");
                 if let Some(grain) = &painted.grain
                     && painted.share[i] > 0.02
                 {
@@ -1267,9 +1261,8 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             for (name, muted, about) in [
                 ("edge rise", &mut m.raised_coast, "The land rising inland from the coast on a plate's high side."),
                 ("lift", &mut m.lift, "The lift: land raised toward the mountains, like a tablecloth draped over its points."),
-                ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges and passes)."),
+                ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges)."),
                 ("ridges", &mut m.ridges, "The ridge pattern carved into the mountains (off: smooth domes)."),
-                ("passes", &mut m.passes, "The dips along each ridge's crest (off: even crests)."),
                 ("hills", &mut m.hills, "The rolling hills on land."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),

@@ -438,7 +438,7 @@ mod tests {
         for i in 0..256 {
             Arc::make_mut(&mut map.maps).squeeze[i] = (i as f32 * 0.37).sin();
         }
-        let mutes = crate::world::Mutes { hills: true, passes: true, ..Default::default() };
+        let mutes = crate::world::Mutes { hills: true, ridges: true, ..Default::default() };
         let mut map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });
         map.mutes = mutes;
         let folder = std::env::temp_dir().join(format!("incus-artus-compiled-{}", std::process::id()));

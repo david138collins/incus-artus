@@ -203,7 +203,7 @@ Tectonic Sim → bake (32-block pixels)
 Terrain Compiler (whole map, once): sea level · soften the coastline · soften the mountains
       → smooth maps: coast, height, tilt, squeeze, squeeze direction
 Interpreter (every block, as the world is made): blend the maps to the block, then
-      land & sea curves · grade · raised coast · lift · mountains · ridges · passes · hills
+      land & sea curves · grade · raised coast · lift · mountains · ridges · hills
       · torn coast · detail · surface blocks
       → the ground, and the distant terrain (the same recipe, sampled coarsely)
 ```
@@ -254,6 +254,7 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
     scalloped climbs toward the mountains he wants, so a peak can be seen over the ground in front)
     is the next question.
 - **Foothills: cut 2026-10-27** [David]. They were a skirt of lower slopes round each range, made in the compiler (they needed the whole map): first the ridged mountains blurred, which tied how far they reached to how high they stood and smeared the ridges into lower, fatter copies; then, the same day, reach, height and a falloff spline as separate controls, with foothill ridges carved live on the Interpreter. Neither gave David anything he wanted ("if i can't get anything out of it after that, we're slashing foothills"), so they went: the skirt map, its Show switch, mask source and overlay with them. Masks that followed the foothills follow the mountains; worlds saved with a skirt map ignore it.
+- **Passes: cut 2026-10-27** [David]. They dipped the crest height along each ridge, to make ways through the mountains. David uses the ridges only to shape where the mountains will go ("like a nest for them"), never for passes: ways through come from continents without so much unbroken range. Gone with them: pass spacing and their Show switch; the ridges are as they were with passes at 0.
 - **Presets:** one compiler preset still holds both panels, as one flat list (old presets load).
 - **Worlds save** the compiler's maps (`map-<name>.png`, 16-bit, each with its range in
   `compiled.toml`) and the recipe, so a world never changes when the panels do.
@@ -265,7 +266,7 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
   copied. **Layer switches** leave parts of the recipe out (raised coast, lift, mountains,
-  ridges, passes, hills, torn coast, detail). The close-up follows them, and so does Render World and Spawn: the world says along the top of the screen what it leaves out, and its save remembers them, so chunks streamed in later match. The big map always uses the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
+  ridges, hills, torn coast, detail). The close-up follows them, and so does Render World and Spawn: the world says along the top of the screen what it leaves out, and its save remembers them, so chunks streamed in later match. The big map always uses the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
   the output map. Using the clean modalities we can capture, we will drive a variety of scattering and
