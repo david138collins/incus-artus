@@ -527,6 +527,10 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     if !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space)) {
         world.start_or_pause();
     }
+    // Z: Reset.
+    if !typing && world.sim.is_some() && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Z)) {
+        world.reset();
+    }
     egui::Panel::top("world gen bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
             if ui
@@ -663,7 +667,7 @@ fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
             sim.step(&settings);
         }
     }
-    if ui.add_enabled(world.sim.is_some(), egui::Button::new("Reset")).on_hover_text("Back to the plates as made, with their starting push.").clicked() {
+    if ui.add_enabled(world.sim.is_some(), egui::Button::new("Reset  [Z]")).on_hover_text("Back to the plates as made, with their starting push. The Z key does the same.").clicked() {
         world.reset();
     }
     match &world.sim {
