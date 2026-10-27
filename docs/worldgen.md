@@ -824,6 +824,21 @@ David is exploring and improving the terrain gen again. **The Interpreter rework
 a few hundred steps each (the Tectonic Sim's run length), and check each run against rules for whether
 it should be rejected, before baking. The run length (built 2026-10-27) is the first piece.
 
+**A world is a frozen copy, by design** [checked 2026-10-27, David asked]: changing the editor and
+pressing F2 returns to the same world unchanged. Render World and Spawn hands the world its own copy
+of the compiled maps and the recipe's settings (saved in its folder), and only that makes a new one.
+It has to: saves keep only changed chunks, and the rest is made again from the map, so a world that
+followed the editor would reshape around its builds and seam where new ground meets old. Two things
+for later:
+- **The recipe's code isn't frozen with it.** An old world reads its saved settings with today's
+  Interpreter, so after the code changes (as the foothills did, 2026-10-27) its untouched ground
+  comes out differently, and newly streamed ground can seam against old changed chunks. Fine for
+  throwaway test worlds; before players keep worlds across updates, either version the recipe (an old
+  world makes ground the way it was made with) or save every chunk once made.
+- **Quick compare** [David: "sometimes, i do want to set my camera up somewhere, make a change, and
+  pop back immediately to compare"]: a "respawn here with changes" that rebuilds the world from the
+  current settings where you stand, facing the same way. Not needed yet.
+
 **Soon after, on the to-do list [David 2026-10-26]:**
 
 - **Raise the build height, and free the terrain from Z 333.** Both limits are arbitrary (a Minecraft
