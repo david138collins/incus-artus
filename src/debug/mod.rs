@@ -199,6 +199,12 @@ fn run_self_test(
 /// This is an *exclusive* system: it takes the whole `World`, which is what lets
 /// each page function reach anything it wants to display.
 fn draw_panel(world: &mut World) {
+    // Where you are, for crash and freeze reports.
+    {
+        let panel = world.resource::<DebugPanel>();
+        let page = if panel.visible { panel.pages.get(panel.active).map_or("—", |page| page.name) } else { "closed" };
+        crate::diagnostics::place("page", page);
+    }
     if !world.resource::<DebugPanel>().visible {
         return;
     }
@@ -241,6 +247,8 @@ fn draw_panel(world: &mut World) {
 /// Overview page: general health of the program.
 fn overview_page(ui: &mut egui::Ui, world: &mut World) {
     settings::everything_presets(ui, world);
+    ui.separator();
+    crate::diagnostics::overview(ui);
     ui.separator();
 
     let diagnostics = world.resource::<DiagnosticsStore>();

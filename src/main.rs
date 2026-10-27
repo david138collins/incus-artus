@@ -23,6 +23,8 @@
 //! - `worldgen` — the World Gen suite: the workbench the world generator is built in, one tool at a time
 //! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
 //! - `soak` — the soak test (does the game run worse over time?); `temperatures` — CPU / GPU readout
+//! - `diagnostics` — the session log, crash and freeze reports, and whether the last session ended
+//!   normally (all in `logs/`)
 //!
 //! The developer tools (the debug panel, the World Gen suite, sandbox, soak test, temperatures)
 //! are switched on by the `dev` feature (Cargo.toml), on by default. Built without it, the game is
@@ -33,6 +35,7 @@ mod camera;
 mod coords;
 mod data;
 mod debug;
+mod diagnostics;
 mod events;
 mod fate;
 mod kinematics;
@@ -66,6 +69,8 @@ fn graphics_settings() -> bevy::render::settings::WgpuSettings {
 }
 
 fn main() {
+    // First, so even a crash while the game is being put together leaves a report.
+    diagnostics::start();
     let mut app = App::new();
     app
         // Bevy's standard set: window, input, rendering, assets, audio, etc.
@@ -79,7 +84,9 @@ fn main() {
                     }),
                     ..default()
                 })
-                .set(bevy::render::RenderPlugin { render_creation: graphics_settings().into(), ..default() }),
+                .set(bevy::render::RenderPlugin { render_creation: graphics_settings().into(), ..default() })
+                // Everything logged also goes to the session log (see `diagnostics`).
+                .set(bevy::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() }),
         )
         // egui draws the debug panel.
         .add_plugins(EguiPlugin::default())
@@ -87,6 +94,7 @@ fn main() {
         // The order also decides the order parts of a world are saved and loaded in
         // (clock, terrain, fate, sim, people, player): terrain must be back before the player
         // stands on it, and the sim's places before the people who live in them.
+        .add_plugins(diagnostics::DiagnosticsPlugin)
         .add_plugins((
             debug::DebugPlugin,
             time::TimeControlPlugin,
@@ -108,6 +116,7 @@ fn main() {
     #[cfg(feature = "dev")]
     app.add_plugins((worldgen::WorldGenPlugin, sandbox::SandboxPlugin, soak::SoakPlugin, temperatures::TemperaturesPlugin));
     app.run();
+    diagnostics::ended_normally();
 }
 
 /// Starts the window maximised, so it fills the screen above the taskbar (1280 × 960 is only

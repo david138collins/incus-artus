@@ -36,6 +36,21 @@ Marked **[BUILT]** where it's already done; the rest is **[PLAN]**.
 - **[PLAN] Graphics presets** (Low, Medium, High), picked to suit the machine: render distance,
   distant terrain rings, light map detail, near lighting detail.
 
+## 3½. When something goes wrong
+
+- **[BUILT 2026-10-27] Diagnostics** (`src/diagnostics.rs`), on in a player's copy too, and costing nothing
+  a frame. In `logs/`: a **session log** (everything the game logs), **crash reports** (the message, the
+  file and line, the chain of calls) and **freeze reports** (a watchdog notices no frame for 5 seconds, and
+  says when the game comes back). Each report says what was going on: the screen, the debug page, the
+  Editor Suite tab, the last key presses and clicks, the session log's last lines, and the build (commit,
+  "+ changes" if uncommitted). A `running.txt` marker shows the next start whether the last session ended
+  normally; if not, it says so on screen and on the debug panel's Overview page. Release builds keep line
+  tables (`[profile.release] debug`) so reports name files and lines. `INCUS_TEST_FAULT=crash` / `=freeze`
+  checks the reports.
+- **[PLAN]** For a player's copy: where `logs/` lives (the user's data folder, not next to the program), a
+  way to send a report, and whether to strip line tables from the download. Full Windows crash dumps
+  (every thread's state, for crashes inside graphics drivers) if the reports ever fall short.
+
 ## 4. Memory
 
 - **[PLAN]** A compiled world keeps ten full-size maps (about 200 MB for a 2,250-pixel bake); most

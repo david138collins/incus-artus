@@ -37,3 +37,8 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
+
+# Line tables in release builds, so crash reports say which file and line (see src/diagnostics.rs).
+# Nothing changes at runtime; the files on disk are a little bigger. A player's copy can strip them.
+[profile.release]
+debug = "line-tables-only"

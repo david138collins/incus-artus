@@ -367,6 +367,12 @@ fn draw_suite(
     mut next_terrain: ResMut<crate::world::NextTerrain>,
     mut requests: MessageWriter<crate::save::WorldFileRequest>,
 ) -> Result {
+    // Which tab, for crash and freeze reports.
+    crate::diagnostics::place("tab", match suite.kit {
+        Kit::Graphics => "Graphics Kit",
+        Kit::WorldGen => "Tectonic Sim",
+        Kit::Compiler => "Terrain Compiler",
+    });
     let ctx = contexts.ctx_mut()?.clone();
     if view::draw(&ctx, &mut suite) {
         next.set(Screen::Play);
