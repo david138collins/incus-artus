@@ -149,6 +149,20 @@ pub struct Suite {
     pub busy: Option<(&'static str, std::time::Instant)>,
 }
 
+impl Suite {
+    /// The suite as the game opens it: the Tectonic Sim and the Terrain Compiler start from their
+    /// "default" presets, if they've been saved. (Tests use `Suite::default()`, the built-in
+    /// settings, so a saved preset never changes them.)
+    fn starting() -> Self {
+        let mut suite = Self::default();
+        suite.world.use_default_preset();
+        if let Some(settings) = crate::debug::default_preset("compiler") {
+            suite.compiler.settings = settings;
+        }
+        suite
+    }
+}
+
 impl Default for Suite {
     fn default() -> Self {
         let mut suite = Self {
@@ -308,7 +322,7 @@ pub struct WorldGenPlugin;
 
 impl Plugin for WorldGenPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Suite>()
+        app.insert_resource(Suite::starting())
             .add_systems(Update, (run_suite, take_dropped_files).run_if(in_state(Screen::WorldGen)))
             .add_systems(EguiPrimaryContextPass, draw_suite.run_if(in_state(Screen::WorldGen)))
             .add_debug_page("Editor Suite", world_gen_debug_page);

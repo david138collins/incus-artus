@@ -25,7 +25,7 @@ use super::runner::{Finished, Job, Poll};
 use super::lab::{self, Lab};
 use super::view::{MAGENTA, PINK, compass, fold_section, switched_section};
 use super::world::defaults_row;
-use crate::debug::preset_bar;
+use crate::debug::{default_preset, preset_bar, save_shortcut};
 use bevy::math::IVec2;
 use bevy_egui::egui::{self, Color32, Vec2};
 use std::sync::Arc;
@@ -344,6 +344,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let mut new_world = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::SHIFT, egui::Key::Space));
     let mut same_world = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space));
     let compiler = &mut suite.compiler;
+    save_shortcut(root.ctx(), "compiler", || compiler.settings.clone());
     egui::Panel::top("world compiler bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
             for (shown, name) in compiler.shown.iter_mut().zip(PANELS) {
@@ -537,7 +538,7 @@ fn sea_and_coast(ui: &mut egui::Ui, compiler: &mut Compiler, bake: &Bake) {
          The tallest peaks stay as tall (the most crushed rock is measured again after softening). 0 = as baked.",
     );
     ui.add_space(4.0);
-    defaults_row(ui, "Both panels' settings", &mut compiler.settings, &mut compiler.ab);
+    defaults_row(ui, "Both panels' settings", &mut compiler.settings, &mut compiler.ab, || default_preset("compiler").unwrap_or_default());
 }
 
 /// The Landmass panel's buttons that save or send the compiled elevation.

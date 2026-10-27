@@ -32,7 +32,7 @@ use super::runner::{Finished, Job, Poll};
 use super::rags::{RagSettings, Sim, Spot};
 use super::tectonics::{self, Boundary, Contact, Motion, MotionSettings};
 use super::view::{MAGENTA, PINK, compass, fold_section, seed_row};
-use crate::debug::preset_bar;
+use crate::debug::{default_preset, preset_bar, save_shortcut};
 use bevy_egui::egui::{self, Color32, Pos2, Vec2};
 use serde::{Deserialize, Serialize};
 
@@ -371,10 +371,15 @@ impl WorldGen {
             self.running = false;
             return;
         }
-        if self.sim.as_ref().is_some_and(|sim| sim.settled) {
+        if self.finished() {
             self.reset();
         }
         self.running = self.sim().is_some();
+    }
+
+    /// Whether the run is over: everything has coasted to a stop, or it's run its length.
+    fn finished(&self) -> bool {
+        self.sim.as_ref().is_some_and(|sim| sim.settled || sim.steps >= self.most_steps as u64)
     }
 
     /// A new world seed, and the run started as soon as its plates are made (Shift + Space).
@@ -403,7 +408,7 @@ impl WorldGen {
     }
 
     /// Takes the steps owed for the time that passed, at the chosen speed. Stops when everything
-    /// has coasted to a stop. Never spends more than a little time per frame, so the screen stays
+    /// has coasted to a stop, or at the run length. Never spends more than a little time per frame, so the screen stays
     /// smooth (if it can't keep up, it just plays slower; the result is the same).
     fn run(&mut self, seconds: f32) {
         if !self.running {
@@ -413,12 +418,13 @@ impl WorldGen {
         let started = std::time::Instant::now();
         let settings = self.sim_settings.clone();
         let mut owed = self.owed;
+        let length = self.most_steps as u64;
         let Some(sim) = self.sim() else { return };
-        let mut settled = false;
-        while owed >= 1.0 {
+        let mut settled = sim.steps >= length;
+        while owed >= 1.0 && !settled {
             sim.step(&settings);
             owed -= 1.0;
-            if sim.settled {
+            if sim.settled || sim.steps >= length {
                 settled = true;
                 break;
             }
@@ -527,6 +533,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     if !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space)) {
         world.start_or_pause();
     }
+    save_shortcut(root.ctx(), "worldgen", || world.preset());
     // Z: Reset.
     if !typing && world.sim.is_some() && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Z)) {
         world.reset();
@@ -645,7 +652,7 @@ impl WorldGen {
 /// Start / Pause, Step, Reset, the step count and the watching speed.
 fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
     ui.strong("Tectonics:");
-    let settled = world.sim.as_ref().is_some_and(|sim| sim.settled);
+    let settled = world.finished();
     let label = if world.running {
         "Pause"
     } else if world.has_moved() && !settled {
@@ -672,9 +679,14 @@ fn playback(ui: &mut egui::Ui, world: &mut WorldGen) {
     }
     match &world.sim {
         Some(sim) if sim.settled => ui.label(format!("step {}: everything has coasted to a stop", sim.steps)),
+        Some(sim) if sim.steps >= world.most_steps as u64 => ui.label(format!("step {}: the run's length", sim.steps)),
         Some(sim) => ui.label(format!("step {}", sim.steps)),
         None => ui.label("not started"),
     };
+    ui.add(crate::debug::Slider::new(&mut world.most_steps, 10..=20_000).logarithmic(true).text("run length (steps)")).on_hover_text(
+        "A run stops after this many steps, or sooner if everything has coasted to a stop. Bakes stop at the\n\
+         same step, so a bake makes the world you watched. (Saved with the presets.)",
+    );
     ui.add(crate::debug::Slider::new(&mut world.steps_per_second, 1.0..=2_000.0).logarithmic(true).text("steps per second")).on_hover_text(
         "How fast to watch. It only changes how many steps are taken each second:\nthe steps themselves, and so the result, are always the same.",
     );
@@ -697,6 +709,11 @@ struct WorldGenPreset {
     show: Show,
 }
 
+/// The Tectonic Sim's defaults: its "default" preset if one has been saved, or the built-in ones.
+fn page_defaults() -> WorldGenPreset {
+    default_preset("worldgen").unwrap_or_default()
+}
+
 /// The display choices on the left-hand panel (they only change the look).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -714,6 +731,8 @@ struct Show {
     squeeze_direction: bool,
     seal_gaps: f32,
     fill_holes: f32,
+    /// The run length (steps), for watching and baking.
+    run_length: u32,
 }
 
 impl Default for Show {
@@ -739,6 +758,7 @@ impl WorldGen {
             squeeze_direction: self.show_push,
             seal_gaps: self.seal_gaps,
             fill_holes: self.fill_holes,
+            run_length: self.most_steps,
         }
     }
 
@@ -752,6 +772,13 @@ impl WorldGen {
         }
     }
 
+    /// Starts from the "default" preset, if one has been saved.
+    pub(super) fn use_default_preset(&mut self) {
+        if let Some(preset) = default_preset("worldgen") {
+            self.use_preset(preset);
+        }
+    }
+
     fn use_preset(&mut self, preset: WorldGenPreset) {
         let show = preset.show;
         (self.plates, self.motion, self.sim_settings, self.heights) = (preset.plates, preset.motion, preset.rock, preset.heights);
@@ -760,6 +787,7 @@ impl WorldGen {
         (self.arrow_steps, self.height_shown, self.shading_smoothness, self.tear_open) =
             (show.arrow_steps, show.thickness_as_white, show.shading_smoothness, show.tears_open_past);
         (self.show_push, self.seal_gaps, self.fill_holes) = (show.squeeze_direction, show.seal_gaps, show.fill_holes);
+        self.most_steps = show.run_length;
         // Anything being compared with the defaults is now replaced by the preset.
         (self.ab_plates, self.ab_tectonics, self.ab_heights) = (None, None, None);
     }
@@ -767,10 +795,11 @@ impl WorldGen {
 
 /// "Back to defaults", and an A/B button beside it that swaps between the defaults and your own
 /// settings: the first press keeps yours aside and shows the defaults, the next puts yours back.
-pub(super) fn defaults_row<T: Default + Clone>(ui: &mut egui::Ui, what: &str, value: &mut T, kept: &mut Option<T>) {
+/// `default` gives the defaults (the page's "default" preset, if one has been saved).
+pub(super) fn defaults_row<T: Clone>(ui: &mut egui::Ui, what: &str, value: &mut T, kept: &mut Option<T>, default: impl Fn() -> T) {
     ui.horizontal_wrapped(|ui| {
         if ui.button(format!("{what} back to defaults")).clicked() {
-            *value = T::default();
+            *value = default();
             *kept = None;
         }
         let comparing = kept.is_some();
@@ -785,7 +814,7 @@ pub(super) fn defaults_row<T: Default + Clone>(ui: &mut egui::Ui, what: &str, va
         {
             match kept.take() {
                 Some(mine) => *value = mine,
-                None => *kept = Some(std::mem::replace(value, T::default())),
+                None => *kept = Some(std::mem::replace(value, default())),
             }
         }
     });
@@ -838,6 +867,11 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
              They get caught as the land closes in and bite bays and inland seas out of it, so the continent\n\
              comes out less round. The land plates stay as many as you asked for.",
         );
+        ui.add_enabled(plates.ocean_among_land > 0, crate::debug::Slider::new(&mut plates.ocean_edge, 0.0..=1.0).text("inside ← from → edge")).on_hover_text(
+            "Which cells those ocean plates are picked from. 0 = the ones most surrounded by land: inland seas.\n\
+             1 = ones on the outside edge of the land group: they bite bays and gulfs in from the coast.\n\
+             Between = a mix, more by chance.",
+        );
     });
     fold_section(ui, "Wobbly edges", |ui| {
         ui.small(
@@ -852,7 +886,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         ui.checkbox(&mut world.show_vertices, "the vertices (yellow dots)");
         ui.checkbox(&mut world.show_lines, "the straight lines, before wobbling");
         ui.add_space(6.0);
-        defaults_row(ui, "Plate settings", &mut world.plates, &mut world.ab_plates);
+        defaults_row(ui, "Plate settings", &mut world.plates, &mut world.ab_plates, || page_defaults().plates);
     });
     fold_section(ui, "Tectonics", |ui| {
         ui.small(
@@ -882,6 +916,48 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         ui.checkbox(&mut world.show_boundaries, "boundaries: red colliding, blue pulling apart, green sliding").on_hover_text(
             "Where two plates touch, how they move against each other there.\nMost boundaries do a bit of everything; each spot shows what it does most.\nPlates against empty ocean aren't boundaries.",
         );
+    });
+    fold_section(ui, "Heights and water", |ui| {
+        ui.small(
+            "Every spot on a plate has a height: its plate's base height, plus terrain noise, minus sunken edges, \
+             plus how much it has been squeezed. Below the water level is sea. None of these change the \
+             simulation, only what's land, so they can be changed at any time.",
+        );
+        let h = &mut world.heights;
+        ui.add(crate::debug::Slider::new(&mut h.land, -1.0..=1.0).text("land plates' base height"))
+            .on_hover_text("Where land plates sit before the terrain noise. Around 0 (the usual water level) = about half land.");
+        ui.add(crate::debug::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
+            .on_hover_text("Where ocean plates sit. Deep: only a hard squeeze lifts them above the water as islands.");
+        ui.add_space(4.0);
+        ui.label("Tilt (each plate tips a random way, on its middle):");
+        ui.add(crate::debug::Slider::new(&mut h.tilt, 0.0..=2.0).text("most tilt")).on_hover_text(
+            "How far a plate can tip: about how high its rising side goes, and how low the other sinks.\nEach plate tips a random direction, by a random share (a third to all) of this.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.blend, 0.0..=1.0).text("tilt ← blend → noise")).on_hover_text(
+            "Mixes the plain tilt and the terrain noise.\n0 = only tilt: simple plates, each sunk on one side. 1 = only the rolling noise. In between = both.",
+        );
+        ui.add_space(4.0);
+        ui.label("Terrain noise (one for the whole world, riding with the plates):");
+        ui.add(crate::debug::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(
+            "How high and low the rolling terrain goes. More = land plates broken into more islands and bays.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.terrain_size, 1_000.0..=50_000.0).logarithmic(true).text("size (blocks)"))
+            .on_hover_text("The size of the biggest hills and hollows. Big = whole regions above or below water.");
+        ui.add(crate::debug::Slider::new(&mut h.octaves, 1..=8).text("detail (octaves)")).on_hover_text("Finer, fainter layers on top: more ragged coasts.");
+        ui.add(crate::debug::Slider::new(&mut h.roughness, 0.0..=1.0).text("roughness")).on_hover_text("How strong each finer layer is.");
+        ui.add_space(4.0);
+        ui.label("Sunken edges (continental shelves):");
+        ui.add(crate::debug::Slider::new(&mut h.shelf_width, 0.0..=15_000.0).text("reach in (blocks)")).on_hover_text(
+            "How far in from a plate's edge its ground starts sloping down.\nCoasts then fall inside plates, and plates touching at the start don't automatically join up.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.shelf_depth, 0.0..=1.0).text("depth at the edge")).on_hover_text("How far the ground sinks at the very edge.");
+        ui.add_space(4.0);
+        ui.add(crate::debug::Slider::new(&mut h.squeeze, 0.0..=3.0).text("squeeze lifts by")).on_hover_text(
+            "How much squeezed rock rises (rock twice as thick rises by this much), and stretched rock sinks.\nThis is what turns crumple belts into mountains and ocean floor into islands.",
+        );
+        ui.add(crate::debug::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
+        ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
+        defaults_row(ui, "Height settings", &mut world.heights, &mut world.ab_heights, || page_defaults().heights);
     });
     fold_section(ui, "The simulation", |ui| {
         ui.small(
@@ -963,50 +1039,11 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         ui.add_space(6.0);
         // Motion and rock together, as one section.
         let mut tectonics = (world.motion.clone(), world.sim_settings.clone());
-        defaults_row(ui, "Tectonics settings", &mut tectonics, &mut world.ab_tectonics);
+        defaults_row(ui, "Tectonics settings", &mut tectonics, &mut world.ab_tectonics, || {
+            let defaults = page_defaults();
+            (defaults.motion, defaults.rock)
+        });
         (world.motion, world.sim_settings) = tectonics;
-    });
-    fold_section(ui, "Heights and water", |ui| {
-        ui.small(
-            "Every spot on a plate has a height: its plate's base height, plus terrain noise, minus sunken edges, \
-             plus how much it has been squeezed. Below the water level is sea. None of these change the \
-             simulation, only what's land, so they can be changed at any time.",
-        );
-        let h = &mut world.heights;
-        ui.add(crate::debug::Slider::new(&mut h.land, -1.0..=1.0).text("land plates' base height"))
-            .on_hover_text("Where land plates sit before the terrain noise. Around 0 (the usual water level) = about half land.");
-        ui.add(crate::debug::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
-            .on_hover_text("Where ocean plates sit. Deep: only a hard squeeze lifts them above the water as islands.");
-        ui.add_space(4.0);
-        ui.label("Tilt (each plate tips a random way, on its middle):");
-        ui.add(crate::debug::Slider::new(&mut h.tilt, 0.0..=2.0).text("most tilt")).on_hover_text(
-            "How far a plate can tip: about how high its rising side goes, and how low the other sinks.\nEach plate tips a random direction, by a random share (a third to all) of this.",
-        );
-        ui.add(crate::debug::Slider::new(&mut h.blend, 0.0..=1.0).text("tilt ← blend → noise")).on_hover_text(
-            "Mixes the plain tilt and the terrain noise.\n0 = only tilt: simple plates, each sunk on one side. 1 = only the rolling noise. In between = both.",
-        );
-        ui.add_space(4.0);
-        ui.label("Terrain noise (one for the whole world, riding with the plates):");
-        ui.add(crate::debug::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(
-            "How high and low the rolling terrain goes. More = land plates broken into more islands and bays.",
-        );
-        ui.add(crate::debug::Slider::new(&mut h.terrain_size, 1_000.0..=50_000.0).logarithmic(true).text("size (blocks)"))
-            .on_hover_text("The size of the biggest hills and hollows. Big = whole regions above or below water.");
-        ui.add(crate::debug::Slider::new(&mut h.octaves, 1..=8).text("detail (octaves)")).on_hover_text("Finer, fainter layers on top: more ragged coasts.");
-        ui.add(crate::debug::Slider::new(&mut h.roughness, 0.0..=1.0).text("roughness")).on_hover_text("How strong each finer layer is.");
-        ui.add_space(4.0);
-        ui.label("Sunken edges (continental shelves):");
-        ui.add(crate::debug::Slider::new(&mut h.shelf_width, 0.0..=15_000.0).text("reach in (blocks)")).on_hover_text(
-            "How far in from a plate's edge its ground starts sloping down.\nCoasts then fall inside plates, and plates touching at the start don't automatically join up.",
-        );
-        ui.add(crate::debug::Slider::new(&mut h.shelf_depth, 0.0..=1.0).text("depth at the edge")).on_hover_text("How far the ground sinks at the very edge.");
-        ui.add_space(4.0);
-        ui.add(crate::debug::Slider::new(&mut h.squeeze, 0.0..=3.0).text("squeeze lifts by")).on_hover_text(
-            "How much squeezed rock rises (rock twice as thick rises by this much), and stretched rock sinks.\nThis is what turns crumple belts into mountains and ocean floor into islands.",
-        );
-        ui.add(crate::debug::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
-        ui.label(format!("land: {:.0}% of the world", world.land_share * 100.0));
-        defaults_row(ui, "Height settings", &mut world.heights, &mut world.ab_heights);
     });
     fold_section(ui, "Bake", |ui| {
         ui.small(
@@ -1019,8 +1056,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
             ui.label("Name:");
             ui.add(egui::TextEdit::singleline(&mut world.bake_name).desired_width(140.0).hint_text(format!("world-{:016X}", world.seed)));
         });
-        ui.add(crate::debug::Slider::new(&mut world.most_steps, 200..=20_000).logarithmic(true).text("most steps")).on_hover_text(
-            "A bake stops when everything has coasted to a stop, or after this many steps, whichever comes first.\nWith very low drag, plates can drift for a long time.",
+        ui.add(crate::debug::Slider::new(&mut world.most_steps, 10..=20_000).logarithmic(true).text("run length (steps)")).on_hover_text(
+            "A bake stops when everything has coasted to a stop, or after this many steps, whichever comes first.\n\
+             The same run length as in the bar along the top, so a bake makes the world you watched.",
         );
         ui.horizontal_wrapped(|ui| {
             if world.baking.is_some() {
@@ -1200,7 +1238,9 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
 
     ui.separator();
     ui.heading("The plates");
-    ui.label(format!("cover {:.1}% of the world (aiming for {:.0}%)", made.coverage * 100.0, world.plates.coverage * 100.0));
+    ui.label(format!("land above water: {:.1}% of the world", world.land_share * 100.0))
+        .on_hover_text("How much of the world's circle is dry land as things are now, at this water level.");
+    ui.small(format!("(the land plates cover {:.1}% of it, aiming for {:.0}%)", made.coverage * 100.0, world.plates.coverage * 100.0));
     ui.label(format!("{} cells, {} reached past the edge and were deleted", made.cells, made.past_the_edge));
     ui.label(format!("{} vertices and {} lines on the plates", made.vertices.len(), made.edges.len()))
         .on_hover_text("The ones out in the ocean are culled.");

@@ -63,6 +63,9 @@ pub struct PlateSettings {
     pub ocean_rings: u32,
     /// Ocean plates in among the land plates, caught in the middle of them (0 = none).
     pub ocean_among_land: u32,
+    /// Where those come from: 0 = the cells most surrounded by land (inland seas), 1 = cells on the
+    /// outside edge of the land (bites into the coast, bays).
+    pub ocean_edge: f32,
 
     /// The two line mutators, added together.
     pub waves: LineNoise,
@@ -77,6 +80,7 @@ impl Default for PlateSettings {
             spread: 2,
             ocean_rings: 1,
             ocean_among_land: 0,
+            ocean_edge: 0.0,
             waves: LineNoise { on: true, style: LineStyle::Perlin, amount: 3_000.0, size: 15_000.0, octaves: 2, roughness: 0.5 },
             rough: LineNoise { on: true, style: LineStyle::Midpoint, amount: 800.0, size: 1_000.0, octaves: 3, roughness: 0.55 },
         }
@@ -504,7 +508,10 @@ pub fn make(settings: &PlateSettings, seed: u64, size_blocks: f32, blocks_per_pi
     let among = (settings.ocean_among_land as usize).min(candidates.len().saturating_sub(1));
     if among > 0 {
         let cluster: HashSet<usize> = candidates.iter().copied().collect();
-        let surrounded = |c: usize| neighbours[c].iter().filter(|n| cluster.contains(n)).count() as f32 + unit(seed ^ 0x0cea, c, 0) * 2.0;
+        // Toward the edge (David, 2026-10-27), the least surrounded are picked instead: cells on the
+        // land group's outside, biting bays into its coast.
+        let toward_inside = 1.0 - 2.0 * settings.ocean_edge.clamp(0.0, 1.0);
+        let surrounded = |c: usize| neighbours[c].iter().filter(|n| cluster.contains(n)).count() as f32 * toward_inside + unit(seed ^ 0x0cea, c, 0) * 2.0;
         let mut by_surrounded = candidates.clone();
         by_surrounded.sort_by(|&a, &b| surrounded(b).total_cmp(&surrounded(a)));
         let sea: HashSet<usize> = by_surrounded[..among].iter().copied().collect();
@@ -707,6 +714,24 @@ mod tests {
                 assert!(around >= 3, "seed {seed}: ocean plate cell {c} touches only {around} land plates");
             }
         }
+    }
+
+    #[test]
+    fn ocean_plates_toward_the_edge_touch_fewer_land_plates() {
+        // Over a few seeds, ocean plates picked from the land group's edge are less surrounded by
+        // land than ones picked from its inside.
+        let touching_land = |edge: f32| -> usize {
+            (1..=6)
+                .map(|seed| {
+                    let made = plates(&PlateSettings { plates: 14, ocean_rings: 0, ocean_among_land: 3, ocean_edge: edge, ..PlateSettings::default() }, seed);
+                    let land: Vec<usize> = made.kept.iter().filter(|plate| plate.land).map(|plate| plate.cell).collect();
+                    let touching = neighbours(&made.cell, made.width, made.cells);
+                    made.kept.iter().filter(|plate| !plate.land).map(|plate| touching[plate.cell].iter().filter(|n| land.contains(n)).count()).sum::<usize>()
+                })
+                .sum()
+        };
+        let (inside, edge) = (touching_land(0.0), touching_land(1.0));
+        assert!(edge < inside, "edge {edge}, inside {inside}");
     }
 
     #[test]

@@ -63,10 +63,58 @@ fn load<T: DeserializeOwned>(folder: &Path, name: &str) -> Result<T, String> {
     toml::from_str(&text).map_err(|error| error.to_string())
 }
 
+/// The preset named "default", if one has been saved: what a page starts with, and what its
+/// "back to defaults" buttons go back to.
+pub fn default_preset<T: DeserializeOwned>(category: &str) -> Option<T> {
+    load(&preset_folder(category), DEFAULT).ok()
+}
+
+/// The preset name that becomes a page's default.
+const DEFAULT: &str = "default";
+
+/// The name in a category's preset box (the same box wherever the bar is drawn, so Ctrl+S can save
+/// under it while the bar is folded away).
+fn name_id(category: &str) -> egui::Id {
+    egui::Id::new(("preset", category))
+}
+
+/// Ctrl+S saves `value()` as the preset named in the category's preset box (replacing it). Call it
+/// every frame while the page is showing, whether or not its preset bar is.
+pub fn save_shortcut<T: Serialize>(ctx: &egui::Context, category: &str, value: impl FnOnce() -> T) {
+    let toast = egui::Id::new("preset saved toast");
+    if ctx.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
+        let name: String = ctx.data(|data| data.get_temp(name_id(category))).unwrap_or_default();
+        let clean = clean_name(&name);
+        let message = if clean.is_empty() {
+            "Ctrl+S: type a name in the preset box first (Presets).".to_string()
+        } else {
+            match save(&preset_folder(category), &clean, &value()) {
+                Ok(_) if clean == DEFAULT => "Saved 'default': the page starts with it now.".to_string(),
+                Ok(_) => format!("Saved '{clean}'."),
+                Err(error) => format!("Couldn't save: {error}"),
+            }
+        };
+        ctx.data_mut(|data| {
+            data.insert_temp(toast, (message.clone(), ctx.input(|input| input.time)));
+            data.insert_temp(name_id(category).with("status"), message);
+        });
+    }
+    // The last save's message, at the bottom of the screen for a few seconds.
+    if let Some((message, when)) = ctx.data(|data| data.get_temp::<(String, f64)>(toast)) {
+        let age = ctx.input(|input| input.time) - when;
+        if age < 3.0 {
+            egui::Area::new(toast).anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -40.0)).order(egui::Order::Foreground).show(ctx, |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| ui.label(message));
+            });
+            ctx.request_repaint();
+        }
+    }
+}
+
 /// A row of preset controls: name box, Save, a Load list, and a button to open the folder.
 pub fn preset_bar<T: Serialize + DeserializeOwned>(ui: &mut egui::Ui, category: &str, value: &mut T) {
     let folder = preset_folder(category);
-    let id = ui.make_persistent_id(("preset", category));
+    let id = name_id(category);
     let status_id = id.with("status");
     let mut name: String = ui.data(|data| data.get_temp(id)).unwrap_or_default();
     let mut status: Option<String> = ui.data(|data| data.get_temp(status_id));
@@ -74,7 +122,10 @@ pub fn preset_bar<T: Serialize + DeserializeOwned>(ui: &mut egui::Ui, category: 
     // Wraps onto a second line in a narrow panel, rather than forcing the panel wider.
     ui.horizontal_wrapped(|ui| {
         ui.label("Preset:");
-        ui.add(egui::TextEdit::singleline(&mut name).desired_width(110.0).hint_text("name"));
+        ui.add(egui::TextEdit::singleline(&mut name).desired_width(110.0).hint_text("name")).on_hover_text(
+            "Ctrl+S saves under this name. A preset named 'default' is what the page starts with, and what its\n\
+             'back to defaults' buttons go back to.",
+        );
         let clean = clean_name(&name);
         let exists = !clean.is_empty() && folder.join(format!("{clean}.toml")).exists();
         let save_label = if exists { "Save (replace)" } else { "Save" };

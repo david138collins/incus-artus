@@ -162,11 +162,11 @@ fn foldable(root: &mut egui::Ui, right: bool, id: &str, title: &str, folded: &mu
 }
 
 /// A section of a panel, under a heading that folds it away when clicked (so the eye isn't drawn to
-/// what isn't being worked on). Open to begin with; remembered while the game runs.
+/// what isn't being worked on). Folded to begin with; remembered while the game runs.
 pub fn fold_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) -> egui::Response {
     ui.add_space(6.0);
     ui.separator();
-    egui::CollapsingHeader::new(egui::RichText::new(title).strong()).default_open(true).show(ui, add_contents).header_response
+    egui::CollapsingHeader::new(egui::RichText::new(title).strong()).default_open(false).show(ui, add_contents).header_response
 }
 
 /// The same for a section with a switch in its heading (the whole feature on or off); its contents
@@ -175,7 +175,7 @@ pub fn switched_section(ui: &mut egui::Ui, title: &str, on: &mut bool, add_conte
     ui.add_space(6.0);
     ui.separator();
     let id = ui.make_persistent_id((title, "section"));
-    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, true)
+    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
         .show_header(ui, |ui| ui.checkbox(on, egui::RichText::new(title).strong()))
         .body(|ui| ui.add_enabled_ui(*on, add_contents));
 }
