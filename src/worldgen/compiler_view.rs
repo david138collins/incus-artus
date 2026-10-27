@@ -143,6 +143,17 @@ impl Default for Compiler {
 }
 
 impl Compiler {
+    /// Starts from the "default" preset, if one has been saved, and keeps it when the first bake is
+    /// read: a bake otherwise sets the sea level to the one it was baked with, which at start-up
+    /// quietly undid the default's (found 2026-10-27: David's coasts and lift came out different until
+    /// he loaded "default" by hand).
+    pub(super) fn use_default_preset(&mut self) {
+        if let Some(settings) = default_preset("compiler") {
+            self.settings = settings;
+            self.keep_settings = true;
+        }
+    }
+
     pub fn is_making(&self) -> bool {
         self.job.is_some() || self.ez.is_some()
     }

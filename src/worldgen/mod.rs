@@ -156,9 +156,7 @@ impl Suite {
     fn starting() -> Self {
         let mut suite = Self::default();
         suite.world.use_default_preset();
-        if let Some(settings) = crate::debug::default_preset("compiler") {
-            suite.compiler.settings = settings;
-        }
+        suite.compiler.use_default_preset();
         suite
     }
 }
