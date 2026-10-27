@@ -121,8 +121,11 @@ pub fn save_shortcut<T: Serialize>(ctx: &egui::Context, category: &str, value: i
                 Err(error) => format!("Couldn't save: {error}"),
             }
         };
+        // The time first: reading it inside `data_mut` waits on the lock `data_mut` holds, and the
+        // game froze (found 2026-10-27, from David's crash on Ctrl+S).
+        let now = ctx.input(|input| input.time);
         ctx.data_mut(|data| {
-            data.insert_temp(toast, (message.clone(), ctx.input(|input| input.time)));
+            data.insert_temp(toast, (message.clone(), now));
             data.insert_temp(name_id(category).with("status"), message);
         });
     }
@@ -199,4 +202,57 @@ pub fn preset_bar<T: Serialize + DeserializeOwned>(ui: &mut egui::Ui, category: 
             data.insert_temp(status_id, message);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
+    struct Settings {
+        a: f32,
+    }
+
+    /// One frame of the editor: the "default" light, the Ctrl+S shortcut, and the preset bar
+    /// inside a folding section (opened from the second frame on).
+    fn frame(ctx: &egui::Context, events: Vec<egui::Event>, value: &mut Settings, open: bool) {
+        let input = egui::RawInput { events, ..Default::default() };
+        let _ = ctx.run_ui(input, |ui| {
+            {
+                default_light(ui, CATEGORY, value);
+                save_shortcut(ui.ctx(), CATEGORY, || value.clone());
+                let id = ui.make_persistent_id("presets section");
+                let mut state = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false);
+                state.set_open(open);
+                state.show_header(ui, |ui| ui.label("Presets")).body(|ui| preset_bar(ui, CATEGORY, value));
+            }
+        });
+    }
+
+    const CATEGORY: &str = "test-ctrl-s-then-open";
+
+    #[test]
+    fn ctrl_s_then_opening_the_presets_finishes_every_frame() {
+        let folder = preset_folder(CATEGORY);
+        let _ = std::fs::remove_dir_all(&folder);
+        let ctx = egui::Context::default();
+        let mut value = Settings { a: 1.0 };
+        // The preset box says "default" (as after loading it), and the default is saved.
+        ctx.data_mut(|data| data.insert_temp(name_id(CATEGORY), "default".to_string()));
+        save(&folder, DEFAULT, &value).unwrap();
+        let ctrl_s = egui::Event::Key { key: egui::Key::S, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::COMMAND };
+        // Watched with the light on; Ctrl+S; a change; Ctrl+S again; then the section opened.
+        let started = std::time::Instant::now();
+        for k in 0..60 {
+            let events = if k == 5 || k == 20 { vec![ctrl_s.clone()] } else { Vec::new() };
+            if k == 10 {
+                value.a = 2.0;
+            }
+            frame(&ctx, events, &mut value, k >= 30);
+        }
+        assert!(started.elapsed().as_secs_f32() < 5.0, "60 frames took {:?}", started.elapsed());
+        let saved: Settings = load(&folder, DEFAULT).unwrap();
+        assert_eq!(saved.a, 2.0, "Ctrl+S saved over 'default'");
+        let _ = std::fs::remove_dir_all(&folder);
+    }
 }
