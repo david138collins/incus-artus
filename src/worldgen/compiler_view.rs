@@ -87,6 +87,9 @@ pub struct Compiler {
     pub additives: Additives,
     /// Whether the lift's points are drawn over the map.
     pub show_lift_points: bool,
+    /// Where you were in the world when you opened the Editor Suite (F2): north, east (blocks) and
+    /// the compass bearing you faced (degrees), drawn on the map. [David, 2026-10-27]
+    pub came_from: Option<(f32, f32, f32)>,
     /// The Landmass, Additives and World Interpreter panels: shown (the buttons along the top),
     /// and folded away to thin strips (they start folded, so the map has the room).
     pub shown: [bool; 3],
@@ -128,6 +131,7 @@ impl Default for Compiler {
             hover: None,
             additives: Additives::default(),
             show_lift_points: true,
+            came_from: None,
             shown: [true; 3],
             folded: [true; 3],
             readouts_folded: true,
@@ -1408,7 +1412,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         } else if compiler.is_making() || compiler.bake.is_some() {
             "Compiling…"
         } else {
-            "No bake yet. Press EZ-Bake (Space), or bake a world in the Tectonic Sim."
+            "No bake yet. Press EZ-Bake, or bake a world in the Tectonic Sim."
         };
         painter.text(rect.center(), egui::Align2::CENTER_CENTER, message, egui::FontId::proportional(14.0), PINK);
         return;
@@ -1514,6 +1518,22 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
             if rect.contains(at) {
                 painter.circle_stroke(at, 4.0, egui::Stroke::new(2.0, Color32::from_rgb(0, 230, 255)));
             }
+        }
+    }
+
+    // Where you were in the world when you pressed F2: a ring, and a line the way you faced.
+    if let Some((north, east, facing)) = compiler.came_from {
+        let (half, blocks) = (width as f32 / 2.0, bake.info.blocks_per_pixel);
+        let at = compiler.camera.to_screen(rect, Vec2::new(east / blocks + half, half - north / blocks));
+        if rect.expand(20.0).contains(at) {
+            // North is up the map; the bearing turns clockwise from it.
+            let (sin, cos) = facing.to_radians().sin_cos();
+            let ahead = at + Vec2::new(sin, -cos) * 16.0;
+            let stroke = egui::Stroke::new(2.0, Color32::from_rgb(255, 60, 220));
+            painter.circle_stroke(at, 6.0, egui::Stroke::new(4.0, Color32::BLACK));
+            painter.circle_stroke(at, 6.0, stroke);
+            painter.line_segment([at + Vec2::new(sin, -cos) * 6.0, ahead], stroke);
+            painter.text(at + Vec2::new(9.0, 9.0), egui::Align2::LEFT_TOP, "you were here", egui::FontId::proportional(11.0), Color32::from_rgb(255, 60, 220));
         }
     }
 

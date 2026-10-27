@@ -325,6 +325,7 @@ impl Plugin for WorldGenPlugin {
         app.insert_resource(Suite::starting())
             .add_systems(Update, (run_suite, take_dropped_files).run_if(in_state(Screen::WorldGen)))
             .add_systems(EguiPrimaryContextPass, draw_suite.run_if(in_state(Screen::WorldGen)))
+            .add_systems(OnEnter(Screen::WorldGen), note_where_you_were)
             .add_debug_page("Editor Suite", world_gen_debug_page);
     }
 }
@@ -439,4 +440,15 @@ fn world_gen_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.button(label).clicked() {
         world.resource_mut::<NextState<Screen>>().set(if in_suite { Screen::Play } else { Screen::WorldGen });
     }
+}
+
+/// Opening the suite: where you were in the world, and which way you faced, for the Terrain
+/// Compiler's map.
+fn note_where_you_were(camera: Query<&Transform, With<Camera3d>>, mut suite: ResMut<Suite>) {
+    let Some(transform) = camera.iter().next() else { return };
+    let at = crate::coords::bevy_to_game(transform.translation);
+    let ahead = crate::coords::bevy_to_game(*transform.forward());
+    // A compass bearing: 0 north, 90 east.
+    let facing = ahead.y.atan2(ahead.x).to_degrees().rem_euclid(360.0);
+    suite.compiler.came_from = Some((at.x, at.y, facing));
 }

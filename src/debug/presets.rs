@@ -105,12 +105,20 @@ fn name_id(category: &str) -> egui::Id {
     egui::Id::new(("preset", category))
 }
 
+/// What's in a category's preset box: what was typed (or loaded), or before anything has been, "default"
+/// if the page has a default preset (so Ctrl+S saves over it straight away). [David, 2026-10-27]
+fn typed_name(ctx: &egui::Context, category: &str) -> String {
+    ctx.data(|data| data.get_temp::<String>(name_id(category))).unwrap_or_else(|| {
+        if preset_folder(category).join(format!("{DEFAULT}.toml")).exists() { DEFAULT.to_string() } else { String::new() }
+    })
+}
+
 /// Ctrl+S saves `value()` as the preset named in the category's preset box (replacing it). Call it
 /// every frame while the page is showing, whether or not its preset bar is.
 pub fn save_shortcut<T: Serialize>(ctx: &egui::Context, category: &str, value: impl FnOnce() -> T) {
     let toast = egui::Id::new("preset saved toast");
     if ctx.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
-        let name: String = ctx.data(|data| data.get_temp(name_id(category))).unwrap_or_default();
+        let name = typed_name(ctx, category);
         let clean = clean_name(&name);
         let message = if clean.is_empty() {
             "Ctrl+S: type a name in the preset box first (Presets).".to_string()
@@ -146,7 +154,7 @@ pub fn preset_bar<T: Serialize + DeserializeOwned>(ui: &mut egui::Ui, category: 
     let folder = preset_folder(category);
     let id = name_id(category);
     let status_id = id.with("status");
-    let mut name: String = ui.data(|data| data.get_temp(id)).unwrap_or_default();
+    let mut name = typed_name(ui.ctx(), category);
     let mut status: Option<String> = ui.data(|data| data.get_temp(status_id));
 
     // Wraps onto a second line in a narrow panel, rather than forcing the panel wider.
@@ -230,6 +238,21 @@ mod tests {
     }
 
     const CATEGORY: &str = "test-ctrl-s-then-open";
+
+    #[test]
+    fn the_preset_box_starts_as_default_only_where_there_is_one() {
+        let category = "test-box-starts-default";
+        let folder = preset_folder(category);
+        let _ = std::fs::remove_dir_all(&folder);
+        let ctx = egui::Context::default();
+        assert_eq!(typed_name(&ctx, category), "");
+        save(&folder, DEFAULT, &Settings { a: 1.0 }).unwrap();
+        assert_eq!(typed_name(&ctx, category), "default");
+        // Once something's typed (even nothing), that stays.
+        ctx.data_mut(|data| data.insert_temp(name_id(category), String::new()));
+        assert_eq!(typed_name(&ctx, category), "");
+        let _ = std::fs::remove_dir_all(&folder);
+    }
 
     #[test]
     fn ctrl_s_then_opening_the_presets_finishes_every_frame() {
