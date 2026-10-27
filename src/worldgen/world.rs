@@ -988,9 +988,6 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         );
         ui.add(crate::debug::Slider::new(&mut sim.creep, 0.0..=1.0).text("creep"))
             .on_hover_text("Once past giving way, how quickly the new shape becomes permanent.");
-        ui.add(crate::debug::Slider::new(&mut sim.crack, 0.05..=2.0).logarithmic(true).text("cracks at")).on_hover_text(
-            "How far rock can be stretched (0.4 = 40% longer) before it snaps and the plate tears there.",
-        );
         ui.add(crate::debug::Slider::new(&mut sim.push, 0.0..=1.0).text("push back"))
             .on_hover_text("How firmly plates are kept from overlapping.\nLow = they crush into each other. High = hard edges.");
         ui.add(crate::debug::Slider::new(&mut sim.friction, 0.0..=1.0).text("friction"))
@@ -1027,9 +1024,6 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         );
         ui.add(crate::debug::Slider::new(&mut world.fill_holes, 0.0..=30_000.0).text("fill holes up to (blocks across)")).on_hover_text(
             "The crust has no holes. Where plates crowd together, their rock can't always pack the space, and pockets\nof nothing open between them (deep-ocean \"bubbles\" drifting round collision zones). A hole with rock\nall round it, no bigger than a circle this wide, is filled from the nearest rock. Bigger ones, such as a\nrift torn wide open, stay sea. Seas joined to the open ocean are never filled. 0 = fill nothing. Also used when baking.",
-        );
-        ui.add(crate::debug::Slider::new(&mut world.tear_open, 1.1..=6.0).logarithmic(true).text("tears open past")).on_hover_text(
-            "Only changes the look. A crack pulled open less than this (× its size) is drawn as thin, stretched rock;\npulled open further, it's a rift and shows the sea. Too high = plates smeared across wide gaps.",
         );
         ui.checkbox(&mut world.show_bowl, "show where the bowl starts (a faint circle)");
         ui.checkbox(&mut world.show_push, "show which way the rock was squeezed (lines)").on_hover_text(

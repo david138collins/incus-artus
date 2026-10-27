@@ -15,7 +15,8 @@
 //! **Rock gives way and stays given.** A rag springs back; rock doesn't. Each spring has a
 //! **give-way** point: squeezed or stretched further than that, its resting length creeps toward
 //! its new length (by **creep** each step) and stays there. That's what keeps wrinkles and squashed
-//! ground in place after the push ends. Stretched past **crack**, it snaps: the plate tears there.
+//! ground in place after the push ends. Rock never cracks (switched off 2026-10-27): pulled apart, it
+//! stretches thin, darker and lower. Only welds between plates let go.
 //!
 //! **Irregular stiffness.** A noise map sets how stiff and how strong the rock is from place to
 //! place. Soft patches give way deep inside a plate, not just at its edges.
@@ -32,7 +33,7 @@
 //!    pushed apart (by **push back**). Lighter points are moved more.
 //! 4. **Friction:** points of different plates that are touching are dragged along with each other.
 //! 5. Each point's new speed is how far it actually moved.
-//! 6. Springs past give-way creep; springs past crack snap.
+//! 6. Springs past give-way creep; welds pulled too far let go.
 //!
 //! The steps are always the same size and taken in the same order, so the same seed and settings
 //! give the same result, however fast it's played.
@@ -65,8 +66,7 @@ pub struct RagSettings {
     pub give_way: f32,
     /// How much of the stretch past give-way becomes permanent each step (0 to 1).
     pub creep: f32,
-    /// How far rock can be stretched in all, from how it started, before it snaps (0.4 = 40%
-    /// longer).
+    /// Unused: rock no longer cracks (switched off 2026-10-27; kept so presets and bakes read as before).
     pub crack: f32,
     /// How firmly points of different plates are pushed apart, each pass (0 to 1).
     pub push: f32,
@@ -179,6 +179,10 @@ fn squash(was: [(f32, f32); 3], now: [(f32, f32); 3]) -> (f32, f32) {
     }
     (-x / length * hard, -y / length * hard)
 }
+
+/// A weld stretched this much past its length when made (0.4 = 40% longer, times the stickiness)
+/// lets go, so plates pulled hard apart can still part.
+const WELDS_LET_GO_PAST: f32 = 0.4;
 
 struct Spring {
     a: usize,
@@ -484,17 +488,18 @@ impl Sim {
             fastest = fastest.max(self.velocity[k].0.hypot(self.velocity[k].1));
         }
 
-        // 6. Give way and crack.
+        // 6. Give way, and welds let go.
         let creep = settings.creep.clamp(0.0, 1.0);
-        let real = &self.real;
+        let plate = &self.plate;
         for spring in self.springs.iter_mut().filter(|s| !s.broken) {
             let (a, b) = (self.at[spring.a], self.at[spring.b]);
             let length = (b.0 - a.0).hypot(b.1 - a.1);
-            // Cracking is measured from the length it started with: rock can stretch and give way
-            // only so far in all before it snaps. (Springs to outline points never snap, so the
-            // outline can't break loose and drift off.)
-            let between_real = real[spring.a] && real[spring.b];
-            if between_real && length / spring.made - 1.0 > settings.crack * spring.strength {
+            // Rock never cracks [David, 2026-10-27: cracking "just doesn't behave or do anything
+            // useful"; switched off rather than taken out, so `crack` and the tearing it fed are
+            // still there, unused]. A weld (a spring between two plates) still lets go when it's
+            // stretched far enough past its length when made, at what was crack's default.
+            let weld = plate[spring.a] != plate[spring.b];
+            if weld && length / spring.made - 1.0 > WELDS_LET_GO_PAST * spring.strength {
                 spring.broken = true;
                 continue;
             }
@@ -860,42 +865,30 @@ mod tests {
     }
 
     #[test]
-    fn pulled_hard_enough_a_plate_tears() {
+    fn pulled_hard_apart_rock_stretches_thin_but_never_cracks() {
         let (plates, _, settings) = head_on(0.0);
         let still = vec![Motion { velocity: (0.0, 0.0), spin: 0.0 }; 2];
+        // Even with the old "cracks at" turned right down, nothing cracks (it's switched off).
+        let settings = RagSettings { crack: 0.05, drag: 0.0, ..settings };
         let mut sim = Sim::new(&plates, &still, &settings, 1);
-        // Pull the left plate's two halves apart.
+        // Pull the left plate's two halves apart, hard.
         for k in 0..sim.at.len() {
             if sim.plate[k] == 0 {
                 sim.velocity[k] = (if sim.at[k].0 < 35.0 { -1.0 } else { 1.0 }, 0.0);
             }
         }
-        for _ in 0..10 {
+        for _ in 0..40 {
             sim.step(&settings);
         }
-        assert!(sim.springs.iter().any(|s| s.broken), "nothing tore");
-        // The tear shows as stretched, thin rock, not a hole: the plate covers at least as much
-        // ground as before, and the middle of the tear is thinner than it started.
-        let painted = sim.paint(0, f32::MAX, 0.0, 0.0);
-        let before = plates.plate.iter().filter(|&&p| p == Some(0)).count();
-        let after = painted.iter().flatten().filter(|spot| spot.plate == 0).count();
-        assert!(after >= before, "the plate lost fill: {before} pixels before, {after} after");
-        let middle = painted[60 * plates.width + 35];
-        assert!(matches!(middle, Some(Spot { plate: 0, squeeze, .. }) if squeeze < 0.0), "the tear's middle: {middle:?}");
-        // The outline never breaks loose: springs to outline points don't snap.
-        assert!(sim.springs.iter().filter(|s| !sim.real[s.a] || !sim.real[s.b]).all(|s| !s.broken));
-
-        // Pulled much further, the crack is torn wide open: it shows as a gap (sea), not the
-        // plate smeared across it.
-        for _ in 0..30 {
-            sim.step(&RagSettings { drag: 0.0, ..settings.clone() });
-        }
+        assert!(sim.springs.iter().filter(|s| sim.plate[s.a] == sim.plate[s.b]).all(|s| !s.broken), "rock cracked");
+        // It shows as stretched, thin rock, not a hole: no gap across the middle, which is thinner
+        // than it started.
         let painted = sim.paint(0, 2.0, 0.0, 0.0);
-        let gap = (0..plates.width).filter(|&col| painted[60 * plates.width + col].is_none()).count();
         let row: Vec<bool> = (0..plates.width).map(|col| painted[60 * plates.width + col].is_some()).collect();
-        let first = row.iter().position(|&on| on).unwrap();
-        let last = row.iter().rposition(|&on| on).unwrap();
-        assert!(row[first..=last].iter().any(|&on| !on), "no gap opened across the tear ({gap} empty pixels in the row)");
+        let (first, last) = (row.iter().position(|&on| on).unwrap(), row.iter().rposition(|&on| on).unwrap());
+        assert!(row[first..=last].iter().all(|&on| on), "a gap opened");
+        let middle = painted[60 * plates.width + 35];
+        assert!(matches!(middle, Some(Spot { plate: 0, squeeze, .. }) if squeeze < 0.0), "the middle: {middle:?}");
     }
 
     #[test]
