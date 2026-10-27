@@ -191,7 +191,7 @@ struct CompiledFile {
 }
 
 /// The compiler's maps, by file name.
-fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 10] {
+fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 9] {
     [
         ("coast", &maps.coast),
         ("coast_distance", &maps.coast_distance),
@@ -202,7 +202,6 @@ fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 10] {
         ("push_x", &maps.push_x),
         ("push_y", &maps.push_y),
         ("push_strength", &maps.push_strength),
-        ("skirt", &maps.skirt),
     ]
 }
 
@@ -260,7 +259,6 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         Ok(buffer[..frame.buffer_size()].chunks_exact(2).map(|b| low + u16::from_be_bytes([b[0], b[1]]) as f32 / 65_535.0 * (high - low)).collect())
     };
     let coast = read("coast")?;
-    let skirt = read("skirt")?;
     // Worlds saved before the coast distance was kept work it out again.
     let coast_distance = if info.ranges.contains_key("coast_distance") {
         read("coast_distance")?
@@ -276,7 +274,6 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
     let maps = Maps {
         width: info.width,
         blocks_per_pixel: info.blocks_per_pixel,
-        highest_skirt: skirt.iter().copied().fold(0.0, f32::max),
         coast,
         coast_distance,
         lift_distance,
@@ -286,7 +283,6 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         push_x: read("push_x")?,
         push_y: read("push_y")?,
         push_strength: read("push_strength")?,
-        skirt,
         water: info.water,
         lowest: info.lowest,
         highest: info.highest,
@@ -438,10 +434,9 @@ mod tests {
     fn a_compiled_worlds_own_map_survives_being_saved() {
         let z: Vec<f32> = (0..256).map(|i| 60.0 + (i % 200) as f32).collect();
         let mut map = CompiledMap::of_heights(16, 32.0, &z);
-        // Some squeeze and a skirt, so every map has something in it.
+        // Some squeeze, so every map has something in it.
         for i in 0..256 {
             Arc::make_mut(&mut map.maps).squeeze[i] = (i as f32 * 0.37).sin();
-            Arc::make_mut(&mut map.maps).skirt[i] = (i % 7) as f32 * 3.0;
         }
         let mutes = crate::world::Mutes { hills: true, passes: true, ..Default::default() };
         let mut map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });

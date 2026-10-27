@@ -5,9 +5,9 @@
 //! Tectonic Sim ──► bake (32-block pixels: height, squeeze, tilt…)
 //!     │
 //! Terrain Compiler — whole-map jobs, done once:
-//!     sea level · soften the coastline · foothill skirts
+//!     sea level · soften the coastline · soften the mountains
 //!     │
-//!     ▼  smooth maps (coast, height, tilt, squeeze and its direction, skirt)
+//!     ▼  smooth maps (coast, height, tilt, squeeze and its direction)
 //! World Interpreter — at every block, as chunks are made (this file):
 //!     blend the maps smoothly to this spot, then:
 //!     land & sea curves · grading · edge rise · mountains · ridges · passes · hills
@@ -39,11 +39,11 @@
 //!    On the low side, the land meets the sea at Z 128 (beaches).
 //! 4. **Mountains** from the squeeze: the **mountain curve** says how tall for how much squeeze, as a
 //!    share of the room up to Z 333; carved into **ridges** across the squeeze direction, whose
-//!    crests dip into **passes**; never below the compiler's **foothill skirt**.
+//!    crests dip into **passes**.
 //! 5. **Hills** on land, and a little **detail** everywhere: each is a Perlin field, the same as a
 //!    Graphics Kit Perlin layer, laid on the ground this many blocks up and down, and faded in and
 //!    out by a **mask** that follows one of the maps (distance from the coast, height, mountains,
-//!    foothills or squeeze) through a curve. Hills never drown land, and detail (unless switched
+//!    or squeeze) through a curve. Hills never drown land, and detail (unless switched
 //!    to) never moves the coast.
 //! 6. **Torn coast** (between hills and detail): in a band along the coastline, a Perlin field
 //!    pushes the ground back and forth across the waterline, in patches, making ponds, tide pools,
@@ -227,10 +227,6 @@ pub struct InterpreterSettings {
     /// dips are, in blocks.
     pub passes: f32,
     pub pass_spacing: f32,
-    /// The ridges carved into the foothill skirt: how deeply (0 = a smooth skirt, 1 = all ridges and
-    /// valleys) and how far apart, in blocks. The rest of their pattern is the mountains'.
-    pub foothill_ridges: f32,
-    pub foothill_ridge_spacing: f32,
     /// Rolling hills on land: how high (blocks either way), the Perlin field that shapes them, and
     /// where they show.
     pub hills: f32,
@@ -276,8 +272,6 @@ impl Default for InterpreterSettings {
             sharpness: 1.2,
             passes: 0.4,
             pass_spacing: 12_000.0,
-            foothill_ridges: 0.7,
-            foothill_ridge_spacing: 700.0,
             hills: 6.0,
             // Two octaves, the second 2.3 times finer and 0.43 as strong (as hills always were).
             hill_noise: PerlinSettings { scale: 1_500.0, octaves: 2, persistence: 0.43, lacunarity: 2.3, ..PerlinSettings::default() },
@@ -395,15 +389,15 @@ pub enum MaskSource {
     /// The ground's height: Z 0 (left) to Z 333 (right).
     Height,
     /// How much of the room above the ground mountains take: none (left) to all of it (right).
+    /// (Masks that followed the foothills, cut 2026-10-27, follow the mountains.)
+    #[serde(alias = "Foothills")]
     Mountains,
-    /// The foothill skirt: none (left) to the highest skirt on the map (right).
-    Foothills,
     /// The squeeze: most stretched (left), neither (middle), most crushed (right).
     Squeeze,
 }
 
 impl MaskSource {
-    pub const ALL: [MaskSource; 6] = [MaskSource::Everywhere, MaskSource::Coast, MaskSource::Height, MaskSource::Mountains, MaskSource::Foothills, MaskSource::Squeeze];
+    pub const ALL: [MaskSource; 5] = [MaskSource::Everywhere, MaskSource::Coast, MaskSource::Height, MaskSource::Mountains, MaskSource::Squeeze];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -411,7 +405,6 @@ impl MaskSource {
             MaskSource::Coast => "coast distance",
             MaskSource::Height => "height",
             MaskSource::Mountains => "mountains",
-            MaskSource::Foothills => "foothills",
             MaskSource::Squeeze => "squeeze",
         }
     }
@@ -423,7 +416,6 @@ impl MaskSource {
             MaskSource::Coast => ("out to sea · coast · inland", "inland"),
             MaskSource::Height => ("Z 0", "Z 333"),
             MaskSource::Mountains => ("no mountains", "tallest"),
-            MaskSource::Foothills => ("no skirt", "highest skirt"),
             MaskSource::Squeeze => ("stretched · neither · crushed", "crushed"),
         }
     }
@@ -470,14 +462,10 @@ pub struct Maps {
     pub push_x: Vec<f32>,
     pub push_y: Vec<f32>,
     pub push_strength: Vec<f32>,
-    /// The foothill skirt: mountains are never lower than this (blocks above the ground).
-    pub skirt: Vec<f32>,
     /// Blocks to the coastline: + on land, − at sea.
     pub coast_distance: Vec<f32>,
     /// Blocks to the nearest of the lift's points (the map's width in blocks where there are none).
     pub lift_distance: Vec<f32>,
-    /// The highest foothill skirt on the map (blocks).
-    pub highest_skirt: f32,
     /// The bake's height at sea level, its lowest and highest heights, and its most crushed and
     /// most stretched rock.
     pub water: f32,
@@ -620,7 +608,6 @@ pub struct Here {
     pub push_x: f32,
     pub push_y: f32,
     pub push_strength: f32,
-    pub skirt: f32,
     pub coast_distance: f32,
     pub lift_distance: f32,
 }
@@ -639,12 +626,9 @@ pub struct Parts {
 pub struct Mutes {
     pub lift: bool,
     pub mountains: bool,
-    /// The foothill skirts (which mountains are never lower than).
-    pub foothills: bool,
     pub raised_coast: bool,
     pub ridges: bool,
     pub passes: bool,
-    pub foothill_ridges: bool,
     pub hills: bool,
     pub torn_coast: bool,
     pub detail: bool,
@@ -657,10 +641,8 @@ impl Mutes {
             ("edge rise", self.raised_coast),
             ("lift", self.lift),
             ("mountains", self.mountains),
-            ("foothills", self.foothills),
             ("ridges", self.ridges),
             ("passes", self.passes),
-            ("foothill ridges", self.foothill_ridges),
             ("hills", self.hills),
             ("torn coast", self.torn_coast),
             ("detail", self.detail),
@@ -761,7 +743,6 @@ impl CompiledMap {
             push_x: m.push_x[i],
             push_y: m.push_y[i],
             push_strength: m.push_strength[i],
-            skirt: m.skirt[i],
             coast_distance: m.coast_distance[i],
             lift_distance: m.lift_distance[i],
         }
@@ -793,7 +774,6 @@ impl CompiledMap {
             push_x: blend(&m.push_x),
             push_y: blend(&m.push_y),
             push_strength: blend(&m.push_strength),
-            skirt: blend(&m.skirt),
             coast_distance: blend(&m.coast_distance),
             lift_distance: blend(&m.lift_distance),
         }
@@ -834,19 +814,6 @@ impl CompiledMap {
             // Passes: the crest height rises and dips along the ridge.
             let dipped = if self.mutes.passes { 1.0 } else { (1.0 - s.passes.max(0.0) * (0.5 - 0.5 * wave)).max(0.0) };
             mountains = (HIGHEST - ground).max(0.0) * tall * carved * dipped;
-        }
-        // The foothill skirt under them (shown with or without the mountains), with its own ridges
-        // carved in: the same pattern as the mountains', at the foothills' own spacing (the length
-        // kept in proportion), so they read as spurs running out of the range.
-        if !self.mutes.foothills && here.skirt > 0.0 {
-            let carved = if self.mutes.foothill_ridges || s.foothill_ridges <= 0.0 {
-                1.0
-            } else {
-                let length = s.ridge_length * s.foothill_ridge_spacing / s.ridge_spacing.max(1.0);
-                let (crest, _) = self.ridge_pattern(here, x, y, s.foothill_ridge_spacing, length);
-                (1.0 - s.foothill_ridges * (1.0 - crest)).max(0.0)
-            };
-            mountains = mountains.max(here.skirt * carved);
         }
 
         Parts { ground, mountains }
@@ -985,7 +952,6 @@ impl CompiledMap {
             MaskSource::Coast => 0.5 + 0.5 * (here.coast_distance / mask.reach.max(1.0)).clamp(-1.0, 1.0),
             MaskSource::Height => z / HIGHEST,
             MaskSource::Mountains => self.mountain_share(here),
-            MaskSource::Foothills => here.skirt / m.highest_skirt.max(1e-6),
             MaskSource::Squeeze if here.squeeze >= 0.0 => 0.5 + 0.5 * here.squeeze / m.most_crushed.max(1e-6),
             MaskSource::Squeeze => 0.5 - 0.5 * here.squeeze / m.most_stretched.min(-1e-6),
         };
@@ -1056,10 +1022,8 @@ impl CompiledMap {
             push_x: vec![0.0; cells],
             push_y: vec![0.0; cells],
             push_strength: vec![0.0; cells],
-            skirt: vec![0.0; cells],
             coast_distance,
             lift_distance: point_distance(&[], width, blocks_per_pixel),
-            highest_skirt: 0.0,
             water: 0.0,
             lowest: -1.0,
             highest: 1.0,

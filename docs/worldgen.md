@@ -200,8 +200,8 @@ The end of the chain, now with its own panel beside the Terrain Compiler [David:
 signal chain... it's now doing more than just repeating what it's told"].
 ```text
 Tectonic Sim → bake (32-block pixels)
-Terrain Compiler (whole map, once): sea level · soften the coastline · foothill skirts
-      → smooth maps: coast, height, tilt, squeeze, squeeze direction, skirt
+Terrain Compiler (whole map, once): sea level · soften the coastline · soften the mountains
+      → smooth maps: coast, height, tilt, squeeze, squeeze direction
 Interpreter (every block, as the world is made): blend the maps to the block, then
       land & sea curves · grade · raised coast · lift · mountains · ridges · passes · hills
       · torn coast · detail · surface blocks
@@ -253,7 +253,7 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
   - **Hills:** David is setting them to 0 while the coast is reworked; their future (perhaps the
     scalloped climbs toward the mountains he wants, so a peak can be seen over the ground in front)
     is the next question.
-- **Foothills stay in the compiler:** how far a spot is from the mountains needs the whole map. **Reworked 2026-10-27** (David: "i have no way of controlling the 'foothills' (sub ridges) in how far they go from the mountains"): the skirt was the ridged mountains blurred, so its reach and height were one slider pulling against itself, and it smeared the ridges into lower, fatter copies (the only useful setting was about one pixel). Now, on the Landmass panel, **foothills reach**, **foothills height** (a share of the nearby mountains, measured on the smooth range before ridges and passes) and a **foothill falloff** spline (range out to the reach) are separate. The **Foothill ridges** section of the World Interpreter carves ridges into the skirt live (how deep, and their spacing; the rest of the pattern is the mountains'), with its own Show switch.
+- **Foothills: cut 2026-10-27** [David]. They were a skirt of lower slopes round each range, made in the compiler (they needed the whole map): first the ridged mountains blurred, which tied how far they reached to how high they stood and smeared the ridges into lower, fatter copies; then, the same day, reach, height and a falloff spline as separate controls, with foothill ridges carved live on the Interpreter. Neither gave David anything he wanted ("if i can't get anything out of it after that, we're slashing foothills"), so they went: the skirt map, its Show switch, mask source and overlay with them. Masks that followed the foothills follow the mountains; worlds saved with a skirt map ignore it.
 - **Presets:** one compiler preset still holds both panels, as one flat list (old presets load).
 - **Worlds save** the compiler's maps (`map-<name>.png`, 16-bit, each with its range in
   `compiled.toml`) and the recipe, so a world never changes when the panels do.
@@ -264,7 +264,7 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
 - **Built:** zooming into the Terrain Compiler's map turns it into a **live close-up** of the ground as
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
-  copied. **Layer switches** leave parts of the recipe out (raised coast, lift, mountains, foothills,
+  copied. **Layer switches** leave parts of the recipe out (raised coast, lift, mountains,
   ridges, passes, hills, torn coast, detail). The close-up follows them, and so does Render World and Spawn: the world says along the top of the screen what it leaves out, and its save remembers them, so chunks streamed in later match. The big map always uses the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
@@ -291,11 +291,11 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
 ### Terrain lab overlays  [BUILT 2026-10-25]
 Phase 2 of the lab: the compiler's maps drawn over the map and the close-up, a switch each, with an
 overall strength: **plates** (a colour each, outlined), **squeeze** (crushed red, stretched blue),
-**mountains** (where the mountains curve raises them, orange, and the foothill skirts, yellow),
+**mountains** (where the mountains curve raises them, orange),
 **range spines** (the crest line of each range: where the mountain share peaks across it), **coast
 distance** (the coastline in cyan, and lines every so many blocks inland and out to sea), and
 **squeeze direction** (strokes along the push; ridges line up across them). Under the mouse: blocks
-from the coast, mountain share, foothill skirt. One value per map pixel, painted on all cores in the
+from the coast, mountain share. One value per map pixel, painted on all cores in the
 background (about 0.2 s on a 2,250-pixel map; the meter says "drawing overlays"); only the mountains
 curve and the switches repaint it. These are the first "modalities" for the scatterers to read.
 
@@ -360,7 +360,7 @@ Tectonic Sim
   stage bundles its result for the next one. Ask David before naming or placing any new tab or panel.
   [David, 2026-10-26] The Terrain Compiler page (still called that in the suite's row) has three
   left-hand panels, shown or hidden by a row of buttons along its top: **Landmass** (what was the
-  Terrain Compiler panel: sea level, coastline, foothills), **Additives** (geographic features added
+  Terrain Compiler panel: sea level, coastline, soften the mountains), **Additives** (geographic features added
   onto the landmass before erosion and hydrology: dots scattered from the maps, then features driven
   by them; first scatterer: ridge streams off the range spines) and the **World Interpreter**.
 - **Each stage caches its result.** Changing a slider redoes that stage and the ones after it, never

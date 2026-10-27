@@ -159,7 +159,6 @@ fn paint(map: &CompiledMap, bake: &Bake, key: Key, stop: &AtomicBool) -> Option<
     // break them into dashes.
     let mut smooth_share = share.clone();
     blur(&mut smooth_share, w, 1);
-    let highest_skirt = m.highest_skirt.max(1e-6);
     let strongest_push = m.push_strength.iter().copied().fold(0.0, f32::max);
     let (shown, band) = (key.shown, key.band.max(1.0));
     let distance = &m.coast_distance;
@@ -198,9 +197,6 @@ fn paint(map: &CompiledMap, bake: &Bake, key: Key, stop: &AtomicBool) -> Option<
             }
         }
         if shown.mountains {
-            if m.skirt[i] > 0.0 {
-                over([235, 215, 95], (m.skirt[i] / highest_skirt).sqrt() * 0.45);
-            }
             if share[i] > 0.0 {
                 over([245, 145, 35], 0.25 + share[i] * 0.65);
             }

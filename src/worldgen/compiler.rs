@@ -10,14 +10,11 @@
 //! 2. **Soften the coastline**: the bake's coast is a plate's outline on a grid of pixels (a
 //!    staircase); softened a little, it's a smooth curve between pixels. The heights and tilt near
 //!    it are softened as much.
-//! 3. **Foothills**: each range spreads a skirt of lower slopes around it (falling off with distance
-//!    from the smooth mountains, along a spline, out to a reach),
-//!    so it rises from the plains instead of jumping up.
 //!
 //! **The recipe** for the ground (land and sea curves, grading, mountains, ridges, passes,
 //! hills, detail) is the Interpreter's (`crate::world::interpreter`), worked out at every block as
-//! the world is made. Here it's worked out at each pixel's centre, to show the world in relief, and
-//! for the foothills. [Moved 2026-10-24: worked out per pixel and then smoothed between pixels, its
+//! the world is made. Here it's worked out at each pixel's centre, to show the world in relief.
+//! [Moved 2026-10-24: worked out per pixel and then smoothed between pixels, its
 //! sharp curves made a row of humps along every coast and cliff.]
 //!
 //! Everything is worked out on all the computer's cores, in the background.
@@ -26,7 +23,7 @@ use super::additives::{self, AdditiveSettings};
 use super::bake::{self, Info};
 use super::runner::every_pixel;
 pub use crate::world::Spline;
-use crate::world::{CompiledMap, InterpreterSettings, Lift, LiftFrom, Maps, Mutes};
+use crate::world::{CompiledMap, InterpreterSettings, Lift, LiftFrom, Maps};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -146,13 +143,6 @@ pub struct CompileSettings {
     /// across the push showed its 32-block steps, as rows of notches along every range's flanks
     /// (0 = none).
     pub soften_mountains: f32,
-    /// How far a range's skirt of lower slopes reaches out from it, in blocks (0 = none).
-    pub foothills: f32,
-    /// How tall the skirt is where it leaves the range, as a share of the mountains there.
-    pub foothill_height: f32,
-    /// How the skirt falls off: from the range (left) out to the reach (right), up = a share of
-    /// its height at the range.
-    pub foothill_falloff: Spline,
     #[serde(flatten)]
     pub interpreter: InterpreterSettings,
     /// The Additives panel's (not part of compiling: changing them doesn't compile again).
@@ -165,9 +155,6 @@ impl Default for CompileSettings {
             water: 0.0,
             soften: 64.0,
             soften_mountains: 64.0,
-            foothills: 2_500.0,
-            foothill_height: 0.4,
-            foothill_falloff: Spline::through(&[(0.0, 1.0), (0.4, 0.35), (1.0, 0.0)]),
             interpreter: InterpreterSettings::default(),
             additives: AdditiveSettings::default(),
         }
@@ -233,44 +220,6 @@ pub fn blur(values: &mut [f32], width: usize, reach: usize) {
     }
 }
 
-/// The mountains (blocks above the ground) at least this tall count as the range a skirt spreads from.
-const RANGE_FROM: f32 = 1.0;
-
-/// The foothill skirt (blocks above the ground) at each pixel: how tall the mountains near it are,
-/// times the foothill height, times the falloff spline at its distance from them over the reach.
-fn foothill_skirt(map: &CompiledMap, settings: &CompileSettings, stop: &AtomicBool) -> Option<Vec<f32>> {
-    let (width, blocks) = (map.maps.width, map.maps.blocks_per_pixel);
-    // The mountains smooth, before ridges and passes are carved: the skirt is the range's shape,
-    // and the ridges carved into the foothills are the Interpreter's (live, and switchable).
-    let smooth = map.with(map.settings.clone(), Mutes { ridges: true, passes: true, foothills: true, ..Mutes::default() });
-    let mass = every_pixel(width, stop, |i| {
-        let (x, y) = smooth.pixel_spot(i);
-        smooth.parts(&smooth.pixel(i), x, y).mountains
-    })?;
-    let range: Vec<usize> = (0..mass.len()).filter(|&i| mass[i] >= RANGE_FROM).collect();
-    let distance = crate::world::point_distance(&range, width, blocks);
-    // How tall the mountains near each spot are: their heights spread out over the reach, divided
-    // by how much of what was spread was mountains, so a range's edge isn't lowered by the plains
-    // beside it.
-    let spread = (settings.foothills / blocks).round().max(1.0) as usize;
-    let mut tall: Vec<f32> = mass.iter().map(|&m| if m >= RANGE_FROM { m } else { 0.0 }).collect();
-    let mut share: Vec<f32> = mass.iter().map(|&m| if m >= RANGE_FROM { 1.0 } else { 0.0 }).collect();
-    blur(&mut tall, width, spread);
-    blur(&mut share, width, spread);
-    let falloff = settings.foothill_falloff.curve();
-    Some(
-        (0..mass.len())
-            .map(|i| {
-                let t = distance[i] / settings.foothills;
-                if t >= 1.0 || share[i] <= 1e-4 {
-                    return 0.0;
-                }
-                tall[i] / share[i] * settings.foothill_height * falloff.at(t).clamp(0.0, 1.0)
-            })
-            .collect(),
-    )
-}
-
 /// Compiles a bake: the whole-map jobs, then the ground at each pixel's centre to show. Returns
 /// `None` if `stop` was set part-way.
 pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Option<Compiled> {
@@ -312,38 +261,24 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
         coast,
         coast_distance,
         lift_distance,
-        highest_skirt: 0.0,
         height,
         tilt,
         squeeze,
         push_x,
         push_y,
         push_strength,
-        skirt: vec![0.0; width * width],
         water: settings.water,
         lowest: bake.info.height.black,
         highest: bake.info.height.white,
         most_crushed,
         most_stretched,
     };
-    let mut map = CompiledMap::new(Arc::new(maps), seed, settings.interpreter.clone());
+    let map = CompiledMap::new(Arc::new(maps), seed, settings.interpreter.clone());
     if stop.load(Ordering::Relaxed) {
         return None;
     }
 
-    // 2. Foothills: a skirt of lower slopes around each range, which mountains are never lower
-    // than. Its height falls off with distance from the mountains, along the falloff spline, out to
-    // the reach; at the range it's a share of how tall the mountains there are. [Was the mountains
-    // blurred until 2026-10-27: how far it spread and how high it stood were one slider pulling
-    // against itself, and it blurred the ridges into lower, fatter copies of themselves (David).]
-    if settings.foothills > 0.0 && settings.foothill_height > 0.0 {
-        let skirt = foothill_skirt(&map, settings, stop)?;
-        let maps = Arc::make_mut(&mut map.maps);
-        maps.highest_skirt = skirt.iter().copied().fold(0.0, f32::max);
-        maps.skirt = skirt;
-    }
-
-    // 3. The ground at each pixel's centre, as the Interpreter makes it (less the block-sized
+    // 2. The ground at each pixel's centre, as the Interpreter makes it (less the block-sized
     // detail), to show.
     let z = every_pixel(width, stop, |i| map.at_pixel(i))?;
     let z: Vec<u16> = z.into_iter().map(|z| z.round() as u16).collect();
@@ -441,9 +376,9 @@ mod tests {
         compile(bake, settings, &AtomicBool::new(false)).unwrap()
     }
 
-    /// No hills, foothills or passes: only what a test is looking at.
+    /// No hills or passes: only what a test is looking at.
     fn plain() -> CompileSettings {
-        CompileSettings { foothills: 0.0, interpreter: InterpreterSettings { hills: 0.0, passes: 0.0, ..InterpreterSettings::default() }, ..CompileSettings::default() }
+        CompileSettings { interpreter: InterpreterSettings { hills: 0.0, passes: 0.0, ..InterpreterSettings::default() }, ..CompileSettings::default() }
     }
 
     #[test]
@@ -461,7 +396,8 @@ mod tests {
         let text = "water = -0.003\nsoften = 96.0\nfoothills = 6900.0\nridges = 0.89\nhills = 14.0\nstone_from = 220\n\
                     [land]\ndots = [[0.0, 0.0], [1.0, 0.98]]\n";
         let settings: CompileSettings = toml::from_str(text).unwrap();
-        assert_eq!((settings.water, settings.soften, settings.foothills), (-0.003, 96.0, 6900.0));
+        // (Foothills, cut 2026-10-27, are passed over.)
+        assert_eq!((settings.water, settings.soften), (-0.003, 96.0));
         assert_eq!((settings.interpreter.ridges, settings.interpreter.hills, settings.interpreter.stone_from), (0.89, 14.0, 220));
         assert_eq!(settings.interpreter.land.dots, vec![(0.0, 0.0), (1.0, 0.98)]);
         // And written back the same way: one flat list.
@@ -501,9 +437,10 @@ mod tests {
         let world = compiled(&bake, &CompileSettings::default());
         for (i, &z) in world.z.iter().enumerate() {
             assert!(z <= HIGHEST && z >= 1);
-            if bake.height[i] >= 0.0 {
-                assert!(z >= SEA_LEVEL, "land at {z}");
-            } else if bake.squeeze[i] <= 0.0 {
+            // (A pixel exactly at sea level is the coastline itself: softening may put it either side.)
+            if bake.height[i] > 0.0 {
+                assert!(z >= SEA_LEVEL, "land at {z}, pixel {} {} height {}", i % 64, i / 64, bake.height[i]);
+            } else if bake.height[i] < 0.0 && bake.squeeze[i] <= 0.0 {
                 assert!(z < SEA_LEVEL, "sea at {z}");
             }
         }
@@ -570,34 +507,6 @@ mod tests {
         assert!((31..=33).contains(&peak), "peak at column {peak}: {row:?}");
         // It climbs steadily to the peak rather than levelling into a plateau.
         assert!(row[32] > row[28] && row[28] > row[24] && row[24] > row[20]);
-    }
-
-    #[test]
-    fn foothills_spread_a_skirt_without_lowering_the_peaks() {
-        let bake = bake(0.0);
-        let bare = compiled(&bake, &recipe(|i| i.ridges = 0.0));
-        let skirted = compiled(&bake, &CompileSettings { foothills: 2_000.0, ..recipe(|i| i.ridges = 0.0) });
-        let at = |world: &Compiled, col: usize| world.z[32 * 64 + col];
-        // Beside the band, the ground now rises toward it; on the band, no lower than before.
-        assert!(at(&skirted, 26) > at(&bare, 26) + 5, "{} vs {}", at(&skirted, 26), at(&bare, 26));
-        assert!(at(&skirted, 31) >= at(&bare, 31));
-    }
-
-    #[test]
-    fn foothills_reach_and_height_are_separate() {
-        let bake = bake(0.0);
-        let with = |reach, height| compiled(&bake, &CompileSettings { foothills: reach, foothill_height: height, ..recipe(|i| i.ridges = 0.0) });
-        // 128-block pixels, the range from about column 28: column 22 is some 770 blocks out.
-        let skirt = |world: &Compiled, col: usize| world.map.maps.skirt[32 * 64 + col];
-        let (near, far, low) = (with(512.0, 0.4), with(2_000.0, 0.4), with(2_000.0, 0.2));
-        // A longer reach takes the foothills further out ...
-        assert_eq!(skirt(&near, 22), 0.0);
-        assert!(skirt(&far, 22) > 1.0, "{}", skirt(&far, 22));
-        // ... and doesn't lower them where they are (as a wider blur did).
-        assert!(skirt(&far, 26) >= skirt(&near, 26), "{} vs {}", skirt(&far, 26), skirt(&near, 26));
-        // The height scales them without moving how far they go.
-        assert!((skirt(&low, 24) * 2.0 - skirt(&far, 24)).abs() < 0.01, "{} vs {}", skirt(&low, 24), skirt(&far, 24));
-        assert_eq!(skirt(&low, 18) > 0.0, skirt(&far, 18) > 0.0);
     }
 
     #[test]
