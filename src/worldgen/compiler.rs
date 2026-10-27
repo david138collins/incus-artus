@@ -13,7 +13,7 @@
 //! 3. **Foothills**: each range spreads a skirt of lower slopes around it (the mountains blurred),
 //!    so it rises from the plains instead of jumping up.
 //!
-//! **The recipe** for the ground (land and sea curves, grading, mountains, ridges, passes, rifts,
+//! **The recipe** for the ground (land and sea curves, grading, mountains, ridges, passes,
 //! hills, detail) is the Interpreter's (`crate::world::interpreter`), worked out at every block as
 //! the world is made. Here it's worked out at each pixel's centre, to show the world in relief, and
 //! for the foothills. [Moved 2026-10-24: worked out per pixel and then smoothed between pixels, its
@@ -546,17 +546,6 @@ mod tests {
         assert!(at(&graded, 20) <= at(&flat, 20), "low side not gentler");
         // And the sea beside the high side is deeper.
         assert!(at(&graded, 50) < at(&flat, 50));
-    }
-
-    #[test]
-    fn the_most_stretched_rock_sinks_the_full_rift_depth() {
-        let mut bake = bake(0.0);
-        bake.squeeze[20 * 64 + 20] = -0.2;
-        let bake = bake.measured();
-        let none = compiled(&bake, &recipe(|i| i.rift_depth = 0.0));
-        let rifted = compiled(&bake, &recipe(|i| i.rift_depth = 30.0));
-        let sunk = none.z[20 * 64 + 20] as i32 - rifted.z[20 * 64 + 20] as i32;
-        assert!((29..=31).contains(&sunk), "sank {sunk}");
     }
 
     #[test]

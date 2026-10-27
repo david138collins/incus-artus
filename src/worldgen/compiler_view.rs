@@ -587,7 +587,7 @@ World Interpreter · every block, as
   the world is made (this panel):
   blend the maps to the block, then
   curves · grade · raised coast · lift
-  mountains · ridges · passes · rifts
+  mountains · ridges · passes
   hills · torn coast · detail
       |
 the ground (and the distant terrain)";
@@ -882,10 +882,6 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         ui.add(crate::debug::Slider::new(&mut s.pass_spacing, 375.0..=24_000.0).logarithmic(true).text("pass spacing (blocks)"))
             .on_hover_text("How far apart the dips are along a ridge.");
-    });
-    fold_section(ui, "Rifts", |ui| {
-        ui.add(crate::debug::Slider::new(&mut s.rift_depth, 0.0..=80.0).text("rift depth (blocks)"))
-            .on_hover_text("How far the most stretched rock in this bake sinks (less stretched rock, less).");
     });
     fold_section(ui, "Hills", |ui| {
         ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)"))
@@ -1264,7 +1260,6 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("foothills", &mut m.foothills, "The foothill skirts round each range (as compiled: switching ridges or passes off doesn't reshape them)."),
                 ("ridges", &mut m.ridges, "The ridge pattern carved into the mountains (off: smooth domes)."),
                 ("passes", &mut m.passes, "The dips along each ridge's crest (off: even crests)."),
-                ("rifts", &mut m.rifts, "Stretched rock sinking."),
                 ("hills", &mut m.hills, "The rolling hills on land."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),

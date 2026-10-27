@@ -121,9 +121,12 @@ pushed down **darker**.
      **Tilt** [David, 2026-10-24]: each plate also balances on its middle and tips a little, a random
      direction and amount (up to a slider): a straight slope, one side up and the other sunk. A **blend**
      slider mixes between plain tilt and the terrain noise. **The squeeze field (white haze) is a keeper**:
-     use it later to shape terrain in a second pass, or as a mountainousness mask. Wide tears show as
-     rifts (sea) once a cracked triangle stretches past "tears open past"; outline points never crack
-     off (that caused giant shards);
+     use it later to shape terrain in a second pass, or as a mountainousness mask. **Cracking is
+     switched off** [David, 2026-10-27: "it just doesn't behave or do anything useful after testing"]:
+     rock pulled apart stretches thin (darker, lower) and never tears; only welds between plates let go.
+     The "cracks at" and "tears open past" sliders are off the panel, their settings kept unused (so
+     it could come back). Edge cracks (the edge splitting where it's crushed along its length) were
+     tried the same day and taken out;
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map. **[BUILT 2026-10-24]**, see "The Tectonic Sim's product" below.
 
@@ -181,7 +184,7 @@ Tectonic Sim → bake (32-block pixels)
 Terrain Compiler (whole map, once): sea level · soften the coastline · foothill skirts
       → smooth maps: coast, height, tilt, squeeze, squeeze direction, skirt
 Interpreter (every block, as the world is made): blend the maps to the block, then
-      land & sea curves · grade · raised coast · lift · mountains · ridges · passes · rifts · hills
+      land & sea curves · grade · raised coast · lift · mountains · ridges · passes · hills
       · torn coast · detail · surface blocks
       → the ground, and the distant terrain (the same recipe, sampled coarsely)
 ```
@@ -235,7 +238,7 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
   copied. **Layer switches** leave parts of the recipe out (raised coast, lift, mountains, foothills,
-  ridges, passes, rifts, hills, torn coast, detail). Only the close-up follows them; the big map and worlds use the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
+  ridges, passes, hills, torn coast, detail). Only the close-up follows them; the big map and worlds use the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
   the output map. Using the clean modalities we can capture, we will drive a variety of scattering and
@@ -768,13 +771,18 @@ refinements, in the 3D world, for things like sunsets, clouds or animated water.
 
 David is exploring and improving the terrain gen again. **The Interpreter rework** [David,
 2026-10-27], as it goes:
-- **Eliminate or repurpose controls that mean nothing to David.** First noticed: rifts "seem to do
-  nothing except make a couple ocean spots a little deeper".
+- **Eliminate or repurpose controls that mean nothing to David.** Done so far (2026-10-27): rifts
+  taken out of the Interpreter ("seem to do nothing except make a couple ocean spots a little
+  deeper"; old presets' rift depth is ignored), and the Tectonic Sim's cracking switched off.
 - **Rebalance a preset's slider ranges** once the reworks settle: go through a preset David likes and
   move each slider's range so the preset sits near the middle. Several controls now have a sweet spot
   only 1 to 3 mouse-wheel steps wide on the whole bar.
 - **The climb to the mountains:** David wants scalloped ramps from the lowlands up to the peaks, since
   a giant mountain is hard to see over a few-block grade right in front of you. Next after the coast.
+
+**Idea for later: a rejector layer** [David, 2026-10-27]: run the tectonics a few times, quickly, for
+a few hundred steps each (the Tectonic Sim's run length), and check each run against rules for whether
+it should be rejected, before baking. The run length (built 2026-10-27) is the first piece.
 
 **Soon after, on the to-do list [David 2026-10-26]:**
 
@@ -796,7 +804,3 @@ David is exploring and improving the terrain gen again. **The Interpreter rework
   - *Left for later:* builds don't reach the distant terrain or the light map (tall towers vanish
     past render distance and cast no long shadows); block light / daylight must skip empty sky.
   - Changes `docs/decisions.md` (Z 0 to 399) when built.
-**Idea for later: a rejector layer** [David, 2026-10-27]: run the tectonics a few times, quickly, for
-a few hundred steps each (the Tectonic Sim's run length), and check each run against rules for whether
-it should be rejected, before baking. The run length (built 2026-10-27) is the first piece.
-

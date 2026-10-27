@@ -10,7 +10,7 @@
 //!     ▼  smooth maps (coast, height, tilt, squeeze and its direction, skirt)
 //! World Interpreter — at every block, as chunks are made (this file):
 //!     blend the maps smoothly to this spot, then:
-//!     land & sea curves · grading · raised coast · mountains · ridges · passes · rifts · hills
+//!     land & sea curves · grading · raised coast · mountains · ridges · passes · hills
 //!     · torn coast · detail
 //!     │
 //!     ▼
@@ -39,13 +39,12 @@
 //! 4. **Mountains** from the squeeze: the **mountain curve** says how tall for how much squeeze, as a
 //!    share of the room up to Z 333; carved into **ridges** across the squeeze direction, whose
 //!    crests dip into **passes**; never below the compiler's **foothill skirt**.
-//! 5. **Rifts:** stretched rock sinks.
-//! 6. **Hills** on land, and a little **detail** everywhere: each is a Perlin field, the same as a
+//! 5. **Hills** on land, and a little **detail** everywhere: each is a Perlin field, the same as a
 //!    Graphics Kit Perlin layer, laid on the ground this many blocks up and down, and faded in and
 //!    out by a **mask** that follows one of the maps (distance from the coast, height, mountains,
 //!    foothills or squeeze) through a curve. Hills never drown land, and detail (unless switched
 //!    to) never moves the coast.
-//! 7. **Torn coast** (between hills and detail): in a band along the coastline, a Perlin field
+//! 6. **Torn coast** (between hills and detail): in a band along the coastline, a Perlin field
 //!    pushes the ground back and forth across the waterline, in patches, making ponds, tide pools,
 //!    inlets, islets and shoals. The one part of the recipe meant to move the coast.
 
@@ -205,8 +204,6 @@ pub struct InterpreterSettings {
     /// dips are, in blocks.
     pub passes: f32,
     pub pass_spacing: f32,
-    /// How deep the most stretched rock sinks, in blocks.
-    pub rift_depth: f32,
     /// Rolling hills on land: how high (blocks either way), the Perlin field that shapes them, and
     /// where they show.
     pub hills: f32,
@@ -251,7 +248,6 @@ impl Default for InterpreterSettings {
             sharpness: 1.2,
             passes: 0.4,
             pass_spacing: 12_000.0,
-            rift_depth: 30.0,
             hills: 6.0,
             // Two octaves, the second 2.3 times finer and 0.43 as strong (as hills always were).
             hill_noise: PerlinSettings { scale: 1_500.0, octaves: 2, persistence: 0.43, lacunarity: 2.3, ..PerlinSettings::default() },
@@ -604,7 +600,6 @@ pub struct Here {
 pub struct Parts {
     pub ground: f32,
     pub mountains: f32,
-    pub rift: f32,
 }
 
 /// Parts of the recipe the terrain lab can leave out, to see what each one does.
@@ -617,7 +612,6 @@ pub struct Mutes {
     pub raised_coast: bool,
     pub ridges: bool,
     pub passes: bool,
-    pub rifts: bool,
     pub hills: bool,
     pub torn_coast: bool,
     pub detail: bool,
@@ -836,9 +830,7 @@ impl CompiledMap {
         // The foothill skirt under them (shown with or without the mountains).
         let mountains = if self.mutes.foothills { mountains } else { mountains.max(here.skirt) };
 
-        // 5. Rifts.
-        let rift = if here.squeeze < 0.0 && !self.mutes.rifts { s.rift_depth * smooth(here.squeeze / m.most_stretched.min(-1e-6)) } else { 0.0 };
-        Parts { ground, mountains, rift }
+        Parts { ground, mountains }
     }
 
     /// How much the lift raises the land at a spot (blocks; none at sea): the curve read at how near
@@ -897,7 +889,7 @@ impl CompiledMap {
     pub fn put_together(&self, parts: Parts, here: &Here, x: f32, y: f32) -> f32 {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
-        let mut z = (parts.ground + parts.mountains).min(HIGHEST) - parts.rift;
+        let mut z = (parts.ground + parts.mountains).min(HIGHEST);
         if z >= sea && !self.mutes.hills && s.hills != 0.0 {
             let shown = self.mask(&s.hill_mask, &self.hill_mask, here, z);
             if shown > 0.0 {
