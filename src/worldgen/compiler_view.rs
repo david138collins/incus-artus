@@ -88,7 +88,7 @@ pub struct Compiler {
     /// Whether the lift's points are drawn over the map.
     pub show_lift_points: bool,
     /// The Landmass, Additives and World Interpreter panels: shown (the buttons along the top),
-    /// and folded away to thin strips.
+    /// and folded away to thin strips (they start folded, so the map has the room).
     pub shown: [bool; 3],
     pub folded: [bool; 3],
     /// The readouts panel on the right, folded away to a thin strip.
@@ -129,8 +129,8 @@ impl Default for Compiler {
             additives: Additives::default(),
             show_lift_points: true,
             shown: [true; 3],
-            folded: [false; 3],
-            readouts_folded: false,
+            folded: [true; 3],
+            readouts_folded: true,
         }
     }
 }

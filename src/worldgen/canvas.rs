@@ -13,11 +13,14 @@ pub struct Camera {
     settling: u32,
     /// Dragging doesn't pan (the drag is drawing something, such as a cross-section).
     pub hold_pan: bool,
+    /// The screen area the field was last fitted to, while it hasn't been panned or zoomed since:
+    /// if the area changes size (a panel opened or folded), the field is fitted again.
+    fitted_to: Option<Vec2>,
 }
 
 impl Default for Camera {
     fn default() -> Self {
-        Self { centre: Vec2::ZERO, zoom: 1.0, fitted_for: (0, 0), settling: 10, hold_pan: false }
+        Self { centre: Vec2::ZERO, zoom: 1.0, fitted_for: (0, 0), settling: 10, hold_pan: false, fitted_to: None }
     }
 }
 
@@ -31,7 +34,12 @@ impl Camera {
             self.fitted_for = (0, 0);
             ui.ctx().request_repaint();
         }
-        // Fit the whole field on screen when its size changes (and on double-click).
+        // Fit the whole field on screen when its size changes (and on double-click), and when the
+        // screen area changes size while it's still as fitted (opening a panel would otherwise
+        // leave it fitted to a sliver).
+        if self.fitted_to.is_some_and(|fitted| (fitted - rect.size()).length() > 1.0) {
+            self.fitted_for = (0, 0);
+        }
         if response.double_clicked() || self.fitted_for != (width, height) {
             if self.fitted_for != (0, 0) && !response.double_clicked() {
                 // Same view, new pixel size: keep looking at the same place at the same size.
@@ -41,6 +49,7 @@ impl Camera {
             } else {
                 self.zoom = (rect.width() / size.x).min(rect.height() / size.y) * 0.95;
                 self.centre = size / 2.0;
+                self.fitted_to = Some(rect.size());
             }
             self.fitted_for = (width, height);
         }
@@ -48,12 +57,16 @@ impl Camera {
         // Drag to pan, scroll to zoom (keeping the point under the mouse still).
         if response.dragged() && !self.hold_pan {
             self.centre -= response.drag_delta() / self.zoom;
+            self.fitted_to = None;
         }
         let mouse = response.hover_pos()?;
         let scroll = ui.input(|input| input.smooth_scroll_delta.y);
         if scroll != 0.0 {
             let under = self.centre + (mouse - rect.center()) / self.zoom;
-            self.zoom = (self.zoom * (scroll * 0.003).exp()).clamp(0.1, 256.0);
+            // Never jumps: zoomed out past the least (fitted to a tiny screen area), a scroll
+            // carries on from where it is.
+            self.zoom = (self.zoom * (scroll * 0.003).exp()).clamp(0.1f32.min(self.zoom), 256.0);
+            self.fitted_to = None;
             self.centre = under - (mouse - rect.center()) / self.zoom;
         }
         let pixel = self.centre + (mouse - rect.center()) / self.zoom;
