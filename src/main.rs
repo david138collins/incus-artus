@@ -22,6 +22,12 @@
 //! - `screen`  — which screen is showing: the world, or the World Gen suite (F2)
 //! - `worldgen` — the World Gen suite: the workbench the world generator is built in, one tool at a time
 //! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
+//! - `soak` — the soak test (does the game run worse over time?); `temperatures` — CPU / GPU readout
+//!
+//! The developer tools (the debug panel, the World Gen suite, sandbox, soak test, temperatures)
+//! are switched on by the `dev` feature (Cargo.toml), on by default. Built without it, the game is
+//! a player's copy: their code is still compiled, just never switched on, so it's left unused.
+#![cfg_attr(not(feature = "dev"), allow(dead_code, unused_imports))]
 
 mod camera;
 mod coords;
@@ -60,7 +66,8 @@ fn graphics_settings() -> bevy::render::settings::WgpuSettings {
 }
 
 fn main() {
-    App::new()
+    let mut app = App::new();
+    app
         // Bevy's standard set: window, input, rendering, assets, audio, etc.
         .add_plugins(
             DefaultPlugins
@@ -94,12 +101,13 @@ fn main() {
             camera::CameraPlugin,
             player::PlayerPlugin,
             screen::ScreenPlugin,
-            worldgen::WorldGenPlugin,
-            sandbox::SandboxPlugin,
         ))
-        .add_plugins((soak::SoakPlugin, temperatures::TemperaturesPlugin))
-        .add_systems(Startup, fill_the_screen)
-        .run();
+        .add_systems(Startup, fill_the_screen);
+    // The developer tools: everything a player's copy of the game leaves out (see `dev` in
+    // Cargo.toml). Their code is still built either way; only switching them on is skipped.
+    #[cfg(feature = "dev")]
+    app.add_plugins((worldgen::WorldGenPlugin, sandbox::SandboxPlugin, soak::SoakPlugin, temperatures::TemperaturesPlugin));
+    app.run();
 }
 
 /// Starts the window maximised, so it fills the screen above the taskbar (1280 × 960 is only

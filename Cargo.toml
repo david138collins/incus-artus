@@ -7,6 +7,15 @@ name = "incus_artus"
 version = "0.1.0"
 edition = "2024"
 
+# ── The dev switch ──────────────────────────────────────────────────────
+# The developer tools are on unless switched off. A player's copy of the game is built with them
+# off: `cargo build --release --no-default-features`. Off, there's no debug panel (F3), no Editor
+# Suite (F2), no self-tests, soak test, screenshot key or temperature readout, and block files
+# aren't reloaded as they're edited. (Their code is still built; they're just never switched on.)
+[features]
+default = ["dev"]
+dev = []
+
 [dependencies]
 # The game engine: window, input, rendering, ECS, asset loading, threads.
 bevy = "=0.20.0"

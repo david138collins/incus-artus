@@ -39,14 +39,16 @@ pub struct ScreenPlugin;
 impl Plugin for ScreenPlugin {
     fn build(&self, app: &mut App) {
         let start = match std::env::var("INCUS_START_SCREEN").as_deref() {
-            Ok("worldgen") => Screen::WorldGen,
+            Ok("worldgen") if cfg!(feature = "dev") => Screen::WorldGen,
             _ => Screen::Play,
         };
         app.insert_state(start)
             .init_resource::<BeforeSuite>()
-            .add_systems(Update, switch_screen)
             .add_systems(OnEnter(Screen::WorldGen), switch_world_off)
             .add_systems(OnExit(Screen::WorldGen), switch_world_on);
+        // F2 opens the Editor Suite: a developer tool (see `dev` in Cargo.toml).
+        #[cfg(feature = "dev")]
+        app.add_systems(Update, switch_screen);
     }
 }
 

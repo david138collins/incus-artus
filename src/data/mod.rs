@@ -331,10 +331,12 @@ impl Plugin for DataPlugin {
         app.init_resource::<BlockRegistry>()
             .init_resource::<DataSettings>()
             .init_resource::<DataWatch>()
-            .add_systems(Update, watch_data_files)
             .add_debug_page("Blocks", blocks_debug_page)
             .add_settings::<DataSettings>("data")
             .add_settings_with("blocks", save_block_tweaks, load_block_tweaks);
+        // Reloading block files as they're edited is a developer tool (see `dev` in Cargo.toml).
+        #[cfg(feature = "dev")]
+        app.add_systems(Update, watch_data_files);
     }
 }
 

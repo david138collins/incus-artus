@@ -86,9 +86,11 @@ impl Plugin for DebugPlugin {
             .init_resource::<DebugPanel>()
             .init_resource::<settings::SettingsGroups>()
             .init_resource::<SelfTest>()
-            .add_systems(Update, (toggle_panel, screenshot_key, run_self_test))
-            .add_systems(EguiPrimaryContextPass, draw_panel)
             .add_debug_page("Overview", overview_page);
+        // The panel, screenshots and self-tests are developer tools: a player's copy has the
+        // pages registered (harmless) but never shows them (see `dev` in Cargo.toml).
+        #[cfg(feature = "dev")]
+        app.add_systems(Update, (toggle_panel, screenshot_key, run_self_test)).add_systems(EguiPrimaryContextPass, draw_panel);
     }
 }
 
