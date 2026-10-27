@@ -63,6 +63,7 @@ struct Look {
     seal_gaps: f32,
     fill_holes: f32,
     squeeze: f32,
+    squeeze_spread: f32,
     water: f32,
 }
 
@@ -108,7 +109,7 @@ pub struct WorldGen {
     /// The terrain of every pixel of the plates as made, worked out again when the plates or the
     /// height settings that shape it change.
     terrain: Vec<f32>,
-    terrain_for: Option<(u64, u64, [u32; 10])>,
+    terrain_for: Option<(u64, u64, [u32; 15])>,
     terrain_version: u64,
     /// How much of the world was above water when last painted.
     land_share: f32,
@@ -604,7 +605,7 @@ enum Map {
 impl WorldGen {
     /// How high the ground is at a spot (terrain plus squeeze).
     fn height_of(&self, spot: Spot) -> f32 {
-        self.terrain.get(spot.from as usize).copied().unwrap_or(self.heights.ocean) + self.heights.squeeze * spot.squeeze
+        self.terrain.get(spot.from as usize).copied().unwrap_or(self.heights.ocean) + self.heights.squeeze_on(spot.plate, Seeds::of(self.seed).terrain) * spot.squeeze
     }
 
     /// One of the maps as a grey picture, as things are now.
@@ -923,10 +924,11 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
              plus how much it has been squeezed. Below the water level is sea. None of these change the \
              simulation, only what's land, so they can be changed at any time.",
         );
+        ui.small("The ± boxes spread a setting from plate to plate, so plates differ from one another.");
         let h = &mut world.heights;
-        ui.add(crate::debug::Slider::new(&mut h.land, -1.0..=1.0).text("land plates' base height"))
+        spread_row(ui, &mut h.land_spread, 1.0, SPREAD_UP_DOWN, crate::debug::Slider::new(&mut h.land, -1.0..=1.0).text("land plates' base height"))
             .on_hover_text("Where land plates sit before the terrain noise. Around 0 (the usual water level) = about half land.");
-        ui.add(crate::debug::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
+        spread_row(ui, &mut h.ocean_spread, 1.0, SPREAD_UP_DOWN, crate::debug::Slider::new(&mut h.ocean, -2.0..=0.0).text("ocean plates' base height"))
             .on_hover_text("Where ocean plates sit. Deep: only a hard squeeze lifts them above the water as islands.");
         ui.add_space(4.0);
         ui.label("Tilt (each plate tips a random way, on its middle):");
@@ -938,7 +940,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         );
         ui.add_space(4.0);
         ui.label("Terrain noise (one for the whole world, riding with the plates):");
-        ui.add(crate::debug::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(
+        spread_row(ui, &mut h.terrain_spread, 2.0, SPREAD_TIMES, crate::debug::Slider::new(&mut h.terrain, 0.0..=1.0).text("amount")).on_hover_text(
             "How high and low the rolling terrain goes. More = land plates broken into more islands and bays.",
         );
         ui.add(crate::debug::Slider::new(&mut h.terrain_size, 1_000.0..=50_000.0).logarithmic(true).text("size (blocks)"))
@@ -947,12 +949,13 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         ui.add(crate::debug::Slider::new(&mut h.roughness, 0.0..=1.0).text("roughness")).on_hover_text("How strong each finer layer is.");
         ui.add_space(4.0);
         ui.label("Sunken edges (continental shelves):");
-        ui.add(crate::debug::Slider::new(&mut h.shelf_width, 0.0..=15_000.0).text("reach in (blocks)")).on_hover_text(
+        spread_row(ui, &mut h.shelf_width_spread, 2.0, SPREAD_TIMES, crate::debug::Slider::new(&mut h.shelf_width, 0.0..=15_000.0).text("reach in (blocks)")).on_hover_text(
             "How far in from a plate's edge its ground starts sloping down.\nCoasts then fall inside plates, and plates touching at the start don't automatically join up.",
         );
-        ui.add(crate::debug::Slider::new(&mut h.shelf_depth, 0.0..=1.0).text("depth at the edge")).on_hover_text("How far the ground sinks at the very edge.");
+        spread_row(ui, &mut h.shelf_depth_spread, 2.0, SPREAD_TIMES, crate::debug::Slider::new(&mut h.shelf_depth, 0.0..=1.0).text("depth at the edge"))
+            .on_hover_text("How far the ground sinks at the very edge.");
         ui.add_space(4.0);
-        ui.add(crate::debug::Slider::new(&mut h.squeeze, 0.0..=3.0).text("squeeze lifts by")).on_hover_text(
+        spread_row(ui, &mut h.squeeze_spread, 2.0, SPREAD_TIMES, crate::debug::Slider::new(&mut h.squeeze, 0.0..=3.0).text("squeeze lifts by")).on_hover_text(
             "How much squeezed rock rises (rock twice as thick rises by this much), and stretched rock sinks.\nThis is what turns crumple belts into mountains and ocean floor into islands.",
         );
         ui.add(crate::debug::Slider::new(&mut h.water, -1.0..=1.0).text("water level")).on_hover_text("Below this height is sea. (Also in the bar along the top.)");
@@ -977,7 +980,7 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
             .on_hover_text("How big the soft and stiff patches are.");
         ui.add_space(4.0);
         ui.label("How it behaves (can change while it runs; Reset replays):");
-        ui.add(crate::debug::Slider::new(&mut sim.stiffness, 0.005..=1.0).logarithmic(true).text("stiffness")).on_hover_text(
+        spread_row(ui, &mut sim.stiffness_spread, 2.0, SPREAD_TIMES, crate::debug::Slider::new(&mut sim.stiffness, 0.005..=1.0).logarithmic(true).text("stiffness")).on_hover_text(
             "How firmly the springs pull back each pass.\nLow = soft, floppy rags. High = stiff sheets.\n(Spread out at the low end, where the useful settings are.)",
         );
         ui.add(crate::debug::Slider::new(&mut sim.passes, 1..=30).text("passes per step")).on_hover_text(
@@ -994,8 +997,14 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
             .on_hover_text("How much plates sliding past each other drag each other along.\nAt the edge, that shears and bends them.");
         ui.add(crate::debug::Slider::new(&mut sim.drag, 0.0001..=0.1).logarithmic(true).text("drag"))
             .on_hover_text("How much speed every point loses each step. 0.01 = 1%.\nLower = they coast for longer.");
-        ui.add(crate::debug::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean rock's weight ×"))
-            .on_hover_text("How heavy ocean rock is for its size, compared with land rock.\nLight plates get shoved and crumpled; heavy ones shove.");
+        spread_row(
+            ui,
+            &mut sim.weight_spread,
+            2.0,
+            "Spread: each plate, land or ocean, gets its own weight, at random.\n0 = every plate the same. 1 = anywhere from half to twice as heavy. 2 = a quarter to four times.",
+            crate::debug::Slider::new(&mut sim.ocean_weight, 0.05..=2.0).text("ocean rock's weight ×"),
+        )
+        .on_hover_text("How heavy ocean rock is for its size, compared with land rock.\nLight plates get shoved and crumpled; heavy ones shove.");
         ui.add(crate::debug::Slider::new(&mut sim.stickiness, 0.0..=2.0).text("stickiness")).on_hover_text(
             "Plates pressed together weld: their touching rock is joined, so they stay together instead of\ndrifting back apart and leaving a strip of sea. Welds can still crack if pulled hard enough.\n0 = plates never stick.",
         );
@@ -1126,6 +1135,20 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
     });
 }
 
+/// What a spread box does, on hover.
+const SPREAD_TIMES: &str = "Spread: each plate gets its own amount, at random.\n0 = every plate the same. 1 = anywhere from half to twice the slider's value. 2 = a quarter to four times.";
+const SPREAD_UP_DOWN: &str = "Spread: each plate's base height moves up or down, at random, by up to this much.\n0 = every plate the same.";
+
+/// A slider with a spread box in front of it [David]: how much each plate's own value is
+/// scattered around the slider's.
+fn spread_row(ui: &mut egui::Ui, spread: &mut f32, most: f32, about: &str, slider: impl egui::Widget) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.add(egui::DragValue::new(spread).range(0.0..=most).speed(0.005).fixed_decimals(2).prefix("± ")).on_hover_text(about);
+        ui.add(slider)
+    })
+    .inner
+}
+
 /// One line mutator's controls.
 fn line_noise(ui: &mut egui::Ui, title: &str, noise: &mut LineNoise) {
     ui.add_space(4.0);
@@ -1199,7 +1222,7 @@ fn readouts(ui: &mut egui::Ui, world: &WorldGen, blocks_per_pixel: f32) {
                         ui.label(format!("squeezed {along} ({angle:.0}°), strength {:.2}", spot.push_strength()));
                     }
                     let terrain = world.terrain.get(spot.from as usize).copied().unwrap_or(0.0);
-                    let height = terrain + world.heights.squeeze * squeeze;
+                    let height = terrain + world.heights.squeeze_on(spot.plate, Seeds::of(world.seed).terrain) * squeeze;
                     let water = world.heights.water;
                     ui.label(if height > water {
                         format!("height {height:.2}: land, {:.2} above the water", height - water)
@@ -1324,10 +1347,12 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         seal_gaps: world.seal_gaps,
         fill_holes: world.fill_holes,
         squeeze: world.heights.squeeze,
+        squeeze_spread: world.heights.squeeze_spread,
         water: world.heights.water,
     };
     if world.painted_for.as_ref() != Some(&wanted) || world.texture.is_none() {
         let heights = &world.heights;
+        let terrain_seed = Seeds::of(world.seed).terrain;
         // Open water: the ocean colour, lighter where it's shallow (`deep` 0 = at the water
         // level, 1 = as deep as ocean plates are, or deeper).
         let sea = |i: usize, deep: f32| {
@@ -1357,7 +1382,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
                     return colour32(boundary_colour(contact.kind));
                 }
                 let Some(spot) = world.moved.get(i).copied().flatten() else { return colour32(sea(i, 1.0)) };
-                let height = world.terrain.get(spot.from as usize).copied().unwrap_or(heights.ocean) + heights.squeeze * spot.squeeze;
+                let height = world.terrain.get(spot.from as usize).copied().unwrap_or(heights.ocean) + heights.squeeze_on(spot.plate, terrain_seed) * spot.squeeze;
                 let lift = (spot.squeeze / world.height_shown).clamp(-1.0, 1.0);
                 colour32(if height > heights.water {
                     // Land: a land plate's colour, or an island of ocean floor squeezed up.

@@ -23,7 +23,7 @@
 //! changing the simulation.
 
 use super::noise::PerlinSettings;
-use super::plates::Plates;
+use super::plates::{self, Plates};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -52,6 +52,16 @@ pub struct HeightSettings {
     pub squeeze: f32,
     /// The water level: below it is sea.
     pub water: f32,
+
+    /// Spread per plate [David]: each plate's own value scattered around the slider's. Base
+    /// heights move up or down by up to this much; the others are multiplied (1 = between half
+    /// and twice; see `plates::spread_by`). 0 = every plate the same.
+    pub land_spread: f32,
+    pub ocean_spread: f32,
+    pub terrain_spread: f32,
+    pub shelf_width_spread: f32,
+    pub shelf_depth_spread: f32,
+    pub squeeze_spread: f32,
 }
 
 impl Default for HeightSettings {
@@ -69,6 +79,12 @@ impl Default for HeightSettings {
             shelf_depth: 0.2,
             squeeze: 0.6,
             water: 0.0,
+            land_spread: 0.0,
+            ocean_spread: 0.0,
+            terrain_spread: 0.0,
+            shelf_width_spread: 0.0,
+            shelf_depth_spread: 0.0,
+            squeeze_spread: 0.0,
         }
     }
 }
@@ -76,7 +92,7 @@ impl Default for HeightSettings {
 impl HeightSettings {
     /// The settings the terrain is worked out from (not the squeeze or the water level, which
     /// are applied as it's drawn).
-    pub fn shaping(&self) -> [u32; 10] {
+    pub fn shaping(&self) -> [u32; 15] {
         [
             self.land.to_bits(),
             self.ocean.to_bits(),
@@ -88,8 +104,43 @@ impl HeightSettings {
             self.blend.to_bits(),
             self.shelf_width.to_bits(),
             self.shelf_depth.to_bits(),
+            self.land_spread.to_bits(),
+            self.ocean_spread.to_bits(),
+            self.terrain_spread.to_bits(),
+            self.shelf_width_spread.to_bits(),
+            self.shelf_depth_spread.to_bits(),
         ]
     }
+
+    /// Plate `plate`'s own settings, with the spreads applied. `seed` is the terrain's seed.
+    pub fn for_plate(&self, plate: usize, seed: u64) -> PlateHeights {
+        let random = |which: i64| plates::plate_random(crate::fate::derive_seed(seed, "spread"), plate, which);
+        PlateHeights {
+            land: self.land + self.land_spread * random(0),
+            ocean: self.ocean + self.ocean_spread * random(1),
+            terrain: plates::spread_by(self.terrain, self.terrain_spread, random(2)),
+            shelf_width: plates::spread_by(self.shelf_width, self.shelf_width_spread, random(3)),
+            shelf_depth: plates::spread_by(self.shelf_depth, self.shelf_depth_spread, random(4)),
+        }
+    }
+
+    /// How much squeezing lifts rock on plate `plate` (the squeeze, spread). `seed` is the
+    /// terrain's seed. (Asked for every pixel as the map is drawn, so it works out only this.)
+    pub fn squeeze_on(&self, plate: u8, seed: u64) -> f32 {
+        if self.squeeze_spread == 0.0 {
+            return self.squeeze;
+        }
+        plates::spread_by(self.squeeze, self.squeeze_spread, plates::plate_random(crate::fate::derive_seed(seed, "spread"), plate as usize, 5))
+    }
+}
+
+/// One plate's own height settings, after the spreads. (Its squeeze: `squeeze_on`.)
+pub struct PlateHeights {
+    pub land: f32,
+    pub ocean: f32,
+    pub terrain: f32,
+    pub shelf_width: f32,
+    pub shelf_depth: f32,
 }
 
 /// One plate's tilt: which way its rising side faces (a unit direction, in field pixels), how far
@@ -214,7 +265,7 @@ pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32
     let blocks = plates.blocks_per_pixel;
     let edges = edge_distance(plates);
     let noise = PerlinSettings { scale: settings.terrain_size, octaves: settings.octaves, persistence: settings.roughness, ..PerlinSettings::default() };
-    let shelf = (settings.shelf_width / blocks).max(1e-3);
+    let own: Vec<PlateHeights> = (0..plates.kept.len()).map(|p| settings.for_plate(p, seed)).collect();
     let tilts = tilts(plates, settings, crate::fate::derive_seed(seed, "tilt"));
     let blend = settings.blend.clamp(0.0, 1.0);
     let mut heights = vec![settings.ocean; width * width];
@@ -222,15 +273,16 @@ pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32
     let rows_each = width.div_ceil(cores).max(1);
     std::thread::scope(|scope| {
         for (band, chunk) in heights.chunks_mut(rows_each * width).enumerate() {
-            let (noise, edges, tilts) = (&noise, &edges, &tilts);
+            let (noise, edges, tilts, own) = (&noise, &edges, &tilts, &own);
             scope.spawn(move || {
                 for (k, height) in chunk.iter_mut().enumerate() {
                     let i = band * rows_each * width + k;
                     let Some(p) = plates.plate[i] else { continue };
                     let plate = &plates.kept[p as usize];
-                    let base = if plate.land { settings.land } else { settings.ocean };
+                    let mine = &own[p as usize];
+                    let base = if plate.land { mine.land } else { mine.ocean };
                     let (x, y) = ((i % width) as f32 + 0.5, (i / width) as f32 + 0.5);
-                    let rolling = noise.raw(seed, y * blocks, x * blocks) * settings.terrain;
+                    let rolling = noise.raw(seed, y * blocks, x * blocks) * mine.terrain;
                     // Tipped: up on the side the tilt faces, down on the other, nothing at the
                     // middle.
                     let tilt = &tilts[p as usize];
@@ -239,8 +291,9 @@ pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32
                     let shape = tipped * (1.0 - blend) + rolling * blend;
                     // Sinking toward the edge: smoothly from nothing at the shelf's width in, to
                     // the full depth at the edge.
+                    let shelf = (mine.shelf_width / blocks).max(1e-3);
                     let inward = (edges[i] / shelf).clamp(0.0, 1.0);
-                    let sunk = settings.shelf_depth * (1.0 - inward * inward * (3.0 - 2.0 * inward));
+                    let sunk = mine.shelf_depth * (1.0 - inward * inward * (3.0 - 2.0 * inward));
                     *height = base + shape - sunk;
                 }
             });
@@ -304,6 +357,28 @@ mod tests {
         // Only noise: no tilt at all.
         let flat = terrain(&made, &HeightSettings { blend: 1.0, terrain: 0.0, shelf_depth: 0.0, ..HeightSettings::default() }, 3);
         assert_eq!(flat[plate.middle.1 as usize * made.width + plate.middle.0 as usize], settings.land);
+    }
+
+    #[test]
+    fn a_spread_makes_plates_differ_and_none_leaves_them_alike() {
+        let made = made();
+        // Flat plates: only the base height, so each plate's middle shows its own.
+        let flat = HeightSettings { terrain: 0.0, tilt: 0.0, shelf_depth: 0.0, ..HeightSettings::default() };
+        let middles = |settings: &HeightSettings| {
+            let heights = terrain(&made, settings, 3);
+            made.kept.iter().filter(|plate| plate.land).map(|plate| heights[plate.middle.1 as usize * made.width + plate.middle.0 as usize]).collect::<Vec<f32>>()
+        };
+        assert!(middles(&flat).iter().all(|&h| h == flat.land));
+        let spread = middles(&HeightSettings { land_spread: 0.5, ..flat.clone() });
+        let (low, high) = spread.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &h| (lo.min(h), hi.max(h)));
+        assert!(high - low > 0.2, "land plates from {low} to {high}");
+        assert!(spread.iter().all(|&h| (h - flat.land).abs() <= 0.5));
+        // The squeeze: the slider's own at no spread, each plate's own with one, within half to twice.
+        assert_eq!(flat.squeeze_on(0, 3), flat.squeeze);
+        let squeezed = HeightSettings { squeeze_spread: 1.0, ..flat.clone() };
+        let lifts: Vec<f32> = (0..made.kept.len() as u8).map(|p| squeezed.squeeze_on(p, 3)).collect();
+        assert!(lifts.iter().all(|&s| (flat.squeeze * 0.5..=flat.squeeze * 2.0).contains(&s)));
+        assert!(lifts.iter().any(|&s| s != lifts[0]));
     }
 
     #[test]

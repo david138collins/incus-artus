@@ -127,6 +127,15 @@ pushed down **darker**.
      The "cracks at" and "tears open past" sliders are off the panel, their settings kept unused (so
      it could come back). Edge cracks (the edge splitting where it's crushed along its length) were
      tried the same day and taken out;
+     **Spread per plate** [David, 2026-10-27: "spread the values each plate gets so that the plates vary
+     from one to another"]: a **±** box in front of a slider gives each plate its own value, from its own
+     random number (seeded). Base heights (land, ocean) move up or down by up to the spread; terrain noise
+     amount, shelf reach and depth, squeeze lift, stiffness and weight (every plate, land or ocean) are
+     multiplied, on a doubling scale (1 = half to twice, 2 = a quarter to four times). 0 = all plates
+     alike, the default, so presets and bakes are as before. Stiffness and weight can change while it
+     runs (a weld between two plates is halfway between their stiffnesses). Possible later: friction and
+     push back (between two plates: their average), and blending values across a strip at plate borders
+     if big spreads leave steps there;
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map. **[BUILT 2026-10-24]**, see "The Tectonic Sim's product" below.
 

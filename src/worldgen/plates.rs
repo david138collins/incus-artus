@@ -184,6 +184,18 @@ fn unit(seed: u64, k: usize, which: i64) -> f32 {
     (planet_hash(seed, 0x91a7e5, k as i64, which, 0) >> 40) as f32 / (1u64 << 24) as f32
 }
 
+/// Plate `p`'s own random number for one spread setting (`which`), from −1 to 1. Each setting has
+/// its own, so a plate that's high isn't always stiff too.
+pub fn plate_random(seed: u64, p: usize, which: i64) -> f32 {
+    (planet_hash(seed, 0x5b7ead, p as i64, which, 0) >> 40) as f32 / (1u64 << 24) as f32 * 2.0 - 1.0
+}
+
+/// A value spread per plate: `spread` 1 gives each plate between half and twice the value, 2
+/// between a quarter and four times (evenly in between, on a doubling scale); 0 = all the same.
+pub fn spread_by(value: f32, spread: f32, random: f32) -> f32 {
+    value * (spread * random).exp2()
+}
+
 /// For each pixel, its nearest point, using all the computer's cores.
 fn split(points: &[(f32, f32)], width: usize, cell: &mut [u16]) {
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());

@@ -76,6 +76,10 @@ pub struct RagSettings {
     pub drag: f32,
     /// How heavy ocean rock is for its size, compared with land rock.
     pub ocean_weight: f32,
+    /// Spread per plate [David]: each plate's stiffness and weight multiplied by its own random
+    /// amount (1 = between half and twice; see `plates::spread_by`). 0 = every plate the same.
+    pub stiffness_spread: f32,
+    pub weight_spread: f32,
     /// How strongly plates pressed together weld (0 = they never stick). Welds hold like the rock's
     /// own springs, and crack if pulled hard enough.
     pub stickiness: f32,
@@ -103,6 +107,8 @@ impl Default for RagSettings {
             friction: 0.3,
             drag: 0.01,
             ocean_weight: 0.4,
+            stiffness_spread: 0.0,
+            weight_spread: 0.0,
             stickiness: 0.6,
             thickest: 4.0,
             bowl_start: 0.8,
@@ -230,6 +236,8 @@ pub struct Sim {
     triangles: Vec<Triangle>,
     /// Where each plate's middle was at the start (for plates too small to have any points).
     middles: Vec<(f32, f32)>,
+    /// Each plate's own random numbers (−1 to 1) for the stiffness and weight spreads.
+    dice: Vec<[f32; 2]>,
     /// Pairs of points (from different plates) already welded together.
     welded: std::collections::HashSet<(usize, usize)>,
     /// Steps taken so far.
@@ -328,6 +336,7 @@ impl Sim {
             springs,
             triangles,
             middles: plates.kept.iter().map(|plate| plate.middle).collect(),
+            dice: (0..plates.kept.len()).map(|p| [0, 1].map(|which| super::plates::plate_random(seed, p, which))).collect(),
             welded: std::collections::HashSet::new(),
             steps: 0,
             settled: false,
@@ -336,7 +345,13 @@ impl Sim {
 
     /// How easily point `k` is moved (1 ÷ its weight).
     fn lightness(&self, k: usize, settings: &RagSettings) -> f32 {
-        if self.land[k] { 1.0 } else { 1.0 / settings.ocean_weight.max(0.01) }
+        let weight = if self.land[k] { 1.0 } else { settings.ocean_weight.max(0.01) };
+        1.0 / super::plates::spread_by(weight, settings.weight_spread, self.dice[self.plate[k] as usize][1])
+    }
+
+    /// How stiff plate `p`'s rock is (the stiffness, spread).
+    fn stiffness(&self, p: u8, settings: &RagSettings) -> f32 {
+        super::plates::spread_by(settings.stiffness.clamp(0.0, 1.0), settings.stiffness_spread, self.dice[p as usize][0])
     }
 
     /// How plate `p` is moving now as a whole (blocks per step, radians per step).
@@ -421,10 +436,12 @@ impl Sim {
         // 3. Passes: springs pull back, touching plates push apart.
         let pairs = self.near_pairs();
         let lightness: Vec<f32> = (0..self.at.len()).map(|k| self.lightness(k, settings)).collect();
-        let stiffness = settings.stiffness.clamp(0.0, 1.0);
+        // Each spring's stiffness: its plate's (a weld between two plates: halfway between theirs).
+        let stiffness: Vec<f32> =
+            self.springs.iter().map(|s| (self.stiffness(self.plate[s.a], settings) + self.stiffness(self.plate[s.b], settings)) / 2.0).collect();
         let push = settings.push.clamp(0.0, 1.0);
         for _ in 0..settings.passes.max(1) {
-            for spring in self.springs.iter().filter(|s| !s.broken) {
+            for (spring, &stiffness) in self.springs.iter().zip(&stiffness).filter(|(s, _)| !s.broken) {
                 let (a, b) = (self.at[spring.a], self.at[spring.b]);
                 let (dx, dy) = (b.0 - a.0, b.1 - a.1);
                 let length = dx.hypot(dy).max(1e-6);
@@ -862,6 +879,27 @@ mod tests {
         assert!(highest > 0.1, "nothing rose: highest {highest}");
         // Given way: some springs are now shorter at rest than when made.
         assert!(sim.springs.iter().any(|s| s.rest < s.made * 0.97));
+    }
+
+    #[test]
+    fn spread_weight_lets_the_heavier_plate_shove_the_lighter() {
+        let (plates, motions, settings) = head_on(100.0);
+        // No spread: two land plates weigh the same and are as stiff as each other.
+        let sim = Sim::new(&plates, &motions, &settings, 1);
+        let point_on = |sim: &Sim, p: u8| (0..sim.at.len()).find(|&k| sim.plate[k] == p).unwrap();
+        assert_eq!(sim.lightness(point_on(&sim, 0), &settings), sim.lightness(point_on(&sim, 1), &settings));
+        assert_eq!(sim.stiffness(0, &settings), sim.stiffness(1, &settings));
+        // Spread: they differ, and the heavier one pushes on further after they meet.
+        let settings = RagSettings { weight_spread: 2.0, stiffness_spread: 1.0, ..settings };
+        let mut sim = Sim::new(&plates, &motions, &settings, 1);
+        assert_ne!(sim.stiffness(0, &settings), sim.stiffness(1, &settings));
+        let heavier = if sim.lightness(point_on(&sim, 0), &settings) < sim.lightness(point_on(&sim, 1), &settings) { 0 } else { 1 };
+        let start = [sim.middle(0).0, sim.middle(1).0];
+        for _ in 0..80 {
+            sim.step(&settings);
+        }
+        let travelled = [(sim.middle(0).0 - start[0]).abs(), (sim.middle(1).0 - start[1]).abs()];
+        assert!(travelled[heavier] > travelled[1 - heavier] * 1.5, "heavier plate {heavier} travelled {travelled:?}");
     }
 
     #[test]
