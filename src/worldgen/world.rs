@@ -569,9 +569,11 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
         root.ctx().request_repaint();
     }
     egui::Panel::left("world gen settings").resizable(true).default_size(340.0).size_range(220.0..=900.0).show(root, |ui| {
+        super::notes::on_page(Some("Tectonic Sim"));
         egui::ScrollArea::vertical().show(ui, |ui| settings(ui, world));
     });
     egui::Panel::right("world gen readouts").resizable(true).default_size(270.0).size_range(180.0..=900.0).show(root, |ui| {
+        super::notes::on_page(Some("Tectonic Sim readouts"));
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, world, blocks));
     });
     egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, world));

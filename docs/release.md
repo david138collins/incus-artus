@@ -20,7 +20,7 @@ Marked **[BUILT]** where it's already done; the rest is **[PLAN]**.
 ## 2. Left out of the download
 
 - Only the program and `assets/` (block data, textures, shaders) ship.
-- Not `Art/`, `docs/`, `vision/`, `world bakes/`, `presets/`, `screenshots/`, `logs/` or `exports/`.
+- Not `Art/`, `docs/`, `vision/`, `world bakes/`, `presets/`, `notes/`, `screenshots/`, `logs/` or `exports/`.
 - **[PLAN]** Textures in a compressed format the graphics card reads directly (smaller, faster to load).
 - **[PLAN]** Logs keep only warnings and errors; the event log isn't written to disk by default.
 

@@ -166,7 +166,9 @@ fn foldable(root: &mut egui::Ui, right: bool, id: &str, title: &str, folded: &mu
 pub fn fold_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) -> egui::Response {
     ui.add_space(6.0);
     ui.separator();
-    egui::CollapsingHeader::new(egui::RichText::new(title).strong()).default_open(false).show(ui, add_contents).header_response
+    let shown = egui::CollapsingHeader::new(egui::RichText::new(title).strong()).default_open(false).show(ui, add_contents);
+    super::notes::button(ui, title, shown.header_response.rect);
+    shown.header_response
 }
 
 /// The same for a section with a switch in its heading (the whole feature on or off); its contents
@@ -175,9 +177,10 @@ pub fn switched_section(ui: &mut egui::Ui, title: &str, on: &mut bool, add_conte
     ui.add_space(6.0);
     ui.separator();
     let id = ui.make_persistent_id((title, "section"));
-    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+    let (_, header, _) = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
         .show_header(ui, |ui| ui.checkbox(on, egui::RichText::new(title).strong()))
         .body(|ui| ui.add_enabled_ui(*on, add_contents));
+    super::notes::button(ui, title, header.response.rect);
 }
 
 /// "a-very-long-file-name" → "a-very-long-fi…" (for tight spots; hover shows the whole name).
@@ -194,11 +197,15 @@ pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
     );
     let mut close = false;
     egui::Panel::top("editor suite bar").show(&mut root, |ui| close = suite_bar(ui, suite));
+    // Note buttons only on the panels that set their page.
+    super::notes::on_page(None);
     match suite.kit {
         Kit::Graphics => graphics_kit(&mut root, suite),
         Kit::WorldGen => super::world::draw(&mut root, suite),
         Kit::Compiler => super::compiler_view::draw(&mut root, suite),
     }
+    super::notes::on_page(None);
+    super::notes::windows(ctx);
     close
 }
 

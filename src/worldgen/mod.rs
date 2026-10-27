@@ -61,6 +61,7 @@ mod image;
 mod lab;
 mod layers;
 mod made;
+mod notes;
 mod overlays;
 pub(crate) mod noise;
 mod palette;

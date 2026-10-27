@@ -451,22 +451,26 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     let (mut folded, shown) = (compiler.folded, compiler.shown);
     if shown[0] {
         super::view::foldable_left(root, "world compiler settings", PANELS[0], &mut folded[0], 320.0, |ui| {
+            super::notes::on_page(Some(PANELS[0]));
             egui::ScrollArea::vertical().show(ui, |ui| settings(ui, compiler));
         });
     }
     if shown[1] {
         super::view::foldable_left(root, "additives settings", PANELS[1], &mut folded[1], 300.0, |ui| {
+            super::notes::on_page(Some(PANELS[1]));
             egui::ScrollArea::vertical().id_salt("additives").show(ui, |ui| additives_panel(ui, compiler));
         });
     }
     if shown[2] {
         super::view::foldable_left(root, "world interpreter settings", PANELS[2], &mut folded[2], 320.0, |ui| {
+            super::notes::on_page(Some(PANELS[2]));
             egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
         });
     }
     compiler.folded = folded;
     let mut readouts_folded = compiler.readouts_folded;
     super::view::foldable_right(root, "world compiler readouts", "readouts", &mut readouts_folded, 270.0, |ui| {
+        super::notes::on_page(Some("Terrain Compiler readouts"));
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, compiler));
     });
     compiler.readouts_folded = readouts_folded;
