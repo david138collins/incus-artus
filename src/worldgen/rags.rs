@@ -15,7 +15,13 @@
 //! **Rock gives way and stays given.** A rag springs back; rock doesn't. Each spring has a
 //! **give-way** point: squeezed or stretched further than that, its resting length creeps toward
 //! its new length (by **creep** each step) and stays there. That's what keeps wrinkles and squashed
-//! ground in place after the push ends. Stretched past **crack**, it snaps: the plate tears there.
+//! ground in place after the push ends. Stretched 40% past its first length, it snaps: plates pulled
+//! hard apart tear, into rifts.
+//!
+//! **Edge cracks** [David, 2026-10-27]: where a plate's edge is crushed along its length, the edge
+//! splits: a crack runs straight in from it, wandering a little, cutting the rock and pushing its
+//! sides apart, so it opens as an inlet or a line of thin rock. (Replaced the "cracks at" slider,
+//! which did nothing until it was very low, then cracked in rough, flickering bursts.)
 //!
 //! **Irregular stiffness.** A noise map sets how stiff and how strong the rock is from place to
 //! place. Soft patches give way deep inside a plate, not just at its edges.
@@ -32,7 +38,8 @@
 //!    pushed apart (by **push back**). Lighter points are moved more.
 //! 4. **Friction:** points of different plates that are touching are dragged along with each other.
 //! 5. Each point's new speed is how far it actually moved.
-//! 6. Springs past give-way creep; springs past crack snap.
+//! 6. Springs past give-way creep; springs stretched too far snap.
+//! 7. Edge cracks start and run on.
 //!
 //! The steps are always the same size and taken in the same order, so the same seed and settings
 //! give the same result, however fast it's played.
@@ -65,9 +72,14 @@ pub struct RagSettings {
     pub give_way: f32,
     /// How much of the stretch past give-way becomes permanent each step (0 to 1).
     pub creep: f32,
-    /// How far rock can be stretched in all, from how it started, before it snaps (0.4 = 40%
-    /// longer).
-    pub crack: f32,
+    /// Edge cracks: how readily a plate's edge splits where it's crushed along its length (0 =
+    /// never, 1 = at the first squeeze), how far each crack runs in (blocks), and how far apart
+    /// they start (blocks).
+    pub edge_cracking: f32,
+    pub crack_reach: f32,
+    pub crack_spacing: f32,
+    /// How far the two sides of an edge crack are pushed apart as it runs (blocks).
+    pub crack_opening: f32,
     /// How firmly points of different plates are pushed apart, each pass (0 to 1).
     pub push: f32,
     /// How much plates touching each other drag each other along (0 to 1).
@@ -98,7 +110,10 @@ impl Default for RagSettings {
             passes: 3,
             give_way: 0.02,
             creep: 0.3,
-            crack: 0.4,
+            edge_cracking: 0.0,
+            crack_reach: 3_000.0,
+            crack_spacing: 6_000.0,
+            crack_opening: 500.0,
             push: 0.3,
             friction: 0.3,
             drag: 0.01,
@@ -189,6 +204,35 @@ struct Spring {
     /// How stiff and strong the rock is here (1 = ordinary).
     strength: f32,
     broken: bool,
+    /// Once broken: the furthest it has been pulled open, against its length when made. A crack
+    /// is drawn torn open from when this passes "tears open past", and stays so (it used to be
+    /// measured afresh each frame, so a crack shaking about that length flickered open and shut).
+    widest: f32,
+}
+
+/// Rock stretched this much past its length when made snaps (0.4 = 40% longer): plates pulled
+/// hard apart tear, into rifts. (It was the "cracks at" slider, which did nothing until it was
+/// very low; cracking is now the edge cracks.) Welds snap at the same stretch.
+const TEARS_PAST: f32 = 0.4;
+
+/// An edge crack: where its tip is (held to a point of the rock, so it moves with it), which way
+/// it's running, and how far it has come (field pixels).
+struct Crack {
+    point: usize,
+    offset: (f32, f32),
+    /// Straight in from the edge where it started; it wanders either side of this.
+    heading: (f32, f32),
+    run: f32,
+    /// Where on the wander noise this crack reads (so each wanders its own way).
+    wander: f32,
+}
+
+/// Whether the segments `a`–`b` and `c`–`d` cross (touching at an end doesn't count).
+fn crosses(a: (f32, f32), b: (f32, f32), c: (f32, f32), d: (f32, f32)) -> bool {
+    let side = |p: (f32, f32), q: (f32, f32), r: (f32, f32)| (q.0 - p.0) * (r.1 - p.1) - (q.1 - p.1) * (r.0 - p.0);
+    let (d1, d2) = (side(c, d, a), side(c, d, b));
+    let (d3, d4) = (side(a, b, c), side(a, b, d));
+    d1 * d2 < 0.0 && d3 * d4 < 0.0
 }
 
 /// One of the grid's small triangles: its corners, its sides (springs), and its area at the start
@@ -228,6 +272,16 @@ pub struct Sim {
     middles: Vec<(f32, f32)>,
     /// Pairs of points (from different plates) already welded together.
     welded: std::collections::HashSet<(usize, usize)>,
+    /// The springs at each point (the rock's own, as made).
+    springs_of: Vec<Vec<usize>>,
+    /// The springs running along a plate's edge, between two of its edge points (real points joined
+    /// to an outline point): where edge cracks start.
+    perimeter: Vec<usize>,
+    /// The edge cracks still running, and where every crack started (as made, so they can be kept
+    /// apart), and how they wander (from the seed).
+    cracks: Vec<Crack>,
+    crack_starts: Vec<(f32, f32)>,
+    seed: u64,
     /// Steps taken so far.
     pub steps: u64,
     /// Whether everything has coasted to a stop.
@@ -282,7 +336,7 @@ impl Sim {
                 let Some(&b) = point_at.get(&(p, i + di, j + dj)) else { continue };
                 let length = (at[b].0 - at[a].0).hypot(at[b].1 - at[a].1);
                 spring_between.insert((a.min(b), a.max(b)), springs.len());
-                springs.push(Spring { a, b, rest: length, made: length, strength: (strength[a] + strength[b]) / 2.0, broken: false });
+                springs.push(Spring { a, b, rest: length, made: length, strength: (strength[a] + strength[b]) / 2.0, broken: false, widest: 0.0 });
             }
         }
 
@@ -310,10 +364,25 @@ impl Sim {
             }
         }
 
+        // The edge: real points joined to an outline point, and the springs along it.
+        let mut springs_of = vec![Vec::new(); at.len()];
+        for (s, spring) in springs.iter().enumerate() {
+            springs_of[spring.a].push(s);
+            springs_of[spring.b].push(s);
+        }
+        let other = |s: usize, k: usize| if springs[s].a == k { springs[s].b } else { springs[s].a };
+        let edge: Vec<bool> = (0..at.len()).map(|k| real[k] && springs_of[k].iter().any(|&s| !real[other(s, k)])).collect();
+        let perimeter: Vec<usize> = (0..springs.len()).filter(|&s| edge[springs[s].a] && edge[springs[s].b]).collect();
+
         Self {
             width,
             blocks_per_pixel,
             grain,
+            springs_of,
+            perimeter,
+            cracks: Vec::new(),
+            crack_starts: Vec::new(),
+            seed,
             home: at.clone(),
             at,
             velocity,
@@ -472,7 +541,7 @@ impl Sim {
                 let (a, b) = (self.at[i], self.at[j]);
                 let length = (a.0 - b.0).hypot(a.1 - b.1);
                 if length <= self.grain * 1.02 && self.welded.insert((i, j)) {
-                    self.springs.push(Spring { a: i, b: j, rest: self.grain, made: self.grain, strength: settings.stickiness, broken: false });
+                    self.springs.push(Spring { a: i, b: j, rest: self.grain, made: self.grain, strength: settings.stickiness, broken: false, widest: 0.0 });
                 }
             }
         }
@@ -494,7 +563,7 @@ impl Sim {
             // only so far in all before it snaps. (Springs to outline points never snap, so the
             // outline can't break loose and drift off.)
             let between_real = real[spring.a] && real[spring.b];
-            if between_real && length / spring.made - 1.0 > settings.crack * spring.strength {
+            if between_real && length / spring.made - 1.0 > TEARS_PAST * spring.strength {
                 spring.broken = true;
                 continue;
             }
@@ -507,6 +576,13 @@ impl Sim {
                 // Never squashed to nothing.
                 spring.rest = spring.rest.max(spring.made * 0.2);
             }
+        }
+
+        // 7. Edge cracks, and how far each broken spring has been pulled open.
+        self.edge_cracks(settings);
+        for spring in self.springs.iter_mut().filter(|s| s.broken) {
+            let (a, b) = (self.at[spring.a], self.at[spring.b]);
+            spring.widest = spring.widest.max((b.0 - a.0).hypot(b.1 - a.1) / spring.made);
         }
 
         self.steps += 1;
@@ -553,9 +629,138 @@ impl Sim {
     fn torn(&self, triangle: &Triangle, tear_open: f32) -> bool {
         triangle.sides.iter().any(|&s| {
             let spring = &self.springs[s];
-            let (a, b) = (self.at[spring.a], self.at[spring.b]);
-            spring.broken && (b.0 - a.0).hypot(b.1 - a.1) > spring.made * tear_open
+            spring.broken && spring.widest > tear_open
         })
+    }
+
+    /// Which way is in from edge point `k`: toward the rock round it, away from the outline points.
+    fn inward(&self, k: usize) -> Option<(f32, f32)> {
+        let mut sum = (0.0, 0.0);
+        for &s in &self.springs_of[k] {
+            let spring = &self.springs[s];
+            let o = if spring.a == k { spring.b } else { spring.a };
+            let (dx, dy) = (self.at[o].0 - self.at[k].0, self.at[o].1 - self.at[k].1);
+            let length = dx.hypot(dy).max(1e-6);
+            let sign = if self.real[o] { 1.0 } else { -1.0 };
+            sum = (sum.0 + dx / length * sign, sum.1 + dy / length * sign);
+        }
+        let length = sum.0.hypot(sum.1);
+        (length > 1e-3).then(|| (sum.0 / length, sum.1 / length))
+    }
+
+    /// The real points by grid square (one grain across), to find the ones near a spot.
+    fn point_grid(&self) -> HashMap<(i64, i64), Vec<usize>> {
+        let mut grid: HashMap<(i64, i64), Vec<usize>> = HashMap::new();
+        for (k, &p) in self.at.iter().enumerate().filter(|&(k, _)| self.real[k]) {
+            grid.entry(((p.0 / self.grain).floor() as i64, (p.1 / self.grain).floor() as i64)).or_default().push(k);
+        }
+        grid
+    }
+
+    /// Edge cracks [David, 2026-10-27: "the edges of the plate splitting when there's a force that is
+    /// compressing the perimeter"]. Where a spring along a plate's edge is crushed past a threshold
+    /// (sooner in weaker rock; none within the spacing of another crack's start), a crack starts
+    /// there and runs straight in from the edge, about a grid step each step, wandering a little.
+    /// It cuts the rock springs it crosses and pushes the two sides apart by the opening, until it
+    /// has run its reach or runs out of rock.
+    fn edge_cracks(&mut self, settings: &RagSettings) {
+        if settings.edge_cracking <= 0.0 {
+            return;
+        }
+        // Start.
+        let threshold = 0.3 - 0.28 * settings.edge_cracking.clamp(0.0, 1.0);
+        let spacing = settings.crack_spacing / self.blocks_per_pixel;
+        for i in 0..self.perimeter.len() {
+            let spring = &self.springs[self.perimeter[i]];
+            if spring.broken {
+                continue;
+            }
+            let (a, b) = (self.at[spring.a], self.at[spring.b]);
+            let crushed = 1.0 - (b.0 - a.0).hypot(b.1 - a.1) / spring.made;
+            if crushed <= threshold * spring.strength {
+                continue;
+            }
+            let k = spring.a;
+            let home = self.home[k];
+            if self.crack_starts.iter().any(|s| (s.0 - home.0).hypot(s.1 - home.1) < spacing) {
+                continue;
+            }
+            let Some(heading) = self.inward(k) else { continue };
+            self.crack_starts.push(home);
+            self.cracks.push(Crack { point: k, offset: (0.0, 0.0), heading, run: 0.0, wander: (home.0 + home.1 * 1.618) / self.grain });
+        }
+
+        // Run.
+        let reach = settings.crack_reach / self.blocks_per_pixel;
+        let opening = settings.crack_opening / self.blocks_per_pixel;
+        let step = self.grain * 0.75;
+        let grid = self.point_grid();
+        let near = |p: (f32, f32), r: f32| -> Vec<usize> {
+            let (cx, cy) = ((p.0 / self.grain).floor() as i64, (p.1 / self.grain).floor() as i64);
+            let cells = (r / self.grain).ceil() as i64;
+            let mut found = Vec::new();
+            for gy in cy - cells..=cy + cells {
+                for gx in cx - cells..=cx + cells {
+                    if let Some(points) = grid.get(&(gx, gy)) {
+                        found.extend(points.iter().copied().filter(|&k| (self.at[k].0 - p.0).hypot(self.at[k].1 - p.1) <= r));
+                    }
+                }
+            }
+            found
+        };
+        let mut cuts: Vec<(usize, (f32, f32), (f32, f32))> = Vec::new();
+        let mut still_running = Vec::new();
+        for mut crack in std::mem::take(&mut self.cracks) {
+            if crack.run >= reach {
+                continue;
+            }
+            let plate = self.plate[crack.point];
+            let from = (self.at[crack.point].0 + crack.offset.0, self.at[crack.point].1 + crack.offset.1);
+            // Wander: turned off its heading a little, by a slow noise along its way.
+            let turn = perlin(self.seed, 0xc4ac, Fade::Smooth, crack.run / (self.grain * 4.0), crack.wander) * 0.6;
+            let direction = (crack.heading.0 * turn.cos() - crack.heading.1 * turn.sin(), crack.heading.0 * turn.sin() + crack.heading.1 * turn.cos());
+            let to = (from.0 + direction.0 * step, from.1 + direction.1 * step);
+            let middle = ((from.0 + to.0) / 2.0, (from.1 + to.1) / 2.0);
+            for k in near(middle, step + self.grain * 1.5) {
+                if self.plate[k] == plate {
+                    for &s in &self.springs_of[k] {
+                        let spring = &self.springs[s];
+                        if !spring.broken && self.real[spring.a] && self.real[spring.b] && crosses(self.at[spring.a], self.at[spring.b], from, to) {
+                            cuts.push((s, from, direction));
+                        }
+                    }
+                }
+            }
+            // On to the rock nearest the tip; none left (it's run off the rock): it stops.
+            let Some(next) = near(to, self.grain).into_iter().filter(|&k| self.plate[k] == plate).min_by(|&i, &j| {
+                let d = |k: usize| (self.at[k].0 - to.0).hypot(self.at[k].1 - to.1);
+                d(i).total_cmp(&d(j))
+            }) else {
+                continue;
+            };
+            crack.point = next;
+            crack.offset = (to.0 - self.at[next].0, to.1 - self.at[next].1);
+            crack.run += step;
+            still_running.push(crack);
+        }
+        self.cracks = still_running;
+
+        // Cut, and push each side apart (each point once, by which side of the crack it's on).
+        let mut pushed = std::collections::HashSet::new();
+        for (s, from, direction) in cuts {
+            if self.springs[s].broken {
+                continue;
+            }
+            self.springs[s].broken = true;
+            let across = (-direction.1, direction.0);
+            for k in [self.springs[s].a, self.springs[s].b] {
+                let side = (self.at[k].0 - from.0) * across.0 + (self.at[k].1 - from.1) * across.1;
+                if side.abs() > 1e-4 && pushed.insert(k) {
+                    let half = opening / 2.0 * side.signum();
+                    self.at[k] = (self.at[k].0 + across.0 * half, self.at[k].1 + across.1 * half);
+                }
+            }
+        }
     }
 
     /// How thick the rock is at each point, compared with at the start (1 = unchanged): the
@@ -898,6 +1103,43 @@ mod tests {
         assert!(row[first..=last].iter().any(|&on| !on), "no gap opened across the tear ({gap} empty pixels in the row)");
     }
 
+    /// How many of a sim's springs are the rock's own (welds are added after them).
+    fn plates_springs(sim: &Sim) -> usize {
+        sim.springs_of.iter().flatten().copied().max().map_or(0, |s| s + 1)
+    }
+
+    #[test]
+    fn a_crushed_edge_cracks_in_from_the_edge_and_stays_open() {
+        // Head on, the plates' top and bottom edges are crushed along their length where they meet.
+        let (plates, motions, settings) = head_on(100.0);
+        let cracking = RagSettings { edge_cracking: 1.0, crack_reach: 1_500.0, crack_spacing: 1_000.0, crack_opening: 400.0, ..settings.clone() };
+        let (mut cracked, mut plain) = (Sim::new(&plates, &motions, &cracking, 1), Sim::new(&plates, &motions, &settings, 1));
+        for _ in 0..40 {
+            cracked.step(&cracking);
+            plain.step(&settings);
+        }
+        assert!(!cracked.crack_starts.is_empty(), "no crack started");
+        assert!(plain.crack_starts.is_empty(), "cracked with edge cracking off");
+        // Each crack starts on a plate's edge (rows 40 and 80, columns 10, 60 and 110 as made), and
+        // the springs it cut (broken here but not in the run without cracks, where only pulling
+        // tears) are within its reach (15 pixels) of an edge, not deep inside.
+        let from_edge = |p: (f32, f32)| [(p.1 - 40.0).abs(), (p.1 - 80.0).abs(), (p.0 - 10.0).abs(), (p.0 - 60.0).abs(), (p.0 - 110.0).abs()].into_iter().fold(f32::MAX, f32::min);
+        for start in &cracked.crack_starts {
+            assert!(from_edge(*start) < 4.0, "a crack started at {start:?}");
+        }
+        let rock = plates_springs(&plain).min(cracked.springs.len());
+        let cut: Vec<&Spring> = (0..rock).filter(|&s| cracked.springs[s].broken && !plain.springs[s].broken).map(|s| &cracked.springs[s]).collect();
+        assert!(!cut.is_empty(), "the cracks cut nothing");
+        for spring in cut {
+            let at = cracked.home[spring.a];
+            assert!(from_edge(at) < 20.0, "cut far from the edge, at {at:?}");
+        }
+        // Once torn open, a crack stays drawn open: widest only grows.
+        let widest: Vec<f32> = cracked.springs.iter().map(|s| s.widest).collect();
+        cracked.step(&cracking);
+        assert!(cracked.springs.iter().zip(&widest).all(|(s, &w)| s.widest >= w));
+    }
+
     #[test]
     fn a_lone_plate_coasts_to_a_stop_inside_the_bowl() {
         let made = plates::make(&PlateSettings { plates: 1, coverage: 0.05, ocean_rings: 0, ..PlateSettings::default() }, 3, 72_000.0, 256.0, &AtomicBool::new(false)).unwrap();
@@ -1060,3 +1302,4 @@ mod tests {
         assert_eq!(run(), run());
     }
 }
+
