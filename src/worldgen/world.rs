@@ -988,21 +988,9 @@ fn settings(ui: &mut egui::Ui, world: &mut WorldGen) {
         );
         ui.add(crate::debug::Slider::new(&mut sim.creep, 0.0..=1.0).text("creep"))
             .on_hover_text("Once past giving way, how quickly the new shape becomes permanent.");
-        ui.add(crate::debug::Slider::new(&mut sim.edge_cracking, 0.0..=1.0).text("edge cracking")).on_hover_text(
-            "How readily a plate's edge splits where it's being crushed along its length: a crack starts there and runs\n\
-             straight in from the edge, wandering a little, and opens. 0 = never; 1 = at the first squeeze. Weaker rock\n\
-             (the patchiness) cracks sooner. (Plates pulled hard apart still tear into rifts, as before.)",
+        ui.add(crate::debug::Slider::new(&mut sim.crack, 0.05..=2.0).logarithmic(true).text("cracks at")).on_hover_text(
+            "How far rock can be stretched (0.4 = 40% longer) before it snaps and the plate tears there.",
         );
-        ui.add_enabled_ui(sim.edge_cracking > 0.0, |ui| {
-            ui.add(crate::debug::Slider::new(&mut sim.crack_reach, 250.0..=20_000.0).logarithmic(true).text("crack reach (blocks)"))
-                .on_hover_text("How far each crack runs in from the edge.");
-            ui.add(crate::debug::Slider::new(&mut sim.crack_spacing, 500.0..=40_000.0).logarithmic(true).text("crack spacing (blocks)"))
-                .on_hover_text("No crack starts closer than this to where another one started.");
-            ui.add(crate::debug::Slider::new(&mut sim.crack_opening, 0.0..=4_000.0).text("crack opening (blocks)")).on_hover_text(
-                "How far the two sides of a crack are pushed apart as it runs. Opened past \"tears open past\", it shows as sea\n\
-                 (an inlet); less, as thin, stretched rock.",
-            );
-        });
         ui.add(crate::debug::Slider::new(&mut sim.push, 0.0..=1.0).text("push back"))
             .on_hover_text("How firmly plates are kept from overlapping.\nLow = they crush into each other. High = hard edges.");
         ui.add(crate::debug::Slider::new(&mut sim.friction, 0.0..=1.0).text("friction"))
