@@ -209,8 +209,8 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
 - **Built:** zooming into the Terrain Compiler's map turns it into a **live close-up** of the ground as
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
-  copied. **Layer switches** leave parts of the recipe out (mountains, ridges, passes, rifts, hills,
-  detail). **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
+  copied. **Layer switches** leave parts of the recipe out (lift, mountains, foothills, ridges, passes,
+  rifts, hills, detail). Only the close-up follows them; the big map and worlds use the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
   the output map. Using the clean modalities we can capture, we will drive a variety of scattering and

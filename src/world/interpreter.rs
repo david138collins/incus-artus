@@ -555,6 +555,8 @@ pub struct Parts {
 pub struct Mutes {
     pub lift: bool,
     pub mountains: bool,
+    /// The foothill skirts (which mountains are never lower than).
+    pub foothills: bool,
     pub ridges: bool,
     pub passes: bool,
     pub rifts: bool,
@@ -770,7 +772,8 @@ impl CompiledMap {
             let dipped = if self.mutes.passes { 1.0 } else { (1.0 - s.passes.max(0.0) * (0.5 - 0.5 * wave)).max(0.0) };
             mountains = (HIGHEST - ground).max(0.0) * tall * carved * dipped;
         }
-        let mountains = if self.mutes.mountains { 0.0 } else { mountains.max(here.skirt) };
+        // The foothill skirt under them (shown with or without the mountains).
+        let mountains = if self.mutes.foothills { mountains } else { mountains.max(here.skirt) };
 
         // 5. Rifts.
         let rift = if here.squeeze < 0.0 && !self.mutes.rifts { s.rift_depth * smooth(here.squeeze / m.most_stretched.min(-1e-6)) } else { 0.0 };

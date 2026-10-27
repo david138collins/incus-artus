@@ -1217,7 +1217,9 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
     let m = &mut compiler.lab.mutes;
     ui.horizontal_wrapped(|ui| {
         for (name, muted, about) in [
-            ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges, passes and foothill skirts)."),
+            ("lift", &mut m.lift, "The lift: land raised toward the mountains, like a tablecloth draped over its points."),
+            ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges and passes)."),
+            ("foothills", &mut m.foothills, "The foothill skirts round each range (as compiled: switching ridges or passes off doesn't reshape them)."),
             ("ridges", &mut m.ridges, "The ridge pattern carved into the mountains (off: smooth domes)."),
             ("passes", &mut m.passes, "The dips along each ridge's crest (off: even crests)."),
             ("rifts", &mut m.rifts, "Stretched rock sinking."),
