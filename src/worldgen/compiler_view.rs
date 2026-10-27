@@ -338,12 +338,16 @@ fn relief_picture(compiled: &Compiled, blocks_per_pixel: f32, relief: f32) -> Ve
 }
 
 pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
-    // Space: EZ-Bake this world again (the same seed) with the Tectonic Sim's settings as they are
-    // now. Shift + Space: EZ-Bake a new world (a new seed). Not while typing, say a preset's name.
+    // Space: Render World and Spawn (opens the spawn picker) [David, 2026-10-27: EZ-Bake is pressed
+    // once after changing pages, so it lost the space bar]. Shift + Space: EZ-Bake a new world (a
+    // new seed). Not while typing, say a preset's name.
     let typing = root.ctx().egui_wants_keyboard_input();
     let mut new_world = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::SHIFT, egui::Key::Space));
-    let mut same_world = !typing && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space));
+    let mut same_world = false;
     let compiler = &mut suite.compiler;
+    if !typing && compiler.result.is_some() && root.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Space)) {
+        compiler.picking = true;
+    }
     save_shortcut(root.ctx(), "compiler", || compiler.settings.clone());
     egui::Panel::top("world compiler bar").show(root, |ui| {
         ui.horizontal_wrapped(|ui| {
@@ -356,7 +360,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
                 ui.label("EZ-Baking…");
             } else {
                 if ui
-                    .button("EZ-Bake  [Space]")
+                    .button("EZ-Bake")
                     .on_hover_text(
                         "This world again, with the Tectonic Sim's settings as they are now (the same seed), baked\n\
                          (into \"_ez-bake\", replaced each time) and read straight in here, keeping these compiler\n\
@@ -502,7 +506,7 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.add(egui::TextEdit::singleline(&mut compiler.world_name).desired_width(140.0).hint_text(bake.name.clone()));
         });
         if ui
-            .button("Render World and Spawn")
+            .button("Render World and Spawn  [Space]")
             .on_hover_text("Opens a map of the world: click where you want to start. The world you're in now is replaced
 (save it first if you want it).")
             .clicked()
@@ -1039,30 +1043,32 @@ fn noise_box(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default:
 
 fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default: &PerlinSettings, sizes: std::ops::RangeInclusive<f32>, mask: &mut Mask) {
     noise_box(ui, name, noise, default, sizes);
-    let heading = if mask.source == MaskSource::Everywhere { format!("{name}: mask (everywhere)") } else { format!("{name}: mask (follows {})", mask.source.name()) };
-    egui::CollapsingHeader::new(heading).id_salt((name, "mask")).show(ui, |ui| {
-        ui.small(format!(
-            "Fades {name} in and out across the world: pick a map to follow (the overlays show them), and the curve\n\
-             says how much shows (up) for each value of it (across)."
-        ));
-        ui.horizontal_wrapped(|ui| {
-            ui.label("follows:");
-            for source in MaskSource::ALL {
-                ui.selectable_value(&mut mask.source, source, source.name());
-            }
-        });
-        if mask.source == MaskSource::Everywhere {
-            return;
+    // The mask in the open, not folded under a heading of its own [David, 2026-10-27: it looked
+    // lost two folds down].
+    ui.add_space(4.0);
+    ui.label(format!("Where {name} show (the mask):")).on_hover_text(format!(
+        "Fades {name} in and out across the world: pick a map to follow (the overlays show them), and the curve\n\
+         says how much shows (up) for each value of it (across)."
+    ));
+    ui.horizontal_wrapped(|ui| {
+        ui.label("follows:");
+        for source in MaskSource::ALL {
+            ui.selectable_value(&mut mask.source, source, source.name());
         }
-        ui.checkbox(&mut mask.invert, "invert").on_hover_text("Read the map the other way round: what was on the left is on the right.");
-        if mask.source == MaskSource::Coast {
-            ui.add(crate::debug::Slider::new(&mut mask.reach, 250.0..=16_000.0).logarithmic(true).text("reach (blocks)"))
-                .on_hover_text("How far from the coastline the curve's edges are: the left edge is this far out to sea, the right this far inland.");
-        }
-        let (left, right) = mask.source.ends();
-        let (left, right) = if mask.invert { (right, left) } else { (left, right) };
-        spline_box(ui, &format!("{name} mask"), &mut mask.curve, &Spline::default(), &format!("{left}  →  {right}"), &format!("how much {name} shows"));
     });
+    if mask.source == MaskSource::Everywhere {
+        ui.small(format!("Everywhere: {name} show the same all over. Pick a map to follow to fade them, with a curve."));
+        return;
+    }
+    ui.checkbox(&mut mask.invert, "invert").on_hover_text("Read the map the other way round: what was on the left is on the right.");
+    if mask.source == MaskSource::Coast {
+        ui.add(crate::debug::Slider::new(&mut mask.reach, 250.0..=16_000.0).logarithmic(true).text("reach from the coast (blocks)"))
+            .on_hover_text("How far from the coastline the curve's edges are: the left edge is this far out to sea, the right this far inland.");
+    }
+    let (left, right) = mask.source.ends();
+    let (left, right) = if mask.invert { (right, left) } else { (left, right) };
+    ui.label("The falloff: how much shows (up) along the map it follows (across).");
+    spline_box(ui, &format!("{name} mask"), &mut mask.curve, &Spline::default(), &format!("{left}  →  {right}"), &format!("how much {name} shows"));
 }
 
 fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spline, across: &str, up: &str) {
@@ -1333,8 +1339,8 @@ fn close_up_picture(frame: &lab::Frame, relief: f32) -> Vec<Color32> {
                 let [r, g, b] = BEYOND;
                 return Color32::from_rgb(r, g, b);
             }
-            // Land or sea as the world decides it, by the whole block (zoomed out the heights are
-            // smooth, and Z 127.6 is land in the world, not sea).
+            // Land or sea as the world decides it, by the whole block (the heights are whole blocks;
+            // rounding again keeps this right if they ever aren't: Z 127.6 is land in the world).
             let sea = SEA_LEVEL as f32;
             let colour = colour_at(if here.round() < sea { here.min(sea - 1.0) } else { here.max(sea) });
             if here.round() < sea {

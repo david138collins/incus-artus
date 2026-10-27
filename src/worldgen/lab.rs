@@ -173,8 +173,6 @@ fn close_up(map: &CompiledMap, request: Request, stop: &AtomicBool) -> Option<Fr
     let mut heights = vec![f32::NAN; cols * rows];
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
     let rows_each = rows.div_ceil(cores).max(1);
-    // Zoomed in close, the ground as whole blocks (as the world has it); further out, smooth.
-    let whole_blocks = request.step <= 2.0;
     std::thread::scope(|scope| {
         for (band, part) in heights.chunks_mut(rows_each * cols.max(1)).enumerate() {
             let request = &request;
@@ -187,7 +185,10 @@ fn close_up(map: &CompiledMap, request: Request, stop: &AtomicBool) -> Option<Fr
                     let north = request.north - (row as f32 + 0.5) * request.step;
                     let east = request.east + (col as f32 + 0.5) * request.step;
                     if let Some(z) = map.height(north, east) {
-                        *value = if whole_blocks { z.round() } else { z };
+                        // Whole blocks, as the world has them, at every zoom: drawn smooth further out,
+                        // zooming in one click lost the 1-block terrace lines the map shows (David,
+                        // 2026-10-27: "the detail goes *down* when i zoom in").
+                        *value = z.round();
                     }
                 }
             });
