@@ -592,7 +592,7 @@ Terrain Compiler · whole map, once:
 World Interpreter · every block, as
   the world is made (this panel):
   blend the maps to the block, then
-  curves · grade · raised coast · lift
+  curves · grade · edge rise · lift
   mountains · ridges · passes
   hills · torn coast · detail
       |
@@ -779,16 +779,20 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             "Each plate's tilt steepens its high side (land climbs faster, the sea drops off close in) and softens\nits low side (wide plains, shallow shelves). 0 = no grading. (Bakes made before tilt was saved can't grade.)",
         );
         ui.add_space(4.0);
-        ui.add(crate::debug::Slider::new(&mut s.coast_rise, 0.0..=80.0).text("raised coast (blocks)")).on_hover_text(
-            "On a plate's high side, the land stands up out of the sea at the coast: this high where the plate is tilted up\n\
-             by 1 (more where it's tilted further, none on its low side, which meets the sea at Z 128 as beaches).\n\
-             Cliffs and bluffs on the high side, beaches on the low. 0 = off.",
+        ui.add(crate::debug::Slider::new(&mut s.coast_rise, 0.0..=80.0).text("edge rise (blocks)")).on_hover_text(
+            "On a plate's high side, the land rises inland from the coast: this high where the plate is tilted up by 1\n\
+             (more where it's tilted further; none on its low side). With a wide rise width and a fall-back, a gentle\n\
+             hill following the plate's edge. 0 = off.",
         );
-        ui.add(crate::debug::Slider::new(&mut s.coast_edge_width, 1.0..=2_000.0).logarithmic(true).text("edge width (blocks)"))
-            .on_hover_text("How far inland the exposed edge reaches before the land is fully raised. Narrow = cliffs; wide = bluffs and slopes.");
-        ui.label("The exposed edge: from the waterline (left) to the edge width inland (right).");
-        spline_box(ui, "coast edge spline", &mut s.coast_edge, &defaults.coast_edge, "inland", "share of the raised coast");
-        ui.small("Start the curve high at the left for a sheer cliff face at the water; low, for a slope up from a beach.");
+        ui.add(crate::debug::Slider::new(&mut s.coast_edge_width, 1.0..=20_000.0).logarithmic(true).text("rise width (blocks)"))
+            .on_hover_text("How far inland from the coast it climbs to its full height. Narrow = a steep wall just inland; wide = a gentle rise.");
+        ui.label("The climb: from the coast (left) to the rise width inland (right).");
+        spline_box(ui, "coast edge spline", &mut s.coast_edge, &defaults.coast_edge, "inland", "share of the edge rise");
+        ui.add(crate::debug::Slider::new(&mut s.coast_fall_back, 0.0..=40_000.0).logarithmic(true).text("falls back over (blocks)")).on_hover_text(
+            "Past the rise width, how far further inland it eases back down to nothing: a hill along the plate's edge, with\n\
+             the interior and the highest ground left as they were. 0 = it stays up all the way inland (the plate's whole\n\
+             high side raised).",
+        );
     });
     fold_section(ui, "Lift", |ui| {
         ui.small(
@@ -900,7 +904,7 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let d = &defaults.torn_coast;
         ui.add(crate::debug::Slider::new(&mut t.amount, 0.0..=24.0).text("amount (blocks)")).on_hover_text(
             "How far the ground is pushed up and down at the coastline. Land a few blocks above the sea is torn by a little;\n\
-             higher ground (a raised coast, cliffs) needs more to reach the water. 0 = off.",
+             higher ground (an edge rise, cliffs) needs more to reach the water. 0 = off.",
         );
         ui.add(crate::debug::Slider::new(&mut t.inland, 0.0..=4_000.0).text("reach inland (blocks)"))
             .on_hover_text("How far in from the coast the band reaches (it fades out toward its edge): how far inland the ponds go.");
@@ -1298,7 +1302,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let m = &mut compiler.lab.mutes;
         ui.horizontal_wrapped(|ui| {
             for (name, muted, about) in [
-                ("raised coast", &mut m.raised_coast, "The land standing up out of the sea on a plate's high side (cliffs, bluffs)."),
+                ("edge rise", &mut m.raised_coast, "The land rising inland from the coast on a plate's high side."),
                 ("lift", &mut m.lift, "The lift: land raised toward the mountains, like a tablecloth draped over its points."),
                 ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges and passes)."),
                 ("foothills", &mut m.foothills, "The foothill skirts round each range (as compiled: switching ridges or passes off doesn't reshape them)."),

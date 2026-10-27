@@ -10,7 +10,7 @@
 //!     ▼  smooth maps (coast, height, tilt, squeeze and its direction, skirt)
 //! World Interpreter — at every block, as chunks are made (this file):
 //!     blend the maps smoothly to this spot, then:
-//!     land & sea curves · grading · raised coast · mountains · ridges · passes · hills
+//!     land & sea curves · grading · edge rise · mountains · ridges · passes · hills
 //!     · torn coast · detail
 //!     │
 //!     ▼
@@ -34,8 +34,9 @@
 //! 2. **Land and sea curves:** land climbs from the coast (Z 128) to the **highlands**, the sea floor
 //!    falls to the **deepest**, along curves through dots (`Spline`).
 //! 3. **Grade:** each plate's tilt steepens its high side and softens its low side.
-//!    **Raised coast:** on a plate's high side the land stands up out of the sea (cliffs, bluffs),
-//!    its exposed edge shaped by a curve; on the low side it meets the sea at Z 128 (beaches).
+//!    **Edge rise:** on a plate's high side the land rises inland from the coast, along a curve over
+//!    the rise width, and can ease back down past it (a hill following the plate's edge).
+//!    On the low side, the land meets the sea at Z 128 (beaches).
 //! 4. **Mountains** from the squeeze: the **mountain curve** says how tall for how much squeeze, as a
 //!    share of the room up to Z 333; carved into **ridges** across the squeeze direction, whose
 //!    crests dip into **passes**; never below the compiler's **foothill skirt**.
@@ -181,13 +182,19 @@ pub struct InterpreterSettings {
     pub sea: Spline,
     /// How strongly each plate's tilt grades it (0 = no grading).
     pub grade: f32,
-    /// The raised coast: how high (blocks) the land stands out of the sea at the coast where a plate
-    /// is tilted up by 1 (more where it's tilted up further; none on its low side; 0 = off).
+    /// The edge rise (was "raised coast"): on a plate's high side, the land rises inland from the
+    /// coast, by this much (blocks) where the plate is tilted up by 1 (more where it's tilted
+    /// further; none on its low side; 0 = off). [It was meant as cliffs at the waterline, but the
+    /// rise starts from the shore and climbs inland: David liked it as a gentle hill following the
+    /// plates' edges, 2026-10-27.]
     pub coast_rise: f32,
-    /// How far inland (blocks) the exposed edge reaches before the land is fully raised, and its
-    /// shape: from the waterline (left) to that far in (right); up = the share of the rise.
+    /// How far inland (blocks) it climbs, and how: from the coast (left) to that far in (right);
+    /// up = the share of the rise.
     pub coast_edge_width: f32,
     pub coast_edge: Spline,
+    /// Past the rise width, how far inland (blocks) the rise eases back down to nothing, making a
+    /// hill along the edge (0 = it stays up all the way inland: the plate's whole high side raised).
+    pub coast_fall_back: f32,
     /// The lift: land raised toward the mountains, like a tablecloth draped over points floating
     /// above them, its edges tapering off just before the coast.
     pub lift: Lift,
@@ -250,6 +257,7 @@ impl Default for InterpreterSettings {
             coast_rise: 0.0,
             coast_edge_width: 64.0,
             coast_edge: Spline::through(&[(0.0, 0.0), (0.35, 0.75), (1.0, 1.0)]),
+            coast_fall_back: 0.0,
             lift: Lift::default(),
             mountains: Spline::through(&[(0.0, 0.0), (0.08, 0.0), (0.5, 0.35), (1.0, 0.9)]),
             ridges: 0.5,
@@ -861,15 +869,19 @@ impl CompiledMap {
         lift.height * self.lift.at(near).clamp(0.0, 1.0) * pad
     }
 
-    /// How much the raised coast lifts the land at a spot (blocks; none at sea or on a plate's low
-    /// side): the rise for the plate's tilt there, shaped by the edge curve over the edge width.
+    /// How much the edge rise lifts the land at a spot (blocks; none at sea or on a plate's low
+    /// side): the rise for the plate's tilt there, shaped by its curve over the rise width, then
+    /// easing back down over the fall-back distance (if there is one).
     pub fn raised_coast(&self, here: &Here) -> f32 {
         let s = &self.settings;
         if s.coast_rise <= 0.0 || here.coast < 0.0 || here.tilt <= 0.0 || self.mutes.raised_coast {
             return 0.0;
         }
-        let across = (here.coast_distance / s.coast_edge_width.max(1.0)).clamp(0.0, 1.0);
-        s.coast_rise * here.tilt * self.coast_edge.at(across).clamp(0.0, 1.0)
+        let width = s.coast_edge_width.max(1.0);
+        let across = (here.coast_distance / width).clamp(0.0, 1.0);
+        let past = here.coast_distance - width;
+        let falling = if s.coast_fall_back > 0.0 && past > 0.0 { 1.0 - smooth(past / s.coast_fall_back) } else { 1.0 };
+        s.coast_rise * here.tilt * self.coast_edge.at(across).clamp(0.0, 1.0) * falling
     }
 
     /// How far the torn coast pushes the ground at a spot (blocks, up or down): its pattern, faded
@@ -1127,6 +1139,24 @@ mod tests {
         // Switched off in the lab, it's gone.
         let muted = torn.with(torn.settings.clone(), Mutes { torn_coast: true, ..Mutes::default() });
         assert_eq!(muted.height(10.0, -20.0), plain.height(10.0, -20.0));
+    }
+
+    #[test]
+    fn an_edge_rise_with_a_fall_back_is_a_hill_along_the_edge() {
+        let mut map = low_coast();
+        let width = map.maps.width;
+        Arc::make_mut(&mut map.maps).tilt = vec![1.0; width * width];
+        let straight = Spline::through(&[(0.0, 0.0), (1.0, 1.0)]);
+        let hill = map.with(
+            InterpreterSettings { coast_rise: 30.0, coast_edge_width: 64.0, coast_edge: straight, coast_fall_back: 128.0, ..map.settings.clone() },
+            Mutes::default(),
+        );
+        // Blocks inland from the coast (it runs north–south at east 0, land to the west).
+        let rise = |inland: f32| hill.height(0.0, -inland).unwrap() - map.height(0.0, -inland).unwrap();
+        // Up from the coast to its height, then easing back down, and gone past the fall-back.
+        assert!(rise(20.0) > 1.0 && rise(20.0) < rise(64.0));
+        assert!(rise(150.0) > 1.0 && rise(150.0) < rise(64.0) - 1.0);
+        assert!(rise(400.0).abs() < 0.01, "{}", rise(400.0));
     }
 
     #[test]

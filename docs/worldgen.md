@@ -223,6 +223,14 @@ Interpreter (every block, as the world is made): blend the maps to the block, th
     at tilt 1, more where tilted further, none on the low side), across an edge width, shaped by the
     edge curve (start it high for a sheer face at the water; low for a slope up from a beach). The
     coastline itself doesn't move. Off by default (0).
+    **Became the edge rise** [2026-10-27]: in use it climbed inland from the shore (a wall set back
+    from the coast with a narrow width) and then held the plate's whole high side raised, reaching
+    its highest points. David liked what it does with a wide width: "a sort of continuous and gentle
+    but noticeable hill that follows the plates' edges". So it was renamed (edge rise, rise width)
+    and given **falls back over**: past the rise width, it eases back down to nothing over that far
+    inland, making a hill along the edge and leaving the interior alone (0 = held up, as before).
+    It follows the compiler's coastline, so where it starts can sit up to ~16 blocks off the final
+    shore the torn coast makes. Cliffs at the waterline could be a control of their own later.
   - **Hills:** David is setting them to 0 while the coast is reworked; their future (perhaps the
     scalloped climbs toward the mountains he wants, so a peak can be seen over the ground in front)
     is the next question.
