@@ -26,14 +26,13 @@ use super::plates::Plates;
 use crate::fate::planet_hash;
 use serde::{Deserialize, Serialize};
 
+/// How one kind of plate moves: land plates have one, ocean plates another [David, 2026-10-27].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct MotionSettings {
+pub struct Drift {
     /// Each plate's speed is picked between these, in blocks per step.
     pub slowest: f32,
     pub fastest: f32,
-    /// Ocean plates' speed is multiplied by this (real ones are often faster).
-    pub ocean_speed: f32,
     /// The fastest spin either way, in degrees per step.
     pub spin: f32,
     /// How much the directions lean toward the middle of the world: 0 = any way at all, 1 = all
@@ -41,9 +40,54 @@ pub struct MotionSettings {
     pub inward: f32,
 }
 
-impl Default for MotionSettings {
+impl Default for Drift {
     fn default() -> Self {
-        Self { slowest: 20.0, fastest: 60.0, ocean_speed: 1.0, spin: 0.1, inward: 0.3 }
+        Self { slowest: 20.0, fastest: 60.0, spin: 0.1, inward: 0.3 }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(default, from = "MotionSettingsFile")]
+pub struct MotionSettings {
+    pub land: Drift,
+    pub ocean: Drift,
+}
+
+impl MotionSettings {
+    /// Land plates' motion settings, or ocean plates'.
+    pub fn drift(&self, land: bool) -> &Drift {
+        if land { &self.land } else { &self.ocean }
+    }
+}
+
+/// How motion settings are read from a file: as they are now, or as they were before land and ocean
+/// were separated (one set for both, ocean speeds times "ocean plates' speed ×").
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct MotionSettingsFile {
+    land: Option<Drift>,
+    ocean: Option<Drift>,
+    slowest: Option<f32>,
+    fastest: Option<f32>,
+    ocean_speed: Option<f32>,
+    spin: Option<f32>,
+    inward: Option<f32>,
+}
+
+impl From<MotionSettingsFile> for MotionSettings {
+    fn from(file: MotionSettingsFile) -> Self {
+        let default = Drift::default();
+        let old = Drift {
+            slowest: file.slowest.unwrap_or(default.slowest),
+            fastest: file.fastest.unwrap_or(default.fastest),
+            spin: file.spin.unwrap_or(default.spin),
+            inward: file.inward.unwrap_or(default.inward),
+        };
+        let times = file.ocean_speed.unwrap_or(1.0);
+        Self {
+            ocean: file.ocean.unwrap_or_else(|| Drift { slowest: old.slowest * times, fastest: old.fastest * times, ..old.clone() }),
+            land: file.land.unwrap_or(old),
+        }
     }
 }
 
@@ -89,6 +133,7 @@ pub fn motions(settings: &MotionSettings, seed: u64, plates: &Plates) -> Vec<Mot
         .iter()
         .enumerate()
         .map(|(p, plate)| {
+            let settings = settings.drift(plate.land);
             let angle = unit(seed, p, 0) * std::f32::consts::TAU;
             let random = (angle.cos(), angle.sin());
             // Lean toward the middle (not at all for a plate sitting right on it).
@@ -101,10 +146,7 @@ pub fn motions(settings: &MotionSettings, seed: u64, plates: &Plates) -> Vec<Mot
             let direction = if length > 1e-3 { (dx / length, dy / length) } else { inward };
 
             let (slowest, fastest) = (settings.slowest.min(settings.fastest), settings.slowest.max(settings.fastest));
-            let mut speed = slowest + unit(seed, p, 1) * (fastest - slowest);
-            if !plate.land {
-                speed *= settings.ocean_speed;
-            }
+            let speed = slowest + unit(seed, p, 1) * (fastest - slowest);
             let spin = (unit(seed, p, 2) * 2.0 - 1.0) * settings.spin.to_radians();
             Motion { velocity: (direction.0 * speed, direction.1 * speed), spin }
         })
@@ -236,17 +278,18 @@ mod tests {
     #[test]
     fn motions_follow_the_settings_and_the_seed() {
         let made = plates::make(&PlateSettings::default(), 5, 72_000.0, 256.0, &AtomicBool::new(false)).unwrap();
-        let settings = MotionSettings { ocean_speed: 1.0, ..MotionSettings::default() };
+        let settings = MotionSettings::default();
         let first = motions(&settings, 1, &made);
         assert_eq!(first.len(), made.kept.len());
         assert_eq!(first, motions(&settings, 1, &made), "same seed, same motions");
         assert_ne!(first, motions(&settings, 2, &made));
         for motion in &first {
-            assert!((settings.slowest - 0.01..=settings.fastest + 0.01).contains(&motion.speed()));
-            assert!(motion.spin.abs() <= settings.spin.to_radians());
+            assert!((settings.land.slowest - 0.01..=settings.land.fastest + 0.01).contains(&motion.speed()));
+            assert!(motion.spin.abs() <= settings.land.spin.to_radians());
         }
         // All the way inward: every plate heads at the middle.
-        let inward = motions(&MotionSettings { inward: 1.0, ..settings }, 1, &made);
+        let drift = Drift { inward: 1.0, ..Drift::default() };
+        let inward = motions(&MotionSettings { land: drift.clone(), ocean: drift }, 1, &made);
         let centre = made.width as f32 / 2.0;
         for (motion, plate) in inward.iter().zip(&made.kept) {
             let (ix, iy) = (centre - plate.middle.0, centre - plate.middle.1);

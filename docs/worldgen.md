@@ -136,6 +136,16 @@ pushed down **darker**.
      runs (a weld between two plates is halfway between their stiffnesses). Possible later: friction and
      push back (between two plates: their average), and blending values across a strip at plate borders
      if big spreads leave steps there;
+     **Land and ocean plates separated** [David, 2026-10-27]: two sections above The simulation, **Land
+     plates** and **Ocean plates**, each with its own motion (slowest, fastest, spin, lean toward the
+     middle), heights (base height, tilt, blend, terrain noise amount, sunken edges, squeeze lift) and
+     rock (patchiness, stiffness, give way, creep, drag, weight, how thick rock can get), spreads
+     included. Shared and staying where they were: the terrain noise's size, detail and roughness and
+     the water level (Heights and water); grain, patch size, passes, push back, friction, stickiness and
+     the bowl (The simulation). Where land and ocean rock weld, the weld is halfway between their
+     stiffness, give way and creep. Presets and bakes from before read as both kinds having the old
+     values; "ocean plates' speed ×" and "ocean rock's weight ×" become the ocean's own speeds and
+     weight;
   4. subduction, rifts and new ocean floor (the V-shaped valleys);
   5. bake the result into a height map. **[BUILT 2026-10-24]**, see "The Tectonic Sim's product" below.
 

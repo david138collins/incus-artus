@@ -26,19 +26,14 @@ use super::noise::PerlinSettings;
 use super::plates::{self, Plates};
 use serde::{Deserialize, Serialize};
 
+/// One kind of plate's ground: land plates have one, ocean plates another [David, 2026-10-27].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct HeightSettings {
-    /// Base heights of land plates and ocean plates (0 = the usual sea level).
-    pub land: f32,
-    pub ocean: f32,
-    /// How high and low the terrain noise goes either way.
+pub struct Ground {
+    /// Where these plates sit (0 = the usual sea level).
+    pub base: f32,
+    /// How high and low the terrain noise goes either way on them.
     pub terrain: f32,
-    /// The size of its biggest features, in blocks.
-    pub terrain_size: f32,
-    /// Finer, fainter layers on top, and how strong each is compared with the one before.
-    pub octaves: u32,
-    pub roughness: f32,
     /// The most a plate tips: how far its highest edge rises (and its lowest sinks), roughly.
     /// Each plate tips a random direction, by a random share of this.
     pub tilt: f32,
@@ -50,37 +45,28 @@ pub struct HeightSettings {
     pub shelf_depth: f32,
     /// How much height squeezing adds: rock twice as thick rises by this much.
     pub squeeze: f32,
-    /// The water level: below it is sea.
-    pub water: f32,
 
-    /// Spread per plate [David]: each plate's own value scattered around the slider's. Base
-    /// heights move up or down by up to this much; the others are multiplied (1 = between half
+    /// Spread per plate [David]: each plate's own value scattered around the slider's. The base
+    /// height moves up or down by up to this much; the others are multiplied (1 = between half
     /// and twice; see `plates::spread_by`). 0 = every plate the same.
-    pub land_spread: f32,
-    pub ocean_spread: f32,
+    pub base_spread: f32,
     pub terrain_spread: f32,
     pub shelf_width_spread: f32,
     pub shelf_depth_spread: f32,
     pub squeeze_spread: f32,
 }
 
-impl Default for HeightSettings {
+impl Default for Ground {
     fn default() -> Self {
         Self {
-            land: 0.05,
-            ocean: -0.6,
+            base: 0.05,
             terrain: 0.8,
-            terrain_size: 15_000.0,
-            octaves: 5,
-            roughness: 0.5,
             tilt: 0.8,
             blend: 0.7,
             shelf_width: 2_500.0,
             shelf_depth: 0.2,
             squeeze: 0.6,
-            water: 0.0,
-            land_spread: 0.0,
-            ocean_spread: 0.0,
+            base_spread: 0.0,
             terrain_spread: 0.0,
             shelf_width_spread: 0.0,
             shelf_depth_spread: 0.0,
@@ -89,58 +75,168 @@ impl Default for HeightSettings {
     }
 }
 
-impl HeightSettings {
-    /// The settings the terrain is worked out from (not the squeeze or the water level, which
-    /// are applied as it's drawn).
-    pub fn shaping(&self) -> [u32; 15] {
+impl Ground {
+    /// The settings the terrain is worked out from (not the squeeze, applied as it's drawn).
+    fn shaping(&self) -> [u32; 10] {
         [
-            self.land.to_bits(),
-            self.ocean.to_bits(),
+            self.base.to_bits(),
             self.terrain.to_bits(),
-            self.terrain_size.to_bits(),
-            self.octaves,
-            self.roughness.to_bits(),
             self.tilt.to_bits(),
             self.blend.to_bits(),
             self.shelf_width.to_bits(),
             self.shelf_depth.to_bits(),
-            self.land_spread.to_bits(),
-            self.ocean_spread.to_bits(),
+            self.base_spread.to_bits(),
             self.terrain_spread.to_bits(),
             self.shelf_width_spread.to_bits(),
             self.shelf_depth_spread.to_bits(),
         ]
     }
+}
 
-    /// Plate `plate`'s own settings, with the spreads applied. `seed` is the terrain's seed.
-    pub fn for_plate(&self, plate: usize, seed: u64) -> PlateHeights {
-        let random = |which: i64| plates::plate_random(crate::fate::derive_seed(seed, "spread"), plate, which);
-        PlateHeights {
-            land: self.land + self.land_spread * random(0),
-            ocean: self.ocean + self.ocean_spread * random(1),
-            terrain: plates::spread_by(self.terrain, self.terrain_spread, random(2)),
-            shelf_width: plates::spread_by(self.shelf_width, self.shelf_width_spread, random(3)),
-            shelf_depth: plates::spread_by(self.shelf_depth, self.shelf_depth_spread, random(4)),
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, from = "HeightSettingsFile")]
+pub struct HeightSettings {
+    /// Each kind of plate's ground.
+    pub land: Ground,
+    pub ocean: Ground,
+    /// The terrain noise is one for the whole world: the size of its biggest features, in blocks;
+    /// finer, fainter layers on top, and how strong each is compared with the one before.
+    pub terrain_size: f32,
+    pub octaves: u32,
+    pub roughness: f32,
+    /// The water level: below it is sea.
+    pub water: f32,
+}
 
-    /// How much squeezing lifts rock on plate `plate` (the squeeze, spread). `seed` is the
-    /// terrain's seed. (Asked for every pixel as the map is drawn, so it works out only this.)
-    pub fn squeeze_on(&self, plate: u8, seed: u64) -> f32 {
-        if self.squeeze_spread == 0.0 {
-            return self.squeeze;
+impl Default for HeightSettings {
+    fn default() -> Self {
+        Self {
+            land: Ground::default(),
+            ocean: Ground { base: -0.6, ..Ground::default() },
+            terrain_size: 15_000.0,
+            octaves: 5,
+            roughness: 0.5,
+            water: 0.0,
         }
-        plates::spread_by(self.squeeze, self.squeeze_spread, plates::plate_random(crate::fate::derive_seed(seed, "spread"), plate as usize, 5))
     }
 }
 
-/// One plate's own height settings, after the spreads. (Its squeeze: `squeeze_on`.)
+impl HeightSettings {
+    /// The settings the terrain is worked out from (not the squeeze or the water level, which
+    /// are applied as it's drawn).
+    pub fn shaping(&self) -> Vec<u32> {
+        let mut all = vec![self.terrain_size.to_bits(), self.octaves, self.roughness.to_bits()];
+        all.extend(self.land.shaping());
+        all.extend(self.ocean.shaping());
+        all
+    }
+
+    /// Land plates' ground, or ocean plates'.
+    pub fn ground(&self, land: bool) -> &Ground {
+        if land { &self.land } else { &self.ocean }
+    }
+
+    /// Plate `plate`'s own settings, with the spreads applied. `seed` is the terrain's seed.
+    pub fn for_plate(&self, plate: usize, land: bool, seed: u64) -> PlateHeights {
+        let random = |which: i64| plates::plate_random(crate::fate::derive_seed(seed, "spread"), plate, which);
+        let ground = self.ground(land);
+        PlateHeights {
+            base: ground.base + ground.base_spread * random(if land { 0 } else { 1 }),
+            terrain: plates::spread_by(ground.terrain, ground.terrain_spread, random(2)),
+            blend: ground.blend.clamp(0.0, 1.0),
+            shelf_width: plates::spread_by(ground.shelf_width, ground.shelf_width_spread, random(3)),
+            shelf_depth: plates::spread_by(ground.shelf_depth, ground.shelf_depth_spread, random(4)),
+        }
+    }
+
+    /// How much squeezing lifts rock on plate `plate` (its kind's squeeze, spread). `seed` is the
+    /// terrain's seed. (Asked for every pixel as the map is drawn, so it works out only this.)
+    pub fn squeeze_on(&self, plate: u8, land: bool, seed: u64) -> f32 {
+        let ground = self.ground(land);
+        if ground.squeeze_spread == 0.0 {
+            return ground.squeeze;
+        }
+        plates::spread_by(ground.squeeze, ground.squeeze_spread, plates::plate_random(crate::fate::derive_seed(seed, "spread"), plate as usize, 5))
+    }
+}
+
+/// One plate's own height settings, after the spreads. (Its squeeze: `squeeze_on`; its tilt:
+/// `tilts`.)
 pub struct PlateHeights {
-    pub land: f32,
-    pub ocean: f32,
+    pub base: f32,
     pub terrain: f32,
+    pub blend: f32,
     pub shelf_width: f32,
     pub shelf_depth: f32,
+}
+
+/// How height settings are read from a file: as they are now, or as they were before land and
+/// ocean were separated (one set for both, and a base height each), when both kinds get the old
+/// set.
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct HeightSettingsFile {
+    land: Option<OldOrNew>,
+    ocean: Option<OldOrNew>,
+    terrain_size: Option<f32>,
+    octaves: Option<u32>,
+    roughness: Option<f32>,
+    water: Option<f32>,
+    // Before the separation.
+    terrain: Option<f32>,
+    tilt: Option<f32>,
+    blend: Option<f32>,
+    shelf_width: Option<f32>,
+    shelf_depth: Option<f32>,
+    squeeze: Option<f32>,
+    land_spread: Option<f32>,
+    ocean_spread: Option<f32>,
+    terrain_spread: Option<f32>,
+    shelf_width_spread: Option<f32>,
+    shelf_depth_spread: Option<f32>,
+    squeeze_spread: Option<f32>,
+}
+
+/// `land` and `ocean` were base heights; now they're each a whole kind's ground.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum OldOrNew {
+    Old(f32),
+    New(Ground),
+}
+
+impl From<HeightSettingsFile> for HeightSettings {
+    fn from(file: HeightSettingsFile) -> Self {
+        let now = HeightSettings::default();
+        let kind = |read: Option<OldOrNew>, default: &Ground, base_spread: Option<f32>| match read {
+            Some(OldOrNew::New(ground)) => ground,
+            old => Ground {
+                base: match old {
+                    Some(OldOrNew::Old(base)) => base,
+                    _ => default.base,
+                },
+                terrain: file.terrain.unwrap_or(default.terrain),
+                tilt: file.tilt.unwrap_or(default.tilt),
+                blend: file.blend.unwrap_or(default.blend),
+                shelf_width: file.shelf_width.unwrap_or(default.shelf_width),
+                shelf_depth: file.shelf_depth.unwrap_or(default.shelf_depth),
+                squeeze: file.squeeze.unwrap_or(default.squeeze),
+                base_spread: base_spread.unwrap_or(default.base_spread),
+                terrain_spread: file.terrain_spread.unwrap_or(default.terrain_spread),
+                shelf_width_spread: file.shelf_width_spread.unwrap_or(default.shelf_width_spread),
+                shelf_depth_spread: file.shelf_depth_spread.unwrap_or(default.shelf_depth_spread),
+                squeeze_spread: file.squeeze_spread.unwrap_or(default.squeeze_spread),
+            },
+        };
+        Self {
+            land: kind(file.land, &now.land, file.land_spread),
+            ocean: kind(file.ocean, &now.ocean, file.ocean_spread),
+            terrain_size: file.terrain_size.unwrap_or(now.terrain_size),
+            octaves: file.octaves.unwrap_or(now.octaves),
+            roughness: file.roughness.unwrap_or(now.roughness),
+            water: file.water.unwrap_or(now.water),
+        }
+    }
 }
 
 /// One plate's tilt: which way its rising side faces (a unit direction, in field pixels), how far
@@ -162,7 +258,7 @@ fn tilts(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<Tilt> {
             let angle = random(p, 0) * std::f32::consts::TAU;
             Tilt {
                 toward: (angle.cos(), angle.sin()),
-                rise: settings.tilt * (0.33 + 0.67 * random(p, 1)),
+                rise: settings.ground(plate.land).tilt * (0.33 + 0.67 * random(p, 1)),
                 radius: (plate.pixels as f32 / std::f32::consts::PI).sqrt().max(1.0),
             }
         })
@@ -244,7 +340,8 @@ fn edge_distance(plates: &Plates) -> Vec<f32> {
 /// the most tilt). The same tilts as `terrain` uses (given the same seed), without the "most
 /// tilt" or the blend, so the Terrain Compiler can grade land with it. 0 off the plates.
 pub fn tilt_field(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32> {
-    let unit = HeightSettings { tilt: 1.0, ..settings.clone() };
+    let mut unit = settings.clone();
+    (unit.land.tilt, unit.ocean.tilt) = (1.0, 1.0);
     let tilts = tilts(plates, &unit, crate::fate::derive_seed(seed, "tilt"));
     let width = plates.width;
     (0..width * width)
@@ -265,10 +362,9 @@ pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32
     let blocks = plates.blocks_per_pixel;
     let edges = edge_distance(plates);
     let noise = PerlinSettings { scale: settings.terrain_size, octaves: settings.octaves, persistence: settings.roughness, ..PerlinSettings::default() };
-    let own: Vec<PlateHeights> = (0..plates.kept.len()).map(|p| settings.for_plate(p, seed)).collect();
+    let own: Vec<PlateHeights> = plates.kept.iter().enumerate().map(|(p, plate)| settings.for_plate(p, plate.land, seed)).collect();
     let tilts = tilts(plates, settings, crate::fate::derive_seed(seed, "tilt"));
-    let blend = settings.blend.clamp(0.0, 1.0);
-    let mut heights = vec![settings.ocean; width * width];
+    let mut heights = vec![settings.ocean.base; width * width];
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
     let rows_each = width.div_ceil(cores).max(1);
     std::thread::scope(|scope| {
@@ -280,7 +376,7 @@ pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32
                     let Some(p) = plates.plate[i] else { continue };
                     let plate = &plates.kept[p as usize];
                     let mine = &own[p as usize];
-                    let base = if plate.land { mine.land } else { mine.ocean };
+                    let base = mine.base;
                     let (x, y) = ((i % width) as f32 + 0.5, (i / width) as f32 + 0.5);
                     let rolling = noise.raw(seed, y * blocks, x * blocks) * mine.terrain;
                     // Tipped: up on the side the tilt faces, down on the other, nothing at the
@@ -288,7 +384,7 @@ pub fn terrain(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32
                     let tilt = &tilts[p as usize];
                     let across = ((x - plate.middle.0) * tilt.toward.0 + (y - plate.middle.1) * tilt.toward.1) / tilt.radius;
                     let tipped = tilt.rise * across.clamp(-1.5, 1.5);
-                    let shape = tipped * (1.0 - blend) + rolling * blend;
+                    let shape = tipped * (1.0 - mine.blend) + rolling * mine.blend;
                     // Sinking toward the edge: smoothly from nothing at the shelf's width in, to
                     // the full depth at the edge.
                     let shelf = (mine.shelf_width / blocks).max(1e-3);
@@ -310,6 +406,47 @@ mod tests {
 
     fn made() -> Plates {
         plates::make(&PlateSettings::default(), 7, 72_000.0, 256.0, &AtomicBool::new(false)).unwrap()
+    }
+
+    /// The defaults with the same change made to both kinds' ground.
+    fn both(change: impl Fn(&mut Ground)) -> HeightSettings {
+        let mut settings = HeightSettings::default();
+        change(&mut settings.land);
+        change(&mut settings.ocean);
+        settings
+    }
+
+    #[test]
+    fn land_settings_change_only_land_plates() {
+        let made = made();
+        let before = terrain(&made, &HeightSettings::default(), 3);
+        let mut changed = HeightSettings::default();
+        (changed.land.base, changed.land.terrain, changed.land.shelf_depth) = (0.5, 0.2, 0.6);
+        let after = terrain(&made, &changed, 3);
+        for i in 0..before.len() {
+            match made.plate[i].map(|p| made.kept[p as usize].land) {
+                Some(true) => {}
+                _ => assert_eq!(before[i], after[i], "pixel {i}, not on a land plate, changed"),
+            }
+        }
+        assert!(before.iter().zip(&after).any(|(a, b)| a != b));
+    }
+
+    #[test]
+    fn settings_saved_before_the_split_read_as_both_kinds() {
+        // As a preset saved them before land and ocean were separated.
+        let old = "land = 0.1\nocean = -0.9\nterrain = 0.4\ntilt = 1.2\nsqueeze = 2.0\nland_spread = 0.3\nterrain_size = 9000.0\nwater = 0.05\n";
+        let read: HeightSettings = toml::from_str(old).unwrap();
+        assert_eq!((read.land.base, read.ocean.base, read.land.base_spread, read.ocean.base_spread), (0.1, -0.9, 0.3, 0.0));
+        for ground in [&read.land, &read.ocean] {
+            assert_eq!((ground.terrain, ground.tilt, ground.squeeze), (0.4, 1.2, 2.0));
+            assert_eq!(ground.shelf_width, Ground::default().shelf_width);
+        }
+        assert_eq!((read.terrain_size, read.water), (9000.0, 0.05));
+        // And as they're saved now, read back exactly.
+        let now = toml::to_string(&read).unwrap();
+        assert_eq!(toml::from_str::<HeightSettings>(&now).unwrap(), read);
+        assert_eq!(toml::from_str::<HeightSettings>("").unwrap(), HeightSettings::default());
     }
 
     #[test]
@@ -343,7 +480,7 @@ mod tests {
     #[test]
     fn a_tilted_plate_rises_on_one_side_and_sinks_on_the_other() {
         let made = made();
-        let settings = HeightSettings { blend: 0.0, shelf_depth: 0.0, ..HeightSettings::default() };
+        let settings = both(|g| (g.blend, g.shelf_depth) = (0.0, 0.0));
         let heights = terrain(&made, &settings, 3);
         let tilt = &tilts(&made, &settings, crate::fate::derive_seed(3, "tilt"))[0];
         let plate = &made.kept[0];
@@ -355,36 +492,39 @@ mod tests {
         let middle = heights[plate.middle.1 as usize * made.width + plate.middle.0 as usize];
         assert!(at(1.0) > middle && middle > at(-1.0), "uphill {}, middle {middle}, downhill {}", at(1.0), at(-1.0));
         // Only noise: no tilt at all.
-        let flat = terrain(&made, &HeightSettings { blend: 1.0, terrain: 0.0, shelf_depth: 0.0, ..HeightSettings::default() }, 3);
-        assert_eq!(flat[plate.middle.1 as usize * made.width + plate.middle.0 as usize], settings.land);
+        let flat = terrain(&made, &both(|g| (g.blend, g.terrain, g.shelf_depth) = (1.0, 0.0, 0.0)), 3);
+        assert_eq!(flat[plate.middle.1 as usize * made.width + plate.middle.0 as usize], settings.land.base);
     }
 
     #[test]
     fn a_spread_makes_plates_differ_and_none_leaves_them_alike() {
         let made = made();
         // Flat plates: only the base height, so each plate's middle shows its own.
-        let flat = HeightSettings { terrain: 0.0, tilt: 0.0, shelf_depth: 0.0, ..HeightSettings::default() };
+        let flat = both(|g| (g.terrain, g.tilt, g.shelf_depth) = (0.0, 0.0, 0.0));
         let middles = |settings: &HeightSettings| {
             let heights = terrain(&made, settings, 3);
             made.kept.iter().filter(|plate| plate.land).map(|plate| heights[plate.middle.1 as usize * made.width + plate.middle.0 as usize]).collect::<Vec<f32>>()
         };
-        assert!(middles(&flat).iter().all(|&h| h == flat.land));
-        let spread = middles(&HeightSettings { land_spread: 0.5, ..flat.clone() });
+        assert!(middles(&flat).iter().all(|&h| h == flat.land.base));
+        let mut spread = flat.clone();
+        spread.land.base_spread = 0.5;
+        let spread = middles(&spread);
         let (low, high) = spread.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &h| (lo.min(h), hi.max(h)));
         assert!(high - low > 0.2, "land plates from {low} to {high}");
-        assert!(spread.iter().all(|&h| (h - flat.land).abs() <= 0.5));
+        assert!(spread.iter().all(|&h| (h - flat.land.base).abs() <= 0.5));
         // The squeeze: the slider's own at no spread, each plate's own with one, within half to twice.
-        assert_eq!(flat.squeeze_on(0, 3), flat.squeeze);
-        let squeezed = HeightSettings { squeeze_spread: 1.0, ..flat.clone() };
-        let lifts: Vec<f32> = (0..made.kept.len() as u8).map(|p| squeezed.squeeze_on(p, 3)).collect();
-        assert!(lifts.iter().all(|&s| (flat.squeeze * 0.5..=flat.squeeze * 2.0).contains(&s)));
+        assert_eq!(flat.squeeze_on(0, true, 3), flat.land.squeeze);
+        let mut squeezed = flat.clone();
+        squeezed.land.squeeze_spread = 1.0;
+        let lifts: Vec<f32> = (0..made.kept.len() as u8).map(|p| squeezed.squeeze_on(p, true, 3)).collect();
+        assert!(lifts.iter().all(|&s| (flat.land.squeeze * 0.5..=flat.land.squeeze * 2.0).contains(&s)));
         assert!(lifts.iter().any(|&s| s != lifts[0]));
     }
 
     #[test]
     fn sunken_edges_are_lower_than_middles() {
         let made = made();
-        let flat = HeightSettings { terrain: 0.0, shelf_depth: 0.3, ..HeightSettings::default() };
+        let flat = both(|g| (g.terrain, g.shelf_depth) = (0.0, 0.3));
         let heights = terrain(&made, &flat, 3);
         let distance = edge_distance(&made);
         let land = |i: usize| made.plate[i].is_some_and(|p| made.kept[p as usize].land);

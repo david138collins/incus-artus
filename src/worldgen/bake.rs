@@ -201,9 +201,9 @@ pub fn make(order: &Order, stop: &AtomicBool) -> Option<Maps> {
         }
     }
     let painted = sim.paint(order.smoothing, order.tear_open, order.seal_gaps / order.blocks_per_pixel, order.fill_holes / order.blocks_per_pixel);
-    let height_of = |spot: &Spot| terrain[spot.from as usize] + order.heights.squeeze_on(spot.plate, seeds.terrain) * spot.squeeze;
+    let height_of = |spot: &Spot| terrain[spot.from as usize] + order.heights.squeeze_on(spot.plate, made.kept[spot.plate as usize].land, seeds.terrain) * spot.squeeze;
     // Open sea (no plate) is as deep as the deepest plate rock.
-    let deepest = painted.iter().flatten().map(height_of).fold(order.heights.ocean, f32::min);
+    let deepest = painted.iter().flatten().map(height_of).fold(order.heights.ocean.base, f32::min);
     Some(Maps {
         width: made.width,
         height: painted.iter().map(|here| here.as_ref().map_or(deepest, height_of)).collect(),

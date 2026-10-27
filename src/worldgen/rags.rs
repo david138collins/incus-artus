@@ -44,48 +44,67 @@ use super::tectonics::Motion;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
+/// One kind of plate's rock: land plates have one, ocean plates another [David, 2026-10-27: "seperate
+/// the ocean plates and land plates completely"]. A spring or a point uses its own plate's; a weld
+/// between two plates, halfway between theirs.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct RagSettings {
-    // How the rags are made (changing these starts the run again).
-    /// Blocks between the points of a plate's grid. Smaller = finer wrinkles, slower.
-    pub grain: f32,
-    /// How much stiffness and strength vary from place to place (0 = all the same).
+pub struct Rock {
+    /// How much stiffness and strength vary from place to place (0 = all the same). Changing it
+    /// starts the run again.
     pub patchiness: f32,
-    /// How big the soft and stiff patches are, in blocks.
-    pub patch_size: f32,
-
-    // How they behave (can change while it runs).
     /// How firmly each spring pulls back, each pass (0 to 1).
     pub stiffness: f32,
-    /// Passes per step. More = the push travels further through a plate each step (stiffer,
-    /// slower to work out).
-    pub passes: u32,
     /// How far a spring can be squeezed or stretched before the rock gives way for good (0.02 =
     /// 2%).
     pub give_way: f32,
     /// How much of the stretch past give-way becomes permanent each step (0 to 1).
     pub creep: f32,
+    /// How much of its speed each point loses every step (0.01 = 1%).
+    pub drag: f32,
+    /// How heavy the rock is for its size (land's was always 1; ocean's was "ocean rock's weight ×").
+    pub weight: f32,
+    /// The most rock can thicken: crushed to 1 ÷ this of its area, it pushes back instead of
+    /// folding over itself.
+    pub thickest: f32,
+    /// Spread per plate [David]: each plate's stiffness and weight multiplied by its own random
+    /// amount (1 = between half and twice; see `plates::spread_by`). 0 = every plate the same.
+    pub stiffness_spread: f32,
+    pub weight_spread: f32,
+}
+
+impl Default for Rock {
+    fn default() -> Self {
+        Self { patchiness: 0.6, stiffness: 0.3, give_way: 0.02, creep: 0.3, drag: 0.01, weight: 1.0, thickest: 4.0, stiffness_spread: 0.0, weight_spread: 0.0 }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, from = "RagSettingsFile")]
+pub struct RagSettings {
+    // How the rags are made (changing these starts the run again).
+    /// Blocks between the points of a plate's grid. Smaller = finer wrinkles, slower.
+    pub grain: f32,
+    /// How big the soft and stiff patches are, in blocks.
+    pub patch_size: f32,
+
+    /// Each kind of plate's rock.
+    pub land: Rock,
+    pub ocean: Rock,
+
+    // How they behave (can change while it runs).
+    /// Passes per step. More = the push travels further through a plate each step (stiffer,
+    /// slower to work out).
+    pub passes: u32,
     /// Unused: rock no longer cracks (switched off 2026-10-27; kept so presets and bakes read as before).
     pub crack: f32,
     /// How firmly points of different plates are pushed apart, each pass (0 to 1).
     pub push: f32,
     /// How much plates touching each other drag each other along (0 to 1).
     pub friction: f32,
-    /// How much of its speed each point loses every step (0.01 = 1%).
-    pub drag: f32,
-    /// How heavy ocean rock is for its size, compared with land rock.
-    pub ocean_weight: f32,
-    /// Spread per plate [David]: each plate's stiffness and weight multiplied by its own random
-    /// amount (1 = between half and twice; see `plates::spread_by`). 0 = every plate the same.
-    pub stiffness_spread: f32,
-    pub weight_spread: f32,
     /// How strongly plates pressed together weld (0 = they never stick). Welds hold like the rock's
     /// own springs, and crack if pulled hard enough.
     pub stickiness: f32,
-    /// The most rock can thicken: crushed to 1 ÷ this of its area, it pushes back instead of
-    /// folding over itself.
-    pub thickest: f32,
     /// The bowl starts this far out (a share of the world's radius).
     pub bowl_start: f32,
     /// How hard the bowl pushes back, in blocks per step each step, at the world's edge.
@@ -96,21 +115,14 @@ impl Default for RagSettings {
     fn default() -> Self {
         Self {
             grain: 750.0,
-            patchiness: 0.6,
             patch_size: 8_000.0,
-            stiffness: 0.3,
+            land: Rock::default(),
+            ocean: Rock { weight: 0.4, ..Rock::default() },
             passes: 3,
-            give_way: 0.02,
-            creep: 0.3,
             crack: 0.4,
             push: 0.3,
             friction: 0.3,
-            drag: 0.01,
-            ocean_weight: 0.4,
-            stiffness_spread: 0.0,
-            weight_spread: 0.0,
             stickiness: 0.6,
-            thickest: 4.0,
             bowl_start: 0.8,
             bowl: 2.0,
         }
@@ -119,8 +131,99 @@ impl Default for RagSettings {
 
 impl RagSettings {
     /// The settings the rags are made with: when these change, the run starts again.
-    pub fn making(&self) -> [u32; 3] {
-        [self.grain.to_bits(), self.patchiness.to_bits(), self.patch_size.to_bits()]
+    pub fn making(&self) -> [u32; 4] {
+        [self.grain.to_bits(), self.land.patchiness.to_bits(), self.ocean.patchiness.to_bits(), self.patch_size.to_bits()]
+    }
+
+    /// Land plates' rock, or ocean plates'.
+    pub fn rock(&self, land: bool) -> &Rock {
+        if land { &self.land } else { &self.ocean }
+    }
+}
+
+/// How rock settings are read from a file: as they are now, or as they were before land and ocean
+/// were separated (one set for both, and "ocean rock's weight ×"), when both kinds get the old set.
+#[derive(Deserialize)]
+#[serde(default)]
+struct RagSettingsFile {
+    grain: f32,
+    patch_size: f32,
+    land: Option<Rock>,
+    ocean: Option<Rock>,
+    passes: u32,
+    crack: f32,
+    push: f32,
+    friction: f32,
+    stickiness: f32,
+    bowl_start: f32,
+    bowl: f32,
+    // Before the separation.
+    patchiness: Option<f32>,
+    stiffness: Option<f32>,
+    give_way: Option<f32>,
+    creep: Option<f32>,
+    drag: Option<f32>,
+    ocean_weight: Option<f32>,
+    thickest: Option<f32>,
+    stiffness_spread: Option<f32>,
+    weight_spread: Option<f32>,
+}
+
+impl Default for RagSettingsFile {
+    fn default() -> Self {
+        let now = RagSettings::default();
+        Self {
+            grain: now.grain,
+            patch_size: now.patch_size,
+            land: None,
+            ocean: None,
+            passes: now.passes,
+            crack: now.crack,
+            push: now.push,
+            friction: now.friction,
+            stickiness: now.stickiness,
+            bowl_start: now.bowl_start,
+            bowl: now.bowl,
+            patchiness: None,
+            stiffness: None,
+            give_way: None,
+            creep: None,
+            drag: None,
+            ocean_weight: None,
+            thickest: None,
+            stiffness_spread: None,
+            weight_spread: None,
+        }
+    }
+}
+
+impl From<RagSettingsFile> for RagSettings {
+    fn from(file: RagSettingsFile) -> Self {
+        let now = RagSettings::default();
+        let old = |default: &Rock, weight: f32| Rock {
+            patchiness: file.patchiness.unwrap_or(default.patchiness),
+            stiffness: file.stiffness.unwrap_or(default.stiffness),
+            give_way: file.give_way.unwrap_or(default.give_way),
+            creep: file.creep.unwrap_or(default.creep),
+            drag: file.drag.unwrap_or(default.drag),
+            weight,
+            thickest: file.thickest.unwrap_or(default.thickest),
+            stiffness_spread: file.stiffness_spread.unwrap_or(default.stiffness_spread),
+            weight_spread: file.weight_spread.unwrap_or(default.weight_spread),
+        };
+        Self {
+            grain: file.grain,
+            patch_size: file.patch_size,
+            land: file.land.clone().unwrap_or_else(|| old(&now.land, 1.0)),
+            ocean: file.ocean.clone().unwrap_or_else(|| old(&now.ocean, file.ocean_weight.unwrap_or(now.ocean.weight))),
+            passes: file.passes,
+            crack: file.crack,
+            push: file.push,
+            friction: file.friction,
+            stickiness: file.stickiness,
+            bowl_start: file.bowl_start,
+            bowl: file.bowl,
+        }
     }
 }
 
@@ -282,7 +385,7 @@ impl Sim {
             land.push(plates.kept[p as usize].land);
             real.push(on_it);
             let noise = perlin(seed, 0x5715_f0e5, Fade::Smooth, spot.0 / patch, spot.1 / patch) * 1.4;
-            strength.push((1.0 + settings.patchiness * noise).clamp(0.1, 2.0));
+            strength.push((1.0 + settings.rock(plates.kept[p as usize].land).patchiness * noise).clamp(0.1, 2.0));
         }
 
         // Springs to the neighbours on the same plate: across, down, and both diagonals.
@@ -345,13 +448,14 @@ impl Sim {
 
     /// How easily point `k` is moved (1 ÷ its weight).
     fn lightness(&self, k: usize, settings: &RagSettings) -> f32 {
-        let weight = if self.land[k] { 1.0 } else { settings.ocean_weight.max(0.01) };
-        1.0 / super::plates::spread_by(weight, settings.weight_spread, self.dice[self.plate[k] as usize][1])
+        let rock = settings.rock(self.land[k]);
+        1.0 / super::plates::spread_by(rock.weight.max(0.01), rock.weight_spread, self.dice[self.plate[k] as usize][1])
     }
 
-    /// How stiff plate `p`'s rock is (the stiffness, spread).
-    fn stiffness(&self, p: u8, settings: &RagSettings) -> f32 {
-        super::plates::spread_by(settings.stiffness.clamp(0.0, 1.0), settings.stiffness_spread, self.dice[p as usize][0])
+    /// How stiff point `k`'s rock is (its plate's stiffness, spread).
+    fn stiffness(&self, k: usize, settings: &RagSettings) -> f32 {
+        let rock = settings.rock(self.land[k]);
+        super::plates::spread_by(rock.stiffness.clamp(0.0, 1.0), rock.stiffness_spread, self.dice[self.plate[k] as usize][0])
     }
 
     /// How plate `p` is moving now as a whole (blocks per step, radians per step).
@@ -417,7 +521,8 @@ impl Sim {
         let (centre, radius) = (field / 2.0, field / 2.0);
         let bowl_start = radius * settings.bowl_start.clamp(0.0, 0.999);
         let bowl = settings.bowl / self.blocks_per_pixel;
-        let keep = 1.0 - settings.drag.clamp(0.0, 1.0);
+        // Drag: each point's own rock's.
+        let keep = [false, true].map(|land| 1.0 - settings.rock(land).drag.clamp(0.0, 1.0));
 
         // 1 and 2. Drag and the bowl, then move on.
         let before = self.at.clone();
@@ -429,6 +534,7 @@ impl Sim {
                 let depth = (out - bowl_start) / (radius - bowl_start);
                 *v = (v.0 - dx / out * bowl * depth, v.1 - dy / out * bowl * depth);
             }
+            let keep = keep[self.land[k] as usize];
             *v = (v.0 * keep, v.1 * keep);
             self.at[k] = (self.at[k].0 + v.0, self.at[k].1 + v.1);
         }
@@ -438,7 +544,7 @@ impl Sim {
         let lightness: Vec<f32> = (0..self.at.len()).map(|k| self.lightness(k, settings)).collect();
         // Each spring's stiffness: its plate's (a weld between two plates: halfway between theirs).
         let stiffness: Vec<f32> =
-            self.springs.iter().map(|s| (self.stiffness(self.plate[s.a], settings) + self.stiffness(self.plate[s.b], settings)) / 2.0).collect();
+            self.springs.iter().map(|s| (self.stiffness(s.a, settings) + self.stiffness(s.b, settings)) / 2.0).collect();
         let push = settings.push.clamp(0.0, 1.0);
         for _ in 0..settings.passes.max(1) {
             for (spring, &stiffness) in self.springs.iter().zip(&stiffness).filter(|(s, _)| !s.broken) {
@@ -462,7 +568,7 @@ impl Sim {
                 self.at[i] = (a.0 + dx * apart * wi, a.1 + dy * apart * wi);
                 self.at[j] = (b.0 - dx * apart * wj, b.1 - dy * apart * wj);
             }
-            self.keep_from_folding(&lightness, settings.thickest);
+            self.keep_from_folding(&lightness, settings);
         }
 
         // 4. Friction: touching points drag each other along (the part of their movement past
@@ -506,7 +612,8 @@ impl Sim {
         }
 
         // 6. Give way, and welds let go.
-        let creep = settings.creep.clamp(0.0, 1.0);
+        // Creep and give-way: the spring's rock's (a weld: halfway between its two plates').
+        let (land, rock) = (&self.land, |land: bool| settings.rock(land));
         let plate = &self.plate;
         for spring in self.springs.iter_mut().filter(|s| !s.broken) {
             let (a, b) = (self.at[spring.a], self.at[spring.b]);
@@ -521,7 +628,9 @@ impl Sim {
                 continue;
             }
             let strain = length / spring.rest - 1.0;
-            let give = settings.give_way * spring.strength;
+            let (ra, rb) = (rock(land[spring.a]), rock(land[spring.b]));
+            let creep = ((ra.creep + rb.creep) / 2.0).clamp(0.0, 1.0);
+            let give = (ra.give_way + rb.give_way) / 2.0 * spring.strength;
             if strain.abs() > give {
                 // Creep toward the length that would be exactly at give-way.
                 let settled_at = length / (1.0 + give * strain.signum());
@@ -542,15 +651,16 @@ impl Sim {
     /// more). So crushed rock thickens up to `thickest` times and then pushes back, spreading the
     /// crush further out, instead of folding into overlapping layers (which drew as sawtooth
     /// "zipper teeth" on the squeeze map).
-    fn keep_from_folding(&mut self, lightness: &[f32], thickest: f32) {
-        let least = 1.0 / thickest.max(1.01);
+    fn keep_from_folding(&mut self, lightness: &[f32], settings: &RagSettings) {
+        // Each kind's thinnest (a triangle is on one plate, so its first corner says which).
+        let least = [false, true].map(|land| 1.0 / settings.rock(land).thickest.max(1.01));
         for triangle in &self.triangles {
             let [a, b, c] = triangle.corners;
             // Area measured the same way round as at the start, so a fold reads as negative.
             let sign = triangle.area.signum();
             let (pa, pb, pc) = (self.at[a], self.at[b], self.at[c]);
             let now = signed_area(pa, pb, pc) * sign;
-            let want = triangle.area.abs() * least;
+            let want = triangle.area.abs() * least[self.land[a] as usize];
             if now >= want {
                 continue;
             }
@@ -818,6 +928,48 @@ mod tests {
     use crate::worldgen::tectonics::{MotionSettings, motions};
     use std::sync::atomic::AtomicBool;
 
+    /// The same change made to both kinds' rock.
+    fn both(mut settings: RagSettings, change: impl Fn(&mut Rock)) -> RagSettings {
+        change(&mut settings.land);
+        change(&mut settings.ocean);
+        settings
+    }
+
+    #[test]
+    fn rock_saved_before_the_split_reads_as_both_kinds() {
+        // As a preset saved it before land and ocean were separated.
+        let old = "grain = 600.0\nstiffness = 0.12\ngive_way = 0.05\nocean_weight = 0.7\nweight_spread = 0.5\npush = 0.2\n";
+        let read: RagSettings = toml::from_str(old).unwrap();
+        assert_eq!((read.grain, read.push), (600.0, 0.2));
+        assert_eq!((read.land.stiffness, read.ocean.stiffness, read.land.give_way, read.ocean.give_way), (0.12, 0.12, 0.05, 0.05));
+        assert_eq!((read.land.weight, read.ocean.weight), (1.0, 0.7));
+        assert_eq!((read.land.weight_spread, read.ocean.weight_spread), (0.5, 0.5));
+        assert_eq!(read.land.creep, Rock::default().creep);
+        let now = toml::to_string(&read).unwrap();
+        assert_eq!(toml::from_str::<RagSettings>(&now).unwrap(), read);
+        assert_eq!(toml::from_str::<RagSettings>("").unwrap(), RagSettings::default());
+    }
+
+    #[test]
+    fn each_kind_of_plate_moves_by_its_own_rock() {
+        // A land plate and an ocean plate, head on: give the ocean plate heavy rock and it shoves
+        // the land plate further than the other way round.
+        let (mut plates, motions, settings) = head_on(100.0);
+        plates.kept[1].land = false;
+        let travelled = |settings: &RagSettings| {
+            let mut sim = Sim::new(&plates, &motions, settings, 1);
+            let start = sim.middle(0).0;
+            for _ in 0..80 {
+                sim.step(settings);
+            }
+            (sim.middle(0).0 - start).abs()
+        };
+        let (mut heavy_ocean, mut light_ocean) = (settings.clone(), settings.clone());
+        (heavy_ocean.land.weight, heavy_ocean.ocean.weight) = (0.3, 3.0);
+        (light_ocean.land.weight, light_ocean.ocean.weight) = (3.0, 0.3);
+        assert!(travelled(&light_ocean) > travelled(&heavy_ocean) * 1.5, "land plate travelled {} (light ocean) vs {} (heavy)", travelled(&light_ocean), travelled(&heavy_ocean));
+    }
+
     /// Two square plates in a 120-pixel world, side by side, moving straight at each other. One
     /// point per 2 pixels.
     fn head_on(speed: f32) -> (Plates, Vec<Motion>, RagSettings) {
@@ -846,7 +998,7 @@ mod tests {
             coverage: 0.2,
         };
         let motions = vec![Motion { velocity: (speed, 0.0), spin: 0.0 }, Motion { velocity: (-speed, 0.0), spin: 0.0 }];
-        let settings = RagSettings { grain: 200.0, patchiness: 0.0, bowl: 0.0, ..RagSettings::default() };
+        let settings = both(RagSettings { grain: 200.0, bowl: 0.0, ..RagSettings::default() }, |r| r.patchiness = 0.0);
         (plates, motions, settings)
     }
 
@@ -888,11 +1040,11 @@ mod tests {
         let sim = Sim::new(&plates, &motions, &settings, 1);
         let point_on = |sim: &Sim, p: u8| (0..sim.at.len()).find(|&k| sim.plate[k] == p).unwrap();
         assert_eq!(sim.lightness(point_on(&sim, 0), &settings), sim.lightness(point_on(&sim, 1), &settings));
-        assert_eq!(sim.stiffness(0, &settings), sim.stiffness(1, &settings));
+        assert_eq!(sim.stiffness(point_on(&sim, 0), &settings), sim.stiffness(point_on(&sim, 1), &settings));
         // Spread: they differ, and the heavier one pushes on further after they meet.
-        let settings = RagSettings { weight_spread: 2.0, stiffness_spread: 1.0, ..settings };
+        let settings = both(settings, |r| (r.weight_spread, r.stiffness_spread) = (2.0, 1.0));
         let mut sim = Sim::new(&plates, &motions, &settings, 1);
-        assert_ne!(sim.stiffness(0, &settings), sim.stiffness(1, &settings));
+        assert_ne!(sim.stiffness(point_on(&sim, 0), &settings), sim.stiffness(point_on(&sim, 1), &settings));
         let heavier = if sim.lightness(point_on(&sim, 0), &settings) < sim.lightness(point_on(&sim, 1), &settings) { 0 } else { 1 };
         let start = [sim.middle(0).0, sim.middle(1).0];
         for _ in 0..80 {
@@ -907,7 +1059,7 @@ mod tests {
         let (plates, _, settings) = head_on(0.0);
         let still = vec![Motion { velocity: (0.0, 0.0), spin: 0.0 }; 2];
         // Even with the old "cracks at" turned right down, nothing cracks (it's switched off).
-        let settings = RagSettings { crack: 0.05, drag: 0.0, ..settings };
+        let settings = both(RagSettings { crack: 0.05, ..settings }, |r| r.drag = 0.0);
         let mut sim = Sim::new(&plates, &still, &settings, 1);
         // Pull the left plate's two halves apart, hard.
         for k in 0..sim.at.len() {
@@ -964,7 +1116,7 @@ mod tests {
         // A hard head-on smash with soft rock (as fast as the real sim allows: about half a grid
         // cell a step): plenty to fold, without the guard.
         let (plates, motions, settings) = head_on(100.0);
-        let settings = RagSettings { stiffness: 0.05, passes: 2, push: 0.1, ..settings };
+        let settings = both(RagSettings { passes: 2, push: 0.1, ..settings }, |r| r.stiffness = 0.05);
         let mut sim = Sim::new(&plates, &motions, &settings, 1);
         for _ in 0..60 {
             sim.step(&settings);
@@ -1032,7 +1184,7 @@ mod tests {
                 sim.velocity[k] = (if sim.plate[k] == 0 { -1.0 } else { 1.0 }, 0.0);
             }
             for _ in 0..40 {
-                sim.step(&RagSettings { drag: 0.0, ..settings.clone() });
+                sim.step(&both(settings.clone(), |r| r.drag = 0.0));
             }
             // How much sea opened between them: empty pixels between the two plates, along the rows
             // where they met.
