@@ -41,6 +41,8 @@ struct TerrainLight {
     // x height tint, y the distance slopes are measured over (blocks), z sea level, w the highest a
     // height can be
     hill: vec4<f32>,
+    // x how hill shading fades toward its limits (see distant.rs, `soft_limit`), yzw unused
+    shade: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var light_map: texture_2d<f32>;
@@ -142,6 +144,18 @@ fn unroot(v: f32) -> f32 {
     return sign(b) * b * b;
 }
 
+// Hill shading's light, `raw` (1 = flat ground), eased toward its darkest (0.35) and brightest
+// (1.6) instead of stopped dead, more gradually the lower `fade` is. The same sums as
+// src/render/distant.rs, `soft_limit`, so near and far match.
+fn soft_limit(raw: f32, fade: f32) -> f32 {
+    let d = raw - 1.0;
+    let limit = select(1.6 - 1.0, 1.0 - 0.35, d < 0.0);
+    // Never quite 0: pow(0, p) isn't defined on every graphics card.
+    let x = max(abs(d) / limit, 1e-6);
+    let p = clamp(fade, 0.5, 16.0);
+    return 1.0 + sign(d) * limit * x / pow(1.0 + pow(x, p), 1.0 / p);
+}
+
 // How lit this spot is (1 = as painted), the same way the distant terrain is lit, so the two match:
 //   - the world light map (shadows, valley darkening, relief), on every face, as distant.wesl does;
 //   - hill shading on tops, from the slope of the ground under them (a block world's tops are all
@@ -173,7 +187,7 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
                 // The rise across one distant cell, as the distant tiles measure it.
                 let rise = vec2<f32>(unroot(near.r), unroot(near.g)) * 4.0 * lighting.hill.y;
                 let normal = normalize(vec3<f32>(-rise.x * lighting.sun.w, -rise.y * lighting.sun.w, 1.0));
-                var hill = clamp(dot(normal, lighting.sun.xyz) / lighting.sun.z, 0.35, 1.6);
+                var hill = soft_limit(dot(normal, lighting.sun.xyz) / lighting.sun.z, lighting.shade.x);
                 // A ledge top (alpha below 1, see light.rs) is never darkened: the smooth slope
                 // under a step reaches onto its top edge, which faces the sky like any top.
                 if lighting.near_area.w > 1.5 {

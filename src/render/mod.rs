@@ -468,7 +468,11 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.add(crate::debug::Slider::new(&mut settings.finest_cell, 4..=64).text("finest cell (blocks)"));
         ui.add(crate::debug::Slider::new(&mut settings.hill_shading, 0.0..=0.6).text("hill shading")).on_hover_text(
             "Lights each patch by its slope toward the sun, so hills and valleys read from afar. 0 = flat colour.\n\
-             (Only the distant terrain: the real chunks show their slopes as block steps.)",
+             (The near chunks too, when they're lit like the distant terrain: see Light.)",
+        );
+        ui.add(crate::debug::Slider::new(&mut settings.shading_fade, 0.5..=8.0).logarithmic(true).text("shading fade")).on_hover_text(
+            "How hill shading fades toward its darkest and brightest. Low = a long, gentle fade, so strong shading still\n\
+             eases in; high = close to a hard stop (strong shading goes from shaded to fully dark quickly). Near and far alike.",
         );
         ui.add(crate::debug::Slider::new(&mut settings.height_tint, 0.0..=0.3).text("height tint")).on_hover_text("Land a little lighter the higher it is.");
         if ui.button("Reset distant terrain settings").clicked() {
@@ -505,13 +509,21 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.add_enabled_ui(s.near, |ui| {
             ui.add(crate::debug::Slider::new(&mut s.near_detail, 1.0..=8.0).logarithmic(true).text("near detail (blocks a pixel)"))
                 .on_hover_text("How finely the slope under the near chunks is measured. Coarser is smoother and quicker to make as you move. (A long render distance may coarsen it.)");
-            ui.checkbox(&mut s.ledge_tops, "keep ledge tops lit").on_hover_text(
-                "Hill shading never darkens a block top that stands above the block just downhill of it. The smooth slope under a
-\n                 step reaches onto its top edge; off, that edge darkens with the ground below it (for A/B).",
+            ui.add(crate::debug::Slider::new(&mut s.broad_reach, 8.0..=256.0).logarithmic(true).text("broad shading reach (blocks)")).on_hover_text(
+                "The broad lie of the land is the smooth ground's slope averaged over this far, so wobbles too small for the\n\
+                 blocks to show shade nothing. Longer = only big landforms shade.",
             );
-            ui.add(crate::debug::Slider::new(&mut s.near_soften, 0..=6).text("soften the near shading")).on_hover_text(
-                "How many times the slope under the near chunks is softened (each a 3 × 3 average): shading fades in and out
-\n                 more gradually. 0 = as measured.",
+            ui.add(crate::debug::Slider::new(&mut s.step_shading, 0.0..=2.0).text("step shading")).on_hover_text(
+                "How strongly the steps you can see (the blocks themselves) shade the ground round them. 0 = none: only the\n\
+                 broad lie of the land.",
+            );
+            ui.checkbox(&mut s.ledge_tops, "keep ledge tops lit").on_hover_text(
+                "Hill shading never darkens a block top that stands above the block just downhill of it. Off, a step's top\n\
+                 edge can darken with the ground below it (for A/B).",
+            );
+            ui.add(crate::debug::Slider::new(&mut s.near_soften, 0..=6).text("soften the steps' shading")).on_hover_text(
+                "How many times the steps' shading is softened (each a 3 × 3 average), so it fades in and out over a few more\n\
+                 blocks. 0 = as measured.",
             );
         });
         if ui.button("Reset light settings").clicked() {

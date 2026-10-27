@@ -67,13 +67,17 @@ pub struct DistantSettings {
     /// measured per cell, so each ring out shaded twice as strongly, and the rings' square edges
     /// showed as straight bands across the land (David's screenshot, 2026-10-27).]
     pub hill_shading: f32,
+    /// How hill shading fades toward its darkest and brightest: low = a long, gentle fade, high =
+    /// close to a hard stop (it used to stop dead, so strong shading went from shaded to fully dark
+    /// over a short stretch). [David, 2026-10-27]
+    pub shading_fade: f32,
     /// Land a little lighter the higher it is (0 = none).
     pub height_tint: f32,
 }
 
 impl Default for DistantSettings {
     fn default() -> Self {
-        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, hill_shading: 0.3, height_tint: 0.15 }
+        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, hill_shading: 0.3, shading_fade: 2.0, height_tint: 0.15 }
     }
 }
 
@@ -194,6 +198,7 @@ pub struct Shade {
     pub north_south: f32,
     pub east_west: f32,
     pub hills: f32,
+    pub fade: f32,
     pub sun: Vec3,
     pub height_tint: f32,
 }
@@ -207,6 +212,7 @@ impl Shade {
             north_south: render.shade_north_south,
             east_west: render.shade_east_west,
             hills: settings.hill_shading,
+            fade: settings.shading_fade,
             sun: light.sun(),
             height_tint: settings.height_tint,
         }
@@ -216,8 +222,24 @@ impl Shade {
     /// across it (in any ring): 1 on flat ground, more facing the sun, less facing away.
     fn hill(&self, north: f32, east: f32) -> f32 {
         let normal = Vec3::new(-north * self.hills, -east * self.hills, 1.0).normalize();
-        (normal.dot(self.sun) / self.sun.z).clamp(0.35, 1.6)
+        soft_limit(normal.dot(self.sun) / self.sun.z, self.fade)
     }
+}
+
+/// Hill shading's darkest and brightest (1 = as painted).
+pub const DARKEST: f32 = 0.35;
+pub const BRIGHTEST: f32 = 1.6;
+
+/// Hill shading's light, `raw` (1 = flat ground), eased toward its darkest and brightest instead of
+/// stopped dead: gentle slopes are lit as they are, steep ones closer and closer to the limit,
+/// more gradually the lower `fade` is (at 8 and up, much like a hard stop). The terrain shader
+/// does the same sums (assets/shaders/terrain.wesl, `soft_limit`), so near and far match.
+pub fn soft_limit(raw: f32, fade: f32) -> f32 {
+    let d = raw - 1.0;
+    let limit = if d < 0.0 { 1.0 - DARKEST } else { BRIGHTEST - 1.0 };
+    let x = d.abs() / limit;
+    let p = fade.clamp(0.5, 16.0);
+    1.0 + d.signum() * limit * x / (1.0 + x.powf(p)).powf(1.0 / p)
 }
 
 impl TileMesh {
@@ -714,6 +736,26 @@ mod tests {
     }
 
     #[test]
+    fn shading_eases_toward_its_limits_more_gently_the_lower_the_fade() {
+        for fade in [0.5, 2.0, 8.0] {
+            // Flat ground as painted, gentle slopes almost as they are, and never past the limits.
+            assert!((soft_limit(1.0, fade) - 1.0).abs() < 1e-6);
+            assert!((soft_limit(0.95, fade) - 0.95).abs() < 0.02 || fade < 1.0);
+            let mut last = f32::MIN;
+            for k in 0..=100 {
+                let raw = k as f32 * 0.03;
+                let lit = soft_limit(raw, fade);
+                assert!(lit > DARKEST - 1e-4 && lit < BRIGHTEST + 1e-4 && lit >= last, "fade {fade}, raw {raw}: {lit}");
+                last = lit;
+            }
+        }
+        // 90% of the way to the darkest, a low fade is still well short of it; a high one is about there.
+        let raw = 1.0 - (1.0 - DARKEST) * 0.9;
+        assert!(soft_limit(raw, 0.5) > soft_limit(raw, 8.0) + 0.1);
+        assert!((soft_limit(raw, 8.0) - raw).abs() < 0.03);
+    }
+
+    #[test]
     fn slopes_facing_the_sun_are_lighter_and_flat_ground_is_as_it_was() {
         let light = LightSettings { sun_from: 315.0, sun_height: 40.0, ..LightSettings::default() };
         let shade = Shade::new(&RenderSettings::default(), &DistantSettings { hill_shading: 0.3, ..DistantSettings::default() }, &light);
@@ -758,7 +800,7 @@ mod tests {
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
-        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.6, hills: 0.0, sun: Vec3::Z, height_tint: 0.0 };
+        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.6, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0 };
         let mesh = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 0, x: -1, y: 0 }, 16).unwrap();
         assert!(!mesh.indices.is_empty() && mesh.indices.len() % 6 == 0);
         assert_eq!(mesh.positions.len(), mesh.colours.len());

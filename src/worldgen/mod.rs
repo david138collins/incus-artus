@@ -52,7 +52,7 @@ mod additives;
 mod blend;
 mod bake;
 mod canvas;
-mod compiler;
+pub(crate) mod compiler;
 mod compiler_view;
 mod export;
 mod field;
