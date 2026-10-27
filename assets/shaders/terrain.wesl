@@ -41,7 +41,8 @@ struct TerrainLight {
     // x height tint, y the distance slopes are measured over (blocks), z sea level, w the highest a
     // height can be
     hill: vec4<f32>,
-    // x how hill shading fades toward its limits (see distant.rs, `soft_limit`), yzw unused
+    // x how hill shading fades toward its limits (see distant.rs, `soft_limit`), y foot shading, z
+    // step shadows (strengths), w unused
     shade: vec4<f32>,
 }
 
@@ -50,6 +51,9 @@ struct TerrainLight {
 @group(constants::MATERIAL_BIND_GROUP) @binding(5) var near_map: texture_2d<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(6) var near_sampler: sampler;
 @group(constants::MATERIAL_BIND_GROUP) @binding(7) var<uniform> lighting: TerrainLight;
+// The near window's cone map (src/render/light.rs, "The cone map"): x all round, y from the sun's
+// side; plain numbers, blended here.
+@group(constants::MATERIAL_BIND_GROUP) @binding(8) var near_cones: texture_2d<f32>;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -156,6 +160,29 @@ fn soft_limit(raw: f32, fade: f32) -> f32 {
     return 1.0 + sign(d) * limit * x / pow(1.0 + pow(x, p), 1.0 / p);
 }
 
+// The cone map at `uv` (0 to 1 across the window), blended between its four nearest pixels.
+fn cones_at(uv: vec2<f32>) -> vec2<f32> {
+    let size = vec2<i32>(textureDimensions(near_cones));
+    let p = uv * vec2<f32>(size) - 0.5;
+    let base = floor(p);
+    let t = p - base;
+    let low = clamp(vec2<i32>(base), vec2<i32>(0), size - 1);
+    let high = clamp(vec2<i32>(base) + 1, vec2<i32>(0), size - 1);
+    let a = textureLoad(near_cones, vec2<i32>(low.x, low.y), 0).xy;
+    let b = textureLoad(near_cones, vec2<i32>(high.x, low.y), 0).xy;
+    let c = textureLoad(near_cones, vec2<i32>(low.x, high.y), 0).xy;
+    let d = textureLoad(near_cones, vec2<i32>(high.x, high.y), 0).xy;
+    return mix(mix(a, b, t.x), mix(c, d, t.x), t.y);
+}
+
+// How much a foot `below` blocks under the cones round it is shaded, 0 to 1: about as much as it
+// is below, for small amounts, easing toward 1 by `fade` (as `soft_limit` does).
+fn eased(below: f32, fade: f32) -> f32 {
+    let x = max(below, 1e-6);
+    let p = clamp(fade, 0.5, 16.0);
+    return select(x / pow(1.0 + pow(x, p), 1.0 / p), 0.0, below <= 0.0);
+}
+
 // How lit this spot is (1 = as painted), the same way the distant terrain is lit, so the two match:
 //   - the world light map (shadows, valley darkening, relief), on every face, as distant.wesl does;
 //   - hill shading on tops, from the slope of the ground under them (a block world's tops are all
@@ -187,17 +214,16 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
                 // The rise across one distant cell, as the distant tiles measure it.
                 let rise = vec2<f32>(unroot(near.r), unroot(near.g)) * 4.0 * lighting.hill.y;
                 let normal = normalize(vec3<f32>(-rise.x * lighting.sun.w, -rise.y * lighting.sun.w, 1.0));
-                var hill = soft_limit(dot(normal, lighting.sun.xyz) / lighting.sun.z, lighting.shade.x);
-                // A ledge top (alpha below 1, see light.rs) is never darkened: the smooth slope
-                // under a step reaches onto its top edge, which faces the sky like any top.
-                if lighting.near_area.w > 1.5 {
-                    let ledge = clamp((1.0 - near.a) / (1.0 - 160.0 / 255.0), 0.0, 1.0);
-                    hill = mix(hill, max(hill, 1.0), ledge);
-                }
+                let hill = soft_limit(dot(normal, lighting.sun.xyz) / lighting.sun.z, lighting.shade.x);
+                // The feet of steps: how far this top is below the cones of the ground round it
+                // (0 on a top, a rim or open ground), eased like the hill shading.
+                let cones = cones_at(uv);
+                let fade = lighting.shade.x;
+                let feet = (1.0 - lighting.shade.y * eased(cones.x - up, fade)) * (1.0 - lighting.shade.z * eased(cones.y - up, fade));
                 let tint = 1.0 + lighting.hill.x * (up - sea) / (lighting.hill.w - sea);
                 // The sea's surface stays flat, as on the distant terrain.
                 let water = surface <= sea + 0.5 && up <= sea + 0.5;
-                light = light * select(hill * tint, 1.0, water);
+                light = light * select(hill * tint * feet, 1.0, water);
             }
             // Well below the ground: plain light.
             light = mix(1.0, light, smoothstep(surface - 24.0, surface - 12.0, up));

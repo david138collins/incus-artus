@@ -23,7 +23,8 @@
 //! are kept, so moving the sun only redoes the shadows (a fraction of a second).
 //!
 //! **The near chunks** read the same light map, plus a window of the ground around them for hill
-//! shading (see "The near window" below), so near and far are lit alike.
+//! shading (see "The near window" below), so near and far are lit alike, and its cone map, which
+//! tells the shader which side of a step each block top is on (see "The cone map").
 //!
 //! **Left open for later** (see docs/worldgen.md, "Graphics: the light map"): the distant tiles'
 //! hill shading can move in here, and the day/night cycle only has to turn the sun.
@@ -78,18 +79,16 @@ pub struct LightSettings {
     /// around you, and the light map), and blocks per pixel of that window.
     pub near: bool,
     pub near_detail: f32,
-    /// Keep ledge tops lit: hill shading never darkens a block top that stands above the block just
-    /// downhill of it (the smooth slope under a step otherwise darkened its top edge too). And how
-    /// many times the near slopes are softened (each pass a 3 × 3 average), so shading fades in and
-    /// out more gradually. [David, 2026-10-27]
-    pub ledge_tops: bool,
-    pub near_soften: u32,
-    /// The near shading in two parts [David, 2026-10-27]: the broad lie of the land, from the smooth
-    /// ground averaged over `broad_reach` blocks (so sub-block wobbles, which the blocks don't
-    /// show, shade nothing), and the steps you can see, from the blocks themselves, `step_shading`
-    /// strong (0 = none).
+    /// The broad lie of the land: the near chunks' hill shading reads the smooth ground's slope averaged
+    /// over this many blocks, so wobbles too small for the blocks to show shade nothing.
     pub broad_reach: f32,
-    pub step_shading: f32,
+    /// The steps you can see are shaded from the cone map ("The cone map" below) [David,
+    /// 2026-10-27]: how dark the foot of a step gets, all round it (`foot_shading`) and more on the
+    /// side away from the sun (`step_shadows`), and how far the shade reaches out from a step for
+    /// each block of its height (`shade_reach`, blocks). A step's top is never darkened.
+    pub foot_shading: f32,
+    pub step_shadows: f32,
+    pub shade_reach: f32,
 }
 
 impl Default for LightSettings {
@@ -107,10 +106,10 @@ impl Default for LightSettings {
             detail: 32.0,
             near: true,
             near_detail: 2.0,
-            ledge_tops: true,
-            near_soften: 2,
             broad_reach: 32.0,
-            step_shading: 1.0,
+            foot_shading: 0.2,
+            step_shadows: 0.45,
+            shade_reach: 4.0,
         }
     }
 }
@@ -336,17 +335,18 @@ struct NearKey {
     corner: Vec2,
     side: f32,
     detail: f32,
-    /// How its slopes are made (see `LightSettings`): softened, broad reach (blocks) and step shading.
-    soften: u32,
+    /// How its slopes and cones are made (see `LightSettings`): broad reach and shade reach (blocks),
+    /// and toward the sun in pixels (columns east, rows south).
     broad_reach: f32,
-    step_shading: f32,
+    shade_reach: f32,
+    toward_sun: (f32, f32),
 }
 
 #[derive(Resource, Default)]
 pub struct NearLightState {
     /// The window showing, and the one being made (with its stop switch).
     shown: Option<NearKey>,
-    job: Option<(NearKey, Arc<AtomicBool>, Task<Option<Picture>>)>,
+    job: Option<(NearKey, Arc<AtomicBool>, Task<Option<(Picture, Cones)>>)>,
 }
 
 /// Keeps the window of the ground around you up to date, and the near chunks' sun and hill shading
@@ -368,7 +368,7 @@ pub fn update_near_light(
     let mut wanted = TerrainLight {
         sun: settings.sun().extend(distant.hill_shading),
         hill: Vec4::new(distant.height_tint, distant.finest_cell as f32, sea, WORLD_HEIGHT as f32),
-        shade: Vec4::new(distant.shading_fade, 0.0, 0.0, 0.0),
+        shade: Vec4::new(distant.shading_fade, settings.foot_shading, settings.step_shadows, 0.0),
         ..default()
     };
     let map = terrain.compiled().filter(|_| settings.near).cloned();
@@ -377,9 +377,13 @@ pub fn update_near_light(
         let side = ((render.render_distance_chunks * 2 + 2) * CHUNK_SIZE) as f32;
         let detail = settings.near_detail.max(side / NEAR_MOST).max(0.5);
         let at = bevy_to_game(camera.translation).truncate();
+        // Toward the sun in the window's pixels (columns run east, rows south), to a hundredth, so the
+        // sun-side cones are made again only when the sun really moves.
+        let from = settings.sun_from.to_radians();
+        let toward_sun = ((from.sin() * 100.0).round() / 100.0, (-from.cos() * 100.0).round() / 100.0);
         let fits = |key: &NearKey| {
             let middle = key.corner + Vec2::new(-key.side, key.side) / 2.0;
-            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && key.soften == settings.near_soften && key.broad_reach == settings.broad_reach && key.step_shading == settings.step_shading && (at - middle).abs().max_element() < side / 4.0
+            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && key.broad_reach == settings.broad_reach && key.shade_reach == settings.shade_reach && key.toward_sun == toward_sun && (at - middle).abs().max_element() < side / 4.0
         };
         if !state.shown.as_ref().is_some_and(fits) && !state.job.as_ref().is_some_and(|(key, ..)| fits(key)) {
             if let Some((_, stop, _)) = state.job.take() {
@@ -387,7 +391,7 @@ pub fn update_near_light(
             }
             // Centred on you, snapped to whole pixels.
             let snap = |v: f32| (v / detail).round() * detail;
-            let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail, soften: settings.near_soften, broad_reach: settings.broad_reach, step_shading: settings.step_shading };
+            let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail, broad_reach: settings.broad_reach, shade_reach: settings.shade_reach, toward_sun };
             let (made, stop) = (key.clone(), Arc::new(AtomicBool::new(false)));
             let flag = stop.clone();
             let task = AsyncComputeTaskPool::get().spawn(async move { make_near(&made, &flag) });
@@ -397,18 +401,18 @@ pub fn update_near_light(
             if let Some(made) = check_ready(task) {
                 let key = key.clone();
                 state.job = None;
-                if let Some(picture) = made {
-                    let image = images.add(picture_image(picture));
+                if let Some((picture, cones)) = made {
+                    let (image, cones) = (images.add(picture_image(picture)), images.add(cones_image(cones)));
                     if let Some(mut material) = materials.get_mut(&handle) {
                         material.near_map = image;
+                        material.near_cones = cones;
                     }
                     state.shown = Some(key);
                 }
             }
         }
         if let Some(key) = &state.shown {
-            // w: 1 on, 2 on with ledge tops kept lit.
-            wanted.near_area = Vec4::new(key.corner.x, key.corner.y, key.side, if settings.ledge_tops { 2.0 } else { 1.0 });
+            wanted.near_area = Vec4::new(key.corner.x, key.corner.y, key.side, 1.0);
         }
     }
     let Some(material) = materials.get(&handle) else { return };
@@ -423,17 +427,12 @@ pub fn update_near_light(
     }
 }
 
-/// What alpha says about a pixel of the window: on the map and a ledge top (on the map is 1, off
-/// it 0). Between 1 and this the shader blends, so a ledge top's edge is soft too.
-const LEDGE_TOP: u8 = 160;
-
 /// The window's picture: red and green the slope rising north and east (blocks up per block
-/// across, 0.5 = flat, square-rooted each way out to `STEEPEST`): the broad lie of the land plus
-/// the steps you can see (see `LightSettings::broad_reach`);
-/// blue the surface's height (sea level to the top of the world); alpha 1 on the map, `LEDGE_TOP`
-/// on a ledge top (its block stands above the block just downhill of it), 0 off it. The sea's
-/// surface is flat. `None` if stopped.
-fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<Picture> {
+/// across, 0.5 = flat, square-rooted each way out to `STEEPEST`): the broad lie of the land, the
+/// smooth ground's slope averaged over the broad reach; blue the surface's height (sea level to
+/// the top of the world); alpha 1 on the map, 0 off it. The sea's surface is flat. And its cone
+/// map. `None` if stopped.
+fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<(Picture, Cones)> {
     let width = (key.side / key.detail).round() as usize;
     let sea = SEA_LEVEL as f32;
     let raw = every_pixel(width, stop, |i| {
@@ -449,88 +448,119 @@ fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<Picture> {
         0.5 + 0.5 * g.signum() * g.abs().sqrt()
     };
     let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-    // The slopes (rows run south, so the row above is to the north), of a height field `z`.
-    let slopes = |z: &dyn Fn(usize, usize) -> f32| {
-        let (mut north, mut east) = (vec![0.0f32; width * width], vec![0.0f32; width * width]);
-        for r in 0..width {
-            for c in 0..width {
-                north[r * width + c] = (z(c, r.saturating_sub(1)) - z(c, r + 1)) / (2.0 * key.detail);
-                east[r * width + c] = (z(c + 1, r) - z(c.saturating_sub(1), r)) / (2.0 * key.detail);
-            }
-        }
-        (north, east)
-    };
-    // Two parts. The broad lie of the land: the smooth ground's slope, averaged over the broad
-    // reach, so wobbles too small for the blocks to show shade nothing. And the steps you can
-    // see: the blocks' own slope (softened), less its broad average (the broad part has that).
+    // The broad lie of the land (rows run south, so the row above is to the north).
     let reach = (key.broad_reach / key.detail / 2.0).round() as usize;
-    let broad = |values: Vec<f32>| {
-        let mut values = values;
-        crate::worldgen::compiler::blur(&mut values, width, reach);
-        values
-    };
-    let (smooth_north, smooth_east) = slopes(&|c, r| at(c, r));
-    let (mut block_north, mut block_east) = slopes(&|c, r| at(c, r).round());
-    for _ in 0..key.soften {
-        block_north = box3(&block_north, width);
-        block_east = box3(&block_east, width);
+    let (mut north, mut east) = (vec![0.0f32; width * width], vec![0.0f32; width * width]);
+    for r in 0..width {
+        for c in 0..width {
+            north[r * width + c] = (at(c, r.saturating_sub(1)) - at(c, r + 1)) / (2.0 * key.detail);
+            east[r * width + c] = (at(c + 1, r) - at(c.saturating_sub(1), r)) / (2.0 * key.detail);
+        }
     }
-    let steps = |blocks: Vec<f32>| -> Vec<f32> {
-        let average = broad(blocks.clone());
-        blocks.iter().zip(&average).map(|(b, a)| (b - a) * key.step_shading).collect()
-    };
-    let (north, east): (Vec<f32>, Vec<f32>) = (
-        broad(smooth_north).iter().zip(steps(block_north)).map(|(b, s)| b + s).collect(),
-        broad(smooth_east).iter().zip(steps(block_east)).map(|(b, s)| b + s).collect(),
-    );
-    // A ledge top: its block (rounded, as the world has it) stands above the block a pixel downhill.
-    let ledge_top = |c: usize, r: usize, i: usize| {
-        let (n, e) = (north[i], east[i]);
-        let length = n.hypot(e);
-        if length < 1e-4 {
-            return false;
-        }
-        // Downhill: against the slope (south is +rows, east is +columns).
-        let (dc, dr) = ((-e / length).round() as isize, (n / length).round() as isize);
-        let (c2, r2) = (c as isize + dc, r as isize + dr);
-        if c2 < 0 || r2 < 0 || c2 as usize >= width || r2 as usize >= width {
-            return false;
-        }
-        at(c, r).round() > at(c2 as usize, r2 as usize).round()
-    };
+    crate::worldgen::compiler::blur(&mut north, width, reach);
+    crate::worldgen::compiler::blur(&mut east, width, reach);
     let mut data = Vec::with_capacity(width * width * 4);
     for r in 0..width {
         for c in 0..width {
             let i = r * width + c;
-            let alpha = if raw[i].is_nan() { 0 } else if ledge_top(c, r, i) { LEDGE_TOP } else { 255 };
-            data.extend_from_slice(&[byte(slope(north[i])), byte(slope(east[i])), byte((at(c, r) - sea) / (WORLD_HEIGHT as f32 - sea)), alpha]);
+            data.extend_from_slice(&[byte(slope(north[i])), byte(slope(east[i])), byte((at(c, r) - sea) / (WORLD_HEIGHT as f32 - sea)), if raw[i].is_nan() { 0 } else { 255 }]);
         }
     }
-    Some(Picture { width: width as u32, levels: 1, data })
+    // The tops of the blocks, as the world has them: a land block's top face is one above its Z;
+    // the sea's surface is at sea level.
+    let tops: Vec<f32> = raw.iter().map(|&h| if h.is_nan() || h < sea - 0.5 { sea } else { h.round() + 1.0 }).collect();
+    let fall = key.detail / key.shade_reach.max(0.1);
+    let cones = Cones { width: width as u32, all_round: cones(&tops, width, fall, None), from_sun: cones(&tops, width, fall, Some(key.toward_sun)) };
+    Some((Picture { width: width as u32, levels: 1, data }, cones))
 }
 
-/// Each value the average of the 3 × 3 round it (fewer at the edges): across, then down.
-fn box3(values: &[f32], width: usize) -> Vec<f32> {
-    let pass = |values: &[f32], step: usize, along: fn(usize, usize) -> usize| -> Vec<f32> {
-        (0..values.len())
-            .map(|i| {
-                let k = along(i, width);
-                let mut sum = values[i];
-                let mut n = 1.0;
-                if k > 0 {
-                    sum += values[i - step];
-                    n += 1.0;
-                }
-                if k + 1 < width {
-                    sum += values[i + step];
-                    n += 1.0;
-                }
-                sum / n
-            })
-            .collect()
+// ── The cone map ────────────────────────────────────────────────────────────
+//
+// How the shading knows which side of a step it's on [David, 2026-10-27]. Every block top casts a
+// cone down round itself: its height, less `fall` for each pixel of distance. A pixel of the cone
+// map holds the highest cone over it (its own block counts, at no distance). The shader draws a
+// block top at an exact height, and compares: at or above the cone map, nothing near stands above
+// it (a top, a rim, open ground), so it isn't darkened; below it, higher ground is near, and the
+// amount below says how much higher and how close, so the foot of a step darkens most against the
+// face and fades out, further from a taller step. The map is blended between pixels, which only
+// softens how strongly a foot is darkened: a top's own height is at least the blend round it, so
+// it is never darkened, right up to its edge.
+//
+// Two maps: `all_round` (the foot of every step), and `from_sun`, built only from ground on the
+// sun's side (the feet in a step's sun shadow, roughly). Heights are kept as plain numbers (32-bit),
+// exact to far under a block, so the shader blends them itself.
+
+/// The cone map for the near window: per pixel, the highest cone over it, all round and from the
+/// sun's side (blocks, top-face heights).
+struct Cones {
+    width: u32,
+    all_round: Vec<f32>,
+    from_sun: Vec<f32>,
+}
+
+/// The highest cone over each pixel of `tops`: each top less `fall` per pixel of distance (√2 on
+/// the diagonal), from every side, or with `toward_sun`, only from ground on the sun's side
+/// (columns run east, rows south).
+fn cones(tops: &[f32], width: usize, fall: f32, toward_sun: Option<(f32, f32)>) -> Vec<f32> {
+    let mut cone = tops.to_vec();
+    let diagonal = fall * std::f32::consts::SQRT_2;
+    let step = |cone: &mut Vec<f32>, c: usize, r: usize, offsets: &[(isize, isize)]| {
+        let i = r * width + c;
+        for &(dc, dr) in offsets {
+            let (c2, r2) = (c as isize + dc, r as isize + dr);
+            if c2 < 0 || r2 < 0 || c2 as usize >= width || r2 as usize >= width {
+                continue;
+            }
+            let drop = if dc != 0 && dr != 0 { diagonal } else { fall };
+            cone[i] = cone[i].max(cone[r2 as usize * width + c2 as usize] - drop);
+        }
     };
-    let across = pass(values, 1, |i, width| i % width);
-    pass(&across, width, |i, width| i / width)
+    match toward_sun {
+        None => {
+            // Two sweeps: down and across from the top left, then back from the bottom right, each
+            // pixel taking the cones of the neighbours already done.
+            for r in 0..width {
+                for c in 0..width {
+                    step(&mut cone, c, r, &[(-1, 0), (-1, -1), (0, -1), (1, -1)]);
+                }
+            }
+            for r in (0..width).rev() {
+                for c in (0..width).rev() {
+                    step(&mut cone, c, r, &[(1, 0), (1, 1), (0, 1), (-1, 1)]);
+                }
+            }
+        }
+        Some(toward) => {
+            // Only the neighbours on the sun's side; pixels taken sun side first, so those are
+            // always done already.
+            let offsets: Vec<(isize, isize)> = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+                .into_iter()
+                .filter(|&(dc, dr): &(isize, isize)| {
+                    let length = ((dc * dc + dr * dr) as f32).sqrt();
+                    (dc as f32 * toward.0 + dr as f32 * toward.1) / length > 0.3
+                })
+                .collect();
+            let mut order: Vec<usize> = (0..width * width).collect();
+            let along = |i: usize| (i % width) as f32 * toward.0 + (i / width) as f32 * toward.1;
+            order.sort_by(|&a, &b| along(b).total_cmp(&along(a)));
+            for i in order {
+                step(&mut cone, i % width, i / width, &offsets);
+            }
+        }
+    }
+    cone
+}
+
+/// The cone map as an image: two 32-bit numbers a pixel (all round, from the sun), read unblended.
+fn cones_image(cones: Cones) -> Image {
+    let size = Extent3d { width: cones.width, height: cones.width, depth_or_array_layers: 1 };
+    let data: Vec<u8> = cones.all_round.iter().zip(&cones.from_sun).flat_map(|(a, s)| a.to_le_bytes().into_iter().chain(s.to_le_bytes())).collect();
+    Image::new(size, TextureDimension::D2, data, TextureFormat::Rg32Float, RenderAssetUsages::RENDER_WORLD)
+}
+
+/// An empty cone map (nothing near stands above anything), until the first window is made.
+pub fn cones_placeholder() -> Image {
+    cones_image(Cones { width: 1, all_round: vec![0.0], from_sun: vec![0.0] })
 }
 
 /// Sets the material's light uniforms, only when they change (touching a material re-sends it).
@@ -763,34 +793,66 @@ mod tests {
         let width = 64;
         let z: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 2.0).collect();
         let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
-        let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, soften: 0, broad_reach: 32.0, step_shading: 0.0 };
-        let picture = make_near(&key, &AtomicBool::new(false)).unwrap();
+        let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
+        let (picture, _) = make_near(&key, &AtomicBool::new(false)).unwrap();
         assert_eq!(picture.width, 128);
         let pixel = |c: usize, r: usize| &picture.data[(r * 128 + c) * 4..(r * 128 + c) * 4 + 4];
         let middle = pixel(64, 64);
         // Rising east 1/16 of a block per block: 0.5 + 0.5 × √(0.0625 / 4) ≈ 0.56.
         assert!((138..150).contains(&middle[1]), "east {}", middle[1]);
         assert!((middle[0] as i32 - 128).abs() <= 2, "north {}", middle[0]);
-        assert!(middle[3] == 255 || middle[3] == LEDGE_TOP);
+        assert_eq!(middle[3], 255);
         // Higher to the east.
         assert!(pixel(120, 64)[2] > pixel(8, 64)[2]);
     }
 
-    #[test]
-    fn ledge_tops_are_marked_where_a_block_stands_above_the_one_downhill() {
-        // Rising 1 block every 16 east: as blocks, a step every 16 blocks, so about 1 pixel in 4
-        // (4 blocks a pixel) is the top of a step. Flat ground has none.
+    /// Tops in two halves: `low` west of column 32, `high` from it east (a step running north to
+    /// south), and their cone maps, all round and from the sun toward `toward`.
+    fn step_cones(low: f32, high: f32, fall: f32, toward: (f32, f32)) -> (Vec<f32>, Vec<f32>) {
         let width = 64;
-        let ramp: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 2.0).collect();
-        let flat = vec![150.0; width * width];
-        let ledges = |z: &[f32]| {
-            let key = NearKey { map: Arc::new(CompiledMap::of_heights(width, 32.0, z)), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, soften: 2, broad_reach: 32.0, step_shading: 1.0 };
-            let picture = make_near(&key, &AtomicBool::new(false)).unwrap();
-            (0..128).filter(|&c| picture.data[(64 * 128 + c) * 4 + 3] == LEDGE_TOP).count()
-        };
-        let on_ramp = ledges(&ramp);
-        assert!((24..=40).contains(&on_ramp), "{on_ramp} ledge tops along the row");
-        assert_eq!(ledges(&flat), 0);
+        let tops: Vec<f32> = (0..width * width).map(|i| if i % width < 32 { low } else { high }).collect();
+        (cones(&tops, width, fall, None), cones(&tops, width, fall, Some(toward)))
+    }
+
+    #[test]
+    fn a_step_shades_its_foot_fading_out_and_never_its_top() {
+        // A 1-block step, a cone falling half a block a pixel: the foot is shaded 2 pixels out.
+        let (all_round, _) = step_cones(10.0, 11.0, 0.5, (1.0, 0.0));
+        let row = |c: usize| all_round[20 * 64 + c];
+        // The top: exactly its own height, right up to the edge, so it's never below its cones.
+        for c in 32..64 {
+            assert_eq!(row(c), 11.0, "top at column {c}");
+        }
+        // The foot: below the cones by less and less, then not at all.
+        let below: Vec<f32> = (26..32).map(|c| row(c) - 10.0).collect();
+        assert_eq!(below, vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.5], "foot, columns 26 to 31");
+        // Blended between pixels, the top still never comes out below: a top's own pixel holds its
+        // height, and its neighbours never hold more.
+        let blend = (row(31) + row(32)) / 2.0;
+        assert!(blend <= 11.0);
+        // A taller step shades further: 4 blocks, 8 pixels.
+        let (tall, _) = step_cones(10.0, 14.0, 0.5, (1.0, 0.0));
+        assert!(tall[20 * 64 + 25] > 10.0 && tall[20 * 64 + 23] == 10.0);
+    }
+
+    #[test]
+    fn step_shadows_fall_only_on_the_side_away_from_the_sun() {
+        // The step rises to the east. With the sun in the east, its foot (to the west) is in its
+        // shadow; with the sun in the west, nothing is.
+        let (_, sun_east) = step_cones(10.0, 11.0, 0.5, (1.0, 0.0));
+        let (_, sun_west) = step_cones(10.0, 11.0, 0.5, (-1.0, 0.0));
+        assert!(sun_east[20 * 64 + 31] > 10.0);
+        assert!((0..64 * 64).all(|i| sun_west[i] == if i % 64 < 32 { 10.0 } else { 11.0 }));
+    }
+
+    #[test]
+    fn the_window_makes_its_cone_map_from_the_block_tops() {
+        // Level ground, Z 150 (blocks' tops at 151): the cone map is that everywhere.
+        let width = 64;
+        let key = NearKey { map: Arc::new(CompiledMap::of_heights(width, 32.0, &vec![150.0; width * width])), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
+        let (_, cones) = make_near(&key, &AtomicBool::new(false)).unwrap();
+        assert_eq!(cones.width, 128);
+        assert!(cones.all_round.iter().chain(&cones.from_sun).all(|&c| c == 151.0));
     }
 
     #[test]

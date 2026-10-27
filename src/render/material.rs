@@ -36,6 +36,10 @@ pub struct TerrainMaterial {
     #[texture(5)]
     #[sampler(6)]
     pub near_map: Handle<Image>,
+    /// The near window's cone map (which side of a step a spot is on: see `light.rs`, "The cone
+    /// map"): two plain numbers a pixel, which the shader reads and blends itself.
+    #[texture(8, sample_type = "float", filterable = false)]
+    pub near_cones: Handle<Image>,
     /// Kept apart from `settings` so the light (`light.rs`) and the render settings (`mod.rs`)
     /// each update their own.
     #[uniform(7)]
@@ -56,7 +60,8 @@ pub struct TerrainLight {
     /// x height tint, y the distance slopes are measured over (blocks: the distant terrain's finest
     /// cell, so both shade alike), z sea level, w the highest a height can be.
     pub hill: Vec4,
-    /// x how hill shading fades toward its limits (the distant terrain's shading fade), yzw unused.
+    /// x how hill shading fades toward its limits (the distant terrain's shading fade), y foot
+    /// shading, z step shadows (strengths), w unused.
     pub shade: Vec4,
 }
 

@@ -229,6 +229,7 @@ fn setup_terrain(
         settings: settings.shader_settings(SKY_COLOUR),
         light_map: images.add(light::placeholder()),
         near_map: images.add(light::placeholder()),
+        near_cones: images.add(light::cones_placeholder()),
         light: default(),
     });
     commands.insert_resource(TerrainAssets { material, ..terrain });
@@ -513,17 +514,16 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
                 "The broad lie of the land is the smooth ground's slope averaged over this far, so wobbles too small for the\n\
                  blocks to show shade nothing. Longer = only big landforms shade.",
             );
-            ui.add(crate::debug::Slider::new(&mut s.step_shading, 0.0..=2.0).text("step shading")).on_hover_text(
-                "How strongly the steps you can see (the blocks themselves) shade the ground round them. 0 = none: only the\n\
-                 broad lie of the land.",
+            ui.label("The steps you can see (a step's top is never darkened, only its foot):");
+            ui.add(crate::debug::Slider::new(&mut s.foot_shading, 0.0..=1.0).text("foot shading")).on_hover_text(
+                "How dark the foot of a step gets, on every side of it: darkest against the face, fading out.",
             );
-            ui.checkbox(&mut s.ledge_tops, "keep ledge tops lit").on_hover_text(
-                "Hill shading never darkens a block top that stands above the block just downhill of it. Off, a step's top\n\
-                 edge can darken with the ground below it (for A/B).",
+            ui.add(crate::debug::Slider::new(&mut s.step_shadows, 0.0..=1.0).text("step shadows")).on_hover_text(
+                "How much darker the foot of a step gets on its side away from the sun, roughly where its shadow falls.",
             );
-            ui.add(crate::debug::Slider::new(&mut s.near_soften, 0..=6).text("soften the steps' shading")).on_hover_text(
-                "How many times the steps' shading is softened (each a 3 × 3 average), so it fades in and out over a few more\n\
-                 blocks. 0 = as measured.",
+            ui.add(crate::debug::Slider::new(&mut s.shade_reach, 0.5..=32.0).logarithmic(true).text("shade reach (blocks per block of height)")).on_hover_text(
+                "How far a step's shade reaches out from its foot, for each block of its height: at 4, a 1-block step shades\n\
+                 4 blocks out and a 5-block cliff 20. (The shading fade, under distant terrain, sets how it eases in.)",
             );
         });
         if ui.button("Reset light settings").clicked() {
