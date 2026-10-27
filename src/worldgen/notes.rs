@@ -68,7 +68,11 @@ pub fn button(ui: &mut egui::Ui, title: &str, row: egui::Rect) {
     let colour = if written.trim().is_empty() { ui.visuals().weak_text_color() } else { egui::Color32::from_rgb(240, 200, 90) };
     let icon = egui::RichText::new("📝").color(colour);
     let hover = if written.trim().is_empty() { "Notes on this section (none yet)".to_string() } else { super::view::short(&written, 400) };
-    let response = ui.put(at, egui::Button::new(icon).frame(open).small()).on_hover_text(hover);
+    // In a little area of its own over the heading, which takes no room in the panel: placing it
+    // back up there with `ui.put` moved the panel's layout back up too, so the next section was
+    // drawn over this one's contents.
+    let mut corner = ui.new_child(egui::UiBuilder::new().max_rect(at).layout(egui::Layout::right_to_left(egui::Align::Center)));
+    let response = corner.add(egui::Button::new(icon).frame(open).small()).on_hover_text(hover);
     if response.clicked() {
         let mut notes = NOTES.lock().unwrap();
         if !notes.open.remove(&key) {
@@ -121,6 +125,23 @@ pub fn windows(ctx: &egui::Context) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_button_takes_no_room_in_the_panel() {
+        // A heading, its open contents, then the button placed back up on the heading: what comes
+        // next must still go below the contents, not over them.
+        on_page(Some("test page"));
+        let ctx = egui::Context::default();
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let heading = ui.label("heading").rect;
+            ui.label("contents");
+            ui.label("more contents");
+            let next = ui.cursor().min.y;
+            button(ui, "heading", heading);
+            assert_eq!(ui.cursor().min.y, next, "the button moved the panel's layout back up");
+        });
+        on_page(None);
+    }
 
     #[test]
     fn notes_read_back_as_they_were_written() {
