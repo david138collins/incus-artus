@@ -203,7 +203,7 @@ Tectonic Sim → bake (32-block pixels)
 Terrain Compiler (whole map, once): sea level · soften the coastline · soften the mountains
       → smooth maps: coast, height, tilt, squeeze, squeeze direction
 Interpreter (every block, as the world is made): blend the maps to the block, then
-      land & sea curves · grade · raised coast · lift · mountains · ridges · hills
+      land & sea curves · grade · raised coast · the mountains' rise · ridgelines · hills
       · torn coast · detail · surface blocks
       → the ground, and the distant terrain (the same recipe, sampled coarsely)
 ```
@@ -265,7 +265,7 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
 - **Built:** zooming into the Terrain Compiler's map turns it into a **live close-up** of the ground as
   the Interpreter makes it (every block when zoomed right in; every 2nd, 4th… further out). It
   follows the Interpreter's sliders as they move: a new recipe reads the same compiler maps, nothing
-  copied. **Layer switches** leave parts of the recipe out (raised coast, lift, mountains,
+  copied. **Layer switches** leave parts of the recipe out (raised coast, rise, ridgelines,
   ridges, hills, torn coast, detail). The close-up follows them, and so does Render World and Spawn: the world says along the top of the screen what it leaves out, and its save remembers them, so chunks streamed in later match. The big map always uses the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
@@ -430,6 +430,7 @@ mountains first, other kinds of features later, as David needs them.
 - **The dots are a viewing aid** for now: a 1x / 2x / 4x / 8x size switch, not saved.
 
 ### Lift  [DECIDED and BUILT 2026-10-26]
+**Moved 2026-10-27** (step 2 of the peaks plan, `vision/proposal-peaks.md`): the Lift is no longer an Interpreter section. Its controls are on the Additives panel under one **Mountains** heading (Hydrology to come beside it): **Where** (the point picker) and **Rise** (the cloth; "max lift" is now "rise"), above Mountain grain, Grain drift and Ridge streams. The settings are still kept in the recipe (`lift`), since the cloth is worked out at every block, so presets and the ground are unchanged. The Interpreter's "Mountains (from the squeeze map)" is now **Ridgelines** (David: the ridgelines raise the land to the highlands; the Additives' mountains put peaks across the same area). The Show switches and overlay say "rise" and "ridgelines".
 David: "a tablecloth draped over a series of points floating in the area, with the edges of the
 cloth tapering and ending just before the coast lines". Exposed land is raised toward mountain
 points: lift = *max lift* x a spline (nearness to the nearest point, over a *reach*; left the coast

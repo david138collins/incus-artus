@@ -17,7 +17,7 @@ use super::additives::{Additives, DriftWay, Sides};
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
-use crate::world::{InterpreterSettings, LiftFrom, Mask, MaskSource, Mutes};
+use crate::world::{InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Mutes};
 use super::noise::PerlinSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
@@ -610,12 +610,14 @@ Tectonic Sim -> bake (32-block pixels)
       |
 Terrain Compiler · whole map, once:
   sea level · soften coast · soften mountains
+  where the mountains stand (Additives)
       |  smooth maps
 World Interpreter · every block, as
   the world is made (this panel):
   blend the maps to the block, then
-  curves · grade · edge rise · lift
-  mountains · ridges
+  curves · grade · edge rise
+  the mountains' rise
+  ridgelines
   hills · torn coast · detail
       |
 the ground (and the distant terrain)";
@@ -636,115 +638,132 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 .on_hover_text("Draws the dots this many times bigger (the seeds stay as they are), to see them from further out.");
         }
     });
+    let points = compiler.result.as_ref().map(|r| r.made.lift_points.len());
+    let show_points = &mut compiler.show_lift_points;
+    let lift = &mut compiler.settings.interpreter.lift;
     let a = &mut compiler.settings.additives;
 
-    fold_section(ui, "Mountain grain", |ui| {
-        ui.small("Which way the mountains run at each spot, and whether they're a string (a range running one way) or a knot. See it with the \"range grain\" and \"string or knot\" overlays.");
-        ui.add(crate::debug::Slider::new(&mut a.grain_reach, 250.0..=8_000.0).logarithmic(true).text("grain reach (blocks)")).on_hover_text(
-            "How far round each spot is looked at to tell which way the mountains run. Small: every spur and bump has its\n\
-             own direction. Large: only whole ranges do (and small knots blend into the range around them).",
+    // Everything here is about mountains, so it's under one heading, with Hydrology to come beside it
+    // [David, 2026-10-27]. Where and Rise were the Interpreter's Lift: its point picker gives the
+    // peaks to come their points, and its cloth is the bump they're cut down out of. (Still kept in
+    // the Interpreter's recipe, as `lift`: the rise is worked out at every block, from points the
+    // compiler finds.)
+    fold_section(ui, "Mountains", |ui| {
+        ui.small(
+            "Where the mountains stand, the rise they stand on, and how the mountain belts run. Peaks are next: \
+             they'll stand at the points, cut down out of the rise.",
         );
-        ui.add(crate::debug::Slider::new(&mut a.grain_from_squeeze, 0.0..=1.0).text("from squeeze")).on_hover_text(
-            "Where the direction comes from. 0 = the mountains' own shape (which way their slopes face); 1 = the squeeze\n\
-             (ranges run across the way the rock was pushed, as real fold belts do); between = a blend.\n\
-             String or knot always comes from the shape.",
-        );
-    });
+        fold_section(ui, "Where", |ui| mountain_points(ui, lift, show_points, points));
+        fold_section(ui, "Rise", |ui| mountain_rise(ui, lift));
 
-    switched_section(ui, "Grain drift", &mut a.drift_on, |ui| {
-        ui.small("Seeds (blue) scattered over the mountains send dots (yellow) drifting the way the range runs, spreading sideways and thinning out. In knots they just scatter round the seed.");
-        ui.add(crate::debug::Slider::new(&mut a.drift_spacing, 200.0..=5_000.0).logarithmic(true).text("seed spacing (blocks)"))
-            .on_hover_text("About how far apart the seeds are where the mountains are strongest (scattered, not even); further apart where they're weaker.");
-        ui.add(crate::debug::Slider::new(&mut a.drift_least, 0.0..=1.0).text("least mountains")).on_hover_text(
-            "No seeds where the mountains are weaker than this (0 to 1, as the mountain overlay shows).",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.drift_most, 0.0..=1.0).text("most mountains")).on_hover_text(
-            "No seeds where the mountains are stronger than this: trims off the strongest, as least mountains trims off the weakest.\n\
-             (Between the two, seeds come thicker the stronger the mountains.)",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.drift_distance, 500.0..=100_000.0).logarithmic(true).text("distance (blocks)"))
-            .on_hover_text("How far the dots drift from their seed along the range.");
-        ui.add(crate::debug::Slider::new(&mut a.drift_dots, 1..=64).text("dots per seed"));
-        ui.add(crate::debug::Slider::new(&mut a.drift_spread, 0.0..=1.0).text("spread")).on_hover_text(
-            "How far the dots spread sideways off the range by the far end, as a share of the distance. 0 = all in a line along it.",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.drift_lean, -1.0..=1.0).text("lean")).on_hover_text(
-            "Which side they spread to, looking the way they drift: -1 all to the left, 0 both sides, 1 all to the right.",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.drift_thin, 0.0..=1.0).text("thin out")).on_hover_text(
-            "How many fewer dots there are toward the far end. 0 = as many all the way, 1 = none at the very end.",
-        );
-        ui.horizontal_wrapped(|ui| {
-            ui.label("drift:");
-            for way in DriftWay::ALL {
-                ui.selectable_value(&mut a.drift_way, way, way.name());
-            }
-        })
-        .response
-        .on_hover_text(
-            "A range runs two ways. To the range's tip: each range's own thin end (a carrot's point; the white arrows),\n\
-             the way it reaches furthest from its middle. To a bearing: the same way for every range. Or both ways.",
-        );
-        ui.add_enabled(
-            a.drift_way != DriftWay::Both,
-            crate::debug::Slider::new(&mut a.drift_toward, 0.0..=360.0).text("bearing"),
-        )
-        .on_hover_text(
-            "The compass bearing (0 north, 90 east, 180 south, 270 west) dots drift nearer to, like a prevailing wind:\n\
-             for every range when drifting to a bearing, and for seeds outside any range when drifting to the tip.",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.range_cut, 0.0..=1.0).text("range cut")).on_hover_text(
-            "Where the mountains are weaker than this, they're cut into separate ranges, each with its own middle (white\n\
-             ring) and tip (white arrow, longer the more lopsided). Lower: ranges join up into bigger ones.",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.tip_pull, 0.0..=1.0).text("tip pull")).on_hover_text(
-            "How hard each range pulls its dots toward its tip as they drift, so they carry on out past the range's end.\n\
-             0 = follow the grain only; 1 = straight at the tip. Weaker for ranges that are less lopsided (none for an egg).",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.coherence, 0.0..=1.0).text("coherence")).on_hover_text(
-            "How much each range's dots come together into one stream: they're drawn in toward the range's middle line\n\
-             (through its white ring, along its arrow) as they travel, and the spread and knot scatter are turned down.\n\
-             0 = as scattered as the sliders above make them; 1 = one tight stream out of each range.",
-        );
-        ui.add(crate::debug::Slider::new(&mut a.spiral, -1.0..=1.0).text("spiral")).on_hover_text(
-            "Every dot turns to swirl in round the map's middle as it goes: positive clockwise, negative anticlockwise,\n\
-             0 = no spiral. Further out, it bends more.",
-        );
-        ui.add_enabled(a.spiral != 0.0, crate::debug::Slider::new(&mut a.spiral_exponent, 0.25..=4.0).logarithmic(true).text("spiral exponent"))
-            .on_hover_text(
-                "How the spiral's turning grows along each dot's way: 1 = steadily; above 1 = hardly at first, then hard\n\
-                 near the end; below 1 = early on, then easing off.",
+        fold_section(ui, "Mountain grain", |ui| {
+            ui.small("Which way the mountains run at each spot, and whether they're a string (a range running one way) or a knot. See it with the \"range grain\" and \"string or knot\" overlays.");
+            ui.add(crate::debug::Slider::new(&mut a.grain_reach, 250.0..=8_000.0).logarithmic(true).text("grain reach (blocks)")).on_hover_text(
+                "How far round each spot is looked at to tell which way the mountains run. Small: every spur and bump has its\n\
+                 own direction. Large: only whole ranges do (and small knots blend into the range around them).",
             );
-        ui.add(crate::debug::Slider::new(&mut a.knot_scatter, 0.0..=1.0).text("knot scatter")).on_hover_text(
-            "In knots (yellow on the \"string or knot\" overlay), how far round the seed the dots scatter, as a share of the\n\
-             distance. Partly-knotted spots blend the scatter with the drift.",
-        );
-    });
+            ui.add(crate::debug::Slider::new(&mut a.grain_from_squeeze, 0.0..=1.0).text("from squeeze")).on_hover_text(
+                "Where the direction comes from. 0 = the mountains' own shape (which way their slopes face); 1 = the squeeze\n\
+                 (ranges run across the way the rock was pushed, as real fold belts do); between = a blend.\n\
+                 String or knot always comes from the shape.",
+            );
+        });
 
-    switched_section(ui, "Ridge streams", &mut a.streams_on, |ui| {
-        ui.small("Dots placed along each range's spine (the \"range spines\" overlay) stream off it, curving with it.");
-        ui.add(crate::debug::Slider::new(&mut a.spacing, 50.0..=4_000.0).logarithmic(true).text("spacing (blocks)"))
-            .on_hover_text("Blocks between the streams' starts along a spine (scattered, not even).");
-        ui.add(crate::debug::Slider::new(&mut a.distance, 0.0..=6_000.0).text("distance (blocks)"))
-            .on_hover_text("How far each stream runs from the spine.");
-        ui.add(crate::debug::Slider::new(&mut a.dots, 1..=64).text("dots per stream"));
-        ui.add(crate::debug::Slider::new(&mut a.bend, -4.0..=4.0).text("bend")).on_hover_text(
-            "How much the spine's curve steers the streams as they go: they turn to sweep along the ridge, all the same way\n\
-             round a curve on both sides (like a pinwheel), so neighbours curve together. The sharper the spine curves,\n\
-             the more they turn. 0 = straight off the spine; negative = sweeping the other way.",
-        );
-        ui.horizontal_wrapped(|ui| {
-            ui.label("sides:");
-            for sides in Sides::ALL {
-                ui.selectable_value(&mut a.sides, sides, sides.name());
-            }
-        })
-        .response
-        .on_hover_text("Which side of the spine streams leave from: both, the side it curves toward, or the side it curves away from.");
-        ui.add(crate::debug::Slider::new(&mut a.least_mountains, 0.0..=1.0).text("least mountains")).on_hover_text(
-            "Streams start only where the mountains are at least this strong (0 to 1, as the mountain overlay shows),\n\
-             to keep them to the main ranges.",
-        );
+        switched_section(ui, "Grain drift", &mut a.drift_on, |ui| {
+            ui.small("Seeds (blue) scattered over the mountains send dots (yellow) drifting the way the range runs, spreading sideways and thinning out. In knots they just scatter round the seed.");
+            ui.add(crate::debug::Slider::new(&mut a.drift_spacing, 200.0..=5_000.0).logarithmic(true).text("seed spacing (blocks)"))
+                .on_hover_text("About how far apart the seeds are where the mountains are strongest (scattered, not even); further apart where they're weaker.");
+            ui.add(crate::debug::Slider::new(&mut a.drift_least, 0.0..=1.0).text("least mountains")).on_hover_text(
+                "No seeds where the mountains are weaker than this (0 to 1, as the mountain overlay shows).",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.drift_most, 0.0..=1.0).text("most mountains")).on_hover_text(
+                "No seeds where the mountains are stronger than this: trims off the strongest, as least mountains trims off the weakest.\n\
+                 (Between the two, seeds come thicker the stronger the mountains.)",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.drift_distance, 500.0..=100_000.0).logarithmic(true).text("distance (blocks)"))
+                .on_hover_text("How far the dots drift from their seed along the range.");
+            ui.add(crate::debug::Slider::new(&mut a.drift_dots, 1..=64).text("dots per seed"));
+            ui.add(crate::debug::Slider::new(&mut a.drift_spread, 0.0..=1.0).text("spread")).on_hover_text(
+                "How far the dots spread sideways off the range by the far end, as a share of the distance. 0 = all in a line along it.",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.drift_lean, -1.0..=1.0).text("lean")).on_hover_text(
+                "Which side they spread to, looking the way they drift: -1 all to the left, 0 both sides, 1 all to the right.",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.drift_thin, 0.0..=1.0).text("thin out")).on_hover_text(
+                "How many fewer dots there are toward the far end. 0 = as many all the way, 1 = none at the very end.",
+            );
+            ui.horizontal_wrapped(|ui| {
+                ui.label("drift:");
+                for way in DriftWay::ALL {
+                    ui.selectable_value(&mut a.drift_way, way, way.name());
+                }
+            })
+            .response
+            .on_hover_text(
+                "A range runs two ways. To the range's tip: each range's own thin end (a carrot's point; the white arrows),\n\
+                 the way it reaches furthest from its middle. To a bearing: the same way for every range. Or both ways.",
+            );
+            ui.add_enabled(
+                a.drift_way != DriftWay::Both,
+                crate::debug::Slider::new(&mut a.drift_toward, 0.0..=360.0).text("bearing"),
+            )
+            .on_hover_text(
+                "The compass bearing (0 north, 90 east, 180 south, 270 west) dots drift nearer to, like a prevailing wind:\n\
+                 for every range when drifting to a bearing, and for seeds outside any range when drifting to the tip.",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.range_cut, 0.0..=1.0).text("range cut")).on_hover_text(
+                "Where the mountains are weaker than this, they're cut into separate ranges, each with its own middle (white\n\
+                 ring) and tip (white arrow, longer the more lopsided). Lower: ranges join up into bigger ones.",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.tip_pull, 0.0..=1.0).text("tip pull")).on_hover_text(
+                "How hard each range pulls its dots toward its tip as they drift, so they carry on out past the range's end.\n\
+                 0 = follow the grain only; 1 = straight at the tip. Weaker for ranges that are less lopsided (none for an egg).",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.coherence, 0.0..=1.0).text("coherence")).on_hover_text(
+                "How much each range's dots come together into one stream: they're drawn in toward the range's middle line\n\
+                 (through its white ring, along its arrow) as they travel, and the spread and knot scatter are turned down.\n\
+                 0 = as scattered as the sliders above make them; 1 = one tight stream out of each range.",
+            );
+            ui.add(crate::debug::Slider::new(&mut a.spiral, -1.0..=1.0).text("spiral")).on_hover_text(
+                "Every dot turns to swirl in round the map's middle as it goes: positive clockwise, negative anticlockwise,\n\
+                 0 = no spiral. Further out, it bends more.",
+            );
+            ui.add_enabled(a.spiral != 0.0, crate::debug::Slider::new(&mut a.spiral_exponent, 0.25..=4.0).logarithmic(true).text("spiral exponent"))
+                .on_hover_text(
+                    "How the spiral's turning grows along each dot's way: 1 = steadily; above 1 = hardly at first, then hard\n\
+                     near the end; below 1 = early on, then easing off.",
+                );
+            ui.add(crate::debug::Slider::new(&mut a.knot_scatter, 0.0..=1.0).text("knot scatter")).on_hover_text(
+                "In knots (yellow on the \"string or knot\" overlay), how far round the seed the dots scatter, as a share of the\n\
+                 distance. Partly-knotted spots blend the scatter with the drift.",
+            );
+        });
+
+        switched_section(ui, "Ridge streams", &mut a.streams_on, |ui| {
+            ui.small("Dots placed along each range's spine (the \"range spines\" overlay) stream off it, curving with it.");
+            ui.add(crate::debug::Slider::new(&mut a.spacing, 50.0..=4_000.0).logarithmic(true).text("spacing (blocks)"))
+                .on_hover_text("Blocks between the streams' starts along a spine (scattered, not even).");
+            ui.add(crate::debug::Slider::new(&mut a.distance, 0.0..=6_000.0).text("distance (blocks)"))
+                .on_hover_text("How far each stream runs from the spine.");
+            ui.add(crate::debug::Slider::new(&mut a.dots, 1..=64).text("dots per stream"));
+            ui.add(crate::debug::Slider::new(&mut a.bend, -4.0..=4.0).text("bend")).on_hover_text(
+                "How much the spine's curve steers the streams as they go: they turn to sweep along the ridge, all the same way\n\
+                 round a curve on both sides (like a pinwheel), so neighbours curve together. The sharper the spine curves,\n\
+                 the more they turn. 0 = straight off the spine; negative = sweeping the other way.",
+            );
+            ui.horizontal_wrapped(|ui| {
+                ui.label("sides:");
+                for sides in Sides::ALL {
+                    ui.selectable_value(&mut a.sides, sides, sides.name());
+                }
+            })
+            .response
+            .on_hover_text("Which side of the spine streams leave from: both, the side it curves toward, or the side it curves away from.");
+            ui.add(crate::debug::Slider::new(&mut a.least_mountains, 0.0..=1.0).text("least mountains")).on_hover_text(
+                "Streams start only where the mountains are at least this strong (0 to 1, as the mountain overlay shows),\n\
+                 to keep them to the main ranges.",
+            );
+        });
     });
     ui.add_space(6.0);
     if ui.small_button("Reset the Additives").clicked() {
@@ -766,6 +785,56 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     }
 }
 
+/// Mountains, Where: the points the mountains stand at (what was the Lift's point picker).
+fn mountain_points(ui: &mut egui::Ui, lift: &mut Lift, show_points: &mut bool, points: Option<usize>) {
+    ui.small("The points come from the bake's own crush, so the ridgelines' curve doesn't move them. Shown in cyan.");
+    ui.horizontal(|ui| {
+        ui.label("points:");
+        ui.selectable_value(&mut lift.from, LiftFrom::Points, "scattered").on_hover_text("Scattered over the crushed rock, thicker where it's more crushed.");
+        ui.selectable_value(&mut lift.from, LiftFrom::Ranges, "range middles").on_hover_text("One in the middle of each range of crushed rock.");
+    });
+    ui.add(crate::debug::Slider::new(&mut lift.least, 0.0..=1.0).text("least crush"))
+        .on_hover_text("No points where the rock is less crushed than this (0 to 1, against the bake's most crushed); ranges: none whose most crushed spot is.");
+    ui.add(crate::debug::Slider::new(&mut lift.most, 0.0..=1.0).text("most crush"))
+        .on_hover_text("No points where the rock is more crushed than this; ranges: none whose most crushed spot is.");
+    // Both kinds' settings show, the one not chosen greyed out.
+    let scattered = lift.from == LiftFrom::Points;
+    ui.add_enabled(scattered, crate::debug::Slider::new(&mut lift.spacing, 300.0..=20_000.0).logarithmic(true).text("spacing (blocks)"))
+        .on_hover_text("Scattered points: about how far apart they are where the rock is most crushed (scattered, not even).");
+    ui.add_enabled(!scattered, crate::debug::Slider::new(&mut lift.range_cut, 0.0..=1.0).text("range cut"))
+        .on_hover_text("Range middles: where the crush is weaker than this, it's cut into separate ranges. Lower: ranges join into bigger ones.");
+    ui.add_enabled(!scattered, crate::debug::Slider::new(&mut lift.smallest_range, 250.0..=50_000.0).logarithmic(true).text("smallest range (blocks)"))
+        .on_hover_text("Range middles: only ranges at least about this many blocks across get a point.");
+    ui.horizontal(|ui| {
+        ui.checkbox(show_points, "show the points");
+        if let Some(count) = points {
+            ui.small(format!("{count} points"));
+        }
+    });
+}
+
+/// Mountains, Rise: the land raised round the points (what was the Lift's cloth).
+fn mountain_rise(ui: &mut egui::Ui, lift: &mut Lift) {
+    ui.small(
+        "Land raised round the points, like a tablecloth draped over them floating above the ground, its edges tapering \
+         off just before the coast: the bump the peaks will be cut down out of. Roll the mouse wheel over a slider to \
+         nudge it; hold Shift for finer steps.",
+    );
+    ui.add(crate::debug::Slider::new(&mut lift.height, 0.0..=200.0).text("rise (blocks)"))
+        .on_hover_text("How high the land is raised right under a point, at the top of the curve. 0 = no rise.");
+    ui.add(crate::debug::Slider::new(&mut lift.reach, 500.0..=60_000.0).logarithmic(true).text("reach (blocks)"))
+        .on_hover_text("How far the cloth spreads out from its points: the curve's left end is this far from the nearest point.");
+    ui.label("The cloth: from reach away (left) to right under a point (right).");
+    spline_box(ui, "lift spline", &mut lift.curve, &Lift::default().curve, "toward the nearest point", "share of the rise");
+    ui.add(crate::debug::Slider::new(&mut lift.pad, 32.0..=20_000.0).logarithmic(true).text("coast pad (blocks)")).on_hover_text(
+        "Within this far of the coast, the rise is braked, down to nothing at the coastline, so the coast never moves.",
+    );
+    ui.add(crate::debug::Slider::new(&mut lift.pad_falloff, 0.1..=10.0).logarithmic(true).text("pad falloff")).on_hover_text(
+        "How the pad brakes: 1 = evenly across it; above 1 = braking hard from further in; below 1 = only right at the\n\
+         coast, so the rise runs nearly to the shore.",
+    );
+}
+
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
 fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("World Interpreter");
@@ -784,7 +853,6 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         return;
     }
     let defaults = InterpreterSettings::default();
-    let lift_points = compiler.result.as_ref().map(|r| r.made.lift_points.len());
     let s = &mut compiler.settings.interpreter;
 
     fold_section(ui, "Land and sea", |ui| {
@@ -793,7 +861,7 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("The Z the highest land reaches before mountains are added (the top of the land curve).");
         ui.add(crate::debug::Slider::new(&mut s.ceiling, HIGHEST as f32..=TOP_OF_THE_WORLD as f32).text("ground never above (Z)")).on_hover_text(
             "The ground is cut off flat at this height. The ridgelines still measure their height up to Z 333,\n\
-             so raising this changes nothing until something (the lift, peaks to come) goes past 333.\n\
+             so raising this changes nothing until something (the mountains' rise, peaks to come) goes past 333.\n\
              The world itself goes up to Z 1,023.",
         );
         ui.add_space(4.0);
@@ -821,55 +889,15 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
              high side raised).",
         );
     });
-    fold_section(ui, "Lift", |ui| {
+    // Today's ridged "mountains", which David treats as hill country: the nest the Additives' peaks
+    // stand in [David, 2026-10-27: renamed Ridgelines; "the ridges raise it to the highlands, the
+    // additive mountains put the peaks across the same area"].
+    fold_section(ui, "Ridgelines", |ui| {
         ui.small(
-            "Land raised toward the mountains, like a tablecloth draped over points floating above them (cyan), its edges \
-             tapering off just before the coast. The points come from the bake's own crush, so the mountains curve doesn't \
-             move them. Roll the mouse wheel over a slider to nudge it; hold Shift for finer steps.",
-        );
-        let lift = &mut s.lift;
-        ui.add(crate::debug::Slider::new(&mut lift.height, 0.0..=200.0).text("max lift (blocks)"))
-            .on_hover_text("How high the land is raised right under a point, at the top of the curve. 0 = no lift.");
-        ui.add(crate::debug::Slider::new(&mut lift.reach, 500.0..=60_000.0).logarithmic(true).text("reach (blocks)"))
-            .on_hover_text("How far the cloth spreads out from its points: the curve's left end is this far from the nearest point.");
-        ui.label("The cloth: from reach away (left) to right under a point (right).");
-        spline_box(ui, "lift spline", &mut lift.curve, &defaults.lift.curve, "toward the nearest point", "share of the max lift");
-        ui.add(crate::debug::Slider::new(&mut lift.pad, 32.0..=20_000.0).logarithmic(true).text("coast pad (blocks)")).on_hover_text(
-            "Within this far of the coast, the lift is braked, down to nothing at the coastline, so the coast never moves.",
-        );
-        ui.add(crate::debug::Slider::new(&mut lift.pad_falloff, 0.1..=10.0).logarithmic(true).text("pad falloff")).on_hover_text(
-            "How the pad brakes: 1 = evenly across it; above 1 = braking hard from further in; below 1 = only right at the\n\
-             coast, so the lift runs nearly to the shore.",
-        );
-        ui.horizontal(|ui| {
-            ui.label("points:");
-            ui.selectable_value(&mut lift.from, LiftFrom::Points, "scattered").on_hover_text("Scattered over the crushed rock, thicker where it's more crushed.");
-            ui.selectable_value(&mut lift.from, LiftFrom::Ranges, "range middles").on_hover_text("One in the middle of each range of crushed rock.");
-        });
-        ui.add(crate::debug::Slider::new(&mut lift.least, 0.0..=1.0).text("least crush"))
-            .on_hover_text("No points where the rock is less crushed than this (0 to 1, against the bake's most crushed); ranges: none whose most crushed spot is.");
-        ui.add(crate::debug::Slider::new(&mut lift.most, 0.0..=1.0).text("most crush"))
-            .on_hover_text("No points where the rock is more crushed than this; ranges: none whose most crushed spot is.");
-        // Both kinds' settings show, the one not chosen greyed out.
-        let scattered = lift.from == LiftFrom::Points;
-        ui.add_enabled(scattered, crate::debug::Slider::new(&mut lift.spacing, 300.0..=20_000.0).logarithmic(true).text("spacing (blocks)"))
-            .on_hover_text("Scattered points: about how far apart they are where the rock is most crushed (scattered, not even).");
-        ui.add_enabled(!scattered, crate::debug::Slider::new(&mut lift.range_cut, 0.0..=1.0).text("range cut"))
-            .on_hover_text("Range middles: where the crush is weaker than this, it's cut into separate ranges. Lower: ranges join into bigger ones.");
-        ui.add_enabled(!scattered, crate::debug::Slider::new(&mut lift.smallest_range, 250.0..=50_000.0).logarithmic(true).text("smallest range (blocks)"))
-            .on_hover_text("Range middles: only ranges at least about this many blocks across get a point.");
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut compiler.show_lift_points, "show the points");
-            if let Some(count) = lift_points {
-                ui.small(format!("{count} points"));
-            }
-        });
-    });
-    fold_section(ui, "Mountains (from the squeeze map)", |ui| {
-        ui.small(
-            "Across: how crushed the rock is, from none (left) to the most crushed rock in this bake (right). Up: how \
-             tall the mountains are, as a share of the room up to Z 333. Keep the left part flat at the bottom to keep \
-             lightly squeezed land as plains.",
+            "Ridged high ground from the squeeze map, which the peaks (Additives, Mountains) will stand in. Across: how \
+             crushed the rock is, from none (left) to the most crushed rock in this bake (right). Up: how tall the \
+             ridgelines are, as a share of the room up to Z 333. Keep the left part flat at the bottom to keep lightly \
+             squeezed land as plains.",
         );
         spline_box(ui, "mountain spline", &mut s.mountains, &defaults.mountains, "more squeeze", "taller (top = Z 333)");
         // The ranges are centred on David's "hope" preset (2026-10-25), which had every one of these
@@ -1269,8 +1297,8 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.horizontal_wrapped(|ui| {
             for (name, muted, about) in [
                 ("edge rise", &mut m.raised_coast, "The land rising inland from the coast on a plate's high side."),
-                ("lift", &mut m.lift, "The lift: land raised toward the mountains, like a tablecloth draped over its points."),
-                ("mountains", &mut m.mountains, "The mountains from the squeeze map (with their ridges)."),
+                ("rise", &mut m.lift, "The mountains' rise (Additives, Mountains): land raised round their points, like a tablecloth draped over them."),
+                ("ridgelines", &mut m.mountains, "The ridgelines from the squeeze map (with their ridges)."),
                 ("ridges", &mut m.ridges, "The ridge pattern carved into the mountains (off: smooth domes)."),
                 ("hills", &mut m.hills, "The rolling hills on land."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
@@ -1293,7 +1321,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             for (name, shown, about) in [
                 ("plates", &mut s.plates, "Each plate in its own colour, with its outline."),
                 ("squeeze", &mut s.squeeze, "Crushed rock in red, stretched rock in blue: the stronger, the deeper the colour."),
-                ("mountains", &mut s.mountains, "Where mountains rise (orange: the deeper, the taller the mountains curve makes them)."),
+                ("ridgelines", &mut s.mountains, "Where the ridgelines rise (orange: the deeper, the taller their curve makes them)."),
                 ("range spines", &mut s.spines, "The crest line of each mountain range: where its mountains are strongest, across the range."),
                 ("coast distance", &mut s.coast, "The coastline (cyan), and lines every so many blocks inland (white) and out to sea (pale blue)."),
                 ("squeeze direction", &mut s.direction, "Which way the rock was squeezed: longer strokes, harder squeezing. Ridges line up across the strokes."),

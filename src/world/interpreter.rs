@@ -293,7 +293,9 @@ pub enum LiftFrom {
 
 /// The lift's settings. The points are found from the bake's own crush (how squeezed the rock is,
 /// against the most crushed in the bake, 0 to 1), not the mountains curve, so they hold still as
-/// the mountains are reshaped.
+/// the mountains are reshaped. On the Additives panel since 2026-10-27, as Mountains: Where (the
+/// points) and Rise (the cloth); kept here, in the recipe, because the cloth is worked out at
+/// every block.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Lift {
@@ -634,8 +636,8 @@ impl Mutes {
     pub fn left_out(&self) -> Vec<&'static str> {
         [
             ("edge rise", self.raised_coast),
-            ("lift", self.lift),
-            ("mountains", self.mountains),
+            ("rise", self.lift),
+            ("ridgelines", self.mountains),
             ("ridges", self.ridges),
             ("hills", self.hills),
             ("torn coast", self.torn_coast),
