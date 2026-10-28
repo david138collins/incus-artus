@@ -883,6 +883,12 @@ for later:
 - **Hills and ground detail:** not yet decided whether they stay (hills are off in his presets).
 - **Grain drift and ridge stream dots** look like useful tools without a use yet. There may be a
   clever way to bring them in once the mountains are sorted.
+- **Peaks: "we hit it on the head"** (2026-10-27). Add up looks better than higher wins (now the
+  default); "each layer finer by" goes to ×6 (he got good results maxed out at ×3).
+- **Far mountains read as ziggurats** [David, 2026-10-27]: the distant terrain's blocky LOD rings
+  turn tall peaks into stepped pyramids. Needs adaptive / smoother far meshes at some point, and "our
+  performance budget has to last": a long way to go. Flying extremely fast stutters every 2-3 s (he
+  finds it reasonable; the stutter breakdown is still on the list).
 
 **Soon after, on the to-do list [David 2026-10-26]:**
 

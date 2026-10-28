@@ -392,7 +392,7 @@ impl Default for Peaks {
             width_spread: 0.5,
             wobble: 0.3,
             rise: Spline::through(&[(0.0, 0.0), (0.5, 0.2), (0.85, 0.65), (1.0, 1.0)]),
-            add: false,
+            add: true,
             crags: 0.3,
             crag_size: 400.0,
             crag_layers: 5,
@@ -1444,7 +1444,7 @@ mod tests {
         let mut map = CompiledMap::of_heights(16, 32.0, &[200.0; 256]);
         Arc::make_mut(&mut map.maps).mountain_points = vec![[256.0, 256.0], [300.0, 256.0]];
         // Plain: all alike, round, no crags.
-        let peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 100.0, width_spread: 0.0, wobble: 0.0, rise: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]), crags: 0.0, ..Peaks::default() };
+        let peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 100.0, width_spread: 0.0, wobble: 0.0, rise: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]), add: false, crags: 0.0, ..Peaks::default() };
         // (A small map: its coast is never far, so the coast pad is made tiny.)
         let settings = InterpreterSettings { lift: Lift { pad: 1.0, ..Lift::default() }, ..InterpreterSettings::default() };
         let on = map.with(InterpreterSettings { peaks: peaks.clone(), ..settings.clone() }, Mutes::default());

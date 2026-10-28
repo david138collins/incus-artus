@@ -870,7 +870,7 @@ fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
     ui.add(crate::debug::Slider::new(&mut peaks.crag_size, 16.0..=4_000.0).logarithmic(true).text("biggest crag (blocks)"))
         .on_hover_text("How far across the biggest layer's lumps are. Each finer layer's are smaller, down to a block.");
     ui.add(crate::debug::Slider::new(&mut peaks.crag_layers, 1..=8).text("layers")).on_hover_text("How many layers, each finer than the last (any finer than a block are left out).");
-    ui.add(crate::debug::Slider::new(&mut peaks.crag_finer, 1.5..=3.0).text("each layer finer by ×")).on_hover_text("How much smaller each layer's lumps are than the last's.");
+    ui.add(crate::debug::Slider::new(&mut peaks.crag_finer, 1.5..=6.0).text("each layer finer by ×")).on_hover_text("How much smaller each layer's lumps are than the last's.");
     ui.add(crate::debug::Slider::new(&mut peaks.crag_weaker, 0.2..=0.8).text("each layer as strong ×")).on_hover_text(
         "How strong each layer is next to the last. Higher = rougher, more broken; lower = smoother, with only the big shapes.",
     );
