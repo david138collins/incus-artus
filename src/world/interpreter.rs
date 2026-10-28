@@ -200,6 +200,8 @@ pub struct InterpreterSettings {
     /// The lift: land raised toward the mountains, like a tablecloth draped over points floating
     /// above them, its edges tapering off just before the coast.
     pub lift: Lift,
+    /// Peaks at the mountains' points (the Additives panel's Mountains, Peaks).
+    pub peaks: Peaks,
     /// How tall mountains are for each amount of squeeze, from none (left) to the most crushed rock
     /// in the bake (right): up = a share of the room up to Z 333.
     pub mountains: Spline,
@@ -257,6 +259,7 @@ impl Default for InterpreterSettings {
             coast_edge: Spline::through(&[(0.0, 0.0), (0.35, 0.75), (1.0, 1.0)]),
             coast_fall_back: 0.0,
             lift: Lift::default(),
+            peaks: Peaks::default(),
             mountains: Spline::through(&[(0.0, 0.0), (0.08, 0.0), (0.5, 0.35), (1.0, 0.9)]),
             ridges: 0.5,
             ridge_layers: 3,
@@ -339,6 +342,65 @@ impl Default for Lift {
             range_cut: 0.2,
             smallest_range: 2_000.0,
         }
+    }
+}
+
+/// Peaks: a mountain standing at each of the mountains' points (Additives, Mountains, Where), on
+/// top of everything below it. [David, 2026-10-27: `vision/proposal-peaks.md`. First the rise
+/// alone; crags, the slope response and variation come next.]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Peaks {
+    pub on: bool,
+    /// How high (blocks) a peak stands above the ground under it, at its top.
+    pub height: f32,
+    /// How far (blocks) from its point a peak's foot reaches.
+    pub width: f32,
+    /// The peak's shape: across, from its foot (left) to its point (right); up, the share of `height`.
+    pub rise: Spline,
+}
+
+impl Default for Peaks {
+    fn default() -> Self {
+        Self { on: false, height: 400.0, width: 800.0, rise: Spline::through(&[(0.0, 0.0), (0.5, 0.2), (0.85, 0.65), (1.0, 1.0)]) }
+    }
+}
+
+/// The mountains' points, sorted into square cells at least a peak's width across, so a spot only
+/// looks at the peaks in its own cell and the eight round it.
+#[derive(Clone, Debug, Default)]
+struct PeakCells {
+    side: f32,
+    across: usize,
+    cells: Vec<Vec<[f32; 2]>>,
+}
+
+/// The most cells along a side (so tiny peaks on a big map don't make millions of cells).
+const MOST_CELLS: f32 = 256.0;
+
+impl PeakCells {
+    fn new(points: &[[f32; 2]], extent: f32, width: f32) -> Self {
+        if points.is_empty() {
+            return Self::default();
+        }
+        let side = width.max(extent / MOST_CELLS).max(1.0);
+        let across = (extent / side).ceil().max(1.0) as usize;
+        let mut cells = vec![Vec::new(); across * across];
+        for &[x, y] in points {
+            let (c, r) = ((x / side).floor().clamp(0.0, (across - 1) as f32) as usize, (y / side).floor().clamp(0.0, (across - 1) as f32) as usize);
+            cells[r * across + c].push([x, y]);
+        }
+        Self { side, across, cells }
+    }
+
+    /// The points in the cell holding (x, y) and the eight round it.
+    fn near(&self, x: f32, y: f32) -> impl Iterator<Item = &[f32; 2]> {
+        let last = self.across as i64 - 1;
+        let (c, r) = ((x / self.side.max(1.0)).floor() as i64, (y / self.side.max(1.0)).floor() as i64);
+        (r - 1..=r + 1)
+            .flat_map(move |r| (c - 1..=c + 1).map(move |c| (c, r)))
+            .filter(move |&(c, r)| self.across > 0 && (0..=last).contains(&c) && (0..=last).contains(&r))
+            .flat_map(move |(c, r)| self.cells[r as usize * self.across + c as usize].iter())
     }
 }
 
@@ -464,6 +526,9 @@ pub struct Maps {
     pub coast_distance: Vec<f32>,
     /// Blocks to the nearest of the lift's points (the map's width in blocks where there are none).
     pub lift_distance: Vec<f32>,
+    /// The mountains' points (where the lift's distance is measured from, and the peaks stand), as
+    /// (x, y) in blocks from the map's north-west corner, as `parts` takes them.
+    pub mountain_points: Vec<[f32; 2]>,
     /// The bake's height at sea level, its lowest and highest heights, and its most crushed and
     /// most stretched rock.
     pub water: f32,
@@ -615,6 +680,8 @@ pub struct Here {
 pub struct Parts {
     pub ground: f32,
     pub mountains: f32,
+    /// The peaks standing on both.
+    pub peaks: f32,
 }
 
 /// Parts of the recipe the terrain lab's Show switches leave out, to see what each one does. A
@@ -629,6 +696,7 @@ pub struct Mutes {
     pub hills: bool,
     pub torn_coast: bool,
     pub detail: bool,
+    pub peaks: bool,
 }
 
 impl Mutes {
@@ -642,6 +710,7 @@ impl Mutes {
             ("hills", self.hills),
             ("torn coast", self.torn_coast),
             ("detail", self.detail),
+            ("peaks", self.peaks),
         ]
         .into_iter()
         .filter_map(|(name, off)| off.then_some(name))
@@ -667,6 +736,8 @@ pub struct CompiledMap {
     coast_edge: Curve,
     hill_mask: Curve,
     detail_mask: Curve,
+    rise: Curve,
+    peak_cells: PeakCells,
 }
 
 /// A Perlin field (as a Graphics Kit layer makes it, output shaping and all) at a spot, about −1
@@ -721,6 +792,8 @@ impl CompiledMap {
             coast_edge: settings.coast_edge.curve(),
             hill_mask: settings.hill_mask.curve.curve(),
             detail_mask: settings.detail_mask.curve.curve(),
+            rise: settings.peaks.rise.curve(),
+            peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, settings.peaks.width),
             mutes: Mutes::default(),
             maps,
             seed,
@@ -810,7 +883,10 @@ impl CompiledMap {
             mountains = (HIGHEST - ground).max(0.0) * tall * carved;
         }
 
-        Parts { ground, mountains }
+        // 5. Peaks, on top.
+        let peaks = self.peaks(here, x, y);
+
+        Parts { ground, mountains, peaks }
     }
 
     /// The ridge pattern at a spot, 0 to 1 (1 = a crest), `spacing` blocks apart across and `length`
@@ -860,6 +936,30 @@ impl CompiledMap {
         let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness, layers, roughness);
         let clear = smooth(here.push_strength * s.ridge_alignment.max(0.0) / 0.1);
         wandering + (lined_up - wandering) * clear
+    }
+
+    /// How high the peaks stand at a spot (blocks; none at sea): the highest of the peaks near it,
+    /// each its rise curve read at how near its point is, braked by the lift's coast pad so the
+    /// coast never moves.
+    pub fn peaks(&self, here: &Here, x: f32, y: f32) -> f32 {
+        let p = &self.settings.peaks;
+        if !p.on || p.height <= 0.0 || here.coast < 0.0 || self.mutes.peaks {
+            return 0.0;
+        }
+        let width = p.width.max(1.0);
+        let mut highest = 0.0f32;
+        for &[px, py] in self.peak_cells.near(x, y) {
+            let apart = (x - px).hypot(y - py);
+            if apart < width {
+                highest = highest.max(self.rise.at(1.0 - apart / width).clamp(0.0, 1.0));
+            }
+        }
+        if highest <= 0.0 {
+            return 0.0;
+        }
+        let lift = &self.settings.lift;
+        let pad = smooth(here.coast_distance / lift.pad.max(1.0)).powf(lift.pad_falloff.max(0.01));
+        p.height * highest * pad
     }
 
     /// How much the lift raises the land at a spot (blocks; none at sea): the curve read at how near
@@ -922,7 +1022,7 @@ impl CompiledMap {
     pub fn put_together(&self, parts: Parts, here: &Here, x: f32, y: f32) -> f32 {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
-        let mut z = (parts.ground + parts.mountains).min(s.ceiling);
+        let mut z = (parts.ground + parts.mountains + parts.peaks).min(s.ceiling);
         if z >= sea && !self.mutes.hills && s.hills != 0.0 {
             let shown = self.mask(&s.hill_mask, &self.hill_mask, here, z);
             if shown > 0.0 {
@@ -1015,6 +1115,7 @@ impl CompiledMap {
             push_strength: vec![0.0; cells],
             coast_distance,
             lift_distance: point_distance(&[], width, blocks_per_pixel),
+            mountain_points: Vec::new(),
             water: 0.0,
             lowest: -1.0,
             highest: 1.0,
@@ -1040,6 +1141,11 @@ impl CompiledMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A number from 0 to 1, the same for the same k and which.
+    fn planet_unit(k: u64, which: i64) -> f32 {
+        (crate::fate::planet_hash(7, 0x9ea6, k as i64, which, 0) >> 40) as f32 / (1u64 << 24) as f32
+    }
 
     #[test]
     fn the_distance_to_the_nearest_point_is_measured_straight() {
@@ -1199,10 +1305,53 @@ mod tests {
     }
 
     #[test]
+    fn a_peak_stands_at_its_point_and_is_gone_past_its_width() {
+        let mut map = CompiledMap::of_heights(16, 32.0, &[200.0; 256]);
+        Arc::make_mut(&mut map.maps).mountain_points = vec![[256.0, 256.0], [300.0, 256.0]];
+        let peaks = Peaks { on: true, height: 400.0, width: 100.0, rise: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]) };
+        // (A small map: its coast is never far, so the coast pad is made tiny.)
+        let settings = InterpreterSettings { lift: Lift { pad: 1.0, ..Lift::default() }, ..InterpreterSettings::default() };
+        let on = map.with(InterpreterSettings { peaks: peaks.clone(), ..settings.clone() }, Mutes::default());
+        let here = on.pixel(8 * 16 + 8);
+        let at = |x: f32, y: f32| on.peaks(&here, x, y);
+        assert!((at(256.0, 256.0) - 400.0).abs() < 0.01, "{}", at(256.0, 256.0));
+        // Halfway out, half as high (a straight rise); past its width, nothing.
+        assert!((at(256.0, 206.0) - 200.0).abs() < 0.01, "{}", at(256.0, 206.0));
+        assert_eq!(at(256.0, 150.0), 0.0);
+        // Between two, the higher wins.
+        assert!((at(290.0, 256.0) - 360.0).abs() < 0.01, "{}", at(290.0, 256.0));
+        // Switched off, or left out in the lab, nothing.
+        let off = map.with(InterpreterSettings { peaks: Peaks { on: false, ..peaks.clone() }, ..settings.clone() }, Mutes::default());
+        assert_eq!(off.peaks(&here, 256.0, 256.0), 0.0);
+        let muted = map.with(InterpreterSettings { peaks, ..settings }, Mutes { peaks: true, ..Mutes::default() });
+        assert_eq!(muted.peaks(&here, 256.0, 256.0), 0.0);
+    }
+
+    #[test]
+    fn the_peak_cells_never_miss_a_peak_in_reach() {
+        // Scattered points, and spots all over: the cells find every point within the width, as
+        // looking at every point does.
+        let extent = 10_000.0;
+        let points: Vec<[f32; 2]> = (0..300u64).map(|k| [planet_unit(k, 1) * extent, planet_unit(k, 2) * extent]).collect();
+        for width in [40.0, 333.0, 2_500.0] {
+            let cells = PeakCells::new(&points, extent, width);
+            for k in 0..500u64 {
+                let (x, y) = (planet_unit(k, 3) * extent, planet_unit(k, 4) * extent);
+                let within = |p: &&[f32; 2]| (x - p[0]).hypot(y - p[1]) < width;
+                let mut found: Vec<[f32; 2]> = cells.near(x, y).filter(within).copied().collect();
+                let mut every: Vec<[f32; 2]> = points.iter().filter(within).copied().collect();
+                found.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                every.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                assert_eq!(found, every, "width {width} at {x}, {y}");
+            }
+        }
+    }
+
+    #[test]
     fn the_ground_is_cut_off_at_the_ceiling() {
         let map = CompiledMap::of_heights(4, 32.0, &[300.0; 16]);
         let settings = InterpreterSettings { hills: 0.0, torn_coast: TornCoast { amount: 0.0, ..TornCoast::default() }, ..InterpreterSettings::default() };
-        let tall = Parts { ground: 450.0, mountains: 100.0 };
+        let tall = Parts { ground: 450.0, mountains: 100.0, peaks: 0.0 };
         let with = |ceiling| map.with(InterpreterSettings { ceiling, ..settings.clone() }, Mutes::default());
         let here = map.pixel(5);
         // At first, the old cut-off: Z 333.

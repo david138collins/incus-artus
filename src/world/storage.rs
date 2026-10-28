@@ -194,6 +194,10 @@ struct CompiledFile {
     /// the ground streamed in later matches. None, in worlds saved before.
     #[serde(default)]
     left_out: super::Mutes,
+    /// Where the mountains' points are (the peaks stand on them): (x, y) in blocks from the map's
+    /// north-west corner. None, in worlds saved before.
+    #[serde(default)]
+    mountain_points: Vec<[f32; 2]>,
     /// Where new arrivals start (north, east).
     #[serde(default)]
     spawn: [i32; 2],
@@ -245,6 +249,7 @@ fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), S
         ranges,
         interpreter: map.settings.clone(),
         left_out: map.mutes,
+        mountain_points: m.mountain_points.clone(),
         spawn: spawn.to_array(),
     };
     let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
@@ -286,6 +291,7 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         coast,
         coast_distance,
         lift_distance,
+        mountain_points: info.mountain_points.clone(),
         height: read("height")?,
         tilt: read("tilt")?,
         squeeze: read("squeeze")?,
@@ -476,6 +482,7 @@ mod tests {
             Arc::make_mut(&mut map.maps).squeeze[i] = (i as f32 * 0.37).sin();
         }
         let mutes = crate::world::Mutes { hills: true, ridges: true, ..Default::default() };
+        Arc::make_mut(&mut map.maps).mountain_points = vec![[100.5, 200.25], [3.0, 4.0]];
         let mut map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });
         map.mutes = mutes;
         let folder = std::env::temp_dir().join(format!("incus-artus-compiled-{}", std::process::id()));
@@ -486,6 +493,7 @@ mod tests {
         assert_eq!((back.maps.width, back.maps.blocks_per_pixel, back.seed), (map.maps.width, map.maps.blocks_per_pixel, map.seed));
         assert_eq!(back.settings, map.settings);
         assert_eq!(back.mutes, mutes, "the parts left out are remembered");
+        assert_eq!(back.maps.mountain_points, map.maps.mountain_points, "and where the peaks stand");
         // 16-bit maps: the ground comes back within a small fraction of a block, everywhere.
         for k in 0..64 {
             let (north, east) = (-200.0 + k as f32 * 6.3, 170.0 - k as f32 * 5.1);

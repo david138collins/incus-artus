@@ -709,6 +709,7 @@ mod tests {
             push_strength: vec![1.0; cells],
             coast_distance: vec![1_000.0; cells],
             lift_distance: vec![32.0 * width as f32; cells],
+            mountain_points: Vec::new(),
             water: 0.0,
             lowest: -1.0,
             highest: 1.0,

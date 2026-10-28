@@ -441,6 +441,23 @@ can't be seen. A switch picks the points: seed-like points or range middles. The
 their own least / most / spacing / range cut. Controls in the World Interpreter panel. May tie in
 later with reworking hills and ground detail.
 
+### Peaks  [BUILT 2026-10-27: the rise alone; crags, slope response and variation next]
+Step 3-4 of the peaks plan (`vision/proposal-peaks.md`). **Additives, Mountains, Peaks** (a switched
+section, off by default): a peak stands at each of the mountains' points (Where), on top of the
+ground, the rise and the ridgelines. Its shape is a **height** (blocks above the ground under it), a
+**width** (how far its foot reaches from its point) and a **rise** spline (from the foot, left, to the
+top, right). Where peaks overlap, the higher wins. Braked by the Rise's coast pad, and none at sea, so
+the coast never moves. Past Z 333 only with **ground never above** raised (World Interpreter, Land
+and sea). A "peaks" Show switch leaves them out (and so does a world spawned with it off).
+- **The points travel with the world:** the compiler keeps them (`mountain_points`, blocks from the
+  map's north-west corner), worlds save them in `compiled.toml`, and Render World and Spawn hands them
+  over with the maps. Worlds saved before have none, so no peaks.
+- **Finding the peaks near a block:** the points are sorted into square cells at least a peak's width
+  across (at most 256 along a side), so a block looks only at its own cell and the eight round it.
+  Exact: no seams where neighbouring peaks meet (the Lift's nearest-point map can't blend two).
+- Above Z 400 the near light window's stored height stops climbing; only its sea-surface check reads
+  it, so tall peaks shade as other ground does (the height tint keeps brightening with height).
+
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
 flying over the continents in person. So before the compiler grows more stages, build the path from a

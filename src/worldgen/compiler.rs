@@ -251,16 +251,19 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
     let coast_distance = crate::world::coast_distance(&coast, width, blocks);
     let seed = seed_of(&bake.info);
 
-    // The lift's points, from the bake's own crush (so the mountains curve doesn't move them), and
+    // The mountains' points, from the bake's own crush (so the mountains curve doesn't move them),
+    // where they stand (blocks from the north-west corner, at their pixels' centres), and
     // how far every pixel is from the nearest.
     let lift_points = lift_points(bake, &settings.interpreter.lift, seed);
     let lift_distance = crate::world::point_distance(&lift_points, width, blocks);
+    let mountain_points = lift_points.iter().map(|&i| [((i % width) as f32 + 0.5) * blocks, ((i / width) as f32 + 0.5) * blocks]).collect();
     let maps = Maps {
         width,
         blocks_per_pixel: blocks,
         coast,
         coast_distance,
         lift_distance,
+        mountain_points,
         height,
         tilt,
         squeeze,

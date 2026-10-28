@@ -17,7 +17,7 @@ use super::additives::{Additives, DriftWay, Sides};
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
-use crate::world::{InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Mutes};
+use crate::world::{InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Mutes, Peaks};
 use super::noise::PerlinSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
@@ -640,7 +640,7 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     });
     let points = compiler.result.as_ref().map(|r| r.made.lift_points.len());
     let show_points = &mut compiler.show_lift_points;
-    let lift = &mut compiler.settings.interpreter.lift;
+    let (lift, peaks) = (&mut compiler.settings.interpreter.lift, &mut compiler.settings.interpreter.peaks);
     let a = &mut compiler.settings.additives;
 
     // Everything here is about mountains, so it's under one heading, with Hydrology to come beside it
@@ -655,6 +655,9 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         fold_section(ui, "Where", |ui| mountain_points(ui, lift, show_points, points));
         fold_section(ui, "Rise", |ui| mountain_rise(ui, lift));
+        let mut on = peaks.on;
+        switched_section(ui, "Peaks", &mut on, |ui| mountain_peaks(ui, peaks));
+        peaks.on = on;
 
         fold_section(ui, "Mountain grain", |ui| {
             ui.small("Which way the mountains run at each spot, and whether they're a string (a range running one way) or a knot. See it with the \"range grain\" and \"string or knot\" overlays.");
@@ -833,6 +836,23 @@ fn mountain_rise(ui: &mut egui::Ui, lift: &mut Lift) {
         "How the pad brakes: 1 = evenly across it; above 1 = braking hard from further in; below 1 = only right at the\n\
          coast, so the rise runs nearly to the shore.",
     );
+}
+
+/// Mountains, Peaks: a mountain at each point, on top of everything else.
+fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
+    ui.small(
+        "A peak stands at each of the points, on top of the rise and the ridgelines. Its shape for now is the rise curve \
+         alone: crags, and peaks that differ from one another, come next. To see them past Z 333, raise \"ground never \
+         above\" (World Interpreter, Land and sea).",
+    );
+    ui.add(crate::debug::Slider::new(&mut peaks.height, 0.0..=800.0).text("height (blocks)"))
+        .on_hover_text("How high a peak stands above the ground under it, at its top.");
+    ui.add(crate::debug::Slider::new(&mut peaks.width, 50.0..=10_000.0).logarithmic(true).text("width (blocks)")).on_hover_text(
+        "How far from its point a peak's foot reaches. Narrower than its height = a towering spire.\n\
+         Where two peaks overlap, the higher one wins.",
+    );
+    ui.label("The peak: from its foot (left) to its top (right).");
+    spline_box(ui, "peak rise", &mut peaks.rise, &Peaks::default().rise, "toward the point", "share of the height");
 }
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
@@ -1303,6 +1323,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("hills", &mut m.hills, "The rolling hills on land."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),
+                ("peaks", &mut m.peaks, "The peaks standing at the mountains' points (Additives, Mountains, Peaks)."),
             ] {
                 let mut shown = !*muted;
                 if ui.checkbox(&mut shown, name).on_hover_text(about).changed() {
