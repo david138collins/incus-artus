@@ -484,6 +484,16 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   layer to the last (how much of the slider each step takes). The **feather**: past a peak's foot
   its crags carry on as hills (feather height, a share of the peak's height) for a distance, fading
   along their own curve, to see how much hilliness the mountains alone can give.
+- **Hills from the ranges and the peaks' own coast fade [BUILT 2026-10-28]** (David: the crags
+  feathered out from the mountains "form convincing and tasteful hills"; keep their look, but run
+  them off the mountain ranges and fade them from the coasts, a layer of detail over more of the
+  world than the ranges). The same crags, with room out from all the mountains' points at once
+  (range hills height, a share of the peaks' height; a reach and a fade curve), so they run along
+  the ranges and soften into the plains; where a peak or its feather has more room, that wins.
+  The peaks used to borrow the Rise's coast pad, so the Rise's settings changed them even with
+  "rise" off in Show; they have their own coast fade now (distance and falloff, as the pad's).
+  David's default preset was given his pad's numbers, so nothing he had changed. **Next idea:**
+  summit crags (a sharp-ridged layer working from the tops down, for the king peaks).
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

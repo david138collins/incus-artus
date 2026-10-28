@@ -830,7 +830,8 @@ fn mountain_rise(ui: &mut egui::Ui, lift: &mut Lift) {
     ui.label("The cloth: from reach away (left) to right under a point (right).");
     spline_box(ui, "lift spline", &mut lift.curve, &Lift::default().curve, "toward the nearest point", "share of the rise");
     ui.add(crate::debug::Slider::new(&mut lift.pad, 32.0..=20_000.0).logarithmic(true).text("coast pad (blocks)")).on_hover_text(
-        "Within this far of the coast, the rise is braked, down to nothing at the coastline, so the coast never moves.",
+        "Within this far of the coast, the rise is braked, down to nothing at the coastline, so the coast never moves.\n\
+         The rise's only: the peaks have their own coast fade.",
     );
     ui.add(crate::debug::Slider::new(&mut lift.pad_falloff, 0.1..=10.0).logarithmic(true).text("pad falloff")).on_hover_text(
         "How the pad brakes: 1 = evenly across it; above 1 = braking hard from further in; below 1 = only right at the\n\
@@ -907,6 +908,30 @@ fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
         ui.label("How the hills fade: from the foot (left) to the feather's end (right).");
         spline_box(ui, "feather shape", &mut peaks.feather_shape, &default.feather_shape, "further out", "share of feather height");
     });
+
+    ui.add_space(4.0);
+    ui.label("Hills from the ranges: the same crags, carried out from all the mountains' points (Where) at once, over the ranges and into the plains.");
+    ui.add(crate::debug::Slider::new(&mut peaks.range_hills, 0.0..=1.0).text("range hills height")).on_hover_text(
+        "How big the hills are at the mountains' points, as a share of the peaks' height (the crags slider still scales\n\
+         them). 0 = none. Where a peak or its feather is bigger, that wins.",
+    );
+    let ranged = peaks.range_hills > 0.0;
+    ui.add_enabled(ranged, crate::debug::Slider::new(&mut peaks.range_reach, 200.0..=40_000.0).logarithmic(true).text("range hills reach (blocks)"))
+        .on_hover_text("How far from the nearest of the mountains' points the hills reach before they're gone.");
+    ui.add_enabled_ui(ranged, |ui| {
+        ui.label("How they fade: at the points (left) to the reach (right).");
+        spline_box(ui, "range hills shape", &mut peaks.range_shape, &default.range_shape, "further out", "share of range hills height");
+    });
+
+    ui.add_space(4.0);
+    ui.label("Coast fade: the peaks and all their hills, braked toward the coast so it never moves.");
+    ui.add(crate::debug::Slider::new(&mut peaks.coast_fade, 32.0..=20_000.0).logarithmic(true).text("coast fade (blocks)")).on_hover_text(
+        "Within this far of the coast, the peaks and their hills are braked, down to nothing at the coastline. The peaks'\n\
+         own (they used to borrow the Rise's coast pad, so the Rise's settings changed them even with \"rise\" off).",
+    );
+    ui.add(crate::debug::Slider::new(&mut peaks.coast_falloff, 0.1..=10.0).logarithmic(true).text("coast fade falloff")).on_hover_text(
+        "How it brakes: 1 = evenly across it; above 1 = braking hard from further in; below 1 = only right at the coast.",
+    );
 }
 
 /// A slider with a ± spread box before it, as the Tectonic Sim's (1 = half to twice).

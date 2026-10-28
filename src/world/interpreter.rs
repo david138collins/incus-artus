@@ -386,6 +386,19 @@ pub struct Peaks {
     pub feather: f32,
     pub feather_height: f32,
     pub feather_shape: Spline,
+    /// Hills from the ranges: the same crags carried out from the mountains' points (Where) over the
+    /// whole of the ranges and past them, starting at this share of the peaks' height (0 = none),
+    /// fading as the curve says (across: at the points, left, to `range_reach` blocks away, right).
+    /// [David, 2026-10-28: the crags feathered out make tasteful hills; run them off the ranges, to
+    /// cover more of the world than the mountains do.]
+    pub range_hills: f32,
+    pub range_reach: f32,
+    pub range_shape: Spline,
+    /// The peaks' own coast fade (they used to borrow the Rise's coast pad): within this far of the
+    /// coast the peaks and their hills are braked, down to nothing at the coastline, so the coast
+    /// never moves; the falloff as the pad's (1 = evenly; above 1 braking hard from further in).
+    pub coast_fade: f32,
+    pub coast_falloff: f32,
     /// How much of each layer survives (up) at each steepness (across: flat, left, to `steepest`
     /// blocks up per block across, right).
     pub slope_response: Spline,
@@ -416,6 +429,11 @@ impl Default for Peaks {
             feather: 0.0,
             feather_height: 0.2,
             feather_shape: Spline::through(&[(0.0, 1.0), (0.4, 0.4), (1.0, 0.0)]),
+            range_hills: 0.0,
+            range_reach: 4_000.0,
+            range_shape: Spline::through(&[(0.0, 1.0), (0.4, 0.4), (1.0, 0.0)]),
+            coast_fade: 1_500.0,
+            coast_falloff: 1.0,
             slope_response: Spline::through(&[(0.0, 1.0), (1.0, 0.3)]),
             steepest: 2.0,
             carve_below: false,
@@ -844,6 +862,7 @@ pub struct CompiledMap {
     rise: Curve,
     slope_response: Curve,
     feather_shape: Curve,
+    range_shape: Curve,
     /// For each step from one crag layer to the next: how much finer and how strong (the sliders
     /// times their by-layer curves).
     crag_steps: Vec<(f32, f32)>,
@@ -905,6 +924,7 @@ impl CompiledMap {
             rise: settings.peaks.rise.curve(),
             slope_response: settings.peaks.slope_response.curve(),
             feather_shape: settings.peaks.feather_shape.curve(),
+            range_shape: settings.peaks.range_shape.curve(),
             crag_steps: crag_steps(&settings.peaks),
             peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
             mutes: Mutes::default(),
@@ -1052,14 +1072,15 @@ impl CompiledMap {
     }
 
     /// How high the peaks stand at a spot (blocks; none at sea): the highest of the peaks near it,
-    /// each its rise curve read at how near its point is, braked by the lift's coast pad so the
-    /// coast never moves.
+    /// each its rise curve read at how near its point is, with the crags and the hills off the ranges,
+    /// braked by their own coast fade so the coast never moves.
     pub fn peaks(&self, here: &Here, x: f32, y: f32) -> f32 {
         let p = &self.settings.peaks;
         if !p.on || p.height <= 0.0 || here.coast < 0.0 || self.mutes.peaks {
             return 0.0;
         }
-        let ([rise, east, south], crag_room) = self.peak_rise(x, y);
+        let ([rise, east, south], peak_room) = self.peak_rise(x, y);
+        let crag_room = peak_room.max(self.range_hills(here));
         if crag_room <= 0.0 {
             return 0.0;
         }
@@ -1071,9 +1092,19 @@ impl CompiledMap {
         if !p.carve_below {
             total = total.max(0.0);
         }
-        let lift = &self.settings.lift;
-        let pad = smooth(here.coast_distance / lift.pad.max(1.0)).powf(lift.pad_falloff.max(0.01));
-        total * pad
+        let fade = smooth(here.coast_distance / p.coast_fade.max(1.0)).powf(p.coast_falloff.max(0.01));
+        total * fade
+    }
+
+    /// How much room the crags have at a spot from the hills off the ranges (blocks): a share of the
+    /// peaks' height, fading with the distance from the nearest of the mountains' points.
+    fn range_hills(&self, here: &Here) -> f32 {
+        let p = &self.settings.peaks;
+        if p.range_hills <= 0.0 {
+            return 0.0;
+        }
+        let across = (here.lift_distance / p.range_reach.max(1.0)).min(1.0);
+        p.height * p.range_hills * self.range_shape.at(across).clamp(0.0, 1.0)
     }
 
     /// The peaks' rise at a spot, a block east of it and a block south of it (blocks; the two
@@ -1506,8 +1537,8 @@ mod tests {
         let mut map = CompiledMap::of_heights(16, 32.0, &[200.0; 256]);
         Arc::make_mut(&mut map.maps).mountain_points = vec![[256.0, 256.0], [300.0, 256.0]];
         // Plain: all alike, round, no crags.
-        let peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 100.0, width_spread: 0.0, wobble: 0.0, rise: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]), add: false, crags: 0.0, ..Peaks::default() };
-        // (A small map: its coast is never far, so the coast pad is made tiny.)
+        let peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 100.0, width_spread: 0.0, wobble: 0.0, rise: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]), add: false, crags: 0.0, coast_fade: 1.0, ..Peaks::default() };
+        // (A small map: its coast is never far, so the coast pad and fade are made tiny.)
         let settings = InterpreterSettings { lift: Lift { pad: 1.0, ..Lift::default() }, ..InterpreterSettings::default() };
         let on = map.with(InterpreterSettings { peaks: peaks.clone(), ..settings.clone() }, Mutes::default());
         let here = on.pixel(8 * 16 + 8);
@@ -1530,7 +1561,7 @@ mod tests {
     fn peaks_map(points: Vec<[f32; 2]>, change: impl FnOnce(&mut Peaks)) -> CompiledMap {
         let mut map = CompiledMap::of_heights(32, 128.0, &[200.0; 1024]);
         Arc::make_mut(&mut map.maps).mountain_points = points;
-        let mut peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 300.0, width_spread: 0.0, wobble: 0.0, crags: 0.0, ..Peaks::default() };
+        let mut peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 300.0, width_spread: 0.0, wobble: 0.0, crags: 0.0, coast_fade: 1.0, ..Peaks::default() };
         change(&mut peaks);
         map.with(InterpreterSettings { peaks, lift: Lift { pad: 1.0, ..Lift::default() }, ..InterpreterSettings::default() }, Mutes::default())
     }
@@ -1613,6 +1644,30 @@ mod tests {
         }
         // Gone past the feather's end.
         assert_eq!(at(&feathered, 1_090.0), 0.0);
+    }
+
+    #[test]
+    fn hills_run_off_the_ranges_and_the_coast_fade_is_the_peaks_own() {
+        // One of the mountains' points in the middle of a 4,096-block map, and no peaks in reach of
+        // the spots tested: only the hills from the ranges.
+        let mut map = CompiledMap::of_heights(32, 128.0, &[200.0; 1024]);
+        Arc::make_mut(&mut map.maps).lift_distance = point_distance(&[16 * 32 + 16], 32, 128.0);
+        let peaks = Peaks { on: true, crags: 0.4, crag_size: 80.0, range_hills: 0.3, range_reach: 1_000.0, coast_fade: 1.0, ..Peaks::default() };
+        let with = |peaks: Peaks, lift: Lift| map.with(InterpreterSettings { peaks, lift, ..InterpreterSettings::default() }, Mutes::default());
+        let hilly = with(peaks.clone(), Lift::default());
+        let none = with(Peaks { range_hills: 0.0, ..peaks.clone() }, Lift::default());
+        // The Rise's coast pad no longer has a say.
+        let padded = with(peaks, Lift { pad: 20_000.0, pad_falloff: 5.0, ..Lift::default() });
+        // A pixel from the point (128 blocks), and twelve (past the reach).
+        let (near, far) = (hilly.pixel(16 * 32 + 17), hilly.pixel(16 * 32 + 28));
+        let spots: Vec<f32> = (0..60).map(|k| 100.0 + k as f32 * 6.0).collect();
+        let hills = spots.iter().filter(|&&x| hilly.peaks(&near, x, 100.0) > 1.0).count();
+        assert!(hills > 15, "only {hills} of 60 spots near the range have hills");
+        for &x in &spots {
+            assert_eq!(none.peaks(&near, x, 100.0), 0.0);
+            assert_eq!(hilly.peaks(&far, x, 100.0), 0.0);
+            assert_eq!(padded.peaks(&near, x, 100.0), hilly.peaks(&near, x, 100.0));
+        }
     }
 
     #[test]
