@@ -349,6 +349,8 @@ impl WorldGen {
     /// Back to the start: the plates where they were made, with their starting motion.
     fn reset(&mut self) {
         self.sim = None;
+        // The old run's picture names its plates by number; new plates may be fewer.
+        self.moved.clear();
         self.running = false;
         self.owed = 0.0;
     }
@@ -1371,7 +1373,7 @@ fn canvas(ui: &mut egui::Ui, world: &mut WorldGen) {
         squeeze: [world.heights.land.squeeze, world.heights.land.squeeze_spread, world.heights.ocean.squeeze, world.heights.ocean.squeeze_spread],
         water: world.heights.water,
     };
-    if world.painted_for.as_ref() != Some(&wanted) || world.texture.is_none() {
+    if world.painted_for.as_ref() != Some(&wanted) || world.texture.is_none() || world.moved.is_empty() {
         let heights = &world.heights;
         let terrain_seed = Seeds::of(world.seed).terrain;
         // Open water: the ocean colour, lighter where it's shallow (`deep` 0 = at the water
