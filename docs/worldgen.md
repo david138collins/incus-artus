@@ -494,6 +494,15 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   "rise" off in Show; they have their own coast fade now (distance and falloff, as the pad's).
   David's default preset was given his pad's numbers, so nothing he had changed. **Next idea:**
   summit crags (a sharp-ridged layer working from the tops down, for the king peaks).
+- **Hills cut [2026-10-28]** (David: "none of the controls that work on something like 'hills' do
+  a single thing right ... slash hills entirely", without changing the mountains). Gone: the
+  Interpreter's Hills (its Perlin field, mask and Show switch), and the peaks' feather and hills from
+  the ranges. Where they touched the mountains: the feather and range hills kept the crags strong
+  down to the peaks' feet (the crags took the strongest of the three there); that is now the peaks'
+  own **foot fade** (how far up from the foot the crags come to full strength, a share of the
+  width; it was fixed at 0.2). David's preset was given 0.1, close to what he had. The Interpreter's
+  hills only reached about 250 blocks in from the coast in his preset (under half a block inland),
+  so cutting them can at most move a mountain column by a block. The peaks' own coast fade stays.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

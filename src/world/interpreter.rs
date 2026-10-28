@@ -10,7 +10,7 @@
 //!     ▼  smooth maps (coast, height, tilt, squeeze and its direction)
 //! World Interpreter — at every block, as chunks are made (this file):
 //!     blend the maps smoothly to this spot, then:
-//!     land & sea curves · grading · edge rise · mountains · ridges · hills
+//!     land & sea curves · grading · edge rise · mountains · ridges · peaks
 //!     · torn coast · detail
 //!     │
 //!     ▼
@@ -39,14 +39,14 @@
 //!    On the low side, the land meets the sea at Z 128 (beaches).
 //! 4. **Mountains** from the squeeze: the **mountain curve** says how tall for how much squeeze, as a
 //!    share of the room up to Z 333; carved into **ridges** across the squeeze direction.
-//! 5. **Hills** on land, and a little **detail** everywhere: each is a Perlin field, the same as a
-//!    Graphics Kit Perlin layer, laid on the ground this many blocks up and down, and faded in and
-//!    out by a **mask** that follows one of the maps (distance from the coast, height, mountains,
-//!    or squeeze) through a curve. Hills never drown land, and detail (unless switched
-//!    to) never moves the coast.
-//! 6. **Torn coast** (between hills and detail): in a band along the coastline, a Perlin field
-//!    pushes the ground back and forth across the waterline, in patches, making ponds, tide pools,
-//!    inlets, islets and shoals. The one part of the recipe meant to move the coast.
+//! 5. **Torn coast:** in a band along the coastline, a Perlin field pushes the ground back and
+//!    forth across the waterline, in patches, making ponds, tide pools, inlets, islets and shoals.
+//!    The one part of the recipe meant to move the coast.
+//! 6. A little **detail** everywhere: a Perlin field, the same as a Graphics Kit Perlin layer, laid
+//!    on the ground this many blocks up and down, and faded in and out by a **mask** that follows one
+//!    of the maps (distance from the coast, height, mountains, or squeeze) through a curve. Detail
+//!    (unless switched to) never moves the coast. [Hills, a Perlin field like it, were cut
+//!    2026-10-28: David found none of the hill controls did what he wanted.]
 
 use super::terrain::SEA_LEVEL;
 use crate::worldgen::noise::{Fade, PerlinSettings, perlin};
@@ -226,11 +226,6 @@ pub struct InterpreterSettings {
     pub ridge_length: f32,
     /// Higher = narrower, sharper ridge crests.
     pub sharpness: f32,
-    /// Rolling hills on land: how high (blocks either way), the Perlin field that shapes them, and
-    /// where they show.
-    pub hills: f32,
-    pub hill_noise: PerlinSettings,
-    pub hill_mask: Mask,
     /// Small bumps on the ground: how high (blocks either way), their Perlin field, and where they
     /// show.
     pub detail: f32,
@@ -271,10 +266,6 @@ impl Default for InterpreterSettings {
             ridge_spacing: 3_000.0,
             ridge_length: 15_000.0,
             sharpness: 1.2,
-            hills: 6.0,
-            // Two octaves, the second 2.3 times finer and 0.43 as strong (as hills always were).
-            hill_noise: PerlinSettings { scale: 1_500.0, octaves: 2, persistence: 0.43, lacunarity: 2.3, ..PerlinSettings::default() },
-            hill_mask: Mask::default(),
             detail: 3.0,
             detail_noise: PerlinSettings { scale: 96.0, octaves: 1, ..PerlinSettings::default() },
             detail_mask: Mask::default(),
@@ -380,23 +371,13 @@ pub struct Peaks {
     /// (across: the first step, left, to the last, right; up: none to all of it).
     pub finer_by_layer: Spline,
     pub weaker_by_layer: Spline,
-    /// The feather: past a peak's foot its crags carry on as hills over this far (blocks; 0 = none),
-    /// starting at this share of the peak's height, fading as the curve says (across: from the
-    /// foot, left, to the feather's end, right).
-    pub feather: f32,
-    pub feather_height: f32,
-    pub feather_shape: Spline,
-    /// Hills from the ranges: the same crags carried out from the mountains' points (Where) over the
-    /// whole of the ranges and past them, starting at this share of the peaks' height (0 = none),
-    /// fading as the curve says (across: at the points, left, to `range_reach` blocks away, right).
-    /// [David, 2026-10-28: the crags feathered out make tasteful hills; run them off the ranges, to
-    /// cover more of the world than the mountains do.]
-    pub range_hills: f32,
-    pub range_reach: f32,
-    pub range_shape: Spline,
+    /// How far up a peak, from its foot, its crags take to come to full strength (a share of its
+    /// width; 0 = full right at the foot). [The feather and the hills from the ranges, cut
+    /// 2026-10-28, kept the crags strong down to the feet; this does that on its own.]
+    pub foot_fade: f32,
     /// The peaks' own coast fade (they used to borrow the Rise's coast pad): within this far of the
-    /// coast the peaks and their hills are braked, down to nothing at the coastline, so the coast
-    /// never moves; the falloff as the pad's (1 = evenly; above 1 braking hard from further in).
+    /// coast the peaks are braked, down to nothing at the coastline, so the coast never moves; the
+    /// falloff as the pad's (1 = evenly; above 1 braking hard from further in).
     pub coast_fade: f32,
     pub coast_falloff: f32,
     /// How much of each layer survives (up) at each steepness (across: flat, left, to `steepest`
@@ -426,12 +407,7 @@ impl Default for Peaks {
             crag_weaker: 0.5,
             finer_by_layer: Spline::through(&[(0.0, 1.0), (1.0, 1.0)]),
             weaker_by_layer: Spline::through(&[(0.0, 1.0), (1.0, 1.0)]),
-            feather: 0.0,
-            feather_height: 0.2,
-            feather_shape: Spline::through(&[(0.0, 1.0), (0.4, 0.4), (1.0, 0.0)]),
-            range_hills: 0.0,
-            range_reach: 4_000.0,
-            range_shape: Spline::through(&[(0.0, 1.0), (0.4, 0.4), (1.0, 0.0)]),
+            foot_fade: 0.2,
             coast_fade: 1_500.0,
             coast_falloff: 1.0,
             slope_response: Spline::through(&[(0.0, 1.0), (1.0, 0.3)]),
@@ -443,10 +419,10 @@ impl Default for Peaks {
 
 impl Peaks {
     /// The furthest any peak reaches from its point: the width at the top of its spread, wobbled
-    /// out as far as the top of the wobble's spread goes, and feathered.
+    /// out as far as the top of the wobble's spread goes.
     fn furthest(&self) -> f32 {
         let wobble = self.wobble.max(0.0) * self.wobble_spread.max(0.0).exp2();
-        self.width * self.width_spread.max(0.0).exp2() * (1.0 + wobble) + self.feather.max(0.0)
+        self.width * self.width_spread.max(0.0).exp2() * (1.0 + wobble)
     }
 }
 
@@ -602,7 +578,7 @@ impl MaskSource {
     }
 }
 
-/// Fades a layer (hills, detail) in and out across the world: it follows one of the maps, read
+/// Fades a layer (ground detail) in and out across the world: it follows one of the maps, read
 /// through a curve (up = how much of the layer shows, 0 to 1).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -814,7 +790,6 @@ pub struct Mutes {
     pub mountains: bool,
     pub raised_coast: bool,
     pub ridges: bool,
-    pub hills: bool,
     pub torn_coast: bool,
     pub detail: bool,
     pub peaks: bool,
@@ -829,7 +804,6 @@ impl Mutes {
             ("rise", self.lift),
             ("ridgelines", self.mountains),
             ("ridge carving", self.ridges),
-            ("hills", self.hills),
             ("torn coast", self.torn_coast),
             ("detail", self.detail),
             ("peaks", self.peaks),
@@ -857,12 +831,9 @@ pub struct CompiledMap {
     mountains: Curve,
     lift: Curve,
     coast_edge: Curve,
-    hill_mask: Curve,
     detail_mask: Curve,
     rise: Curve,
     slope_response: Curve,
-    feather_shape: Curve,
-    range_shape: Curve,
     /// For each step from one crag layer to the next: how much finer and how strong (the sliders
     /// times their by-layer curves).
     crag_steps: Vec<(f32, f32)>,
@@ -919,12 +890,9 @@ impl CompiledMap {
             mountains: settings.mountains.curve(),
             lift: settings.lift.curve.curve(),
             coast_edge: settings.coast_edge.curve(),
-            hill_mask: settings.hill_mask.curve.curve(),
             detail_mask: settings.detail_mask.curve.curve(),
             rise: settings.peaks.rise.curve(),
             slope_response: settings.peaks.slope_response.curve(),
-            feather_shape: settings.peaks.feather_shape.curve(),
-            range_shape: settings.peaks.range_shape.curve(),
             crag_steps: crag_steps(&settings.peaks),
             peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
             mutes: Mutes::default(),
@@ -1072,15 +1040,14 @@ impl CompiledMap {
     }
 
     /// How high the peaks stand at a spot (blocks; none at sea): the highest of the peaks near it,
-    /// each its rise curve read at how near its point is, with the crags and the hills off the ranges,
+    /// each its rise curve read at how near its point is, with its crags,
     /// braked by their own coast fade so the coast never moves.
     pub fn peaks(&self, here: &Here, x: f32, y: f32) -> f32 {
         let p = &self.settings.peaks;
         if !p.on || p.height <= 0.0 || here.coast < 0.0 || self.mutes.peaks {
             return 0.0;
         }
-        let ([rise, east, south], peak_room) = self.peak_rise(x, y);
-        let crag_room = peak_room.max(self.range_hills(here));
+        let ([rise, east, south], crag_room) = self.peak_rise(x, y);
         if crag_room <= 0.0 {
             return 0.0;
         }
@@ -1096,28 +1063,16 @@ impl CompiledMap {
         total * fade
     }
 
-    /// How much room the crags have at a spot from the hills off the ranges (blocks): a share of the
-    /// peaks' height, fading with the distance from the nearest of the mountains' points.
-    fn range_hills(&self, here: &Here) -> f32 {
-        let p = &self.settings.peaks;
-        if p.range_hills <= 0.0 {
-            return 0.0;
-        }
-        let across = (here.lift_distance / p.range_reach.max(1.0)).min(1.0);
-        p.height * p.range_hills * self.range_shape.at(across).clamp(0.0, 1.0)
-    }
-
     /// The peaks' rise at a spot, a block east of it and a block south of it (blocks; the two
     /// beside it give the slope), and the room the crags have there: the height of the tallest peak
-    /// reaching it, faded in from its foot, then out over the feather (none past every peak's).
+    /// reaching it, faded in from its foot (none past every peak's foot).
     fn peak_rise(&self, x: f32, y: f32) -> ([f32; 3], f32) {
         let p = &self.settings.peaks;
         let (mut rise, mut room) = ([0.0f32; 3], 0.0f32);
-        let feather = p.feather.max(0.0);
         for peak in self.peak_cells.near(x, y) {
             let (dx, dy) = (x - peak.x, y - peak.y);
-            // Too far for even its widest wobble and feather (and a block): skip it before any noise.
-            let furthest = peak.width * (1.0 + peak.wobble) + feather + 1.5;
+            // Too far for even its widest wobble (and a block): skip it before any noise.
+            let furthest = peak.width * (1.0 + peak.wobble) + 1.5;
             if dx * dx + dy * dy >= furthest * furthest {
                 continue;
             }
@@ -1130,34 +1085,25 @@ impl CompiledMap {
             }
             let width = width.max(1.0);
             for (k, (dx, dy)) in [(dx, dy), (dx + 1.0, dy), (dx, dy + 1.0)].into_iter().enumerate() {
-                let distance = dx.hypot(dy);
-                let t = 1.0 - distance / width;
-                if k == 0 {
-                    room = room.max(peak.height * self.crag_share(t, distance - width));
-                }
+                let t = 1.0 - dx.hypot(dy) / width;
                 if t <= 0.0 {
                     continue;
                 }
                 let own = peak.height * self.rise.at(t).clamp(0.0, 1.0);
                 rise[k] = if p.add { rise[k] + own } else { rise[k].max(own) };
+                if k == 0 {
+                    room = room.max(peak.height * self.crag_share(t));
+                }
             }
         }
         (rise, room)
     }
 
     /// How much room a peak's crags have, as a share of its height: faded in from its foot (`t` 0)
-    /// to its point (1), and past the foot (`past_foot` blocks) the feather's hills fading out.
-    fn crag_share(&self, t: f32, past_foot: f32) -> f32 {
-        let p = &self.settings.peaks;
-        let feathered = |across: f32| if p.feather > 0.0 { p.feather_height.max(0.0) * self.feather_shape.at(across).clamp(0.0, 1.0) } else { 0.0 };
-        if t > 0.0 {
-            // At the foot the peak's own fade meets the feather's start, so there's no seam.
-            smooth(t / 0.2).max(feathered(0.0))
-        } else if past_foot < p.feather {
-            feathered(past_foot / p.feather)
-        } else {
-            0.0
-        }
+    /// over the foot fade, full from there to its point (1).
+    fn crag_share(&self, t: f32) -> f32 {
+        let fade = self.settings.peaks.foot_fade;
+        if fade <= 0.0 { 1.0 } else { smooth(t / fade) }
     }
 
     /// The crags at a spot (blocks, up or down): layers of noise, each finer and weaker, each kept
@@ -1241,7 +1187,7 @@ impl CompiledMap {
         push * t.amount * smooth(band) * shown
     }
 
-    /// The pieces put together, with hills on land (6) and the torn coast (7), before detail.
+    /// The pieces put together, with the torn coast (6), before detail.
     pub fn put_together(&self, parts: Parts, here: &Here, x: f32, y: f32) -> f32 {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
@@ -1250,14 +1196,6 @@ impl CompiledMap {
         // Crags carving below the ground never drown land (the coast stays put).
         if below >= sea {
             z = z.max(sea);
-        }
-        if z >= sea && !self.mutes.hills && s.hills != 0.0 {
-            let shown = self.mask(&s.hill_mask, &self.hill_mask, here, z);
-            if shown > 0.0 {
-                let rolling = noise_at(&s.hill_noise, self.noise_seed ^ 0x4111, -y, x);
-                // Never drowns land.
-                z = (z + rolling * s.hills * shown).max(sea);
-            }
         }
         z += self.torn_coast(here, x, y);
         z.clamp(1.0, s.ceiling.max(1.0))
@@ -1322,7 +1260,7 @@ impl CompiledMap {
     }
 
     /// A map whose ground is simply the given Z at each pixel (with plain straight curves, and no
-    /// mountains, hills or detail): for tests.
+    /// mountains or detail): for tests.
     #[cfg(test)]
     pub fn of_heights(width: usize, blocks_per_pixel: f32, z: &[f32]) -> Self {
         let sea = SEA_LEVEL as f32;
@@ -1357,7 +1295,6 @@ impl CompiledMap {
             land: straight.clone(),
             sea: straight,
             grade: 0.0,
-            hills: 0.0,
             detail: 0.0,
             torn_coast: TornCoast { amount: 0.0, ..TornCoast::default() },
             ..InterpreterSettings::default()
@@ -1623,51 +1560,42 @@ mod tests {
     }
 
     #[test]
-    fn the_feather_carries_the_crags_past_the_foot_and_fades_them_out() {
-        // A peak 300 wide at 2,000: its foot at 1,700, the feather out to 1,100.
-        let crag = |feather: f32| {
+    fn the_foot_fade_says_how_far_up_the_crags_come_to_full_strength_and_none_past_the_foot() {
+        // A peak 300 wide at 2,000: its foot at 1,700. Near the foot, how much the crags stray.
+        let crag = |fade: f32| {
             move |p: &mut Peaks| {
                 p.crags = 0.4;
                 p.crag_size = 80.0;
-                p.feather = feather;
-                p.feather_height = 0.5;
+                p.foot_fade = fade;
             }
         };
-        let (bare, feathered) = (peaks_map(vec![[2_000.0, 2_000.0]], crag(0.0)), peaks_map(vec![[2_000.0, 2_000.0]], crag(600.0)));
+        let (plain, slow, sharp) = (peaks_map(vec![[2_000.0, 2_000.0]], |p| p.foot_fade = 0.6), peaks_map(vec![[2_000.0, 2_000.0]], crag(0.6)), peaks_map(vec![[2_000.0, 2_000.0]], crag(0.0)));
         let at = |map: &CompiledMap, x: f32| map.peaks(&map.pixel(0), x, 2_000.0);
-        let hills = (0..60).filter(|&k| at(&feathered, 1_300.0 + k as f32 * 6.0) > 1.0).count();
-        assert!(hills > 15, "only {hills} of 60 spots past the foot have hills");
+        let stray = |map: &CompiledMap| (0..40).map(|k| 1_705.0 + k as f32 * 2.0).map(|x| (at(map, x) - at(&plain, x)).abs()).sum::<f32>();
+        assert!(stray(&sharp) > stray(&slow) * 2.0, "sharp {}, slow {}", stray(&sharp), stray(&slow));
+        // Nothing past the foot, whatever the fade.
         for k in 0..60 {
             let x = 1_300.0 + k as f32 * 6.0;
-            assert_eq!(at(&bare, x), 0.0);
-            assert!(at(&feathered, x) >= 0.0);
+            assert_eq!(at(&sharp, x), 0.0);
         }
-        // Gone past the feather's end.
-        assert_eq!(at(&feathered, 1_090.0), 0.0);
     }
 
     #[test]
-    fn hills_run_off_the_ranges_and_the_coast_fade_is_the_peaks_own() {
-        // One of the mountains' points in the middle of a 4,096-block map, and no peaks in reach of
-        // the spots tested: only the hills from the ranges.
-        let mut map = CompiledMap::of_heights(32, 128.0, &[200.0; 1024]);
-        Arc::make_mut(&mut map.maps).lift_distance = point_distance(&[16 * 32 + 16], 32, 128.0);
-        let peaks = Peaks { on: true, crags: 0.4, crag_size: 80.0, range_hills: 0.3, range_reach: 1_000.0, coast_fade: 1.0, ..Peaks::default() };
-        let with = |peaks: Peaks, lift: Lift| map.with(InterpreterSettings { peaks, lift, ..InterpreterSettings::default() }, Mutes::default());
-        let hilly = with(peaks.clone(), Lift::default());
-        let none = with(Peaks { range_hills: 0.0, ..peaks.clone() }, Lift::default());
-        // The Rise's coast pad no longer has a say.
-        let padded = with(peaks, Lift { pad: 20_000.0, pad_falloff: 5.0, ..Lift::default() });
-        // A pixel from the point (128 blocks), and twelve (past the reach).
-        let (near, far) = (hilly.pixel(16 * 32 + 17), hilly.pixel(16 * 32 + 28));
-        let spots: Vec<f32> = (0..60).map(|k| 100.0 + k as f32 * 6.0).collect();
-        let hills = spots.iter().filter(|&&x| hilly.peaks(&near, x, 100.0) > 1.0).count();
-        assert!(hills > 15, "only {hills} of 60 spots near the range have hills");
-        for &x in &spots {
-            assert_eq!(none.peaks(&near, x, 100.0), 0.0);
-            assert_eq!(hilly.peaks(&far, x, 100.0), 0.0);
-            assert_eq!(padded.peaks(&near, x, 100.0), hilly.peaks(&near, x, 100.0));
+    fn the_coast_fade_is_the_peaks_own() {
+        // The Rise's coast pad no longer has a say in the peaks.
+        let points = vec![[2_000.0, 2_000.0]];
+        let padded = |pad: f32| {
+            let mut map = CompiledMap::of_heights(32, 128.0, &[200.0; 1024]);
+            Arc::make_mut(&mut map.maps).mountain_points = points.clone();
+            let peaks = Peaks { on: true, crags: 0.4, crag_size: 80.0, coast_fade: 1.0, ..Peaks::default() };
+            map.with(InterpreterSettings { peaks, lift: Lift { pad, pad_falloff: 5.0, ..Lift::default() }, ..InterpreterSettings::default() }, Mutes::default())
+        };
+        let (a, b) = (padded(1.0), padded(20_000.0));
+        for k in 0..60 {
+            let x = 1_750.0 + k as f32 * 8.0;
+            assert_eq!(a.peaks(&a.pixel(0), x, 2_000.0), b.peaks(&b.pixel(0), x, 2_000.0));
         }
+        assert!(a.peaks(&a.pixel(0), 2_000.0, 2_000.0) > 100.0);
     }
 
     #[test]
@@ -1689,7 +1617,7 @@ mod tests {
         let extent = 10_000.0;
         let points: Vec<[f32; 2]> = (0..300u64).map(|k| [planet_unit(k, 1) * extent, planet_unit(k, 2) * extent]).collect();
         for width in [40.0, 333.0, 2_500.0] {
-            let peaks = Peaks { width, width_spread: 1.0, wobble: 0.5, wobble_spread: 1.0, feather: width, ..Peaks::default() };
+            let peaks = Peaks { width, width_spread: 1.0, wobble: 0.5, wobble_spread: 1.0, ..Peaks::default() };
             let (cells, reach) = (PeakCells::new(&points, extent, &peaks, 7), peaks.furthest());
             for k in 0..500u64 {
                 let (x, y) = (planet_unit(k, 3) * extent, planet_unit(k, 4) * extent);
@@ -1706,7 +1634,7 @@ mod tests {
     #[test]
     fn the_ground_is_cut_off_at_the_ceiling() {
         let map = CompiledMap::of_heights(4, 32.0, &[300.0; 16]);
-        let settings = InterpreterSettings { hills: 0.0, torn_coast: TornCoast { amount: 0.0, ..TornCoast::default() }, ..InterpreterSettings::default() };
+        let settings = InterpreterSettings { torn_coast: TornCoast { amount: 0.0, ..TornCoast::default() }, ..InterpreterSettings::default() };
         let tall = Parts { ground: 450.0, mountains: 100.0, peaks: 0.0 };
         let with = |ceiling| map.with(InterpreterSettings { ceiling, ..settings.clone() }, Mutes::default());
         let here = map.pixel(5);
@@ -1793,23 +1721,23 @@ mod tests {
     }
 
     #[test]
-    fn a_mask_fades_hills_out_by_its_curve() {
-        // Land at Z 200 everywhere, hills 20 blocks high.
+    fn a_mask_fades_detail_out_by_its_curve() {
+        // Land at Z 200 everywhere, detail 20 blocks high.
         let width = 16;
         let flat = CompiledMap::of_heights(width, 32.0, &vec![200.0; width * width]);
-        let hilly = |mask: Mask| {
-            let settings = InterpreterSettings { hills: 20.0, hill_mask: mask, ..flat.settings.clone() };
+        let bumpy = |mask: Mask| {
+            let settings = InterpreterSettings { detail: 20.0, detail_mask: mask, ..flat.settings.clone() };
             let map = flat.with(settings, Mutes::default());
             // How far the ground strays from Z 200 over a stretch.
             (0..200).map(|k| (map.height(0.0, k as f32 * 2.0 - 200.0).unwrap() - 200.0).abs()).fold(0.0, f32::max)
         };
-        assert!(hilly(Mask::default()) > 2.0, "hills everywhere show");
-        // Following height (Z 200 is 0.6 across), through a curve that's 0 there: no hills.
+        assert!(bumpy(Mask::default()) > 2.0, "detail everywhere shows");
+        // Following height (Z 200 is 0.6 across), through a curve that's 0 there: no detail.
         let none_here = Spline::through(&[(0.0, 1.0), (0.5, 0.0), (1.0, 0.0)]);
-        assert_eq!(hilly(Mask { source: MaskSource::Height, curve: none_here.clone(), ..Mask::default() }), 0.0);
-        // Inverted, the same curve reads 0.4 across: 0.2 of the hills show.
-        let some = hilly(Mask { source: MaskSource::Height, curve: none_here, invert: true, ..Mask::default() });
-        assert!(some > 0.0 && some < hilly(Mask::default()), "{some}");
+        assert_eq!(bumpy(Mask { source: MaskSource::Height, curve: none_here.clone(), ..Mask::default() }), 0.0);
+        // Inverted, the same curve reads 0.4 across: 0.2 of the detail shows.
+        let some = bumpy(Mask { source: MaskSource::Height, curve: none_here, invert: true, ..Mask::default() });
+        assert!(some > 0.0 && some < bumpy(Mask::default()), "{some}");
     }
 
     #[test]

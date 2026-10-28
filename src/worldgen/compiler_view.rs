@@ -8,7 +8,7 @@
 //! │ sea level    │ grain drift    │ the chain         │  the world, in relief  │ mouse        │
 //! │ coastline    │                │ land and sea      │                        │              │
 //! │ soften       │                │ mountains         │                        │              │
-//! │ save, render │                │ hills, blocks     │                        │              │
+//! │ save, render │                │ peaks, blocks     │                        │              │
 //! └──────────────┴────────────────┴───────────────────┴────────────────────────┴──────────────┘
 //! ```
 
@@ -618,7 +618,7 @@ World Interpreter · every block, as
   curves · grade · edge rise
   the mountains' rise
   ridgelines
-  hills · torn coast · detail
+  the peaks · torn coast · detail
       |
 the ground (and the distant terrain)";
 
@@ -893,40 +893,16 @@ fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
         "On: the crags' dips can cut into the ground the peak stands on (the ridgelines and rise), never below the sea.\n\
          Off: they only carve the peak itself.",
     );
+    ui.add(crate::debug::Slider::new(&mut peaks.foot_fade, 0.0..=1.0).text("foot fade")).on_hover_text(
+        "How far up a peak, from its foot, its crags take to come to full strength, as a share of its width.\n\
+         0 = full right at the foot (craggy all the way down); higher = smoother lower slopes. The crags always\n\
+         stop at the foot.",
+    );
 
     ui.add_space(4.0);
-    ui.label("Feather: past a peak's foot, its crags carry on as hills, fading out.");
-    ui.add(crate::debug::Slider::new(&mut peaks.feather, 0.0..=10_000.0).text("feather (blocks past the foot)")).on_hover_text(
-        "How far past a peak's foot its crags carry on as hills. 0 = none: the crags stop at the foot.",
-    );
-    let feathered = peaks.feather > 0.0;
-    ui.add_enabled(feathered, crate::debug::Slider::new(&mut peaks.feather_height, 0.0..=1.0).text("feather height")).on_hover_text(
-        "How big the hills are at the foot, as a share of the peak's height (the crags slider still scales them).\n\
-         Inside the peak the crags never fade below this, so the foot has no seam.",
-    );
-    ui.add_enabled_ui(feathered, |ui| {
-        ui.label("How the hills fade: from the foot (left) to the feather's end (right).");
-        spline_box(ui, "feather shape", &mut peaks.feather_shape, &default.feather_shape, "further out", "share of feather height");
-    });
-
-    ui.add_space(4.0);
-    ui.label("Hills from the ranges: the same crags, carried out from all the mountains' points (Where) at once, over the ranges and into the plains.");
-    ui.add(crate::debug::Slider::new(&mut peaks.range_hills, 0.0..=1.0).text("range hills height")).on_hover_text(
-        "How big the hills are at the mountains' points, as a share of the peaks' height (the crags slider still scales\n\
-         them). 0 = none. Where a peak or its feather is bigger, that wins.",
-    );
-    let ranged = peaks.range_hills > 0.0;
-    ui.add_enabled(ranged, crate::debug::Slider::new(&mut peaks.range_reach, 200.0..=40_000.0).logarithmic(true).text("range hills reach (blocks)"))
-        .on_hover_text("How far from the nearest of the mountains' points the hills reach before they're gone.");
-    ui.add_enabled_ui(ranged, |ui| {
-        ui.label("How they fade: at the points (left) to the reach (right).");
-        spline_box(ui, "range hills shape", &mut peaks.range_shape, &default.range_shape, "further out", "share of range hills height");
-    });
-
-    ui.add_space(4.0);
-    ui.label("Coast fade: the peaks and all their hills, braked toward the coast so it never moves.");
+    ui.label("Coast fade: the peaks braked toward the coast so it never moves.");
     ui.add(crate::debug::Slider::new(&mut peaks.coast_fade, 32.0..=20_000.0).logarithmic(true).text("coast fade (blocks)")).on_hover_text(
-        "Within this far of the coast, the peaks and their hills are braked, down to nothing at the coastline. The peaks'\n\
+        "Within this far of the coast, the peaks are braked, down to nothing at the coastline. The peaks'\n\
          own (they used to borrow the Rise's coast pad, so the Rise's settings changed them even with \"rise\" off).",
     );
     ui.add(crate::debug::Slider::new(&mut peaks.coast_falloff, 0.1..=10.0).logarithmic(true).text("coast fade falloff")).on_hover_text(
@@ -1049,11 +1025,6 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut s.ridge_wander_size, 250.0..=16_000.0).logarithmic(true).text("wander size (blocks)"))
             .on_hover_text("How big the swirls that nudge the ridges are. Smaller = ridges kink more often.");
     });
-    fold_section(ui, "Hills", |ui| {
-        ui.add(crate::debug::Slider::new(&mut s.hills, 0.0..=25.0).text("hills (blocks)"))
-            .on_hover_text("Gentle rolling bumps on land: a Perlin field laid on the ground, this many blocks up and down.");
-        masked_noise(ui, "hills", &mut s.hill_noise, &defaults.hill_noise, 300.0..=8_000.0, &mut s.hill_mask);
-    });
     fold_section(ui, "Torn coast", |ui| {
         ui.small(
             "Ponds, tide pools and inlets on land, islets and shoals at sea: in a band along the coastline, a pattern pushes \
@@ -1139,7 +1110,7 @@ fn elevation_picture(compiled: &Compiled) -> Picture {
 /// A spline box: the curve over a grid, with its dots. Drag a dot to move it (the end dots stay
 /// at the edges and only move up and down); double-click to add a dot; right-click a middle dot to
 /// take it away.
-/// A layer of the ground that's a Perlin field (hills, ground detail): its noise, as a Graphics Kit
+/// A layer of the ground that's a Perlin field (ground detail): its noise, as a Graphics Kit
 /// Perlin layer has it, and its mask, each folded away until opened.
 /// A recipe part's Perlin noise settings, folded away under one heading.
 fn noise_box(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default: &PerlinSettings, sizes: std::ops::RangeInclusive<f32>) {
@@ -1371,7 +1342,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.label("View:");
             for (view, name, about) in [
                 (lab::View::Auto, "auto", "The map from afar; the close-up once you zoom in."),
-                (lab::View::Map, "map", "Always the compiler's map (a pixel every 32 blocks: too coarse for hills or ground detail)."),
+                (lab::View::Map, "map", "Always the compiler's map (a pixel every 32 blocks: too coarse for crags or ground detail)."),
                 (lab::View::CloseUp, "close-up", "Always the close-up, the ground as the Interpreter makes it, even zoomed right out. Slower further out: the last picture stays up until the new one is drawn."),
             ] {
                 ui.selectable_value(&mut compiler.lab.view, view, name).on_hover_text(about);
@@ -1411,7 +1382,6 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("rise", &mut m.lift, "The mountains' rise (Additives, Mountains): land raised round their points, like a tablecloth draped over them."),
                 ("ridgelines", &mut m.mountains, "The ridgelines from the squeeze map (with their ridges)."),
                 ("ridge carving", &mut m.ridges, "The ridge pattern carved into the ridgelines. Off: the ridgelines stay, as smooth domes (switch ridgelines off to take the high ground away altogether)."),
-                ("hills", &mut m.hills, "The rolling hills on land."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),
                 ("peaks", &mut m.peaks, "The peaks standing at the mountains' points (Additives, Mountains, Peaks)."),

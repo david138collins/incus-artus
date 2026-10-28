@@ -247,11 +247,11 @@ mod tests {
         let mut lab = Lab::default();
         let first = lab.recipe(&map, &map.settings.clone());
         assert!(Arc::ptr_eq(&first, &lab.recipe(&map, &map.settings.clone())), "remade for nothing");
-        lab.mutes.hills = true;
+        lab.mutes.torn_coast = true;
         let second = lab.recipe(&map, &map.settings.clone());
         assert!(!Arc::ptr_eq(&first, &second));
         assert!(Arc::ptr_eq(&first.maps, &second.maps), "the maps were copied");
-        assert!(second.mutes.hills);
+        assert!(second.mutes.torn_coast);
     }
 
     #[test]

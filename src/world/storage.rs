@@ -481,7 +481,7 @@ mod tests {
         for i in 0..256 {
             Arc::make_mut(&mut map.maps).squeeze[i] = (i as f32 * 0.37).sin();
         }
-        let mutes = crate::world::Mutes { hills: true, ridges: true, ..Default::default() };
+        let mutes = crate::world::Mutes { torn_coast: true, ridges: true, ..Default::default() };
         Arc::make_mut(&mut map.maps).mountain_points = vec![[100.5, 200.25], [3.0, 4.0]];
         let mut map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings { detail: 5.5, ..InterpreterSettings::default() });
         map.mutes = mutes;

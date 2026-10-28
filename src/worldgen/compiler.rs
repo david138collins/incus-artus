@@ -11,8 +11,8 @@
 //!    staircase); softened a little, it's a smooth curve between pixels. The heights and tilt near
 //!    it are softened as much.
 //!
-//! **The recipe** for the ground (land and sea curves, grading, mountains, ridges,
-//! hills, detail) is the Interpreter's (`crate::world::interpreter`), worked out at every block as
+//! **The recipe** for the ground (land and sea curves, grading, mountains, ridges, peaks,
+//! detail) is the Interpreter's (`crate::world::interpreter`), worked out at every block as
 //! the world is made. Here it's worked out at each pixel's centre, to show the world in relief.
 //! [Moved 2026-10-24: worked out per pixel and then smoothed between pixels, its
 //! sharp curves made a row of humps along every coast and cliff.]
@@ -127,7 +127,7 @@ pub fn load(folder: &Path) -> Result<Bake, String> {
 }
 
 /// How the bake becomes the compiler's maps. The recipe for the ground (the curves, mountains,
-/// ridges, hills, detail) is the Interpreter's, kept in here too so one preset holds both panels;
+/// ridges, peaks, detail) is the Interpreter's, kept in here too so one preset holds both panels;
 /// in the preset file its settings sit alongside these, as before.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -379,9 +379,9 @@ mod tests {
         compile(bake, settings, &AtomicBool::new(false)).unwrap()
     }
 
-    /// No hills: only what a test is looking at.
+    /// The default recipe (hills, which this once turned off, were cut 2026-10-28).
     fn plain() -> CompileSettings {
-        CompileSettings { interpreter: InterpreterSettings { hills: 0.0, ..InterpreterSettings::default() }, ..CompileSettings::default() }
+        CompileSettings::default()
     }
 
     #[test]
@@ -399,9 +399,9 @@ mod tests {
         let text = "water = -0.003\nsoften = 96.0\nfoothills = 6900.0\nridges = 0.89\nhills = 14.0\nstone_from = 220\n\
                     [land]\ndots = [[0.0, 0.0], [1.0, 0.98]]\n";
         let settings: CompileSettings = toml::from_str(text).unwrap();
-        // (Foothills, cut 2026-10-27, are passed over.)
+        // (Foothills, cut 2026-10-27, and hills, cut 2026-10-28, are passed over.)
         assert_eq!((settings.water, settings.soften), (-0.003, 96.0));
-        assert_eq!((settings.interpreter.ridges, settings.interpreter.hills, settings.interpreter.stone_from), (0.89, 14.0, 220));
+        assert_eq!((settings.interpreter.ridges, settings.interpreter.stone_from), (0.89, 220));
         assert_eq!(settings.interpreter.land.dots, vec![(0.0, 0.0), (1.0, 0.98)]);
         // And written back the same way: one flat list.
         let written = toml::to_string_pretty(&settings).unwrap();
@@ -415,11 +415,11 @@ mod tests {
         let settings: CompileSettings = toml::from_str(text).unwrap();
         let defaults = InterpreterSettings::default();
         assert_eq!(settings.interpreter.ridges, 1.0);
-        assert_eq!((settings.interpreter.hill_noise.scale, settings.interpreter.detail_noise.scale), (1_500.0, 96.0));
-        assert_eq!(settings.interpreter.hill_mask, defaults.hill_mask);
+        assert_eq!(settings.interpreter.detail_noise.scale, 96.0);
+        assert_eq!(settings.interpreter.detail_mask, defaults.detail_mask);
         // And a preset with them all survives being written and read.
         let mut changed = settings.clone();
-        changed.interpreter.hill_mask.source = crate::world::MaskSource::Coast;
+        changed.interpreter.detail_mask.source = crate::world::MaskSource::Coast;
         changed.interpreter.detail_noise.octaves = 4;
         changed.additives.sides = super::super::additives::Sides::Inside;
         changed.additives.bend = -2.5;
