@@ -850,9 +850,9 @@ fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
         .on_hover_text("How high a peak stands above the ground under it, at its top.");
     spread_row(ui, &mut peaks.width_spread, crate::debug::Slider::new(&mut peaks.width, 50.0..=10_000.0).logarithmic(true).text("width (blocks)"))
         .on_hover_text("How far from its point a peak's foot reaches. Narrower than its height = a towering spire.");
-    ui.add(crate::debug::Slider::new(&mut peaks.wobble, 0.0..=1.0).text("outline wobble")).on_hover_text(
+    spread_row(ui, &mut peaks.wobble_spread, crate::debug::Slider::new(&mut peaks.wobble, 0.0..=2.0).text("outline wobble")).on_hover_text(
         "How far a peak's outline wanders in and out round it, as a share of its width: fatter on one side, pinched on\n\
-         another. 0 = round.",
+         another. 0 = round. Past 1 the pinches close right up, splitting a peak's foot into lobes.",
     );
     ui.horizontal(|ui| {
         ui.label("where peaks overlap:");
@@ -870,10 +870,17 @@ fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
     ui.add(crate::debug::Slider::new(&mut peaks.crag_size, 16.0..=4_000.0).logarithmic(true).text("biggest crag (blocks)"))
         .on_hover_text("How far across the biggest layer's lumps are. Each finer layer's are smaller, down to a block.");
     ui.add(crate::debug::Slider::new(&mut peaks.crag_layers, 1..=8).text("layers")).on_hover_text("How many layers, each finer than the last (any finer than a block are left out).");
-    ui.add(crate::debug::Slider::new(&mut peaks.crag_finer, 1.5..=6.0).text("each layer finer by ×")).on_hover_text("How much smaller each layer's lumps are than the last's.");
-    ui.add(crate::debug::Slider::new(&mut peaks.crag_weaker, 0.2..=0.8).text("each layer as strong ×")).on_hover_text(
-        "How strong each layer is next to the last. Higher = rougher, more broken; lower = smoother, with only the big shapes.",
+    ui.add(crate::debug::Slider::new(&mut peaks.crag_finer, 1.1..=6.0).text("each layer finer by ×")).on_hover_text(
+        "How much smaller each layer's lumps are than the last's (at the top of its curve below).",
     );
+    ui.label("How much of that each step takes: from the first step (left) to the last (right).");
+    spline_box(ui, "finer by layer", &mut peaks.finer_by_layer, &default.finer_by_layer, "later steps", "share of finer");
+    ui.add(crate::debug::Slider::new(&mut peaks.crag_weaker, 0.2..=1.0).text("each layer as strong ×")).on_hover_text(
+        "How strong each layer is next to the last (at the top of its curve below). Higher = rougher, more broken;\n\
+         lower = smoother, with only the big shapes. 1 = every layer as strong as the first.",
+    );
+    ui.label("How much of that each step takes: from the first step (left) to the last (right).");
+    spline_box(ui, "strength by layer", &mut peaks.weaker_by_layer, &default.weaker_by_layer, "later steps", "share of strength");
     ui.label("Slope response: how much of each layer is kept (up), by how steep it is there (across: flat to steepest).");
     spline_box(ui, "slope response", &mut peaks.slope_response, &default.slope_response, "steeper", "kept");
     ui.add(crate::debug::Slider::new(&mut peaks.steepest, 0.1..=8.0).logarithmic(true).text("steepest (up per across)")).on_hover_text(
@@ -885,6 +892,21 @@ fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
         "On: the crags' dips can cut into the ground the peak stands on (the ridgelines and rise), never below the sea.\n\
          Off: they only carve the peak itself.",
     );
+
+    ui.add_space(4.0);
+    ui.label("Feather: past a peak's foot, its crags carry on as hills, fading out.");
+    ui.add(crate::debug::Slider::new(&mut peaks.feather, 0.0..=10_000.0).text("feather (blocks past the foot)")).on_hover_text(
+        "How far past a peak's foot its crags carry on as hills. 0 = none: the crags stop at the foot.",
+    );
+    let feathered = peaks.feather > 0.0;
+    ui.add_enabled(feathered, crate::debug::Slider::new(&mut peaks.feather_height, 0.0..=1.0).text("feather height")).on_hover_text(
+        "How big the hills are at the foot, as a share of the peak's height (the crags slider still scales them).\n\
+         Inside the peak the crags never fade below this, so the foot has no seam.",
+    );
+    ui.add_enabled_ui(feathered, |ui| {
+        ui.label("How the hills fade: from the foot (left) to the feather's end (right).");
+        spline_box(ui, "feather shape", &mut peaks.feather_shape, &default.feather_shape, "further out", "share of feather height");
+    });
 }
 
 /// A slider with a ± spread box before it, as the Tectonic Sim's (1 = half to twice).

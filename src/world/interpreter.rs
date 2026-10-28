@@ -359,8 +359,10 @@ pub struct Peaks {
     /// How far (blocks) from its point a peak's foot reaches, and how much that differs.
     pub width: f32,
     pub width_spread: f32,
-    /// How far a peak's outline wanders in and out round it, as a share of its width (0 = round).
+    /// How far a peak's outline wanders in and out round it, as a share of its width (0 = round),
+    /// and how much that differs from peak to peak.
     pub wobble: f32,
+    pub wobble_spread: f32,
     /// The peak's shape: across, from its foot (left) to its point (right); up, the share of `height`.
     pub rise: Spline,
     /// Where peaks overlap: the higher wins (separate peaks), or they add up (massifs).
@@ -374,6 +376,16 @@ pub struct Peaks {
     pub crag_layers: u32,
     pub crag_finer: f32,
     pub crag_weaker: f32,
+    /// How much of `crag_finer` and `crag_weaker` each step from one layer to the next takes
+    /// (across: the first step, left, to the last, right; up: none to all of it).
+    pub finer_by_layer: Spline,
+    pub weaker_by_layer: Spline,
+    /// The feather: past a peak's foot its crags carry on as hills over this far (blocks; 0 = none),
+    /// starting at this share of the peak's height, fading as the curve says (across: from the
+    /// foot, left, to the feather's end, right).
+    pub feather: f32,
+    pub feather_height: f32,
+    pub feather_shape: Spline,
     /// How much of each layer survives (up) at each steepness (across: flat, left, to `steepest`
     /// blocks up per block across, right).
     pub slope_response: Spline,
@@ -391,6 +403,7 @@ impl Default for Peaks {
             width: 800.0,
             width_spread: 0.5,
             wobble: 0.3,
+            wobble_spread: 0.0,
             rise: Spline::through(&[(0.0, 0.0), (0.5, 0.2), (0.85, 0.65), (1.0, 1.0)]),
             add: true,
             crags: 0.3,
@@ -398,6 +411,11 @@ impl Default for Peaks {
             crag_layers: 5,
             crag_finer: 2.0,
             crag_weaker: 0.5,
+            finer_by_layer: Spline::through(&[(0.0, 1.0), (1.0, 1.0)]),
+            weaker_by_layer: Spline::through(&[(0.0, 1.0), (1.0, 1.0)]),
+            feather: 0.0,
+            feather_height: 0.2,
+            feather_shape: Spline::through(&[(0.0, 1.0), (0.4, 0.4), (1.0, 0.0)]),
             slope_response: Spline::through(&[(0.0, 1.0), (1.0, 0.3)]),
             steepest: 2.0,
             carve_below: false,
@@ -406,11 +424,30 @@ impl Default for Peaks {
 }
 
 impl Peaks {
-    /// The furthest any peak's foot can reach from its point: the width at the top of its spread,
-    /// wobbled out as far as it goes.
+    /// The furthest any peak reaches from its point: the width at the top of its spread, wobbled
+    /// out as far as the top of the wobble's spread goes, and feathered.
     fn furthest(&self) -> f32 {
-        self.width * self.width_spread.max(0.0).exp2() * (1.0 + self.wobble.max(0.0))
+        let wobble = self.wobble.max(0.0) * self.wobble_spread.max(0.0).exp2();
+        self.width * self.width_spread.max(0.0).exp2() * (1.0 + wobble) + self.feather.max(0.0)
     }
+}
+
+/// The most crag layers.
+const MOST_CRAG_LAYERS: u32 = 8;
+
+/// For each step from one crag layer to the next (the first step at the left of the by-layer
+/// curves, the last at the right): how much finer the next layer is, and how strong next to this one.
+fn crag_steps(peaks: &Peaks) -> Vec<(f32, f32)> {
+    let (finer, weaker) = (peaks.finer_by_layer.curve(), peaks.weaker_by_layer.curve());
+    // Layers less one steps: the last at the right.
+    let last = peaks.crag_layers.clamp(1, MOST_CRAG_LAYERS).saturating_sub(2).max(1) as f32;
+    (0..MOST_CRAG_LAYERS)
+        .map(|step| {
+            let across = (step as f32 / last).min(1.0);
+            let finer = 1.0 + (peaks.crag_finer - 1.0) * finer.at(across).clamp(0.0, 1.0);
+            (finer.max(1.01), peaks.crag_weaker.max(0.0) * weaker.at(across).clamp(0.0, 1.0))
+        })
+        .collect()
 }
 
 /// One peak, its own numbers worked out once: where it stands, its height and width (within the
@@ -422,6 +459,7 @@ struct Peak {
     y: f32,
     height: f32,
     width: f32,
+    wobble: f32,
     seed: u64,
 }
 
@@ -451,8 +489,9 @@ impl PeakCells {
             // The Tectonic Sim's doubling spread: 1 = anywhere from half to twice.
             let height = peaks.height * (peaks.height_spread * unit(1)).exp2();
             let width = (peaks.width * (peaks.width_spread * unit(2)).exp2()).max(1.0);
+            let wobble = peaks.wobble.max(0.0) * (peaks.wobble_spread * unit(3)).exp2();
             let (c, r) = ((x / side).floor().clamp(0.0, (across - 1) as f32) as usize, (y / side).floor().clamp(0.0, (across - 1) as f32) as usize);
-            cells[r * across + c].push(Peak { x, y, height, width, seed });
+            cells[r * across + c].push(Peak { x, y, height, width, wobble, seed });
         }
         Self { side, across, cells }
     }
@@ -804,6 +843,10 @@ pub struct CompiledMap {
     detail_mask: Curve,
     rise: Curve,
     slope_response: Curve,
+    feather_shape: Curve,
+    /// For each step from one crag layer to the next: how much finer and how strong (the sliders
+    /// times their by-layer curves).
+    crag_steps: Vec<(f32, f32)>,
     peak_cells: PeakCells,
 }
 
@@ -861,6 +904,8 @@ impl CompiledMap {
             detail_mask: settings.detail_mask.curve.curve(),
             rise: settings.peaks.rise.curve(),
             slope_response: settings.peaks.slope_response.curve(),
+            feather_shape: settings.peaks.feather_shape.curve(),
+            crag_steps: crag_steps(&settings.peaks),
             peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
             mutes: Mutes::default(),
             maps,
@@ -1033,39 +1078,55 @@ impl CompiledMap {
 
     /// The peaks' rise at a spot, a block east of it and a block south of it (blocks; the two
     /// beside it give the slope), and the room the crags have there: the height of the tallest peak
-    /// reaching it, faded in from its foot (none past every peak's foot).
+    /// reaching it, faded in from its foot, then out over the feather (none past every peak's).
     fn peak_rise(&self, x: f32, y: f32) -> ([f32; 3], f32) {
         let p = &self.settings.peaks;
         let (mut rise, mut room) = ([0.0f32; 3], 0.0f32);
-        let wobble = p.wobble.max(0.0);
+        let feather = p.feather.max(0.0);
         for peak in self.peak_cells.near(x, y) {
             let (dx, dy) = (x - peak.x, y - peak.y);
-            // Too far for even its widest wobble (and a block): skip it before any noise.
-            let furthest = peak.width * (1.0 + wobble) + 1.5;
+            // Too far for even its widest wobble and feather (and a block): skip it before any noise.
+            let furthest = peak.width * (1.0 + peak.wobble) + feather + 1.5;
             if dx * dx + dy * dy >= furthest * furthest {
                 continue;
             }
             let mut width = peak.width;
-            if wobble > 0.0 {
+            if peak.wobble > 0.0 {
                 // The outline wanders in and out round the peak: a slow noise over its own ground
                 // (the same for the spots a block away: it hardly changes over a block).
                 let size = width * 0.6;
-                width *= 1.0 + wobble * perlin(peak.seed, 0x0b1e, Fade::Smooth, dx / size, dy / size);
+                width *= 1.0 + peak.wobble * perlin(peak.seed, 0x0b1e, Fade::Smooth, dx / size, dy / size);
             }
             let width = width.max(1.0);
             for (k, (dx, dy)) in [(dx, dy), (dx + 1.0, dy), (dx, dy + 1.0)].into_iter().enumerate() {
-                let t = 1.0 - dx.hypot(dy) / width;
+                let distance = dx.hypot(dy);
+                let t = 1.0 - distance / width;
+                if k == 0 {
+                    room = room.max(peak.height * self.crag_share(t, distance - width));
+                }
                 if t <= 0.0 {
                     continue;
                 }
                 let own = peak.height * self.rise.at(t).clamp(0.0, 1.0);
                 rise[k] = if p.add { rise[k] + own } else { rise[k].max(own) };
-                if k == 0 {
-                    room = room.max(peak.height * smooth(t / 0.2));
-                }
             }
         }
         (rise, room)
+    }
+
+    /// How much room a peak's crags have, as a share of its height: faded in from its foot (`t` 0)
+    /// to its point (1), and past the foot (`past_foot` blocks) the feather's hills fading out.
+    fn crag_share(&self, t: f32, past_foot: f32) -> f32 {
+        let p = &self.settings.peaks;
+        let feathered = |across: f32| if p.feather > 0.0 { p.feather_height.max(0.0) * self.feather_shape.at(across).clamp(0.0, 1.0) } else { 0.0 };
+        if t > 0.0 {
+            // At the foot the peak's own fade meets the feather's start, so there's no seam.
+            smooth(t / 0.2).max(feathered(0.0))
+        } else if past_foot < p.feather {
+            feathered(past_foot / p.feather)
+        } else {
+            0.0
+        }
     }
 
     /// The crags at a spot (blocks, up or down): layers of noise, each finer and weaker, each kept
@@ -1077,7 +1138,7 @@ impl CompiledMap {
         let (mut total, mut steep) = (0.0, slope);
         let (mut strength, mut size) = (strength, p.crag_size.max(1.0));
         let steepest = p.steepest.max(0.01);
-        for layer in 0..p.crag_layers.clamp(1, 8) {
+        for layer in 0..p.crag_layers.clamp(1, MOST_CRAG_LAYERS) {
             // Finer than a block is wasted.
             if size < 1.0 {
                 break;
@@ -1086,8 +1147,9 @@ impl CompiledMap {
             let kept = self.slope_response.at((steep.0.hypot(steep.1) / steepest).min(1.0)).clamp(0.0, 1.0);
             total += strength * kept * value;
             steep = (steep.0 + strength * kept * along_x / size, steep.1 + strength * kept * along_y / size);
-            strength *= p.crag_weaker;
-            size /= p.crag_finer.max(1.01);
+            let (finer, weaker) = self.crag_steps[layer as usize];
+            strength *= weaker;
+            size /= finer;
         }
         total
     }
@@ -1530,13 +1592,49 @@ mod tests {
     }
 
     #[test]
+    fn the_feather_carries_the_crags_past_the_foot_and_fades_them_out() {
+        // A peak 300 wide at 2,000: its foot at 1,700, the feather out to 1,100.
+        let crag = |feather: f32| {
+            move |p: &mut Peaks| {
+                p.crags = 0.4;
+                p.crag_size = 80.0;
+                p.feather = feather;
+                p.feather_height = 0.5;
+            }
+        };
+        let (bare, feathered) = (peaks_map(vec![[2_000.0, 2_000.0]], crag(0.0)), peaks_map(vec![[2_000.0, 2_000.0]], crag(600.0)));
+        let at = |map: &CompiledMap, x: f32| map.peaks(&map.pixel(0), x, 2_000.0);
+        let hills = (0..60).filter(|&k| at(&feathered, 1_300.0 + k as f32 * 6.0) > 1.0).count();
+        assert!(hills > 15, "only {hills} of 60 spots past the foot have hills");
+        for k in 0..60 {
+            let x = 1_300.0 + k as f32 * 6.0;
+            assert_eq!(at(&bare, x), 0.0);
+            assert!(at(&feathered, x) >= 0.0);
+        }
+        // Gone past the feather's end.
+        assert_eq!(at(&feathered, 1_090.0), 0.0);
+    }
+
+    #[test]
+    fn the_crag_layers_follow_their_by_layer_curves() {
+        let default = crag_steps(&Peaks::default());
+        assert!(default.iter().all(|&(finer, weaker)| finer == 2.0 && weaker == 0.5));
+        let fading = Peaks { crag_layers: 5, weaker_by_layer: Spline::through(&[(0.0, 1.0), (1.0, 0.0)]), finer_by_layer: Spline::through(&[(0.0, 0.0), (1.0, 0.0)]), ..Peaks::default() };
+        let steps = crag_steps(&fading);
+        // Five layers, four steps: the first at the curve's left, the last at its right.
+        assert_eq!(steps[0].1, 0.5);
+        assert_eq!(steps[3].1, 0.0);
+        assert!(steps.iter().all(|&(finer, _)| finer == 1.01));
+    }
+
+    #[test]
     fn the_peak_cells_never_miss_a_peak_in_reach() {
         // Scattered points, and spots all over: the cells find every point within the furthest any
         // peak can reach (spreads and wobble included), as looking at every point does.
         let extent = 10_000.0;
         let points: Vec<[f32; 2]> = (0..300u64).map(|k| [planet_unit(k, 1) * extent, planet_unit(k, 2) * extent]).collect();
         for width in [40.0, 333.0, 2_500.0] {
-            let peaks = Peaks { width, width_spread: 1.0, wobble: 0.5, ..Peaks::default() };
+            let peaks = Peaks { width, width_spread: 1.0, wobble: 0.5, wobble_spread: 1.0, feather: width, ..Peaks::default() };
             let (cells, reach) = (PeakCells::new(&points, extent, &peaks, 7), peaks.furthest());
             for k in 0..500u64 {
                 let (x, y) = (planet_unit(k, 3) * extent, planet_unit(k, 4) * extent);

@@ -477,6 +477,13 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   - **Cost:** each peak's numbers are worked out once per map, and a block skips peaks out of reach
     before any noise; with 8 crag layers among 40 overlapping peaks, about 1.5 ms per chunk of
     columns (0.25 without peaks).
+- **Wobble spread, by-layer curves and the feather [BUILT 2026-10-28]** (David, maxing the wobble,
+  "finer" at its minimum and "as strong" at its maximum): the outline wobble has a ± spread (each
+  peak its own) and goes to 2 (past 1 the pinches split a foot into lobes). "Each layer finer by"
+  goes down to ×1.1 and "as strong" up to 1, and each has a curve over the steps from the first
+  layer to the last (how much of the slider each step takes). The **feather**: past a peak's foot
+  its crags carry on as hills (feather height, a share of the peak's height) for a distance, fading
+  along their own curve, to see how much hilliness the mountains alone can give.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
