@@ -52,6 +52,7 @@ mod additives;
 mod blend;
 mod bake;
 mod canvas;
+mod climate;
 pub(crate) mod compiler;
 mod compiler_view;
 mod export;
@@ -191,7 +192,7 @@ impl Default for Suite {
                 let shown = &mut suite.compiler.lab.overlays.shown;
                 (shown.spines, shown.coast, shown.grain, shown.knots) = (false, true, true, true);
                 suite.compiler.additives.show = false;
-                (suite.compiler.folded[0], suite.compiler.folded[2]) = (true, true);
+                (suite.compiler.folded[0], suite.compiler.folded[3]) = (true, true);
             }
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;

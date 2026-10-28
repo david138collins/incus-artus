@@ -20,6 +20,7 @@
 //! Everything is worked out on all the computer's cores, in the background.
 
 use super::additives::{self, AdditiveSettings};
+use super::climate::ClimateSettings;
 use super::bake::{self, Info};
 use super::runner::every_pixel;
 pub use crate::world::Spline;
@@ -147,6 +148,9 @@ pub struct CompileSettings {
     pub interpreter: InterpreterSettings,
     /// The Additives panel's (not part of compiling: changing them doesn't compile again).
     pub additives: AdditiveSettings,
+    /// The Climate panel's (worked out after compiling, from the recipe: changing them doesn't
+    /// compile again).
+    pub climate: ClimateSettings,
 }
 
 impl Default for CompileSettings {
@@ -157,6 +161,7 @@ impl Default for CompileSettings {
             soften_mountains: 64.0,
             interpreter: InterpreterSettings::default(),
             additives: AdditiveSettings::default(),
+            climate: ClimateSettings::default(),
         }
     }
 }

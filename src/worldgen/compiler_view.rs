@@ -35,7 +35,7 @@ const BEYOND: [u8; 3] = [10, 10, 14];
 /// The scratch bake EZ-Bake writes (and overwrites) each time.
 const EZ_BAKE: &str = "_ez-bake";
 /// The left-hand panels, in the order things happen.
-const PANELS: [&str; 3] = ["Landmass", "Additives", "World Interpreter"];
+const PANELS: [&str; 4] = ["Landmass", "Additives", "Climate", "World Interpreter"];
 
 pub struct Compiler {
     pub settings: CompileSettings,
@@ -85,6 +85,10 @@ pub struct Compiler {
     overlay_texture: Option<egui::TextureHandle>,
     overlay_painted_for: Option<u64>,
     hover: Option<(usize, usize)>,
+    /// The Climate stage's work (in the background), and its picture over the map.
+    pub climate: super::climate::Climate,
+    climate_texture: Option<egui::TextureHandle>,
+    climate_painted_for: Option<u64>,
     /// The Additives panel's dots.
     pub additives: Additives,
     /// Whether the lift's points are drawn over the map.
@@ -92,10 +96,10 @@ pub struct Compiler {
     /// Where you were in the world when you opened the Editor Suite (F2): north, east (blocks) and
     /// the compass bearing you faced (degrees), drawn on the map. [David, 2026-10-27]
     pub came_from: Option<(f32, f32, f32)>,
-    /// The Landmass, Additives and World Interpreter panels: shown (the buttons along the top),
+    /// The Landmass, Additives, Climate and World Interpreter panels: shown (the buttons along the top),
     /// and folded away to thin strips (they start folded, so the map has the room).
-    pub shown: [bool; 3],
-    pub folded: [bool; 3],
+    pub shown: [bool; 4],
+    pub folded: [bool; 4],
     /// The readouts panel on the right, folded away to a thin strip.
     pub readouts_folded: bool,
 }
@@ -131,12 +135,15 @@ impl Default for Compiler {
             lab_hover: None,
             overlay_texture: None,
             overlay_painted_for: None,
+            climate: Default::default(),
+            climate_texture: None,
+            climate_painted_for: None,
             hover: None,
             additives: Additives::default(),
             show_lift_points: true,
             came_from: None,
-            shown: [true; 3],
-            folded: [true; 3],
+            shown: [true; 4],
+            folded: [true; 4],
             readouts_folded: true,
         }
     }
@@ -173,6 +180,8 @@ impl Compiler {
             Some("drawing the close-up")
         } else if self.lab.overlays.is_making() {
             Some("drawing overlays")
+        } else if self.climate.is_making() {
+            Some("reading the ground for the climate")
         } else if self.additives.is_making() {
             Some("finding range spines")
         } else {
@@ -246,8 +255,8 @@ impl Compiler {
                 }
             }
         }
-        // The additives aren't compiled (moving their sliders compiles nothing again).
-        let now = (chosen, CompileSettings { additives: Default::default(), ..self.settings.clone() });
+        // The additives and climate aren't compiled (moving their sliders compiles nothing again).
+        let now = (chosen, CompileSettings { additives: Default::default(), climate: Default::default(), ..self.settings.clone() });
         if self.seen.as_ref() != Some(&now) {
             self.seen = Some(now);
             self.wanted = true;
@@ -462,8 +471,14 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
         });
     }
     if shown[2] {
-        super::view::foldable_left(root, "world interpreter settings", PANELS[2], &mut folded[2], 320.0, |ui| {
+        super::view::foldable_left(root, "climate settings", PANELS[2], &mut folded[2], 300.0, |ui| {
             super::notes::on_page(Some(PANELS[2]));
+            egui::ScrollArea::vertical().id_salt("climate").show(ui, |ui| climate_panel(ui, compiler));
+        });
+    }
+    if shown[3] {
+        super::view::foldable_left(root, "world interpreter settings", PANELS[3], &mut folded[3], 320.0, |ui| {
+            super::notes::on_page(Some(PANELS[3]));
             egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
         });
     }
@@ -939,6 +954,50 @@ fn spread_row(ui: &mut egui::Ui, spread: &mut f32, slider: crate::debug::Slider<
     .inner
 }
 
+/// The Climate panel: the weather the world is made with, worked out once over the whole map, and
+/// the water it leaves (see `climate.rs`). Built a stage at a time; the stages still to come are
+/// shown greyed, in the order they'll happen.
+fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
+    ui.heading("Climate");
+    ui.small(
+        "Between the Additives and the World Interpreter: temperature, then wind, then rain, then the rivers and lakes \
+         the rain makes, worked out once over the whole map. It reads the ground the recipe makes, and the World \
+         Interpreter carves what it chooses. Nothing here changes the ground before it.",
+    );
+    let climate = &mut compiler.settings.climate;
+    fold_section(ui, "The ground it reads", |ui| {
+        ui.small(
+            "The World Interpreter's own recipe, asked for the ground's height in the middle of each climate pixel, with its \
+             fine layers left out (crags, summit crags, hills, torn coast): the broad shape of the land, peaks and \
+             ridgelines and all. Weather and water follow that; crag noise would only make false pits for water to pool in.",
+        );
+        let blocks = climate.pixels * MAP_PIXEL_BLOCKS;
+        ui.add(crate::debug::Slider::new(&mut climate.pixels, 1..=16).text(format!("climate pixel ({blocks} blocks)")))
+            .on_hover_text("How far across one climate pixel is, in the map's 32-block pixels. Smaller = finer, slower.");
+        ui.checkbox(&mut compiler.climate.show_ground, "show the ground it reads").on_hover_text(
+            "Draws the broad ground over the map: sea blue, land grey (lighter higher), lit from the north-west. Under the\n\
+             mouse, the readouts give its height.",
+        );
+    });
+    // Still to come, greyed (David's convention: grey out, don't hide).
+    for (title, about) in [
+        ("Temperature", "Ice caps north and south, a hot band across the middle, both lines squiggled, fading between them; milder by the sea, colder higher up."),
+        ("Wind", "From the temperature at sea level, blurred: cold toward hot, turned partly sideways so it swirls round hot and cold spots."),
+        ("Rain", "Each spot looks upwind: rain shadows behind high ground, more on slopes facing the wind, less far from the sea."),
+        ("Rivers", "Rain gathered downhill into creeks, streams and rivers, ranked by how much water they carry; basins fill to their rims as lakes. Springs at slope feet, and snowmelt."),
+    ] {
+        ui.add_space(6.0);
+        ui.separator();
+        ui.add_enabled_ui(false, |ui| {
+            ui.strong(title);
+            ui.small(format!("Still to come. {about}"));
+        });
+    }
+}
+
+/// The map's pixels are this many blocks across (the climate pixel is a whole number of them).
+const MAP_PIXEL_BLOCKS: usize = 32;
+
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
 fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("World Interpreter");
@@ -1328,6 +1387,12 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ui.small(format!("squeezed at {:.0}°, strength {:.2}", bake.push_angle[i], bake.push_strength[i]));
             }
             ui.small(if bake.plate[i] == 0 { "no plate".to_string() } else { format!("plate grey {}", bake.plate[i]) });
+            if let Some(ground) = compiler.climate.ground()
+                && let Some(z) = ground.at_map_pixel(col, row)
+            {
+                ui.small("From the climate (its pixel):");
+                ui.small(format!("broad ground Z {z:.0}")).on_hover_text("The ground the Climate reads: the recipe without crags, summit crags, hills or torn coast.");
+            }
             if let Some(painted) = &compiler.lab.overlays.painted
                 && painted.width == width
             {
@@ -1568,6 +1633,25 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
     } else {
         compiler.camera.outline(&painter, rect, compiler.hover, MAGENTA);
+    }
+
+    // The Climate stage: kept up to date with the recipe, and the ground it reads drawn over the map.
+    compiler.climate.drive(&map, &compiler.settings.climate);
+    if compiler.climate.show_ground
+        && let Some(ground) = compiler.climate.ground()
+    {
+        if compiler.climate_painted_for != Some(compiler.climate.version) || compiler.climate_texture.is_none() {
+            let image = egui::ColorImage::new([ground.width, ground.width], ground.picture());
+            let texture = compiler.climate_texture.get_or_insert_with(|| ui.ctx().load_texture("climate", egui::ColorImage::new([1, 1], vec![Color32::TRANSPARENT]), egui::TextureOptions::NEAREST));
+            texture.set(image, egui::TextureOptions::NEAREST);
+            compiler.climate_painted_for = Some(compiler.climate.version);
+        }
+        if let Some(texture) = &compiler.climate_texture {
+            // A climate pixel is a whole number of map pixels; the last row and column may reach past the map.
+            let field = compiler.camera.field_rect(rect, (width, width));
+            let across = (ground.width * ground.pixels) as f32 / width as f32;
+            painter.image(texture.id(), egui::Rect::from_min_size(field.min, field.size() * across), egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
+        }
     }
 
     // The overlays, over the map and the close-up alike.

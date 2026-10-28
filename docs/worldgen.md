@@ -512,6 +512,14 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   all the ground on land high up, fading in from a start Z to full at a full Z along a curve,
   braked by the peaks' coast fade. In Additives, Mountains, Peaks, with a "summit crags" Show switch.
   After it: hydrology.
+- **Climate, step 1 [BUILT 2026-10-28]** (the plan: "Breaking the water loop"; David placed it as a
+  panel in the Terrain Compiler between Additives and the World Interpreter, with Temperature, Wind,
+  Rain and Rivers sections). The panel, with the stages still to come greyed in order, and **the ground
+  it reads**: the Interpreter's own recipe (no copy), asked for the height at the middle of each
+  climate pixel with its fine layers left out (crags, summit crags, hills, torn coast, using the Show
+  switches' mutes): the broad shape of the land. A climate pixel is a whole number of the map's
+  32-block pixels (4 = 128 blocks, a slider). Read in the background on all cores whenever the recipe
+  changes; "show the ground it reads" draws it over the map, and the readouts give its height.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by
