@@ -965,6 +965,14 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
          Interpreter carves what it chooses. Nothing here changes the ground before it.",
     );
     let climate = &mut compiler.settings.climate;
+    ui.horizontal_wrapped(|ui| {
+        use super::climate::Show;
+        ui.label("Show over the map:");
+        let show = &mut compiler.climate.show;
+        ui.selectable_value(show, Show::Nothing, "nothing");
+        ui.selectable_value(show, Show::Ground, "the ground it reads").on_hover_text("The broad ground: sea blue, land grey (lighter higher), lit from the north-west.");
+        ui.selectable_value(show, Show::Temperature, "temperature").on_hover_text("Blue frozen, through green, to red hottest; the sea dimmed; the three lines in white.");
+    });
     fold_section(ui, "The ground it reads", |ui| {
         ui.small(
             "The World Interpreter's own recipe, asked for the ground's height in the middle of each climate pixel, with its \
@@ -974,14 +982,10 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let blocks = climate.pixels * MAP_PIXEL_BLOCKS;
         ui.add(crate::debug::Slider::new(&mut climate.pixels, 1..=16).text(format!("climate pixel ({blocks} blocks)")))
             .on_hover_text("How far across one climate pixel is, in the map's 32-block pixels. Smaller = finer, slower.");
-        ui.checkbox(&mut compiler.climate.show_ground, "show the ground it reads").on_hover_text(
-            "Draws the broad ground over the map: sea blue, land grey (lighter higher), lit from the north-west. Under the\n\
-             mouse, the readouts give its height.",
-        );
     });
+    fold_section(ui, "Temperature", |ui| climate_temperature(ui, &mut climate.temperature, compiler.climate.temperature().map(|t| (t.frozen_land, t.hottest_land, t.mean))));
     // Still to come, greyed (David's convention: grey out, don't hide).
     for (title, about) in [
-        ("Temperature", "Ice caps north and south, a hot band across the middle, both lines squiggled, fading between them; milder by the sea, colder higher up."),
         ("Wind", "From the temperature at sea level, blurred: cold toward hot, turned partly sideways so it swirls round hot and cold spots."),
         ("Rain", "Each spot looks upwind: rain shadows behind high ground, more on slopes facing the wind, less far from the sea."),
         ("Rivers", "Rain gathered downhill into creeks, streams and rivers, ranked by how much water they carry; basins fill to their rims as lakes. Springs at slope feet, and snowmelt."),
@@ -997,6 +1001,56 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
 /// The map's pixels are this many blocks across (the climate pixel is a whole number of them).
 const MAP_PIXEL_BLOCKS: usize = 32;
+
+/// The Climate panel's Temperature section; `shares` = the land frozen and hottest, and the world's average, once made.
+fn climate_temperature(ui: &mut egui::Ui, t: &mut super::temperature::TemperatureSettings, shares: Option<(f32, f32, f32)>) {
+    use super::temperature::{FROZEN, HOTTEST, Line, TemperatureSettings};
+    ui.small(
+        "Three lines across the world, each squiggled by its own seed: north of the north ice line and south of the south one \
+         it's evenly cold; along the equator, hot. Between them the fade settles like a soap film stretched between two \
+         lines, so the bands bend with both. -1 is frozen, +1 the hottest.",
+    );
+    if let Some((frozen, hottest, mean)) = shares {
+        ui.label(format!("Land frozen: {:.0}%   hottest: {:.0}%   world average {mean:+.2}", frozen * 100.0, hottest * 100.0)).on_hover_text(format!(
+            "How much of the land is frozen (below {FROZEN}) and how much the hottest (above {HOTTEST}), after the coast and\n\
+             height have had their say. Tune for some ice land in every world, and some hottest land for the drylands."
+        ));
+    }
+    let default = TemperatureSettings::default();
+    let line = |ui: &mut egui::Ui, name: &str, line: &mut Line| {
+        ui.add_space(4.0);
+        ui.strong(name);
+        ui.add(crate::debug::Slider::new(&mut line.at, 0.0..=1.0).text("where (north edge to south)")).on_hover_text("Where the line runs, as a share of the way from the map's north edge to its south edge.");
+        ui.add(crate::debug::Slider::new(&mut line.squiggle, 0.0..=20_000.0).text("squiggle (blocks)"))
+            .on_hover_text("How far the line wanders north and south: the longer the string between its ends. 0 = straight.");
+        ui.add(crate::debug::Slider::new(&mut line.wave, 1_000.0..=80_000.0).logarithmic(true).text("wave length (blocks)")).on_hover_text("How long its biggest waves are (finer ones ride on them).");
+        ui.horizontal(|ui| {
+            ui.add(egui::DragValue::new(&mut line.seed).speed(0.2).prefix("seed "));
+            ui.small("its own squiggle (mixed with the world's seed)");
+        });
+    };
+    line(ui, "North ice line", &mut t.north);
+    line(ui, "Equator", &mut t.equator);
+    ui.add(crate::debug::Slider::new(&mut t.band, 0.0..=30_000.0).text("equator band (blocks)")).on_hover_text("How wide the evenly hot band along the equator is. 0 = just the line.");
+    line(ui, "South ice line", &mut t.south);
+
+    ui.add_space(4.0);
+    ui.strong("How cold and hot");
+    ui.add(crate::debug::Slider::new(&mut t.north_cold, -1.0..=1.0).text("north cap")).on_hover_text("How cold it is north of the north ice line.");
+    ui.add(crate::debug::Slider::new(&mut t.south_cold, -1.0..=1.0).text("south cap")).on_hover_text("How cold it is south of the south ice line.");
+    ui.add(crate::debug::Slider::new(&mut t.hot, -1.0..=1.0).text("equator")).on_hover_text("How hot the equator (and its band) is.");
+    ui.label("The fade: from an ice line (left) to the equator (right).");
+    spline_box(ui, "temperature fade", &mut t.fade, &default.fade, "toward the equator", "share of the way to hot");
+
+    ui.add_space(4.0);
+    ui.strong("Sea and height");
+    ui.add(crate::debug::Slider::new(&mut t.sea_pull, 0.0..=1.0).text("milder by the sea")).on_hover_text(
+        "How much the sea pulls temperatures toward the world's average: coasts and sea neither as cold nor as hot. 0 = not at all.",
+    );
+    ui.add(crate::debug::Slider::new(&mut t.sea_reach, 200.0..=40_000.0).logarithmic(true).text("how far inland (blocks)"))
+        .on_hover_text("How far inland the sea's mildness reaches, fading away.");
+    ui.add(crate::debug::Slider::new(&mut t.cooling, 0.0..=0.5).text("colder per 100 blocks up")).on_hover_text("How much colder the ground is for every 100 blocks above the sea.");
+}
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
 fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
@@ -1392,6 +1446,9 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
             {
                 ui.small("From the climate (its pixel):");
                 ui.small(format!("broad ground Z {z:.0}")).on_hover_text("The ground the Climate reads: the recipe without crags, summit crags, hills or torn coast.");
+                if let Some(t) = compiler.climate.temperature().and_then(|temperature| temperature.at_map_pixel(ground, col, row)) {
+                    ui.small(format!("temperature {t:+.2} ({})", super::temperature::describe(t))).on_hover_text("-1 frozen to +1 the hottest.");
+                }
             }
             if let Some(painted) = &compiler.lab.overlays.painted
                 && painted.width == width
@@ -1635,16 +1692,25 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         compiler.camera.outline(&painter, rect, compiler.hover, MAGENTA);
     }
 
-    // The Climate stage: kept up to date with the recipe, and the ground it reads drawn over the map.
+    // The Climate stage: kept up to date with the recipe, and what it's showing drawn over the map.
     compiler.climate.drive(&map, &compiler.settings.climate);
-    if compiler.climate.show_ground
+    let show = compiler.climate.show;
+    if show != super::climate::Show::Nothing
         && let Some(ground) = compiler.climate.ground()
     {
-        if compiler.climate_painted_for != Some(compiler.climate.version) || compiler.climate_texture.is_none() {
-            let image = egui::ColorImage::new([ground.width, ground.width], ground.picture());
+        let wanted = compiler.climate.version ^ ((show as u64) << 48);
+        let pixels = (compiler.climate_painted_for != Some(wanted) || compiler.climate_texture.is_none())
+            .then(|| match (show, compiler.climate.temperature()) {
+                (super::climate::Show::Temperature, Some(temperature)) if temperature.width == ground.width => Some(temperature.picture(ground)),
+                (super::climate::Show::Temperature, _) => None,
+                _ => Some(ground.picture()),
+            })
+            .flatten();
+        if let Some(pixels) = pixels {
+            let image = egui::ColorImage::new([ground.width, ground.width], pixels);
             let texture = compiler.climate_texture.get_or_insert_with(|| ui.ctx().load_texture("climate", egui::ColorImage::new([1, 1], vec![Color32::TRANSPARENT]), egui::TextureOptions::NEAREST));
             texture.set(image, egui::TextureOptions::NEAREST);
-            compiler.climate_painted_for = Some(compiler.climate.version);
+            compiler.climate_painted_for = Some(wanted);
         }
         if let Some(texture) = &compiler.climate_texture {
             // A climate pixel is a whole number of map pixels; the last row and column may reach past the map.

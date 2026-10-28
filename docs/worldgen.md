@@ -520,6 +520,19 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   switches' mutes): the broad shape of the land. A climate pixel is a whole number of the map's
   32-block pixels (4 = 128 blocks, a slider). Read in the background on all cores whenever the recipe
   changes; "show the ground it reads" draws it over the map, and the readouts give its height.
+- **Climate, step 2: Temperature [BUILT 2026-10-28]** (David: "a sort of natural flow to the temp
+  gradient that isn't as simple as 'warmer in the center, colder north'"; "hundreds of strings lined
+  up to go between the 3 squiggles", never crossing). Three lines west to east (north ice line,
+  equator with an evenly hot band, south ice line), each squiggled by its own seed mixed with the
+  world's (where, squiggle, wave length). Past the ice lines evenly cold (each cap its own value);
+  between, a **soap film** (Laplace's equation, settled coarse to fine): its contours are the bands
+  and its slope lines the strings, so near a line the bands follow its wiggles and further out small
+  wiggles die away while big waves carry through. Lines wave without folding back (hooks not wanted).
+  Then the fade spline, **milder by the sea** (pulled toward the world's average, with a reach
+  inland), and **colder higher up** (per 100 blocks). Scale −1 frozen to +1 hottest. Show over the map:
+  nothing / the ground it reads / temperature (blue to red, sea dimmed, the lines white); shares of the
+  land frozen and hottest, the world average, and a readout under the mouse. Its own background job
+  after the ground, so its sliders don't read the ground again.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

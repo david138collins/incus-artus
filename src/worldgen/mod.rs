@@ -70,6 +70,7 @@ mod plates;
 mod rags;
 pub(crate) mod runner;
 mod tectonics;
+mod temperature;
 mod view;
 mod world;
 mod warp;

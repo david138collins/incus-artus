@@ -24,6 +24,7 @@
 //! line up exactly.
 
 use super::runner::{Job, Poll, every_pixel};
+use super::temperature::{Temperature, TemperatureSettings};
 use crate::world::{CompiledMap, Mutes, SEA_LEVEL};
 use bevy_egui::egui::Color32;
 use serde::{Deserialize, Serialize};
@@ -36,11 +37,12 @@ use std::sync::atomic::AtomicBool;
 pub struct ClimateSettings {
     /// How many of the compiler's pixels across one climate pixel is (4 = 128 blocks).
     pub pixels: usize,
+    pub temperature: TemperatureSettings,
 }
 
 impl Default for ClimateSettings {
     fn default() -> Self {
-        Self { pixels: 4 }
+        Self { pixels: 4, temperature: TemperatureSettings::default() }
     }
 }
 
@@ -114,64 +116,112 @@ impl Ground {
     }
 }
 
-/// What the climate was made from: the recipe (its maps and settings, by address) and the settings.
-#[derive(Clone, PartialEq)]
-struct Key {
-    map: usize,
-    settings: ClimateSettings,
+/// One Climate stage's work: made in the background whenever what it's made from (its key) changes,
+/// the last result kept meanwhile.
+struct Stage<K, T> {
+    job: Option<(K, Job<T>)>,
+    made: Option<(K, Arc<T>)>,
 }
 
-/// The Climate stage's work, made in the background as the recipe or its settings change.
-#[derive(Default)]
-pub struct Climate {
-    job: Option<(Key, Job<Ground>)>,
-    made: Option<(Key, Arc<Ground>)>,
-    /// Goes up with each new result (so pictures know to repaint).
-    pub version: u64,
-    /// Whether the broad ground is drawn over the map.
-    pub show_ground: bool,
+impl<K, T> Default for Stage<K, T> {
+    fn default() -> Self {
+        Self { job: None, made: None }
+    }
 }
 
-impl Climate {
-    pub fn is_making(&self) -> bool {
-        self.job.is_some()
-    }
-
-    pub fn ground(&self) -> Option<&Arc<Ground>> {
-        self.made.as_ref().map(|(_, ground)| ground)
-    }
-
-    /// Collects finished work, and starts again when the recipe (`map`, as the lab makes it) or the
-    /// settings changed.
-    pub fn drive(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
-        if let Some((key, job)) = &self.job {
-            match job.poll() {
-                Poll::Done(finished) => {
-                    self.made = Some((key.clone(), Arc::new(finished.made)));
-                    self.version += 1;
-                    self.job = None;
-                }
-                Poll::Over => self.job = None,
-                Poll::Waiting => {}
+impl<K: Clone + PartialEq, T: Send + 'static> Stage<K, T> {
+    /// Collects finished work (true if there's a new result).
+    fn collect(&mut self) -> bool {
+        let Some((key, job)) = &self.job else { return false };
+        match job.poll() {
+            Poll::Done(finished) => {
+                self.made = Some((key.clone(), Arc::new(finished.made)));
+                self.job = None;
+                true
             }
+            Poll::Over => {
+                self.job = None;
+                false
+            }
+            Poll::Waiting => false,
         }
-        let key = Key { map: Arc::as_ptr(map) as usize, settings: settings.clone() };
+    }
+
+    /// Starts making it again if `key` isn't what the result (or the work under way) was made from.
+    fn want(&mut self, key: K, work: impl FnOnce(&AtomicBool) -> Option<T> + Send + 'static) {
         if self.made.as_ref().is_some_and(|(made, _)| *made == key) {
             return;
         }
         if let Some((making, job)) = &self.job {
+            // Already making this one; or let a quick one finish (the next starts straight after).
             if *making == key || job.started.elapsed().as_secs_f32() < 0.15 {
                 return;
             }
             job.stop();
             self.job = None;
         }
-        let (map, pixels) = (map.clone(), settings.pixels);
-        self.job = Some((key, Job::start(move |stop| read_ground(&map, pixels, stop))));
+        self.job = Some((key, Job::start(work)));
+    }
+
+    fn result(&self) -> Option<&Arc<T>> {
+        self.made.as_ref().map(|(_, made)| made)
     }
 }
 
+/// What's drawn over the map.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Show {
+    #[default]
+    Nothing,
+    Ground,
+    Temperature,
+}
 
+/// The Climate stage's work, each part made in the background as what it's made from changes: the
+/// ground (from the recipe), then the temperature (from the ground and its settings).
+#[derive(Default)]
+pub struct Climate {
+    ground: Stage<(usize, usize), Ground>,
+    temperature: Stage<(usize, TemperatureSettings), Temperature>,
+    /// Goes up with each new result (so pictures know to repaint).
+    pub version: u64,
+    /// What's drawn over the map.
+    pub show: Show,
+}
+
+impl Climate {
+    pub fn is_making(&self) -> bool {
+        self.ground.job.is_some() || self.temperature.job.is_some()
+    }
+
+    pub fn ground(&self) -> Option<&Arc<Ground>> {
+        self.ground.result()
+    }
+
+    pub fn temperature(&self) -> Option<&Arc<Temperature>> {
+        self.temperature.result()
+    }
+
+    /// Collects finished work, and starts each part again when what it's made from changed: the
+    /// recipe (`map`, as the lab makes it) or the settings.
+    pub fn drive(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
+        if self.ground.collect() {
+            self.version += 1;
+        }
+        if self.temperature.collect() {
+            self.version += 1;
+        }
+        let (recipe, pixels) = (map.clone(), settings.pixels);
+        self.ground.want((Arc::as_ptr(map) as usize, pixels), move |stop| read_ground(&recipe, pixels, stop));
+        // Each part waits for the one before it to be up to date.
+        if self.ground.job.is_some() {
+            return;
+        }
+        let Some(ground) = self.ground.result().cloned() else { return };
+        let (recipe, temperature) = (map.clone(), settings.temperature.clone());
+        self.temperature.want((Arc::as_ptr(&ground) as usize, temperature.clone()), move |stop| super::temperature::make(&recipe, &ground, &temperature, stop));
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
