@@ -544,6 +544,15 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   will read them). Show over the map: arrows on the ground it reads; the readout names the wind by
   where it comes from. Climate's stages hold what they were made from, so a new recipe or result is
   never mistaken for the old one.
+- **Climate, step 4: Rain [BUILT 2026-10-28]** (the plan's simplest way): each climate pixel walks
+  back against the wind, following its bends, for a set distance over the broad ground, and three
+  parts come out of the one walk, each with its own settings and its own view: **rain shadow** (how
+  much higher the ground upwind stands, nearer counting more, through a curve), **facing the wind**
+  (the ground rising toward here over a set distance upwind: wetter), **far from the sea** (how far
+  back along the wind the sea is: drier). Plus **warm air carries more** (the cold side drier) and a
+  **look** curve, so the rough sum and its look stay apart. Show over the map: rain (dry tan to wet
+  blue) or one part in grey; the readout gives the rain and each part's say ("because: shadow 40%,
+  facing the wind 0%, far from the sea 20%"). Every pixel alone, any order, the same every time.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

@@ -26,6 +26,7 @@
 use super::runner::{Job, Poll, every_pixel};
 use super::temperature::{Temperature, TemperatureSettings};
 use super::wind::{Wind, WindSettings};
+use super::rain::{Rain, RainSettings};
 use crate::world::{CompiledMap, Mutes, SEA_LEVEL};
 use bevy_egui::egui::Color32;
 use serde::{Deserialize, Serialize};
@@ -40,11 +41,12 @@ pub struct ClimateSettings {
     pub pixels: usize,
     pub temperature: TemperatureSettings,
     pub wind: WindSettings,
+    pub rain: RainSettings,
 }
 
 impl Default for ClimateSettings {
     fn default() -> Self {
-        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default() }
+        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default(), rain: RainSettings::default() }
     }
 }
 
@@ -178,6 +180,7 @@ pub enum Show {
     Ground,
     Temperature,
     Wind,
+    Rain,
 }
 
 /// The Climate stage's work, each part made in the background as what it's made from changes: the
@@ -188,15 +191,18 @@ pub struct Climate {
     ground: Stage<(Same<CompiledMap>, usize), Ground>,
     temperature: Stage<(Same<Ground>, TemperatureSettings), Temperature>,
     wind: Stage<(Same<Temperature>, WindSettings), Wind>,
+    rain: Stage<(Same<Wind>, RainSettings), Rain>,
     /// Goes up with each new result (so pictures know to repaint).
     pub version: u64,
     /// What's drawn over the map.
     pub show: Show,
+    /// Which of the rain's views is drawn when showing rain.
+    pub rain_view: super::rain::View,
 }
 
 impl Climate {
     pub fn is_making(&self) -> bool {
-        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some()
+        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some() || self.rain.job.is_some()
     }
 
     pub fn ground(&self) -> Option<&Arc<Ground>> {
@@ -214,7 +220,7 @@ impl Climate {
     /// Collects finished work, and starts each part again when what it's made from changed: the
     /// recipe (`map`, as the lab makes it) or the settings.
     pub fn drive(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
-        for new in [self.ground.collect(), self.temperature.collect(), self.wind.collect()] {
+        for new in [self.ground.collect(), self.temperature.collect(), self.wind.collect(), self.rain.collect()] {
             if new {
                 self.version += 1;
             }
@@ -233,7 +239,19 @@ impl Climate {
         }
         let Some(temperature) = self.temperature.result().cloned() else { return };
         let (wind, cell) = (settings.wind.clone(), ground.pixels as f32 * map.maps.blocks_per_pixel);
-        self.wind.want((Same(temperature.clone()), wind.clone()), move |stop| super::wind::make(&temperature, &wind, cell, stop));
+        let from = temperature.clone();
+        self.wind.want((Same(temperature.clone()), wind.clone()), move |stop| super::wind::make(&from, &wind, cell, stop));
+        if self.wind.job.is_some() {
+            return;
+        }
+        // (A new ground or temperature always makes a new wind, so the wind is all rain needs to key on.)
+        let Some(wind) = self.wind.result().cloned() else { return };
+        let rain = settings.rain.clone();
+        self.rain.want((Same(wind.clone()), rain.clone()), move |stop| super::rain::make(&ground, &temperature, &wind, &rain, cell, stop));
+    }
+
+    pub fn rain(&self) -> Option<&Arc<Rain>> {
+        self.rain.result()
     }
 }
 

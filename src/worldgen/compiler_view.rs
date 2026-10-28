@@ -973,6 +973,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.selectable_value(show, Show::Ground, "the ground it reads").on_hover_text("The broad ground: sea blue, land grey (lighter higher), lit from the north-west.");
         ui.selectable_value(show, Show::Temperature, "temperature").on_hover_text("Blue frozen, through green, to red hottest; the sea dimmed; the three lines in white.");
         ui.selectable_value(show, Show::Wind, "wind").on_hover_text("Arrows the way the wind blows, longer and brighter where it's stronger, over the ground it reads.");
+        ui.selectable_value(show, Show::Rain, "rain").on_hover_text("The rain, or one of its parts (chosen in the Rain section).");
     });
     fold_section(ui, "The ground it reads", |ui| {
         ui.small(
@@ -1001,9 +1002,53 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             "0 = as strong as the temperature's slope says (calm where it's even, as inside the ice caps); 1 = the same strength everywhere.",
         );
     });
+    fold_section(ui, "Rain", |ui| {
+        use super::rain::View;
+        let rain = &mut climate.rain;
+        ui.small(
+            "Each spot looks upwind, following the wind, and reads the ground on the way: high ground upwind casts a rain \
+             shadow, ground rising toward it from upwind (facing the wind) is wetter, and the further upwind the sea is, \
+             the drier. Mountains act here, not on the wind.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Show:");
+            let view = &mut compiler.climate.rain_view;
+            ui.selectable_value(view, View::Rain, "rain").on_hover_text("Dry tan, through green, to wet blue.");
+            ui.selectable_value(view, View::Shadow, "shadow").on_hover_text("How much the rain shadow dries each spot (white = all of it).");
+            ui.selectable_value(view, View::Windward, "facing the wind").on_hover_text("How much facing the wind wets each spot (white = all of it).");
+            ui.selectable_value(view, View::Inland, "far from the sea").on_hover_text("How far upwind the sea is, as a share of its reach (white = all the way or further).");
+            if ui.small_button("on the map").on_hover_text("Shows rain over the map (the Show row at the top).").clicked() {
+                compiler.climate.show = super::climate::Show::Rain;
+            }
+        });
+        ui.add(crate::debug::Slider::new(&mut rain.reach, 1_000.0..=80_000.0).logarithmic(true).text("looks upwind (blocks)"))
+            .on_hover_text("How far back along the wind each spot looks for high ground and the sea.");
+        ui.add_space(4.0);
+        ui.strong("Rain shadow");
+        ui.add(crate::debug::Slider::new(&mut rain.shadow, 0.0..=1.0).text("how much it dries")).on_hover_text("0 = no rain shadows; 1 = a full shadow leaves no rain at all.");
+        ui.add(crate::debug::Slider::new(&mut rain.shadow_height, 20.0..=800.0).logarithmic(true).text("full shadow (blocks higher)"))
+            .on_hover_text("How much higher than here the ground upwind has to stand (nearer counting more) for the full shadow.");
+        ui.label("The shadow: from none (left) to full (right), how much of it dries (up).");
+        spline_box(ui, "rain shadow", &mut rain.shadow_curve, &super::rain::RainSettings::default().shadow_curve, "higher ground upwind", "share of the drying");
+        ui.add_space(4.0);
+        ui.strong("Facing the wind");
+        ui.add(crate::debug::Slider::new(&mut rain.windward, 0.0..=1.0).text("how much wetter")).on_hover_text("0 = slopes facing the wind are no wetter; 1 = they're as wet as can be.");
+        ui.add(crate::debug::Slider::new(&mut rain.windward_rise, 5.0..=500.0).logarithmic(true).text("full rise (blocks)"))
+            .on_hover_text("How much the ground has to rise toward here, over the distance below, for all of it.");
+        ui.add(crate::debug::Slider::new(&mut rain.windward_reach, 200.0..=10_000.0).logarithmic(true).text("over (blocks upwind)"))
+            .on_hover_text("How far upwind the rise is measured from.");
+        ui.add_space(4.0);
+        ui.strong("Far from the sea");
+        ui.add(crate::debug::Slider::new(&mut rain.inland, 0.0..=1.0).text("how much it dries")).on_hover_text("0 = no drier inland; 1 = no rain at all that far from the sea.");
+        ui.add(crate::debug::Slider::new(&mut rain.inland_reach, 2_000.0..=100_000.0).logarithmic(true).text("all of it at (blocks upwind)"))
+            .on_hover_text("How far back along the wind the sea has to be for all of it (nearer, less).");
+        ui.add_space(4.0);
+        ui.add(crate::debug::Slider::new(&mut rain.warmth, 0.0..=1.0).text("warm air carries more")).on_hover_text("How much drier the cold side of the world is (warm air holds more water). 0 = not at all.");
+        ui.label("The look: the rain worked out (left, dry to wet) to the rain shown (up).");
+        spline_box(ui, "rain look", &mut rain.look, &super::rain::RainSettings::default().look, "wetter", "rain");
+    });
     // Still to come, greyed (David's convention: grey out, don't hide).
     for (title, about) in [
-        ("Rain", "Each spot looks upwind: rain shadows behind high ground, more on slopes facing the wind, less far from the sea."),
         ("Rivers", "Rain gathered downhill into creeks, streams and rivers, ranked by how much water they carry; basins fill to their rims as lakes. Springs at slope feet, and snowmelt."),
     ] {
         ui.add_space(6.0);
@@ -1479,6 +1524,24 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                         ui.small(format!("wind from the {from}, strength {:.2}", wind.strength[i])).on_hover_text("Winds are named for where they blow from.");
                     }
                 }
+                if let Some(rain) = compiler.climate.rain()
+                    && rain.width == ground.width
+                {
+                    let (c, r) = (col / ground.pixels, row / ground.pixels);
+                    if c < rain.width && r < rain.width
+                        && let Some(wet) = rain.rain[r * rain.width + c]
+                    {
+                        let i = r * rain.width + c;
+                        ui.small(format!("rain {wet:.2}")).on_hover_text("0 dry to 1 the wettest.");
+                        ui.small(format!(
+                            "because: shadow {:.0}%, facing the wind {:.0}%, far from the sea {:.0}%",
+                            rain.shadow[i] * 100.0,
+                            rain.windward[i] * 100.0,
+                            rain.inland[i] * 100.0
+                        ))
+                        .on_hover_text("Each part's say here, before its strength slider: how much the rain shadow dries, facing the wind wets, and distance from the sea dries.");
+                    }
+                }
             }
             if let Some(painted) = &compiler.lab.overlays.painted
                 && painted.width == width
@@ -1728,11 +1791,12 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
     if show != super::climate::Show::Nothing
         && let Some(ground) = compiler.climate.ground()
     {
-        let wanted = compiler.climate.version ^ ((show as u64) << 48);
+        let view = compiler.climate.rain_view;
+        let wanted = compiler.climate.version ^ ((show as u64) << 48) ^ ((view as u64) << 40);
         let pixels = (compiler.climate_painted_for != Some(wanted) || compiler.climate_texture.is_none())
-            .then(|| match (show, compiler.climate.temperature()) {
-                (super::climate::Show::Temperature, Some(temperature)) if temperature.width == ground.width => Some(temperature.picture(ground)),
-                (super::climate::Show::Temperature, _) => None,
+            .then(|| match show {
+                super::climate::Show::Temperature => compiler.climate.temperature().filter(|t| t.width == ground.width).map(|t| t.picture(ground)),
+                super::climate::Show::Rain => compiler.climate.rain().filter(|r| r.width == ground.width).map(|r| r.picture(ground, view)),
                 _ => Some(ground.picture()),
             })
             .flatten();

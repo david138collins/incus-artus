@@ -68,6 +68,7 @@ pub(crate) mod noise;
 mod palette;
 mod plates;
 mod rags;
+mod rain;
 pub(crate) mod runner;
 mod tectonics;
 mod wind;
