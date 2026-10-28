@@ -533,6 +533,17 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   nothing / the ground it reads / temperature (blue to red, sea dimmed, the lines white); shares of the
   land frozen and hottest, the world average, and a readout under the mouse. Its own background job
   after the ground, so its sliders don't read the ground again.
+  [2026-10-28: the two ice lines share one set of controls (distance from their own edge, squiggle,
+  wave length; each its own seed) and one cold value, David: "they're equal".]
+- **Climate, step 3: Wind [BUILT 2026-10-28]** (no fluid simulation, as planned): from the
+  temperature **at sea level** (Builder's fix: the height-cooled temperature would make every range a
+  cold spot air blows away from, so no rain shadows), blurred (a setting), blowing from cold toward
+  hot along its slope, **turned sideways** (a setting, degrees) to the right north of the equator and
+  to the left south of it, so the halves mirror like trade winds; **even strength** blends from the
+  slope's own strength (calm where it's even) to the same everywhere. Mountains don't bend it (rain
+  will read them). Show over the map: arrows on the ground it reads; the readout names the wind by
+  where it comes from. Climate's stages hold what they were made from, so a new recipe or result is
+  never mistaken for the old one.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

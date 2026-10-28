@@ -25,6 +25,7 @@
 
 use super::runner::{Job, Poll, every_pixel};
 use super::temperature::{Temperature, TemperatureSettings};
+use super::wind::{Wind, WindSettings};
 use crate::world::{CompiledMap, Mutes, SEA_LEVEL};
 use bevy_egui::egui::Color32;
 use serde::{Deserialize, Serialize};
@@ -38,11 +39,12 @@ pub struct ClimateSettings {
     /// How many of the compiler's pixels across one climate pixel is (4 = 128 blocks).
     pub pixels: usize,
     pub temperature: TemperatureSettings,
+    pub wind: WindSettings,
 }
 
 impl Default for ClimateSettings {
     fn default() -> Self {
-        Self { pixels: 4, temperature: TemperatureSettings::default() }
+        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default() }
     }
 }
 
@@ -175,14 +177,17 @@ pub enum Show {
     Nothing,
     Ground,
     Temperature,
+    Wind,
 }
 
 /// The Climate stage's work, each part made in the background as what it's made from changes: the
-/// ground (from the recipe), then the temperature (from the ground and its settings).
+/// ground (from the recipe), then the temperature (from the ground and its settings), then the wind
+/// (from the temperature).
 #[derive(Default)]
 pub struct Climate {
-    ground: Stage<(usize, usize), Ground>,
-    temperature: Stage<(usize, TemperatureSettings), Temperature>,
+    ground: Stage<(Same<CompiledMap>, usize), Ground>,
+    temperature: Stage<(Same<Ground>, TemperatureSettings), Temperature>,
+    wind: Stage<(Same<Temperature>, WindSettings), Wind>,
     /// Goes up with each new result (so pictures know to repaint).
     pub version: u64,
     /// What's drawn over the map.
@@ -191,7 +196,7 @@ pub struct Climate {
 
 impl Climate {
     pub fn is_making(&self) -> bool {
-        self.ground.job.is_some() || self.temperature.job.is_some()
+        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some()
     }
 
     pub fn ground(&self) -> Option<&Arc<Ground>> {
@@ -202,24 +207,44 @@ impl Climate {
         self.temperature.result()
     }
 
+    pub fn wind(&self) -> Option<&Arc<Wind>> {
+        self.wind.result()
+    }
+
     /// Collects finished work, and starts each part again when what it's made from changed: the
     /// recipe (`map`, as the lab makes it) or the settings.
     pub fn drive(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
-        if self.ground.collect() {
-            self.version += 1;
-        }
-        if self.temperature.collect() {
-            self.version += 1;
+        for new in [self.ground.collect(), self.temperature.collect(), self.wind.collect()] {
+            if new {
+                self.version += 1;
+            }
         }
         let (recipe, pixels) = (map.clone(), settings.pixels);
-        self.ground.want((Arc::as_ptr(map) as usize, pixels), move |stop| read_ground(&recipe, pixels, stop));
+        self.ground.want((Same(map.clone()), pixels), move |stop| read_ground(&recipe, pixels, stop));
         // Each part waits for the one before it to be up to date.
         if self.ground.job.is_some() {
             return;
         }
         let Some(ground) = self.ground.result().cloned() else { return };
-        let (recipe, temperature) = (map.clone(), settings.temperature.clone());
-        self.temperature.want((Arc::as_ptr(&ground) as usize, temperature.clone()), move |stop| super::temperature::make(&recipe, &ground, &temperature, stop));
+        let (recipe, temperature, from) = (map.clone(), settings.temperature.clone(), ground.clone());
+        self.temperature.want((Same(ground.clone()), temperature.clone()), move |stop| super::temperature::make(&recipe, &from, &temperature, stop));
+        if self.temperature.job.is_some() {
+            return;
+        }
+        let Some(temperature) = self.temperature.result().cloned() else { return };
+        let (wind, cell) = (settings.wind.clone(), ground.pixels as f32 * map.maps.blocks_per_pixel);
+        self.wind.want((Same(temperature.clone()), wind.clone()), move |stop| super::wind::make(&temperature, &wind, cell, stop));
+    }
+}
+
+/// What a stage was made from, the very one (held, so it can't be mistaken for a new one made
+/// where it was).
+#[derive(Clone)]
+struct Same<T>(Arc<T>);
+
+impl<T> PartialEq for Same<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 #[cfg(test)]

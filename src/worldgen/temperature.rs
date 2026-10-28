@@ -104,6 +104,9 @@ pub struct Temperature {
     pub width: usize,
     /// −1 frozen to +1 hottest; `None` past the edge of the world.
     pub t: Vec<Option<f32>>,
+    /// The same at sea level (no cooling with height), over the whole map, past the world's edge
+    /// too: what the wind reads, so mountains don't push air outward as if they were cold spots.
+    pub at_sea: Vec<f32>,
     /// Where each line crosses each column (climate pixel rows, from the north edge).
     pub lines: [Vec<f32>; 3],
     /// The world's average, and the shares of the land frozen and hottest.
@@ -212,25 +215,29 @@ pub fn make(map: &CompiledMap, ground: &Ground, s: &TemperatureSettings, stop: &
     let mean = inside.iter().map(|&i| base[i]).sum::<f32>() / inside.len().max(1) as f32;
     let sea = SEA_LEVEL as f32;
     let map_width = map.maps.width;
-    let t: Vec<Option<f32>> = (0..w * w)
+    // At sea level first (the caps, equator and sea's say: what the wind reads, everywhere on the
+    // map), then the ground cooled by its height (what everything else reads).
+    let at_sea: Vec<f32> = (0..w * w)
         .map(|i| {
-            let z = ground.z[i]?;
             let (c, r) = (i % w, i / w);
             // The coast distance at the climate pixel's middle (blocks: + inland, − out to sea).
             let (mc, mr) = ((c * ground.pixels + ground.pixels / 2).min(map_width - 1), (r * ground.pixels + ground.pixels / 2).min(map_width - 1));
             let inland = map.maps.coast_distance[mr * map_width + mc];
             let near_sea = if inland <= 0.0 { 1.0 } else { 1.0 - smooth(inland / s.sea_reach.max(1.0)) };
-            let mut t = base[i] + (mean - base[i]) * s.sea_pull.clamp(0.0, 1.0) * near_sea;
-            if z > sea {
-                t -= s.cooling * (z - sea) / 100.0;
-            }
-            Some(t.clamp(-1.0, 1.0))
+            (base[i] + (mean - base[i]) * s.sea_pull.clamp(0.0, 1.0) * near_sea).clamp(-1.0, 1.0)
+        })
+        .collect();
+    let t: Vec<Option<f32>> = (0..w * w)
+        .map(|i| {
+            let z = ground.z[i]?;
+            let cooled = if z > sea { s.cooling * (z - sea) / 100.0 } else { 0.0 };
+            Some((at_sea[i] - cooled).clamp(-1.0, 1.0))
         })
         .collect();
     let land: Vec<f32> = (0..w * w).filter(|&i| ground.z[i].is_some_and(|z| z >= sea)).filter_map(|i| t[i]).collect();
     let share = |keep: &dyn Fn(f32) -> bool| land.iter().filter(|&&t| keep(t)).count() as f32 / land.len().max(1) as f32;
     let (frozen_land, hottest_land) = (share(&|t| t < FROZEN), share(&|t| t > HOTTEST));
-    Some(Temperature { width: w, t, lines, mean, frozen_land, hottest_land })
+    Some(Temperature { width: w, t, at_sea, lines, mean, frozen_land, hottest_land })
 }
 
 fn smooth(t: f32) -> f32 {

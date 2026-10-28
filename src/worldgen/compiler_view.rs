@@ -972,6 +972,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.selectable_value(show, Show::Nothing, "nothing");
         ui.selectable_value(show, Show::Ground, "the ground it reads").on_hover_text("The broad ground: sea blue, land grey (lighter higher), lit from the north-west.");
         ui.selectable_value(show, Show::Temperature, "temperature").on_hover_text("Blue frozen, through green, to red hottest; the sea dimmed; the three lines in white.");
+        ui.selectable_value(show, Show::Wind, "wind").on_hover_text("Arrows the way the wind blows, longer and brighter where it's stronger, over the ground it reads.");
     });
     fold_section(ui, "The ground it reads", |ui| {
         ui.small(
@@ -984,9 +985,24 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("How far across one climate pixel is, in the map's 32-block pixels. Smaller = finer, slower.");
     });
     fold_section(ui, "Temperature", |ui| climate_temperature(ui, &mut climate.temperature, compiler.climate.temperature().map(|t| (t.frozen_land, t.hottest_land, t.mean))));
+    fold_section(ui, "Wind", |ui| {
+        let wind = &mut climate.wind;
+        ui.small(
+            "From the temperature at sea level (so mountains don't push air away as if they were cold), blurred: it blows from \
+             cold toward hot, turned to the right north of the equator and to the left south of it, so it swirls round hot \
+             and cold spots and the two halves mirror each other. Mountains don't bend it; they act on the rain.",
+        );
+        ui.add(crate::debug::Slider::new(&mut wind.blur, 0.0..=60_000.0).text("blur (blocks)"))
+            .on_hover_text("How far the temperature is blurred before the wind reads it: higher = broad, steady winds; lower = winds bending round every bay.");
+        ui.add(crate::debug::Slider::new(&mut wind.turn, 0.0..=90.0).text("turned sideways (degrees)")).on_hover_text(
+            "How far the wind is turned from straight cold-to-hot: 0 = straight at the warmth, 90 = running along the temperature bands.",
+        );
+        ui.add(crate::debug::Slider::new(&mut wind.even, 0.0..=1.0).text("even strength")).on_hover_text(
+            "0 = as strong as the temperature's slope says (calm where it's even, as inside the ice caps); 1 = the same strength everywhere.",
+        );
+    });
     // Still to come, greyed (David's convention: grey out, don't hide).
     for (title, about) in [
-        ("Wind", "From the temperature at sea level, blurred: cold toward hot, turned partly sideways so it swirls round hot and cold spots."),
         ("Rain", "Each spot looks upwind: rain shadows behind high ground, more on slopes facing the wind, less far from the sea."),
         ("Rivers", "Rain gathered downhill into creeks, streams and rivers, ranked by how much water they carry; basins fill to their rims as lakes. Springs at slope feet, and snowmelt."),
     ] {
@@ -1451,6 +1467,18 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 if let Some(t) = compiler.climate.temperature().and_then(|temperature| temperature.at_map_pixel(ground, col, row)) {
                     ui.small(format!("temperature {t:+.2} ({})", super::temperature::describe(t))).on_hover_text("-1 frozen to +1 the hottest.");
                 }
+                if let Some(wind) = compiler.climate.wind()
+                    && wind.width == ground.width
+                {
+                    let (c, r) = (col / ground.pixels, row / ground.pixels);
+                    if c < wind.width && r < wind.width {
+                        let i = r * wind.width + c;
+                        let [east, south] = wind.way[i];
+                        // Named by where it comes from, as winds are: blowing south is a north wind.
+                        let from = compass_point(-east, -south);
+                        ui.small(format!("wind from the {from}, strength {:.2}", wind.strength[i])).on_hover_text("Winds are named for where they blow from.");
+                    }
+                }
             }
             if let Some(painted) = &compiler.lab.overlays.painted
                 && painted.width == width
@@ -1720,6 +1748,12 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
             let across = (ground.width * ground.pixels) as f32 / width as f32;
             painter.image(texture.id(), egui::Rect::from_min_size(field.min, field.size() * across), egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
         }
+        if show == super::climate::Show::Wind
+            && let Some(wind) = compiler.climate.wind()
+            && wind.width == ground.width
+        {
+            wind_arrows(&painter, rect, &compiler.camera, wind, ground.pixels);
+        }
     }
 
     // The overlays, over the map and the close-up alike.
@@ -1913,6 +1947,46 @@ fn squeeze_strokes(painter: &egui::Painter, rect: egui::Rect, camera: &Camera, m
             let angle = maps.push_y[i].atan2(maps.push_x[i]) / 2.0;
             let half = Vec2::new(angle.cos(), -angle.sin()) * (3.0 + 9.0 * strength.sqrt());
             painter.line_segment([at - half, at + half], stroke);
+        }
+    }
+}
+
+/// The nearest of the 8 compass points to a direction (east, south).
+fn compass_point(east: f32, south: f32) -> &'static str {
+    const NAMES: [&str; 8] = ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"];
+    let turn = south.atan2(east).rem_euclid(std::f32::consts::TAU) / std::f32::consts::TAU * 8.0;
+    NAMES[(turn.round() as usize) % 8]
+}
+
+/// The wind over the map: an arrow every so many screen points, the way the wind blows there,
+/// longer and brighter where it's stronger. `pixels` = map pixels per climate pixel.
+fn wind_arrows(painter: &egui::Painter, rect: egui::Rect, camera: &Camera, wind: &super::wind::Wind, pixels: usize) {
+    const EVERY: f32 = 30.0;
+    let w = wind.width;
+    let (across, down) = ((rect.width() / EVERY) as usize + 1, (rect.height() / EVERY) as usize + 1);
+    for row in 0..down {
+        for col in 0..across {
+            let at = rect.left_top() + Vec2::new((col as f32 + 0.5) * EVERY, (row as f32 + 0.5) * EVERY);
+            // The map pixel under this spot, then its climate pixel.
+            let pixel = (camera.centre + (at - rect.center()) / camera.zoom) / pixels as f32;
+            if pixel.x < 0.0 || pixel.y < 0.0 || pixel.x >= w as f32 || pixel.y >= w as f32 {
+                continue;
+            }
+            let i = pixel.y as usize * w + pixel.x as usize;
+            let ([east, south], strength) = (wind.way[i], wind.strength[i]);
+            if strength < 0.02 || (east == 0.0 && south == 0.0) {
+                continue;
+            }
+            let colour = Color32::from_rgb(170, 230, 255).gamma_multiply(0.35 + 0.65 * strength);
+            let stroke = egui::Stroke::new(1.5, colour);
+            // On screen, east is right and south is down, as on the grid.
+            let way = Vec2::new(east, south) * (5.0 + 9.0 * strength);
+            let (tail, head) = (at - way, at + way);
+            painter.line_segment([tail, head], stroke);
+            let back = -way.normalized() * 5.0;
+            let side = Vec2::new(-back.y, back.x) * 0.6;
+            painter.line_segment([head, head + back + side], stroke);
+            painter.line_segment([head, head + back - side], stroke);
         }
     }
 }
