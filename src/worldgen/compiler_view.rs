@@ -1017,10 +1017,10 @@ fn climate_temperature(ui: &mut egui::Ui, t: &mut super::temperature::Temperatur
         ));
     }
     let default = TemperatureSettings::default();
-    let line = |ui: &mut egui::Ui, name: &str, line: &mut Line| {
+    let line = |ui: &mut egui::Ui, name: &str, line: &mut Line, (at, about): (&str, &str)| {
         ui.add_space(4.0);
         ui.strong(name);
-        ui.add(crate::debug::Slider::new(&mut line.at, 0.0..=1.0).text("where (north edge to south)")).on_hover_text("Where the line runs, as a share of the way from the map's north edge to its south edge.");
+        ui.add(crate::debug::Slider::new(&mut line.at, 0.0..=1.0).text(at)).on_hover_text(about);
         ui.add(crate::debug::Slider::new(&mut line.squiggle, 0.0..=20_000.0).text("squiggle (blocks)"))
             .on_hover_text("How far the line wanders north and south: the longer the string between its ends. 0 = straight.");
         ui.add(crate::debug::Slider::new(&mut line.wave, 1_000.0..=80_000.0).logarithmic(true).text("wave length (blocks)")).on_hover_text("How long its biggest waves are (finer ones ride on them).");
@@ -1029,15 +1029,17 @@ fn climate_temperature(ui: &mut egui::Ui, t: &mut super::temperature::Temperatur
             ui.small("its own squiggle (mixed with the world's seed)");
         });
     };
-    line(ui, "North ice line", &mut t.north);
-    line(ui, "Equator", &mut t.equator);
+    line(ui, "Ice lines (north and south alike)", &mut t.ice, (
+        "from the pole (share of the map)",
+        "How far each ice line is from its own edge of the map: the north line from the north edge, the south line from\n\
+         the south. Each squiggles by its own seed (this one, and the next), so the caps aren't mirror images.",
+    ));
+    line(ui, "Equator", &mut t.equator, ("where (north edge to south)", "Where the equator runs, as a share of the way from the map's north edge to its south edge."));
     ui.add(crate::debug::Slider::new(&mut t.band, 0.0..=30_000.0).text("equator band (blocks)")).on_hover_text("How wide the evenly hot band along the equator is. 0 = just the line.");
-    line(ui, "South ice line", &mut t.south);
 
     ui.add_space(4.0);
     ui.strong("How cold and hot");
-    ui.add(crate::debug::Slider::new(&mut t.north_cold, -1.0..=1.0).text("north cap")).on_hover_text("How cold it is north of the north ice line.");
-    ui.add(crate::debug::Slider::new(&mut t.south_cold, -1.0..=1.0).text("south cap")).on_hover_text("How cold it is south of the south ice line.");
+    ui.add(crate::debug::Slider::new(&mut t.cold, -1.0..=1.0).text("ice caps")).on_hover_text("How cold it is past the ice lines, north and south alike.");
     ui.add(crate::debug::Slider::new(&mut t.hot, -1.0..=1.0).text("equator")).on_hover_text("How hot the equator (and its band) is.");
     ui.label("The fade: from an ice line (left) to the equator (right).");
     spline_box(ui, "temperature fade", &mut t.fade, &default.fade, "toward the equator", "share of the way to hot");

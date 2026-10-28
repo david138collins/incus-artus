@@ -2,8 +2,9 @@
 //!
 //! **Three lines across the world**, west to east: the north ice line, the equator and the south ice
 //! line, each squiggled north and south by its own seed. North of the north line and south of the
-//! south line it's evenly as cold as that cap; along the equator (and its band, if it has one) it's
-//! evenly hot.
+//! south line it's evenly as cold as the caps; along the equator (and its band, if it has one) it's
+//! evenly hot. The two ice lines share one set of controls (how far from their own edge, squiggle,
+//! wave length), each squiggling by its own seed.
 //!
 //! **Between them, a soap film.** The fade from an ice line to the equator isn't read straight down
 //! each column (that would only copy both lines' wiggles all the way across, so squiggling them would
@@ -56,14 +57,16 @@ impl Default for Line {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TemperatureSettings {
-    pub north: Line,
+    /// Both ice lines, one set of controls [David, 2026-10-28]: `at` is how far each is from its own
+    /// edge (the north line from the north edge, the south line from the south), and their squiggle
+    /// and wave length are shared. Each still squiggles by its own seed (this one, and the next), so
+    /// the caps aren't mirror images.
+    pub ice: Line,
     pub equator: Line,
-    pub south: Line,
     /// How wide the equator's evenly hot band is (blocks; 0 = just the line).
     pub band: f32,
-    /// How cold each cap is, and how hot the equator (−1 frozen to +1 hottest).
-    pub north_cold: f32,
-    pub south_cold: f32,
+    /// How cold both caps are (alike), and how hot the equator (−1 frozen to +1 hottest).
+    pub cold: f32,
     pub hot: f32,
     /// The fade from an ice line (left) to the equator (right): how far from cold to hot (up).
     pub fade: Spline,
@@ -78,12 +81,10 @@ pub struct TemperatureSettings {
 impl Default for TemperatureSettings {
     fn default() -> Self {
         Self {
-            north: Line::new(0.12, 1),
-            equator: Line::new(0.5, 2),
-            south: Line::new(0.88, 3),
+            ice: Line::new(0.12, 1),
+            equator: Line::new(0.5, 3),
             band: 3_000.0,
-            north_cold: -1.0,
-            south_cold: -1.0,
+            cold: -1.0,
             hot: 1.0,
             fade: Spline::default(),
             sea_pull: 0.3,
@@ -194,7 +195,8 @@ pub fn film(width: usize, lines: &[Vec<f32>; 3], band: f32, stop: &AtomicBool) -
 /// The temperature over the map from the ground Climate reads (`None` if stopped).
 pub fn make(map: &CompiledMap, ground: &Ground, s: &TemperatureSettings, stop: &AtomicBool) -> Option<Temperature> {
     let (w, cell) = (ground.width, ground.pixels as f32 * map.maps.blocks_per_pixel);
-    let mut lines = [line_rows(&s.north, map.seed, w, cell), line_rows(&s.equator, map.seed, w, cell), line_rows(&s.south, map.seed, w, cell)];
+    let south = Line { at: 1.0 - s.ice.at, seed: s.ice.seed.wrapping_add(1), ..s.ice.clone() };
+    let mut lines = [line_rows(&s.ice, map.seed, w, cell), line_rows(&s.equator, map.seed, w, cell), line_rows(&south, map.seed, w, cell)];
     let band = s.band.max(0.0) / 2.0 / cell;
     // Kept in order, a pixel apart at least, whatever the squiggles do.
     for c in 0..w {
@@ -204,14 +206,8 @@ pub fn make(map: &CompiledMap, ground: &Ground, s: &TemperatureSettings, stop: &
     }
     let u = film(w, &lines, band, stop)?;
     let fade = s.fade.curve();
-    // The fade read on the film, from the cap on this side of the equator to the hot.
-    let base: Vec<f32> = (0..w * w)
-        .map(|i| {
-            let (c, r) = (i % w, i / w);
-            let cold = if (r as f32 + 0.5) < lines[1][c] { s.north_cold } else { s.south_cold };
-            cold + (s.hot - cold) * fade.at(u[i]).clamp(0.0, 1.0)
-        })
-        .collect();
+    // The fade read on the film, from the caps' cold to the hot.
+    let base: Vec<f32> = u.iter().map(|&u| s.cold + (s.hot - s.cold) * fade.at(u).clamp(0.0, 1.0)).collect();
     let inside: Vec<usize> = (0..w * w).filter(|&i| ground.z[i].is_some()).collect();
     let mean = inside.iter().map(|&i| base[i]).sum::<f32>() / inside.len().max(1) as f32;
     let sea = SEA_LEVEL as f32;
