@@ -791,6 +791,11 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut s.deepest, 1.0..=127.0).text("deepest sea floor (Z)")).on_hover_text("The Z the deepest ocean reaches.");
         ui.add(crate::debug::Slider::new(&mut s.highlands, 129.0..=HIGHEST as f32).text("highlands (Z)"))
             .on_hover_text("The Z the highest land reaches before mountains are added (the top of the land curve).");
+        ui.add(crate::debug::Slider::new(&mut s.ceiling, HIGHEST as f32..=TOP_OF_THE_WORLD as f32).text("ground never above (Z)")).on_hover_text(
+            "The ground is cut off flat at this height. The ridgelines still measure their height up to Z 333,\n\
+             so raising this changes nothing until something (the lift, peaks to come) goes past 333.\n\
+             The world itself goes up to Z 1,023.",
+        );
         ui.add_space(4.0);
         ui.label("Land: from the coast (left) to the bake's highest ground (right).");
         spline_box(ui, "land spline", &mut s.land, &defaults.land, "toward the highest ground", "up to the highlands");
@@ -975,13 +980,17 @@ impl Compiler {
     }
 }
 
-/// The compiled world as a grey picture: black = Z 0, white = Z 399.
+/// White in the elevation picture: the world's old top, kept when it was raised to 1,024
+/// (2026-10-27) so the picture looks as before.
+const PICTURE_WHITE: f32 = 399.0;
+
+/// The compiled world as a grey picture: black = Z 0, white = Z 399 (higher is white too).
 fn elevation_picture(compiled: &Compiled) -> Picture {
     let pixels = compiled
         .z
         .iter()
         .map(|&z| {
-            let v = (z as f32 / TOP_OF_THE_WORLD as f32 * 255.0).round() as u8;
+            let v = (z as f32 / PICTURE_WHITE * 255.0).min(255.0).round() as u8;
             [v, v, v, 255]
         })
         .collect();
@@ -1147,7 +1156,7 @@ fn readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let lowest = result.made.z.iter().copied().min().unwrap_or(0);
         ui.label(format!("land: {:.1}% of the world", result.made.land_share * 100.0));
         ui.label(format!("highest ground Z {highest}, deepest sea floor Z {lowest}"));
-        ui.small(format!("Sea level Z {SEA_LEVEL}; nothing past Z {HIGHEST}; the world's top is Z {TOP_OF_THE_WORLD}."));
+        ui.small(format!("Sea level Z {SEA_LEVEL}; ground never above Z {:.0}; the world's top is Z {TOP_OF_THE_WORLD}.", compiler.settings.interpreter.ceiling));
     });
 }
 

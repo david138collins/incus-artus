@@ -2,9 +2,9 @@
 //!
 //! A block position is an `IVec3` (three whole numbers) in game axes: X north, Y east, Z up.
 //!
-//! The world is split into **chunks**: columns 32 × 32 blocks wide and the full 400 tall.
-//! Each chunk is split vertically into 13 **sections** of 32 × 32 × 32
-//! (13 × 32 = 416, so the top 16 layers of the last section are never used).
+//! The world is split into **chunks**: columns 32 × 32 blocks wide and the full 1,024 tall.
+//! Each chunk is split vertically into 32 **sections** of 32 × 32 × 32. [Was 400 tall (13 sections)
+//! until 2026-10-27: raised for mountains that tower over the land (David).]
 
 use bevy::math::IVec3;
 
@@ -14,9 +14,9 @@ pub const CHUNK_SIZE: i32 = 32;
 pub const SECTION_SIZE: i32 = 32;
 /// Blocks in one section (32 × 32 × 32 = 32,768).
 pub const SECTION_VOLUME: usize = (SECTION_SIZE * SECTION_SIZE * SECTION_SIZE) as usize;
-/// Valid Z values are 0 ..= 399.
-pub const WORLD_HEIGHT: i32 = 400;
-/// Sections stacked in one chunk (400 / 32, rounded up = 13).
+/// Valid Z values are 0 ..= 1,023.
+pub const WORLD_HEIGHT: i32 = 1_024;
+/// Sections stacked in one chunk (1,024 / 32 = 32).
 pub const SECTIONS_PER_CHUNK: usize = ((WORLD_HEIGHT + SECTION_SIZE - 1) / SECTION_SIZE) as usize;
 
 /// Which chunk column, counted in chunks (chunk (1, 0) starts at block X = 32).
@@ -50,7 +50,7 @@ pub struct SectionKey {
     pub level: u8,
 }
 
-/// True if Z is inside the world (0 ..= 399).
+/// True if Z is inside the world (0 ..= 1,023).
 pub fn z_in_world(z: i32) -> bool {
     (0..WORLD_HEIGHT).contains(&z)
 }

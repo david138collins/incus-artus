@@ -326,7 +326,7 @@ pub fn save(folder: &Path, compiled: &Compiled, settings: &CompileSettings) -> R
     writer.write_image_data(&bytes).map_err(|error| error.to_string())?;
     writer.finish().map_err(|error| error.to_string())?;
     let header = "# Incus Artus: how elevation.png was compiled from this bake.\n\
-                  # elevation.png is 16-bit grey, and the grey is the ground's Z (0 to 399; sea level 128).\n\n";
+                  # elevation.png is 16-bit grey, and the grey is the ground's Z (0 to 1,023; sea level 128).\n\n";
     let text = toml::to_string_pretty(settings).map_err(|error| error.to_string())?;
     std::fs::write(folder.join("compile.toml"), format!("{header}{text}")).map_err(|error| error.to_string())
 }

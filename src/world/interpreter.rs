@@ -53,7 +53,8 @@ use crate::worldgen::noise::{Fade, PerlinSettings, perlin};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-/// No ground goes higher than this [David].
+/// The ridgelines' measuring stick: they take a share of the room up to here [David]. Ground was
+/// also cut off here until 2026-10-27; that's its own setting now (`ceiling`), for peaks to come.
 pub const HIGHEST: f32 = 333.0;
 
 // ── Curves ──────────────────────────────────────────────────────────────────
@@ -173,6 +174,8 @@ pub struct InterpreterSettings {
     /// The Z of the deepest sea floor, and of the highest land (before mountains).
     pub deepest: f32,
     pub highlands: f32,
+    /// No ground goes higher than this Z (the world itself goes up to Z 1,023).
+    pub ceiling: f32,
     /// How land climbs from the coast (left) to the bake's highest ground (right): up = a share of
     /// the way from Z 128 to the highlands.
     pub land: Spline,
@@ -245,6 +248,7 @@ impl Default for InterpreterSettings {
         Self {
             deepest: 30.0,
             highlands: 200.0,
+            ceiling: HIGHEST,
             land: Spline::through(&[(0.0, 0.0), (0.4, 0.2), (0.75, 0.6), (1.0, 1.0)]),
             sea: Spline::through(&[(0.0, 0.0), (0.4, 0.25), (1.0, 1.0)]),
             grade: 0.4,
@@ -916,7 +920,7 @@ impl CompiledMap {
     pub fn put_together(&self, parts: Parts, here: &Here, x: f32, y: f32) -> f32 {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
-        let mut z = (parts.ground + parts.mountains).min(HIGHEST);
+        let mut z = (parts.ground + parts.mountains).min(s.ceiling);
         if z >= sea && !self.mutes.hills && s.hills != 0.0 {
             let shown = self.mask(&s.hill_mask, &self.hill_mask, here, z);
             if shown > 0.0 {
@@ -926,7 +930,7 @@ impl CompiledMap {
             }
         }
         z += self.torn_coast(here, x, y);
-        z.clamp(1.0, HIGHEST)
+        z.clamp(1.0, s.ceiling.max(1.0))
     }
 
     /// How much of a masked layer shows at a spot (0 to 1), with the ground at `z` there.
@@ -1190,6 +1194,21 @@ mod tests {
         assert!(old == Spline::default() && !toml::to_string(&old).unwrap().contains("bends"));
         let back: Spline = toml::from_str(&toml::to_string(&up).unwrap()).unwrap();
         assert!(back == up);
+    }
+
+    #[test]
+    fn the_ground_is_cut_off_at_the_ceiling() {
+        let map = CompiledMap::of_heights(4, 32.0, &[300.0; 16]);
+        let settings = InterpreterSettings { hills: 0.0, torn_coast: TornCoast { amount: 0.0, ..TornCoast::default() }, ..InterpreterSettings::default() };
+        let tall = Parts { ground: 450.0, mountains: 100.0 };
+        let with = |ceiling| map.with(InterpreterSettings { ceiling, ..settings.clone() }, Mutes::default());
+        let here = map.pixel(5);
+        // At first, the old cut-off: Z 333.
+        assert_eq!(with(HIGHEST).put_together(tall, &here, 0.0, 0.0), HIGHEST);
+        assert_eq!(InterpreterSettings::default().ceiling, HIGHEST);
+        // Raised, the ground goes past it, up to the new one.
+        assert_eq!(with(900.0).put_together(tall, &here, 0.0, 0.0), 550.0);
+        assert_eq!(with(500.0).put_together(tall, &here, 0.0, 0.0), 500.0);
     }
 
     #[test]

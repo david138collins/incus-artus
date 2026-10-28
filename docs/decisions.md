@@ -15,15 +15,15 @@ Status tags: **[DECIDED]** agreed · **[OPEN]** still needs an answer · **[LATE
 - **[DECIDED]** +X = north, −X = south, +Y = east, −Y = west, +Z = up. Origin (0,0) is the centre of the world circle.
   - Note for code: this is a *left-handed* system. Bevy (the engine) is right-handed and Y-up,
     so we convert only at the very edge where things get drawn. All game logic uses our axes.
-- **[DECIDED]** Vertical range Z = 0 (bedrock) to Z = 399. 400 layers.
-- **[DECIDED 2026-10-24]** Sea level is Z = 128. The tallest mountains reach Z = 333.
+- **[DECIDED 2026-10-27]** Vertical range Z = 0 (bedrock) to Z = 1,023. 1,024 layers [David: raised from 400 for mountains that tower over the land].
+- **[DECIDED 2026-10-24]** Sea level is Z = 128. The ridgelines reach Z = 333 (their measuring stick). The ground is cut off at a setting ("ground never above"), 333 until peaks need more [2026-10-27].
 - **[DECIDED]** World is a circle ~72,000 blocks across (radius ~36,000), ~70% water (tunable later).
   Float precision is fine at this size.
 
 ## Chunks & Storage
 
-- **[DECIDED]** A chunk is a 32 × 32 × 400 column. Internally split into stacked 32³ *sections*
-  (13 sections; the top one is partly unused). Chunks are only a storage detail —
+- **[DECIDED]** A chunk is a 32 × 32 × 1,024 column. Internally split into stacked 32³ *sections*
+  (32 sections; 13 when the world was 400 tall, and chunk files from then load topped up with air). Chunks are only a storage detail —
   no terrain or biome logic is based on them.
 - **[DECIDED]** Block type IDs are 16-bit. Bulky per-block state lives in a separate,
   optional structure that only exists for blocks that need it.

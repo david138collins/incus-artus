@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn outside_world_is_air_and_unchangeable() {
         let (mut world, blocks) = test_world();
-        assert_eq!(world.get_block(IVec3::new(0, 0, 400)), BlockId::AIR);
+        assert_eq!(world.get_block(IVec3::new(0, 0, WORLD_HEIGHT)), BlockId::AIR);
         assert_eq!(world.set_block(IVec3::new(0, 0, -1), blocks.stone), None);
         assert_eq!(world.set_block(IVec3::new(5000, 0, 10), blocks.stone), None);
     }

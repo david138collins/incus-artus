@@ -33,7 +33,7 @@ use super::distant::{DistantMaterial, DistantSettings, DistantState};
 use super::material::{TerrainLight, TerrainMaterial};
 use super::{RenderSettings, TerrainAssets};
 use crate::coords::bevy_to_game;
-use crate::world::{CHUNK_SIZE, CompiledMap, SEA_LEVEL, Terrain, WORLD_HEIGHT};
+use crate::world::{CHUNK_SIZE, CompiledMap, SEA_LEVEL, Terrain};
 use crate::worldgen::runner::every_pixel;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::{ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
@@ -326,6 +326,10 @@ fn set_near_uniforms(materials: &mut Assets<TerrainMaterial>, handle: Option<&Ha
 const STEEPEST: f32 = 4.0;
 /// The most pixels along the window's side.
 const NEAR_MOST: f32 = 2048.0;
+/// The height the near window's ground byte and the height tint count up to, from sea level: the
+/// world's old top, kept when the world was raised to 1,024 (2026-10-27) so nothing changed. To
+/// revisit when peaks stand above it.
+const NEAR_TOP: f32 = 400.0;
 
 /// What a near window was made for: the map, its north-west corner (north, east), its side
 /// (blocks) and blocks per pixel.
@@ -367,7 +371,7 @@ pub fn update_near_light(
     let sea = SEA_LEVEL as f32;
     let mut wanted = TerrainLight {
         sun: settings.sun().extend(distant.hill_shading),
-        hill: Vec4::new(distant.height_tint, distant.finest_cell as f32, sea, WORLD_HEIGHT as f32),
+        hill: Vec4::new(distant.height_tint, distant.finest_cell as f32, sea, NEAR_TOP),
         shade: Vec4::new(distant.shading_fade, settings.foot_shading, settings.step_shadows, 0.0),
         ..default()
     };
@@ -463,7 +467,7 @@ fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<(Picture, Cones)> {
     for r in 0..width {
         for c in 0..width {
             let i = r * width + c;
-            data.extend_from_slice(&[byte(slope(north[i])), byte(slope(east[i])), byte((at(c, r) - sea) / (WORLD_HEIGHT as f32 - sea)), if raw[i].is_nan() { 0 } else { 255 }]);
+            data.extend_from_slice(&[byte(slope(north[i])), byte(slope(east[i])), byte((at(c, r) - sea) / (NEAR_TOP - sea)), if raw[i].is_nan() { 0 } else { 255 }]);
         }
     }
     // The tops of the blocks, as the world has them: a land block's top face is one above its Z;

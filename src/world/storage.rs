@@ -7,7 +7,7 @@
 //! ```text
 //! "IACH"  format (u16)  chunk x (i32)  chunk y (i32)
 //! block names: count (u16), then each name (length u16 + text)
-//! 13 sections, each either:
+//! section count (u16; format 1 had none: always 13), then each section, either:
 //!   0, name number (u16)                          every block the same
 //!   1, run count (u32), then (name number u16, run length u16) ...   runs of the same block
 //! ```
@@ -28,7 +28,10 @@ use std::path::Path;
 use std::sync::Arc;
 
 const MAGIC: &[u8; 4] = b"IACH";
-const CHUNK_FORMAT: u16 = 1;
+/// 2: the section count is written (format 1 always had 13, when the world was 400 tall).
+const CHUNK_FORMAT: u16 = 2;
+/// Sections in a format 1 chunk.
+const FORMAT_1_SECTIONS: usize = 13;
 
 /// A chunk as bytes.
 pub fn encode_chunk(chunk: &Chunk, registry: &BlockRegistry) -> Vec<u8> {
@@ -79,6 +82,7 @@ pub fn encode_chunk(chunk: &Chunk, registry: &BlockRegistry) -> Vec<u8> {
         bytes.extend((name.len() as u16).to_le_bytes());
         bytes.extend(name);
     }
+    bytes.extend((chunk.sections().len() as u16).to_le_bytes());
     bytes.extend(body);
     bytes
 }
@@ -133,9 +137,12 @@ pub fn decode_chunk(bytes: &[u8], registry: &BlockRegistry) -> Result<(Chunk, Ve
     }
     let id = |n: u16| ids.get(n as usize).copied().ok_or("a block number with no name");
 
+    // As many sections as the file holds: a world made shorter than this game's is topped up with
+    // air (a taller one's top is dropped).
+    let count = if format >= 2 { reader.u16()? as usize } else { FORMAT_1_SECTIONS };
     let mut sections = Vec::with_capacity(SECTIONS_PER_CHUNK);
     let mut buffer = vec![BlockId::AIR; SECTION_VOLUME];
-    for _ in 0..SECTIONS_PER_CHUNK {
+    for _ in 0..count {
         match reader.u8()? {
             0 => sections.push(Section::Uniform(id(reader.u16()?)?)),
             1 => {
@@ -158,6 +165,8 @@ pub fn decode_chunk(bytes: &[u8], registry: &BlockRegistry) -> Result<(Chunk, Ve
             other => return Err(format!("unknown section kind {other}")),
         }
     }
+    sections.truncate(SECTIONS_PER_CHUNK);
+    sections.resize_with(SECTIONS_PER_CHUNK, || Section::Uniform(BlockId::AIR));
     Ok((Chunk::from_sections(pos, sections), missing))
 }
 
@@ -428,6 +437,34 @@ mod tests {
                 assert_eq!(back.get(block), chunk.get(block), "at {block}");
             }
         }
+    }
+
+    #[test]
+    fn a_chunk_saved_when_the_world_was_400_tall_loads_topped_up_with_air() {
+        let registry = BlockRegistry::default();
+        let stone = TestBlocks::from_registry(&registry).stone;
+        // Format 1: no section count, always 13 sections. Bottom one stone, the rest air.
+        let mut bytes = MAGIC.to_vec();
+        bytes.extend(1u16.to_le_bytes());
+        bytes.extend(2i32.to_le_bytes());
+        bytes.extend((-3i32).to_le_bytes());
+        bytes.extend(2u16.to_le_bytes());
+        for id in [BlockId::AIR, stone] {
+            let name = registry.name(id).as_bytes();
+            bytes.extend((name.len() as u16).to_le_bytes());
+            bytes.extend(name);
+        }
+        for level in 0..FORMAT_1_SECTIONS {
+            bytes.push(0);
+            bytes.extend((if level == 0 { 1u16 } else { 0 }).to_le_bytes());
+        }
+        let (chunk, missing) = decode_chunk(&bytes, &registry).unwrap();
+        assert!(missing.is_empty());
+        assert_eq!(chunk.sections().len(), SECTIONS_PER_CHUNK);
+        assert_eq!(chunk.get(IVec3::new(64 + 5, -96 + 5, 0)), stone);
+        assert_eq!(chunk.get(IVec3::new(64 + 5, -96 + 5, 31)), stone);
+        assert_eq!(chunk.get(IVec3::new(64 + 5, -96 + 5, 32)), BlockId::AIR);
+        assert_eq!(chunk.get(IVec3::new(64 + 5, -96 + 5, super::super::WORLD_HEIGHT - 1)), BlockId::AIR);
     }
 
     #[test]

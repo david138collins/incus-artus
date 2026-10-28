@@ -842,7 +842,7 @@ for later:
 
 **Soon after, on the to-do list [David 2026-10-26]:**
 
-- **Raise the build height, and free the terrain from Z 333.** Both limits are arbitrary (a Minecraft
+- **Raise the build height, and free the terrain from Z 333.** [BUILT 2026-10-27, first step of the peaks plan, `vision/proposal-peaks.md`: the world is 1,024 tall (32 sections; chunk format 2 writes its section count, format 1 loads as 13 topped up with air); the ground's cut-off is the "ground never above (Z)" setting on Land and sea, default 333, while 333 stays the ridgelines' measuring stick; the near light window's height byte and height tint, and the elevation picture's white, stay at the old 400 / 399 until peaks need more, so nothing looks different.] Both limits are arbitrary (a Minecraft
   habit); nothing should stop a Tower of Babel, and the Lift's points are cut flat at 333. The
   assessment, so it needn't be redone:
   - *Build height:* cheap, since empty sky sections are already one value each. Suggested top
