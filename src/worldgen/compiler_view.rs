@@ -89,6 +89,8 @@ pub struct Compiler {
     pub climate: super::climate::Climate,
     climate_texture: Option<egui::TextureHandle>,
     climate_painted_for: Option<u64>,
+    /// How many map pixels across the climate picture covers.
+    climate_painted_size: usize,
     /// The Additives panel's dots.
     pub additives: Additives,
     /// Whether the lift's points are drawn over the map.
@@ -138,6 +140,7 @@ impl Default for Compiler {
             climate: Default::default(),
             climate_texture: None,
             climate_painted_for: None,
+            climate_painted_size: 0,
             hover: None,
             additives: Additives::default(),
             show_lift_points: true,
@@ -974,6 +977,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.selectable_value(show, Show::Temperature, "temperature").on_hover_text("Blue frozen, through green, to red hottest; the sea dimmed; the three lines in white.");
         ui.selectable_value(show, Show::Wind, "wind").on_hover_text("Arrows the way the wind blows, longer and brighter where it's stronger, over the ground it reads.");
         ui.selectable_value(show, Show::Rain, "rain").on_hover_text("The rain, or one of its parts (chosen in the Rain section).");
+        ui.selectable_value(show, Show::Water, "water").on_hover_text("Where the water flows (brighter and bluer, the more it carries) and the lakes.");
     });
     fold_section(ui, "The ground it reads", |ui| {
         ui.small(
@@ -1047,9 +1051,40 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.label("The look: the rain worked out (left, dry to wet) to the rain shown (up).");
         spline_box(ui, "rain look", &mut rain.look, &super::rain::RainSettings::default().look, "wetter", "rain");
     });
+    fold_section(ui, "Rivers", |ui| {
+        let rivers = &mut climate.rivers;
+        ui.small(
+            "Where the water goes, on the map's own grid (32 blocks a pixel). Every dip with no way out fills to the lowest \
+             point of its rim, a lake with a flat surface, and spills on downhill; every patch drains somewhere, always to the \
+             sea. Each patch gives its rain as water (1 unit = a patch of the wettest rain), and it adds up downhill: the \
+             more it carries, the brighter and bluer it's drawn.",
+        );
+        if let Some(flow) = compiler.climate.flow() {
+            ui.label(format!("Most flow: {:.0} units   land under lakes: {:.1}%", flow.most, flow.lake_share * 100.0));
+        }
+        if ui.small_button("show the water on the map").on_hover_text("Shows the water over the map (the Show row at the top).").clicked() {
+            compiler.climate.show = super::climate::Show::Water;
+        }
+        ui.add(crate::debug::Slider::new(&mut rivers.shown_from, 1.0..=5_000.0).logarithmic(true).text("drawn from (units)"))
+            .on_hover_text("How much water has to flow through a patch for it to be drawn. Lower = every trickle; higher = only the big rivers.");
+        ui.add(crate::debug::Slider::new(&mut rivers.lake_depth, 0.5..=40.0).logarithmic(true).text("a lake from (blocks deep)"))
+            .on_hover_text("How deep a basin's water has to stand to count as a lake (shallower is wet ground, later perhaps marsh).");
+        ui.add_space(4.0);
+        ui.strong("Snowmelt");
+        ui.add(crate::debug::Slider::new(&mut rivers.snowmelt, 0.0..=5.0).text("extra water (share of the rain)"))
+            .on_hover_text("On cold high ground, its rain counts this much extra: mountain rivers run bigger.");
+        ui.add(crate::debug::Slider::new(&mut rivers.snow_below, -1.0..=1.0).text("colder than")).on_hover_text("Only where the temperature is below this (-1 frozen to +1 hottest).");
+        ui.add(crate::debug::Slider::new(&mut rivers.snow_above, 128.0..=1_023.0).text("higher than (Z)")).on_hover_text("Only where the ground is above this.");
+        ui.add_space(4.0);
+        ui.strong("Springs at slope feet");
+        ui.add(crate::debug::Slider::new(&mut rivers.springs, 0.0..=20.0).text("extra water")).on_hover_text(
+            "Where a slope eases off (steep coming down, gentler going on), water comes up: this much extra, for each block of\n\
+             steepness lost per block across, as a share of the rain there. Springs show at the feet of mountains.",
+        );
+    });
     // Still to come, greyed (David's convention: grey out, don't hide).
     for (title, about) in [
-        ("Rivers", "Rain gathered downhill into creeks, streams and rivers, ranked by how much water they carry; basins fill to their rims as lakes. Springs at slope feet, and snowmelt."),
+        ("River lines", "The water drawn as smooth lines ranked by how much they carry (creeks, streams, rivers), with a bed height that only falls; then carving them, and the lakes, into the world."),
     ] {
         ui.add_space(6.0);
         ui.separator();
@@ -1542,6 +1577,14 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                         .on_hover_text("Each part's say here, before its strength slider: how much the rain shadow dries, facing the wind wets, and distance from the sea dries.");
                     }
                 }
+                if let Some(flow) = compiler.climate.flow()
+                    && flow.width == width
+                {
+                    if flow.lake[i] > 0.0 {
+                        ui.small(format!("a lake {:.0} deep, its surface at Z {:.0}", flow.lake[i], flow.surface[i]));
+                    }
+                    ui.small(format!("water flowing through: {:.1} units", flow.flow[i])).on_hover_text("1 unit = a patch of the wettest rain; it adds up downhill.");
+                }
             }
             if let Some(painted) = &compiler.lab.overlays.painted
                 && painted.width == width
@@ -1792,24 +1835,28 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         && let Some(ground) = compiler.climate.ground()
     {
         let view = compiler.climate.rain_view;
-        let wanted = compiler.climate.version ^ ((show as u64) << 48) ^ ((view as u64) << 40);
-        let pixels = (compiler.climate_painted_for != Some(wanted) || compiler.climate_texture.is_none())
+        let shown_from = compiler.settings.climate.rivers.shown_from;
+        let wanted = compiler.climate.version ^ ((show as u64) << 48) ^ ((view as u64) << 40) ^ ((shown_from.to_bits() as u64) << 8);
+        // The picture, how many pixels across, and how many map pixels each of them is.
+        let picture = (compiler.climate_painted_for != Some(wanted) || compiler.climate_texture.is_none())
             .then(|| match show {
-                super::climate::Show::Temperature => compiler.climate.temperature().filter(|t| t.width == ground.width).map(|t| t.picture(ground)),
-                super::climate::Show::Rain => compiler.climate.rain().filter(|r| r.width == ground.width).map(|r| r.picture(ground, view)),
-                _ => Some(ground.picture()),
+                super::climate::Show::Temperature => compiler.climate.temperature().filter(|t| t.width == ground.width).map(|t| (t.picture(ground), ground.width, ground.pixels)),
+                super::climate::Show::Rain => compiler.climate.rain().filter(|r| r.width == ground.width).map(|r| (r.picture(ground, view), ground.width, ground.pixels)),
+                super::climate::Show::Water => compiler.climate.flow().map(|f| (f.picture(shown_from), f.width, 1)),
+                _ => Some((ground.picture(), ground.width, ground.pixels)),
             })
             .flatten();
-        if let Some(pixels) = pixels {
-            let image = egui::ColorImage::new([ground.width, ground.width], pixels);
+        if let Some((pixels, across, scale)) = picture {
+            let image = egui::ColorImage::new([across, across], pixels);
             let texture = compiler.climate_texture.get_or_insert_with(|| ui.ctx().load_texture("climate", egui::ColorImage::new([1, 1], vec![Color32::TRANSPARENT]), egui::TextureOptions::NEAREST));
             texture.set(image, egui::TextureOptions::NEAREST);
             compiler.climate_painted_for = Some(wanted);
+            compiler.climate_painted_size = across * scale;
         }
         if let Some(texture) = &compiler.climate_texture {
             // A climate pixel is a whole number of map pixels; the last row and column may reach past the map.
             let field = compiler.camera.field_rect(rect, (width, width));
-            let across = (ground.width * ground.pixels) as f32 / width as f32;
+            let across = compiler.climate_painted_size as f32 / width as f32;
             painter.image(texture.id(), egui::Rect::from_min_size(field.min, field.size() * across), egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
         }
         if show == super::climate::Show::Wind

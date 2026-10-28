@@ -553,6 +553,18 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   **look** curve, so the rough sum and its look stay apart. Show over the map: rain (dry tan to wet
   blue) or one part in grey; the readout gives the rain and each part's say ("because: shadow 40%,
   facing the wind 0%, far from the sea 20%"). Every pixel alone, any order, the same every time.
+- **Climate, step 5: the flow [BUILT 2026-10-28]** (Rivers section): the broad ground read again on
+  the map's own grid (32 blocks), then **priority-flood**: from the sea and the world's edge, the
+  lowest ground not yet reached is taken next and whatever it reaches drains into it, so every dip
+  fills to its rim's lowest point (a lake with a flat surface and an outlet) and spills on; every patch
+  drains, always downhill or across a lake, to the sea. Ties on flat ground are broken by a fixed nudge
+  from the world's seed (wandering paths, no grid lines, the same every time). Each patch gives its
+  rain as units (1 = a patch of the wettest rain), plus **snowmelt** (cold and high: a share extra)
+  and **springs at slope feet** (where the slope eases off), and the flow adds up downhill, upstream
+  first. Lakes: under the surface deeper than a setting; fresh only (fill and spill). Show over the
+  map: water, brighter and bluer the more it carries, from a "drawn from" amount; lakes filled; the
+  readout gives the flow and any lake's depth and surface. About 1.1 s for a full 2,250-pixel map, in
+  the background. Next: river lines and ranks.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

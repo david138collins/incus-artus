@@ -69,6 +69,7 @@ mod palette;
 mod plates;
 mod rags;
 mod rain;
+mod rivers;
 pub(crate) mod runner;
 mod tectonics;
 mod wind;

@@ -27,6 +27,7 @@ use super::runner::{Job, Poll, every_pixel};
 use super::temperature::{Temperature, TemperatureSettings};
 use super::wind::{Wind, WindSettings};
 use super::rain::{Rain, RainSettings};
+use super::rivers::{Flow, RiverSettings};
 use crate::world::{CompiledMap, Mutes, SEA_LEVEL};
 use bevy_egui::egui::Color32;
 use serde::{Deserialize, Serialize};
@@ -42,11 +43,12 @@ pub struct ClimateSettings {
     pub temperature: TemperatureSettings,
     pub wind: WindSettings,
     pub rain: RainSettings,
+    pub rivers: RiverSettings,
 }
 
 impl Default for ClimateSettings {
     fn default() -> Self {
-        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default(), rain: RainSettings::default() }
+        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default(), rain: RainSettings::default(), rivers: RiverSettings::default() }
     }
 }
 
@@ -181,17 +183,21 @@ pub enum Show {
     Temperature,
     Wind,
     Rain,
+    Water,
 }
 
 /// The Climate stage's work, each part made in the background as what it's made from changes: the
-/// ground (from the recipe), then the temperature (from the ground and its settings), then the wind
-/// (from the temperature).
+/// ground (from the recipe), then the temperature (from the ground and its settings), the wind (from
+/// the temperature), the rain (from the wind), and the water's flow (from the rain, over the ground
+/// read again on the map's own grid).
 #[derive(Default)]
 pub struct Climate {
     ground: Stage<(Same<CompiledMap>, usize), Ground>,
     temperature: Stage<(Same<Ground>, TemperatureSettings), Temperature>,
     wind: Stage<(Same<Temperature>, WindSettings), Wind>,
     rain: Stage<(Same<Wind>, RainSettings), Rain>,
+    fine: Stage<Same<CompiledMap>, Ground>,
+    flow: Stage<(Same<Rain>, Same<Ground>, RiverSettings), Flow>,
     /// Goes up with each new result (so pictures know to repaint).
     pub version: u64,
     /// What's drawn over the map.
@@ -202,7 +208,7 @@ pub struct Climate {
 
 impl Climate {
     pub fn is_making(&self) -> bool {
-        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some() || self.rain.job.is_some()
+        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some() || self.rain.job.is_some() || self.fine.job.is_some() || self.flow.job.is_some()
     }
 
     pub fn ground(&self) -> Option<&Arc<Ground>> {
@@ -217,16 +223,24 @@ impl Climate {
         self.wind.result()
     }
 
+    pub fn rain(&self) -> Option<&Arc<Rain>> {
+        self.rain.result()
+    }
+
+    pub fn flow(&self) -> Option<&Arc<Flow>> {
+        self.flow.result()
+    }
+
     /// Collects finished work, and starts each part again when what it's made from changed: the
     /// recipe (`map`, as the lab makes it) or the settings.
     pub fn drive(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
-        for new in [self.ground.collect(), self.temperature.collect(), self.wind.collect(), self.rain.collect()] {
-            if new {
-                self.version += 1;
-            }
-        }
+        let collected = [self.ground.collect(), self.temperature.collect(), self.wind.collect(), self.rain.collect(), self.fine.collect(), self.flow.collect()];
+        self.version += collected.iter().filter(|&&new| new).count() as u64;
         let (recipe, pixels) = (map.clone(), settings.pixels);
         self.ground.want((Same(map.clone()), pixels), move |stop| read_ground(&recipe, pixels, stop));
+        // The ground on the map's own grid, for the water (read alongside the rest).
+        let recipe = map.clone();
+        self.fine.want(Same(map.clone()), move |stop| read_ground(&recipe, 1, stop));
         // Each part waits for the one before it to be up to date.
         if self.ground.job.is_some() {
             return;
@@ -246,12 +260,19 @@ impl Climate {
         }
         // (A new ground or temperature always makes a new wind, so the wind is all rain needs to key on.)
         let Some(wind) = self.wind.result().cloned() else { return };
-        let rain = settings.rain.clone();
-        self.rain.want((Same(wind.clone()), rain.clone()), move |stop| super::rain::make(&ground, &temperature, &wind, &rain, cell, stop));
-    }
-
-    pub fn rain(&self) -> Option<&Arc<Rain>> {
-        self.rain.result()
+        let (rain, from) = (settings.rain.clone(), (ground.clone(), temperature.clone()));
+        self.rain.want((Same(wind.clone()), rain.clone()), move |stop| super::rain::make(&from.0, &from.1, &wind, &rain, cell, stop));
+        if self.rain.job.is_some() || self.fine.job.is_some() {
+            return;
+        }
+        let (Some(rain), Some(fine)) = (self.rain.result().cloned(), self.fine.result().cloned()) else { return };
+        let (rivers, seed, blocks) = (settings.rivers.clone(), map.seed, map.maps.blocks_per_pixel);
+        let from = (rain.clone(), fine.clone());
+        self.flow.want((Same(rain), Same(fine), rivers.clone()), move |stop| {
+            let (rain, fine) = from;
+            let water = super::rivers::water(&fine.z, fine.width, &ground, &temperature, &rain, &rivers, blocks);
+            super::rivers::flow(fine.width, &fine.z, &water, rivers.lake_depth, seed, stop)
+        });
     }
 }
 
