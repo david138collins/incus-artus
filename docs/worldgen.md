@@ -457,6 +457,26 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   Exact: no seams where neighbouring peaks meet (the Lift's nearest-point map can't blend two).
 - Above Z 400 the near light window's stored height stops climbing; only its sea-surface check reads
   it, so tall peaks shade as other ground does (the height tint keeps brightening with height).
+- **Crags and variety [BUILT 2026-10-27]** (David, after the first peaks: "if we can make them
+  irregularly fatter, and then crag them up real good so that they sort of make smaller mountains
+  around them where they blend with one another and the ridges"):
+  - **Each peak its own:** height and width each with a ± spread (the Tectonic Sim's doubling scale),
+    from a seed taken from where the peak stands; an **outline wobble** (a slow noise over the peak's
+    own ground, as a share of its width) so footprints aren't circles; **where peaks overlap**: higher
+    wins, or **add up** (massifs).
+  - **Crags**, Inigo Quilez's "More Noise": layers of noise, each finer and weaker (how many, how much
+    finer, how much weaker), each kept as much as the **slope response** spline says for how steep
+    the peak is there so far. The rise counts as the first layer, so its own steepness steers the
+    rest. The slope comes free with the noise (`perlin_with_slope`, checked against measured slopes).
+    The response replaces the article's fixed 1 / (1 + slope²); **steepest** sets what its right end
+    means. Crags are a share of the peak's height, faded in from its foot; **crags carve below the
+    peaks** lets their dips cut into the ridgelines and rise, never under the sea. A "crags" Show
+    switch.
+  - **Ground never above** now starts at the world's top (Z 1,023): peaks stand on the ridgelines and
+    rise, so their tops differ, and a lower cut-off flattened the tallest (David had to set 720).
+  - **Cost:** each peak's numbers are worked out once per map, and a block skips peaks out of reach
+    before any noise; with 8 crag layers among 40 overlapping peaks, about 1.5 ms per chunk of
+    columns (0.25 without peaks).
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

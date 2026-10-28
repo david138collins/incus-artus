@@ -841,18 +841,62 @@ fn mountain_rise(ui: &mut egui::Ui, lift: &mut Lift) {
 /// Mountains, Peaks: a mountain at each point, on top of everything else.
 fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
     ui.small(
-        "A peak stands at each of the points, on top of the rise and the ridgelines. Its shape for now is the rise curve \
-         alone: crags, and peaks that differ from one another, come next. To see them past Z 333, raise \"ground never \
-         above\" (World Interpreter, Land and sea).",
+        "A peak stands at each of the points, on top of the rise and the ridgelines, and its crags are carved into it. \
+         Each peak takes its own height and width from where it stands, within the ± spreads. Past the ground's \
+         cut-off it's flat: see \"ground never above\" (World Interpreter, Land and sea).",
     );
-    ui.add(crate::debug::Slider::new(&mut peaks.height, 0.0..=800.0).text("height (blocks)"))
+    let default = Peaks::default();
+    spread_row(ui, &mut peaks.height_spread, crate::debug::Slider::new(&mut peaks.height, 0.0..=800.0).text("height (blocks)"))
         .on_hover_text("How high a peak stands above the ground under it, at its top.");
-    ui.add(crate::debug::Slider::new(&mut peaks.width, 50.0..=10_000.0).logarithmic(true).text("width (blocks)")).on_hover_text(
-        "How far from its point a peak's foot reaches. Narrower than its height = a towering spire.\n\
-         Where two peaks overlap, the higher one wins.",
+    spread_row(ui, &mut peaks.width_spread, crate::debug::Slider::new(&mut peaks.width, 50.0..=10_000.0).logarithmic(true).text("width (blocks)"))
+        .on_hover_text("How far from its point a peak's foot reaches. Narrower than its height = a towering spire.");
+    ui.add(crate::debug::Slider::new(&mut peaks.wobble, 0.0..=1.0).text("outline wobble")).on_hover_text(
+        "How far a peak's outline wanders in and out round it, as a share of its width: fatter on one side, pinched on\n\
+         another. 0 = round.",
     );
+    ui.horizontal(|ui| {
+        ui.label("where peaks overlap:");
+        ui.selectable_value(&mut peaks.add, false, "higher wins").on_hover_text("Separate peaks: where two overlap, the ground follows the higher.");
+        ui.selectable_value(&mut peaks.add, true, "add up").on_hover_text("They add up where they overlap, merging into massifs.");
+    });
     ui.label("The peak: from its foot (left) to its top (right).");
-    spline_box(ui, "peak rise", &mut peaks.rise, &Peaks::default().rise, "toward the point", "share of the height");
+    spline_box(ui, "peak rise", &mut peaks.rise, &default.rise, "toward the point", "share of the height");
+
+    ui.add_space(4.0);
+    ui.label("Crags: layers of noise, each finer and weaker, kept or smoothed by how steep the peak is there.");
+    ui.add(crate::debug::Slider::new(&mut peaks.crags, 0.0..=1.0).text("crags")).on_hover_text(
+        "How big the crags are, as a share of the peak's height (so a small peak's crags don't swamp it). 0 = smooth.",
+    );
+    ui.add(crate::debug::Slider::new(&mut peaks.crag_size, 16.0..=4_000.0).logarithmic(true).text("biggest crag (blocks)"))
+        .on_hover_text("How far across the biggest layer's lumps are. Each finer layer's are smaller, down to a block.");
+    ui.add(crate::debug::Slider::new(&mut peaks.crag_layers, 1..=8).text("layers")).on_hover_text("How many layers, each finer than the last (any finer than a block are left out).");
+    ui.add(crate::debug::Slider::new(&mut peaks.crag_finer, 1.5..=3.0).text("each layer finer by ×")).on_hover_text("How much smaller each layer's lumps are than the last's.");
+    ui.add(crate::debug::Slider::new(&mut peaks.crag_weaker, 0.2..=0.8).text("each layer as strong ×")).on_hover_text(
+        "How strong each layer is next to the last. Higher = rougher, more broken; lower = smoother, with only the big shapes.",
+    );
+    ui.label("Slope response: how much of each layer is kept (up), by how steep it is there (across: flat to steepest).");
+    spline_box(ui, "slope response", &mut peaks.slope_response, &default.slope_response, "steeper", "kept");
+    ui.add(crate::debug::Slider::new(&mut peaks.steepest, 0.1..=8.0).logarithmic(true).text("steepest (up per across)")).on_hover_text(
+        "How steep the right-hand end of the slope response is: blocks up for each block across (1 = 45°). Steeper than\n\
+         this counts as this. Falling to the right = the crags smoothed off where it's steep (worn, the article's\n\
+         look); rising = kept or sharpened there (towering, broken faces); a bump = crags only at one steepness.",
+    );
+    ui.checkbox(&mut peaks.carve_below, "crags carve below the peaks").on_hover_text(
+        "On: the crags' dips can cut into the ground the peak stands on (the ridgelines and rise), never below the sea.\n\
+         Off: they only carve the peak itself.",
+    );
+}
+
+/// A slider with a ± spread box before it, as the Tectonic Sim's (1 = half to twice).
+fn spread_row(ui: &mut egui::Ui, spread: &mut f32, slider: crate::debug::Slider<f32>) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.add(egui::DragValue::new(spread).range(0.0..=2.0).speed(0.01).prefix("± ")).on_hover_text(
+            "Spread: each peak takes its own value, from its own seed. 1 = anywhere from half to twice; 2 = a quarter to\n\
+             four times. 0 = all alike.",
+        );
+        ui.add(slider)
+    })
+    .inner
 }
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
@@ -1324,6 +1368,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),
                 ("peaks", &mut m.peaks, "The peaks standing at the mountains' points (Additives, Mountains, Peaks)."),
+                ("crags", &mut m.crags, "The crags carved into the peaks (off: smooth peaks)."),
             ] {
                 let mut shown = !*muted;
                 if ui.checkbox(&mut shown, name).on_hover_text(about).changed() {

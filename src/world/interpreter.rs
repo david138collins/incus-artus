@@ -174,7 +174,7 @@ pub struct InterpreterSettings {
     /// The Z of the deepest sea floor, and of the highest land (before mountains).
     pub deepest: f32,
     pub highlands: f32,
-    /// No ground goes higher than this Z (the world itself goes up to Z 1,023).
+    /// No ground goes higher than this Z (at first the top of the world, Z 1,023).
     pub ceiling: f32,
     /// How land climbs from the coast (left) to the bake's highest ground (right): up = a share of
     /// the way from Z 128 to the highlands.
@@ -250,7 +250,7 @@ impl Default for InterpreterSettings {
         Self {
             deepest: 30.0,
             highlands: 200.0,
-            ceiling: HIGHEST,
+            ceiling: (super::WORLD_HEIGHT - 1) as f32,
             land: Spline::through(&[(0.0, 0.0), (0.4, 0.2), (0.75, 0.6), (1.0, 1.0)]),
             sea: Spline::through(&[(0.0, 0.0), (0.4, 0.25), (1.0, 1.0)]),
             grade: 0.4,
@@ -352,49 +352,113 @@ impl Default for Lift {
 #[serde(default)]
 pub struct Peaks {
     pub on: bool,
-    /// How high (blocks) a peak stands above the ground under it, at its top.
+    /// How high (blocks) a peak stands above the ground under it, at its top, and how much that
+    /// differs from peak to peak (the Tectonic Sim's doubling spread: 1 = half to twice).
     pub height: f32,
-    /// How far (blocks) from its point a peak's foot reaches.
+    pub height_spread: f32,
+    /// How far (blocks) from its point a peak's foot reaches, and how much that differs.
     pub width: f32,
+    pub width_spread: f32,
+    /// How far a peak's outline wanders in and out round it, as a share of its width (0 = round).
+    pub wobble: f32,
     /// The peak's shape: across, from its foot (left) to its point (right); up, the share of `height`.
     pub rise: Spline,
+    /// Where peaks overlap: the higher wins (separate peaks), or they add up (massifs).
+    pub add: bool,
+    /// The crags, "More Noise" style: layers of noise each finer and weaker than the last, how much of
+    /// each survives decided by how steep the peak is there so far (the rise counted as the first
+    /// layer). How big they are (a share of the peak's height), the biggest crag's size (blocks),
+    /// how many layers, and how much finer and weaker each is.
+    pub crags: f32,
+    pub crag_size: f32,
+    pub crag_layers: u32,
+    pub crag_finer: f32,
+    pub crag_weaker: f32,
+    /// How much of each layer survives (up) at each steepness (across: flat, left, to `steepest`
+    /// blocks up per block across, right).
+    pub slope_response: Spline,
+    pub steepest: f32,
+    /// Whether the crags' dips may carve below the ground the peak stands on (into the ridgelines).
+    pub carve_below: bool,
 }
 
 impl Default for Peaks {
     fn default() -> Self {
-        Self { on: false, height: 400.0, width: 800.0, rise: Spline::through(&[(0.0, 0.0), (0.5, 0.2), (0.85, 0.65), (1.0, 1.0)]) }
+        Self {
+            on: false,
+            height: 400.0,
+            height_spread: 0.5,
+            width: 800.0,
+            width_spread: 0.5,
+            wobble: 0.3,
+            rise: Spline::through(&[(0.0, 0.0), (0.5, 0.2), (0.85, 0.65), (1.0, 1.0)]),
+            add: false,
+            crags: 0.3,
+            crag_size: 400.0,
+            crag_layers: 5,
+            crag_finer: 2.0,
+            crag_weaker: 0.5,
+            slope_response: Spline::through(&[(0.0, 1.0), (1.0, 0.3)]),
+            steepest: 2.0,
+            carve_below: false,
+        }
     }
 }
 
-/// The mountains' points, sorted into square cells at least a peak's width across, so a spot only
-/// looks at the peaks in its own cell and the eight round it.
+impl Peaks {
+    /// The furthest any peak's foot can reach from its point: the width at the top of its spread,
+    /// wobbled out as far as it goes.
+    fn furthest(&self) -> f32 {
+        self.width * self.width_spread.max(0.0).exp2() * (1.0 + self.wobble.max(0.0))
+    }
+}
+
+/// One peak, its own numbers worked out once: where it stands, its height and width (within the
+/// spreads), and its seed (from where it stands, so moving a slider never reshuffles which peak is
+/// which).
+#[derive(Clone, Copy, Debug)]
+struct Peak {
+    x: f32,
+    y: f32,
+    height: f32,
+    width: f32,
+    seed: u64,
+}
+
+/// The peaks, sorted into square cells at least as wide as the furthest any peak reaches, so a spot
+/// only looks at the peaks in its own cell and the eight round it.
 #[derive(Clone, Debug, Default)]
 struct PeakCells {
     side: f32,
     across: usize,
-    cells: Vec<Vec<[f32; 2]>>,
+    cells: Vec<Vec<Peak>>,
 }
 
 /// The most cells along a side (so tiny peaks on a big map don't make millions of cells).
 const MOST_CELLS: f32 = 256.0;
 
 impl PeakCells {
-    fn new(points: &[[f32; 2]], extent: f32, width: f32) -> Self {
+    fn new(points: &[[f32; 2]], extent: f32, peaks: &Peaks, noise_seed: u64) -> Self {
         if points.is_empty() {
             return Self::default();
         }
-        let side = width.max(extent / MOST_CELLS).max(1.0);
+        let side = peaks.furthest().max(extent / MOST_CELLS).max(1.0);
         let across = (extent / side).ceil().max(1.0) as usize;
         let mut cells = vec![Vec::new(); across * across];
         for &[x, y] in points {
+            let seed = crate::fate::planet_hash(noise_seed, 0x9eac, x.round() as i64, y.round() as i64, 0);
+            let unit = |which: u64| (crate::fate::planet_hash(seed, which, 0, 0, 0) >> 40) as f32 / (1u64 << 23) as f32 - 1.0;
+            // The Tectonic Sim's doubling spread: 1 = anywhere from half to twice.
+            let height = peaks.height * (peaks.height_spread * unit(1)).exp2();
+            let width = (peaks.width * (peaks.width_spread * unit(2)).exp2()).max(1.0);
             let (c, r) = ((x / side).floor().clamp(0.0, (across - 1) as f32) as usize, (y / side).floor().clamp(0.0, (across - 1) as f32) as usize);
-            cells[r * across + c].push([x, y]);
+            cells[r * across + c].push(Peak { x, y, height, width, seed });
         }
         Self { side, across, cells }
     }
 
-    /// The points in the cell holding (x, y) and the eight round it.
-    fn near(&self, x: f32, y: f32) -> impl Iterator<Item = &[f32; 2]> {
+    /// The peaks in the cell holding (x, y) and the eight round it.
+    fn near(&self, x: f32, y: f32) -> impl Iterator<Item = &Peak> {
         let last = self.across as i64 - 1;
         let (c, r) = ((x / self.side.max(1.0)).floor() as i64, (y / self.side.max(1.0)).floor() as i64);
         (r - 1..=r + 1)
@@ -697,6 +761,7 @@ pub struct Mutes {
     pub torn_coast: bool,
     pub detail: bool,
     pub peaks: bool,
+    pub crags: bool,
 }
 
 impl Mutes {
@@ -711,6 +776,7 @@ impl Mutes {
             ("torn coast", self.torn_coast),
             ("detail", self.detail),
             ("peaks", self.peaks),
+            ("crags", self.crags),
         ]
         .into_iter()
         .filter_map(|(name, off)| off.then_some(name))
@@ -737,6 +803,7 @@ pub struct CompiledMap {
     hill_mask: Curve,
     detail_mask: Curve,
     rise: Curve,
+    slope_response: Curve,
     peak_cells: PeakCells,
 }
 
@@ -793,7 +860,8 @@ impl CompiledMap {
             hill_mask: settings.hill_mask.curve.curve(),
             detail_mask: settings.detail_mask.curve.curve(),
             rise: settings.peaks.rise.curve(),
-            peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, settings.peaks.width),
+            slope_response: settings.peaks.slope_response.curve(),
+            peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
             mutes: Mutes::default(),
             maps,
             seed,
@@ -946,20 +1014,82 @@ impl CompiledMap {
         if !p.on || p.height <= 0.0 || here.coast < 0.0 || self.mutes.peaks {
             return 0.0;
         }
-        let width = p.width.max(1.0);
-        let mut highest = 0.0f32;
-        for &[px, py] in self.peak_cells.near(x, y) {
-            let apart = (x - px).hypot(y - py);
-            if apart < width {
-                highest = highest.max(self.rise.at(1.0 - apart / width).clamp(0.0, 1.0));
-            }
-        }
-        if highest <= 0.0 {
+        let ([rise, east, south], crag_room) = self.peak_rise(x, y);
+        if crag_room <= 0.0 {
             return 0.0;
+        }
+        let mut total = rise;
+        if p.crags > 0.0 && !self.mutes.crags {
+            // The rise is the first layer: how steep it is here (a block each way) steers the rest.
+            total += self.crags(x, y, crag_room * p.crags, (east - rise, south - rise));
+        }
+        if !p.carve_below {
+            total = total.max(0.0);
         }
         let lift = &self.settings.lift;
         let pad = smooth(here.coast_distance / lift.pad.max(1.0)).powf(lift.pad_falloff.max(0.01));
-        p.height * highest * pad
+        total * pad
+    }
+
+    /// The peaks' rise at a spot, a block east of it and a block south of it (blocks; the two
+    /// beside it give the slope), and the room the crags have there: the height of the tallest peak
+    /// reaching it, faded in from its foot (none past every peak's foot).
+    fn peak_rise(&self, x: f32, y: f32) -> ([f32; 3], f32) {
+        let p = &self.settings.peaks;
+        let (mut rise, mut room) = ([0.0f32; 3], 0.0f32);
+        let wobble = p.wobble.max(0.0);
+        for peak in self.peak_cells.near(x, y) {
+            let (dx, dy) = (x - peak.x, y - peak.y);
+            // Too far for even its widest wobble (and a block): skip it before any noise.
+            let furthest = peak.width * (1.0 + wobble) + 1.5;
+            if dx * dx + dy * dy >= furthest * furthest {
+                continue;
+            }
+            let mut width = peak.width;
+            if wobble > 0.0 {
+                // The outline wanders in and out round the peak: a slow noise over its own ground
+                // (the same for the spots a block away: it hardly changes over a block).
+                let size = width * 0.6;
+                width *= 1.0 + wobble * perlin(peak.seed, 0x0b1e, Fade::Smooth, dx / size, dy / size);
+            }
+            let width = width.max(1.0);
+            for (k, (dx, dy)) in [(dx, dy), (dx + 1.0, dy), (dx, dy + 1.0)].into_iter().enumerate() {
+                let t = 1.0 - dx.hypot(dy) / width;
+                if t <= 0.0 {
+                    continue;
+                }
+                let own = peak.height * self.rise.at(t).clamp(0.0, 1.0);
+                rise[k] = if p.add { rise[k] + own } else { rise[k].max(own) };
+                if k == 0 {
+                    room = room.max(peak.height * smooth(t / 0.2));
+                }
+            }
+        }
+        (rise, room)
+    }
+
+    /// The crags at a spot (blocks, up or down): layers of noise, each finer and weaker, each kept
+    /// as much as the slope response says for how steep it is there so far, starting from `slope`
+    /// (the rise's, blocks up per block across). "More Noise" (Inigo Quilez), with the fixed
+    /// 1 / (1 + slope²) swapped for a curve.
+    fn crags(&self, x: f32, y: f32, strength: f32, slope: (f32, f32)) -> f32 {
+        let p = &self.settings.peaks;
+        let (mut total, mut steep) = (0.0, slope);
+        let (mut strength, mut size) = (strength, p.crag_size.max(1.0));
+        let steepest = p.steepest.max(0.01);
+        for layer in 0..p.crag_layers.clamp(1, 8) {
+            // Finer than a block is wasted.
+            if size < 1.0 {
+                break;
+            }
+            let (value, along_x, along_y) = crate::worldgen::noise::perlin_with_slope(self.noise_seed ^ 0xc4a6, layer as u64, x / size, y / size);
+            let kept = self.slope_response.at((steep.0.hypot(steep.1) / steepest).min(1.0)).clamp(0.0, 1.0);
+            total += strength * kept * value;
+            steep = (steep.0 + strength * kept * along_x / size, steep.1 + strength * kept * along_y / size);
+            strength *= p.crag_weaker;
+            size /= p.crag_finer.max(1.01);
+        }
+        total
     }
 
     /// How much the lift raises the land at a spot (blocks; none at sea): the curve read at how near
@@ -1022,7 +1152,12 @@ impl CompiledMap {
     pub fn put_together(&self, parts: Parts, here: &Here, x: f32, y: f32) -> f32 {
         let s = &self.settings;
         let sea = SEA_LEVEL as f32;
-        let mut z = (parts.ground + parts.mountains + parts.peaks).min(s.ceiling);
+        let below = parts.ground + parts.mountains;
+        let mut z = (below + parts.peaks).min(s.ceiling);
+        // Crags carving below the ground never drown land (the coast stays put).
+        if below >= sea {
+            z = z.max(sea);
+        }
         if z >= sea && !self.mutes.hills && s.hills != 0.0 {
             let shown = self.mask(&s.hill_mask, &self.hill_mask, here, z);
             if shown > 0.0 {
@@ -1308,7 +1443,8 @@ mod tests {
     fn a_peak_stands_at_its_point_and_is_gone_past_its_width() {
         let mut map = CompiledMap::of_heights(16, 32.0, &[200.0; 256]);
         Arc::make_mut(&mut map.maps).mountain_points = vec![[256.0, 256.0], [300.0, 256.0]];
-        let peaks = Peaks { on: true, height: 400.0, width: 100.0, rise: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]) };
+        // Plain: all alike, round, no crags.
+        let peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 100.0, width_spread: 0.0, wobble: 0.0, rise: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]), crags: 0.0, ..Peaks::default() };
         // (A small map: its coast is never far, so the coast pad is made tiny.)
         let settings = InterpreterSettings { lift: Lift { pad: 1.0, ..Lift::default() }, ..InterpreterSettings::default() };
         let on = map.with(InterpreterSettings { peaks: peaks.clone(), ..settings.clone() }, Mutes::default());
@@ -1327,19 +1463,86 @@ mod tests {
         assert_eq!(muted.peaks(&here, 256.0, 256.0), 0.0);
     }
 
+    /// A map 4,096 blocks across with peaks at `points`, the peak settings changed by `change` from
+    /// plain ones (all alike, round, no crags), and the coast pad made tiny.
+    fn peaks_map(points: Vec<[f32; 2]>, change: impl FnOnce(&mut Peaks)) -> CompiledMap {
+        let mut map = CompiledMap::of_heights(32, 128.0, &[200.0; 1024]);
+        Arc::make_mut(&mut map.maps).mountain_points = points;
+        let mut peaks = Peaks { on: true, height: 400.0, height_spread: 0.0, width: 300.0, width_spread: 0.0, wobble: 0.0, crags: 0.0, ..Peaks::default() };
+        change(&mut peaks);
+        map.with(InterpreterSettings { peaks, lift: Lift { pad: 1.0, ..Lift::default() }, ..InterpreterSettings::default() }, Mutes::default())
+    }
+
+    #[test]
+    fn peaks_differ_by_their_spreads_and_keep_their_own_numbers() {
+        let (a, b, c) = ([1_000.0, 1_000.0], [3_000.0, 1_000.0], [3_000.0, 3_000.0]);
+        let top = |map: &CompiledMap, at: [f32; 2]| map.peaks(&map.pixel(0), at[0], at[1]);
+        let alike = peaks_map(vec![a, b], |_| ());
+        assert_eq!(top(&alike, a), top(&alike, b));
+        let spread = peaks_map(vec![a, b], |p| p.height_spread = 1.0);
+        assert_ne!(top(&spread, a), top(&spread, b));
+        for at in [a, b] {
+            let h = top(&spread, at);
+            assert!((200.0..=800.0).contains(&h), "{h}");
+        }
+        // A peak's numbers come from where it stands: moving another doesn't change it.
+        let moved = peaks_map(vec![a, c], |p| p.height_spread = 1.0);
+        assert_eq!(top(&spread, a), top(&moved, a));
+    }
+
+    #[test]
+    fn overlapping_peaks_add_up_or_the_higher_wins() {
+        let points = vec![[2_000.0, 2_000.0], [2_200.0, 2_000.0]];
+        let between = |add| {
+            let map = peaks_map(points.clone(), |p| p.add = add);
+            map.peaks(&map.pixel(0), 2_100.0, 2_000.0)
+        };
+        let (higher, added) = (between(false), between(true));
+        assert!(higher > 0.0 && (added - 2.0 * higher).abs() < 0.01, "higher {higher}, added {added}");
+    }
+
+    #[test]
+    fn crags_roughen_the_peaks_steered_by_the_slope_response_and_stay_on_them() {
+        let points = vec![[2_000.0, 2_000.0]];
+        let crag = |p: &mut Peaks| {
+            p.crags = 0.4;
+            p.crag_size = 80.0;
+        };
+        let smooth = peaks_map(points.clone(), |_| ());
+        let craggy = peaks_map(points.clone(), crag);
+        let at = |map: &CompiledMap, x: f32| map.peaks(&map.pixel(0), x, 2_000.0);
+        let differs = (0..60).filter(|&k| (at(&craggy, 1_750.0 + k as f32 * 8.0) - at(&smooth, 1_750.0 + k as f32 * 8.0)).abs() > 1.0).count();
+        assert!(differs > 30, "only {differs} of 60 spots are craggy");
+        // Never below the ground under the peak, and nothing past its foot.
+        for k in 0..200 {
+            assert!(at(&craggy, 1_650.0 + k as f32 * 3.5) >= 0.0);
+        }
+        assert_eq!(at(&craggy, 1_650.0), 0.0);
+        // A slope response of nothing anywhere keeps none of the crags.
+        let none = peaks_map(points, |p| {
+            crag(p);
+            p.slope_response = Spline::through(&[(0.0, 0.0), (1.0, 0.0)]);
+        });
+        for k in 0..60 {
+            let x = 1_750.0 + k as f32 * 8.0;
+            assert!((at(&none, x) - at(&smooth, x)).abs() < 1e-3);
+        }
+    }
+
     #[test]
     fn the_peak_cells_never_miss_a_peak_in_reach() {
-        // Scattered points, and spots all over: the cells find every point within the width, as
-        // looking at every point does.
+        // Scattered points, and spots all over: the cells find every point within the furthest any
+        // peak can reach (spreads and wobble included), as looking at every point does.
         let extent = 10_000.0;
         let points: Vec<[f32; 2]> = (0..300u64).map(|k| [planet_unit(k, 1) * extent, planet_unit(k, 2) * extent]).collect();
         for width in [40.0, 333.0, 2_500.0] {
-            let cells = PeakCells::new(&points, extent, width);
+            let peaks = Peaks { width, width_spread: 1.0, wobble: 0.5, ..Peaks::default() };
+            let (cells, reach) = (PeakCells::new(&points, extent, &peaks, 7), peaks.furthest());
             for k in 0..500u64 {
                 let (x, y) = (planet_unit(k, 3) * extent, planet_unit(k, 4) * extent);
-                let within = |p: &&[f32; 2]| (x - p[0]).hypot(y - p[1]) < width;
-                let mut found: Vec<[f32; 2]> = cells.near(x, y).filter(within).copied().collect();
-                let mut every: Vec<[f32; 2]> = points.iter().filter(within).copied().collect();
+                let within = |p: &[f32; 2]| (x - p[0]).hypot(y - p[1]) < reach;
+                let mut found: Vec<[f32; 2]> = cells.near(x, y).map(|p| [p.x, p.y]).filter(within).collect();
+                let mut every: Vec<[f32; 2]> = points.iter().copied().filter(within).collect();
                 found.sort_by(|a, b| a.partial_cmp(b).unwrap());
                 every.sort_by(|a, b| a.partial_cmp(b).unwrap());
                 assert_eq!(found, every, "width {width} at {x}, {y}");
@@ -1354,9 +1557,9 @@ mod tests {
         let tall = Parts { ground: 450.0, mountains: 100.0, peaks: 0.0 };
         let with = |ceiling| map.with(InterpreterSettings { ceiling, ..settings.clone() }, Mutes::default());
         let here = map.pixel(5);
-        // At first, the old cut-off: Z 333.
+        // Cut off at 333 when asked to (as every world was before), and at first only at the world's top.
         assert_eq!(with(HIGHEST).put_together(tall, &here, 0.0, 0.0), HIGHEST);
-        assert_eq!(InterpreterSettings::default().ceiling, HIGHEST);
+        assert_eq!(InterpreterSettings::default().ceiling, (super::super::WORLD_HEIGHT - 1) as f32);
         // Raised, the ground goes past it, up to the new one.
         assert_eq!(with(900.0).put_together(tall, &here, 0.0, 0.0), 550.0);
         assert_eq!(with(500.0).put_together(tall, &here, 0.0, 0.0), 500.0);

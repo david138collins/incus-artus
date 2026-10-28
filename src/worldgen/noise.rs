@@ -129,6 +129,37 @@ pub fn perlin(seed: u64, salt: u64, fade: Fade, x: f32, y: f32) -> f32 {
     (top + (bottom - top) * v) * 1.4
 }
 
+/// Smooth Perlin noise at a point, as `perlin` gives it, with how steep it is there: (value,
+/// slope along x, slope along y), the slopes per unit, worked out exactly alongside the value at
+/// almost no cost [Inigo Quilez, "More Noise"; for the peaks' crags, 2026-10-27].
+pub fn perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f32, f32) {
+    let (x0, y0) = (x.floor(), y.floor());
+    let (fx, fy) = (x - x0, y - y0);
+    let (ix, iy) = (x0 as i64, y0 as i64);
+    // Each grid post's arrow; the value is how far along it the point lies, which changes by the
+    // arrow itself as the point moves.
+    let arrow = |px: i64, py: i64| {
+        let angle = (planet_hash(seed, salt, px, py, 0) >> 40) as f32 / (1u64 << 24) as f32 * std::f32::consts::TAU;
+        (angle.cos(), angle.sin())
+    };
+    let (ga, gb, gc, gd) = (arrow(ix, iy), arrow(ix + 1, iy), arrow(ix, iy + 1), arrow(ix + 1, iy + 1));
+    let a = ga.0 * fx + ga.1 * fy;
+    let b = gb.0 * (fx - 1.0) + gb.1 * fy;
+    let c = gc.0 * fx + gc.1 * (fy - 1.0);
+    let d = gd.0 * (fx - 1.0) + gd.1 * (fy - 1.0);
+    // The smooth fade, and how steep it is.
+    let fade = |t: f32| t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+    let fade_slope = |t: f32| 30.0 * t * t * (t - 1.0) * (t - 1.0);
+    let (u, v, du, dv) = (fade(fx), fade(fy), fade_slope(fx), fade_slope(fy));
+    // value = a + u(b − a) + v(c − a) + uv(a − b − c + d), and its slope along each way.
+    let k = a - b - c + d;
+    let value = a + u * (b - a) + v * (c - a) + u * v * k;
+    let along_x = ga.0 + u * (gb.0 - ga.0) + v * (gc.0 - ga.0) + u * v * (ga.0 - gb.0 - gc.0 + gd.0) + du * ((b - a) + v * k);
+    let along_y = ga.1 + u * (gb.1 - ga.1) + v * (gc.1 - ga.1) + u * v * (ga.1 - gb.1 - gc.1 + gd.1) + dv * ((c - a) + u * k);
+    // Stretched as `perlin` is.
+    (value * 1.4, along_x * 1.4, along_y * 1.4)
+}
+
 impl PerlinSettings {
     /// The raw stacked value at a position in blocks (about −1 to 1), before the output shaping.
     pub fn raw(&self, seed: u64, north: f32, east: f32) -> f32 {
@@ -169,6 +200,21 @@ pub fn make(settings: &PerlinSettings, seed: u64, size_blocks: f32, blocks_per_p
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_noise_with_its_slope_matches_the_noise_and_its_measured_slope() {
+        for k in 0..200 {
+            let (x, y) = (k as f32 * 0.731 - 40.0, k as f32 * 0.377 + 13.1);
+            let (value, along_x, along_y) = perlin_with_slope(9, 3, x, y);
+            assert!((value - perlin(9, 3, Fade::Smooth, x, y)).abs() < 1e-5, "value at {x}, {y}");
+            // The slope, measured: a tiny step each way.
+            let h = 1e-3;
+            let measured_x = (perlin(9, 3, Fade::Smooth, x + h, y) - perlin(9, 3, Fade::Smooth, x - h, y)) / (2.0 * h);
+            let measured_y = (perlin(9, 3, Fade::Smooth, x, y + h) - perlin(9, 3, Fade::Smooth, x, y - h)) / (2.0 * h);
+            assert!((along_x - measured_x).abs() < 0.02, "along x at {x}, {y}: {along_x} vs {measured_x}");
+            assert!((along_y - measured_y).abs() < 0.02, "along y at {x}, {y}: {along_y} vs {measured_y}");
+        }
+    }
 
     #[test]
     fn same_seed_same_noise() {
