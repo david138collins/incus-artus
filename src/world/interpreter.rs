@@ -638,7 +638,7 @@ impl Mutes {
             ("edge rise", self.raised_coast),
             ("rise", self.lift),
             ("ridgelines", self.mountains),
-            ("ridges", self.ridges),
+            ("ridge carving", self.ridges),
             ("hills", self.hills),
             ("torn coast", self.torn_coast),
             ("detail", self.detail),

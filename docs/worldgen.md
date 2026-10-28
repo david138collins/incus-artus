@@ -841,6 +841,12 @@ for later:
   pop back immediately to compare"]: a "respawn here with changes" that rebuilds the world from the
   current settings where you stand, facing the same way. Not needed yet.
 
+**David's notes, 2026-10-27, for after the peaks:**
+- **Torn coast** works well and stays.
+- **Hills and ground detail:** not yet decided whether they stay (hills are off in his presets).
+- **Grain drift and ridge stream dots** look like useful tools without a use yet. There may be a
+  clever way to bring them in once the mountains are sorted.
+
 **Soon after, on the to-do list [David 2026-10-26]:**
 
 - **Raise the build height, and free the terrain from Z 333.** [BUILT 2026-10-27, first step of the peaks plan, `vision/proposal-peaks.md`: the world is 1,024 tall (32 sections; chunk format 2 writes its section count, format 1 loads as 13 topped up with air); the ground's cut-off is the "ground never above (Z)" setting on Land and sea, default 333, while 333 stays the ridgelines' measuring stick; the near light window's height byte and height tint, and the elevation picture's white, stay at the old 400 / 399 until peaks need more, so nothing looks different.] Both limits are arbitrary (a Minecraft

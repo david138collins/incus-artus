@@ -1299,7 +1299,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("edge rise", &mut m.raised_coast, "The land rising inland from the coast on a plate's high side."),
                 ("rise", &mut m.lift, "The mountains' rise (Additives, Mountains): land raised round their points, like a tablecloth draped over them."),
                 ("ridgelines", &mut m.mountains, "The ridgelines from the squeeze map (with their ridges)."),
-                ("ridges", &mut m.ridges, "The ridge pattern carved into the mountains (off: smooth domes)."),
+                ("ridge carving", &mut m.ridges, "The ridge pattern carved into the ridgelines. Off: the ridgelines stay, as smooth domes (switch ridgelines off to take the high ground away altogether)."),
                 ("hills", &mut m.hills, "The rolling hills on land."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("detail", &mut m.detail, "The small block-sized bumps."),
