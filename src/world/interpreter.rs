@@ -375,6 +375,15 @@ pub struct Peaks {
     /// width; 0 = full right at the foot). [The feather and the hills from the ranges, cut
     /// 2026-10-28, kept the crags strong down to the feet; this does that on its own.]
     pub foot_fade: f32,
+    /// Summit crags: a Perlin field pressed into all the ground high up (blocks up and down; 0 =
+    /// none), fading in from `summit_from` (Z) to full at `summit_full` (Z) along the curve (across:
+    /// from the one, left, to the other, right). [David, 2026-10-28: one more pass of jagginess,
+    /// more intense the higher up, for the king peaks.]
+    pub summit: f32,
+    pub summit_noise: PerlinSettings,
+    pub summit_from: f32,
+    pub summit_full: f32,
+    pub summit_fade: Spline,
     /// The peaks' own coast fade (they used to borrow the Rise's coast pad): within this far of the
     /// coast the peaks are braked, down to nothing at the coastline, so the coast never moves; the
     /// falloff as the pad's (1 = evenly; above 1 braking hard from further in).
@@ -408,6 +417,11 @@ impl Default for Peaks {
             finer_by_layer: Spline::through(&[(0.0, 1.0), (1.0, 1.0)]),
             weaker_by_layer: Spline::through(&[(0.0, 1.0), (1.0, 1.0)]),
             foot_fade: 0.2,
+            summit: 0.0,
+            summit_noise: PerlinSettings { scale: 48.0, octaves: 3, ..PerlinSettings::default() },
+            summit_from: 400.0,
+            summit_full: 700.0,
+            summit_fade: Spline::through(&[(0.0, 0.0), (1.0, 1.0)]),
             coast_fade: 1_500.0,
             coast_falloff: 1.0,
             slope_response: Spline::through(&[(0.0, 1.0), (1.0, 0.3)]),
@@ -794,6 +808,7 @@ pub struct Mutes {
     pub detail: bool,
     pub peaks: bool,
     pub crags: bool,
+    pub summit_crags: bool,
 }
 
 impl Mutes {
@@ -805,9 +820,10 @@ impl Mutes {
             ("ridgelines", self.mountains),
             ("ridge carving", self.ridges),
             ("torn coast", self.torn_coast),
-            ("detail", self.detail),
+            ("hills", self.detail),
             ("peaks", self.peaks),
             ("crags", self.crags),
+            ("summit crags", self.summit_crags),
         ]
         .into_iter()
         .filter_map(|(name, off)| off.then_some(name))
@@ -833,6 +849,7 @@ pub struct CompiledMap {
     coast_edge: Curve,
     detail_mask: Curve,
     rise: Curve,
+    summit_fade: Curve,
     slope_response: Curve,
     /// For each step from one crag layer to the next: how much finer and how strong (the sliders
     /// times their by-layer curves).
@@ -892,6 +909,7 @@ impl CompiledMap {
             coast_edge: settings.coast_edge.curve(),
             detail_mask: settings.detail_mask.curve.curve(),
             rise: settings.peaks.rise.curve(),
+            summit_fade: settings.peaks.summit_fade.curve(),
             slope_response: settings.peaks.slope_response.curve(),
             crag_steps: crag_steps(&settings.peaks),
             peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
@@ -1099,6 +1117,23 @@ impl CompiledMap {
         (rise, room)
     }
 
+    /// The summit crags at a spot on land with the ground at `z` so far (blocks, up or down): their
+    /// field, faded in by the height (from the start Z to full at the full Z, along the curve), and
+    /// braked by the peaks' coast fade so a high coast is never chewed into the sea.
+    fn summit_crags(&self, here: &Here, x: f32, y: f32, z: f32) -> f32 {
+        let p = &self.settings.peaks;
+        if !p.on || p.summit == 0.0 || self.mutes.summit_crags || z <= p.summit_from {
+            return 0.0;
+        }
+        let across = ((z - p.summit_from) / (p.summit_full - p.summit_from).max(1.0)).min(1.0);
+        let shown = self.summit_fade.at(across).clamp(0.0, 1.0);
+        if shown <= 0.0 {
+            return 0.0;
+        }
+        let coast = smooth(here.coast_distance / p.coast_fade.max(1.0)).powf(p.coast_falloff.max(0.01));
+        noise_at(&p.summit_noise, self.noise_seed ^ 0x5a_c4a6, -y, x) * p.summit * shown * coast
+    }
+
     /// How much room a peak's crags have, as a share of its height: faded in from its foot (`t` 0)
     /// over the foot fade, full from there to its point (1).
     fn crag_share(&self, t: f32) -> f32 {
@@ -1196,6 +1231,7 @@ impl CompiledMap {
         // Crags carving below the ground never drown land (the coast stays put).
         if below >= sea {
             z = z.max(sea);
+            z = (z + self.summit_crags(here, x, y, z)).clamp(sea, s.ceiling);
         }
         z += self.torn_coast(here, x, y);
         z.clamp(1.0, s.ceiling.max(1.0))
@@ -1578,6 +1614,30 @@ mod tests {
             let x = 1_300.0 + k as f32 * 6.0;
             assert_eq!(at(&sharp, x), 0.0);
         }
+    }
+
+    #[test]
+    fn summit_crags_press_in_only_high_up_and_more_the_higher() {
+        // Ground at Z 200, 300 and 330 in bands, the crags fading in from Z 250 to full at Z 320.
+        let width = 32;
+        let z: Vec<f32> = (0..width * width).map(|i| [200.0, 300.0, 330.0][(i % width) * 3 / width]).collect();
+        let base = CompiledMap::of_heights(width, 128.0, &z);
+        let summits = |summit: f32, mutes: Mutes| {
+            let peaks = Peaks { on: true, height: 0.0, summit, summit_from: 250.0, summit_full: 320.0, coast_fade: 1.0, ..Peaks::default() };
+            base.with(InterpreterSettings { peaks, ..base.settings.clone() }, mutes)
+        };
+        let (plain, craggy) = (summits(0.0, Mutes::default()), summits(30.0, Mutes::default()));
+        let muted = summits(30.0, Mutes { summit_crags: true, ..Mutes::default() });
+        // How far the ground strays across the middle of a band (columns run east).
+        let stray = |map: &CompiledMap, band: usize| {
+            let east = |col: f32| (col + 0.5 - width as f32 / 2.0) * 128.0;
+            let middle = band as f32 * width as f32 / 3.0 + 5.0;
+            (0..100).map(|k| (map.height(0.0, east(middle) + k as f32 * 3.0).unwrap() - plain.height(0.0, east(middle) + k as f32 * 3.0).unwrap()).abs()).fold(0.0, f32::max)
+        };
+        assert_eq!(stray(&craggy, 0), 0.0, "pressed in below the start height");
+        let (some, full) = (stray(&craggy, 1), stray(&craggy, 2));
+        assert!(some > 1.0 && full > some, "Z 300 strays {some}, Z 330 strays {full}");
+        assert_eq!(stray(&muted, 2), 0.0, "the Show switch leaves them out");
     }
 
     #[test]

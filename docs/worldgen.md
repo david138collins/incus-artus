@@ -503,6 +503,15 @@ and sea). A "peaks" Show switch leaves them out (and so does a world spawned wit
   width; it was fixed at 0.2). David's preset was given 0.1, close to what he had. The Interpreter's
   hills only reached about 250 blocks in from the coast in his preset (under half a block inland),
   so cutting them can at most move a mountain column by a block. The peaks' own coast fade stays.
+- **Ground detail is Hills now [2026-10-28]** (David: "ground detail is great. its basically what
+  i wanted from hills"): the section, its Show switch and hover text say hills (up to 40 blocks,
+  sizes to 2,000); the settings keep their names in presets (`detail`, `detail_noise`, ...).
+- **Summit crags [BUILT 2026-10-28]** (David: "one more pass of jagginess onto the peaks ... pressing
+  noise into the peaks, by effecting everything above X elevation", "a second, more focused pass of
+  the first level of crags"): a Perlin field (a Graphics Kit Perlin layer's controls) pressed into
+  all the ground on land high up, fading in from a start Z to full at a full Z along a curve,
+  braked by the peaks' coast fade. In Additives, Mountains, Peaks, with a "summit crags" Show switch.
+  After it: hydrology.
 
 ### Render World and Spawn  [DECIDED 2026-10-24, building]
 David: the maps are as wholesome as they can get from above; what's missing can only be judged by

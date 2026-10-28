@@ -618,7 +618,7 @@ World Interpreter · every block, as
   curves · grade · edge rise
   the mountains' rise
   ridgelines
-  the peaks · torn coast · detail
+  the peaks · torn coast · hills
       |
 the ground (and the distant terrain)";
 
@@ -900,6 +900,23 @@ fn mountain_peaks(ui: &mut egui::Ui, peaks: &mut Peaks) {
     );
 
     ui.add_space(4.0);
+    ui.label("Summit crags: a finer field pressed into all the ground high up, stronger the higher it is.");
+    ui.add(crate::debug::Slider::new(&mut peaks.summit, 0.0..=120.0).text("summit crags (blocks)")).on_hover_text(
+        "How far the summit crags push the ground up and down, at full strength. 0 = none. They work on everything above\n\
+         the start height (peaks and the tops of tall ridgelines alike), braked by the coast fade below.",
+    );
+    let summits = peaks.summit > 0.0;
+    ui.add_enabled_ui(summits, |ui| {
+        ui.add(crate::debug::Slider::new(&mut peaks.summit_from, 128.0..=1_023.0).text("start height (Z)"))
+            .on_hover_text("Below this, no summit crags.");
+        ui.add(crate::debug::Slider::new(&mut peaks.summit_full, 128.0..=1_023.0).text("full height (Z)"))
+            .on_hover_text("From here up, the summit crags are at full strength (as the curve's right end says).");
+        ui.label("How they fade in: from the start height (left) to the full height (right).");
+        spline_box(ui, "summit fade", &mut peaks.summit_fade, &default.summit_fade, "higher", "share of the summit crags");
+        noise_box(ui, "summit crags", &mut peaks.summit_noise, &default.summit_noise, 8.0..=1_000.0);
+    });
+
+    ui.add_space(4.0);
     ui.label("Coast fade: the peaks braked toward the coast so it never moves.");
     ui.add(crate::debug::Slider::new(&mut peaks.coast_fade, 32.0..=20_000.0).logarithmic(true).text("coast fade (blocks)")).on_hover_text(
         "Within this far of the coast, the peaks are braked, down to nothing at the coastline. The peaks'\n\
@@ -1053,16 +1070,16 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("About how long the torn and clean stretches of coast are.");
         noise_box(ui, "torn coast", &mut t.noise, &d.noise, 16.0..=2_000.0);
     });
-    fold_section(ui, "Ground detail", |ui| {
-        ui.add(crate::debug::Slider::new(&mut s.detail, 0.0..=12.0).text("ground detail (blocks)")).on_hover_text(
-            "Small bumps on the ground, so it isn't glassy smooth: a Perlin field laid on the ground, this many blocks\n\
-             up and down. Only in the world (and the close-up): they're smaller than one of this map's pixels.",
+    fold_section(ui, "Hills", |ui| {
+        ui.add(crate::debug::Slider::new(&mut s.detail, 0.0..=40.0).text("hills (blocks)")).on_hover_text(
+            "Hills and bumps on the ground: a Perlin field laid on the ground, this many blocks up and down (called\n\
+             ground detail until 2026-10-28). Only in the world (and the close-up): finer than one of this map's pixels.",
         );
         ui.checkbox(&mut s.detail_keeps_coast, "keeps off the waterline").on_hover_text(
-            "On: near the waterline the bumps are held back so they never cross it, and moving ground detail never\n\
-             changes the coast (that's the torn coast's job). Off: the old way, where detail tore coasts up. For A/B.",
+            "On: near the waterline the hills are held back so they never cross it, and moving the hills never\n\
+             changes the coast (that's the torn coast's job). Off: the old way, where they tore coasts up. For A/B.",
         );
-        masked_noise(ui, "ground detail", &mut s.detail_noise, &defaults.detail_noise, 16.0..=512.0, &mut s.detail_mask);
+        masked_noise(ui, "hills", &mut s.detail_noise, &defaults.detail_noise, 16.0..=2_000.0, &mut s.detail_mask);
     });
     fold_section(ui, "Surface blocks", |ui| {
         ui.add(crate::debug::Slider::new(&mut s.stone_from, SEA_LEVEL as i32..=HIGHEST as i32).text("bare stone from Z"))
@@ -1110,7 +1127,7 @@ fn elevation_picture(compiled: &Compiled) -> Picture {
 /// A spline box: the curve over a grid, with its dots. Drag a dot to move it (the end dots stay
 /// at the edges and only move up and down); double-click to add a dot; right-click a middle dot to
 /// take it away.
-/// A layer of the ground that's a Perlin field (ground detail): its noise, as a Graphics Kit
+/// A layer of the ground that's a Perlin field (hills): its noise, as a Graphics Kit
 /// Perlin layer has it, and its mask, each folded away until opened.
 /// A recipe part's Perlin noise settings, folded away under one heading.
 fn noise_box(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, default: &PerlinSettings, sizes: std::ops::RangeInclusive<f32>) {
@@ -1342,7 +1359,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.label("View:");
             for (view, name, about) in [
                 (lab::View::Auto, "auto", "The map from afar; the close-up once you zoom in."),
-                (lab::View::Map, "map", "Always the compiler's map (a pixel every 32 blocks: too coarse for crags or ground detail)."),
+                (lab::View::Map, "map", "Always the compiler's map (a pixel every 32 blocks: too coarse for crags or hills)."),
                 (lab::View::CloseUp, "close-up", "Always the close-up, the ground as the Interpreter makes it, even zoomed right out. Slower further out: the last picture stays up until the new one is drawn."),
             ] {
                 ui.selectable_value(&mut compiler.lab.view, view, name).on_hover_text(about);
@@ -1383,9 +1400,10 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("ridgelines", &mut m.mountains, "The ridgelines from the squeeze map (with their ridges)."),
                 ("ridge carving", &mut m.ridges, "The ridge pattern carved into the ridgelines. Off: the ridgelines stay, as smooth domes (switch ridgelines off to take the high ground away altogether)."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
-                ("detail", &mut m.detail, "The small block-sized bumps."),
+                ("hills", &mut m.detail, "The hills laid on the ground (World Interpreter, Hills)."),
                 ("peaks", &mut m.peaks, "The peaks standing at the mountains' points (Additives, Mountains, Peaks)."),
                 ("crags", &mut m.crags, "The crags carved into the peaks (off: smooth peaks)."),
+                ("summit crags", &mut m.summit_crags, "The finer crags pressed into the ground high up (Additives, Mountains, Peaks)."),
             ] {
                 let mut shown = !*muted;
                 if ui.checkbox(&mut shown, name).on_hover_text(about).changed() {
