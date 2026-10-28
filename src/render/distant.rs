@@ -92,18 +92,25 @@ pub struct TileKey {
 /// The tiles wanted around a spot (game axes, blocks): every ring's 8 × 8 tiles, less the hole
 /// where the ring inside sits.
 pub fn wanted_tiles(at: Vec3, finest_cell: i32, rings: u32) -> Vec<TileKey> {
+    wanted_tiles_across(at, finest_cell, rings, RING_TILES)
+}
+
+/// The same with `across` tiles along each ring's side (a multiple of 4; the deep screenshot's
+/// rings are wider, so each ring's cells stay about a pixel across all the way out).
+pub fn wanted_tiles_across(at: Vec3, finest_cell: i32, rings: u32, across: i32) -> Vec<TileKey> {
     let mut tiles = Vec::new();
+    let inner = across / 2;
     for ring in 0..rings {
         let size = (finest_cell * CELLS) as f32 * 2f32.powi(ring as i32);
         // Snapped to twice the tile size, so the hole lines up with the ring inside.
-        let start = |v: f32| 2 * (v / (2.0 * size)).floor() as i32 - RING_TILES / 2;
+        let start = |v: f32| 2 * (v / (2.0 * size)).floor() as i32 - across / 2;
         let (sx, sy) = (start(at.x), start(at.y));
-        // The ring inside covers 4 × 4 of this ring's tiles, around the tile you're in.
-        let hole = |v: f32| (v / size).floor() as i32 - 2;
+        // The ring inside covers half as many of this ring's tiles along a side, around the tile you're in.
+        let hole = |v: f32| (v / size).floor() as i32 - across / 4;
         let (hx, hy) = (hole(at.x), hole(at.y));
-        for x in sx..sx + RING_TILES {
-            for y in sy..sy + RING_TILES {
-                let in_hole = ring > 0 && (hx..hx + 4).contains(&x) && (hy..hy + 4).contains(&y);
+        for x in sx..sx + across {
+            for y in sy..sy + across {
+                let in_hole = ring > 0 && (hx..hx + inner).contains(&x) && (hy..hy + inner).contains(&y);
                 if !in_hole {
                     tiles.push(TileKey { ring: ring as u8, x, y });
                 }
@@ -260,6 +267,13 @@ impl TileMesh {
 
 /// Makes one tile's mesh, or `None` if it's wholly past the map.
 pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32) -> Option<TileMesh> {
+    tile_mesh_measured(map, blocks, palette, shade, key, finest_cell, finest_cell)
+}
+
+/// The same, with the hill shading's slopes measured over `slope_cell` blocks (the usual rings'
+/// finest cell), so cells finer than that (the deep screenshot's) are shaded as the rings are,
+/// not by the steps between single blocks.
+pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32, slope_cell: i32) -> Option<TileMesh> {
     let cell = (finest_cell << key.ring) as f32;
     let size = cell * CELLS as f32;
     let corner = Vec3::new(key.x as f32 * size, key.y as f32 * size, 0.0);
@@ -286,17 +300,29 @@ pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, s
     // Each top's brightness: hill shading from its neighbours' heights (the slope across it, in
     // blocks per finest cell, whatever the ring), and the height tint; in 32 steps, so neighbours
     // alike still share a quad. Water stays flat.
-    let per_finest = 1.0 / (1u32 << key.ring) as f32;
-    let lit = |i: i32, j: i32| -> i32 {
+    let slope = slope_cell as f32;
+    let per_finest = slope / cell;
+    let light_of = |i: i32, j: i32| -> i32 {
         let Some((h, block)) = at(i, j) else { return 32 };
         if block == blocks.water {
             return 32;
         }
-        let z = |di: i32, dj: i32| at(i + di, j + dj).map_or(h, |(z, _)| z) as f32;
-        let hill = shade.hill((z(1, 0) - z(-1, 0)) / 2.0 * per_finest, (z(0, 1) - z(0, -1)) / 2.0 * per_finest);
+        let (north, east) = if cell < slope {
+            // Finer than the slope is measured over: the ground's own height half that either side.
+            let (x, y) = (corner.x + (i as f32 + 0.5) * cell, corner.y + (j as f32 + 0.5) * cell);
+            let z = |dx: f32, dy: f32| map.height(x + dx, y + dy).unwrap_or(h as f32);
+            (z(slope / 2.0, 0.0) - z(-slope / 2.0, 0.0), z(0.0, slope / 2.0) - z(0.0, -slope / 2.0))
+        } else {
+            let z = |di: i32, dj: i32| at(i + di, j + dj).map_or(h, |(z, _)| z) as f32;
+            ((z(1, 0) - z(-1, 0)) / 2.0 * per_finest, (z(0, 1) - z(0, -1)) / 2.0 * per_finest)
+        };
+        let hill = shade.hill(north, east);
         let tint = 1.0 + shade.height_tint * (h - crate::world::SEA_LEVEL) as f32 / (crate::world::HIGHEST - crate::world::SEA_LEVEL as f32);
         (hill * tint * 32.0).round() as i32
     };
+    // Worked out once per cell (the rows below ask again and again while joining runs).
+    let lights: Vec<i32> = (0..CELLS * CELLS).map(|k| light_of(k % CELLS, k / CELLS)).collect();
+    let lit = |i: i32, j: i32| lights[(j * CELLS + i) as usize];
     for j in 0..CELLS {
         // Tops: runs along the row with the same height, block and brightness share one quad.
         let mut i = 0;
@@ -710,8 +736,8 @@ mod tests {
     fn rings_fit_inside_each_other_with_no_gaps_or_overlaps() {
         // Cover a patch of the ground and check every spot is covered by exactly one ring's tile
         // (outside the finest ring's middle, which the full-detail chunks cover).
-        for at in [Vec3::new(0.0, 0.0, 150.0), Vec3::new(1234.0, -5678.0, 150.0), Vec3::new(-20_000.0, 17_000.0, 300.0)] {
-            let tiles = wanted_tiles(at, 16, 4);
+        for (at, across) in [(Vec3::new(0.0, 0.0, 150.0), 8), (Vec3::new(1234.0, -5678.0, 150.0), 8), (Vec3::new(-20_000.0, 17_000.0, 300.0), 8), (Vec3::new(1234.0, -5678.0, 150.0), 16)] {
+            let tiles = wanted_tiles_across(at, 16, 4, across);
             let cover = |x: f32, y: f32| {
                 tiles
                     .iter()

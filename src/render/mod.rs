@@ -11,6 +11,7 @@
 //! - **Distance culling** is done here: sections beyond the render distance are hidden.
 //!   (Simulation distance is a separate setting, added when there's simulation to limit.)
 
+mod deep_shot;
 mod distant;
 mod frame_cap;
 mod light;
@@ -30,6 +31,7 @@ use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
 use meshing::{MeshingState, SectionMesh};
 pub(crate) use performance::soak_line;
+pub use deep_shot::deep_shot_section;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -62,6 +64,11 @@ impl Plugin for RenderPlugin {
             .add_settings::<distant::DistantSettings>("distant")
             .add_systems(Startup, distant::setup_distant)
             .add_systems(Update, (distant::update_distant, distant::update_distant_material))
+            .init_resource::<deep_shot::DeepShot>()
+            .init_resource::<deep_shot::DeepShotSettings>()
+            .add_systems(Update, deep_shot::run_deep_shot.after(distant::update_distant))
+            .add_systems(bevy_egui::EguiPrimaryContextPass, deep_shot::draw_deep_shot_bar)
+            .add_systems(PostUpdate, deep_shot::leave_out_panels.after(bevy_egui::EguiPostUpdateSet::ProcessOutput).before(bevy_egui::EguiPostUpdateSet::PostProcessOutput))
             .init_resource::<light::LightSettings>()
             .init_resource::<light::LightState>()
             .add_settings::<light::LightSettings>("light")
@@ -92,6 +99,9 @@ impl Plugin for RenderPlugin {
             .add_page_preset("render", &["render", "distant", "light"])
             .add_debug_page("Performance", performance::performance_debug_page)
             .add_settings::<RenderSettings>("render");
+        // A developer tool, as F12's screenshot is.
+        #[cfg(feature = "dev")]
+        app.add_systems(Update, deep_shot::deep_shot_key);
     }
 }
 

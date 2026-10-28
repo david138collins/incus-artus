@@ -131,7 +131,8 @@ fn take_screenshot(commands: &mut Commands, file_name: &str) {
 }
 
 fn screenshot_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
-    if keys.just_pressed(KeyCode::F12) {
+    // Shift + F12 is the deep screenshot (Camera page).
+    if keys.just_pressed(KeyCode::F12) && !keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
         let seconds = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs());

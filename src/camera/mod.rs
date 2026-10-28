@@ -42,14 +42,15 @@ impl Plugin for CameraPlugin {
             .init_resource::<MouseCapture>()
             .init_resource::<LookTarget>()
             .init_resource::<FieldOfViewBoost>()
+            .init_resource::<CameraHold>()
             .add_plugins(panini::PaniniPlugin)
             .add_systems(Startup, spawn_camera)
             .add_systems(
                 Update,
                 (
                     toggle_mouse_capture,
-                    look_around,
-                    fly,
+                    look_around.run_if(not_held),
+                    fly.run_if(not_held),
                     place_camera,
                     apply_field_of_view,
                     find_look_target,
@@ -139,6 +140,17 @@ impl FlyCamera {
 #[derive(Resource, Default)]
 pub struct MouseCapture {
     pub captured: bool,
+}
+
+/// Holds the camera still (no looking round or flying) while something needs the view to stay put:
+/// the deep screenshot.
+#[derive(Resource, Default)]
+pub struct CameraHold {
+    pub held: bool,
+}
+
+fn not_held(hold: Res<CameraHold>) -> bool {
+    !hold.held
 }
 
 /// The block under the crosshair this frame (if any).
@@ -484,6 +496,9 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
 
     ui.separator();
     panini::panini_debug_section(ui, world);
+
+    ui.separator();
+    crate::render::deep_shot_section(ui, world);
 }
 
 /// 0° → "north", 90° → "east", etc. (to the nearest of 8 directions).
