@@ -551,6 +551,11 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ui.add(crate::debug::Slider::new(&mut s.step_shadows, 0.0..=1.0).text("step shadows")).on_hover_text(
                 "How much darker the foot of a step gets on its side away from the sun, roughly where its shadow falls.",
             );
+            ui.add(crate::debug::Slider::new(&mut s.side_shading, 0.0..=1.0).text("sides take the slope's light")).on_hover_text(
+                "How much of a slope's sun and shade the steps' sides take, as the tops do. 0 = only their fixed face shade\n\
+                 (near mountains look flat beside the far ones); 1 = all of it (every step on a shaded slope stripes dark).\n\
+                 The far terrain follows it.",
+            );
             ui.add(crate::debug::Slider::new(&mut s.shade_reach, 0.5..=32.0).logarithmic(true).text("shade reach (blocks per block of height)")).on_hover_text(
                 "How far a step's shade reaches out from its foot, for each block of its height: at 4, a 1-block step shades\n\
                  4 blocks out and a 5-block cliff 20. (The shading fade, under distant terrain, sets how it eases in.)",

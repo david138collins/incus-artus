@@ -231,6 +231,8 @@ pub struct Shade {
     pub foot: [f32; SLOPE_STEPS + 1],
     pub step: [f32; SLOPE_STEPS + 1],
     pub slope_match: f32,
+    /// How much of the slope's sun and shade the steps' sides take (as the near shader's `sides`).
+    pub sides: f32,
 }
 
 /// The steepest slope the steps' shade is worked out for (blocks up per block across), and in how many
@@ -283,6 +285,7 @@ impl Shade {
             foot: table(if light.near { light.foot_shading } else { 0.0 }),
             step: table(if light.near { light.step_shadows } else { 0.0 }),
             slope_match: settings.slope_match,
+            sides: if light.near { light.side_shading } else { 0.0 },
         }
     }
 
@@ -311,8 +314,9 @@ impl Shade {
         let (ns, ew) = (north.abs(), east.abs());
         let sides = ns + ew;
         let side_light = (ns * self.north_south + ew * self.east_west) / sides.max(1e-6);
-        // The sides take the lie of the land's sun and shade too, as up close (terrain.wesl).
-        let blocky = [0, 1, 2].map(|k| top_light * (top_colour[k] * self.top * feet + side_colour[k] * side_light * sides) / (1.0 + sides));
+        // The sides take as much of the lie of the land's sun and shade as up close (terrain.wesl).
+        let side_lie = 1.0 + (top_light - 1.0) * self.sides;
+        let blocky = [0, 1, 2].map(|k| (top_colour[k] * self.top * top_light * feet + side_colour[k] * side_light * side_lie * sides) / (1.0 + sides));
         [0, 1, 2].map(|k| plain[k] + (blocky[k] - plain[k]) * self.slope_match)
     }
 
@@ -922,7 +926,7 @@ mod tests {
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
-        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.65, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0, foot: [1.0; SLOPE_STEPS + 1], step: [1.0; SLOPE_STEPS + 1], slope_match: 0.0 };
+        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.65, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0, foot: [1.0; SLOPE_STEPS + 1], step: [1.0; SLOPE_STEPS + 1], slope_match: 0.0, sides: 0.5 };
         let key = TileKey { ring: 1, x: 0, y: 0 };
         let mesh = tile_mesh(&map, &blocks, &palette, shade, key, 16).unwrap();
         // A corner every cell, two triangles a cell, and the easing for each corner.

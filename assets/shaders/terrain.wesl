@@ -44,6 +44,8 @@ struct TerrainLight {
     // x how hill shading fades toward its limits (see distant.rs, `soft_limit`), y foot shading, z
     // step shadows (strengths), w the height the height tint counts up to (as the distant tiles)
     shade: vec4<f32>,
+    // x how much of the lie of the land's sun and shade the steps' sides take (0 to 1)
+    sides: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var light_map: texture_2d<f32>;
@@ -237,9 +239,15 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
                     let fade = lighting.shade.x;
                     feet = (1.0 - lighting.shade.y * eased(cones.x - up, fade)) * (1.0 - lighting.shade.z * eased(cones.y - up, fade));
                 }
+                // The sides take only as much of it as set: all of it striped every step on a shaded
+                // slope (a side's face shade on top of the slope's shade).
+                var lie = hill * tint;
+                if face != 4u {
+                    lie = mix(1.0, lie, lighting.sides.x);
+                }
                 // The sea's surface stays flat, as on the distant terrain.
                 let water = surface <= sea + 0.5 && up <= sea + 0.5;
-                light = light * select(hill * tint * feet, 1.0, water);
+                light = light * select(lie * feet, 1.0, water);
             }
             // Well below the ground: plain light.
             light = mix(1.0, light, smoothstep(surface - 24.0, surface - 12.0, up));

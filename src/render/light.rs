@@ -89,6 +89,9 @@ pub struct LightSettings {
     pub foot_shading: f32,
     pub step_shadows: f32,
     pub shade_reach: f32,
+    /// How much of the lie of the land's sun and shade the steps' sides take, as the tops do (0 = only
+    /// their fixed face shade, 1 = all of it, which stripes every step on a shaded slope). [2026-10-28]
+    pub side_shading: f32,
 }
 
 impl Default for LightSettings {
@@ -110,6 +113,7 @@ impl Default for LightSettings {
             foot_shading: 0.2,
             step_shadows: 0.45,
             shade_reach: 4.0,
+            side_shading: 0.5,
         }
     }
 }
@@ -380,6 +384,7 @@ pub fn update_near_light(
         sun: settings.sun().extend(distant.hill_shading),
         hill: Vec4::new(distant.height_tint, distant.finest_cell as f32, sea, NEAR_TOP),
         shade: Vec4::new(distant.shading_fade, settings.foot_shading, settings.step_shadows, TINT_TOP),
+        sides: Vec4::new(settings.side_shading, 0.0, 0.0, 0.0),
         ..default()
     };
     let map = terrain.compiled().filter(|_| settings.near).cloned();
@@ -430,11 +435,12 @@ pub fn update_near_light(
     }
     let Some(material) = materials.get(&handle) else { return };
     let now = material.light;
-    if (now.sun, now.hill, now.shade, now.near_area) != (wanted.sun, wanted.hill, wanted.shade, wanted.near_area) {
+    if (now.sun, now.hill, now.shade, now.sides, now.near_area) != (wanted.sun, wanted.hill, wanted.shade, wanted.sides, wanted.near_area) {
         if let Some(mut material) = materials.get_mut(&handle) {
             material.light.sun = wanted.sun;
             material.light.hill = wanted.hill;
             material.light.shade = wanted.shade;
+            material.light.sides = wanted.sides;
             material.light.near_area = wanted.near_area;
         }
     }

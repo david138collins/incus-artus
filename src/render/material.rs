@@ -61,8 +61,10 @@ pub struct TerrainLight {
     /// cell, so both shade alike), z sea level, w the highest a height can be.
     pub hill: Vec4,
     /// x how hill shading fades toward its limits (the distant terrain's shading fade), y foot
-    /// shading, z step shadows (strengths), w unused.
+    /// shading, z step shadows (strengths), w the height the height tint counts up to.
     pub shade: Vec4,
+    /// x how much of the lie of the land's sun and shade the steps' sides take (0 to 1).
+    pub sides: Vec4,
 }
 
 /// Values the shader reads every frame. Kept to `Vec4`s, which the GPU handles most simply.
