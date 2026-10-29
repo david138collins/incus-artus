@@ -100,8 +100,15 @@ the code yet).
   - **Materials by swapping splines** [David 2026-10-29, via Builder]: draw a block (say limonite) using
     one hue spline, duplicate it, switch the copy to a different spline, and call it hematite. A block
     can draw from several splines, which is how blocks stay more than palette swaps. Inserting a shade
-    must never disturb the existing ones. (This replaces "a palette row per material". Builder asked
-    David whether the copy stays linked to the original: open.)
+    must never disturb the existing ones. (This replaces "a palette row per material".)
+    **Linked or unlinked** [David 2026-10-29]: a duplicate can stay linked to its original (repaint
+    limonite's pattern and hematite follows) or be unlinked, and the status is shown on the asset.
+  - **Art always has a way in** [David 2026-10-29]: David keeps the ability to make art anywhere and
+    work it into the library through the Color Lab. As the library grows this will be used less, but it
+    always keeps its value: any file David needs gets into the game, regulated by the Color Lab.
+  - **Regulation status:** each asset shows whether it's fully regulated (every colour on a spline,
+    linked or unlinked shown), so David can see at a glance what's homologated. Full homologation is
+    what will later allow kung fu with colour rendering.
   - **Snapping or free shading stays open as long as possible** [David]. Builder's way of doing slot
     textures (turning the slots into ordinary colours on the CPU, mipmaps made from those colours)
     keeps both open: the slot ids are always there, so a snapping shader can be added later.
