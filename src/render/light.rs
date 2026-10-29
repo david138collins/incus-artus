@@ -326,10 +326,13 @@ fn set_near_uniforms(materials: &mut Assets<TerrainMaterial>, handle: Option<&Ha
 const STEEPEST: f32 = 4.0;
 /// The most pixels along the window's side.
 const NEAR_MOST: f32 = 2048.0;
-/// The height the near window's ground byte and the height tint count up to, from sea level: the
-/// world's old top, kept when the world was raised to 1,024 (2026-10-27) so nothing changed. To
-/// revisit when peaks stand above it.
-const NEAR_TOP: f32 = 400.0;
+/// The height the near window's ground byte counts up to, from sea level: the top of the world (it
+/// stopped at the old top, Z 400, so peaks above it read as Z 400; 2026-10-28).
+const NEAR_TOP: f32 = crate::world::WORLD_HEIGHT as f32;
+/// The height the height tint counts up to, near and far alike (the distant tiles measure against
+/// `HIGHEST`; the near chunks measured against Z 400, so the peaks changed brightness where the two
+/// met: David's shading mismatch, 2026-10-28).
+const TINT_TOP: f32 = crate::world::HIGHEST;
 
 /// What a near window was made for: the map, its north-west corner (north, east), its side
 /// (blocks) and blocks per pixel.
@@ -372,7 +375,7 @@ pub fn update_near_light(
     let mut wanted = TerrainLight {
         sun: settings.sun().extend(distant.hill_shading),
         hill: Vec4::new(distant.height_tint, distant.finest_cell as f32, sea, NEAR_TOP),
-        shade: Vec4::new(distant.shading_fade, settings.foot_shading, settings.step_shadows, 0.0),
+        shade: Vec4::new(distant.shading_fade, settings.foot_shading, settings.step_shadows, TINT_TOP),
         ..default()
     };
     let map = terrain.compiled().filter(|_| settings.near).cloned();

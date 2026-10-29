@@ -42,7 +42,7 @@ struct TerrainLight {
     // height can be
     hill: vec4<f32>,
     // x how hill shading fades toward its limits (see distant.rs, `soft_limit`), y foot shading, z
-    // step shadows (strengths), w unused
+    // step shadows (strengths), w the height the height tint counts up to (as the distant tiles)
     shade: vec4<f32>,
 }
 
@@ -220,7 +220,7 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
                 let cones = cones_at(uv);
                 let fade = lighting.shade.x;
                 let feet = (1.0 - lighting.shade.y * eased(cones.x - up, fade)) * (1.0 - lighting.shade.z * eased(cones.y - up, fade));
-                let tint = 1.0 + lighting.hill.x * (up - sea) / (lighting.hill.w - sea);
+                let tint = 1.0 + lighting.hill.x * (up - sea) / (lighting.shade.w - sea);
                 // The sea's surface stays flat, as on the distant terrain.
                 let water = surface <= sea + 0.5 && up <= sea + 0.5;
                 light = light * select(hill * tint * feet, 1.0, water);
