@@ -97,6 +97,14 @@ the code yet).
       (each of hue, saturation and lightness kept, set to one value, or taken from the source; for an
       asset, the source is its own pixels' lightness). These should be the same code, shared, not a
       second copy.
+  - **Materials by swapping splines** [David 2026-10-29, via Builder]: draw a block (say limonite) using
+    one hue spline, duplicate it, switch the copy to a different spline, and call it hematite. A block
+    can draw from several splines, which is how blocks stay more than palette swaps. Inserting a shade
+    must never disturb the existing ones. (This replaces "a palette row per material". Builder asked
+    David whether the copy stays linked to the original: open.)
+  - **Snapping or free shading stays open as long as possible** [David]. Builder's way of doing slot
+    textures (turning the slots into ordinary colours on the CPU, mipmaps made from those colours)
+    keeps both open: the slot ids are always there, so a snapping shader can be added later.
   - **Fast round trips with Aseprite:** images and palettes bounce rapidly between the editor and
     Aseprite. Palettes go out as GPL, which Aseprite loads; PNGs come back and are picked up without
     restarting.
