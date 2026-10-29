@@ -1,4 +1,4 @@
-//! Terrain Compiler — turns a baked world (the Tectonic Sim's product) into smooth maps the
+//! World Compiler — turns a baked world (the Tectonic Sim's product) into smooth maps the
 //! Interpreter makes the ground from.
 //!
 //! The world is Z 0 (bedrock) to Z 399. **Sea level is Z 128**, and **the tallest mountains reach

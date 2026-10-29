@@ -1,4 +1,4 @@
-//! The Terrain Compiler's screen: pick a bake, set the compiler's whole-map jobs, the additives and
+//! The World Compiler's screen: pick a bake, set the compiler's whole-map jobs, the additives and
 //! the Interpreter's recipe, and see the result as shaded relief. (The work itself is in
 //! `compiler.rs`, `additives.rs` and `crate::world::interpreter`.)
 //!
@@ -488,7 +488,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     compiler.folded = folded;
     let mut readouts_folded = compiler.readouts_folded;
     super::view::foldable_right(root, "world compiler readouts", "readouts", &mut readouts_folded, 270.0, |ui| {
-        super::notes::on_page(Some("Terrain Compiler readouts"));
+        super::notes::on_page(Some("World Compiler readouts"));
         egui::ScrollArea::vertical().show(ui, |ui| readouts(ui, compiler));
     });
     compiler.readouts_folded = readouts_folded;
@@ -505,7 +505,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     }
 
     if let Some((name, picture, blocks_per_pixel)) = send {
-        suite.add_layer(LayerKind::Image { file: format!("{name} (from the Terrain Compiler)"), picture: Arc::new(picture), placement: Placement { blocks_per_pixel, ..Placement::default() } });
+        suite.add_layer(LayerKind::Image { file: format!("{name} (from the World Compiler)"), picture: Arc::new(picture), placement: Placement { blocks_per_pixel, ..Placement::default() } });
         if let Some(layer) = suite.layers.last_mut() {
             layer.name = name;
         }
@@ -626,7 +626,7 @@ fn save_buttons(ui: &mut egui::Ui, compiler: &mut Compiler, bake: &Bake) {
 const CHAIN: &str = "\
 Tectonic Sim -> bake (32-block pixels)
       |
-Terrain Compiler · whole map, once:
+World Compiler · whole map, once:
   sea level · soften coast · soften mountains
   where the mountains stand (Additives)
       |  smooth maps
@@ -1158,7 +1158,7 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
          world is made. The map here shows it worked out at each pixel's centre.",
     );
     ui.add(egui::Label::new(egui::RichText::new(CHAIN).monospace().small())).on_hover_text(
-        "Moved here from the Terrain Compiler: the compiler used to work this recipe out once per 32-block\n\
+        "Moved here from the World Compiler: the compiler used to work this recipe out once per 32-block\n\
          pixel and hand over finished heights, which were then smoothed between pixels. The recipe has\n\
          sharp curves in it (a coast can drop 90 blocks within one pixel), and smoothing between finished\n\
          heights swings past every sharp step: one hump per pixel, in rows along every coast and cliff.\n\
@@ -1299,7 +1299,7 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance.");
     });
     ui.add_space(4.0);
-    ui.small("Presets, and back-to-defaults, are on the Terrain Compiler panel: they cover both.");
+    ui.small("Presets, and back-to-defaults, are on the World Compiler panel: they cover both.");
 }
 
 impl Compiler {

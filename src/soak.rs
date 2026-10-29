@@ -4,7 +4,7 @@
 //! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_NEAR=0` for no near light window),
 //! together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
-//! 1. renders the newest bake with the Terrain Compiler's recipe as it starts (the defaults), and
+//! 1. renders the newest bake with the World Compiler's recipe as it starts (the defaults), and
 //!    spawns in the middle (see `worldgen::run_suite`);
 //! 2. flies a wide circle over the world at a steady speed, a little above the ground, so chunks
 //!    and distant tiles are made and dropped all the way round, and the same ground comes round

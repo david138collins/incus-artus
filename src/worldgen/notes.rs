@@ -1,5 +1,5 @@
 //! Section notes [David, 2026-10-27]: a note button in the corner of each section's heading in the
-//! Tectonic Sim and the Terrain Compiler opens a box to write in. Notes are saved as they're
+//! Tectonic Sim and the World Compiler opens a box to write in. Notes are saved as they're
 //! typed, to `notes/section notes.toml` (next to `presets/`), where Claude can read them too: a
 //! table for each panel, a note for each section.
 

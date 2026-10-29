@@ -40,11 +40,11 @@
 //! - `tectonics.rs` the plates' motion, and what it does at their boundaries
 //! - `rags.rs`    the tectonics simulation: plates as heavy rags that squash, bend and tear
 //! - `heights.rs` every spot's height (base, terrain noise, sunken edges, squeeze); the water level
-//! - `bake.rs`    the product: a baked world, as a folder of maps for the Terrain Compiler
+//! - `bake.rs`    the product: a baked world, as a folder of maps for the World Compiler
 //!
-//! **Terrain Compiler:**
+//! **World Compiler:**
 //! - `compiler.rs` a bake into the ground's height in blocks (sea level Z 128, nothing past Z 333)
-//! - `compiler_view.rs` its screen (the Terrain Compiler and Interpreter panels)
+//! - `compiler_view.rs` its screen (the World Compiler and Interpreter panels)
 //! - `lab.rs`      the terrain lab: the map, zoomed in, as a live close-up of the ground
 //! - `overlays.rs` the terrain lab's overlays: the compiler's maps drawn over the map
 
@@ -105,7 +105,7 @@ pub enum Kit {
     #[default]
     Graphics,
     WorldGen,
-    /// The Terrain Compiler: a baked world into the ground's height in blocks.
+    /// The World Compiler: a baked world into the ground's height in blocks.
     Compiler,
 }
 
@@ -137,7 +137,7 @@ pub struct Suite {
     /// World Gen's half (the rest of this is the Graphics Kit's, apart from the field and pixel
     /// size, which both use).
     pub world: world::WorldGen,
-    /// The Terrain Compiler's tab.
+    /// The World Compiler's tab.
     pub compiler: compiler_view::Compiler,
     /// The Registrar's tab.
     pub registrar: registrar::Registrar,
@@ -161,7 +161,7 @@ pub struct Suite {
 }
 
 impl Suite {
-    /// The suite as the game opens it: the Tectonic Sim and the Terrain Compiler start from their
+    /// The suite as the game opens it: the Tectonic Sim and the World Compiler start from their
     /// "default" presets, if they've been saved. (Tests use `Suite::default()`, the built-in
     /// settings, so a saved preset never changes them.)
     fn starting() -> Self {
@@ -193,7 +193,7 @@ impl Default for Suite {
         // picture on top of it, multiplied in, instead of a blank page. `=worley` starts with a
         // Worley layer instead.
         // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
-        // `=compiler` opens the Terrain Compiler; `=compiler-overlays` also switches on the
+        // `=compiler` opens the World Compiler; `=compiler-overlays` also switches on the
         // range spines, coast distance, range grain and string-or-knot overlays, and folds the
         // Landmass and World Interpreter panels away (leaving Additives open, with its dots).
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler" || v == "compiler-overlays") {
@@ -384,7 +384,7 @@ fn draw_suite(
         Kit::Registrar => "Registrar",
         Kit::Graphics => "Graphics Kit",
         Kit::WorldGen => "Tectonic Sim",
-        Kit::Compiler => "Terrain Compiler",
+        Kit::Compiler => "World Compiler",
     });
     let ctx = contexts.ctx_mut()?.clone();
     if view::draw(&ctx, &mut suite, &registry) {

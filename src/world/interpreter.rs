@@ -4,7 +4,7 @@
 //! ```text
 //! Tectonic Sim ──► bake (32-block pixels: height, squeeze, tilt…)
 //!     │
-//! Terrain Compiler — whole-map jobs, done once:
+//! World Compiler — whole-map jobs, done once:
 //!     sea level · soften the coastline · soften the mountains
 //!     │
 //!     ▼  smooth maps (coast, height, tilt, squeeze and its direction)
@@ -167,7 +167,7 @@ fn bowed(t: f32, bend: f32) -> f32 {
 // ── The recipe's settings ───────────────────────────────────────────────────
 
 /// The Interpreter's recipe: how the compiler's maps become the ground, and which blocks cover it.
-/// Set on the Interpreter panel, next to the Terrain Compiler; copied into each world.
+/// Set on the Interpreter panel, next to the World Compiler; copied into each world.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct InterpreterSettings {
@@ -613,7 +613,7 @@ impl Default for Mask {
 
 // ── The compiler's maps ─────────────────────────────────────────────────────
 
-/// What the Terrain Compiler hands over: smooth maps, one value per pixel, and the bake's ranges the
+/// What the World Compiler hands over: smooth maps, one value per pixel, and the bake's ranges the
 /// recipe measures against.
 #[derive(Clone, Debug, Default)]
 pub struct Maps {

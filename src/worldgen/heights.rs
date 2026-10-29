@@ -338,7 +338,7 @@ fn edge_distance(plates: &Plates) -> Vec<f32> {
 /// Each pixel's tilt, as made: how far up (+) or down (−) its plate's slope it is, about −1.5 to
 /// 1.5 (0 at the plate's middle, ±1 about a plate's radius out, times that plate's random share of
 /// the most tilt). The same tilts as `terrain` uses (given the same seed), without the "most
-/// tilt" or the blend, so the Terrain Compiler can grade land with it. 0 off the plates.
+/// tilt" or the blend, so the World Compiler can grade land with it. 0 off the plates.
 pub fn tilt_field(plates: &Plates, settings: &HeightSettings, seed: u64) -> Vec<f32> {
     let mut unit = settings.clone();
     (unit.land.tilt, unit.ocean.tilt) = (1.0, 1.0);

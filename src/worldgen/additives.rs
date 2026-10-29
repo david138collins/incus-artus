@@ -1,4 +1,4 @@
-//! Additives — the Terrain Compiler's second panel: features added onto the landmass, before
+//! Additives — the World Compiler's second panel: features added onto the landmass, before
 //! erosion and the water (which come later). Dots are scattered from what the maps already know,
 //! and will drive terrain features (ridge stamps and the like) once they look right.
 //!

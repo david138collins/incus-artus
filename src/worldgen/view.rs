@@ -281,9 +281,9 @@ fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
         ui.selectable_value(&mut suite.kit, Kit::Graphics, "Graphics Kit")
             .on_hover_text("Noise, pictures, mixing and palettes: numbers into colours and colours into numbers.\nThe art pipeline.");
         ui.selectable_value(&mut suite.kit, Kit::WorldGen, "Tectonic Sim").on_hover_text(
-            "The tectonic simulation: plates, their motion and collisions, heights and the water level.\nIts product, a bake, feeds the Terrain Compiler.",
+            "The tectonic simulation: plates, their motion and collisions, heights and the water level.\nIts product, a bake, feeds the World Compiler.",
         );
-        ui.selectable_value(&mut suite.kit, Kit::Compiler, "Terrain Compiler")
+        ui.selectable_value(&mut suite.kit, Kit::Compiler, "World Compiler")
             .on_hover_text("Turns a baked world into the ground's height in blocks: sea, lowland, mountains.");
         ui.separator();
 

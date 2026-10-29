@@ -151,7 +151,7 @@ impl Terrain {
 }
 
 /// The compiled world the next new world is made from, and where to spawn in it (north, east): set
-/// by the Terrain Compiler's "Render World and Spawn"; used once.
+/// by the World Compiler's "Render World and Spawn"; used once.
 #[derive(Resource, Default)]
 pub struct NextTerrain(pub Option<(Arc<CompiledMap>, IVec2)>);
 

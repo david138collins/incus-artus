@@ -173,7 +173,7 @@ pub fn run_deep_shot(
             return;
         }
         let Some(map) = terrain.compiled().cloned() else {
-            shot.last = "Only in a world made from the Terrain Compiler (Render World and Spawn).".into();
+            shot.last = "Only in a world made from the World Compiler (Render World and Spawn).".into();
             return;
         };
         let (Some((transform, projection)), Ok(window)) = (camera.iter().next(), windows.single()) else { return };
