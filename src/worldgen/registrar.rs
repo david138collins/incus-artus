@@ -53,7 +53,9 @@ pub struct Registrar {
     /// worked out for (transform, selection, textures read at), and a number that changes with it.
     transform: Transform,
     mapping: BTreeMap<Rgb, Rgb>,
-    mapped_for: Option<(Transform, Vec<String>, Option<u64>)>,
+    mapped_for: Option<(Transform, Vec<String>, Option<u64>, u64)>,
+    /// Goes up by one whenever the palette is saved.
+    palette_changes: u64,
     mapping_version: u64,
     /// Show the blocks as they are, not as the transform would make them.
     before: bool,
@@ -409,15 +411,17 @@ impl Registrar {
     }
 
     /// What the transform makes of each of the selection's colours, worked out again when the
-    /// transform, the selection or the textures change (empty: no transform).
+    /// transform, the selection, the textures or the palette change (empty: no transform).
     fn update_mapping(&mut self, defs: &[&BlockDef]) {
-        let wanted = (self.transform, self.selected.clone(), self.read_at);
+        let wanted = (self.transform, self.selected.clone(), self.read_at, self.palette_changes);
         if self.mapped_for.as_ref() == Some(&wanted) {
             return;
         }
         self.mapping = if self.transform.is_active() {
             let colours: Vec<(Rgb, u32)> = self.selection_colours(defs).into_iter().collect();
-            self.transform.mapping(&colours)
+            // The spline it goes onto, if any, and whether it still exists.
+            let shades: Vec<Rgb> = self.transform.onto.and_then(|index| self.palette.splines.get(index)).map_or_else(Vec::new, |spline| spline.steps.iter().filter_map(|slot| self.palette.colours.get(slot)).map(|colour| colour.rgb).collect());
+            self.transform.mapping(&colours, &shades)
         } else {
             BTreeMap::new()
         };
@@ -435,6 +439,7 @@ impl Registrar {
         if self.palette_problem.is_some() {
             return;
         }
+        self.palette_changes += 1;
         self.message = match self.palette.save_to(&master_palette::palette_file()) {
             Ok(()) => done,
             Err(error) => format!("{done}, but the palette couldn't be saved: {error}"),
@@ -447,129 +452,160 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     if let Some(problem) = &registrar.palette_problem {
         ui.colored_label(Color32::from_rgb(255, 80, 200), format!("The palette file couldn't be read, so nothing is written to it: {problem}"));
     }
-    focus(ui, registrar, defs);
-    ui.separator();
+    if !registrar.message.is_empty() {
+        ui.small(&registrar.message);
+    }
+    section(ui, "Focus", |ui| focus(ui, registrar, defs));
 
     // The colours the hovered block (or else the selection) uses light up.
     let names: Vec<String> = registrar.hovered.clone().map_or_else(|| registrar.selected.clone(), |name| vec![name]);
     let lit: BTreeSet<Rgb> = defs.iter().filter(|def| names.contains(&def.name)).flat_map(|def| registrar.block_colours(def).into_keys()).collect();
     let lit = if lit.is_empty() { None } else { Some(lit) };
 
-    // Picking, and making a spline of what's picked.
-    ui.horizontal_wrapped(|ui| {
-        ui.label(format!("{} picked", registrar.picked.len())).on_hover_text("Click colours in any palette to pick them; click again to unpick.
-Shift + drag a box to pick rows, columns or any patch; Ctrl + Shift + drag to unpick.");
-        if ui.add_enabled(!registrar.picked.is_empty(), egui::Button::new("Deselect all")).on_hover_text("Or press Escape").clicked() {
-            registrar.picked.clear();
-        }
-        let editable = registrar.palette_problem.is_none();
-        let label = if registrar.picked.is_empty() { "New spline" } else { "New spline of the picked" };
-        if ui.add_enabled(editable, egui::Button::new(label)).on_hover_text("A hue's ramp of shades, darkest first. Colours already on a spline stay on theirs").clicked() {
-            let name = format!("spline {}", registrar.palette.splines.len() + 1);
-            let slots = registrar.picked_slots();
-            registrar.palette.new_spline(&name, &slots);
-            registrar.picked.clear();
-            registrar.save(format!("Made {name}."));
-        }
-    });
-
-    let mut action = None;
-    if registrar.palette.splines.is_empty() {
-        ui.small("No splines yet.");
-    }
-    for index in 0..registrar.palette.splines.len() {
-        ui.add_space(4.0);
-        ui.horizontal(|ui| {
-            let spline = &mut registrar.palette.splines[index];
-            let name = ui.add(egui::TextEdit::singleline(&mut spline.name).desired_width(140.0));
-            if name.lost_focus() {
-                action = Some(SplineAction::Renamed);
+    section(ui, "Splines", |ui| {
+        // Picking, and making a spline of what's picked.
+        ui.horizontal_wrapped(|ui| {
+            ui.label(format!("{} picked", registrar.picked.len())).on_hover_text("Click colours in any palette to pick them; click again to unpick.\nShift + drag a box to pick rows, columns or any patch; Ctrl + Shift + drag to unpick.");
+            if ui.add_enabled(!registrar.picked.is_empty(), egui::Button::new("Deselect all")).on_hover_text("Or press Escape").clicked() {
+                registrar.picked.clear();
             }
-            ui.small(format!("{} shades", spline.steps.len()));
-            let picked = !registrar.picked.is_empty();
-            if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").clicked() {
-                action = Some(SplineAction::Add(index));
-            }
-            if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").clicked() {
-                action = Some(SplineAction::TakeOff(index));
-            }
-            if ui.button("Delete").on_hover_text("The spline goes; its colours stay in the palette, not on a spline").clicked() {
-                action = Some(SplineAction::Delete(index));
+            let editable = registrar.palette_problem.is_none();
+            let label = if registrar.picked.is_empty() { "New spline" } else { "New spline of the picked" };
+            if ui.add_enabled(editable, egui::Button::new(label)).on_hover_text("A hue's ramp of shades, darkest first. Colours already on a spline stay on theirs").clicked() {
+                let name = format!("spline {}", registrar.palette.splines.len() + 1);
+                let slots = registrar.picked_slots();
+                registrar.palette.new_spline(&name, &slots);
+                registrar.picked.clear();
+                registrar.save(format!("Made {name}."));
             }
         });
-        let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
-        hsl_curves(ui, &steps);
-        let event = swatches(ui, registrar, &steps, lit.as_ref());
-        registrar.take(ui, egui::Id::new(("spline colours", index)), event);
-    }
-    match action {
-        Some(SplineAction::Renamed) => registrar.save("Renamed.".to_string()),
-        Some(SplineAction::Add(index)) => {
-            let slots = registrar.picked_slots();
-            let skipped = registrar.palette.add_to_spline(index, &slots);
-            registrar.picked.clear();
-            let name = registrar.palette.splines[index].name.clone();
-            let note = if skipped.is_empty() { String::new() } else { format!(" ({} already on a spline stayed there)", skipped.len()) };
-            registrar.save(format!("Added {} to {name}{note}.", slots.len() - skipped.len()));
-        }
-        Some(SplineAction::TakeOff(index)) => {
-            let on: Vec<u32> = registrar.picked_slots().into_iter().filter(|slot| registrar.palette.splines[index].steps.contains(slot)).collect();
-            registrar.palette.take_off_splines(&on);
-            registrar.picked.clear();
-            registrar.save(format!("Took {} off.", on.len()));
-        }
-        Some(SplineAction::Delete(index)) => {
-            let gone = registrar.palette.splines.remove(index);
-            registrar.save(format!("Deleted {}; its {} colours are back among those not on a spline.", gone.name, gone.steps.len()));
-        }
-        None => {}
-    }
 
-    ui.add_space(6.0);
-    let loose: Vec<(Rgb, u32)> = registrar.palette.colours.iter().filter(|&(&slot, _)| !registrar.palette.is_regulated(slot)).map(|(_, colour)| (colour.rgb, 0)).collect();
-    ui.label(format!("Not on a spline yet: {} colours", loose.len()));
-    let event = swatches(ui, registrar, &sorted_by_lightness(loose), lit.as_ref());
-    registrar.take(ui, egui::Id::new("loose colours"), event);
-    if !registrar.message.is_empty() {
-        ui.small(&registrar.message);
-    }
-
-    ui.separator();
-    ui.heading("Sub-palette");
-    let chosen: Vec<&&BlockDef> = defs.iter().filter(|def| registrar.selected.contains(&def.name)).collect();
-    if chosen.is_empty() {
-        ui.label("Select blocks in the library to see their combined palette.");
-        return;
-    }
-    let mut combined: BTreeMap<Rgb, u32> = BTreeMap::new();
-    for def in &chosen {
-        for (rgb, count) in registrar.block_colours(def) {
-            *combined.entry(rgb).or_default() += count;
+        let mut action = None;
+        if registrar.palette.splines.is_empty() {
+            ui.small("No splines yet.");
         }
-    }
-    let names: Vec<&str> = chosen.iter().map(|def| def.display_name.as_str()).collect();
-    ui.label(format!("{}: {} colours", names.join(", "), combined.len()));
-    let list = sorted_by_lightness(combined);
-    let event = swatches(ui, registrar, &list, None);
-    registrar.take(ui, egui::Id::new("sub-palette colours"), event);
-    ui.horizontal(|ui| {
-        if ui.button("Pick all of these").clicked() {
-            registrar.picked.extend(list.iter().map(|&(rgb, _)| rgb));
+        for index in 0..registrar.palette.splines.len() {
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                let spline = &mut registrar.palette.splines[index];
+                let name = ui.add(egui::TextEdit::singleline(&mut spline.name).desired_width(140.0));
+                if name.lost_focus() {
+                    action = Some(SplineAction::Renamed);
+                }
+                ui.small(format!("{} shades", spline.steps.len()));
+                let picked = !registrar.picked.is_empty();
+                if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").clicked() {
+                    action = Some(SplineAction::Add(index));
+                }
+                if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").clicked() {
+                    action = Some(SplineAction::TakeOff(index));
+                }
+                if ui.button("Delete").on_hover_text("The spline goes; its colours stay in the palette, not on a spline").clicked() {
+                    action = Some(SplineAction::Delete(index));
+                }
+            });
+            let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
+            hsl_curves(ui, &steps);
+            let event = swatches(ui, registrar, &steps, lit.as_ref());
+            registrar.take(ui, egui::Id::new(("spline colours", index)), event);
+        }
+        match action {
+            Some(SplineAction::Renamed) => registrar.save("Renamed.".to_string()),
+            Some(SplineAction::Add(index)) => {
+                let slots = registrar.picked_slots();
+                let skipped = registrar.palette.add_to_spline(index, &slots);
+                registrar.picked.clear();
+                let name = registrar.palette.splines[index].name.clone();
+                let note = if skipped.is_empty() { String::new() } else { format!(" ({} already on a spline stayed there)", skipped.len()) };
+                registrar.save(format!("Added {} to {name}{note}.", slots.len() - skipped.len()));
+            }
+            Some(SplineAction::TakeOff(index)) => {
+                let on: Vec<u32> = registrar.picked_slots().into_iter().filter(|slot| registrar.palette.splines[index].steps.contains(slot)).collect();
+                registrar.palette.take_off_splines(&on);
+                registrar.picked.clear();
+                registrar.save(format!("Took {} off.", on.len()));
+            }
+            Some(SplineAction::Delete(index)) => {
+                let gone = registrar.palette.splines.remove(index);
+                registrar.save(format!("Deleted {}; its {} colours are back among those not on a spline.", gone.name, gone.steps.len()));
+            }
+            None => {}
         }
     });
-    transform_controls(ui, registrar, &list);
+
+    section(ui, "Not on a spline yet", |ui| {
+        let loose: Vec<(Rgb, u32)> = registrar.palette.colours.iter().filter(|&(&slot, _)| !registrar.palette.is_regulated(slot)).map(|(_, colour)| (colour.rgb, 0)).collect();
+        ui.label(format!("{} colours", loose.len()));
+        let event = swatches(ui, registrar, &sorted_by_lightness(loose), lit.as_ref());
+        registrar.take(ui, egui::Id::new("loose colours"), event);
+    });
+
+    section(ui, "Sub-palette", |ui| {
+        let chosen: Vec<&&BlockDef> = defs.iter().filter(|def| registrar.selected.contains(&def.name)).collect();
+        if chosen.is_empty() {
+            ui.label("Select blocks in the library to see their combined palette.");
+            return;
+        }
+        let mut combined: BTreeMap<Rgb, u32> = BTreeMap::new();
+        for def in &chosen {
+            for (rgb, count) in registrar.block_colours(def) {
+                *combined.entry(rgb).or_default() += count;
+            }
+        }
+        let names: Vec<&str> = chosen.iter().map(|def| def.display_name.as_str()).collect();
+        ui.label(format!("{}: {} colours", names.join(", "), combined.len()));
+        let list = sorted_by_lightness(combined);
+        let event = swatches(ui, registrar, &list, None);
+        registrar.take(ui, egui::Id::new("sub-palette colours"), event);
+        ui.horizontal(|ui| {
+            if ui.button("Pick all of these").clicked() {
+                registrar.picked.extend(list.iter().map(|&(rgb, _)| rgb));
+            }
+        });
+        egui::CollapsingHeader::new("Transform").default_open(true).show(ui, |ui| transform_controls(ui, registrar, &list));
+    });
 }
 
-/// The sub-palette's transform: crushing to fewer colours, and shifting hue, saturation and
-/// lightness, all previewed on the blocks in the dock. Nothing is written to the files yet.
+/// A part of the palettes column that folds away, open to start with [David: "pick what's in view
+/// while working"].
+fn section(ui: &mut egui::Ui, name: &str, body: impl FnOnce(&mut egui::Ui)) {
+    egui::CollapsingHeader::new(name).id_salt(("registrar section", name)).default_open(true).show(ui, body);
+}
+
+/// The sub-palette's transform: crushing to fewer new colours or onto a spline's shades, and
+/// shifting hue, saturation and lightness, all previewed on the blocks in the dock. Nothing is
+/// written to the block files yet; the crushed colours can be made into a spline.
 fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb, u32)]) {
-    ui.add_space(6.0);
-    ui.label("Transform (a preview on the blocks in the dock)");
+    ui.small("Previewed on the blocks in the dock; nothing is written to the block files yet.");
+    let splines: Vec<String> = registrar.palette.splines.iter().map(|spline| spline.name.clone()).collect();
     let transform = &mut registrar.transform;
+    // Onto: new colours (crushing), or a spline's shades.
+    if transform.onto.is_some_and(|index| index >= splines.len()) {
+        transform.onto = None;
+    }
+    let onto_name = transform.onto.map_or("new colours (crush)".to_string(), |index| format!("the shades of {}", splines[index]));
+    ui.horizontal(|ui| {
+        ui.label("onto:");
+        egui::ComboBox::from_id_salt("transform onto").selected_text(onto_name).show_ui(ui, |ui| {
+            ui.selectable_value(&mut transform.onto, None, "new colours (crush)");
+            for (index, name) in splines.iter().enumerate() {
+                ui.selectable_value(&mut transform.onto, Some(index), format!("the shades of {name}"));
+            }
+        });
+    })
+    .response
+    .on_hover_text("Crushing makes new colours (each group's average). Onto a spline, every colour becomes one of its shades: crushing to the palette");
     let most = (list.len() as u32).saturating_sub(1).clamp(2, 64);
-    ui.add(crate::debug::Slider::new(&mut transform.crush, 0..=most).text("crush to (colours; 0 = off)"))
+    ui.add_enabled(transform.onto.is_none(), crate::debug::Slider::new(&mut transform.crush, 0..=most).text("crush to (colours; 0 = off)"))
         .on_hover_text("Lined up darkest first and cut into this many groups; each group becomes its pixels' average colour");
-    ui.add_enabled_ui(transform.crush > 0, |ui| {
+    ui.add_enabled_ui(transform.onto.is_some(), |ui| {
+        ui.horizontal(|ui| {
+            ui.label("each to:");
+            ui.radio_value(&mut transform.snap, Snap::ByRank, "the shade of its rank").on_hover_text("Darkest to darkest and so on: keeps the contrast");
+            ui.radio_value(&mut transform.snap, Snap::Nearest, "the nearest shade").on_hover_text("The shade that looks closest");
+        });
+    });
+    ui.add_enabled_ui(transform.crush > 0 || (transform.onto.is_some() && transform.snap == Snap::ByRank), |ui| {
         ui.horizontal(|ui| {
             ui.label("groups:");
             ui.radio_value(&mut transform.spread, Spread::EqualValues, "equal slices of lightness");
@@ -585,9 +621,13 @@ fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb
     };
     percent(&mut transform.saturation, "saturation");
     percent(&mut transform.lightness, "lightness");
+    if transform.onto.is_some() {
+        ui.small("Onto a spline, hue, saturation and lightness move the colours before they're put on its shades.");
+    }
     ui.horizontal(|ui| {
         if ui.add_enabled(registrar.transform.is_active(), egui::Button::new("Reset")).clicked() {
-            registrar.transform = Transform { spread: registrar.transform.spread, ..Transform::default() };
+            let kept = registrar.transform;
+            registrar.transform = Transform { spread: kept.spread, snap: kept.snap, ..Transform::default() };
         }
         ui.checkbox(&mut registrar.before, "show the blocks before").on_hover_text("The dock shows the blocks as they are, not as the transform would make them");
         ui.add_enabled(false, egui::Button::new("Apply to the files")).on_disabled_hover_text("Coming with replacing: writes the PNGs, with undo");
@@ -603,7 +643,26 @@ fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb
     let after = sorted_by_lightness(after);
     let event = swatches(ui, registrar, &after, None);
     registrar.take(ui, egui::Id::new("transformed colours"), event);
+    // The crushed colours as a new spline: they join the palette, darkest first.
+    let new = registrar.transform.onto.is_none();
+    if ui
+        .add_enabled(new && registrar.palette_problem.is_none(), egui::Button::new("New spline from these"))
+        .on_hover_text("These colours join the master palette as a spline, darkest first. The blocks keep their own colours until the crush is applied to the files")
+        .on_disabled_hover_text("These are already a spline's shades")
+        .clicked()
+    {
+        let colours: Vec<Rgb> = after.iter().map(|&(rgb, _)| rgb).collect();
+        registrar.palette.take_in(colours.iter().copied());
+        let slots: Vec<u32> = colours.iter().filter_map(|&rgb| registrar.palette.slot_of(rgb)).collect();
+        let open = registrar.selected.first().cloned().unwrap_or_default();
+        let name = format!("{} crushed", open.rsplit(':').next().unwrap_or("spline"));
+        let index = registrar.palette.new_spline(&name, &slots);
+        let made = registrar.palette.splines[index].steps.len();
+        let note = if made < slots.len() { format!(" ({} were already on another spline and stayed there)", slots.len() - made) } else { String::new() };
+        registrar.save(format!("Made {name}, {made} shades{note}."));
+    }
 }
+
 
 enum SplineAction {
     Renamed,
@@ -718,73 +777,142 @@ const PICKED: Color32 = Color32::from_rgb(255, 60, 200);
 struct Transform {
     /// Crush to this many colours (0: not crushed).
     crush: u32,
-    /// How the colours are shared out when crushed, as in the Graphics Kit's palettes: an equal
-    /// slice of lightness each, or an equal share of the pixels.
+    /// How the colours are shared out when crushed (or put onto a spline by rank), as in the Graphics
+    /// Kit's palettes: an equal slice of lightness each, or an equal share of the pixels.
     spread: Spread,
     /// Added to hue (degrees), saturation and lightness (0-1).
     hue: f32,
     saturation: f32,
     lightness: f32,
+    /// Onto a spline (its place in the list) instead of crushing: every colour becomes one of its
+    /// shades, so the result is regulated.
+    onto: Option<usize>,
+    snap: Snap,
+}
+
+/// How colours are put onto a spline's shades.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Snap {
+    /// Darkest to darkest and so on, cut as crushing cuts them: keeps the texture's contrast.
+    ByRank,
+    /// Each to the shade that looks closest.
+    Nearest,
 }
 
 impl Default for Transform {
     fn default() -> Self {
-        Self { crush: 0, spread: Spread::EqualShares, hue: 0.0, saturation: 0.0, lightness: 0.0 }
+        Self { crush: 0, spread: Spread::EqualShares, hue: 0.0, saturation: 0.0, lightness: 0.0, onto: None, snap: Snap::ByRank }
     }
 }
 
 impl Transform {
     fn is_active(&self) -> bool {
-        *self != Self { spread: self.spread, ..Self::default() }
+        *self != Self { spread: self.spread, snap: self.snap, ..Self::default() }
     }
 
-    /// What each of these colours (with their pixel counts) becomes: crushed first, then shifted.
-    fn mapping(&self, colours: &[(Rgb, u32)]) -> BTreeMap<Rgb, Rgb> {
+    /// What each of these colours (with their pixel counts) becomes. Onto a spline (`shades`, darkest
+    /// first): shifted, then each put on a shade. Otherwise: crushed, then shifted.
+    fn mapping(&self, colours: &[(Rgb, u32)], shades: &[Rgb]) -> BTreeMap<Rgb, Rgb> {
+        let shift = |rgb: Rgb| shifted(rgb, self.hue, self.saturation, self.lightness);
+        if self.onto.is_some() {
+            if shades.is_empty() {
+                return BTreeMap::new();
+            }
+            let moved: Vec<(Rgb, u32)> = colours.iter().map(|&(rgb, n)| (shift(rgb), n)).collect();
+            let snapped = onto(&moved, shades, self.snap, self.spread);
+            return colours.iter().zip(&moved).map(|(&(rgb, _), &(to, _))| (rgb, snapped[&to])).collect();
+        }
         let crushed = crushed(colours, self.crush, self.spread);
-        colours.iter().map(|&(rgb, _)| (rgb, shifted(crushed.get(&rgb).copied().unwrap_or(rgb), self.hue, self.saturation, self.lightness))).collect()
+        colours.iter().map(|&(rgb, _)| (rgb, shift(crushed.get(&rgb).copied().unwrap_or(rgb)))).collect()
     }
 }
 
-/// Crush colours to `count` (0, or at least as many as there are: unchanged). They're lined up
-/// darkest first and cut into `count` groups, each an equal slice of lightness or an equal share of
-/// the pixels (`spread`); each group becomes its pixels' average colour.
+/// Colours lined up darkest first and cut into `count` groups, each an equal slice of lightness or
+/// an equal share of the pixels (`spread`): each colour (darkest first) with its group, 0 darkest.
+fn groups(colours: &[(Rgb, u32)], count: usize, spread: Spread) -> Vec<(Rgb, u32, usize)> {
+    let sorted = sorted_by_lightness(colours.iter().copied());
+    if sorted.is_empty() || count == 0 {
+        return Vec::new();
+    }
+    let total: f32 = sorted.iter().map(|&(_, n)| n.max(1) as f32).sum();
+    let (darkest, lightest) = (master_palette::lightness(sorted[0].0), master_palette::lightness(sorted[sorted.len() - 1].0));
+    let mut so_far = 0.0;
+    sorted
+        .iter()
+        .map(|&(rgb, n)| {
+            let weight = n.max(1) as f32;
+            let at = match spread {
+                // Where the middle of its pixels falls along all the pixels.
+                Spread::EqualShares => (so_far + weight / 2.0) / total,
+                Spread::EqualValues => (master_palette::lightness(rgb) - darkest) / (lightest - darkest).max(1e-6),
+            };
+            so_far += weight;
+            (rgb, n, ((at * count as f32) as usize).min(count - 1))
+        })
+        .collect()
+}
+
+/// Crush colours to `count` (0, or at least as many as there are: unchanged): cut into groups
+/// (`groups`), each group becomes its pixels' average colour.
 fn crushed(colours: &[(Rgb, u32)], count: u32, spread: Spread) -> BTreeMap<Rgb, Rgb> {
     if count == 0 || colours.len() <= count as usize {
         return colours.iter().map(|&(rgb, _)| (rgb, rgb)).collect();
     }
-    let sorted = sorted_by_lightness(colours.iter().copied());
-    let total: f32 = sorted.iter().map(|&(_, n)| n.max(1) as f32).sum();
-    let (darkest, lightest) = (master_palette::lightness(sorted[0].0), master_palette::lightness(sorted[sorted.len() - 1].0));
-    let mut so_far = 0.0;
-    let group: Vec<usize> = sorted
-        .iter()
-        .map(|&(rgb, n)| {
-            let n = n.max(1) as f32;
-            let at = match spread {
-                // Where the middle of its pixels falls along all the pixels.
-                Spread::EqualShares => (so_far + n / 2.0) / total,
-                Spread::EqualValues => (master_palette::lightness(rgb) - darkest) / (lightest - darkest).max(1e-6),
-            };
-            so_far += n;
-            ((at * count as f32) as usize).min(count as usize - 1)
-        })
-        .collect();
+    let grouped = groups(colours, count as usize, spread);
     let mut sums = vec![([0.0f32; 3], 0.0f32); count as usize];
-    for (&(rgb, n), &g) in sorted.iter().zip(&group) {
+    for &(rgb, n, g) in &grouped {
         let n = n.max(1) as f32;
         for k in 0..3 {
             sums[g].0[k] += rgb[k] as f32 * n;
         }
         sums[g].1 += n;
     }
-    sorted
+    grouped
         .iter()
-        .zip(&group)
-        .map(|(&(rgb, _), &g)| {
+        .map(|&(rgb, _, g)| {
             let (sum, n) = sums[g];
             (rgb, sum.map(|c| (c / n).round() as u8))
         })
         .collect()
+}
+
+/// Colours put onto a spline's `shades` (darkest first): by rank, cut into as many groups as there
+/// are shades and the darkest group to the darkest shade and so on; or each to the nearest shade by
+/// eye (OKLab, which measures colour differences about as the eye sees them).
+fn onto(colours: &[(Rgb, u32)], shades: &[Rgb], snap: Snap, spread: Spread) -> BTreeMap<Rgb, Rgb> {
+    match snap {
+        Snap::ByRank => groups(colours, shades.len(), spread).into_iter().map(|(rgb, _, g)| (rgb, shades[g])).collect(),
+        Snap::Nearest => {
+            let lab: Vec<[f32; 3]> = shades.iter().map(|&shade| oklab(shade)).collect();
+            colours
+                .iter()
+                .map(|&(rgb, _)| {
+                    let here = oklab(rgb);
+                    let distance = |other: &[f32; 3]| (0..3).map(|k| (here[k] - other[k]).powi(2)).sum::<f32>();
+                    let nearest = (0..shades.len()).min_by(|&a, &b| distance(&lab[a]).total_cmp(&distance(&lab[b]))).unwrap_or(0);
+                    (rgb, shades[nearest])
+                })
+                .collect()
+        }
+    }
+}
+
+/// A colour in OKLab: lightness, then two colour axes, spaced about as the eye tells colours apart
+/// (Björn Ottosson's formulas). Used only underneath, to find nearest colours; the Lab speaks HSL.
+fn oklab(rgb: Rgb) -> [f32; 3] {
+    let linear = |c: u8| {
+        let c = c as f32 / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    };
+    let [r, g, b] = rgb.map(linear);
+    let l = (0.412_221_47 * r + 0.536_332_55 * g + 0.051_445_995 * b).cbrt();
+    let m = (0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b).cbrt();
+    let s = (0.088_302_46 * r + 0.281_718_85 * g + 0.629_978_7 * b).cbrt();
+    [
+        0.210_454_26 * l + 0.793_617_8 * m - 0.004_072_047 * s,
+        1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s,
+        0.025_904_037 * l + 0.782_771_77 * m - 0.808_675_77 * s,
+    ]
 }
 
 /// A colour with `hue` degrees added (round the wheel) and `saturation` and `lightness` added
@@ -817,6 +945,23 @@ mod tests {
         assert!(crushed(&colours, 4, Spread::EqualShares).iter().all(|(a, b)| a == b));
     }
 
+
+    #[test]
+    fn colours_go_onto_a_spline_by_rank_or_by_the_nearest_shade() {
+        let shades = [[40, 20, 10], [120, 60, 30], [220, 180, 140]];
+        // Four greys, darkest first, onto three shades by rank: the contrast kept, every result a shade.
+        let greys = [([10, 10, 10], 1), ([30, 30, 30], 1), ([90, 90, 90], 1), ([250, 250, 250], 1)];
+        let ranked = onto(&greys, &shades, Snap::ByRank, Spread::EqualShares);
+        assert_eq!(ranked[&[10, 10, 10]], shades[0]);
+        assert_eq!(ranked[&[250, 250, 250]], shades[2]);
+        assert!(ranked.values().all(|to| shades.contains(to)));
+        // By eye: a near-white goes to the lightest shade, a dark brown to the darkest.
+        let nearest = onto(&[([230, 190, 150], 1), ([45, 25, 12], 1)], &shades, Snap::Nearest, Spread::EqualShares);
+        assert_eq!((nearest[&[230, 190, 150]], nearest[&[45, 25, 12]]), (shades[2], shades[0]));
+        // Through the transform: shifted first, then put on the shades.
+        let transform = Transform { onto: Some(0), snap: Snap::Nearest, lightness: 1.0, ..Transform::default() };
+        assert_eq!(transform.mapping(&[([45, 25, 12], 1)], &shades)[&[45, 25, 12]], shades[2]);
+    }
     #[test]
     fn an_hsl_shift_goes_round_the_wheel_and_stays_in_range() {
         assert_eq!(shifted([255, 0, 0], 120.0, 0.0, 0.0), [0, 255, 0]);
