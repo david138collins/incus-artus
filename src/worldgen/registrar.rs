@@ -6,9 +6,9 @@
 //!   - the palettes: the master palette (its splines, then the colours not on one yet), and the
 //!     sub-palette of whatever's selected.
 //!
-//! Built up a step at a time ("sneak up on the final configuration"): this first version shows the
-//! library and the palette, and splines made by picking colours (shaped by curves later);
-//! registering new assets and HSL transforms follow.
+//! Built up a step at a time ("sneak up on the final configuration"): the library and the palette,
+//! splines made by picking colours or from tuned curves, transforms previewed in the dock and
+//! applied to the files, loading new assets, and the tiling checker.
 
 use crate::data::master_palette::{self, MasterPalette, Rgb};
 use super::palette::Spread;
@@ -83,6 +83,11 @@ pub struct Registrar {
     loading: bool,
     art_files: Vec<PathBuf>,
     art_filter: String,
+    /// The curve being tuned (its spline's number, and the curve as edited), which of hue, saturation
+    /// and lightness is being dragged, and the point being dragged.
+    curve_edit: Option<(u32, master_palette::Curve)>,
+    curve_channel: usize,
+    curve_point: Option<usize>,
     /// "Clear out unused colours" was pressed: its preview is showing, waiting for a yes.
     clearing: bool,
     /// Goes up by one whenever the palette is saved.
@@ -1244,6 +1249,9 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
                 registrar.picked.clear();
                 registrar.save(format!("Made {name}."));
             }
+            if ui.add_enabled(editable, egui::Button::new("New spline from a curve")).on_hover_text("A spline worked out from hue, saturation and lightness curves you tune: through the picked colours (darkest, middle, lightest), or a grey ramp with nothing picked").clicked() {
+                registrar.new_curve_spline();
+            }
         });
         // GPL palettes, for Aseprite: what's in view (in the master palette's order), or the picked.
         ui.horizontal_wrapped(|ui| {
@@ -1544,6 +1552,23 @@ fn spline_row(ui: &mut egui::Ui, registrar: &mut Registrar, index: usize, full: 
             *action = Some(SplineAction::Renamed);
         }
         ui.small(format!("{} shades · #{}", spline.steps.len(), spline.id)).on_hover_text("Its permanent number: blocks and shaders go by it, so its name, group and place can change freely");
+        let editing = registrar.curve_edit.as_ref().is_some_and(|(id, _)| *id == spline.id);
+        if ui.selectable_label(editing, "Curve").on_hover_text("Tune its shades from hue, saturation and lightness curves (made from its shades if it has none yet)").clicked() {
+            registrar.curve_edit = if editing {
+                None
+            } else {
+                let curve = spline.curve.clone().unwrap_or_else(|| {
+                    // Up to five of its shades, evenly spaced, so the curve has few points to tune.
+                    let shades: Vec<[f32; 3]> = spline.steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| super::palette::to_hsl(colour.rgb)).collect();
+                    let n = shades.len();
+                    let mut picks: Vec<usize> = (0..5).map(|k| (k * n.saturating_sub(1) + 2) / 4).filter(|&k| k < n).collect();
+                    picks.dedup();
+                    let hsl: Vec<[f32; 3]> = picks.into_iter().map(|k| shades[k]).collect();
+                    master_palette::Curve::through(&hsl, (spline.steps.len() as u32).max(2))
+                });
+                Some((spline.id, curve))
+            };
+        }
         if ui.button("Pick").on_hover_text("Pick its shades").clicked() {
             *action = Some(SplineAction::Pick(index));
         }
@@ -1560,6 +1585,243 @@ fn spline_row(ui: &mut egui::Ui, registrar: &mut Registrar, index: usize, full: 
     let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
     let event = swatches(ui, registrar, &steps, lit);
     registrar.take(ui, egui::Id::new(("spline colours", index)), event);
+    if registrar.curve_edit.as_ref().is_some_and(|(id, _)| *id == registrar.palette.splines[index].id) {
+        curve_editor(ui, registrar, index);
+    }
+}
+
+// ── Splines from curves ───────────────────────────────────────────────────
+
+impl Registrar {
+    /// A curve's colours, darkest first. Each must be a colour no other shade in the palette has
+    /// (a pixel finds its slot by exact colour), so one that would match another is nudged a step
+    /// lighter or darker until it doesn't. `own`: the slots it may share colours with (its own).
+    fn curve_colours(&self, curve: &master_palette::Curve, own: &[u32]) -> Vec<Rgb> {
+        let mut taken: BTreeSet<Rgb> = self.palette.colours.iter().filter(|(slot, _)| !own.contains(slot)).map(|(_, colour)| colour.rgb).collect();
+        (0..curve.steps)
+            .map(|k| {
+                let [h, s, l] = curve.hsl(k);
+                let mut rgb = super::palette::from_hsl([h, s, l]);
+                for nudge in 1..40 {
+                    if !taken.contains(&rgb) {
+                        break;
+                    }
+                    let step = (nudge + 1) / 2;
+                    let sign = if nudge % 2 == 1 { 1.0 } else { -1.0 };
+                    rgb = super::palette::from_hsl([h, s, (l + sign * step as f32 / 255.0).clamp(0.0, 1.0)]);
+                }
+                taken.insert(rgb);
+                rgb
+            })
+            .collect()
+    }
+
+    /// Recolour a spline from its curve. Its shades keep their permanent numbers, darkest to
+    /// darkest, so every block using them follows: their pixels are rewritten in the PNGs. More
+    /// steps than shades: new ones join; fewer: the rest are taken off it (left in the palette, not on
+    /// a spline). Undoable: the palette and the PNGs it touches are copied first.
+    fn apply_curve(&mut self, index: usize) {
+        let Some(spline) = self.palette.splines.get(index).cloned() else { return };
+        let Some(curve) = spline.curve.clone() else { return };
+        let colours = self.curve_colours(&curve, &spline.steps);
+        // Old colour to new, for the shades that stay.
+        let mut recolour: BTreeMap<Rgb, Rgb> = BTreeMap::new();
+        for (slot, &rgb) in spline.steps.iter().zip(&colours) {
+            if let Some(old) = self.palette.colours.get(slot).map(|colour| colour.rgb)
+                && old != rgb
+            {
+                recolour.insert(old, rgb);
+            }
+        }
+        // The textures with a recoloured pixel.
+        let folder = block_texture_folder();
+        let touched: Vec<String> = self.textures.iter().filter(|(_, texture)| texture.colours.iter().any(|(rgb, _)| recolour.contains_key(rgb))).map(|(name, _)| name.clone()).collect();
+        let mut files = vec![master_palette::palette_file()];
+        files.extend(touched.iter().map(|name| folder.join(format!("{name}.png"))));
+        let what = format!("Applied the curve of {}{}", spline.name, if touched.is_empty() { String::new() } else { format!(" (recoloured {})", touched.join(", ")) });
+        if let Err(error) = save_undo_step(&undo_folder(), &what, &files) {
+            self.message = format!("Not applied: couldn't save the undo step ({error}).");
+            return;
+        }
+        for name in &touched {
+            let Some(texture) = self.textures.get(name) else { continue };
+            let mut pixels = texture.pixels.clone();
+            for pixel in pixels.chunks_exact_mut(4) {
+                if let Some(to) = recolour.get(&[pixel[0], pixel[1], pixel[2]]) {
+                    pixel[..3].copy_from_slice(to);
+                }
+            }
+            if let Err(error) = write_png(&folder.join(format!("{name}.png")), &pixels) {
+                self.message = format!("Couldn't write {name}.png: {error}. Undo puts back what was written.");
+                return;
+            }
+        }
+        // The shades: the same numbers recoloured, then new ones, and any left over taken off.
+        let mut steps = Vec::new();
+        for (k, &rgb) in colours.iter().enumerate() {
+            match spline.steps.get(k) {
+                Some(&slot) => {
+                    self.palette.colours.insert(slot, master_palette::Colour { rgb });
+                    steps.push(slot);
+                }
+                None => steps.push(self.palette.add(rgb)),
+            }
+        }
+        self.palette.splines[index].steps = steps;
+        self.undo.push(what.clone());
+        self.save(format!("{what}."));
+    }
+
+    /// A new spline from a curve through the picked colours (their darkest, middle and lightest), or
+    /// a grey ramp with nothing picked; its curve opens for tuning.
+    fn new_curve_spline(&mut self) {
+        let picked = sorted_by_lightness(self.picked.iter().map(|&rgb| (rgb, 0)));
+        let curve = if picked.is_empty() {
+            master_palette::Curve::through(&[[0.0, 0.0, 0.1], [0.0, 0.0, 0.9]], 8)
+        } else {
+            let mut ends: Vec<Rgb> = vec![picked[0].0, picked[picked.len() / 2].0, picked[picked.len() - 1].0];
+            ends.dedup();
+            let hsl: Vec<[f32; 3]> = ends.iter().map(|&rgb| super::palette::to_hsl(rgb)).collect();
+            master_palette::Curve::through(&hsl, (picked.len() as u32).clamp(3, 16))
+        };
+        let colours = self.curve_colours(&curve, &[]);
+        let slots: Vec<u32> = colours.iter().map(|&rgb| self.palette.add(rgb)).collect();
+        let name = format!("curve {}", self.palette.splines.len() + 1);
+        let index = self.palette.new_spline(&name, &[]);
+        self.palette.splines[index].steps = slots;
+        self.palette.splines[index].curve = Some(curve.clone());
+        self.curve_edit = Some((self.palette.splines[index].id, curve));
+        self.view = PaletteView::Splines;
+        self.save(format!("Made {name} from a curve; tune it below."));
+    }
+}
+
+/// The curve editor under a spline: how many steps; the three curves on one small graph (drag the
+/// chosen one's points; double-click to add one, right-click to take one away); the spline's shades
+/// as they are and the picked colours as dots beside it, to shape it to; its colours as they'd come
+/// out; Apply and Revert.
+fn curve_editor(ui: &mut egui::Ui, registrar: &mut Registrar, index: usize) {
+    let spline = registrar.palette.splines[index].clone();
+    let Some((_, curve)) = registrar.curve_edit.as_mut().filter(|(id, _)| *id == spline.id) else { return };
+    ui.add(crate::debug::Slider::new(&mut curve.steps, 2..=32).text("steps"));
+    ui.horizontal(|ui| {
+        ui.label("drag:");
+        for (k, name) in ["hue", "saturation", "lightness"].into_iter().enumerate() {
+            ui.radio_value(&mut registrar.curve_channel, k, name);
+        }
+    });
+    let channel = registrar.curve_channel;
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(ui.available_width().min(420.0), 140.0), egui::Sense::click_and_drag());
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(rect, 2.0, Color32::from_gray(24));
+    let inner = rect.shrink(8.0);
+    // Hue's range on the graph: its points' span, with room either side; the others 0 to 1.
+    let hues: Vec<f32> = curve.hue.iter().map(|p| p[1]).collect();
+    let (low, high) = (hues.iter().copied().fold(f32::MAX, f32::min) - 40.0, hues.iter().copied().fold(f32::MIN, f32::max) + 40.0);
+    let range = |c: usize| if c == 0 { (low, high) } else { (0.0, 1.0) };
+    let to_screen = |c: usize, t: f32, v: f32| {
+        let (a, b) = range(c);
+        egui::pos2(inner.left() + inner.width() * t, inner.bottom() - inner.height() * ((v - a) / (b - a).max(1e-6)))
+    };
+    let from_screen = |c: usize, pos: egui::Pos2| {
+        let (a, b) = range(c);
+        (((pos.x - inner.left()) / inner.width()).clamp(0.0, 1.0), a + (b - a) * ((inner.bottom() - pos.y) / inner.height()).clamp(0.0, 1.0))
+    };
+    let colours = [Color32::from_rgb(255, 170, 60), Color32::from_rgb(90, 200, 255), Color32::WHITE];
+    // The shades as they are now, and the picked colours, as dots in their own colour.
+    let dot = |painter: &egui::Painter, c: usize, t: f32, rgb: Rgb, square: bool| {
+        let hsl = super::palette::to_hsl(rgb);
+        let at = to_screen(c, t, if c == 0 { nearest_turn(hsl[0], (low + high) / 2.0) } else { hsl[c] });
+        let fill = Color32::from_rgb(rgb[0], rgb[1], rgb[2]);
+        if square {
+            painter.rect(egui::Rect::from_center_size(at, egui::vec2(7.0, 7.0)), 0.0, fill, Stroke::new(1.0, PICKED), egui::StrokeKind::Outside);
+        } else {
+            painter.circle(at, 3.5, fill, Stroke::new(1.0, Color32::from_gray(160)));
+        }
+    };
+    let shades: Vec<Rgb> = spline.steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| colour.rgb).collect();
+    let along = |k: usize, n: usize| if n > 1 { k as f32 / (n - 1) as f32 } else { 0.5 };
+    let picked = sorted_by_lightness(registrar.picked.iter().map(|&rgb| (rgb, 0)));
+    for (k, &rgb) in shades.iter().enumerate() {
+        dot(&painter, channel, along(k, shades.len()), rgb, false);
+    }
+    for (k, &(rgb, _)) in picked.iter().enumerate() {
+        dot(&painter, channel, along(k, picked.len()), rgb, true);
+    }
+    // The three curves, the one being dragged on top with its points.
+    for c in [0, 1, 2].into_iter().filter(|&c| c != channel).chain([channel]) {
+        let points = [&curve.hue, &curve.saturation, &curve.lightness][c];
+        let line: Vec<egui::Pos2> = (0..=60).map(|k| k as f32 / 60.0).map(|t| to_screen(c, t, master_palette::Curve::value(points, t))).collect();
+        let colour = if c == channel { colours[c] } else { colours[c].gamma_multiply(0.35) };
+        painter.add(egui::Shape::line(line, Stroke::new(if c == channel { 2.0 } else { 1.0 }, colour)));
+        if c == channel {
+            for &[t, v] in points.iter() {
+                painter.circle_filled(to_screen(c, t, v), 4.0, colours[c]);
+            }
+        }
+    }
+    // Dragging, adding and taking away the chosen curve's points.
+    let points = match channel {
+        0 => &mut curve.hue,
+        1 => &mut curve.saturation,
+        _ => &mut curve.lightness,
+    };
+    let nearest = |points: &[[f32; 2]], pos: egui::Pos2| (0..points.len()).min_by(|&a, &b| to_screen(channel, points[a][0], points[a][1]).distance(pos).total_cmp(&to_screen(channel, points[b][0], points[b][1]).distance(pos)));
+    if let Some(pos) = response.interact_pointer_pos() {
+        if response.drag_started() {
+            registrar.curve_point = nearest(points, pos).filter(|&k| to_screen(channel, points[k][0], points[k][1]).distance(pos) < 12.0);
+        }
+        if response.dragged()
+            && let Some(k) = registrar.curve_point
+            && k < points.len()
+        {
+            let (t, v) = from_screen(channel, pos);
+            // Between its neighbours; the end points stay at the ends.
+            let last = points.len() - 1;
+            let t = if k == 0 { 0.0 } else if k == last { 1.0 } else { t.clamp(points[k - 1][0] + 0.01, points[k + 1][0] - 0.01) };
+            points[k] = [t, v];
+        }
+        if response.double_clicked() {
+            let (t, _) = from_screen(channel, pos);
+            let v = master_palette::Curve::value(points, t);
+            let at = points.iter().position(|p| p[0] > t).unwrap_or(points.len());
+            points.insert(at, [t, v]);
+        }
+        if response.secondary_clicked()
+            && points.len() > 2
+            && let Some(k) = nearest(points, pos).filter(|&k| to_screen(channel, points[k][0], points[k][1]).distance(pos) < 12.0)
+        {
+            points.remove(k);
+        }
+    }
+    if response.drag_stopped() {
+        registrar.curve_point = None;
+    }
+    response.on_hover_text("Drag the chosen curve's points; double-click to add one, right-click to take one away.\nDots: the spline's shades as they are (round) and the picked colours (square), to shape it to.");
+    // Its colours as they'd come out.
+    let draft = curve.clone();
+    let preview: Vec<(Rgb, u32)> = registrar.curve_colours(&draft, &spline.steps).into_iter().map(|rgb| (rgb, 0)).collect();
+    ui.small("as it would come out:");
+    let event = swatches(ui, registrar, &preview, None);
+    registrar.take(ui, egui::Id::new(("curve preview", spline.id)), event);
+    ui.horizontal(|ui| {
+        if ui.button("Apply").on_hover_text("Recolours the spline's shades (the same numbers), and the blocks using them; undoable").clicked() {
+            registrar.palette.splines[index].curve = Some(draft.clone());
+            registrar.apply_curve(index);
+        }
+        if ui.button("Revert").on_hover_text("Back to the curve as last applied").clicked() {
+            let applied = registrar.palette.splines[index].curve.clone().unwrap_or(draft.clone());
+            registrar.curve_edit = Some((spline.id, applied));
+        }
+        if ui.button("Close").clicked() {
+            registrar.curve_edit = None;
+        }
+    });
+}
+
+/// A hue turned by whole turns to lie nearest `near` (so a red at 355° sits beside one at 5°).
+fn nearest_turn(hue: f32, near: f32) -> f32 {
+    hue + ((near - hue) / 360.0).round() * 360.0
 }
 
 /// "Clear out unused colours": the colours on no spline that no block uses any more, shown first,
@@ -1951,6 +2213,20 @@ mod tests {
         assert_eq!(undo_last(&undo).unwrap(), "made");
         assert!(!made.exists());
         let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn a_curve_never_makes_a_colour_another_shade_already_has() {
+        let mut registrar = Registrar::default();
+        // A grey ramp's middle shade is already in the palette, on something else.
+        let curve = master_palette::Curve::through(&[[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], 3);
+        let middle = super::super::palette::from_hsl(curve.hsl(1));
+        let other = registrar.palette.add(middle);
+        let colours = registrar.curve_colours(&curve, &[]);
+        assert_ne!(colours[1], middle, "nudged off the other shade's colour");
+        assert!(colours[1].iter().zip(middle).all(|(a, b)| a.abs_diff(b) <= 3), "but only by a step or so");
+        // Its own shades it may keep.
+        assert_eq!(registrar.curve_colours(&curve, &[other])[1], middle);
     }
     #[test]
     fn an_hsl_shift_goes_round_the_wheel_and_stays_in_range() {

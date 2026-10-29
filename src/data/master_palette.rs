@@ -26,8 +26,8 @@ pub struct Colour {
 
 /// A spline: one hue's ramp of shades, darkest first, as slots, with a permanent number (`id`, given
 /// out like slots, never reused) that blocks and shaders go by, so its name, group and place in the
-/// list are only labels and can change freely. (Shaped by HSL curves later; for
-/// now just its shades.)
+/// list are only labels and can change freely. Its shades are gathered from art, or worked out from
+/// curves David tunes (`curve`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Spline {
     /// 0 in a file written before splines had numbers: given one when read.
@@ -39,6 +39,80 @@ pub struct Spline {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub group: String,
     pub steps: Vec<u32>,
+    /// The curves its shades are worked out from, if it's made from curves (none: its shades were
+    /// gathered from art).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curve: Option<Curve>,
+}
+
+/// A spline's shades worked out from curves David tunes [2026-10-29]: hue, saturation and lightness
+/// from its darkest step (0) to its lightest (1), each a smooth line through its points, and how
+/// many steps. Hue is in degrees and may wander past 0 or 360 (hue shifting along a ramp); the others
+/// are 0 to 1.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Curve {
+    pub steps: u32,
+    /// Each point: where along (0 to 1) and the value there, in order along.
+    pub hue: Vec<[f32; 2]>,
+    pub saturation: Vec<[f32; 2]>,
+    pub lightness: Vec<[f32; 2]>,
+}
+
+impl Curve {
+    /// A curve through these colours' hue, saturation and lightness (darkest first), evenly along.
+    pub fn through(hsl: &[[f32; 3]], steps: u32) -> Self {
+        let along = |k: usize| if hsl.len() > 1 { k as f32 / (hsl.len() - 1) as f32 } else { 0.5 };
+        let channel = |c: usize| hsl.iter().enumerate().map(|(k, v)| [along(k), v[c]]).collect();
+        Self { steps: steps.max(2), hue: channel(0), saturation: channel(1), lightness: channel(2) }
+    }
+
+    /// A channel's value `t` along (0 to 1): a smooth line through its points that never overshoots
+    /// between two of them (a monotone cubic), so a ramp that only gets lighter never dips darker.
+    /// Before the first point and after the last, level.
+    pub fn value(points: &[[f32; 2]], t: f32) -> f32 {
+        match points.len() {
+            0 => return 0.0,
+            1 => return points[0][1],
+            _ => {}
+        }
+        let last = points.len() - 1;
+        if t <= points[0][0] {
+            return points[0][1];
+        }
+        if t >= points[last][0] {
+            return points[last][1];
+        }
+        let slope = |i: usize| (points[i + 1][1] - points[i][1]) / (points[i + 1][0] - points[i][0]).max(1e-6);
+        // Each point's tangent: level where the line turns, else the harmonic mean of its two sides.
+        let tangent = |i: usize| {
+            if i == 0 {
+                slope(0)
+            } else if i == last {
+                slope(last - 1)
+            } else {
+                let (a, b) = (slope(i - 1), slope(i));
+                if a * b <= 0.0 { 0.0 } else { 2.0 / (1.0 / a + 1.0 / b) }
+            }
+        };
+        let i = (0..last).find(|&i| t < points[i + 1][0]).unwrap_or(last - 1);
+        let width = (points[i + 1][0] - points[i][0]).max(1e-6);
+        let s = (t - points[i][0]) / width;
+        let (s2, s3) = (s * s, s * s * s);
+        let (y0, y1) = (points[i][1], points[i + 1][1]);
+        (2.0 * s3 - 3.0 * s2 + 1.0) * y0 + (s3 - 2.0 * s2 + s) * width * tangent(i) + (-2.0 * s3 + 3.0 * s2) * y1 + (s3 - s2) * width * tangent(i + 1)
+    }
+
+    /// Step `k`'s hue (degrees, 0 to 360), saturation and lightness.
+    pub fn hsl(&self, k: u32) -> [f32; 3] {
+        let t = if self.steps > 1 { k as f32 / (self.steps - 1) as f32 } else { 0.5 };
+        [Self::value(&self.hue, t).rem_euclid(360.0), Self::value(&self.saturation, t).clamp(0.0, 1.0), Self::value(&self.lightness, t).clamp(0.0, 1.0)]
+    }
+
+    /// The curve as the palette file writes it, under its spline.
+    fn to_text(&self) -> String {
+        let points = |points: &[[f32; 2]]| points.iter().map(|[t, v]| format!("[{t:?}, {v:?}]")).collect::<Vec<_>>().join(", ");
+        format!("[spline.curve]\nsteps = {}\nhue = [{}]\nsaturation = [{}]\nlightness = [{}]\n", self.steps, points(&self.hue), points(&self.saturation), points(&self.lightness))
+    }
 }
 
 /// The whole palette.
@@ -133,6 +207,9 @@ impl MasterPalette {
             let steps: Vec<String> = spline.steps.iter().map(u32::to_string).collect();
             let group = if spline.group.is_empty() { String::new() } else { format!("group = {:?}\n", spline.group) };
             text += &format!("\n[[spline]]\nid = {}\nname = {:?}\n{group}steps = [{}]\n", spline.id, spline.name, steps.join(", "));
+            if let Some(curve) = &spline.curve {
+                text += &curve.to_text();
+            }
         }
         text += "\n";
         for (slot, colour) in &self.colours {
@@ -181,7 +258,7 @@ impl MasterPalette {
     pub fn new_spline(&mut self, name: &str, slots: &[u32]) -> usize {
         let id = self.next_spline.max(1);
         self.next_spline = id + 1;
-        self.splines.push(Spline { id, name: name.to_string(), group: String::new(), steps: Vec::new() });
+        self.splines.push(Spline { id, name: name.to_string(), group: String::new(), steps: Vec::new(), curve: None });
         let index = self.splines.len() - 1;
         self.add_to_spline(index, slots);
         index
@@ -281,7 +358,7 @@ mod tests {
     fn new_colours_join_unregulated_and_known_ones_find_their_slot() {
         let mut palette = MasterPalette::default();
         let ochre = palette.add([200, 150, 60]);
-        palette.splines.push(Spline { id: 1, name: "ochre".to_string(), group: String::new(), steps: vec![ochre] });
+        palette.splines.push(Spline { id: 1, name: "ochre".to_string(), group: String::new(), steps: vec![ochre], curve: None });
         let added = palette.take_in([[200, 150, 60], [201, 150, 60], [201, 150, 60]]);
         // Only the exact match is known: a hair off is new (and only joins once).
         assert_eq!(added.len(), 1);
@@ -335,11 +412,34 @@ mod tests {
         let next = palette.new_spline("new", &[]);
         assert_eq!(palette.splines[next].id, 6);
     }
+
+    #[test]
+    fn a_curve_passes_through_its_points_and_never_overshoots_between_them() {
+        let points = [[0.0, 0.1], [0.4, 0.5], [0.6, 0.55], [1.0, 0.9]];
+        for [t, v] in points {
+            assert!((Curve::value(&points, t) - v).abs() < 1e-5);
+        }
+        // Rising points: the line only ever rises (no dip back darker on a lightness ramp).
+        let mut last = 0.0;
+        for k in 0..=100 {
+            let v = Curve::value(&points, k as f32 / 100.0);
+            assert!(v >= last - 1e-6, "dips at {k}: {v} after {last}");
+            last = v;
+        }
+        // Level before the first point and after the last.
+        assert_eq!(Curve::value(&[[0.2, 0.3], [0.8, 0.7]], 0.0), 0.3);
+        assert_eq!(Curve::value(&[[0.2, 0.3], [0.8, 0.7]], 1.0), 0.7);
+        // Steps evenly along, darkest first; hue goes round the wheel.
+        let curve = Curve::through(&[[350.0, 0.5, 0.2], [370.0, 0.5, 0.8]], 3);
+        assert_eq!(curve.hsl(0), [350.0, 0.5, 0.2]);
+        assert!((curve.hsl(1)[0] - 0.0).abs() < 1e-3 && (curve.hsl(1)[2] - 0.5).abs() < 1e-5);
+        assert!((curve.hsl(2)[0] - 10.0).abs() < 1e-3);
+    }
     #[test]
     fn the_file_reads_back_as_written() {
         let mut palette = MasterPalette::default();
         let (a, b) = (palette.add([255, 0, 128]), palette.add([1, 2, 3]));
-        palette.splines.push(Spline { id: 7, name: "pink".to_string(), group: "warm/reds".to_string(), steps: vec![b, a] });
+        palette.splines.push(Spline { id: 7, name: "pink".to_string(), group: "warm/reds".to_string(), steps: vec![b, a], curve: Some(Curve::through(&[[350.0, 0.5, 0.2], [10.0, 0.75, 0.8]], 5)) });
         palette.next_spline = 8;
         let gone = palette.add([9, 9, 9]);
         palette.colours.remove(&gone);
