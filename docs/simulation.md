@@ -286,6 +286,16 @@ Counsel's notes [PROPOSED]:
 - **Bandits made, not spawned:** hunger, debt, exile or a feud in the Intermediator sim turns people to
   crime, so a bandit camp has a story, and news particles carry it ("the miller's son took to the
   road").
+- **Guests, and the rules of a place** [David 2026-10-29, from Dwarf Fortress, which "implements
+  criminality quite well"]:
+  - **Travellers staying at your inn:** always a handful of new ones. They work and help, and may ask
+    to stay and become inhabitants you can manage, rather than guests. *Counsel:* the inn is then the
+    doorway into your settlement, and its travellers are the wanderers who carry news particles (section
+    12), so a full inn is also how word reaches you.
+  - **Rules for who can visit, and locking doors**, as in Dwarf Fortress. *Counsel:* each building
+    open to the public, residents only, or closed; each door unlocked, locked, or open to some
+    (residents, guests, animals). The same rules tell the sims who may be where, and the law what
+    trespass is.
 - **The hierarchy:** impulses (hunger, safety, belonging, greed, duty...) → goals → tasks → actions.
   Each level picks from a few options by simple checks against data. The World and Intermediator sims
   stop at goals and tasks; only the Local sim plays out actions. That's what keeps it cheap.
