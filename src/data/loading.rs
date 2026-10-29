@@ -13,6 +13,7 @@
 //! random_rotation = ["top"]          # faces turned at random (only for textures with no "up")
 //! friction = 1.0                     # 1 = ordinary ground, lower = slipperier
 //! tags = ["rock/igneous", "ore"]     # for grouping in the Registrar; "/" nests, as folders do
+//! tool = false                       # a building aid: its colours stay out of the master palette
 //! ```
 //!
 //! Face words, for `textures` and `random_rotation`: `all`, `sides`, `top`, `bottom`, `north`,
@@ -54,6 +55,7 @@ struct BlockFile {
     targetable: Option<bool>,
     replaceable: Option<bool>,
     tags: Vec<String>,
+    tool: bool,
 }
 
 /// Which faces a face word means (numbers as in `FACE_NAMES`), and how specific it is.
@@ -132,6 +134,7 @@ pub fn parse_block(id: &str, text: &str) -> Result<(BlockDef, Vec<String>), Stri
     if let Some(replaceable) = file.replaceable {
         def.replaceable = replaceable;
     }
+    def.tool = file.tool;
     // Tags, tidied: spaces round each `/` and at the ends trimmed, empty parts and repeats dropped.
     for tag in &file.tags {
         let parts: Vec<&str> = tag.split('/').map(str::trim).filter(|part| !part.is_empty()).collect();
@@ -145,6 +148,98 @@ pub fn parse_block(id: &str, text: &str) -> Result<(BlockDef, Vec<String>), Stri
         }
     }
     Ok((def, warnings))
+}
+
+/// A block's file text, as the Registrar saves it: `header` (the file's own comment lines, kept),
+/// then only the settings that differ from what the block would be without them, so the file stays
+/// as short as the hand-written ones. Reads back as the same block (`parse_block`).
+pub fn block_file_text(def: &BlockDef, header: &str) -> String {
+    let mut text = String::from(header.trim_end());
+    if !text.is_empty() {
+        text += "\n\n";
+    }
+    let id = def.name.as_str();
+    if def.display_name != default_display_name(id) {
+        text += &format!("name = {:?}\n", def.display_name);
+    }
+    let look = match (def.see_through, def.inner_faces) {
+        (true, true) => Look::Grid,
+        (true, false) => Look::Outline,
+        _ => Look::Solid,
+    };
+    match look {
+        Look::Grid => text += "look = \"grid\"\n",
+        Look::Outline => text += "look = \"outline\"\n",
+        Look::Solid => {}
+    }
+    // Textures: as few words as say it ("all", then "sides", then single faces).
+    let faces = &def.faces;
+    let mut words: Vec<(&str, &str)> = Vec::new();
+    if faces.iter().all(|face| face == &faces[0]) {
+        words.push(("all", &faces[0]));
+    } else {
+        if faces[..4].iter().all(|face| face == &faces[0]) {
+            words.push(("sides", &faces[0]));
+        } else {
+            for (k, word) in ["north", "south", "east", "west"].into_iter().enumerate() {
+                words.push((word, &faces[k]));
+            }
+        }
+        words.push(("top", &faces[4]));
+        words.push(("bottom", &faces[5]));
+    }
+    let words: Vec<String> = words.into_iter().filter(|(_, texture)| !texture.is_empty()).map(|(word, texture)| format!("{word} = {texture:?}")).collect();
+    if !words.is_empty() {
+        text += &format!("textures = {{ {} }}\n", words.join(", "));
+    }
+    let random = |k: usize| def.rotations[k] == TextureRotation::Random;
+    let mut rotations: Vec<&str> = Vec::new();
+    if (0..6).all(random) {
+        rotations.push("all");
+    } else {
+        if (0..4).all(random) {
+            rotations.push("sides");
+        } else {
+            rotations.extend(["north", "south", "east", "west"].into_iter().enumerate().filter(|&(k, _)| random(k)).map(|(_, word)| word));
+        }
+        if random(4) {
+            rotations.push("top");
+        }
+        if random(5) {
+            rotations.push("bottom");
+        }
+    }
+    if !rotations.is_empty() {
+        let quoted: Vec<String> = rotations.iter().map(|word| format!("{word:?}")).collect();
+        text += &format!("random_rotation = [{}]\n", quoted.join(", "));
+    }
+    if def.friction != 1.0 {
+        text += &format!("friction = {}\n", def.friction);
+    }
+    // What the look gives, unless set otherwise.
+    let see_through = look != Look::Solid;
+    if def.solid == see_through {
+        text += &format!("solid = {}\n", def.solid);
+    }
+    if !def.targetable {
+        text += "targetable = false\n";
+    }
+    if def.replaceable != see_through {
+        text += &format!("replaceable = {}\n", def.replaceable);
+    }
+    if !def.tags.is_empty() {
+        let quoted: Vec<String> = def.tags.iter().map(|tag| format!("{tag:?}")).collect();
+        text += &format!("tags = [{}]\n", quoted.join(", "));
+    }
+    if def.tool {
+        text += "tool = true\n";
+    }
+    text
+}
+
+/// A block file's comment lines at its top (kept when the Registrar saves it).
+pub fn header_of(text: &str) -> String {
+    text.lines().take_while(|line| line.trim().is_empty() || line.trim_start().starts_with('#')).collect::<Vec<_>>().join("\n")
 }
 
 /// "incus:red_granite" → "Red granite".
@@ -238,6 +333,24 @@ mod tests {
         assert_eq!(warnings, ["an empty tag (ignored)"]);
     }
 
+
+    #[test]
+    fn a_saved_block_file_reads_back_as_the_same_block_and_keeps_its_comments() {
+        let header = "# Grass: the surface of the test world.\n# More about it.";
+        let files = [
+            "name = \"Grass\"\ntextures = { top = \"grass_top\", sides = \"grass_side\", bottom = \"dirt\" }\nrandom_rotation = [\"top\"]\ntags = [\"ground\"]",
+            "look = \"outline\"\ntextures = { all = \"grid\" }\ntool = true",
+            "textures = { north = \"a\", south = \"b\", east = \"a\", west = \"a\", top = \"c\", bottom = \"c\" }\nrandom_rotation = [\"sides\", \"bottom\"]\nfriction = 0.25\nsolid = false\ntargetable = false",
+        ];
+        for file in files {
+            let (def, _) = parse_block("incus:grass", file).unwrap();
+            let written = block_file_text(&def, header);
+            assert!(written.starts_with(header), "{written}");
+            assert_eq!(header_of(&written).trim_end(), header);
+            let (again, _) = parse_block("incus:grass", &written).unwrap();
+            assert_eq!(again, def, "{written}");
+        }
+    }
     #[test]
     fn looks_set_sensible_behaviour() {
         let (grid, _) = parse_block("incus:grid", r#"look = "grid"

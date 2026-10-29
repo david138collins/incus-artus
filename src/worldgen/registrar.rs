@@ -63,6 +63,19 @@ pub struct Registrar {
     replaced: BTreeMap<String, BTreeSet<Rgb>>,
     /// Which of the master palette's colours are shown.
     view: PaletteView,
+    /// The colour under the mouse this frame, and last frame's (the library, drawn first, lights the
+    /// blocks using it).
+    colour_hover: Option<Rgb>,
+    last_colour_hover: Option<Rgb>,
+    /// Each block's data file, and every block texture file's name.
+    sources: BTreeMap<String, PathBuf>,
+    texture_files: Vec<String>,
+    /// The open block's settings as being edited in the dock (saved to its file on "Save"), and its
+    /// tags as typed.
+    draft: Option<BlockDef>,
+    tags_text: String,
+    /// The textures of blocks that aren't building aids: the art whose colours the palette holds.
+    art_textures: BTreeSet<String>,
     /// "Clear out unused colours" was pressed: its preview is showing, waiting for a yes.
     clearing: bool,
     /// Goes up by one whenever the palette is saved.
@@ -110,7 +123,11 @@ impl Registrar {
         }
         let before: BTreeMap<String, Vec<(Rgb, u32)>> = std::mem::take(&mut self.textures).into_iter().map(|(name, texture)| (name, texture.colours)).collect();
         let folder = block_texture_folder();
-        let mut used: Vec<Rgb> = Vec::new();
+        self.art_textures.clear();
+        self.sources = registry.defs().iter().filter_map(|def| registry.source(&def.name).map(|path| (def.name.clone(), path.to_path_buf()))).collect();
+        // Every texture file there is, for choosing a face's.
+        self.texture_files = std::fs::read_dir(&folder).into_iter().flatten().flatten().filter_map(|entry| entry.path().file_stem().filter(|_| entry.path().extension().is_some_and(|extension| extension == "png")).map(|stem| stem.to_string_lossy().into_owned())).collect();
+        self.texture_files.sort();
         for def in registry.defs().iter().filter(|def| shown(def)) {
             for name in texture_names(def) {
                 if self.textures.contains_key(name) {
@@ -120,10 +137,14 @@ impl Registrar {
                     Ok(pixels) => Texture { colours: master_palette::colours_in(&pixels), image: None, preview: None, pixels, problem: None },
                     Err(problem) => Texture { colours: Vec::new(), image: None, preview: None, pixels: Vec::new(), problem: Some(problem) },
                 };
-                used.extend(texture.colours.iter().map(|&(rgb, _)| rgb));
                 self.textures.insert(name.to_string(), texture);
             }
+            // Building aids' textures stay out of the palette.
+            if !def.tool {
+                self.art_textures.extend(texture_names(def).into_iter().map(str::to_string));
+            }
         }
+        let used: Vec<Rgb> = self.art_colours().into_iter().collect();
         // What changed, texture by texture.
         let mut said: Vec<String> = Vec::new();
         for (name, texture) in &self.textures {
@@ -192,7 +213,7 @@ impl Registrar {
 
     /// Colours on no spline that no block uses any more.
     fn unused(&self) -> Vec<u32> {
-        let used: BTreeSet<Rgb> = self.textures.values().flat_map(|texture| texture.colours.iter().map(|&(rgb, _)| rgb)).collect();
+        let used = self.art_colours();
         self.palette.colours.iter().filter(|&(&slot, colour)| !self.palette.is_regulated(slot) && !used.contains(&colour.rgb)).map(|(&slot, _)| slot).collect()
     }
 
@@ -208,6 +229,25 @@ impl Registrar {
         self.picked.retain(|rgb| self.palette.slot_of(*rgb).is_some());
         self.undo.push(what.clone());
         self.save(format!("{what}; their numbers are retired."));
+    }
+
+    /// Write a block's settings to its data file (its comments at the top kept), after saving a copy
+    /// for undo. The game reads the file again at once.
+    fn save_block(&mut self, def: &BlockDef, path: Option<&Path>) {
+        let Some(path) = path else { return };
+        let what = format!("Saved {}", path.file_name().map_or(String::new(), |name| name.to_string_lossy().into_owned()));
+        if let Err(error) = save_undo_step(&undo_folder(), &what, &[path.to_path_buf()]) {
+            self.message = format!("Not saved: couldn't save the undo copy ({error}).");
+            return;
+        }
+        let header = std::fs::read_to_string(path).map(|text| crate::data::header_of(&text)).unwrap_or_default();
+        self.message = match std::fs::write(path, crate::data::block_file_text(def, &header)) {
+            Ok(()) => {
+                self.undo.push(what.clone());
+                format!("{what}; the game picks it up in a moment.")
+            }
+            Err(error) => format!("Couldn't save {}: {error}.", path.display()),
+        };
     }
 
     /// Undo the newest change: its files put back, and everything read again.
@@ -233,8 +273,17 @@ impl Registrar {
         colours
     }
 
-    /// How many of a block's colours aren't on a spline (0: regulated).
+    /// Every colour the art uses: the textures of every block that isn't a building aid.
+    fn art_colours(&self) -> BTreeSet<Rgb> {
+        self.art_textures.iter().filter_map(|name| self.textures.get(name)).flat_map(|texture| texture.colours.iter().map(|&(rgb, _)| rgb)).collect()
+    }
+
+    /// How many of a block's colours aren't on a spline (0: regulated; a building aid's never
+    /// count).
     fn unregulated(&self, def: &BlockDef) -> usize {
+        if def.tool {
+            return 0;
+        }
         self.block_colours(def).keys().filter(|&&rgb| !self.palette.slot_of(rgb).is_some_and(|slot| self.palette.is_regulated(slot))).count()
     }
 }
@@ -251,6 +300,7 @@ pub fn draw(root: &mut egui::Ui, registrar: &mut Registrar, registry: &BlockRegi
         registrar.band = None;
     }
     registrar.hovered = None;
+    registrar.last_colour_hover = registrar.colour_hover.take();
     let defs: Vec<&BlockDef> = registry.defs().iter().filter(|def| shown(def)).collect();
     registrar.update_mapping(&defs);
     egui::Panel::left("registrar library").resizable(true).default_size(260.0).size_range(180.0..=600.0).show(root, |ui| {
@@ -301,12 +351,22 @@ fn library(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
 fn library_row(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) {
     let unregulated = registrar.unregulated(def);
     let selected = registrar.selected.contains(&def.name);
+    // Lit when it uses the colour under the mouse, or any picked colour.
+    let colours = registrar.block_colours(def);
+    let lit = registrar.last_colour_hover.is_some_and(|rgb| colours.contains_key(&rgb)) || registrar.picked.iter().any(|rgb| colours.contains_key(rgb));
+    let textures = texture_names(def).len();
     let row = ui.horizontal(|ui| {
+        ui.colored_label(if lit { PICKED } else { Color32::TRANSPARENT }, "•").on_hover_text("Uses the colour under the mouse, or a picked one");
         if let Some(top) = def.faces.get(4).filter(|top| !top.is_empty()) {
             texture_image(ui, registrar, top, 20.0, false);
         }
         let label = ui.selectable_label(selected, &def.display_name);
-        if unregulated > 0 {
+        if textures > 1 {
+            ui.small(format!("{textures} textures")).on_hover_text("A composite block: its faces have different textures");
+        }
+        if def.tool {
+            ui.small("building aid").on_hover_text("Not world art: its colours stay out of the master palette");
+        } else if unregulated > 0 {
             ui.small(format!("{unregulated} unregulated")).on_hover_text("Colours not on any spline yet");
         } else {
             ui.small("regulated").on_hover_text("Every colour is on a spline");
@@ -392,6 +452,23 @@ fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     ui.heading(&def.display_name);
     ui.monospace(&def.name);
     ui.label(if def.tags.is_empty() { "No tags".to_string() } else { format!("Tags: {}", def.tags.join(", ")) });
+    // Regulated or not, and composite or not.
+    let unregulated = registrar.unregulated(def);
+    let textures = texture_names(def).len();
+    ui.horizontal(|ui| {
+        if def.tool {
+            ui.label("Building aid: its colours stay out of the master palette");
+        } else if unregulated == 0 {
+            ui.colored_label(Color32::from_rgb(120, 220, 120), "Regulated: every colour is on a spline");
+        } else {
+            ui.colored_label(Color32::from_rgb(255, 200, 80), format!("{unregulated} colours not on a spline"));
+        }
+        if textures > 1 {
+            ui.separator();
+            ui.label(format!("Composite: {textures} textures"));
+        }
+    });
+    egui::CollapsingHeader::new("Block").id_salt("registrar block settings").default_open(false).show(ui, |ui| block_settings(ui, registrar, def));
     ui.add_space(8.0);
     // Its faces, as many as differ.
     let faces: [(&str, &[usize]); 3] = [("top", &[4]), ("sides", &[0, 1, 2, 3]), ("bottom", &[5])];
@@ -441,6 +518,148 @@ fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     registrar.take(ui, egui::Id::new("dock colours"), event);
 }
 
+/// How a block's faces take their textures.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FaceKind {
+    /// One texture on every face.
+    One,
+    /// The top, the four sides and the bottom (like grass).
+    TopSidesBottom,
+    /// Each of the six faces its own.
+    Each,
+}
+
+/// The open block's settings, edited on a copy and saved to its data file on "Save" (a copy kept
+/// for Undo first; the game reads the file again at once).
+fn block_settings(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) {
+    if registrar.draft.as_ref().is_none_or(|draft| draft.name != def.name) {
+        registrar.draft = Some(def.clone());
+        registrar.tags_text = def.tags.join(", ");
+    }
+    let files = registrar.texture_files.clone();
+    let Some(draft) = registrar.draft.as_mut() else { return };
+    ui.horizontal(|ui| {
+        ui.label("name:");
+        ui.text_edit_singleline(&mut draft.display_name);
+    });
+
+    // Which faces have their own textures.
+    let faces = draft.faces.clone();
+    let mut kind = if faces.iter().all(|face| face == &faces[0]) {
+        FaceKind::One
+    } else if faces[..4].iter().all(|face| face == &faces[0]) {
+        FaceKind::TopSidesBottom
+    } else {
+        FaceKind::Each
+    };
+    let was = kind;
+    ui.horizontal(|ui| {
+        ui.radio_value(&mut kind, FaceKind::One, "one texture");
+        ui.radio_value(&mut kind, FaceKind::TopSidesBottom, "top, sides and bottom");
+        ui.radio_value(&mut kind, FaceKind::Each, "each face its own");
+    });
+    if kind != was {
+        match kind {
+            // One: the top's (or the first set) everywhere.
+            FaceKind::One => {
+                let texture = if faces[4].is_empty() { faces.iter().find(|face| !face.is_empty()).cloned().unwrap_or_default() } else { faces[4].clone() };
+                draft.faces = std::array::from_fn(|_| texture.clone());
+                let rotation = draft.rotations[4];
+                draft.rotations = [rotation; 6];
+            }
+            // Top, sides and bottom: the sides all as the north one.
+            FaceKind::TopSidesBottom => {
+                for k in 1..4 {
+                    draft.faces[k] = draft.faces[0].clone();
+                    draft.rotations[k] = draft.rotations[0];
+                }
+            }
+            FaceKind::Each => {}
+        }
+    }
+    // A texture and random rotation for each group of faces.
+    let groups: Vec<(&str, Vec<usize>)> = match kind {
+        FaceKind::One => vec![("all faces", vec![0, 1, 2, 3, 4, 5])],
+        FaceKind::TopSidesBottom => vec![("top", vec![4]), ("sides", vec![0, 1, 2, 3]), ("bottom", vec![5])],
+        FaceKind::Each => crate::data::FACE_NAMES.iter().enumerate().map(|(k, name)| (*name, vec![k])).collect(),
+    };
+    egui::Grid::new("registrar faces").num_columns(3).show(ui, |ui| {
+        for (label, which) in groups {
+            ui.label(label);
+            let mut texture = draft.faces[which[0]].clone();
+            egui::ComboBox::from_id_salt(("registrar face", label)).selected_text(if texture.is_empty() { "(none)" } else { &texture }).show_ui(ui, |ui| {
+                for file in &files {
+                    ui.selectable_value(&mut texture, file.clone(), file);
+                }
+            });
+            if texture != draft.faces[which[0]] {
+                for &k in &which {
+                    draft.faces[k] = texture.clone();
+                }
+            }
+            let mut random = which.iter().all(|&k| draft.rotations[k] == crate::data::TextureRotation::Random);
+            if ui.checkbox(&mut random, "random rotation").on_hover_text("Each block turned at random, to hide repetition (only for textures with no \"up\")").changed() {
+                for &k in &which {
+                    draft.rotations[k] = if random { crate::data::TextureRotation::Random } else { crate::data::TextureRotation::Fixed };
+                }
+            }
+            ui.end_row();
+        }
+    });
+
+    // The look, and what it means for bodies and building.
+    let mut look = match (draft.see_through, draft.inner_faces) {
+        (true, true) => 1,
+        (true, false) => 2,
+        _ => 0,
+    };
+    let looked = look;
+    ui.horizontal(|ui| {
+        ui.label("look:");
+        ui.radio_value(&mut look, 0, "solid");
+        ui.radio_value(&mut look, 1, "grid").on_hover_text("See-through, every cell's faces drawn");
+        ui.radio_value(&mut look, 2, "outline").on_hover_text("See-through, only a volume's outside drawn");
+    });
+    if look != looked {
+        // What each look usually is (as a block file without these settings would be).
+        let see_through = look != 0;
+        draft.see_through = see_through;
+        draft.opaque = !see_through;
+        draft.inner_faces = look == 1;
+        draft.solid = !see_through;
+        draft.replaceable = see_through;
+    }
+    ui.add(crate::debug::Slider::new(&mut draft.friction, 0.0..=3.0).text("friction (1 = ordinary ground)"));
+    ui.horizontal_wrapped(|ui| {
+        ui.checkbox(&mut draft.solid, "solid").on_hover_text("Stops bodies");
+        ui.checkbox(&mut draft.targetable, "the crosshair can target it");
+        ui.checkbox(&mut draft.replaceable, "replaceable").on_hover_text("Placing a block into it just replaces it, like air");
+        ui.checkbox(&mut draft.tool, "building aid").on_hover_text("Not world art: its colours stay out of the master palette");
+    });
+    ui.horizontal(|ui| {
+        ui.label("tags:");
+        if ui.text_edit_singleline(&mut registrar.tags_text).on_hover_text("Separated by commas; a / nests one in another, as folders do").changed() {
+            draft.tags = registrar.tags_text.split(',').map(|tag| tag.split('/').map(str::trim).filter(|part| !part.is_empty()).collect::<Vec<_>>().join("/")).filter(|tag| !tag.is_empty()).collect();
+        }
+    });
+
+    let changed = draft != def;
+    let draft = draft.clone();
+    let path = registrar.sources.get(&def.name).cloned();
+    ui.horizontal(|ui| {
+        if ui.add_enabled(changed && path.is_some(), egui::Button::new("Save to the block file")).on_disabled_hover_text(if path.is_none() { "This block has no data file" } else { "Nothing changed" }).clicked() {
+            registrar.save_block(&draft, path.as_deref());
+        }
+        if ui.add_enabled(changed, egui::Button::new("Revert")).clicked() {
+            registrar.draft = Some(def.clone());
+            registrar.tags_text = def.tags.join(", ");
+        }
+        if let Some(path) = &path {
+            ui.small(path.file_name().map_or(String::new(), |name| name.to_string_lossy().into_owned()));
+        }
+    });
+}
+
 // ── The palettes ──────────────────────────────────────────────────────────
 
 /// What happened to a block of colour squares: the one under the mouse and whether it was clicked,
@@ -467,6 +686,7 @@ impl Registrar {
             (input.pointer.interact_pos(), input.pointer.primary_pressed(), input.pointer.primary_released(), input.modifiers.shift, input.modifiers.command)
         });
         if let Some((rgb, clicked)) = event.hover {
+            self.colour_hover = Some(rgb);
             self.focus = Some(rgb);
             if clicked && !shift && !self.picked.remove(&rgb) {
                 self.picked.insert(rgb);
@@ -792,7 +1012,9 @@ fn splines(ui: &mut egui::Ui, registrar: &mut Registrar, lit: Option<&BTreeSet<R
             let picked = !registrar.picked.is_empty();
             let spline = &mut registrar.palette.splines[index];
             if !full {
-                ui.label(&spline.name);
+                if ui.add(egui::Label::new(&spline.name).sense(egui::Sense::click())).on_hover_text("Click to pick its shades").clicked() {
+                    action = Some(SplineAction::Pick(index));
+                }
                 ui.small(format!("{} shades", spline.steps.len()));
                 return;
             }
@@ -807,10 +1029,13 @@ fn splines(ui: &mut egui::Ui, registrar: &mut Registrar, lit: Option<&BTreeSet<R
                 action = Some(SplineAction::Renamed);
             }
             ui.small(format!("{} shades", spline.steps.len()));
-            if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").clicked() {
+            if ui.button("Pick").on_hover_text("Pick its shades").clicked() {
+                action = Some(SplineAction::Pick(index));
+            }
+            if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").on_disabled_hover_text("Pick some colours first (click or Shift + drag them)").clicked() {
                 action = Some(SplineAction::Add(index));
             }
-            if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").clicked() {
+            if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").on_disabled_hover_text("Pick some of its colours first").clicked() {
                 action = Some(SplineAction::TakeOff(index));
             }
             if ui.button("Delete").on_hover_text("The spline goes; its colours stay in the palette, not on a spline").clicked() {
@@ -818,14 +1043,15 @@ fn splines(ui: &mut egui::Ui, registrar: &mut Registrar, lit: Option<&BTreeSet<R
             }
         });
         let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
-        if full {
-            hsl_curves(ui, &steps);
-        }
         let event = swatches(ui, registrar, &steps, lit);
         registrar.take(ui, egui::Id::new(("spline colours", index)), event);
     }
     match action {
         Some(SplineAction::Renamed) => registrar.save("Renamed.".to_string()),
+        Some(SplineAction::Pick(index)) => {
+            let shades: Vec<Rgb> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| colour.rgb).collect();
+            registrar.picked.extend(shades);
+        }
         Some(SplineAction::Move(index, by)) => {
             registrar.palette.move_spline(index, by);
             registrar.save("Moved.".to_string());
@@ -880,6 +1106,7 @@ fn clear_unused(ui: &mut egui::Ui, registrar: &mut Registrar) {
 enum SplineAction {
     Renamed,
     Move(usize, isize),
+    Pick(usize),
     Add(usize),
     TakeOff(usize),
     Delete(usize),
@@ -906,34 +1133,6 @@ fn focus(ui: &mut egui::Ui, registrar: &Registrar, defs: &[&BlockDef]) {
             ui.small(if users.is_empty() { "used by no block".to_string() } else { format!("used by {}", users.join(", ")) });
         });
     });
-}
-
-/// A spline's hue, saturation and lightness, step by step, as three lines (hue across 0-360°, the
-/// others 0-100%): its curves, to see how it ramps.
-fn hsl_curves(ui: &mut egui::Ui, steps: &[(Rgb, u32)]) {
-    if steps.len() < 2 {
-        return;
-    }
-    let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 48.0), egui::Sense::hover());
-    let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, 2.0, Color32::from_gray(24));
-    let hsl: Vec<[f32; 3]> = steps.iter().map(|&(rgb, _)| super::palette::to_hsl(rgb)).collect();
-    let lines = [(0, 360.0, Color32::from_rgb(255, 170, 60)), (1, 1.0, Color32::from_rgb(90, 200, 255)), (2, 1.0, Color32::WHITE)];
-    for (channel, top, colour) in lines {
-        let points: Vec<egui::Pos2> = hsl
-            .iter()
-            .enumerate()
-            .map(|(k, value)| {
-                let x = rect.left() + 4.0 + (rect.width() - 8.0) * k as f32 / (hsl.len() - 1) as f32;
-                let y = rect.bottom() - 4.0 - (rect.height() - 8.0) * value[channel] / top;
-                egui::pos2(x, y)
-            })
-            .collect();
-        painter.add(egui::Shape::line(points, Stroke::new(1.5, colour)));
-    }
-    painter.text(rect.left_top() + egui::vec2(4.0, 2.0), egui::Align2::LEFT_TOP, "hue", egui::FontId::proportional(10.0), Color32::from_rgb(255, 170, 60));
-    painter.text(rect.left_top() + egui::vec2(28.0, 2.0), egui::Align2::LEFT_TOP, "saturation", egui::FontId::proportional(10.0), Color32::from_rgb(90, 200, 255));
-    painter.text(rect.left_top() + egui::vec2(84.0, 2.0), egui::Align2::LEFT_TOP, "lightness", egui::FontId::proportional(10.0), Color32::WHITE);
 }
 
 /// Colours darkest first (by HSL lightness, then hue).

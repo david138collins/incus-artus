@@ -40,6 +40,7 @@ Every setting is optional; leave out anything you don't need.
 | `targetable` | Can the crosshair stop on it (to break it or build against it)? | `true` |
 | `replaceable` | Does placing a block into it just replace it, like air? | `false` for solid, `true` for grid/outline |
 | `tags` | Labels the Registrar groups and sorts blocks by, as many as you like, like being in several folders at once. A `/` nests one tag inside another, as folders do: `tags = ["rock/igneous", "ore"]`. | none |
+| `tool` | A building aid (like the grid and outline), not world art: its colours stay out of the Registrar's master palette, as the UI's do. | `false` |
 
 ### Faces
 
@@ -84,6 +85,13 @@ file name (and the line, for typos):
 - **An unknown face word** (`roof = "..."`): a warning; the rest of the file still works.
 - **A missing texture**: that face shows the magenta checkerboard.
 - **A deleted file**: the block stays until the game restarts.
+
+## Saving from the Registrar
+
+The Registrar (Editor Suite, first tab) can edit a block's settings in its dock and save them to the
+block's file. It writes only the settings that differ from the defaults, so the file stays short. The
+comments at the top of the file are kept; **comments further down are not**, so put notes about a
+block at the top. A copy of the old file is kept first, and **Undo** puts it back.
 
 Changes made with the sliders on the Blocks page are temporary: saving that block's file replaces
 them. To keep a tweak, write it into the file.

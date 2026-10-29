@@ -18,6 +18,7 @@ use crate::world::BlockId;
 use bevy::prelude::*;
 use bevy_egui::egui;
 use loading::{find_block_files, parse_block};
+pub use loading::{block_file_text, header_of};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -94,6 +95,8 @@ pub struct BlockDef {
     /// Tags the Registrar groups and sorts blocks by (a block can have any number, like being in
     /// several folders at once). A `/` nests one tag in another, as folders do: "rock/igneous".
     pub tags: Vec<String>,
+    /// A building aid (grid, outline): its colours stay out of the master palette, as the UI's do.
+    pub tool: bool,
 }
 
 impl BlockDef {
@@ -113,6 +116,7 @@ impl BlockDef {
             rotations: Default::default(),
             friction: 1.0,
             tags: Vec::new(),
+            tool: false,
         }
     }
 
@@ -131,6 +135,7 @@ impl BlockDef {
             rotations: Default::default(),
             friction: 1.0,
             tags: Vec::new(),
+            tool: false,
         }
     }
 }
@@ -283,6 +288,11 @@ impl BlockRegistry {
         self.ids.insert(def.name.clone(), id);
         self.defs.push(def);
         id
+    }
+
+    /// The data file a block came from (none for air and placeholders).
+    pub fn source(&self, name: &str) -> Option<&std::path::Path> {
+        self.sources.get(name).map(PathBuf::as_path)
     }
 
     pub fn id(&self, name: &str) -> Option<BlockId> {

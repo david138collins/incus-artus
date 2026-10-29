@@ -5,3 +5,6 @@
 name = "Outline"
 look = "outline"
 textures = { all = "grid" }
+
+# A building aid: its colours stay out of the master palette.
+tool = true
