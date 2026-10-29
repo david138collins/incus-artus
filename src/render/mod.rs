@@ -501,6 +501,11 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
              eases in; high = close to a hard stop (strong shading goes from shaded to fully dark quickly). Near and far alike.",
         );
         ui.add(crate::debug::Slider::new(&mut settings.height_tint, 0.0..=0.3).text("height tint")).on_hover_text("Land a little lighter the higher it is.");
+        ui.add(crate::debug::Slider::new(&mut settings.slope_match, 0.0..=2.0).text("far slopes match the near")).on_hover_text(
+            "The far terrain's slopes lit as the near ground's block steps light them on average: the shade at the steps'\n\
+             feet (Light: foot shading, step shadows) and the block sides they show. 1 = as worked out; nudge it until\n\
+             the two meet without a line. 0 = smooth slopes (brighter).",
+        );
         if ui.button("Reset distant terrain settings").clicked() {
             *settings = crate::debug::page_default("render", "distant");
         }
