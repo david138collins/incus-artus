@@ -13,9 +13,18 @@
 
 use bevy::math::{IVec3, Vec3};
 
-/// Tiny gap used so a box resting exactly on a block boundary counts as touching it,
-/// not overlapping it.
+/// Tiny gap used so a box resting exactly on a block boundary counts as touching it, not
+/// overlapping it: at least this, and more far from the world's middle (`margin`).
 const EPSILON: f32 = 1e-4;
+
+/// The gap at a place `at` blocks from the middle: a few of the smallest steps a position can take
+/// there, never less than `EPSILON`. Far out, positions only change in steps of 0.0002 to 0.004 blocks,
+/// so a body stopped flush against a wall could land a hair inside it, the next move's sweep started
+/// past the wall's face, and you walked through [2026-10-29: the "walking through block sides" bug,
+/// from x = 2,048 out].
+fn margin(at: f32) -> f32 {
+    (at.abs() * f32::EPSILON * 4.0).max(EPSILON)
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct BodySize {
@@ -79,8 +88,8 @@ pub fn has_support(feet: Vec3, size: BodySize, solid: impl FnMut(IVec3) -> bool)
 /// Does the body overlap any solid block where it stands?
 pub fn overlaps_solid(feet: Vec3, size: BodySize, mut solid: impl FnMut(IVec3) -> bool) -> bool {
     let (min, max) = body_bounds(feet, size);
-    let low = (min + Vec3::splat(EPSILON)).floor().as_ivec3();
-    let high = (max - Vec3::splat(EPSILON)).floor().as_ivec3();
+    let low = (min + min.map(margin)).floor().as_ivec3();
+    let high = (max - max.map(margin)).floor().as_ivec3();
     for z in low.z..=high.z {
         for y in low.y..=high.y {
             for x in low.x..=high.x {
@@ -107,8 +116,8 @@ fn sweep_axis(
     let (min, max) = body_bounds(feet, size);
     // The block range the box covers on the two other axes.
     let (a, b) = ((axis + 1) % 3, (axis + 2) % 3);
-    let a_range = (min[a] + EPSILON).floor() as i32..=(max[a] - EPSILON).floor() as i32;
-    let b_range = (min[b] + EPSILON).floor() as i32..=(max[b] - EPSILON).floor() as i32;
+    let a_range = (min[a] + margin(min[a])).floor() as i32..=(max[a] - margin(max[a])).floor() as i32;
+    let b_range = (min[b] + margin(min[b])).floor() as i32..=(max[b] - margin(max[b])).floor() as i32;
     let layer_is_solid = |layer: i32, solid: &mut dyn FnMut(IVec3) -> bool| {
         for i in a_range.clone() {
             for j in b_range.clone() {
@@ -127,8 +136,8 @@ fn sweep_axis(
     let mut result = feet;
     if distance > 0.0 {
         let front = max[axis];
-        let first = (front - EPSILON).floor() as i32 + 1;
-        let last = (front + distance - EPSILON).floor() as i32;
+        let first = (front - margin(front)).floor() as i32 + 1;
+        let last = (front + distance - margin(front)).floor() as i32;
         for layer in first..=last {
             if layer_is_solid(layer, solid) {
                 // Stop with our front face flush against the block's near face.
@@ -138,8 +147,8 @@ fn sweep_axis(
         }
     } else {
         let front = min[axis];
-        let first = (front + EPSILON).floor() as i32 - 1;
-        let last = (front + distance + EPSILON).floor() as i32;
+        let first = (front + margin(front)).floor() as i32 - 1;
+        let last = (front + distance + margin(front)).floor() as i32;
         for layer in (last..=first).rev() {
             if layer_is_solid(layer, solid) {
                 result[axis] += (layer + 1) as f32 - front;
@@ -219,6 +228,29 @@ mod tests {
         assert!(blocked.up);
     }
 
+
+    #[test]
+    fn walls_hold_far_from_the_middle_walking_into_them_frame_by_frame() {
+        // Far out, a position can only change in steps of about 0.002 to 0.004 blocks: a body
+        // stopped flush against a wall can land a hair inside it. Walk into walls (east, west,
+        // north, south) at many places out to the world's edge, a tick at a time, sliding along
+        // them at an angle, and never come out the far side.
+        for k in 0..40 {
+            let far = 1_000.0 + k as f32 * 900.0;
+            for (dx, dy) in [(1.0f32, 0.3f32), (-1.0, 0.3), (0.3, 1.0), (0.3, -1.0)] {
+                let wall = |cell: IVec3| {
+                    let at = Vec3::new(cell.x as f32, cell.y as f32, 0.0) - Vec3::new(far, -far, 0.0);
+                    floor(cell) || (dx > 0.5 && at.x >= 3.0) || (dx < -0.5 && at.x <= -4.0) || (dy > 0.5 && at.y >= 3.0) || (dy < -0.5 && at.y <= -4.0)
+                };
+                let mut feet = Vec3::new(far + 0.5, -far + 0.5, 10.0);
+                for _ in 0..600 {
+                    let motion = Vec3::new(dx, dy, -0.2) * (6.0 / 60.0);
+                    feet = move_body(feet, DWARF, motion, wall).0;
+                    assert!(!overlaps_solid(feet, DWARF, wall), "inside the wall at {feet} ({k}, {dx}, {dy})");
+                }
+            }
+        }
+    }
     #[test]
     fn walls_work_at_negative_coordinates() {
         let world = |cell: IVec3| floor(cell) || cell.y <= -4;

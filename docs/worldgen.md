@@ -1606,7 +1606,11 @@ to 58, every block regulated). Next:
    above it (mud and gravel along rivers, sand on dry ground, snow where it's cold). It's roughed in
    before the rivers are finished, and reads their results once they exist. Its name is David's call.
 **Reminder: fix the collision bug (walking through block sides) before the asset factory world is added
-to the Registrar**, which comes when it's time for trees.
+to the Registrar**, which comes when it's time for trees. **[FIXED 2026-10-29]** It came from the
+position's precision: from 2,048 blocks out a position only changes in steps of 0.0002 blocks or more,
+larger than the collision's tiny gap, so a body stopped flush against a wall could land a hair inside it
+and the next step's sweep started past the wall. The gap now grows with distance
+(`src/player/collision.rs`, `margin`); a test walks into walls out to the world's edge.
 
 Earlier (2026-10-27): David is exploring and improving the terrain gen again. **The Interpreter rework** [David,
 2026-10-27], as it goes:
