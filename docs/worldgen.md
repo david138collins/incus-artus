@@ -101,14 +101,34 @@ the code yet).
     one hue spline, duplicate it, switch the copy to a different spline, and call it hematite. A block
     can draw from several splines, which is how blocks stay more than palette swaps. Inserting a shade
     must never disturb the existing ones. (This replaces "a palette row per material".)
-    **Linked or unlinked** [David 2026-10-29]: a duplicate can stay linked to its original (repaint
-    limonite's pattern and hematite follows) or be unlinked, and the status is shown on the asset.
+    *A duplicate is simply a new block* [David 2026-10-29: "linked" was dropped, as it meant nothing
+    beyond regulated or unregulated].
   - **Art always has a way in** [David 2026-10-29]: David keeps the ability to make art anywhere and
     work it into the library through the Color Lab. As the library grows this will be used less, but it
     always keeps its value: any file David needs gets into the game, regulated by the Color Lab.
-  - **Regulation status:** each asset shows whether it's fully regulated (every colour on a spline,
-    linked or unlinked shown), so David can see at a glance what's homologated. Full homologation is
-    what will later allow kung fu with colour rendering.
+  - **Regulation status:** the only status is **regulated** (every colour on a spline) or
+    **unregulated**, so David can see at a glance what's homologated. Full homologation is what will
+    later allow kung fu with colour rendering.
+  - **[DECIDED 2026-10-29, via Builder] Placement and first version:**
+    - **The Registrar is the first tab** of the Editor Suite: Registrar | Graphics Kit | Tectonic Sim |
+      Terrain Compiler. It's one page, side by side: the library by tag | the dock | the master palette
+      and a sub-palette.
+    - **Grouping by tags, not folders:** any number of tags per block, nested with "/" like folders
+      ("rock/igneous"). It stays extensible as block properties grow. Built as 353260c (`tags` in block
+      files, `docs/data-files.md`).
+    - **The first goal:** open the Registrar and see the library's blocks, with all their unregulated
+      colours in the master palette, and a button ready to make a new spline and start sorting. A
+      sub-palette viewer shows a group, one asset or a new unregulated asset, with HSL transforms.
+      David: "sneak up on the final configuration."
+    - **Storage (Builder's design):** the master palette is `assets/data/palette.toml`, with permanent
+      slots (`next_slot` never reused) and splines as lists of slots. The PNGs stay what David paints.
+      A pixel's slot is found by exact colour match. When the Lab changes a colour, it rewrites those
+      pixels in the PNGs at the same moment, so there are no sidecar files.
+      *Counsel's notes:* with exact match, **each slot's colour must be unique**. A shade duplicated
+      next to itself has to differ by at least a hair before any pixel uses it, and two splines can't
+      hold the same colour, or the pixels can't tell which slot they mean. And since the Lab rewrites
+      PNGs, keep a backup or undo of the files it touches, and watch out for a file that's open in
+      Aseprite at the time.
   - **Snapping or free shading stays open as long as possible** [David]. Builder's way of doing slot
     textures (turning the slots into ordinary colours on the CPU, mipmaps made from those colours)
     keeps both open: the slot ids are always there, so a snapping shader can be added later.
