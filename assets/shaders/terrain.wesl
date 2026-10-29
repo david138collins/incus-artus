@@ -78,9 +78,18 @@ struct VertexOutput {
 fn vertex(in: Vertex) -> VertexOutput {
     let a = in.packed.x;
     let b = in.packed.y;
-    let game_local = vec3<f32>(f32(a & 63u), f32((a >> 6u) & 63u), f32((a >> 12u) & 63u));
+    let corner = vec3<f32>(f32(a & 63u), f32((a >> 6u) & 63u), f32((a >> 12u) & 63u));
+    let face = (a >> 18u) & 7u;
 
     let world_from_local = get_world_from_local(in.instance_index);
+    // Nudged a hair out of its rectangle, in the face's plane (src/render/mesher.rs: which way is
+    // out at this corner), about a third of a pixel at this distance: neighbouring rectangles
+    // overlap, so no pixel-thin cracks open where a big one's edge meets small ones' corners.
+    let out_of = vec3<f32>(f32((a >> 22u) & 1u), f32((a >> 23u) & 1u), f32((a >> 24u) & 1u)) * 2.0 - 1.0;
+    let in_plane = out_of * (1.0 - abs(face_normal(face)));
+    let at = world_from_local * vec4<f32>(vec3<f32>(corner.y, corner.z, -corner.x), 1.0);
+    let hair = max(0.0005, 0.0006 * length(at.xyz - view.world_position));
+    let game_local = corner + in_plane * hair;
     let local = vec3<f32>(game_local.y, game_local.z, -game_local.x);
     let world = world_from_local * vec4<f32>(local, 1.0);
     // The section's placement (Bevy axes), turned back into game axes.
@@ -91,7 +100,7 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.local = game_local;
     out.world_position = world.xyz;
     out.layer = b & 0xFFFFu;
-    out.face = (a >> 18u) & 7u;
+    out.face = face;
     out.quad = b >> 16u;
     out.random_rotation = (a >> 21u) & 1u;
     out.section_origin = vec3<i32>(round(vec3<f32>(-origin.z, origin.x, origin.y)));

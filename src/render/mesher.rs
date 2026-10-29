@@ -204,8 +204,15 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
                         p[axis] = plane_position;
                         p[u_axis] = cu;
                         p[v_axis] = cv;
+                        // Which way is out of the rectangle at this corner, along each game axis
+                        // (1 = the positive way): the shader nudges the corner that way by a hair,
+                        // so neighbouring rectangles overlap instead of leaving pixel-thin cracks
+                        // where a big one's edge meets small ones' corners (the sky flickered through).
+                        let mut out_bits = [0u32; 3];
+                        out_bits[u_axis] = (cu != u) as u32;
+                        out_bits[v_axis] = (cv != v) as u32;
                         out.vertices.push([
-                            p[0] | p[1] << 6 | p[2] << 12 | (face as u32) << 18 | (random_rotation as u32) << 21,
+                            p[0] | p[1] << 6 | p[2] << 12 | (face as u32) << 18 | (random_rotation as u32) << 21 | out_bits[0] << 22 | out_bits[1] << 23 | out_bits[2] << 24,
                             (layer & 0xFFFF) | quad_tag << 16,
                         ]);
                     }
@@ -375,6 +382,30 @@ mod tests {
             let face = (vertex[0] >> 18) & 7;
             let rotates = (vertex[0] >> 21) & 1 == 1;
             assert_eq!(rotates, face == 4);
+        }
+    }
+
+    #[test]
+    fn each_corner_knows_which_way_is_out_of_its_rectangle() {
+        // A 3 × 1 × 1 bar: every face's corners say "out" away from the face's middle, along the
+        // face's plane (the shader nudges them that way so rectangles overlap a hair).
+        let mut blocks = empty();
+        for x in 4..7 {
+            blocks[x + 5 * N + 5 * N * N] = STONE;
+        }
+        let mesh = mesh_section(&input(blocks));
+        for quad in mesh.vertices.chunks_exact(4) {
+            let at = |v: &[u32; 2], k: u32| ((v[0] >> (6 * k)) & 63) as f32;
+            let middle: Vec<f32> = (0..3).map(|k| quad.iter().map(|v| at(v, k)).sum::<f32>() / 4.0).collect();
+            for v in quad {
+                for k in 0..3u32 {
+                    let out = (v[0] >> (22 + k)) & 1 == 1;
+                    let offset = at(v, k) - middle[k as usize];
+                    if offset != 0.0 {
+                        assert_eq!(out, offset > 0.0, "axis {k}: corner {} vs middle {}", at(v, k), middle[k as usize]);
+                    }
+                }
+            }
         }
     }
 
