@@ -180,6 +180,12 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   - **Staring can start a fight** [David]: stare the wrong person in the face too long without saying
     anything and they take it badly, up to turning hostile. A fun aggro mechanic built from the same trigger.
   - **Only talk that needs more than gestures** becomes a cutscene dialogue.
+    **Two tiers** [David 2026-10-29]: most random and common dialogue is immersive, from looking at a
+    face and gestures. Important conversations are **cutscene dialogue**: it captures the mouse and finds
+    a nice place for the camera between the two of you. **So the switch itself tells you it's
+    important.** *Counsel:* keep cutscenes rare enough that the signal stays true. The camera needs a
+    rule for a good spot (side-on to both faces, clear of walls, with the line between you unblocked),
+    and a fallback for cramped rooms.
   - Where the news comes in: `docs/simulation.md`, section 12 (news particles).
   - Counsel's notes [PROPOSED]: four directions means at most four choices at a time, which keeps
     talk quick (deeper choices nest). Still to settle: how long a look counts as "looking at someone"
