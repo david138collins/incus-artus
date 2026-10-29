@@ -313,6 +313,12 @@ Counsel's notes [PROPOSED]:
   *Counsel:* in Incus Artus a zone can be painted over registered buildings or plain blocks alike, so it
   still works on "just blocks" after a building loses its definition. Ownership and patron rules are the
   same rules as the door locks above, so the law reads trespass from them too.
+- **Verbose descriptions, as in Dwarf Fortress** [David 2026-10-29]: once thought unnecessary, now
+  "if we do everything else right, they're kind of trivial to implement and with a dialogue system they
+  are almost obligatory." *Counsel:* the text is a reading of data that already exists (personality
+  weights, likes and dislikes, memories, an item's maker, material and history), so it's templates, not
+  new systems. It's written only when someone looks (a description, a line of dialogue, a chronicle
+  entry), so it costs nothing until then. The same phrases serve descriptions, dialogue and news.
 - **The hierarchy:** impulses (hunger, safety, belonging, greed, duty...) → goals → tasks → actions.
   Each level picks from a few options by simple checks against data. The World and Intermediator sims
   stop at goals and tasks; only the Local sim plays out actions. That's what keeps it cheap.
