@@ -49,7 +49,27 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   the infidelity and set out to murder all the offspring.
 - **The player.** The God of Fire, angered, fathered a child with a mortal woman: the player
   character, 18, origins unknown, who wakes in a tent on a road. The world enters the **Age of Strife**.
-- **Endings** (the game never becomes unwinnable):
+  - **[IDEA 2026-10-26] The seventh child of Fire.** Probably never said out loud (it may be too much to
+    state plainly). Instead, an **ancient mural of the six progenitors of the races** in a forgotten temple,
+    perhaps the Temple of Darkness where the Necronomicon is found, lets the player work it out.
+  - **[IDEA 2026-10-26] The God of Fire appears.** An irresponsible, irascible deadbeat of a father:
+    irritated when you bother him, somewhat callous. Perhaps a stone face in his temple that speaks. In the
+    end, a moment of him standing there like "that's my boy". (The obvious first shape: a quest for Fire
+    and one for each goddess, then a final one to somehow defeat Darkness.)
+  - **[IDEA 2026-10-26] Darkness tells you who you are,** when he tries to kill you in a boss fight, with
+    some deep, dark words. A bit "Luke...".
+  - **[IDEA 2026-10-26] Agents of Darkness sent to murder you.** Foreshadowing in the classic shape:
+    why such interest in you? (David knew early on there'd be hostile settlements and a cult lair.)
+  - **[IDEA 2026-10-26] The chosen one, without meddling.** Evoke the "chosen one" tropes without the game
+    deliberately steering the player. They also explain what's unbelievable about the player: carrying
+    five beds in your pockets, abilities and behaviour no NPC has, NPCs reacting to you differently. You're
+    not an ordinary person, and the world treats you that way, so the game's conveniences read as part of
+    who you are.
+  - **Prophecies:** David hasn't planned any. They're the obvious move every fantasy author makes; use one
+    only if it's ever the only way to make the story work.
+- **Endings** (the game never becomes unwinnable). **[DECIDED 2026-10-26] These are end states of the story,
+  not the end of the game:** finishing one finishes *that story* and leaves the world in a certain state
+  (the dark path is the world's third end state). Whatever you choose, you're still just playing Minecraft.
   1. **The gods' quests:** complete a quest for each god and somehow defeat the God of Darkness.
      Evil settlements then stop trying: they defend themselves but no longer expand or pursue goals;
      ones that need resources (goblins need food) may wither, like a badly run village.
@@ -75,6 +95,26 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   Minecraft world, attacks on good and neutral settlements become urgent. You can still cleverly
   preserve a farmstead while cities burn.
 - The world is big enough to go off into the wilderness and make a living.
+
+## The arc of the Age of Strife  [IDEA, 2026-10-26]
+
+- **It has already begun** a little before the player incarnates.
+- **The world weakens itself.** The kingdoms of humans, dwarves and elves fight each other out of greed and
+  anxiety as evil looms closer. Many are ruined, and ruined kingdoms are what evil settlements (goblin dens
+  in caves and marshes, and the rest) raid more. A world exhausted by its own struggle is less able to resist.
+- **Two stages:** first power concentrates among the strongest; then even they are overwhelmed, as the
+  weaker civilizations are ravaged to poverty or extinction.
+- **Left alone, evil wins.** Without the player's intervention the Age of Strife ends in evil's victory.
+- **The unexplored world gets harder by itself,** with no level scaling. A den visited an hour in might hold
+  3 goblins and a shaman. Found after 80 hours, one that has been raiding and multiplying might hold 20
+  goblins, some high level, several shamans, a chieftain and an ogre living with them.
+- **Variety stays wild throughout.** Any cave, at any time, could hold a really nasty kind of zombie.
+- **Pace [OPEN]:** players invest very different amounts of time, so the speed of the decline is hard to
+  judge. It could be driven by how aggressively the player pursues storyline items (pursuing the main
+  questline already makes the Dungeonmaster draw more often).
+- **[DECIDED 2026-10-26] No player setting for it.** The pace isn't chosen at world creation (no
+  "length of the age", no world types to pick). **The player's choice is their actions:** what they
+  pursue, fight, build or ignore is what sets the pace.
 
 ## The Goddess of Fate: the probability engine  [IDEA, architecturally important]
 
@@ -106,6 +146,31 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
 - **[DECIDED] HUD bottom bar:** equip section · three glass spheres (left to right **blue energy**,
   **red blood**, **green stamina**) with a sloshing pixel-fluid simulation · quickbar.
 - Pausing: probably only from the manager screen, or as an option.
+- **[IDEA, David 2026-10-28] Talking by looking.** Talking to NPCs is mostly annoying because it takes
+  too long, so most talk doesn't take over the screen:
+  - **Look someone in the face to start.** They stop what they're doing and greet you with an offer
+    ("Hi! Do you want something?"). The text floats over them in a bubble.
+  - **Answer with gestures:** move the mouse to nod yes or shake no.
+  - **Choices sit round their face.** Nod yes and they show options; keep looking at their face until
+    the options light up, then move the mouse left, right, up or down to pick one.
+  - **They react to staring.** Keep staring and it goes "Hi!", then "...yeees?", then "What do you
+    want?", maybe "What is your problem?" or "What are you looking at?"
+  - **Or the number row** [David]: the options are numbered 1. 2. 3. 4., and while you're looking
+    someone in the face the number keys pick them (instead of whatever they normally do).
+  - **Look away for too long and the talk just dissipates.** No "goodbye" needed.
+    - **Walking off can be a dialogue event of its own** [David]: leave mid-conversation, look back, and
+      the bubble over them says "... okay, see ya then". The world notices you left, without stopping you.
+  - **Staring can start a fight** [David]: stare the wrong person in the face too long without saying
+    anything and they take it badly, up to turning hostile. A fun aggro mechanic built from the same trigger.
+  - **Only talk that needs more than gestures** becomes a cutscene dialogue.
+  - Where the news comes in: `docs/simulation.md`, section 12 (news particles).
+  - Counsel's notes [PROPOSED]: four directions means at most four choices at a time, which keeps
+    talk quick (deeper choices nest). Still to settle: how long a look counts as "looking at someone"
+    (so glancing round a market doesn't stop everyone), only one person talking to you at once, and
+    how the mouse both turns your head and answers (perhaps the view settles on their face while you
+    talk). The number row answers the keyboard question. If the number row is also the quickbar, the
+    quickbar is borrowed only while a face is looked at, so pick a "looking at a face" rule that can't
+    trigger mid-fight (e.g. not while a weapon is raised, or not with hostiles).
 
 ## People
 
@@ -116,6 +181,20 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   - *Inhabitants* belong to a settlement: you give orders and wait for them to be done.
   - *Followers* are your personal party: you can use their inventories and tell them how to follow
     (single file, fan out, stay close with weapons out, be aggressive, ...).
+  - **[IDEA 2026-10-26] Followers are people in the world who can join your party.** Special inhabitants
+    you control more directly, through dialogue.
+  - **[OPEN] Who can follow you:** everyone, only people written into the story, or a blend. David's current
+    leaning is the blend: any village might have a fighter or a rogue willing to leave home and follow you
+    for a price, plus story followers you unlock through quests.
+  - **[OPEN] How much control you have:** not worked out yet. At least a **posture** setting
+    (e.g. sneaky, aggressive, attacking).
+  - **[IDEA] They stay close.** Not like Skyrim, where followers run off to attack someone. They stay near you
+    in a roughly circular area, like a scene from The Lord of the Rings.
+  - **[IDEA] They watch your back.** You should *feel* the difference: with a party around you, you aren't
+    as open to being hit from behind.
+  - **[IDEA] A co-op guest is a follower** (see Multiplayer). When the friend is offline, their character
+    carries on as a normal person in the host's world, a special one: the host can keep them in the party
+    or tell them to hang out at their house.
 - **[DECIDED]** RPG system for NPCs and player alike. Attributes (from the mockup): Str, Con, End, Int,
   Wil, Cha, Spd, Dex, Agi. Skills such as Athletics (modulates sprinting).
 - **[IDEA] Food → spheres.** Each food has amounts of **protein, carbs and nutrition**. Variety matters:
@@ -210,6 +289,9 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   effects, armour, stats).
 - Content lists exist: scrolls (Alliance, Blessing, Cartography, ... Wonder), potions, rings,
   spells, wands of every wood and metal (vault `lists/`).
+- **REMIND DAVID when magic design starts** [IDEA 2026-10-26]: **"spell lego"** à la Noita, where you can
+  concoct spells irresponsibly. Bizarre, useless, dumb and dangerous spells that are amusing to make and
+  watch may be a great feature.
 
 ## Economy  [IDEA]
 
@@ -253,6 +335,10 @@ inhabitants, laying out regions and workshops, and the main questline.
   settlement.
 - A full world-gen stack with deep control panels, tuned before shipping.
 - **[IDEA] Big enough to be alone in.** Game modes with an empty world can come later.
+- **[DECIDED 2026-10-26] Starting a game is just starting a game.** For now the player chooses nothing at
+  world creation: no settings, no world types. The worlds are big and won't be overpopulated. Every
+  world-gen parameter (about 210 already, thousands by release) is tuned by David and fixed in the release.
+  They're all compiled when the game begins, behind the world-generation waiting screen of lore and eye candy.
 
 ## Two simulations: local and world  [IDEA, architecturally important]
 
@@ -304,6 +390,47 @@ See `docs/simulation.md` for the working design.
 - **The in-game map** is literal, with useful overlays. It shows the regions you've explored or heard of, what
   they're called and where they are, even before they have terrain data. (Later.)
 
+## The opening  [IDEA, 2026-10-26]
+
+**The waiting screen is the intro.** While the world generates (about 10 minutes):
+
+- **The world forms before your eyes,** from a toy version of the real Tectonic Sim built for spectacle.
+  Set up right, the plates become panes of glass that explode, shatter and orbit back to the centre as a
+  glowing ball of spinning triangles. For the player's new world this runs **in reverse**: the land appears
+  as an explosion of pieces coming together, which fade as land and mountains push through, and the ocean
+  fills in from the edge of the circle. Mountains rise and forests spread as erosion is compiled.
+- **Animated slideshow art** tells the story in a few scenes, and shows what the player can do, and that
+  they can take part or not.
+- **A fantasy interpretation of the map** lets the player see the larger world **once**. Then they find
+  themselves somewhere in it, **without knowing where**. They work it out by talking to people, or by
+  exploring until they see a big feature or shape they noticed during the intro. (This is the create-world
+  map of "Three maps" above; the player never picks a spawn.)
+
+**Then, after all the buildup, it's just Minecraft.** You're standing by a road with a tent, a loaf of
+bread and a blank diary. Birds sing and flit about.
+
+- **Immediately accessible:** you can start the normal Minecraft routine straight away, a little more
+  involved, like RLCraft or Vintage Story. Every task is a toy, fun for its own sake and not too hard.
+- **But you know there's more.** By now the player knows that finding a village is where things go way
+  beyond Minecraft. At first it should feel more like Skyrim or Daggerfall.
+
+## What the story is for  [IDEA, 2026-10-26]
+
+- **Its practical purpose** is context: a reason the world is full of people living, doing things and
+  causing a commotion, and a clear way for the player to take control of their world.
+- **It rationalises the behaviours that make the world alive,** the way Dwarf Fortress's do. But this is
+  Minecraft, so it isn't random stories at all times: some events come at random from people's behaviours,
+  and none of it is a barrier to just doing Minecraft things.
+- **It must be completable.** Not so hard that you can't finish it. Completing it leaves you a world you
+  can be rich in and build whatever you want in.
+
+## Voyages (new game plus)  [IDEA, LATER]
+
+- **Take a boat to a new world:** a new world is generated for you to explore, and you can bring people
+  and cargo with you. The journey takes about 10 minutes, the same as world generation.
+- **You can sail back.** The lite simulation runs everything forward by the time you were away, so
+  settlements need to be set up to sustain themselves.
+
 ## Build order after the foundation  [DECIDED with Grok, 2026-10-22]
 
 1. A tentative **Fate service** for all future probabilistic events.
@@ -322,11 +449,58 @@ See `docs/simulation.md` for the working design.
   containers; staged mining (rock → boulder → block); logs processed on sawhorses and workbenches.
 - Workshops are blueprints of stations; villagers do visible multi-step labor; warehouse capacity is
   what you build; regions are shapes; seasons matter (spring and fall wheat; 2-week growing cycles).
+- **[IDEA 2026-10-26] Workshops of any size** [David], as in Songs of Syx: how many tables, shelves and
+  workbenches you put in decides how many people can work there. Maybe a Vintage Story-like crafting
+  system inside that. David's caution: don't drift too far from Minecraft (a jeweller's lapping disk and
+  angle-guided stone holder are a long way from it). His question: if every workshop is a chair, storage
+  and tables, what makes a jeweller's different from a carpenter's?
+  Counsel's proposal **[PROPOSED]**, three layers:
+  - **One signature station per trade** says what the workshop *is*: a jeweller's bench, an anvil, a
+    loom. This is Minecraft's own answer (a villager's job comes from its job-site block: the smithing
+    table, the fletching table, the grindstone), so it's familiar, not a drift.
+  - **Generic furniture sets the size:** tables, shelves and seats decide how many can work at once and
+    how much is stored, as in Songs of Syx.
+  - **Tools laid on the tables add the detail:** the lapping disk, the dop stick, a loupe, as small items
+    placed with the quartile system (items on quarters and centres). They make the workshop readable at a
+    glance and let a better-equipped shop work faster or make finer things. Tools are items, so they can
+    be bought, made, stolen or broken.
+  The detail lives in objects you can see, not in more steps for the player to learn, which keeps it close
+  to Minecraft.
+  - **Two kinds of crafting, one set of stations** [David's observation, counsel's framing]: Minecraft's
+    crafting is closer to Skyrim's than Dwarf Fortress's: *you* walk up to a station and make a thing.
+    Dwarf Fortress's is *labour*: other people make things over time, in chains, and the question is
+    throughput. Incus Artus has both, so the same jeweller's bench could be used by the player
+    Skyrim-style (walk up, make a ring) and be a workplace for villagers DF-style (work orders, slots).
+  - **[IDEA 2026-10-26] Crafting by list, not a grid** [David]: no Minecraft "tic-tac-toe box", just a list
+    of what you can make from the resources you have. With nothing to memorise, more items become feasible.
+  - **[OPEN] How much object variety the world has** [David: "a can of worms"]. Job items scattered about
+    by workers would make places feel alive, but players will want to pick them up. Counsel's notes:
+    items that matter to a system (a tool that speeds work, a sellable ring) are real items, owned by
+    someone, so taking one is theft that people notice; pure clutter can be part of a station's look and
+    not an item at all. And variety can come the way blocks already do (material × inclusion): a few drawn
+    forms × materials × gems by palette swap, so one drawing makes many items. The art is one artist's
+    time (`vision/watch-list.md`, item 4), so variety should go where it means something.
 - Calendar: year = 4 seasons × 7 days; day = 15 min light + 15 min dark.
 
 ## Multiplayer and modding  [DECIDED]
 
 - Not a goal. Later maybe LAN / host-a-friend scale; a Discord feedback pipe and dev drop-ins first.
+- **[IDEA 2026-10-26] Hosting, as a selling point.** Never an MMO, never servers. A player **hosts** their own
+  world and **invites guests**; it's only for playing together. Nobody ever walks into an empty "server",
+  and continuity is never a problem, because the world belongs to the host. No server infrastructure for
+  David to run. The taste of honest old software like StarCraft 1: you host a game that you and a friend own,
+  between the two of you and no one else. The cozy D&D-table scale.
+- **[IDEA 2026-10-26] Co-op, not multiplayer: the host is special, and it's their world you're invited to.**
+  - **The host is always the party leader;** guests are always in the host's party.
+  - **The host controls everything only one player can control:** time (sleep, pause, speed), the manager,
+    the settlements.
+  - **Guests have no presence in the story.** They fit in as just another person the host has met. They can
+    have their own houses, but they're **inhabitants under the host**.
+  - **Guests can't advance plotlines.** They didn't get the quests, and people won't talk story to them. A
+    friend can *perform* a quest's tasks, but the host completes it.
+  - **Why players will enjoy it:** Minecraft friend servers are full of friction over who's doing what,
+    sleeping, and keeping strangers out. Here none of that comes up: it's the host's world, and you're a guest
+    at their table. A primitive model in the best sense, like the earliest networked games.
 - Moddable: text IDs, content packs as folders, readable TOML.
 
 ## Notes for later: the gods, volcanoes, darkness and crime  [IDEA, 2026-10-23]
@@ -373,7 +547,10 @@ ways.
 3. **Blocking and defence** details; ranged combat; the injury list and its impediments.
 4. **The religion mechanics** for shrines and offerings (beyond Fate's hidden odds).
 5. **Character growth:** how skills improve; where attributes come from.
-6. **Dialogue and procedural quests:** how conversations work.
-7. **Animals:** mounts (donkey, horses, wagons, mule carts), livestock, hunting.
+6. **Dialogue and procedural quests:** how conversations work. Started: Talking by looking (Modes and
+   interface) and news particles (`docs/simulation.md`, section 12). Procedural quests still open.
+7. **Animals:** mounts (donkey, horses, wagons, mule carts), livestock, hunting. Started 2026-10-28:
+   wild animals are a likelihood per area made with the terrain, real only in the Local sim or as pets
+   (`docs/worldgen.md`, The stages after Mountains).
 8. **Audio direction.**
 9. **Release plan:** first-release scope, platform (Steam?), timeline.

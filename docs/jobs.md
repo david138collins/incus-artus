@@ -132,10 +132,10 @@ then, hauling jobs are simple: take this from here to there.
 
 - **One set of rules, given however much time has passed.** Each person has a current activity with time
   left. The same code runs **every tick** when Local (a few seconds at a time) and **every in-game hour** when
-  Rich (an hour at a time).
+  Intermediator (an hour at a time).
 - **Local:** later, bodies walk and carry for real; the decisions stay the same.
-- **Rich:** your settlement while you're away. People, the job board, and progress keep going as records.
-- **Thin:** no job board. Rare bookkeeping: meetings and friendships, moods, and production as numbers.
+- **Intermediator:** your settlement while you're away. People, the job board, and progress keep going as records.
+- **World:** no job board. Rare bookkeeping: meetings and friendships, moods, and production as numbers.
 - **[DECIDED] Everyone has a name from the very beginning.** Person records are small, so a whole world of them
   is cheap.
 
@@ -160,7 +160,7 @@ on the debug panel, with magenta stand-ins at the places people are.
    slots, work orders and test recipes, the occupation search lists, the haul override, reservations, giving up,
    the event log.
 3. **Meetings:** chance meetings, chats and friendships, in both the full and bookkeeping versions.
-4. **Levels and saving:** the same rules Local and Rich, the Thin bookkeeping, and all of it in the world save.
+4. **Levels and saving:** the same rules Local and Intermediator, the World bookkeeping, and all of it in the world save.
 
 ## Content David will need to provide (placeholders until then)
 

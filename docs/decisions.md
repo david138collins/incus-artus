@@ -121,6 +121,51 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** 640×480 is the *UI art* resolution only (maybe 1280×960 later). UI is integer-upscaled.
   The 3D world renders at native resolution.
 - **[DECIDED]** Limited palette; full colour reserved for special effects.
+- **[IDEA 2026-10-26] Palette sizes** (David's current plan):
+  - **The 3D world:** probably at least **600 colours**, every one chosen on purpose and used carefully so it
+    means something, allowing for brightness so there's depth. Special effects in the world have unlimited
+    colour, so they stand out.
+  - **The UI: 256 colours.** It only has to handle windows, buttons and words. Its toys (the three spheres with
+    fluid sims) need several rows of blue, red and green; window borders work with what's left.
+  - **Toys in the world** may simply be entities/actors that draw themselves their own way.
+  - **[OPEN until the art-refinement phase]** Whether lighting, shade and distance stay free (David's
+    leaning: full shading levels, shading with the palette by hand) or the finished frame is held to the
+    palette. David will judge it by looking, when refining the art becomes the best use of his time.
+    The aim either way is the essence of the games he remembers (dark rooms, black screens, high contrast,
+    every colour meaning something), never the costume of "8-bit nostalgia".
+- **[IDEA 2026-10-26] Palette cycling** for water blocks, showing which way the water is moving, and for small
+  white ripples that cycle along the shore edges.
+- **[DECIDED 2026-10-28] Water doesn't simulate flowing** (David). "Flowing" water is a **direction and a
+  speed**: which way the palette cycle runs, and which way and how fast it carries you or anything in it.
+  Like Dwarf Fortress, it has a direction but isn't really flowing unless you move something yourself.
+  - **Levels 1-8:** a water block holds 1 to 8 eighths. A **bucket holds one full block**; dump it in a
+    2×2×1 pit and you get four blocks at level 2/8.
+  - **Natural water doesn't need levels,** except perhaps for **rapids and falls**: a grade of water
+    levels plus speed, and **mist or splash foam** made at a point.
+  - **Ponds, lakes and the ocean past a river's mouth are still:** no direction. Only the water blocks
+    **at the edge** get the shore ripple palette cycle.
+  - **David will make a tile map of the ripples** (asset), so they go round corners seamlessly. The
+    renderer then needs to know, for each edge water block, which of its sides and corners touch land, to
+    pick the right tile (watch list item 15c).
+  - **Water works like Minecraft's snow layers, but it spreads, and possibly evaporates** (David, later
+    the same day). So water levels are layers in a block, and water you disturb spreads to even out.
+  - **Water has practical uses:** diverting a river or stream to drive a **water wheel** may be required.
+    So dug channels must fill from the river, and the water in them needs a direction and speed.
+  - Counsel's notes [PROPOSED]:
+    - **The generator places still water** at the heights Climate saved (lake surfaces, river beds
+      stepping down), so nothing has to settle when a chunk loads.
+    - **Spreading only starts when something changes** (you dig, pour, break a bank), and only in the
+      Local sim, block by block, then settles and stops. Untouched water never computes anything, which
+      keeps it cheap; changed water is saved with its chunk.
+    - **Natural rivers, lakes and the sea are endless sources:** a channel cut from a river fills and keeps
+      flowing without draining it. The channel's direction comes from downhill along it, and its speed
+      from its slope, so a wheel turns where the channel drops.
+    - **The lake-rim item** (`docs/worldgen.md`, step 8 note) changes with spreading: a crag dip below a
+      lake's surface would let the lake spill once disturbed, so the generator should still lower the
+      rim or fill the dip.
+    - **[OPEN, David]:** does diverting a river take water from it downstream (a wheel upstream dries a
+      village's mill below), or are rivers always endless? Does evaporation empty your own pools and
+      ditches over days, and does rain fill them?
 - **[OPEN]** The master palette isn't chosen yet (`lorecraft/art/Palettes/masterpal.gpl` is an experiment, not final).
   Current textures are placeholders; colours get coordinated once a visual style is visible. Don't check art against it.
 - **[DECIDED]** Block faces are 32×32 pixels.
@@ -131,8 +176,29 @@ Reference: `Art/quartile minecraft illustration.png`
   Sphere order, left to right: **blue energy** (next to equip, because equip can hold spells),
   **red blood**, **green stamina**. Can change later.
 - **[DECIDED]** Game name is **Incus Artus**.
+  - **[DECIDED 2026-10-26] Spelled *Artus* on purpose, not *Artis*.** *Incus* is Latin for anvil.
+    Strict Latin for "the anvil of art" would be *Incus Artis*; *artus* on its own means "limbs" or
+    "tight". David chose *Artus* because it looks and sounds better. The story told publicly: it carries
+    the ring of **Arthur** (König Artus, the Latin and German form of the name), which gives the title a
+    medieval, legendary sound. Anyone who points out the Latin gets that answer. Older notes and the inventory mockup that say *Artis* are out of date.
 - Reference art: `lorecraft/art/references/inventoryequipsave.png` (personal/party view, newest),
   `lorecraft/art/bad art/three man.png` (manager view), `lorecraft/art/personaltest1.png` (earlier in-world overlay).
+- **[DECIDED 2026-10-28] Sky, air and weather** (David):
+  - **Fog is wanted now.** It mattered little before, but now the terrain is cool to look at, and fog makes
+    it cooler. **A couple of miles of average visibility** (roughly 3,000 blocks) gives a deep sense of
+    smallness. David has been setting fog distances in the render panel and judging deep screenshots.
+  - **Skies:** simple, a couple of colours **dithered** together, offset. **Sunset** in deep red, orange,
+    magenta and blue, like the title-screen backdrop of an old adventure game.
+  - **Clouds:** super simple, almost cartoony **sprites**.
+  - **Thunderstorms and rain are important to get right.** Lightning for the sky and for magic may be made
+    in the Toy Factory (`vision/toy-factory.md`). **Thunderclouds:** a mush of dark sprites that block
+    the sun, fading in HSL toward dark and roiling.
+  - **Warm sun:** just a slider David blends to taste.
+  - **Moving shadows:** not a priority; the light is static for now.
+  - **God rays:** the usual kind feel expensive and heavy-handed, and volumetric lighting clumsy given what
+    the recipe offers. David's idea [IDEA]: infer **two** rays from the sun's position and the angle of the
+    shadow of whatever blocks it, and cast simple bands of lighter shade when the sun is hidden but
+    shining.
 
 ## Textures & Assets
 
@@ -165,6 +231,29 @@ Reference: `Art/quartile minecraft illustration.png`
   coloured ones in the distance.
 - **[LATER]** In-game structure editor ("temple"): an adjustable grid to build vanilla structures in, with data-point
   blocks (village-piece connectors for wave-function-collapse generation, tree structures for world gen and growth).
+  - **[DECIDED 2026-10-28] Structures are defined by building them** in the suite, with **imaginary
+    blocks as overlays** that act as triggers or hooks for other things (the data-point blocks above).
+    **First structures: a bunch of oak trees** (David).
+  - **Trees are made of blocks:** whole oak blocks and **quartile oak blocks**, so trees can be thinner,
+    with thinner branches, or in-between shapes (something David has looked forward to).
+  - **A couple of growth stages**, changing at random when a tree grows up.
+  - **Tree felling** is a mechanic David has long wanted to build: a tree-felling mod idea is what set
+    the whole project off, a month ago.
+  - **Far away, trees become sprites** of themselves.
+  - Counsel's notes [PROPOSED]:
+    - **The hooks a tree may need:** its base (where it stands and is cut), where it may branch or grow
+      next, where leaves go, the pivot it falls around, which stage it is. Hooks are invisible in the game
+      and visible in the suite.
+    - **A tree is one thing, not loose blocks:** when placed, it remembers which blocks are its own, so
+      felling knows what falls (and a player's house next to it doesn't).
+    - **Growing swaps one stage's structure for the next**, picked at random from several, checked for
+      room first so a tree never grows into a wall.
+    - **A falling tree is a moving voxel object:** it leaves the world as blocks, turns and falls as one
+      body (the shared kinematics layer above), and lands as logs or items. The renderer has to draw that.
+    - **Tree sprites can be baked automatically** from the structure itself, from several angles, lit
+      like the world (`vision/watch-list.md`, item 17, far entities as sprites).
+    - **What it needs first:** the quartile placement system built (quartile oak), the block register
+      (oak blocks), and the structure suite. Then trees, then felling.
 - **[DECIDED]** Random texture rotation is switched per block on the Blocks page: one switch for blocks that look
   the same all round, separate top / sides / bottom switches for blocks with a distinct top.
 
@@ -295,6 +384,11 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** git for history, GitHub (private) for backup.
 - **[DECIDED]** Claude writes all code and explains what and why as it goes; David runs the game and gives feedback.
   Stop after each step, and whenever there's a real design choice.
+- **[DECIDED 2026-10-26] Refactor religiously** [David]. The work goes a step forward, then retraces its steps
+  to change whatever the new step affects. The more faithfully that's done, the more integrity the software
+  keeps, and the less likely the project reaches a stage where refactors become both more expensive *and*
+  more necessary. Counsel's companion rule: the more often things are refactored, the more they need
+  checks that prove nothing broke (old presets still load, the same seed still bakes the same world).
 
 ## World Creation
 

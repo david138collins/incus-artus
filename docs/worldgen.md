@@ -26,6 +26,116 @@ The suite turned out bigger than first planned. It's now **the Editor Suite**, w
 - Master craftsmen spend much of their time making and maintaining tools; this is that. It may get messy. If it
   does, the editor can be started over later with a more focused logic, now that we know more.
 
+**An asset library page** [IDEA, David 2026-10-28; name and placement David's call]: a block
+registration suite and manager in the editor, so David can add and change blocks himself instead of
+asking Builder to put each one in. Comes after a round of graphics polishing and probing for easy wins,
+so the blocks are seen right when they go in.
+Counsel's notes [PROPOSED]:
+- **Blocks stay data, not code:** each block a definition file (`docs/block-properties.md`, the
+  Definition tier): name, material, textures for top, sides and bottom, colour tint, hardness, sounds.
+  The page writes those files. This is also what modding needs.
+- **Stable names, never list positions:** saved worlds store which block is where, so a block's id must
+  never change when blocks are added, reordered or renamed on the page (a string id like `dry_grass`,
+  with the display name free to change).
+- **A preview lit like the world:** the block on a small stand in sun and shade, near and far, beside
+  its neighbours, so a texture is judged as it will be seen.
+- **Shared textures, many colours:** one texture with a tint per material (as `block-properties.md`
+  plans), so the page offers "new block from this texture" as well as "new texture".
+- **Where the files live:** `Art/` is David's untracked scratch space. A registered block's textures
+  should be copied into the tracked game assets, so the game never depends on scratch files and the
+  art David registers gets saved to git (watch list item 12a).
+- **Reload without restarting:** change a texture, see it in the world.
+
+**The Registrar and its Color Lab** [IDEA, David 2026-10-29]. Names: "Registrar" is David's likely
+name for the block register suite ("suite" is a working word). David would rather call the Terrain
+Compiler the **World Compiler**, since it covers everything up to non-sentient life (not renamed in
+the code yet).
+- **The library page:** every asset the game has. A **dock** shows the asset that's open, or loads a
+  new one. In the dock you set its properties and register it into the library. The dock also shows
+  the palette that asset uses.
+- **The Color Lab**, a page of the Registrar, as the World Compiler has a terrain lab. It may later
+  live in the Graphics Kit too, or follow David between the two.
+  - **The global palette** is added up from every registered block.
+  - **Highlighting:** opening or mousing over an asset in the library lights up the colours it uses.
+  - **Grading tools:** register a block that uses a colour not yet in the palette, and the Lab points
+    it out and lets David replace it. It shows a mini palette of the nearest colours already in the
+    palette in each HSL direction (lighter, darker, more or less saturated, the hue either way).
+  - **The source of colours for FX and UI:** they get their colours from the Color Lab too, so all
+    colours are managed in one place.
+  - **Selections** [David 2026-10-29]: select colours from the global palette or from a library
+    asset's palette. Select groups of assets and see their combined palette.
+  - **Export to GPL:** any of these palettes (global, one asset's, a group's, a selection) can be
+    exported as a `.gpl` palette file.
+  - **Replace across assets:** update registered assets one at a time or in groups, replacing a colour
+    across every asset selected.
+  - **In the Graphics Kit**, some of these functions may need to work slightly differently: in the
+    animator, and on the widget/toy/FX script page, which is 2D and 3D.
+  - **The master palette from spline sets** [David 2026-10-29]: each hue gets HSL ramp splines that
+    set its shades. This answers the problem that every hue needs its own curve to the eye, which so
+    far has meant hand-adjusting each shade. The master palette could be defined entirely from these
+    HSL formulas.
+    - Some things will still need more control than splines give.
+    - **Colours that don't come from a formula must work fine** until they're all sorted into
+      splines.
+    - Eventually David, and the engines, work entirely from the master spline sets.
+    - **Insert a shade without shifting the others:** duplicate a colour and place it next to itself,
+      expanding the spline. Every colour keeps a permanent slot id, whatever its place on the spline,
+      so blocks using the old shades don't change. This is how odd tones join a spline, until no
+      colour outside a spline is needed.
+    - **Starting fresh** [David 2026-10-29]: once the Color Lab works, David starts the palette fresh on
+      splines (the current blocks are few and rough). Old blocks' colours show as dots beside a curve
+      to shape it by hand; there's no automatic fitting. **The rule: move everything into a spline as
+      soon as possible.**
+    - **Reshading onto a spline** is part of registering: each pixel is matched to a chosen spline,
+      either by nearest colour, or by rank (the darkest colour to the darkest step and so on, which
+      keeps the texture's contrast). Then David touches up by hand.
+      **It works like the Graphics Kit's palette tools** [David 2026-10-29], with sliders and settings
+      for *how* an asset is reshaded, not one fixed method. This is the feature set David spent a week
+      trying to buy before starting in Bevy and Rust. What the Kit already has (`src/worldgen/palette.rs`)
+      maps over: the spread (an equal slice of the *values* for each colour, like contour bands, or an
+      equal share of the *pixels*, the rank method), hard bands or smooth blends, and the HSL filter
+      (each of hue, saturation and lightness kept, set to one value, or taken from the source; for an
+      asset, the source is its own pixels' lightness). These should be the same code, shared, not a
+      second copy.
+  - **Fast round trips with Aseprite:** images and palettes bounce rapidly between the editor and
+    Aseprite. Palettes go out as GPL, which Aseprite loads; PNGs come back and are picked up without
+    restarting.
+  - **Material families as transforms**, with the last of the tuning done by hand in the group palette
+    view.
+  - **HSL stays the working language** (David uses it and Aseprite has no OKLCH). OKLCH may run
+    underneath, only for finding nearest neighbours and flagging near-twins, and maybe for an "OK
+    lightness" readout beside HSL's.
+  - **Seasons and biomes as real blocks, not palette shifts:** snow piling up 1/8 to a whole block,
+    as in Minecraft, with drifts from Climate's wind. The same partial-levels system as water's 1-8.
+Counsel's notes [PROPOSED]:
+- **Splines are the recipe and the palette is its bake,** the same way the world recipe works: the
+  spline sets are the source, the stored palette is what they produce, and a colour set by hand sits
+  on top. Every palette slot records where it came from (a spline and a step, or by hand), so David can
+  see what's still unsorted. A hand colour can later be adopted into a spline without its slot number
+  changing, so no texture has to be touched.
+- **The palette is a data file, one for the whole game.** The world, FX and UI all read it. The Color
+  Lab is the only thing that writes it. Being a shared panel rather than part of one app is what lets
+  it follow David between the Registrar and the Graphics Kit.
+- **Slot textures make "replace" cheap.** If each texture pixel names a palette slot rather than
+  holding a colour (the next structural step, below), changing a palette colour changes every block
+  using it at once, with no repainting. Without slot textures, "replace" means rewriting the image
+  files. That's another reason to build slot textures before the Registrar fills up.
+- **Replacing in some assets but not others** [2026-10-29]: with slot textures, changing a palette colour
+  changes it everywhere. Replacing it in only the selected assets means pointing their pixels at a
+  different slot instead. So "replace" needs two forms: *change this colour* (everywhere) and *swap
+  these assets to another colour* (only the selection). Show a preview before anything is written, and
+  keep an undo, since a group replace touches many files.
+- **One set of palette tools, used in several places:** selections, combined palettes, GPL export and
+  replace are worth building once, as shared tools that the Registrar, the animator and the toy/FX page
+  all use, each adding its own small differences on top, rather than three copies.
+- **Counts and near-twins:** show how many blocks use each colour. A colour only one block uses is a
+  candidate to merge. Two colours too close to tell apart are flagged as near-twins, so the palette's
+  colours stay ones that read as meaning.
+- **"New colour" means an exact match.** A pixel not exactly in the palette is new, so nothing slips
+  in by a hair.
+- This is where David's colour session happens (brightness A/B/C, the number of shades). Whether the
+  final frame snaps to the palette stays open, to be decided by eye once the world is full.
+
 **The world is the circle** inside the square field. The square exists only because image files are square. For
 the player, the circle is the boundary (the ice wall is past it; few players will sail that far).
 
@@ -357,7 +467,8 @@ Tectonic Sim
   ground) and the Interpreter the **World Interpreter** (it makes the world from everything before it).
   **Ecology** (paints life onto the compiled terrain: plants, trees, animal habitat zones) and
   **Civilization** (people and hostile NPCs; a few local edits for roads, villages and structures) will
-  be tabs before the interpreter, once the current scope is wrapped up. "EZ-Bake" stays as the way a
+  be tabs before the interpreter, once the current scope is wrapped up. Civilization is tuned in a
+  **civilization lab** (`docs/simulation.md`, section 11). "EZ-Bake" stays as the way a
   stage bundles its result for the next one. Ask David before naming or placing any new tab or panel.
   [David, 2026-10-26] The Terrain Compiler page (still called that in the suite's row) has three
   left-hand panels, shown or hidden by a row of buttons along its top: **Landmass** (what was the
@@ -380,6 +491,324 @@ Tectonic Sim
 - **The cost we accept:** sliders that change where water runs (mountain shape, ridges) stop being
   instant once erosion exists; they need a fast make.
 
+### The stages after Mountains  [IDEA, David 2026-10-28; nothing final until David says]
+
+Relayed by Builder from David, 2026-10-28.
+
+- **Next:** fine-tune the Terrain Compiler as it is, and decide whether hills and ground detail stay.
+- **The Additives may become "Mountains".** If they turn out to hold only mountains, the tab is renamed.
+- **A new stage, "Climate", between Mountains and the World Interpreter.** It holds hydrology,
+  temperature, wind, rainfall, very fine erosion, springs, creeks, streams, rivers and deltas. Water
+  follows **pseudoscientific principles, tuned to look good for a game**, not real physics. Climate makes
+  the fields that Ecology reads to lay out ranges, habitats, plants and trees.
+  - This matches the 2026-10-25 order above, where climate (rain, wind, temperature) came before rivers
+    because rivers need the rain; now they share one stage.
+  - It replaces the plan of putting hydrology beside Mountains in the Additives.
+- **Animals are part of the terrain.** All life that isn't sentient or evil is generated as a
+  **likelihood per area**, not as tracked animals. Individual animals exist only in the full (Local)
+  simulation, unless one becomes a pet. Their behaviour never reaches past the moment to moment: no
+  herds migrating on the books, no animal records in the world sim.
+
+Counsel's notes [PROPOSED, for David]:
+- **The line between Climate and the Interpreter** is the same as the peaks': Climate *chooses* (where
+  rivers run, how much flows, where springs rise, the rain and temperature maps), and the Interpreter
+  *draws* (each block of a creek bed, sized to its flow). The fine streams at ~2 blocks are still worked
+  out once at world creation and saved, as decided above.
+- **Animals as likelihoods** fit the three levels (`docs/simulation.md`, section 1): World and Intermediator places
+  only need "how many deer could live here" as a number for hunting, hides and food, and Local spawns
+  real ones from it. If hunting should ever thin the deer, that's one number per area that recovers over
+  time, still not tracked animals.
+- **Pets are the one exception** and become person-like records, the way followers do. Worth deciding
+  later whether livestock (which villages own and trade) counts as animals-as-likelihood or as goods.
+
+#### Rivers, the first part of Climate  [PROPOSED by Builder 2026-10-28; waiting on David for step 1]
+
+David (2026-10-28, after summit crags: "we're golden to get hydrological"): "first thing is working
+rivers." His idea: dots in a range of elevations against the mountains as **springs**; dots on the ocean
+and lakes that gather up the nearest springs, drawn as lines; springs gather to **creeks**, creeks to
+**streams**, streams to **rivers**, rivers to a **delta**. The line snakes, following the path of least
+resistance "up to a point before it carves". Five layers of dots in rings from the mountains, heading
+for the ocean, or lakes for a river, ponds for a stream. "I think I'm leaving something out."
+
+**Builder's proposal** (the change: dots run downhill and gather where their paths meet, instead of
+gathering to the nearest point, which would send rivers over ridges):
+- **Springs** are David's dots, scattered in an elevation band against the mountains.
+- **Each spring walks downhill**, step by step, along the path of least resistance (like the grain
+  drift dots).
+- **Where paths meet, they gather.** The rank comes from how much has joined: creek, stream, river. The
+  rings come out by themselves; David tunes where each rank starts instead of placing five layers.
+- **Lakes and ponds:** a path into a basin fills it until it spills over the lowest edge and goes on.
+- **"Up to a point before it carves"** is a setting: how high a barrier the water cuts through instead
+  of pooling (low: more lakes; high: gorges).
+- **Snaking** is a meander setting, strong on flat land, weak on steep.
+- **Deltas** where a river reaches flat coast, splitting into branches.
+- **What David left out** (Builder): rain (even everywhere at first; later Climate's rain and wind set
+  each spring's share: rain shadows, dry basins with salt lakes); the water surface stepping down evenly
+  in blocks (flat runs, rapids, waterfalls, never uphill); the valley (V-shaped in mountains, floodplains
+  in lowlands, sized by rank); the 32-block trickle worry (paths are smooth lines; each block measures its
+  distance to the nearest line, so a creek can be 1 to 3 blocks wide); everything else reading it (far
+  terrain, the map, ecology's distance to water and wetness).
+- **Pipeline:** the Climate tab between Additives and the World Interpreter reads the land (peaks and
+  ridgelines included) at the map's 32-block pixels, works out springs, paths, lakes and ranks, and hands
+  the river lines down; the Interpreter carves them at each block, after the hills. Nothing flows back.
+- **Order:** (1) a Rivers section on the Climate tab: springs, downhill paths, gathering, ranks, lakes
+  filling and spilling, shown as dots and lines on the map, no carving yet; (2) meanders; (3) carving and
+  water in the world; (4) deltas, then rain.
+
+Counsel's notes [PROPOSED, for David and Builder]:
+- **Downhill, not nearest, is right** and matches what was decided on 2026-10-25 (above): water always
+  runs downhill and always connects. David's rings and five ranks survive as the result, not the input.
+- **Rank by flow, not by count of springs.** Give every spring one unit of water now, so the rank is
+  "how much water", and rain later just changes each spring's units. Nothing has to be redone.
+- **The fine ground isn't in the 32-block map.** Summit crags, the crags and the hills are drawn per block,
+  so a line found at 32 blocks can meet a bump the map never saw. Two things keep it honest: the bed
+  height is saved along each line and only ever goes down (decided 2026-10-25: "carved to the bed height
+  saved along each line, not the ground minus 2"), and carving comes after the hills so it cuts through
+  them. Creeks in steep mountains may later want the fine ~2-block tile pass decided above.
+- **Lakes need a saved surface height,** flat across the lake, so the Interpreter fills to it.
+- **Same seed, same rivers, in any order,** and a tile made alone matches the full make (as decided).
+
+#### Breaking the water loop  [PROPOSED by Counsel 2026-10-28, for David]
+
+**David's leaning (2026-10-28): keep everything before flowing water as simple as possible. Flowing
+water is the hurdle.** And (later the same day) **set up everything before springs first**, each in its
+simplest form, so the rivers are built on the real inputs. The suggested order (Counsel):
+1. **Temperature:** the squiggled ice cap and equator lines with fades, milder by the sea, colder higher.
+2. **Wind:** from the blurred temperature, turned partly sideways, sliding round tall ground. Curl noise
+   later.
+3. **Rain:** wind carries moisture from the sea and drops it where the ground rises; rain shadows.
+4. **Then rivers** (Builder's plan, step 1 on).
+5. ~~Lake effect last~~ **Left out** [David, 2026-10-28]: see whether steps 1-4 are satisfactory
+   without it.
+Sent to Builder for technical review, 2026-10-28.
+
+**Builder's review (2026-10-28):** sound and cheap; all of climate, rivers included, in seconds.
+- **A bug in the plan, fixed:** wind made from the full temperature would treat every big range as a
+  cold source, so wind would blow outward from ranges and never cross them: no rain shadows, no lee
+  drylands. **Wind reads sea-level temperature** (latitude and sea mildness only); rain, evaporation and
+  the rest read the full temperature. Still one way.
+- **Sampling the ground:** Climate calls the Interpreter's own recipe with crags, summit crags, hills and
+  torn coast muted (shared maps, no copy, no second recipe). That's the broad shape without noise, which
+  rivers need: crag noise would make thousands of false pits. Carving later goes into the real ground.
+- **Resolutions:** temperature, wind and rain at 128 blocks a pixel; flow, basins and lakes on the 32-block
+  grid; rivers as smoothed lines carved per block by distance to the line (a cell lookup, as the peaks
+  have). The ~2-block creek pass is deferred until per-block carving shows whether it's needed.
+- **Costs:** under a second for the ground samples, a fraction of a second for temperature, wind and rain
+  (sliders near-live), 1-3 s for basins and flow (a background job). Saved: coarse fields and the lines, a
+  few MB. Made once at compile, then only read.
+- **Simplifications:** lakes **fill and spill only** at first (salt lakes and dry flats are their own
+  later step, the fiddliest part); flow on the grid gives straight 45° channels, so heights get a small
+  fixed seeded nudge before tracing and the lines are smoothed after.
+- **Springs change:** with rain first, a spring is where the gathered flow crosses a threshold, not a dot
+  in an elevation band.
+- **Build steps:** (1) Climate tab skeleton and a broad-ground overlay; (2) temperature; (3) wind, with
+  arrows; (4) rain: shadow, windward, upwind sea distance (the walks follow the wind field backward), each
+  with a slider, overlay and "because" readout; (5) flow: basins, fill-and-spill lakes, flow in rain
+  units; (6) river lines, ranked by flow, smoothed, bed height only falling downstream; (7) saved with the
+  world, handed over at spawn; (8) carving and water in the Interpreter and distant terrain; (9) meanders,
+  salt lakes, deltas, the desert picker.
+- David's call: names and placement (Builder suggests one Climate tab between Additives and the
+  Interpreter, with Temperature, Wind, Rain and Rivers sections), and the go-ahead for step 1.
+
+**Candidate behaviours from real waterways** [PROPOSED by Counsel 2026-10-28; David asked for this
+list as a menu, nothing chosen yet]. All water is rain or snowmelt: it runs off the surface, or soaks in
+and comes back out lower down as springs (where the land dips below the water table: slope feet, valley
+sides, along a rock layer's edge).
+
+| Real behaviour | In the game | Cost |
+|---|---|---|
+| Runoff gathers into creeks | springs where gathered rain crosses a threshold (Builder's plan) | planned |
+| Springs where steep meets flat | extra water where a slope eases off, so springs show at mountain feet | small |
+| Snowmelt | rain on cold high ground counts extra; mountain rivers run bigger | one slider |
+| Tarns (glacier-scooped lakes under peaks) | small high lakes; the broad ground may smooth their dips away, so maybe stamped | later |
+| Fill-and-spill lakes | planned | planned |
+| Waterfalls and rapids | where the bed has to step down | at carving |
+| Meanders, oxbows, floodplains | winding strongest on flat ground | step 9 |
+| Marshes | flat, wet, low ground | later, maybe |
+| Salt lakes | under-fed basins | step 9 |
+
+**[DECIDED 2026-10-28] David's answers to Builder's questions:**
+1. **Placement:** a **Climate panel inside the Terrain Compiler**, between Additives and the World
+   Interpreter (not its own Editor Suite tab).
+2. **Sections:** **Temperature · Wind · Rain · Rivers**, collapsible, in pipeline order; lakes inside
+   Rivers.
+3. **Latitude:** ice caps **north and south**, a hot equator band across the middle, squiggled.
+4. **Behaviours for steps 4-6:** **springs at slope feet** and **snowmelt**. Not chosen: tarns and
+   marshes (later or never). Waterfalls and rapids come with carving; meanders and salt lakes later, as
+   planned.
+Step 1 waits on David's go-ahead.
+
+Counsel's note for step 8: lakes are found on the broad ground but drawn into the real, craggy ground.
+Inside a lake, crag dips just fill and crag tops become islands (fine, maybe nice). The thing to watch is
+the rim: where a crag dip cuts the rim below the lake's surface, water could stand against air like a
+wall, since the Interpreter places still water and never simulates it. Likely answer: lower the lake's
+surface to the real rim, or fill that dip with ground.
+Counsel's reason to agree: river ranks tuned on even rain would shift once real rain arrives, so tuning
+them on real rain from the start saves a retune. Each stage gets an overlay to judge it by.
+
+**Mountains' effect on wind and rain, the simplest way** [PROPOSED by Counsel 2026-10-28, David asked]:
+- **First version: mountains don't bend the wind; they act only on rain.** Rain is what you see.
+  Bending the wind round mountains can come later if the rain looks wrong without it.
+- **Each rain pixel looks upwind.** From each spot, step back against the wind for some distance (a
+  setting) and read the ground along the way. Three things come out of that one walk:
+  - **Rain shadow:** how far the highest ground upwind stands above this spot. High ground upwind means
+    dry here, through a curve David shapes.
+  - **Facing the wind:** if the ground rises toward this spot from upwind, the air is pushed up and drops
+    rain: wetter on the windward slopes.
+  - **Distance from the sea, upwind:** far inland along the wind is drier (moisture runs out).
+- **Why this way:** every pixel is worked out alone, in any order, with no simulation to settle, so it's
+  fast, the same every time, and each part is its own slider and overlay.
+- The fuller method, carrying moisture along the wind pixel by pixel (picked up over the sea, spent as
+  rain), gives the same picture more exactly. It's the upgrade if the simple one looks off.
+
+David: the chicken and the egg of water, rain and lakes above sea level. In the real world it's a loop
+(rain makes rivers and lakes; lakes and wet ground make more rain). A game cuts the loop in one place
+and runs the rest one way, which is the linear-pipeline rule again. The order:
+
+1. **Ground** (from the stages before; read only).
+2. **Temperature**, from "latitude" and height (colder higher up).
+3. **Wind**, a fixed direction field, bent round the big mountains. David (2026-10-28) asked whether
+   it needs a simulator making swirls out of the hot and cold regions. Counsel [PROPOSED]: no fluid
+   simulation needed; make it from temperature, one way:
+   - blur the temperature map heavily; the wind blows **from cold toward hot**, along its slope (that's
+     what air pressure does);
+   - turn it partly sideways (the way the Earth's spin bends winds), so it **swirls round** hot and cold
+     spots instead of pointing straight at them;
+   - add **curl noise**, a known trick for swirly flow that never piles up, for eddies, with a strength
+     setting;
+   - weaken the part that runs into tall ground, so wind slides round mountains (and what does climb
+     them drops its rain).
+   A real fluid simulation (Jos Stam's "stable fluids") would also fit the budget at coarse pixels, but
+   it's much harder to steer; keep it as a later option if the cheap one looks too tidy.
+4. **Rain**: the wind carries moisture in from the sea and drops it where the ground rises; whatever
+   is left after a mountain is the rain shadow behind it. *The loop is cut here:* lakes and rivers add
+   no moisture back to the air.
+5. **Runoff**: every patch gets its rain as units of water, and the water runs downhill, adding up as it
+   goes. That sum (flow) is the rank: creek, stream, river.
+6. **Basins**: every dip with no way out has a **spill height**, the lowest point of its rim (the
+   priority-flood method finds them all in one pass).
+7. **Lakes**: each basin compares what flows in with what its surface would lose to evaporation (hotter
+   and drier, more loss).
+   - **More in than out:** it fills to its spill height and overflows, a fresh lake with an outlet, and
+     the outflow carries on downhill as a river.
+   - **Less:** it stands lower, with no outlet. A salt lake, or a dry flat in a desert.
+8. **Springs** are simply where the gathered rain first gets big enough to show as water. David's spring
+   dots are the stand-in until rain exists (one unit each, see above).
+
+**Lakes above sea level are no puzzle then:** a lake's level belongs to its basin, not the sea. It's the
+rim height if the lake is full, or lower if it dries.
+
+**Lake effect** [David, 2026-10-28: wanted, before driving springs to lakes and seas]: the loop's
+missing half, lakes adding rain downwind. Two ways, both still one way:
+- **Two passes:** run steps 4-7 once without lakes, then run the rain again with the lakes found as
+  extra moisture sources, and redo runoff and lakes. It settles fast; a second pass is usually enough.
+- **Basins first:** the basins and their spill heights (step 6) come from the ground alone, so where a
+  lake *could* be is known before any rain. Rain can count those as moisture sources, weighted by how
+  likely each is to fill. One pass, slightly less exact.
+Heat comes in through temperature (step 2): warmer air carries more moisture, and warmer lakes lose more
+to evaporation.
+
+#### Resources for game-pretty climate  (from Counsel's memory, not checked online)
+
+- **Red Blob Games, mapgen4** (Amit Patel): wind, rain on windward slopes, rain shadows, rivers, all
+  interactive with sliders and explained in its blog posts. The closest match. His older *Polygonal Map
+  Generation for Games* covers moisture and biomes from distance to water.
+- **Here Dragons Abound** (Scott Turner's blog): years of posts building a fantasy map generator (wind,
+  rain shadows, rivers, lakes, biomes), always tuned for what looks right over what's correct.
+- **Azgaar's Fantasy Map Generator**: free in a browser; temperature from latitude and height, rain from
+  wind, rivers, a biome table. Good for quick play.
+- **The Whittaker biome diagram**: temperature across, rainfall up, a biome in each patch. A biome core is
+  a corner of it pushed to the extreme.
+- **Dwarf Fortress world generation**: rainfall, temperature, drainage, rain shadows and savagery as
+  fields; biomes from their mix. Tarn Adams has explained it in talks and interviews.
+- **Undiscovered Worlds** (Jonathan Hill): a very detailed hobby world generator; how far the
+  pseudoscience can go.
+- **Artifexian** (YouTube): the basics in plain terms (why winds blow as they do, where deserts fall).
+- **Priority-flood** (Barnes and others): the standard fast way to find basins and spill heights.
+
+#### What to remember, software and data  (Counsel, 2026-10-28)
+
+1. **Climate reads the finished ground at map scale** by sampling the Interpreter's own recipe, never a
+   copy of it. The Interpreter only draws what Climate chose.
+2. **Different things, different resolutions:** wind, temperature and rain are smooth (64-128 blocks a
+   pixel will do); rivers are *lines* with flow and bed height along them; springs and creeks get the
+   fine ~2-block tile pass, worked out once and saved.
+3. **Pits:** decide early which become lakes and which are filled (see the loop above).
+4. **Water's hard rules:** always downhill, always connected, reaching the sea or a lake. Everything else
+   may cheat.
+5. **Separate the calculation from the look:** a rough "true" rain, then a curve David shapes, as with
+   the peaks' rise.
+6. **What Ecology will read:** temperature, rainfall, ground wetness, distance to water, height, slope,
+   biome core strengths. With 4 seasons, store each place's average *and* its seasonal swing.
+7. **Latitude** [IDEA, David 2026-10-28]: **ice caps** at the poles and an **equatorial band** (or a line
+   with a falloff), with temperature fading between them, and **the lines squiggle**. David tunes the ice
+   caps until worlds always get a reasonable amount of ice land, and the equatorial band so there are
+   always 1-2 dryland spots. Local temperature variations: unsure, "sounds recursive".
+   - **David's answer:** milder by the sea, plus the squiggled ice cap and equator lines with their
+     fades, is probably sufficient. (Colder with height is still assumed; say if not.)
+   - Counsel: **height cooling isn't recursive.** Temperature reads the ground (colder higher up, maybe
+     milder by the sea), and the ground never reads temperature, so it's one way. It would only loop if
+     temperature also read lakes or forests, which come after it; that's the cut.
+   - Counsel: **the desert picker already guarantees the drylands' deserts.** It picks the 1-2 driest
+     spots whatever the climate makes, so the equatorial band only has to make *some* dry land, not
+     exactly the right amount.
+8. **Climate doesn't change during the 1,000 years of history:** made once, lived in.
+9. **Make every field visible:** an overlay and Show switch each, and a readout under the cursor ("rain
+   0.3 because: behind a peak, 40 blocks from the sea").
+10. **Cost and saves:** within the 10-minute world-creation budget; mountain sliders then need a fast
+    make; saved worlds depend on the climate code too (`vision/watch-list.md`, item 20).
+
+#### Biomes as cores, and deserts  [IDEA, David 2026-10-28]
+
+- **Biomes aren't regions the world is divided into.** The climate is a large, gradual topography
+  (temperature, rain and so on), and a biome is a **special subregion that spawns where the climate is
+  most intensely "that"**. Everywhere else is the blend.
+- **Fewer biomes than Minecraft**, more like Dwarf Fortress in spirit, but not as broad.
+- **Deserts are rare, and placed with care.** Even at this scale David doesn't expect deserts as
+  deserty as Minecraft's: **drylands, sure**, but a New Mexico won't blend in super smoothly. Still, there
+  must be some desert, because David wants **giant ants and scorpions** there, possibly **led by evil
+  druid cults** once those grow bigger.
+- **Eroded badlands: probably too much to take on.** Out.
+- **A layer that picks the desert** [David]: **one or two per map**, chosen in the Climate stage, that
+  **enhances the drylands the way the peaks enhance the ridgelines**: the climate makes drylands, and
+  the desert layer pushes the chosen spot further, into real desert.
+
+Counsel's notes [PROPOSED, for David]:
+- **Cores fit the gradual climate.** A biome is the peak of a field, the way a peak is a point on the
+  crush: the climate is smooth, a core spawns where it goes past a threshold, and the fringe is the climate
+  itself fading out. So there's never a hard border to hide, only how sharply the core's edge rises.
+- **The Climate stage can give deserts a reason.** A rain shadow behind the big peaks (wind brings rain,
+  the mountains take it, the far side stays dry) puts drylands in the lee of mountains, and the driest core
+  of those becomes the desert. That's the "placed with care" for free, and it reads as natural because it
+  is: the peaks and the dry land explain each other.
+- **The desert layer uses the peaks' pattern** (`vision/terrain-pipeline.md`, socket 4, stamps at
+  points): a picker chooses the spot from the climate (the driest drylands, say in a rain shadow), and
+  a stamp with its own rise curve, ± spreads and an outline wobble deepens the dryness there. The picker
+  is whole-map work, so it chooses; the stamp is per area, so it draws. The rule could keep two deserts
+  apart and off the coast, like the rules between peaks.
+- **Drylands blend; the desert core doesn't have to.** Scrub, then dry grass, then sand gives a gradient
+  that hides most of the jump, and a desert that's rare can afford a slightly harder edge, like a
+  landmark.
+- ~~Giant ants and scorpions are a faction~~ Answered by David below: giant animals are beasts.
+
+**Giant beasts and biome cores** [David, 2026-10-28]:
+- **Giant animals are beasts, not evil.** They're animals like any other (a likelihood per area), and
+  can **rarely** generate anywhere their animal can (a giant elk wherever elk live).
+- **Biome cores are where they're most likely**, and they can **gate rare resources** that draw you into
+  the cores.
+- **Biome cores are small, distinctive, extreme regions, plotted into the climate the way peaks are
+  plotted into the ridgelines.** Each is a unique enhancement to the ecology there: spawn rates, beasts,
+  resources, structures and so on. The desert is one of them.
+- **Beasts can come with people** [David]: high-level evil druids and rogues can bring beasts with them.
+  A wild beast is a likelihood; a beast someone brings belongs to them, like a pet or a follower. (The
+  evil druid cults are a faction, and may lead beasts once they grow bigger.)
+- **Why there are beasts: animals have become corrupted** [David]. Now and then an overgrown animal
+  kills one of your villagers. Beasts are still **not a faction and not evil**: they're a hazard of the
+  world, like weather.
+- **Evil factions can use them:** raise the beast likelihood around them to raise hell, or keep beasts of
+  their own to fight with.
+- **Taming, maybe** [IDEA]: with great effort, you might learn to tame a beast.
+
 ### Additives  [DECIDED 2026-10-26, building]
 
 The Terrain Compiler's middle panel: geographic features *added* onto the landmass, before erosion
@@ -396,6 +825,74 @@ mountains first, other kinds of features later, as David needs them.
   4. Shift work between the compiler (cheap, whole-map) and the additives (expensive synthesis) until
      both sides feel right.
   5. Grow the additives into other features.
+- **Ridges as the base, peaks from the dots** [IDEA, David, 2026-10-27]: dialled in, the ridges make
+  surprisingly good mountains, scalloped and rough, in the right places, but they don't stand out and
+  aren't tall enough for the world's scale (a realistic island 30–40 miles wide). So: keep the ridges
+  as the base layer of every range, and use the point-scattering controls to target ranges with steep,
+  towering peaks that fade smoothly into the ridge features. His best results still need the ridge
+  sliders at extremes. Counsel's notes [PROPOSED]: re-centre the ridge ranges on those values (David's
+  rule); ridges *carve into* the mountains, so they can only lower them, and height has to come from
+  something that adds; a cheap first try is the Lift's machinery aimed at the mountains (points, reach,
+  a falloff spline) *scaling up the ridged mountains* near the points, so the tall peaks keep the
+  ridges' scallops instead of being smooth cones set on top; towering peaks will meet the Z 333 cap
+  (the build-height item, Next steps).
+  - **Today's mountains are the hill country** [David, 2026-10-27]: at the ~400-block scale real
+    mountains need, what the Interpreter calls mountains are really **hills**. Their job: a **nest**
+    for the mountains to come, and the **ruggedness** that flows with the ridges and fades out into
+    the hills and plains. The scalloped ridgelines are worth keeping for their own looks. (A rename
+    for later: the "mountains" controls may become the hill country's, and today's "hills" something
+    smaller.) Builder is reworking **foothills** now; if it doesn't do something useful, David is
+    cutting it. *(Cut, 2f4aafa; passes cut too, ee92cc2.)*
+  - **The peaks' technique** [David, 2026-10-27]: Inigo Quilez's "More Noise"
+    (iquilezles.org/articles/morenoise): gradient noise gives its slope for free, and each finer
+    octave is turned down where the slope so far is steep, so ridges come out sharp and valleys
+    smooth, as if eroded. Stamped at the Lift's points, amplified from each centre. David sees it as
+    **a combined rise + slope curve**. Counsel's reading [PROPOSED]: two curves, the *rise* (height
+    by distance from the centre) and the *slope response* (how much fine detail survives at each
+    steepness); if the rise is counted as the first octave, its own slope steers the detail, so
+    flanks come out clean and summits and feet craggy.
+  - **What the Additives' fields would hold, versus the Interpreter** [PROPOSED, for David]: the
+    Additives do whole-map jobs, once: anything that needs neighbours or the whole map. The
+    Interpreter does what one block can work out alone, fast and the same answer every time.
+  - **David's answers on the method's clashes** [2026-10-27]:
+    - *Worn, not towering:* handled with plenty of shaping controls. Long sloping arms can be smaller
+      peaks with a narrow double-dip curve; the ridges cut into them. Maybe the noise's dips may also
+      carve into the ridges (perhaps unnecessary).
+    - *Every peak alike:* each mountain kernel gets its own seed, but **no per-mountain settings**.
+      Any difference between peaks is a rule that applies to every mountain ever made: the noise,
+      and programmed variation.
+    - *No direction:* fine. Ridges give the continental grain; fantasy peaks don't need it. Maybe a
+      slight stretch later, only if needed.
+    - *Erosion without water:* fine; real water erosion will exist, as another additive.
+    - *Scale:* agreed, tune for blocks and the ceiling.
+    - *Hidden numbers:* expose them: more controls over the features.
+    - Counsel's notes [PROPOSED]: seed each kernel from where it stands (or a stable id), not its
+      place in the list, so moving one slider doesn't reshuffle every mountain; programmed
+      variation can reuse the Tectonic Sim's ± spread (each kernel its own value within a range);
+      decide how overlapping kernels combine (the higher wins, or they add).
+  - **[DECIDED 2026-10-27] The peaks plan**, agreed with changes (being built; the full list is in
+    `vision/proposal-peaks.md`, "Agreed, with changes"): the Lift dissolves into the Additives'
+    **Mountains** heading (its points become the peaks' points, its cloth the bump each peak is cut
+    from); the Interpreter's mountains become **Ridgelines**; the ceiling goes first (build height
+    1,024, the terrain cut-off its own setting, 333 kept as the ridgelines' measuring stick).
+  - **Replaced 2026-10-28:** hydrology now goes in its own **Climate** stage after Mountains (see "The
+    stages after Mountains" below), not beside Mountains in the Additives. The 2026-10-27 note, kept
+    for its reasoning about river widths:
+  - **Hydrology, later** [David, 2026-10-27; to be designed]: a sibling heading to Mountains. The
+    combined ground (ridgelines + peaks) is worked out at map scale in the Additives, rivers found
+    there, and the Interpreter gets a carve map applied last. David's worry: 32-block pixels giving
+    1-block trickles. Builder's answer: the map says where rivers run and how much flows; width, depth
+    and banks are shaped per block, as the coast is, sized to their flow.
+  - **A hill field, maybe** [IDEA, David, 2026-10-27; wait to see how the peaks go]: small, smooth
+    bumps kept to the wide-open land, shown by two falloffs multiplied, distance from the coast (off
+    at the shore) and distance from the nearest peak (fading toward it at its own slope). Counsel's
+    note: masks would need to stack several sources, each with its own curve; fading hills to
+    nothing at the shore also stops them moving the coastline. David's leaning: rather than a
+    separate layer, **extend the peaks' own concept, with much less noise, growing the addition out
+    toward the plains** so they aren't so flat and open. Forests (ecology, after the land and rivers)
+    will carry much of this too, and complement hills and mountains.
+  - **Later stages** [David, 2026-10-27]: **mineralogy adds or removes no blocks** (it only decides
+    what they're made of); **ecology comes after the whole world engine is done**.
 - **Mountains as a field, not lines** [2026-10-26]. A first try seeded dots on the "range spines"
   (one-pixel crest lines) and streamed them off sideways: wrong tool; the spine detector finds
   straight lines through gentle hills, spurs down curving slopes, and has no answer for a bundle.
@@ -608,6 +1105,29 @@ a separate later system.)
 - **Principle** [David, 2026-10-24]: the terrain can't truly be judged until a world can be explored with
   trees and water. So get as close as we can now, and **leave room to adjust the back end** once
   worlds can be walked. Judge settings **across many seeds** (Shift+Space), not on one.
+- **Principle: controls do what they say** [David, 2026-10-27]: the editor's controls should do what
+  they indicate, and the suite shouldn't rely on unintended consequences to get its results. A system
+  that gets good results by accident is missing the parts that would get the most out of what it does
+  well. Example: David has been using the hill and ground-detail noise to set how far inland the coast
+  runs and how irregular it is (rippled coasts full of shoals and islets, lowlands full of ponds), and a
+  small move turns a continent into mountains in an ocean. **Many influences are wanted** [David]: several
+  systems shaping the same thing (like the coast) is what makes it morph across circumstances: cliffs in
+  places, simple coasts like Africa's west coast in others, shoals, shallows and islets elsewhere. So the
+  fix isn't one owner per feature: it's to home in on what each control actually does, rename it, and
+  refine it for the purpose it turned out to be handy for, so no factor is useless, mysterious or too
+  unpredictable. Good tunings already give fairly repeatable results. **Order controls from broad to
+  fine** [IDEA, David]: transformations over a continental area with small changes at the top; as
+  influences get smaller in scale and more locally variable, further down. Then tuning can work from top
+  to bottom (draft order: `vision/terrain-controls.md`). **The goal for 2026-10-27:** clarify and rework
+  the World Interpreter (the part that reads the compiled results). **Additives wait** [David,
+  2026-10-27]: the Tectonic Sim and the Interpreter come first, until they cruise, routinely making
+  worlds that look natural and memorable, with enough ridges and plains in a pleasant arrangement that
+  mountains being almost imperceptible on foot doesn't bother him. Only then does additive terrain
+  synthesis begin. He has already made a handful that look as good as he expects; the work is making
+  that routine. **Status, end of 2026-10-27** [David]: about **3 in 4** worlds give the desired results
+  without touching anything, and the outliers aren't terrible. The ocean plates shaping the outline
+  while the land plates crush enough for ridges (without balling the continent up) was handled by
+  giving land and ocean plates their own Tectonic Sim settings.
 - **Plates stick [BUILT 2026-10-24]** [David: sea got caught between colliding plates, making canyons
   through every range]: points pressed together **weld** (stickiness slider; welds crack if pulled
   hard, so straits can still open), and sea narrower than **seal gaps up to** with rock on both sides
@@ -659,7 +1179,8 @@ slope; chunks only by which way each face points), so he flies at render distanc
   the world's ~600 colours is open until the art-refinement phase, see `docs/decisions.md` Look & UI and
   watch list item 15: the light map only multiplies brightness, so either answer stays possible). FX (magic and so on) may use every colour, to dazzle
   or to add another meaningful layer. Atmosphere and fog matter little (fog is for looks, e.g. mountains
-  fading along a coast).
+  fading along a coast). *Changed 2026-10-28:* fog is now wanted, about a couple of miles of visibility
+  (`docs/decisions.md`, Look & UI, "Sky, air and weather").
 - **For now** [David]: only the first tasks, ones that won't cause trouble if we change our minds. The
   cheap methods first, left open for more sophisticated ones later.
 - **Survey view** [BUILT]: Render page. Every Nth level of blocks above sea level darkened (default
@@ -936,7 +1457,35 @@ refinements, in the 3D world, for things like sunsets, clouds or animated water.
 
 ## Next steps
 
-David is exploring and improving the terrain gen again. **The Interpreter rework** [David,
+**[DECIDED 2026-10-28] The road to alpha-wrapped worlds** (David). Climate steps 1-5 are built; before
+rivers, in this order:
+1. **A graphics run:** assess what can safely be done now, without making more work later, that gets us
+   closer to our own "secret recipe" graphics goal (great performance and looks; `vision/watch-list.md`,
+   item 17). Probe for easy wins: colour space, crisp pixels and mipmaps (item 15d), what brightness
+   means (item 15e), the peaks' shading mismatch, sun and shade balance, a test stand.
+   **Builder's assessment (2026-10-28):** (a) colour space is already right (sRGB textures, linear
+   lighting); (b) mipmaps blend colours: palette-preserving mips plus a nearest mip filter, behind a
+   switch, small; (c) brightness: A free darkening (today), B painted ramps, C both, for David's colour
+   session, and whichever he picks, **slot textures** (each pixel a shade slot, each material a palette
+   row, looked up in the shader) are the next structural step, needed for one texture many tints and for
+   water's palette cycling; (d) the peaks' shading mismatch is likely the height tint's top (400 near, 333
+   far, ~6% step at the hand-off): one shared top, small; (e) sun colour and shade colour with strengths,
+   the same near and far, switchable; (f) a test stand as a stamp toggled from the Sandbox, later the
+   library's preview. Suggested order: d, b, f, e, decide c at the colour session, then slot textures,
+   which unlock the block library.
+   **David's call (2026-10-28):** first the smooth far surface (no ziggurats), global lighting and
+   shading from the recipe (d is part of it), and a performance tune-up. Small fixes come as David
+   points them out. Mipmaps (b) are worth looking into (some mip work was done early, around day 1).
+   **David makes the test stand (f) himself** once the block register suite exists. Sun and shade
+   colours (e) and the sky and fog wait for his word.
+2. **A block register and library tool** in the editor, so adding blocks is a breeze, with Counsel's
+   suggestions (section 0, "An asset library page").
+3. **A rudimentary what-block-goes-where system**, built to grow cleanly into mineralogy and soil
+   grading, enough to show a few basic climates (snow, sand, dry grass, gravel, mud and so on).
+4. **Then rivers** (Climate step 6 on), which all of the above makes easier.
+After that, David: "it's downhill towards created worlds being alpha wrapped."
+
+Earlier (2026-10-27): David is exploring and improving the terrain gen again. **The Interpreter rework** [David,
 2026-10-27], as it goes:
 - **Eliminate or repurpose controls that mean nothing to David.** Done so far (2026-10-27): rifts
   taken out of the Interpreter ("seem to do nothing except make a couple ocean spots a little
@@ -998,3 +1547,22 @@ for later:
   - *Left for later:* builds don't reach the distant terrain or the light map (tall towers vanish
     past render distance and cast no long shadows); block light / daylight must skip empty sky.
   - Changes `docs/decisions.md` (Z 0 to 399) when built.
+  - **How tall mountains need to be** [David, 2026-10-27]: peaks **at least ~400 blocks high**, so that
+    from the top you overlook the land (grand vistas), instead of standing on an endless plain with a
+    cliff nearby. Today they can't: mountains fill the room up to Z 333, so no peak stands more than
+    ~205 blocks above the sea. David's plan for now: the Tectonic Sim and the Interpreter show *where*
+    the ranges of the right scale go; the height and shape come later (Additives). Other ways to carry
+    scale he named: forests taller than Minecraft's, long roads, towns seen in the distance, dangerous
+    areas that take a long time to cross. His framing: "a small world that needs to be big and a big
+    world that needs to be small".
+    - *Counsel's sums [PROPOSED]:* on a flat world, what you see from a peak depends on the angle
+      the land makes below the horizon. A typical screen shows about 15 pixels per degree. From 400
+      blocks up, the land 5 to 10 km away fills about 35 pixels of screen height, 10 to 20 km
+      about 17, 20 to 36 km about 8. So from 400 up, the ground within ~5 km reads like a map below
+      you, and the rest of a continent is a band near the horizon. From 200 up (today's best), every
+      one of those is halved.
+    - *Counsel's note [PROPOSED]:* games solve "small world, big feel" with **vertical
+      exaggeration**: distances are squeezed far more than heights, so mountains stand much taller
+      against the width of the world than real ones would. David's
+      "taller than wide" fantasy mountains are this already. So the scale can be set as one number:
+      how much taller the mountains are than real ones would be for the world's width.

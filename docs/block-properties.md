@@ -30,3 +30,4 @@ David's list (2026-10-21), with where each piece of information will live in the
 | 13 | Inventory | For container blocks. | Definition (capacity) + Sparse (contents) |
 | 14 | Discovered | Revealed on maps and in isometric view. | Dense (1 bit), or per-column |
 | 15 | Seen | Fog of war shared by everyone in the settlement; fades after a few moments with no observer. RTS influence. | Not per-block: live visibility map from observers |
+
