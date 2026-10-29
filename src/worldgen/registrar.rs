@@ -15,6 +15,7 @@ use super::palette::Spread;
 use crate::data::{BlockDef, BlockRegistry, block_texture_folder};
 use bevy_egui::egui::{self, Color32, Stroke};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 
 /// A block texture as the Registrar sees it.
 struct Texture {
@@ -54,6 +55,16 @@ pub struct Registrar {
     transform: Transform,
     mapping: BTreeMap<Rgb, Rgb>,
     mapped_for: Option<(Transform, Vec<String>, Option<u64>, u64)>,
+    /// Read the palette and textures again (after an undo).
+    reread: bool,
+    /// The undo steps, oldest first: what each change was.
+    undo: Vec<String>,
+    /// Per texture, the colours the Registrar replaced in it (to say if they come back).
+    replaced: BTreeMap<String, BTreeSet<Rgb>>,
+    /// Which of the master palette's colours are shown.
+    view: PaletteView,
+    /// "Clear out unused colours" was pressed: its preview is showing, waiting for a yes.
+    clearing: bool,
     /// Goes up by one whenever the palette is saved.
     palette_changes: u64,
     mapping_version: u64,
@@ -79,20 +90,25 @@ fn texture_names(def: &BlockDef) -> Vec<&str> {
 
 impl Registrar {
     /// Read the palette and every block's textures again if the blocks or textures changed (or on
-    /// first opening). Colours not in the palette yet join it, unregulated, and the file is saved.
+    /// first opening, or after an undo). Colours not in the palette yet join it, unregulated, and the
+    /// file is saved. Whatever changed a texture (the Registrar or Aseprite), what changed is said:
+    /// how many colours it has now, and whether colours the Registrar replaced in it have come back.
     fn refresh(&mut self, registry: &BlockRegistry) {
-        if self.read_at == Some(registry.revision()) {
+        if self.read_at == Some(registry.revision()) && !self.reread {
             return;
         }
-        let first = self.read_at.is_none();
+        let first = self.read_at.is_none() || self.reread;
         self.read_at = Some(registry.revision());
+        self.reread = false;
         if first {
+            self.palette_problem = None;
             match MasterPalette::load_from(&master_palette::palette_file()) {
                 Ok(palette) => self.palette = palette,
                 Err(problem) => self.palette_problem = Some(problem),
             }
+            self.undo = undo_steps(&undo_folder()).into_iter().map(|(_, what)| what).collect();
         }
-        self.textures.clear();
+        let before: BTreeMap<String, Vec<(Rgb, u32)>> = std::mem::take(&mut self.textures).into_iter().map(|(name, texture)| (name, texture.colours)).collect();
         let folder = block_texture_folder();
         let mut used: Vec<Rgb> = Vec::new();
         for def in registry.defs().iter().filter(|def| shown(def)) {
@@ -108,16 +124,102 @@ impl Registrar {
                 self.textures.insert(name.to_string(), texture);
             }
         }
+        // What changed, texture by texture.
+        let mut said: Vec<String> = Vec::new();
+        for (name, texture) in &self.textures {
+            let Some(was) = before.get(name).filter(|was| **was != texture.colours) else { continue };
+            let mut line = format!("{name}.png changed: {} colours (was {})", texture.colours.len(), was.len());
+            if let Some(replaced) = self.replaced.get(name) {
+                let back = texture.colours.iter().filter(|(rgb, _)| replaced.contains(rgb)).count();
+                if back > 0 {
+                    line += &format!(", {back} of the colours the Registrar replaced are back (saved over from Aseprite?)");
+                }
+            }
+            said.push(line);
+        }
         if self.palette_problem.is_some() {
             return;
         }
         let added = self.palette.take_in(used);
         if !added.is_empty() {
-            self.message = match self.palette.save_to(&master_palette::palette_file()) {
-                Ok(()) => format!("{} new colours joined the master palette, not on a spline yet.", added.len()),
+            said.push(match self.palette.save_to(&master_palette::palette_file()) {
+                Ok(()) => format!("{} new colours joined the master palette, not on a spline yet", added.len()),
                 Err(error) => format!("{} new colours, but the palette couldn't be saved: {error}", added.len()),
-            };
+            });
+            self.palette_changes += 1;
         }
+        if !said.is_empty() {
+            self.message = said.join(". ") + ".";
+        }
+    }
+
+    /// Write the transform into the selected blocks' textures (every block using one of them
+    /// changes too), after saving copies for undo. The colours it replaced are remembered, so it can
+    /// be said if they come back.
+    fn apply(&mut self, defs: &[&BlockDef]) {
+        let names: BTreeSet<String> = defs.iter().filter(|def| self.selected.contains(&def.name)).flat_map(|def| texture_names(def)).map(str::to_string).collect();
+        let folder = block_texture_folder();
+        let paths: Vec<PathBuf> = names.iter().map(|name| folder.join(format!("{name}.png"))).collect();
+        let what = format!("Applied to {}", names.iter().map(|name| format!("{name}.png")).collect::<Vec<_>>().join(", "));
+        if let Err(error) = save_undo_step(&undo_folder(), &what, &paths) {
+            self.message = format!("Nothing written: couldn't save the undo copies ({error}).");
+            return;
+        }
+        let mut written = 0;
+        for (name, path) in names.iter().zip(&paths) {
+            let Some(texture) = self.textures.get(name).filter(|texture| texture.problem.is_none()) else { continue };
+            let mut pixels = texture.pixels.clone();
+            for pixel in pixels.chunks_exact_mut(4) {
+                if let Some(&to) = self.mapping.get(&[pixel[0], pixel[1], pixel[2]]).filter(|to| **to != [pixel[0], pixel[1], pixel[2]]) {
+                    self.replaced.entry(name.clone()).or_default().insert([pixel[0], pixel[1], pixel[2]]);
+                    pixel[..3].copy_from_slice(&to);
+                }
+            }
+            match write_png(path, &pixels) {
+                Ok(()) => written += 1,
+                Err(error) => {
+                    self.message = format!("Couldn't write {name}.png: {error}. Undo puts back what was written.");
+                    return;
+                }
+            }
+        }
+        self.undo.push(what);
+        // The blocks now look as the transform made them, so it's done.
+        let kept = self.transform;
+        self.transform = Transform { spread: kept.spread, snap: kept.snap, ..Transform::default() };
+        self.message = format!("Wrote {written} textures; the game picks them up in a moment.");
+    }
+
+    /// Colours on no spline that no block uses any more.
+    fn unused(&self) -> Vec<u32> {
+        let used: BTreeSet<Rgb> = self.textures.values().flat_map(|texture| texture.colours.iter().map(|&(rgb, _)| rgb)).collect();
+        self.palette.colours.iter().filter(|&(&slot, colour)| !self.palette.is_regulated(slot) && !used.contains(&colour.rgb)).map(|(&slot, _)| slot).collect()
+    }
+
+    /// Take the unused colours out of the palette, after saving a copy of it for undo.
+    fn clear_unused(&mut self) {
+        let unused = self.unused();
+        let what = format!("Cleared out {} unused colours", unused.len());
+        if let Err(error) = save_undo_step(&undo_folder(), &what, &[master_palette::palette_file()]) {
+            self.message = format!("Nothing cleared: couldn't save the undo copy ({error}).");
+            return;
+        }
+        self.palette.remove(&unused);
+        self.picked.retain(|rgb| self.palette.slot_of(*rgb).is_some());
+        self.undo.push(what.clone());
+        self.save(format!("{what}; their numbers are retired."));
+    }
+
+    /// Undo the newest change: its files put back, and everything read again.
+    fn undo_last(&mut self) {
+        self.message = match undo_last(&undo_folder()) {
+            Ok(what) => format!("Undone: {what}."),
+            Err(error) => format!("Couldn't undo: {error}."),
+        };
+        self.reread = true;
+        // The old colours come back on purpose: not worth a warning.
+        self.replaced.clear();
+        self.palette_changes += 1;
     }
 
     /// A block's colours, combined over its textures, with how many pixels each.
@@ -452,6 +554,17 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     if let Some(problem) = &registrar.palette_problem {
         ui.colored_label(Color32::from_rgb(255, 80, 200), format!("The palette file couldn't be read, so nothing is written to it: {problem}"));
     }
+    // Undo: the newest change to the files (applying, clearing out), put back.
+    ui.horizontal(|ui| {
+        let last = registrar.undo.last().cloned();
+        let hover = last.clone().map_or("Nothing to undo".to_string(), |what| format!("Undo: {what}"));
+        if ui.add_enabled(last.is_some(), egui::Button::new("Undo")).on_hover_text(&hover).on_disabled_hover_text(&hover).clicked() {
+            registrar.undo_last();
+        }
+        if !registrar.undo.is_empty() {
+            ui.small(format!("{} steps can be undone", registrar.undo.len()));
+        }
+    });
     if !registrar.message.is_empty() {
         ui.small(&registrar.message);
     }
@@ -462,10 +575,28 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     let lit: BTreeSet<Rgb> = defs.iter().filter(|def| names.contains(&def.name)).flat_map(|def| registrar.block_colours(def).into_keys()).collect();
     let lit = if lit.is_empty() { None } else { Some(lit) };
 
-    section(ui, "Splines", |ui| {
+    section(ui, "Colours", |ui| {
+        // Which colours: the splines (in order, to arrange them), the rest, or all of it in the
+        // master palette's order (the splines, then the colours not on one).
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut registrar.view, PaletteView::Everything, "Everything");
+            ui.selectable_value(&mut registrar.view, PaletteView::Splines, "Splines");
+            ui.selectable_value(&mut registrar.view, PaletteView::Loose, "Not on a spline");
+        });
+        let loose: Vec<(Rgb, u32)> = sorted_by_lightness(registrar.palette.colours.iter().filter(|&(&slot, _)| !registrar.palette.is_regulated(slot)).map(|(_, colour)| (colour.rgb, 0)));
+        let on_splines: Vec<Rgb> = registrar.palette.splines.iter().flat_map(|spline| spline.steps.iter()).filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| colour.rgb).collect();
+        let in_view: Vec<Rgb> = match registrar.view {
+            PaletteView::Everything => on_splines.iter().copied().chain(loose.iter().map(|&(rgb, _)| rgb)).collect(),
+            PaletteView::Splines => on_splines.clone(),
+            PaletteView::Loose => loose.iter().map(|&(rgb, _)| rgb).collect(),
+        };
+
         // Picking, and making a spline of what's picked.
         ui.horizontal_wrapped(|ui| {
             ui.label(format!("{} picked", registrar.picked.len())).on_hover_text("Click colours in any palette to pick them; click again to unpick.\nShift + drag a box to pick rows, columns or any patch; Ctrl + Shift + drag to unpick.");
+            if ui.add_enabled(!in_view.is_empty(), egui::Button::new("Pick all in view")).clicked() {
+                registrar.picked.extend(in_view.iter().copied());
+            }
             if ui.add_enabled(!registrar.picked.is_empty(), egui::Button::new("Deselect all")).on_hover_text("Or press Escape").clicked() {
                 registrar.picked.clear();
             }
@@ -480,66 +611,17 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
             }
         });
 
-        let mut action = None;
-        if registrar.palette.splines.is_empty() {
-            ui.small("No splines yet.");
+        if registrar.view != PaletteView::Loose {
+            splines(ui, registrar, lit.as_ref());
         }
-        for index in 0..registrar.palette.splines.len() {
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                let spline = &mut registrar.palette.splines[index];
-                let name = ui.add(egui::TextEdit::singleline(&mut spline.name).desired_width(140.0));
-                if name.lost_focus() {
-                    action = Some(SplineAction::Renamed);
-                }
-                ui.small(format!("{} shades", spline.steps.len()));
-                let picked = !registrar.picked.is_empty();
-                if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").clicked() {
-                    action = Some(SplineAction::Add(index));
-                }
-                if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").clicked() {
-                    action = Some(SplineAction::TakeOff(index));
-                }
-                if ui.button("Delete").on_hover_text("The spline goes; its colours stay in the palette, not on a spline").clicked() {
-                    action = Some(SplineAction::Delete(index));
-                }
-            });
-            let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
-            hsl_curves(ui, &steps);
-            let event = swatches(ui, registrar, &steps, lit.as_ref());
-            registrar.take(ui, egui::Id::new(("spline colours", index)), event);
-        }
-        match action {
-            Some(SplineAction::Renamed) => registrar.save("Renamed.".to_string()),
-            Some(SplineAction::Add(index)) => {
-                let slots = registrar.picked_slots();
-                let skipped = registrar.palette.add_to_spline(index, &slots);
-                registrar.picked.clear();
-                let name = registrar.palette.splines[index].name.clone();
-                let note = if skipped.is_empty() { String::new() } else { format!(" ({} already on a spline stayed there)", skipped.len()) };
-                registrar.save(format!("Added {} to {name}{note}.", slots.len() - skipped.len()));
-            }
-            Some(SplineAction::TakeOff(index)) => {
-                let on: Vec<u32> = registrar.picked_slots().into_iter().filter(|slot| registrar.palette.splines[index].steps.contains(slot)).collect();
-                registrar.palette.take_off_splines(&on);
-                registrar.picked.clear();
-                registrar.save(format!("Took {} off.", on.len()));
-            }
-            Some(SplineAction::Delete(index)) => {
-                let gone = registrar.palette.splines.remove(index);
-                registrar.save(format!("Deleted {}; its {} colours are back among those not on a spline.", gone.name, gone.steps.len()));
-            }
-            None => {}
+        if registrar.view != PaletteView::Splines {
+            ui.add_space(6.0);
+            ui.label(format!("Not on a spline: {} colours", loose.len()));
+            let event = swatches(ui, registrar, &loose, lit.as_ref());
+            registrar.take(ui, egui::Id::new("loose colours"), event);
+            clear_unused(ui, registrar);
         }
     });
-
-    section(ui, "Not on a spline yet", |ui| {
-        let loose: Vec<(Rgb, u32)> = registrar.palette.colours.iter().filter(|&(&slot, _)| !registrar.palette.is_regulated(slot)).map(|(_, colour)| (colour.rgb, 0)).collect();
-        ui.label(format!("{} colours", loose.len()));
-        let event = swatches(ui, registrar, &sorted_by_lightness(loose), lit.as_ref());
-        registrar.take(ui, egui::Id::new("loose colours"), event);
-    });
-
     section(ui, "Sub-palette", |ui| {
         let chosen: Vec<&&BlockDef> = defs.iter().filter(|def| registrar.selected.contains(&def.name)).collect();
         if chosen.is_empty() {
@@ -562,7 +644,7 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
                 registrar.picked.extend(list.iter().map(|&(rgb, _)| rgb));
             }
         });
-        egui::CollapsingHeader::new("Transform").default_open(true).show(ui, |ui| transform_controls(ui, registrar, &list));
+        egui::CollapsingHeader::new("Transform").default_open(true).show(ui, |ui| transform_controls(ui, registrar, &list, defs));
     });
 }
 
@@ -575,7 +657,7 @@ fn section(ui: &mut egui::Ui, name: &str, body: impl FnOnce(&mut egui::Ui)) {
 /// The sub-palette's transform: crushing to fewer new colours or onto a spline's shades, and
 /// shifting hue, saturation and lightness, all previewed on the blocks in the dock. Nothing is
 /// written to the block files yet; the crushed colours can be made into a spline.
-fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb, u32)]) {
+fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb, u32)], defs: &[&BlockDef]) {
     ui.small("Previewed on the blocks in the dock; nothing is written to the block files yet.");
     let splines: Vec<String> = registrar.palette.splines.iter().map(|spline| spline.name.clone()).collect();
     let transform = &mut registrar.transform;
@@ -630,10 +712,27 @@ fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb
             registrar.transform = Transform { spread: kept.spread, snap: kept.snap, ..Transform::default() };
         }
         ui.checkbox(&mut registrar.before, "show the blocks before").on_hover_text("The dock shows the blocks as they are, not as the transform would make them");
-        ui.add_enabled(false, egui::Button::new("Apply to the files")).on_disabled_hover_text("Coming with replacing: writes the PNGs, with undo");
     });
     if registrar.mapping.is_empty() {
         return;
+    }
+    // Writing it into the files: which textures, and any other block that uses one of them (it
+    // changes too).
+    let names: BTreeSet<&str> = defs.iter().filter(|def| registrar.selected.contains(&def.name)).flat_map(|def| texture_names(def)).collect();
+    let others: Vec<&str> = defs.iter().filter(|def| !registrar.selected.contains(&def.name) && texture_names(def).iter().any(|name| names.contains(name))).map(|def| def.display_name.as_str()).collect();
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add_enabled(registrar.palette_problem.is_none(), egui::Button::new("Apply to the files"))
+            .on_hover_text("Writes these colours into the textures; copies are kept first, for Undo")
+            .clicked()
+        {
+            registrar.apply(defs);
+        }
+        let files: Vec<String> = names.iter().map(|name| format!("{name}.png")).collect();
+        ui.small(format!("writes {}", files.join(", ")));
+    });
+    if !others.is_empty() {
+        ui.colored_label(Color32::from_rgb(255, 200, 80), format!("These textures are shared: {} changes too.", others.join(", ")));
     }
     let mut after: BTreeMap<Rgb, u32> = BTreeMap::new();
     for &(rgb, count) in list {
@@ -664,8 +763,123 @@ fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb
 }
 
 
+
+/// Which of the master palette's colours are shown.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum PaletteView {
+    /// The splines in order, then the colours not on one: the master palette's order.
+    #[default]
+    Everything,
+    /// The splines, one to a row, with their controls and curves, to arrange them.
+    Splines,
+    /// The colours not on a spline yet.
+    Loose,
+}
+
+/// The splines, in the master palette's order, one to a row. In the Splines view each has its
+/// controls (move up or down, rename, add or take off the picked, delete) and its curves; in
+/// Everything, just its name and shades.
+fn splines(ui: &mut egui::Ui, registrar: &mut Registrar, lit: Option<&BTreeSet<Rgb>>) {
+    let full = registrar.view == PaletteView::Splines;
+    let mut action = None;
+    if registrar.palette.splines.is_empty() {
+        ui.small("No splines yet.");
+    }
+    let count = registrar.palette.splines.len();
+    for index in 0..count {
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            let picked = !registrar.picked.is_empty();
+            let spline = &mut registrar.palette.splines[index];
+            if !full {
+                ui.label(&spline.name);
+                ui.small(format!("{} shades", spline.steps.len()));
+                return;
+            }
+            if ui.add_enabled(index > 0, egui::Button::new("▲").small()).on_hover_text("Earlier in the master palette").clicked() {
+                action = Some(SplineAction::Move(index, -1));
+            }
+            if ui.add_enabled(index + 1 < count, egui::Button::new("▼").small()).on_hover_text("Later in the master palette").clicked() {
+                action = Some(SplineAction::Move(index, 1));
+            }
+            let name = ui.add(egui::TextEdit::singleline(&mut spline.name).desired_width(120.0));
+            if name.lost_focus() {
+                action = Some(SplineAction::Renamed);
+            }
+            ui.small(format!("{} shades", spline.steps.len()));
+            if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").clicked() {
+                action = Some(SplineAction::Add(index));
+            }
+            if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").clicked() {
+                action = Some(SplineAction::TakeOff(index));
+            }
+            if ui.button("Delete").on_hover_text("The spline goes; its colours stay in the palette, not on a spline").clicked() {
+                action = Some(SplineAction::Delete(index));
+            }
+        });
+        let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
+        if full {
+            hsl_curves(ui, &steps);
+        }
+        let event = swatches(ui, registrar, &steps, lit);
+        registrar.take(ui, egui::Id::new(("spline colours", index)), event);
+    }
+    match action {
+        Some(SplineAction::Renamed) => registrar.save("Renamed.".to_string()),
+        Some(SplineAction::Move(index, by)) => {
+            registrar.palette.move_spline(index, by);
+            registrar.save("Moved.".to_string());
+        }
+        Some(SplineAction::Add(index)) => {
+            let slots = registrar.picked_slots();
+            let skipped = registrar.palette.add_to_spline(index, &slots);
+            registrar.picked.clear();
+            let name = registrar.palette.splines[index].name.clone();
+            let note = if skipped.is_empty() { String::new() } else { format!(" ({} already on a spline stayed there)", skipped.len()) };
+            registrar.save(format!("Added {} to {name}{note}.", slots.len() - skipped.len()));
+        }
+        Some(SplineAction::TakeOff(index)) => {
+            let on: Vec<u32> = registrar.picked_slots().into_iter().filter(|slot| registrar.palette.splines[index].steps.contains(slot)).collect();
+            registrar.palette.take_off_splines(&on);
+            registrar.picked.clear();
+            registrar.save(format!("Took {} off.", on.len()));
+        }
+        Some(SplineAction::Delete(index)) => {
+            let gone = registrar.palette.splines.remove(index);
+            registrar.save(format!("Deleted {}; its {} colours are back among those not on a spline.", gone.name, gone.steps.len()));
+        }
+        None => {}
+    }
+}
+
+/// "Clear out unused colours": the colours on no spline that no block uses any more, shown first,
+/// then taken out of the palette on a yes (undoable; their numbers are retired).
+fn clear_unused(ui: &mut egui::Ui, registrar: &mut Registrar) {
+    let unused = registrar.unused();
+    if !registrar.clearing {
+        let label = format!("Clear out unused colours ({})", unused.len());
+        if ui.add_enabled(!unused.is_empty() && registrar.palette_problem.is_none(), egui::Button::new(label)).on_hover_text("Colours on no spline that no block uses any more; shown before anything goes").clicked() {
+            registrar.clearing = true;
+        }
+        return;
+    }
+    ui.label(format!("These {} colours are on no spline and no block uses them:", unused.len()));
+    let colours: Vec<(Rgb, u32)> = sorted_by_lightness(unused.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)));
+    let event = swatches(ui, registrar, &colours, None);
+    registrar.take(ui, egui::Id::new("unused colours"), event);
+    ui.horizontal(|ui| {
+        if ui.add_enabled(!unused.is_empty(), egui::Button::new(format!("Take these {} out", unused.len()))).clicked() {
+            registrar.clear_unused();
+            registrar.clearing = false;
+        }
+        if ui.button("Cancel").clicked() {
+            registrar.clearing = false;
+        }
+    });
+}
 enum SplineAction {
     Renamed,
+    Move(usize, isize),
     Add(usize),
     TakeOff(usize),
     Delete(usize),
@@ -925,6 +1139,60 @@ fn shifted(rgb: Rgb, hue: f32, saturation: f32, lightness: f32) -> Rgb {
     super::palette::from_hsl([(h + hue).rem_euclid(360.0), (s + saturation).clamp(0.0, 1.0), (l + lightness).clamp(0.0, 1.0)])
 }
 
+// ── Undo: copies of the files a change touches, made before it ────────────
+
+/// `registrar undo/` beside the assets: one folder per change, newest last.
+fn undo_folder() -> PathBuf {
+    crate::data::assets_folder().parent().map_or_else(|| PathBuf::from("registrar undo"), |project| project.join("registrar undo"))
+}
+
+/// Before a change: copy `files` (those that exist) into a new step in `folder`, with what the
+/// change is. Each step holds `what.txt`, `files.txt` (each copy's number and where it came from)
+/// and the copies.
+fn save_undo_step(folder: &Path, what: &str, files: &[PathBuf]) -> Result<(), String> {
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis());
+    let step = folder.join(format!("{stamp:015}"));
+    std::fs::create_dir_all(&step).map_err(|error| error.to_string())?;
+    let mut list = String::new();
+    for (k, file) in files.iter().enumerate().filter(|(_, file)| file.exists()) {
+        std::fs::copy(file, step.join(format!("{k}.copy"))).map_err(|error| format!("couldn't copy {}: {error}", file.display()))?;
+        list += &format!("{k}\t{}\n", file.display());
+    }
+    std::fs::write(step.join("files.txt"), list).map_err(|error| error.to_string())?;
+    std::fs::write(step.join("what.txt"), what).map_err(|error| error.to_string())
+}
+
+/// The steps in `folder`, oldest first: each folder and what its change was.
+fn undo_steps(folder: &Path) -> Vec<(PathBuf, String)> {
+    let mut steps: Vec<PathBuf> = std::fs::read_dir(folder).into_iter().flatten().flatten().map(|entry| entry.path()).filter(|path| path.join("files.txt").exists()).collect();
+    steps.sort();
+    steps.into_iter().map(|step| (step.clone(), std::fs::read_to_string(step.join("what.txt")).unwrap_or_default())).collect()
+}
+
+/// Put back the newest step's files and remove the step. Returns what was undone.
+fn undo_last(folder: &Path) -> Result<String, String> {
+    let (step, what) = undo_steps(folder).pop().ok_or("nothing to undo")?;
+    let list = std::fs::read_to_string(step.join("files.txt")).map_err(|error| error.to_string())?;
+    for line in list.lines() {
+        let Some((k, path)) = line.split_once('\t') else { continue };
+        std::fs::copy(step.join(format!("{k}.copy")), path).map_err(|error| format!("couldn't put back {path}: {error}"))?;
+    }
+    std::fs::remove_dir_all(&step).map_err(|error| error.to_string())?;
+    Ok(what)
+}
+
+/// Write 32 x 32 RGBA pixels as a PNG.
+fn write_png(path: &Path, pixels: &[u8]) -> Result<(), String> {
+    let side = crate::render::textures::TEXTURE_SIZE;
+    let file = std::fs::File::create(path).map_err(|error| error.to_string())?;
+    let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), side, side);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
+    writer.write_image_data(pixels).map_err(|error| error.to_string())?;
+    writer.finish().map_err(|error| error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -961,6 +1229,27 @@ mod tests {
         // Through the transform: shifted first, then put on the shades.
         let transform = Transform { onto: Some(0), snap: Snap::Nearest, lightness: 1.0, ..Transform::default() };
         assert_eq!(transform.mapping(&[([45, 25, 12], 1)], &shades)[&[45, 25, 12]], shades[2]);
+    }
+
+    #[test]
+    fn undo_puts_back_the_files_a_change_touched_newest_first() {
+        let folder = std::env::temp_dir().join(format!("incus registrar undo test {}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        let file = folder.join("gabbro.png");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(&file, "original").unwrap();
+        let undo = folder.join("undo");
+        save_undo_step(&undo, "first", std::slice::from_ref(&file)).unwrap();
+        std::fs::write(&file, "crushed").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        save_undo_step(&undo, "second", std::slice::from_ref(&file)).unwrap();
+        std::fs::write(&file, "shifted").unwrap();
+        assert_eq!(undo_last(&undo).unwrap(), "second");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "crushed");
+        assert_eq!(undo_last(&undo).unwrap(), "first");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "original");
+        assert!(undo_last(&undo).is_err());
+        let _ = std::fs::remove_dir_all(&folder);
     }
     #[test]
     fn an_hsl_shift_goes_round_the_wheel_and_stays_in_range() {

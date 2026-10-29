@@ -191,6 +191,23 @@ impl MasterPalette {
         }
     }
 
+    /// Take these colours out of the palette (and off any spline). Their numbers are retired: never
+    /// given out again.
+    pub fn remove(&mut self, slots: &[u32]) {
+        self.take_off_splines(slots);
+        for slot in slots {
+            self.colours.remove(slot);
+        }
+    }
+
+    /// Move a spline up or down the list (the master palette's order), by `by` places.
+    pub fn move_spline(&mut self, index: usize, by: isize) {
+        let to = index as isize + by;
+        if index < self.splines.len() && to >= 0 && (to as usize) < self.splines.len() {
+            self.splines.swap(index, to as usize);
+        }
+    }
+
     /// Every colour in `used` the palette doesn't have yet joins it, unregulated. Returns the new
     /// slots (none: nothing changed).
     pub fn take_in(&mut self, used: impl IntoIterator<Item = Rgb>) -> Vec<u32> {
@@ -267,6 +284,22 @@ mod tests {
         assert_eq!(palette.spline_of(middle).unwrap().name, "rust");
     }
 
+
+    #[test]
+    fn removed_colours_leave_their_splines_and_their_numbers_stay_retired() {
+        let mut palette = MasterPalette::default();
+        let (a, b) = (palette.add([1, 1, 1]), palette.add([2, 2, 2]));
+        palette.new_spline("greys", &[a, b]);
+        palette.new_spline("empty", &[]);
+        palette.remove(&[a]);
+        assert_eq!(palette.splines[0].steps, [b]);
+        assert_eq!(palette.slot_of([1, 1, 1]), None);
+        assert_eq!(palette.add([1, 1, 1]), 3, "the removed number isn't given out again");
+        palette.move_spline(1, -1);
+        assert_eq!(palette.splines[0].name, "empty");
+        palette.move_spline(0, -1);
+        assert_eq!(palette.splines[0].name, "empty", "nowhere to go: stays");
+    }
     #[test]
     fn the_file_reads_back_as_written() {
         let mut palette = MasterPalette::default();

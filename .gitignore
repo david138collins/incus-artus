@@ -22,3 +22,6 @@
 
 # Worlds baked by the Tectonic Sim (each is ~5 MB; its map.toml can bake it again).
 /world bakes/
+
+# The Registrar's undo steps: copies of the files a change touched, made before it.
+/registrar undo/
