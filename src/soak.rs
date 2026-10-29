@@ -1,6 +1,7 @@
 //! The soak test — does the game run worse the longer it runs? For automatic testing only.
 //!
-//! Start the game with `INCUS_SOAK=<seconds>`, together with `INCUS_START_SCREEN=worldgen` and
+//! Start the game with `INCUS_SOAK=<seconds>` (and if wanted `INCUS_SOAK_SPEED=<blocks a second>`,
+//! `INCUS_SOAK_DISTANCE=<render distance in chunks>`), together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
 //! 1. renders the newest bake with the Terrain Compiler's recipe as it starts (the defaults), and
 //!    spawns in the middle (see `worldgen::run_suite`);
@@ -21,8 +22,19 @@ use crate::world::{SEA_LEVEL, Terrain};
 use bevy::prelude::*;
 
 /// The circle's radius, and how fast it's flown (blocks a second): a lap takes about four minutes.
+/// `INCUS_SOAK_SPEED` flies it faster (David flies at 2,000 [2026-10-28]); the circle then widens, so
+/// a lap still takes about a minute or more.
 const RADIUS: f32 = 6000.0;
 const SPEED: f32 = 150.0;
+
+
+fn speed() -> f32 {
+    std::env::var("INCUS_SOAK_SPEED").ok().and_then(|v| v.parse().ok()).unwrap_or(SPEED)
+}
+
+fn radius() -> f32 {
+    RADIUS.max(speed() * 9.5)
+}
 /// How high above the ground (or the sea).
 const ABOVE: f32 = 120.0;
 /// Seconds between log lines.
@@ -58,17 +70,25 @@ fn fly_round(
     time: Res<Time<Real>>,
     mut mode: ResMut<ControlMode>,
     mut cameras: Query<&mut FlyCamera>,
+    mut render: ResMut<crate::render::RenderSettings>,
 ) {
     let Some(map) = terrain.compiled() else { return };
     let now = time.elapsed_secs();
     let started = *soak.started.get_or_insert_with(|| {
-        info!("Soak: flying a circle {RADIUS} blocks round at {SPEED} blocks a second");
+        info!("Soak: flying a circle {} blocks round at {} blocks a second", radius(), speed());
         now
     });
     *mode = ControlMode::Fly;
+    // `INCUS_SOAK_DISTANCE`: the render distance (chunks) to fly at, instead of the preset's.
+    if let Some(distance) = std::env::var("INCUS_SOAK_DISTANCE").ok().and_then(|v| v.parse::<i32>().ok())
+        && render.render_distance_chunks != distance
+    {
+        render.render_distance_chunks = distance;
+    }
     // Round the circle (north of the middle to start with), facing the way it's going.
-    let angle = (now - started) * SPEED / RADIUS;
-    let (north, east) = (RADIUS * angle.cos(), RADIUS * angle.sin());
+    let (radius, speed) = (radius(), speed());
+    let angle = (now - started) * speed / radius;
+    let (north, east) = (radius * angle.cos(), radius * angle.sin());
     let ground = map.height(north, east).unwrap_or(0.0).max(SEA_LEVEL as f32);
     for mut camera in &mut cameras {
         // Eased up and down, so a cliff doesn't jerk the view.
