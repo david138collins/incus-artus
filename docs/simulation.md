@@ -263,6 +263,33 @@ Counsel's notes [PROPOSED, for David]:
   rejoice, if they rolled a 20") is the same thing.
 - **Later, if wanted:** rumours that drift as they're retold, or false news. Only if it's fun.
 
+## 13. Behaviour: impulses, law and alignment  [IDEA, David 2026-10-29]
+
+- **Many behaviours from a few impulses** (David): hundreds of behaviours and life paths come from a
+  small number of basic impulses, plus checks against things that already live in data. That folds
+  into a manageable computation as long as everything is kept hierarchically simplified into simple
+  logic. Today's behaviour is a skeleton.
+- **The classic alignment axes stay** (David): lawful to chaotic, good to evil. "Isn't really mine to
+  question": it's convention, almost part of the pseudoscientific nature of our generation. "I'm an
+  impressionist, not an expressionist, and this is for everyone to understand and enjoy."
+- **Evil or just criminal: a fine line** (from Daggerfall: its human enemies were people in the same
+  systems as the player, and crime was where you stood with the law, not what you were). The world
+  map list already sorts it: bandit camps and pirate lairs are criminals; cult hideouts, evil
+  cemeteries and witch houses are evil.
+Counsel's notes [PROPOSED]:
+- **Alignment is temperament; being a criminal is a record.** Alignment sits in the person as
+  weights on their impulses (a chaotic person is pulled more by want than by rules; an evil one is
+  willing to harm). Criminal is what a settlement's law holds against them for things they actually
+  did, per settlement, and it can change: fines, pardons, exile. So a lawful-neutral villager driven to
+  steal in a starving winter is a criminal, not evil, and can come back. The player sits on the same
+  scale. An evil cult priest with a clean record is the most dangerous kind.
+- **Bandits made, not spawned:** hunger, debt, exile or a feud in the Intermediator sim turns people to
+  crime, so a bandit camp has a story, and news particles carry it ("the miller's son took to the
+  road").
+- **The hierarchy:** impulses (hunger, safety, belonging, greed, duty...) → goals → tasks → actions.
+  Each level picks from a few options by simple checks against data. The World and Intermediator sims
+  stop at goals and tasks; only the Local sim plays out actions. That's what keeps it cheap.
+
 ## Open questions
 
 1. Default timings: Intermediator every in-game hour, World every in-game day? (Both are sliders.)
