@@ -153,6 +153,44 @@ impl MasterPalette {
         slot
     }
 
+    /// A new spline of these slots, darkest first. A colour can only be on one spline, so any
+    /// already on one are left where they are. Returns the new spline's place in the list.
+    pub fn new_spline(&mut self, name: &str, slots: &[u32]) -> usize {
+        self.splines.push(Spline { name: name.to_string(), steps: Vec::new() });
+        let index = self.splines.len() - 1;
+        self.add_to_spline(index, slots);
+        index
+    }
+
+    /// Put these slots on a spline, each in its place by lightness (between the shades darker and
+    /// lighter than it). Slots already on a spline, or with no colour, are skipped and returned.
+    pub fn add_to_spline(&mut self, index: usize, slots: &[u32]) -> Vec<u32> {
+        let mut skipped = Vec::new();
+        for &slot in slots {
+            let Some(colour) = self.colours.get(&slot) else {
+                skipped.push(slot);
+                continue;
+            };
+            if self.spline_of(slot).is_some() {
+                skipped.push(slot);
+                continue;
+            }
+            let light = lightness(colour.rgb);
+            let colours = &self.colours;
+            let Some(spline) = self.splines.get_mut(index) else { return slots.to_vec() };
+            let at = spline.steps.iter().position(|step| colours.get(step).is_some_and(|c| lightness(c.rgb) > light)).unwrap_or(spline.steps.len());
+            spline.steps.insert(at, slot);
+        }
+        skipped
+    }
+
+    /// Take these slots off whatever spline they're on: unregulated again.
+    pub fn take_off_splines(&mut self, slots: &[u32]) {
+        for spline in &mut self.splines {
+            spline.steps.retain(|step| !slots.contains(step));
+        }
+    }
+
     /// Every colour in `used` the palette doesn't have yet joins it, unregulated. Returns the new
     /// slots (none: nothing changed).
     pub fn take_in(&mut self, used: impl IntoIterator<Item = Rgb>) -> Vec<u32> {
@@ -164,6 +202,11 @@ impl MasterPalette {
         }
         added
     }
+}
+
+/// HSL lightness, 0 to 1: halfway between the strongest and weakest of red, green and blue.
+pub fn lightness([r, g, b]: Rgb) -> f32 {
+    (r.max(g).max(b) as f32 + r.min(g).min(b) as f32) / 2.0 / 255.0
 }
 
 /// The colours a texture uses, with how many pixels each: only the pixels that show (fully clear
@@ -202,6 +245,26 @@ mod tests {
         assert_eq!(added.len(), 1);
         assert_eq!(palette.slot_of([200, 150, 60]), Some(ochre));
         assert!(palette.is_regulated(ochre) && !palette.is_regulated(added[0]));
+    }
+
+    #[test]
+    fn a_spline_keeps_its_shades_darkest_first_and_a_colour_is_on_one_spline_only() {
+        let mut palette = MasterPalette::default();
+        let (light, dark, middle) = (palette.add([220, 200, 120]), palette.add([60, 40, 10]), palette.add([150, 110, 40]));
+        let ochre = palette.new_spline("ochre", &[light, dark]);
+        assert_eq!(palette.splines[ochre].steps, [dark, light]);
+        // A shade added later goes between the darker and the lighter.
+        assert!(palette.add_to_spline(ochre, &[middle]).is_empty());
+        assert_eq!(palette.splines[ochre].steps, [dark, middle, light]);
+        // Already on a spline: skipped, not moved.
+        let rust = palette.new_spline("rust", &[]);
+        assert_eq!(palette.add_to_spline(rust, &[middle]), [middle]);
+        assert!(palette.splines[rust].steps.is_empty());
+        // Taken off: unregulated again, and free to join another.
+        palette.take_off_splines(&[middle]);
+        assert!(!palette.is_regulated(middle));
+        assert!(palette.add_to_spline(rust, &[middle]).is_empty());
+        assert_eq!(palette.spline_of(middle).unwrap().name, "rust");
     }
 
     #[test]
