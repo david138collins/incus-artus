@@ -821,6 +821,36 @@ to evaporation.
 10. **Cost and saves:** within the 10-minute world-creation budget; mountain sliders then need a fast
     make; saved worlds depend on the climate code too (`vision/watch-list.md`, item 20).
 
+#### Caves, cliffs and carving  [IDEA, David 2026-10-29; after forests, a "caves and cliffs" pass]
+
+- **After mineralogy, caves.** Where exactly (Climate's last section, or the first stage after it) is
+  David's call.
+- **Fun first, not science** [David]: "the important thing is they are fun." If rivers and water can
+  make fun caves, that's a happy accident, not a requirement.
+- **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
+  out under a slope gives an overhang, a cave mouth, a rock shelter, an arch.
+- **Non-cave carve features here and there**, too.
+- **They must be visible from a distance like everything else.** Dwarves will build underground, with
+  great hall entrances into mountains.
+Counsel's notes [PROPOSED]:
+- **One far-3D technique for everything that breaks the surface:** overhangs, arches, cave mouths,
+  carved features, dwarven halls, castles. The heightmap stays the base for the far terrain, the
+  lighting and Climate. Only the few spots where something breaks the surface get a coarse 3D far copy
+  (a shrunk voxel copy at half, quarter or eighth detail), drawn over the far sheet. Natural ones come
+  from the recipe, built ones from saved edits. It's the "far builds" idea (`vision/watch-list.md`, item
+  17), so it's settled once as a contract, before caves, not three fixes.
+- **The light map won't see overhangs' shadows** at first. They can be stamped in later.
+- **Fun variety, from Minecraft's Caves & Cliffs** (1.17 blocks and mobs, 1.18 a new generator): huge
+  caverns with pillars, long winding tunnels, thin squiggly ones, ravines, underground lakes at their own
+  levels (aquifers), ore veins, and cave biomes chosen with depth. Dwarf Fortress sorts depth into cavern
+  layers, a magma sea, then the underworld.
+- **Carve features, besides caves:** ravines, gorges, sinkholes, sea cliffs and sea caves, rock
+  shelters, arches.
+- **To decide before release, or before caves, whichever is first:** how deep the world goes
+  (Minecraft's painful one: changing world height means converting saved worlds); rock in 3D layers,
+  so mineralogy can grow into ore and caves; block light underground (today faces well below the
+  surface get plain light).
+
 #### Biomes as cores, and deserts  [IDEA, David 2026-10-28]
 
 - **Biomes aren't regions the world is divided into.** The climate is a large, gradual topography
