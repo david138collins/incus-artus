@@ -142,6 +142,15 @@ the code yet).
     cycles deliberately". Slots are normally turned into plain colours ahead of time (Builder's bake),
     so a block that animates needs its own path. That means water's ripples and wind over grass, and
     later anything else that cycles.
+    - **How (Builder's assessment, 2026-10-29):** every block stays baked. A block marked "cycles" in
+      the Registrar also gets an index layer (which spline and which step each pixel is on). The shader
+      adds an offset to the step and looks up the spline's row. For water the offset is time × speed
+      along the flow; for wind, a travelling wave from Climate's wind map, sampled like the light map.
+      Wrap or bounce at a spline's ends is set per block. **Pixels off the cycling spline stay put, so
+      David chooses what moves by which spline each pixel is painted from.** Only flagged faces pay for it.
+      Lighting is untouched. Far off, it fades to the baked colours. To settle now: **permanent spline
+      ids** (`next_spline_id`, never reused), so reordering splines never changes what a shader reads.
+      Builder adds them in the load-a-new-asset round unless David objects.
     - **Wind ripples on grass** [IDEA, David]: wind makes the grass palette-cycle in expanding rings
       in the wind's direction. *Counsel:* a travelling wave (position along the wind − time × speed),
       gusts as rings carried downwind, its direction from Climate's own wind for that area. It works on
