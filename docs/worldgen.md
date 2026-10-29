@@ -138,6 +138,14 @@ the code yet).
     (gabbro.png: 235 colours look almost the same crushed to 8, with the HSL and crush settings). Open:
     how a crush becomes a spline, and how to crush to the palette (onto colours already in the master
     palette, the reshading feature).
+  - **[DECIDED 2026-10-29] Palette cycles, done deliberately** (David): "we need a way to do palette
+    cycles deliberately". Slots are normally turned into plain colours ahead of time (Builder's bake),
+    so a block that animates needs its own path. That means water's ripples and wind over grass, and
+    later anything else that cycles.
+    - **Wind ripples on grass** [IDEA, David]: wind makes the grass palette-cycle in expanding rings
+      in the wind's direction. *Counsel:* a travelling wave (position along the wind − time × speed),
+      gusts as rings carried downwind, its direction from Climate's own wind for that area. It works on
+      grass block tops as well as sprites, so whole hillsides shimmer from the air.
   - **Fast round trips with Aseprite:** images and palettes bounce rapidly between the editor and
     Aseprite. Palettes go out as GPL, which Aseprite loads; PNGs come back and are picked up without
     restarting.
@@ -1536,6 +1544,14 @@ to 58, every block regulated). Next:
 1. **The World Compiler rename** (from Terrain Compiler), in the gap between features.
 2. **Load a new asset**, with the 5×5 tiling checker and GPL export.
 3. **David makes blocks** for a while (D's art), *before* the what-block-goes-where system is built.
+   *Counsel's starter set* [PROPOSED]: the fewest blocks that make each climate readable from the air.
+   Grass, dry grass, **dirt** (early: a few layers between grass and stone change every hillside up
+   close, where step risers now show stone straight under the grass), mud, sand, gravel, snowy ground;
+   3-4 rock types from one stone pattern on different splines (gabbro, plus granite light, basalt dark,
+   limestone or sandstone warm); ice and packed snow; maybe wet sand for shores. Later: clay, peat, moss,
+   red sand, cracked earth, scree, and snow layers 1-8 (water's levels system).
+   **Crossed-sprite grass** comes with ecology (after rain, after rivers), as a "decoration" kind of
+   block: not solid, replaceable, drawn as a cross, many drawn at once, fading out with distance.
 4. Then what block goes where, climate set up to work on rivers, and the rivers finished. Then it's time
    for trees.
 **Reminder: fix the collision bug (walking through block sides) before the asset factory world is added
