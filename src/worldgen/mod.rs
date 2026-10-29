@@ -68,6 +68,7 @@ pub(crate) mod noise;
 mod palette;
 mod plates;
 mod rags;
+mod registrar;
 mod rain;
 mod rivers;
 pub(crate) mod runner;
@@ -99,6 +100,8 @@ pub const RESULT: u32 = 0;
 /// Which half of the Editor Suite is open.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Kit {
+    /// The Registrar: the library of every asset, and its Color Lab.
+    Registrar,
     #[default]
     Graphics,
     WorldGen,
@@ -136,6 +139,8 @@ pub struct Suite {
     pub world: world::WorldGen,
     /// The Terrain Compiler's tab.
     pub compiler: compiler_view::Compiler,
+    /// The Registrar's tab.
+    pub registrar: registrar::Registrar,
     /// The field is a square this many blocks across (the world is 72,000).
     pub size_blocks: f32,
     /// How many chunks wide one pixel is.
@@ -173,6 +178,7 @@ impl Default for Suite {
             kit: Kit::Graphics,
             world: world::WorldGen::default(),
             compiler: compiler_view::Compiler::default(),
+            registrar: registrar::Registrar::default(),
             size_blocks: 72_000.0,
             chunks_per_pixel: 8,
             layers: Vec::new(),
@@ -371,15 +377,17 @@ fn draw_suite(
     mut next: ResMut<NextState<Screen>>,
     mut next_terrain: ResMut<crate::world::NextTerrain>,
     mut requests: MessageWriter<crate::save::WorldFileRequest>,
+    registry: Res<crate::data::BlockRegistry>,
 ) -> Result {
     // Which tab, for crash and freeze reports.
     crate::diagnostics::place("tab", match suite.kit {
+        Kit::Registrar => "Registrar",
         Kit::Graphics => "Graphics Kit",
         Kit::WorldGen => "Tectonic Sim",
         Kit::Compiler => "Terrain Compiler",
     });
     let ctx = contexts.ctx_mut()?.clone();
-    if view::draw(&ctx, &mut suite) {
+    if view::draw(&ctx, &mut suite, &registry) {
         next.set(Screen::Play);
     }
     // "Render World and Spawn": a new world made from the compiled map, and back to the world.

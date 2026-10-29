@@ -19,7 +19,7 @@ mod material;
 mod mesher;
 mod meshing;
 mod performance;
-mod textures;
+pub(crate) mod textures;
 
 use crate::coords::bevy_to_game;
 use crate::data::{BlockRegistry, FACE_NAMES, TextureRotation};

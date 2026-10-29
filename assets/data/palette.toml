@@ -1,0 +1,1451 @@
+# The master palette: every colour the game's art uses, each with a permanent number (slot).
+# Written by the Registrar's Color Lab; edit it there rather than here.
+
+next_slot = 483
+
+[[colour]]
+slot = 1
+rgb = "#000000"
+[[colour]]
+slot = 2
+rgb = "#1e1c18"
+[[colour]]
+slot = 3
+rgb = "#302f2b"
+[[colour]]
+slot = 4
+rgb = "#55544e"
+[[colour]]
+slot = 5
+rgb = "#110e06"
+[[colour]]
+slot = 6
+rgb = "#181612"
+[[colour]]
+slot = 7
+rgb = "#1b1a14"
+[[colour]]
+slot = 8
+rgb = "#1d1a12"
+[[colour]]
+slot = 9
+rgb = "#1f1d19"
+[[colour]]
+slot = 10
+rgb = "#212019"
+[[colour]]
+slot = 11
+rgb = "#2c2a26"
+[[colour]]
+slot = 12
+rgb = "#312d25"
+[[colour]]
+slot = 13
+rgb = "#35332f"
+[[colour]]
+slot = 14
+rgb = "#3b3937"
+[[colour]]
+slot = 15
+rgb = "#494743"
+[[colour]]
+slot = 16
+rgb = "#68655f"
+[[colour]]
+slot = 17
+rgb = "#a2a297"
+[[colour]]
+slot = 18
+rgb = "#030200"
+[[colour]]
+slot = 19
+rgb = "#040000"
+[[colour]]
+slot = 20
+rgb = "#040300"
+[[colour]]
+slot = 21
+rgb = "#060501"
+[[colour]]
+slot = 22
+rgb = "#080500"
+[[colour]]
+slot = 23
+rgb = "#090600"
+[[colour]]
+slot = 24
+rgb = "#090700"
+[[colour]]
+slot = 25
+rgb = "#0c0b04"
+[[colour]]
+slot = 26
+rgb = "#0d0c04"
+[[colour]]
+slot = 27
+rgb = "#0d0c06"
+[[colour]]
+slot = 28
+rgb = "#100e08"
+[[colour]]
+slot = 29
+rgb = "#131209"
+[[colour]]
+slot = 30
+rgb = "#151716"
+[[colour]]
+slot = 31
+rgb = "#17110d"
+[[colour]]
+slot = 32
+rgb = "#171513"
+[[colour]]
+slot = 33
+rgb = "#181610"
+[[colour]]
+slot = 34
+rgb = "#19130a"
+[[colour]]
+slot = 35
+rgb = "#19180d"
+[[colour]]
+slot = 36
+rgb = "#1a180b"
+[[colour]]
+slot = 37
+rgb = "#1b1a16"
+[[colour]]
+slot = 38
+rgb = "#1b1b10"
+[[colour]]
+slot = 39
+rgb = "#1c1810"
+[[colour]]
+slot = 40
+rgb = "#1c1c13"
+[[colour]]
+slot = 41
+rgb = "#1d140e"
+[[colour]]
+slot = 42
+rgb = "#1e1c16"
+[[colour]]
+slot = 43
+rgb = "#1e1d12"
+[[colour]]
+slot = 44
+rgb = "#1f1e15"
+[[colour]]
+slot = 45
+rgb = "#1f2119"
+[[colour]]
+slot = 46
+rgb = "#201d17"
+[[colour]]
+slot = 47
+rgb = "#201f18"
+[[colour]]
+slot = 48
+rgb = "#212017"
+[[colour]]
+slot = 49
+rgb = "#23221c"
+[[colour]]
+slot = 50
+rgb = "#242119"
+[[colour]]
+slot = 51
+rgb = "#252014"
+[[colour]]
+slot = 52
+rgb = "#252218"
+[[colour]]
+slot = 53
+rgb = "#25231d"
+[[colour]]
+slot = 54
+rgb = "#26251c"
+[[colour]]
+slot = 55
+rgb = "#27241c"
+[[colour]]
+slot = 56
+rgb = "#272523"
+[[colour]]
+slot = 57
+rgb = "#27261d"
+[[colour]]
+slot = 58
+rgb = "#27261f"
+[[colour]]
+slot = 59
+rgb = "#282720"
+[[colour]]
+slot = 60
+rgb = "#29241a"
+[[colour]]
+slot = 61
+rgb = "#292822"
+[[colour]]
+slot = 62
+rgb = "#2a2923"
+[[colour]]
+slot = 63
+rgb = "#2a2925"
+[[colour]]
+slot = 64
+rgb = "#2b2820"
+[[colour]]
+slot = 65
+rgb = "#2b2d23"
+[[colour]]
+slot = 66
+rgb = "#2c2921"
+[[colour]]
+slot = 67
+rgb = "#2c2a24"
+[[colour]]
+slot = 68
+rgb = "#2d2e29"
+[[colour]]
+slot = 69
+rgb = "#2f2920"
+[[colour]]
+slot = 70
+rgb = "#2f2b28"
+[[colour]]
+slot = 71
+rgb = "#2f2c24"
+[[colour]]
+slot = 72
+rgb = "#2f2d22"
+[[colour]]
+slot = 73
+rgb = "#2f2d29"
+[[colour]]
+slot = 74
+rgb = "#31302a"
+[[colour]]
+slot = 75
+rgb = "#31302c"
+[[colour]]
+slot = 76
+rgb = "#322d25"
+[[colour]]
+slot = 77
+rgb = "#323234"
+[[colour]]
+slot = 78
+rgb = "#33302f"
+[[colour]]
+slot = 79
+rgb = "#33312b"
+[[colour]]
+slot = 80
+rgb = "#343129"
+[[colour]]
+slot = 81
+rgb = "#34322e"
+[[colour]]
+slot = 82
+rgb = "#353228"
+[[colour]]
+slot = 83
+rgb = "#36332d"
+[[colour]]
+slot = 84
+rgb = "#36352c"
+[[colour]]
+slot = 85
+rgb = "#363634"
+[[colour]]
+slot = 86
+rgb = "#373226"
+[[colour]]
+slot = 87
+rgb = "#373632"
+[[colour]]
+slot = 88
+rgb = "#38342c"
+[[colour]]
+slot = 89
+rgb = "#38342e"
+[[colour]]
+slot = 90
+rgb = "#38372f"
+[[colour]]
+slot = 91
+rgb = "#383733"
+[[colour]]
+slot = 92
+rgb = "#393530"
+[[colour]]
+slot = 93
+rgb = "#393834"
+[[colour]]
+slot = 94
+rgb = "#3c372b"
+[[colour]]
+slot = 95
+rgb = "#3c3931"
+[[colour]]
+slot = 96
+rgb = "#3d3730"
+[[colour]]
+slot = 97
+rgb = "#3d382c"
+[[colour]]
+slot = 98
+rgb = "#3d3b2e"
+[[colour]]
+slot = 99
+rgb = "#3d3c35"
+[[colour]]
+slot = 100
+rgb = "#3e3d39"
+[[colour]]
+slot = 101
+rgb = "#3e3e32"
+[[colour]]
+slot = 102
+rgb = "#3f3c31"
+[[colour]]
+slot = 103
+rgb = "#3f3e38"
+[[colour]]
+slot = 104
+rgb = "#403c34"
+[[colour]]
+slot = 105
+rgb = "#403d32"
+[[colour]]
+slot = 106
+rgb = "#424234"
+[[colour]]
+slot = 107
+rgb = "#46453f"
+[[colour]]
+slot = 108
+rgb = "#47433b"
+[[colour]]
+slot = 109
+rgb = "#474640"
+[[colour]]
+slot = 110
+rgb = "#4a473f"
+[[colour]]
+slot = 111
+rgb = "#4a483b"
+[[colour]]
+slot = 112
+rgb = "#4a4942"
+[[colour]]
+slot = 113
+rgb = "#4a4d4c"
+[[colour]]
+slot = 114
+rgb = "#4c4a46"
+[[colour]]
+slot = 115
+rgb = "#4c4b42"
+[[colour]]
+slot = 116
+rgb = "#4c4b44"
+[[colour]]
+slot = 117
+rgb = "#4d4c46"
+[[colour]]
+slot = 118
+rgb = "#4f504b"
+[[colour]]
+slot = 119
+rgb = "#514f40"
+[[colour]]
+slot = 120
+rgb = "#545048"
+[[colour]]
+slot = 121
+rgb = "#545142"
+[[colour]]
+slot = 122
+rgb = "#545146"
+[[colour]]
+slot = 123
+rgb = "#564d47"
+[[colour]]
+slot = 124
+rgb = "#585647"
+[[colour]]
+slot = 125
+rgb = "#585956"
+[[colour]]
+slot = 126
+rgb = "#595650"
+[[colour]]
+slot = 127
+rgb = "#59584d"
+[[colour]]
+slot = 128
+rgb = "#5a5854"
+[[colour]]
+slot = 129
+rgb = "#5b5a54"
+[[colour]]
+slot = 130
+rgb = "#5e5f5a"
+[[colour]]
+slot = 131
+rgb = "#605e5a"
+[[colour]]
+slot = 132
+rgb = "#605f58"
+[[colour]]
+slot = 133
+rgb = "#645f53"
+[[colour]]
+slot = 134
+rgb = "#646159"
+[[colour]]
+slot = 135
+rgb = "#646562"
+[[colour]]
+slot = 136
+rgb = "#666457"
+[[colour]]
+slot = 137
+rgb = "#686662"
+[[colour]]
+slot = 138
+rgb = "#686760"
+[[colour]]
+slot = 139
+rgb = "#696862"
+[[colour]]
+slot = 140
+rgb = "#6a665e"
+[[colour]]
+slot = 141
+rgb = "#6a675a"
+[[colour]]
+slot = 142
+rgb = "#6a6965"
+[[colour]]
+slot = 143
+rgb = "#6c695f"
+[[colour]]
+slot = 144
+rgb = "#6d6a62"
+[[colour]]
+slot = 145
+rgb = "#6d6f67"
+[[colour]]
+slot = 146
+rgb = "#6e6b63"
+[[colour]]
+slot = 147
+rgb = "#707168"
+[[colour]]
+slot = 148
+rgb = "#71706c"
+[[colour]]
+slot = 149
+rgb = "#72746a"
+[[colour]]
+slot = 150
+rgb = "#74736a"
+[[colour]]
+slot = 151
+rgb = "#787568"
+[[colour]]
+slot = 152
+rgb = "#7a7872"
+[[colour]]
+slot = 153
+rgb = "#7c776b"
+[[colour]]
+slot = 154
+rgb = "#7c7971"
+[[colour]]
+slot = 155
+rgb = "#7d776e"
+[[colour]]
+slot = 156
+rgb = "#7d786a"
+[[colour]]
+slot = 157
+rgb = "#7d7d6d"
+[[colour]]
+slot = 158
+rgb = "#7f7c71"
+[[colour]]
+slot = 159
+rgb = "#817c75"
+[[colour]]
+slot = 160
+rgb = "#817e76"
+[[colour]]
+slot = 161
+rgb = "#818077"
+[[colour]]
+slot = 162
+rgb = "#84837c"
+[[colour]]
+slot = 163
+rgb = "#84857e"
+[[colour]]
+slot = 164
+rgb = "#85847c"
+[[colour]]
+slot = 165
+rgb = "#86827a"
+[[colour]]
+slot = 166
+rgb = "#878374"
+[[colour]]
+slot = 167
+rgb = "#878575"
+[[colour]]
+slot = 168
+rgb = "#88877e"
+[[colour]]
+slot = 169
+rgb = "#898781"
+[[colour]]
+slot = 170
+rgb = "#898b81"
+[[colour]]
+slot = 171
+rgb = "#8b8a83"
+[[colour]]
+slot = 172
+rgb = "#8b8e89"
+[[colour]]
+slot = 173
+rgb = "#8d8981"
+[[colour]]
+slot = 174
+rgb = "#8d8b7b"
+[[colour]]
+slot = 175
+rgb = "#8e9086"
+[[colour]]
+slot = 176
+rgb = "#8f8c84"
+[[colour]]
+slot = 177
+rgb = "#908f7b"
+[[colour]]
+slot = 178
+rgb = "#909082"
+[[colour]]
+slot = 179
+rgb = "#90928a"
+[[colour]]
+slot = 180
+rgb = "#919087"
+[[colour]]
+slot = 181
+rgb = "#92918a"
+[[colour]]
+slot = 182
+rgb = "#929286"
+[[colour]]
+slot = 183
+rgb = "#939289"
+[[colour]]
+slot = 184
+rgb = "#94908a"
+[[colour]]
+slot = 185
+rgb = "#949179"
+[[colour]]
+slot = 186
+rgb = "#94938b"
+[[colour]]
+slot = 187
+rgb = "#958f88"
+[[colour]]
+slot = 188
+rgb = "#96937d"
+[[colour]]
+slot = 189
+rgb = "#98978c"
+[[colour]]
+slot = 190
+rgb = "#99938c"
+[[colour]]
+slot = 191
+rgb = "#99978a"
+[[colour]]
+slot = 192
+rgb = "#9a9992"
+[[colour]]
+slot = 193
+rgb = "#9b9a96"
+[[colour]]
+slot = 194
+rgb = "#9c9890"
+[[colour]]
+slot = 195
+rgb = "#9c9b97"
+[[colour]]
+slot = 196
+rgb = "#9e9b93"
+[[colour]]
+slot = 197
+rgb = "#9e9c98"
+[[colour]]
+slot = 198
+rgb = "#9f9e95"
+[[colour]]
+slot = 199
+rgb = "#a09d95"
+[[colour]]
+slot = 200
+rgb = "#a09e8f"
+[[colour]]
+slot = 201
+rgb = "#a09e91"
+[[colour]]
+slot = 202
+rgb = "#a09e9a"
+[[colour]]
+slot = 203
+rgb = "#a09f98"
+[[colour]]
+slot = 204
+rgb = "#a19c90"
+[[colour]]
+slot = 205
+rgb = "#a3a39a"
+[[colour]]
+slot = 206
+rgb = "#a5a28f"
+[[colour]]
+slot = 207
+rgb = "#a6a4a0"
+[[colour]]
+slot = 208
+rgb = "#a6a591"
+[[colour]]
+slot = 209
+rgb = "#a7a69b"
+[[colour]]
+slot = 210
+rgb = "#a8a48f"
+[[colour]]
+slot = 211
+rgb = "#aaaaa1"
+[[colour]]
+slot = 212
+rgb = "#aca89a"
+[[colour]]
+slot = 213
+rgb = "#acaaa4"
+[[colour]]
+slot = 214
+rgb = "#acab97"
+[[colour]]
+slot = 215
+rgb = "#b0afa7"
+[[colour]]
+slot = 216
+rgb = "#b0b1a8"
+[[colour]]
+slot = 217
+rgb = "#b1aca0"
+[[colour]]
+slot = 218
+rgb = "#b1ada5"
+[[colour]]
+slot = 219
+rgb = "#b3b1a0"
+[[colour]]
+slot = 220
+rgb = "#b4b1a7"
+[[colour]]
+slot = 221
+rgb = "#b4b1a9"
+[[colour]]
+slot = 222
+rgb = "#b4b2a5"
+[[colour]]
+slot = 223
+rgb = "#bab9ae"
+[[colour]]
+slot = 224
+rgb = "#c3c2b0"
+[[colour]]
+slot = 225
+rgb = "#c6c6bd"
+[[colour]]
+slot = 226
+rgb = "#c7c4bc"
+[[colour]]
+slot = 227
+rgb = "#c8c4bf"
+[[colour]]
+slot = 228
+rgb = "#c9c9bb"
+[[colour]]
+slot = 229
+rgb = "#cbcac3"
+[[colour]]
+slot = 230
+rgb = "#ccccc1"
+[[colour]]
+slot = 231
+rgb = "#d1d0c9"
+[[colour]]
+slot = 232
+rgb = "#d4d3cd"
+[[colour]]
+slot = 233
+rgb = "#dad9d3"
+[[colour]]
+slot = 234
+rgb = "#dedad5"
+[[colour]]
+slot = 235
+rgb = "#dfdcd6"
+[[colour]]
+slot = 236
+rgb = "#79553a"
+[[colour]]
+slot = 237
+rgb = "#966c4a"
+[[colour]]
+slot = 238
+rgb = "#593d29"
+[[colour]]
+slot = 239
+rgb = "#90bf60"
+[[colour]]
+slot = 240
+rgb = "#6faf45"
+[[colour]]
+slot = 241
+rgb = "#66a63c"
+[[colour]]
+slot = 242
+rgb = "#57972d"
+[[colour]]
+slot = 243
+rgb = "#6aaa40"
+[[colour]]
+slot = 244
+rgb = "#64a43a"
+[[colour]]
+slot = 245
+rgb = "#745844"
+[[colour]]
+slot = 246
+rgb = "#496334"
+[[colour]]
+slot = 247
+rgb = "#536c32"
+[[colour]]
+slot = 248
+rgb = "#5c7334"
+[[colour]]
+slot = 249
+rgb = "#788749"
+[[colour]]
+slot = 250
+rgb = "#425531"
+[[colour]]
+slot = 251
+rgb = "#19100a"
+[[colour]]
+slot = 252
+rgb = "#372518"
+[[colour]]
+slot = 253
+rgb = "#553928"
+[[colour]]
+slot = 254
+rgb = "#231000"
+[[colour]]
+slot = 255
+rgb = "#181818"
+[[colour]]
+slot = 256
+rgb = "#21150e"
+[[colour]]
+slot = 257
+rgb = "#7b523a"
+[[colour]]
+slot = 258
+rgb = "#271a11"
+[[colour]]
+slot = 259
+rgb = "#0f0f0f"
+[[colour]]
+slot = 260
+rgb = "#391b00"
+[[colour]]
+slot = 261
+rgb = "#462f1f"
+[[colour]]
+slot = 262
+rgb = "#4f2700"
+[[colour]]
+slot = 263
+rgb = "#171a00"
+[[colour]]
+slot = 264
+rgb = "#1f2300"
+[[colour]]
+slot = 265
+rgb = "#2f1f15"
+[[colour]]
+slot = 266
+rgb = "#150000"
+[[colour]]
+slot = 267
+rgb = "#4c3323"
+[[colour]]
+slot = 268
+rgb = "#0000d2"
+[[colour]]
+slot = 269
+rgb = "#fe0000"
+[[colour]]
+slot = 270
+rgb = "#727272"
+[[colour]]
+slot = 271
+rgb = "#757575"
+[[colour]]
+slot = 272
+rgb = "#777777"
+[[colour]]
+slot = 273
+rgb = "#707070"
+[[colour]]
+slot = 274
+rgb = "#7c7c7c"
+[[colour]]
+slot = 275
+rgb = "#5b5b5b"
+[[colour]]
+slot = 276
+rgb = "#828282"
+[[colour]]
+slot = 277
+rgb = "#606060"
+[[colour]]
+slot = 278
+rgb = "#7f7f7f"
+[[colour]]
+slot = 279
+rgb = "#666666"
+[[colour]]
+slot = 280
+rgb = "#595959"
+[[colour]]
+slot = 281
+rgb = "#5e5e5e"
+[[colour]]
+slot = 282
+rgb = "#686868"
+[[colour]]
+slot = 283
+rgb = "#6b6b6b"
+[[colour]]
+slot = 284
+rgb = "#848484"
+[[colour]]
+slot = 285
+rgb = "#7a7a7a"
+[[colour]]
+slot = 286
+rgb = "#878787"
+[[colour]]
+slot = 287
+rgb = "#636363"
+[[colour]]
+slot = 288
+rgb = "#6d6d6d"
+[[colour]]
+slot = 289
+rgb = "#898989"
+[[colour]]
+slot = 290
+rgb = "#0000e5"
+[[colour]]
+slot = 291
+rgb = "#0000e2"
+[[colour]]
+slot = 292
+rgb = "#0000e6"
+[[colour]]
+slot = 293
+rgb = "#0000e7"
+[[colour]]
+slot = 294
+rgb = "#0202e7"
+[[colour]]
+slot = 295
+rgb = "#0000e3"
+[[colour]]
+slot = 296
+rgb = "#0000d0"
+[[colour]]
+slot = 297
+rgb = "#0000de"
+[[colour]]
+slot = 298
+rgb = "#0000df"
+[[colour]]
+slot = 299
+rgb = "#0000e4"
+[[colour]]
+slot = 300
+rgb = "#0202e2"
+[[colour]]
+slot = 301
+rgb = "#0000e8"
+[[colour]]
+slot = 302
+rgb = "#0000e1"
+[[colour]]
+slot = 303
+rgb = "#0000d1"
+[[colour]]
+slot = 304
+rgb = "#0000d3"
+[[colour]]
+slot = 305
+rgb = "#0000d4"
+[[colour]]
+slot = 306
+rgb = "#0000c5"
+[[colour]]
+slot = 307
+rgb = "#0000cd"
+[[colour]]
+slot = 308
+rgb = "#0000cc"
+[[colour]]
+slot = 309
+rgb = "#0000d5"
+[[colour]]
+slot = 310
+rgb = "#0000e0"
+[[colour]]
+slot = 311
+rgb = "#0202de"
+[[colour]]
+slot = 312
+rgb = "#0202e3"
+[[colour]]
+slot = 313
+rgb = "#0303e5"
+[[colour]]
+slot = 314
+rgb = "#3636ba"
+[[colour]]
+slot = 315
+rgb = "#0000be"
+[[colour]]
+slot = 316
+rgb = "#0202d5"
+[[colour]]
+slot = 317
+rgb = "#0303e0"
+[[colour]]
+slot = 318
+rgb = "#0303e6"
+[[colour]]
+slot = 319
+rgb = "#0000cf"
+[[colour]]
+slot = 320
+rgb = "#030361"
+[[colour]]
+slot = 321
+rgb = "#050556"
+[[colour]]
+slot = 322
+rgb = "#0505d0"
+[[colour]]
+slot = 323
+rgb = "#0505e5"
+[[colour]]
+slot = 324
+rgb = "#0606d4"
+[[colour]]
+slot = 325
+rgb = "#3838b8"
+[[colour]]
+slot = 326
+rgb = "#3838be"
+[[colour]]
+slot = 327
+rgb = "#000074"
+[[colour]]
+slot = 328
+rgb = "#0000ad"
+[[colour]]
+slot = 329
+rgb = "#0000c3"
+[[colour]]
+slot = 330
+rgb = "#0000c4"
+[[colour]]
+slot = 331
+rgb = "#0000ca"
+[[colour]]
+slot = 332
+rgb = "#0000dd"
+[[colour]]
+slot = 333
+rgb = "#0303e2"
+[[colour]]
+slot = 334
+rgb = "#0303e3"
+[[colour]]
+slot = 335
+rgb = "#000076"
+[[colour]]
+slot = 336
+rgb = "#00007a"
+[[colour]]
+slot = 337
+rgb = "#3434bd"
+[[colour]]
+slot = 338
+rgb = "#3838bb"
+[[colour]]
+slot = 339
+rgb = "#3939b8"
+[[colour]]
+slot = 340
+rgb = "#0000c2"
+[[colour]]
+slot = 341
+rgb = "#0000db"
+[[colour]]
+slot = 342
+rgb = "#0202b2"
+[[colour]]
+slot = 343
+rgb = "#0202e6"
+[[colour]]
+slot = 344
+rgb = "#030357"
+[[colour]]
+slot = 345
+rgb = "#0303bc"
+[[colour]]
+slot = 346
+rgb = "#0505dd"
+[[colour]]
+slot = 347
+rgb = "#0606e1"
+[[colour]]
+slot = 348
+rgb = "#3838ba"
+[[colour]]
+slot = 349
+rgb = "#3838bc"
+[[colour]]
+slot = 350
+rgb = "#0000ab"
+[[colour]]
+slot = 351
+rgb = "#0000bc"
+[[colour]]
+slot = 352
+rgb = "#0000c0"
+[[colour]]
+slot = 353
+rgb = "#0000d9"
+[[colour]]
+slot = 354
+rgb = "#0202e1"
+[[colour]]
+slot = 355
+rgb = "#0303d0"
+[[colour]]
+slot = 356
+rgb = "#3636b8"
+[[colour]]
+slot = 357
+rgb = "#000059"
+[[colour]]
+slot = 358
+rgb = "#000073"
+[[colour]]
+slot = 359
+rgb = "#000078"
+[[colour]]
+slot = 360
+rgb = "#00009f"
+[[colour]]
+slot = 361
+rgb = "#0000b3"
+[[colour]]
+slot = 362
+rgb = "#0000b4"
+[[colour]]
+slot = 363
+rgb = "#0000bd"
+[[colour]]
+slot = 364
+rgb = "#0000c6"
+[[colour]]
+slot = 365
+rgb = "#0000ce"
+[[colour]]
+slot = 366
+rgb = "#0000dc"
+[[colour]]
+slot = 367
+rgb = "#0202c3"
+[[colour]]
+slot = 368
+rgb = "#0202d1"
+[[colour]]
+slot = 369
+rgb = "#0202dc"
+[[colour]]
+slot = 370
+rgb = "#0202df"
+[[colour]]
+slot = 371
+rgb = "#0202e5"
+[[colour]]
+slot = 372
+rgb = "#030358"
+[[colour]]
+slot = 373
+rgb = "#03035a"
+[[colour]]
+slot = 374
+rgb = "#0303df"
+[[colour]]
+slot = 375
+rgb = "#0303e1"
+[[colour]]
+slot = 376
+rgb = "#050557"
+[[colour]]
+slot = 377
+rgb = "#3333c5"
+[[colour]]
+slot = 378
+rgb = "#3434bc"
+[[colour]]
+slot = 379
+rgb = "#3636bf"
+[[colour]]
+slot = 380
+rgb = "#3838b7"
+[[colour]]
+slot = 381
+rgb = "#3838c2"
+[[colour]]
+slot = 382
+rgb = "#3b3bb7"
+[[colour]]
+slot = 383
+rgb = "#000055"
+[[colour]]
+slot = 384
+rgb = "#000065"
+[[colour]]
+slot = 385
+rgb = "#000067"
+[[colour]]
+slot = 386
+rgb = "#000068"
+[[colour]]
+slot = 387
+rgb = "#00006b"
+[[colour]]
+slot = 388
+rgb = "#000071"
+[[colour]]
+slot = 389
+rgb = "#00007f"
+[[colour]]
+slot = 390
+rgb = "#000099"
+[[colour]]
+slot = 391
+rgb = "#00009d"
+[[colour]]
+slot = 392
+rgb = "#0000ae"
+[[colour]]
+slot = 393
+rgb = "#0000bf"
+[[colour]]
+slot = 394
+rgb = "#0000c1"
+[[colour]]
+slot = 395
+rgb = "#0000cb"
+[[colour]]
+slot = 396
+rgb = "#0000d6"
+[[colour]]
+slot = 397
+rgb = "#020256"
+[[colour]]
+slot = 398
+rgb = "#02025c"
+[[colour]]
+slot = 399
+rgb = "#02027a"
+[[colour]]
+slot = 400
+rgb = "#02029c"
+[[colour]]
+slot = 401
+rgb = "#0202a0"
+[[colour]]
+slot = 402
+rgb = "#0202c1"
+[[colour]]
+slot = 403
+rgb = "#0202cd"
+[[colour]]
+slot = 404
+rgb = "#0202d0"
+[[colour]]
+slot = 405
+rgb = "#0202d4"
+[[colour]]
+slot = 406
+rgb = "#03039a"
+[[colour]]
+slot = 407
+rgb = "#0303b2"
+[[colour]]
+slot = 408
+rgb = "#0303d7"
+[[colour]]
+slot = 409
+rgb = "#0303de"
+[[colour]]
+slot = 410
+rgb = "#0303e4"
+[[colour]]
+slot = 411
+rgb = "#05054e"
+[[colour]]
+slot = 412
+rgb = "#0606de"
+[[colour]]
+slot = 413
+rgb = "#3333c1"
+[[colour]]
+slot = 414
+rgb = "#3434c0"
+[[colour]]
+slot = 415
+rgb = "#3434c2"
+[[colour]]
+slot = 416
+rgb = "#3434c5"
+[[colour]]
+slot = 417
+rgb = "#3636bc"
+[[colour]]
+slot = 418
+rgb = "#3636c2"
+[[colour]]
+slot = 419
+rgb = "#3636c3"
+[[colour]]
+slot = 420
+rgb = "#3b3bb9"
+[[colour]]
+slot = 421
+rgb = "#000058"
+[[colour]]
+slot = 422
+rgb = "#00005b"
+[[colour]]
+slot = 423
+rgb = "#00005d"
+[[colour]]
+slot = 424
+rgb = "#000061"
+[[colour]]
+slot = 425
+rgb = "#000066"
+[[colour]]
+slot = 426
+rgb = "#000069"
+[[colour]]
+slot = 427
+rgb = "#00006e"
+[[colour]]
+slot = 428
+rgb = "#00007c"
+[[colour]]
+slot = 429
+rgb = "#00007d"
+[[colour]]
+slot = 430
+rgb = "#000088"
+[[colour]]
+slot = 431
+rgb = "#000095"
+[[colour]]
+slot = 432
+rgb = "#000096"
+[[colour]]
+slot = 433
+rgb = "#000098"
+[[colour]]
+slot = 434
+rgb = "#00009c"
+[[colour]]
+slot = 435
+rgb = "#0000aa"
+[[colour]]
+slot = 436
+rgb = "#0000da"
+[[colour]]
+slot = 437
+rgb = "#020257"
+[[colour]]
+slot = 438
+rgb = "#020263"
+[[colour]]
+slot = 439
+rgb = "#020267"
+[[colour]]
+slot = 440
+rgb = "#02026c"
+[[colour]]
+slot = 441
+rgb = "#02027e"
+[[colour]]
+slot = 442
+rgb = "#02029b"
+[[colour]]
+slot = 443
+rgb = "#0202b1"
+[[colour]]
+slot = 444
+rgb = "#0202c8"
+[[colour]]
+slot = 445
+rgb = "#0202cb"
+[[colour]]
+slot = 446
+rgb = "#0202cc"
+[[colour]]
+slot = 447
+rgb = "#0202cf"
+[[colour]]
+slot = 448
+rgb = "#0202d9"
+[[colour]]
+slot = 449
+rgb = "#0202e0"
+[[colour]]
+slot = 450
+rgb = "#030355"
+[[colour]]
+slot = 451
+rgb = "#03036c"
+[[colour]]
+slot = 452
+rgb = "#030397"
+[[colour]]
+slot = 453
+rgb = "#0303ad"
+[[colour]]
+slot = 454
+rgb = "#0303d2"
+[[colour]]
+slot = 455
+rgb = "#0303dc"
+[[colour]]
+slot = 456
+rgb = "#0303dd"
+[[colour]]
+slot = 457
+rgb = "#050560"
+[[colour]]
+slot = 458
+rgb = "#050568"
+[[colour]]
+slot = 459
+rgb = "#050578"
+[[colour]]
+slot = 460
+rgb = "#05057b"
+[[colour]]
+slot = 461
+rgb = "#050584"
+[[colour]]
+slot = 462
+rgb = "#05059c"
+[[colour]]
+slot = 463
+rgb = "#0505d2"
+[[colour]]
+slot = 464
+rgb = "#0505de"
+[[colour]]
+slot = 465
+rgb = "#0505df"
+[[colour]]
+slot = 466
+rgb = "#0505e1"
+[[colour]]
+slot = 467
+rgb = "#060658"
+[[colour]]
+slot = 468
+rgb = "#0606df"
+[[colour]]
+slot = 469
+rgb = "#08085d"
+[[colour]]
+slot = 470
+rgb = "#0808d9"
+[[colour]]
+slot = 471
+rgb = "#0a0a52"
+[[colour]]
+slot = 472
+rgb = "#3333ba"
+[[colour]]
+slot = 473
+rgb = "#3333c0"
+[[colour]]
+slot = 474
+rgb = "#3333c6"
+[[colour]]
+slot = 475
+rgb = "#3434b5"
+[[colour]]
+slot = 476
+rgb = "#3434bb"
+[[colour]]
+slot = 477
+rgb = "#3434c1"
+[[colour]]
+slot = 478
+rgb = "#3434c4"
+[[colour]]
+slot = 479
+rgb = "#3636bb"
+[[colour]]
+slot = 480
+rgb = "#3838b2"
+[[colour]]
+slot = 481
+rgb = "#3939b4"
+[[colour]]
+slot = 482
+rgb = "#3d3db7"

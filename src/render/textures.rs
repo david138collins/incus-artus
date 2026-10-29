@@ -84,7 +84,7 @@ pub fn build_block_textures(registry: &BlockRegistry) -> BlockTextures {
 }
 
 /// Load a PNG as 32 × 32 RGBA pixels, or explain why not.
-fn load_texture(path: &std::path::Path) -> Result<Vec<u8>, String> {
+pub(crate) fn load_texture(path: &std::path::Path) -> Result<Vec<u8>, String> {
     let bytes = std::fs::read(path).map_err(|_| format!("file not found ({})", path.display()))?;
     let image = Image::from_buffer(
         &bytes,

@@ -11,6 +11,7 @@
 //! (`watch_data_files`) that can simply be removed for a shipped game.
 
 mod loading;
+pub mod master_palette;
 
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::world::BlockId;

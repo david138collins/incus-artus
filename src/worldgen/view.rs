@@ -189,7 +189,7 @@ pub fn short(name: &str, most: usize) -> String {
 }
 
 /// Draws the whole screen. Returns true when "Back to the world" was pressed.
-pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
+pub fn draw(ctx: &egui::Context, suite: &mut Suite, registry: &crate::data::BlockRegistry) -> bool {
     let mut root = egui::Ui::new(
         ctx.clone(),
         "editor suite".into(),
@@ -200,6 +200,7 @@ pub fn draw(ctx: &egui::Context, suite: &mut Suite) -> bool {
     // Note buttons only on the panels that set their page.
     super::notes::on_page(None);
     match suite.kit {
+        Kit::Registrar => super::registrar::draw(&mut root, &mut suite.registrar, registry),
         Kit::Graphics => graphics_kit(&mut root, suite),
         Kit::WorldGen => super::world::draw(&mut root, suite),
         Kit::Compiler => super::compiler_view::draw(&mut root, suite),
@@ -275,6 +276,8 @@ fn suite_bar(ui: &mut egui::Ui, suite: &mut Suite) -> bool {
             close = true;
         }
         ui.separator();
+        ui.selectable_value(&mut suite.kit, Kit::Registrar, "Registrar")
+            .on_hover_text("The library of every asset the game has, and its Color Lab: the master palette.");
         ui.selectable_value(&mut suite.kit, Kit::Graphics, "Graphics Kit")
             .on_hover_text("Noise, pictures, mixing and palettes: numbers into colours and colours into numbers.\nThe art pipeline.");
         ui.selectable_value(&mut suite.kit, Kit::WorldGen, "Tectonic Sim").on_hover_text(
