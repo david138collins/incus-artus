@@ -1570,8 +1570,10 @@ to 58, every block regulated). Next:
    **Before rivers: rough in a mineralogy section** [David 2026-10-29], somewhere to decide how the new
    blocks get placed, and **retire the old ways they're placed**. Today that's `surface()` in
    `src/world/terrain.rs`: grass below a height, stone from "stone from", gabbro from "gabbro from",
-   stone under every surface. *Counsel:* it reads geology and Climate's results (temperature, rain), so in
-   the linear pipeline it sits after Climate. Its name and place in the World Compiler are David's call.
+   stone under every surface. **It stays in Climate, after Rivers** [David], so nothing sits between
+   Climate and Ecology. *Counsel:* that fits the linear pipeline. It reads temperature, rain and the rivers
+   above it (mud and gravel along rivers, sand on dry ground, snow where it's cold). It's roughed in
+   before the rivers are finished, and reads their results once they exist. Its name is David's call.
 **Reminder: fix the collision bug (walking through block sides) before the asset factory world is added
 to the Registrar**, which comes when it's time for trees.
 
