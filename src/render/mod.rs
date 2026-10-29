@@ -119,6 +119,8 @@ pub struct RenderSettings {
     /// How many new mesh jobs may start per 240th of a second (spreads big rebuilds over several
     /// frames; a slower frame starts more, see `meshing.rs`).
     pub max_jobs_per_frame: usize,
+    /// The most new section meshes handed to the graphics side each frame (the rest wait their turn).
+    pub meshes_per_frame: usize,
     /// Face brightness: top, bottom, north/south, east/west.
     pub shade_top: f32,
     pub shade_bottom: f32,
@@ -153,6 +155,7 @@ impl Default for RenderSettings {
         Self {
             render_distance_chunks: 32,
             max_jobs_per_frame: 64,
+            meshes_per_frame: 48,
             shade_top: 1.0,
             shade_bottom: 0.5,
             shade_north_south: 0.8,
@@ -441,6 +444,10 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.add(crate::debug::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"));
         ui.add(crate::debug::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / 240th of a second"))
             .on_hover_text("Per 240th of a second, not per frame: at 60 FPS each frame starts four times as many, so terrain fills in as fast on a slower machine.");
+        ui.add(crate::debug::Slider::new(&mut settings.meshes_per_frame, 1..=512).text("new meshes shown per frame")).on_hover_text(
+            "The most newly made sections handed to the graphics card each frame; the rest wait their turn (the distant\n\
+             terrain shows meanwhile). Higher = the ground fills in faster; lower = smoother frames when lots arrive at once.",
+        );
         ui.add(crate::debug::Slider::new(&mut settings.shade_top, 0.0..=1.5).text("shade: top"));
         ui.add(crate::debug::Slider::new(&mut settings.shade_bottom, 0.0..=1.5).text("shade: bottom"));
         ui.add(crate::debug::Slider::new(&mut settings.shade_north_south, 0.0..=1.5).text("shade: north/south"));

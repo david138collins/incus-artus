@@ -27,7 +27,7 @@ use bevy::camera::primitives::Aabb;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task, futures::check_ready};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::Instant;
 
 /// A drawn section. The entity's `Mesh3d` holds the current mesh.
@@ -45,6 +45,9 @@ pub struct MeshingState {
     pub waiting: HashSet<SectionKey>,
     /// Jobs currently running on worker threads.
     pub running: HashMap<SectionKey, Task<JobResult>>,
+    /// Finished meshes waiting their turn to be handed to the graphics side (a few each frame:
+    /// see `finish_jobs`), oldest first.
+    pub ready: VecDeque<(SectionKey, JobResult)>,
     /// The entity drawing each section (sections with nothing to draw have none).
     pub entities: HashMap<SectionKey, Entity>,
     /// Goes up whenever the lists above may have changed (so the distant terrain's hand-off only
@@ -68,6 +71,7 @@ pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWor
         return;
     }
     state.changes += 1;
+    let mut gone = HashSet::new();
     for key in dirty {
         let section = world.chunk(key.chunk).map(|chunk| &chunk.sections()[key.level as usize]);
         match section {
@@ -75,6 +79,7 @@ pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWor
             None => {
                 state.waiting.remove(&key);
                 state.running.remove(&key);
+                gone.insert(key);
                 if let Some(entity) = state.entities.remove(&key) {
                     commands.entity(entity).despawn();
                 }
@@ -89,6 +94,10 @@ pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWor
                 state.waiting.insert(key);
             }
         }
+    }
+    // Meshes made for them, still waiting their turn to be shown, are no longer wanted.
+    if !gone.is_empty() {
+        state.ready.retain(|(key, _)| !gone.contains(key));
     }
 }
 
@@ -118,9 +127,13 @@ pub fn start_jobs(
         centre.distance_squared(camera_position) as i64
     };
     let mut keys: Vec<SectionKey> = state.waiting.iter().copied().collect();
-    // The setting is per 240th of a second: a slower frame starts more (up to 8 times as many,
-    // so one long hitch doesn't start thousands at once).
-    let frames = (time.delta_secs() * 240.0).clamp(1.0, 8.0);
+    // The setting is per 240th of a second: a slower frame starts more, but at most twice as many
+    // (it was 8: a slow frame then started hundreds more, whose meshes made the next frames slower
+    // still). None while plenty of finished meshes are still waiting their turn.
+    let frames = (time.delta_secs() * 240.0).clamp(1.0, 2.0);
+    if state.ready.len() > settings.meshes_per_frame * 8 {
+        return;
+    }
     let take = ((settings.max_jobs_per_frame as f32 * frames).round() as usize).min(keys.len());
     if take == 0 {
         return;
@@ -162,6 +175,7 @@ pub fn finish_jobs(
     mut state: ResMut<MeshingState>,
     mut meshes: ResMut<Assets<Mesh>>,
     terrain: Res<TerrainAssets>,
+    settings: Res<RenderSettings>,
     mut existing: Query<(&mut Mesh3d, &mut SectionMesh)>,
 ) {
     let _timed = crate::render::Timed::new("finish meshing");
@@ -171,16 +185,29 @@ pub fn finish_jobs(
             done.push((*key, result));
         }
     }
-
-    if !done.is_empty() {
-        state.changes += 1;
-    }
     for (key, result) in done {
         state.running.remove(&key);
         state.jobs_finished += 1;
         state.total_job_micros += result.micros;
         state.slowest_job_micros = state.slowest_job_micros.max(result.micros);
+        state.ready.push_back((key, result));
+    }
 
+    // Only so many new meshes are handed to the graphics side each frame [2026-10-28]: taking in a
+    // new mesh costs Bevy far more than making it costs us, and when hundreds arrived at once (flying
+    // fast, at a long render distance) frames took 50-200 ms. The rest wait their turn; meanwhile
+    // the distant terrain shows under any chunk not yet drawn.
+    let (mut meshes_left, mut vertices_left) = (settings.meshes_per_frame.max(1), VERTICES_PER_FRAME);
+    let mut handed = false;
+    while meshes_left > 0 && vertices_left > 0 {
+        let Some((key, result)) = state.ready.pop_front() else { break };
+        // A newer mesh for it is on its way: this one's out of date.
+        if state.running.contains_key(&key) || state.waiting.contains(&key) {
+            continue;
+        }
+        meshes_left -= 1;
+        vertices_left = vertices_left.saturating_sub(result.output.vertices.len());
+        handed = true;
         let output = result.output;
         if output.quads == 0 {
             if let Some(entity) = state.entities.remove(&key) {
@@ -223,7 +250,14 @@ pub fn finish_jobs(
             .id();
         state.entities.insert(key, entity);
     }
+    if handed {
+        state.changes += 1;
+    }
 }
+
+/// The most corners of new meshes handed to the graphics side in one frame (a frame of ordinary
+/// sections is a few hundred to a few thousand corners each).
+const VERTICES_PER_FRAME: usize = 400_000;
 
 /// The block at a section's south-west bottom corner.
 pub fn section_origin(key: SectionKey) -> IVec3 {

@@ -269,7 +269,7 @@ pub fn run_deep_shot(
             }
         }
         Phase::Settling(waited) => {
-            let meshed = meshing.waiting.is_empty() && meshing.running.is_empty() && world.dirty_sections().next().is_none();
+            let meshed = meshing.waiting.is_empty() && meshing.running.is_empty() && meshing.ready.is_empty() && world.dirty_sections().next().is_none();
             // A moment for the last meshes to reach the screen, and no longer than the longest wait.
             let waited = waited + time.delta_secs();
             shot.phase = if (meshed && waited > 0.5) || waited > LONGEST_WAIT { Phase::Capturing(0) } else { Phase::Settling(waited) };

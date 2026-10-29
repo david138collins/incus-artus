@@ -189,7 +189,7 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.label(format!("Chunks in the world: {}", world.resource::<VoxelWorld>().chunk_count()));
     let meshing = world.resource::<MeshingState>();
     let average_job = if meshing.jobs_finished > 0 { meshing.total_job_micros as f64 / meshing.jobs_finished as f64 / 1000.0 } else { 0.0 };
-    ui.label(format!("Sections waiting to mesh: {}   meshing: {}   (a mesh takes {average_job:.2} ms on average)", meshing.waiting.len(), meshing.running.len()));
+    ui.label(format!("Sections waiting to mesh: {}   meshing: {}   made, waiting to be shown: {}   (a mesh takes {average_job:.2} ms on average)", meshing.waiting.len(), meshing.running.len(), meshing.ready.len()));
 
     ui.separator();
     ui.strong("Being drawn");

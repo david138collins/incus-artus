@@ -676,7 +676,7 @@ pub fn update_shown_chunks(
 
     // Chunks with sections not meshed yet.
     let pending: HashSet<ChunkPos> =
-        world.dirty_sections().chain(meshing.waiting.iter()).chain(meshing.running.keys()).map(|key| key.chunk).collect();
+        world.dirty_sections().chain(meshing.waiting.iter()).chain(meshing.running.keys()).chain(meshing.ready.iter().map(|(key, _)| key)).map(|key| key.chunk).collect();
     let drawn = streaming.drawn();
     let before = state.shown.len();
     state.shown.retain(|pos| drawn.contains(pos));
