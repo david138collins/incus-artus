@@ -10,8 +10,10 @@
 //!   or the wrong size uses it, so problems are obvious on screen.
 //!
 //! Each layer also gets *mipmaps*: pre-shrunk copies (16×16, 8×8 … 1×1) used for distant blocks.
-//! Without them, pixel art sparkles and shimmers in the distance. For now they're generated
-//! automatically by averaging pixels; David may hand-touch them later.
+//! Without them, pixel art sparkles and shimmers in the distance. They're made automatically by
+//! averaging pixels, then (with "far textures keep their painted colours", on the Render page) each
+//! averaged pixel is swapped for the nearest colour the texture really has, so no colour appears in
+//! the distance that wasn't painted [watch-list item 15d, 2026-10-28]. David may hand-touch them later.
 
 use crate::data::{BlockRegistry, block_texture_folder};
 use bevy::asset::RenderAssetUsages;
@@ -41,7 +43,9 @@ pub struct BlockTextures {
     pub face_layers: Vec<[u32; 6]>,
 }
 
-pub fn build_block_textures(registry: &BlockRegistry) -> BlockTextures {
+/// `painted`: the shrunk versions keep the texture's own colours (see `keep_painted`), and the GPU
+/// picks one size rather than blending two.
+pub fn build_block_textures(registry: &BlockRegistry, painted: bool) -> BlockTextures {
     let folder = block_texture_folder();
 
     let mut layers: Vec<Vec<u8>> = vec![missing_texture()];
@@ -76,7 +80,7 @@ pub fn build_block_textures(registry: &BlockRegistry) -> BlockTextures {
     }
 
     BlockTextures {
-        image: build_array_image(&layers),
+        image: build_array_image(&layers, painted),
         layer_names,
         problems,
         face_layers,
@@ -155,8 +159,10 @@ fn shrink(pixels: &[u8], size: u32) -> Vec<u8> {
 
 /// A block texture's colour as the near ground shows it once a block is smaller than a pixel: its
 /// smallest shrunk version, made by the same `shrink` as the mipmaps, read as light (linear RGB, as
-/// the shaders work). The distant terrain takes its colours from here, so near and far always agree,
-/// however the mipmaps are made. [2026-10-29: it averaged the texture as light itself, while the
+/// the shaders work). The distant terrain takes its colours from here, so near and far agree,
+/// as the averaged mipmaps make it (with "far textures keep their painted colours" on, the shrunk
+/// versions are snapped to painted colours, but the far colour stays this average: what a field of
+/// them comes to from afar). [2026-10-29: it averaged the texture as light itself, while the
 /// mipmaps average the stored values; on gabbro's strong speckle the near ground came out 18%
 /// darker on screen, the seam on rocky hills.]
 pub fn far_colour(name: &str) -> Option<[f32; 3]> {
@@ -177,8 +183,30 @@ fn smallest_mip_colour(mut pixels: Vec<u8>, mut size: u32) -> [f32; 3] {
     [linear(pixels[0]), linear(pixels[1]), linear(pixels[2])]
 }
 
+/// Each pixel of a shrunk version swapped for the nearest of the colours painted in `original` (the
+/// full-size texture): seen from afar, the texture is still made of its own colours. Opacity is kept.
+fn keep_painted(level: &[u8], original: &[u8]) -> Vec<u8> {
+    let mut painted: Vec<[u8; 3]> = original.chunks_exact(4).filter(|p| p[3] >= 128).map(|p| [p[0], p[1], p[2]]).collect();
+    painted.sort_unstable();
+    painted.dedup();
+    if painted.is_empty() {
+        return level.to_vec();
+    }
+    // Nearest as the eye sees it, roughly: green counts most, blue least.
+    let apart = |a: [u8; 3], b: &[u8]| {
+        let d = |k: usize| a[k] as i32 - b[k] as i32;
+        3 * d(0) * d(0) + 4 * d(1) * d(1) + 2 * d(2) * d(2)
+    };
+    let mut out = level.to_vec();
+    for pixel in out.chunks_exact_mut(4) {
+        let nearest = painted.iter().copied().min_by_key(|&colour| apart(colour, pixel)).unwrap();
+        pixel[..3].copy_from_slice(&nearest);
+    }
+    out
+}
+
 /// Stack the layers (each with its mipmaps) into one array image.
-fn build_array_image(layers: &[Vec<u8>]) -> Image {
+fn build_array_image(layers: &[Vec<u8>], painted: bool) -> Image {
     let mut data = Vec::new();
     for layer in layers {
         // Layer-major order: layer 0's full mip chain, then layer 1's, and so on.
@@ -187,6 +215,9 @@ fn build_array_image(layers: &[Vec<u8>]) -> Image {
         data.extend_from_slice(&level);
         for _ in 1..MIP_LEVELS {
             level = shrink(&level, size);
+            if painted {
+                level = keep_painted(&level, layer);
+            }
             size /= 2;
             data.extend_from_slice(&level);
         }
@@ -217,8 +248,9 @@ fn build_array_image(layers: &[Vec<u8>]) -> Image {
         // Crisp pixels up close…
         mag_filter: ImageFilterMode::Nearest,
         min_filter: ImageFilterMode::Nearest,
-        // …and a smooth hand-over between shrunk versions in the distance.
-        mipmap_filter: ImageFilterMode::Linear,
+        // …and in the distance either one shrunk size (keeping the painted colours) or a smooth
+        // hand-over between two (which blends them into new ones).
+        mipmap_filter: if painted { ImageFilterMode::Nearest } else { ImageFilterMode::Linear },
         ..default()
     });
     image
@@ -254,8 +286,20 @@ mod tests {
     }
 
     #[test]
+    fn far_versions_keep_the_painted_colours() {
+        // Black and white checks shrink to grey, which was never painted: kept painted, it's black or
+        // white again.
+        let checks: Vec<u8> = (0..4).flat_map(|i| if i % 3 == 0 { [0, 0, 0, 255] } else { [255, 255, 255, 255] }).collect();
+        let shrunk = shrink(&checks, 2);
+        assert_eq!(shrunk[..3], [128, 128, 128]);
+        let kept = keep_painted(&shrunk, &checks);
+        assert!(kept[..3] == [0, 0, 0] || kept[..3] == [255, 255, 255], "{:?}", &kept[..3]);
+        assert_eq!(kept[3], 255);
+    }
+
+    #[test]
     fn mip_chain_size() {
-        let image = build_array_image(&[missing_texture(), missing_texture()]);
+        let image = build_array_image(&[missing_texture(), missing_texture()], true);
         // Each layer: 32² + 16² + 8² + 4² + 2² + 1² pixels, 4 bytes each.
         let per_layer = (1024 + 256 + 64 + 16 + 4 + 1) * 4;
         assert_eq!(image.data.unwrap().len(), per_layer * 2);

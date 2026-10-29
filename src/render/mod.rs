@@ -117,6 +117,10 @@ const SKY_COLOUR: Color = Color::srgb(0.53, 0.62, 0.75);
 pub struct RenderSettings {
     /// How far away sections are drawn, in chunks (1 chunk = 32 blocks).
     pub render_distance_chunks: i32,
+    /// Far away, textures keep their painted colours: each shrunk pixel is the nearest colour the
+    /// texture already has, and there's no blending between the shrunk sizes. Off: averaged, and
+    /// blended (new colours, the old way). [Watch-list item 15d, 2026-10-28]
+    pub painted_mips: bool,
     /// How many new mesh jobs may start per 240th of a second (spreads big rebuilds over several
     /// frames; a slower frame starts more, see `meshing.rs`).
     pub max_jobs_per_frame: usize,
@@ -160,6 +164,7 @@ impl Default for RenderSettings {
     fn default() -> Self {
         Self {
             render_distance_chunks: 32,
+            painted_mips: false,
             max_jobs_per_frame: 64,
             meshes_per_frame: 48,
             seam_probe: false,
@@ -239,6 +244,8 @@ pub struct TerrainAssets {
     pub face_random_rotation: Arc<Vec<[bool; 6]>>,
     pub layer_names: Vec<String>,
     pub texture_problems: Vec<String>,
+    /// Whether the shrunk textures keep their painted colours (`RenderSettings::painted_mips`).
+    pub painted_mips: bool,
 }
 
 fn setup_terrain(
@@ -248,7 +255,7 @@ fn setup_terrain(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
 ) {
-    let (image, terrain) = build_terrain(&registry, Handle::default());
+    let (image, terrain) = build_terrain(&registry, Handle::default(), settings.painted_mips);
     let material = materials.add(TerrainMaterial {
         textures: images.add(image),
         settings: settings.shader_settings(SKY_COLOUR),
@@ -261,8 +268,8 @@ fn setup_terrain(
 }
 
 /// Load the block textures and build the per-block tables the mesher uses.
-fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>) -> (Image, TerrainAssets) {
-    let textures = textures::build_block_textures(registry);
+fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>, painted_mips: bool) -> (Image, TerrainAssets) {
+    let textures = textures::build_block_textures(registry, painted_mips);
     info!(
         "Block textures: {} layers, {} problem(s)",
         textures.layer_names.len(),
@@ -278,14 +285,16 @@ fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>) ->
         face_random_rotation: Arc::new(rotation_table(registry)),
         layer_names: textures.layer_names,
         texture_problems: textures.problems,
+        painted_mips,
     };
     (textures.image, terrain)
 }
 
-/// Live reload: when the registry's data or textures changed, rebuild the texture array and
-/// tables, and redraw every section.
+/// Live reload: when the registry's data or textures changed (or how textures are shrunk for the
+/// distance), rebuild the texture array and tables, and redraw every section.
 fn rebuild_terrain_after_reload(
     registry: Res<BlockRegistry>,
+    settings: Res<RenderSettings>,
     terrain: Option<ResMut<TerrainAssets>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
     mut images: ResMut<Assets<Image>>,
@@ -294,10 +303,10 @@ fn rebuild_terrain_after_reload(
     let Some(mut terrain) = terrain else {
         return;
     };
-    if terrain.revision == registry.revision() {
+    if terrain.revision == registry.revision() && terrain.painted_mips == settings.painted_mips {
         return;
     }
-    let (image, rebuilt) = build_terrain(&registry, terrain.material.clone());
+    let (image, rebuilt) = build_terrain(&registry, terrain.material.clone(), settings.painted_mips);
     // A brand-new texture for the material (the old one is dropped). Changing the old
     // texture in place doesn't re-upload its layers and mip levels correctly.
     if let Some(mut material) = materials.get_mut(&terrain.material) {
@@ -495,6 +504,9 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
                 .on_hover_text("How many block levels from one dark band to the next. The first dark band is the first level above the sea.");
             ui.add(crate::debug::Slider::new(&mut settings.survey_darkness, 0.0..=1.0).text("band darkness"));
         });
+        ui.checkbox(&mut settings.painted_mips, "far textures keep their painted colours").on_hover_text(
+            "On: further away, where textures are drawn smaller, each pixel is still one of the colours painted in the texture, and there's no blending between sizes (crisp; a faint line may show where one size hands over to the next). The far terrain keeps the textures' average colour either way.\nOff: the shrunk versions are averaged and blended, making colours that were never painted.",
+        );
         ui.small("Random texture rotation is switched per block, on the Blocks page.");
         if ui.button("Reset render settings").clicked() {
             *settings = crate::debug::page_default("render", "render");
