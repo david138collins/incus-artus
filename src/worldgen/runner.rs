@@ -58,10 +58,17 @@ impl<T: Send + 'static> Job<T> {
 }
 
 /// `f` for every pixel of a `width` × `width` map, on all the computer's cores. `None` if `stop`
-/// was set part-way.
+/// was set part-way. (For the editor's tools, which you wait on. Work done while you play uses
+/// `every_pixel_on`, with a few cores, so the game's own threads are never crowded out.)
 pub fn every_pixel<T: Copy + Default + Send>(width: usize, stop: &AtomicBool, f: impl Fn(usize) -> T + Sync) -> Option<Vec<T>> {
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
-    let rows_each = width.div_ceil(cores).max(1);
+    every_pixel_on(cores, width, stop, f)
+}
+
+/// The same on `threads` threads. [2026-10-28: the near light window used every core while you
+/// flew; Windows then paused the game's own threads to make room, and frames took 50-250 ms.]
+pub fn every_pixel_on<T: Copy + Default + Send>(threads: usize, width: usize, stop: &AtomicBool, f: impl Fn(usize) -> T + Sync) -> Option<Vec<T>> {
+    let rows_each = width.div_ceil(threads.max(1)).max(1);
     let mut out = vec![T::default(); width * width];
     std::thread::scope(|scope| {
         for (band, part) in out.chunks_mut(rows_each * width).enumerate() {

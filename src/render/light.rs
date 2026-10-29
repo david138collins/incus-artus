@@ -354,7 +354,9 @@ struct NearKey {
 pub struct NearLightState {
     /// The window showing, and the one being made (with its stop switch).
     shown: Option<NearKey>,
-    job: Option<(NearKey, Arc<AtomicBool>, Task<Option<(Picture, Cones)>>)>,
+    job: Option<(NearKey, Arc<AtomicBool>, Task<Option<NearMade>>)>,
+    /// The ground the last window read, for the next one to slide over (see `make_near`).
+    heights: Option<(NearKey, Arc<Vec<f32>>)>,
 }
 
 /// Keeps the window of the ground around you up to date, and the near chunks' sun and hill shading
@@ -392,7 +394,7 @@ pub fn update_near_light(
         let toward_sun = ((from.sin() * 100.0).round() / 100.0, (-from.cos() * 100.0).round() / 100.0);
         let fits = |key: &NearKey| {
             let middle = key.corner + Vec2::new(-key.side, key.side) / 2.0;
-            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && key.broad_reach == settings.broad_reach && key.shade_reach == settings.shade_reach && key.toward_sun == toward_sun && (at - middle).abs().max_element() < side / 4.0
+            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && key.broad_reach == settings.broad_reach && key.shade_reach == settings.shade_reach && key.toward_sun == toward_sun && (at - middle).abs().max_element() < side / 8.0
         };
         if !state.shown.as_ref().is_some_and(fits) && !state.job.as_ref().is_some_and(|(key, ..)| fits(key)) {
             if let Some((_, stop, _)) = state.job.take() {
@@ -403,14 +405,16 @@ pub fn update_near_light(
             let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail, broad_reach: settings.broad_reach, shade_reach: settings.shade_reach, toward_sun };
             let (made, stop) = (key.clone(), Arc::new(AtomicBool::new(false)));
             let flag = stop.clone();
-            let task = AsyncComputeTaskPool::get().spawn(async move { make_near(&made, &flag) });
+            let previous = state.heights.clone();
+            let task = AsyncComputeTaskPool::get().spawn(async move { make_near(&made, previous, &flag) });
             state.job = Some((key, stop, task));
         }
         if let Some((key, _, task)) = state.job.as_mut() {
             if let Some(made) = check_ready(task) {
                 let key = key.clone();
                 state.job = None;
-                if let Some((picture, cones)) = made {
+                if let Some((picture, cones, heights)) = made {
+                    state.heights = Some((key.clone(), heights));
                     let (image, cones) = (images.add(picture_image(picture)), images.add(cones_image(cones)));
                     if let Some(mut material) = materials.get_mut(&handle) {
                         material.near_map = image;
@@ -441,11 +445,35 @@ pub fn update_near_light(
 /// smooth ground's slope averaged over the broad reach; blue the surface's height (sea level to
 /// the top of the world); alpha 1 on the map, 0 off it. The sea's surface is flat. And its cone
 /// map. `None` if stopped.
-fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<(Picture, Cones)> {
+/// The window round you: its picture and cone maps, and the ground it read (kept for the next one).
+///
+/// **It slides** [2026-10-28]: the ground the last window read (`previous`) is copied across where
+/// the two overlap (same map and pixel size; windows are snapped to whole pixels, so they line up),
+/// and only the new strip is read from the recipe. It used to read all of it, about 4 million
+/// readings at render distance 64, twice a second while flying fast, on every core: Windows paused
+/// the game's own threads to make room, and frames took 50-250 ms. It also keeps to a quarter of
+/// the cores now.
+type NearMade = (Picture, Cones, Arc<Vec<f32>>);
+
+fn make_near(key: &NearKey, previous: Option<(NearKey, Arc<Vec<f32>>)>, stop: &AtomicBool) -> Option<NearMade> {
     let width = (key.side / key.detail).round() as usize;
     let sea = SEA_LEVEL as f32;
-    let raw = every_pixel(width, stop, |i| {
-        let (north, east) = (key.corner.x - ((i / width) as f32 + 0.5) * key.detail, key.corner.y + ((i % width) as f32 + 0.5) * key.detail);
+    // Where the last window's pixels are in this one's (rows run south, columns east).
+    let reuse = previous.filter(|(old, heights)| Arc::ptr_eq(&old.map, &key.map) && old.detail == key.detail && heights.len() == width * width).map(|(old, heights)| {
+        let rows = ((old.corner.x - key.corner.x) / key.detail).round() as i64;
+        let columns = ((key.corner.y - old.corner.y) / key.detail).round() as i64;
+        (heights, rows, columns)
+    });
+    let threads = (std::thread::available_parallelism().map_or(4, |n| n.get()) / 4).max(2);
+    let raw = crate::worldgen::runner::every_pixel_on(threads, width, stop, |i| {
+        let (r, c) = ((i / width) as i64, (i % width) as i64);
+        if let Some((heights, rows, columns)) = &reuse {
+            let (or, oc) = (r + rows, c + columns);
+            if (0..width as i64).contains(&or) && (0..width as i64).contains(&oc) {
+                return heights[or as usize * width + oc as usize];
+            }
+        }
+        let (north, east) = (key.corner.x - (r as f32 + 0.5) * key.detail, key.corner.y + (c as f32 + 0.5) * key.detail);
         key.map.height(north, east).map_or(f32::NAN, |h| h.max(sea))
     })?;
     let at = |c: usize, r: usize| {
@@ -480,7 +508,7 @@ fn make_near(key: &NearKey, stop: &AtomicBool) -> Option<(Picture, Cones)> {
     let tops: Vec<f32> = raw.iter().map(|&h| if h.is_nan() || h < sea - 0.5 { sea } else { h.round() + 1.0 }).collect();
     let fall = key.detail / key.shade_reach.max(0.1);
     let cones = Cones { width: width as u32, all_round: cones(&tops, width, fall, None), from_sun: cones(&tops, width, fall, Some(key.toward_sun)) };
-    Some((Picture { width: width as u32, levels: 1, data }, cones))
+    Some((Picture { width: width as u32, levels: 1, data }, cones, Arc::new(raw)))
 }
 
 // ── The cone map ────────────────────────────────────────────────────────────
@@ -797,13 +825,30 @@ mod tests {
     }
 
     #[test]
+    fn a_window_slid_over_the_last_one_is_the_same_as_one_read_afresh() {
+        // Bumpy ground; a window, then one moved 40 blocks north and 24 west (whole pixels).
+        let width = 64;
+        let z: Vec<f32> = (0..width * width).map(|i| 150.0 + ((i * 37) % 23) as f32 + (i / width) as f32).collect();
+        let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
+        let first = NearKey { map: map.clone(), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
+        let moved = NearKey { corner: Vec2::new(296.0, -280.0), ..first.clone() };
+        let never = AtomicBool::new(false);
+        let (_, _, heights) = make_near(&first, None, &never).unwrap();
+        let (slid, slid_cones, slid_heights) = make_near(&moved, Some((first, heights)), &never).unwrap();
+        let (fresh, fresh_cones, fresh_heights) = make_near(&moved, None, &never).unwrap();
+        assert!(slid_heights.iter().zip(fresh_heights.iter()).all(|(a, b)| a == b || (a.is_nan() && b.is_nan())));
+        assert_eq!(slid.data, fresh.data);
+        assert_eq!((slid_cones.all_round, slid_cones.from_sun), (fresh_cones.all_round, fresh_cones.from_sun));
+    }
+
+    #[test]
     fn the_near_window_holds_the_slope_and_height() {
         // Ground rising 2 blocks every 32 east, level north to south.
         let width = 64;
         let z: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 2.0).collect();
         let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
         let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
-        let (picture, _) = make_near(&key, &AtomicBool::new(false)).unwrap();
+        let (picture, _, _) = make_near(&key, None, &AtomicBool::new(false)).unwrap();
         assert_eq!(picture.width, 128);
         let pixel = |c: usize, r: usize| &picture.data[(r * 128 + c) * 4..(r * 128 + c) * 4 + 4];
         let middle = pixel(64, 64);
@@ -859,7 +904,7 @@ mod tests {
         // Level ground, Z 150 (blocks' tops at 151): the cone map is that everywhere.
         let width = 64;
         let key = NearKey { map: Arc::new(CompiledMap::of_heights(width, 32.0, &vec![150.0; width * width])), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
-        let (_, cones) = make_near(&key, &AtomicBool::new(false)).unwrap();
+        let (_, cones, _) = make_near(&key, None, &AtomicBool::new(false)).unwrap();
         assert_eq!(cones.width, 128);
         assert!(cones.all_round.iter().chain(&cones.from_sun).all(|&c| c == 151.0));
     }
