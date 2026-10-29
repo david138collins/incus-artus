@@ -17,7 +17,7 @@ struct TerrainShaderSettings {
     fog_color: vec4<f32>,
     // x fog start, y fog end, z fog on, w debug view
     fog_and_debug: vec4<f32>,
-    // x random texture rotation on
+    // x random texture rotation on, y light only (plain grey)
     options: vec4<f32>,
     // Survey view: x on, y every how many levels, z darkness, w sea level
     survey: vec4<f32>,
@@ -289,6 +289,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
     var colour = sampled.rgb;
+    // Light only (the seam probe): plain grey, the lighting kept.
+    if settings.options.y > 0.5 {
+        colour = vec3<f32>(0.5);
+    }
 
     let debug_view = u32(settings.fog_and_debug.w);
     if debug_view == 1u {

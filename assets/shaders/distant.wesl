@@ -14,7 +14,7 @@ import bevy_pbr::render::mesh_view_bindings::view;
 
 struct DistantShaderSettings {
     fog_color: vec4<f32>,
-    // x fog start, y fog end, z fog on, w unused
+    // x fog start, y fog end, z fog on, w the seam probe (drawn over the near chunks too)
     fog: vec4<f32>,
     // xy = the chunk (game axes) at the middle of the `shown` texture
     shown_centre: vec4<f32>,
@@ -86,7 +86,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let block = vec2<f32>(-in.world_position.z, in.world_position.x);
     let size = vec2<i32>(textureDimensions(shown));
     let pixel = vec2<i32>(floor(block / 32.0)) - vec2<i32>(settings.shown_centre.xy) + size / 2;
-    if all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > 0.5 {
+    if settings.fog.w < 0.5 && all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > 0.5 {
         discard;
     }
     var colour = in.colour.rgb;

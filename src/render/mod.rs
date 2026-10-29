@@ -122,6 +122,11 @@ pub struct RenderSettings {
     pub max_jobs_per_frame: usize,
     /// The most new section meshes handed to the graphics side each frame (the rest wait their turn).
     pub meshes_per_frame: usize,
+    /// The seam probe [2026-10-29, Counsel's plan for the near/far seam]: the near blocks hidden and the
+    /// far surface drawn everywhere, to flick between them on the same ground; and light only: near
+    /// and far painted plain grey, their lighting kept, to tell colour from light.
+    pub seam_probe: bool,
+    pub light_only: bool,
     /// Face brightness: top, bottom, north/south, east/west.
     pub shade_top: f32,
     pub shade_bottom: f32,
@@ -157,6 +162,8 @@ impl Default for RenderSettings {
             render_distance_chunks: 32,
             max_jobs_per_frame: 64,
             meshes_per_frame: 48,
+            seam_probe: false,
+            light_only: false,
             shade_top: 1.0,
             shade_bottom: 0.5,
             shade_north_south: 0.8,
@@ -205,8 +212,9 @@ impl RenderSettings {
                     DebugView::Faces => 2.0,
                 },
             ),
-            // x: random rotation on. Always on now; it's switched per block on the Blocks page.
-            options: Vec4::new(1.0, 0.0, 0.0, 0.0),
+            // x: random rotation on (always on now; it's switched per block on the Blocks page), y:
+            // light only (the seam probe's plain grey).
+            options: Vec4::new(1.0, if self.light_only { 1.0 } else { 0.0 }, 0.0, 0.0),
             survey: self.survey_for_shader(),
         }
     }
@@ -349,7 +357,8 @@ fn apply_render_distance(
     let limit = settings.render_distance_chunks;
     for (section, mut visibility) in &mut sections {
         let offset = IVec2::new(section.key.chunk.x, section.key.chunk.y) - camera_chunk;
-        let wanted = if offset.x.abs().max(offset.y.abs()) <= limit {
+        // The seam probe hides them all, leaving the far surface on the same ground.
+        let wanted = if offset.x.abs().max(offset.y.abs()) <= limit && !settings.seam_probe {
             Visibility::Inherited
         } else {
             Visibility::Hidden
@@ -468,6 +477,15 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ui.selectable_value(&mut settings.debug_view, DebugView::Normal, "normal");
             ui.selectable_value(&mut settings.debug_view, DebugView::Quads, "rectangles");
             ui.selectable_value(&mut settings.debug_view, DebugView::Faces, "face directions");
+        });
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut settings.seam_probe, "seam probe").on_hover_text(
+                "Hides the near blocks and draws the far surface everywhere, so you can flick between near and far on the\n\
+                 same ground, seen from the same spot, and see what changes (for matching them).",
+            );
+            ui.checkbox(&mut settings.light_only, "light only").on_hover_text(
+                "Paints near and far plain grey, keeping all their lighting: tells a colour difference from a light one.",
+            );
         });
         ui.checkbox(&mut settings.survey, "survey view").on_hover_text(
             "Darkens every few levels of blocks, counted up from sea level, near and far: the land reads in bands like a contour map.",

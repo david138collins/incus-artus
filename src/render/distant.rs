@@ -233,6 +233,8 @@ pub struct Shade {
     pub slope_match: f32,
     /// How much of the slope's sun and shade the steps' sides take (as the near shader's `sides`).
     pub sides: f32,
+    /// Light only (the seam probe): every colour plain grey, the lighting kept.
+    pub grey: bool,
 }
 
 /// The steepest slope the steps' shade is worked out for (blocks up per block across), and in how many
@@ -287,6 +289,7 @@ impl Shade {
             step: table(if light.near { light.step_shadows } else { 0.0 }),
             slope_match: settings.slope_match,
             sides: if light.near { light.side_shading } else { 0.0 },
+            grey: render.light_only,
         }
     }
 
@@ -404,7 +407,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
             let water = h < sea;
             let block = map.surface((h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks);
             let colour = if water {
-                palette.water.map(|c| c * shade.top)
+                (if shade.grey { [0.5; 3] } else { palette.water }).map(|c| c * shade.top)
             } else {
                 let (north, east) = if cell < slope {
                     // Finer than the slope is measured over: the ground's own height half that either side.
@@ -417,7 +420,8 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 let tint = 1.0 + shade.height_tint * (top - sea) / (crate::world::HIGHEST - sea);
                 // Lit as the near ground's blocks are on average: tops, steps' feet and sides (the
                 // slope per block across, from per finest cell).
-                shade.slope(palette.top(block, blocks), palette.side(block, blocks), north / slope, east / slope, shade.hill(north, east) * tint)
+                let (top_colour, side_colour) = if shade.grey { ([0.5; 3], [0.5; 3]) } else { (palette.top(block, blocks), palette.side(block, blocks)) };
+                shade.slope(top_colour, side_colour, north / slope, east / slope, shade.hill(north, east) * tint)
             };
             // The coarser ring's surface here: its corners are this ring's even ones, its triangles
             // split the same way, so between them it's the average of the two along the line.
@@ -733,7 +737,7 @@ pub fn update_distant_material(
     if let Some(mut material) = materials.get_mut(handle) {
         let fog = clear.0.to_linear();
         material.settings.fog_color = Vec4::new(fog.red, fog.green, fog.blue, 1.0);
-        material.settings.fog = Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, 0.0);
+        material.settings.fog = Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, if render.seam_probe { 1.0 } else { 0.0 });
         material.settings.survey = render.survey_for_shader();
     }
 }
@@ -927,7 +931,7 @@ mod tests {
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
-        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.65, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0, foot: [1.0; SLOPE_STEPS + 1], step: [1.0; SLOPE_STEPS + 1], slope_match: 0.0, sides: 0.5 };
+        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.65, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0, foot: [1.0; SLOPE_STEPS + 1], step: [1.0; SLOPE_STEPS + 1], slope_match: 0.0, sides: 0.5, grey: false };
         let key = TileKey { ring: 1, x: 0, y: 0 };
         let mesh = tile_mesh(&map, &blocks, &palette, shade, key, 16).unwrap();
         // A corner every cell, two triangles a cell, and the easing for each corner.
