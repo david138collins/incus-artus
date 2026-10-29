@@ -180,7 +180,11 @@ impl Palette {
 /// A tile's mesh, in Bevy's axes, relative to the tile's corner.
 pub struct TileMesh {
     pub positions: Vec<[f32; 3]>,
+    /// The tops' colour, then the north- or south-facing and east- or west-facing sides' colours
+    /// with how many of each a block across shows (in the last place): see `Steps`.
     pub colours: Vec<[f32; 4]>,
+    pub north_south: Vec<[f32; 4]>,
+    pub east_west: Vec<[f32; 4]>,
     /// Per corner, for easing into the next ring out (see the module notes): the height the coarser
     /// ring's surface has here (game Z), and the distances (blocks, the larger of north-south and
     /// east-west from the camera) where easing starts and is complete.
@@ -212,6 +216,18 @@ pub struct Shade {
     pub sides: f32,
     /// Light only (the seam probe): every colour plain grey, the lighting kept.
     pub grey: bool,
+}
+
+/// A far slope's parts, mixed by the shader as you see them (see `Shade::steps`): the tops' colour,
+/// the north- or south-facing sides', the east- or west-facing sides', and the slope (blocks up per
+/// block across, north and east): every block risen shows a side facing back down the slope.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Steps {
+    pub top: [f32; 3],
+    pub north_south: [f32; 3],
+    pub east_west: [f32; 3],
+    pub north: f32,
+    pub east: f32,
 }
 
 /// The steepest slope the steps' shade is worked out for (blocks up per block across), and in how many
@@ -276,11 +292,27 @@ impl Shade {
     /// `north` and `east`: blocks up per block across; `top_light`: the tops' hill shading and tint.
     /// [2026-10-28: the smooth far surface had no steps, so its slopes were brighter than the same
     /// slopes up close, and the two showed a line where they met.]
+    ///
+    /// How much of each you see depends on where you look from (a slope facing you shows mostly its
+    /// steps' sides, one facing away only tops), so the parts go to the shader, which mixes them by
+    /// the view (`Steps`, distant.wesl) [2026-10-29, Counsel's seam plan, step 1]. This is the mix
+    /// seen from every side at once, for the tests.
+    #[cfg(test)]
     fn slope(&self, top_colour: [f32; 3], side_colour: [f32; 3], north: f32, east: f32, top_light: f32) -> [f32; 3] {
+        let parts = self.steps(top_colour, side_colour, north, east, top_light);
+        let (ns, ew) = (parts.north.abs(), parts.east.abs());
+        [0, 1, 2].map(|k| (parts.top[k] + parts.north_south[k] * ns + parts.east_west[k] * ew) / (1.0 + ns + ew))
+    }
+
+    /// A slope's parts as the near ground's blocks show them: its tops' colour (hill shading,
+    /// height tint, and the shade at the feet of the steps, more on the side away from the sun), its
+    /// north- or south-facing and east- or west-facing sides' colours, and how many of each a block
+    /// across shows (`north`, `east`: blocks up per block across, times "far slopes match the near").
+    fn steps(&self, top_colour: [f32; 3], side_colour: [f32; 3], north: f32, east: f32, top_light: f32) -> Steps {
         let plain = top_colour.map(|c| c * self.top * top_light);
         let rise = north.hypot(east);
         if self.slope_match <= 0.0 || rise <= 1e-4 {
-            return plain;
+            return Steps { top: plain, north_south: plain, east_west: plain, north: 0.0, east: 0.0 };
         }
         let at = |table: &[f32; SLOPE_STEPS + 1]| {
             let k = (rise / STEEPEST_STEPS * SLOPE_STEPS as f32).min(SLOPE_STEPS as f32);
@@ -291,14 +323,17 @@ impl Shade {
         let sun = Vec2::new(self.sun.x, self.sun.y).normalize_or_zero();
         let toward_sun = (Vec2::new(north, east) / rise).dot(sun).clamp(0.0, 1.0);
         let feet = at(&self.foot) * (1.0 + (at(&self.step) - 1.0) * toward_sun);
-        // Every block risen north-south shows a north or south side, east-west an east or west one.
-        let (ns, ew) = (north.abs(), east.abs());
-        let sides = ns + ew;
-        let side_light = (ns * self.north_south + ew * self.east_west) / sides.max(1e-6);
         // The sides take as much of the lie of the land's sun and shade as up close (terrain.wesl).
         let side_lie = 1.0 + (top_light - 1.0) * self.sides;
-        let blocky = [0, 1, 2].map(|k| (top_colour[k] * self.top * top_light * feet + side_colour[k] * side_light * side_lie * sides) / (1.0 + sides));
-        [0, 1, 2].map(|k| plain[k] + (blocky[k] - plain[k]) * self.slope_match)
+        let matched = self.slope_match;
+        let top = [0, 1, 2].map(|k| plain[k] + (plain[k] * feet - plain[k]) * matched.min(1.0));
+        Steps {
+            top,
+            north_south: side_colour.map(|c| c * self.north_south * side_lie),
+            east_west: side_colour.map(|c| c * self.east_west * side_lie),
+            north: north * matched,
+            east: east * matched,
+        }
     }
 
     /// How brightly the ground is lit, rising `north` and `east` blocks per finest cell across it
@@ -328,6 +363,10 @@ pub fn soft_limit(raw: f32, fade: f32) -> f32 {
 /// Each corner's easing (see `TileMesh::morph`): the coarser ring's height there, and where easing
 /// starts and is complete.
 pub const ATTRIBUTE_EASE: MeshVertexAttribute = MeshVertexAttribute::new("DistantEase", 0x1a5_e4e5, VertexFormat::Float32x3);
+
+/// Each corner's steps' sides (see `TileMesh::north_south` and `east_west`).
+pub const ATTRIBUTE_NORTH_SOUTH: MeshVertexAttribute = MeshVertexAttribute::new("DistantNorthSouth", 0x1a5_e4e6, VertexFormat::Float32x4);
+pub const ATTRIBUTE_EAST_WEST: MeshVertexAttribute = MeshVertexAttribute::new("DistantEastWest", 0x1a5_e4e7, VertexFormat::Float32x4);
 
 /// Where a ring's tiles ease into the next ring out, in its own tiles from the camera (the larger of
 /// north-south and east-west): from here, complete there. Its hole is always nearer than the start
@@ -371,7 +410,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
         return None;
     }
     let corners = (CELLS + 1) as usize;
-    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), morph: Vec::new(), indices: Vec::new(), corner };
+    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), north_south: Vec::new(), east_west: Vec::new(), morph: Vec::new(), indices: Vec::new(), corner };
     let slope = slope_cell as f32;
     let per_finest = slope / cell;
     let (ease_from, ease_to) = if eases { (EASE_FROM * size, EASE_TO * size) } else { (f32::MAX, f32::MAX) };
@@ -383,8 +422,9 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
             let (x, y) = (corner.x + i as f32 * cell, corner.y + j as f32 * cell);
             let water = h < sea;
             let block = map.surface((h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks);
-            let colour = if water {
-                (if shade.grey { [0.5; 3] } else { palette.water }).map(|c| c * shade.top)
+            let parts = if water {
+                let flat = (if shade.grey { [0.5; 3] } else { palette.water }).map(|c| c * shade.top);
+                Steps { top: flat, north_south: flat, east_west: flat, north: 0.0, east: 0.0 }
             } else {
                 let (north, east) = if cell < slope {
                     // Finer than the slope is measured over: the ground's own height half that either side.
@@ -398,7 +438,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 // Lit as the near ground's blocks are on average: tops, steps' feet and sides (the
                 // slope per block across, from per finest cell).
                 let (top_colour, side_colour) = if shade.grey { ([0.5; 3], [0.5; 3]) } else { (palette.top(block, blocks), palette.side(block, blocks)) };
-                shade.slope(top_colour, side_colour, north / slope, east / slope, shade.hill(north, east) * tint)
+                shade.steps(top_colour, side_colour, north / slope, east / slope, shade.hill(north, east) * tint)
             };
             // The coarser ring's surface here: its corners are this ring's even ones, its triangles
             // split the same way, so between them it's the average of the two along the line.
@@ -411,7 +451,9 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
             };
             index[j as usize * corners + i as usize] = mesh.positions.len() as u32;
             mesh.positions.push(game_to_bevy(Vec3::new(x, y, top) - corner).to_array());
-            mesh.colours.push([colour[0], colour[1], colour[2], 1.0]);
+            mesh.colours.push([parts.top[0], parts.top[1], parts.top[2], 1.0]);
+            mesh.north_south.push([parts.north_south[0], parts.north_south[1], parts.north_south[2], parts.north]);
+            mesh.east_west.push([parts.east_west[0], parts.east_west[1], parts.east_west[2], parts.east]);
             mesh.morph.push([target, ease_from, ease_to]);
         }
     }
@@ -487,7 +529,7 @@ impl Material for DistantMaterial {
         layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.0.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0), Mesh::ATTRIBUTE_COLOR.at_shader_location(1), ATTRIBUTE_EASE.at_shader_location(2)])?;
+        let vertex_layout = layout.0.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0), Mesh::ATTRIBUTE_COLOR.at_shader_location(1), ATTRIBUTE_EASE.at_shader_location(2), ATTRIBUTE_NORTH_SOUTH.at_shader_location(3), ATTRIBUTE_EAST_WEST.at_shader_location(4)])?;
         descriptor.vertex.buffers = vec![vertex_layout];
         Ok(())
     }
@@ -650,6 +692,8 @@ pub fn update_distant(
         bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
         bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
         bevy_mesh.insert_attribute(ATTRIBUTE_EASE, tile.morph);
+        bevy_mesh.insert_attribute(ATTRIBUTE_NORTH_SOUTH, tile.north_south);
+        bevy_mesh.insert_attribute(ATTRIBUTE_EAST_WEST, tile.east_west);
         bevy_mesh.insert_indices(Indices::U32(tile.indices));
         let Some(material) = material.clone() else { continue };
         let entity = commands

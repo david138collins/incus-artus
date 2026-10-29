@@ -50,12 +50,36 @@ struct Vertex {
     // height here (game Z = Bevy y), y where easing starts and z where it's complete (blocks, the
     // larger of north-south and east-west from the camera).
     @location(2) ease: vec3<f32>,
+    // The steps' north- or south-facing and east- or west-facing sides: rgb their colour, w how many a
+    // block across shows (blocks up per block across, north and east; src/render/distant.rs, `Steps`).
+    @location(3) north_south: vec4<f32>,
+    @location(4) east_west: vec4<f32>,
 }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_position: vec3<f32>,
     @location(1) colour: vec4<f32>,
+    @location(2) north_south: vec4<f32>,
+    @location(3) east_west: vec4<f32>,
+}
+
+// The ground's colour as its blocks show it from here [2026-10-29, Counsel's seam plan, step 1]:
+// the tops and the steps' sides, each as much as the camera sees of it. A side faces back down the
+// slope (ground rising north shows south-facing sides), and the camera sees a face as much as it
+// faces the camera: a slope facing you shows mostly sides, one facing away only tops.
+fn as_seen(top: vec3<f32>, north_south: vec4<f32>, east_west: vec4<f32>, world_position: vec3<f32>) -> vec3<f32> {
+    let to_camera = normalize(view.world_position - world_position);
+    // In game axes: x north (Bevy -z), y east (Bevy x), z up (Bevy y).
+    let toward = vec3<f32>(-to_camera.z, to_camera.x, to_camera.y);
+    let top_seen = max(toward.z, 0.0);
+    let north_seen = abs(north_south.w) * max(-sign(north_south.w) * toward.x, 0.0);
+    let east_seen = abs(east_west.w) * max(-sign(east_west.w) * toward.y, 0.0);
+    let seen = top_seen + north_seen + east_seen;
+    if seen <= 1e-5 {
+        return top;
+    }
+    return (top * top_seen + north_south.rgb * north_seen + east_west.rgb * east_seen) / seen;
 }
 
 @vertex
@@ -70,6 +94,8 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.clip_position = position_world_to_clip(world.xyz);
     out.world_position = world.xyz;
     out.colour = in.colour;
+    out.north_south = in.north_south;
+    out.east_west = in.east_west;
     return out;
 }
 
@@ -89,7 +115,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if settings.fog.w < 0.5 && all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > 0.5 {
         discard;
     }
-    var colour = in.colour.rgb;
+    var colour = as_seen(in.colour.rgb, in.north_south, in.east_west, in.world_position);
     if settings.light.x > 0.5 {
         colour = colour * light_from(light_pixel);
     }

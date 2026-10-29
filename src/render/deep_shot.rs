@@ -250,6 +250,8 @@ pub fn run_deep_shot(
                 bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
                 bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
                 bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_EASE, tile.morph);
+                bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_NORTH_SOUTH, tile.north_south);
+                bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_EAST_WEST, tile.east_west);
                 bevy_mesh.insert_indices(Indices::U32(tile.indices));
                 let entity = commands.spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), DeepTile)).id();
                 shot.tiles.push(entity);
