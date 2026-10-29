@@ -151,6 +151,10 @@ the code yet).
       Lighting is untouched. Far off, it fades to the baked colours. To settle now: **permanent spline
       ids** (`next_spline_id`, never reused), so reordering splines never changes what a shader reads.
       Builder adds them in the load-a-new-asset round unless David objects.
+    - **Named splines and spline groups** [David 2026-10-29]: David names splines and collapses them
+      into **spline groups** while working toward the total colours to be used. *Counsel:* a name and a
+      group are only labels on the permanent id, so renaming or regrouping never changes what blocks or
+      shaders read. Groups fold like the Lab's sections, and could nest with "/" like tags.
     - **Wind ripples on grass** [IDEA, David]: wind makes the grass palette-cycle in expanding rings
       in the wind's direction. *Counsel:* a travelling wave (position along the wind − time × speed),
       gusts as rings carried downwind, its direction from Climate's own wind for that area. It works on
