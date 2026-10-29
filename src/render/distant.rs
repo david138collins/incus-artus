@@ -132,48 +132,31 @@ pub fn wanted_tiles_across(at: Vec3, finest_cell: i32, rings: u32, across: i32) 
     tiles
 }
 
-/// The colours distant terrain uses, from the block textures' average colours (linear RGB).
-#[derive(Clone, Copy, Debug)]
+/// The colours distant terrain uses (linear RGB): every block's top and side, as the near ground
+/// shows them once a block is under a pixel (`textures::far_colour`: the textures' own smallest
+/// mipmaps), so near and far agree, whichever blocks mineralogy puts down.
+#[derive(Clone, Debug)]
 pub struct Palette {
-    pub grass_top: [f32; 3],
-    pub grass_side: [f32; 3],
-    pub stone: [f32; 3],
-    pub gabbro: [f32; 3],
+    /// By block number: its top's colour and its sides'.
+    pub blocks: Vec<([f32; 3], [f32; 3])>,
     pub water: [f32; 3],
 }
 
 impl Palette {
-    /// Each block's top and side colours as the near ground shows them once a block is under a pixel
-    /// (`textures::far_colour`: the textures' own smallest mipmaps), so near and far agree.
     pub fn from_textures(registry: &BlockRegistry, blocks: &TerrainBlocks) -> Self {
-        let face = |id: BlockId, which: &str| {
-            let index = FACE_NAMES.iter().position(|&name| name == which).unwrap_or(0);
-            registry.def(id).map(|def| def.faces[index].clone()).unwrap_or_default()
-        };
-        let average = |texture: String| super::textures::far_colour(&texture).unwrap_or([0.5, 0.5, 0.5]);
-        Self {
-            grass_top: average(face(blocks.grass, "top")),
-            grass_side: average(face(blocks.grass, "north")),
-            stone: average(face(blocks.stone, "top")),
-            gabbro: average(face(blocks.gabbro, "top")),
-            water: average(face(blocks.water, "top")),
-        }
+        let average = |texture: &str| super::textures::far_colour(texture).unwrap_or([0.5, 0.5, 0.5]);
+        let face = |name: &str| FACE_NAMES.iter().position(|&face| face == name).unwrap_or(0);
+        let colours = registry.defs().iter().map(|def| (average(&def.faces[face("top")]), average(&def.faces[face("north")]))).collect();
+        let water = registry.def(blocks.water).map_or([0.5; 3], |def| average(&def.faces[face("top")]));
+        Self { blocks: colours, water }
     }
 
-    fn top(&self, block: BlockId, blocks: &TerrainBlocks) -> [f32; 3] {
-        if block == blocks.grass {
-            self.grass_top
-        } else if block == blocks.gabbro {
-            self.gabbro
-        } else if block == blocks.water {
-            self.water
-        } else {
-            self.stone
-        }
+    fn top(&self, block: BlockId) -> [f32; 3] {
+        self.blocks.get(block.0 as usize).map_or([0.5; 3], |colours| colours.0)
     }
 
-    fn side(&self, block: BlockId, blocks: &TerrainBlocks) -> [f32; 3] {
-        if block == blocks.grass { self.grass_side } else { self.top(block, blocks) }
+    fn side(&self, block: BlockId) -> [f32; 3] {
+        self.blocks.get(block.0 as usize).map_or([0.5; 3], |colours| colours.1)
     }
 }
 
@@ -385,7 +368,8 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
             let (Some(h), Some(top)) = (at(i, j), surface(i, j)) else { continue };
             let (x, y) = (corner.x + i as f32 * cell, corner.y + j as f32 * cell);
             let water = h < sea;
-            let block = map.surface((h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks);
+            // What the ground is made of here (mineralogy, as the near ground has it).
+            let block = map.layers(x.floor() as i32, y.floor() as i32, (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks).top;
             // The slope, blocks up per block across.
             let (north, east) = if water {
                 (0.0, 0.0)
@@ -397,7 +381,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
                 ((z(1, 0) - z(-1, 0)) / (2.0 * cell), (z(0, 1) - z(0, -1)) / (2.0 * cell))
             };
-            let (top_colour, side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block, blocks), palette.side(block, blocks)) };
+            let (top_colour, side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block), palette.side(block)) };
             // The coarser ring's surface here: its corners are this ring's even ones, its triangles
             // split the same way, so between them it's the average of the two along the line.
             let coarse = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
@@ -518,7 +502,7 @@ pub struct DistantState {
     pub(super) material: Option<Handle<DistantMaterial>>,
     /// The map the tiles were made from.
     map: Option<Arc<CompiledMap>>,
-    palette: Option<Palette>,
+    palette: Option<Arc<Palette>>,
     /// Tiles drawn (an entity), or known empty (`None`).
     tiles: HashMap<TileKey, Option<Entity>>,
     making: HashMap<TileKey, Task<Option<TileMesh>>>,
@@ -602,7 +586,7 @@ pub fn update_distant(
     if state.map.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &map)) {
         state.clear(&mut commands);
         state.map = Some(map.clone());
-        state.palette = Some(Palette::from_textures(&registry, &blocks));
+        state.palette = Some(Arc::new(Palette::from_textures(&registry, &blocks)));
     }
     let Some(camera) = camera.iter().next() else { return };
     let at = bevy_to_game(camera.translation);
@@ -697,7 +681,7 @@ pub fn update_distant(
     // Start more.
     let most = if settings.most_at_once == 0 { std::thread::available_parallelism().map_or(4, |n| n.get()) } else { settings.most_at_once };
     let pool = AsyncComputeTaskPool::get();
-    let palette = state.palette.unwrap_or_else(|| Palette::from_textures(&registry, &blocks));
+    let palette = state.palette.clone().unwrap_or_else(|| Arc::new(Palette::from_textures(&registry, &blocks)));
     let finest = settings.finest_cell;
     while state.making.len() < most {
         let Some(key) = state.wanted.pop() else { break };
@@ -705,6 +689,7 @@ pub fn update_distant(
             continue;
         }
         let map = map.clone();
+        let palette = palette.clone();
         let task = pool.spawn(async move { tile_mesh(&map, &blocks, &palette, key, finest) });
         state.making.insert(key, task);
     }
@@ -896,7 +881,7 @@ mod tests {
         let z: Vec<f32> = (0..width * width).map(|i| 130.0 + (i % width).saturating_sub(32) as f32 * 2.0).collect();
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
-        let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
+        let palette = Palette::from_textures(&BlockRegistry::default(), &blocks);
         // The slope east most of a tile carries (blocks up per block across, per mille): the shader
         // lights it, so the same slope must reach it alike from every ring.
         let rise = |ring: u8| {
@@ -920,7 +905,7 @@ mod tests {
         let z: Vec<f32> = (0..width * width).map(|i| if i % width < 40 { 100.0 } else { 160.0 + (i % width) as f32 }).collect();
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
-        let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
+        let palette = Palette::from_textures(&BlockRegistry::default(), &blocks);
         let key = TileKey { ring: 1, x: 0, y: 0 };
         let mesh = tile_mesh(&map, &blocks, &palette, key, 16).unwrap();
         // A corner every cell, two triangles a cell, and the easing for each corner.
@@ -949,7 +934,8 @@ mod tests {
         assert_eq!(mesh.morph[2 * corners + 2][0], z_of(2, 2));
         // Water and grass both show, near the coast.
         let coast = tile_mesh(&map, &blocks, &palette, TileKey { ring: 1, x: -1, y: 0 }, 16).unwrap();
-        assert!(coast.colours.iter().any(|c| c[2] > 0.9) && coast.colours.iter().any(|c| c[1] > 0.9));
+        let shows = |colour: [f32; 3]| coast.colours.iter().any(|c| c[..3] == colour);
+        assert!(shows(palette.water) && shows(palette.top(blocks.grass)));
         // Far past the map: nothing.
         assert!(tile_mesh(&map, &blocks, &palette, TileKey { ring: 0, x: 100, y: 100 }, 16).is_none());
     }

@@ -23,6 +23,7 @@ mod section;
 mod storage;
 mod streaming;
 mod interpreter;
+mod mineralogy;
 mod terrain;
 
 pub use block::BlockId;
@@ -42,6 +43,7 @@ pub use position::{
 pub use section::Section;
 pub use streaming::{StreamSettings, Streaming};
 pub use interpreter::{CompiledMap, HIGHEST, InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Maps, Mutes, Peaks, Spline, coast_distance, point_distance};
+pub use mineralogy::Layers;
 pub use terrain::{NextTerrain, SEA_LEVEL, Terrain, TerrainBlocks};
 #[cfg(test)]
 pub use storage::{fresh_terrain, load_terrain, save_terrain};

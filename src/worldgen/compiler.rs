@@ -280,6 +280,8 @@ pub fn compile(bake: &Bake, settings: &CompileSettings, stop: &AtomicBool) -> Op
         highest: bake.info.height.white,
         most_crushed,
         most_stretched,
+        // The climate is added when the world is spawned (it's worked out from this map).
+        ..Maps::default()
     };
     let map = CompiledMap::new(Arc::new(maps), seed, settings.interpreter.clone());
     if stop.load(Ordering::Relaxed) {

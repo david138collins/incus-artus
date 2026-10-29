@@ -235,9 +235,12 @@ pub struct InterpreterSettings {
     /// cross it (off = the old way, where detail tore coasts up; that's the torn coast's job now).
     pub detail_keeps_coast: bool,
     pub torn_coast: TornCoast,
-    /// The surface is bare stone from this Z up, and gabbro (the peaks) from this Z up.
+    /// The surface is bare stone from this Z up, and gabbro (the peaks) from this Z up (set in the
+    /// Climate tab's Mineralogy section).
     pub stone_from: i32,
     pub gabbro_from: i32,
+    /// Which blocks the ground is made of, by climate and height (`mineralogy.rs`).
+    pub mineralogy: super::mineralogy::MineralogySettings,
 }
 
 impl Default for InterpreterSettings {
@@ -273,6 +276,7 @@ impl Default for InterpreterSettings {
             torn_coast: TornCoast::default(),
             stone_from: 215,
             gabbro_from: 285,
+            mineralogy: Default::default(),
         }
     }
 }
@@ -647,6 +651,14 @@ pub struct Maps {
     pub highest: f32,
     pub most_crushed: f32,
     pub most_stretched: f32,
+    /// The climate the world was made with (from the World Compiler's Climate tab, at "Render World
+    /// and Spawn"), one value per pixel like the maps above: the temperature as it would be at sea
+    /// level (−1 frozen to +1 hottest; each block takes off `cooling` for every 100 blocks it stands
+    /// above the sea), and the rain (0 dry to 1 wettest). Empty: no climate (a world from before
+    /// climate, or the compiler's own map before its climate is worked out).
+    pub temperature: Vec<f32>,
+    pub rain: Vec<f32>,
+    pub cooling: f32,
 }
 
 /// Blocks to the coastline from every pixel of a coast map (+ on land, − at sea), measured pixel to
@@ -1266,6 +1278,29 @@ impl CompiledMap {
         (((i % w) as f32 + 0.5) * b, ((i / w) as f32 + 0.5) * b)
     }
 
+    /// The climate at a spot `north` and `east` blocks from the middle of the world, `z` high: its
+    /// temperature (−1 frozen to +1 hottest, colder the higher it stands above the sea) and rain (0 dry
+    /// to 1 wettest), blended between the maps' pixels; `None` when the world has no climate.
+    pub fn climate(&self, north: f32, east: f32, z: f32) -> Option<(f32, f32)> {
+        let m = &self.maps;
+        let w = m.width;
+        if w == 0 || m.temperature.len() != w * w || m.rain.len() != w * w {
+            return None;
+        }
+        let half = w as f32 / 2.0;
+        let (col, row) = (east / m.blocks_per_pixel + half - 0.5, half - north / m.blocks_per_pixel - 0.5);
+        let (c0, r0) = (col.floor(), row.floor());
+        let (tc, tr) = (col - c0, row - r0);
+        let at = |field: &[f32], c: f32, r: f32| field[(r.clamp(0.0, w as f32 - 1.0) as usize) * w + c.clamp(0.0, w as f32 - 1.0) as usize];
+        let blend = |field: &[f32]| {
+            let top = at(field, c0, r0) * (1.0 - tc) + at(field, c0 + 1.0, r0) * tc;
+            let bottom = at(field, c0, r0 + 1.0) * (1.0 - tc) + at(field, c0 + 1.0, r0 + 1.0) * tc;
+            top * (1.0 - tr) + bottom * tr
+        };
+        let above_sea = (z - super::terrain::SEA_LEVEL as f32).max(0.0);
+        Some((blend(&m.temperature) - m.cooling * above_sea / 100.0, blend(&m.rain)))
+    }
+
     /// The ground's height (a Z, with fractions) at a spot `north` and `east` blocks from the
     /// middle of the world, or `None` past the edge of the map.
     pub fn height(&self, north: f32, east: f32) -> Option<f32> {
@@ -1323,6 +1358,7 @@ impl CompiledMap {
             highest: 1.0,
             most_crushed: 1.0,
             most_stretched: -1.0,
+            ..Maps::default()
         };
         let straight = Spline::through(&[(0.0, 0.0), (1.0, 1.0)]);
         let settings = InterpreterSettings {

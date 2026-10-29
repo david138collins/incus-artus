@@ -1621,6 +1621,17 @@ to 58, every block regulated). Next:
    Climate and Ecology. *Counsel:* that fits the linear pipeline. It reads temperature, rain and the rivers
    above it (mud and gravel along rivers, sand on dry ground, snow where it's cold). It's roughed in
    before the rivers are finished, and reads their results once they exist. Its name is David's call.
+   **[ROUGH FIRST VERSION BUILT 2026-10-29]** (`src/world/mineralogy.rs`; the Climate tab's Mineralogy
+   section, after Rivers, with Caves greyed after it). `surface()` is retired. The climate is handed to
+   the world at "Render World and Spawn": temperature (as at sea level) and rain join the world's saved
+   maps (`map-temperature.png`, `map-rain.png`), and each block cools for its own height. The surface,
+   first rule that applies: snowy ground where cold enough (peaks too); gabbro and stone by height (the
+   old sliders, moved here); sand on beaches and in hot, dry deserts; dry grass where dry; grass. Under
+   grass, dry grass and snow, dirt; under sand, sand; then stone. The sea floor: sand in the shallows,
+   gravel deeper. The zones' edges wander a little. **A rule whose block isn't registered is skipped**
+   (it uses `incus:snowy_ground`, `incus:sand`, `incus:dry_grass`, `incus:dirt`, `incus:gravel`), so each
+   block lands as David registers it; worlds from before climate stay mild and grassy. The distant
+   terrain colours every block (each block's own far colour), so near and far agree whatever is placed.
 **Reminder: fix the collision bug (walking through block sides) before the asset factory world is added
 to the Registrar**, which comes when it's time for trees. **[FIXED 2026-10-29]** It came from the
 position's precision: from 2,048 blocks out a position only changes in steps of 0.0002 blocks or more,

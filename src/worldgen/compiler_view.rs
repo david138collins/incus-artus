@@ -1093,6 +1093,44 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.small(format!("Still to come. {about}"));
         });
     }
+    ui.add_space(6.0);
+    fold_section(ui, "Mineralogy", |ui| {
+        let s = &mut compiler.settings.interpreter;
+        let m = &mut s.mineralogy;
+        ui.small(
+            "Which blocks the ground is made of, by the climate and the height (a rough first version: rivers add gravel, sand \
+             and mud by the water later). The surface, first rule that applies: snowy ground where it's cold enough (colder \
+             the higher up, peaks too); gabbro on the peaks and stone on the mountainsides; sand on beaches and in hot, dry \
+             deserts; dry grass where it's dry; grass. Under grass, dry grass and snow, dirt; under sand, sand; then stone. \
+             The sea floor: sand in the shallows, gravel deeper. Only in a world spawned from here (and its distant terrain).",
+        );
+        ui.small(
+            "A rule whose block isn't registered yet is skipped: it uses incus:snowy_ground, incus:sand, incus:dry_grass, \
+             incus:dirt and incus:gravel as they're made in the Registrar. Worlds keep the blocks they were made with until \
+             they're made again.",
+        );
+        ui.add(crate::debug::Slider::new(&mut m.snow_below, -1.0..=1.0).text("snowy ground below (temperature)"))
+            .on_hover_text("Snowy ground where it's colder than this (−1 frozen to +1 hottest; the Temperature section's colours). A block cools for its height above the sea, so mountains turn white above a line.");
+        ui.add(crate::debug::Slider::new(&mut s.gabbro_from, SEA_LEVEL as i32..=HIGHEST as i32).text("gabbro from Z"))
+            .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance (unless snowy).");
+        ui.add(crate::debug::Slider::new(&mut s.stone_from, SEA_LEVEL as i32..=HIGHEST as i32).text("bare stone from Z"))
+            .on_hover_text("The surface is stone from this height up (mountainsides).");
+        ui.add(crate::debug::Slider::new(&mut m.beach, 0..=12).text("beaches (blocks above the sea)")).on_hover_text("Sand up to this many blocks above the sea.");
+        ui.add(crate::debug::Slider::new(&mut m.desert_below, 0.0..=1.0).text("desert where the rain is below"));
+        ui.add(crate::debug::Slider::new(&mut m.desert_above, -1.0..=1.0).text("…and the temperature above")).on_hover_text("Deserts are dry and hot: both at once.");
+        ui.add(crate::debug::Slider::new(&mut m.dry_below, 0.0..=1.0).text("dry grass where the rain is below"));
+        ui.add(crate::debug::Slider::new(&mut m.dirt_depth, 0..=8).text("dirt under grass (blocks)")).on_hover_text("So a step's side shows earth, not grey stone, up close.");
+        ui.add(crate::debug::Slider::new(&mut m.sand_depth, 0..=8).text("sand under sand (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut m.shallows, 0..=40).text("sea floor sand down to (blocks deep)")).on_hover_text("Deeper than this, gravel.");
+        ui.add(crate::debug::Slider::new(&mut m.wander, 0.0..=0.3).text("zones' edges wander")).on_hover_text("How far the lines between zones wander, in temperature and rain, so they don't follow the climate's pixels.");
+        ui.add(crate::debug::Slider::new(&mut m.wander_size, 8.0..=512.0).text("…in patches this big (blocks)"));
+    });
+    ui.add_space(6.0);
+    ui.separator();
+    ui.add_enabled_ui(false, |ui| {
+        ui.strong("Caves");
+        ui.small("Still to come, after forests: caves, cliffs and overhangs, all visible from a distance (docs/worldgen.md, \"Caves, cliffs and carving\").");
+    });
 }
 
 /// The map's pixels are this many blocks across (the climate pixel is a whole number of them).
@@ -1292,17 +1330,40 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         masked_noise(ui, "hills", &mut s.detail_noise, &defaults.detail_noise, 16.0..=2_000.0, &mut s.detail_mask);
     });
-    fold_section(ui, "Surface blocks", |ui| {
-        ui.add(crate::debug::Slider::new(&mut s.stone_from, SEA_LEVEL as i32..=HIGHEST as i32).text("bare stone from Z"))
-            .on_hover_text("The surface is stone from this height up (mountainsides).");
-        ui.add(crate::debug::Slider::new(&mut s.gabbro_from, SEA_LEVEL as i32..=HIGHEST as i32).text("gabbro from Z"))
-            .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance.");
-    });
+    ui.small("The surface blocks (bare stone and gabbro by height) are in the Climate tab's Mineralogy section now.");
     ui.add_space(4.0);
     ui.small("Presets, and back-to-defaults, are on the World Compiler panel: they cover both.");
 }
 
 impl Compiler {
+    /// The map with the Climate tab's temperature and rain in it, for the world to keep (mineralogy
+    /// reads them at every column), blended from the climate pixels to the map's own: the temperature
+    /// as at sea level (each block cools for its own height), the rain as it is. Unchanged if the
+    /// climate isn't worked out yet: the world then has none (mild and middling wet everywhere).
+    fn with_climate(&self, map: Arc<crate::world::CompiledMap>) -> Arc<crate::world::CompiledMap> {
+        let (Some(ground), Some(temperature), Some(rain)) = (self.climate.ground(), self.climate.temperature(), self.climate.rain()) else { return map };
+        let (cw, w) = (ground.width, map.maps.width);
+        if temperature.width != cw || rain.width != cw || cw == 0 {
+            return map;
+        }
+        // A climate field at the centre of the map's pixel `i`, blended between climate pixels.
+        let per = ground.pixels as f32;
+        let blend = |field: &dyn Fn(usize) -> f32, i: usize| {
+            let (x, y) = (((i % w) as f32 + 0.5) / per - 0.5, ((i / w) as f32 + 0.5) / per - 0.5);
+            let (x0, y0) = (x.floor(), y.floor());
+            let (tx, ty) = (x - x0, y - y0);
+            let at = |c: f32, r: f32| field(r.clamp(0.0, cw as f32 - 1.0) as usize * cw + c.clamp(0.0, cw as f32 - 1.0) as usize);
+            (at(x0, y0) * (1.0 - tx) + at(x0 + 1.0, y0) * tx) * (1.0 - ty) + (at(x0, y0 + 1.0) * (1.0 - tx) + at(x0 + 1.0, y0 + 1.0) * tx) * ty
+        };
+        let mut maps = (*map.maps).clone();
+        maps.temperature = (0..w * w).map(|i| blend(&|k| temperature.at_sea[k], i)).collect();
+        maps.rain = (0..w * w).map(|i| blend(&|k| rain.rain[k].unwrap_or(0.5), i)).collect();
+        maps.cooling = self.settings.climate.temperature.cooling;
+        let mut with = crate::world::CompiledMap::new(Arc::new(maps), map.seed, map.settings.clone());
+        with.mutes = map.mutes;
+        Arc::new(with)
+    }
+
     /// "Render World and Spawn": the compiled maps, with the Interpreter's recipe, handed over to
     /// start a new world, leaving out what the Show switches leave out [David, 2026-10-27: "lets
     /// have the spawning follow the show switches"].
@@ -1312,6 +1373,7 @@ impl Compiler {
         let seed = u64::from_str_radix(&bake.info.seed, 16).unwrap_or(0);
         let map = &result.made.map;
         let map = if self.lab.mutes == Mutes::default() { map.clone() } else { Arc::new(map.with(map.settings.clone(), self.lab.mutes)) };
+        let map = self.with_climate(map);
         self.render = Some((name, seed, map, spawn));
         self.picking = false;
         self.space_pick = false;

@@ -715,6 +715,7 @@ mod tests {
             highest: 1.0,
             most_crushed: 1.0,
             most_stretched: -1.0,
+            ..Maps::default()
         }
     }
 

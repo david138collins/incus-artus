@@ -72,7 +72,7 @@ pub struct DeepShot {
     requested: bool,
     stop: bool,
     map: Option<Arc<CompiledMap>>,
-    palette: Option<Palette>,
+    palette: Option<std::sync::Arc<Palette>>,
     wanted: Vec<TileKey>,
     making: HashMap<TileKey, Task<Option<TileMesh>>>,
     tiles: Vec<Entity>,
@@ -206,7 +206,7 @@ pub fn run_deep_shot(
         };
         wanted.sort_by(|a, b| distance(b).total_cmp(&distance(a)));
         let blocks = TerrainBlocks::from_registry(&registry);
-        shot.palette = Some(Palette::from_textures(&registry, &blocks));
+        shot.palette = Some(std::sync::Arc::new(Palette::from_textures(&registry, &blocks)));
         shot.total = wanted.len();
         shot.done = 0;
         shot.quads = 0;
@@ -255,11 +255,12 @@ pub fn run_deep_shot(
             }
             let most = std::thread::available_parallelism().map_or(4, |n| n.get());
             let pool = AsyncComputeTaskPool::get();
-            let (Some(map), Some(palette)) = (shot.map.clone(), shot.palette) else { return };
+            let (Some(map), Some(palette)) = (shot.map.clone(), shot.palette.clone()) else { return };
             let blocks = TerrainBlocks::from_registry(&registry);
             while shot.making.len() < most {
                 let Some(key) = shot.wanted.pop() else { break };
                 let map = map.clone();
+                let palette = palette.clone();
                 let task = pool.spawn(async move { distant::tile_mesh_measured(&map, &blocks, &palette, key, 1, SLOPE_CELL, false) });
                 shot.making.insert(key, task);
             }

@@ -198,6 +198,10 @@ struct CompiledFile {
     /// north-west corner. None, in worlds saved before.
     #[serde(default)]
     mountain_points: Vec<[f32; 2]>,
+    /// How much colder for every 100 blocks above the sea (with the climate maps, `map-temperature.png`
+    /// and `map-rain.png`, when the world has a climate). 0, in worlds saved before.
+    #[serde(default)]
+    cooling: f32,
     /// Where new arrivals start (north, east).
     #[serde(default)]
     spawn: [i32; 2],
@@ -223,7 +227,9 @@ fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 9] {
 fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), String> {
     let m = &map.maps;
     let mut ranges = BTreeMap::new();
-    for (name, values) in named_maps(m) {
+    // The climate maps only when the world has a climate.
+    let climate = [("temperature", &m.temperature), ("rain", &m.rain)].into_iter().filter(|(_, values)| values.len() == m.width * m.width);
+    for (name, values) in named_maps(m).into_iter().chain(climate) {
         let (low, high) = values.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
         let (low, high) = if low > high { (0.0, 0.0) } else { (low, high) };
         ranges.insert(name.to_string(), [low, high]);
@@ -251,6 +257,7 @@ fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), S
         left_out: map.mutes,
         mountain_points: m.mountain_points.clone(),
         spawn: spawn.to_array(),
+        cooling: m.cooling,
     };
     let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
     write_file(&folder.join("compiled.toml"), text.as_bytes())
@@ -303,6 +310,10 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         highest: info.highest,
         most_crushed: info.most_crushed,
         most_stretched: info.most_stretched,
+        // Worlds saved before the climate have none: mild and middling wet everywhere (mineralogy).
+        temperature: if info.ranges.contains_key("temperature") { read("temperature")? } else { Vec::new() },
+        rain: if info.ranges.contains_key("rain") { read("rain")? } else { Vec::new() },
+        cooling: info.cooling,
     };
     let mut map = CompiledMap::new(Arc::new(maps), info.seed, info.interpreter);
     map.mutes = info.left_out;
@@ -317,7 +328,7 @@ pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, Strin
         Terrain::Compiled(map) => save_compiled(map, world.resource::<VoxelWorld>().spawn(), &folder.path)?,
         Terrain::Test => {
             let _ = std::fs::remove_file(folder.path.join("compiled.toml"));
-            for (name, _) in named_maps(&Maps::default()) {
+            for name in named_maps(&Maps::default()).map(|(name, _)| name).into_iter().chain(["temperature", "rain"]) {
                 let _ = std::fs::remove_file(folder.path.join(format!("map-{name}.png")));
             }
         }
