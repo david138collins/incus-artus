@@ -2,24 +2,30 @@
 # Written by the Registrar's Color Lab; edit it there rather than here.
 
 next_slot = 536
+next_spline = 6
 
 [[spline]]
+id = 1
 name = "gabbro crushed"
 steps = [483, 484, 485, 486, 487, 488, 489, 490]
 
 [[spline]]
+id = 2
 name = "water crushed"
 steps = [500, 501, 502, 503, 504, 505, 506, 507]
 
 [[spline]]
+id = 3
 name = "stone crushed"
 steps = [508, 509, 510, 511, 512, 513, 514, 515, 516, 277, 517, 282]
 
 [[spline]]
+id = 4
 name = "grass crushed"
 steps = [518, 519, 254, 520, 521, 522, 523, 524, 525, 526, 527, 528, 529, 530, 531, 532, 533, 534, 535]
 
 [[spline]]
+id = 5
 name = "spline 5"
 steps = [491, 492, 493, 494, 495, 496, 497, 498, 499]
 
