@@ -30,11 +30,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Cells along a tile's side (as the distant terrain's).
-const CELLS: i32 = 32;
+use super::distant::CELLS;
 /// The usual rings' finest cell: slopes are measured over this, so the picture is shaded as they are.
 const SLOPE_CELL: i32 = 16;
 /// The widest rings (tiles along a side).
-const MOST_ACROSS: i32 = 128;
+const MOST_ACROSS: i32 = 256;
 /// Frames the panels are left out for, round the one the picture is taken in.
 const CLEAN_FRAMES: u32 = 5;
 /// The longest to wait for the near chunks to finish meshing (seconds).
@@ -249,6 +249,7 @@ pub fn run_deep_shot(
                 let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
                 bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
                 bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
+                bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_EASE, tile.morph);
                 bevy_mesh.insert_indices(Indices::U32(tile.indices));
                 let entity = commands.spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), DeepTile)).id();
                 shot.tiles.push(entity);
@@ -260,7 +261,7 @@ pub fn run_deep_shot(
             while shot.making.len() < most {
                 let Some(key) = shot.wanted.pop() else { break };
                 let map = map.clone();
-                let task = pool.spawn(async move { distant::tile_mesh_measured(&map, &blocks, &palette, shade, key, 1, SLOPE_CELL) });
+                let task = pool.spawn(async move { distant::tile_mesh_measured(&map, &blocks, &palette, shade, key, 1, SLOPE_CELL, false) });
                 shot.making.insert(key, task);
             }
             if shot.wanted.is_empty() && shot.making.is_empty() {

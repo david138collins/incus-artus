@@ -1,7 +1,7 @@
 // Distant terrain shader: draws the far-away landscape (see src/render/distant.rs).
 //
-// Each corner carries its position and a colour (the block's average colour, already shaded by
-// which way the face points). The fragment part:
+// Each corner carries its position, a colour (the surface block's average colour, already lit by the
+// slope there) and its easing into the next ring out (the vertex part). The fragment part:
 //   - draws nothing over a real chunk that's on screen (the `shown` texture marks them, one pixel
 //     per chunk), so the two never overlap, and where real chunks haven't loaded yet the distant
 //     terrain still shows: no holes when you fly fast;
@@ -46,6 +46,10 @@ struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
     @location(1) colour: vec4<f32>,
+    // Easing into the next ring out (src/render/distant.rs, `TileMesh::morph`): x the coarser ring's
+    // height here (game Z = Bevy y), y where easing starts and z where it's complete (blocks, the
+    // larger of north-south and east-west from the camera).
+    @location(2) ease: vec3<f32>,
 }
 
 struct VertexOutput {
@@ -56,7 +60,12 @@ struct VertexOutput {
 
 @vertex
 fn vertex(in: Vertex) -> VertexOutput {
-    let world = get_world_from_local(in.instance_index) * vec4<f32>(in.position, 1.0);
+    var world = get_world_from_local(in.instance_index) * vec4<f32>(in.position, 1.0);
+    // Toward the ring's outer edge each corner slides to the coarser ring's surface, so the two meet
+    // without a crack and nothing pops as rings change round you.
+    let away = max(abs(world.x - view.world_position.x), abs(world.z - view.world_position.z));
+    let eased = clamp((away - in.ease.y) / max(in.ease.z - in.ease.y, 1.0), 0.0, 1.0);
+    world.y = mix(world.y, in.ease.x, eased);
     var out: VertexOutput;
     out.clip_position = position_world_to_clip(world.xyz);
     out.world_position = world.xyz;

@@ -1,9 +1,9 @@
 //! Distant terrain — the landscape out to the edge of the world, beyond the full-detail chunks
 //! (like Distant Horizons).
 //!
-//! **Rings of tiles.** Around you are rings, each made of blocks twice as big as the ring inside
-//! it: 16-block cells just past the full-detail chunks, then 32, 64 … up to 1,024-block cells far
-//! away. Seven rings reach the edge of the world from anywhere. Each ring is 8 × 8 tiles of 32 × 32
+//! **Rings of tiles.** Around you are rings, each with cells twice as big as the ring inside it:
+//! 16-block cells just past the full-detail chunks, then 32, 64 … up to 1,024-block cells far away.
+//! Seven rings reach the edge of the world from anywhere. Each ring is 16 × 16 tiles of 16 × 16
 //! cells, with a hole in the middle where the next ring in sits (the finest ring has no hole: it
 //! lies under the real chunks).
 //!
@@ -15,10 +15,18 @@
 //! **Each ring snaps to its own grid** (twice its tile size), so its hole lines up exactly with the
 //! ring inside, and as you move only the tiles at its edges change; the rest stay put.
 //!
-//! **A tile** is a blocky height field: each cell is one column, its top at the ground's height in
-//! the middle of the cell (the same column function the real chunks use), coloured by its surface
-//! block (the block texture's average colour), with sides down to lower neighbours. Water fills to
-//! sea level. Neighbouring cells on the same row with the same height and colour share one top.
+//! **A tile is a smooth sheet** [2026-10-28; it was a blocky height field, cells as columns with
+//! sides, and far mountains read as ziggurats]: a corner every cell, at the ground's height there
+//! (the same column recipe the real chunks use, unrounded), two triangles a cell, coloured by the
+//! surface block (its texture's average colour; steep ground toward its sides' colour) and lit by
+//! the slope round each corner. The sea is its surface.
+//!
+//! **Easing between rings** (as CDLOD does): each corner also carries the coarser ring's height at
+//! that spot, and toward a ring's outer edge (5 to 6 of its tiles from you, the larger of
+//! north-south and east-west) its corners slide there, in the shader, as you move. A ring's hole is
+//! always nearer than 5 of its tiles and its outer edge never nearer than 6, so where two rings meet
+//! the inner one is fully eased and the outer one not at all: they match exactly, with no crack, and
+//! nothing pops as tiles change. (That room is why the rings are 16 tiles across.)
 //!
 //! Tiles are made in the background, coarsest rings first (so the whole world appears quickly),
 //! then nearest first.
@@ -30,7 +38,7 @@ use crate::data::{BlockRegistry, FACE_NAMES};
 use super::meshing::MeshingState;
 use crate::world::{BlockId, CHUNK_SIZE, ChunkPos, CompiledMap, Streaming, Terrain, TerrainBlocks, VoxelWorld};
 use bevy::asset::RenderAssetUsages;
-use bevy::mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology};
+use bevy::mesh::{Indices, MeshVertexAttribute, MeshVertexBufferLayoutRef, PrimitiveTopology, VertexFormat};
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
 use bevy::render::render_resource::{
@@ -43,9 +51,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// Cells along a tile's side.
-const CELLS: i32 = 32;
+pub const CELLS: i32 = 16;
 /// Tiles along a ring's side.
-const RING_TILES: i32 = 8;
+const RING_TILES: i32 = 16;
 /// The side of the texture marking the chunks on screen, in chunks (centred on the camera's chunk:
 /// 128 each way, far past where real chunks ever reach).
 const SHOWN_SIZE: i32 = 256;
@@ -192,18 +200,20 @@ fn average_colour(name: &str) -> Option<[f32; 3]> {
 pub struct TileMesh {
     pub positions: Vec<[f32; 3]>,
     pub colours: Vec<[f32; 4]>,
+    /// Per corner, for easing into the next ring out (see the module notes): the height the coarser
+    /// ring's surface has here (game Z), and the distances (blocks, the larger of north-south and
+    /// east-west from the camera) where easing starts and is complete.
+    pub morph: Vec<[f32; 3]>,
     pub indices: Vec<u32>,
     /// The tile's north-west-bottom corner... the corner it's placed at (game axes).
     pub corner: Vec3,
 }
 
-/// Face brightness: top, north/south sides, east/west sides; and the hill shading on tops (how
-/// strong, the sun's direction in game axes, and the height tint).
+/// The tops' brightness: the face brightness for tops, the hill shading (how strong, how it fades
+/// toward its limits, the sun's direction in game axes) and the height tint.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Shade {
     pub top: f32,
-    pub north_south: f32,
-    pub east_west: f32,
     pub hills: f32,
     pub fade: f32,
     pub sun: Vec3,
@@ -211,22 +221,14 @@ pub struct Shade {
 }
 
 impl Shade {
-    /// The face brightnesses from the render settings, the hill shading from the distant
-    /// terrain's, and the sun from the light map's (one sun for everything).
+    /// The face brightness from the render settings, the hill shading from the distant terrain's,
+    /// and the sun from the light map's (one sun for everything).
     pub fn new(render: &RenderSettings, settings: &DistantSettings, light: &LightSettings) -> Self {
-        Self {
-            top: render.shade_top,
-            north_south: render.shade_north_south,
-            east_west: render.shade_east_west,
-            hills: settings.hill_shading,
-            fade: settings.shading_fade,
-            sun: light.sun(),
-            height_tint: settings.height_tint,
-        }
+        Self { top: render.shade_top, hills: settings.hill_shading, fade: settings.shading_fade, sun: light.sun(), height_tint: settings.height_tint }
     }
 
-    /// How brightly a top is lit, with the ground rising `north` and `east` blocks per finest cell
-    /// across it (in any ring): 1 on flat ground, more facing the sun, less facing away.
+    /// How brightly the ground is lit, rising `north` and `east` blocks per finest cell across it
+    /// (in any ring): 1 on flat ground, more facing the sun, less facing away.
     fn hill(&self, north: f32, east: f32) -> f32 {
         let normal = Vec3::new(-north * self.hills, -east * self.hills, 1.0).normalize();
         soft_limit(normal.dot(self.sun) / self.sun.z, self.fade)
@@ -249,126 +251,112 @@ pub fn soft_limit(raw: f32, fade: f32) -> f32 {
     1.0 + d.signum() * limit * x / (1.0 + x.powf(p)).powf(1.0 / p)
 }
 
-impl TileMesh {
-    /// Adds a quad with corners `a b c d` (game axes, going round), facing `normal` (game axes).
-    fn quad(&mut self, corners: [Vec3; 4], normal: Vec3, colour: [f32; 3], shade: f32) {
-        let start = self.positions.len() as u32;
-        let points: Vec<Vec3> = corners.iter().map(|&p| game_to_bevy(p - self.corner)).collect();
-        for p in &points {
-            self.positions.push(p.to_array());
-            self.colours.push([colour[0] * shade, colour[1] * shade, colour[2] * shade, 1.0]);
-        }
-        // Wound so the front faces `normal` (Bevy draws counter-clockwise fronts).
-        let facing = (points[1] - points[0]).cross(points[2] - points[0]).dot(game_to_bevy(normal));
-        let order: [u32; 6] = if facing > 0.0 { [0, 1, 2, 0, 2, 3] } else { [0, 2, 1, 0, 3, 2] };
-        self.indices.extend(order.iter().map(|k| start + k));
-    }
-}
+/// Each corner's easing (see `TileMesh::morph`): the coarser ring's height there, and where easing
+/// starts and is complete.
+pub const ATTRIBUTE_EASE: MeshVertexAttribute = MeshVertexAttribute::new("DistantEase", 0x1a5_e4e5, VertexFormat::Float32x3);
+
+/// Where a ring's tiles ease into the next ring out, in its own tiles from the camera (the larger of
+/// north-south and east-west): from here, complete there. Its hole is always nearer than the start
+/// and its outer edge never nearer than the end (see `wanted_tiles_across`), so it meets the ring
+/// inside it uneased and the ring outside it fully eased, exactly, with no crack between.
+pub const EASE_FROM: f32 = (RING_TILES / 2 - 3) as f32;
+pub const EASE_TO: f32 = (RING_TILES / 2 - 2) as f32;
 
 /// Makes one tile's mesh, or `None` if it's wholly past the map.
 pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32) -> Option<TileMesh> {
-    tile_mesh_measured(map, blocks, palette, shade, key, finest_cell, finest_cell)
+    tile_mesh_measured(map, blocks, palette, shade, key, finest_cell, finest_cell, true)
 }
 
 /// The same, with the hill shading's slopes measured over `slope_cell` blocks (the usual rings'
-/// finest cell), so cells finer than that (the deep screenshot's) are shaded as the rings are,
-/// not by the steps between single blocks.
-pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32, slope_cell: i32) -> Option<TileMesh> {
+/// finest cell), so cells finer than that (the deep screenshot's) are shaded as the rings are; and
+/// `eases`: whether it eases into the next ring out (the deep screenshot's tiles stand still).
+///
+/// **A tile is a smooth sheet** [2026-10-28, replacing the blocky one that made far mountains into
+/// ziggurats]: a corner every cell, at the ground's height there (the same column recipe the real
+/// chunks use, not rounded to blocks; the sea's surface at sea), two triangles a cell, coloured by
+/// the surface block and lit by the slope from the corners round each one.
+#[allow(clippy::too_many_arguments)]
+pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32, slope_cell: i32, eases: bool) -> Option<TileMesh> {
     let cell = (finest_cell << key.ring) as f32;
     let size = cell * CELLS as f32;
     let corner = Vec3::new(key.x as f32 * size, key.y as f32 * size, 0.0);
-    // Each cell's top (a Z, the top of the block) and surface block, with a one-cell border for
-    // the sides. `None` = past the map.
-    let n = (CELLS + 2) as usize;
-    let mut tops: Vec<Option<(i32, BlockId)>> = vec![None; n * n];
-    for j in 0..n {
-        for i in 0..n {
-            let x = corner.x + (i as f32 - 1.0 + 0.5) * cell;
-            let y = corner.y + (j as f32 - 1.0 + 0.5) * cell;
-            tops[j * n + i] = map.height(x, y).map(|h| {
-                let ground = (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1);
-                if ground < crate::world::SEA_LEVEL { (crate::world::SEA_LEVEL, blocks.water) } else { (ground + 1, map.surface(ground, blocks)) }
-            });
-        }
-    }
-    let at = |i: i32, j: i32| tops[(j + 1) as usize * n + (i + 1) as usize];
-    if (0..CELLS).all(|j| (0..CELLS).all(|i| at(i, j).is_none())) {
+    let sea = crate::world::SEA_LEVEL as f32;
+    // The ground at every corner, with a corner more round the edge for the slopes. `None` = past
+    // the map.
+    let n = (CELLS + 3) as usize;
+    let ground: Vec<Option<f32>> = (0..n * n)
+        .map(|k| {
+            let (i, j) = ((k % n) as f32 - 1.0, (k / n) as f32 - 1.0);
+            map.height(corner.x + i * cell, corner.y + j * cell)
+        })
+        .collect();
+    let at = |i: i32, j: i32| ground[(j + 1) as usize * n + (i + 1) as usize];
+    // The surface: the ground, or the sea's over it.
+    let surface = |i: i32, j: i32| at(i, j).map(|h| h.max(sea));
+    if (0..=CELLS).all(|j| (0..=CELLS).all(|i| at(i, j).is_none())) {
         return None;
     }
-    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), indices: Vec::new(), corner };
-    let cell_corner = |i: i32, j: i32| corner + Vec3::new(i as f32 * cell, j as f32 * cell, 0.0);
-    // Each top's brightness: hill shading from its neighbours' heights (the slope across it, in
-    // blocks per finest cell, whatever the ring), and the height tint; in 32 steps, so neighbours
-    // alike still share a quad. Water stays flat.
+    let corners = (CELLS + 1) as usize;
+    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), morph: Vec::new(), indices: Vec::new(), corner };
     let slope = slope_cell as f32;
     let per_finest = slope / cell;
-    let light_of = |i: i32, j: i32| -> i32 {
-        let Some((h, block)) = at(i, j) else { return 32 };
-        if block == blocks.water {
-            return 32;
-        }
-        let (north, east) = if cell < slope {
-            // Finer than the slope is measured over: the ground's own height half that either side.
-            let (x, y) = (corner.x + (i as f32 + 0.5) * cell, corner.y + (j as f32 + 0.5) * cell);
-            let z = |dx: f32, dy: f32| map.height(x + dx, y + dy).unwrap_or(h as f32);
-            (z(slope / 2.0, 0.0) - z(-slope / 2.0, 0.0), z(0.0, slope / 2.0) - z(0.0, -slope / 2.0))
-        } else {
-            let z = |di: i32, dj: i32| at(i + di, j + dj).map_or(h, |(z, _)| z) as f32;
-            ((z(1, 0) - z(-1, 0)) / 2.0 * per_finest, (z(0, 1) - z(0, -1)) / 2.0 * per_finest)
-        };
-        let hill = shade.hill(north, east);
-        let tint = 1.0 + shade.height_tint * (h - crate::world::SEA_LEVEL) as f32 / (crate::world::HIGHEST - crate::world::SEA_LEVEL as f32);
-        (hill * tint * 32.0).round() as i32
-    };
-    // Worked out once per cell (the rows below ask again and again while joining runs).
-    let lights: Vec<i32> = (0..CELLS * CELLS).map(|k| light_of(k % CELLS, k / CELLS)).collect();
-    let lit = |i: i32, j: i32| lights[(j * CELLS + i) as usize];
-    for j in 0..CELLS {
-        // Tops: runs along the row with the same height, block and brightness share one quad.
-        let mut i = 0;
-        while i < CELLS {
-            let Some((h, block)) = at(i, j) else {
-                i += 1;
-                continue;
+    let (ease_from, ease_to) = if eases { (EASE_FROM * size, EASE_TO * size) } else { (f32::MAX, f32::MAX) };
+    // Each corner's place in the list (`u32::MAX` past the map).
+    let mut index = vec![u32::MAX; corners * corners];
+    for j in 0..=CELLS {
+        for i in 0..=CELLS {
+            let (Some(h), Some(top)) = (at(i, j), surface(i, j)) else { continue };
+            let (x, y) = (corner.x + i as f32 * cell, corner.y + j as f32 * cell);
+            let water = h < sea;
+            let block = map.surface((h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks);
+            let mut colour = if water { palette.water } else { palette.top(block, blocks) };
+            let light = if water {
+                shade.top
+            } else {
+                let (north, east) = if cell < slope {
+                    // Finer than the slope is measured over: the ground's own height half that either side.
+                    let z = |dx: f32, dy: f32| map.height(x + dx, y + dy).unwrap_or(h).max(sea);
+                    (z(slope / 2.0, 0.0) - z(-slope / 2.0, 0.0), z(0.0, slope / 2.0) - z(0.0, -slope / 2.0))
+                } else {
+                    let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
+                    ((z(1, 0) - z(-1, 0)) / 2.0 * per_finest, (z(0, 1) - z(0, -1)) / 2.0 * per_finest)
+                };
+                // Steep ground shows its sides' colour, as the blocks' sides do up close (grass's earth):
+                // from half a block up per block across, all of it at more than one.
+                let steep = ((north.hypot(east) / slope - 0.5) / 0.6).clamp(0.0, 1.0);
+                let side = palette.side(block, blocks);
+                colour = [0, 1, 2].map(|k| colour[k] + (side[k] - colour[k]) * steep);
+                let tint = 1.0 + shade.height_tint * (top - sea) / (crate::world::HIGHEST - sea);
+                shade.top * shade.hill(north, east) * tint
             };
-            let light = lit(i, j);
-            let mut end = i + 1;
-            while end < CELLS && at(end, j) == Some((h, block)) && lit(end, j) == light {
-                end += 1;
-            }
-            let (a, b) = (cell_corner(i, j), cell_corner(end, j + 1));
-            let z = h as f32;
-            mesh.quad(
-                [Vec3::new(a.x, a.y, z), Vec3::new(b.x, a.y, z), Vec3::new(b.x, b.y, z), Vec3::new(a.x, b.y, z)],
-                Vec3::Z,
-                palette.top(block, blocks),
-                shade.top * light as f32 / 32.0,
-            );
-            i = end;
+            // The coarser ring's surface here: its corners are this ring's even ones, its triangles
+            // split the same way, so between them it's the average of the two along the line.
+            let coarse = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
+            let target = match (i % 2 != 0, j % 2 != 0) {
+                (false, false) => top,
+                (true, false) => (coarse(-1, 0) + coarse(1, 0)) / 2.0,
+                (false, true) => (coarse(0, -1) + coarse(0, 1)) / 2.0,
+                (true, true) => (coarse(-1, -1) + coarse(1, 1)) / 2.0,
+            };
+            index[j as usize * corners + i as usize] = mesh.positions.len() as u32;
+            mesh.positions.push(game_to_bevy(Vec3::new(x, y, top) - corner).to_array());
+            mesh.colours.push([colour[0] * light, colour[1] * light, colour[2] * light, 1.0]);
+            mesh.morph.push([target, ease_from, ease_to]);
         }
-        // Sides, down to each lower neighbour.
-        for i in 0..CELLS {
-            let Some((h, block)) = at(i, j) else { continue };
-            let colour = palette.side(block, blocks);
-            for (di, dj) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                let Some((low, _)) = at(i + di, j + dj) else { continue };
-                if low >= h {
+    }
+    // Two triangles a cell, split from its north-west-most corner to the opposite one (as every
+    // ring splits them, so a coarser ring's surface is known between its corners), facing up.
+    for j in 0..CELLS as usize {
+        for i in 0..CELLS as usize {
+            let k = |di: usize, dj: usize| index[(j + dj) * corners + i + di];
+            let (a, b, c, d) = (k(0, 0), k(1, 0), k(1, 1), k(0, 1));
+            for [p, q, r] in [[a, b, c], [a, c, d]] {
+                if p == u32::MAX || q == u32::MAX || r == u32::MAX {
                     continue;
                 }
-                let (z0, z1) = (low as f32, h as f32);
-                let (p, q) = match (di, dj) {
-                    (1, 0) => (cell_corner(i + 1, j), cell_corner(i + 1, j + 1)),
-                    (-1, 0) => (cell_corner(i, j), cell_corner(i, j + 1)),
-                    (0, 1) => (cell_corner(i, j + 1), cell_corner(i + 1, j + 1)),
-                    _ => (cell_corner(i, j), cell_corner(i + 1, j)),
-                };
-                let side_shade = if di != 0 { shade.north_south } else { shade.east_west };
-                mesh.quad(
-                    [Vec3::new(p.x, p.y, z0), Vec3::new(q.x, q.y, z0), Vec3::new(q.x, q.y, z1), Vec3::new(p.x, p.y, z1)],
-                    Vec3::new(di as f32, dj as f32, 0.0),
-                    colour,
-                    side_shade,
-                );
+                let at = |v: u32| Vec3::from_array(mesh.positions[v as usize]);
+                let up = (at(q) - at(p)).cross(at(r) - at(p)).y;
+                mesh.indices.extend(if up > 0.0 { [p, q, r] } else { [p, r, q] });
             }
         }
     }
@@ -428,7 +416,7 @@ impl Material for DistantMaterial {
         layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.0.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0), Mesh::ATTRIBUTE_COLOR.at_shader_location(1)])?;
+        let vertex_layout = layout.0.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0), Mesh::ATTRIBUTE_COLOR.at_shader_location(1), ATTRIBUTE_EASE.at_shader_location(2)])?;
         descriptor.vertex.buffers = vec![vertex_layout];
         Ok(())
     }
@@ -589,6 +577,7 @@ pub fn update_distant(
         let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
         bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
         bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
+        bevy_mesh.insert_attribute(ATTRIBUTE_EASE, tile.morph);
         bevy_mesh.insert_indices(Indices::U32(tile.indices));
         let Some(material) = material.clone() else { continue };
         let entity = commands
@@ -742,7 +731,7 @@ mod tests {
                 tiles
                     .iter()
                     .filter(|key| {
-                        let size = 512.0 * 2f32.powi(key.ring as i32);
+                        let size = (16 * CELLS) as f32 * 2f32.powi(key.ring as i32);
                         (key.x as f32 * size..(key.x + 1) as f32 * size).contains(&x) && (key.y as f32 * size..(key.y + 1) as f32 * size).contains(&y)
                     })
                     .count()
@@ -813,26 +802,84 @@ mod tests {
         };
         let (near, further) = (lit(0), lit(1));
         assert_ne!(near, 1000, "the slope isn't shaded at all");
-        // Alike, give or take the whole-block rounding (measured per cell, ring 1 shaded about twice
-        // as strongly).
-        assert!(near.abs_diff(further) <= 15, "ring 0 lit {near}, ring 1 lit {further} (per mille)");
+        // Alike (measured per cell, ring 1 would be shaded about twice as strongly)...
+        assert!(near.abs_diff(further) <= 5, "ring 0 lit {near}, ring 1 lit {further} (per mille)");
     }
 
     #[test]
-    fn a_tile_is_a_blocky_height_field_and_past_the_map_is_nothing() {
+    fn a_tile_is_a_smooth_sheet_on_the_ground_and_past_the_map_is_nothing() {
         let width = 64;
-        // Sea in the west, land from 256 blocks east of the middle (inside the tile tested).
-        let z: Vec<f32> = (0..width * width).map(|i| if i % width < 40 { 100.0 } else { 180.0 }).collect();
+        // Sea in the west, land from 256 blocks east of the middle (inside the tiles tested), rising.
+        let z: Vec<f32> = (0..width * width).map(|i| if i % width < 40 { 100.0 } else { 160.0 + (i % width) as f32 }).collect();
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
-        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.6, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0 };
-        let mesh = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 0, x: -1, y: 0 }, 16).unwrap();
-        assert!(!mesh.indices.is_empty() && mesh.indices.len() % 6 == 0);
-        assert_eq!(mesh.positions.len(), mesh.colours.len());
-        // Water and grass both show.
-        assert!(mesh.colours.iter().any(|c| c[2] > 0.9) && mesh.colours.iter().any(|c| c[1] > 0.9));
+        let shade = Shade { top: 1.0, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0 };
+        let key = TileKey { ring: 1, x: 0, y: 0 };
+        let mesh = tile_mesh(&map, &blocks, &palette, shade, key, 16).unwrap();
+        // A corner every cell, two triangles a cell, and the easing for each corner.
+        assert_eq!(mesh.positions.len(), ((CELLS + 1) * (CELLS + 1)) as usize);
+        assert_eq!(mesh.indices.len(), (CELLS * CELLS * 6) as usize);
+        assert_eq!(mesh.morph.len(), mesh.positions.len());
+        // Every corner on the ground (or the sea's surface), not rounded to blocks.
+        let sea = crate::world::SEA_LEVEL as f32;
+        for (p, morph) in mesh.positions.iter().zip(&mesh.morph) {
+            let game = bevy_to_game(Vec3::from_array(*p)) + mesh.corner;
+            let ground = map.height(game.x, game.y).unwrap().max(sea);
+            assert!((game.z - ground).abs() < 1e-3, "corner at {game}, ground {ground}");
+            // It eases between 5 and 6 of its tiles out (a ring-1 tile is 512 blocks).
+            assert_eq!((morph[1], morph[2]), (EASE_FROM * 512.0, EASE_TO * 512.0));
+        }
+        // Every triangle faces up (Bevy's y).
+        for t in mesh.indices.chunks_exact(3) {
+            let at = |k: usize| Vec3::from_array(mesh.positions[t[k] as usize]);
+            assert!((at(1) - at(0)).cross(at(2) - at(0)).y > 0.0);
+        }
+        // An odd corner eases to the average of its even neighbours (the coarser ring's surface).
+        let corners = (CELLS + 1) as usize;
+        let z_of = |i: usize, j: usize| bevy_to_game(Vec3::from_array(mesh.positions[j * corners + i])).z;
+        let odd = mesh.morph[2 * corners + 3][0];
+        assert!((odd - (z_of(2, 2) + z_of(4, 2)) / 2.0).abs() < 1e-3);
+        assert_eq!(mesh.morph[2 * corners + 2][0], z_of(2, 2));
+        // Water and grass both show, near the coast.
+        let coast = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 1, x: -1, y: 0 }, 16).unwrap();
+        assert!(coast.colours.iter().any(|c| c[2] > 0.9) && coast.colours.iter().any(|c| c[1] > 0.9));
         // Far past the map: nothing.
         assert!(tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 0, x: 100, y: 100 }, 16).is_none());
+    }
+
+    #[test]
+    fn every_ring_eases_fully_before_its_outer_edge_and_not_at_all_at_its_hole() {
+        // Wherever you stand, a ring's hole is nearer than where it starts easing and its outer edge
+        // no nearer than where it's eased completely (in its own tiles, the larger of the two ways).
+        for k in 0..400 {
+            let at = Vec3::new(k as f32 * 37.3 - 7_000.0, k as f32 * -91.7 + 3_000.0, 200.0);
+            for ring in 1..5u8 {
+                let size = (16 * CELLS) as f32 * 2f32.powi(ring as i32);
+                let tiles: Vec<TileKey> = wanted_tiles_across(at, 16, 5, RING_TILES).into_iter().filter(|t| t.ring == ring).collect();
+                let away = |x: f32, y: f32| (x - at.x).abs().max((y - at.y).abs()) / size;
+                let (mut nearest_edge, mut farthest_hole) = (f32::MAX, 0.0f32);
+                for t in &tiles {
+                    let (x0, y0) = (t.x as f32 * size, t.y as f32 * size);
+                    for (x, y) in [(x0, y0), (x0 + size, y0), (x0, y0 + size), (x0 + size, y0 + size)] {
+                        let d = away(x, y);
+                        // A tile corner with no tile of this ring beyond it is on the outer edge; one
+                        // with no tile toward you, on the hole.
+                        let has = |cx: i32, cy: i32| tiles.iter().any(|o| o.x == cx && o.y == cy);
+                        let (cx, cy) = ((x / size).round() as i32, (y / size).round() as i32);
+                        let all_round = has(cx, cy) && has(cx - 1, cy) && has(cx, cy - 1) && has(cx - 1, cy - 1);
+                        if !all_round {
+                            if d > (EASE_FROM + EASE_TO) / 2.0 {
+                                nearest_edge = nearest_edge.min(d);
+                            } else {
+                                farthest_hole = farthest_hole.max(d);
+                            }
+                        }
+                    }
+                }
+                assert!(farthest_hole <= EASE_FROM + 1e-3, "ring {ring} at {at}: hole as far as {farthest_hole}");
+                assert!(nearest_edge >= EASE_TO - 1e-3, "ring {ring} at {at}: outer edge as near as {nearest_edge}");
+            }
+        }
     }
 }
