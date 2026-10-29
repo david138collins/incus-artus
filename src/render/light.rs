@@ -92,6 +92,9 @@ pub struct LightSettings {
     /// How much of the lie of the land's sun and shade the steps' sides take, as the tops do (0 = only
     /// their fixed face shade, 1 = all of it, which stripes every step on a shaded slope). [2026-10-28]
     pub side_shading: f32,
+    /// The farthest a step's shade reaches from its foot, however tall the step (blocks): steps are
+    /// shaded, mountains cast the light map's shadows. [2026-10-28]
+    pub step_reach: f32,
 }
 
 impl Default for LightSettings {
@@ -114,6 +117,7 @@ impl Default for LightSettings {
             step_shadows: 0.45,
             shade_reach: 4.0,
             side_shading: 0.5,
+            step_reach: 16.0,
         }
     }
 }
@@ -351,6 +355,7 @@ struct NearKey {
     /// and toward the sun in pixels (columns east, rows south).
     broad_reach: f32,
     shade_reach: f32,
+    step_reach: f32,
     toward_sun: (f32, f32),
 }
 
@@ -399,7 +404,7 @@ pub fn update_near_light(
         let toward_sun = ((from.sin() * 100.0).round() / 100.0, (-from.cos() * 100.0).round() / 100.0);
         let fits = |key: &NearKey| {
             let middle = key.corner + Vec2::new(-key.side, key.side) / 2.0;
-            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && key.broad_reach == settings.broad_reach && key.shade_reach == settings.shade_reach && key.toward_sun == toward_sun && (at - middle).abs().max_element() < side / 8.0
+            Arc::ptr_eq(&key.map, &map) && key.side == side && key.detail == detail && key.broad_reach == settings.broad_reach && key.shade_reach == settings.shade_reach && key.step_reach == settings.step_reach && key.toward_sun == toward_sun && (at - middle).abs().max_element() < side / 8.0
         };
         if !state.shown.as_ref().is_some_and(fits) && !state.job.as_ref().is_some_and(|(key, ..)| fits(key)) {
             if let Some((_, stop, _)) = state.job.take() {
@@ -407,7 +412,7 @@ pub fn update_near_light(
             }
             // Centred on you, snapped to whole pixels.
             let snap = |v: f32| (v / detail).round() * detail;
-            let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail, broad_reach: settings.broad_reach, shade_reach: settings.shade_reach, toward_sun };
+            let key = NearKey { map: map.clone(), corner: Vec2::new(snap(at.x + side / 2.0), snap(at.y - side / 2.0)), side, detail, broad_reach: settings.broad_reach, shade_reach: settings.shade_reach, step_reach: settings.step_reach, toward_sun };
             let (made, stop) = (key.clone(), Arc::new(AtomicBool::new(false)));
             let flag = stop.clone();
             let previous = state.heights.clone();
@@ -513,7 +518,9 @@ fn make_near(key: &NearKey, previous: Option<(NearKey, Arc<Vec<f32>>)>, stop: &A
     // the sea's surface is at sea level.
     let tops: Vec<f32> = raw.iter().map(|&h| if h.is_nan() || h < sea - 0.5 { sea } else { h.round() + 1.0 }).collect();
     let fall = key.detail / key.shade_reach.max(0.1);
-    let cones = Cones { width: width as u32, all_round: cones(&tops, width, fall, None), from_sun: cones(&tops, width, fall, Some(key.toward_sun)) };
+    // A step's shade reaches at most `step_reach` blocks from its foot, however tall the step is.
+    let cap = key.step_reach / key.shade_reach.max(0.1);
+    let cones = Cones { width: width as u32, all_round: cones(&tops, width, fall, None, cap), from_sun: cones(&tops, width, fall, Some(key.toward_sun), cap) };
     Some((Picture { width: width as u32, levels: 1, data }, cones, Arc::new(raw)))
 }
 
@@ -542,9 +549,12 @@ struct Cones {
 }
 
 /// The highest cone over each pixel of `tops`: each top less `fall` per pixel of distance (√2 on
-/// the diagonal), from every side, or with `toward_sun`, only from ground on the sun's side
+/// the diagonal), from every side, or with `toward_sun`, only from ground on the sun's side, and never
+/// more than `cap` above a pixel's own top, so a step's shade reaches at most `cap / fall` pixels from its
+/// foot however tall it is [2026-10-28: a mountain's cone reached a thousand blocks, painting a huge
+/// "step shadow" across its lee that the far terrain doesn't have; mountain shadows are the light map's]
 /// (columns run east, rows south).
-fn cones(tops: &[f32], width: usize, fall: f32, toward_sun: Option<(f32, f32)>) -> Vec<f32> {
+fn cones(tops: &[f32], width: usize, fall: f32, toward_sun: Option<(f32, f32)>, cap: f32) -> Vec<f32> {
     let mut cone = tops.to_vec();
     let diagonal = fall * std::f32::consts::SQRT_2;
     let step = |cone: &mut Vec<f32>, c: usize, r: usize, offsets: &[(isize, isize)]| {
@@ -555,7 +565,7 @@ fn cones(tops: &[f32], width: usize, fall: f32, toward_sun: Option<(f32, f32)>) 
                 continue;
             }
             let drop = if dc != 0 && dr != 0 { diagonal } else { fall };
-            cone[i] = cone[i].max(cone[r2 as usize * width + c2 as usize] - drop);
+            cone[i] = cone[i].max(cone[r2 as usize * width + c2 as usize] - drop).min(tops[i] + cap);
         }
     };
     match toward_sun {
@@ -836,7 +846,7 @@ mod tests {
         let width = 64;
         let z: Vec<f32> = (0..width * width).map(|i| 150.0 + ((i * 37) % 23) as f32 + (i / width) as f32).collect();
         let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
-        let first = NearKey { map: map.clone(), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
+        let first = NearKey { map: map.clone(), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, step_reach: 1_000.0, toward_sun: (1.0, 0.0) };
         let moved = NearKey { corner: Vec2::new(296.0, -280.0), ..first.clone() };
         let never = AtomicBool::new(false);
         let (_, _, heights) = make_near(&first, None, &never).unwrap();
@@ -853,7 +863,7 @@ mod tests {
         let width = 64;
         let z: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 2.0).collect();
         let map = Arc::new(CompiledMap::of_heights(width, 32.0, &z));
-        let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
+        let key = NearKey { map, corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, step_reach: 1_000.0, toward_sun: (1.0, 0.0) };
         let (picture, _, _) = make_near(&key, None, &AtomicBool::new(false)).unwrap();
         assert_eq!(picture.width, 128);
         let pixel = |c: usize, r: usize| &picture.data[(r * 128 + c) * 4..(r * 128 + c) * 4 + 4];
@@ -871,7 +881,24 @@ mod tests {
     fn step_cones(low: f32, high: f32, fall: f32, toward: (f32, f32)) -> (Vec<f32>, Vec<f32>) {
         let width = 64;
         let tops: Vec<f32> = (0..width * width).map(|i| if i % width < 32 { low } else { high }).collect();
-        (cones(&tops, width, fall, None), cones(&tops, width, fall, Some(toward)))
+        (cones(&tops, width, fall, None, f32::MAX), cones(&tops, width, fall, Some(toward), f32::MAX))
+    }
+
+    #[test]
+    fn a_tall_step_s_shade_reaches_no_further_than_a_short_one_s_cap() {
+        // A 250-block wall at column 10 on flat ground at 150, a block a pixel, falling a quarter of a
+        // block a pixel, capped at 4 blocks above the ground: its shade is gone 16 pixels out, not
+        // the thousand it would reach uncapped.
+        let width = 64;
+        let tops: Vec<f32> = (0..width * width).map(|i| if i % width == 10 { 400.0 } else { 150.0 }).collect();
+        let capped = cones(&tops, width, 0.25, None, 4.0);
+        let uncapped = cones(&tops, width, 0.25, None, f32::MAX);
+        let at = |cone: &[f32], c: usize| cone[30 * width + c];
+        assert!(at(&capped, 12) > 153.0, "{}", at(&capped, 12));
+        assert_eq!(at(&capped, 40), 150.0);
+        assert!(at(&uncapped, 40) > 390.0);
+        // The wall's own top is untouched.
+        assert_eq!(at(&capped, 10), 400.0);
     }
 
     #[test]
@@ -909,7 +936,7 @@ mod tests {
     fn the_window_makes_its_cone_map_from_the_block_tops() {
         // Level ground, Z 150 (blocks' tops at 151): the cone map is that everywhere.
         let width = 64;
-        let key = NearKey { map: Arc::new(CompiledMap::of_heights(width, 32.0, &vec![150.0; width * width])), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, toward_sun: (1.0, 0.0) };
+        let key = NearKey { map: Arc::new(CompiledMap::of_heights(width, 32.0, &vec![150.0; width * width])), corner: Vec2::new(256.0, -256.0), side: 512.0, detail: 4.0, broad_reach: 32.0, shade_reach: 4.0, step_reach: 1_000.0, toward_sun: (1.0, 0.0) };
         let (_, cones, _) = make_near(&key, None, &AtomicBool::new(false)).unwrap();
         assert_eq!(cones.width, 128);
         assert!(cones.all_round.iter().chain(&cones.from_sun).all(|&c| c == 151.0));

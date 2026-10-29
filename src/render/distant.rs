@@ -243,9 +243,10 @@ const SLOPE_STEPS: usize = 32;
 /// How dark the foot of block steps is on average, across one step, on ground rising `rise` blocks
 /// per block (so a step every 1/rise blocks), with the near shader's sums: each step's top casts a
 /// cone falling a block every `reach` blocks, a spot is `below` the highest cone over it (counting
-/// every step up the slope), eased toward the darkest by `fade`, and darkened by `strength` of that
+/// every step up the slope, never more than `cap` blocks: a step's shade reaches only so far), eased
+/// toward the darkest by `fade`, and darkened by `strength` of that
 /// (assets/shaders/terrain.wesl, `eased` and the feet). 1 = no shade.
-fn steps_shade(rise: f32, strength: f32, reach: f32, fade: f32) -> f32 {
+fn steps_shade(rise: f32, strength: f32, reach: f32, cap: f32, fade: f32) -> f32 {
     if rise <= 1e-3 || strength <= 0.0 {
         return 1.0;
     }
@@ -262,7 +263,7 @@ fn steps_shade(rise: f32, strength: f32, reach: f32, fade: f32) -> f32 {
     for s in 0..ACROSS {
         // A spot this far from the foot of the step above it.
         let x = (s as f32 + 0.5) / ACROSS as f32 * width;
-        let below = (1..=64).map(|k| k as f32 - (x + (k - 1) as f32 * width) / reach).fold(0.0f32, f32::max);
+        let below = (1..=64).map(|k| k as f32 - (x + (k - 1) as f32 * width) / reach).fold(0.0f32, f32::max).min(cap);
         total += 1.0 - strength * eased(below);
     }
     total / ACROSS as f32
@@ -273,7 +274,7 @@ impl Shade {
     /// the sun and the steps' shade from the light map's (one sun for everything).
     pub fn new(render: &RenderSettings, settings: &DistantSettings, light: &LightSettings) -> Self {
         let fade = settings.shading_fade;
-        let table = |strength: f32| std::array::from_fn(|k| steps_shade(k as f32 / SLOPE_STEPS as f32 * STEEPEST_STEPS, strength, light.shade_reach, fade));
+        let table = |strength: f32| std::array::from_fn(|k| steps_shade(k as f32 / SLOPE_STEPS as f32 * STEEPEST_STEPS, strength, light.shade_reach, light.step_reach / light.shade_reach.max(0.1), fade));
         Self {
             top: render.shade_top,
             north_south: render.shade_north_south,
@@ -864,8 +865,8 @@ mod tests {
     #[test]
     fn far_slopes_are_lit_as_the_near_ground_s_steps_light_them() {
         // No steps on flat ground; steeper ground, more and closer steps, more of the tops in shade.
-        assert_eq!(steps_shade(0.0, 0.45, 4.0, 2.0), 1.0);
-        let (gentle, steep) = (steps_shade(0.2, 0.45, 4.0, 2.0), steps_shade(1.0, 0.45, 4.0, 2.0));
+        assert_eq!(steps_shade(0.0, 0.45, 4.0, 4.0, 2.0), 1.0);
+        let (gentle, steep) = (steps_shade(0.2, 0.45, 4.0, 4.0, 2.0), steps_shade(1.0, 0.45, 4.0, 4.0, 2.0));
         assert!(gentle < 1.0 && steep < gentle && steep > 0.5, "gentle {gentle}, steep {steep}");
         // A slope: darker than the same ground smooth; darker still rising toward the sun (the steps'
         // walls between it and the sun), and flat ground is untouched.
