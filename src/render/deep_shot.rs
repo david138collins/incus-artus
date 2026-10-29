@@ -11,8 +11,7 @@
 //! of that frame (the PNG is the window's size), then the tiles go and everything is as it was.
 
 use super::RenderSettings;
-use super::distant::{self, DistantSettings, DistantState, DistantTile, Palette, Shade, TileKey, TileMesh};
-use super::light::LightSettings;
+use super::distant::{self, DistantState, DistantTile, Palette, TileKey, TileMesh};
 use super::meshing::MeshingState;
 use crate::camera::CameraHold;
 use crate::coords::{bevy_to_game, game_to_bevy};
@@ -74,7 +73,6 @@ pub struct DeepShot {
     stop: bool,
     map: Option<Arc<CompiledMap>>,
     palette: Option<Palette>,
-    shade: Option<Shade>,
     wanted: Vec<TileKey>,
     making: HashMap<TileKey, Task<Option<TileMesh>>>,
     tiles: Vec<Entity>,
@@ -152,7 +150,7 @@ pub fn deep_tiles(at: Vec3, looking: Vec3, half_across: f32, across: i32, reach:
 pub fn run_deep_shot(
     mut commands: Commands,
     (terrain, registry, screen): (Res<Terrain>, Res<BlockRegistry>, Res<State<Screen>>),
-    (render, distant_settings, light, settings): (Res<RenderSettings>, Res<DistantSettings>, Res<LightSettings>, Res<DeepShotSettings>),
+    (render, settings): (Res<RenderSettings>, Res<DeepShotSettings>),
     (meshing, world, streaming, distant_state): (Res<MeshingState>, Res<VoxelWorld>, Res<Streaming>, Res<DistantState>),
     camera: Query<(&Transform, &Projection), With<Camera3d>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -209,7 +207,6 @@ pub fn run_deep_shot(
         wanted.sort_by(|a, b| distance(b).total_cmp(&distance(a)));
         let blocks = TerrainBlocks::from_registry(&registry);
         shot.palette = Some(Palette::from_textures(&registry, &blocks));
-        shot.shade = Some(Shade::new(&render, &distant_settings, &light));
         shot.total = wanted.len();
         shot.done = 0;
         shot.quads = 0;
@@ -250,20 +247,20 @@ pub fn run_deep_shot(
                 bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
                 bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
                 bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_EASE, tile.morph);
-                bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_NORTH_SOUTH, tile.north_south);
-                bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_EAST_WEST, tile.east_west);
+                bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_SIDE, tile.sides);
+                bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_SLOPE, tile.slopes);
                 bevy_mesh.insert_indices(Indices::U32(tile.indices));
                 let entity = commands.spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), DeepTile)).id();
                 shot.tiles.push(entity);
             }
             let most = std::thread::available_parallelism().map_or(4, |n| n.get());
             let pool = AsyncComputeTaskPool::get();
-            let (Some(map), Some(palette), Some(shade)) = (shot.map.clone(), shot.palette, shot.shade) else { return };
+            let (Some(map), Some(palette)) = (shot.map.clone(), shot.palette) else { return };
             let blocks = TerrainBlocks::from_registry(&registry);
             while shot.making.len() < most {
                 let Some(key) = shot.wanted.pop() else { break };
                 let map = map.clone();
-                let task = pool.spawn(async move { distant::tile_mesh_measured(&map, &blocks, &palette, shade, key, 1, SLOPE_CELL, false) });
+                let task = pool.spawn(async move { distant::tile_mesh_measured(&map, &blocks, &palette, key, 1, SLOPE_CELL, false) });
                 shot.making.insert(key, task);
             }
             if shot.wanted.is_empty() && shot.making.is_empty() {

@@ -178,13 +178,19 @@ impl Palette {
 }
 
 /// A tile's mesh, in Bevy's axes, relative to the tile's corner.
+///
+/// It carries only what's true of the ground [2026-10-29, Counsel's seam plan]: the surface block's
+/// colours and the slope. The shader lights it every frame with the same sums the near ground uses
+/// (assets/shaders/lighting.wesl), so changing the light never makes a tile again, and near and far
+/// can't drift apart.
 pub struct TileMesh {
     pub positions: Vec<[f32; 3]>,
-    /// The tops' colour, then the north- or south-facing and east- or west-facing sides' colours
-    /// with how many of each a block across shows (in the last place): see `Steps`.
+    /// The tops' colour (rgb; alpha 1 on land, 0 for the sea's surface, which isn't lit by slope).
     pub colours: Vec<[f32; 4]>,
-    pub north_south: Vec<[f32; 4]>,
-    pub east_west: Vec<[f32; 4]>,
+    /// The steps' sides' colour (rgb).
+    pub sides: Vec<[f32; 4]>,
+    /// The slope: blocks up per block across, north (x) and east (y).
+    pub slopes: Vec<[f32; 4]>,
     /// Per corner, for easing into the next ring out (see the module notes): the height the coarser
     /// ring's surface has here (game Z), and the distances (blocks, the larger of north-south and
     /// east-west from the camera) where easing starts and is complete.
@@ -194,9 +200,10 @@ pub struct TileMesh {
     pub corner: Vec3,
 }
 
-/// How the ground is lit: the face brightness for tops and sides, the hill shading (how strong, how
-/// it fades toward its limits, the sun's direction in game axes), the height tint, and what the near
-/// ground's block steps do to a slope (see `Shade::slope`).
+/// How the far terrain is lit, from the same settings as the near ground (handed to its shader:
+/// `Shade::uniforms`): the face brightness for tops and sides, the hill shading (how strong, how it
+/// fades toward its limits, the sun's direction in game axes), the height tint, and what the near
+/// ground's block steps do to a slope.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Shade {
     pub top: f32,
@@ -218,20 +225,8 @@ pub struct Shade {
     pub grey: bool,
 }
 
-/// A far slope's parts, mixed by the shader as you see them (see `Shade::steps`): the tops' colour,
-/// the north- or south-facing sides', the east- or west-facing sides', and the slope (blocks up per
-/// block across, north and east): every block risen shows a side facing back down the slope.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Steps {
-    pub top: [f32; 3],
-    pub north_south: [f32; 3],
-    pub east_west: [f32; 3],
-    pub north: f32,
-    pub east: f32,
-}
-
 /// The steepest slope the steps' shade is worked out for (blocks up per block across), and in how many
-/// steps from flat.
+/// steps from flat (the shader reads the tables at these, distant.wesl).
 const STEEPEST_STEPS: f32 = 4.0;
 const SLOPE_STEPS: usize = 32;
 
@@ -240,7 +235,7 @@ const SLOPE_STEPS: usize = 32;
 /// cone falling a block every `reach` blocks, a spot is `below` the highest cone over it (counting
 /// every step up the slope, never more than `cap` blocks: a step's shade reaches only so far), eased
 /// toward the darkest by `fade`, and darkened by `strength` of that
-/// (assets/shaders/terrain.wesl, `eased` and the feet). 1 = no shade.
+/// (assets/shaders/lighting.wesl, `eased`, and the feet in terrain.wesl). 1 = no shade.
 fn steps_shade(rise: f32, strength: f32, reach: f32, cap: f32, fade: f32) -> f32 {
     if rise <= 1e-3 || strength <= 0.0 {
         return 1.0;
@@ -286,72 +281,43 @@ impl Shade {
         }
     }
 
-    /// A slope's colour, lit as the near ground's blocks light it on average: the tops (hill shading,
-    /// height tint, and the shade at the feet of the steps, more on the side away from the sun) and
-    /// the sides the steps show, each its own colour and brightness, by how much of each there is.
-    /// `north` and `east`: blocks up per block across; `top_light`: the tops' hill shading and tint.
-    /// [2026-10-28: the smooth far surface had no steps, so its slopes were brighter than the same
-    /// slopes up close, and the two showed a line where they met.]
-    ///
-    /// How much of each you see depends on where you look from (a slope facing you shows mostly its
-    /// steps' sides, one facing away only tops), so the parts go to the shader, which mixes them by
-    /// the view (`Steps`, distant.wesl) [2026-10-29, Counsel's seam plan, step 1]. This is the mix
-    /// seen from every side at once, for the tests.
-    #[cfg(test)]
-    fn slope(&self, top_colour: [f32; 3], side_colour: [f32; 3], north: f32, east: f32, top_light: f32) -> [f32; 3] {
-        let parts = self.steps(top_colour, side_colour, north, east, top_light);
-        let (ns, ew) = (parts.north.abs(), parts.east.abs());
-        [0, 1, 2].map(|k| (parts.top[k] + parts.north_south[k] * ns + parts.east_west[k] * ew) / (1.0 + ns + ew))
-    }
-
-    /// A slope's parts as the near ground's blocks show them: its tops' colour (hill shading,
-    /// height tint, and the shade at the feet of the steps, more on the side away from the sun), its
-    /// north- or south-facing and east- or west-facing sides' colours, and how many of each a block
-    /// across shows (`north`, `east`: blocks up per block across, times "far slopes match the near").
-    fn steps(&self, top_colour: [f32; 3], side_colour: [f32; 3], north: f32, east: f32, top_light: f32) -> Steps {
-        let plain = top_colour.map(|c| c * self.top * top_light);
-        let rise = north.hypot(east);
-        if self.slope_match <= 0.0 || rise <= 1e-4 {
-            return Steps { top: plain, north_south: plain, east_west: plain, north: 0.0, east: 0.0 };
-        }
-        let at = |table: &[f32; SLOPE_STEPS + 1]| {
-            let k = (rise / STEEPEST_STEPS * SLOPE_STEPS as f32).min(SLOPE_STEPS as f32);
-            let (low, t) = (k.floor() as usize, k.fract());
-            table[low] + (table[(low + 1).min(SLOPE_STEPS)] - table[low]) * t
-        };
-        // The step shadows fall where the slope rises toward the sun (the steps' walls face away).
-        let sun = Vec2::new(self.sun.x, self.sun.y).normalize_or_zero();
-        let toward_sun = (Vec2::new(north, east) / rise).dot(sun).clamp(0.0, 1.0);
-        let feet = at(&self.foot) * (1.0 + (at(&self.step) - 1.0) * toward_sun);
-        // The sides take as much of the lie of the land's sun and shade as up close (terrain.wesl).
-        let side_lie = 1.0 + (top_light - 1.0) * self.sides;
-        let matched = self.slope_match;
-        let top = [0, 1, 2].map(|k| plain[k] + (plain[k] * feet - plain[k]) * matched.min(1.0));
-        Steps {
-            top,
-            north_south: side_colour.map(|c| c * self.north_south * side_lie),
-            east_west: side_colour.map(|c| c * self.east_west * side_lie),
-            north: north * matched,
-            east: east * matched,
-        }
+    /// Into the far terrain shader's settings (`finest_cell`: the distance the hill shading's slope is
+    /// measured over, as the near ground's; see distant.wesl).
+    fn uniforms(&self, settings: &mut DistantShaderSettings, finest_cell: f32) {
+        let sea = crate::world::SEA_LEVEL as f32;
+        settings.sun = self.sun.extend(self.hills);
+        settings.faces = Vec4::new(self.top, self.north_south, self.east_west, self.sides);
+        settings.hill = Vec4::new(self.height_tint, finest_cell, sea, crate::world::HIGHEST);
+        settings.shade = Vec4::new(self.fade, self.slope_match, if self.grey { 1.0 } else { 0.0 }, STEEPEST_STEPS);
+        let pack = |table: &[f32; SLOPE_STEPS + 1]| std::array::from_fn(|k| Vec4::from_array(std::array::from_fn(|j| table.get(k * 4 + j).copied().unwrap_or(1.0))));
+        settings.foot = pack(&self.foot);
+        settings.step = pack(&self.step);
     }
 
     /// How brightly the ground is lit, rising `north` and `east` blocks per finest cell across it
-    /// (in any ring): 1 on flat ground, more facing the sun, less facing away.
+    /// (in any ring): 1 on flat ground, more facing the sun, less facing away (lighting.wesl,
+    /// `hill_light`: the same sums, for the tests).
+    #[cfg(test)]
     fn hill(&self, north: f32, east: f32) -> f32 {
         let normal = Vec3::new(-north * self.hills, -east * self.hills, 1.0).normalize();
         soft_limit(normal.dot(self.sun) / self.sun.z, self.fade)
     }
 }
 
-/// Hill shading's darkest and brightest (1 = as painted).
+/// The steps' tables packed four to a `Vec4` for the shader (33 values, so 9).
+const TABLE_VEC4S: usize = SLOPE_STEPS.div_ceil(4) + 1;
+
+/// Hill shading's darkest and brightest (1 = as painted), as lighting.wesl has them (for the tests).
+#[cfg(test)]
 pub const DARKEST: f32 = 0.35;
+#[cfg(test)]
 pub const BRIGHTEST: f32 = 1.6;
 
 /// Hill shading's light, `raw` (1 = flat ground), eased toward its darkest and brightest instead of
 /// stopped dead: gentle slopes are lit as they are, steep ones closer and closer to the limit,
-/// more gradually the lower `fade` is (at 8 and up, much like a hard stop). The terrain shader
-/// does the same sums (assets/shaders/terrain.wesl, `soft_limit`), so near and far match.
+/// more gradually the lower `fade` is (at 8 and up, much like a hard stop). The shaders do the same
+/// sums (assets/shaders/lighting.wesl, `soft_limit`).
+#[cfg(test)]
 pub fn soft_limit(raw: f32, fade: f32) -> f32 {
     let d = raw - 1.0;
     let limit = if d < 0.0 { 1.0 - DARKEST } else { BRIGHTEST - 1.0 };
@@ -364,9 +330,9 @@ pub fn soft_limit(raw: f32, fade: f32) -> f32 {
 /// starts and is complete.
 pub const ATTRIBUTE_EASE: MeshVertexAttribute = MeshVertexAttribute::new("DistantEase", 0x1a5_e4e5, VertexFormat::Float32x3);
 
-/// Each corner's steps' sides (see `TileMesh::north_south` and `east_west`).
-pub const ATTRIBUTE_NORTH_SOUTH: MeshVertexAttribute = MeshVertexAttribute::new("DistantNorthSouth", 0x1a5_e4e6, VertexFormat::Float32x4);
-pub const ATTRIBUTE_EAST_WEST: MeshVertexAttribute = MeshVertexAttribute::new("DistantEastWest", 0x1a5_e4e7, VertexFormat::Float32x4);
+/// Each corner's steps' sides' colour, and its slope (see `TileMesh::sides` and `slopes`).
+pub const ATTRIBUTE_SIDE: MeshVertexAttribute = MeshVertexAttribute::new("DistantSide", 0x1a5_e4e6, VertexFormat::Float32x4);
+pub const ATTRIBUTE_SLOPE: MeshVertexAttribute = MeshVertexAttribute::new("DistantSlope", 0x1a5_e4e7, VertexFormat::Float32x4);
 
 /// Where a ring's tiles ease into the next ring out, in its own tiles from the camera (the larger of
 /// north-south and east-west): from here, complete there. Its hole is always nearer than the start
@@ -376,20 +342,19 @@ pub const EASE_FROM: f32 = (RING_TILES / 2 - 3) as f32;
 pub const EASE_TO: f32 = (RING_TILES / 2 - 2) as f32;
 
 /// Makes one tile's mesh, or `None` if it's wholly past the map.
-pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32) -> Option<TileMesh> {
-    tile_mesh_measured(map, blocks, palette, shade, key, finest_cell, finest_cell, true)
+pub fn tile_mesh(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, key: TileKey, finest_cell: i32) -> Option<TileMesh> {
+    tile_mesh_measured(map, blocks, palette, key, finest_cell, finest_cell, true)
 }
 
-/// The same, with the hill shading's slopes measured over `slope_cell` blocks (the usual rings'
-/// finest cell), so cells finer than that (the deep screenshot's) are shaded as the rings are; and
-/// `eases`: whether it eases into the next ring out (the deep screenshot's tiles stand still).
+/// The same, with the slopes measured over `slope_cell` blocks (the usual rings' finest cell), so
+/// cells finer than that (the deep screenshot's) are shaded as the rings are; and `eases`: whether it
+/// eases into the next ring out (the deep screenshot's tiles stand still).
 ///
 /// **A tile is a smooth sheet** [2026-10-28, replacing the blocky one that made far mountains into
 /// ziggurats]: a corner every cell, at the ground's height there (the same column recipe the real
-/// chunks use, not rounded to blocks; the sea's surface at sea), two triangles a cell, coloured by
-/// the surface block and lit by the slope from the corners round each one.
-#[allow(clippy::too_many_arguments)]
-pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, shade: Shade, key: TileKey, finest_cell: i32, slope_cell: i32, eases: bool) -> Option<TileMesh> {
+/// chunks use, not rounded to blocks; the sea's surface at sea), two triangles a cell, with the
+/// surface block's colours and the slope round each corner.
+pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &Palette, key: TileKey, finest_cell: i32, slope_cell: i32, eases: bool) -> Option<TileMesh> {
     let cell = (finest_cell << key.ring) as f32;
     let size = cell * CELLS as f32;
     let corner = Vec3::new(key.x as f32 * size, key.y as f32 * size, 0.0);
@@ -410,9 +375,8 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
         return None;
     }
     let corners = (CELLS + 1) as usize;
-    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), north_south: Vec::new(), east_west: Vec::new(), morph: Vec::new(), indices: Vec::new(), corner };
+    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), sides: Vec::new(), slopes: Vec::new(), morph: Vec::new(), indices: Vec::new(), corner };
     let slope = slope_cell as f32;
-    let per_finest = slope / cell;
     let (ease_from, ease_to) = if eases { (EASE_FROM * size, EASE_TO * size) } else { (f32::MAX, f32::MAX) };
     // Each corner's place in the list (`u32::MAX` past the map).
     let mut index = vec![u32::MAX; corners * corners];
@@ -422,24 +386,18 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
             let (x, y) = (corner.x + i as f32 * cell, corner.y + j as f32 * cell);
             let water = h < sea;
             let block = map.surface((h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks);
-            let parts = if water {
-                let flat = (if shade.grey { [0.5; 3] } else { palette.water }).map(|c| c * shade.top);
-                Steps { top: flat, north_south: flat, east_west: flat, north: 0.0, east: 0.0 }
+            // The slope, blocks up per block across.
+            let (north, east) = if water {
+                (0.0, 0.0)
+            } else if cell < slope {
+                // Finer than the slope is measured over: the ground's own height half that either side.
+                let z = |dx: f32, dy: f32| map.height(x + dx, y + dy).unwrap_or(h).max(sea);
+                ((z(slope / 2.0, 0.0) - z(-slope / 2.0, 0.0)) / slope, (z(0.0, slope / 2.0) - z(0.0, -slope / 2.0)) / slope)
             } else {
-                let (north, east) = if cell < slope {
-                    // Finer than the slope is measured over: the ground's own height half that either side.
-                    let z = |dx: f32, dy: f32| map.height(x + dx, y + dy).unwrap_or(h).max(sea);
-                    (z(slope / 2.0, 0.0) - z(-slope / 2.0, 0.0), z(0.0, slope / 2.0) - z(0.0, -slope / 2.0))
-                } else {
-                    let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
-                    ((z(1, 0) - z(-1, 0)) / 2.0 * per_finest, (z(0, 1) - z(0, -1)) / 2.0 * per_finest)
-                };
-                let tint = 1.0 + shade.height_tint * (top - sea) / (crate::world::HIGHEST - sea);
-                // Lit as the near ground's blocks are on average: tops, steps' feet and sides (the
-                // slope per block across, from per finest cell).
-                let (top_colour, side_colour) = if shade.grey { ([0.5; 3], [0.5; 3]) } else { (palette.top(block, blocks), palette.side(block, blocks)) };
-                shade.steps(top_colour, side_colour, north / slope, east / slope, shade.hill(north, east) * tint)
+                let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
+                ((z(1, 0) - z(-1, 0)) / (2.0 * cell), (z(0, 1) - z(0, -1)) / (2.0 * cell))
             };
+            let (top_colour, side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block, blocks), palette.side(block, blocks)) };
             // The coarser ring's surface here: its corners are this ring's even ones, its triangles
             // split the same way, so between them it's the average of the two along the line.
             let coarse = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
@@ -451,9 +409,9 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
             };
             index[j as usize * corners + i as usize] = mesh.positions.len() as u32;
             mesh.positions.push(game_to_bevy(Vec3::new(x, y, top) - corner).to_array());
-            mesh.colours.push([parts.top[0], parts.top[1], parts.top[2], 1.0]);
-            mesh.north_south.push([parts.north_south[0], parts.north_south[1], parts.north_south[2], parts.north]);
-            mesh.east_west.push([parts.east_west[0], parts.east_west[1], parts.east_west[2], parts.east]);
+            mesh.colours.push([top_colour[0], top_colour[1], top_colour[2], if water { 0.0 } else { 1.0 }]);
+            mesh.sides.push([side_colour[0], side_colour[1], side_colour[2], 0.0]);
+            mesh.slopes.push([north, east, 0.0, 0.0]);
             mesh.morph.push([target, ease_from, ease_to]);
         }
     }
@@ -504,6 +462,18 @@ pub struct DistantShaderSettings {
     /// width (blocks), y the light map's width (blocks).
     pub light: Vec4,
     pub light_area: Vec4,
+    /// The lighting, from the same settings as the near ground (`Shade::uniforms`): xyz toward the
+    /// sun (game axes), w hill shading strength; the face brightness (x tops, y north/south sides, z
+    /// east/west sides, w how much of the slope's light the sides take); x height tint, y the finest
+    /// cell (the slope's measure), z sea level, w the tint's top; x shading fade, y far slopes match
+    /// the near, z light only, w the steepest slope the tables reach.
+    pub sun: Vec4,
+    pub faces: Vec4,
+    pub hill: Vec4,
+    pub shade: Vec4,
+    /// The steps' feet's shade by steepness, all round and from the sun's side (`Shade::foot`, `step`).
+    pub foot: [Vec4; TABLE_VEC4S],
+    pub step: [Vec4; TABLE_VEC4S],
 }
 
 impl Material for DistantMaterial {
@@ -529,7 +499,7 @@ impl Material for DistantMaterial {
         layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.0.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0), Mesh::ATTRIBUTE_COLOR.at_shader_location(1), ATTRIBUTE_EASE.at_shader_location(2), ATTRIBUTE_NORTH_SOUTH.at_shader_location(3), ATTRIBUTE_EAST_WEST.at_shader_location(4)])?;
+        let vertex_layout = layout.0.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0), Mesh::ATTRIBUTE_COLOR.at_shader_location(1), ATTRIBUTE_EASE.at_shader_location(2), ATTRIBUTE_SIDE.at_shader_location(3), ATTRIBUTE_SLOPE.at_shader_location(4)])?;
         descriptor.vertex.buffers = vec![vertex_layout];
         Ok(())
     }
@@ -555,7 +525,7 @@ pub struct DistantState {
     /// Tiles no longer wanted, still drawn until the tiles taking their place are in.
     retiring: Vec<(TileKey, Entity)>,
     /// The settings and the tile the wanted list was worked out for.
-    wanted_for: Option<(DistantSettings, Shade, IVec2)>,
+    wanted_for: Option<(i32, u32, IVec2)>,
     wanted: Vec<TileKey>,
     /// The texture marking chunks on screen, the chunks it marks, and the centre and render
     /// distance it was made for.
@@ -612,8 +582,6 @@ pub fn update_distant(
     mut commands: Commands,
     terrain: Res<Terrain>,
     settings: Res<DistantSettings>,
-    render: Res<RenderSettings>,
-    light: Res<LightSettings>,
     registry: Res<BlockRegistry>,
     camera: Query<&Transform, With<Camera3d>>,
     mut state: ResMut<DistantState>,
@@ -638,17 +606,15 @@ pub fn update_distant(
     }
     let Some(camera) = camera.iter().next() else { return };
     let at = bevy_to_game(camera.translation);
-    let shade = Shade::new(&render, &settings, &light);
 
     // Which tiles are wanted: worked out again when you move into another finest tile (or the
-    // settings change).
+    // rings change). The light is the shader's alone now, so changing it makes no tile again.
     let finest_tile = (settings.finest_cell * CELLS) as f32;
     let here = IVec2::new((at.x / finest_tile).floor() as i32, (at.y / finest_tile).floor() as i32);
-    let look = shade;
-    let now = (settings.clone(), look, here);
+    let now = (settings.finest_cell, settings.rings, here);
     if state.wanted_for.as_ref() != Some(&now) {
-        // Shading changed: every tile has to be made again.
-        if state.wanted_for.as_ref().is_some_and(|(_, old, _)| *old != look) {
+        // Cells of another size: every tile has to be made again.
+        if state.wanted_for.as_ref().is_some_and(|(finest, ..)| *finest != settings.finest_cell) {
             state.clear(&mut commands);
         }
         let wanted = wanted_tiles(at, settings.finest_cell, settings.rings);
@@ -692,8 +658,8 @@ pub fn update_distant(
         bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
         bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
         bevy_mesh.insert_attribute(ATTRIBUTE_EASE, tile.morph);
-        bevy_mesh.insert_attribute(ATTRIBUTE_NORTH_SOUTH, tile.north_south);
-        bevy_mesh.insert_attribute(ATTRIBUTE_EAST_WEST, tile.east_west);
+        bevy_mesh.insert_attribute(ATTRIBUTE_SIDE, tile.sides);
+        bevy_mesh.insert_attribute(ATTRIBUTE_SLOPE, tile.slopes);
         bevy_mesh.insert_indices(Indices::U32(tile.indices));
         let Some(material) = material.clone() else { continue };
         let entity = commands
@@ -739,7 +705,7 @@ pub fn update_distant(
             continue;
         }
         let map = map.clone();
-        let task = pool.spawn(async move { tile_mesh(&map, &blocks, &palette, shade, key, finest) });
+        let task = pool.spawn(async move { tile_mesh(&map, &blocks, &palette, key, finest) });
         state.making.insert(key, task);
     }
 }
@@ -747,12 +713,14 @@ pub fn update_distant(
 /// Keeps the distant terrain's fog and survey view the same as the near terrain's.
 pub fn update_distant_material(
     render: Res<RenderSettings>,
+    distant: Res<DistantSettings>,
+    light: Res<LightSettings>,
     clear: Res<ClearColor>,
     state: Res<DistantState>,
     mut materials: ResMut<Assets<DistantMaterial>>,
 ) {
     let Some(handle) = &state.material else { return };
-    if !render.is_changed() && !clear.is_changed() {
+    if !render.is_changed() && !distant.is_changed() && !light.is_changed() && !clear.is_changed() {
         return;
     }
     if let Some(mut material) = materials.get_mut(handle) {
@@ -760,6 +728,8 @@ pub fn update_distant_material(
         material.settings.fog_color = Vec4::new(fog.red, fog.green, fog.blue, 1.0);
         material.settings.fog = Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, if render.seam_probe { 1.0 } else { 0.0 });
         material.settings.survey = render.survey_for_shader();
+        // The lighting, from the same settings as the near ground's (lit in the shader).
+        Shade::new(&render, &distant, &light).uniforms(&mut material.settings, distant.finest_cell as f32);
     }
 }
 
@@ -893,19 +863,19 @@ mod tests {
         assert_eq!(steps_shade(0.0, 0.45, 4.0, 4.0, 2.0), 1.0);
         let (gentle, steep) = (steps_shade(0.2, 0.45, 4.0, 4.0, 2.0), steps_shade(1.0, 0.45, 4.0, 4.0, 2.0));
         assert!(gentle < 1.0 && steep < gentle && steep > 0.5, "gentle {gentle}, steep {steep}");
-        // A slope: darker than the same ground smooth; darker still rising toward the sun (the steps'
-        // walls between it and the sun), and flat ground is untouched.
+        // The shader's tables: the steps' shade from flat to the steepest, four to a vec4, as the
+        // shader reads them (distant.wesl, `table_at`).
         let light = LightSettings { sun_from: 0.0, sun_height: 40.0, ..LightSettings::default() };
         let shade = Shade::new(&RenderSettings::default(), &DistantSettings::default(), &light);
-        let (top, side) = ([0.2, 0.8, 0.2], [0.5, 0.3, 0.1]);
-        let brightness = |c: [f32; 3]| c[0] + c[1] + c[2];
-        assert_eq!(shade.slope(top, side, 0.0, 0.0, 1.0), top.map(|c| c * shade.top));
-        let (to_sun, away) = (brightness(shade.slope(top, side, 0.5, 0.0, 1.0)), brightness(shade.slope(top, side, -0.5, 0.0, 1.0)));
-        let smooth = brightness(top.map(|c| c * shade.top));
-        assert!(to_sun < away && away < smooth, "rising toward the sun {to_sun}, away {away}, smooth {smooth}");
-        // Switched off: as smooth.
-        let off = Shade { slope_match: 0.0, ..shade };
-        assert_eq!(off.slope(top, side, 0.5, 0.0, 1.0), top.map(|c| c * shade.top));
+        assert_eq!((shade.foot[0], shade.step[0]), (1.0, 1.0));
+        assert!(shade.foot[SLOPE_STEPS / 2] < 1.0 && shade.step[SLOPE_STEPS / 2] < 1.0);
+        let mut settings = DistantShaderSettings::default();
+        shade.uniforms(&mut settings, 16.0);
+        for k in 0..=SLOPE_STEPS {
+            assert_eq!(settings.foot[k / 4][k % 4], shade.foot[k]);
+            assert_eq!(settings.step[k / 4][k % 4], shade.step[k]);
+        }
+        assert_eq!(settings.shade.w, STEEPEST_STEPS);
     }
 
     #[test]
@@ -919,7 +889,7 @@ mod tests {
     }
 
     #[test]
-    fn the_same_slope_is_lit_the_same_in_every_ring() {
+    fn the_same_slope_reaches_the_shader_alike_from_every_ring() {
         // An even, gentle slope rising east from the middle (2 blocks per 32-block pixel), all grass, under
         // Z 333 to the map's edge.
         let width: usize = 64;
@@ -927,21 +897,20 @@ mod tests {
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
-        let light = LightSettings { sun_from: 270.0, sun_height: 40.0, ..LightSettings::default() };
-        let shade = Shade::new(&RenderSettings::default(), &DistantSettings { hill_shading: 0.3, height_tint: 0.0, slope_match: 0.0, ..DistantSettings::default() }, &light);
-        // The tops' brightness most of a tile shows (grass tops are pure green).
-        let lit = |ring: u8| {
-            let mesh = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring, x: 0, y: 0 }, 16).unwrap();
+        // The slope east most of a tile carries (blocks up per block across, per mille): the shader
+        // lights it, so the same slope must reach it alike from every ring.
+        let rise = |ring: u8| {
+            let mesh = tile_mesh(&map, &blocks, &palette, TileKey { ring, x: 0, y: 0 }, 16).unwrap();
             let mut counts: HashMap<u32, usize> = HashMap::new();
-            for c in mesh.colours.iter().filter(|c| c[0] == 0.0 && c[2] == 0.0 && c[1] > 0.0) {
-                *counts.entry((c[1] * 1000.0).round() as u32).or_default() += 1;
+            for s in mesh.slopes.iter().filter(|s| s[1] > 0.0) {
+                *counts.entry((s[1] * 1000.0).round() as u32).or_default() += 1;
             }
             counts.into_iter().max_by_key(|&(_, n)| n).unwrap().0
         };
-        let (near, further) = (lit(0), lit(1));
-        assert_ne!(near, 1000, "the slope isn't shaded at all");
-        // Alike (measured per cell, ring 1 would be shaded about twice as strongly)...
-        assert!(near.abs_diff(further) <= 5, "ring 0 lit {near}, ring 1 lit {further} (per mille)");
+        let (near, further) = (rise(0), rise(1));
+        // 2 blocks per 32 across, in both (measured per cell, ring 1's would be about twice as steep).
+        assert_eq!(near, 63, "ring 0's slope {near} (per mille)");
+        assert!(near.abs_diff(further) <= 1, "ring 0's slope {near}, ring 1's {further} (per mille)");
     }
 
     #[test]
@@ -952,9 +921,8 @@ mod tests {
         let map = CompiledMap::of_heights(width, 32.0, &z);
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let palette = Palette { grass_top: [0.0, 1.0, 0.0], grass_side: [0.5, 0.3, 0.1], stone: [0.5; 3], gabbro: [0.2; 3], water: [0.0, 0.0, 1.0] };
-        let shade = Shade { top: 1.0, north_south: 0.8, east_west: 0.65, hills: 0.0, fade: 2.0, sun: Vec3::Z, height_tint: 0.0, foot: [1.0; SLOPE_STEPS + 1], step: [1.0; SLOPE_STEPS + 1], slope_match: 0.0, sides: 0.5, grey: false };
         let key = TileKey { ring: 1, x: 0, y: 0 };
-        let mesh = tile_mesh(&map, &blocks, &palette, shade, key, 16).unwrap();
+        let mesh = tile_mesh(&map, &blocks, &palette, key, 16).unwrap();
         // A corner every cell, two triangles a cell, and the easing for each corner.
         assert_eq!(mesh.positions.len(), ((CELLS + 1) * (CELLS + 1)) as usize);
         assert_eq!(mesh.indices.len(), (CELLS * CELLS * 6) as usize);
@@ -980,10 +948,10 @@ mod tests {
         assert!((odd - (z_of(2, 2) + z_of(4, 2)) / 2.0).abs() < 1e-3);
         assert_eq!(mesh.morph[2 * corners + 2][0], z_of(2, 2));
         // Water and grass both show, near the coast.
-        let coast = tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 1, x: -1, y: 0 }, 16).unwrap();
+        let coast = tile_mesh(&map, &blocks, &palette, TileKey { ring: 1, x: -1, y: 0 }, 16).unwrap();
         assert!(coast.colours.iter().any(|c| c[2] > 0.9) && coast.colours.iter().any(|c| c[1] > 0.9));
         // Far past the map: nothing.
-        assert!(tile_mesh(&map, &blocks, &palette, shade, TileKey { ring: 0, x: 100, y: 100 }, 16).is_none());
+        assert!(tile_mesh(&map, &blocks, &palette, TileKey { ring: 0, x: 100, y: 100 }, 16).is_none());
     }
 
     #[test]

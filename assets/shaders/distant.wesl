@@ -1,16 +1,21 @@
 // Distant terrain shader: draws the far-away landscape (see src/render/distant.rs).
 //
-// Each corner carries its position, a colour (the surface block's average colour, already lit by the
-// slope there) and its easing into the next ring out (the vertex part). The fragment part:
+// Each corner carries its position, the surface block's colours (its top's, and its side's for the
+// steps' sides), the slope there and its easing into the next ring out (the vertex part). The
+// fragment part:
 //   - draws nothing over a real chunk that's on screen (the `shown` texture marks them, one pixel
 //     per chunk), so the two never overlap, and where real chunks haven't loaded yet the distant
 //     terrain still shows: no holes when you fly fast;
+//   - lights the ground with the near ground's own sums (lighting.wesl), from the same settings
+//     [2026-10-29, Counsel's seam plan]: the lie of the land, the height tint, the steps' feet and
+//     sides as the near ground's blocks show them on average;
 //   - is lit by the light map (shadows, valleys: see src/render/light.rs);
 //   - fades into the sky colour with distance, exactly like the near terrain's fog.
 
 import bevy_pbr::render::mesh_functions::get_world_from_local;
 import bevy_pbr::render::view_transformations::position_world_to_clip;
 import bevy_pbr::render::mesh_view_bindings::view;
+import super::lighting::{as_seen, height_tint, hill_light, light_from_map, side_lie, to_game};
 
 struct DistantShaderSettings {
     fog_color: vec4<f32>,
@@ -24,6 +29,19 @@ struct DistantShaderSettings {
     light: vec4<f32>,
     // x the map's half width, y the light map's width (blocks)
     light_area: vec4<f32>,
+    // xyz toward the sun (game axes), w hill shading strength
+    sun: vec4<f32>,
+    // Face brightness: x tops, y north/south sides, z east/west sides, w how much of the slope's
+    // light the sides take
+    faces: vec4<f32>,
+    // x height tint, y the finest cell (the slope's measure), z sea level, w the tint's top
+    hill: vec4<f32>,
+    // x shading fade, y far slopes match the near, z light only, w the steepest slope the tables reach
+    shade: vec4<f32>,
+    // The steps' feet's shade by steepness (blocks up per block across, from flat to `shade.w` in 32
+    // steps, four to a vec4): all round, and from the sun's side
+    foot: array<vec4<f32>, 9>,
+    step: array<vec4<f32>, 9>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> settings: DistantShaderSettings;
@@ -31,55 +49,27 @@ struct DistantShaderSettings {
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var light_map: texture_2d<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var light_sampler: sampler;
 
-// How lit the ground is (1 = as painted), from a light map pixel: red sun, green sky hidden
-// (square-rooted), blue relief (0.5 = level with its surroundings, square-rooted each way), alpha
-// land. The sea only takes the shadows.
-fn light_from(map: vec4<f32>) -> f32 {
-    let sun = 1.0 - settings.light.y * (1.0 - map.r);
-    let sky = 1.0 - min(settings.light.z * map.g * map.g, 0.9);
-    let b = map.b * 2.0 - 1.0;
-    let relief = max(1.0 + settings.light.w * sign(b) * b * b, 0.2);
-    return sun * mix(1.0, sky * relief, map.a);
-}
-
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
+    // rgb the surface block's top colour, a 1 on land, 0 on the sea
     @location(1) colour: vec4<f32>,
     // Easing into the next ring out (src/render/distant.rs, `TileMesh::morph`): x the coarser ring's
     // height here (game Z = Bevy y), y where easing starts and z where it's complete (blocks, the
     // larger of north-south and east-west from the camera).
     @location(2) ease: vec3<f32>,
-    // The steps' north- or south-facing and east- or west-facing sides: rgb their colour, w how many a
-    // block across shows (blocks up per block across, north and east; src/render/distant.rs, `Steps`).
-    @location(3) north_south: vec4<f32>,
-    @location(4) east_west: vec4<f32>,
+    // rgb the surface block's side colour
+    @location(3) side: vec4<f32>,
+    // xy the slope: blocks up per block across, north and east
+    @location(4) slope: vec4<f32>,
 }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_position: vec3<f32>,
     @location(1) colour: vec4<f32>,
-    @location(2) north_south: vec4<f32>,
-    @location(3) east_west: vec4<f32>,
-}
-
-// The ground's colour as its blocks show it from here [2026-10-29, Counsel's seam plan, step 1]:
-// the tops and the steps' sides, each as much as the camera sees of it. A side faces back down the
-// slope (ground rising north shows south-facing sides), and the camera sees a face as much as it
-// faces the camera: a slope facing you shows mostly sides, one facing away only tops.
-fn as_seen(top: vec3<f32>, north_south: vec4<f32>, east_west: vec4<f32>, world_position: vec3<f32>) -> vec3<f32> {
-    let to_camera = normalize(view.world_position - world_position);
-    // In game axes: x north (Bevy -z), y east (Bevy x), z up (Bevy y).
-    let toward = vec3<f32>(-to_camera.z, to_camera.x, to_camera.y);
-    let top_seen = max(toward.z, 0.0);
-    let north_seen = abs(north_south.w) * max(-sign(north_south.w) * toward.x, 0.0);
-    let east_seen = abs(east_west.w) * max(-sign(east_west.w) * toward.y, 0.0);
-    let seen = top_seen + north_seen + east_seen;
-    if seen <= 1e-5 {
-        return top;
-    }
-    return (top * top_seen + north_south.rgb * north_seen + east_west.rgb * east_seen) / seen;
+    @location(2) side: vec3<f32>,
+    @location(3) slope: vec2<f32>,
 }
 
 @vertex
@@ -94,9 +84,46 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.clip_position = position_world_to_clip(world.xyz);
     out.world_position = world.xyz;
     out.colour = in.colour;
-    out.north_south = in.north_south;
-    out.east_west = in.east_west;
+    out.side = in.side.rgb;
+    out.slope = in.slope.xy;
     return out;
+}
+
+// One of the steps' shade tables (`step` if `steps`, else `foot`) at a slope `rise` blocks up per block across,
+// blended between its two nearest entries (as `Shade::steps` read them on the CPU before).
+fn table_at(steps: bool, rise: f32) -> f32 {
+    let k = min(rise / max(settings.shade.w, 1e-3) * 32.0, 32.0);
+    let low = u32(floor(k));
+    let high = min(low + 1u, 32u);
+    let a = select(settings.foot[low / 4u][low % 4u], settings.step[low / 4u][low % 4u], steps);
+    let b = select(settings.foot[high / 4u][high % 4u], settings.step[high / 4u][high % 4u], steps);
+    return mix(a, b, fract(k));
+}
+
+// The land's colour as the near ground's blocks show it on average, from here: the tops (the lie of
+// the land, the height tint, the shade at the feet of the steps, more on the side away from the sun)
+// and the steps' sides, each its own colour and brightness, mixed by how much the camera sees of each.
+fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, world_position: vec3<f32>) -> vec3<f32> {
+    let up = world_position.y;
+    let lie = hill_light(slope * settings.hill.y, settings.sun.w, settings.sun.xyz, settings.shade.x) * height_tint(up, settings.hill.z, settings.hill.w, settings.hill.x);
+    let top = top_colour * settings.faces.x * lie;
+    let rise = length(slope);
+    let matched = settings.shade.y;
+    if matched <= 0.0 || rise <= 1e-4 {
+        return top;
+    }
+    // The step shadows fall where the slope rises toward the sun (the steps' walls face away).
+    let sun = settings.sun.xy;
+    let toward_sun = select(0.0, clamp(dot(slope / rise, normalize(sun)), 0.0, 1.0), length(sun) > 1e-5);
+    let feet = table_at(false, rise) * mix(1.0, table_at(true, rise), toward_sun);
+    let sides = side_lie(lie, settings.faces.w);
+    return as_seen(
+        top * mix(1.0, feet, min(matched, 1.0)),
+        side_colour * settings.faces.y * sides,
+        side_colour * settings.faces.z * sides,
+        slope * matched,
+        to_game(normalize(view.world_position - world_position)),
+    );
 }
 
 @fragment
@@ -115,9 +142,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if settings.fog.w < 0.5 && all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > 0.5 {
         discard;
     }
-    var colour = as_seen(in.colour.rgb, in.north_south, in.east_west, in.world_position);
+    // Light only (the seam probe): every colour plain grey, the lighting kept.
+    let grey = settings.shade.z > 0.5;
+    let top_colour = select(in.colour.rgb, vec3<f32>(0.5), grey);
+    let side_colour = select(in.side, vec3<f32>(0.5), grey);
+    // The sea stays flat; between a sea corner and a land one, a blend of the two.
+    let sea = top_colour * settings.faces.x;
+    var colour = mix(sea, land(top_colour, side_colour, in.slope, in.world_position), clamp(in.colour.a, 0.0, 1.0));
     if settings.light.x > 0.5 {
-        colour = colour * light_from(light_pixel);
+        colour = colour * light_from_map(light_pixel, settings.light);
     }
     // Survey view, the same bands as the near terrain. Which level of blocks this pixel is on: a
     // top sits on the block below it, so step a hair down (Bevy y = game Z).
