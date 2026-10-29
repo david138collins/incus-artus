@@ -1567,6 +1567,11 @@ to 58, every block regulated). Next:
    block: not solid, replaceable, drawn as a cross, many drawn at once, fading out with distance.
 4. Then what block goes where, climate set up to work on rivers, and the rivers finished. Then it's time
    for trees.
+   **Before rivers: rough in a mineralogy section** [David 2026-10-29], somewhere to decide how the new
+   blocks get placed, and **retire the old ways they're placed**. Today that's `surface()` in
+   `src/world/terrain.rs`: grass below a height, stone from "stone from", gabbro from "gabbro from",
+   stone under every surface. *Counsel:* it reads geology and Climate's results (temperature, rain), so in
+   the linear pipeline it sits after Climate. Its name and place in the World Compiler are David's call.
 **Reminder: fix the collision bug (walking through block sides) before the asset factory world is added
 to the Registrar**, which comes when it's time for trees.
 
