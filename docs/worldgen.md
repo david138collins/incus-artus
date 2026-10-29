@@ -843,6 +843,10 @@ Counsel's notes [PROPOSED, for David]:
 - **Evil factions can use them:** raise the beast likelihood around them to raise hell, or keep beasts of
   their own to fight with.
 - **Taming, maybe** [IDEA]: with great effort, you might learn to tame a beast.
+- **[DECIDED 2026-10-29] The names** (David): a neutrally spawned one is a **beast** ("elk beast"). One
+  that comes from an evil faction is a **vile beast** ("vile elk beast"). Vile beasts have their own
+  logic, added to or replacing the neutral beastly behaviours, so the name marks a different kind of
+  creature, not just a different owner.
 
 ### Additives  [DECIDED 2026-10-26, building]
 
