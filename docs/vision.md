@@ -138,6 +138,23 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   height-slice scrolling, see-through indicators on people.
 - **[DECIDED] Full-screen manager.** Tabs: Inhabitants, Resources, Buildings, Active Jobs, Assignments,
   Settlements, World Map (see the mockup `lorecraft/art/bad art/three man.png`).
+  **Reaffirmed 2026-10-29** (David, from an old piece made during the Minecraft mod): "most of it
+  stands". The sections and their names still seem right. The lists under them are just associations
+  of words that might get used there, not decided contents:
+  - *Inhabitants:* name, status, current task, occupation, roles, skills.
+  - *Resources:* food, supplies, materials, furniture, tools, clothes, weapons, armor, valuables,
+    containers, objects.
+  - *Buildings:* hunting cabin, woodcutter, residence, warehouse, tavern, carpenter, jeweller,
+    mechanic, pasture, ranch, market, farm, paper mill, potterer, house, inn, foundry, weaver, bakery,
+    bowyer, stonemason, coaler, blacksmith, tailor, mine, forge, guard post, depot, shrine, temple,
+    hospital, bathhouse.
+  - *Active Jobs:* fell trees, cut stone, cooking, harvesting, planting, hunting, guarding, animal care,
+    patrolling, hauling, fishing, woodworking.
+  - *Assignments:* mayor, captain, manager, priest, constable, secretary, treasurer, warden, accountant,
+    trader, scholar, historian, court, mage.
+  - *Settlements:* campsite, cottage, farmstead, village, town, city, capital, outpost, fortress.
+  - *World Map:* goblin den, bandit camp, evil cemetery, witch house, mad scientist, troll cave, cult
+    hideout, pirate lair.
 - **[IDEA]** Before a settlement is bigger than a farmstead, management happens through a **diary**
   that travels with you. Larger settlements need a **manager block**; larger still, an **advisor** you
   talk to in order to open the management screen.
