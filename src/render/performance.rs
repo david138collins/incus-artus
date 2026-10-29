@@ -16,6 +16,8 @@ use crate::world::{Streaming, VoxelWorld};
 use bevy::prelude::*;
 use bevy_egui::egui;
 use std::collections::VecDeque;
+use std::sync::Mutex;
+use std::time::Instant;
 
 /// How many recent frames are kept (about five seconds at 240 FPS).
 const KEPT: usize = 1200;
@@ -26,7 +28,63 @@ const BUDGET_MS: f32 = 1000.0 / 240.0;
 #[derive(Resource, Default)]
 pub struct FrameTimes(VecDeque<f32>);
 
-pub fn record_frame_time(time: Res<Time<Real>>, mut times: ResMut<FrameTimes>) {
+/// The stutter breakdown [deferred since 2026-10-26, built 2026-10-28]: the game's own heavy steps
+/// on the main thread time themselves (`Timed`), so a slow frame can say where its time went, or
+/// that it wasn't ours (drawing, the graphics card, Bevy, Windows).
+static STEPS: Mutex<Vec<(&'static str, f32)>> = Mutex::new(Vec::new());
+
+/// Times a step from here to the end of the block it's made in: `let _timed = Timed::new("name");`.
+pub struct Timed {
+    name: &'static str,
+    started: Instant,
+}
+
+impl Timed {
+    pub fn new(name: &'static str) -> Self {
+        Self { name, started: Instant::now() }
+    }
+}
+
+impl Drop for Timed {
+    fn drop(&mut self) {
+        let ms = self.started.elapsed().as_secs_f32() * 1000.0;
+        if let Ok(mut steps) = STEPS.lock() {
+            steps.push((self.name, ms));
+        }
+    }
+}
+
+/// A frame slower than this is logged with its breakdown (ms).
+const HITCH_MS: f32 = 25.0;
+
+/// The steps' times: the last frame's (waiting for its length), the slowest of each in the second
+/// before last, and the recent slow frames.
+#[derive(Resource, Default)]
+pub struct StepTimes {
+    last_frame: Vec<(&'static str, f32)>,
+    this_second: Vec<(&'static str, f32)>,
+    second_started: f32,
+    /// The slowest time each step took in the last full second, slowest first.
+    pub last_second: Vec<(&'static str, f32)>,
+    /// Recent slow frames: their length and the steps over a millisecond.
+    pub hitches: VecDeque<(f32, Vec<(&'static str, f32)>)>,
+}
+
+/// At the very end of a frame: what its steps took (its length is known next frame).
+pub fn collect_steps(mut steps_times: ResMut<StepTimes>) {
+    let Ok(mut steps) = STEPS.lock() else { return };
+    // The same step can run more than once a frame: added up.
+    let mut frame: Vec<(&'static str, f32)> = Vec::new();
+    for (name, ms) in steps.drain(..) {
+        match frame.iter_mut().find(|(n, _)| *n == name) {
+            Some(step) => step.1 += ms,
+            None => frame.push((name, ms)),
+        }
+    }
+    steps_times.last_frame = frame;
+}
+
+pub fn record_frame_time(time: Res<Time<Real>>, mut times: ResMut<FrameTimes>, mut steps: ResMut<StepTimes>) {
     let ms = time.delta_secs() * 1000.0;
     if ms <= 0.0 {
         return;
@@ -34,6 +92,32 @@ pub fn record_frame_time(time: Res<Time<Real>>, mut times: ResMut<FrameTimes>) {
     times.0.push_back(ms);
     while times.0.len() > KEPT {
         times.0.pop_front();
+    }
+    // The frame just measured is the one whose steps were collected last.
+    let last = std::mem::take(&mut steps.last_frame);
+    for &(name, step) in &last {
+        match steps.this_second.iter_mut().find(|(n, _)| *n == name) {
+            Some(slowest) => slowest.1 = slowest.1.max(step),
+            None => steps.this_second.push((name, step)),
+        }
+    }
+    if ms > HITCH_MS {
+        let mut ours: Vec<(&'static str, f32)> = last.into_iter().filter(|&(_, step)| step >= 1.0).collect();
+        ours.sort_by(|a, b| b.1.total_cmp(&a.1));
+        let listed: Vec<String> = ours.iter().map(|(name, step)| format!("{name} {step:.1}")).collect();
+        let ours_total: f32 = ours.iter().map(|(_, step)| step).sum();
+        info!("Slow frame: {ms:.1} ms; the game's own steps {ours_total:.1} ms{}{}", if listed.is_empty() { "" } else { ": " }, listed.join(", "));
+        steps.hitches.push_back((ms, ours));
+        while steps.hitches.len() > 8 {
+            steps.hitches.pop_front();
+        }
+    }
+    let now = time.elapsed_secs();
+    if now - steps.second_started >= 1.0 {
+        let mut second = std::mem::take(&mut steps.this_second);
+        second.sort_by(|a, b| b.1.total_cmp(&a.1));
+        steps.last_second = second;
+        steps.second_started = now;
     }
 }
 
@@ -77,6 +161,24 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
             let x = rect.right() - (shown - k) as f32;
             let colour = if ms <= BUDGET_MS { egui::Color32::from_rgb(90, 180, 90) } else if ms <= 1000.0 / 60.0 { egui::Color32::from_rgb(220, 190, 80) } else { egui::Color32::from_rgb(230, 80, 70) };
             painter.line_segment([egui::pos2(x, rect.bottom()), egui::pos2(x, y_of(ms))], egui::Stroke::new(1.0, colour));
+        }
+    }
+
+    ui.separator();
+    ui.strong("Where the time goes");
+    ui.small("The game's own heavy steps, the slowest each took in the last second (ms). A slow frame whose steps don't add up to it lost its time elsewhere: drawing, the graphics card, Bevy or Windows.");
+    let steps = world.resource::<StepTimes>();
+    if steps.last_second.is_empty() {
+        ui.small("Nothing timed yet.");
+    }
+    for (name, ms) in steps.last_second.iter().take(10) {
+        ui.label(format!("{ms:6.2}  {name}"));
+    }
+    if !steps.hitches.is_empty() {
+        ui.small(format!("Recent slow frames (over {HITCH_MS:.0} ms; also in the session log):"));
+        for (ms, ours) in steps.hitches.iter().rev() {
+            let listed: Vec<String> = ours.iter().map(|(name, step)| format!("{name} {step:.1}")).collect();
+            ui.small(format!("{ms:.1} ms: {}", if listed.is_empty() { "none of the game's own steps over 1 ms".to_string() } else { listed.join(", ") }));
         }
     }
 

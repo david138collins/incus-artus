@@ -507,6 +507,7 @@ pub fn update_distant(
     mut meshes: ResMut<Assets<Mesh>>,
     tiles: Query<&DistantTile>,
 ) {
+    let _timed = crate::render::Timed::new("distant tiles");
     let map = match terrain.compiled() {
         Some(map) if settings.enabled => map.clone(),
         _ => {
@@ -661,6 +662,7 @@ pub fn update_shown_chunks(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<DistantMaterial>>,
 ) {
+    let _timed = crate::render::Timed::new("mark chunks shown");
     let (Some(material), Some(texture)) = (state.material.clone(), state.shown_texture.clone()) else { return };
     let Some(camera) = camera.iter().next() else { return };
     let at = bevy_to_game(camera.translation);

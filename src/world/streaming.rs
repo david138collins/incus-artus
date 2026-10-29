@@ -174,6 +174,7 @@ pub fn stream_chunks(
     mut world: ResMut<VoxelWorld>,
     mut streaming: ResMut<Streaming>,
 ) {
+    let _timed = crate::render::Timed::new("stream chunks");
     let Some(map) = terrain.compiled() else {
         if streaming.map.is_some() {
             *streaming = Streaming::default();

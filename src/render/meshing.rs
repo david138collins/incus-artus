@@ -62,6 +62,7 @@ pub struct JobResult {
 }
 
 pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWorld>, mut state: ResMut<MeshingState>) {
+    let _timed = crate::render::Timed::new("collect dirty sections");
     let dirty = world.take_dirty();
     if dirty.is_empty() {
         return;
@@ -100,6 +101,7 @@ pub fn start_jobs(
     mut state: ResMut<MeshingState>,
     camera: Query<&Transform, With<Camera3d>>,
 ) {
+    let _timed = crate::render::Timed::new("start meshing");
     if state.waiting.is_empty() {
         return;
     }
@@ -162,6 +164,7 @@ pub fn finish_jobs(
     terrain: Res<TerrainAssets>,
     mut existing: Query<(&mut Mesh3d, &mut SectionMesh)>,
 ) {
+    let _timed = crate::render::Timed::new("finish meshing");
     let mut done = Vec::new();
     for (key, task) in state.running.iter_mut() {
         if let Some(result) = check_ready(task) {

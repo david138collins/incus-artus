@@ -30,7 +30,7 @@ use bevy::render::error_handler::{ErrorType, RenderError, RenderErrorHandler, Re
 use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
 use meshing::{MeshingState, SectionMesh};
-pub(crate) use performance::soak_line;
+pub(crate) use performance::{Timed, soak_line};
 pub use deep_shot::deep_shot_section;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -77,6 +77,8 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
             .init_resource::<performance::FrameTimes>()
+            .init_resource::<performance::StepTimes>()
+            .add_systems(Last, performance::collect_steps)
             .add_systems(Update, performance::record_frame_time)
             .add_systems(Last, frame_cap::cap_frames)
             .insert_resource(ClearColor(SKY_COLOUR))
@@ -331,6 +333,7 @@ fn apply_render_distance(
     camera: Query<&Transform, With<Camera3d>>,
     mut sections: Query<(&SectionMesh, &mut Visibility)>,
 ) {
+    let _timed = crate::render::Timed::new("render distance");
     let Some(camera) = camera.iter().next() else {
         return;
     };
@@ -357,6 +360,7 @@ fn update_shader_settings(
     terrain: Option<Res<TerrainAssets>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
 ) {
+    let _timed = crate::render::Timed::new("shader settings");
     let Some(terrain) = terrain else {
         return;
     };

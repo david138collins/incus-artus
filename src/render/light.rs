@@ -222,6 +222,7 @@ pub fn update_light(
     mut materials: ResMut<Assets<DistantMaterial>>,
     mut near_materials: ResMut<Assets<TerrainMaterial>>,
 ) {
+    let _timed = crate::render::Timed::new("light map");
     let Some(handle) = distant.material.clone() else { return };
     let near_handle = near.map(|near| near.material.clone());
     let map = match terrain.compiled() {
@@ -370,6 +371,7 @@ pub fn update_near_light(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
 ) {
+    let _timed = crate::render::Timed::new("near light");
     let Some(handle) = near.map(|near| near.material.clone()) else { return };
     let sea = SEA_LEVEL as f32;
     let mut wanted = TerrainLight {
