@@ -296,6 +296,23 @@ Counsel's notes [PROPOSED]:
     open to the public, residents only, or closed; each door unlocked, locked, or open to some
     (residents, guests, animals). The same rules tell the sims who may be where, and the law what
     trespass is.
+- **Assigning rooms, areas, buildings and pastures: Dwarf Fortress's way, kept** [David 2026-10-29:
+  "pretty untouchable ... i wouldnt change something that works"]. As DF does it (v50):
+  - **Zones painted over an area**, each with a purpose: bedroom, dining hall, office, tomb, pasture or
+    pen, meeting area, and so on. A zone needs its key furniture (a bed for a bedroom).
+  - **Owned or shared:** a bedroom, office or tomb can be **assigned to one person** (a bedroom
+    with their spouse and children). It becomes theirs. Someone with no bedroom **claims an unowned one
+    by sleeping in it**. Dining halls and meeting areas are shared.
+  - **Room value:** how fine a room is comes from its furniture and materials, and important people
+    expect rooms fine enough for their station.
+  - **Pastures:** tame animals are assigned to a pasture and stay in it even without walls, until
+    something threatens them.
+  - **Locations:** a zone can be made into a location (a tavern, temple or library, and so on), with
+    **patron rules**: everyone, no short-term visitors, or residents only. Guest bedrooms are linked to
+    the tavern.
+  *Counsel:* in Incus Artus a zone can be painted over registered buildings or plain blocks alike, so it
+  still works on "just blocks" after a building loses its definition. Ownership and patron rules are the
+  same rules as the door locks above, so the law reads trespass from them too.
 - **The hierarchy:** impulses (hunger, safety, belonging, greed, duty...) → goals → tasks → actions.
   Each level picks from a few options by simple checks against data. The World and Intermediator sims
   stop at goals and tasks; only the Local sim plays out actions. That's what keeps it cheap.
