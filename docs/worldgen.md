@@ -631,6 +631,22 @@ Counsel's notes [PROPOSED, for David and Builder]:
 - **Lakes need a saved surface height,** flat across the lake, so the Interpreter fills to it.
 - **Same seed, same rivers, in any order,** and a tile made alone matches the full make (as decided).
 
+**David's answers for the river lines (Climate step 6)** [DECIDED 2026-10-29]. Mineralogy is roughed in
+first; these wait for when rivers come back.
+1. **Ranks, by width at the surface:** spring 1 block; creek 2-4; stream 4-8; river 8-32; great river
+   32-128. A **delta** is a triangle about 64-128 blocks wide at the mouth. The widths double as rough
+   flow figures for each rank, for whatever flow is used for: "we may keep it really simple".
+2. **Springs:** scattered somewhat at random in a height band in the mountains. Water also starts from
+   any body called a **lake** (as against a **pond**), depending on rain.
+3. **The banks they cut,** width × depth: spring 1×1 to 1×2; creek 2×1 to 4×2; stream 4×2 to 8×3;
+   river 8×4 to 32×8; great river 32×8 to 128×16.
+4. **Smoothing by lengthening:** the line squiggles on its way to the next point, so it grows longer
+   rather than just being softened. Whether a river runs **into** a lake and whether one runs **out** of
+   it are separate questions.
+5. **Ends:** in the sea, though some will end in lakes naturally.
+6. **Waterfalls and rapids, of all shapes and sizes, are a big wow factor**: give them real attention
+   (wherever the bed has to step down).
+
 #### Breaking the water loop  [PROPOSED by Counsel 2026-10-28, for David]
 
 **David's leaning (2026-10-28): keep everything before flowing water as simple as possible. Flowing
