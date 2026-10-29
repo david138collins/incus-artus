@@ -183,7 +183,10 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     **Two tiers** [David 2026-10-29]: most random and common dialogue is immersive, from looking at a
     face and gestures. Important conversations are **cutscene dialogue**: it captures the mouse and finds
     a nice place for the camera between the two of you. **So the switch itself tells you it's
-    important.** *Counsel:* keep cutscenes rare enough that the signal stays true. The camera needs a
+    important.** Shopkeepers don't need it. Starting a quest does, so you don't misclick an option.
+    **The camera rule** [David]: find the most open area next to them, so you and the other person
+    fill about 2/3 of the screen, pretty close, so finding the spot isn't complex.
+    *Counsel:* keep cutscenes rare enough that the signal stays true. The camera needs a
     rule for a good spot (side-on to both faces, clear of walls, with the line between you unblocked),
     and a fallback for cramped rooms.
   - Where the news comes in: `docs/simulation.md`, section 12 (news particles).
