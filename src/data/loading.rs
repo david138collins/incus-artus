@@ -12,6 +12,7 @@
 //! textures = { top = "grass_top", sides = "grass_side", bottom = "dirt" }
 //! random_rotation = ["top"]          # faces turned at random (only for textures with no "up")
 //! friction = 1.0                     # 1 = ordinary ground, lower = slipperier
+//! tags = ["rock/igneous", "ore"]     # for grouping in the Registrar; "/" nests, as folders do
 //! ```
 //!
 //! Face words, for `textures` and `random_rotation`: `all`, `sides`, `top`, `bottom`, `north`,
@@ -52,6 +53,7 @@ struct BlockFile {
     solid: Option<bool>,
     targetable: Option<bool>,
     replaceable: Option<bool>,
+    tags: Vec<String>,
 }
 
 /// Which faces a face word means (numbers as in `FACE_NAMES`), and how specific it is.
@@ -129,6 +131,18 @@ pub fn parse_block(id: &str, text: &str) -> Result<(BlockDef, Vec<String>), Stri
     }
     if let Some(replaceable) = file.replaceable {
         def.replaceable = replaceable;
+    }
+    // Tags, tidied: spaces round each `/` and at the ends trimmed, empty parts and repeats dropped.
+    for tag in &file.tags {
+        let parts: Vec<&str> = tag.split('/').map(str::trim).filter(|part| !part.is_empty()).collect();
+        if parts.is_empty() {
+            warnings.push("an empty tag (ignored)".to_string());
+            continue;
+        }
+        let tag = parts.join("/");
+        if !def.tags.contains(&tag) {
+            def.tags.push(tag);
+        }
     }
     Ok((def, warnings))
 }
@@ -215,6 +229,13 @@ mod tests {
         assert_eq!(def.rotations[0], TextureRotation::Fixed);
         assert_eq!(def.friction, 0.8);
         assert!(def.opaque && def.solid);
+    }
+
+    #[test]
+    fn tags_are_tidied_and_nest_with_slashes() {
+        let (def, warnings) = parse_block("incus:limonite", "textures = { all = \"limonite\" }\ntags = [\"rock / sedimentary\", \"ore\", \"ore\", \" / \"]").unwrap();
+        assert_eq!(def.tags, ["rock/sedimentary", "ore"]);
+        assert_eq!(warnings, ["an empty tag (ignored)"]);
     }
 
     #[test]

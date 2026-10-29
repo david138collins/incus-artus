@@ -39,6 +39,7 @@ Every setting is optional; leave out anything you don't need.
 | `solid` | Does it stop bodies? | `true` for solid, `false` for grid/outline |
 | `targetable` | Can the crosshair stop on it (to break it or build against it)? | `true` |
 | `replaceable` | Does placing a block into it just replace it, like air? | `false` for solid, `true` for grid/outline |
+| `tags` | Labels the Registrar groups and sorts blocks by, as many as you like, like being in several folders at once. A `/` nests one tag inside another, as folders do: `tags = ["rock/igneous", "ore"]`. | none |
 
 ### Faces
 

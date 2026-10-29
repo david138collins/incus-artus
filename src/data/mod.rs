@@ -90,6 +90,9 @@ pub struct BlockDef {
     /// How grippy the top is to walk on: 1 = ordinary ground, lower = slipperier (ice),
     /// higher = grippier. 0 = no grip at all (you'd slide forever).
     pub friction: f32,
+    /// Tags the Registrar groups and sorts blocks by (a block can have any number, like being in
+    /// several folders at once). A `/` nests one tag in another, as folders do: "rock/igneous".
+    pub tags: Vec<String>,
 }
 
 impl BlockDef {
@@ -108,6 +111,7 @@ impl BlockDef {
             faces: std::array::from_fn(|_| texture.to_string()),
             rotations: Default::default(),
             friction: 1.0,
+            tags: Vec::new(),
         }
     }
 
@@ -125,6 +129,7 @@ impl BlockDef {
             faces: Default::default(),
             rotations: Default::default(),
             friction: 1.0,
+            tags: Vec::new(),
         }
     }
 }
