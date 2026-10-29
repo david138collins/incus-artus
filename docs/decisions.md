@@ -254,6 +254,59 @@ Reference: `Art/quartile minecraft illustration.png`
       like the world (`vision/watch-list.md`, item 17, far entities as sprites).
     - **What it needs first:** the quartile placement system built (quartile oak), the block register
       (oak blocks), and the structure suite. Then trees, then felling.
+  - **[IDEA, David 2026-10-29] The asset factory world and entity assets.**
+    - **Where:** a little lab, a world set up as a nice platform. There you build Minecraft-style with
+      the library's blocks, insert data (hook) blocks over the build, and register it as an **entity
+      asset** (an oak tree, a farmhouse). It's needed before trees, but not before rivers are handled to
+      David's satisfaction. Its place in the suite is undecided (David's call).
+    - **The test world retires:** the world the game starts in has outlived its use. A comprehensive
+      dev lab carries over any useful features from the original bootstrapping of the simulations. The
+      civilization and behaviour simulator lab may take the rest.
+    - **No world is rendered** until David enters the asset factory world or spawns into a World
+      Compiler world.
+    - **The Registrar switches between block assets and entity assets** (single blocks, and structures
+      of blocks, which are a bit different), and it can view entity assets.
+    - **Blueprints in segments:** players can make blueprints too, up to **32×32×32 blocks** each.
+      Enormous things are made by stamping segments together and rotating them (90° turns): a 50-block
+      wall from a lower section and an upper section.
+    Counsel's notes [PROPOSED]:
+    - Before the test world goes, Builder lists what it and the Sandbox do now, and sorts each feature
+      into the factory world, the civilization lab, or retired.
+    - The round trip, like Aseprite's: build, draw hooks as an overlay, select, register (with a lit
+      preview). Open it from the Registrar to edit, and register it again.
+    - The factory world lights with the real lighting module, has a sun slider, and later a far view to
+      check baked sprites.
+    - The Color Lab works on entities for free: an entity's palette is its blocks' combined palette.
+    - The Registrar's block format leaves room now for partial blocks (quarter blocks, levels 1-8 for
+      water and snow), so blocks aren't registered twice when trees come.
+  - **[IDEA, David and Counsel 2026-10-29] Baked paths in structures and villages.** For workshops and
+    houses, not trees. Precalculate wherever possible, "a cheap network of things that can get prebaked
+    if possible that keeps the majority of commotion orderly", handled once in a while when the CPU
+    gets to it.
+    - **The bake, made at registration:** where a villager can stand and walk; doors as the ways in and
+      out; a flow field toward each use-point (hooks double as use-points: bed, anvil, hearth, door);
+      and a table of travel times between hooks. The Intermediator and World sims use the table alone,
+      with no pathfinding. Only the Local sim follows the fields. Baked once and rotated for each of the
+      four facings.
+    - **The bake is only a shortcut villagers try first; the blocks are the truth** (David likes this).
+      A block change inside a structure marks its bake stale, and until it's re-baked, villagers there
+      use ordinary pathfinding in that small box. **Re-bake automatically** once it hasn't changed for
+      a while, so a fire costs one re-bake, not hundreds. The bake and the live pathfinder share one
+      walking rule (the lighting-module lesson: one copy can't drift).
+    - **A question mark pops up over a villager's head** when they couldn't find something and are
+      thinking (pathfinding). "Very cute, very demure."
+    - **Past a % changed, it stops being a building** and is just blocks. Villagers may still use it,
+      but it can't be managed with work orders and so on, since it's no longer defined as a building.
+    - **Players' blueprints:** nothing is forbidden. The bake reports what it finds: an unreachable
+      hook is flagged on the blueprint and never used (so nobody gets stuck); no doors means sealed;
+      anything too big uses live pathfinding only.
+    - **Villages:** procedural puzzle-piece villages bake their street network between doors when
+      generated, so villagers know where to go in town unless something comes up. Trips beyond the
+      town (for trees, rock) use the world's pathfinding.
+    - **Measure the exceptions, to watch for runaways:** fallbacks to live pathfinding, re-bakes per
+      minute and the longest wait, failed paths and stuck villagers, counted per structure so a bad one
+      shows up by name. Shown on the Performance page and checked by the soak test. A structure that
+      re-bakes too often switches to live pathfinding only until it calms down.
 - **[DECIDED]** Random texture rotation is switched per block on the Blocks page: one switch for blocks that look
   the same all round, separate top / sides / bottom switches for blocks with a distinct top.
 

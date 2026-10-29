@@ -132,6 +132,12 @@ the code yet).
   - **Snapping or free shading stays open as long as possible** [David]. Builder's way of doing slot
     textures (turning the slots into ordinary colours on the CPU, mipmaps made from those colours)
     keeps both open: the slot ids are always there, so a snapping shader can be added later.
+  - **Collapsing sections** [David 2026-10-29]: the Color Lab's sections fold, so David can pick what's in
+    view while working.
+  - **The crusher** [built, David's request]: crushes an asset's colours, live in the texture viewer
+    (gabbro.png: 235 colours look almost the same crushed to 8, with the HSL and crush settings). Open:
+    how a crush becomes a spline, and how to crush to the palette (onto colours already in the master
+    palette, the reshading feature).
   - **Fast round trips with Aseprite:** images and palettes bounce rapidly between the editor and
     Aseprite. Palettes go out as GPL, which Aseprite loads; PNGs come back and are picked up without
     restarting.
