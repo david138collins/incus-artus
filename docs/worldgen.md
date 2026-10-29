@@ -1530,6 +1530,17 @@ rivers, in this order:
 4. **Then rivers** (Climate step 6 on), which all of the above makes easier.
 After that, David: "it's downhill towards created worlds being alpha wrapped."
 
+**[DECIDED 2026-10-29] Where the road stands** (David). The graphics run is done (the near/far seam
+closed at 2cd2335), and the Registrar's first phase is built (David took the palette from 490 colours
+to 58, every block regulated). Next:
+1. **The World Compiler rename** (from Terrain Compiler), in the gap between features.
+2. **Load a new asset**, with the 5×5 tiling checker and GPL export.
+3. **David makes blocks** for a while (D's art), *before* the what-block-goes-where system is built.
+4. Then what block goes where, climate set up to work on rivers, and the rivers finished. Then it's time
+   for trees.
+**Reminder: fix the collision bug (walking through block sides) before the asset factory world is added
+to the Registrar**, which comes when it's time for trees.
+
 Earlier (2026-10-27): David is exploring and improving the terrain gen again. **The Interpreter rework** [David,
 2026-10-27], as it goes:
 - **Eliminate or repurpose controls that mean nothing to David.** Done so far (2026-10-27): rifts
