@@ -143,13 +143,14 @@ pub struct Palette {
 }
 
 impl Palette {
-    /// Averages each block's top and side textures from `assets/textures/blocks/`.
+    /// Each block's top and side colours as the near ground shows them once a block is under a pixel
+    /// (`textures::far_colour`: the textures' own smallest mipmaps), so near and far agree.
     pub fn from_textures(registry: &BlockRegistry, blocks: &TerrainBlocks) -> Self {
         let face = |id: BlockId, which: &str| {
             let index = FACE_NAMES.iter().position(|&name| name == which).unwrap_or(0);
             registry.def(id).map(|def| def.faces[index].clone()).unwrap_or_default()
         };
-        let average = |texture: String| average_colour(&texture).unwrap_or([0.5, 0.5, 0.5]);
+        let average = |texture: String| super::textures::far_colour(&texture).unwrap_or([0.5, 0.5, 0.5]);
         Self {
             grass_top: average(face(blocks.grass, "top")),
             grass_side: average(face(blocks.grass, "north")),
@@ -174,30 +175,6 @@ impl Palette {
     fn side(&self, block: BlockId, blocks: &TerrainBlocks) -> [f32; 3] {
         if block == blocks.grass { self.grass_side } else { self.top(block, blocks) }
     }
-}
-
-/// The average colour of `assets/textures/blocks/<name>.png`, in linear RGB (as the shaders work).
-fn average_colour(name: &str) -> Option<[f32; 3]> {
-    let path = crate::data::assets_folder().join("textures").join("blocks").join(format!("{name}.png"));
-    let mut decoder = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(path).ok()?));
-    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
-    let mut reader = decoder.read_info().ok()?;
-    let mut buffer = vec![0; reader.output_buffer_size()?];
-    let info = reader.next_frame(&mut buffer).ok()?;
-    let channels = info.color_type.samples();
-    let (mut sum, mut count) = ([0.0f32; 3], 0.0);
-    for pixel in buffer[..info.buffer_size()].chunks_exact(channels) {
-        if channels == 4 && pixel[3] < 128 {
-            continue;
-        }
-        for k in 0..3 {
-            let v = pixel[k.min(channels - 1)] as f32 / 255.0;
-            // sRGB to linear, so the colours mix like the textures do on the GPU.
-            sum[k] += if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) };
-        }
-        count += 1.0;
-    }
-    (count > 0.0).then(|| sum.map(|s| s / count))
 }
 
 /// A tile's mesh, in Bevy's axes, relative to the tile's corner.

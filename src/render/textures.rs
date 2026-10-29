@@ -153,6 +153,30 @@ fn shrink(pixels: &[u8], size: u32) -> Vec<u8> {
     out
 }
 
+/// A block texture's colour as the near ground shows it once a block is smaller than a pixel: its
+/// smallest shrunk version, made by the same `shrink` as the mipmaps, read as light (linear RGB, as
+/// the shaders work). The distant terrain takes its colours from here, so near and far always agree,
+/// however the mipmaps are made. [2026-10-29: it averaged the texture as light itself, while the
+/// mipmaps average the stored values; on gabbro's strong speckle the near ground came out 18%
+/// darker on screen, the seam on rocky hills.]
+pub fn far_colour(name: &str) -> Option<[f32; 3]> {
+    let pixels = load_texture(&block_texture_folder().join(format!("{name}.png"))).ok()?;
+    Some(smallest_mip_colour(pixels, TEXTURE_SIZE))
+}
+
+/// The 1 × 1 mipmap of a `size` × `size` RGBA texture, as light.
+fn smallest_mip_colour(mut pixels: Vec<u8>, mut size: u32) -> [f32; 3] {
+    while size > 1 {
+        pixels = shrink(&pixels, size);
+        size /= 2;
+    }
+    let linear = |v: u8| {
+        let v = v as f32 / 255.0;
+        if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+    };
+    [linear(pixels[0]), linear(pixels[1]), linear(pixels[2])]
+}
+
 /// Stack the layers (each with its mipmaps) into one array image.
 fn build_array_image(layers: &[Vec<u8>]) -> Image {
     let mut data = Vec::new();
@@ -217,6 +241,16 @@ mod tests {
         // solid red (so thin lines don't vanish in the distance).
         let pixels = [255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(shrink(&pixels, 2), vec![255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn the_far_colour_is_the_smallest_mipmap_read_as_light() {
+        // Black and white checks: the mipmaps average the stored values (mid-grey, 128), which is
+        // about 0.22 as light; averaging the light itself would give 0.5, much brighter.
+        let checks: Vec<u8> = (0..16).flat_map(|i| if (i % 4 + i / 4) % 2 == 0 { [0, 0, 0, 255] } else { [255, 255, 255, 255] }).collect();
+        let colour = smallest_mip_colour(checks, 4);
+        assert!((colour[0] - 0.2158).abs() < 0.01, "{colour:?}");
+        assert_eq!(colour[0], colour[2]);
     }
 
     #[test]
