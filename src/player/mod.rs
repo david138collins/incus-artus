@@ -501,6 +501,9 @@ fn load_player(world: &mut World, folder: &WorldFolder) -> Result<String, String
 /// How far above the ground a fresh world drops you [David, 2026-10-27].
 const DROPPED_FROM: f32 = 3.0;
 
+/// Slower than this (blocks a second), with no wish to move, is standing still (see the feet).
+const STOPPED: f32 = 0.05;
+
 /// A fresh world: walking, dropped from a little above the spawn point, facing north (level).
 fn fresh_player(world: &mut World, _seed: u64) {
     *world.resource_mut::<ControlMode>() = ControlMode::Walk;
@@ -788,7 +791,14 @@ fn move_pawn(
             let gentle_step = (braking * dt).min((new_horizontal - horizontal).length());
             new_horizontal = horizontal + change.clamp_length_max(gentle_step);
         }
-        let horizontal = new_horizontal;
+        // Easing toward a stop never quite gets there: a sliver of speed was left, and far from the
+        // world's middle (where a position can only change in steps of about 0.002 blocks) it
+        // tipped you to the next step and back again, a dozen times a second, so the view quivered
+        // while you stood still [2026-10-28]. Not trying to move, and barely moving: stopped.
+        let mut horizontal = new_horizontal;
+        if target.length_squared() == 0.0 && horizontal.length() < STOPPED {
+            horizontal = Vec3::ZERO;
+        }
         pawn.velocity.x = horizontal.x;
         pawn.velocity.y = horizontal.y;
 
