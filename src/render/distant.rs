@@ -311,7 +311,8 @@ impl Shade {
         let (ns, ew) = (north.abs(), east.abs());
         let sides = ns + ew;
         let side_light = (ns * self.north_south + ew * self.east_west) / sides.max(1e-6);
-        let blocky = [0, 1, 2].map(|k| (top_colour[k] * self.top * top_light * feet + side_colour[k] * side_light * sides) / (1.0 + sides));
+        // The sides take the lie of the land's sun and shade too, as up close (terrain.wesl).
+        let blocky = [0, 1, 2].map(|k| top_light * (top_colour[k] * self.top * feet + side_colour[k] * side_light * sides) / (1.0 + sides));
         [0, 1, 2].map(|k| plain[k] + (blocky[k] - plain[k]) * self.slope_match)
     }
 

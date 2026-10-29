@@ -219,17 +219,24 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
         if all(uv >= vec2<f32>(0.0)) && all(uv <= vec2<f32>(1.0)) && near.a > 0.5 {
             let sea = lighting.hill.z;
             let surface = sea + near.b * (lighting.hill.w - sea);
-            if face == 4u {
+            if face != 5u {
                 // The rise across one distant cell, as the distant tiles measure it.
                 let rise = vec2<f32>(unroot(near.r), unroot(near.g)) * 4.0 * lighting.hill.y;
                 let normal = normalize(vec3<f32>(-rise.x * lighting.sun.w, -rise.y * lighting.sun.w, 1.0));
                 let hill = soft_limit(dot(normal, lighting.sun.xyz) / lighting.sun.z, lighting.shade.x);
-                // The feet of steps: how far this top is below the cones of the ground round it
-                // (0 on a top, a rim or open ground), eased like the hill shading.
-                let cones = cones_at(uv);
-                let fade = lighting.shade.x;
-                let feet = (1.0 - lighting.shade.y * eased(cones.x - up, fade)) * (1.0 - lighting.shade.z * eased(cones.y - up, fade));
                 let tint = 1.0 + lighting.hill.x * (up - sea) / (lighting.shade.w - sea);
+                // The steps' sides take the lie of the land's sun and shade too, as the tops do
+                // [2026-10-28: a mountainside up close is mostly sides, which had only their fixed
+                // face shade, so near mountains lost their sunny and shaded sides and looked flat
+                // beside the far ones]. Only the tops have feet.
+                var feet = 1.0;
+                if face == 4u {
+                    // The feet of steps: how far this top is below the cones of the ground round it
+                    // (0 on a top, a rim or open ground), eased like the hill shading.
+                    let cones = cones_at(uv);
+                    let fade = lighting.shade.x;
+                    feet = (1.0 - lighting.shade.y * eased(cones.x - up, fade)) * (1.0 - lighting.shade.z * eased(cones.y - up, fade));
+                }
                 // The sea's surface stays flat, as on the distant terrain.
                 let water = surface <= sea + 0.5 && up <= sea + 0.5;
                 light = light * select(hill * tint * feet, 1.0, water);
