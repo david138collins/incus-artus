@@ -38,10 +38,12 @@ pub struct Registrar {
     /// The block registry's revision the textures were read at.
     read_at: Option<u64>,
     textures: BTreeMap<String, Texture>,
-    /// The selected blocks (names); the first is the one open in the dock.
-    selected: Vec<String>,
+    /// What's selected in the library (blocks, or single textures); the first is open in the dock.
+    selected: Vec<Item>,
     /// The block under the mouse in the library, or in the dock: its colours light up.
-    hovered: Option<String>,
+    hovered: Option<Item>,
+    /// The composite blocks opened out in the library, to show their textures.
+    expanded: BTreeSet<String>,
     /// The last thing that happened, shown under the palette.
     message: String,
     /// Colours picked (clicked) in any palette, to put on a spline or take off one.
@@ -54,7 +56,7 @@ pub struct Registrar {
     /// worked out for (transform, selection, textures read at), and a number that changes with it.
     transform: Transform,
     mapping: BTreeMap<Rgb, Rgb>,
-    mapped_for: Option<(Transform, Vec<String>, Option<u64>, u64)>,
+    mapped_for: Option<(Transform, Vec<Item>, Option<u64>, u64)>,
     /// Read the palette and textures again (after an undo).
     reread: bool,
     /// The undo steps, oldest first: what each change was.
@@ -76,6 +78,11 @@ pub struct Registrar {
     tags_text: String,
     /// The textures of blocks that aren't building aids: the art whose colours the palette holds.
     art_textures: BTreeSet<String>,
+    /// Loading a new asset: the PNG coming in, the Art/ picker open or not, its files and filter.
+    incoming: Option<Incoming>,
+    loading: bool,
+    art_files: Vec<PathBuf>,
+    art_filter: String,
     /// "Clear out unused colours" was pressed: its preview is showing, waiting for a yes.
     clearing: bool,
     /// Goes up by one whenever the palette is saved.
@@ -83,6 +90,15 @@ pub struct Registrar {
     mapping_version: u64,
     /// Show the blocks as they are, not as the transform would make them.
     before: bool,
+}
+
+/// Something in the library that can be selected: a block, or one texture on its own (one of a
+/// composite block's, or one no block uses yet) [David: "handle individual textures in a composite
+/// individually"].
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Item {
+    Block(String),
+    Texture(String),
 }
 
 /// Blocks worth showing: everything drawn (not air).
@@ -174,11 +190,11 @@ impl Registrar {
         }
     }
 
-    /// Write the transform into the selected blocks' textures (every block using one of them
+    /// Write the transform into the selected textures (every block using one of them
     /// changes too), after saving copies for undo. The colours it replaced are remembered, so it can
     /// be said if they come back.
     fn apply(&mut self, defs: &[&BlockDef]) {
-        let names: BTreeSet<String> = defs.iter().filter(|def| self.selected.contains(&def.name)).flat_map(|def| texture_names(def)).map(str::to_string).collect();
+        let names = self.selected_textures(defs);
         let folder = block_texture_folder();
         let paths: Vec<PathBuf> = names.iter().map(|name| folder.join(format!("{name}.png"))).collect();
         let what = format!("Applied to {}", names.iter().map(|name| format!("{name}.png")).collect::<Vec<_>>().join(", "));
@@ -262,6 +278,38 @@ impl Registrar {
         self.palette_changes += 1;
     }
 
+    /// The textures an item stands for: a block's, or the one texture.
+    fn textures_of(&self, item: &Item, defs: &[&BlockDef]) -> Vec<String> {
+        match item {
+            Item::Block(name) => defs.iter().find(|def| &def.name == name).map_or_else(Vec::new, |def| texture_names(def).into_iter().map(str::to_string).collect()),
+            Item::Texture(name) => vec![name.clone()],
+        }
+    }
+
+    /// Every texture the selection stands for, each once.
+    fn selected_textures(&self, defs: &[&BlockDef]) -> BTreeSet<String> {
+        self.selected.iter().flat_map(|item| self.textures_of(item, defs)).collect()
+    }
+
+    /// Colours with how many pixels each, over these textures (each once).
+    fn colours_in_textures<'a>(&self, names: impl IntoIterator<Item = &'a String>) -> BTreeMap<Rgb, u32> {
+        let mut colours = BTreeMap::new();
+        for name in names.into_iter().collect::<BTreeSet<_>>() {
+            for &(rgb, count) in self.textures.get(name).map_or(&[][..], |texture| &texture.colours) {
+                *colours.entry(rgb).or_default() += count;
+            }
+        }
+        colours
+    }
+
+    /// What an item is called: a block's name, or a texture's file.
+    fn label(item: &Item, defs: &[&BlockDef]) -> String {
+        match item {
+            Item::Block(name) => defs.iter().find(|def| &def.name == name).map_or_else(|| name.clone(), |def| def.display_name.clone()),
+            Item::Texture(name) => format!("{name}.png"),
+        }
+    }
+
     /// A block's colours, combined over its textures, with how many pixels each.
     fn block_colours(&self, def: &BlockDef) -> BTreeMap<Rgb, u32> {
         let mut colours = BTreeMap::new();
@@ -317,7 +365,8 @@ pub fn draw(root: &mut egui::Ui, registrar: &mut Registrar, registry: &BlockRegi
 // ── The library ───────────────────────────────────────────────────────────
 
 /// Every block, grouped by tag (a block with several tags is in each group; untagged ones at the
-/// end). Click to open a block; Ctrl + click to add it to the selection, or take it out.
+/// end), a composite block opening out to its textures; then the textures no block uses. Click to
+/// open one; Ctrl + click to add it to the selection, or take it out.
 fn library(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     ui.heading("Library");
     ui.small(format!("{} blocks. Click to open; Ctrl + click to select more.", defs.len()));
@@ -335,34 +384,72 @@ fn library(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     for (tag, blocks) in groups {
         egui::CollapsingHeader::new(tag).id_salt(("tag", tag)).default_open(true).show(ui, |ui| {
             for def in blocks {
-                library_row(ui, registrar, def);
+                library_row(ui, registrar, def, tag);
             }
         });
     }
     if !untagged.is_empty() {
         egui::CollapsingHeader::new("(no tags)").id_salt("untagged").default_open(true).show(ui, |ui| {
             for def in untagged {
-                library_row(ui, registrar, def);
+                library_row(ui, registrar, def, "");
+            }
+        });
+    }
+    // Textures in the folder that no block uses (a new one waiting for a block, say).
+    let used: BTreeSet<&str> = defs.iter().flat_map(|def| texture_names(def)).collect();
+    let loose: Vec<String> = registrar.texture_files.iter().filter(|name| !used.contains(name.as_str())).cloned().collect();
+    if !loose.is_empty() {
+        egui::CollapsingHeader::new(format!("Textures on no block ({})", loose.len())).id_salt("loose textures").default_open(true).show(ui, |ui| {
+            for name in loose {
+                texture_row(ui, registrar, &name, "");
             }
         });
     }
 }
 
-fn library_row(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) {
+/// Select an item: on its own, or with Ctrl, added to (or taken out of) the selection.
+fn select(ui: &egui::Ui, registrar: &mut Registrar, item: Item) {
+    if ui.input(|input| input.modifiers.command) {
+        if registrar.selected.contains(&item) {
+            registrar.selected.retain(|other| other != &item);
+        } else {
+            registrar.selected.push(item);
+        }
+    } else {
+        registrar.selected = vec![item];
+    }
+}
+
+fn library_row(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef, group: &str) {
     let unregulated = registrar.unregulated(def);
-    let selected = registrar.selected.contains(&def.name);
+    let item = Item::Block(def.name.clone());
+    let selected = registrar.selected.contains(&item);
     // Lit when it uses the colour under the mouse, or any picked colour.
     let colours = registrar.block_colours(def);
     let lit = registrar.last_colour_hover.is_some_and(|rgb| colours.contains_key(&rgb)) || registrar.picked.iter().any(|rgb| colours.contains_key(rgb));
-    let textures = texture_names(def).len();
+    let names: Vec<String> = texture_names(def).into_iter().map(str::to_string).collect();
+    let composite = names.len() > 1;
+    let open = registrar.expanded.contains(&def.name);
     let row = ui.horizontal(|ui| {
         ui.colored_label(if lit { PICKED } else { Color32::TRANSPARENT }, "•").on_hover_text("Uses the colour under the mouse, or a picked one");
+        // A composite block opens out to its textures.
+        if composite {
+            if ui.small_button(if open { "▾" } else { "▸" }).on_hover_text("Show or hide its textures, to work on one at a time").clicked() {
+                if open {
+                    registrar.expanded.remove(&def.name);
+                } else {
+                    registrar.expanded.insert(def.name.clone());
+                }
+            }
+        } else {
+            ui.add_space(ui.spacing().interact_size.y);
+        }
         if let Some(top) = def.faces.get(4).filter(|top| !top.is_empty()) {
             texture_image(ui, registrar, top, 20.0, false);
         }
         let label = ui.selectable_label(selected, &def.display_name);
-        if textures > 1 {
-            ui.small(format!("{textures} textures")).on_hover_text("A composite block: its faces have different textures");
+        if composite {
+            ui.small(format!("{} textures", names.len())).on_hover_text("A composite block: its faces have different textures");
         }
         if def.tool {
             ui.small("building aid").on_hover_text("Not world art: its colours stay out of the master palette");
@@ -375,38 +462,66 @@ fn library_row(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) {
     });
     let label = row.inner;
     if label.hovered() {
-        registrar.hovered = Some(def.name.clone());
+        registrar.hovered = Some(item.clone());
     }
     if label.clicked() {
-        let adding = ui.input(|input| input.modifiers.command);
-        if adding {
-            if selected {
-                registrar.selected.retain(|name| name != &def.name);
-            } else {
-                registrar.selected.push(def.name.clone());
-            }
-        } else {
-            registrar.selected = vec![def.name.clone()];
-        }
+        select(ui, registrar, item);
     }
     label.on_hover_text(&def.name);
+    if composite && open {
+        ui.indent(("block textures", &def.name, group), |ui| {
+            for name in &names {
+                // Which faces it's on.
+                let faces: Vec<&str> = (0..6).filter(|&k| &def.faces[k] == name).map(|k| crate::data::FACE_NAMES[k]).collect();
+                let on = if faces.len() == 4 && faces.iter().all(|face| ["north", "south", "east", "west"].contains(face)) { "sides".to_string() } else { faces.join(", ") };
+                texture_row(ui, registrar, name, &on);
+            }
+        });
+    }
 }
 
-/// A texture, `size` points square (made the first time it's drawn).
-fn texture_image(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, size: f32, transformed: bool) -> egui::Response {
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+/// One texture in the library: on its own, or one of a composite block's (`on`: which faces).
+fn texture_row(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, on: &str) {
+    let item = Item::Texture(name.to_string());
+    let selected = registrar.selected.contains(&item);
+    let colours = registrar.colours_in_textures([&name.to_string()]);
+    let lit = registrar.last_colour_hover.is_some_and(|rgb| colours.contains_key(&rgb)) || registrar.picked.iter().any(|rgb| colours.contains_key(rgb));
+    let unregulated = colours.keys().filter(|&&rgb| !registrar.palette.slot_of(rgb).is_some_and(|slot| registrar.palette.is_regulated(slot))).count();
+    let row = ui.horizontal(|ui| {
+        ui.colored_label(if lit { PICKED } else { Color32::TRANSPARENT }, "•");
+        texture_image(ui, registrar, name, 16.0, false);
+        let label = ui.selectable_label(selected, name);
+        if !on.is_empty() {
+            ui.small(on);
+        }
+        if registrar.textures.contains_key(name) {
+            ui.small(if unregulated > 0 { format!("{unregulated} unregulated") } else { "regulated".to_string() });
+        }
+        label
+    });
+    let label = row.inner;
+    if label.hovered() {
+        registrar.hovered = Some(item.clone());
+    }
+    if label.clicked() {
+        select(ui, registrar, item);
+    }
+}
+
+/// A texture's image for showing (made the first time it's asked for), as it is or as the
+/// sub-palette's transform would make it. Why not, if it can't be shown.
+fn texture_id(ctx: &egui::Context, registrar: &mut Registrar, name: &str, transformed: bool) -> Result<egui::TextureId, String> {
     let Some(texture) = registrar.textures.get_mut(name) else {
-        return response;
+        return Err(format!("{name}.png isn't read yet"));
     };
-    if texture.problem.is_some() {
-        ui.painter().rect_filled(rect, 0.0, Color32::from_rgb(255, 0, 255));
-        return response.on_hover_text(texture.problem.clone().unwrap_or_default());
+    if let Some(problem) = &texture.problem {
+        return Err(problem.clone());
     }
     let side = crate::render::textures::TEXTURE_SIZE as usize;
-    // As the sub-palette's transform would make it: each pixel's colour mapped (made again
-    // whenever the transform changes).
+    // As the transform would make it: each pixel's colour mapped (made again whenever the
+    // transform changes).
     let mapping = &registrar.mapping;
-    let id = if transformed && !registrar.before && !mapping.is_empty() {
+    if transformed && !registrar.before && !mapping.is_empty() {
         let version = registrar.mapping_version;
         if texture.preview.as_ref().is_none_or(|(made_for, _)| *made_for != version) {
             let mut pixels = texture.pixels.clone();
@@ -421,38 +536,151 @@ fn texture_image(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, size:
                     handle.set(image, egui::TextureOptions::NEAREST);
                     *made_for = version;
                 }
-                None => texture.preview = Some((version, ui.ctx().load_texture(format!("registrar {name} transformed"), image, egui::TextureOptions::NEAREST))),
+                None => texture.preview = Some((version, ctx.load_texture(format!("registrar {name} transformed"), image, egui::TextureOptions::NEAREST))),
             }
         }
-        texture.preview.as_ref().map(|(_, handle)| handle.id())
-    } else {
-        None
+        if let Some((_, handle)) = &texture.preview {
+            return Ok(handle.id());
+        }
+    }
+    Ok(texture.image.get_or_insert_with(|| ctx.load_texture(format!("registrar {name}"), egui::ColorImage::from_rgba_unmultiplied([side, side], &texture.pixels), egui::TextureOptions::NEAREST)).id())
+}
+
+/// A texture, `size` points square.
+fn texture_image(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, size: f32, transformed: bool) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+    match texture_id(ui.ctx(), registrar, name, transformed) {
+        Ok(id) => {
+            ui.painter().image(id, rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
+            response
+        }
+        Err(problem) => {
+            ui.painter().rect_filled(rect, 0.0, Color32::from_rgb(255, 0, 255));
+            response.on_hover_text(problem)
+        }
+    }
+}
+
+/// The tiling checker: a texture repeated 5 × 5, each turned at random as the game turns them (or
+/// not), to see how it repeats [David, 2026-10-29]. As the transform would make it.
+fn tiling_checker(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, random: &mut bool) {
+    ui.checkbox(random, "random rotation").on_hover_text("Each tile turned 0°, 90°, 180° or 270°, picked from its place, as the game does");
+    const TILES: i32 = 5;
+    const TILE: f32 = 40.0;
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(TILE * TILES as f32, TILE * TILES as f32), egui::Sense::hover());
+    let id = match texture_id(ui.ctx(), registrar, name, true) {
+        Ok(id) => id,
+        Err(problem) => {
+            ui.painter().rect_filled(rect, 0.0, Color32::from_rgb(255, 0, 255));
+            response.on_hover_text(problem);
+            return;
+        }
     };
-    let id = id.unwrap_or_else(|| {
-        texture.image.get_or_insert_with(|| ui.ctx().load_texture(format!("registrar {name}"), egui::ColorImage::from_rgba_unmultiplied([side, side], &texture.pixels), egui::TextureOptions::NEAREST)).id()
-    });
-    ui.painter().image(id, rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
-    response
+    let mut mesh = egui::Mesh::with_texture(id);
+    let corners = [egui::pos2(0.0, 0.0), egui::pos2(1.0, 0.0), egui::pos2(1.0, 1.0), egui::pos2(0.0, 1.0)];
+    for y in 0..TILES {
+        for x in 0..TILES {
+            // A quarter turn picked from its place (the same each time it's drawn).
+            let turns = if *random { ((x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663)) as u32 % 4) as usize } else { 0 };
+            let tile = egui::Rect::from_min_size(rect.min + egui::vec2(x as f32 * TILE, y as f32 * TILE), egui::vec2(TILE, TILE));
+            let at = [tile.left_top(), tile.right_top(), tile.right_bottom(), tile.left_bottom()];
+            let first = mesh.vertices.len() as u32;
+            for k in 0..4 {
+                mesh.vertices.push(egui::epaint::Vertex { pos: at[k], uv: corners[(k + turns) % 4], color: Color32::WHITE });
+            }
+            mesh.indices.extend([first, first + 1, first + 2, first, first + 2, first + 3]);
+        }
+    }
+    ui.painter().add(egui::Shape::mesh(mesh));
 }
 
 // ── The dock ──────────────────────────────────────────────────────────────
 
-/// The open block: its name, tags, faces and own palette.
+/// The open item: a block (its name, tags, status, settings, faces and palette) or one texture (its
+/// image, the blocks using it, its palette); its tiling; and the rest of the selection, smaller.
 fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     ui.horizontal(|ui| {
         ui.heading("Dock");
-        // Loading a new asset into the library comes next.
-        ui.add_enabled(false, egui::Button::new("Load a new asset…")).on_disabled_hover_text("Coming next: bring a PNG in and register it");
+        if ui.button("Load a new asset…").on_hover_text("Bring a PNG in from Art/ (or drag one onto the window) and register it").clicked() {
+            registrar.loading = !registrar.loading;
+            if registrar.loading {
+                registrar.art_files = art_pngs();
+            }
+        }
     });
+    if registrar.loading {
+        art_picker(ui, registrar);
+    }
     ui.separator();
-    let Some(def) = registrar.selected.first().and_then(|name| defs.iter().find(|def| &def.name == name)).copied() else {
-        ui.label("Click a block in the library to open it here.");
+    // A PNG coming in takes the dock until it's registered or cancelled.
+    if registrar.incoming.is_some() {
+        incoming_dock(ui, registrar);
+        return;
+    }
+    let Some(first) = registrar.selected.first().cloned() else {
+        ui.label("Click a block or texture in the library to open it here.");
         return;
     };
+    let tiling: Option<(String, bool)> = match &first {
+        Item::Block(name) => {
+            let Some(def) = defs.iter().find(|def| &def.name == name).copied() else { return };
+            block_dock(ui, registrar, def);
+            // The top's tiling, or the first face that has a texture.
+            let face = if def.faces[4].is_empty() { def.faces.iter().position(|face| !face.is_empty()) } else { Some(4) };
+            face.map(|k| (def.faces[k].clone(), def.rotations[k] == crate::data::TextureRotation::Random))
+        }
+        Item::Texture(name) => {
+            texture_dock(ui, registrar, name, defs);
+            // Turned at random if a block turns it on any face.
+            let random = defs.iter().any(|def| (0..6).any(|k| &def.faces[k] == name && def.rotations[k] == crate::data::TextureRotation::Random));
+            Some((name.clone(), random))
+        }
+    };
+    if let Some((name, random)) = tiling {
+        egui::CollapsingHeader::new(format!("Tiling ({name}.png)")).id_salt("registrar tiling").default_open(false).show(ui, |ui| {
+            // Starts as the block has it; the switch here only changes the checker.
+            let key = egui::Id::new(("registrar tiling random", &name));
+            let mut turned = ui.data(|data| data.get_temp::<bool>(key)).unwrap_or(random);
+            tiling_checker(ui, registrar, &name, &mut turned);
+            ui.data_mut(|data| data.insert_temp(key, turned));
+        });
+    }
+
+    // The rest of the selection, smaller, so a transform can be seen across the whole group.
+    let others: Vec<Item> = registrar.selected.iter().skip(1).cloned().collect();
+    if !others.is_empty() {
+        ui.add_space(8.0);
+        ui.label("The rest of the selection");
+        ui.horizontal_wrapped(|ui| {
+            for other in others {
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        for name in registrar.textures_of(&other, defs) {
+                            if texture_image(ui, registrar, &name, 48.0, true).hovered() {
+                                registrar.hovered = Some(other.clone());
+                            }
+                        }
+                    });
+                    ui.small(Registrar::label(&other, defs));
+                });
+                ui.add_space(8.0);
+            }
+        });
+    }
+    ui.add_space(8.0);
+    let names = registrar.textures_of(&first, defs);
+    let colours = registrar.colours_in_textures(&names);
+    ui.label(format!("Its palette: {} colours", colours.len()));
+    let list: Vec<(Rgb, u32)> = sorted_by_lightness(colours);
+    let event = swatches(ui, registrar, &list, None);
+    registrar.take(ui, egui::Id::new("dock colours"), event);
+}
+
+/// A block in the dock: its name, tags, whether it's regulated or composite, its settings and faces.
+fn block_dock(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) {
     ui.heading(&def.display_name);
     ui.monospace(&def.name);
     ui.label(if def.tags.is_empty() { "No tags".to_string() } else { format!("Tags: {}", def.tags.join(", ")) });
-    // Regulated or not, and composite or not.
     let unregulated = registrar.unregulated(def);
     let textures = texture_names(def).len();
     ui.horizontal(|ui| {
@@ -470,7 +698,7 @@ fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     });
     egui::CollapsingHeader::new("Block").id_salt("registrar block settings").default_open(false).show(ui, |ui| block_settings(ui, registrar, def));
     ui.add_space(8.0);
-    // Its faces, as many as differ.
+    // Its faces, as many as differ; click one to work on that texture on its own.
     let faces: [(&str, &[usize]); 3] = [("top", &[4]), ("sides", &[0, 1, 2, 3]), ("bottom", &[5])];
     ui.horizontal(|ui| {
         let mut done: Vec<&str> = Vec::new();
@@ -482,40 +710,40 @@ fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
             done.push(name);
             ui.vertical(|ui| {
                 if texture_image(ui, registrar, name, 128.0, true).hovered() {
-                    registrar.hovered = Some(def.name.clone());
+                    registrar.hovered = Some(Item::Block(def.name.clone()));
                 }
                 let all_same = def.faces.iter().all(|face| face == &def.faces[0]);
-                ui.small(format!("{} ({name})", if all_same { "all faces" } else { label }));
+                if ui.small_button(format!("{} ({name})", if all_same { "all faces" } else { label })).on_hover_text("Open this texture on its own").clicked() {
+                    registrar.selected = vec![Item::Texture(name.to_string())];
+                }
             });
         }
     });
-    // The rest of the selection, smaller, so a transform can be seen across the whole group.
-    let others: Vec<&BlockDef> = registrar.selected.iter().skip(1).filter_map(|name| defs.iter().find(|def| &def.name == name).copied()).collect();
-    if !others.is_empty() {
-        ui.add_space(8.0);
-        ui.label("The rest of the selection");
-        ui.horizontal_wrapped(|ui| {
-            for other in others {
-                ui.vertical(|ui| {
-                    ui.horizontal(|ui| {
-                        for name in texture_names(other) {
-                            if texture_image(ui, registrar, name, 48.0, true).hovered() {
-                                registrar.hovered = Some(other.name.clone());
-                            }
-                        }
-                    });
-                    ui.small(&other.display_name);
-                });
-                ui.add_space(8.0);
-            }
-        });
+}
+
+/// One texture in the dock: its image, which blocks use it on which faces, and whether it's
+/// regulated.
+fn texture_dock(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, defs: &[&BlockDef]) {
+    ui.heading(format!("{name}.png"));
+    let colours = registrar.colours_in_textures([&name.to_string()]);
+    let unregulated = colours.keys().filter(|&&rgb| !registrar.palette.slot_of(rgb).is_some_and(|slot| registrar.palette.is_regulated(slot))).count();
+    if unregulated == 0 {
+        ui.colored_label(Color32::from_rgb(120, 220, 120), "Regulated: every colour is on a spline");
+    } else {
+        ui.colored_label(Color32::from_rgb(255, 200, 80), format!("{unregulated} colours not on a spline"));
     }
+    let users: Vec<String> = defs
+        .iter()
+        .filter_map(|def| {
+            let faces: Vec<&str> = (0..6).filter(|&k| def.faces[k] == name).map(|k| crate::data::FACE_NAMES[k]).collect();
+            (!faces.is_empty()).then(|| format!("{} ({})", def.display_name, faces.join(", ")))
+        })
+        .collect();
+    ui.label(if users.is_empty() { "No block uses it yet.".to_string() } else { format!("Used by {}", users.join("; ")) });
     ui.add_space(8.0);
-    let colours = registrar.block_colours(def);
-    ui.label(format!("Its palette: {} colours", colours.len()));
-    let list: Vec<(Rgb, u32)> = sorted_by_lightness(colours);
-    let event = swatches(ui, registrar, &list, None);
-    registrar.take(ui, egui::Id::new("dock colours"), event);
+    if texture_image(ui, registrar, name, 128.0, true).hovered() {
+        registrar.hovered = Some(Item::Texture(name.to_string()));
+    }
 }
 
 /// How a block's faces take their textures.
@@ -660,6 +888,188 @@ fn block_settings(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) 
     });
 }
 
+// ── Loading a new asset ───────────────────────────────────────────────────
+
+/// A PNG being brought into the library: where from, its pixels (or why it can't be used), the
+/// name it'll have, and whether a block is made for it too.
+pub struct Incoming {
+    from: PathBuf,
+    pixels: Result<Vec<u8>, String>,
+    name: String,
+    make_block: bool,
+    image: Option<egui::TextureHandle>,
+}
+
+/// A file's name as a texture or block name: lowercase letters, digits and `_` only
+/// ("Red Granite-2.png" → "red_granite_2").
+fn asset_name(path: &Path) -> String {
+    let stem = path.file_stem().map_or(String::new(), |stem| stem.to_string_lossy().to_lowercase());
+    let name: String = stem.chars().map(|c| if c.is_ascii_lowercase() || c.is_ascii_digit() { c } else { '_' }).collect();
+    name.split('_').filter(|part| !part.is_empty()).collect::<Vec<_>>().join("_")
+}
+
+/// Every PNG under `Art/`, for picking one to load.
+fn art_pngs() -> Vec<PathBuf> {
+    fn walk(folder: &Path, depth: u32, found: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(folder).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() && depth < 6 {
+                walk(&path, depth + 1, found);
+            } else if path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("png")) {
+                found.push(path);
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(&crate::debug::project_folder().join("Art"), 0, &mut found);
+    found.sort();
+    found
+}
+
+impl Registrar {
+    /// A PNG to bring in (picked from Art/, or dragged onto the window): shown in the dock.
+    pub fn receive(&mut self, path: &Path) {
+        self.incoming = Some(Incoming {
+            from: path.to_path_buf(),
+            pixels: crate::render::textures::load_texture(path),
+            name: asset_name(path),
+            make_block: true,
+            image: None,
+        });
+        self.loading = false;
+    }
+
+    /// Copy the incoming PNG into the block textures, and make its block if asked (a plain block
+    /// with it on every face), after an undo step. The game reads them at once.
+    fn register(&mut self) {
+        let Some(incoming) = self.incoming.take() else { return };
+        let Ok(pixels) = &incoming.pixels else { return };
+        let name = incoming.name.clone();
+        let texture = block_texture_folder().join(format!("{name}.png"));
+        let id = format!("incus:{name}");
+        let block = crate::data::data_folder().join("incus").join("blocks").join(format!("{name}.toml"));
+        let making_block = incoming.make_block && !block.exists();
+        let mut files = vec![texture.clone()];
+        if making_block {
+            files.push(block.clone());
+        }
+        let what = format!("Registered {name}.png{}", if making_block { format!(" and the block {id}") } else { String::new() });
+        if let Err(error) = save_undo_step(&undo_folder(), &what, &files) {
+            self.message = format!("Not registered: couldn't save the undo step ({error}).");
+            return;
+        }
+        if let Err(error) = write_png(&texture, pixels) {
+            self.message = format!("Couldn't write {}: {error}. Undo takes back anything written.", texture.display());
+            return;
+        }
+        if making_block {
+            let from = incoming.from.file_name().map_or(String::new(), |file| file.to_string_lossy().into_owned());
+            let header = format!("# {name}: registered in the Registrar from {from}.\n# This file defines the block \"{id}\". See docs/data-files.md for every setting.");
+            let text = match crate::data::parse_block(&id, &format!("textures = {{ all = {name:?} }}")) {
+                Ok((def, _)) => crate::data::block_file_text(&def, &header),
+                Err(error) => {
+                    self.message = format!("Couldn't make the block: {error}.");
+                    return;
+                }
+            };
+            if let Err(error) = std::fs::write(&block, text) {
+                self.message = format!("Couldn't write {}: {error}. Undo takes back anything written.", block.display());
+                return;
+            }
+        }
+        self.undo.push(what.clone());
+        self.selected = vec![if making_block { Item::Block(id) } else { Item::Texture(name) }];
+        self.message = format!("{what}; it shows in the library in a moment.");
+    }
+}
+
+/// Picking a PNG from Art/ to bring in.
+fn art_picker(ui: &mut egui::Ui, registrar: &mut Registrar) {
+    ui.horizontal(|ui| {
+        ui.label("From Art/:");
+        ui.add(egui::TextEdit::singleline(&mut registrar.art_filter).hint_text("filter").desired_width(160.0));
+        if ui.small_button("Look again").clicked() {
+            registrar.art_files = art_pngs();
+        }
+        if ui.small_button("Close").clicked() {
+            registrar.loading = false;
+        }
+    });
+    ui.small("Or drag a PNG from anywhere onto the window.");
+    let art = crate::debug::project_folder().join("Art");
+    let filter = registrar.art_filter.to_lowercase();
+    let mut chosen = None;
+    egui::ScrollArea::vertical().max_height(220.0).id_salt("art picker").show(ui, |ui| {
+        for path in &registrar.art_files {
+            let shown = path.strip_prefix(&art).unwrap_or(path).display().to_string().replace('\\', "/");
+            if !filter.is_empty() && !shown.to_lowercase().contains(&filter) {
+                continue;
+            }
+            if ui.selectable_label(false, &shown).clicked() {
+                chosen = Some(path.clone());
+            }
+        }
+    });
+    if let Some(path) = chosen {
+        registrar.receive(&path);
+    }
+}
+
+/// The incoming PNG in the dock: its picture and colours, its name, and Register.
+fn incoming_dock(ui: &mut egui::Ui, registrar: &mut Registrar) {
+    let palette = registrar.palette.clone();
+    let existing: Vec<String> = registrar.texture_files.clone();
+    let editable = registrar.palette_problem.is_none();
+    let Some(incoming) = registrar.incoming.as_mut() else { return };
+    ui.heading(format!("New: {}", incoming.from.file_name().map_or(String::new(), |file| file.to_string_lossy().into_owned())));
+    ui.small(incoming.from.display().to_string());
+    let pixels = match &incoming.pixels {
+        Ok(pixels) => pixels.clone(),
+        Err(problem) => {
+            ui.colored_label(Color32::from_rgb(255, 80, 200), format!("Can't be used: {problem}"));
+            if ui.button("Cancel").clicked() {
+                registrar.incoming = None;
+            }
+            return;
+        }
+    };
+    let side = crate::render::textures::TEXTURE_SIZE as usize;
+    let image = incoming.image.get_or_insert_with(|| ui.ctx().load_texture("registrar incoming", egui::ColorImage::from_rgba_unmultiplied([side, side], &pixels), egui::TextureOptions::NEAREST));
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(128.0, 128.0), egui::Sense::hover());
+    ui.painter().image(image.id(), rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
+    // Its colours against the master palette.
+    let colours = master_palette::colours_in(&pixels);
+    let known = colours.iter().filter(|(rgb, _)| palette.slot_of(*rgb).is_some()).count();
+    let regulated = colours.iter().filter(|(rgb, _)| palette.slot_of(*rgb).is_some_and(|slot| palette.is_regulated(slot))).count();
+    ui.label(format!("{} colours: {regulated} on splines, {} in the palette but not on a spline, {} new", colours.len(), known - regulated, colours.len() - known));
+    if colours.len() > known {
+        ui.small("New colours join the master palette (not on a spline) when it's registered; then crush it onto a spline as usual.");
+    }
+    ui.horizontal(|ui| {
+        ui.label("name:");
+        if ui.text_edit_singleline(&mut incoming.name).lost_focus() {
+            incoming.name = asset_name(Path::new(&incoming.name));
+        }
+    });
+    let name = incoming.name.clone();
+    ui.checkbox(&mut incoming.make_block, format!("and a block, incus:{name}, with it on every face"));
+    if existing.contains(&name) {
+        ui.colored_label(Color32::from_rgb(255, 200, 80), format!("{name}.png is already a texture: registering replaces it (Undo puts it back), for every block using it."));
+    }
+    let block = crate::data::data_folder().join("incus").join("blocks").join(format!("{name}.toml"));
+    if incoming.make_block && block.exists() {
+        ui.small(format!("The block incus:{name} already exists: only its texture is replaced."));
+    }
+    ui.horizontal(|ui| {
+        if ui.add_enabled(!name.is_empty() && editable, egui::Button::new("Register")).clicked() {
+            registrar.register();
+        }
+        if ui.button("Cancel").clicked() {
+            registrar.incoming = None;
+        }
+    });
+}
+
 // ── The palettes ──────────────────────────────────────────────────────────
 
 /// What happened to a block of colour squares: the one under the mouse and whether it was clicked,
@@ -723,13 +1133,7 @@ impl Registrar {
 
     /// The selection's colours, combined, with how many pixels each.
     fn selection_colours(&self, defs: &[&BlockDef]) -> BTreeMap<Rgb, u32> {
-        let mut combined: BTreeMap<Rgb, u32> = BTreeMap::new();
-        for def in defs.iter().filter(|def| self.selected.contains(&def.name)) {
-            for (rgb, count) in self.block_colours(def) {
-                *combined.entry(rgb).or_default() += count;
-            }
-        }
-        combined
+        self.colours_in_textures(&self.selected_textures(defs))
     }
 
     /// What the transform makes of each of the selection's colours, worked out again when the
@@ -754,6 +1158,16 @@ impl Registrar {
     /// The picked colours' slots.
     fn picked_slots(&self) -> Vec<u32> {
         self.picked.iter().filter_map(|&rgb| self.palette.slot_of(rgb)).collect()
+    }
+
+    /// Save colours as a GPL palette in `palettes/`, as "Registrar - <what>.gpl" (the same name each
+    /// time, so Aseprite can load it again after a change).
+    fn export_gpl(&mut self, what: &str, colours: &[Rgb]) {
+        let name = format!("Registrar - {}", what.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], " "));
+        self.message = match super::palette::save_palette(&super::palette::palette_folder(), &name, colours) {
+            Ok(path) => format!("Exported {} colours to {}.", colours.len(), path.display()),
+            Err(error) => format!("Couldn't export {name}: {error}."),
+        };
     }
 
     /// Write the palette file after a change (never over one that couldn't be read).
@@ -790,9 +1204,10 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     }
     section(ui, "Focus", |ui| focus(ui, registrar, defs));
 
-    // The colours the hovered block (or else the selection) uses light up.
-    let names: Vec<String> = registrar.hovered.clone().map_or_else(|| registrar.selected.clone(), |name| vec![name]);
-    let lit: BTreeSet<Rgb> = defs.iter().filter(|def| names.contains(&def.name)).flat_map(|def| registrar.block_colours(def).into_keys()).collect();
+    // The colours the hovered item (or else the selection) uses light up.
+    let items: Vec<Item> = registrar.hovered.clone().map_or_else(|| registrar.selected.clone(), |item| vec![item]);
+    let textures: Vec<String> = items.iter().flat_map(|item| registrar.textures_of(item, defs)).collect();
+    let lit: BTreeSet<Rgb> = registrar.colours_in_textures(&textures).into_keys().collect();
     let lit = if lit.is_empty() { None } else { Some(lit) };
 
     section(ui, "Colours", |ui| {
@@ -830,6 +1245,21 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
                 registrar.save(format!("Made {name}."));
             }
         });
+        // GPL palettes, for Aseprite: what's in view (in the master palette's order), or the picked.
+        ui.horizontal_wrapped(|ui| {
+            let view = match registrar.view {
+                PaletteView::Everything => "master palette",
+                PaletteView::Splines => "splines",
+                PaletteView::Loose => "not on a spline",
+            };
+            if ui.add_enabled(!in_view.is_empty(), egui::Button::new("Export GPL of the view")).on_hover_text("Saves what's in view as a palette in palettes/, for Aseprite").clicked() {
+                registrar.export_gpl(view, &in_view);
+            }
+            if ui.add_enabled(!registrar.picked.is_empty(), egui::Button::new("Export GPL of the picked")).clicked() {
+                let picked: Vec<Rgb> = sorted_by_lightness(registrar.picked.iter().map(|&rgb| (rgb, 0))).into_iter().map(|(rgb, _)| rgb).collect();
+                registrar.export_gpl("picked", &picked);
+            }
+        });
 
         if registrar.view != PaletteView::Loose {
             splines(ui, registrar, lit.as_ref());
@@ -843,18 +1273,12 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
         }
     });
     section(ui, "Sub-palette", |ui| {
-        let chosen: Vec<&&BlockDef> = defs.iter().filter(|def| registrar.selected.contains(&def.name)).collect();
-        if chosen.is_empty() {
-            ui.label("Select blocks in the library to see their combined palette.");
+        if registrar.selected.is_empty() {
+            ui.label("Select blocks or textures in the library to see their combined palette.");
             return;
         }
-        let mut combined: BTreeMap<Rgb, u32> = BTreeMap::new();
-        for def in &chosen {
-            for (rgb, count) in registrar.block_colours(def) {
-                *combined.entry(rgb).or_default() += count;
-            }
-        }
-        let names: Vec<&str> = chosen.iter().map(|def| def.display_name.as_str()).collect();
+        let combined = registrar.selection_colours(defs);
+        let names: Vec<String> = registrar.selected.iter().map(|item| Registrar::label(item, defs)).collect();
         ui.label(format!("{}: {} colours", names.join(", "), combined.len()));
         let list = sorted_by_lightness(combined);
         let event = swatches(ui, registrar, &list, None);
@@ -862,6 +1286,10 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
         ui.horizontal(|ui| {
             if ui.button("Pick all of these").clicked() {
                 registrar.picked.extend(list.iter().map(|&(rgb, _)| rgb));
+            }
+            if ui.button("Export GPL").on_hover_text("Saves these colours as a palette in palettes/, for Aseprite").clicked() {
+                let colours: Vec<Rgb> = list.iter().map(|&(rgb, _)| rgb).collect();
+                registrar.export_gpl(&format!("{} sub-palette", names.join(", ")), &colours);
             }
         });
         egui::CollapsingHeader::new("Transform").default_open(true).show(ui, |ui| transform_controls(ui, registrar, &list, defs));
@@ -938,8 +1366,12 @@ fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb
     }
     // Writing it into the files: which textures, and any other block that uses one of them (it
     // changes too).
-    let names: BTreeSet<&str> = defs.iter().filter(|def| registrar.selected.contains(&def.name)).flat_map(|def| texture_names(def)).collect();
-    let others: Vec<&str> = defs.iter().filter(|def| !registrar.selected.contains(&def.name) && texture_names(def).iter().any(|name| names.contains(name))).map(|def| def.display_name.as_str()).collect();
+    let names = registrar.selected_textures(defs);
+    let others: Vec<&str> = defs
+        .iter()
+        .filter(|def| !registrar.selected.contains(&Item::Block(def.name.clone())) && texture_names(def).iter().any(|name| names.contains(*name)))
+        .map(|def| def.display_name.as_str())
+        .collect();
     ui.horizontal_wrapped(|ui| {
         if ui
             .add_enabled(registrar.palette_problem.is_none(), egui::Button::new("Apply to the files"))
@@ -973,8 +1405,14 @@ fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb
         let colours: Vec<Rgb> = after.iter().map(|&(rgb, _)| rgb).collect();
         registrar.palette.take_in(colours.iter().copied());
         let slots: Vec<u32> = colours.iter().filter_map(|&rgb| registrar.palette.slot_of(rgb)).collect();
-        let open = registrar.selected.first().cloned().unwrap_or_default();
-        let name = format!("{} crushed", open.rsplit(':').next().unwrap_or("spline"));
+        let open = registrar.selected.first().map_or_else(
+            || "spline".to_string(),
+            |item| match item {
+                Item::Block(name) => name.rsplit(':').next().unwrap_or(name).to_string(),
+                Item::Texture(name) => name.clone(),
+            },
+        );
+        let name = format!("{open} crushed");
         let index = registrar.palette.new_spline(&name, &slots);
         let made = registrar.palette.splines[index].steps.len();
         let note = if made < slots.len() { format!(" ({} were already on another spline and stayed there)", slots.len() - made) } else { String::new() };
@@ -1005,49 +1443,14 @@ fn splines(ui: &mut egui::Ui, registrar: &mut Registrar, lit: Option<&BTreeSet<R
     if registrar.palette.splines.is_empty() {
         ui.small("No splines yet.");
     }
-    let count = registrar.palette.splines.len();
-    for index in 0..count {
-        ui.add_space(4.0);
-        ui.horizontal(|ui| {
-            let picked = !registrar.picked.is_empty();
-            let spline = &mut registrar.palette.splines[index];
-            if !full {
-                if ui.add(egui::Label::new(&spline.name).sense(egui::Sense::click())).on_hover_text("Click to pick its shades").clicked() {
-                    action = Some(SplineAction::Pick(index));
-                }
-                ui.small(format!("{} shades", spline.steps.len()));
-                return;
-            }
-            if ui.add_enabled(index > 0, egui::Button::new("▲").small()).on_hover_text("Earlier in the master palette").clicked() {
-                action = Some(SplineAction::Move(index, -1));
-            }
-            if ui.add_enabled(index + 1 < count, egui::Button::new("▼").small()).on_hover_text("Later in the master palette").clicked() {
-                action = Some(SplineAction::Move(index, 1));
-            }
-            let name = ui.add(egui::TextEdit::singleline(&mut spline.name).desired_width(120.0));
-            if name.lost_focus() {
-                action = Some(SplineAction::Renamed);
-            }
-            ui.small(format!("{} shades", spline.steps.len()));
-            if ui.button("Pick").on_hover_text("Pick its shades").clicked() {
-                action = Some(SplineAction::Pick(index));
-            }
-            if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").on_disabled_hover_text("Pick some colours first (click or Shift + drag them)").clicked() {
-                action = Some(SplineAction::Add(index));
-            }
-            if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").on_disabled_hover_text("Pick some of its colours first").clicked() {
-                action = Some(SplineAction::TakeOff(index));
-            }
-            if ui.button("Delete").on_hover_text("The spline goes; its colours stay in the palette, not on a spline").clicked() {
-                action = Some(SplineAction::Delete(index));
-            }
-        });
-        let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
-        let event = swatches(ui, registrar, &steps, lit);
-        registrar.take(ui, egui::Id::new(("spline colours", index)), event);
-    }
+    let all: Vec<usize> = (0..registrar.palette.splines.len()).collect();
+    spline_group(ui, registrar, "", &all, full, lit, &mut action);
     match action {
-        Some(SplineAction::Renamed) => registrar.save("Renamed.".to_string()),
+        Some(SplineAction::Renamed) => registrar.save("Saved.".to_string()),
+        Some(SplineAction::PickMany(indices)) => {
+            let shades: Vec<Rgb> = indices.iter().flat_map(|&index| registrar.palette.splines[index].steps.clone()).filter_map(|slot| registrar.palette.colours.get(&slot)).map(|colour| colour.rgb).collect();
+            registrar.picked.extend(shades);
+        }
         Some(SplineAction::Pick(index)) => {
             let shades: Vec<Rgb> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| colour.rgb).collect();
             registrar.picked.extend(shades);
@@ -1076,6 +1479,87 @@ fn splines(ui: &mut egui::Ui, registrar: &mut Registrar, lit: Option<&BTreeSet<R
         }
         None => {}
     }
+}
+
+/// The splines in a group (`path`; "" for all of them) that `members` names, in the master
+/// palette's order: those directly in it, and each group inside it folding away under its name.
+fn spline_group(ui: &mut egui::Ui, registrar: &mut Registrar, path: &str, members: &[usize], full: bool, lit: Option<&BTreeSet<Rgb>>, action: &mut Option<SplineAction>) {
+    // The groups one level down, in the order their first spline comes.
+    let mut inner: Vec<String> = Vec::new();
+    for &index in members {
+        let group = registrar.palette.splines[index].group.as_str();
+        let rest = if path.is_empty() { Some(group) } else { group.strip_prefix(path).and_then(|rest| rest.strip_prefix('/')) };
+        if let Some(next) = rest.and_then(|rest| rest.split('/').next()).filter(|next| !next.is_empty())
+            && !inner.iter().any(|name| name == next)
+        {
+            inner.push(next.to_string());
+        }
+    }
+    for name in inner {
+        let inside = if path.is_empty() { name.clone() } else { format!("{path}/{name}") };
+        let in_it: Vec<usize> = members.iter().copied().filter(|&index| {
+            let group = &registrar.palette.splines[index].group;
+            group == &inside || group.starts_with(&format!("{inside}/"))
+        }).collect();
+        egui::CollapsingHeader::new(format!("{name}  ({} splines)", in_it.len())).id_salt(("spline group", &inside)).default_open(true).show(ui, |ui| {
+            if ui.small_button("Pick all in this group").clicked() {
+                *action = Some(SplineAction::PickMany(in_it.clone()));
+            }
+            spline_group(ui, registrar, &inside, &in_it, full, lit, action);
+        });
+    }
+    let direct: Vec<usize> = members.iter().copied().filter(|&index| registrar.palette.splines[index].group == path).collect();
+    for index in direct {
+        spline_row(ui, registrar, index, full, lit, action);
+    }
+}
+
+/// One spline: in the Splines view its controls (move up or down, name, group, pick, add or take off
+/// the picked, delete), in Everything its name (click to pick its shades); then its shades.
+fn spline_row(ui: &mut egui::Ui, registrar: &mut Registrar, index: usize, full: bool, lit: Option<&BTreeSet<Rgb>>, action: &mut Option<SplineAction>) {
+    let count = registrar.palette.splines.len();
+    ui.add_space(4.0);
+    ui.horizontal_wrapped(|ui| {
+        let picked = !registrar.picked.is_empty();
+        let spline = &mut registrar.palette.splines[index];
+        if !full {
+            if ui.add(egui::Label::new(&spline.name).sense(egui::Sense::click())).on_hover_text("Click to pick its shades").clicked() {
+                *action = Some(SplineAction::Pick(index));
+            }
+            ui.small(format!("{} shades", spline.steps.len()));
+            return;
+        }
+        if ui.add_enabled(index > 0, egui::Button::new("▲").small()).on_hover_text("Earlier in the master palette").clicked() {
+            *action = Some(SplineAction::Move(index, -1));
+        }
+        if ui.add_enabled(index + 1 < count, egui::Button::new("▼").small()).on_hover_text("Later in the master palette").clicked() {
+            *action = Some(SplineAction::Move(index, 1));
+        }
+        if ui.add(egui::TextEdit::singleline(&mut spline.name).desired_width(110.0)).lost_focus() {
+            *action = Some(SplineAction::Renamed);
+        }
+        ui.label("group:");
+        if ui.add(egui::TextEdit::singleline(&mut spline.group).desired_width(80.0).hint_text("none")).on_hover_text("Its group, to fold it away with others; \"/\" nests one group in another").lost_focus() {
+            spline.group = spline.group.split('/').map(str::trim).filter(|part| !part.is_empty()).collect::<Vec<_>>().join("/");
+            *action = Some(SplineAction::Renamed);
+        }
+        ui.small(format!("{} shades · #{}", spline.steps.len(), spline.id)).on_hover_text("Its permanent number: blocks and shaders go by it, so its name, group and place can change freely");
+        if ui.button("Pick").on_hover_text("Pick its shades").clicked() {
+            *action = Some(SplineAction::Pick(index));
+        }
+        if ui.add_enabled(picked, egui::Button::new("Add the picked")).on_hover_text("Each goes in by lightness, between the shades darker and lighter").on_disabled_hover_text("Pick some colours first (click or Shift + drag them)").clicked() {
+            *action = Some(SplineAction::Add(index));
+        }
+        if ui.add_enabled(picked, egui::Button::new("Take off the picked")).on_hover_text("Picked colours on this spline go back to not being on one").on_disabled_hover_text("Pick some of its colours first").clicked() {
+            *action = Some(SplineAction::TakeOff(index));
+        }
+        if ui.button("Delete").on_hover_text("The spline goes; its colours stay in the palette, not on a spline").clicked() {
+            *action = Some(SplineAction::Delete(index));
+        }
+    });
+    let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
+    let event = swatches(ui, registrar, &steps, lit);
+    registrar.take(ui, egui::Id::new(("spline colours", index)), event);
 }
 
 /// "Clear out unused colours": the colours on no spline that no block uses any more, shown first,
@@ -1107,6 +1591,7 @@ enum SplineAction {
     Renamed,
     Move(usize, isize),
     Pick(usize),
+    PickMany(Vec<usize>),
     Add(usize),
     TakeOff(usize),
     Delete(usize),
@@ -1345,17 +1830,21 @@ fn undo_folder() -> PathBuf {
     crate::data::assets_folder().parent().map_or_else(|| PathBuf::from("registrar undo"), |project| project.join("registrar undo"))
 }
 
-/// Before a change: copy `files` (those that exist) into a new step in `folder`, with what the
-/// change is. Each step holds `what.txt`, `files.txt` (each copy's number and where it came from)
-/// and the copies.
+/// Before a change: copy `files` into a new step in `folder`, with what the change is. Each step
+/// holds `what.txt`, `files.txt` (each copy's number and where it came from, or "new" for a file
+/// that isn't there yet, which the change makes) and the copies.
 fn save_undo_step(folder: &Path, what: &str, files: &[PathBuf]) -> Result<(), String> {
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis());
     let step = folder.join(format!("{stamp:015}"));
     std::fs::create_dir_all(&step).map_err(|error| error.to_string())?;
     let mut list = String::new();
-    for (k, file) in files.iter().enumerate().filter(|(_, file)| file.exists()) {
-        std::fs::copy(file, step.join(format!("{k}.copy"))).map_err(|error| format!("couldn't copy {}: {error}", file.display()))?;
-        list += &format!("{k}\t{}\n", file.display());
+    for (k, file) in files.iter().enumerate() {
+        if file.exists() {
+            std::fs::copy(file, step.join(format!("{k}.copy"))).map_err(|error| format!("couldn't copy {}: {error}", file.display()))?;
+            list += &format!("{k}\t{}\n", file.display());
+        } else {
+            list += &format!("new\t{}\n", file.display());
+        }
     }
     std::fs::write(step.join("files.txt"), list).map_err(|error| error.to_string())?;
     std::fs::write(step.join("what.txt"), what).map_err(|error| error.to_string())
@@ -1368,12 +1857,19 @@ fn undo_steps(folder: &Path) -> Vec<(PathBuf, String)> {
     steps.into_iter().map(|step| (step.clone(), std::fs::read_to_string(step.join("what.txt")).unwrap_or_default())).collect()
 }
 
-/// Put back the newest step's files and remove the step. Returns what was undone.
+/// Undo the newest step: its copies put back, the files it made taken away, and the step removed.
+/// Returns what was undone.
 fn undo_last(folder: &Path) -> Result<String, String> {
     let (step, what) = undo_steps(folder).pop().ok_or("nothing to undo")?;
     let list = std::fs::read_to_string(step.join("files.txt")).map_err(|error| error.to_string())?;
     for line in list.lines() {
         let Some((k, path)) = line.split_once('\t') else { continue };
+        if k == "new" {
+            if Path::new(path).exists() {
+                std::fs::remove_file(path).map_err(|error| format!("couldn't take away {path}: {error}"))?;
+            }
+            continue;
+        }
         std::fs::copy(step.join(format!("{k}.copy")), path).map_err(|error| format!("couldn't put back {path}: {error}"))?;
     }
     std::fs::remove_dir_all(&step).map_err(|error| error.to_string())?;
@@ -1448,6 +1944,12 @@ mod tests {
         assert_eq!(undo_last(&undo).unwrap(), "first");
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "original");
         assert!(undo_last(&undo).is_err());
+        // A file the change makes is taken away again.
+        let made = folder.join("limonite.png");
+        save_undo_step(&undo, "made", std::slice::from_ref(&made)).unwrap();
+        std::fs::write(&made, "new art").unwrap();
+        assert_eq!(undo_last(&undo).unwrap(), "made");
+        assert!(!made.exists());
         let _ = std::fs::remove_dir_all(&folder);
     }
     #[test]

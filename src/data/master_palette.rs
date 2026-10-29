@@ -12,7 +12,7 @@
 //!   a hair). When the Lab changes a colour, it rewrites the pixels with it at the same time.
 
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// A colour as stored: red, green, blue, 0-255 (as painted, sRGB).
@@ -24,11 +24,20 @@ pub struct Colour {
     pub rgb: Rgb,
 }
 
-/// A spline: one hue's ramp of shades, darkest first, as slots. (Shaped by HSL curves later; for
+/// A spline: one hue's ramp of shades, darkest first, as slots, with a permanent number (`id`, given
+/// out like slots, never reused) that blocks and shaders go by, so its name, group and place in the
+/// list are only labels and can change freely. (Shaped by HSL curves later; for
 /// now just its shades.)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Spline {
+    /// 0 in a file written before splines had numbers: given one when read.
+    #[serde(default)]
+    pub id: u32,
     pub name: String,
+    /// Its group, to fold it away with others while working: "/" nests one group in another, as
+    /// tags do ("rock/igneous"). Empty: in no group.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub group: String,
     pub steps: Vec<u32>,
 }
 
@@ -38,6 +47,8 @@ pub struct MasterPalette {
     /// Every colour, by slot.
     pub colours: BTreeMap<u32, Colour>,
     pub splines: Vec<Spline>,
+    /// The next spline number to give out, likewise.
+    pub next_spline: u32,
     /// The next slot to give out: never one used before, even if it's gone since.
     pub next_slot: u32,
 }
@@ -52,6 +63,7 @@ pub fn palette_file() -> PathBuf {
 #[serde(default, deny_unknown_fields)]
 struct PaletteFile {
     next_slot: u32,
+    next_spline: u32,
     #[serde(rename = "spline")]
     splines: Vec<Spline>,
     #[serde(rename = "colour")]
@@ -97,6 +109,16 @@ impl MasterPalette {
             }
         }
         palette.splines = file.splines;
+        // Every spline a number, never one used twice.
+        palette.next_spline = file.next_spline.max(1).max(palette.splines.iter().map(|spline| spline.id + 1).max().unwrap_or(1));
+        let mut seen = BTreeSet::new();
+        for spline in &mut palette.splines {
+            if spline.id == 0 || !seen.insert(spline.id) {
+                spline.id = palette.next_spline;
+                palette.next_spline += 1;
+                seen.insert(spline.id);
+            }
+        }
         Ok(palette)
     }
 
@@ -106,10 +128,11 @@ impl MasterPalette {
             "# The master palette: every colour the game's art uses, each with a permanent number (slot).\n\
              # Written by the Registrar's Color Lab; edit it there rather than here.\n\n",
         );
-        text += &format!("next_slot = {}\n", self.next_slot);
+        text += &format!("next_slot = {}\nnext_spline = {}\n", self.next_slot, self.next_spline);
         for spline in &self.splines {
             let steps: Vec<String> = spline.steps.iter().map(u32::to_string).collect();
-            text += &format!("\n[[spline]]\nname = {:?}\nsteps = [{}]\n", spline.name, steps.join(", "));
+            let group = if spline.group.is_empty() { String::new() } else { format!("group = {:?}\n", spline.group) };
+            text += &format!("\n[[spline]]\nid = {}\nname = {:?}\n{group}steps = [{}]\n", spline.id, spline.name, steps.join(", "));
         }
         text += "\n";
         for (slot, colour) in &self.colours {
@@ -156,7 +179,9 @@ impl MasterPalette {
     /// A new spline of these slots, darkest first. A colour can only be on one spline, so any
     /// already on one are left where they are. Returns the new spline's place in the list.
     pub fn new_spline(&mut self, name: &str, slots: &[u32]) -> usize {
-        self.splines.push(Spline { name: name.to_string(), steps: Vec::new() });
+        let id = self.next_spline.max(1);
+        self.next_spline = id + 1;
+        self.splines.push(Spline { id, name: name.to_string(), group: String::new(), steps: Vec::new() });
         let index = self.splines.len() - 1;
         self.add_to_spline(index, slots);
         index
@@ -256,7 +281,7 @@ mod tests {
     fn new_colours_join_unregulated_and_known_ones_find_their_slot() {
         let mut palette = MasterPalette::default();
         let ochre = palette.add([200, 150, 60]);
-        palette.splines.push(Spline { name: "ochre".to_string(), steps: vec![ochre] });
+        palette.splines.push(Spline { id: 1, name: "ochre".to_string(), group: String::new(), steps: vec![ochre] });
         let added = palette.take_in([[200, 150, 60], [201, 150, 60], [201, 150, 60]]);
         // Only the exact match is known: a hair off is new (and only joins once).
         assert_eq!(added.len(), 1);
@@ -300,11 +325,22 @@ mod tests {
         palette.move_spline(0, -1);
         assert_eq!(palette.splines[0].name, "empty", "nowhere to go: stays");
     }
+
+    #[test]
+    fn splines_without_numbers_are_given_new_ones_never_used_twice() {
+        let text = "next_slot = 3\n[[spline]]\nname = \"old\"\nsteps = [1]\n[[spline]]\nid = 4\nname = \"numbered\"\nsteps = [2]\n[[colour]]\nslot = 1\nrgb = \"#010101\"\n[[colour]]\nslot = 2\nrgb = \"#020202\"";
+        let mut palette = MasterPalette::parse(text).unwrap();
+        assert_eq!(palette.splines[1].id, 4);
+        assert_eq!(palette.splines[0].id, 5, "a new number, past every one in use");
+        let next = palette.new_spline("new", &[]);
+        assert_eq!(palette.splines[next].id, 6);
+    }
     #[test]
     fn the_file_reads_back_as_written() {
         let mut palette = MasterPalette::default();
         let (a, b) = (palette.add([255, 0, 128]), palette.add([1, 2, 3]));
-        palette.splines.push(Spline { name: "pink".to_string(), steps: vec![b, a] });
+        palette.splines.push(Spline { id: 7, name: "pink".to_string(), group: "warm/reds".to_string(), steps: vec![b, a] });
+        palette.next_spline = 8;
         let gone = palette.add([9, 9, 9]);
         palette.colours.remove(&gone);
         let again = MasterPalette::parse(&palette.to_text()).unwrap();

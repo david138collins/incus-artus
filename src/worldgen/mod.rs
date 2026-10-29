@@ -358,10 +358,15 @@ fn run_suite(mut suite: ResMut<Suite>, mut soak_pressed: Local<bool>) {
     }
 }
 
-/// PNG files dragged onto the window become image layers.
+/// PNG files dragged onto the window become image layers, or, with the Registrar open, a new asset
+/// to register.
 fn take_dropped_files(mut drops: MessageReader<FileDragAndDrop>, mut suite: ResMut<Suite>) {
     for drop in drops.read() {
         if let FileDragAndDrop::DroppedFile { path_buf, .. } = drop {
+            if suite.kit == Kit::Registrar {
+                suite.registrar.receive(path_buf);
+                continue;
+            }
             let message = match suite.add_image(path_buf) {
                 Ok(()) => format!("Added {}", path_buf.display()),
                 Err(error) => format!("Couldn't use {}: {error}", path_buf.display()),
