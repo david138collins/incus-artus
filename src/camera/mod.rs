@@ -43,6 +43,7 @@ impl Plugin for CameraPlugin {
             .init_resource::<LookTarget>()
             .init_resource::<FieldOfViewBoost>()
             .init_resource::<CameraHold>()
+            .init_resource::<Wobble>()
             .add_plugins(panini::PaniniPlugin)
             .add_systems(Startup, spawn_camera)
             .add_systems(
@@ -53,6 +54,7 @@ impl Plugin for CameraPlugin {
                     fly.run_if(not_held),
                     place_camera,
                     apply_field_of_view,
+                    watch_for_wobble,
                     find_look_target,
                     draw_look_target,
                 )
@@ -283,6 +285,44 @@ pub fn place_camera(mut cameras: Query<(&FlyCamera, &mut Transform)>) {
     }
 }
 
+/// The camera's smallest movements, for tracking down a quiver [David, 2026-10-28: blocks and the
+/// selection box seemed to shake while standing still]: how far it moved, turned and changed its
+/// field of view from one frame to the next, the largest of each in the last second.
+#[derive(Resource, Default)]
+pub struct Wobble {
+    last: Option<(Vec3, Quat, f32)>,
+    this_second: (f32, f32, f32, u32),
+    second_started: f32,
+    /// Moved (blocks), turned (degrees), field of view (degrees), and in how many frames anything
+    /// changed at all, in the last full second.
+    pub last_second: (f32, f32, f32, u32),
+}
+
+fn watch_for_wobble(time: Res<Time<Real>>, mut wobble: ResMut<Wobble>, cameras: Query<(&Transform, &Projection), With<FlyCamera>>) {
+    let Ok((transform, projection)) = cameras.single() else { return };
+    let fov = match projection {
+        Projection::Perspective(p) => p.fov.to_degrees(),
+        _ => 0.0,
+    };
+    let now = (transform.translation, transform.rotation, fov);
+    if let Some((position, rotation, last_fov)) = wobble.last {
+        let (moved, turned, widened) = (now.0.distance(position), now.1.angle_between(rotation).to_degrees(), (now.2 - last_fov).abs());
+        let second = &mut wobble.this_second;
+        second.0 = second.0.max(moved);
+        second.1 = second.1.max(turned);
+        second.2 = second.2.max(widened);
+        if moved > 0.0 || turned > 0.0 || widened > 0.0 {
+            second.3 += 1;
+        }
+    }
+    wobble.last = Some(now);
+    let t = time.elapsed_secs();
+    if t - wobble.second_started >= 1.0 {
+        wobble.last_second = std::mem::take(&mut wobble.this_second);
+        wobble.second_started = t;
+    }
+}
+
 /// Extra field of view, in degrees, added on top of the setting by other modules
 /// (the sprint's FOV boost). Each frame's value replaces the last.
 #[derive(Resource, Default, PartialEq)]
@@ -450,6 +490,13 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
                 *camera = FlyCamera::at_start();
             }
         }
+    }
+
+    // ── The smallest movements (tracking down a quiver) ──
+    {
+        let (moved, turned, widened, frames) = world.resource::<Wobble>().last_second;
+        ui.label(format!("Last second: moved up to {moved:.6} blocks, turned {turned:.5}°, view widened {widened:.5}°, in {frames} frames"))
+            .on_hover_text("Standing still with hands off, all of these should be 0. Anything else is the camera quivering.");
     }
 
     // ── What the crosshair points at ──
