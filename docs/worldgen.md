@@ -823,8 +823,8 @@ to evaporation.
 
 #### Caves, cliffs and carving  [IDEA, David 2026-10-29; after forests, a "caves and cliffs" pass]
 
-- **After mineralogy, caves.** Where exactly (Climate's last section, or the first stage after it) is
-  David's call.
+- **After mineralogy, caves**, inside Climate [DECIDED 2026-10-29, David]: the Climate tab goes
+  **Temperature, Wind, Rain, Rivers, Mineralogy, Caves**.
 - **Fun first, not science** [David]: "the important thing is they are fun." If rivers and water can
   make fun caves, that's a happy accident, not a requirement.
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
