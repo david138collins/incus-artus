@@ -11,6 +11,7 @@
 //! registering new assets and HSL transforms follow.
 
 use crate::data::master_palette::{self, MasterPalette, Rgb};
+use super::palette::Spread;
 use crate::data::{BlockDef, BlockRegistry, block_texture_folder};
 use bevy_egui::egui::{self, Color32, Stroke};
 use std::collections::{BTreeMap, BTreeSet};
@@ -22,6 +23,8 @@ struct Texture {
     /// For showing it, made when first drawn.
     image: Option<egui::TextureHandle>,
     pixels: Vec<u8>,
+    /// It as the sub-palette's transform makes it, and the transform's number it was made for.
+    preview: Option<(u64, egui::TextureHandle)>,
     /// Why it couldn't be read, if it couldn't.
     problem: Option<String>,
 }
@@ -44,6 +47,16 @@ pub struct Registrar {
     picked: BTreeSet<Rgb>,
     /// The colour last under the mouse, shown large at the top of the palettes.
     focus: Option<Rgb>,
+    /// A box being dragged over colour squares.
+    band: Option<Band>,
+    /// The sub-palette's transform, what it makes of each of the selection's colours, what that was
+    /// worked out for (transform, selection, textures read at), and a number that changes with it.
+    transform: Transform,
+    mapping: BTreeMap<Rgb, Rgb>,
+    mapped_for: Option<(Transform, Vec<String>, Option<u64>)>,
+    mapping_version: u64,
+    /// Show the blocks as they are, not as the transform would make them.
+    before: bool,
 }
 
 /// Blocks worth showing: everything drawn (not air).
@@ -86,8 +99,8 @@ impl Registrar {
                     continue;
                 }
                 let texture = match crate::render::textures::load_texture(&folder.join(format!("{name}.png"))) {
-                    Ok(pixels) => Texture { colours: master_palette::colours_in(&pixels), image: None, pixels, problem: None },
-                    Err(problem) => Texture { colours: Vec::new(), image: None, pixels: Vec::new(), problem: Some(problem) },
+                    Ok(pixels) => Texture { colours: master_palette::colours_in(&pixels), image: None, preview: None, pixels, problem: None },
+                    Err(problem) => Texture { colours: Vec::new(), image: None, preview: None, pixels: Vec::new(), problem: Some(problem) },
                 };
                 used.extend(texture.colours.iter().map(|&(rgb, _)| rgb));
                 self.textures.insert(name.to_string(), texture);
@@ -125,8 +138,17 @@ impl Registrar {
 /// Draws the Registrar.
 pub fn draw(root: &mut egui::Ui, registrar: &mut Registrar, registry: &BlockRegistry) {
     registrar.refresh(registry);
+    // Escape deselects every colour; a box whose squares have gone ends when the mouse is let go.
+    let (escape, held) = root.input(|input| (input.key_pressed(egui::Key::Escape), input.pointer.primary_down() || input.pointer.primary_released()));
+    if escape && !root.ctx().egui_wants_keyboard_input() {
+        registrar.picked.clear();
+    }
+    if !held {
+        registrar.band = None;
+    }
     registrar.hovered = None;
     let defs: Vec<&BlockDef> = registry.defs().iter().filter(|def| shown(def)).collect();
+    registrar.update_mapping(&defs);
     egui::Panel::left("registrar library").resizable(true).default_size(260.0).size_range(180.0..=600.0).show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| library(ui, registrar, &defs));
     });
@@ -177,7 +199,7 @@ fn library_row(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) {
     let selected = registrar.selected.contains(&def.name);
     let row = ui.horizontal(|ui| {
         if let Some(top) = def.faces.get(4).filter(|top| !top.is_empty()) {
-            texture_image(ui, registrar, top, 20.0);
+            texture_image(ui, registrar, top, 20.0, false);
         }
         let label = ui.selectable_label(selected, &def.display_name);
         if unregulated > 0 {
@@ -207,7 +229,7 @@ fn library_row(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) {
 }
 
 /// A texture, `size` points square (made the first time it's drawn).
-fn texture_image(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, size: f32) -> egui::Response {
+fn texture_image(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, size: f32, transformed: bool) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
     let Some(texture) = registrar.textures.get_mut(name) else {
         return response;
@@ -217,10 +239,35 @@ fn texture_image(ui: &mut egui::Ui, registrar: &mut Registrar, name: &str, size:
         return response.on_hover_text(texture.problem.clone().unwrap_or_default());
     }
     let side = crate::render::textures::TEXTURE_SIZE as usize;
-    let image = texture.image.get_or_insert_with(|| {
-        ui.ctx().load_texture(format!("registrar {name}"), egui::ColorImage::from_rgba_unmultiplied([side, side], &texture.pixels), egui::TextureOptions::NEAREST)
+    // As the sub-palette's transform would make it: each pixel's colour mapped (made again
+    // whenever the transform changes).
+    let mapping = &registrar.mapping;
+    let id = if transformed && !registrar.before && !mapping.is_empty() {
+        let version = registrar.mapping_version;
+        if texture.preview.as_ref().is_none_or(|(made_for, _)| *made_for != version) {
+            let mut pixels = texture.pixels.clone();
+            for pixel in pixels.chunks_exact_mut(4) {
+                if let Some(to) = mapping.get(&[pixel[0], pixel[1], pixel[2]]) {
+                    pixel[..3].copy_from_slice(to);
+                }
+            }
+            let image = egui::ColorImage::from_rgba_unmultiplied([side, side], &pixels);
+            match &mut texture.preview {
+                Some((made_for, handle)) => {
+                    handle.set(image, egui::TextureOptions::NEAREST);
+                    *made_for = version;
+                }
+                None => texture.preview = Some((version, ui.ctx().load_texture(format!("registrar {name} transformed"), image, egui::TextureOptions::NEAREST))),
+            }
+        }
+        texture.preview.as_ref().map(|(_, handle)| handle.id())
+    } else {
+        None
+    };
+    let id = id.unwrap_or_else(|| {
+        texture.image.get_or_insert_with(|| ui.ctx().load_texture(format!("registrar {name}"), egui::ColorImage::from_rgba_unmultiplied([side, side], &texture.pixels), egui::TextureOptions::NEAREST)).id()
     });
-    ui.painter().image(image.id(), rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
+    ui.painter().image(id, rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
     response
 }
 
@@ -253,7 +300,7 @@ fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
             }
             done.push(name);
             ui.vertical(|ui| {
-                if texture_image(ui, registrar, name, 128.0).hovered() {
+                if texture_image(ui, registrar, name, 128.0, true).hovered() {
                     registrar.hovered = Some(def.name.clone());
                 }
                 let all_same = def.faces.iter().all(|face| face == &def.faces[0]);
@@ -261,28 +308,121 @@ fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
             });
         }
     });
+    // The rest of the selection, smaller, so a transform can be seen across the whole group.
+    let others: Vec<&BlockDef> = registrar.selected.iter().skip(1).filter_map(|name| defs.iter().find(|def| &def.name == name).copied()).collect();
+    if !others.is_empty() {
+        ui.add_space(8.0);
+        ui.label("The rest of the selection");
+        ui.horizontal_wrapped(|ui| {
+            for other in others {
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        for name in texture_names(other) {
+                            if texture_image(ui, registrar, name, 48.0, true).hovered() {
+                                registrar.hovered = Some(other.name.clone());
+                            }
+                        }
+                    });
+                    ui.small(&other.display_name);
+                });
+                ui.add_space(8.0);
+            }
+        });
+    }
     ui.add_space(8.0);
     let colours = registrar.block_colours(def);
     ui.label(format!("Its palette: {} colours", colours.len()));
     let list: Vec<(Rgb, u32)> = sorted_by_lightness(colours);
     let event = swatches(ui, registrar, &list, None);
-    registrar.take(event);
+    registrar.take(ui, egui::Id::new("dock colours"), event);
 }
 
 // ── The palettes ──────────────────────────────────────────────────────────
 
-/// What happened to a row of colour squares: the one under the mouse, and whether it was clicked.
-type Swatch = Option<(Rgb, bool)>;
+/// What happened to a block of colour squares: the one under the mouse and whether it was clicked,
+/// and where each square is (for dragging a box over them).
+struct Swatch {
+    hover: Option<(Rgb, bool)>,
+    squares: Vec<(egui::Rect, Rgb)>,
+}
+
+/// A box being dragged over a block of colour squares (Shift + drag picks what it covers; Ctrl +
+/// Shift + drag unpicks): which block, and where it started.
+struct Band {
+    block: egui::Id,
+    from: egui::Pos2,
+    unpicking: bool,
+}
 
 impl Registrar {
-    /// The colour under the mouse becomes the focus; a click picks it, or unpicks it.
-    fn take(&mut self, event: Swatch) {
-        if let Some((rgb, clicked)) = event {
+    /// The colour under the mouse becomes the focus; a click picks it, or unpicks it. Shift + drag
+    /// draws a box: rows, columns or any patch of squares it covers are picked when let go (with
+    /// Ctrl too, unpicked). `block` names this block of squares, so a box stays in the one it began in.
+    fn take(&mut self, ui: &egui::Ui, block: egui::Id, event: Swatch) {
+        let (pointer, pressed, released, shift, ctrl) = ui.input(|input| {
+            (input.pointer.interact_pos(), input.pointer.primary_pressed(), input.pointer.primary_released(), input.modifiers.shift, input.modifiers.command)
+        });
+        if let Some((rgb, clicked)) = event.hover {
             self.focus = Some(rgb);
-            if clicked && !self.picked.remove(&rgb) {
+            if clicked && !shift && !self.picked.remove(&rgb) {
                 self.picked.insert(rgb);
             }
+            if pressed && shift && self.band.is_none()
+                && let Some(from) = pointer
+            {
+                self.band = Some(Band { block, from, unpicking: ctrl });
+            }
         }
+        let Some(band) = self.band.as_ref().filter(|band| band.block == block) else { return };
+        let Some(to) = pointer else { return };
+        let area = egui::Rect::from_two_pos(band.from, to);
+        let covered = event.squares.iter().filter(|(rect, _)| rect.intersects(area));
+        let colour = if band.unpicking { Color32::WHITE } else { PICKED };
+        let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("registrar band")));
+        painter.rect_stroke(area, 0.0, Stroke::new(1.0, colour), egui::StrokeKind::Outside);
+        for (rect, _) in covered.clone() {
+            painter.rect_stroke(*rect, 2.0, Stroke::new(1.0, colour), egui::StrokeKind::Inside);
+        }
+        if released {
+            let unpicking = band.unpicking;
+            let covered: Vec<Rgb> = covered.map(|&(_, rgb)| rgb).collect();
+            for rgb in covered {
+                if unpicking {
+                    self.picked.remove(&rgb);
+                } else {
+                    self.picked.insert(rgb);
+                }
+            }
+            self.band = None;
+        }
+    }
+
+    /// The selection's colours, combined, with how many pixels each.
+    fn selection_colours(&self, defs: &[&BlockDef]) -> BTreeMap<Rgb, u32> {
+        let mut combined: BTreeMap<Rgb, u32> = BTreeMap::new();
+        for def in defs.iter().filter(|def| self.selected.contains(&def.name)) {
+            for (rgb, count) in self.block_colours(def) {
+                *combined.entry(rgb).or_default() += count;
+            }
+        }
+        combined
+    }
+
+    /// What the transform makes of each of the selection's colours, worked out again when the
+    /// transform, the selection or the textures change (empty: no transform).
+    fn update_mapping(&mut self, defs: &[&BlockDef]) {
+        let wanted = (self.transform, self.selected.clone(), self.read_at);
+        if self.mapped_for.as_ref() == Some(&wanted) {
+            return;
+        }
+        self.mapping = if self.transform.is_active() {
+            let colours: Vec<(Rgb, u32)> = self.selection_colours(defs).into_iter().collect();
+            self.transform.mapping(&colours)
+        } else {
+            BTreeMap::new()
+        };
+        self.mapped_for = Some(wanted);
+        self.mapping_version += 1;
     }
 
     /// The picked colours' slots.
@@ -317,8 +457,9 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
 
     // Picking, and making a spline of what's picked.
     ui.horizontal_wrapped(|ui| {
-        ui.label(format!("{} picked", registrar.picked.len())).on_hover_text("Click colours in any palette to pick them; click again to unpick");
-        if ui.add_enabled(!registrar.picked.is_empty(), egui::Button::new("Clear")).clicked() {
+        ui.label(format!("{} picked", registrar.picked.len())).on_hover_text("Click colours in any palette to pick them; click again to unpick.
+Shift + drag a box to pick rows, columns or any patch; Ctrl + Shift + drag to unpick.");
+        if ui.add_enabled(!registrar.picked.is_empty(), egui::Button::new("Deselect all")).on_hover_text("Or press Escape").clicked() {
             registrar.picked.clear();
         }
         let editable = registrar.palette_problem.is_none();
@@ -359,7 +500,7 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
         let steps: Vec<(Rgb, u32)> = registrar.palette.splines[index].steps.iter().filter_map(|slot| registrar.palette.colours.get(slot)).map(|colour| (colour.rgb, 0)).collect();
         hsl_curves(ui, &steps);
         let event = swatches(ui, registrar, &steps, lit.as_ref());
-        registrar.take(event);
+        registrar.take(ui, egui::Id::new(("spline colours", index)), event);
     }
     match action {
         Some(SplineAction::Renamed) => registrar.save("Renamed.".to_string()),
@@ -388,7 +529,7 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     let loose: Vec<(Rgb, u32)> = registrar.palette.colours.iter().filter(|&(&slot, _)| !registrar.palette.is_regulated(slot)).map(|(_, colour)| (colour.rgb, 0)).collect();
     ui.label(format!("Not on a spline yet: {} colours", loose.len()));
     let event = swatches(ui, registrar, &sorted_by_lightness(loose), lit.as_ref());
-    registrar.take(event);
+    registrar.take(ui, egui::Id::new("loose colours"), event);
     if !registrar.message.is_empty() {
         ui.small(&registrar.message);
     }
@@ -410,13 +551,58 @@ fn palettes(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
     ui.label(format!("{}: {} colours", names.join(", "), combined.len()));
     let list = sorted_by_lightness(combined);
     let event = swatches(ui, registrar, &list, None);
-    registrar.take(event);
+    registrar.take(ui, egui::Id::new("sub-palette colours"), event);
     ui.horizontal(|ui| {
         if ui.button("Pick all of these").clicked() {
             registrar.picked.extend(list.iter().map(|&(rgb, _)| rgb));
         }
-        ui.add_enabled(false, egui::Button::new("HSL transform…")).on_disabled_hover_text("Coming soon: shift these colours' hue, saturation and lightness");
     });
+    transform_controls(ui, registrar, &list);
+}
+
+/// The sub-palette's transform: crushing to fewer colours, and shifting hue, saturation and
+/// lightness, all previewed on the blocks in the dock. Nothing is written to the files yet.
+fn transform_controls(ui: &mut egui::Ui, registrar: &mut Registrar, list: &[(Rgb, u32)]) {
+    ui.add_space(6.0);
+    ui.label("Transform (a preview on the blocks in the dock)");
+    let transform = &mut registrar.transform;
+    let most = (list.len() as u32).saturating_sub(1).clamp(2, 64);
+    ui.add(crate::debug::Slider::new(&mut transform.crush, 0..=most).text("crush to (colours; 0 = off)"))
+        .on_hover_text("Lined up darkest first and cut into this many groups; each group becomes its pixels' average colour");
+    ui.add_enabled_ui(transform.crush > 0, |ui| {
+        ui.horizontal(|ui| {
+            ui.label("groups:");
+            ui.radio_value(&mut transform.spread, Spread::EqualValues, "equal slices of lightness");
+            ui.radio_value(&mut transform.spread, Spread::EqualShares, "equal shares of the pixels");
+        });
+    });
+    ui.add(crate::debug::Slider::new(&mut transform.hue, -180.0..=180.0).text("hue").suffix("°"));
+    let mut percent = |value: &mut f32, name: &str| {
+        let mut shown = *value * 100.0;
+        if ui.add(crate::debug::Slider::new(&mut shown, -100.0..=100.0).text(name).suffix("%")).changed() {
+            *value = shown / 100.0;
+        }
+    };
+    percent(&mut transform.saturation, "saturation");
+    percent(&mut transform.lightness, "lightness");
+    ui.horizontal(|ui| {
+        if ui.add_enabled(registrar.transform.is_active(), egui::Button::new("Reset")).clicked() {
+            registrar.transform = Transform { spread: registrar.transform.spread, ..Transform::default() };
+        }
+        ui.checkbox(&mut registrar.before, "show the blocks before").on_hover_text("The dock shows the blocks as they are, not as the transform would make them");
+        ui.add_enabled(false, egui::Button::new("Apply to the files")).on_disabled_hover_text("Coming with replacing: writes the PNGs, with undo");
+    });
+    if registrar.mapping.is_empty() {
+        return;
+    }
+    let mut after: BTreeMap<Rgb, u32> = BTreeMap::new();
+    for &(rgb, count) in list {
+        *after.entry(registrar.mapping.get(&rgb).copied().unwrap_or(rgb)).or_default() += count;
+    }
+    ui.label(format!("After: {} colours", after.len()));
+    let after = sorted_by_lightness(after);
+    let event = swatches(ui, registrar, &after, None);
+    registrar.take(ui, egui::Id::new("transformed colours"), event);
 }
 
 enum SplineAction {
@@ -488,7 +674,7 @@ fn sorted_by_lightness(colours: impl IntoIterator<Item = (Rgb, u32)>) -> Vec<(Rg
 }
 
 /// A row of colour squares, wrapping. With `lit`, the ones not in it are dimmed; picked ones have a
-/// pink edge. Returns the one under the mouse, and whether it was clicked.
+/// pink edge. Returns the one under the mouse and whether it was clicked, and where each square is.
 fn swatches(ui: &mut egui::Ui, registrar: &Registrar, colours: &[(Rgb, u32)], lit: Option<&BTreeSet<Rgb>>) -> Swatch {
     // Squares between these sizes, sized so a row fills the panel's width exactly [David: "a tad
     // smaller", "fit to size within a range"].
@@ -497,11 +683,12 @@ fn swatches(ui: &mut egui::Ui, registrar: &Registrar, colours: &[(Rgb, u32)], li
     const GAP: f32 = 2.0;
     let across = ((ui.available_width() + GAP) / (LARGEST + GAP)).ceil().max(1.0);
     let size = ((ui.available_width() + GAP) / across - GAP).clamp(SMALLEST, LARGEST);
-    let mut event = None;
+    let mut event = Swatch { hover: None, squares: Vec::with_capacity(colours.len()) };
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = egui::vec2(GAP, GAP);
         for &(rgb, count) in colours {
             let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::click());
+            event.squares.push((rect, rgb));
             let dim = lit.is_some_and(|lit| !lit.contains(&rgb));
             let colour = Color32::from_rgb(rgb[0], rgb[1], rgb[2]);
             ui.painter().rect_filled(rect, 2.0, if dim { colour.gamma_multiply(0.15) } else { colour });
@@ -511,7 +698,7 @@ fn swatches(ui: &mut egui::Ui, registrar: &Registrar, colours: &[(Rgb, u32)], li
                 ui.painter().rect_stroke(rect, 2.0, Stroke::new(1.0, Color32::WHITE), egui::StrokeKind::Inside);
             }
             if response.hovered() {
-                event = Some((rgb, response.clicked()));
+                event.hover = Some((rgb, response.clicked()));
                 if count > 0 {
                     response.on_hover_text(format!("{count} pixels"));
                 }
@@ -523,3 +710,118 @@ fn swatches(ui: &mut egui::Ui, registrar: &Registrar, colours: &[(Rgb, u32)], li
 
 /// The edge of a picked colour.
 const PICKED: Color32 = Color32::from_rgb(255, 60, 200);
+
+// ── Transforms: crushing and HSL, previewed ───────────────────────────────
+
+/// How the sub-palette is changed, previewed on the blocks in the dock before anything is written.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Transform {
+    /// Crush to this many colours (0: not crushed).
+    crush: u32,
+    /// How the colours are shared out when crushed, as in the Graphics Kit's palettes: an equal
+    /// slice of lightness each, or an equal share of the pixels.
+    spread: Spread,
+    /// Added to hue (degrees), saturation and lightness (0-1).
+    hue: f32,
+    saturation: f32,
+    lightness: f32,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self { crush: 0, spread: Spread::EqualShares, hue: 0.0, saturation: 0.0, lightness: 0.0 }
+    }
+}
+
+impl Transform {
+    fn is_active(&self) -> bool {
+        *self != Self { spread: self.spread, ..Self::default() }
+    }
+
+    /// What each of these colours (with their pixel counts) becomes: crushed first, then shifted.
+    fn mapping(&self, colours: &[(Rgb, u32)]) -> BTreeMap<Rgb, Rgb> {
+        let crushed = crushed(colours, self.crush, self.spread);
+        colours.iter().map(|&(rgb, _)| (rgb, shifted(crushed.get(&rgb).copied().unwrap_or(rgb), self.hue, self.saturation, self.lightness))).collect()
+    }
+}
+
+/// Crush colours to `count` (0, or at least as many as there are: unchanged). They're lined up
+/// darkest first and cut into `count` groups, each an equal slice of lightness or an equal share of
+/// the pixels (`spread`); each group becomes its pixels' average colour.
+fn crushed(colours: &[(Rgb, u32)], count: u32, spread: Spread) -> BTreeMap<Rgb, Rgb> {
+    if count == 0 || colours.len() <= count as usize {
+        return colours.iter().map(|&(rgb, _)| (rgb, rgb)).collect();
+    }
+    let sorted = sorted_by_lightness(colours.iter().copied());
+    let total: f32 = sorted.iter().map(|&(_, n)| n.max(1) as f32).sum();
+    let (darkest, lightest) = (master_palette::lightness(sorted[0].0), master_palette::lightness(sorted[sorted.len() - 1].0));
+    let mut so_far = 0.0;
+    let group: Vec<usize> = sorted
+        .iter()
+        .map(|&(rgb, n)| {
+            let n = n.max(1) as f32;
+            let at = match spread {
+                // Where the middle of its pixels falls along all the pixels.
+                Spread::EqualShares => (so_far + n / 2.0) / total,
+                Spread::EqualValues => (master_palette::lightness(rgb) - darkest) / (lightest - darkest).max(1e-6),
+            };
+            so_far += n;
+            ((at * count as f32) as usize).min(count as usize - 1)
+        })
+        .collect();
+    let mut sums = vec![([0.0f32; 3], 0.0f32); count as usize];
+    for (&(rgb, n), &g) in sorted.iter().zip(&group) {
+        let n = n.max(1) as f32;
+        for k in 0..3 {
+            sums[g].0[k] += rgb[k] as f32 * n;
+        }
+        sums[g].1 += n;
+    }
+    sorted
+        .iter()
+        .zip(&group)
+        .map(|(&(rgb, _), &g)| {
+            let (sum, n) = sums[g];
+            (rgb, sum.map(|c| (c / n).round() as u8))
+        })
+        .collect()
+}
+
+/// A colour with `hue` degrees added (round the wheel) and `saturation` and `lightness` added
+/// (kept within 0-1).
+fn shifted(rgb: Rgb, hue: f32, saturation: f32, lightness: f32) -> Rgb {
+    if hue == 0.0 && saturation == 0.0 && lightness == 0.0 {
+        return rgb;
+    }
+    let [h, s, l] = super::palette::to_hsl(rgb);
+    super::palette::from_hsl([(h + hue).rem_euclid(360.0), (s + saturation).clamp(0.0, 1.0), (l + lightness).clamp(0.0, 1.0)])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crushing_groups_colours_darkest_first_into_their_average() {
+        let colours = [([0, 0, 0], 1), ([20, 20, 20], 1), ([200, 200, 200], 1), ([220, 220, 220], 1)];
+        let two = crushed(&colours, 2, Spread::EqualShares);
+        assert_eq!((two[&[0, 0, 0]], two[&[20, 20, 20]]), ([10, 10, 10], [10, 10, 10]));
+        assert_eq!(two[&[220, 220, 220]], [210, 210, 210]);
+        // By pixels: a colour covering most of them gets most of the groups to itself.
+        let heavy = [([0, 0, 0], 10), ([20, 20, 20], 1), ([200, 200, 200], 1)];
+        assert_eq!(crushed(&heavy, 2, Spread::EqualShares)[&[20, 20, 20]], [110, 110, 110]);
+        // By lightness: the two darks share a group, averaged by their pixels ((0 × 10 + 20) / 11).
+        assert_eq!(crushed(&heavy, 2, Spread::EqualValues)[&[20, 20, 20]], [2, 2, 2]);
+        // Off, or no fewer than there are: unchanged.
+        assert!(crushed(&colours, 0, Spread::EqualShares).iter().all(|(a, b)| a == b));
+        assert!(crushed(&colours, 4, Spread::EqualShares).iter().all(|(a, b)| a == b));
+    }
+
+    #[test]
+    fn an_hsl_shift_goes_round_the_wheel_and_stays_in_range() {
+        assert_eq!(shifted([255, 0, 0], 120.0, 0.0, 0.0), [0, 255, 0]);
+        assert_eq!(shifted([255, 0, 0], -120.0, 0.0, 0.0), [0, 0, 255]);
+        assert_eq!(shifted([200, 100, 50], 0.0, 0.0, 1.0), [255, 255, 255]);
+        assert_eq!(shifted([200, 100, 50], 0.0, -1.0, 0.0)[0], shifted([200, 100, 50], 0.0, -1.0, 0.0)[2], "no saturation: grey");
+    }
+}
