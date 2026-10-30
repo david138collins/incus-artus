@@ -68,9 +68,16 @@ Reference: `Art/quartile minecraft illustration.png`
   Density and grade are fixed at "planet forming" world gen.
 - **[LATER]** Staged mining: rock (small, "pennies") → boulder ("nickels") → boulder with a pick,
   or a full block with hammer and chisel. Speed depends on tool, material, and the miner's RPG skill (NPCs and player alike).
-- **[OPEN 2026-10-30] Ore depletion: settlements versus solo mining** (David: "a real question ... it'll
-  require careful balancing between miners clearing areas and ore depletion and solo play"; still
-  thinking). Settlement sims usually have an ore vein you just keep mining, which doesn't fit physical,
+- **[DECIDED 2026-10-30] Digging is physical; a built mine or quarry is a workplace** (David: "that's
+  the way"). Digging and tunnelling take real blocks out, finite, the same rules for the player and
+  miners. **A quarry or mine structure built around a deposit or motherlode** lets a handful of
+  employees continually produce its rock or mineral, more slowly. That gives settlements the steady
+  supply settlement games rely on, while the deposit is still really there underneath.
+  - **Tree farms work the same way:** workers replant trees in rows, so a settlement has a steady wood
+    supply without clearing the forests round it.
+- **Ore depletion: settlements versus solo mining** (David: "a real question ... it'll require careful
+  balancing between miners clearing areas and ore depletion and solo play"; the decision above settles
+  the main question; the notes below are for balancing it). Settlement sims usually have an ore vein you just keep mining, which doesn't fit physical,
   finite ore.
   - **David's ideas:**
     - **mining versus digging or tunnelling** as different things;
