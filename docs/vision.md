@@ -229,6 +229,12 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   - **Nutrition:** needed to get all your energy back each day. Low nutrition means weaker magic, lower
     charisma, and an energy sphere you can't fully refill.
   - Most food and farming comes over from Dwarf Fortress.
+  - **[IDEA 2026-10-30] Salt or herbs to cure food** (David): salt is an alternative to herbs for
+    preserved food. Curing a piece of meat takes **2 herbs or 1 salt**. Herbs add nutrition; salt adds
+    none. Salt can be used elsewhere without being critical. *Counsel:* so salt is the convenient
+    choice and herbs the nourishing one, a real choice rather than a must-have. Salt comes from dry
+    basins and salt deposits (`docs/worldgen.md`, "Strata"), which gives dry regions something to
+    trade.
 
 ## Life gauges: blood, stamina, energy  [IDEA]
 
