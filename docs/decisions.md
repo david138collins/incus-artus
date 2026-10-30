@@ -266,6 +266,16 @@ Reference: `Art/quartile minecraft illustration.png`
       Compiler world.
     - **The Registrar switches between block assets and entity assets** (single blocks, and structures
       of blocks, which are a bit different), and it can view entity assets.
+      **[IDEA 2026-10-30] Tabs on the dock by kind** (David): **blocks**, **items**, **decorations**
+      (largely plants that aren't 3D) and **entities/buildings** (name undecided: trees, buildings,
+      roads, placed features). A button enters the creative world (the asset factory world) to make
+      blueprints, trees, roads and so on, and the dock shows a **mini isometric preview** of the tree,
+      building or placed feature.
+      *Counsel:* names to choose from for the last tab: Structures, Builds, Features, Blueprints.
+      "Features" covers trees and roads as well as buildings. Roads may be their own kind: drawn along a
+      line from repeating segments, rather than stamped whole. The isometric preview can be the same
+      lit render as the factory's, baked to a small picture when registered (which is also the tree
+      sprite's first step).
     - **Blueprints in segments:** players can make blueprints too, up to **32×32×32 blocks** each.
       Enormous things are made by stamping segments together and rotating them (90° turns): a 50-block
       wall from a lower section and an upper section.
