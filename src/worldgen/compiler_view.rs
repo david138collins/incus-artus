@@ -975,6 +975,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.selectable_value(show, Show::Wind, "wind").on_hover_text("Arrows the way the wind blows, longer and brighter where it's stronger, over the ground it reads.");
         ui.selectable_value(show, Show::Rain, "rain").on_hover_text("The rain, or one of its parts (chosen in the Rain section).");
         ui.selectable_value(show, Show::Water, "water").on_hover_text("Where the water flows (brighter and bluer, the more it carries) and the lakes.");
+        ui.selectable_value(show, Show::Rivers, "rivers").on_hover_text("The river network: rivers bluer and more solid by rank, waterfalls white, rapids pale; springs green (a river's head), yellow (joined one), cyan (into a lake or the sea), red (fizzled out); mouths magenta.");
     });
     fold_section(ui, "The ground it reads", |ui| {
         ui.small(
@@ -1079,9 +1080,64 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
              steepness lost per block across, as a share of the rain there. Springs show at the feet of mountains.",
         );
     });
+    fold_section(ui, "River network", |ui| {
+        let n = &mut climate.network;
+        ui.small(
+            "Which of the water's paths are rivers, grown from the mouths up to the springs along the way the water drains \
+             (so every river runs downhill to the sea and stays in its own valleys). Springs first, spaced out; each spring's \
+             path ends at a mouth; rivers grow up from each mouth toward its springs, splitting where they part. Springs no \
+             river took run down as short streams: they join a river, end in a lake or the sea, or fizzle out. Rank comes \
+             from branches joining (stream order). The bed is laid in flat runs and steps: waterfalls and rapids.",
+        );
+        if let Some(network) = compiler.climate.network() {
+            let [river, joined, ended, fizzled] = network.fates();
+            ui.label(format!("{} springs: {river} rivers' heads, {joined} joined one, {ended} into a lake or the sea, {fizzled} fizzled out; {} mouths", network.springs.len(), network.mouths.len()));
+        }
+        if ui.small_button("show the rivers on the map").on_hover_text("Shows the river network over the map (the Show row at the top).").clicked() {
+            compiler.climate.show = super::climate::Show::Rivers;
+        }
+        ui.add_space(4.0);
+        ui.strong("Springs");
+        ui.horizontal(|ui| {
+            ui.label("by:");
+            ui.selectable_value(&mut n.relative, false, "plain height").on_hover_text("Springs where the ground is between two heights.");
+            ui.selectable_value(&mut n.relative, true, "relative height").on_hover_text("Springs where the ground stands high for its surroundings, so lesser hills get some too.");
+        });
+        ui.add_enabled_ui(!n.relative, |ui| {
+            ui.add(crate::debug::Slider::new(&mut n.spring_from, 128.0..=1_023.0).text("from Z"));
+            ui.add(crate::debug::Slider::new(&mut n.spring_to, 128.0..=1_023.0).text("up to Z"));
+        });
+        ui.add_enabled_ui(n.relative, |ui| {
+            ui.add(crate::debug::Slider::new(&mut n.rise, 1.0..=400.0).logarithmic(true).text("higher than its surroundings by (blocks)"));
+            ui.add(crate::debug::Slider::new(&mut n.around, 200.0..=20_000.0).logarithmic(true).text("surroundings within (blocks)"))
+                .on_hover_text("How far round a spot its surroundings' average height is taken from.");
+        });
+        ui.add(crate::debug::Slider::new(&mut n.spring_water, 0.0..=5.0).text("water it needs (units)"))
+            .on_hover_text("Its own water: rain, snowmelt and slope-foot springs (1 unit = a patch of the wettest rain). Dry high ground gets none.");
+        ui.add(crate::debug::Slider::new(&mut n.spacing, 200.0..=20_000.0).logarithmic(true).text("spaced at least (blocks)"))
+            .on_hover_text("The least distance between springs: what spreads the rivers evenly round the world.");
+        ui.add(crate::debug::Slider::new(&mut n.jitter, 0.0..=1.0).text("spacing varies")).on_hover_text("0 = as even as can be; 1 = some springs as close as you like.");
+        ui.add(crate::debug::Slider::new(&mut n.lake_size, 1.0..=400.0).logarithmic(true).text("a lake feeds a river from (patches)"))
+            .on_hover_text("A lake this big or bigger (in 32-block patches) spills a river from its outlet; smaller is a pond, which only takes them in.");
+        ui.add_space(4.0);
+        ui.strong("Mouths and branches");
+        ui.add(crate::debug::Slider::new(&mut n.mouth_spacing, 0.0..=40_000.0).text("mouths apart at least (blocks)"))
+            .on_hover_text("Rivers reaching the sea nearer than this: the one with fewer springs loses them (they run as short streams).");
+        ui.add(crate::debug::Slider::new(&mut n.branching, 0.0..=1.0).text("how readily rivers split"))
+            .on_hover_text("0 = one trunk to each mouth; 1 = a branch up to every spring. Between: a branch is kept if it carries enough of the springs.");
+        ui.add(crate::debug::Slider::new(&mut n.reach, 0.0..=20_000.0).text("a lone stream runs (blocks)"))
+            .on_hover_text("How far a spring no river took runs before it dries away (wetter springs run further).");
+        ui.add(crate::debug::Slider::new(&mut n.orders_per_rank, 1..=4).text("stream orders per rank"))
+            .on_hover_text("Where two branches of the same order meet, the order goes up one. This many orders make one rank (creek, stream, river, great river).");
+        ui.add_space(4.0);
+        ui.strong("The bed: flat runs and steps");
+        ui.add(crate::debug::Slider::new(&mut n.step, 0.0..=40.0).text("drop gathered into one step (blocks)"))
+            .on_hover_text("0 = the bed follows the ground; higher = longer flat runs, then bigger steps.");
+        ui.add(crate::debug::Slider::new(&mut n.fall_from, 1.0..=40.0).text("a waterfall from (blocks)")).on_hover_text("A step this tall or more is a waterfall; smaller ones are rapids.");
+    });
     // Still to come, greyed (David's convention: grey out, don't hide).
     for (title, about) in [
-        ("River lines", "The water drawn as smooth lines ranked by how much they carry (creeks, streams, rivers), with a bed height that only falls; then carving them, and the lakes, into the world."),
+        ("Carving", "The rivers and lakes carved into the world (one carving shared with ravines and gorges), so they show from far away too; then meanders and deltas."),
     ] {
         ui.add_space(6.0);
         ui.separator();
@@ -1644,6 +1700,19 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                     }
                     ui.small(format!("water flowing through: {:.1} units", flow.flow[i])).on_hover_text("1 unit = a patch of the wettest rain; it adds up downhill.");
                 }
+                // The river here, if any: its rank (from branches joining), its bed and the step below.
+                if let Some(network) = compiler.climate.network()
+                    && network.width == width
+                    && network.rank[i] > 0
+                {
+                    let (name, narrowest, widest) = super::network::RANKS[network.rank[i] as usize - 1];
+                    ui.small(format!("a {name} ({narrowest:.0}-{widest:.0} blocks wide), stream order {}, its bed at Z {:.0}", network.order[i], network.bed[i]));
+                    let step = network.drop[i];
+                    if step > 0.0 {
+                        let kind = if step >= compiler.settings.climate.network.fall_from { "a waterfall" } else { "rapids" };
+                        ui.small(format!("{kind} just below: {step:.0} blocks down"));
+                    }
+                }
             }
             if let Some(painted) = &compiler.lab.overlays.painted
                 && painted.width == width
@@ -1994,6 +2063,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                 super::climate::Show::Temperature => compiler.climate.temperature().filter(|t| t.width == ground.width).map(|t| (t.picture(ground), ground.width, ground.pixels)),
                 super::climate::Show::Rain => compiler.climate.rain().filter(|r| r.width == ground.width).map(|r| (r.picture(ground, view), ground.width, ground.pixels)),
                 super::climate::Show::Water => compiler.climate.flow().map(|f| (f.picture(shown_from), f.width, 1)),
+                super::climate::Show::Rivers => compiler.climate.network().map(|n| (n.picture(compiler.settings.climate.network.fall_from), n.width, 1)),
                 _ => Some((ground.picture(), ground.width, ground.pixels)),
             })
             .flatten();

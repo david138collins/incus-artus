@@ -27,6 +27,7 @@ use super::runner::{Job, Poll, every_pixel};
 use super::temperature::{Temperature, TemperatureSettings};
 use super::wind::{Wind, WindSettings};
 use super::rain::{Rain, RainSettings};
+use super::network::{Network, NetworkSettings};
 use super::rivers::{Flow, RiverSettings};
 use crate::world::{CompiledMap, Mutes, SEA_LEVEL};
 use bevy_egui::egui::Color32;
@@ -44,11 +45,14 @@ pub struct ClimateSettings {
     pub wind: WindSettings,
     pub rain: RainSettings,
     pub rivers: RiverSettings,
+    /// Which of the water's paths are rivers (step 6; apart from `rivers`, so moving these doesn't
+    /// work the flow out again).
+    pub network: NetworkSettings,
 }
 
 impl Default for ClimateSettings {
     fn default() -> Self {
-        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default(), rain: RainSettings::default(), rivers: RiverSettings::default() }
+        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default(), rain: RainSettings::default(), rivers: RiverSettings::default(), network: NetworkSettings::default() }
     }
 }
 
@@ -184,6 +188,7 @@ pub enum Show {
     Wind,
     Rain,
     Water,
+    Rivers,
 }
 
 /// The Climate stage's work, each part made in the background as what it's made from changes: the
@@ -198,6 +203,7 @@ pub struct Climate {
     rain: Stage<(Same<Wind>, RainSettings), Rain>,
     fine: Stage<Same<CompiledMap>, Ground>,
     flow: Stage<(Same<Rain>, Same<Ground>, RiverSettings), Flow>,
+    network: Stage<(Same<Flow>, NetworkSettings), Network>,
     /// Goes up with each new result (so pictures know to repaint).
     pub version: u64,
     /// What's drawn over the map.
@@ -208,7 +214,7 @@ pub struct Climate {
 
 impl Climate {
     pub fn is_making(&self) -> bool {
-        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some() || self.rain.job.is_some() || self.fine.job.is_some() || self.flow.job.is_some()
+        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some() || self.rain.job.is_some() || self.fine.job.is_some() || self.flow.job.is_some() || self.network.job.is_some()
     }
 
     pub fn ground(&self) -> Option<&Arc<Ground>> {
@@ -227,6 +233,10 @@ impl Climate {
         self.rain.result()
     }
 
+    pub fn network(&self) -> Option<&Arc<Network>> {
+        self.network.result()
+    }
+
     pub fn flow(&self) -> Option<&Arc<Flow>> {
         self.flow.result()
     }
@@ -234,7 +244,7 @@ impl Climate {
     /// Collects finished work, and starts each part again when what it's made from changed: the
     /// recipe (`map`, as the lab makes it) or the settings.
     pub fn drive(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
-        let collected = [self.ground.collect(), self.temperature.collect(), self.wind.collect(), self.rain.collect(), self.fine.collect(), self.flow.collect()];
+        let collected = [self.ground.collect(), self.temperature.collect(), self.wind.collect(), self.rain.collect(), self.fine.collect(), self.flow.collect(), self.network.collect()];
         self.version += collected.iter().filter(|&&new| new).count() as u64;
         let (recipe, pixels) = (map.clone(), settings.pixels);
         self.ground.want((Same(map.clone()), pixels), move |stop| read_ground(&recipe, pixels, stop));
@@ -273,6 +283,14 @@ impl Climate {
             let water = super::rivers::water(&fine.z, fine.width, &ground, &temperature, &rain, &rivers, blocks);
             super::rivers::flow(fine.width, &fine.z, &water, rivers.lake_depth, seed, stop)
         });
+        // Step 6: which of the water's paths are rivers (grown from the mouths up to the springs).
+        if self.flow.job.is_some() {
+            return;
+        }
+        let Some(flow) = self.flow.result().cloned() else { return };
+        let network = settings.network.clone();
+        let from = flow.clone();
+        self.network.want((Same(flow), network.clone()), move |stop| super::network::make(&from, blocks, seed, &network, stop));
     }
 }
 

@@ -741,7 +741,10 @@ Counsel's notes [PROPOSED]:
   from rain, and widths come from David's table.
 - **It replaces step 6's "lines where enough water gathered"**; step 5's rain and basins stay as inputs.
 
-**Builder's proposal [PROPOSED 2026-10-30, for David's approval; nothing built].** David's backwards
+**Builder's proposal [APPROVED and BUILT 2026-10-30: `src/worldgen/network.rs`, the Climate tab's River network
+section, "rivers" in the Show row].** David chose: **a toggle between plain and relative height** for
+springs, each with its own controls; and **rank from branches joining** (stream order), not water
+volume ("our carve numbers can serve as a rough estimate of flow" if it's ever needed). David's backwards
 method, done on the drainage that step 5 already works out, so the water's hard rules come free.
 
 *The key fact:* step 5 already gives every patch of land the patch it drains into, on the filled

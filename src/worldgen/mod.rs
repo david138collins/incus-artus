@@ -71,6 +71,7 @@ mod rags;
 mod registrar;
 mod rain;
 mod rivers;
+mod network;
 pub(crate) mod runner;
 mod tectonics;
 mod wind;
