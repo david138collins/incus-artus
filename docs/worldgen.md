@@ -1190,6 +1190,39 @@ Counsel's notes [PROPOSED]:
   so mineralogy can grow into ore and caves; block light underground (today faces well below the
   surface get plain light).
 
+#### Strata: what's underground  [IDEA, David 2026-10-30]
+
+- **3 or 4 main strata:** the top layers, the average cave layers, the deep layers, and the
+  **ultra-deep** levels, where titanium, adamantine and the like are the **cylinders through the magma
+  lake at the bottom**, carrying a **risk of magma flooding**.
+- **The top two must be rich and convenient** for all the main resource needs. Selections become more
+  exotic as scarcity and depth increase.
+- **The layers can follow the top**, but there must be **upsets**.
+- **Built from five kinds of thing:**
+  1. **base bands** (the strata);
+  2. **disruptions** (the upsets);
+  3. **inclusions** (volumetric adds);
+  4. **deposits** (climate adds);
+  5. **local distributions by biome**, since Climate already identifies the region types and their
+     biome cores.
+Counsel's notes [PROPOSED]:
+- **Follow the top near the surface, flat deep down.** The top layers can sit at a depth below the
+  surface, so they rise under mountains. The deepest layers and the magma lake work best at fixed
+  heights, as in Dwarf Fortress (whose adamantine spires through the magma sea are the obvious
+  inspiration). The bands in between blend from one rule to the other.
+- **Disruptions from the plates:** the Tectonic Sim already knows where plates collided and rifted.
+  Where they collided, deep rock can be pushed up and exposed in the mountains (as in real ranges);
+  rifts can bring volcanic rock and magma up. Tilts, folds and faults give the rest.
+- **Inclusions:** ore veins and bodies, dykes, intrusions, geodes, each limited to its host rocks, so
+  the layers matter for mining.
+- **Deposits from Climate:** sand, gravel and clay along rivers; peat in wet low ground; salt in dry
+  basins; and the sediments mineralogy already places.
+- **Settle the world's depth first** (`vision/watch-list.md`, 17b): four strata plus a magma lake need
+  room below sea level, and changing the world's height after players have saved worlds means
+  converting them.
+- **Magma flooding** needs magma to spread (in the Local sim only, like water's levels), so it comes
+  with fluids, later.
+
 #### Biomes as cores, and deserts  [IDEA, David 2026-10-28]
 
 - **Biomes aren't regions the world is divided into.** The climate is a large, gradual topography
