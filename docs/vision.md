@@ -263,6 +263,30 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   you and got out.
 - A **hardcore permadeath** option can be added later.
 
+## The start, tools and fire  [IDEA, David 2026-10-30]
+
+- **Waking up:** you wake up in your **tent** with nothing but the tent, a **diary**, a **burlap sack**
+  and a **magical loaf of bread**. The tent is a structure you can only crouch through and can sleep
+  in, so you wake up crouched.
+- **The magical loaf:** an ordinary loaf has 4 bites. This one appears once and never again in the
+  game. It glows with a rainbow sparkle, and every bite heals and restores you entirely. It goes stale
+  in a week and becomes normal bread.
+- **Contextual text:** words from the UI that sometimes appear over things on screen when you see
+  them, perhaps through a perception skill.
+- **Stone tools:** useless to civilization, but craftable. Flint or stone makes **crude** tools that
+  nobody would sell or want to buy, but you need them if you don't follow the path you wake up on.
+- **The club is the first weapon you craft, and it should be wonderful.**
+- **Fires, as in Songs of Syx** (David likes how its campfires, wells and markets work):
+  - a **small fire**: 1 small log (a quarter log, from chopping up a whole log) plus some sticks;
+  - a **larger fire**: 3 small logs and a bunch of sticks;
+  - the **largest**: one large log, six small logs and a bunch of sticks.
+  - **Cold NPCs want to warm up.**
+- *Counsel's notes [PROPOSED]:* the quarter log is the quartile oak's own block, so felling, chopping
+  and fires share one material chain. Warmth fits the impulses in `docs/simulation.md` section 13: cold
+  is an impulse, a fire a place that answers it, so villagers gather round fires on their own (a fire
+  as a zone, Dwarf Fortress style). The magic loaf is a gentle first lesson: the world gives you one
+  miracle, then it's up to you.
+
 ## Combat  [IDEA]
 
 - **Lethal and committed.** Everyone deals and takes a lot of damage; getting hit is never trivial.

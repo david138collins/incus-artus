@@ -272,10 +272,15 @@ Reference: `Art/quartile minecraft illustration.png`
       blueprints, trees, roads and so on, and the dock shows a **mini isometric preview** of the tree,
       building or placed feature.
       *Counsel:* names to choose from for the last tab: Structures, Builds, Features, Blueprints.
-      "Features" covers trees and roads as well as buildings. Roads may be their own kind: drawn along a
-      line from repeating segments, rather than stamped whole. The isometric preview can be the same
-      lit render as the factory's, baked to a small picture when registered (which is also the tree
-      sprite's first step).
+      "Features" covers trees and roads as well as buildings.
+      **Roads** [David 2026-10-30]: defined and generated in the civilization stage, as a line that
+      smooths a bit and lays different kinds of road, with transitions between them. They need special
+      treatment, since other things rely on them (the spawn, for one: the spot on a road farthest from
+      any settlement).
+      **The isometric perspective is built with the blueprint module, all of it** [David]: there's no
+      reason to wait, and it isn't terribly complex. Like Minecraft's OrthoCamera mod. *Counsel:* the
+      dock's preview is then that camera's render baked to a small picture when registered, which is
+      also the tree sprite's first step.
     - **Blueprints in segments:** players can make blueprints too, up to **32×32×32 blocks** each.
       Enormous things are made by stamping segments together and rotating them (90° turns): a 50-block
       wall from a lower section and an upper section.
