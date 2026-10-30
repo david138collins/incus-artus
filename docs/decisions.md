@@ -80,6 +80,12 @@ Reference: `Art/quartile minecraft illustration.png`
     with a size and grade, which is just what a built mine draws from. Prospecting reveals sites, and
     perhaps their size and grade, more accurately with skill, so finding a good site is gameplay. The
     sims' settlements and the player find sites the same way.
+  - **A site self-culls** [David]: like buildings past their "% changed", if enough of a site's
+    mineable or quarryable zone is dug out (by the player or by digging orders), it stops being a site.
+  - **The player has an edge** [David]: a noticeable efficiency, drop and speed advantage over NPC
+    miners of the same skill level. *Counsel:* this changes "the same rules for NPCs and the player"
+    (staged mining, above; `docs/block-properties.md`, Hardness) to **the same rules, plus a player
+    bonus**, ideally one number per activity so it can be tuned.
 - **Ore depletion: settlements versus solo mining** (David: "a real question ... it'll require careful
   balancing between miners clearing areas and ore depletion and solo play"; the decision above settles
   the main question; the notes below are for balancing it). Settlement sims usually have an ore vein you just keep mining, which doesn't fit physical,
