@@ -373,7 +373,8 @@ pub struct Additives {
 
 impl Default for Additives {
     fn default() -> Self {
-        Self { show: true, dot_size: 1.0, job: None, found: None, dots: Vec::new(), streams: 0, seeds: Vec::new(), drift: Vec::new(), ranges: None, made_from: None, version: 0 }
+        // Off to start (David, 2026-10-30: the switch isn't saved with the presets).
+        Self { show: false, dot_size: 1.0, job: None, found: None, dots: Vec::new(), streams: 0, seeds: Vec::new(), drift: Vec::new(), ranges: None, made_from: None, version: 0 }
     }
 }
 

@@ -200,6 +200,7 @@ impl Default for Suite {
         // Landmass and World Interpreter panels away (leaving Additives open, with its dots).
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler" || v == "compiler-overlays") {
             suite.kit = Kit::Compiler;
+            suite.compiler.additives.show = true;
             if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler-overlays") {
                 let shown = &mut suite.compiler.lab.overlays.shown;
                 (shown.spines, shown.coast, shown.grain, shown.knots) = (false, true, true, true);
