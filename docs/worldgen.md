@@ -473,7 +473,33 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
     for zoomed right out. Not yet: coarse-then-sharper; the side faces of steep steps (tops only).
   - **Open, David's call:** the flats just under sea level (held up by "crags never drown land") used
     to be invisible grass and are now wide sand flats along coasts. Keep them as tidal flats, or remove
-    them in the recipe?
+    them in the recipe? (In David's five maps of 2026-10-30, whole peninsulas are tan, likely these.)
+- **[DECIDED 2026-10-30] Mineralogy refinements** (David, after the first climate distribution):
+  - **Shores by distance from water,** not by a Z level.
+  - **The snow seen now should be snowy grass.** Real snow coverage comes from rainfall, as the actual
+    snow layers 1-8 (drifts), which need partial blocks (water's levels system).
+  - **Feather the speckled snow border.** Today the band between grass and snow is fine dots, which reads
+    as noise from above. Handled the way the terrain kinks were: small changes to what David controls,
+    its range, or how its area is derived, with the monitoring updated as needed.
+  - The apparent climate distribution is good enough to work with until there's more to judge it by.
+- **[IDEA 2026-10-30] The world rejector** (David): make worlds and throw out the ones that don't meet
+  criteria, as an easier way from about 90% sweet worlds to 95% than retuning what David is already
+  satisfied with. A new world plus spawn takes under 15 seconds now. Staying under a minute per world,
+  the new game could pick the best of 10 for most players.
+  - **Spawn:** the spot on a road farthest from any settlement in the world.
+  - *Counsel's notes [PROPOSED]:*
+    - **Reject early.** Most measures are known after the cheap stages: land share, how many landmasses
+      and the largest, coastline, ranges spread or bunched (after the Tectonic Sim and bake); ice share,
+      one or two dry spots, lakes, temperate share (after Climate). Only the winner gets the Interpreter
+      and the spawn, so a bad candidate costs seconds, and candidates can be made in the background
+      while the player is on the new-game screen.
+    - **Hard rejects plus a score:** some measures throw a world out ("over 40% ice"); the rest add up,
+      and the best that passes wins. The winner is still just a seed and settings, so it can be remade.
+    - **Maybe let the player pick** from the best three as small maps.
+    - **A tuning tool for David:** run 100 worlds overnight and log why each was rejected; the commonest
+      reason points at the slider to fix.
+    - First candidate criteria from the five maps: ice share (the caps vary a lot), the size of the
+      sea-level flats, the snow border.
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
   the output map. Using the clean modalities we can capture, we will drive a variety of scattering and
   particle systems to look for ways that can generate a second layer of mountains that only look
