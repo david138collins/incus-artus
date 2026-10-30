@@ -281,6 +281,22 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   - The feeling: a bit like **billiards**. Decisive and tactical: footwork, positioning (different
     attacks need different movement) and timing (every swing spends time positioning, executing and
     recovering).
+- **[IDEA 2026-10-30] Pull and release** (David: "the better mechanic for attacks"). "Like playing
+  billiards with a slingshot."
+  - **Left click captures the mouse; pull back and release.** Which attack depends on **which quadrant
+    you pull to and how far**.
+  - **Aim and prediction:** if you were aiming correctly when you attack, predicting the enemy's
+    movements, you hit.
+  - **A slight quick movement in the attack's direction** helps players connect their blows.
+  - **Hold too long and it's a feint:** past a second or two the attack fades, costs a small amount of
+    stamina, and returns you to en garde. That takes part of a second. If they called your bluff, you're
+    in a window of vulnerability; if they blocked nothing, they're vulnerable for a second. This also
+    answers "what if the player just holds attack".
+  - **The feel:** the player feels good. Tricky, but fun and easy once you get it.
+  - *Counsel's notes [PROPOSED]:* show the pull with the gesture cursor (quadrant and how far), so the
+    "slingshot" can be read before it's released; and let the feint's timing be a few sliders (how long
+    before it fades, the stamina cost, the vulnerable window on each side), tuned on real fights. Enemies
+    read the same pull, so a skilled enemy can feint you back.
 - **Blocking** works on timing: pressing at the right moment is one kind of block, releasing at the
   right moment another. To be worked out.
 - Animation: possibly David's own cheap living-room motion capture for sword and axe arm motions,
