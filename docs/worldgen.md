@@ -854,6 +854,98 @@ Counsel's outline [PROPOSED, for Builder's proposal]:
   map and the viewer all see rivers for free. Lakes fill to their saved surface, and rims are lowered or
   filled where a crag dip would leave water standing against air.
 
+**Builder's proposal [PROPOSED 2026-10-30, for David's approval; nothing built].** Counsel's outline
+taken almost whole, with five additions (marked *new*), in the river stage (the curves) and the
+Interpreter (the carve, per block).
+
+**What's made, and where** (the linear pipeline holds):
+- **The river stage makes curves**, once, from the network: each river a smooth line with, all along
+  it, its width, its bank depth, and its **water level** (the network's bed: flat runs, then steps).
+  Lakes keep their surface and their patches. The World Compiler's live view uses them straight away;
+  "Render World and Spawn" hands them to the world with the climate, saved beside its maps.
+- **The Interpreter carves**: for each column it finds the curves nearby (a lookup grid, as the peaks
+  have) and measures how far it is from the nearest. Within the river, the ground is lowered to the
+  channel floor (the water level minus the bank depth) and water blocks fill up to the water level.
+  Nothing else about the water: no flow, no movement [David].
+- *new:* **Climate never reads the carved ground.** It reads the broad ground with the rivers left out
+  (as it already leaves the crags out), or the rivers would feed back into the rain and flow that made
+  them, against the linear pipeline.
+
+**The curve, from the grid's path to a river, in four steps:**
+1. **From 45° steps to a line:** the network's path runs patch to patch (straight or diagonal, 32
+   blocks a step). Corner cutting (Chaikin's method: each pass slices every corner off) turns its
+   elbows into curves; more passes for bigger rivers, so a great river bends wide and a creek tight.
+   *new:* a gentle **wander** (slow noise sideways, a slider, up to about one patch) breaks up the long
+   straight diagonals corner cutting can't touch, since a straight run has no corners to cut.
+2. **Lean outward:** each point moves toward the outside of its bend by width × how sharp the bend is ×
+   a slider (fast water cuts the outer bank).
+3. **Lengthen (David's squiggles):** a side-to-side wave every 10 to 14 widths (a slider), its size by
+   width, strong on flat ground and fading on steep. The line gets longer, as David asked, not just
+   smoother.
+4. **The carve, by David's bias:** each block measures its distance to the curve and which side it's
+   on. *new:* **the odd block goes to the outside of the bend**: a 2-wide creek takes the line's block
+   and the one on the outer side, centred where it runs straight; a 1×1 spring is just its one block.
+   The banks follow David's table: spring 1×1 to 1×2, creek 2×1 to 4×2, stream 4×2 to 8×3, river
+   8×4 to 32×8, great river 32×8 to 128×16 (each rank's width rising with its stream order inside its
+   band).
+
+**Safety rules** (Counsel's, kept): the water level comes from the network path, so it only falls
+downstream however the curve moves; junctions, lake outlets and mouths are **pinned** (lean, wave and
+wander fade to nothing near them), so rivers always meet; the lean and wave shrink where the outward
+side is much higher ground, and keep clear of other rivers; corner cutting can't make loops. *new:*
+where the curve still crosses higher ground than its path, the river simply cuts down to its water
+level there, a little gorge, up to a slider's depth; beyond that the curve is pulled back toward its
+path.
+
+**Waterfalls and rapids** (from the bed's steps): at a step, the water level drops at once. A step as
+tall as "a waterfall from" or taller is a sheer drop, and *new:* **a one-block curtain of water blocks
+down its face** (a switch), so it reads as falling water although nothing moves. A smaller step is
+**rapids**: the drop is spread over a short stretch as one-block steps, the water level stepping down
+each block, so it reads as broken water. Their spacing comes from the network's step slider, already
+on the panel.
+
+**Deltas:** where a river of "river" rank or bigger reaches the sea over low, flat ground, its last
+stretch splits into 2 to 4 channels fanning out in a triangle (David: 64 to 128 blocks wide at the
+mouth, by rank), each narrower, all at sea level, with sand banks between (mineralogy). Over steep
+coasts it simply ends: no delta.
+
+**Lakes:** water fills the lake's patches up to its saved surface. Where a column at the lake's edge
+stands lower than the surface but outside the lake (a crag dip), its ground is **raised to the
+surface** (filled), so water never stands against air. Filling is safer than lowering a rim, which
+could drain the lake.
+
+**Creeks narrower than the far terrain's cells:** the carve lowers the recipe's height, so the far
+terrain sees big rivers as valleys for free. A 3-block creek falls between its 16-block-and-up cells,
+though, and would pop in where near chunks begin. *new:* each far cell **blends in the water's colour
+by how much of it the river covers** (measured from the curve), so a creek fades in from afar the way a
+texture's mipmaps do, rather than appearing at the seam.
+
+**Sliders** (Climate tab, a "Carving" section after River network): corner cutting passes by rank;
+wander; lean outward; meander length (in widths) and size; how flat ground has to be for full
+meanders; deepest gorge before the curve is pulled back; waterfall curtains on or off; rapids length
+per block of drop; delta width by rank and how flat the coast must be; the bank table's widths and
+depths (David's numbers to start).
+
+**Overlays David judges it by:** the close-up itself (it reads the carved height and the water, so
+rivers appear in it as they will in the world); "rivers" in the Show row gains the curves drawn at their
+real width, with the network's grid path faintly under them, pins as dots, and waterfalls and rapids
+marked; the cross-section shows the channel, the water level and the steps. The hover readout gains
+the river's width and depth there, and which side of the line the block is on.
+
+**Cost:** the curves, once per change in the river stage: well under a second. Per column, a lookup in
+a grid of nearby curve pieces and a distance or two: a few percent on chunk making. Saved with the
+world: the curves and lakes, a few MB at most.
+
+**What I'd do differently from the outline, and why:** the five *new* points. The wander, because
+corner cutting leaves straight diagonals straight. The odd block to the outside, which is David's bias
+put into the carve test itself. Gorges before pulling the curve back, so the curve keeps its shape
+where the ground allows. The water curtain, for the waterfalls' wow factor with no moving water. The
+far terrain's colour blend, so creeks don't pop in at the seam. And one rule made explicit: climate
+never reads the carved ground.
+
+**To decide (David):** the go-ahead; whether waterfalls get the water curtain; and whether lakes'
+crag-dip edges are filled (proposed) or the rims lowered.
+
 #### Breaking the water loop  [PROPOSED by Counsel 2026-10-28, for David]
 
 **David's leaning (2026-10-28): keep everything before flowing water as simple as possible. Flowing
