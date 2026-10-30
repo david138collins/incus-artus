@@ -151,11 +151,11 @@ impl Palette {
         Self { blocks: colours, water }
     }
 
-    fn top(&self, block: BlockId) -> [f32; 3] {
+    pub fn top(&self, block: BlockId) -> [f32; 3] {
         self.blocks.get(block.0 as usize).map_or([0.5; 3], |colours| colours.0)
     }
 
-    fn side(&self, block: BlockId) -> [f32; 3] {
+    pub fn side(&self, block: BlockId) -> [f32; 3] {
         self.blocks.get(block.0 as usize).map_or([0.5; 3], |colours| colours.1)
     }
 }
@@ -279,9 +279,8 @@ impl Shade {
 
     /// How brightly the ground is lit, rising `north` and `east` blocks per finest cell across it
     /// (in any ring): 1 on flat ground, more facing the sun, less facing away (lighting.wesl,
-    /// `hill_light`: the same sums, for the tests).
-    #[cfg(test)]
-    fn hill(&self, north: f32, east: f32) -> f32 {
+    /// `hill_light`: the same sums, for the World Compiler's viewer and the tests).
+    pub fn hill(&self, north: f32, east: f32) -> f32 {
         let normal = Vec3::new(-north * self.hills, -east * self.hills, 1.0).normalize();
         soft_limit(normal.dot(self.sun) / self.sun.z, self.fade)
     }
@@ -290,17 +289,14 @@ impl Shade {
 /// The steps' tables packed four to a `Vec4` for the shader (33 values, so 9).
 const TABLE_VEC4S: usize = SLOPE_STEPS.div_ceil(4) + 1;
 
-/// Hill shading's darkest and brightest (1 = as painted), as lighting.wesl has them (for the tests).
-#[cfg(test)]
+/// Hill shading's darkest and brightest (1 = as painted), as lighting.wesl has them.
 pub const DARKEST: f32 = 0.35;
-#[cfg(test)]
 pub const BRIGHTEST: f32 = 1.6;
 
 /// Hill shading's light, `raw` (1 = flat ground), eased toward its darkest and brightest instead of
 /// stopped dead: gentle slopes are lit as they are, steep ones closer and closer to the limit,
 /// more gradually the lower `fade` is (at 8 and up, much like a hard stop). The shaders do the same
 /// sums (assets/shaders/lighting.wesl, `soft_limit`).
-#[cfg(test)]
 pub fn soft_limit(raw: f32, fade: f32) -> f32 {
     let d = raw - 1.0;
     let limit = if d < 0.0 { 1.0 - DARKEST } else { BRIGHTEST - 1.0 };

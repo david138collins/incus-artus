@@ -86,8 +86,16 @@ pub struct Layers {
 }
 
 impl CompiledMap {
-    /// The layers of the column at (`x` north, `y` east) whose ground is at `z`.
+    /// The layers of the column at (`x` north, `y` east) whose ground is at `z`, in the world's own
+    /// climate.
     pub fn layers(&self, x: i32, y: i32, z: i32, blocks: &TerrainBlocks) -> Layers {
+        let climate = self.climate(x as f32 + 0.5, y as f32 + 0.5, z as f32);
+        self.layers_in(x, y, z, blocks, climate)
+    }
+
+    /// The same, in a climate given (temperature and rain there, or none): the World Compiler's viewer
+    /// passes the Climate tab's live result, so a climate slider shows at once.
+    pub fn layers_in(&self, x: i32, y: i32, z: i32, blocks: &TerrainBlocks, climate: Option<(f32, f32)>) -> Layers {
         let s = &self.settings;
         let m = &s.mineralogy;
         let stone = Layers { top: blocks.stone, under: blocks.stone, depth: 0 };
@@ -98,7 +106,7 @@ impl CompiledMap {
             return floor.map_or(stone, |floor| Layers { top: floor, under: floor, depth: m.sand_depth });
         }
         let (north, east) = (x as f32 + 0.5, y as f32 + 0.5);
-        let (temperature, rain) = self.climate(north, east, z as f32).unwrap_or(NO_CLIMATE);
+        let (temperature, rain) = climate.unwrap_or(NO_CLIMATE);
         // The lines between zones wander a little.
         let size = m.wander_size.max(1.0);
         let wobble = |salt: u64| perlin(self.seed, salt, Fade::Smooth, north / size, east / size) * m.wander;

@@ -4,7 +4,10 @@
 //!
 //! - **The close-up** takes over from the map once a map pixel covers a few screen points. It works
 //!   out every column in view (one sample per block when zoomed right in; every 2nd, 4th… block
-//!   further out, so it stays quick), on all the computer's cores, and draws it in shaded relief.
+//!   further out, so it stays quick), on all the computer's cores, and shows the blocks the world will
+//!   have there (mineralogy's choice, in the Climate tab's live climate), in the distant terrain's
+//!   colours, lit as it lights them or flat (compiler_view.rs, `block_picture`). Sliders that only
+//!   choose blocks repaint it from the heights it has; the rest work the heights out again.
 //!   Changing a slider reads the same maps with the new recipe (nothing is copied), so it can redraw
 //!   while the slider moves; the whole-map compile catches up behind it.
 //! - **Layer switches** leave parts of the recipe out, to see what each does.
@@ -137,7 +140,7 @@ impl Lab {
         let (bottom, right) = ((south / grid).floor() * grid, (east / grid).ceil() * grid);
         let request = Request {
             maps: Arc::as_ptr(&map.maps) as usize,
-            settings: map.settings.clone(),
+            settings: shape_only(&map.settings),
             mutes: map.mutes,
             north: top,
             east: left,
@@ -161,6 +164,13 @@ impl Lab {
         let map = map.clone();
         self.job = Some((request.clone(), Job::start(move |stop| close_up(&map, request, stop))));
     }
+}
+
+/// The recipe without what only decides which blocks cover the ground (mineralogy, and the heights
+/// stone and gabbro start at): moving those only repaints the close-up, its heights kept [David and
+/// Counsel, 2026-10-30: move a slider and see the world change at once].
+fn shape_only(settings: &InterpreterSettings) -> InterpreterSettings {
+    InterpreterSettings { mineralogy: Default::default(), stone_from: 0, gabbro_from: 0, ..settings.clone() }
 }
 
 /// Works out a close-up on all the computer's cores.

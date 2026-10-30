@@ -440,7 +440,7 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
   copied. **Layer switches** leave parts of the recipe out (raised coast, rise, ridgelines,
   ridges, hills, torn coast, detail). The close-up follows them, and so does Render World and Spawn: the world says along the top of the screen what it leaves out, and its save remembers them, so chunks streamed in later match. The big map always uses the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
-- **[IDEA 2026-10-30] The viewer upgraded for tuning climate** (David and Counsel). Tuning climate needs
+- **[BUILT 2026-10-30, first version] The viewer upgraded for tuning climate** (David and Counsel). Tuning climate needs
   the map to show the blocks accurately enough to judge. David uses the close-up at 1x for everything,
   even the whole map, so the artificial "map" view may be retired once the close-up does everything it
   did (greyed out until then).
@@ -463,6 +463,13 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
     blocks, there's no need for a "just terrain" view or a transparency overlay, since all terrain is made
     of blocks. The map's simulated "rocky heights" shading goes: stone and the rest come from the block
     ranges David sets.
+  - **Built:** the close-up shows each sample's top block (`layers_in`, with the Climate tab's live
+    climate read straight from its pixels) in the distant palette's far colour, water by `under_sea`;
+    lit with the distant terrain's hill shading and height tint (`distant::Shade`, the game's own
+    settings), or flat with "lit" off (Terrain lab section). Mineralogy and the stone and gabbro heights
+    only repaint the colours from the kept heights; climate sliders repaint when the climate catches up.
+    The close-up's old height colours and relief shading are gone (the map view keeps them until it
+    retires). Not yet: coarse-then-sharper; the side faces of steep steps (tops only for now).
   - **Open, David's call:** the flats just under sea level (held up by "crags never drown land") used
     to be invisible grass and are now wide sand flats along coasts. Keep them as tidal flats, or remove
     them in the recipe?

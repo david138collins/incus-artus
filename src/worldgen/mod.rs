@@ -383,6 +383,7 @@ fn draw_suite(
     mut next_terrain: ResMut<crate::world::NextTerrain>,
     mut requests: MessageWriter<crate::save::WorldFileRequest>,
     registry: Res<crate::data::BlockRegistry>,
+    (render, distant, light): (Res<crate::render::RenderSettings>, Res<crate::render::distant::DistantSettings>, Res<crate::render::light::LightSettings>),
 ) -> Result {
     // Which tab, for crash and freeze reports.
     crate::diagnostics::place("tab", match suite.kit {
@@ -392,7 +393,9 @@ fn draw_suite(
         Kit::Compiler => "World Compiler",
     });
     let ctx = contexts.ctx_mut()?.clone();
-    if view::draw(&ctx, &mut suite, &registry) {
+    // The game's blocks and lighting, so the World Compiler's close-up shows the world as it will be.
+    let look = compiler_view::Look { registry: &registry, shade: crate::render::distant::Shade::new(&render, &distant, &light), finest_cell: distant.finest_cell as f32 };
+    if view::draw(&ctx, &mut suite, &look) {
         next.set(Screen::Play);
     }
     // "Render World and Spawn": a new world made from the compiled map, and back to the world.

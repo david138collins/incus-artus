@@ -12,9 +12,9 @@
 //!   (Simulation distance is a separate setting, added when there's simulation to limit.)
 
 mod deep_shot;
-mod distant;
+pub(crate) mod distant;
 mod frame_cap;
-mod light;
+pub(crate) mod light;
 mod material;
 mod mesher;
 mod meshing;

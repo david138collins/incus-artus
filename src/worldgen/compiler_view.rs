@@ -79,7 +79,11 @@ pub struct Compiler {
     /// block under the mouse in it (north, east, Z).
     pub lab: Lab,
     lab_texture: Option<egui::TextureHandle>,
-    lab_painted_for: Option<(u64, u32)>,
+    lab_painted_for: Option<PaintKey>,
+    /// The close-up shown unlit (flat colours), and the far colours of every block (rebuilt when the
+    /// blocks change).
+    pub lab_unlit: bool,
+    lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
     lab_hover: Option<(f32, f32, f32)>,
     /// The overlays' picture, and which of their pictures it holds.
     overlay_texture: Option<egui::TextureHandle>,
@@ -134,6 +138,8 @@ impl Default for Compiler {
             lab: Lab::default(),
             lab_texture: None,
             lab_painted_for: None,
+            lab_unlit: false,
+            lab_palette: None,
             lab_hover: None,
             overlay_texture: None,
             overlay_painted_for: None,
@@ -367,7 +373,7 @@ fn relief_picture(compiled: &Compiled, blocks_per_pixel: f32, relief: f32) -> Ve
         .collect()
 }
 
-pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
+pub fn draw(root: &mut egui::Ui, suite: &mut Suite, look: &Look) {
     // Space: Render World and Spawn (opens the spawn picker) [David, 2026-10-27: EZ-Bake is pressed
     // once after changing pages, so it lost the space bar]. Shift + Space: EZ-Bake a new world (a
     // new seed). Not while typing, say a preset's name.
@@ -493,7 +499,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite) {
     });
     compiler.readouts_folded = readouts_folded;
     let send = compiler.send.take();
-    egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler));
+    egui::CentralPanel::no_frame().show(root, |ui| canvas(ui, compiler, look));
 
     // EZ-Bake: the Tectonic Sim's world (a new one for Shift + Space) baked and read in here.
     if (new_world || same_world) && suite.compiler.ez.is_none() {
@@ -1693,6 +1699,15 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 );
             }
         });
+        // The close-up shows the world's blocks (mineralogy's choice, in the live climate) in the
+        // distant terrain's colours; lit as it lights them, or flat.
+        let mut lit = !compiler.lab_unlit;
+        ui.checkbox(&mut lit, "lit").on_hover_text(
+            "The close-up shows the blocks the world will have (in the Climate tab's live climate), in the colours the distant terrain gives them.\n\
+             Lit: with its hill shading and height tint, from the same settings (Render page, Distant terrain, Light), so hills read as they will from the air.\n\
+             Unlit: each block's plain colour, to judge where the blocks fall.",
+        );
+        compiler.lab_unlit = !lit;
         if !close {
             ui.small("Zoom in on the map (scroll) and it becomes a live close-up of the ground, block by block, as the Interpreter makes it. Move the Interpreter's sliders while you watch.");
         } else if let Some(frame) = &compiler.lab.frame {
@@ -1772,47 +1787,138 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
     });
 }
 
-/// A close-up's picture: coloured by height, slopes lit from the northwest; past the map is
-/// `BEYOND`.
-fn close_up_picture(frame: &lab::Frame, relief: f32) -> Vec<Color32> {
-    let (cols, rows, step) = (frame.request.cols, frame.request.rows, frame.request.step);
-    let z = |col: usize, row: usize| frame.heights[row.min(rows - 1) * cols + col.min(cols - 1)];
-    let light = {
-        let (x, y, up) = (-1.0f32, -1.0f32, 1.4f32);
-        let length = (x * x + y * y + up * up).sqrt();
-        (x / length, y / length, up / length)
-    };
-    // Slopes are real slopes here (blocks up per block across); the relief slider exaggerates them
-    // as it does the map's (5 = as they are).
-    let exaggerate = relief / 5.0;
-    (0..cols * rows)
-        .map(|i| {
-            let (col, row) = (i % cols, i / cols);
-            let here = z(col, row);
-            if here.is_nan() {
-                let [r, g, b] = BEYOND;
-                return Color32::from_rgb(r, g, b);
-            }
-            // Land or sea as the world decides it, by the whole block (the heights are whole blocks;
-            // rounding again keeps this right if they ever aren't: Z 127.6 is land in the world).
-            let sea = SEA_LEVEL as f32;
-            let colour = colour_at(if here.round() < sea { here.min(sea - 1.0) } else { here.max(sea) });
-            if here.round() < sea {
-                return Color32::from_rgb(colour[0], colour[1], colour[2]);
-            }
-            let or_here = |v: f32| if v.is_nan() { here } else { v };
-            let east = (or_here(z(col + 1, row)) - or_here(z(col.saturating_sub(1), row))) / (2.0 * step) * exaggerate;
-            let south = (or_here(z(col, row + 1)) - or_here(z(col, row.saturating_sub(1)))) / (2.0 * step) * exaggerate;
-            let length = (east * east + south * south + 1.0).sqrt();
-            let lit = (-east * light.0 - south * light.1 + light.2) / length;
-            let shade = (lit / light.2).clamp(0.35, 1.5);
-            let [r, g, b] = colour.map(|c| (c as f32 * shade).min(255.0) as u8);
-            Color32::from_rgb(r, g, b)
-        })
-        .collect()
+/// What the close-up needs from the game to show the world as it will be: the blocks (and their far
+/// colours), and how the distant terrain lights the ground (the same settings: `distant::Shade`).
+pub struct Look<'a> {
+    pub registry: &'a crate::data::BlockRegistry,
+    pub shade: crate::render::distant::Shade,
+    /// The distance the hill shading's slope is measured over (the distant terrain's finest cell).
+    pub finest_cell: f32,
 }
 
-fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
+/// The Climate tab's live temperature and rain at any spot, as the world would get them at spawn:
+/// read straight from the climate pixels (blended), so a climate slider shows in the close-up at
+/// once, without making a copy of the maps.
+struct LiveClimate {
+    temperature: Arc<super::temperature::Temperature>,
+    rain: Arc<super::rain::Rain>,
+    /// Climate pixels across, the map's pixels across, blocks per map pixel, map pixels per climate
+    /// pixel, and how much colder per 100 blocks above the sea.
+    width: usize,
+    map_width: f32,
+    blocks: f32,
+    per: f32,
+    cooling: f32,
+}
+
+impl LiveClimate {
+    fn new(compiler: &Compiler, map: &crate::world::CompiledMap) -> Option<Self> {
+        let (ground, temperature, rain) = (compiler.climate.ground()?, compiler.climate.temperature()?, compiler.climate.rain()?);
+        let width = ground.width;
+        (width > 0 && temperature.width == width && rain.width == width).then(|| Self {
+            temperature: temperature.clone(),
+            rain: rain.clone(),
+            width,
+            map_width: map.maps.width as f32,
+            blocks: map.maps.blocks_per_pixel,
+            per: ground.pixels as f32,
+            cooling: compiler.settings.climate.temperature.cooling,
+        })
+    }
+
+    /// Temperature (colder the higher `z` stands above the sea) and rain at a spot.
+    fn at(&self, north: f32, east: f32, z: f32) -> (f32, f32) {
+        let half = self.map_width / 2.0;
+        // In climate pixels, counting their centres.
+        let (x, y) = ((east / self.blocks + half) / self.per - 0.5, (half - north / self.blocks) / self.per - 0.5);
+        let (x0, y0) = (x.floor(), y.floor());
+        let (tx, ty) = (x - x0, y - y0);
+        let last = self.width as f32 - 1.0;
+        let index = |c: f32, r: f32| r.clamp(0.0, last) as usize * self.width + c.clamp(0.0, last) as usize;
+        let blend = |field: &dyn Fn(usize) -> f32| {
+            (field(index(x0, y0)) * (1.0 - tx) + field(index(x0 + 1.0, y0)) * tx) * (1.0 - ty) + (field(index(x0, y0 + 1.0)) * (1.0 - tx) + field(index(x0 + 1.0, y0 + 1.0)) * tx) * ty
+        };
+        let above_sea = (z - SEA_LEVEL as f32).max(0.0);
+        let temperature = blend(&|i| self.temperature.at_sea[i]) - self.cooling * above_sea / 100.0;
+        (temperature, blend(&|i| self.rain.rain[i].unwrap_or(0.5)))
+    }
+}
+
+/// What the close-up's colours were worked out for: when any of it changes, it's painted again (the
+/// heights are kept).
+#[derive(Clone, PartialEq)]
+struct PaintKey {
+    frame: u64,
+    mineralogy: crate::world::MineralogySettings,
+    stone_from: i32,
+    gabbro_from: i32,
+    climate: u64,
+    lit: bool,
+    blocks: u64,
+    shade: crate::render::distant::Shade,
+}
+
+/// Linear light (0 to 1) as a screen's 0 to 255.
+fn to_srgb(c: f32) -> u8 {
+    let c = c.clamp(0.0, 1.0);
+    let v = if c <= 0.003_130_8 { c * 12.92 } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 };
+    (v * 255.0).round() as u8
+}
+
+/// A close-up's picture as the world will look [David and Counsel, 2026-10-30]: each sample the
+/// block on top (mineralogy's choice, in the live climate) in its far colour, the palette the distant
+/// terrain uses, water where the near ground has it; lit, if `lit`, with the distant terrain's hill
+/// shading and height tint (the same sums and settings as lighting.wesl). Past the map is `BEYOND`.
+fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: Option<&LiveClimate>, look: &Look, palette: &crate::render::distant::Palette, lit: bool) -> Vec<Color32> {
+    let request = &frame.request;
+    let (cols, rows, step) = (request.cols, request.rows, request.step);
+    let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
+    let shade = &look.shade;
+    let sea = SEA_LEVEL as f32;
+    let z = |col: usize, row: usize| frame.heights[row.min(rows - 1) * cols + col.min(cols - 1)];
+    let mut pixels = vec![Color32::BLACK; cols * rows];
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let rows_each = rows.div_ceil(cores).max(1);
+    std::thread::scope(|scope| {
+        for (band, part) in pixels.chunks_mut(rows_each * cols.max(1)).enumerate() {
+            let (blocks, z) = (&blocks, &z);
+            scope.spawn(move || {
+                for (k, pixel) in part.iter_mut().enumerate() {
+                    let (col, row) = (k % cols, band * rows_each + k / cols);
+                    let here = z(col, row);
+                    if here.is_nan() {
+                        let [r, g, b] = BEYOND;
+                        *pixel = Color32::from_rgb(r, g, b);
+                        continue;
+                    }
+                    let north = request.north - (row as f32 + 0.5) * step;
+                    let east = request.east + (col as f32 + 0.5) * step;
+                    let colour = if crate::world::under_sea(here) {
+                        palette.water.map(|c| c * shade.top)
+                    } else {
+                        let climate = climate.map(|climate| climate.at(north, east, here));
+                        let top = map.layers_in(north.floor() as i32, east.floor() as i32, here as i32, blocks, climate).top;
+                        let mut light = shade.top;
+                        if lit {
+                            // The slope, blocks up per block across, as the distant terrain measures it
+                            // (per finest cell), and the height tint.
+                            let or_here = |v: f32| if v.is_nan() { here } else { v };
+                            let east_rise = (or_here(z(col + 1, row)) - or_here(z(col.saturating_sub(1), row))) / (2.0 * step);
+                            let north_rise = (or_here(z(col, row.saturating_sub(1))) - or_here(z(col, row + 1))) / (2.0 * step);
+                            let tint = 1.0 + shade.height_tint * (here - sea) / (crate::world::HIGHEST - sea);
+                            light *= shade.hill(north_rise * look.finest_cell, east_rise * look.finest_cell) * tint;
+                        }
+                        palette.top(top).map(|c| c * light)
+                    };
+                    *pixel = Color32::from_rgb(to_srgb(colour[0]), to_srgb(colour[1]), to_srgb(colour[2]));
+                }
+            });
+        }
+    });
+    pixels
+}
+
+fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::BLACK);
@@ -1866,9 +1972,28 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler) {
         if let Some(frame) = &compiler.lab.frame
             && !frame.heights.is_empty()
         {
-            let wanted = (compiler.lab.version, compiler.relief.to_bits());
-            if compiler.lab_painted_for != Some(wanted) || compiler.lab_texture.is_none() {
-                let image = egui::ColorImage::new([frame.request.cols, frame.request.rows], close_up_picture(frame, compiler.relief));
+            // The blocks' far colours, made again when the blocks change.
+            let revision = look.registry.revision();
+            if compiler.lab_palette.as_ref().is_none_or(|(made_for, _)| *made_for != revision) {
+                let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
+                compiler.lab_palette = Some((revision, Arc::new(crate::render::distant::Palette::from_textures(look.registry, &blocks))));
+            }
+            let s = &map.settings;
+            let wanted = PaintKey {
+                frame: compiler.lab.version,
+                mineralogy: s.mineralogy.clone(),
+                stone_from: s.stone_from,
+                gabbro_from: s.gabbro_from,
+                climate: compiler.climate.version,
+                lit: !compiler.lab_unlit,
+                blocks: revision,
+                shade: look.shade.clone(),
+            };
+            if compiler.lab_painted_for.as_ref() != Some(&wanted) || compiler.lab_texture.is_none() {
+                let climate = LiveClimate::new(compiler, &map);
+                let palette = compiler.lab_palette.as_ref().map(|(_, palette)| palette.clone()).unwrap();
+                let pixels = block_picture(frame, &map, climate.as_ref(), look, &palette, wanted.lit);
+                let image = egui::ColorImage::new([frame.request.cols, frame.request.rows], pixels);
                 let texture = compiler.lab_texture.get_or_insert_with(|| ui.ctx().load_texture("terrain lab", egui::ColorImage::new([1, 1], vec![Color32::BLACK]), egui::TextureOptions::NEAREST));
                 texture.set(image, egui::TextureOptions::NEAREST);
                 compiler.lab_painted_for = Some(wanted);
