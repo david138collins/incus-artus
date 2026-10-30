@@ -443,6 +443,9 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   elevated rectangular swimming pools with a chunk of square perimeter". Their surface is the broad
   ground's fill on 32-block patches, so the water can stand above the real ground, and the ring fill
   makes square walls. To address once the rivers are adjusted.
+- **White water at falls, seen from above** (David, 2026-10-30, via Counsel): from above, a waterfall
+  looks like the river just carries on. Make the water lighter at the drop wherever a fall is seen
+  from above: the map overlays and the far terrain. When convenient, after the routing launch.
 - **Rivers cut straight through the land** (David, 2026-10-30, with a screenshot): paused before
   tuning. They must follow the world's final, detailed terrain, "curving between hills instead of
   slicing through them", and "roll like a marble between hills, finding natural valleys and deepening
