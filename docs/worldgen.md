@@ -456,8 +456,13 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
   - **Coarse first, then sharper** [David: a smooth feature if it can be done, but **today's way isn't
     offensive either**]. What matters: move a slider and see the world change, then zoom into a small
     area at 1x and dial it in with fast or instant updates while watching.
-  - Counsel's suggestions, not yet answered: climate overlays over the real blocks with a transparency
-    slider, and a "because" readout under the mouse ("dry grass: rain 0.31, below dry grass's 0.35").
+  - **[DECIDED] No "because" readout:** the terrain lab's hover readout (rainfall, temperature and so
+    on) is enough. Point at a spot that should be dry grass and see whether it has too much rain or is too
+    cool.
+  - **[DECIDED] Blocks only, no simulated terrain shading:** with elevation or sun shading on the
+    blocks, there's no need for a "just terrain" view or a transparency overlay, since all terrain is made
+    of blocks. The map's simulated "rocky heights" shading goes: stone and the rest come from the block
+    ranges David sets.
   - **Open, David's call:** the flats just under sea level (held up by "crags never drown land") used
     to be invisible grass and are now wide sand flats along coasts. Keep them as tidal flats, or remove
     them in the recipe?
