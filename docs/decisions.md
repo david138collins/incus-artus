@@ -68,6 +68,30 @@ Reference: `Art/quartile minecraft illustration.png`
   Density and grade are fixed at "planet forming" world gen.
 - **[LATER]** Staged mining: rock (small, "pennies") → boulder ("nickels") → boulder with a pick,
   or a full block with hammer and chisel. Speed depends on tool, material, and the miner's RPG skill (NPCs and player alike).
+- **[OPEN 2026-10-30] Ore depletion: settlements versus solo mining** (David: "a real question ... it'll
+  require careful balancing between miners clearing areas and ore depletion and solo play"; still
+  thinking). Settlement sims usually have an ore vein you just keep mining, which doesn't fit physical,
+  finite ore.
+  - **David's ideas:**
+    - **mining versus digging or tunnelling** as different things;
+    - **a quarry or mine structure built around a deposit or motherlode**, which lets a handful of
+      employees continually produce its rock or mineral, more slowly.
+  - *Counsel's notes [PROPOSED]:*
+    - **Ore comes out slowly per block:** staged mining plus grade means one ore-bearing block gives
+      several units over several strikes.
+    - **Labour limits a settlement, not the vein:** common veins last years of game time; depletion
+      is a long arc that drives outposts, exploration and trade.
+    - **The sims mine abstractly:** a deposit is a remaining amount drawn down at a rate, which
+      becomes real tunnels when the place opens up into the Local sim.
+    - **Solo play's edge:** settlements work the common ore near the surface; the player goes for rich
+      pockets, deep and exotic ores, dangerous places.
+    - **A few slow renewables:** bog iron, river gold topped up by floods, salt pans.
+    - **Clearing rock feeds construction**, as in Dwarf Fortress.
+    - **Balance it in the civilization lab:** village needs, vein sizes and grades, miner speed, run for
+      decades.
+    - David's built quarry or mine fits all of this: digging is physical and finite, while a built
+      mine is a workplace producing at a rate from its deposit (the Intermediator sim's way of mining,
+      made into a building).
 - **[DECIDED]** Random face variants (e.g. some logs with knots) are feasible. The variant is picked from
   the block's position, so it needs no storage.
 - **[DECIDED]** "Constructed" is a yes/no bit, plus optional richer ownership (pillagers, quest tags) for the few blocks that need it.
