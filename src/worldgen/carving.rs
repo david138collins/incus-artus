@@ -327,8 +327,8 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
 /// ground, the water stood above the real ground wherever hills dipped below it or the line swung
 /// off its path, a ribbon of water walls (David's screenshot)]. Each point's level is the lowest real
 /// ground across the river's width there, so the water is never above its banks; then only falling
-/// downstream (a reach's start no higher than what flows into it, upstream reaches first); then
-/// rounded down into steps of the bed's step size (flat runs, then drops); a drop as tall as a
+/// downstream (a reach's start no higher than what flows into it, upstream reaches first); then in
+/// steps of the bed's step size relative to that ground (flat runs, then drops); a drop as tall as a
 /// waterfall stays sheer (its curtain just below), a smaller one is spread upstream as rapids, a
 /// block at a time. Never below the sea's surface, and a reach into the sea or a lake ends at its
 /// level.
@@ -375,7 +375,7 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     let mut order: Vec<usize> = (0..reaches.len()).collect();
     order.sort_by(|&a, &b| ends_of[b].3.total_cmp(&ends_of[a].3));
     let mut arriving: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
-    for r in order {
+    for &r in &order {
         let (start, end, end_level, _) = ends_of[r];
         let mut cap = arriving.get(&start).copied().unwrap_or(f32::MAX);
         let floor = end_level.unwrap_or(sea).max(sea);
@@ -395,10 +395,29 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
         }
         let last = points.last().map_or(sea, |p| p.level);
         arriving.entry(end).and_modify(|l| *l = l.min(last)).or_insert(last);
-        // Steps: rounded down to the step size (flat runs, then drops), never below the end's level.
+    }
+    // Then downstream reaches first: each ends at the level of the water it joins (at a junction
+    // each reach's level comes from the ground across its own width, so a creek could end blocks
+    // above the river it meets), then its steps and drops.
+    let from: std::collections::HashMap<usize, usize> = ends_of.iter().enumerate().map(|(r, e)| (e.0, r)).collect();
+    for &r in order.iter().rev() {
+        let (_, end, end_level, _) = ends_of[r];
+        let joins = if end_level.is_none() { from.get(&end).and_then(|&next| reaches[next].points.first()).map(|p| p.level) } else { None };
+        let points = &mut reaches[r].points;
+        if let (Some(at), Some(last)) = (joins, points.last_mut()) {
+            last.level = last.level.min(at);
+        }
+        // Steps, from the reach's end upward: flat until the water would have risen a step above the
+        // run, then up to it (like the network's bed) [2026-10-30: rounded down to absolute multiples
+        // of the step (Z 128, 132, 136…), the water sat up to 3 blocks more below its banks].
         if step > 1.0 {
-            for point in points.iter_mut() {
-                point.level = ((point.level / step).floor() * step).max(floor);
+            let mut run = f32::NAN;
+            for point in points.iter_mut().rev() {
+                if run.is_nan() || point.level - run >= step {
+                    run = point.level;
+                } else {
+                    point.level = run;
+                }
             }
         }
         // Each drop: a waterfall (sheer, its curtain on the next point) or rapids (spread upstream,
@@ -571,6 +590,46 @@ mod tests {
             assert!(p.level <= real.max(SEA_LEVEL as f32) + 1e-3, "water at {} over ground at {real}", p.level);
         }
     }
+
+    #[test]
+    fn the_water_steps_up_to_its_ground_not_to_multiples_of_the_step() {
+        // Snapped to Z 128, 132, 136…, the water sat up to 3 blocks more below its banks. Every drop
+        // a waterfall (no rapids), so the levels compare point for point.
+        let (flow, network, ground) = country();
+        let lay = |step| make(&network, &flow, &ground, 32.0, 3, 0.5, step, 1.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
+        let (unstepped, stepped) = (lay(1.0), lay(4.0));
+        let mut tops = 0;
+        for (a, b) in unstepped.reaches.iter().zip(&stepped.reaches) {
+            for k in 0..b.points.len() {
+                let (own, level) = (a.points[k].level, b.points[k].level);
+                assert!(level <= own && own - level < 4.0, "water at {level}, its ground's level {own}");
+                // The top of each step sits at its own level.
+                if k + 1 < b.points.len() && level > b.points[k + 1].level {
+                    assert_eq!(level, own, "a step's top below its ground's level");
+                    tops += 1;
+                }
+            }
+        }
+        assert!(tops > 0, "no steps");
+    }
+
+    #[test]
+    fn a_reach_ends_at_the_level_of_the_water_it_joins() {
+        let carving = carve(0.5);
+        let mut junctions = 0;
+        for reach in &carving.reaches {
+            let end = reach.points.last().unwrap();
+            for other in &carving.reaches {
+                let start = other.points[0];
+                if (start.north - end.north).abs() < 1e-3 && (start.east - end.east).abs() < 1e-3 {
+                    assert_eq!(end.level, start.level, "a reach ends at {} on water at {}", end.level, start.level);
+                    junctions += 1;
+                }
+            }
+        }
+        assert!(junctions > 0, "no junctions");
+    }
+
     #[test]
     fn every_river_point_carves_water_into_the_ground() {
         let carving = carve(0.5);
@@ -578,7 +637,8 @@ mod tests {
             for p in reach.points.iter().step_by(7) {
                 let here = carving.here(p.north, p.east, p.level + 5.0);
                 assert!(here.water.is_some() && here.floor.is_some(), "no river at {p:?}");
-                assert!(here.floor.unwrap() < p.level, "the floor is below the water");
+                // Below its own water (exactly on a step, the carve is the lip above it).
+                assert!(here.floor.unwrap() < here.water.unwrap() as f32, "the floor is above the water at {p:?}");
             }
         }
     }

@@ -118,11 +118,18 @@ the world's.**
   2. **Only falling downstream.** Stretches are done from upstream down; a stretch starts no higher than
      what flows into it.
   3. **Never below the sea**, and a stretch into the sea or a lake ends at that water's level.
-  4. **Rounded down to multiples of the step** (4 blocks). See section 4: this is one of the shore
-     problems.
-  5. **Drops.** A drop of 3 blocks or more is a waterfall, sheer, with a one-block curtain of water down
+  4. **A stretch ends at the water it joins.** Working downstream first, a stretch that ends at a
+     junction ends at the level of the river it joins. Each stretch's level comes from the ground
+     across its own width, so a creek could otherwise end blocks above its river.
+  5. **Steps, relative to the ground** (the step: 4 blocks). From a stretch's end upward, the water
+     stays flat until the ground under it has risen a step, then rises to it, as the network's bed
+     does. *[Fixed 2026-10-30: the levels were rounded down to absolute multiples of 4, Z 128, 132,
+     136…, which put the water up to 3 more blocks below its banks. See section 4.]*
+  6. **Drops.** A drop of 3 blocks or more is a waterfall, sheer, with a one-block curtain of water down
      its face if the switch is on. Smaller drops are spread upstream as rapids, 3 blocks of river per
-     block of drop, stepping down a block at a time.
+     block of drop, stepping down a block at a time. Every step is at least the step size (4), and
+     that's taller than "a waterfall from" (3), so at the defaults every step is a waterfall. Rapids
+     only come from smaller drops, such as a creek's last bit down to its river.
 - **Deltas:** where a river or great river reaches the sea and its last 64 or 128 blocks fall by less
   than 1%, the last stretch fans into three channels, each a third as wide, all at sea level.
 - **Lakes** keep step 5's surface for each lake patch.
@@ -171,7 +178,9 @@ to be flush (the land's top face level with the water's), the shore's ground blo
      absolute multiples of 4 (Z 128, 132, 136…), not to the ground: a river whose banks sit at 135 has
      its water at 132. On flat ground this alone makes river shores 1 to 4 blocks high, about 2½ on
      average. **I think this is a fault, not a style:** the network's own bed does it properly (flat
-     until the ground has risen a step), and the water should do the same.
+     until the ground has risen a step), and the water should do the same. *[Fixed 2026-10-30: steps
+     are now relative to the ground. Within a flat run the water still sits up to 3 blocks under the
+     ground where the ground rises toward the next step.]*
   3. **Only ever falling.** Where the ground rises along a river, the water stays at the lower level
      and the banks climb into a gorge (up to 6 blocks before the line is pulled back). That's
      intended, but it's another source of tall banks.
@@ -194,7 +203,7 @@ to be flush (the land's top face level with the water's), the shore's ground blo
 | Sea | Torn coast | Moves the coastline in a band; its own heights near the water |
 | Sea | "Crags never drown land" flats (127.5 to 128) | Become land at 128 (1 block up); the open sand-flats question |
 | River | Level = rounded down, lowest of 3 samples | 0 to 1 block more |
-| River | Level snapped to multiples of the step (4) | 0 to 3 blocks more (the fault above) |
+| River | Flat runs between steps (4) | 0 to 3 blocks more, where the ground rises toward the next step (was snapped to multiples of 4, fixed 2026-10-30) |
 | River | Water only falls downstream | Banks rise into gorges where the ground climbs |
 | River | Gorge pull-back: 6 blocks deep allowed | Rivers may sit up to 6 under their banks by design |
 | River | Rapids spread upstream | Lowers the water above each drop |
@@ -376,4 +385,5 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   low): maybe fit their method to our terrain, if needed. *Counsel:* our drainage tree already gives
   catchments; their cells are worth trying if the tree, made from the broad ground, still gives poorly
   spread branches.
-- **The step snapping:** fix it first (Builder's offer).
+- **The step snapping:** fix it first (Builder's offer). *[Built 2026-10-30: steps relative to the
+  ground, and stretches end at the level of the water they join.]*
