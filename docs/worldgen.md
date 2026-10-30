@@ -440,6 +440,27 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
   copied. **Layer switches** leave parts of the recipe out (raised coast, rise, ridgelines,
   ridges, hills, torn coast, detail). The close-up follows them, and so does Render World and Spawn: the world says along the top of the screen what it leaves out, and its save remembers them, so chunks streamed in later match. The big map always uses the whole recipe. **Cross-section:** Shift + drag draws a line; its side view (Z along it, with sea level)
   shows under the map, live. **Cost:** each close-up's time, and what that comes to per chunk.
+- **[IDEA 2026-10-30] The viewer upgraded for tuning climate** (David and Counsel). Tuning climate needs
+  the map to show the blocks accurately enough to judge. David uses the close-up at 1x for everything,
+  even the whole map, so the artificial "map" view may be retired once the close-up does everything it
+  did (greyed out until then).
+  - **What you see is what you get:** the real surface block (mineralogy's choice) in its far colour,
+    the palette the distant terrain uses, at any zoom. One column per screen pixel when zoomed out,
+    as the far terrain samples. It reads Climate's live result, the same hand-over the spawn uses.
+  - **Keep the heights, recompute only the colours:** a climate slider doesn't change the ground's
+    height, only which block is on top, so heights and slopes are kept per tile and a climate change
+    only re-picks the blocks.
+  - **Lit with the shared lighting sums** (`lighting.wesl`'s), with a switch to turn lighting off, so
+    the hills read as they will from the air and the viewer can't drift from the game [David: "a good
+    idea too"].
+  - **Coarse first, then sharper** [David: a smooth feature if it can be done, but **today's way isn't
+    offensive either**]. What matters: move a slider and see the world change, then zoom into a small
+    area at 1x and dial it in with fast or instant updates while watching.
+  - Counsel's suggestions, not yet answered: climate overlays over the real blocks with a transparency
+    slider, and a "because" readout under the mouse ("dry grass: rain 0.31, below dry grass's 0.35").
+  - **Open, David's call:** the flats just under sea level (held up by "crags never drown land") used
+    to be invisible grass and are now wide sand flats along coasts. Keep them as tidal flats, or remove
+    them in the recipe?
 - **The pretense** [David]: "we'll explore various ways to mathematically define areas and lines in
   the output map. Using the clean modalities we can capture, we will drive a variety of scattering and
   particle systems to look for ways that can generate a second layer of mountains that only look
