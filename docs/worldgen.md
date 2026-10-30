@@ -707,6 +707,40 @@ first; these wait for when rivers come back.
 6. **Waterfalls and rapids, of all shapes and sizes, are a big wow factor**: give them real attention
    (wherever the bed has to step down).
 
+#### The river rework: growing rivers from the mouths  [IDEA, David 2026-10-30; Builder to propose]
+
+Today's rivers (step 5: rain runs downhill and adds up, lines where enough gathers) "aren't awful, but
+not great". The first goal: **rivers scattered evenly around the world, so the network of rivers and
+smaller ones fans out through the terrain. Not too evenly though.** David's method works backwards:
+1. Place deltas at the **lowest, flattest points**,
+2. **not too close to one another**.
+3. Find the path toward the highest point,
+4. climbing only in increments, **favouring long runs without climbing** (flat runs, then steps: the
+   waterfalls and rapids).
+5. **Halfway there, split**, choosing the next two highest points; halfway again, split again, and so
+   on, until each river has "flowed uphill" to as many springs as high up as possible, with as many
+   jumps and as many long runs as possible.
+- **Springs are derived first** (as now and as discussed) and are the rivers' goals. Springs no river
+  found are followed forward: they find a lake or pond, or fizzle out. Lakes overflow, and that stream
+  finds something else to go to.
+- **So it's worked out from the oceans and seas inland to the mountains, then part of the way back to
+  conclude.** Any other climate feature that needs a pass afterwards runs once the rivers flow
+  downward again.
+- **The obvious variables as sliders**, so David can tune it toward ideal rivers in theory. Carving
+  comes after.
+Counsel's notes [PROPOSED]:
+- **Known ground:** Génevaux et al. (2013) grow river networks from the mouths inland. "Space
+  colonization" (the tree and leaf-vein algorithm) grows branches toward target points and splits
+  when they pull different ways; with springs as the targets, it gives the fan-out, and the halfway
+  split can be a slider for how eagerly branches split.
+- **Only ever uphill or level going upstream:** the path can reach a saddle but not go down past it, so
+  each river stays in its own catchment, and reversed, the bed only ever falls downstream (decided
+  2026-10-25). Run it on step 5's filled ground (dips filled to their spill points), so no bump traps a
+  path.
+- **The way back down:** add up the water from step 5's real rain along the network, so ranks still come
+  from rain, and widths come from David's table.
+- **It replaces step 6's "lines where enough water gathered"**; step 5's rain and basins stay as inputs.
+
 #### Breaking the water loop  [PROPOSED by Counsel 2026-10-28, for David]
 
 **David's leaning (2026-10-28): keep everything before flowing water as simple as possible. Flowing
