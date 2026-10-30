@@ -1,4 +1,4 @@
-//! Rivers — the last of the Climate stages, where the rain becomes water on the ground. [Plan:
+//! Rivers — the last of the Climate stages, where water runs on the ground. [Plan:
 //! "Rivers, the first part of Climate" and "Breaking the water loop", docs/worldgen.md.]
 //!
 //! **Step 5, the flow** (built 2026-10-28; river lines, ranks, carving come after):
@@ -12,15 +12,15 @@
 //! - **Ties are broken by a fixed nudge** from the world's seed (on flat ground, which way is
 //!   downhill is a toss-up): the paths wander, the same every time, instead of running in the grid's
 //!   straight lines.
-//! - **The flow adds up downhill:** each patch gives its rain as units of water (1 = a patch of the
-//!   wettest rain), plus **snowmelt** on cold high ground and **springs** where a slope eases off
-//!   (David's two picks), and passes it all on to the patch it drains into, upstream first.
+//! - **The flow adds up downhill:** each patch of land gives a unit of water, plus **snowmelt** on
+//!   cold high ground and **springs** where a slope eases off (David's two picks), and passes it all
+//!   on to the patch it drains into, upstream first. Not the rain [David, 2026-10-30: rivers aren't
+//!   driven by rain; it was each patch's rain, 1 unit = a patch of the wettest].
 //!
 //! Lakes are the patches standing under their basin's surface (deeper than a setting). Fresh lakes
 //! only, for now: every basin fills and spills (salt lakes, which stand lower, come later).
 
 use super::climate::Ground;
-use super::rain::Rain;
 use super::temperature::Temperature;
 use crate::world::SEA_LEVEL;
 use bevy_egui::egui::Color32;
@@ -33,13 +33,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RiverSettings {
-    /// Snowmelt: how much extra water ground gives (a share of its rain) where it's colder than
+    /// Snowmelt: how much extra water ground gives (units, on its own one) where it's colder than
     /// `snow_below` (−1 frozen to +1 hottest) and higher than `snow_above` (Z).
     pub snowmelt: f32,
     pub snow_below: f32,
     pub snow_above: f32,
-    /// Springs where a slope eases off: how much extra water (a share of a patch's rain for each
-    /// block of steepness lost, per block across).
+    /// Springs where a slope eases off: how much extra water (units for each block of steepness
+    /// lost, per block across).
     pub springs: f32,
     /// How deep (blocks) a basin's water has to stand to count as a lake.
     pub lake_depth: f32,
@@ -163,10 +163,11 @@ pub fn flow(width: usize, z: &[Option<f32>], water: &[f32], lake_depth: f32, see
     Some(Flow { width, down, surface, flow, lake, most, lake_share })
 }
 
-/// Each patch's water (units): its rain (from the climate pixel holding it), plus snowmelt and
-/// springs. `z` is the broad ground on the map's grid; `ground` (the climate pixels) tells which
-/// climate pixel holds each patch.
-pub fn water(z: &[Option<f32>], width: usize, ground: &Ground, temperature: &Temperature, rain: &Rain, s: &RiverSettings, blocks: f32) -> Vec<f32> {
+/// Each patch's water (units): one for each patch of land, plus snowmelt and springs [David,
+/// 2026-10-30: rivers aren't driven by rain; "we shouldn't confuse rivers with rain" (rivers are a
+/// co-factor of wetness, with rain, for Ecology). It was each patch's rain]. `z` is the broad ground
+/// on the map's grid; `ground` (the climate pixels) tells which climate pixel holds each patch.
+pub fn water(z: &[Option<f32>], width: usize, ground: &Ground, temperature: &Temperature, s: &RiverSettings, blocks: f32) -> Vec<f32> {
     let sea = SEA_LEVEL as f32;
     let at = |c: i64, r: i64, fallback: f32| if c < 0 || r < 0 || c >= width as i64 || r >= width as i64 { fallback } else { z[r as usize * width + c as usize].unwrap_or(fallback) };
     (0..width * width)
@@ -177,10 +178,9 @@ pub fn water(z: &[Option<f32>], width: usize, ground: &Ground, temperature: &Tem
             }
             let (c, r) = (i % width, i / width);
             let k = (r / ground.pixels).min(ground.width - 1) * ground.width + (c / ground.pixels).min(ground.width - 1);
-            let rained = rain.rain[k].unwrap_or(0.0);
-            let mut units = rained;
+            let mut units = 1.0;
             if temperature.t[k].is_some_and(|t| t < s.snow_below) && h > s.snow_above {
-                units += rained * s.snowmelt.max(0.0);
+                units += s.snowmelt.max(0.0);
             }
             // Springs: steepness coming down to here, against steepness on from here (the steepest
             // drop each way, per block across). Where it eases off, water comes up.
@@ -188,7 +188,7 @@ pub fn water(z: &[Option<f32>], width: usize, ground: &Ground, temperature: &Tem
             let neighbours = [(-1, 0), (1, 0), (0, -1), (0, 1)].map(|(dc, dr)| at(ci + dc, ri + dr, h));
             let (above, below) = (neighbours.iter().cloned().fold(h, f32::max), neighbours.iter().cloned().fold(h, f32::min));
             let eased = ((above - h) - (h - below)) / blocks;
-            units += rained * s.springs.max(0.0) * eased.max(0.0);
+            units += s.springs.max(0.0) * eased.max(0.0);
             units
         })
         .collect()

@@ -205,8 +205,8 @@ pub enum Show {
 
 /// The Climate stage's work, each part made in the background as what it's made from changes: the
 /// ground (from the recipe), then the temperature (from the ground and its settings), the wind (from
-/// the temperature), the rain (from the wind), and the water's flow (from the rain, over the ground
-/// read again on the map's own grid).
+/// the temperature), the rain (from the wind), and the water's flow (over the ground read again on
+/// the map's own grid, with the temperature for snowmelt; not from the rain [2026-10-30]).
 #[derive(Default)]
 pub struct Climate {
     ground: Stage<(Same<CompiledMap>, usize), Ground>,
@@ -214,7 +214,7 @@ pub struct Climate {
     wind: Stage<(Same<Temperature>, WindSettings), Wind>,
     rain: Stage<(Same<Wind>, RainSettings), Rain>,
     fine: Stage<Same<CompiledMap>, Ground>,
-    flow: Stage<(Same<Rain>, Same<Ground>, RiverSettings), Flow>,
+    flow: Stage<(Same<Temperature>, Same<Ground>, RiverSettings), Flow>,
     network: Stage<(Same<Flow>, NetworkSettings), Network>,
     carving: Stage<(Same<Network>, Same<CompiledMap>, NetworkSettings, CarvingSettings), crate::world::Carving>,
     /// Goes up with each new result (so pictures know to repaint).
@@ -279,6 +279,8 @@ impl Climate {
             return;
         }
         let Some(temperature) = self.temperature.result().cloned() else { return };
+        // The rivers don't wait on the wind or the rain [David, 2026-10-30: not driven by rain].
+        self.drive_rivers(map, settings, &ground, &temperature);
         let (wind, cell) = (settings.wind.clone(), ground.pixels as f32 * map.maps.blocks_per_pixel);
         let from = temperature.clone();
         self.wind.want((Same(temperature.clone()), wind.clone()), move |stop| super::wind::make(&from, &wind, cell, stop));
@@ -289,15 +291,20 @@ impl Climate {
         let Some(wind) = self.wind.result().cloned() else { return };
         let (rain, from) = (settings.rain.clone(), (ground.clone(), temperature.clone()));
         self.rain.want((Same(wind.clone()), rain.clone()), move |stop| super::rain::make(&from.0, &from.1, &wind, &rain, cell, stop));
-        if self.rain.job.is_some() || self.fine.job.is_some() {
+    }
+
+    /// The water: its flow (from the ground on the map's own grid, and the temperature for
+    /// snowmelt), the river network and the rivers' curves.
+    fn drive_rivers(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings, ground: &Arc<Ground>, temperature: &Arc<Temperature>) {
+        if self.fine.job.is_some() {
             return;
         }
-        let (Some(rain), Some(fine)) = (self.rain.result().cloned(), self.fine.result().cloned()) else { return };
+        let Some(fine) = self.fine.result().cloned() else { return };
         let (rivers, seed, blocks) = (settings.rivers.clone(), map.seed, map.maps.blocks_per_pixel);
-        let from = (rain.clone(), fine.clone());
-        self.flow.want((Same(rain), Same(fine), rivers.clone()), move |stop| {
-            let (rain, fine) = from;
-            let water = super::rivers::water(&fine.z, fine.width, &ground, &temperature, &rain, &rivers, blocks);
+        let from = (fine.clone(), ground.clone(), temperature.clone());
+        self.flow.want((Same(temperature.clone()), Same(fine), rivers.clone()), move |stop| {
+            let (fine, ground, temperature) = from;
+            let water = super::rivers::water(&fine.z, fine.width, &ground, &temperature, &rivers, blocks);
             super::rivers::flow(fine.width, &fine.z, &water, rivers.lake_depth, seed, stop)
         });
         // Step 6: which of the water's paths are rivers (grown from the mouths up to the springs).

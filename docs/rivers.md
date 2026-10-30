@@ -21,10 +21,11 @@ earlier, so the rivers are made *from* the ground but never change the ground Cl
 the recipe (the Interpreter's ground)
   │  read twice, without the rivers:
   ├─ broad ground (no crags, summit crags, hills, torn coast) ──► temperature ─► wind ─► rain
-  │                                                                                      │
-  ▼                                                                                      ▼
+  │                                                                  │              (for Ecology,
+  ▼                                                                  ▼ snowmelt      not rivers)
   step 5  THE FLOW       basins fill and spill; every 32-block patch drains somewhere; water adds up
-  │                      downhill; lakes where the filled water stands 2+ blocks deep
+  │                      downhill (a unit a patch, plus snowmelt and slope-foot springs; not rain);
+  │                      lakes where the filled water stands 2+ blocks deep
   ▼
   step 6  THE NETWORK    which of those paths are rivers: springs, mouths, grown up from the mouths,
   │                      stream order → rank (creek, stream, river, great river), a stepped bed
@@ -52,9 +53,11 @@ blocks.
   patch it drains into (8 neighbours, diagonals included), always downhill or across a lake, always
   ending at the sea. Ties on flat ground are broken by a fixed nudge from the seed, so paths wander
   instead of running in grid lines.
-- **Each patch's water:** its rain, plus **snowmelt** on cold high ground (colder than −0.2, above Z
-  300: +100% of its rain), plus **springs where a slope eases off** (the steepness coming down to it
-  minus the steepness going on). Water adds up downstream.
+- **Each patch's water:** 1 unit for a patch of land, plus **snowmelt** on cold high ground (colder
+  than −0.2, above Z 300: +1 unit), plus **springs where a slope eases off** (the steepness coming down
+  to it minus the steepness going on). Water adds up downstream. *[2026-10-30, David: rivers aren't
+  driven by rain. It was each patch's rain, with snowmelt and springs as shares of it. The flow is
+  now keyed on the temperature and the ground, so changing the rain no longer relays the rivers.]*
 - **Lakes:** patches whose filled water stands at least 2 blocks deep (`lake depth`). Fresh lakes only;
   every basin spills (salt lakes later).
 
@@ -65,8 +68,8 @@ branches of that tree**: every river drains, stays in its own catchment, and its
 downstream, without having to check.
 
 1. **Springs.** Candidates are land patches, not in a lake, that are high (by plain height, Z 260 to 700;
-   or, with the toggle, at least 40 blocks above the average within 2,000 blocks) and wet enough (their
-   own water at least 0.5 units). Big lakes' outlets (20+ patches) go first, then the rest in shuffled
+   or, with the toggle, at least 40 blocks above the average within 2,000 blocks) with water enough
+   (their own water at least 1 unit, which is any land; raise it to keep to snowmelt and slope feet). Big lakes' outlets (20+ patches) go first, then the rest in shuffled
    order. Each one is kept only if no kept spring is within its room: 2,500 blocks, less by up to half
    with the jitter (even, but not too even).
 2. **Mouths.** Each spring's path ends at a mouth. Mouths closer than 3,000 blocks: the busier one
@@ -75,7 +78,8 @@ downstream, without having to check.
    branch grows if it carries at least (1 − branching) of the main branch's springs. Branching 0.5:
    half as many.
 4. **Springs no river took** run down as short streams until they join a river, reach a lake or the sea,
-   or fizzle out (after 3,000 blocks at the minimum water, further if wetter).
+   or fizzle out (after 3,000 blocks at the minimum water, further with more snowmelt or slope-foot
+   water).
 5. **Back down to conclude.**
    - **Stream order (Strahler):** 1 where a branch begins; where two of the same order meet, one up;
      otherwise the bigger carries on. With one order per rank: order 1 is a creek, 2 a stream, 3 a
@@ -387,3 +391,25 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   spread branches.
 - **The step snapping:** fix it first (Builder's offer). *[Built 2026-10-30: steps relative to the
   ground, and stretches end at the level of the water they join.]*
+
+**Later the same day (via Counsel):**
+
+- **Taking rain out of rivers: go ahead, no proposal round.** *[Built 2026-10-30. Each patch of land
+  gives 1 unit of water. Snowmelt and slope-foot springs add units of their own, no longer shares of
+  the rain. "Water it needs" for springs defaults to 1 (any high land). The flow is keyed on the
+  temperature (for snowmelt) and the ground, so the rivers don't wait on or relay with the wind and
+  rain. Widths were already by rank, not water.]*
+- **Rain, lakes and springs:** David asked whether it's a problem that rain may still affect lakes,
+  and lakes can cause springs (a big lake's outlet is a spring). *Counsel:* no. It's still one way
+  (rain → lakes → outlets → rivers), so the pipeline stays linear, and drier country having fewer
+  lake-fed rivers is plausible. What matters is that a river's size and placement don't come from
+  rain amounts. *Builder:* today lakes don't depend on rain at all. Every basin fills to its rim and
+  spills, whatever falls on it. Rain would only come into lakes with salt lakes (dry basins standing
+  lower), which are still to come.
+- **The network:** "not badly spread". From the world map the rivers look decent and very Dwarf
+  Fortress-like, but in the world they're "just not right". David thinks fixing the profiles will
+  help most.
+- **The profiles drawing:** David has started the cross-section drawing (pixels for shore, dirt and
+  the rest, and water blocks), labelled but probably not entirely consistent or exhaustive. Read it for
+  the general rules (channel width and depth, bank slope, shoulder, fade, cut bank vs point bar), not as
+  every case.

@@ -7,8 +7,9 @@
 //! rivers from the mouths is **choosing branches of that tree**: every river drains, stays in its own
 //! catchment, and has a bed that only falls downstream, without having to check. Five passes, on the
 //! map's 32-block grid:
-//! 1. **Springs first:** where the ground is high (plain height, or high for its surroundings) and wet
-//!    enough, spaced apart with some jitter (even, but not too even). Big lakes' outlets count too.
+//! 1. **Springs first:** where the ground is high (plain height, or high for its surroundings) and has
+//!    water enough (snowmelt and slope feet; not rain, 2026-10-30), spaced apart with some jitter (even,
+//!    but not too even). Big lakes' outlets count too.
 //! 2. **Mouths:** each spring's path down the tree ends at a mouth. Mouths too close together: the one
 //!    with fewer springs loses them.
 //! 3. **Growing up from each mouth** toward its springs, splitting where they're reached through
@@ -37,7 +38,9 @@ pub struct NetworkSettings {
     pub spring_to: f32,
     pub rise: f32,
     pub around: f32,
-    /// How much of its own water (rain, snowmelt, slope-foot springs; units) a spring needs.
+    /// How much of its own water (1 a patch of land, plus snowmelt and slope-foot springs; units) a
+    /// spring needs: 1 = any land, more = only where snow or a slope foot adds to it [not rain,
+    /// 2026-10-30].
     pub spring_water: f32,
     /// The least distance between springs (blocks), and how much it varies (0 even to 1 loose).
     pub spacing: f32,
@@ -49,7 +52,7 @@ pub struct NetworkSettings {
     /// A lake this many patches big or more feeds a river from its outlet; smaller is a pond.
     pub lake_size: f32,
     /// How far a stream no river took runs before fizzling out (blocks, at the spring water needed;
-    /// wetter springs run further).
+    /// springs with more water run further).
     pub reach: f32,
     /// How many stream orders make one rank (creek, stream, river, great river).
     pub orders_per_rank: u32,
@@ -70,7 +73,7 @@ impl Default for NetworkSettings {
             spring_to: 700.0,
             rise: 40.0,
             around: 2_000.0,
-            spring_water: 0.5,
+            spring_water: 1.0,
             spacing: 2_500.0,
             jitter: 0.5,
             mouth_spacing: 3_000.0,

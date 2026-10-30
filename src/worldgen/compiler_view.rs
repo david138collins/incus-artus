@@ -964,8 +964,8 @@ fn spread_row(ui: &mut egui::Ui, spread: &mut f32, slider: crate::debug::Slider<
 fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("Climate");
     ui.small(
-        "Between the Additives and the World Interpreter: temperature, then wind, then rain, then the rivers and lakes \
-         the rain makes, worked out once over the whole map. It reads the ground the recipe makes, and the World \
+        "Between the Additives and the World Interpreter: temperature, then wind, then rain; and the rivers and lakes \
+         (not from the rain), worked out once over the whole map. It reads the ground the recipe makes, and the World \
          Interpreter carves what it chooses. Nothing here changes the ground before it.",
     );
     let climate = &mut compiler.settings.climate;
@@ -1058,7 +1058,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.small(
             "Where the water goes, on the map's own grid (32 blocks a pixel). Every dip with no way out fills to the lowest \
              point of its rim, a lake with a flat surface, and spills on downhill; every patch drains somewhere, always to the \
-             sea. Each patch gives its rain as water (1 unit = a patch of the wettest rain), and it adds up downhill: the \
+             sea. Each patch of land gives a unit of water (not its rain), plus snowmelt and slope-foot springs, and it adds up downhill: the \
              more it carries, the brighter and bluer it's drawn.",
         );
         if let Some(flow) = compiler.climate.flow() {
@@ -1073,15 +1073,15 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("How deep a basin's water has to stand to count as a lake (shallower is wet ground, later perhaps marsh).");
         ui.add_space(4.0);
         ui.strong("Snowmelt");
-        ui.add(crate::debug::Slider::new(&mut rivers.snowmelt, 0.0..=5.0).text("extra water (share of the rain)"))
-            .on_hover_text("On cold high ground, its rain counts this much extra: mountain rivers run bigger.");
+        ui.add(crate::debug::Slider::new(&mut rivers.snowmelt, 0.0..=5.0).text("extra water (units)"))
+            .on_hover_text("On cold high ground, each patch gives this much extra water (on its own 1 unit): mountain rivers run bigger.");
         ui.add(crate::debug::Slider::new(&mut rivers.snow_below, -1.0..=1.0).text("colder than")).on_hover_text("Only where the temperature is below this (-1 frozen to +1 hottest).");
         ui.add(crate::debug::Slider::new(&mut rivers.snow_above, 128.0..=1_023.0).text("higher than (Z)")).on_hover_text("Only where the ground is above this.");
         ui.add_space(4.0);
         ui.strong("Springs at slope feet");
         ui.add(crate::debug::Slider::new(&mut rivers.springs, 0.0..=20.0).text("extra water")).on_hover_text(
             "Where a slope eases off (steep coming down, gentler going on), water comes up: this much extra, for each block of\n\
-             steepness lost per block across, as a share of the rain there. Springs show at the feet of mountains.",
+             steepness lost per block across, in units (a patch of land gives 1). Springs show at the feet of mountains.",
         );
     });
     fold_section(ui, "River network", |ui| {
@@ -1116,8 +1116,8 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.add(crate::debug::Slider::new(&mut n.around, 200.0..=20_000.0).logarithmic(true).text("surroundings within (blocks)"))
                 .on_hover_text("How far round a spot its surroundings' average height is taken from.");
         });
-        ui.add(crate::debug::Slider::new(&mut n.spring_water, 0.0..=5.0).text("water it needs (units)"))
-            .on_hover_text("Its own water: rain, snowmelt and slope-foot springs (1 unit = a patch of the wettest rain). Dry high ground gets none.");
+        ui.add(crate::debug::Slider::new(&mut n.spring_water, 1.0..=5.0).text("water it needs (units)"))
+            .on_hover_text("Its own water: 1 unit for a patch of land, plus snowmelt and slope-foot springs (not rain). 1 = any high land; more = only where snow or a slope foot adds water.");
         ui.add(crate::debug::Slider::new(&mut n.spacing, 200.0..=20_000.0).logarithmic(true).text("spaced at least (blocks)"))
             .on_hover_text("The least distance between springs: what spreads the rivers evenly round the world.");
         ui.add(crate::debug::Slider::new(&mut n.jitter, 0.0..=1.0).text("spacing varies")).on_hover_text("0 = as even as can be; 1 = some springs as close as you like.");
@@ -1130,7 +1130,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut n.branching, 0.0..=1.0).text("how readily rivers split"))
             .on_hover_text("0 = one trunk to each mouth; 1 = a branch up to every spring. Between: a branch is kept if it carries enough of the springs.");
         ui.add(crate::debug::Slider::new(&mut n.reach, 0.0..=20_000.0).text("a lone stream runs (blocks)"))
-            .on_hover_text("How far a spring no river took runs before it dries away (wetter springs run further).");
+            .on_hover_text("How far a spring no river took runs before it dries away (springs with more water run further).");
         ui.add(crate::debug::Slider::new(&mut n.orders_per_rank, 1..=4).text("stream orders per rank"))
             .on_hover_text("Where two branches of the same order meet, the order goes up one. This many orders make one rank (creek, stream, river, great river).");
         ui.add(crate::debug::Slider::new(&mut n.full_size, 0.0..=1.0).text("keeps full size for (share from the mouth)")).on_hover_text(
@@ -1761,7 +1761,7 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                     if flow.lake[i] > 0.0 {
                         ui.small(format!("a lake {:.0} deep, its surface at Z {:.0}", flow.lake[i], flow.surface[i]));
                     }
-                    ui.small(format!("water flowing through: {:.1} units", flow.flow[i])).on_hover_text("1 unit = a patch of the wettest rain; it adds up downhill.");
+                    ui.small(format!("water flowing through: {:.1} units", flow.flow[i])).on_hover_text("1 unit = a patch of land (more with snowmelt and slope-foot springs); it adds up downhill.");
                 }
                 // The river here, if any: its rank (from branches joining), its bed and the step below.
                 if let Some(network) = compiler.climate.network()
