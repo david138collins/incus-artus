@@ -827,6 +827,33 @@ which the linear pipeline already does.
 surroundings" (or both, as two sliders); and whether rank follows the water (proposed) or the count of
 branches joined, the classic "stream order".
 
+#### Carving: the curve and the carve in one go  [IDEA, David 2026-10-30; Builder to propose]
+
+David: smooth and carve at the same time, by **compounding the smoothing at the elbows**, so the carve
+comes from a **bias that increases with size**: a spring is just 1×1 of water, and a creek's 2 blocks
+go to one side of the line or are centred, depending on which way it curves. **The curve and the carve
+are done at one time.** **Water: just place water blocks in the carve.** No finer water, no movement,
+nothing more for now.
+Counsel's outline [PROPOSED, for Builder's proposal]:
+- **Real rivers lean to the outside of their bends:** fast water cuts the outer bank, and slow water
+  drops sand on the inside. Bigger rivers swing wider, which is where meanders come from.
+1. **Corner cutting, repeated** (Chaikin's method: each pass slices the corners off the line). Bigger
+   rivers get more passes.
+2. **Lean outward:** offset each point by width × bend sharpness × a slider.
+3. **Lengthening (David's squiggles):** a side-to-side wave sized by width. Real meanders repeat about
+   every 10-14 river widths, which is a natural default. Strong on flat ground, weak on steep.
+4. **The carve:** every block within half the width of the curve, to the bank depths in David's table.
+   That settles which side a creek's second block goes.
+- **No impossible paths:** the bed height still comes from the network path's order, so it only falls
+  downstream wherever the curve moves sideways. Junctions, lake outlets and mouths are pinned (the lean
+  fades to zero there), so rivers always connect. The lean is clamped: it shrinks where the outward
+  side is much higher ground, and keeps clear of other rivers. Corner cutting can't loop.
+- **Cost:** each river's curve is worked out once in the river stage; each block only measures its
+  distance to the curve.
+- **The shared carving contract:** the carve lowers the recipe's height, so the far terrain, the light
+  map and the viewer all see rivers for free. Lakes fill to their saved surface, and rims are lowered or
+  filled where a crag dip would leave water standing against air.
+
 #### Breaking the water loop  [PROPOSED by Counsel 2026-10-28, for David]
 
 **David's leaning (2026-10-28): keep everything before flowing water as simple as possible. Flowing
