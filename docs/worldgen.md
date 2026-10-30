@@ -1033,6 +1033,20 @@ Counsel's notes [PROPOSED]:
   from the recipe, built ones from saved edits. It's the "far builds" idea (`vision/watch-list.md`, item
   17), so it's settled once as a contract, before caves, not three fixes.
 - **The light map won't see overhangs' shadows** at first. They can be stamped in later.
+- **[IDEA, David 2026-10-30] Holes in the canvas:** to render cliffs and caves far away, snip holes in
+  the far surface ("the light canvas") where something opens, and through the cutouts draw only a
+  second canvas behind, at the resolution of the pixels of interior actually in view. At a great
+  distance a cave is just 3-80 dark pixels; closer, it transitions into render distance like anything
+  else.
+  *Counsel:* this is a layered heightmap. Most of the world has one solid span per column and one sheet;
+  the few columns with an opening have a second span, drawn as more sheets: the ground or cave floor
+  behind the hole, and for an overhang its underside (a "ceiling" sheet facing down). It uses the far
+  terrain's own meshes, rings and lighting module, so it can't drift from the rest. The interior gets
+  little sky in the light map, so it reads dark without special colouring. Its limits: a hole can't be
+  smaller than the far terrain's cell at that distance, so smaller mouths are just darker cells (which is
+  David's "few dark pixels" anyway), and an arch or cave mouth needs a second span, not a third (deep
+  stacks of overhangs would need more). It's simpler than the sparse voxel copies above and may replace
+  them. **The cave probe (`vision/watch-list.md` 17b) should try both on one arch or cave mouth.**
 - **Fun variety, from Minecraft's Caves & Cliffs** (1.17 blocks and mobs, 1.18 a new generator): huge
   caverns with pillars, long winding tunnels, thin squiggly ones, ravines, underground lakes at their own
   levels (aquifers), ore veins, and cave biomes chosen with depth. Dwarf Fortress sorts depth into cavern
