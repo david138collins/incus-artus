@@ -357,3 +357,23 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   to the waterline question.
 - **Still to do from the carving plan:** sliders for the bank table, keeping rivers clear of each
   other, and river banks in mineralogy.
+
+### David's answers [2026-10-30]
+
+- **Rivers aren't driven by rain** [DECIDED]. Basing rivers on rain was misguided, to some extent. Rain
+  matters mainly for the wetness and dryness of an area, and **rivers are a co-factor of wetness, not on
+  the other side of the equation.** "We only want rivers, lakes and ponds to look right. We only want
+  the ecosystem to look right. We shouldn't confuse rivers with rain."
+  *Counsel:* wetness for ecology becomes rain plus nearness to rivers, lakes and ponds. Rivers are
+  placed and sized for the look, by their own controls. A great river through a desert is fine (the
+  Nile).
+- **Profiles should be much wider, even from springs.** David will draw the profile each rank should
+  take, as a cross-section on a grid.
+- **Shores: flush by default, ledges by context** [DECIDED]. Banks get **several ways to fade out
+  smoothly** (the cross-section blended into the land).
+- **River types:** David will write too many rules for types and slopes, then consolidate them.
+- **The paper's Voronoi watersheds** (cells filled with a network running from the high side to the
+  low): maybe fit their method to our terrain, if needed. *Counsel:* our drainage tree already gives
+  catchments; their cells are worth trying if the tree, made from the broad ground, still gives poorly
+  spread branches.
+- **The step snapping:** fix it first (Builder's offer).
