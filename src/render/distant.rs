@@ -36,7 +36,7 @@ use super::light::LightSettings;
 use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::data::{BlockRegistry, FACE_NAMES};
 use super::meshing::MeshingState;
-use crate::world::{BlockId, CHUNK_SIZE, ChunkPos, CompiledMap, Streaming, Terrain, TerrainBlocks, VoxelWorld};
+use crate::world::{BlockId, CHUNK_SIZE, ChunkPos, CompiledMap, Streaming, Terrain, TerrainBlocks, VoxelWorld, under_sea};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, MeshVertexAttribute, MeshVertexBufferLayoutRef, PrimitiveTopology, VertexFormat};
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
@@ -352,8 +352,8 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
         })
         .collect();
     let at = |i: i32, j: i32| ground[(j + 1) as usize * n + (i + 1) as usize];
-    // The surface: the ground, or the sea's over it.
-    let surface = |i: i32, j: i32| at(i, j).map(|h| h.max(sea));
+    // The surface: the ground, or the sea's over it, wherever the near ground has water (`under_sea`).
+    let surface = |i: i32, j: i32| at(i, j).map(|h| if under_sea(h) { sea } else { h });
     if (0..=CELLS).all(|j| (0..=CELLS).all(|i| at(i, j).is_none())) {
         return None;
     }
@@ -367,7 +367,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
         for i in 0..=CELLS {
             let (Some(h), Some(top)) = (at(i, j), surface(i, j)) else { continue };
             let (x, y) = (corner.x + i as f32 * cell, corner.y + j as f32 * cell);
-            let water = h < sea;
+            let water = under_sea(h);
             // What the ground is made of here (mineralogy, as the near ground has it).
             let block = map.layers(x.floor() as i32, y.floor() as i32, (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks).top;
             // The slope, blocks up per block across.
@@ -375,7 +375,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 (0.0, 0.0)
             } else if cell < slope {
                 // Finer than the slope is measured over: the ground's own height half that either side.
-                let z = |dx: f32, dy: f32| map.height(x + dx, y + dy).unwrap_or(h).max(sea);
+                let z = |dx: f32, dy: f32| map.height(x + dx, y + dy).map_or(top, |h| if under_sea(h) { sea } else { h });
                 ((z(slope / 2.0, 0.0) - z(-slope / 2.0, 0.0)) / slope, (z(0.0, slope / 2.0) - z(0.0, -slope / 2.0)) / slope)
             } else {
                 let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
@@ -916,7 +916,7 @@ mod tests {
         let sea = crate::world::SEA_LEVEL as f32;
         for (p, morph) in mesh.positions.iter().zip(&mesh.morph) {
             let game = bevy_to_game(Vec3::from_array(*p)) + mesh.corner;
-            let ground = map.height(game.x, game.y).unwrap().max(sea);
+            let ground = map.height(game.x, game.y).map(|h| if under_sea(h) { sea } else { h }).unwrap();
             assert!((game.z - ground).abs() < 1e-3, "corner at {game}, ground {ground}");
             // It eases between 5 and 6 of its tiles out (a ring-1 tile is 512 blocks).
             assert_eq!((morph[1], morph[2]), (EASE_FROM * 512.0, EASE_TO * 512.0));

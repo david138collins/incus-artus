@@ -28,6 +28,14 @@ use std::sync::Arc;
 /// Ground at this Z or above is dry land; water fills everything below it down to the sea floor.
 pub const SEA_LEVEL: i32 = 128;
 
+/// Is ground at this height (a Z, with fractions) under the sea? Where it rounds below sea level: the
+/// one rule the near ground (`CompiledMap::ground`) and the distant terrain both go by, so they always
+/// agree where the water is. [2026-10-30: the distant terrain took anything below 128 as sea, so
+/// ground at 127.5 to 128, land up close, was water far away; flats right at sea level showed it.]
+pub fn under_sea(height: f32) -> bool {
+    (height.round() as i32) < SEA_LEVEL
+}
+
 /// The blocks the interpreter uses: the four it always has, and the ones mineralogy uses when they're
 /// registered (none: its rules for them are skipped).
 #[derive(Clone, Copy)]
@@ -70,7 +78,7 @@ impl CompiledMap {
     pub fn ground(&self, x: i32, y: i32) -> Option<i32> {
         self.height(x as f32 + 0.5, y as f32 + 0.5).map(|z| {
             let z = (z.round() as i32).clamp(1, WORLD_HEIGHT - 1);
-            if z < SEA_LEVEL { z.min(SEA_LEVEL - 2) } else { z }
+            if under_sea(z as f32) { z.min(SEA_LEVEL - 2) } else { z }
         })
     }
 
@@ -250,7 +258,8 @@ mod tests {
     #[test]
     fn peaks_are_gabbro_mountainsides_stone_and_land_grass() {
         let map = map();
-        let blocks = blocks();
+        // Without mineralogy's blocks (whatever's registered): the ground as it always was.
+        let blocks = TerrainBlocks { dirt: None, sand: None, dry_grass: None, snow: None, gravel: None, ..blocks() };
         let top = |z: i32| map.layers(0, 0, z, &blocks).top;
         assert_eq!(top(300), blocks.gabbro);
         assert_eq!(top(230), blocks.stone);
@@ -274,6 +283,19 @@ mod tests {
         assert_eq!(at(g), blocks.grass);
         assert!((1..=depth).all(|k| at(g - k) == BlockId(50)));
         assert_eq!(at(g - depth - 1), blocks.stone);
+    }
+
+    #[test]
+    fn ground_just_under_the_sea_s_surface_is_land_where_it_rounds_up() {
+        // Flats right at sea level (a crag kept from drowning land stops at 127.99, say) are land up
+        // close, a block above the water; the distant terrain asks the same question.
+        assert!(!under_sea(127.99) && !under_sea(127.5) && !under_sea(128.0));
+        assert!(under_sea(127.49) && under_sea(126.0));
+        let map = CompiledMap::of_heights(8, 32.0, &[0.0; 64]);
+        for x in -100..100 {
+            let h = map.height(x as f32 + 0.5, 0.5).unwrap();
+            assert_eq!(map.ground(x, 0).unwrap() < SEA_LEVEL, under_sea(h), "at {h}");
+        }
     }
     #[test]
     fn chunks_past_the_map_are_nothing_and_generation_fills_a_circle() {
