@@ -426,6 +426,15 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   below, with a reasonable range per rank rather than one number: "in order to achieve a *pleasant*
   webbing of little springs and creeks and rivers that have bridges and so on." The goal to judge by
   is a pleasant, bridgeable web, not exact sizes.
+- **Lakes, after the rivers** (David, 2026-10-30, with a screenshot): lakes come out as "perfect
+  elevated rectangular swimming pools with a chunk of square perimeter". Their surface is the broad
+  ground's fill on 32-block patches, so the water can stand above the real ground, and the ring fill
+  makes square walls. To address once the rivers are adjusted.
+- **Rivers cut straight through the land** (David, 2026-10-30, with a screenshot): paused before
+  tuning. They must follow the world's final, detailed terrain, "curving between hills instead of
+  slicing through them", and "roll like a marble between hills, finding natural valleys and deepening
+  them, rather than making its own". Banks should slope the land toward the river, at least a width
+  each side (a 32-wide river, at least 32 blocks). See "Why the rivers cut through" below.
 
 ## 8. Proposal: river profiles (Builder, for David's approval)
 
@@ -583,3 +592,38 @@ mountain gorges.
    agreed, or one way everywhere to start?
 4. **Build order:** sizes and shape first, then lopsided bends and ledges, then the fades, with a
    launch for you after each. Or all at once?
+
+## 9. Why the rivers cut through (Builder, 2026-10-30, from David's screenshot)
+
+David's cross-section across a meandering river showed vertical slots 15 to 25 blocks deep through
+ground at Z 140–157, with the water near Z 128. From the code, four causes, one underneath them all:
+
+1. **The path is chosen on ground with no hills in it.** The flow (step 5) reads the *broad* ground:
+   the recipe with the crags, summit crags, hills and torn coast left out, one sample per 32-block
+   patch. The hills David sees don't exist for it, so it runs straight across them. The dead-straight
+   diagonals are the 32-block grid's steps on a smooth slope, which corner cutting can't bend.
+2. **The squiggles ignore the real ground too.** Meanders, the wander and the lean move the line
+   sideways by formula. The only check, "deepest gorge", also reads the broad ground, so meanders swing
+   into hills it can't see. "Flat enough to meander" is judged on the broad ground as well.
+3. **The water only falls, from the lowest real ground across its width.** Once the line touches low
+   ground, every hill it crosses after that is cut down to that level: the vertical slots.
+4. **No banks.** The cut is vertical and the land beside it is left as it was (step 3's fades, not
+   built yet).
+
+Lakes share cause 1: their surface is the broad ground's fill on 32-block patches, so they can stand
+above the real ground in square patches.
+
+**The way to deal with it** (a direction for David, not yet a proposal):
+- **Keep the network's plan** (which rivers, springs, mouths, ranks): David is happy with the placement.
+- **Route each reach on the real, detailed ground** (the Interpreter's ground without rivers), every
+  few blocks, inside a corridor round its planned path, from its pinned start to its pinned end. Take
+  the way that stays lowest: the lowest gap between hills first, then the shortest. That's the marble:
+  round the hills, through the lowest gaps, along the valley floors.
+- **Meanders only where the real valley floor is flat and wide enough**, measured on the real ground.
+  Elsewhere the route's own shape is the river's.
+- **The water sits on the routed valley floor.** Where even the lowest gap is higher than the water
+  coming in, it fills behind it as a pond up to the gap, as real water does, or cuts a short, limited
+  notch through.
+- **Then the banks** (step 3), at least a width each side, deepen the valley it found instead of
+  digging a trench.
+- **Then lakes,** with the same idea: filled on the real ground round their patch.
