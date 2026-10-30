@@ -75,6 +75,11 @@ Reference: `Art/quartile minecraft illustration.png`
   supply settlement games rely on, while the deposit is still really there underneath.
   - **Tree farms work the same way:** workers replant trees in rows, so a settlement has a steady wood
     supply without clearing the forests round it.
+  - **Mine sites from mineralogy** [David]: the mineralogy that places ores also places the locations
+    viable for a mine. **Prospecting can be a skill.** *Counsel:* a mine site is then a known deposit
+    with a size and grade, which is just what a built mine draws from. Prospecting reveals sites, and
+    perhaps their size and grade, more accurately with skill, so finding a good site is gameplay. The
+    sims' settlements and the player find sites the same way.
 - **Ore depletion: settlements versus solo mining** (David: "a real question ... it'll require careful
   balancing between miners clearing areas and ore depletion and solo play"; the decision above settles
   the main question; the notes below are for balancing it). Settlement sims usually have an ore vein you just keep mining, which doesn't fit physical,
