@@ -45,9 +45,19 @@ pub struct CarvingSettings {
     /// How far a river may cut below the ground beside its path (a little gorge) before its line is
     /// pulled back toward the path (blocks).
     pub deepest_gorge: f32,
-    /// Banks: how deep a river is, for its width (1 = David's table: a 2-wide creek 2 deep, a 32-wide
-    /// river 8, a 128-wide great river 16).
-    pub depth: f32,
+    /// Sizes [David's profiles drawing, 2026-10-30: "drawing wins", growing "by ratios we set"]: a
+    /// spring's width and depth (blocks); then for each step up a rank (spring to creek, creek to
+    /// stream, stream to river, river to great river) how many times wider and deeper; and how much a
+    /// river's size wanders along it (a share).
+    pub spring_width: f32,
+    pub spring_depth: f32,
+    pub width_ratio: [f32; 4],
+    pub depth_ratio: [f32; 4],
+    pub size_varies: f32,
+    /// The shape across for each rank (creek, stream, river, great river), and how much it wanders
+    /// along a river (0 none to 1 a lot).
+    pub shapes: [Shape; 4],
+    pub shape_varies: f32,
     /// Waterfalls: a curtain of water blocks down the face. Rapids: blocks of river for each block
     /// of drop.
     pub curtains: bool,
@@ -71,7 +81,18 @@ impl Default for CarvingSettings {
             flat: 0.02,
             most_sideways: 48.0,
             deepest_gorge: 6.0,
-            depth: 1.0,
+            spring_width: 2.0,
+            spring_depth: 1.5,
+            width_ratio: [3.0, 2.5, 2.5, 2.5],
+            depth_ratio: [2.0, 1.5, 1.25, 1.25],
+            size_varies: 0.15,
+            shapes: [
+                Shape { edge: 0.3, flat: 0.2, bowl: 1.0 },
+                Shape { edge: 0.5, flat: 0.5, bowl: 0.6 },
+                Shape { edge: 0.2, flat: 0.3, bowl: 1.6 },
+                Shape { edge: 0.2, flat: 0.3, bowl: 1.6 },
+            ],
+            shape_varies: 0.3,
             curtains: true,
             rapids_length: 3.0,
             deltas: true,
@@ -81,9 +102,43 @@ impl Default for CarvingSettings {
     }
 }
 
-/// The widths of the ranks (David's table, blocks): creek, stream, river, great river; and a spring.
-const BANDS: [(f32, f32); 4] = [(2.0, 4.0), (4.0, 8.0), (8.0, 32.0), (32.0, 128.0)];
-const SPRING: f32 = 1.0;
+/// A river's shape across (see `world::carving::depth_across`): the water's depth at the bank (a
+/// share of the deepest), the share of the width at the deepest, and the bowl between.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Shape {
+    pub edge: f32,
+    pub flat: f32,
+    pub bowl: f32,
+}
+
+impl Shape {
+    fn mix(self, other: Shape, t: f32) -> Shape {
+        let m = |a: f32, b: f32| a + (b - a) * t;
+        Shape { edge: m(self.edge, other.edge), flat: m(self.flat, other.flat), bowl: m(self.bowl, other.bowl) }
+    }
+}
+
+/// A river's width, depth and shape a share of the way down its rank's band (`rank` 1 creek to 4
+/// great river; 0 where it becomes that rank, 1 where it joins a bigger one). Each rank's size is a
+/// spring's times the ratios up to it, and its band runs halfway (by ratio) to the ranks either side,
+/// so the bands meet; a creek's starts at a spring's size. Its shape is its rank's in the middle of
+/// the band, halfway to its neighbours' at the ends.
+pub fn size_in_band(s: &CarvingSettings, rank: usize, share: f32) -> (f32, f32, Shape) {
+    let rank = rank.clamp(1, 4);
+    let ratio = |k: usize| (s.width_ratio[k].max(1.0), s.depth_ratio[k].max(1.0));
+    let mut size = (s.spring_width.max(1.0), s.spring_depth.max(1.0));
+    for k in 0..rank {
+        size = (size.0 * ratio(k).0, size.1 * ratio(k).1);
+    }
+    let low = if rank == 1 { (s.spring_width.max(1.0), s.spring_depth.max(1.0)) } else { (size.0 / ratio(rank - 1).0.sqrt(), size.1 / ratio(rank - 1).1.sqrt()) };
+    let (up_w, up_d) = ratio(rank.min(3));
+    let high = (size.0 * up_w.sqrt(), size.1 * up_d.sqrt());
+    let t = share.clamp(0.0, 1.0);
+    let grow = |a: f32, b: f32| a * (b / a).powf(t);
+    let own = s.shapes[rank - 1];
+    let shape = if t < 0.5 { s.shapes[rank.saturating_sub(2)].mix(own, 0.5 + t) } else { own.mix(s.shapes[rank.min(3)], t - 0.5) };
+    (grow(low.0, high.0), grow(low.1, high.1), shape)
+}
 
 fn smooth(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
@@ -96,12 +151,13 @@ struct PathPoint {
     north: f32,
     east: f32,
     width: f32,
+    depth: f32,
+    shape: Shape,
     level: f32,
 }
 
-/// Makes the curves from the network (`full_size`: the share of a river's length, from its mouth,
-/// that keeps its full width before narrowing toward its spring [David]); `None` if stopped.
-pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, seed: u64, full_size: f32, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<Carving> {
+/// Makes the curves from the network; `None` if stopped.
+pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, seed: u64, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<Carving> {
     let w = network.width;
     let n = w * w;
     let half = w as f32 / 2.0;
@@ -112,7 +168,9 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
         let ((an, ae), (bn, be)) = (place(a), place(b));
         ((an - bn).powi(2) + (ae - be).powi(2)).sqrt()
     };
-    // How far each river patch is from its mouth, and the longest way up from it to a spring.
+    // How far each river patch is from its mouth, and how far along its rank's run: the longest way
+    // up and the way down while it stays that rank.
+    let rank = |i: usize| network.rank[i].clamp(1, 4);
     let mut to_mouth = vec![0.0f32; n];
     let mut ups: Vec<Vec<u32>> = vec![Vec::new(); n];
     for i in (0..n).filter(|&i| on(i) && down(i) != i && on(down(i))) {
@@ -126,30 +184,45 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
             walk.push(u as usize);
         }
     }
-    let mut to_spring = vec![0.0f32; n];
+    let (mut up_in_rank, mut down_in_rank) = (vec![0.0f32; n], vec![0.0f32; n]);
     // Upstream first: by distance from the mouth, furthest first.
     let mut by_far: Vec<usize> = (0..n).filter(|&i| on(i)).collect();
     by_far.sort_by(|&a, &b| to_mouth[b].total_cmp(&to_mouth[a]));
     for &i in &by_far {
         let d = down(i);
-        if d != i && on(d) {
-            to_spring[d] = to_spring[d].max(to_spring[i] + patch(i, d));
+        if d != i && on(d) && rank(d) == rank(i) {
+            up_in_rank[d] = up_in_rank[d].max(up_in_rank[i] + patch(i, d));
+        }
+    }
+    for &i in by_far.iter().rev() {
+        let d = down(i);
+        if d != i && on(d) && rank(d) == rank(i) {
+            down_in_rank[i] = down_in_rank[d] + patch(i, d);
         }
     }
     if stop.load(Ordering::Relaxed) {
         return None;
     }
-    // A patch's width: its rank's (the middle of its band), narrowing toward the spring past the
-    // full-size share of the river's length.
-    let width_at = |i: usize| {
-        let rank = network.rank[i].clamp(1, 4) as usize;
-        let (low, high) = BANDS[rank - 1];
-        let full = (low * high).sqrt();
-        let length = to_mouth[i] + to_spring[i];
-        let up = if length > 0.0 { to_mouth[i] / length } else { 0.0 };
-        let share = full_size.clamp(0.0, 1.0);
-        let taper = if up <= share { 1.0 } else { 1.0 - smooth((up - share) / (1.0 - share).max(1e-3)) };
-        SPRING + (full - SPRING) * taper
+    // A patch's size and shape: its rank's band, as far down it as the patch is along its rank's run
+    // (growing downstream) [2026-10-30, replacing "keeps full size for"]; size and shape wandering
+    // slowly along the way.
+    let size_at = |i: usize, north: f32, east: f32| {
+        let run = up_in_rank[i] + down_in_rank[i];
+        let share = if run > 0.0 { up_in_rank[i] / run } else { 0.5 };
+        let (width, depth, shape) = size_in_band(s, rank(i) as usize, share);
+        let wobble = |salt: u64| perlin(seed, salt, Fade::Smooth, north / 600.0, east / 600.0);
+        let size = (1.0 + s.size_varies * wobble(0x512e)).max(0.3);
+        let v = s.shape_varies;
+        let shape = Shape {
+            edge: (shape.edge + v * 0.5 * wobble(0x5ed6)).clamp(0.0, 1.0),
+            flat: (shape.flat + v * 0.5 * wobble(0xf1a7)).clamp(0.0, 0.9),
+            bowl: shape.bowl * 2f32.powf(v * wobble(0xb0e1)),
+        };
+        ((width * size).max(1.0), (depth * size).max(1.0), shape)
+    };
+    let path_point = |i: usize, (north, east): (f32, f32), level: f32| {
+        let (width, depth, shape) = size_at(i, north, east);
+        PathPoint { north, east, width, depth, shape, level }
     };
 
     // The reaches: from each spring or junction down to the next junction, lake, or the sea.
@@ -168,25 +241,24 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
         let mut i = start;
         let (mut end, mut end_level) = (start, None);
         loop {
-            let (north, east) = place(i);
-            path.push(PathPoint { north, east, width: width_at(i), level: network.bed[i].round() });
+            path.push(path_point(i, place(i), network.bed[i].round()));
             let d = down(i);
             if d == i {
                 break;
             }
             if !on(d) {
                 // Into the sea (or a lake): the line goes on to its edge, at its water's level.
-                let (north, east) = place(d);
                 let level = if flow.lake[d] > 0.0 { flow.surface[d].round() } else { SEA_LEVEL as f32 };
                 (end, end_level) = (d, Some(level));
-                path.push(PathPoint { north, east, width: width_at(i), level: level.min(path.last().map_or(level, |p| p.level)) });
+                path.push(path_point(i, place(d), level.min(path.last().map_or(level, |p| p.level))));
                 break;
             }
             if ups[d].len() >= 2 {
-                // A junction: this reach ends on it (pinned), the next starts from it.
+                // A junction: this reach ends on it (pinned), the next starts from it; its own size
+                // up to there (inside the river it joins) [2026-10-30: it took the junction's, a
+                // creek flaring to a river's width over its last patch].
                 end = d;
-                let (north, east) = place(d);
-                path.push(PathPoint { north, east, width: width_at(d), level: network.bed[d].round() });
+                path.push(path_point(i, place(d), network.bed[d].round()));
                 break;
             }
             i = d;
@@ -246,7 +318,9 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
         let s_path = share * total;
         let k = along.iter().rposition(|&a| a <= s_path).unwrap_or(0).min(path.len() - 2);
         let t = ((s_path - along[k]) / (along[k + 1] - along[k]).max(1e-3)).clamp(0.0, 1.0);
-        (path[k].width + (path[k + 1].width - path[k].width) * t, k, t)
+        let (a, b) = (&path[k], &path[k + 1]);
+        let mix = |x: f32, y: f32| x + (y - x) * t;
+        (mix(a.width, b.width), mix(a.depth, b.depth), a.shape.mix(b.shape, t))
     };
     // The water level: each path point's, changing halfway to the next; a fall there is sheer, a
     // smaller drop spread out as rapids, a block at a time.
@@ -279,7 +353,7 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
             run += ((line[k].0 - line[k - 1].0).powi(2) + (line[k].1 - line[k - 1].1).powi(2)).sqrt();
         }
         let share = run / length;
-        let (width, _, _) = at(share);
+        let (width, depth, shape) = at(share);
         let (level, curtain) = level_at(share);
         // Tangent, normal (to the left, looking downstream) and how sharply it bends here.
         let (a, b) = (line[k.saturating_sub(1)], line[(k + 1).min(line.len() - 1)]);
@@ -309,12 +383,14 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
             }
             sideways *= 0.5;
         }
-        let depth = ((width.sqrt() * std::f32::consts::SQRT_2 * s.depth).round()).clamp(1.0, 16.0);
         points.push(RiverPoint {
             north: line[k].0 + nn * sideways,
             east: line[k].1 + ne * sideways,
             width,
             depth,
+            edge: shape.edge,
+            flat: shape.flat,
+            bowl: shape.bowl,
             level,
             bend: if bend.abs() < 0.002 { 0.0 } else { bend.signum() },
             curtain: if s.curtains { curtain } else { f32::NAN },
@@ -512,7 +588,8 @@ fn delta(path: &[PathPoint], rank: u32, s: &CarvingSettings) -> Option<Vec<Reach
     let (dn, de) = (end.north - start.north, end.east - start.east);
     let length = (dn * dn + de * de).sqrt().max(1.0);
     let (un, ue) = (dn / length, de / length);
-    let width = (end.width / 3.0).max(2.0);
+    // Each channel the river's shape, a third as wide and about √3 times shallower.
+    let (width, depth, shape) = ((end.width / 3.0).max(2.0), (end.depth / 3f32.sqrt()).max(1.0), end.shape);
     let level = SEA_LEVEL as f32;
     let spread = size / 2.0;
     Some(
@@ -521,7 +598,7 @@ fn delta(path: &[PathPoint], rank: u32, s: &CarvingSettings) -> Option<Vec<Reach
             .map(|&side| {
                 // Fanning out sideways (perpendicular to the river) to the delta's width at the coast.
                 let (tip_n, tip_e) = (start.north + un * length * 1.1 - ue * side * spread, start.east + ue * length * 1.1 + un * side * spread);
-                let point = |north: f32, east: f32| RiverPoint { north, east, width, depth: (width.sqrt() * std::f32::consts::SQRT_2 * s.depth).round().clamp(1.0, 16.0), level, bend: 0.0, curtain: f32::NAN };
+                let point = |north: f32, east: f32| RiverPoint { north, east, width, depth, edge: shape.edge, flat: shape.flat, bowl: shape.bowl, level, bend: 0.0, curtain: f32::NAN };
                 let mid = ((start.north + tip_n) / 2.0 - ue * side * spread * 0.2, (start.east + tip_e) / 2.0 + un * side * spread * 0.2);
                 Reach { points: vec![point(start.north, start.east), point(mid.0, mid.1), point(tip_n, tip_e)] }
             })
@@ -551,14 +628,18 @@ mod tests {
         (flow, network, CompiledMap::of_heights(width, 32.0, &heights))
     }
 
-    fn carve(full_size: f32) -> Carving {
+    fn carve_with(s: &CarvingSettings) -> Carving {
         let (flow, network, ground) = country();
-        make(&network, &flow, &ground, 32.0, 3, full_size, 4.0, 3.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap()
+        make(&network, &flow, &ground, 32.0, 3, 4.0, 3.0, s, &AtomicBool::new(false)).unwrap()
+    }
+
+    fn carve() -> Carving {
+        carve_with(&CarvingSettings::default())
     }
 
     #[test]
     fn curves_start_pinned_on_their_paths_and_their_water_never_rises_downstream() {
-        let carving = carve(0.5);
+        let carving = carve();
         assert!(carving.reaches.len() > 2, "{} reaches", carving.reaches.len());
         for reach in &carving.reaches {
             // The start is a patch's centre, not moved sideways (pinned).
@@ -572,11 +653,29 @@ mod tests {
     }
 
     #[test]
-    fn rivers_narrow_toward_their_springs_past_the_full_size_share() {
-        let narrowest = |carving: &Carving| carving.reaches.iter().flat_map(|r| r.points.iter()).map(|p| p.width).fold(f32::MAX, f32::min);
-        // Full size all the way up: never narrower than a creek; none of the way: down to a spring.
-        assert!(narrowest(&carve(1.0)) >= BANDS[0].0);
-        assert!(narrowest(&carve(0.0)) <= SPRING + 0.01);
+    fn the_ranks_bands_meet_with_no_jumps() {
+        let s = CarvingSettings::default();
+        for rank in 1..4 {
+            let (top, bottom) = (size_in_band(&s, rank, 1.0), size_in_band(&s, rank + 1, 0.0));
+            assert!((top.0 - bottom.0).abs() < 1e-3 && (top.1 - bottom.1).abs() < 1e-3 && top.2 == bottom.2, "{top:?} then {bottom:?}");
+        }
+        // David's drawing: creeks 5-9 wide, streams 11-19, rivers 29-51, all inside their bands.
+        let (creek, stream, river) = (size_in_band(&s, 1, 0.75).0, size_in_band(&s, 2, 0.5).0, size_in_band(&s, 3, 0.5).0);
+        assert!((5.0..9.5).contains(&creek) && (11.0..19.0).contains(&stream) && (29.0..51.0).contains(&river), "{creek} {stream} {river}");
+    }
+
+    #[test]
+    fn rivers_grow_downstream_within_their_rank_s_band_from_a_spring_s_size() {
+        let s = CarvingSettings { size_varies: 0.0, shape_varies: 0.0, ..CarvingSettings::default() };
+        let carving = carve_with(&s);
+        for reach in &carving.reaches {
+            for pair in reach.points.windows(2) {
+                assert!(pair[1].width >= pair[0].width - 1e-3, "narrowing downstream: {} then {}", pair[0].width, pair[1].width);
+            }
+        }
+        let widths = || carving.reaches.iter().flat_map(|r| r.points.iter()).map(|p| p.width);
+        assert!((widths().fold(f32::MAX, f32::min) - s.spring_width).abs() < 0.01, "no spring-sized start");
+        assert!(widths().fold(0.0, f32::max) <= size_in_band(&s, 4, 1.0).0 + 1e-3);
     }
 
 
@@ -584,7 +683,7 @@ mod tests {
     fn the_water_never_stands_above_the_real_ground_under_it() {
         // David's screenshot: water laid on the broad ground stood above the real ground as walls.
         let (flow, network, ground) = country();
-        let carving = make(&network, &flow, &ground, 32.0, 3, 0.5, 4.0, 3.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
+        let carving = make(&network, &flow, &ground, 32.0, 3, 4.0, 3.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
         for p in carving.reaches.iter().flat_map(|reach| reach.points.iter()) {
             let real = ground.height(p.north, p.east).unwrap();
             assert!(p.level <= real.max(SEA_LEVEL as f32) + 1e-3, "water at {} over ground at {real}", p.level);
@@ -596,7 +695,7 @@ mod tests {
         // Snapped to Z 128, 132, 136…, the water sat up to 3 blocks more below its banks. Every drop
         // a waterfall (no rapids), so the levels compare point for point.
         let (flow, network, ground) = country();
-        let lay = |step| make(&network, &flow, &ground, 32.0, 3, 0.5, step, 1.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
+        let lay = |step| make(&network, &flow, &ground, 32.0, 3, step, 1.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
         let (unstepped, stepped) = (lay(1.0), lay(4.0));
         let mut tops = 0;
         for (a, b) in unstepped.reaches.iter().zip(&stepped.reaches) {
@@ -615,7 +714,7 @@ mod tests {
 
     #[test]
     fn a_reach_ends_at_the_level_of_the_water_it_joins() {
-        let carving = carve(0.5);
+        let carving = carve();
         let mut junctions = 0;
         for reach in &carving.reaches {
             let end = reach.points.last().unwrap();
@@ -632,7 +731,7 @@ mod tests {
 
     #[test]
     fn every_river_point_carves_water_into_the_ground() {
-        let carving = carve(0.5);
+        let carving = carve();
         for reach in carving.reaches.iter().take(5) {
             for p in reach.points.iter().step_by(7) {
                 let here = carving.here(p.north, p.east, p.level + 5.0);

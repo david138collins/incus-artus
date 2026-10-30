@@ -95,11 +95,18 @@ the world's.**
 
 ### Step 7: the curves (`src/worldgen/carving.rs`)
 
-- **Width:** each rank's width is the middle of David's band (creek 2.8, stream 5.7, river 16, great
-  river 64 blocks). It's full from the mouth for the first half of the river's length ("keeps full
-  size for": 0.5), then narrows smoothly to 1 block (a spring) at the spring.
-- **Depth:** about √(2 × width), rounded, from 1 to 16 blocks, times the depth slider. That's 2 for a
-  creek, 3 for a stream, 6 for a river and 11 for a great river.
+- **Size** (section 8, step 1, built 2026-10-30): a spring's size (2 wide, 1½ deep), times a width
+  and a depth ratio for each step up a rank. Each rank's band meets its neighbours: creek 2 to 9½
+  wide, stream 9½ to 24, river 24 to 59, great river 59 to 148. A river grows down its band as it goes:
+  how far along its rank's run a patch is (the longest way up while it stays that rank, against the
+  way down) is how far down the band. A reach ending at a junction keeps its own size up to it.
+  "Size varies" (0.15) wanders it slowly by place (600-block noise). *[It was the middle of the old
+  width table, full for the first half from the mouth ("keeps full size for", now gone), with depth
+  √(2 × width).]*
+- **Shape across:** each rank's edge depth, flat floor and bowl (creek 0.3, 0.2, 1; stream 0.5, 0.5,
+  0.6; river and great river 0.2, 0.3, 1.6), halfway to its neighbours' at the ends of its band, and
+  wandering with "shape varies" (0.3). Each column's depth is `depth_across`: full over the flat
+  floor, then the bowl's curve up to the edge depth, rounded to whole blocks.
 - **Reaches:** each river is cut into stretches from a spring or junction down to the next junction, a
   lake, or the sea. A stretch's ends are **pinned**, so rivers always meet.
 - **The line:**
@@ -421,6 +428,20 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   is a pleasant, bridgeable web, not exact sizes.
 
 ## 8. Proposal: river profiles (Builder, for David's approval)
+
+**APPROVED by David, 2026-10-30** ("that sounds good to me, go ahead"), with his answers to the four
+questions:
+1. Keep the default ratios, and try them in the preview first. If great rivers (59–150) feel too big,
+   the fallback is a last width ratio of 2 (59–118).
+2. Growing within a band replaces "keeps full size for". If David misses that control, a "how fast it
+   grows" slider can come back.
+3. The fades by context, as proposed.
+4. Step by step, with a launch for David after each: sizes and shape, then lopsided bends and ledges,
+   then the fades.
+
+*[Step 1, sizes and shape, built 2026-10-30: the ratios, bands, growth and "size varies"; a shape per
+rank and "shape varies"; the preview in the Carving section. Rivers saved before it read back as
+boxes.]*
 
 From David's drawing, [`rivers-profiles-2026-10-30.png`](rivers-profiles-2026-10-30.png) (one pixel a
 block; tan ground, blue water). Top to bottom: 9 springs, 7 creeks, 4 streams, 4 rivers.

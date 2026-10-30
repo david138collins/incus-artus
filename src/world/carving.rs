@@ -20,9 +20,15 @@ pub struct Point {
     /// Blocks from the world's middle.
     pub north: f32,
     pub east: f32,
-    /// Blocks across, and blocks of water deep.
+    /// Blocks across, and blocks of water deep (at its deepest).
     pub width: f32,
     pub depth: f32,
+    /// The shape across [David's profiles drawing, 2026-10-30]: how deep the water is at the bank (a
+    /// share of the deepest), the share of the width at the deepest (its flat floor), and the bowl
+    /// between (below 1, deep quickly then flat; above 1, shallow then dropping). 1, 1, 1 is a box.
+    pub edge: f32,
+    pub flat: f32,
+    pub bowl: f32,
     /// The water's surface (a Z: water fills the blocks below it, as the sea fills those below 128).
     pub level: f32,
     /// Which way the river bends here: +1 its outside is to the left (looking downstream), −1 to the
@@ -77,6 +83,18 @@ impl PartialEq for Carving {
     fn eq(&self, other: &Self) -> bool {
         self.reaches == other.reaches && self.lakes == other.lakes
     }
+}
+
+/// How deep a river's water is (whole blocks) at `across` (0 its middle, ±1 its banks), `depth` deep
+/// at its deepest: full depth over its flat floor, then the bowl's curve up to the edge depth at the
+/// bank; so the bed steps a block at a time, the steps wider the wider the river [David's profiles
+/// drawing, 2026-10-30, docs/rivers.md section 8].
+pub fn depth_across(depth: f32, edge: f32, flat: f32, bowl: f32, across: f32) -> f32 {
+    let flat = flat.clamp(0.0, 0.95);
+    let u = across.abs().min(1.0);
+    let t = if u <= flat { 1.0 } else { (1.0 - u) / (1.0 - flat) };
+    let at_edge = edge.clamp(0.0, 1.0) * depth;
+    (at_edge + (depth - at_edge) * t.powf(bowl.max(0.05))).round().max(1.0)
 }
 
 /// Where a spot is along a river piece: how far from its line (blocks; + toward the left, looking
@@ -167,7 +185,7 @@ impl Carving {
             }
             let mix = |x: f32, y: f32| x + (y - x) * t;
             // The level holds the upstream point's until the next (steps happen at points).
-            let point = Point { north: mix(a.north, b.north), east: mix(a.east, b.east), width: mix(a.width, b.width), depth: mix(a.depth, b.depth), level: a.level, bend: if t < 0.5 { a.bend } else { b.bend }, curtain: if t < 0.5 { a.curtain } else { f32::NAN } };
+            let point = Point { north: mix(a.north, b.north), east: mix(a.east, b.east), width: mix(a.width, b.width), depth: mix(a.depth, b.depth), edge: mix(a.edge, b.edge), flat: mix(a.flat, b.flat), bowl: mix(a.bowl, b.bowl), level: a.level, bend: if t < 0.5 { a.bend } else { b.bend }, curtain: if t < 0.5 { a.curtain } else { f32::NAN } };
             let span = ((b.north - a.north).powi(2) + (b.east - a.east).powi(2)).sqrt();
             best = Some((distance, side, point, t * span));
         }
@@ -187,7 +205,7 @@ impl Carving {
             if offset.abs() <= half {
                 let level = point.level.round();
                 let top = if point.curtain.is_finite() { point.curtain.round().max(level) } else { level };
-                here.floor = Some(level - 1.0 - point.depth.max(1.0).round());
+                here.floor = Some(level - 1.0 - depth_across(point.depth, point.edge, point.flat, point.bowl, offset / half));
                 here.water = Some(top as i32);
             }
         }
@@ -241,7 +259,7 @@ impl Carving {
         for reach in &self.reaches {
             text += "r\n";
             for p in &reach.points {
-                text += &format!("p {} {} {} {} {} {} {}\n", p.north, p.east, p.width, p.depth, p.level, p.bend, p.curtain);
+                text += &format!("p {} {} {} {} {} {} {} {} {} {}\n", p.north, p.east, p.width, p.depth, p.level, p.bend, p.curtain, p.edge, p.flat, p.bowl);
             }
         }
         text
@@ -266,7 +284,12 @@ impl Carving {
                     *lakes.surface.get_mut(i).ok_or_else(bad)? = num(2)?;
                 }
                 Some("r") => reaches.push(Reach::default()),
-                Some("p") => reaches.last_mut().ok_or_else(bad)?.points.push(Point { north: num(1)?, east: num(2)?, width: num(3)?, depth: num(4)?, level: num(5)?, bend: num(6)?, curtain: num(7)? }),
+                // Saved before the shape across (2026-10-30): a box.
+                Some("p") => {
+                    let shape = |k: usize| if words.len() > k { num(k) } else { Ok(1.0) };
+                    let point = Point { north: num(1)?, east: num(2)?, width: num(3)?, depth: num(4)?, level: num(5)?, bend: num(6)?, curtain: num(7)?, edge: shape(8)?, flat: shape(9)?, bowl: shape(10)? };
+                    reaches.last_mut().ok_or_else(bad)?.points.push(point);
+                }
                 None => {}
                 Some(_) => return Err(bad()),
             }
@@ -280,7 +303,24 @@ mod tests {
     use super::*;
 
     fn point(north: f32, east: f32, width: f32, level: f32, bend: f32) -> Point {
-        Point { north, east, width, depth: 2.0, level, bend, curtain: f32::NAN }
+        Point { north, east, width, depth: 2.0, edge: 1.0, flat: 1.0, bowl: 1.0, level, bend, curtain: f32::NAN }
+    }
+
+    #[test]
+    fn the_bed_steps_up_from_the_middle_to_the_banks() {
+        // A creek of David's drawing, 5 wide and 3 deep: 1-2-3-2-1.
+        let column = |k: f32| depth_across(3.0, 0.3, 0.2, 1.0, k / 2.5);
+        assert_eq!([-2.0, -1.0, 0.0, 1.0, 2.0].map(column), [1.0, 2.0, 3.0, 2.0, 1.0]);
+        // A box is full depth all across; a shelf (bowl above 1) stays shallow longer than a V.
+        assert!([0.0, 0.5, 0.99].iter().all(|&u| depth_across(4.0, 1.0, 1.0, 1.0, u) == 4.0));
+        assert!(depth_across(6.0, 0.2, 0.3, 2.0, 0.8) < depth_across(6.0, 0.2, 0.3, 1.0, 0.8));
+    }
+
+    #[test]
+    fn a_river_saved_before_its_shape_reads_back_as_a_box() {
+        let carving = Carving::from_text("lakes 0 32\nr\np 0.5 -50 3 2 150 0 NaN\np 0.5 50 3 2 150 0 NaN\n").unwrap();
+        let p = carving.reaches[0].points[0];
+        assert_eq!((p.edge, p.flat, p.bowl), (1.0, 1.0, 1.0));
     }
 
     /// A river running east along north = 0.5, `width` wide, its water at Z 150.

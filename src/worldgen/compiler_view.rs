@@ -1133,9 +1133,6 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("How far a spring no river took runs before it dries away (springs with more water run further).");
         ui.add(crate::debug::Slider::new(&mut n.orders_per_rank, 1..=4).text("stream orders per rank"))
             .on_hover_text("Where two branches of the same order meet, the order goes up one. This many orders make one rank (creek, stream, river, great river).");
-        ui.add(crate::debug::Slider::new(&mut n.full_size, 0.0..=1.0).text("keeps full size for (share from the mouth)")).on_hover_text(
-            "How far up from the sea a river stays a full-size river, as a share of its length; from there it narrows toward its spring (a spring itself is one block).\nDavid: how far up the water from the ocean it is river.",
-        );
         ui.add_space(4.0);
         ui.strong("The bed: flat runs and steps");
         ui.add(crate::debug::Slider::new(&mut n.step, 0.0..=40.0).text("drop gathered into one step (blocks)"))
@@ -1168,8 +1165,38 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut c.most_sideways, 0.0..=160.0).text("most sideways (blocks)")).on_hover_text("The furthest a river's line moves from its path.");
         ui.add(crate::debug::Slider::new(&mut c.deepest_gorge, 0.0..=40.0).text("deepest gorge (blocks)")).on_hover_text("Where its line crosses higher ground, a river cuts down this far (a little gorge) before its line is pulled back toward its path.");
         ui.add_space(4.0);
-        ui.strong("Banks, falls and deltas");
-        ui.add(crate::debug::Slider::new(&mut c.depth, 0.25..=3.0).text("depth (1 = David's table)")).on_hover_text("1: a 2-wide creek 2 deep, a 32-wide river 8, a 128-wide great river 16.");
+        ui.strong("Sizes");
+        ui.small(
+            "From David's drawing: each rank so many times wider and deeper than the one below. A rank's sizes are a band \
+             meeting the ranks either side, and a river grows down its band as it goes (a creek from a spring's size), so \
+             it's nearly the next rank's size where it joins one.",
+        );
+        ui.add(crate::debug::Slider::new(&mut c.spring_width, 1.0..=4.0).text("a spring's width (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut c.spring_depth, 1.0..=3.0).text("…its depth (blocks)"));
+        for (k, step) in ["spring to creek", "creek to stream", "stream to river", "river to great river"].iter().enumerate() {
+            ui.label(*step);
+            ui.add(crate::debug::Slider::new(&mut c.width_ratio[k], 1.5..=5.0).text("times wider"));
+            ui.add(crate::debug::Slider::new(&mut c.depth_ratio[k], 1.0..=3.0).text("times deeper"));
+        }
+        ui.add(crate::debug::Slider::new(&mut c.size_varies, 0.0..=0.5).text("size varies")).on_hover_text("How much a river's size wanders along it, slowly (0.15 = up to 15% either way).");
+        for (k, rank) in super::network::RANKS.iter().enumerate() {
+            let ((low_w, low_d, _), (high_w, high_d, _)) = (super::carving::size_in_band(c, k + 1, 0.0), super::carving::size_in_band(c, k + 1, 1.0));
+            ui.small(format!("{rank}: {low_w:.1} to {high_w:.1} wide, {low_d:.1} to {high_d:.1} deep"));
+        }
+        ui.add_space(4.0);
+        ui.strong("The shape across");
+        ui.small("For each rank, in the middle of its band (halfway to its neighbours' at its ends). The preview below draws them like David's drawing.");
+        for (k, rank) in super::network::RANKS.iter().enumerate() {
+            let shape = &mut c.shapes[k];
+            ui.label(*rank);
+            ui.add(crate::debug::Slider::new(&mut shape.edge, 0.0..=1.0).text("water at the bank (share of the deepest)")).on_hover_text("0.3 = a V; 0.5 = steep sides; 1 = a box.");
+            ui.add(crate::debug::Slider::new(&mut shape.flat, 0.0..=0.9).text("flat floor (share of the width)"));
+            ui.add(crate::debug::Slider::new(&mut shape.bowl, 0.2..=5.0).logarithmic(true).text("bowl")).on_hover_text("Below 1: deep quickly, then flat (steep sides). 1: even steps. Above 1: shallow shelves, then dropping.");
+        }
+        ui.add(crate::debug::Slider::new(&mut c.shape_varies, 0.0..=1.0).text("shape varies")).on_hover_text("How much the shape wanders along a river (David's drawing varies as much within a rank as between them).");
+        profiles_preview(ui, c);
+        ui.add_space(4.0);
+        ui.strong("Falls and deltas");
         ui.checkbox(&mut c.curtains, "waterfalls get a curtain of water").on_hover_text("A one-block sheet of water blocks down each waterfall's face, so it reads as falling water (nothing moves).");
         ui.add(crate::debug::Slider::new(&mut c.rapids_length, 1.0..=10.0).text("rapids: blocks of river per block of drop")).on_hover_text("Smaller steps than a waterfall are spread out as rapids, stepping down a block at a time.");
         ui.checkbox(&mut c.deltas, "deltas").on_hover_text("Where a river or great river meets the sea over flat ground, its last stretch fans into three channels.");
@@ -1560,6 +1587,34 @@ fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, defau
     });
 }
 
+/// The rivers' profiles, drawn like David's drawing (a square a block; tan ground, blue water): each
+/// rank at the start, middle and end of its band, running straight, its size and shape not wandering.
+fn profiles_preview(ui: &mut egui::Ui, c: &super::carving::CarvingSettings) {
+    let (tan, blue) = (Color32::from_rgb(168, 148, 44), Color32::from_rgb(20, 40, 235));
+    for (k, rank) in super::network::RANKS.iter().enumerate() {
+        let sizes = [0.0, 0.5, 1.0].map(|share| super::carving::size_in_band(c, k + 1, share));
+        // Two blocks of bank each side, and a block's gap between.
+        let blocks: f32 = sizes.iter().map(|s| s.0.round().max(1.0) + 5.0).sum();
+        let pixel = (ui.available_width() / blocks).floor().clamp(1.0, 8.0);
+        let rows = sizes.iter().map(|s| s.1.round()).fold(1.0, f32::max) + 2.0;
+        ui.small(format!("{rank}s, as they start, halfway and as they join a bigger one ({pixel:.0} pixels a block)"));
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), rows * pixel), egui::Sense::hover());
+        let painter = ui.painter_at(rect);
+        let mut x = rect.left();
+        for (width, depth, shape) in sizes {
+            let across = width.round().max(1.0);
+            painter.rect_filled(egui::Rect::from_min_size(egui::pos2(x, rect.top()), Vec2::new((across + 4.0) * pixel, rows * pixel)), 0.0, tan);
+            for column in 0..across as usize {
+                let off = (column as f32 + 0.5 - across / 2.0) / (across / 2.0);
+                let deep = crate::world::depth_across(depth, shape.edge, shape.flat, shape.bowl, off);
+                painter.rect_filled(egui::Rect::from_min_size(egui::pos2(x + (2.0 + column as f32) * pixel, rect.top()), Vec2::new(pixel, deep * pixel)), 0.0, blue);
+            }
+            x += (across + 5.0) * pixel;
+        }
+        ui.add_space(4.0);
+    }
+}
+
 fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spline, across: &str, up: &str) {
     let size = Vec2::new(ui.available_width().clamp(160.0, 320.0), 140.0);
     let (rect, background) = ui.allocate_exact_size(size, egui::Sense::click());
@@ -1768,8 +1823,10 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                     && network.width == width
                     && network.rank[i] > 0
                 {
-                    let (name, narrowest, widest) = super::network::RANKS[network.rank[i] as usize - 1];
-                    ui.small(format!("a {name} ({narrowest:.0}-{widest:.0} blocks wide), stream order {}, its bed at Z {:.0}", network.order[i], network.bed[i]));
+                    let rank = network.rank[i] as usize;
+                    let carving = &compiler.settings.climate.carving;
+                    let (narrowest, widest) = (super::carving::size_in_band(carving, rank, 0.0).0, super::carving::size_in_band(carving, rank, 1.0).0);
+                    ui.small(format!("a {} ({narrowest:.0}-{widest:.0} blocks wide), stream order {}, its bed at Z {:.0}", super::network::RANKS[rank - 1], network.order[i], network.bed[i]));
                     let step = network.drop[i];
                     if step > 0.0 {
                         let kind = if step >= compiler.settings.climate.network.fall_from { "a waterfall" } else { "rapids" };

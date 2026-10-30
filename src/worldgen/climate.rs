@@ -324,7 +324,7 @@ impl Climate {
         // Its water reads the real ground (the recipe, without the rivers), so it's keyed on that too.
         let real = broad_free(map);
         let key = (Same(made.clone()), Same(real.clone()), network.clone(), carving.clone());
-        self.carving.want(key, move |stop| super::carving::make(&made, &flow, &real, blocks, seed, network.full_size, network.step, network.fall_from, &carving, stop));
+        self.carving.want(key, move |stop| super::carving::make(&made, &flow, &real, blocks, seed, network.step, network.fall_from, &carving, stop));
     }
 }
 

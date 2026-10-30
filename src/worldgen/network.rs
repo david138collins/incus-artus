@@ -56,9 +56,8 @@ pub struct NetworkSettings {
     pub reach: f32,
     /// How many stream orders make one rank (creek, stream, river, great river).
     pub orders_per_rank: u32,
-    /// How far up from its mouth a river keeps its full width (a share of its length; past that it
-    /// narrows toward its spring) [David: "how far up the water from the ocean it is river"].
-    pub full_size: f32,
+    // (A river's size is Carving's: growing within its rank's band [2026-10-30, replacing "keeps full
+    // size for"].)
     /// The bed: how much drop (blocks) gathers into one step, and how tall a step has to be to be a
     /// waterfall rather than rapids.
     pub step: f32,
@@ -81,7 +80,6 @@ impl Default for NetworkSettings {
             lake_size: 20.0,
             reach: 3_000.0,
             orders_per_rank: 1,
-            full_size: 0.5,
             step: 4.0,
             fall_from: 3.0,
         }
@@ -102,8 +100,9 @@ pub enum Fate {
     Fizzled,
 }
 
-/// The ranks by width, as David set them (blocks): creek, stream, river, great river.
-pub const RANKS: [(&str, f32, f32); 4] = [("creek", 2.0, 4.0), ("stream", 4.0, 8.0), ("river", 8.0, 32.0), ("great river", 32.0, 128.0)];
+/// The ranks' names (their sizes are Carving's bands, `carving::size_in_band`) [2026-10-30: a width
+/// table, replaced by David's profiles drawing].
+pub const RANKS: [&str; 4] = ["creek", "stream", "river", "great river"];
 
 /// The river network on the map's grid.
 #[derive(Clone, Debug)]
