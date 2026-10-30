@@ -27,6 +27,7 @@ use super::runner::{Job, Poll, every_pixel};
 use super::temperature::{Temperature, TemperatureSettings};
 use super::wind::{Wind, WindSettings};
 use super::rain::{Rain, RainSettings};
+use super::carving::CarvingSettings;
 use super::network::{Network, NetworkSettings};
 use super::rivers::{Flow, RiverSettings};
 use crate::world::{CompiledMap, Mutes, SEA_LEVEL};
@@ -48,18 +49,20 @@ pub struct ClimateSettings {
     /// Which of the water's paths are rivers (step 6; apart from `rivers`, so moving these doesn't
     /// work the flow out again).
     pub network: NetworkSettings,
+    /// The rivers' curves and how they're carved.
+    pub carving: CarvingSettings,
 }
 
 impl Default for ClimateSettings {
     fn default() -> Self {
-        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default(), rain: RainSettings::default(), rivers: RiverSettings::default(), network: NetworkSettings::default() }
+        Self { pixels: 4, temperature: TemperatureSettings::default(), wind: WindSettings::default(), rain: RainSettings::default(), rivers: RiverSettings::default(), network: NetworkSettings::default(), carving: CarvingSettings::default() }
     }
 }
 
 /// The recipe with its fine layers left out (on top of whatever the Show row leaves out): the broad
 /// shape of the land.
 pub fn broad(map: &CompiledMap) -> CompiledMap {
-    let mutes = Mutes { crags: true, summit_crags: true, detail: true, torn_coast: true, ..map.mutes };
+    let mutes = Mutes { crags: true, summit_crags: true, detail: true, torn_coast: true, rivers: true, ..map.mutes };
     map.with(map.settings.clone(), mutes)
 }
 
@@ -204,6 +207,7 @@ pub struct Climate {
     fine: Stage<Same<CompiledMap>, Ground>,
     flow: Stage<(Same<Rain>, Same<Ground>, RiverSettings), Flow>,
     network: Stage<(Same<Flow>, NetworkSettings), Network>,
+    carving: Stage<(Same<Network>, NetworkSettings, CarvingSettings), crate::world::Carving>,
     /// Goes up with each new result (so pictures know to repaint).
     pub version: u64,
     /// What's drawn over the map.
@@ -214,7 +218,7 @@ pub struct Climate {
 
 impl Climate {
     pub fn is_making(&self) -> bool {
-        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some() || self.rain.job.is_some() || self.fine.job.is_some() || self.flow.job.is_some() || self.network.job.is_some()
+        self.ground.job.is_some() || self.temperature.job.is_some() || self.wind.job.is_some() || self.rain.job.is_some() || self.fine.job.is_some() || self.flow.job.is_some() || self.network.job.is_some() || self.carving.job.is_some()
     }
 
     pub fn ground(&self) -> Option<&Arc<Ground>> {
@@ -233,6 +237,10 @@ impl Climate {
         self.rain.result()
     }
 
+    pub fn carving(&self) -> Option<&Arc<crate::world::Carving>> {
+        self.carving.result()
+    }
+
     pub fn network(&self) -> Option<&Arc<Network>> {
         self.network.result()
     }
@@ -244,7 +252,7 @@ impl Climate {
     /// Collects finished work, and starts each part again when what it's made from changed: the
     /// recipe (`map`, as the lab makes it) or the settings.
     pub fn drive(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
-        let collected = [self.ground.collect(), self.temperature.collect(), self.wind.collect(), self.rain.collect(), self.fine.collect(), self.flow.collect(), self.network.collect()];
+        let collected = [self.ground.collect(), self.temperature.collect(), self.wind.collect(), self.rain.collect(), self.fine.collect(), self.flow.collect(), self.network.collect(), self.carving.collect()];
         self.version += collected.iter().filter(|&&new| new).count() as u64;
         let (recipe, pixels) = (map.clone(), settings.pixels);
         self.ground.want((Same(map.clone()), pixels), move |stop| read_ground(&recipe, pixels, stop));
@@ -290,7 +298,15 @@ impl Climate {
         let Some(flow) = self.flow.result().cloned() else { return };
         let network = settings.network.clone();
         let from = flow.clone();
-        self.network.want((Same(flow), network.clone()), move |stop| super::network::make(&from, blocks, seed, &network, stop));
+        self.network.want((Same(flow.clone()), network.clone()), move |stop| super::network::make(&from, blocks, seed, &network, stop));
+        // The rivers' curves, for carving (keyed on the network, which a new flow always remakes).
+        if self.network.job.is_some() {
+            return;
+        }
+        let Some(made) = self.network.result().cloned() else { return };
+        let (network, carving) = (settings.network.clone(), settings.carving.clone());
+        let key = (Same(made.clone()), network.clone(), carving.clone());
+        self.carving.want(key, move |stop| super::carving::make(&made, &flow, blocks, seed, network.full_size, network.fall_from, &carving, stop));
     }
 }
 

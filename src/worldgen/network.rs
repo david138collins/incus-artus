@@ -53,6 +53,9 @@ pub struct NetworkSettings {
     pub reach: f32,
     /// How many stream orders make one rank (creek, stream, river, great river).
     pub orders_per_rank: u32,
+    /// How far up from its mouth a river keeps its full width (a share of its length; past that it
+    /// narrows toward its spring) [David: "how far up the water from the ocean it is river"].
+    pub full_size: f32,
     /// The bed: how much drop (blocks) gathers into one step, and how tall a step has to be to be a
     /// waterfall rather than rapids.
     pub step: f32,
@@ -75,6 +78,7 @@ impl Default for NetworkSettings {
             lake_size: 20.0,
             reach: 3_000.0,
             orders_per_rank: 1,
+            full_size: 0.5,
             step: 4.0,
             fall_from: 3.0,
         }

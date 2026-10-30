@@ -341,15 +341,18 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
     // The ground at every corner, with a corner more round the edge for the slopes. `None` = past
     // the map.
     let n = (CELLS + 3) as usize;
-    let ground: Vec<Option<f32>> = (0..n * n)
+    let ground: Vec<Option<(f32, Option<i32>)>> = (0..n * n)
         .map(|k| {
             let (i, j) = ((k % n) as f32 - 1.0, (k / n) as f32 - 1.0);
-            map.height(corner.x + i * cell, corner.y + j * cell)
+            map.ground_and_water(corner.x + i * cell, corner.y + j * cell)
         })
         .collect();
-    let at = |i: i32, j: i32| ground[(j + 1) as usize * n + (i + 1) as usize];
-    // The surface: the ground, or the sea's over it, wherever the near ground has water (`under_sea`).
-    let surface = |i: i32, j: i32| at(i, j).map(|h| if under_sea(h) { sea } else { h });
+    let at = |i: i32, j: i32| ground[(j + 1) as usize * n + (i + 1) as usize].map(|(h, _)| h);
+    // A river's or lake's water standing over the ground (its surface).
+    let river = |i: i32, j: i32| ground[(j + 1) as usize * n + (i + 1) as usize].and_then(|(_, water)| water).map(|top| top as f32);
+    // The surface: the ground, or the sea's over it wherever the near ground has water (`under_sea`),
+    // or a river's or lake's.
+    let surface = |i: i32, j: i32| at(i, j).map(|h| if under_sea(h) { sea } else { river(i, j).unwrap_or(h) });
     if (0..=CELLS).all(|j| (0..=CELLS).all(|i| at(i, j).is_none())) {
         return None;
     }
@@ -363,7 +366,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
         for i in 0..=CELLS {
             let (Some(h), Some(top)) = (at(i, j), surface(i, j)) else { continue };
             let (x, y) = (corner.x + i as f32 * cell, corner.y + j as f32 * cell);
-            let water = under_sea(h);
+            let water = under_sea(h) || river(i, j).is_some();
             // What the ground is made of here (mineralogy, as the near ground has it).
             let block = map.layers(x.floor() as i32, y.floor() as i32, (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks).top;
             // The slope, blocks up per block across.
@@ -377,7 +380,20 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
                 ((z(1, 0) - z(-1, 0)) / (2.0 * cell), (z(0, 1) - z(0, -1)) / (2.0 * cell))
             };
-            let (top_colour, side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block), palette.side(block)) };
+            let (mut top_colour, mut side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block), palette.side(block)) };
+            // A river narrower than a cell: its water blended in by the share of the cell it covers,
+            // so a creek fades in from afar as a texture's mipmaps do, rather than appearing where the
+            // near ground begins.
+            if !water
+                && !map.mutes.rivers
+                && let Some((distance, width)) = map.rivers.nearest(x, y)
+                && distance < cell / 2.0
+            {
+                let share = (width / cell).min(1.0) * (1.0 - distance / (cell / 2.0)).max(0.0) * 2.0;
+                let blend = |c: [f32; 3]| [0, 1, 2].map(|k| c[k] + (palette.water[k] - c[k]) * share.min(1.0));
+                top_colour = blend(top_colour);
+                side_colour = blend(side_colour);
+            }
             // The coarser ring's surface here: its corners are this ring's even ones, its triangles
             // split the same way, so between them it's the average of the two along the line.
             let coarse = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);

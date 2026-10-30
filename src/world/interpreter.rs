@@ -821,6 +821,8 @@ pub struct Mutes {
     pub peaks: bool,
     pub crags: bool,
     pub summit_crags: bool,
+    /// The rivers and lakes carved in (Climate reads the ground without them: they're made from it).
+    pub rivers: bool,
 }
 
 impl Mutes {
@@ -836,6 +838,7 @@ impl Mutes {
             ("peaks", self.peaks),
             ("crags", self.crags),
             ("summit crags", self.summit_crags),
+            ("rivers", self.rivers),
         ]
         .into_iter()
         .filter_map(|(name, off)| off.then_some(name))
@@ -867,6 +870,8 @@ pub struct CompiledMap {
     /// times their by-layer curves).
     crag_steps: Vec<(f32, f32)>,
     peak_cells: PeakCells,
+    /// The rivers and lakes carved into the ground (from the World Compiler's river stage).
+    pub rivers: Arc<super::carving::Carving>,
 }
 
 /// A Perlin field (as a Graphics Kit layer makes it, output shaping and all) at a spot, about −1
@@ -908,7 +913,7 @@ impl CompiledMap {
     /// The same maps read with another recipe, leaving out `mutes`: no copying, so the terrain lab
     /// can follow a slider as it moves.
     pub fn with(&self, settings: InterpreterSettings, mutes: Mutes) -> Self {
-        Self { mutes, ..Self::new(self.maps.clone(), self.seed, settings) }
+        Self { mutes, rivers: self.rivers.clone(), ..Self::new(self.maps.clone(), self.seed, settings) }
     }
 
     pub fn new(maps: Arc<Maps>, seed: u64, settings: InterpreterSettings) -> Self {
@@ -924,6 +929,7 @@ impl CompiledMap {
             summit_fade: settings.peaks.summit_fade.curve(),
             slope_response: settings.peaks.slope_response.curve(),
             crag_steps: crag_steps(&settings.peaks),
+            rivers: Arc::default(),
             peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
             mutes: Mutes::default(),
             maps,
@@ -1302,8 +1308,37 @@ impl CompiledMap {
     }
 
     /// The ground's height (a Z, with fractions) at a spot `north` and `east` blocks from the
-    /// middle of the world, or `None` past the edge of the map.
+    /// middle of the world, or `None` past the edge of the map: carved by the rivers and lakes
+    /// (`carving.rs`) unless they're left out.
     pub fn height(&self, north: f32, east: f32) -> Option<f32> {
+        self.ground_and_water(north, east).map(|(z, _)| z)
+    }
+
+    /// The ground's height at a spot, carved, and how high water stands over it there (a river's or
+    /// a lake's: the blocks below this Z are water), if any.
+    pub fn ground_and_water(&self, north: f32, east: f32) -> Option<(f32, Option<i32>)> {
+        let ground = self.uncarved(north, east)?;
+        if self.mutes.rivers || self.rivers.is_empty() {
+            return Some((ground, None));
+        }
+        let here = self.rivers.here(north, east, ground);
+        let mut z = ground;
+        if let Some(floor) = here.floor {
+            z = z.min(floor);
+        }
+        if let Some(fill) = here.fill {
+            z = z.max(fill);
+        }
+        Some((z, here.water.filter(|&water| (water as f32) > z.round() + 1.0)))
+    }
+
+    /// The same map with these rivers and lakes carved in (nothing else changes).
+    pub fn with_rivers(&self, rivers: Arc<super::carving::Carving>) -> Self {
+        Self { rivers, ..self.clone() }
+    }
+
+    /// The ground's height before the rivers and lakes carve it.
+    fn uncarved(&self, north: f32, east: f32) -> Option<f32> {
         let (width, blocks) = (self.maps.width as f32, self.maps.blocks_per_pixel);
         let half = width / 2.0;
         // Which pixel, counting pixel centres (columns run east, rows south).

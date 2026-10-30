@@ -22,6 +22,7 @@ mod raycast;
 mod section;
 mod storage;
 mod streaming;
+mod carving;
 mod interpreter;
 mod mineralogy;
 mod terrain;
@@ -43,6 +44,7 @@ pub use position::{
 pub use section::Section;
 pub use streaming::{StreamSettings, Streaming};
 pub use interpreter::{CompiledMap, HIGHEST, InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Maps, Mutes, Peaks, Spline, coast_distance, point_distance};
+pub use carving::{Carving, Lakes, Point as RiverPoint, Reach};
 pub use mineralogy::{Layers, MineralogySettings};
 pub use terrain::{NextTerrain, SEA_LEVEL, Terrain, TerrainBlocks, under_sea};
 #[cfg(test)]

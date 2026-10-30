@@ -82,6 +82,9 @@ pub struct Compiler {
     /// blocks change).
     pub lab_unlit: bool,
     lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
+    /// The view's map with the rivers carved in, and what it was made from (the recipe's map and the
+    /// carving).
+    rivers_view: Option<((usize, usize), Arc<crate::world::CompiledMap>)>,
     lab_hover: Option<(f32, f32, f32)>,
     /// The overlays' picture, and which of their pictures it holds.
     overlay_texture: Option<egui::TextureHandle>,
@@ -136,6 +139,7 @@ impl Default for Compiler {
             lab_painted_for: None,
             lab_unlit: false,
             lab_palette: None,
+            rivers_view: None,
             lab_hover: None,
             overlay_texture: None,
             overlay_painted_for: None,
@@ -1129,15 +1133,55 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("How far a spring no river took runs before it dries away (wetter springs run further).");
         ui.add(crate::debug::Slider::new(&mut n.orders_per_rank, 1..=4).text("stream orders per rank"))
             .on_hover_text("Where two branches of the same order meet, the order goes up one. This many orders make one rank (creek, stream, river, great river).");
+        ui.add(crate::debug::Slider::new(&mut n.full_size, 0.0..=1.0).text("keeps full size for (share from the mouth)")).on_hover_text(
+            "How far up from the sea a river stays a full-size river, as a share of its length; from there it narrows toward its spring (a spring itself is one block).\nDavid: how far up the water from the ocean it is river.",
+        );
         ui.add_space(4.0);
         ui.strong("The bed: flat runs and steps");
         ui.add(crate::debug::Slider::new(&mut n.step, 0.0..=40.0).text("drop gathered into one step (blocks)"))
             .on_hover_text("0 = the bed follows the ground; higher = longer flat runs, then bigger steps.");
         ui.add(crate::debug::Slider::new(&mut n.fall_from, 1.0..=40.0).text("a waterfall from (blocks)")).on_hover_text("A step this tall or more is a waterfall; smaller ones are rapids.");
     });
+    fold_section(ui, "Carving", |ui| {
+        let c = &mut climate.carving;
+        ui.small(
+            "The rivers as smooth lines, carved into the ground with water in them (no flow, nothing moves), and the lakes \
+             filled to their surface. Each river's line comes from its path: corners cut, a gentle wander, leaning to the \
+             outside of its bends, and meandering on flat ground; its ends stay put so rivers always meet, and its water \
+             only falls downstream. Each block measures its distance to the line; a river's odd block goes to the outside \
+             of the bend. The carve lowers the ground itself, so the far terrain and this view show the rivers too. Climate \
+             reads the ground without them.",
+        );
+        if let Some(carving) = compiler.climate.carving() {
+            let points: usize = carving.reaches.iter().map(|reach| reach.points.len()).sum();
+            ui.label(format!("{} stretches of river, {points} points", carving.reaches.len()));
+        }
+        ui.add_space(4.0);
+        ui.strong("The line");
+        ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=6).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the path's 32-block steps; bigger rivers get one more pass a rank, so they bend wider.");
+        ui.add(crate::debug::Slider::new(&mut c.wander, 0.0..=48.0).text("wander (blocks)")).on_hover_text("A gentle sideways drift, to break up the long straight diagonals corner cutting can't touch.");
+        ui.add(crate::debug::Slider::new(&mut c.wander_length, 50.0..=3_000.0).logarithmic(true).text("…its swings (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut c.lean, 0.0..=2.0).text("lean to the outside of bends")).on_hover_text("Fast water cuts the outer bank: 1 = a river's width at a sharp bend.");
+        ui.add(crate::debug::Slider::new(&mut c.meander_length, 4.0..=30.0).text("meander every (widths)")).on_hover_text("Real meanders repeat about every 10 to 14 river widths.");
+        ui.add(crate::debug::Slider::new(&mut c.meander_size, 0.0..=4.0).text("meander size (widths)"));
+        ui.add(crate::debug::Slider::new(&mut c.flat, 0.001..=0.2).logarithmic(true).text("full meanders below (slope)")).on_hover_text("Meanders are full on ground flatter than this (blocks down per block along), fading on steeper.");
+        ui.add(crate::debug::Slider::new(&mut c.most_sideways, 0.0..=160.0).text("most sideways (blocks)")).on_hover_text("The furthest a river's line moves from its path.");
+        ui.add(crate::debug::Slider::new(&mut c.deepest_gorge, 0.0..=40.0).text("deepest gorge (blocks)")).on_hover_text("Where its line crosses higher ground, a river cuts down this far (a little gorge) before its line is pulled back toward its path.");
+        ui.add_space(4.0);
+        ui.strong("Banks, falls and deltas");
+        ui.add(crate::debug::Slider::new(&mut c.depth, 0.25..=3.0).text("depth (1 = David's table)")).on_hover_text("1: a 2-wide creek 2 deep, a 32-wide river 8, a 128-wide great river 16.");
+        ui.checkbox(&mut c.curtains, "waterfalls get a curtain of water").on_hover_text("A one-block sheet of water blocks down each waterfall's face, so it reads as falling water (nothing moves).");
+        ui.add(crate::debug::Slider::new(&mut c.rapids_length, 1.0..=10.0).text("rapids: blocks of river per block of drop")).on_hover_text("Smaller steps than a waterfall are spread out as rapids, stepping down a block at a time.");
+        ui.checkbox(&mut c.deltas, "deltas").on_hover_text("Where a river or great river meets the sea over flat ground, its last stretch fans into three channels.");
+        ui.add_enabled_ui(c.deltas, |ui| {
+            ui.add(crate::debug::Slider::new(&mut c.delta_flat, 0.001..=0.1).logarithmic(true).text("only where flatter than (slope)"));
+            ui.add(crate::debug::Slider::new(&mut c.delta_width[0], 16.0..=256.0).text("a river's delta (blocks wide)"));
+            ui.add(crate::debug::Slider::new(&mut c.delta_width[1], 16.0..=512.0).text("a great river's delta (blocks wide)"));
+        });
+    });
     // Still to come, greyed (David's convention: grey out, don't hide).
     for (title, about) in [
-        ("Carving", "The rivers and lakes carved into the world (one carving shared with ravines and gorges), so they show from far away too; then meanders and deltas."),
+        ("River banks", "Mineralogy reading the rivers: gravel in fast water, sand where it slows, mud where it pools, and shores."),
     ] {
         ui.add_space(6.0);
         ui.separator();
@@ -1389,6 +1433,21 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 }
 
 impl Compiler {
+    /// The recipe's map with the river stage's rivers and lakes carved in (made again only when
+    /// either changes), or as it is before there are any.
+    fn with_rivers(&mut self, map: &Arc<crate::world::CompiledMap>) -> Arc<crate::world::CompiledMap> {
+        let Some(carving) = self.climate.carving().cloned() else { return map.clone() };
+        let key = (Arc::as_ptr(map) as usize, Arc::as_ptr(&carving) as usize);
+        if let Some((made_for, carved)) = &self.rivers_view
+            && *made_for == key
+        {
+            return carved.clone();
+        }
+        let carved = Arc::new(map.with_rivers(carving));
+        self.rivers_view = Some((key, carved.clone()));
+        carved
+    }
+
     /// The map with the Climate tab's temperature and rain in it, for the world to keep (mineralogy
     /// reads them at every column), blended from the climate pixels to the map's own: the temperature
     /// as at sea level (each block cools for its own height), the rain as it is. Unchanged if the
@@ -1413,6 +1472,10 @@ impl Compiler {
         maps.rain = (0..w * w).map(|i| blend(&|k| rain.rain[k].unwrap_or(0.5), i)).collect();
         maps.cooling = self.settings.climate.temperature.cooling;
         let mut with = crate::world::CompiledMap::new(Arc::new(maps), map.seed, map.settings.clone());
+        // And the rivers and lakes carved in.
+        if let Some(carving) = self.climate.carving() {
+            with.rivers = carving.clone();
+        }
         with.mutes = map.mutes;
         Arc::new(with)
     }
@@ -1940,7 +2003,9 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
                     }
                     let north = request.north - (row as f32 + 0.5) * step;
                     let east = request.east + (col as f32 + 0.5) * step;
-                    let colour = if crate::world::under_sea(here) {
+                    // Water: the sea's, or a river's or lake's standing over the ground here.
+                    let river = !map.mutes.rivers && map.rivers.here(north, east, here).water.is_some_and(|top| top as f32 > here + 1.0);
+                    let colour = if crate::world::under_sea(here) || river {
                         palette.water.map(|c| c * shade.top)
                     } else {
                         let climate = climate.map(|climate| climate.at(north, east, here));
@@ -2001,6 +2066,11 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
 
     // The view: the terrain lab's close-up, the ground as the Interpreter makes it, at any zoom.
     let map = compiler.lab.recipe(&compiled_map, &compiler.settings.interpreter);
+    // The Climate stage: kept up to date with the recipe (it reads the ground without the rivers,
+    // which are made from it).
+    compiler.climate.drive(&map, &compiler.settings.climate);
+    // The view: the same map with the rivers and lakes carved in, as the world will have them.
+    let map = compiler.with_rivers(&map);
     let view = Some((to_blocks(rect.left_top()), to_blocks(rect.right_bottom()), blocks / zoom));
     compiler.lab.drive(&map, view);
     {
@@ -2048,8 +2118,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
         }
     }
 
-    // The Climate stage: kept up to date with the recipe, and what it's showing drawn over the map.
-    compiler.climate.drive(&map, &compiler.settings.climate);
+    // What the Climate stage is showing, drawn over the view.
     let show = compiler.climate.show;
     if show != super::climate::Show::Nothing
         && let Some(ground) = compiler.climate.ground()
@@ -2079,6 +2148,24 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             let field = compiler.camera.field_rect(rect, (width, width));
             let across = compiler.climate_painted_size as f32 / width as f32;
             painter.image(texture.id(), egui::Rect::from_min_size(field.min, field.size() * across), egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
+        }
+        // The rivers' curves at their real width (at least a line), over the network's grid path, so
+        // the two can be compared; waterfalls' curtains marked white.
+        if show == super::climate::Show::Rivers
+            && let Some(carving) = compiler.climate.carving()
+        {
+            let visible = rect.expand(64.0);
+            for reach in &carving.reaches {
+                let shown: Vec<(egui::Pos2, f32, bool)> = reach.points.iter().map(|p| (to_screen((p.north, p.east)), p.width, p.curtain.is_finite())).collect();
+                if !shown.iter().any(|(at, ..)| visible.contains(*at)) {
+                    continue;
+                }
+                for pair in shown.windows(2) {
+                    let width = (pair[0].1 * zoom / blocks).max(1.0);
+                    let colour = if pair[0].2 { Color32::WHITE } else { Color32::from_rgba_unmultiplied(40, 120, 255, 200) };
+                    painter.line_segment([pair[0].0, pair[1].0], egui::Stroke::new(width, colour));
+                }
+            }
         }
         if show == super::climate::Show::Wind
             && let Some(wind) = compiler.climate.wind()

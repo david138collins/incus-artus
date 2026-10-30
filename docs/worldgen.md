@@ -862,7 +862,9 @@ Counsel's outline [PROPOSED, for Builder's proposal]:
   map and the viewer all see rivers for free. Lakes fill to their saved surface, and rims are lowered or
   filled where a crag dip would leave water standing against air.
 
-**Builder's proposal [PROPOSED 2026-10-30, for David's approval; nothing built].** Counsel's outline
+**Builder's proposal [APPROVED and BUILT 2026-10-30, first version: `src/worldgen/carving.rs` (the curves),
+`src/world/carving.rs` (the carve), the Climate tab's Carving section; lakes filled at crag-dip edges;
+waterfall curtains on a switch, on to start; David's "keeps full size for" in River network].** Counsel's outline
 taken almost whole, with five additions (marked *new*), in the river stage (the curves) and the
 Interpreter (the carve, per block).
 

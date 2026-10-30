@@ -34,6 +34,7 @@ const SNAP: f32 = 64.0;
 #[derive(Clone, PartialEq)]
 pub struct Request {
     maps: usize,
+    rivers: usize,
     settings: InterpreterSettings,
     mutes: Mutes,
     /// The north-west corner (blocks), the blocks between samples, and how many samples.
@@ -117,6 +118,7 @@ impl Lab {
         let (bottom, right) = ((south / grid).floor() * grid, (east / grid).ceil() * grid);
         let request = Request {
             maps: Arc::as_ptr(&map.maps) as usize,
+            rivers: Arc::as_ptr(&map.rivers) as usize,
             settings: shape_only(&map.settings),
             mutes: map.mutes,
             north: top,

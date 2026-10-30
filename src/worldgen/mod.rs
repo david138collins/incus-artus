@@ -72,6 +72,7 @@ mod registrar;
 mod rain;
 mod rivers;
 mod network;
+mod carving;
 pub(crate) mod runner;
 mod tectonics;
 mod wind;

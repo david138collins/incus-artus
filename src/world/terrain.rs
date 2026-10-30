@@ -75,10 +75,17 @@ impl CompiledMap {
     /// Sea floor is at least one block under the water's surface: ground at Z 127 would leave no
     /// room for water above it, a stone floor flush with the sea that the distant terrain and the
     /// terrain lab both draw as water.
+    #[cfg(test)]
     pub fn ground(&self, x: i32, y: i32) -> Option<i32> {
-        self.height(x as f32 + 0.5, y as f32 + 0.5).map(|z| {
+        self.column(x, y).map(|(z, _)| z)
+    }
+
+    /// The column's ground (as `ground`), and the Z below which a river's or lake's water fills it
+    /// (`carving.rs`), if any.
+    pub fn column(&self, x: i32, y: i32) -> Option<(i32, Option<i32>)> {
+        self.ground_and_water(x as f32 + 0.5, y as f32 + 0.5).map(|(z, water)| {
             let z = (z.round() as i32).clamp(1, WORLD_HEIGHT - 1);
-            if under_sea(z as f32) { z.min(SEA_LEVEL - 2) } else { z }
+            (if under_sea(z as f32) { z.min(SEA_LEVEL - 2) } else { z }, water.filter(|&w| w > z + 1).map(|w| w.min(WORLD_HEIGHT)))
         })
     }
 
@@ -86,15 +93,24 @@ impl CompiledMap {
     pub fn chunk(&self, pos: ChunkPos, blocks: &TerrainBlocks) -> Option<Chunk> {
         let origin = pos.min_block();
         let size = CHUNK_SIZE as usize;
-        // Each column's ground (−1 = past the map) and what it's made of (mineralogy).
+        // Each column's ground (−1 = past the map), what it's made of (mineralogy), and where a river's or
+        // lake's water over it stops (0 = none).
         let mut ground = vec![-1i32; size * size];
         let mut layers = vec![super::Layers { top: BlockId::AIR, under: blocks.stone, depth: 0 }; size * size];
+        let mut water = vec![0i32; size * size];
         for local_y in 0..size {
             for local_x in 0..size {
                 let column = local_x + local_y * size;
-                if let Some(z) = self.ground(origin.x + local_x as i32, origin.y + local_y as i32) {
+                if let Some((z, over)) = self.column(origin.x + local_x as i32, origin.y + local_y as i32) {
                     ground[column] = z;
                     layers[column] = self.layers(origin.x + local_x as i32, origin.y + local_y as i32, z, blocks);
+                    if let Some(top) = over {
+                        // Under a river or lake: a bed of gravel (or sand), as the sea's floor.
+                        water[column] = top;
+                        if let Some(bed) = blocks.gravel.or(blocks.sand) {
+                            layers[column].top = bed;
+                        }
+                    }
                 }
             }
         }
@@ -106,8 +122,8 @@ impl CompiledMap {
         // How deep the surface's layers go anywhere in the chunk (stone below that).
         let deepest_layer = layers.iter().map(|layer| layer.depth).max().unwrap_or(0);
         let lowest = inside.iter().copied().copied().min().unwrap_or(0);
-        // The highest thing in the chunk: ground, or the sea's surface.
-        let highest = inside.iter().copied().copied().max().unwrap_or(0).max(SEA_LEVEL - 1);
+        // The highest thing in the chunk: ground, the sea's surface, or a river's or lake's.
+        let highest = inside.iter().copied().copied().max().unwrap_or(0).max(SEA_LEVEL - 1).max(water.iter().copied().max().unwrap_or(0) - 1);
 
         let mut sections = Vec::with_capacity(SECTIONS_PER_CHUNK);
         let mut buffer = vec![BlockId::AIR; SECTION_VOLUME];
@@ -136,7 +152,7 @@ impl CompiledMap {
                         layers[column].under
                     } else if z == g {
                         layers[column].top
-                    } else if z < SEA_LEVEL {
+                    } else if z < SEA_LEVEL || z < water[column] {
                         blocks.water
                     } else {
                         BlockId::AIR

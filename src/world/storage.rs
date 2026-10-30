@@ -260,7 +260,14 @@ fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), S
         cooling: m.cooling,
     };
     let text = toml::to_string_pretty(&info).map_err(|error| error.to_string())?;
-    write_file(&folder.join("compiled.toml"), text.as_bytes())
+    write_file(&folder.join("compiled.toml"), text.as_bytes())?;
+    // The rivers and lakes carved in, if any.
+    if map.rivers.is_empty() {
+        let _ = std::fs::remove_file(folder.join("rivers.txt"));
+        Ok(())
+    } else {
+        write_file(&folder.join("rivers.txt"), map.rivers.to_text().as_bytes())
+    }
 }
 
 /// Reads a compiled world's maps and spawn spot back, or `None` if the world is the test cylinder.
@@ -317,6 +324,10 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
     };
     let mut map = CompiledMap::new(Arc::new(maps), info.seed, info.interpreter);
     map.mutes = info.left_out;
+    // The rivers and lakes carved in (none in worlds saved before them).
+    if let Ok(text) = std::fs::read_to_string(folder.join("rivers.txt")) {
+        map.rivers = Arc::new(super::carving::Carving::from_text(&text).map_err(|error| format!("rivers.txt: {error}"))?);
+    }
     Ok(Some((map, IVec2::from_array(info.spawn))))
 }
 
@@ -331,6 +342,7 @@ pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, Strin
             for name in named_maps(&Maps::default()).map(|(name, _)| name).into_iter().chain(["temperature", "rain"]) {
                 let _ = std::fs::remove_file(folder.path.join(format!("map-{name}.png")));
             }
+            let _ = std::fs::remove_file(folder.path.join("rivers.txt"));
         }
     }
     let chunks_folder = folder.sub_folder("chunks")?;
