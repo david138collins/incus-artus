@@ -59,6 +59,15 @@ impl Default for ClimateSettings {
     }
 }
 
+/// The recipe as the world has it, without the rivers (they're what's being made): the real ground the
+/// rivers' water is laid on. The same Arc while the recipe is, so stages keyed on it don't restart.
+fn broad_free(map: &Arc<CompiledMap>) -> Arc<CompiledMap> {
+    if map.mutes.rivers || map.rivers.is_empty() {
+        return map.clone();
+    }
+    Arc::new(map.with(map.settings.clone(), Mutes { rivers: true, ..map.mutes }))
+}
+
 /// The recipe with its fine layers left out (on top of whatever the Show row leaves out): the broad
 /// shape of the land.
 pub fn broad(map: &CompiledMap) -> CompiledMap {
@@ -207,7 +216,7 @@ pub struct Climate {
     fine: Stage<Same<CompiledMap>, Ground>,
     flow: Stage<(Same<Rain>, Same<Ground>, RiverSettings), Flow>,
     network: Stage<(Same<Flow>, NetworkSettings), Network>,
-    carving: Stage<(Same<Network>, NetworkSettings, CarvingSettings), crate::world::Carving>,
+    carving: Stage<(Same<Network>, Same<CompiledMap>, NetworkSettings, CarvingSettings), crate::world::Carving>,
     /// Goes up with each new result (so pictures know to repaint).
     pub version: u64,
     /// What's drawn over the map.
@@ -305,8 +314,10 @@ impl Climate {
         }
         let Some(made) = self.network.result().cloned() else { return };
         let (network, carving) = (settings.network.clone(), settings.carving.clone());
-        let key = (Same(made.clone()), network.clone(), carving.clone());
-        self.carving.want(key, move |stop| super::carving::make(&made, &flow, blocks, seed, network.full_size, network.fall_from, &carving, stop));
+        // Its water reads the real ground (the recipe, without the rivers), so it's keyed on that too.
+        let real = broad_free(map);
+        let key = (Same(made.clone()), Same(real.clone()), network.clone(), carving.clone());
+        self.carving.want(key, move |stop| super::carving::make(&made, &flow, &real, blocks, seed, network.full_size, network.step, network.fall_from, &carving, stop));
     }
 }
 

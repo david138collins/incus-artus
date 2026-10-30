@@ -20,7 +20,7 @@
 use super::network::Network;
 use super::noise::{Fade, perlin};
 use super::rivers::Flow;
-use crate::world::{Carving, Lakes, Reach, RiverPoint, SEA_LEVEL};
+use crate::world::{Carving, CompiledMap, Lakes, Reach, RiverPoint, SEA_LEVEL};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -101,7 +101,7 @@ struct PathPoint {
 
 /// Makes the curves from the network (`full_size`: the share of a river's length, from its mouth,
 /// that keeps its full width before narrowing toward its spring [David]); `None` if stopped.
-pub fn make(network: &Network, flow: &Flow, blocks: f32, seed: u64, full_size: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<Carving> {
+pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, seed: u64, full_size: f32, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<Carving> {
     let w = network.width;
     let n = w * w;
     let half = w as f32 / 2.0;
@@ -155,12 +155,18 @@ pub fn make(network: &Network, flow: &Flow, blocks: f32, seed: u64, full_size: f
     // The reaches: from each spring or junction down to the next junction, lake, or the sea.
     let starts: Vec<usize> = (0..n).filter(|&i| on(i) && ups[i].len() != 1).collect();
     let mut reaches = Vec::new();
+    // For each river reach: where it starts and ends (patches), the water's level at its end if it's
+    // the sea's or a lake's, and how far its start is from the mouth (deltas aren't listed: they keep
+    // the sea's level).
+    let mut ends_of: Vec<(usize, usize, Option<f32>, f32)> = Vec::new();
+    let mut deltas = Vec::new();
     for (k, &start) in starts.iter().enumerate() {
         if k % 1024 == 0 && stop.load(Ordering::Relaxed) {
             return None;
         }
         let mut path = Vec::new();
         let mut i = start;
+        let (mut end, mut end_level) = (start, None);
         loop {
             let (north, east) = place(i);
             path.push(PathPoint { north, east, width: width_at(i), level: network.bed[i].round() });
@@ -172,11 +178,13 @@ pub fn make(network: &Network, flow: &Flow, blocks: f32, seed: u64, full_size: f
                 // Into the sea (or a lake): the line goes on to its edge, at its water's level.
                 let (north, east) = place(d);
                 let level = if flow.lake[d] > 0.0 { flow.surface[d].round() } else { SEA_LEVEL as f32 };
+                (end, end_level) = (d, Some(level));
                 path.push(PathPoint { north, east, width: width_at(i), level: level.min(path.last().map_or(level, |p| p.level)) });
                 break;
             }
             if ups[d].len() >= 2 {
                 // A junction: this reach ends on it (pinned), the next starts from it.
+                end = d;
                 let (north, east) = place(d);
                 path.push(PathPoint { north, east, width: width_at(d), level: network.bed[d].round() });
                 break;
@@ -188,14 +196,18 @@ pub fn make(network: &Network, flow: &Flow, blocks: f32, seed: u64, full_size: f
         }
         let rank = network.rank[start].max(1) as u32;
         reaches.push(curve(&path, k as u64, rank, flow, blocks, seed, fall_from, s));
+        ends_of.push((start, end, end_level, to_mouth[start]));
         // A delta, where a river or great river meets the sea over flat ground.
         if s.deltas
             && rank >= 3
             && let Some(delta) = delta(&path, rank, s)
         {
-            reaches.extend(delta);
+            deltas.extend(delta);
         }
     }
+    // The water levels, from the real ground (never above the banks), only falling downstream.
+    lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
+    reaches.extend(deltas);
     let lakes = Lakes { width: w, blocks, surface: (0..n).map(|i| if flow.lake[i] > 0.0 { flow.surface[i] } else { f32::NAN }).collect() };
     Some(Carving::new(reaches, lakes))
 }
@@ -311,6 +323,117 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
     Reach { points }
 }
 
+/// The rivers' water levels, from the real ground [2026-10-30: taken from the network's broad
+/// ground, the water stood above the real ground wherever hills dipped below it or the line swung
+/// off its path, a ribbon of water walls (David's screenshot)]. Each point's level is the lowest real
+/// ground across the river's width there, so the water is never above its banks; then only falling
+/// downstream (a reach's start no higher than what flows into it, upstream reaches first); then
+/// rounded down into steps of the bed's step size (flat runs, then drops); a drop as tall as a
+/// waterfall stays sheer (its curtain just below), a smaller one is spread upstream as rapids, a
+/// block at a time. Never below the sea's surface, and a reach into the sea or a lake ends at its
+/// level.
+fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)], ground: &CompiledMap, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<()> {
+    let sea = SEA_LEVEL as f32;
+    // The lowest real ground across each point's width (its middle and both banks), on all cores.
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let each = reaches.len().div_ceil(cores).max(1);
+    let lows: Vec<Vec<f32>> = std::thread::scope(|scope| {
+        let jobs: Vec<_> = reaches
+            .chunks(each)
+            .map(|part| {
+                scope.spawn(move || {
+                    part.iter()
+                        .map(|reach| {
+                            let p = &reach.points;
+                            (0..p.len())
+                                .map(|k| {
+                                    if stop.load(Ordering::Relaxed) {
+                                        return sea;
+                                    }
+                                    let (a, b) = (p[k.saturating_sub(1)], p[(k + 1).min(p.len() - 1)]);
+                                    let (tn, te) = (b.north - a.north, b.east - a.east);
+                                    let length = (tn * tn + te * te).sqrt().max(1e-3);
+                                    let (nn, ne) = (te / length, -tn / length);
+                                    let half = p[k].width / 2.0;
+                                    [0.0, half, -half]
+                                        .iter()
+                                        .filter_map(|&o| ground.height(p[k].north + nn * o, p[k].east + ne * o))
+                                        .fold(f32::MAX, f32::min)
+                                })
+                                .collect()
+                        })
+                        .collect::<Vec<Vec<f32>>>()
+                })
+            })
+            .collect();
+        jobs.into_iter().flat_map(|job| job.join().unwrap_or_default()).collect()
+    });
+    if stop.load(Ordering::Relaxed) {
+        return None;
+    }
+    // Downstream: upstream reaches first; each reach no higher than what arrives at its start.
+    let mut order: Vec<usize> = (0..reaches.len()).collect();
+    order.sort_by(|&a, &b| ends_of[b].3.total_cmp(&ends_of[a].3));
+    let mut arriving: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
+    for r in order {
+        let (start, end, end_level, _) = ends_of[r];
+        let mut cap = arriving.get(&start).copied().unwrap_or(f32::MAX);
+        let floor = end_level.unwrap_or(sea).max(sea);
+        let points = &mut reaches[r].points;
+        let count = points.len();
+        for (k, point) in points.iter_mut().enumerate() {
+            let low = if lows[r][k] == f32::MAX { cap } else { lows[r][k] };
+            let mut level = low.min(cap).max(floor).floor();
+            if k + 1 == count
+                && let Some(at) = end_level
+            {
+                level = at.max(sea);
+            }
+            cap = level;
+            point.level = level;
+            point.curtain = f32::NAN;
+        }
+        let last = points.last().map_or(sea, |p| p.level);
+        arriving.entry(end).and_modify(|l| *l = l.min(last)).or_insert(last);
+        // Steps: rounded down to the step size (flat runs, then drops), never below the end's level.
+        if step > 1.0 {
+            for point in points.iter_mut() {
+                point.level = ((point.level / step).floor() * step).max(floor);
+            }
+        }
+        // Each drop: a waterfall (sheer, its curtain on the next point) or rapids (spread upstream,
+        // a block at a time).
+        let mut k = 1;
+        while k < points.len() {
+            let drop = points[k - 1].level - points[k].level;
+            if drop >= fall_from {
+                if s.curtains {
+                    points[k].curtain = points[k - 1].level;
+                }
+            } else if drop >= 1.0 {
+                let lower = points[k].level;
+                let spread = (drop * s.rapids_length).max(1.0);
+                let mut run = 0.0;
+                let mut j = k - 1;
+                loop {
+                    let into = run / spread;
+                    if into >= 1.0 {
+                        break;
+                    }
+                    points[j].level = points[j].level.min(lower + (drop * into).ceil());
+                    if j == 0 {
+                        break;
+                    }
+                    run += ((points[j].north - points[j - 1].north).powi(2) + (points[j].east - points[j - 1].east).powi(2)).sqrt();
+                    j -= 1;
+                }
+            }
+            k += 1;
+        }
+    }
+    Some(())
+}
+
 /// A line's points again, `spacing` blocks apart along it (the ends kept).
 fn resample(line: &[(f32, f32)], spacing: f32) -> Vec<(f32, f32)> {
     let mut out = vec![line[0]];
@@ -394,7 +517,7 @@ mod tests {
 
     /// Valley country (ground rising from the sea in the west, valleys running west), its flow and
     /// network, at 32 blocks a patch.
-    fn country() -> (Flow, Network) {
+    fn country() -> (Flow, Network, CompiledMap) {
         let width = 64;
         let z: Vec<Option<f32>> = (0..width * width)
             .map(|i| {
@@ -405,12 +528,13 @@ mod tests {
         let flow = crate::worldgen::rivers::flow(width, &z, &vec![1.0; width * width], 2.0, 7, &AtomicBool::new(false)).unwrap();
         let s = NetworkSettings { spring_from: 300.0, spring_to: 1_000.0, spacing: 200.0, mouth_spacing: 100.0, branching: 1.0, ..NetworkSettings::default() };
         let network = crate::worldgen::network::make(&flow, 32.0, 3, &s, &AtomicBool::new(false)).unwrap();
-        (flow, network)
+        let heights: Vec<f32> = z.iter().map(|h| h.unwrap_or(0.0)).collect();
+        (flow, network, CompiledMap::of_heights(width, 32.0, &heights))
     }
 
     fn carve(full_size: f32) -> Carving {
-        let (flow, network) = country();
-        make(&network, &flow, 32.0, 3, full_size, 3.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap()
+        let (flow, network, ground) = country();
+        make(&network, &flow, &ground, 32.0, 3, full_size, 4.0, 3.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap()
     }
 
     #[test]
@@ -436,6 +560,17 @@ mod tests {
         assert!(narrowest(&carve(0.0)) <= SPRING + 0.01);
     }
 
+
+    #[test]
+    fn the_water_never_stands_above_the_real_ground_under_it() {
+        // David's screenshot: water laid on the broad ground stood above the real ground as walls.
+        let (flow, network, ground) = country();
+        let carving = make(&network, &flow, &ground, 32.0, 3, 0.5, 4.0, 3.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
+        for p in carving.reaches.iter().flat_map(|reach| reach.points.iter()) {
+            let real = ground.height(p.north, p.east).unwrap();
+            assert!(p.level <= real.max(SEA_LEVEL as f32) + 1e-3, "water at {} over ground at {real}", p.level);
+        }
+    }
     #[test]
     fn every_river_point_carves_water_into_the_ground() {
         let carving = carve(0.5);
