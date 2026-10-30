@@ -850,6 +850,14 @@ Counsel's outline [PROPOSED, for Builder's proposal]:
   side is much higher ground, and keeps clear of other rivers. Corner cutting can't loop.
 - **Cost:** each river's curve is worked out once in the river stage; each block only measures its
   distance to the curve.
+- **[DECIDED 2026-10-30, David] Go ahead with Builder's proposal; fill the lakes** (fill crag-dip edges
+  up to the surface, not lower rims). Builder raises any questions or concerns and goes ahead with
+  everything they don't touch.
+- **[DECIDED 2026-10-30, David] A "how far up it is river" control** in the River network section: it
+  directly controls how far up from the ocean the water is river. A gradient from both ends, the spring
+  and the river, scaled to the length of the path. (Counsel's reading: width along each river runs from
+  the spring's end to the mouth's, and this control sets how much of the length, measured from the
+  mouth, stays at full river size before it tapers toward the spring.)
 - **The shared carving contract:** the carve lowers the recipe's height, so the far terrain, the light
   map and the viewer all see rivers for free. Lakes fill to their saved surface, and rims are lowered or
   filled where a crag dip would leave water standing against air.
