@@ -413,3 +413,152 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   the rest, and water blocks), labelled but probably not entirely consistent or exhaustive. Read it for
   the general rules (channel width and depth, bank slope, shoulder, fade, cut bank vs point bar), not as
   every case.
+- **Sizes: "drawing wins."** The drawing's sizes replace the earlier width table (creek 2–4, stream
+  4–8, river 8–32, great river 32–128). The last profile drawn is a river, not a great river: David
+  drew up to rivers. Sizes should **grow proportionally, by ratios we set**, each rank from the one
+  below, with a reasonable range per rank rather than one number: "in order to achieve a *pleasant*
+  webbing of little springs and creeks and rivers that have bridges and so on." The goal to judge by
+  is a pleasant, bridgeable web, not exact sizes.
+
+## 8. Proposal: river profiles (Builder, for David's approval)
+
+From David's drawing, [`rivers-profiles-2026-10-30.png`](rivers-profiles-2026-10-30.png) (one pixel a
+block; tan ground, blue water). Top to bottom: 9 springs, 7 creeks, 4 streams, 4 rivers.
+
+**Where it lives** (the linear pipeline): the sizes and shapes are worked out in Climate's step 7 (the
+curves), as numbers on each river point. The World Interpreter carves them, together with the bank's
+fade into the land. Nothing feeds back: Climate still reads the uncarved ground.
+
+### What the drawing says (measured from the pixels)
+
+| Group | Widths | Deepest | Banks | Shape |
+| --- | --- | --- | --- | --- |
+| Springs (9) | 1–3 | 1–2 | 5 flush both sides; 3 a 1-block ledge on one side; 1 a ledge on both | a slot, or a little V |
+| Creeks (7) | 5–9 | 2–3 | 4 flush; 3 a 1-block ledge on one side | a V (1-2-3-2-1); or deepest right against the ledge, stepping up a block at a time to the other side; or wide and shallow (1-1-1-1-2-1-1-1-1) |
+| Streams (4) | 11–19 | 4–5 | all flush | steep sides (2–3 deep right at the edge), a broad flat floor; 2 of the 4 deeper toward one side |
+| Rivers (4) | 29–51 | 4–7 | 3 flush; the widest a 1-block ledge on one side | a bowl: shallow shelves at the edges (1 deep, about 4 wide), steps 2–7 wide, a deepest part 3–21 wide; the widest has its deep part against the ledge (a third of the way across) and long shallow steps to the other side |
+
+The rules I read from it:
+1. **Flush is the norm**, about two thirds of the profiles. **A ledge is always 1 block**, almost
+   always on one side only.
+2. **Where there's a ledge, the deep water is against it**, and the other side shallows in steps: a
+   cut bank and a point bar, as at the outside and inside of a bend.
+3. **The bed steps up a block at a time,** and the steps get wider as the river gets bigger: about 1
+   block in creeks, 2–4 in streams, 4–7 in rivers.
+4. **The edge depth varies by size:** creeks start 1 deep at the edge, streams 2–3 (steep sides),
+   rivers 1–2 with a shelf. So the shape isn't just a scaled box or a scaled V.
+5. **Proportions:** each rank is about 2½ to 3 times as wide as the one below, but less than twice as
+   deep. Bigger rivers are relatively shallower and wider.
+
+### 1. Sizes: a ratio per step up
+
+- **A spring's size** (default 2 wide, 1½ deep: a 1 or 2 block slot).
+- **For each step up a rank, a width ratio and a depth ratio** (sliders). Defaults from the drawing:
+
+  | Step up | Width ratio | Depth ratio | Gives |
+  | --- | --- | --- | --- |
+  | spring → creek | 3 | 2 | creek about 6 wide, 3 deep |
+  | creek → stream | 2.5 | 1.5 | stream about 15 wide, 4–5 deep |
+  | stream → river | 2.5 | 1.25 | river about 37 wide, 5–6 deep |
+  | river → great river | 2.5 | 1.25 | great river about 94 wide, 7 deep |
+
+  Width ratios slide from 1.5 to 5, depth ratios from 1 to 3.
+- **A range per rank, not one number:** each rank's band runs halfway (by ratio) to the ranks either
+  side, so the bands meet with no jumps. A river **grows within its rank's band** as it goes down: it's
+  smallest where it becomes that rank, and nearly the next rank's size where it joins a bigger one.
+  Creeks grow from a spring's size at their springs. The bands at the defaults:
+
+  | Rank | Width | Deepest |
+  | --- | --- | --- |
+  | creek (from its spring) | 2 → 9½ | 1–4 |
+  | stream | 9½ → 24 | 4–5 |
+  | river | 24 → 59 | 5–6 |
+  | great river | 59 → 150 | 6–8 |
+
+  Those match the drawing: creeks 5–9, streams 11–19, rivers 29–51.
+- **"Varies":** a slider for how much a river's size wanders along it (slowly, so it doesn't pulse).
+- **This replaces** the old width table, the √(2 × width) depth with its depth slider, and "keeps full
+  size for": the growth within each band already starts small at the spring.
+
+### 2. The shape across: four numbers per rank
+
+Each rank gets its own **shape**, with defaults read from the drawing. Great rivers start as copies of
+rivers.
+- **Edge depth:** how deep the water is right at the bank, as a share of the deepest. Creek 0.3 (a V),
+  stream 0.5 (steep sides), river 0.25 (a shelf).
+- **Floor:** the share of the width at the deepest. Creek 0.2, stream 0.5, river 0.3.
+- **Bowl:** how the bed goes from the edge to the floor. Below 1, it drops quickly then flattens
+  (streams); 1 is even steps (creeks); above 1, it stays shallow then drops (rivers' shelves). Creek 1,
+  stream 0.6, river 1.6.
+- **Shape varies:** how much these three wander along the river. The drawing shows as much variety
+  within a rank as between ranks.
+
+Each column's depth is that curve, rounded to whole blocks, so the bed steps a block at a time by
+itself, and the steps widen with the river.
+
+### 3. Lopsided at bends: cut bank and point bar
+
+The curve already knows the outside of every bend. Today it only stores which way, so it would also
+store **how sharp**.
+- **The deep part moves toward the outside,** further the sharper the bend: up to "against the bank"
+  for creeks, a third of the way across for rivers (as drawn). Default: up to 0.6 of the half width.
+- **The outside's edge depth rises to the full depth** (a steep cut), and **the inside gets long,
+  shallow steps** (the point bar).
+- **On straight runs it stays even,** with only the "shape varies" wander.
+
+### 4. Banks: flush by default, ledges by context
+
+- **Flush:** the ground beside the water is pulled to the water's level, with the block's top level
+  with the water. Where the ground beside is *lower* than the water, it's filled up to that level (a
+  natural levee), so water never stands against air.
+- **A 1-block ledge on the outside of a bend** sharper than a setting ("ledge from bend"). That makes
+  ledges about a third of the time on winding rivers, as in the drawing. The inside stays flush.
+- **Later, by rock:** ledges in hard rock, once mineralogy exists.
+
+### 5. The fade into the land: several ways, for you to pick
+
+Beyond the bank, the ground blends from the shore's height back to its own over a **fade distance**.
+Default: one river width each side, at least 4 blocks; a slider per rank.
+- **Smooth:** an S-curve, gentle at the water and at the top. The default.
+- **Slope:** a straight ramp.
+- **Terraces:** flat steps of N blocks (old floodplains: walkable shelves along big rivers).
+- **Ledge then slope:** the 1-block ledge, then smooth.
+
+**By context:** the inside of bends gets the long smooth fade (a beach), the outside gets "ledge then
+slope" with a shorter fade, straight runs get smooth. Each is a dropdown with a slider, so you can
+change which goes where.
+
+**Steep land behind:** if the ground beside rises so fast that the fade would be steeper than a
+setting ("steepest bank", default 1 block up per block across), the fade widens up to a limit. Past
+that, the rest stays a cliff. That's the "ledge by context: steep land behind the shore", and it keeps
+mountain gorges.
+
+### What you'd see in the panel
+
+- **The Carving section:** the ratio table, a band readout, the four shape numbers per rank, the bend
+  sliders, and the fade dropdowns with their sliders.
+- **A live preview,** drawn like your picture (tan and blue pixels), with one profile per rank,
+  straight and at a sharp bend. You can put it beside your drawing and tune until they match.
+- **The cross-section** (Shift + drag) shows the real carved profile and fade.
+
+### Cost and risk
+
+- Each block column looks further for its river: half the width plus the fade, instead of half the
+  width. The lookup grid gets more entries, and the carving work grows with the wider rivers. I expect
+  it to stay small next to the terrain itself, and I'll measure it with the soak test.
+- **The far terrain must use the same fade,** or near and far won't agree at the banks. It goes in
+  the same function (`ground_and_water`), so it can't drift.
+- **Waterfalls and rapids** keep working: the profile hangs from the water level at each point.
+- **Deltas** use the river's profile, scaled to each channel.
+- **Not in this step:** lake shores and the sea's shore. Flush sea shores need the "shore" answer at
+  Z 127 (section 4). That's a separate step once rivers look right.
+
+### Questions for David
+
+1. **The size defaults:** the ratios above (3, 2.5, 2.5, 2.5 wide; 2, 1.5, 1.25, 1.25 deep). Does a
+   great river of 59–150 wide sound right, or should the last step be smaller?
+2. **Growing within a band** as it goes downstream, replacing "keeps full size for": agreed?
+3. **The fade's default by context** (smooth inside, ledge then slope outside, smooth when straight):
+   agreed, or one way everywhere to start?
+4. **Build order:** sizes and shape first, then lopsided bends and ledges, then the fades, with a
+   launch for you after each. Or all at once?
