@@ -741,6 +741,89 @@ Counsel's notes [PROPOSED]:
   from rain, and widths come from David's table.
 - **It replaces step 6's "lines where enough water gathered"**; step 5's rain and basins stay as inputs.
 
+**Builder's proposal [PROPOSED 2026-10-30, for David's approval; nothing built].** David's backwards
+method, done on the drainage that step 5 already works out, so the water's hard rules come free.
+
+*The key fact:* step 5 already gives every patch of land the patch it drains into, on the filled
+ground, always downhill or across a lake, ending at the sea. Read upstream, that is a tree for each
+river mouth, and "climbing only uphill or level from the mouth" (Counsel's rule) can never leave it:
+every uphill-or-level path from a mouth is one of its branches. So growing from the mouths becomes
+**choosing which branches of that tree are rivers**, not searching for new paths. Every river then
+drains, stays in its own catchment, and has a bed that only falls downstream, without having to check.
+
+**The algorithm, in five passes (all on the map's 32-block grid, in the background):**
+1. **Springs first** (David's rule). Candidates are patches in a height band in the mountains (or
+   high for their surroundings, so lesser hills get some), wet enough (from step 5's rain, snowmelt and
+   slope-foot springs). They're picked by **spacing**: a minimum distance between springs, with a
+   jitter so the spacing is even but not too even (the "blue noise" a scatterer gives). Spacing is what
+   makes the rivers spread evenly round the world; it's the strongest dial for David's first goal.
+2. **Mouths:** every spring walks down the tree to where it meets the sea (or a lake that doesn't
+   overflow). Those meeting points are the river mouths. **Not too close together:** where two mouths
+   are nearer than the mouth spacing, the one with less water loses its springs (they become
+   unreached, pass 4), since water can't be moved into another catchment. The mouth's delta comes
+   where the land there is lowest and flattest (its size from the rank, David's 64-128 blocks).
+3. **Grow up from each mouth** (Counsel's space colonization, on the tree): from the mouth, climb the
+   tree toward the springs it serves. Where the springs ahead are reached through different branches,
+   the river splits. **Branching eagerness** decides how readily: a split happens only once the
+   smaller side carries enough of the springs, so low eagerness gives long trunks and few big forks,
+   high gives David's "split halfway, and halfway again". The splits fall where the springs' own
+   paths part, so they land at real valley junctions.
+4. **Unreached springs** (too close to another river, or their mouth was dropped) follow the tree
+   forward: a short stream that joins the nearest river, runs into a lake, or, if its water dries away
+   first, **fizzles out**. A dryness slider sets how far a little water goes in dry country (streams that
+   vanish into desert). **Lakes** stay as step 5 makes them, filled to their spill point; an overflowing
+   lake's outflow is a river from its outlet, found like any other (a lake's outlet counts as a spring
+   with the lake's water). David's "lake vs pond": a basin bigger than a size slider is a lake that can
+   feed rivers; smaller is a pond that only takes them in.
+5. **Back down to conclude:** the water adds up along the kept network from step 5's real rain, so
+   bigger rivers come from wetter country, not just more branches. The **width** comes from that
+   water, through a slider (wider rivers carry more, roughly as the square root, the way real rivers
+   do), held inside David's bands (spring 1, creek 2-4, stream 4-8, river 8-32, great river 32-128).
+   The **bed** is laid down the path: long flat runs, then the drop gathered into steps where the
+   ground falls fast (waterfalls) or into short steep stretches (rapids). That's where David's
+   "favouring long runs without climbing" lives: it's in the shape of the bed, not the route.
+
+**What I'd do differently from David's outline, and why:**
+- **Choose branches, don't search new paths.** A free uphill search can wander over a divide, giving a
+  river that doesn't drain. The tree can't, and it's already built. It's also why "halfway" splits
+  aren't a fixed rule here: real splits happen where valleys meet, so they come from where the springs
+  lie. The branching slider still controls how many there are.
+- **Even spreading comes from spacing the springs**, not the mouths alone: springs are where the fan
+  ends, and spacing them gives the even fan-out directly. Mouth spacing stays as a second dial.
+- **Long runs and steps are the bed, not the route.** On a 32-block grid the route is fixed by the
+  valley; what makes waterfalls and rapids is gathering the drop into steps. A slider sets how readily
+  (all smooth slopes, through to long flats and big falls).
+
+**Sliders** (Climate tab, Rivers): spring height band; spring wetness needed; spring spacing and its
+jitter; mouth spacing; branching eagerness; lake size (lake vs pond); dryness (how far little water
+goes); width per water and David's bands; how readily the drop gathers into steps (waterfalls), and how
+big a step must be to be a fall rather than rapids.
+
+**Overlays in the new viewer** (over the blocks): the rivers as lines, thicker and bluer by rank;
+springs as dots (reached, joined, fizzled, each its own colour); mouths and deltas marked; each
+river's catchment tinted on request; the cross-section showing the bed's flats and falls. The hover
+readout gains: the river's rank and width, its water, which mouth it reaches, and the step below.
+
+**What stays from step 5:** the ground it reads, the basins filled to their spill points, the lakes,
+the drainage tree, the rain as water, snowmelt and slope-foot springs (now feeding spring choice). **What
+it replaces:** "draw water wherever the flow passes a threshold" (step 6's lines), and the "drawn
+from" slider.
+
+**Cost:** step 5 (about 1.1 s) stays the big part; springs, mouths, growing and the bed are passes over
+the tree and the chosen paths, about 0.1-0.3 s more, in the background like now. Slider moves that
+only re-choose springs or reshape beds don't redo step 5.
+
+**Carving, and Counsel's shared contract:** fits as is. The rivers hand over lines with a width and a
+bed height all along them, plus lake surfaces, which is what a shared carve (rivers, lakes, ravines,
+gorges) lowering the recipe's height needs, and the far terrain then sees the channels for free (a
+creek a few blocks wide is finer than the far terrain's cells, so only bigger rivers show from far
+away). The one thing it asks of this design: lay the beds before the Interpreter reads the height,
+which the linear pipeline already does.
+
+**To decide (David):** the go-ahead; whether the spring band is plain height or "high for its
+surroundings" (or both, as two sliders); and whether rank follows the water (proposed) or the count of
+branches joined, the classic "stream order".
+
 #### Breaking the water loop  [PROPOSED by Counsel 2026-10-28, for David]
 
 **David's leaning (2026-10-28): keep everything before flowing water as simple as possible. Flowing
