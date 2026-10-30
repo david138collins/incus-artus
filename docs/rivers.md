@@ -109,9 +109,19 @@ the world's.**
   floor, then the bowl's curve up to the edge depth, rounded to whole blocks.
 - **Reaches:** each river is cut into stretches from a spring or junction down to the next junction, a
   lake, or the sea. A stretch's ends are **pinned**, so rivers always meet.
+- **The route** (`route`, 2026-10-30, section 9): the network's path is a plan on the broad ground,
+  with no hills in it. Each reach finds its way on the **real ground** (the recipe without rivers)
+  through a corridor of 4-block cells (`grain`) within 64 blocks (`corridor`) of that plan, by fill and
+  spill from its end: the lowest cell not yet reached is always taken next (on level ground, the one
+  nearer the end), so a dip fills to its lowest gap and spills. The route is the way the start's water
+  then runs: round the hills, through the lowest gaps, along the valley floors. Its ends are the
+  plan's, pinned. A very long reach uses a coarser grain, to keep its grid under 4 million cells. The
+  reaches are routed on all cores. The panel shows how long it took, and the deepest cut below the
+  banks (with how many points cut deeper than 6 blocks).
 - **The line:**
-  1. **Corner cutting.** Chaikin's method slices every corner off. A creek gets 2 passes, plus one more
-     per rank up (a great river gets 5).
+  1. **Corner cutting.** The route is taken at points about a river's width apart (at least 2 cells,
+     at most 48 blocks), then Chaikin's method slices every corner off: a creek 2 passes, one more per
+     rank up (at most 5). So bigger rivers bend wider.
   2. **Resampling,** every 2 to 6 blocks.
   3. **Moving each point sideways,** by the sum of three things:
      - a **wander:** 12 blocks, in swings of about 400 blocks;
@@ -120,8 +130,11 @@ the world's.**
        steeper.
 
      Together they're faded to nothing within max(2 widths, 48 blocks) of each end, and capped at
-     48 blocks. Wherever the moved point would sit more than 6 blocks below the broad ground (a deeper
-     gorge than allowed), the move is halved, up to 4 times.
+     48 blocks. Wherever the moved point's real ground would be more than 3 blocks above the ground
+     under the route (`floor_rise`, "keep within"), the move is halved, up to 4 times, then dropped.
+     So the squiggles stay on the valley floor. *[It was "deepest gorge", 6 blocks below the broad
+     ground, which can't see hills.]* The meanders' flatness is the real ground's slope from end to
+     end.
 - **The water level** (`lay_water`, the 926e66b fix):
   1. **From the real ground.** At each point, sample the real ground (the recipe with hills and crags,
      without rivers) at three spots: the middle of the line and both edges of the river. The level
@@ -613,7 +626,12 @@ ground at Z 140–157, with the water near Z 128. From the code, four causes, on
 Lakes share cause 1: their surface is the broad ground's fill on 32-block patches, so they can stand
 above the real ground in square patches.
 
-**The way to deal with it** (a direction for David, not yet a proposal):
+**The way to deal with it.** *[GO AHEAD from David, 2026-10-30: "i think we can get this... the rivers
+are doing some things right". Counsel's suggestion, taken: fill and spill, as step 5, run locally.
+Built the same day: the route (step 7, "The route" above); the sideways moves kept on the valley
+floor; a readout of the deepest cut. Not built yet: pools behind rises, so a rise the corridor can't
+get round is still cut through, and the readout shows how deep. The router is meant to be reused for
+lakes.]*
 - **Keep the network's plan** (which rivers, springs, mouths, ranks): David is happy with the placement.
 - **Route each reach on the real, detailed ground** (the Interpreter's ground without rivers), every
   few blocks, inside a corridor round its planned path, from its pinned start to its pinned end. Take

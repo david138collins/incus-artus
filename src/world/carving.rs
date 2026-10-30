@@ -77,6 +77,11 @@ pub struct Carving {
     cells: Vec<Vec<(u32, u32)>>,
     /// Whether there's anything to carve (worked out once: the height asks at every column).
     full: bool,
+    /// How its making went, for the panel (not saved): how long it took (seconds), the water's
+    /// deepest cut below the lowest ground across a river (blocks), and how many points cut deep.
+    pub took: f32,
+    pub deepest_cut: f32,
+    pub deep_cuts: usize,
 }
 
 impl PartialEq for Carving {

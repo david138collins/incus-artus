@@ -1143,27 +1143,36 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let c = &mut climate.carving;
         ui.small(
             "The rivers as smooth lines, carved into the ground with water in them (no flow, nothing moves), and the lakes \
-             filled to their surface. Each river's line comes from its path: corners cut, a gentle wander, leaning to the \
-             outside of its bends, and meandering on flat ground; its ends stay put so rivers always meet, and its water \
-             only falls downstream. Each block measures its distance to the line; a river's odd block goes to the outside \
+             filled to their surface. Each river finds its way on the real ground, round the hills and through the lowest \
+             gaps, in a corridor round the network's plan; then its corners are cut, with a gentle wander, leaning to the \
+             outside of its bends, and meandering on flat valley floors; its ends stay put so rivers always meet, and its \
+             water only falls downstream. Each block measures its distance to the line; a river's odd block goes to the outside \
              of the bend. The carve lowers the ground itself, so the far terrain and this view show the rivers too. Climate \
              reads the ground without them.",
         );
         if let Some(carving) = compiler.climate.carving() {
             let points: usize = carving.reaches.iter().map(|reach| reach.points.len()).sum();
-            ui.label(format!("{} stretches of river, {points} points", carving.reaches.len()));
+            ui.label(format!("{} stretches of river, {points} points, made in {:.1} s", carving.reaches.len(), carving.took));
+            ui.label(format!("deepest cut below its banks: {:.0} blocks; {} points cut deeper than 6", carving.deepest_cut, carving.deep_cuts))
+                .on_hover_text("How far the water passes below the lowest ground across a river. Following the valleys, this should stay small; deep cuts are trenches through rises it couldn't find a way round.");
         }
         ui.add_space(4.0);
+        ui.strong("The route");
+        ui.add(crate::debug::Slider::new(&mut c.corridor, 8.0..=320.0).logarithmic(true).text("corridor (blocks either side)"))
+            .on_hover_text("How far either side of the network's plan a river may find its way round hills. Wider follows the land more freely, and takes longer.");
+        ui.add(crate::debug::Slider::new(&mut c.grain, 1.0..=16.0).text("grain (blocks)")).on_hover_text("How finely the way is found: smaller follows the land more closely, and takes longer.");
+        ui.add_space(4.0);
         ui.strong("The line");
-        ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=6).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the path's 32-block steps; bigger rivers get one more pass a rank, so they bend wider.");
-        ui.add(crate::debug::Slider::new(&mut c.wander, 0.0..=48.0).text("wander (blocks)")).on_hover_text("A gentle sideways drift, to break up the long straight diagonals corner cutting can't touch.");
+        ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=5).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the route, over points about a river's width apart; bigger rivers get one more pass a rank, so they bend wider.");
+        ui.add(crate::debug::Slider::new(&mut c.wander, 0.0..=48.0).text("wander (blocks)")).on_hover_text("A gentle sideways drift (kept on the valley floor).");
         ui.add(crate::debug::Slider::new(&mut c.wander_length, 50.0..=3_000.0).logarithmic(true).text("…its swings (blocks)"));
         ui.add(crate::debug::Slider::new(&mut c.lean, 0.0..=2.0).text("lean to the outside of bends")).on_hover_text("Fast water cuts the outer bank: 1 = a river's width at a sharp bend.");
         ui.add(crate::debug::Slider::new(&mut c.meander_length, 4.0..=30.0).text("meander every (widths)")).on_hover_text("Real meanders repeat about every 10 to 14 river widths.");
         ui.add(crate::debug::Slider::new(&mut c.meander_size, 0.0..=4.0).text("meander size (widths)"));
         ui.add(crate::debug::Slider::new(&mut c.flat, 0.001..=0.2).logarithmic(true).text("full meanders below (slope)")).on_hover_text("Meanders are full on ground flatter than this (blocks down per block along), fading on steeper.");
         ui.add(crate::debug::Slider::new(&mut c.most_sideways, 0.0..=160.0).text("most sideways (blocks)")).on_hover_text("The furthest a river's line moves from its path.");
-        ui.add(crate::debug::Slider::new(&mut c.deepest_gorge, 0.0..=40.0).text("deepest gorge (blocks)")).on_hover_text("Where its line crosses higher ground, a river cuts down this far (a little gorge) before its line is pulled back toward its path.");
+        ui.add(crate::debug::Slider::new(&mut c.floor_rise, 0.0..=20.0).text("keep within (blocks above the valley floor)"))
+            .on_hover_text("The wander, lean and meanders are pulled back where they'd move the river this far above the ground under its route.");
         ui.add_space(4.0);
         ui.strong("Sizes");
         ui.small(

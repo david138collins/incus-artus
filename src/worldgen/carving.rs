@@ -2,26 +2,30 @@
 //! smooth line with its width, bank depth and water level all along it, for the Interpreter to carve
 //! (`world/carving.rs`) [David and Builder, 2026-10-30: "Carving: the curve and the carve in one go",
 //! docs/worldgen.md]. The curve and the carve come from one making:
-//! 1. **From the grid's steps to a line:** the network runs patch to patch (straight or diagonal, 32
-//!    blocks a step). Corner cutting (Chaikin's method: each pass slices every corner off) rounds its
-//!    elbows, more passes for bigger rivers; a gentle **wander** breaks the long straight diagonals
-//!    corner cutting can't touch.
-//! 2. **Lean outward:** each point moves toward the outside of its bend (fast water cuts the outer bank).
-//! 3. **Lengthen (David's squiggles):** a side-to-side wave every 10 to 14 widths, its size by width,
+//! 1. **Routed on the real ground** [David, 2026-10-30: "curving between hills instead of slicing
+//!    through them", like a marble; docs/rivers.md section 9]: the network plans each river on the
+//!    broad ground, patch to patch (32 blocks a step), with no hills in it. Each reach then finds its
+//!    way on the real, detailed ground in a corridor round that plan, by fill and spill from its end
+//!    (as step 5, locally): round the hills, through the lowest gaps, along the valley floors.
+//! 2. **Smoothed:** corner cutting (Chaikin's method: each pass slices every corner off) over points a
+//!    river's width or so apart, so bigger rivers bend wider; a gentle **wander**.
+//! 3. **Lean outward:** each point moves toward the outside of its bend (fast water cuts the outer bank).
+//! 4. **Lengthen (David's squiggles):** a side-to-side wave every 10 to 14 widths, its size by width,
 //!    strong on flat ground and fading on steep.
-//! 4. **The carve** (in the world): each block measures its distance to the line; the odd block of an
+//! 5. **The carve** (in the world): each block measures its distance to the line; the odd block of an
 //!    even width goes to the outside of the bend.
 //!
-//! Safety: the water level comes from the network's path (by how far along the river), so it only
-//! falls downstream however the line moves; the ends (junctions, lake outlets, mouths) are pinned, the
-//! sideways moves fading to nothing there, so rivers always meet; and a line pushed over ground much
-//! higher than its water is pulled back.
+//! Safety: the water level is laid from the real ground under the line, only falling downstream; the
+//! ends (junctions, lake outlets, mouths) are pinned, the sideways moves fading to nothing there, so
+//! rivers always meet; and a sideways move that would climb above the valley floor is pulled back.
 
 use super::network::Network;
 use super::noise::{Fade, perlin};
 use super::rivers::Flow;
 use crate::world::{Carving, CompiledMap, Lakes, Reach, RiverPoint, SEA_LEVEL};
 use serde::{Deserialize, Serialize};
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Carving's settings (the Climate tab's Carving section).
@@ -42,9 +46,14 @@ pub struct CarvingSettings {
     pub flat: f32,
     /// The most a river's line moves sideways from its path (blocks).
     pub most_sideways: f32,
-    /// How far a river may cut below the ground beside its path (a little gorge) before its line is
-    /// pulled back toward the path (blocks).
-    pub deepest_gorge: f32,
+    /// The route on the real ground [2026-10-30]: how far either side of its planned path a river may
+    /// find its way (blocks), and the grain it's found on (blocks a cell).
+    pub corridor: f32,
+    pub grain: f32,
+    /// How far above the valley floor (the real ground under its route) the wander, lean and meanders
+    /// may move it before they're pulled back (blocks) [2026-10-30: "deepest gorge", over the broad
+    /// ground].
+    pub floor_rise: f32,
     /// Sizes [David's profiles drawing, 2026-10-30: "drawing wins", growing "by ratios we set"]: a
     /// spring's width and depth (blocks); then for each step up a rank (spring to creek, creek to
     /// stream, stream to river, river to great river) how many times wider and deeper; and how much a
@@ -80,7 +89,9 @@ impl Default for CarvingSettings {
             meander_size: 1.0,
             flat: 0.02,
             most_sideways: 48.0,
-            deepest_gorge: 6.0,
+            corridor: 64.0,
+            grain: 4.0,
+            floor_rise: 3.0,
             spring_width: 2.0,
             spring_depth: 1.5,
             width_ratio: [3.0, 2.5, 2.5, 2.5],
@@ -158,6 +169,7 @@ struct PathPoint {
 
 /// Makes the curves from the network; `None` if stopped.
 pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, seed: u64, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<Carving> {
+    let started = std::time::Instant::now();
     let w = network.width;
     let n = w * w;
     let half = w as f32 / 2.0;
@@ -227,7 +239,8 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
 
     // The reaches: from each spring or junction down to the next junction, lake, or the sea.
     let starts: Vec<usize> = (0..n).filter(|&i| on(i) && ups[i].len() != 1).collect();
-    let mut reaches = Vec::new();
+    // Each river reach's planned path (patch to patch), its number and rank.
+    let mut planned: Vec<(Vec<PathPoint>, u64, u32)> = Vec::new();
     // For each river reach: where it starts and ends (patches), the water's level at its end if it's
     // the sea's or a lake's, and how far its start is from the mouth (deltas aren't listed: they keep
     // the sea's level).
@@ -267,7 +280,6 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
             continue;
         }
         let rank = network.rank[start].max(1) as u32;
-        reaches.push(curve(&path, k as u64, rank, flow, blocks, seed, fall_from, s));
         ends_of.push((start, end, end_level, to_mouth[start]));
         // A delta, where a river or great river meets the sea over flat ground.
         if s.deltas
@@ -276,27 +288,162 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
         {
             deltas.extend(delta);
         }
+        planned.push((path, k as u64, rank));
     }
+    // Each reach routed on the real ground and made a curve, on all cores.
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let each = planned.len().div_ceil(cores).max(1);
+    let made: Vec<Option<Reach>> = std::thread::scope(|scope| {
+        let jobs: Vec<_> = planned
+            .chunks(each)
+            .map(|part| scope.spawn(move || part.iter().map(|(path, id, rank)| route(path, ground, s, stop).map(|line| curve(&line, path, *id, *rank, ground, seed, s))).collect::<Vec<_>>()))
+            .collect();
+        // (A part that failed counts as stopped: its reaches can't go missing out of order.)
+        jobs.into_iter().flat_map(|job| job.join().unwrap_or_else(|_| vec![None])).collect()
+    });
+    let mut reaches: Vec<Reach> = made.into_iter().collect::<Option<_>>()?;
     // The water levels, from the real ground (never above the banks), only falling downstream.
-    lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
+    let (deepest_cut, deep_cuts) = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
     reaches.extend(deltas);
     let lakes = Lakes { width: w, blocks, surface: (0..n).map(|i| if flow.lake[i] > 0.0 { flow.surface[i] } else { f32::NAN }).collect() };
-    Some(Carving::new(reaches, lakes))
+    let mut carving = Carving::new(reaches, lakes);
+    (carving.took, carving.deepest_cut, carving.deep_cuts) = (started.elapsed().as_secs_f32(), deepest_cut, deep_cuts);
+    Some(carving)
 }
 
-/// One reach's curve: corner cut, then each point moved sideways by the wander, the lean and the
-/// meander (fading to nothing at the pinned ends, and pulled back over high ground), with the width,
-/// depth and level by how far along the river.
-fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed: u64, fall_from: f32, s: &CarvingSettings) -> Reach {
-    // How far along the path each of its points is.
+/// Where a river's water passes below the lowest ground across it by more than this (blocks), it's
+/// counted as a deep cut (for the panel).
+const DEEP_CUT: f32 = 6.0;
+
+/// A cell waiting to be reached by the route's fill and spill: lowest first, then the nearer the
+/// reach's end (so it runs the shortest way across level ground), then by place.
+#[derive(PartialEq)]
+struct Waiting {
+    level: f32,
+    run: f32,
+    at: u32,
+}
+
+impl Eq for Waiting {}
+
+impl PartialOrd for Waiting {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Waiting {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.level.total_cmp(&other.level).then(self.run.total_cmp(&other.run)).then(self.at.cmp(&other.at))
+    }
+}
+
+/// How far a spot is from a piece of line (blocks).
+fn to_piece(north: f32, east: f32, a: (f32, f32), b: (f32, f32)) -> f32 {
+    let (dn, de) = (b.0 - a.0, b.1 - a.1);
+    let t = (((north - a.0) * dn + (east - a.1) * de) / (dn * dn + de * de).max(1e-6)).clamp(0.0, 1.0);
+    ((north - a.0 - dn * t).powi(2) + (east - a.1 - de * t).powi(2)).sqrt()
+}
+
+/// One reach's route on the real ground [David, 2026-10-30: "it's got to follow the worlds final
+/// actual detailed terrain, curving between hills instead of slicing through them", rolling "like a
+/// marble between hills"; Counsel: fill and spill, as step 5, run locally]. The cells `grain` blocks
+/// across within `corridor` blocks of its planned path are reached from its end, the lowest cell not
+/// yet reached always next, so a dip fills to its lowest gap and spills; the route is the way its
+/// start's water then runs. Its ends are the planned path's (pinned, so rivers meet). `None` if
+/// stopped.
+fn route(path: &[PathPoint], ground: &CompiledMap, s: &CarvingSettings, stop: &AtomicBool) -> Option<Vec<(f32, f32)>> {
+    let (start, end) = ((path[0].north, path[0].east), (path[path.len() - 1].north, path[path.len() - 1].east));
+    let planned = || path.iter().map(|p| (p.north, p.east)).collect::<Vec<_>>();
+    let corridor = s.corridor.max(1.0);
+    let (north, south) = path.iter().fold((f32::MIN, f32::MAX), |(n, s), p| (n.max(p.north), s.min(p.north)));
+    let (west, east) = path.iter().fold((f32::MAX, f32::MIN), |(w, e), p| (w.min(p.east), e.max(p.east)));
+    // The grid over the path and its corridor (coarser for a very long reach, to keep it small).
+    let mut grain = s.grain.max(1.0);
+    let span = |grain: f32| (((east - west + 2.0 * corridor) / grain).ceil() as usize + 2, ((north - south + 2.0 * corridor) / grain).ceil() as usize + 2);
+    while span(grain).0 * span(grain).1 > 4_000_000 {
+        grain *= 2.0;
+    }
+    let (cols, rows) = span(grain);
+    let (top, left) = (north + corridor + grain, west - corridor - grain);
+    let cell = |n: f32, e: f32| (((top - n) / grain).floor().clamp(0.0, rows as f32 - 1.0) as usize) * cols + ((e - left) / grain).floor().clamp(0.0, cols as f32 - 1.0) as usize;
+    let centre = |i: usize| (top - ((i / cols) as f32 + 0.5) * grain, left + ((i % cols) as f32 + 0.5) * grain);
+    // The corridor: each cell within its distance of a piece of the path, with its real ground.
+    let mut height = vec![f32::NAN; cols * rows];
+    for pair in path.windows(2) {
+        if stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        let (a, b) = ((pair[0].north, pair[0].east), (pair[1].north, pair[1].east));
+        let (first, last) = (cell(a.0.max(b.0) + corridor, a.1.min(b.1) - corridor), cell(a.0.min(b.0) - corridor, a.1.max(b.1) + corridor));
+        for row in first / cols..=last / cols {
+            for col in first % cols..=last % cols {
+                let i = row * cols + col;
+                let (n, e) = centre(i);
+                if height[i].is_nan() && to_piece(n, e, a, b) <= corridor {
+                    height[i] = ground.height(n, e).unwrap_or(SEA_LEVEL as f32);
+                }
+            }
+        }
+    }
+    let (from, to) = (cell(start.0, start.1), cell(end.0, end.1));
+    if from == to || height[from].is_nan() || height[to].is_nan() {
+        return Some(planned());
+    }
+    // Fill and spill from the end, until the start is reached.
+    let mut down = vec![u32::MAX; cols * rows];
+    let mut waiting = BinaryHeap::new();
+    down[to] = to as u32;
+    waiting.push(Reverse(Waiting { level: height[to], run: 0.0, at: to as u32 }));
+    while let Some(Reverse(Waiting { level, run, at })) = waiting.pop() {
+        let at = at as usize;
+        if at == from {
+            break;
+        }
+        let (col, row) = ((at % cols) as i64, (at / cols) as i64);
+        for (dc, dr) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
+            let (c, r) = (col + dc, row + dr);
+            if c < 0 || r < 0 || c >= cols as i64 || r >= rows as i64 {
+                continue;
+            }
+            let next = r as usize * cols + c as usize;
+            if down[next] != u32::MAX || height[next].is_nan() {
+                continue;
+            }
+            down[next] = at as u32;
+            let step = if dc != 0 && dr != 0 { std::f32::consts::SQRT_2 } else { 1.0 };
+            waiting.push(Reverse(Waiting { level: height[next].max(level), run: run + step, at: next as u32 }));
+        }
+    }
+    if down[from] == u32::MAX {
+        return Some(planned());
+    }
+    let mut line = vec![start];
+    let mut at = down[from] as usize;
+    while at != to {
+        line.push(centre(at));
+        at = down[at] as usize;
+    }
+    line.push(end);
+    Some(line)
+}
+
+/// One reach's curve along its route: smoothed (corner cut over points about a width apart), then
+/// each point moved sideways by the wander, the lean and the meander (fading to nothing at the
+/// pinned ends, and pulled back where they'd climb above the valley floor), with the width, depth
+/// and shape by how far along its planned path. (Its water level is laid after, `lay_water`.)
+fn curve(route: &[(f32, f32)], path: &[PathPoint], id: u64, rank: u32, ground: &CompiledMap, seed: u64, s: &CarvingSettings) -> Reach {
+    // How far along the planned path each of its points is.
     let mut along = vec![0.0f32];
     for pair in path.windows(2) {
         along.push(along.last().unwrap() + ((pair[1].north - pair[0].north).powi(2) + (pair[1].east - pair[0].east).powi(2)).sqrt());
     }
     let total = along.last().copied().unwrap_or(0.0).max(1e-3);
-    // 1. Corner cutting, keeping the ends.
-    let mut line: Vec<(f32, f32)> = path.iter().map(|p| (p.north, p.east)).collect();
-    for _ in 0..(s.smoothing + rank.saturating_sub(1)).min(8) {
+    let widest = path.iter().map(|p| p.width).fold(1.0f32, f32::max);
+    // 1. Corner cutting, over the route's points about a width apart (so bigger rivers bend wider),
+    // keeping the ends.
+    let mut line = resample(route, widest.clamp(2.0 * s.grain.max(1.0), 48.0));
+    for _ in 0..(s.smoothing + rank.saturating_sub(1)).min(5) {
         if line.len() < 3 {
             break;
         }
@@ -310,7 +457,7 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
         line = cut;
     }
     // Even spacing along the smoothed line, a few blocks apart.
-    let spacing = (path.iter().map(|p| p.width).fold(1.0f32, f32::max) / 2.0).clamp(2.0, 6.0);
+    let spacing = (widest / 2.0).clamp(2.0, 6.0);
     let line = resample(&line, spacing);
     let length = line.windows(2).map(|p| ((p[1].0 - p[0].0).powi(2) + (p[1].1 - p[0].1).powi(2)).sqrt()).sum::<f32>().max(1e-3);
     // The river's attributes at a share of the way along (0 at its start, 1 at its end).
@@ -322,29 +469,11 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
         let mix = |x: f32, y: f32| x + (y - x) * t;
         (mix(a.width, b.width), mix(a.depth, b.depth), a.shape.mix(b.shape, t))
     };
-    // The water level: each path point's, changing halfway to the next; a fall there is sheer, a
-    // smaller drop spread out as rapids, a block at a time.
-    let level_at = |share: f32| -> (f32, f32) {
-        let s_path = share * total;
-        let k = along.iter().rposition(|&a| a <= s_path).unwrap_or(0).min(path.len() - 2);
-        let (upper, lower) = (path[k].level, path[k + 1].level);
-        let middle = (along[k] + along[k + 1]) / 2.0;
-        let drop = upper - lower;
-        if drop <= 0.0 {
-            return (upper, f32::NAN);
-        }
-        if drop >= fall_from {
-            // A waterfall at the middle; just below it, its curtain.
-            return if s_path < middle { (upper, f32::NAN) } else if s_path < middle + 1.5 { (lower, upper) } else { (lower, f32::NAN) };
-        }
-        let spread = (drop * s.rapids_length).max(1.0);
-        let into = ((s_path - (middle - spread / 2.0)) / spread).clamp(0.0, 1.0);
-        ((upper - (into * drop).floor()).max(lower), f32::NAN)
-    };
-    // The ground's slope along the river, for how freely it meanders.
-    let slope = ((path[0].level - path[path.len() - 1].level) / total).max(0.0);
+    // The real ground, and its slope along the river, for how freely it meanders.
+    let ground = |north: f32, east: f32| ground.height(north, east).unwrap_or(SEA_LEVEL as f32);
+    let (first, last) = (line[0], line[line.len() - 1]);
+    let slope = ((ground(first.0, first.1) - ground(last.0, last.1)) / length).max(0.0);
     let flatness = 1.0 - smooth(slope / s.flat.max(1e-4));
-    let ground = |north: f32, east: f32| sample(flow, blocks, north, east);
     let phase = perlin(seed, 0xa1e0 + id, Fade::Smooth, id as f32 * 0.37, 0.5) * 6.28;
     let mut points = Vec::with_capacity(line.len());
     let mut run = 0.0f32;
@@ -352,9 +481,7 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
         if k > 0 {
             run += ((line[k].0 - line[k - 1].0).powi(2) + (line[k].1 - line[k - 1].1).powi(2)).sqrt();
         }
-        let share = run / length;
-        let (width, depth, shape) = at(share);
-        let (level, curtain) = level_at(share);
+        let (width, depth, shape) = at(run / length);
         // Tangent, normal (to the left, looking downstream) and how sharply it bends here.
         let (a, b) = (line[k.saturating_sub(1)], line[(k + 1).min(line.len() - 1)]);
         let (tn, te) = (b.0 - a.0, b.1 - a.1);
@@ -375,13 +502,15 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
         let lean = -s.lean * width * (bend * 32.0).clamp(-1.0, 1.0);
         let meander = (std::f32::consts::TAU * run / (s.meander_length.max(1.0) * width.max(1.0)) + phase).sin() * s.meander_size * width * flatness;
         let mut sideways = ((wander + lean + meander) * fade).clamp(-s.most_sideways, s.most_sideways);
-        // Pulled back where it would cut deeper than a little gorge beside the path.
-        for _ in 0..4 {
-            let (north, east) = (line[k].0 + nn * sideways, line[k].1 + ne * sideways);
-            if ground(north, east) - level <= s.deepest_gorge {
-                break;
+        // Pulled back where it would climb above the valley floor (the ground under its route).
+        if sideways != 0.0 {
+            let floor = ground(line[k].0, line[k].1);
+            for halving in 0..5 {
+                if ground(line[k].0 + nn * sideways, line[k].1 + ne * sideways) - floor <= s.floor_rise {
+                    break;
+                }
+                sideways = if halving < 4 { sideways * 0.5 } else { 0.0 };
             }
-            sideways *= 0.5;
         }
         points.push(RiverPoint {
             north: line[k].0 + nn * sideways,
@@ -391,9 +520,9 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
             edge: shape.edge,
             flat: shape.flat,
             bowl: shape.bowl,
-            level,
+            level: f32::NAN,
             bend: if bend.abs() < 0.002 { 0.0 } else { bend.signum() },
-            curtain: if s.curtains { curtain } else { f32::NAN },
+            curtain: f32::NAN,
         });
     }
     Reach { points }
@@ -407,8 +536,9 @@ fn curve(path: &[PathPoint], id: u64, rank: u32, flow: &Flow, blocks: f32, seed:
 /// steps of the bed's step size relative to that ground (flat runs, then drops); a drop as tall as a
 /// waterfall stays sheer (its curtain just below), a smaller one is spread upstream as rapids, a
 /// block at a time. Never below the sea's surface, and a reach into the sea or a lake ends at its
-/// level.
-fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)], ground: &CompiledMap, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<()> {
+/// level. Gives the deepest cut below the lowest ground across a river, and how many points cut
+/// deeper than `DEEP_CUT`.
+fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)], ground: &CompiledMap, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<(f32, usize)> {
     let sea = SEA_LEVEL as f32;
     // The lowest real ground across each point's width (its middle and both banks), on all cores.
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
@@ -526,7 +656,10 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
             k += 1;
         }
     }
-    Some(())
+    // How far the water passes below the lowest ground across it: the deepest, and how many points
+    // deeper than a deep cut.
+    let cuts = reaches.iter().zip(&lows).flat_map(|(reach, low)| reach.points.iter().zip(low).filter(|&(_, &l)| l < f32::MAX).map(|(p, &l)| l - p.level));
+    Some(cuts.fold((0.0f32, 0usize), |(deepest, deep), cut| (deepest.max(cut), deep + (cut > DEEP_CUT) as usize)))
 }
 
 /// A line's points again, `spacing` blocks apart along it (the ends kept).
@@ -549,21 +682,6 @@ fn resample(line: &[(f32, f32)], spacing: f32) -> Vec<(f32, f32)> {
         out.push(last);
     }
     out
-}
-
-/// The broad ground's height at a spot (from step 5's filled ground on the map's grid, blended).
-fn sample(flow: &Flow, blocks: f32, north: f32, east: f32) -> f32 {
-    let w = flow.width;
-    let half = w as f32 / 2.0;
-    let (x, y) = (east / blocks + half - 0.5, half - north / blocks - 0.5);
-    let (x0, y0) = (x.floor(), y.floor());
-    let (tx, ty) = (x - x0, y - y0);
-    let last = w as f32 - 1.0;
-    let at = |c: f32, r: f32| {
-        let v = flow.surface[r.clamp(0.0, last) as usize * w + c.clamp(0.0, last) as usize];
-        if v.is_finite() { v } else { SEA_LEVEL as f32 }
-    };
-    (at(x0, y0) * (1.0 - tx) + at(x0 + 1.0, y0) * tx) * (1.0 - ty) + (at(x0, y0 + 1.0) * (1.0 - tx) + at(x0 + 1.0, y0 + 1.0) * tx) * ty
 }
 
 /// A delta at a river's mouth, if the ground there is flat: its last stretch fanned into three
@@ -678,6 +796,32 @@ mod tests {
         assert!(widths().fold(0.0, f32::max) <= size_in_band(&s, 4, 1.0).0 + 1e-3);
     }
 
+    #[test]
+    fn a_route_goes_round_a_ridge_through_its_gap_not_over_it() {
+        // Ground falling west, 8 blocks a pixel; a ridge 50 high across columns 30 to 33, with a gap in
+        // rows 44 to 47 (about 108 blocks south of the planned path, along row 32).
+        let width = 64;
+        let z: Vec<f32> = (0..width * width)
+            .map(|i| {
+                let (c, r) = (i % width, i / width);
+                let ridge = (30..=33).contains(&c) && !(44..=47).contains(&r);
+                150.0 + c as f32 * 0.5 + if ridge { 50.0 } else { 0.0 }
+            })
+            .collect();
+        let ground = CompiledMap::of_heights(width, 8.0, &z);
+        let shape = CarvingSettings::default().shapes[0];
+        let at = |c: f32| PathPoint { north: (32.0 - 32.0 - 0.5) * 8.0, east: (c + 0.5 - 32.0) * 8.0, width: 3.0, depth: 2.0, shape, level: 0.0 };
+        let path: Vec<PathPoint> = (0..=12).map(|k| at(56.0 - k as f32 * 4.0)).collect();
+        let highest = |corridor: f32| {
+            let s = CarvingSettings { corridor, ..CarvingSettings::default() };
+            let line = route(&path, &ground, &s, &AtomicBool::new(false)).unwrap();
+            assert_eq!((line[0], line[line.len() - 1]), ((path[0].north, path[0].east), (path[12].north, path[12].east)), "the ends are pinned");
+            line.iter().map(|&(n, e)| ground.height(n, e).unwrap()).fold(f32::MIN, f32::max)
+        };
+        let (round, over) = (highest(160.0), highest(16.0));
+        assert!(over > 195.0, "a narrow corridor has to cross the ridge: {over}");
+        assert!(round < 180.0, "a wide one goes round through the gap: {round}");
+    }
 
     #[test]
     fn the_water_never_stands_above_the_real_ground_under_it() {
