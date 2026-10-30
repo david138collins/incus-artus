@@ -468,8 +468,9 @@ A true-scale inspection tool, so terrain can be judged without going in and out 
     lit with the distant terrain's hill shading and height tint (`distant::Shade`, the game's own
     settings), or flat with "lit" off (Terrain lab section). Mineralogy and the stone and gabbro heights
     only repaint the colours from the kept heights; climate sliders repaint when the climate catches up.
-    The close-up's old height colours and relief shading are gone (the map view keeps them until it
-    retires). Not yet: coarse-then-sharper; the side faces of steep steps (tops only for now).
+    The close-up's old height colours and relief shading are gone, and **the map view is retired**
+    [David, 2026-10-30]: the close-up is the whole view, at any zoom, starting at 1×, with a ½× sharpness
+    for zoomed right out. Not yet: coarse-then-sharper; the side faces of steep steps (tops only).
   - **Open, David's call:** the flats just under sea level (held up by "crags never drown land") used
     to be invisible grass and are now wide sand flats along coasts. Keep them as tidal flats, or remove
     them in the recipe?

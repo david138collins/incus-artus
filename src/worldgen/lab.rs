@@ -1,9 +1,9 @@
-//! The terrain lab — the World Compiler's map, zoomed in, becomes a live view of the ground block by
-//! block, exactly as the Interpreter will make it in the world. Park it over any patch and move the
+//! The terrain lab — the World Compiler's view: a live view of the ground block by block, at any
+//! zoom, exactly as the Interpreter will make it in the world. Park it over any patch and move the
 //! Interpreter's sliders: it follows them as they move.
 //!
-//! - **The close-up** takes over from the map once a map pixel covers a few screen points. It works
-//!   out every column in view (one sample per block when zoomed right in; every 2nd, 4th… block
+//! - **The close-up** is the whole view [David, 2026-10-30: the old map view, a pixel every 32
+//!   blocks, retired]. It works out every column in view (one sample per block when zoomed right in; every 2nd, 4th… block
 //!   further out, so it stays quick), on all the computer's cores, and shows the blocks the world will
 //!   have there (mineralogy's choice, in the Climate tab's live climate), in the distant terrain's
 //!   colours, lit as it lights them or flat (compiler_view.rs, `block_picture`). Sliders that only
@@ -14,17 +14,14 @@
 //! - **A cross-section:** Shift + drag across the map draws a line; its side view (the ground's Z
 //!   along it, with sea level) shows under the map.
 //! - **Cost:** how long the last close-up took, and what that comes to per chunk.
-//! - **View and sharpness:** the close-up can be forced on at any zoom (to see the whole world as the
-//!   Interpreter makes it, ground detail and all; slower further out) or off, and can take 2 to 16
-//!   samples per screen point instead of 1.
+//! - **Sharpness:** ½ to 16 samples per screen point (1 to start; ½ for zoomed right out, 16 for
+//!   screenshots).
 
 use super::runner::{Job, Poll};
 use crate::world::{CompiledMap, InterpreterSettings, Mutes};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// The close-up takes over once a map pixel covers this many screen points.
-pub const TAKES_OVER_AT: f32 = 3.0;
 /// The most samples across or down a close-up at sharpness 1× (more and the step between samples
 /// grows); sharper close-ups may take up to 16 times as many, up to `LARGEST`.
 const MOST_SAMPLES: f32 = 900.0;
@@ -55,22 +52,11 @@ pub struct Frame {
     pub millis: f64,
 }
 
-/// When the close-up shows instead of the map.
-#[derive(Clone, Copy, PartialEq, Default)]
-pub enum View {
-    /// Once a map pixel covers `TAKES_OVER_AT` screen points.
-    #[default]
-    Auto,
-    Map,
-    CloseUp,
-}
-
 #[derive(Default)]
 pub struct Lab {
     pub mutes: Mutes,
-    pub view: View,
-    /// Close-up samples per screen point: 1, 2, 4, 8 or 16 (as 0 to 4).
-    pub sharper: u32,
+    /// Close-up samples per screen point: ½, 1, 2, 4, 8 or 16 (as −1 to 4; ½ for zoomed right out).
+    pub sharper: i32,
     /// The close-up being made, and what it shows.
     job: Option<(Request, Job<Frame>)>,
     /// The compiler's maps drawn over the map and the close-up.
@@ -88,15 +74,6 @@ pub struct Lab {
 impl Lab {
     pub fn is_making(&self) -> bool {
         self.job.is_some()
-    }
-
-    /// Whether the close-up shows (rather than the map) at this zoom.
-    pub fn close(&self, zoom: f32) -> bool {
-        match self.view {
-            View::Auto => zoom >= TAKES_OVER_AT,
-            View::Map => false,
-            View::CloseUp => true,
-        }
     }
 
     /// The recipe as it is now: the compiled maps, read with these settings and switches.
@@ -126,10 +103,10 @@ impl Lab {
             }
         }
         let Some(((north, west), (south, east), blocks_per_point)) = view else { return };
-        // One sample per screen point (up to 16 when sharper), in whole powers of two blocks (so
+        // One sample per screen point (½ to 16 by sharpness), in whole powers of two blocks (so
         // zooming a little doesn't redraw), never finer than a block, and never more than
         // `MOST_SAMPLES` across (more when sharper, up to `LARGEST`).
-        let sharper = 2f32.powi(self.sharper.min(4) as i32);
+        let sharper = 2f32.powi(self.sharper.clamp(-1, 4));
         let mut step = (2f32.powi(blocks_per_point.max(1.0).log2().ceil() as i32) / sharper).max(1.0);
         let most = (MOST_SAMPLES * sharper).min(LARGEST - 2.0 * SNAP);
         while ((east - west) / step).max((north - south) / step) > most {

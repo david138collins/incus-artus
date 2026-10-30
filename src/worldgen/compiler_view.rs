@@ -1,11 +1,11 @@
 //! The World Compiler's screen: pick a bake, set the compiler's whole-map jobs, the additives and
-//! the Interpreter's recipe, and see the result as shaded relief. (The work itself is in
+//! the Interpreter's recipe, and see the result as the world's blocks. (The work itself is in
 //! `compiler.rs`, `additives.rs` and `crate::world::interpreter`.)
 //!
 //! ```text
 //! ┌──── top: panels shown, which bake, land share ─────────────────────────────────────────────┐
 //! │ Landmass     │ Additives      │ World Interpreter │                        │ under the    │
-//! │ sea level    │ grain drift    │ the chain         │  the world, in relief  │ mouse        │
+//! │ sea level    │ grain drift    │ the chain         │  the world, in blocks  │ mouse        │
 //! │ coastline    │                │ land and sea      │                        │              │
 //! │ soften       │                │ mountains         │                        │              │
 //! │ save, render │                │ peaks, blocks     │                        │              │
@@ -73,8 +73,6 @@ pub struct Compiler {
     /// The name to give a rendered world (blank = the bake's name).
     world_name: String,
     camera: Camera,
-    texture: Option<egui::TextureHandle>,
-    painted_for: Option<(u64, u32)>,
     /// The terrain lab (the close-up, its layer switches and cross-section), its picture, and the
     /// block under the mouse in it (north, east, Z).
     pub lab: Lab,
@@ -133,8 +131,6 @@ impl Default for Compiler {
             space_pick: false,
             world_name: String::new(),
             camera: Camera::default(),
-            texture: None,
-            painted_for: None,
             lab: Lab::default(),
             lab_texture: None,
             lab_painted_for: None,
@@ -537,11 +533,6 @@ fn settings(ui: &mut egui::Ui, compiler: &mut Compiler) {
     };
 
     fold_section(ui, "Sea level and the coastline", |ui| sea_and_coast(ui, compiler, &bake));
-    fold_section(ui, "Look", |ui| {
-        ui.add(crate::debug::Slider::new(&mut compiler.relief, 0.0..=10.0).text("relief shading")).on_hover_text(
-            "Only changes the look: how strongly slopes are shaded (lit from the northwest).",
-        );
-    });
     if compiler.result.is_none() {
         return;
     }
@@ -620,7 +611,7 @@ fn save_buttons(ui: &mut egui::Ui, compiler: &mut Compiler, bake: &Bake) {
         compiler.send = Some(("elevation".to_string(), elevation_picture(&result.made), bake.info.blocks_per_pixel));
         compiler.note = "Sent the elevation to the Graphics Kit as a layer.".to_string();
     }
-    if ui.button("Send relief to the Graphics Kit").on_hover_text("The coloured, shaded map as you see it here.").clicked() {
+    if ui.button("Send relief to the Graphics Kit").on_hover_text("The compiler's map (a pixel every 32 blocks), coloured by height and shaded, as a picture layer.").clicked() {
         let width = result.made.width;
         let pixels = relief_picture(&result.made, bake.info.blocks_per_pixel, compiler.relief).into_iter().map(|[r, g, b]| [r, g, b, 255]).collect();
         compiler.send = Some(("relief".to_string(), Picture { width, height: width, pixels }, bake.info.blocks_per_pixel));
@@ -1680,22 +1671,11 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
 /// layer switches, and the cross-section.
 fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
     fold_section(ui, "Terrain lab", |ui| {
-        let close = compiler.lab.close(compiler.camera.zoom);
-        ui.horizontal(|ui| {
-            ui.label("View:");
-            for (view, name, about) in [
-                (lab::View::Auto, "auto", "The map from afar; the close-up once you zoom in."),
-                (lab::View::Map, "map", "Always the compiler's map (a pixel every 32 blocks: too coarse for crags or hills)."),
-                (lab::View::CloseUp, "close-up", "Always the close-up, the ground as the Interpreter makes it, even zoomed right out. Slower further out: the last picture stays up until the new one is drawn."),
-            ] {
-                ui.selectable_value(&mut compiler.lab.view, view, name).on_hover_text(about);
-            }
-        });
         ui.horizontal(|ui| {
             ui.label("Sharpness:");
-            for (sharper, name) in [(0, "1×"), (1, "2×"), (2, "4×"), (3, "8×"), (4, "16×")] {
+            for (sharper, name) in [(-1, "½×"), (0, "1×"), (1, "2×"), (2, "4×"), (3, "8×"), (4, "16×")] {
                 ui.selectable_value(&mut compiler.lab.sharper, sharper, name).on_hover_text(
-                    "Close-up samples per screen point. Sharper shows finer ground detail from further out; Each step up takes about 4 times as long; 16× is for screenshots.",
+                    "Samples per screen point. Sharper shows finer ground detail from further out; each step up takes about 4 times as long; 16× is for screenshots, ½× for zoomed right out.",
                 );
             }
         });
@@ -1708,9 +1688,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
              Unlit: each block's plain colour, to judge where the blocks fall.",
         );
         compiler.lab_unlit = !lit;
-        if !close {
-            ui.small("Zoom in on the map (scroll) and it becomes a live close-up of the ground, block by block, as the Interpreter makes it. Move the Interpreter's sliders while you watch.");
-        } else if let Some(frame) = &compiler.lab.frame {
+        if let Some(frame) = &compiler.lab.frame {
             let r = &frame.request;
             let columns = r.cols * r.rows;
             let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
@@ -1936,24 +1914,13 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
     };
     let width = result.made.width;
     let compiled_map = result.made.map.clone();
-    let wanted = (compiler.version, compiler.relief.to_bits());
-    if compiler.painted_for != Some(wanted) || compiler.texture.is_none() {
-        let pixels: Vec<Color32> = relief_picture(&result.made, bake.info.blocks_per_pixel, compiler.relief).into_iter().map(|[r, g, b]| Color32::from_rgb(r, g, b)).collect();
-        let image = egui::ColorImage::new([width, width], pixels);
-        // Made tiny first, then given the picture (egui's first-make size check is too cautious).
-        let texture = compiler.texture.get_or_insert_with(|| ui.ctx().load_texture("world compiler", egui::ColorImage::new([1, 1], vec![Color32::BLACK]), egui::TextureOptions::NEAREST));
-        texture.set(image, egui::TextureOptions::NEAREST);
-        compiler.painted_for = Some(wanted);
-    }
-    // Shift + drag draws a cross-section instead of moving the map.
+    // Shift + drag draws a cross-section instead of moving the view.
     let shift = ui.input(|input| input.modifiers.shift);
     compiler.camera.hold_pan = shift;
     compiler.hover = compiler.camera.update(ui, rect, &response, (width, width));
-    if let Some(texture) = &compiler.texture {
-        let field = compiler.camera.field_rect(rect, (width, width));
-        painter.image(texture.id(), field, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
-        painter.circle_stroke(field.center(), field.width() / 2.0, egui::Stroke::new(1.0, MAGENTA));
-    }
+    // The world's edge (the view itself is the close-up, below).
+    let field = compiler.camera.field_rect(rect, (width, width));
+    painter.circle_stroke(field.center(), field.width() / 2.0, egui::Stroke::new(1.0, MAGENTA));
 
     // Blocks (north, east) and the screen, both ways.
     let (centre, zoom, blocks, half) = (compiler.camera.centre, compiler.camera.zoom, bake.info.blocks_per_pixel, width as f32 / 2.0);
@@ -1963,12 +1930,11 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
     };
     let to_screen = |(north, east): (f32, f32)| rect.center() + (Vec2::new(east / blocks + half, half - north / blocks) - centre) * zoom;
 
-    // The terrain lab's close-up, once zoomed in far enough.
+    // The view: the terrain lab's close-up, the ground as the Interpreter makes it, at any zoom.
     let map = compiler.lab.recipe(&compiled_map, &compiler.settings.interpreter);
-    let close = compiler.lab.close(zoom);
-    let view = close.then(|| (to_blocks(rect.left_top()), to_blocks(rect.right_bottom()), blocks / zoom));
+    let view = Some((to_blocks(rect.left_top()), to_blocks(rect.right_bottom()), blocks / zoom));
     compiler.lab.drive(&map, view);
-    if close {
+    {
         if let Some(frame) = &compiler.lab.frame
             && !frame.heights.is_empty()
         {
@@ -2011,8 +1977,6 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                 compiler.lab_hover = Some((north, east, z));
             }
         }
-    } else {
-        compiler.camera.outline(&painter, rect, compiler.hover, MAGENTA);
     }
 
     // The Climate stage: kept up to date with the recipe, and what it's showing drawn over the map.
@@ -2214,11 +2178,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
         }
     }
 
-    let help = if close {
-        "close-up: every column as the Interpreter makes it   drag = move   scroll = zoom   Shift + drag = cross-section   double-click = fit"
-    } else {
-        "drag = move   scroll = zoom (in close for the live close-up)   Shift + drag = cross-section   double-click = fit   north is up"
-    };
+    let help = "every column as the Interpreter makes it   drag = move   scroll = zoom   Shift + drag = cross-section   double-click = fit   north is up";
     painter.text(rect.left_bottom() + Vec2::new(8.0, -8.0), egui::Align2::LEFT_BOTTOM, help, egui::FontId::proportional(12.0), PINK);
 }
 
