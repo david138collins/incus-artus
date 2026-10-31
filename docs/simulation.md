@@ -313,6 +313,9 @@ Counsel's notes [PROPOSED]:
   *Counsel:* in Incus Artus a zone can be painted over registered buildings or plain blocks alike, so it
   still works on "just blocks" after a building loses its definition. Ownership and patron rules are the
   same rules as the door locks above, so the law reads trespass from them too.
+  **Area zones** [IDEA, David 2026-10-30]: the few zones that are a building made of an area (a
+  pasture, say) each get their own script, such as a fence along the border and a gate. See
+  `docs/decisions.md`, the Registrar's Blueprints tab.
 - **Verbose descriptions, as in Dwarf Fortress** [David 2026-10-29]: once thought unnecessary, now
   "if we do everything else right, they're kind of trivial to implement and with a dialogue system they
   are almost obligatory." *Counsel:* the text is a reading of data that already exists (personality

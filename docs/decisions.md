@@ -315,6 +315,18 @@ Reference: `Art/quartile minecraft illustration.png`
       building or placed feature.
       *Counsel:* names to choose from for the last tab: Structures, Builds, Features, Blueprints.
       "Features" covers trees and roads as well as buildings.
+      **[DECIDED 2026-10-30] The fourth tab is Blueprints** (David). Trees are blueprints the world
+      places during creation, buildings are blueprints, and players have blueprints too: one kind of
+      thing for all of them.
+      **Zones that are areas, not blueprints** [IDEA, David 2026-10-30]: a pasture is a zone, which is
+      also a kind of building (a building that's an area). It probably has no blueprint, but a script of
+      its own: a fence along the border, a gate you place, maybe a barn (how is still open). There may be
+      only **4-5 kinds of zone** that aren't a contained blueprint, so **each is made idiosyncratically**,
+      its own way, rather than through one general system.
+      *Counsel:* candidates for the 4-5: pasture, farm field, tree farm (rows replanted), mine or quarry
+      site (placed by mineralogy), graveyard. Rooms inside buildings (bedroom, dining hall) stay Dwarf
+      Fortress's painted zones (`docs/simulation.md`, section 13) and need no script. A zone's script can
+      still place blueprints (the barn, the gate), so the two kinds meet there.
       **Roads** [David 2026-10-30]: defined and generated in the civilization stage, as a line that
       smooths a bit and lays different kinds of road, with transitions between them. They need special
       treatment, since other things rely on them (the spawn, for one: the spot on a road farthest from
