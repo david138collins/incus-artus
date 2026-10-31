@@ -330,7 +330,19 @@ Reference: `Art/quartile minecraft illustration.png`
       **[DECIDED 2026-10-30] Zones are the primitive** (David): zones are part of buildings. Build
       something, zone it if it meets a room's criteria, and save it as a blueprint if you wish.
       Blueprints are simple or composites, and a blueprint carries its zones (`docs/simulation.md`,
-      section 13). A zone's script can
+      section 13).
+      **Zone types live in the Blueprints tab** [David 2026-10-30, Counsel's suggestion]: their own
+      section above the blueprints. Selecting one opens the **zone designer**, a form of its settings and
+      criteria (seats per diner at once, a counter for the dance floor, storage for its items).
+      **[IDEA, much later] Zones moddable without coding** (David): the zone designer may eventually get a
+      **scripting page**, where new functionality is added by choosing from a **menu of hooks and their
+      behaviour**. David's own zones can have the settings they need built in, but for zones to be
+      extensible, anyone has to be able to add to them that way.
+      *Counsel:* it's the same shape as the Toy Factory's wired behaviour modules (`vision/toy-factory.md`)
+      and spell lego (`vision/watch-list.md`, item 18): pieces with inputs and outputs plugged together,
+      so the three may share one system. Cheap now: build the first zones out of named hooks and
+      behaviours internally, even before there's a page for them, so the page can later list the same
+      pieces and modded zones work just like David's. A zone's script can
       still place blueprints (the barn, the gate), so the two kinds meet there.
       **Roads** [David 2026-10-30]: defined and generated in the civilization stage, as a line that
       smooths a bit and lays different kinds of road, with transitions between them. They need special
