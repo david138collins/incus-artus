@@ -343,6 +343,15 @@ each changes:
    - What David wants instead is a behaviour: two whole rivers joining is rare. Section 9 has how
      it could be controlled, shelved until it's seen to be needed.
 
+**Risks:**
+- **Deep basins passed over** make deep cuts. Keeping the deep ones as lakes avoids it.
+- **Tall crags keep tall banks at a low ratio,** so the mountains' flush share will be low by design.
+- **Two ways side by side** for a while (the switches) means more code until the old way retires.
+- **The readout is an estimate.** Measuring the land change exactly means reading every shore column
+  (last night's 30-second scan); the readout samples instead (about a second).
+- **Shreve sizes can run large** on big basins. The share kept at a join and the biggest-area cap
+  control it.
+
 ## 9. Stage 0, built (2026-10-31)
 
 **What it is:**
@@ -415,11 +424,46 @@ Today's controls don't aim at it:
   streams instead. With petering out by distance (stage 6), they keep running if there's water within
   N to join.
 
-**Risks:**
-- **Deep basins passed over** make deep cuts. Keeping the deep ones as lakes avoids it.
-- **Tall crags keep tall banks at a low ratio,** so the mountains' flush share will be low by design.
-- **Two ways side by side** for a while (the switches) means more code until the old way retires.
-- **The readout is an estimate.** Measuring the land change exactly means reading every shore column
-  (last night's 30-second scan); the readout samples instead (about a second).
-- **Shreve sizes can run large** on big basins. The share kept at a join and the biggest-area cap
-  control it.
+
+## 10. Stage 1, built (2026-10-31): the compressor banks
+
+David's go-ahead after stage 0. Before building, a probe of what made stage 0's numbers harsh found
+two causes:
+- **The shores below the water** were where a river steps down at a bend. The water there came from
+  the upper piece and the bank from the lower, cut 2 or 3 blocks below the water beside it.
+- **The steepest pull-downs** were seams between two rivers' banks: each block took only its nearest
+  river's bank, so the land went 178, 218, 178, 218 across.
+
+So stage 1 is the compressor as section 1 describes it, with David's answers, plus fixes for those
+two causes. It's a switch, "compressor banks" (off by default, saved with the world). The details are
+in `docs/rivers.md` section 3:
+- **Every stretch of river near a spot has its say:** the land comes down to the lowest of their banks
+  (each stretch by its nearest piece), so there are no seams.
+- **Another stretch's bank cuts no lower than this one's shore,** coming down from it no steeper than
+  the steepest bank. It never raises land.
+- **The block beside any river's water is at least its shore.**
+- **The first dry block is the shore itself.**
+- **The feather widens so the curve's steepest part stays within the steepest bank.**
+- **Cut banks on the outside of bends keep a share of the land's height** ("cut banks keep", 0.25 to
+  start).
+
+Two tries were measured and dropped along the way. Holding the land up raised it by up to 91 blocks
+beside lower rivers. And letting every piece of one river have its say held up a little ramp below
+every step: 80% flush.
+
+**On David's world** (`rivers-balanced`, smooth banks, 4 cores), off against on:
+
+| | off | on |
+|---|---|---|
+| Flush | 93.6% | 92.6% |
+| Ledges | 1.7% | 0.4% |
+| Banks (mostly the cut banks) | 2.7% | 6.6% |
+| Below the water | 2.0% | 0.4% |
+| Land lowered, average | 2.1 | 2.6 (the gentler fade) |
+| Land raised, average | 0.04 | 0.05 |
+| Steepest pull-down | 40 | 38 (a waterfall's own cliff) |
+| Carve, per block near a river | 0.6 µs | 1.0 µs |
+
+**Not in this stage:** the attack and release along the river (stage 2), and "the water rises to meet
+its banks" (it changes the water, not the land; for later, with the steps).
+

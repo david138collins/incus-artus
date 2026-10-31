@@ -1278,6 +1278,16 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut banks.widest, 1.0..=6.0).text("widens up to (times)"));
         let terraced = banks.ways.contains(&crate::world::FadeWay::Terraces);
         ui.add_enabled(terraced, crate::debug::Slider::new(&mut banks.terrace, 1.0..=12.0).text("terrace steps (blocks)"));
+        ui.checkbox(&mut banks.compressor, "compressor banks").on_hover_text(
+            "Stage 1 of the water rework (docs/water-rework.md). Every river near a spot has its say: the land comes down to the\n\
+             lowest of their banks, so two rivers' banks meet with no seam. The land beside any river's water stays at least flush\n\
+             with it, coming down from there no steeper than the steepest bank, so no water stands against air where a river\n\
+             steps down at a bend. The first dry block is the shore itself. Off: each spot takes its nearest river's bank alone.",
+        );
+        ui.add_enabled(banks.compressor, crate::debug::Slider::new(&mut banks.cut_bank, 0.0..=1.0).text("cut banks keep (share of the land's height)")).on_hover_text(
+            "On the outside of a bend, how much of the land's height above the water its bank keeps at the water's edge: a cut\n\
+             bank. 0 = flush there too; 1 = left as it is. (A \"ledge then slope\" way keeps at least its block.)",
+        );
         ui.add_space(4.0);
         ui.strong("Lakes");
         ui.small(

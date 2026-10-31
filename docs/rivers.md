@@ -298,6 +298,42 @@ the world's.**
       other choices.
     - The settings are kept with the world (a `banks` line in rivers.txt). Worlds saved before have
       no fade.
+    - **Compressor banks** (2026-10-31, stage 1 of `docs/water-rework.md`; a switch, "compressor
+      banks", off by default; saved with the world). With it on:
+      - **Every stretch of river near a spot has its say.** The land comes down to the lowest of their
+        banks, each stretch by its nearest piece, so two rivers' banks meet with no seam. (A reach
+        coming back past itself, past a meander's neck, counts as another stretch.) *[Each block used
+        to take only its nearest river's bank: where two rivers at different heights were close, the
+        land went 178, 218, 178, 218 across, in walls.]*
+      - **Another stretch's bank cuts no lower than this one's shore,** coming down from its water no
+        steeper than the steepest bank. It only stops cuts; it never raises the land. *[Raising land
+        too lifted it by up to 91 blocks beside lower rivers.]*
+      - **The block right beside any river's water is at least its shore.** *[Where a river stepped
+        down at a bend, the water came from the upper piece and the bank from the lower, cut 2 or 3
+        blocks below the water beside it.]*
+      - **The first dry block is the shore itself:** flush, or raised to it as a levee.
+      - **The fade widens so the S-curve's steepest middle stays within the steepest bank.** That's
+        half again as wide as before, gentler, and more land lowered.
+      - **On the outside of a bend, the bank keeps a share of the land's height above the water:** a
+        cut bank ("cut banks keep", 0.25; 0 flush). A "ledge then slope" way keeps at least its
+        block.
+    - **Measured on David's world** (`rivers-balanced`, smooth banks all round, 4 cores):
+
+      | | off | on |
+      |---|---|---|
+      | Flush | 93.6% | 92.6% |
+      | Ledge | 1.7% | 0.4% |
+      | Bank | 2.7% | 6.6% (mostly the outsides' cut banks) |
+      | Below the water | 2.0% | 0.4% |
+      | Land lowered on average | 2.1 | 2.6 |
+      | Land raised on average | 0.04 | 0.05 |
+      | Steepest pull-down | 40 | 38 |
+      | Carve, per block near a river | 0.6 µs | 1.0 µs |
+
+      What's left: the steepest is a tall waterfall's own cliff. The shores still below the water
+      are beside some waterfalls. A few stretches start well above their ground (a pond's water
+      backed up into them), and their levees stand up to 50 blocks tall; that's the water's level,
+      not the banks.
     - Each river piece is entered in every 64-block lookup cell its banks reach.
 - **The carve lowers the recipe's height itself** (`ground_and_water`), so the far terrain, the light
   map and the World Compiler's close-up all see the rivers. The far terrain also blends a creek's water
