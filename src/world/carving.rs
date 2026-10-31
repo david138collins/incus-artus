@@ -297,6 +297,50 @@ pub struct Here {
     pub water: Option<i32>,
 }
 
+/// The rivers' shores and the land beside them, sampled when they're made (for the panel, not saved)
+/// [David, 2026-10-31: flush is level with the water, "you can walk out"; stage 0 of
+/// `docs/water-rework.md`]. Of the dry columns beside a river's water: how many are flush (their
+/// top level with the water), a 1-block ledge, a taller bank, or below the water (water standing
+/// against air). Across the banks: how far the carve lowered and raised the land (in all, over
+/// `columns` columns, and at most; blocks), and the steepest slope next to land it changed (blocks
+/// up a block across).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Shores {
+    pub flush: usize,
+    pub ledge: usize,
+    pub bank: usize,
+    pub below: usize,
+    pub columns: usize,
+    pub lowered: f64,
+    pub most_lowered: f32,
+    pub raised: f64,
+    pub most_raised: f32,
+    pub steepest: f32,
+}
+
+impl Shores {
+    /// Two samplings as one.
+    pub fn merged(self, other: Self) -> Self {
+        Self {
+            flush: self.flush + other.flush,
+            ledge: self.ledge + other.ledge,
+            bank: self.bank + other.bank,
+            below: self.below + other.below,
+            columns: self.columns + other.columns,
+            lowered: self.lowered + other.lowered,
+            most_lowered: self.most_lowered.max(other.most_lowered),
+            raised: self.raised + other.raised,
+            most_raised: self.most_raised.max(other.most_raised),
+            steepest: self.steepest.max(other.steepest),
+        }
+    }
+
+    /// The shore columns sampled.
+    pub fn shores(&self) -> usize {
+        self.flush + self.ledge + self.bank + self.below
+    }
+}
+
 /// Every river and lake, and a lookup grid of the rivers' pieces.
 #[derive(Clone, Debug, Default)]
 pub struct Carving {
@@ -324,6 +368,8 @@ pub struct Carving {
     pub rise_ponds: usize,
     pub cut_instead: usize,
     pub into_water: usize,
+    /// Its shores and the land beside them, sampled (`Shores`).
+    pub shores: Shores,
 }
 
 impl PartialEq for Carving {

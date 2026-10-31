@@ -335,11 +335,81 @@ each changes:
    - The slope tips it a little: broader on flat ground, deeper on steep ground. A strength slider
      starts low, so the slope can't dominate.
    - The deepest and broadest limits stay as guards.
-7. **Crags beside water, lowered or smoothed away:** not answered yet. Counsel suggested lowered first,
-   which is the compressor on its own, with no second reading of the ground. That's what stage 1 would
-   build.
+7. **Crags beside water are lowered** by the compressor (decided with stage 0's go-ahead), with no
+   second reading of the ground for smoothing. That's stage 1, when David gives the word.
+8. **No great river:** "great rivers aren't really a 'thing', as we have no discrete types, we should
+   just make sure that its rare two whole rivers join up."
+   - The names stop at river, from an area of about 16 to start.
+   - What David wants instead is a behaviour: two whole rivers joining is rare. Section 9 covers how
+     to control it.
 
-**Still open:** the area thresholds for a river and a great river (about 16, and 200 to 250).
+## 9. Stage 0, built (2026-10-31)
+
+**What it is:**
+- **The rapids fix.** Rapids spread only within their own run, back to the foot of the drop above,
+  squeezed to fit a short run. Each waterfall's curtain is set after all the rapids. A test reproduced
+  the bug first: a 4-block drop with no curtain, on a slope of falls and rapids in turn. "Rapids at 1"
+  is no longer needed.
+- **The shores readout** on the Carving panel, measured on every river as it's made:
+  - every 8th point, both sides;
+  - the first dry block beside the water: flush (its top level with the water), a 1-block ledge, a
+    taller bank, or below the water;
+  - across the banks: the land lowered and raised (average, most), and the steepest pull-down.
+- **The overlay:** "shores in the close-up", under the readout. The block beside the water is green
+  where flush, amber for a ledge, red for a taller bank, and magenta below the water.
+
+**Today's rivers on David's world** (measured offline on 4 cores, with the rapids fix):
+
+| | default | rivers-balanced | rivers-balanced, smooth banks |
+|---|---|---|---|
+| Flush | 0.9% | 1.8% | **94.5%** |
+| 1-block ledge | 97.4% | 93.5% | 1.3% |
+| Taller bank | 1.5% | 3.0% | 2.3% |
+| Below the water | 0.2% | 1.7% | 1.9% |
+| Land lowered, average (most) | 2.3 (76) | 1.7 (81) | 2.1 (82) |
+| Land raised, average (most) | 0.05 (30) | 0.03 (22) | 0.02 (21) |
+| Steepest pull-down (up a block across) | 50 | 56 | 56 |
+| Deepest cut; points cut deeper than 6 | 76; 9,810 | 81; 6,038 | 81; 6,038 |
+
+**What it says:**
+- **Almost every shore is a ledge today because of one setting.** Both presets set all three bank ways
+  to "ledge then slope". Set to smooth, 94.5% of shores are flush, for 0.4 of a block more land
+  lowered on average. That alone meets "flush by default": switch the inside and straight ways to
+  smooth, and keep "ledge then slope" for the outside of bends if David wants cut banks there.
+- **About 2% of shores stand below the water** (water against air) in `rivers-balanced`. They're a
+  target for stage 1.
+- **The cuts through rises are what's harsh:** up to 81 blocks deep, with sheer sides (the steepest
+  pull-down is 50 to 56 blocks up for one across), and 6,000 to 10,000 points cut deeper than 6.
+  That's what the compressor's feathering (stages 1 and 2) and the local re-route (stage 4) are for.
+
+### Two whole rivers joining, rarely: how it could be controlled (not built)
+
+Today's controls don't aim at it:
+- **"Mouths apart at least"** decides how many systems reach the sea. Fewer, bigger systems make
+  big-into-big joins more likely, not less.
+- **"How readily rivers split"** keeps a side branch only if it carries enough of the main branch's
+  springs. At low settings, the branches that survive are exactly the near-equal ones: whole rivers
+  meeting.
+- **A rule against river-to-river joins can't reroute water.** The drainage is fixed: a branch's water
+  has to go through its junction.
+
+**The way that works: limit what a side branch may carry.**
+- When the network grows a river up from its mouth, a side branch may carry at most a share of the
+  springs the main branch carries where they meet. The slider would be "a tributary carries at most",
+  about a third to start.
+- Springs past that share, the furthest up the branch first, aren't taken by the river. They run as
+  lone streams instead: they join something smaller, reach a lake, or peter out.
+- So a river mostly takes in streams, and a junction where both sides are rivers happens only where
+  the share allows it.
+- It also gives "more collected to one river": the main stem keeps growing while side branches stay
+  smaller.
+- **Cost:** about 30 lines in the network's growing pass, one slider, and a readout of how many
+  junctions join two rivers (both at least river size), against how many join a stream to a river.
+- **Where:** with stage 5 (sizes by area), since "river size" is an area threshold there. The readout
+  could come earlier, counting ranks.
+- **The catch:** fewer springs feed rivers in big basins, so some of those uplands get shorter lone
+  streams instead. With petering out by distance (stage 6), they keep running if there's water within
+  N to join.
 
 **Risks:**
 - **Deep basins passed over** make deep cuts. Keeping the deep ones as lakes avoids it.

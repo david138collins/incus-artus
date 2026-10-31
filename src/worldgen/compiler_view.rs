@@ -81,6 +81,8 @@ pub struct Compiler {
     /// The close-up shown unlit (flat colours), and the far colours of every block (rebuilt when the
     /// blocks change).
     pub lab_unlit: bool,
+    /// The close-up's shores coloured by how flush they are (the Carving section).
+    pub lab_shores: bool,
     lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
     /// The view's map with the rivers carved in, and what it was made from (the recipe's map and the
     /// carving, and whether the Show switch leaves them out).
@@ -138,6 +140,7 @@ impl Default for Compiler {
             lab_texture: None,
             lab_painted_for: None,
             lab_unlit: false,
+            lab_shores: false,
             lab_palette: None,
             rivers_view: None,
             lab_hover: None,
@@ -1161,7 +1164,40 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
                  or drained into a river below its water: another river's channel in it (not one flowing into it), its own river below the \
                  rise, or a river's notch through its rim. It would have stood above that water, in walls. (A lake below a pond is taken in.)",
             );
+            let sh = &carving.shores;
+            let share = |n: usize| 100.0 * n as f32 / sh.shores().max(1) as f32;
+            ui.label(format!(
+                "shores: {:.0}% flush, {:.0}% a 1-block ledge, {:.0}% taller banks, {:.0}% below the water",
+                share(sh.flush),
+                share(sh.ledge),
+                share(sh.bank),
+                share(sh.below)
+            ))
+            .on_hover_text(format!(
+                "Sampled at every 8th point of every river above the sea, both sides ({} shores): the first dry block beside the water.\n\
+                 Flush: its top is level with the water, so you can walk out. A ledge: a block up, which you can't climb out onto.\n\
+                 Below the water: water standing against air there (there should be none).",
+                sh.shores()
+            ));
+            let columns = sh.columns.max(1) as f64;
+            ui.label(format!(
+                "land beside rivers: lowered {:.1} blocks on average (most {:.0}), raised {:.1} (most {:.0}); steepest pull-down {:.1} up a block across",
+                sh.lowered / columns,
+                sh.most_lowered,
+                sh.raised / columns,
+                sh.most_raised,
+                sh.steepest
+            ))
+            .on_hover_text(format!(
+                "Across the same banks, out to as far as each bank's fade could widen ({} blocks sampled): how much the carve lowered\n\
+                 or raised the land, on average and at most. The steepest pull-down is the steepest slope next to land the carve changed.",
+                sh.columns
+            ));
         }
+        ui.checkbox(&mut compiler.lab_shores, "shores in the close-up").on_hover_text(
+            "Colours the dry block beside every river's and lake's water in the close-up: green flush (you can walk out), amber a\n\
+             1-block ledge, red a taller bank, magenta below the water (water standing against air). Closest in, every block.",
+        );
         let most = std::thread::available_parallelism().map_or(4, |n| n.get());
         ui.add(crate::debug::Slider::new(&mut c.cores, 1..=most).text(format!("cores used (of {most})"))).on_hover_text(
             "How many of the CPU's cores making the rivers shares its work over (it starts at half). Fewer runs cooler and takes \
@@ -2088,6 +2124,7 @@ struct PaintKey {
     gabbro_from: i32,
     climate: u64,
     lit: bool,
+    shores: bool,
     blocks: u64,
     shade: crate::render::distant::Shade,
 }
@@ -2103,7 +2140,10 @@ fn to_srgb(c: f32) -> u8 {
 /// block on top (mineralogy's choice, in the live climate) in its far colour, the palette the distant
 /// terrain uses, water where the near ground has it; lit, if `lit`, with the distant terrain's hill
 /// shading and height tint (the same sums and settings as lighting.wesl). Past the map is `BEYOND`.
-fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: Option<&LiveClimate>, look: &Look, palette: &crate::render::distant::Palette, lit: bool) -> Vec<Color32> {
+/// With `shores`, the dry block beside a river's or lake's water is coloured by how far it stands
+/// above the water (stage 0 of `docs/water-rework.md`).
+#[allow(clippy::too_many_arguments)]
+fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: Option<&LiveClimate>, look: &Look, palette: &crate::render::distant::Palette, lit: bool, shores: bool) -> Vec<Color32> {
     let request = &frame.request;
     let (cols, rows, step) = (request.cols, request.rows, request.step);
     let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
@@ -2111,10 +2151,13 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
     let sea = SEA_LEVEL as f32;
     let z = |col: usize, row: usize| frame.heights[row.min(rows - 1) * cols + col.min(cols - 1)];
     let mut pixels = vec![Color32::BLACK; cols * rows];
+    // Each sample's river or lake water (its top; 0 for none).
+    let mut tops = vec![0i32; cols * rows];
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
     let rows_each = rows.div_ceil(cores).max(1);
     std::thread::scope(|scope| {
-        for (band, part) in pixels.chunks_mut(rows_each * cols.max(1)).enumerate() {
+        let each = rows_each * cols.max(1);
+        for (band, (part, tops)) in pixels.chunks_mut(each).zip(tops.chunks_mut(each)).enumerate() {
             let (blocks, z) = (&blocks, &z);
             scope.spawn(move || {
                 for (k, pixel) in part.iter_mut().enumerate() {
@@ -2128,8 +2171,9 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
                     let north = request.north - (row as f32 + 0.5) * step;
                     let east = request.east + (col as f32 + 0.5) * step;
                     // Water: the sea's, or a river's or lake's standing over the ground here.
-                    let river = !map.mutes.rivers && map.rivers.here(north, east, here).water.is_some_and(|top| top as f32 > here + 1.0);
-                    let colour = if crate::world::under_sea(here) || river {
+                    let water = if map.mutes.rivers { None } else { map.rivers.here(north, east, here).water.filter(|&top| top as f32 > here + 1.0) };
+                    tops[k] = water.unwrap_or(0);
+                    let colour = if crate::world::under_sea(here) || water.is_some() {
                         palette.water.map(|c| c * shade.top)
                     } else {
                         let climate = climate.map(|climate| climate.at(north, east, here));
@@ -2151,6 +2195,36 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
             });
         }
     });
+    if shores {
+        // A dry sample beside water: green flush (its top level with the water), amber a 1-block
+        // ledge, red a taller bank, magenta below the water (water standing against air).
+        for row in 0..rows {
+            for col in 0..cols {
+                let here = z(col, row);
+                if here.is_nan() || tops[row * cols + col] != 0 || crate::world::under_sea(here) {
+                    continue;
+                }
+                let beside = [(col.wrapping_sub(1), row), (col + 1, row), (col, row.wrapping_sub(1)), (col, row + 1)]
+                    .into_iter()
+                    .filter(|&(c, r)| c < cols && r < rows)
+                    .map(|(c, r)| tops[r * cols + c])
+                    .max()
+                    .unwrap_or(0);
+                if beside == 0 {
+                    continue;
+                }
+                let tint = match here as i32 + 1 - beside {
+                    ..=-1 => [235, 40, 235],
+                    0 => [70, 200, 110],
+                    1 => [245, 175, 40],
+                    _ => [230, 70, 60],
+                };
+                let pixel = &mut pixels[row * cols + col];
+                let mix = |a: u8, b: u8| ((a as f32) * 0.3 + (b as f32) * 0.7) as u8;
+                *pixel = Color32::from_rgb(mix(pixel.r(), tint[0]), mix(pixel.g(), tint[1]), mix(pixel.b(), tint[2]));
+            }
+        }
+    }
     pixels
 }
 
@@ -2215,13 +2289,14 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                 gabbro_from: s.gabbro_from,
                 climate: compiler.climate.version,
                 lit: !compiler.lab_unlit,
+                shores: compiler.lab_shores,
                 blocks: revision,
                 shade: look.shade.clone(),
             };
             if compiler.lab_painted_for.as_ref() != Some(&wanted) || compiler.lab_texture.is_none() {
                 let climate = LiveClimate::new(compiler, &map);
                 let palette = compiler.lab_palette.as_ref().map(|(_, palette)| palette.clone()).unwrap();
-                let pixels = block_picture(frame, &map, climate.as_ref(), look, &palette, wanted.lit);
+                let pixels = block_picture(frame, &map, climate.as_ref(), look, &palette, wanted.lit, wanted.shores);
                 let image = egui::ColorImage::new([frame.request.cols, frame.request.rows], pixels);
                 let texture = compiler.lab_texture.get_or_insert_with(|| ui.ctx().load_texture("terrain lab", egui::ColorImage::new([1, 1], vec![Color32::BLACK]), egui::TextureOptions::NEAREST));
                 texture.set(image, egui::TextureOptions::NEAREST);

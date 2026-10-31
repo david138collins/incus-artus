@@ -119,6 +119,20 @@ the world's.**
   plan's, pinned. A very long reach uses a coarser grain, to keep its grid under 4 million cells. The
   panel shows how long it took, and the deepest cut below the banks (with how many points cut deeper
   than 6 blocks).
+- **The shores readout and overlay** (2026-10-31, stage 0 of `docs/water-rework.md`).
+  - **Shores:** at every 8th point of every river above the sea, both sides, the first dry block beside
+    the water is counted as one of:
+    - flush (its top level with the water: David's "you can walk out");
+    - a 1-block ledge;
+    - a taller bank;
+    - below the water (water standing against air).
+  - **Land beside rivers:** across those banks, out as far as each fade could widen, how much the carve
+    lowered and raised the land (on average and at most), and the steepest slope next to land it
+    changed.
+  - **The overlay:** "shores in the close-up", under the readout, colours the dry block beside every
+    river's and lake's water: green flush, amber a ledge, red a taller bank, magenta below the water.
+  - **Cost:** about 20 column readings per sampled point. With it, making the rivers took 5.8 s on 4
+    cores (default preset).
 - **Cores** (2026-10-31, David: the CPU at 92 to 99 °C while the rivers were made): the making shares
   its work over half the CPU's cores (`cores`, "cores used", under the Carving section's report; 12
   of 24 on David's machine). Fewer runs cooler and takes longer; the rivers come out the same on any
@@ -164,7 +178,16 @@ the world's.**
      its face if the switch is on. Smaller drops are spread upstream as rapids, 3 blocks of river per
      block of drop, stepping down a block at a time. Every step is at least the step size (4), and
      that's taller than "a waterfall from" (3), so at the defaults every step is a waterfall. Rapids
-     only come from smaller drops, such as a creek's last bit down to its river.
+     only come from smaller drops, such as a creek's last bit down to its river, or every step of 2
+     with a step size of 2 (`rivers-balanced`).
+
+     **Rapids stay within their own run** (2026-10-31, stage 0 of `docs/water-rework.md`). They spread
+     back only to the foot of the drop above, squeezed to fit a short run, and each waterfall's
+     curtain is set after all the rapids. *[They used to spread their full length upstream. On steep
+     ground they reached past the waterfall above and pulled its water down after its curtain had
+     been set. The curtain and its cliff stood up out of the water, and the real drop moved upstream
+     with no curtain: walls of water. David found that "rapids at 1" got rid of them: its spread never
+     reached the next point (2 or more blocks away), so it only hid the bug.]*
 
      **Each waterfall drops at its lip** (`falls_at_lips`, 2026-10-31, David's screenshot: pillars of
      water standing in the air). The water above a fall held its level on to the next point, 2 to 6

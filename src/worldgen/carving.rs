@@ -26,7 +26,7 @@
 use super::network::Network;
 use super::noise::{Fade, perlin};
 use super::rivers::Flow;
-use crate::world::{Banks, Carving, CompiledMap, Lake, Lakes, Reach, RiverPoint, SEA_LEVEL};
+use crate::world::{Banks, Carving, CompiledMap, Lake, Lakes, Reach, RiverPoint, SEA_LEVEL, Shores, under_sea};
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -388,6 +388,10 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     let lakes = if ponds.is_empty() { lakes } else { Lakes::new(lakes.lakes.into_iter().chain(ponds).collect()) };
     let mut carving = Carving::new(reaches, lakes, s.banks);
     carving.curtains = s.curtains;
+    carving.shores = measure_shores(&carving, ground, cores, stop);
+    if stop.load(Ordering::Relaxed) {
+        return None;
+    }
     (carving.took, carving.deepest_cut, carving.deep_cuts, carving.pools) = (started.elapsed().as_secs_f32(), laid.deepest_cut, laid.deep_cuts, pools);
     (carving.rise_ponds, carving.cut_instead, carving.into_water) = (rise_ponds, laid.cut_instead, laid.into_water);
     Some(carving)
@@ -396,6 +400,117 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
 /// Where a river's water passes below the lowest ground across it by more than this (blocks), it's
 /// counted as a deep cut (for the panel).
 const DEEP_CUT: f32 = 6.0;
+
+/// The shores are measured at every this many points of each river.
+const SHORE_EVERY: usize = 8;
+
+/// The rivers' shores and the land beside them (`Shores`), sampled at every `SHORE_EVERY`th point of
+/// each river above the sea (mouths and deltas, at the sea's level, are beaches), on both sides:
+/// walking out from its line a block at a time, the first dry column is the shore; then its bank,
+/// out to as far as its fade could widen. `ground` is the uncarved ground; the columns are read as
+/// the world reads them (`CompiledMap::ground_and_water`), on the cores it may use.
+fn measure_shores(carving: &Carving, ground: &CompiledMap, cores: usize, stop: &AtomicBool) -> Shores {
+    let sea = SEA_LEVEL as f32;
+    // A block's column: its uncarved and carved ground, and the water standing in it.
+    let column = |north: f32, east: f32| -> Option<(f32, f32, Option<i32>)> {
+        let (north, east) = (north.floor() + 0.5, east.floor() + 0.5);
+        let uncarved = ground.height(north, east)?;
+        let here = carving.here(north, east, uncarved);
+        let mut z = uncarved;
+        if let Some(floor) = here.floor {
+            z = z.min(floor);
+        }
+        if let Some(fill) = here.fill {
+            z = z.max(fill);
+        }
+        Some((uncarved, z, here.water.filter(|&water| water as f32 > z.round() + 1.0)))
+    };
+    let widest = carving.banks.widest.max(1.0);
+    let each = carving.reaches.len().div_ceil(cores.max(1)).max(1);
+    let parts: Vec<Shores> = std::thread::scope(|scope| {
+        let jobs: Vec<_> = carving
+            .reaches
+            .chunks(each)
+            .map(|part| {
+                let column = &column;
+                scope.spawn(move || {
+                    let mut m = Shores::default();
+                    for reach in part {
+                        let p = &reach.points;
+                        for k in (0..p.len()).step_by(SHORE_EVERY) {
+                            if stop.load(Ordering::Relaxed) {
+                                return m;
+                            }
+                            if p[k].level <= sea + 0.5 {
+                                continue;
+                            }
+                            let (a, b) = (p[k.saturating_sub(1)], p[(k + 1).min(p.len() - 1)]);
+                            let (tn, te) = (b.north - a.north, b.east - a.east);
+                            let length = (tn * tn + te * te).sqrt().max(1e-3);
+                            let (nn, ne) = (te / length, -tn / length);
+                            let at = |o: f32| (p[k].north + nn * o, p[k].east + ne * o);
+                            for side in [-1.0f32, 1.0] {
+                                // Out across the water to the first dry column.
+                                let (mut water, mut shore) = (p[k].level.round() as i32, None);
+                                let mut o = 0.5;
+                                while o <= p[k].width / 2.0 + 4.0 {
+                                    let (n, e) = at(o * side);
+                                    match column(n, e) {
+                                        Some((_, _, Some(w))) => water = w,
+                                        Some((_, z, None)) => {
+                                            shore = Some((o, z));
+                                            break;
+                                        }
+                                        None => break,
+                                    }
+                                    o += 1.0;
+                                }
+                                let Some((from, z)) = shore else { continue };
+                                if under_sea(z) {
+                                    continue;
+                                }
+                                match z.round() as i32 + 1 - water {
+                                    ..=-1 => m.below += 1,
+                                    0 => m.flush += 1,
+                                    1 => m.ledge += 1,
+                                    _ => m.bank += 1,
+                                }
+                                // Across its bank: a block at a time near the water, then in eighths.
+                                let out = p[k].fade * widest;
+                                let mut last: Option<(f32, f32, bool)> = None;
+                                let mut o = from;
+                                while o <= from + out {
+                                    let (n, e) = at(o * side);
+                                    let Some((uncarved, z, None)) = column(n, e) else { break };
+                                    let change = z - uncarved;
+                                    m.columns += 1;
+                                    if change < 0.0 {
+                                        m.lowered += -change as f64;
+                                        m.most_lowered = m.most_lowered.max(-change);
+                                    } else {
+                                        m.raised += change as f64;
+                                        m.most_raised = m.most_raised.max(change);
+                                    }
+                                    let changed = change.abs() >= 0.5;
+                                    if let Some((lo, lz, was)) = last
+                                        && (changed || was)
+                                    {
+                                        m.steepest = m.steepest.max((z - lz).abs() / (o - lo));
+                                    }
+                                    last = Some((o, z, changed));
+                                    o += if o - from < 6.0 { 1.0 } else { (out / 6.0).max(1.0) };
+                                }
+                            }
+                        }
+                    }
+                    m
+                })
+            })
+            .collect();
+        jobs.into_iter().map(|job| job.join().unwrap_or_default()).collect()
+    });
+    parts.into_iter().fold(Shores::default(), Shores::merged)
+}
 
 /// The lakes, each filled on the real ground [David, 2026-10-30: "perfect elevated rectangular
 /// swimming pools with a chunk of square perimeter"; they were step 5's surface on each 32-block
@@ -914,16 +1029,27 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
                 }
             }
         }
-        // Each drop: a waterfall (sheer, the water above it kept on the next point, for its curtain
-        // and its banks) or rapids (spread upstream, a block at a time).
-        let mut k = 1;
-        while k < points.len() {
+        // Each drop: a waterfall (sheer) or rapids (spread upstream, a block at a time). Rapids only
+        // over their own run, never past the drop above it, squeezed to fit a short run [2026-10-31:
+        // spread past the waterfall above, they pulled its water down after its curtain was set; the
+        // curtain and its cliff stood up out of the water, and the real drop moved up with none,
+        // walls of water on steep ground ("rapids at 1" only hid it, its spread never reaching the
+        // next point)].
+        let gap = |a: &RiverPoint, b: &RiverPoint| ((a.north - b.north).powi(2) + (a.east - b.east).powi(2)).sqrt();
+        for k in 1..points.len() {
             let drop = points[k - 1].level - points[k].level;
-            if drop >= fall_from {
-                points[k].curtain = points[k - 1].level;
-            } else if drop >= 1.0 {
-                let lower = points[k].level;
-                let spread = (drop * s.rapids_length).max(1.0);
+            if (1.0..fall_from).contains(&drop) {
+                let (lower, upper) = (points[k].level, points[k - 1].level);
+                // The run above it: back to the foot of the drop above (its top keeps its level).
+                let (mut room, mut top) = (0.0, k - 1);
+                while top > 0 && (points[top - 1].level - upper).abs() < 0.5 {
+                    room += gap(&points[top], &points[top - 1]);
+                    top -= 1;
+                }
+                let spread = (drop * s.rapids_length).max(1.0).min(room);
+                if spread <= 0.0 {
+                    continue;
+                }
                 let mut run = 0.0;
                 let mut j = k - 1;
                 loop {
@@ -935,11 +1061,16 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
                     if j == 0 {
                         break;
                     }
-                    run += ((points[j].north - points[j - 1].north).powi(2) + (points[j].east - points[j - 1].east).powi(2)).sqrt();
+                    run += gap(&points[j], &points[j - 1]);
                     j -= 1;
                 }
             }
-            k += 1;
+        }
+        // Then each waterfall keeps the water above it, for its curtain and its banks.
+        for k in 1..points.len() {
+            if points[k - 1].level - points[k].level >= fall_from {
+                points[k].curtain = points[k - 1].level;
+            }
         }
     }
     // How far the water passes below the lowest ground across it: the deepest, and how many points
@@ -1578,6 +1709,52 @@ mod tests {
             }
         }
         assert!(falls > 0, "no waterfalls");
+    }
+
+    #[test]
+    fn rapids_never_reach_past_the_waterfall_above_them() {
+        // David: "rapids at 1" got rid of walls of water on steep ground. A rapids spread upstream
+        // past the waterfall just above it pulled that fall's water down after its curtain was set:
+        // the curtain and its cliff stood up out of the water, and the real drop moved up with none.
+        // Ground falling 0.6 a block, points 4 apart: drops of 2 (rapids) and 3 (falls) in turn.
+        let width = 64;
+        let z: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 4.8).collect();
+        let ground = CompiledMap::of_heights(width, 8.0, &z);
+        let mut reaches = vec![Reach { points: (0..=112).map(|k| creek(-4.0, (60.0 - k as f32 * 0.5 - 32.0) * 8.0)).collect() }];
+        let s = CarvingSettings { rapids_length: 4.0, rise_pools: false, ..CarvingSettings::default() };
+        lay_water(&mut reaches, &[(0, 1, None, 100.0)], &ground, 1.0, 3.0, &s, &AtomicBool::new(false)).unwrap();
+        let points = &reaches[0].points;
+        let (mut falls, mut rapids) = (0, 0);
+        for k in 1..points.len() {
+            let (above, here) = (points[k - 1], points[k]);
+            let drop = above.level - here.level;
+            if here.curtain.is_finite() {
+                assert_eq!(here.curtain, above.level, "a curtain at {} over water at {}", here.curtain, above.level);
+            }
+            if drop >= 3.0 {
+                assert!(here.curtain.is_finite(), "a drop of {drop} with no curtain at {}, {}", here.north, here.east);
+                falls += 1;
+            } else if drop >= 1.0 {
+                rapids += 1;
+            }
+        }
+        assert!(falls > 0 && rapids > 0, "{falls} falls and {rapids} rapids");
+    }
+
+    #[test]
+    fn the_shores_count_flush_where_you_can_walk_out_and_ledges_where_you_cant() {
+        // David: flush is level with the water; "1 block ledge you can't get out of the water from".
+        let ground = CompiledMap::of_heights(16, 32.0, &[150.0; 256]);
+        let shores = |way| {
+            let points = (0..=96).map(|k| RiverPoint { level: 150.0, fade: 6.0, ..creek(0.0, k as f32 * 2.0 - 96.0) }).collect();
+            let banks = Banks { ways: [way; 3], ..Banks::default() };
+            measure_shores(&Carving::new(vec![Reach { points }], Lakes::default(), banks), &ground, 1, &AtomicBool::new(false))
+        };
+        let smooth = shores(crate::world::FadeWay::Smooth);
+        assert!(smooth.flush > 10 && smooth.shores() == smooth.flush, "{smooth:?}");
+        assert!(smooth.most_lowered > 0.5 && smooth.most_raised == 0.0, "{smooth:?}");
+        let ledges = shores(crate::world::FadeWay::LedgeThenSlope);
+        assert!(ledges.ledge > 10 && ledges.shores() == ledges.ledge, "{ledges:?}");
     }
 
     #[test]
