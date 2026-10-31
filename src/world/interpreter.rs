@@ -1337,8 +1337,10 @@ impl CompiledMap {
         Self { rivers, ..self.clone() }
     }
 
-    /// The ground's height before the rivers and lakes carve it.
-    fn uncarved(&self, north: f32, east: f32) -> Option<f32> {
+    /// The maps' values blended to a spot `north` and `east` blocks from the middle of the world, and
+    /// the spot in blocks east and south of the map's north-west corner (as `parts` takes it); `None`
+    /// past the edge of the map.
+    pub fn maps_at(&self, north: f32, east: f32) -> Option<(Here, f32, f32)> {
         let (width, blocks) = (self.maps.width as f32, self.maps.blocks_per_pixel);
         let half = width / 2.0;
         // Which pixel, counting pixel centres (columns run east, rows south).
@@ -1347,8 +1349,12 @@ impl CompiledMap {
         if col < -0.5 || row < -0.5 || col > last || row > last {
             return None;
         }
-        let (x, y) = (east + half * blocks, half * blocks - north);
-        let here = self.blended(col, row);
+        Some((self.blended(col, row), east + half * blocks, half * blocks - north))
+    }
+
+    /// The ground's height before the rivers and lakes carve it.
+    fn uncarved(&self, north: f32, east: f32) -> Option<f32> {
+        let (here, x, y) = self.maps_at(north, east)?;
         let ground = self.put_together(self.parts(&here, x, y), &here, x, y);
         let s = &self.settings;
         if self.mutes.detail || s.detail == 0.0 {

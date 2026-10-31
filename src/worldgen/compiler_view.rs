@@ -88,6 +88,8 @@ pub struct Compiler {
     /// Carving section).
     pub lab_shores: bool,
     pub lab_sizes: bool,
+    /// The placer's field view (the Mineralogy panel's Fields section).
+    pub fields: super::placer_view::FieldView,
     lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
     /// The view's map with the rivers carved in, and what it was made from (the recipe's map and the
     /// carving, and whether the Show switch leaves them out).
@@ -147,6 +149,7 @@ impl Default for Compiler {
             lab_unlit: false,
             lab_shores: false,
             lab_sizes: false,
+            fields: Default::default(),
             lab_palette: None,
             rivers_view: None,
             lab_hover: None,
@@ -1478,6 +1481,8 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 /// page because it might be a pain").
 fn mineralogy_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("Mineralogy");
+    // The placer's made fields, and the field view (stop 1 of docs/placer.md).
+    super::placer_view::fields_section(ui, &mut compiler.settings.interpreter.mineralogy, &mut compiler.fields);
     fold_section(ui, "Mineralogy", |ui| {
         let s = &mut compiler.settings.interpreter;
         let m = &mut s.mineralogy;
@@ -1885,7 +1890,7 @@ fn profiles_preview(ui: &mut egui::Ui, c: &super::carving::CarvingSettings) {
     }
 }
 
-fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spline, across: &str, up: &str) {
+pub(super) fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spline, across: &str, up: &str) {
     let size = Vec2::new(ui.available_width().clamp(160.0, 320.0), 140.0);
     let (rect, background) = ui.allocate_exact_size(size, egui::Sense::click());
     let inner = rect.shrink(10.0);
@@ -1990,7 +1995,10 @@ fn spline_box(ui: &mut egui::Ui, name: &str, spline: &mut Spline, default: &Spli
 
 fn readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
     lab_readouts(ui, compiler);
-    fold_section(ui, "Under the mouse", |ui| under_the_mouse(ui, compiler));
+    fold_section(ui, "Under the mouse", |ui| {
+        under_the_mouse(ui, compiler);
+        super::placer_view::readout(ui, &compiler.settings.interpreter.mineralogy, &compiler.fields);
+    });
     let Some(result) = &compiler.result else { return };
     fold_section(ui, "The world", |ui| {
         let highest = result.made.z.iter().copied().max().unwrap_or(0);
@@ -2306,6 +2314,8 @@ struct PaintKey {
     sizes: bool,
     blocks: u64,
     shade: crate::render::distant::Shade,
+    /// The field view's look, when it's on (`placer_view.rs`).
+    field: Option<super::placer_view::FieldLook>,
 }
 
 /// Linear light (0 to 1) as a screen's 0 to 255.
@@ -2450,6 +2460,8 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
     // Shift + drag draws a cross-section instead of moving the view.
     let shift = ui.input(|input| input.modifiers.shift);
     compiler.camera.hold_pan = shift;
+    // Ctrl + the wheel steps the field view's level (the wheel alone zooms, as ever).
+    compiler.fields.wheel(ui, response.hovered());
     compiler.hover = compiler.camera.update(ui, rect, &response, (width, width));
     // The world's edge (the view itself is the close-up, below).
     let field = compiler.camera.field_rect(rect, (width, width));
@@ -2494,11 +2506,19 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                 sizes: compiler.lab_sizes,
                 blocks: revision,
                 shade: look.shade.clone(),
+                field: compiler.fields.on.then(|| compiler.fields.look.clone()),
             };
             if compiler.lab_painted_for.as_ref() != Some(&wanted) || compiler.lab_texture.is_none() {
                 let climate = LiveClimate::new(compiler, &map);
                 let palette = compiler.lab_palette.as_ref().map(|(_, palette)| palette.clone()).unwrap();
-                let pixels = block_picture(frame, &map, climate.as_ref(), look, &palette, &wanted);
+                let pixels = match compiler.fields.shown(&s.mineralogy) {
+                    // The field view: the field being made, on black.
+                    Some((_, program)) => {
+                        let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
+                        super::placer_view::field_picture(frame, &map, &at, s.mineralogy.crust, &program, &compiler.fields.look)
+                    }
+                    None => block_picture(frame, &map, climate.as_ref(), look, &palette, &wanted),
+                };
                 let image = egui::ColorImage::new([frame.request.cols, frame.request.rows], pixels);
                 let texture = compiler.lab_texture.get_or_insert_with(|| ui.ctx().load_texture("terrain lab", egui::ColorImage::new([1, 1], vec![Color32::BLACK]), egui::TextureOptions::NEAREST));
                 texture.set(image, egui::TextureOptions::NEAREST);
@@ -2516,6 +2536,16 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             if let Some(z) = map.height(north, east) {
                 compiler.lab_hover = Some((north, east, z));
             }
+        }
+        // The field under the mouse, layer by layer (shown in the right-hand panel).
+        compiler.fields.hover = None;
+        if let Some((north, east, z)) = compiler.lab_hover
+            && let Some((_, program)) = compiler.fields.shown(&map.settings.mineralogy)
+        {
+            let climate = LiveClimate::new(compiler, &map);
+            let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
+            let step = compiler.lab.frame.as_ref().map_or(1.0, |frame| frame.request.step);
+            compiler.fields.hover = super::placer_view::hover(&map, &at, map.settings.mineralogy.crust, &program, &compiler.fields.look, (north, east, z.round()), step);
         }
     }
 

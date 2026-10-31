@@ -53,6 +53,13 @@ pub struct MineralogySettings {
     /// is (blocks).
     pub wander: f32,
     pub wander_size: f32,
+    /// How deep the crust goes (blocks): the placer's depth as a share of it is measured against this
+    /// [Counsel's ores cross-reference, 2026-10-31: about 130], so what's placed by it keeps its place
+    /// whatever depth the world ends up with.
+    pub crust: f32,
+    /// David's made fields (`placer.rs`): seen in the World Compiler's field view (stop 1 of
+    /// `docs/placer.md`); what's placed reads them from stop 3.
+    pub fields: Vec<super::placer::MadeField>,
 }
 
 impl Default for MineralogySettings {
@@ -68,6 +75,8 @@ impl Default for MineralogySettings {
             shallows: 8,
             wander: 0.06,
             wander_size: 48.0,
+            crust: 130.0,
+            fields: Vec::new(),
         }
     }
 }

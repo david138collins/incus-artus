@@ -3,7 +3,8 @@
 **Status: go-ahead given** (David, 2026-10-31: "begin on it, and just proceed cautiously").
 - His answers to the options are in section 10.
 - What the placer has to grow into is in section 11.
-- The first version's stops are in section 12. Stop 1 is being built.
+- The first version's stops are in section 12. **Stop 1 (the field view) is built**, waiting for David
+  to look.
 
 David asked for these through Counsel: "the placer and quartility seem the most critical. but im not
 sure how to observe the placer without minerology. i cant really think why it would need its own
@@ -433,6 +434,32 @@ David wants it elsewhere.)
 **Not yet:** nothing in the world changes. Made fields are saved with the preset, and used from stop 3.
 
 **I stop here,** for David to make a few fields and say what's missing.
+
+**[BUILT 2026-10-31]** As planned, with these details:
+- **The code:**
+  - `src/world/placer/fields.rs`: the table of 22 fields;
+  - `src/world/placer/mod.rs`: made fields and the `Program` that reads them;
+  - `src/worldgen/placer_view.rs`: the Fields section, the field view and the readout.
+- **The settings:** made fields are in the preset as Mineralogy's `fields`, next to the crust's depth
+  (`crust`, 130), which is on the panel. Presets from before read with no made fields.
+- **Distance to a river** is measured from the water's edge (0 in it), out to 2,000 blocks, through
+  a coarser grid of the rivers made the first time it's asked. Lakes aren't counted yet.
+- **A river's water across** is known only within its banks' reach. It's 0 further away.
+- **Slope** is measured between neighbouring samples, so zoomed out it's measured over more blocks.
+  (From stop 3, the near ground measures it block to block.)
+- **Black and white** are the least and most the field can be, worked out down the stack from each
+  field's range, not from what's on screen. So panning doesn't change the shading.
+- **A range of levels** is looked at in at most 32 levels, spread evenly through it.
+- **Lines:** the coast is pale blue, the rivers' and lakes' edges are blue, and the contours are amber.
+  A contour is drawn every 16 blocks to start, and each kind of line has its own switch.
+- **Tests:**
+  - curves, modes and ranges;
+  - made fields reading those above them, and not those below;
+  - unknown fields and kinds;
+  - saving with a preset;
+  - the distance to a river;
+  - the picture (black, white and the coast);
+  - levels and ranges.
 
 ### Stop 2: the depth sweep (about 350 lines)
 

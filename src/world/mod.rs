@@ -25,6 +25,7 @@ mod streaming;
 mod carving;
 mod interpreter;
 mod mineralogy;
+pub mod placer;
 mod terrain;
 
 pub use block::BlockId;

@@ -66,6 +66,7 @@ mod notes;
 mod overlays;
 pub(crate) mod noise;
 mod palette;
+mod placer_view;
 mod plates;
 mod rags;
 mod registrar;

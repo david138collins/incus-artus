@@ -416,6 +416,9 @@ pub struct Carving {
     cells: Vec<Vec<(u32, u32)>>,
     /// Whether there's anything to carve (worked out once: the height asks at every column).
     full: bool,
+    /// The rivers' pieces on a coarser grid, for how far a spot is from a river's water (the placer's
+    /// field): made the first time it's asked.
+    far_index: std::sync::OnceLock<FarIndex>,
     /// How its making went, for the panel (not saved): how long it took (seconds), the water's
     /// deepest cut below the lowest ground across a river (blocks), how many points cut deep, and
     /// how many lakes and ponds; and how many ponds behind rises, and rises cut through because their
@@ -532,6 +535,105 @@ fn along(a: &Point, b: &Point, north: f32, east: f32) -> (f32, f32, f32) {
     let side = dn * (east - a.east) - de * (north - a.north);
     let distance = ((north - pn).powi(2) + (east - pe).powi(2)).sqrt();
     (distance, if side >= 0.0 { -1.0 } else { 1.0 }, t)
+}
+
+/// The far index's cells (blocks across), and how far apart the points along a river are thinned to
+/// for it.
+const FAR_CELL: f32 = 128.0;
+const FAR_THIN: f32 = 6.0;
+
+/// A piece of river for the far index: its ends (north, east), and half its width.
+type FarPiece = ((f32, f32), (f32, f32), f32);
+
+/// The rivers' pieces on a grid of `FAR_CELL`-block cells, thinned to a point every few blocks: for
+/// how far any spot is from a river, looked for ring by ring outward from the spot's cell, so a spot
+/// far from every river looks only through empty cells.
+#[derive(Clone, Debug, Default)]
+struct FarIndex {
+    /// The grid's north-west corner (blocks from the world's middle), cells across and down, and
+    /// half the widest river's width.
+    corner: (f32, f32),
+    across: usize,
+    down: usize,
+    widest_half: f32,
+    cells: Vec<Vec<FarPiece>>,
+}
+
+impl FarIndex {
+    fn new(reaches: &[Reach]) -> Self {
+        let mut pieces: Vec<FarPiece> = Vec::new();
+        for reach in reaches {
+            let Some(mut from) = reach.points.first() else { continue };
+            for (k, p) in reach.points.iter().enumerate().skip(1) {
+                if (p.north - from.north).hypot(p.east - from.east) >= FAR_THIN || k + 1 == reach.points.len() {
+                    pieces.push(((from.north, from.east), (p.north, p.east), from.width.max(1.0) / 2.0));
+                    from = p;
+                }
+            }
+        }
+        if pieces.is_empty() {
+            return Self::default();
+        }
+        let (mut low, mut high) = ((f32::MAX, f32::MAX), (f32::MIN, f32::MIN));
+        for &(a, b, _) in &pieces {
+            for (n, e) in [a, b] {
+                (low, high) = ((low.0.min(n), low.1.min(e)), (high.0.max(n), high.1.max(e)));
+            }
+        }
+        let corner = (high.0, low.1);
+        let (across, down) = (((high.1 - low.1) / FAR_CELL) as usize + 1, ((high.0 - low.0) / FAR_CELL) as usize + 1);
+        let mut index = Self { corner, across, down, widest_half: 0.0, cells: vec![Vec::new(); across * down] };
+        for piece in pieces {
+            // In every cell its box touches (a piece is a few blocks long: one cell, or two).
+            let ((an, ae), (bn, be), half) = piece;
+            index.widest_half = index.widest_half.max(half);
+            let (c0, r0) = index.cell_of(an.max(bn), ae.min(be));
+            let (c1, r1) = index.cell_of(an.min(bn), ae.max(be));
+            for r in r0.max(0)..=r1.min(down as i64 - 1) {
+                for c in c0.max(0)..=c1.min(across as i64 - 1) {
+                    index.cells[r as usize * across + c as usize].push(piece);
+                }
+            }
+        }
+        index
+    }
+
+    /// The cell a spot is in (column, row), which may be off the grid.
+    fn cell_of(&self, north: f32, east: f32) -> (i64, i64) {
+        (((east - self.corner.1) / FAR_CELL).floor() as i64, ((self.corner.0 - north) / FAR_CELL).floor() as i64)
+    }
+
+    fn distance(&self, north: f32, east: f32, most: f32) -> f32 {
+        if self.cells.is_empty() {
+            return most;
+        }
+        let (c, r) = self.cell_of(north, east);
+        let mut best = most;
+        // Ring k's cells are at least (k - 1) cells from the spot (it can be anywhere in its own).
+        let rings = ((most + self.widest_half) / FAR_CELL).ceil() as i64 + 1;
+        for k in 0..=rings {
+            if (k - 1) as f32 * FAR_CELL - self.widest_half >= best {
+                break;
+            }
+            for dr in -k..=k {
+                // A ring's top and bottom rows whole; its sides only at their two ends.
+                let step = if dr.abs() == k { 1 } else { (2 * k).max(1) as usize };
+                for dc in (-k..=k).step_by(step) {
+                    let (cc, rr) = (c + dc, r + dr);
+                    if cc < 0 || rr < 0 || cc >= self.across as i64 || rr >= self.down as i64 {
+                        continue;
+                    }
+                    for &((an, ae), (bn, be), half) in &self.cells[rr as usize * self.across + cc as usize] {
+                        let (dn, de) = (bn - an, be - ae);
+                        let t = (((north - an) * dn + (east - ae) * de) / (dn * dn + de * de).max(1e-6)).clamp(0.0, 1.0);
+                        let apart = (north - an - dn * t).hypot(east - ae - de * t);
+                        best = best.min((apart - half).max(0.0));
+                    }
+                }
+            }
+        }
+        best
+    }
 }
 
 impl Carving {
@@ -833,6 +935,13 @@ impl Carving {
         self.nearest_river(north, east).map(|(distance, _, p, _)| (distance, p.width, water_across(p.width, p.depth, p.edge, p.flat, p.bowl)))
     }
 
+    /// How far a spot is from the nearest river's water (blocks from its line, less half its width; 0
+    /// in it), up to `most` (and `most` further than that, or with no rivers): the placer's "distance
+    /// to a river" field.
+    pub fn distance_to_river(&self, north: f32, east: f32, most: f32) -> f32 {
+        self.far_index.get_or_init(|| FarIndex::new(&self.reaches)).distance(north, east, most)
+    }
+
     /// As text, for saving with a world: the banks (and the curtains and the anti-kitty-cornerer, if
     /// they're off), each lake's grid and its water cells, then each reach's points.
     pub fn to_text(&self) -> String {
@@ -945,6 +1054,19 @@ mod tests {
     /// A river running east along north = 0.5, `width` wide, its water at Z 150.
     fn straight(width: f32, bend: f32) -> Carving {
         Carving::new(vec![Reach { points: vec![point(0.5, -50.0, width, 150.0, bend), point(0.5, 50.0, width, 150.0, bend)] }], Lakes::default(), Banks::default())
+    }
+
+    #[test]
+    fn the_distance_to_a_river_is_from_its_water_and_found_far_off() {
+        // 6 wide along north = 0.5, from east −50 to 50 (its water 3 either side of its line).
+        let river = straight(6.0, 0.0);
+        assert_eq!(river.distance_to_river(0.5, 0.0, 2_000.0), 0.0, "in it");
+        assert!((river.distance_to_river(10.5, 0.0, 2_000.0) - 7.0).abs() < 1e-3);
+        // Past its end, from the end; many cells away; and no further than asked.
+        assert!((river.distance_to_river(0.5, 150.0, 2_000.0) - 97.0).abs() < 1e-3);
+        assert!((river.distance_to_river(-1_200.5, 0.0, 2_000.0) - 1_198.0).abs() < 1e-2);
+        assert_eq!(river.distance_to_river(5_000.0, 0.0, 2_000.0), 2_000.0);
+        assert_eq!(Carving::default().distance_to_river(0.0, 0.0, 500.0), 500.0, "no rivers");
     }
 
     /// The same, 4 wide, with smooth banks fading over 8 blocks, bending as `turn` (+ its outside

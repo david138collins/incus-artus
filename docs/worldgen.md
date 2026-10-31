@@ -2120,6 +2120,10 @@ to 58, every block regulated). Next:
        read everything. It's saved as an edit, like a build, and seeded so it can be repeated.
    - **The options are in `docs/placer.md`** (Builder, 2026-10-31), and quartile placement's in
      `docs/quartile.md`, with questions for David at the end of each.
+   - **The stops** are in `docs/placer.md` section 12: the field view, the depth sweep, mineralogy on
+     the placer, then sharing. **[BUILT 2026-10-31] Stop 1, the field view:** the Mineralogy panel's
+     new Fields section holds made fields (stacks of layers with blend modes), and the map switches
+     to black to show them. Nothing in the world changes yet.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
