@@ -624,7 +624,10 @@ Tectonic Sim
     and wind arent... climate is better."
 
   So the layout is: **Landmass · Topography · Climate** (Rivers, Temperature, Wind, Rain) **·
-  Mineralogy · Ecology**, then the World Interpreter. Civilization is on its own page. Not built.
+  Mineralogy · Ecology**, then the World Interpreter. Civilization is on its own page.
+  **Go-ahead** (David, 2026-10-31: "yes, rename and move. minerology is gonna need a lot of space"):
+  Additives becomes Topography, and Mineralogy gets its own panel, with the greyed Caves after it for
+  now.
   **Caves are open:** "we still really have no idea how caves factor in. they could be topology i
   think. however they could be after, and we could make caves where rivers end without finding a pond
   lake or ocean." (See "Caves, cliffs and carving" below.)
@@ -1212,6 +1215,10 @@ to evaporation.
     - After the rivers and the rock (Mineralogy), caves can read where rivers end, and which rock
       dissolves, as real caves do. That's what the 2026-10-29 decision put them after.
   - The sinking stream needs the second.
+  - David, later the same day: "caves might go in there [Mineralogy] after or have its own page because
+    it might be a pain, and having waterways make a waterfall cave is a good idea. theres one kind of
+    cave." So the waterfall cave, where a river with nowhere to go falls underground, is the **first
+    kind of cave**, and others come later.
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
   out under a slope gives an overhang, a cave mouth, a rock shelter, an arch.
 - **Non-cave carve features here and there**, too.
@@ -2066,6 +2073,25 @@ to 58, every block regulated). Next:
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
+   **[David 2026-10-31]** "we probably need caves, trees, and rivers all functional to look at graphics
+   and performance." *Counsel's path* [PROPOSED; the order is David's call]:
+   1. **The tabs:** Topography, and Mineralogy on its own panel (go-ahead given).
+   2. **The placing system** (fields and distributors, under "Mineralogy needs a system" above),
+      talked through first. It's built once, and mineralogy uses it first.
+   3. **Mineralogy on it:** rock types and soils. Caves need the rock, and beds and shores read the
+      rivers.
+   4. **The asset factory world and the Blueprints tab** (`docs/decisions.md`), "needed before
+      trees": build a tree from library blocks and register it as a blueprint.
+   5. **Ecology** places tree blueprints with the same system, by temperature, rain, distance to
+      water, slope and height. **Trees in the far view** come with it, which is the real test for
+      performance.
+   6. **Caves:** the far-3D contract (the cave section's proposal, and David's holes in the canvas),
+      carving under the surface, and the first kind, the waterfall cave.
+   7. Then the graphics pass and the performance overhaul, with all three in.
+
+   **Art David could start on** (his to make): the rock types (the starter set in item 3 above);
+   bark, log ends and leaves for one to three trees; tall grass as a crossed sprite (his "water you can
+   find" cues).
    **Before rivers: rough in a mineralogy section** [David 2026-10-29], somewhere to decide how the new
    blocks get placed, and **retire the old ways they're placed**. Today that's `surface()` in
    `src/world/terrain.rs`: grass below a height, stone from "stone from", gabbro from "gabbro from",
