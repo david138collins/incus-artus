@@ -135,8 +135,7 @@ the world's.**
   - **The readout:** how many stretches cut too deep, how many found a better way round, the deepest
     cut on the plan and on the way found (read the same way), and how long it took.
 - **Sliders that can't act are greyed out** (2026-10-31, with stage 4; David's "grey out, don't hide"):
-  - the wander, swings, lean, meanders and "keep within" when "most sideways" is 0;
-  - meander every and "full meanders below" when the meander size is 0;
+  - "steepest bank" when "widens up to" is 1 (it never widens);
   - each rank's sizes, shape and fade where no river reaches the ranks that use them. A creek's band
     reaches toward the stream's size and shape, so creeks use the first two steps up and the first two
     shapes.
@@ -163,24 +162,45 @@ the world's.**
      at most 48 blocks), then Chaikin's method slices every corner off: a creek 2 passes, one more per
      rank up (at most 5). So bigger rivers bend wider.
   2. **Resampling,** every 2 to 6 blocks.
-  3. **Moving each point sideways,** by the sum of three things:
-     - a **wander:** 12 blocks, in swings of about 400 blocks;
-     - a **lean** to the outside of the bend: half a width at a sharp bend;
-     - a **meander:** a wave every 12 widths, 1 width big, full on ground flatter than 2%, fading on
-       steeper.
 
-     Together they're faded to nothing within max(2 widths, 48 blocks) of each end, and capped at
-     48 blocks. Wherever the moved point's real ground would be more than 3 blocks above the ground
-     under the route (`floor_rise`, "keep within"), the move is halved, up to 4 times, then dropped.
-     So the squiggles stay on the valley floor. *[It was "deepest gorge", 6 blocks below the broad
-     ground, which can't see hills.]* The meanders' flatness is the real ground's slope from end to
-     end.
+  *[Cut 2026-10-31, David: "they only seem to make it worse at any setting besides off": each point
+  used to be moved sideways by a wander, a lean to the outside of the bend and a meander, capped by
+  "most sideways" and pulled back by "keep within". Every move put the line onto the higher ground
+  beside the way found.]*
+- **The anti-kitty-cornerer** (2026-10-31, David's name; a switch, on by default; kept with the world,
+  an `anti-kitty-corner 0` line in rivers.txt when off). The water's blocks always join by a face,
+  never only at a corner:
+  - **A narrow river on a diagonal** (under about 1.4 blocks wide) steps in a 1-block zigzag: every
+    block its line passes through is water. Wider rivers are unchanged.
+  - **A spot in any river's water is water,** though another river's line is nearer. *[Where a narrow
+    river joined a wide one, the wide one's water stopped where the narrow one's line was nearer, and
+    the gaps joined blocks only at corners: in a sample of David's world (every 8th point), 176 places
+    before, 115 after.]*
+  - **Not yet:** the 115 left are two separate rivers running side by side, their edges touching at
+    corners on a diagonal. Whether they merge there or keep a dry block between them is for David.
 - **The water level** (`lay_water`, the 926e66b fix):
   1. **From the real ground.** At each point, sample the real ground (the recipe with hills and crags,
      without rivers) at three spots: the middle of the line and both edges of the river. The level
      starts as the lowest of the three, rounded down.
   2. **Only falling downstream.** Stretches are done from upstream down; a stretch starts no higher than
      what flows into it.
+
+     **After a hollow** ("the water's level", 2026-10-31, stage 3 of `docs/water-rework.md`; David:
+     "filling and cutting should be on a threshold... least change is kind of how i try to get
+     everything"):
+     - **Cut through** (the default, the way before): the level is the lowest ground so far, so after
+       a hollow the water stays at the hollow's level and cuts through every rise after it.
+     - **Least change:** each stretch's levels, only falling, are those nearest the lowest ground
+       across each point in all. That's least squares, by "pool adjacent violators" in one pass: rises
+       cut and hollows filled by turns.
+       - **Fill hollows up to** (3): the water stands at most this far above the ground at any point.
+         A deeper hollow is filled this much, and the rise after it cut for the rest.
+       - **Cut rises up to** (40): before cutting a rise deeper than this, the hollow before it is
+         filled more, but never past the fill's limit, which wins.
+       - **A filled hollow:** the water is deeper there (the bed isn't raised). The banks are raised to
+         the shore at the water and ease back down to the land over their fade. With fills of a few
+         blocks it reads as a low bank along the river, not a causeway.
+       - **The readout** counts the water above its ground: at how many points, and the most.
   3. **Never below the sea**, and a stretch into the sea or a lake ends at that water's level. Any
      stretch **ends where it first meets the sea** (2026-10-31): at its first point with the sea
      under any of its three samples, or with its water at the sea's level on ground more than a step
@@ -316,16 +336,19 @@ the world's.**
     the water above the fall's: the cliff the fall comes down (2026-10-31: cut down to the water
     below, the fall's sides stood in the air).
     - **Fade width:** one width each side for every rank (`fade_widths`), at least 2 blocks
-      (`fade_least`), and half that on the outside of a bend (`outside`). Where the fade would be
-      steeper than 1 block up per block across (`steepest`), it widens, up to 3 times (`widest`).
-      Past that it stays steep, a gorge.
-    - **Way, by the bank's side:** a point bends when its width over the bend's radius (`turn`, saved
-      with each point) is at least 0.15 (`bend_from`). The way is chosen by side: the inside of a bend
-      is **smooth** (an S-curve), the outside is **ledge then slope**, and a straight run is
-      **smooth**. **Slope** (a straight ramp) and **terraces** (flat steps 4 blocks high) are the
-      other choices.
-    - The settings are kept with the world (a `banks` line in rivers.txt). Worlds saved before have
-      no fade.
+      (`fade_least`). Where the fade would be steeper than 1 block up per block across (`steepest`),
+      it widens, up to 3 times (`widest`). Past that it stays steep, a gorge.
+    - **One way for every bank** ("banks fade:"): **smooth** (an S-curve, the default), **slope** (a
+      straight ramp), **terraces** (flat steps 4 blocks high) or **ledge then slope**. *[Cut
+      2026-10-31, David: bends "don't really seem to have a logical way to be used cleanly". A point
+      used to count as a bend from a width-over-radius of 0.15 (`bend_from`), with a way for the
+      inside, the outside and a straight run, a shorter fade outside (`outside`) and, with the
+      compressor, cut banks on the outside ("cut banks keep"). The switch at "a bend from" left
+      straight-edged notches where a river straightened out. Presets saved before load with a smooth
+      way.]*
+    - The settings are kept with the world (a `bank` line in rivers.txt: the way, steepest, widest,
+      terrace step, compressor). Worlds saved with the old `banks` line read back with their straight
+      run's way; worlds saved before that have no fade.
     - **Compressor banks** (2026-10-31, stage 1 of `docs/water-rework.md`; a switch, "compressor
       banks", off by default; saved with the world). With it on:
       - **Every stretch of river near a spot has its say.** The land comes down to the lowest of their
@@ -342,9 +365,8 @@ the world's.**
       - **The first dry block is the shore itself:** flush, or raised to it as a levee.
       - **The fade widens so the S-curve's steepest middle stays within the steepest bank.** That's
         half again as wide as before, gentler, and more land lowered.
-      - **On the outside of a bend, the bank keeps a share of the land's height above the water:** a
-        cut bank ("cut banks keep", 0.25; 0 flush). A "ledge then slope" way keeps at least its
-        block.
+      - A "ledge then slope" way keeps its block above the water. (The cut banks on the outsides of
+        bends went with the bends, 2026-10-31.)
     - **Measured on David's world** (`rivers-balanced`, smooth banks all round, 4 cores):
 
       | | off | on |

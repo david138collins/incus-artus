@@ -8,20 +8,17 @@
 //!    way on the real, detailed ground in a corridor round that plan, by fill and spill from its end
 //!    (as step 5, locally): round the hills, through the lowest gaps, along the valley floors.
 //! 2. **Smoothed:** corner cutting (Chaikin's method: each pass slices every corner off) over points a
-//!    river's width or so apart, so bigger rivers bend wider; a gentle **wander**.
-//! 3. **Lean outward:** each point moves toward the outside of its bend (fast water cuts the outer bank).
-//! 4. **Lengthen (David's squiggles):** a side-to-side wave every 10 to 14 widths, its size by width,
-//!    strong on flat ground and fading on steep.
-//! 5. **The carve** (in the world): each block measures its distance to the line; the odd block of an
+//!    river's width or so apart, so bigger rivers bend wider. (The wander, lean and meanders that
+//!    moved it sideways were cut on 2026-10-31: they only moved it onto higher ground.)
+//! 3. **The carve** (in the world): each block measures its distance to the line; the odd block of an
 //!    even width goes to the outside of the bend.
 //!
-//! 6. **Ponds behind rises** [David, 2026-10-30: "ride over the terrain like a marble, or cut far
+//! 4. **Ponds behind rises** [David, 2026-10-30: "ride over the terrain like a marble, or cut far
 //!    deeper"]: a rise the route couldn't get round is cut through up to a few blocks; a higher one
 //!    holds the water back in a pond up to its lowest gap (unless the pond would spread too far).
 //!
-//! Safety: the water level is laid from the real ground under the line, only falling downstream; the
-//! ends (junctions, lake outlets, mouths) are pinned, the sideways moves fading to nothing there, so
-//! rivers always meet; and a sideways move that would climb above the valley floor is pulled back.
+//! Safety: the water level is laid from the real ground under the line, only falling downstream; and
+//! the ends (junctions, lake outlets, mouths) are pinned, so rivers always meet.
 
 use super::network::Network;
 use super::noise::{Fade, perlin};
@@ -38,18 +35,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub struct CarvingSettings {
     /// Corner-cutting passes for a creek (one more for each rank up).
     pub smoothing: u32,
-    /// The wander: how far sideways (blocks) and how long its swings are (blocks).
-    pub wander: f32,
-    pub wander_length: f32,
-    /// How far rivers lean to the outside of their bends (0 none; 1 a width at a sharp bend).
-    pub lean: f32,
-    /// Meanders: how long one swing is (in river widths), how far it swings (in widths), and how flat
-    /// the ground must be for full meanders (blocks down per block along: steeper, less).
-    pub meander_length: f32,
-    pub meander_size: f32,
-    pub flat: f32,
-    /// The most a river's line moves sideways from its path (blocks).
-    pub most_sideways: f32,
+    /// The anti-kitty-cornerer [David, 2026-10-31]: the water's blocks always join by a face, never
+    /// only at a corner (`world::Carving::anti_kitty_corner`).
+    pub anti_kitty_corner: bool,
+    /// The water's level after a hollow [2026-10-31, David: "filling and cutting should be on a
+    /// threshold... least change is kind of how i try to get everything"]: cut through the rises
+    /// after it (the level only falling from the lowest ground so far), or the least change, rises cut
+    /// and hollows filled by turns (`least_change`). With least change, the water stands at most
+    /// `fill_up_to` above the lowest ground across a hollow, and before cutting a rise deeper than
+    /// `cut_most` it fills the hollow before it more (the fill's limit wins).
+    pub level: Level,
+    pub fill_up_to: f32,
+    pub cut_most: f32,
     /// The route on the real ground [2026-10-30]: how far either side of its planned path a river may
     /// find its way (blocks), and the grain it's found on (blocks a cell).
     pub corridor: f32,
@@ -61,10 +58,6 @@ pub struct CarvingSettings {
     /// blended by the water's height between the sea and the highest river), or off (the plan).
     pub route: Route,
     pub deep_cut: [f32; 2],
-    /// How far above the valley floor (the real ground under its route) the wander, lean and meanders
-    /// may move it before they're pulled back (blocks) [2026-10-30: "deepest gorge", over the broad
-    /// ground].
-    pub floor_rise: f32,
     /// Lakes, filled on the real ground [2026-10-30]: how far round the planned lakes (step 5's,
     /// on the broad ground) to look for their real basins (blocks), and how deep a pool has to be
     /// at its deepest to be kept (blocks).
@@ -124,6 +117,67 @@ pub enum Route {
     Off,
 }
 
+/// The water's level after a hollow (`CarvingSettings::level`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Level {
+    /// Cut through the rises after it.
+    #[default]
+    Cut,
+    /// The level changing the land least: rises cut and hollows filled by turns.
+    LeastChange,
+}
+
+/// The water's levels along a reach that change the land least [stage 3 of `docs/water-rework.md`,
+/// 2026-10-31: after a hollow, the water only falling, a river cut every rise after it down to the
+/// hollow's level]: only falling, as near the lowest ground across each point (`low`) as can be in
+/// all (least squares: pool adjacent violators, one pass), no higher than `cap` (the water arriving at
+/// its start); then no more than `fill` above the ground at any point upstream (`fill` wins), and
+/// no more than `cut` below it at any point downstream.
+fn least_change(low: &[f32], cap: f32, fill: f32, cut: f32) -> Vec<f32> {
+    // (Off the map, the ground before it.)
+    let mut last = cap.min(low.iter().copied().find(|&l| l < f32::MAX).unwrap_or(SEA_LEVEL as f32));
+    let low: Vec<f32> = low
+        .iter()
+        .map(|&l| {
+            if l < f32::MAX {
+                last = l;
+            }
+            last
+        })
+        .collect();
+    // Pools of points at one level (their sum and count), merged while one stands above the one
+    // before it (the water would rise).
+    let mut pools: Vec<(f64, usize)> = Vec::with_capacity(low.len());
+    for &l in &low {
+        pools.push((l as f64, 1));
+        while pools.len() > 1 {
+            let (b, a) = (pools[pools.len() - 1], pools[pools.len() - 2]);
+            if b.0 / (b.1 as f64) <= a.0 / (a.1 as f64) {
+                break;
+            }
+            pools.pop();
+            *pools.last_mut().unwrap() = (a.0 + b.0, a.1 + b.1);
+        }
+    }
+    let fitted = pools.iter().flat_map(|&(sum, count)| std::iter::repeat_n((sum / count as f64) as f32, count));
+    // The bounds, only falling too: no higher than the fill above any point so far, no lower than the
+    // cut below any point to come.
+    let mut lowest = vec![f32::MIN; low.len()];
+    let mut most = f32::MIN;
+    for k in (0..low.len()).rev() {
+        most = most.max(low[k] - cut.max(0.0));
+        lowest[k] = most;
+    }
+    let mut highest = cap;
+    fitted
+        .zip(low.iter().zip(lowest))
+        .map(|(level, (&l, lowest))| {
+            highest = highest.min(l + fill.max(0.0));
+            level.max(lowest).min(highest)
+        })
+        .collect()
+}
+
 /// The cores the making may use: its setting, from one to as many as the machine has.
 fn most_cores(s: &CarvingSettings) -> usize {
     s.cores.clamp(1, std::thread::available_parallelism().map_or(4, |n| n.get()))
@@ -133,18 +187,14 @@ impl Default for CarvingSettings {
     fn default() -> Self {
         Self {
             smoothing: 2,
-            wander: 12.0,
-            wander_length: 400.0,
-            lean: 0.5,
-            meander_length: 12.0,
-            meander_size: 1.0,
-            flat: 0.02,
-            most_sideways: 48.0,
+            anti_kitty_corner: true,
+            level: Level::Cut,
+            fill_up_to: 3.0,
+            cut_most: 40.0,
             corridor: 64.0,
             grain: 4.0,
             route: Route::Everywhere,
             deep_cut: [8.0, 8.0],
-            floor_rise: 3.0,
             lake_reach: 64.0,
             pond_depth: 1.0,
             rise_pools: true,
@@ -212,11 +262,6 @@ pub fn size_in_band(s: &CarvingSettings, rank: usize, share: f32) -> (f32, f32, 
     let own = s.shapes[rank - 1];
     let shape = if t < 0.5 { s.shapes[rank.saturating_sub(2)].mix(own, 0.5 + t) } else { own.mix(s.shapes[rank.min(3)], t - 0.5) };
     (grow(low.0, high.0), grow(low.1, high.1), shape)
-}
-
-fn smooth(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
 }
 
 /// A point on a river's path (before the curve): where, and what the river is like there.
@@ -400,7 +445,7 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
                 let x = &x;
                 scope.spawn(move || {
                     part.iter()
-                        .map(|(path, id, rank)| {
+                        .map(|(path, _, rank)| {
                             let plan = || path.iter().map(|p| (p.north, p.east)).collect::<Vec<_>>();
                             let (line, found) = match s.route {
                                 Route::Everywhere => (route(path, ground, s, stop)?, Found::default()),
@@ -413,7 +458,7 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
                             } else {
                                 Found { plan_cut: deepest_along(&plan(), ground, f32::MAX), line_cut: deepest_along(&line, ground, f32::MAX), ..found }
                             };
-                            Some((curve(&line, path, *id, *rank, ground, seed, s), found))
+                            Some((curve(&line, path, *rank, s), found))
                         })
                         .collect::<Vec<_>>()
                 })
@@ -437,12 +482,13 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     let ponds = laid.ponds;
     let lakes = if ponds.is_empty() { lakes } else { Lakes::new(lakes.lakes.into_iter().chain(ponds).collect()) };
     let mut carving = Carving::new(reaches, lakes, s.banks);
-    carving.curtains = s.curtains;
+    (carving.curtains, carving.anti_kitty_corner) = (s.curtains, s.anti_kitty_corner);
     carving.shores = measure_shores(&carving, ground, cores, stop);
     if stop.load(Ordering::Relaxed) {
         return None;
     }
     (carving.took, carving.deepest_cut, carving.deep_cuts, carving.pools) = (started.elapsed().as_secs_f32(), laid.deepest_cut, laid.deep_cuts, pools);
+    (carving.deepest_fill, carving.filled) = (laid.deepest_fill, laid.filled);
     (carving.rise_ponds, carving.cut_instead, carving.into_water) = (rise_ponds, laid.cut_instead, laid.into_water);
     (carving.deep_stretches, carving.rerouted, carving.plan_cut, carving.line_cut, carving.route_took) = (found.deep, found.rerouted, found.plan_cut, found.line_cut, route_took);
     Some(carving)
@@ -918,11 +964,12 @@ fn route(path: &[PathPoint], ground: &CompiledMap, s: &CarvingSettings, stop: &A
     Some(line)
 }
 
-/// One reach's curve along its route: smoothed (corner cut over points about a width apart), then
-/// each point moved sideways by the wander, the lean and the meander (fading to nothing at the
-/// pinned ends, and pulled back where they'd climb above the valley floor), with the width, depth
-/// and shape by how far along its planned path. (Its water level is laid after, `lay_water`.)
-fn curve(route: &[(f32, f32)], path: &[PathPoint], id: u64, rank: u32, ground: &CompiledMap, seed: u64, s: &CarvingSettings) -> Reach {
+/// One reach's curve along its route: smoothed (corner cut over points about a width apart), with
+/// the width, depth and shape by how far along its planned path. (Its water level is laid after,
+/// `lay_water`.) [2026-10-31, David: the wander, the lean to the outside of bends and the meanders
+/// "only seem to make it worse at any setting besides off": each moved the line off the way found,
+/// onto the higher ground beside it. Cut.]
+fn curve(route: &[(f32, f32)], path: &[PathPoint], rank: u32, s: &CarvingSettings) -> Reach {
     // How far along the planned path each of its points is.
     let mut along = vec![0.0f32];
     for pair in path.windows(2) {
@@ -959,12 +1006,6 @@ fn curve(route: &[(f32, f32)], path: &[PathPoint], id: u64, rank: u32, ground: &
         let mix = |x: f32, y: f32| x + (y - x) * t;
         (mix(a.width, b.width), mix(a.depth, b.depth), a.shape.mix(b.shape, t))
     };
-    // The real ground, and its slope along the river, for how freely it meanders.
-    let ground = |north: f32, east: f32| ground.height(north, east).unwrap_or(SEA_LEVEL as f32);
-    let (first, last) = (line[0], line[line.len() - 1]);
-    let slope = ((ground(first.0, first.1) - ground(last.0, last.1)) / length).max(0.0);
-    let flatness = 1.0 - smooth(slope / s.flat.max(1e-4));
-    let phase = perlin(seed, 0xa1e0 + id, Fade::Smooth, id as f32 * 0.37, 0.5) * 6.28;
     let mut points = Vec::with_capacity(line.len());
     let mut run = 0.0f32;
     for k in 0..line.len() {
@@ -972,11 +1013,7 @@ fn curve(route: &[(f32, f32)], path: &[PathPoint], id: u64, rank: u32, ground: &
             run += ((line[k].0 - line[k - 1].0).powi(2) + (line[k].1 - line[k - 1].1).powi(2)).sqrt();
         }
         let (width, depth, shape) = at(run / length);
-        // Tangent, normal (to the left, looking downstream) and how sharply it bends here.
-        let (a, b) = (line[k.saturating_sub(1)], line[(k + 1).min(line.len() - 1)]);
-        let (tn, te) = (b.0 - a.0, b.1 - a.1);
-        let t_len = (tn * tn + te * te).sqrt().max(1e-3);
-        let (nn, ne) = (te / t_len, -tn / t_len);
+        // How sharply it bends here.
         let bend = if k > 0 && k + 1 < line.len() {
             let (p, q, r) = (line[k - 1], line[k], line[k + 1]);
             let cross = (q.0 - p.0) * (r.1 - q.1) - (q.1 - p.1) * (r.0 - q.0);
@@ -985,26 +1022,9 @@ fn curve(route: &[(f32, f32)], path: &[PathPoint], id: u64, rank: u32, ground: &
         } else {
             0.0
         };
-        // The pins: no sideways moves at the ends.
-        let pin = (2.0 * width).max(48.0);
-        let fade = smooth(run / pin) * smooth((length - run) / pin);
-        let wander = perlin(seed, 0x3a4d + id, Fade::Smooth, run / s.wander_length.max(1.0), id as f32 * 1.7) * s.wander;
-        let lean = -s.lean * width * (bend * 32.0).clamp(-1.0, 1.0);
-        let meander = (std::f32::consts::TAU * run / (s.meander_length.max(1.0) * width.max(1.0)) + phase).sin() * s.meander_size * width * flatness;
-        let mut sideways = ((wander + lean + meander) * fade).clamp(-s.most_sideways, s.most_sideways);
-        // Pulled back where it would climb above the valley floor (the ground under its route).
-        if sideways != 0.0 {
-            let floor = ground(line[k].0, line[k].1);
-            for halving in 0..5 {
-                if ground(line[k].0 + nn * sideways, line[k].1 + ne * sideways) - floor <= s.floor_rise {
-                    break;
-                }
-                sideways = if halving < 4 { sideways * 0.5 } else { 0.0 };
-            }
-        }
         points.push(RiverPoint {
-            north: line[k].0 + nn * sideways,
-            east: line[k].1 + ne * sideways,
+            north: line[k].0,
+            east: line[k].1,
             width,
             depth,
             edge: shape.edge,
@@ -1081,10 +1101,12 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
         let (start, end, end_level, _) = ends_of[r];
         let mut cap = arriving.get(&start).copied().unwrap_or(f32::MAX);
         let floor = end_level.unwrap_or(sea).max(sea);
+        // (With least change, the levels that change the land least, which the water then follows.)
+        let target = (s.level == Level::LeastChange).then(|| least_change(&lows[r], cap, s.fill_up_to, s.cut_most));
         let points = &mut reaches[r].points;
         for k in 0..points.len() {
             let low = if lows[r][k] == f32::MAX { cap } else { lows[r][k] };
-            let mut level = low.min(cap).max(floor).floor();
+            let mut level = target.as_ref().map_or(low, |target| target[k]).min(cap).max(floor).floor();
             // A reach ends where it first meets the sea: at its first point with the sea under it,
             // or with its water at the sea's level on ground more than a step above it (a cliff top,
             // the sea or a beach at its foot) [2026-10-31: where the broad ground had land but the
@@ -1224,20 +1246,23 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     // How far the water passes below the lowest ground across it: the deepest, and how many points
     // deeper than a deep cut.
     let cuts = reaches.iter().zip(&lows).flat_map(|(reach, low)| reach.points.iter().zip(low).filter(|&(_, &l)| l < f32::MAX).map(|(p, &l)| l - p.level));
-    let (deepest_cut, deep_cuts) = cuts.fold((0.0f32, 0usize), |(deepest, deep), cut| (deepest.max(cut), deep + (cut > DEEP_CUT) as usize));
+    let (deepest_cut, deep_cuts, deepest_fill, filled) = cuts.fold((0.0f32, 0usize, 0.0f32, 0usize), |(deepest, deep, highest, filled), cut| (deepest.max(cut), deep + (cut > DEEP_CUT) as usize, highest.max(-cut), filled + (cut < -0.5) as usize));
     let (too_far, into_water): (usize, usize) = (ponds.iter().map(|p| p.too_far).sum(), ponds.iter().map(|p| p.into_water).sum());
     // Then each waterfall dropped at its lip (points put in, so after everything taken by point).
     falls_at_lips(reaches, ground);
-    Some(Laid { deepest_cut, deep_cuts, ponds: ponds.into_iter().flat_map(|p| p.lakes).collect(), cut_instead: too_far + into_water, into_water, cut_short })
+    Some(Laid { deepest_cut, deep_cuts, deepest_fill, filled, ponds: ponds.into_iter().flat_map(|p| p.lakes).collect(), cut_instead: too_far + into_water, into_water, cut_short })
 }
 
 /// What laying the water found: for the panel, the deepest cut below the lowest ground across a
-/// river, how many points cut deeper than `DEEP_CUT`, and how many rises were cut through instead
+/// river, how many points cut deeper than `DEEP_CUT`, the highest it stands above it (a hollow
+/// filled, or a pond) and at how many points, and how many rises were cut through instead
 /// (and how many of those ran into water below them); the ponds behind rises; and which reaches met
 /// the sea before their planned mouth (cut short there).
 struct Laid {
     deepest_cut: f32,
     deep_cuts: usize,
+    deepest_fill: f32,
+    filled: usize,
     ponds: Vec<Lake>,
     cut_instead: usize,
     into_water: usize,
@@ -1748,6 +1773,28 @@ mod tests {
         assert!(line.iter().all(|&(n, _)| (n - -4.0).abs() < 1e-3));
     }
 
+    #[test]
+    fn least_change_fills_a_hollow_and_cuts_the_rise_after_it_by_turns() {
+        // After a hollow 6 deep, a rise 6 high, then the ground falling on. Cut through, the water
+        // stays at the hollow's 100 until the ground falls below it: the rise is cut 6. The least
+        // change fills the hollow some and cuts the rise some, only falling, changing less in all.
+        let low = [112.0, 110.0, 106.0, 100.0, 103.0, 106.0, 104.0, 101.0, 98.0, 95.0];
+        let cut: Vec<f32> = low.iter().scan(f32::MAX, |level, &l| {
+            *level = level.min(l);
+            Some(*level)
+        }).collect();
+        let changed = |levels: &[f32]| levels.iter().zip(&low).map(|(l, g)| (l - g).abs()).sum::<f32>();
+        let least = least_change(&low, f32::MAX, 20.0, 40.0);
+        assert!(least.windows(2).all(|w| w[1] <= w[0]), "it rises: {least:?}");
+        assert!(changed(&least) < changed(&cut), "{least:?} changes more than {cut:?}");
+        assert!(least[3] > 100.0 && least[5] < 106.0, "the hollow filled and the rise cut: {least:?}");
+        // No more than 1 above the ground anywhere: the hollow filled 1 at most, the rise cut for the rest.
+        let shallow = least_change(&low, f32::MAX, 1.0, 40.0);
+        assert!(shallow.iter().zip(&low).all(|(l, g)| l - g <= 1.0 + 1e-3), "{shallow:?}");
+        // Never above the water arriving.
+        assert!(least_change(&low, 105.0, 20.0, 40.0).iter().all(|&l| l <= 105.0));
+    }
+
     /// A creek's point, 3 wide.
     fn creek(north: f32, east: f32) -> RiverPoint {
         RiverPoint { north, east, width: 3.0, depth: 2.0, edge: 0.3, flat: 0.2, bowl: 1.0, level: f32::NAN, bend: 0.0, curtain: f32::NAN, turn: 0.0, fade: 2.0 }
@@ -1932,7 +1979,7 @@ mod tests {
         let ground = CompiledMap::of_heights(16, 32.0, &[150.0; 256]);
         let shores = |way| {
             let points = (0..=96).map(|k| RiverPoint { level: 150.0, fade: 6.0, ..creek(0.0, k as f32 * 2.0 - 96.0) }).collect();
-            let banks = Banks { ways: [way; 3], ..Banks::default() };
+            let banks = Banks { way, ..Banks::default() };
             measure_shores(&Carving::new(vec![Reach { points }], Lakes::default(), banks), &ground, 1, &AtomicBool::new(false))
         };
         let smooth = shores(crate::world::FadeWay::Smooth);

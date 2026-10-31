@@ -1240,17 +1240,35 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add_space(4.0);
         ui.strong("The line");
         ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=5).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the route, over points about a river's width apart; bigger rivers get one more pass a rank, so they bend wider.");
-        let sideways = c.most_sideways > 0.0;
-        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.wander, 0.0..=48.0).text("wander (blocks)")).on_hover_text("A gentle sideways drift (kept on the valley floor). Greyed out: \"most sideways\" is 0.");
-        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.wander_length, 50.0..=3_000.0).logarithmic(true).text("…its swings (blocks)"));
-        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.lean, 0.0..=2.0).text("lean to the outside of bends")).on_hover_text("Fast water cuts the outer bank: 1 = a river's width at a sharp bend.");
-        let meanders = sideways && c.meander_size > 0.0;
-        ui.add_enabled(meanders, crate::debug::Slider::new(&mut c.meander_length, 4.0..=30.0).text("meander every (widths)")).on_hover_text("Real meanders repeat about every 10 to 14 river widths.");
-        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.meander_size, 0.0..=4.0).text("meander size (widths)"));
-        ui.add_enabled(meanders, crate::debug::Slider::new(&mut c.flat, 0.001..=0.2).logarithmic(true).text("full meanders below (slope)")).on_hover_text("Meanders are full on ground flatter than this (blocks down per block along), fading on steeper.");
-        ui.add(crate::debug::Slider::new(&mut c.most_sideways, 0.0..=160.0).text("most sideways (blocks)")).on_hover_text("The furthest a river's line moves from its path. 0 = none: the wander, lean and meanders do nothing.");
-        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.floor_rise, 0.0..=20.0).text("keep within (blocks above the valley floor)"))
-            .on_hover_text("The wander, lean and meanders are pulled back where they'd move the river this far above the ground under its route.");
+        ui.checkbox(&mut c.anti_kitty_corner, "anti-kitty-cornerer").on_hover_text(
+            "David's rule: the water's blocks always join by a face, never only at a corner. On a diagonal, a river too narrow\n\
+             to cover its blocks' faces (under about 1.4 blocks) steps along in a 1-block zigzag: every block the line passes\n\
+             through is water. Wider rivers are unchanged.",
+        );
+        ui.add_space(4.0);
+        ui.strong("The water's level");
+        ui.horizontal_wrapped(|ui| {
+            use super::carving::Level;
+            ui.label("after a hollow:");
+            ui.selectable_value(&mut c.level, Level::Cut, "cut through").on_hover_text(
+                "The water only falls, from the lowest ground so far: after a hollow it stays at the hollow's level and cuts\n\
+                 through every rise after it (the way before).",
+            );
+            ui.selectable_value(&mut c.level, Level::LeastChange, "least change").on_hover_text(
+                "The water only falls, at the level that changes the land least along each stretch: rises cut and hollows filled\n\
+                 by turns. In a filled hollow the water is deeper and its banks are raised to the shore, easing back down to the\n\
+                 land over their fade.",
+            );
+        });
+        let least = c.level == super::carving::Level::LeastChange;
+        ui.add_enabled(least, crate::debug::Slider::new(&mut c.fill_up_to, 0.0..=20.0).text("fill hollows up to (blocks)"))
+            .on_hover_text("The most the water may stand above the lowest ground across a hollow. A deeper hollow is filled this much, and the rise after it cut for the rest.");
+        ui.add_enabled(least, crate::debug::Slider::new(&mut c.cut_most, 0.0..=40.0).text("cut rises up to (blocks)"))
+            .on_hover_text("Before cutting a rise deeper than this, the hollow before it is filled more (but never past \"fill hollows up to\", which wins).");
+        if let Some(carving) = compiler.climate.carving() {
+            ui.label(format!("water above its ground: at {} points, at most {:.0} blocks", carving.filled, carving.deepest_fill))
+                .on_hover_text("Where the water stands above the lowest ground across a river by half a block or more: a hollow filled (or a pond).");
+        }
         ui.add_space(4.0);
         ui.strong("Sizes");
         ui.small(
@@ -1304,30 +1322,21 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
         ui.add(crate::debug::Slider::new(&mut c.fade_least, 0.0..=16.0).text("…at least (blocks)"));
         let banks = &mut c.banks;
-        for (k, side) in ["inside of a bend", "outside of a bend", "straight"].iter().enumerate() {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(format!("{side}:"));
-                for way in crate::world::FadeWay::ALL {
-                    ui.selectable_value(&mut banks.ways[k], way, way.name());
-                }
-            });
-        }
-        ui.add(crate::debug::Slider::new(&mut banks.bend_from, 0.02..=1.0).logarithmic(true).text("a bend from (width / radius)"))
-            .on_hover_text("How sharply a river must bend before its banks count as an inside and an outside: 0.15 = a bend whose radius is about 7 widths.");
-        ui.add(crate::debug::Slider::new(&mut banks.outside, 0.1..=1.0).text("outside fades over (share of the inside)")).on_hover_text("The water cuts the outside bank, so it's steeper.");
-        ui.add(crate::debug::Slider::new(&mut banks.steepest, 0.2..=4.0).logarithmic(true).text("steepest bank (blocks up a block across)"));
+        ui.horizontal_wrapped(|ui| {
+            ui.label("banks fade:").on_hover_text("The same for every bank (the inside and outside of bends were cut on 2026-10-31).");
+            for way in crate::world::FadeWay::ALL {
+                ui.selectable_value(&mut banks.way, way, way.name());
+            }
+        });
+        ui.add_enabled(banks.widest > 1.0, crate::debug::Slider::new(&mut banks.steepest, 0.2..=4.0).logarithmic(true).text("steepest bank (blocks up a block across)"))
+            .on_hover_text("Where a bank would be steeper than this, its fade widens (up to \"widens up to\"). Greyed out: \"widens up to\" is 1, so it never widens.");
         ui.add(crate::debug::Slider::new(&mut banks.widest, 1.0..=6.0).text("widens up to (times)"));
-        let terraced = banks.ways.contains(&crate::world::FadeWay::Terraces);
-        ui.add_enabled(terraced, crate::debug::Slider::new(&mut banks.terrace, 1.0..=12.0).text("terrace steps (blocks)"));
+        ui.add_enabled(banks.way == crate::world::FadeWay::Terraces, crate::debug::Slider::new(&mut banks.terrace, 1.0..=12.0).text("terrace steps (blocks)"));
         ui.checkbox(&mut banks.compressor, "compressor banks").on_hover_text(
             "Stage 1 of the water rework (docs/water-rework.md). Every river near a spot has its say: the land comes down to the\n\
              lowest of their banks, so two rivers' banks meet with no seam. The land beside any river's water stays at least flush\n\
              with it, coming down from there no steeper than the steepest bank, so no water stands against air where a river\n\
              steps down at a bend. The first dry block is the shore itself. Off: each spot takes its nearest river's bank alone.",
-        );
-        ui.add_enabled(banks.compressor, crate::debug::Slider::new(&mut banks.cut_bank, 0.0..=1.0).text("cut banks keep (share of the land's height)")).on_hover_text(
-            "On the outside of a bend, how much of the land's height above the water its bank keeps at the water's edge: a cut\n\
-             bank. 0 = flush there too; 1 = left as it is. (A \"ledge then slope\" way keeps at least its block.)",
         );
         ui.add_space(4.0);
         ui.strong("Lakes");

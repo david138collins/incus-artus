@@ -701,3 +701,69 @@ upstream through a junction; the rest from dips earlier on the river's own stret
 3. When a river dips into a hollow and the land rises again after it, should it cut through the rise
    (today), fill the hollow so it runs level over it, or do whichever changes the land least?
 4. Then sizes by area (stage 5)?
+
+## 14. The line and bends cut, least change, the anti-kitty-cornerer: built (2026-10-31)
+
+David's go-ahead for section 13's 1 to 3 ("cut the bends. cut the sideways moves. i think filling and
+cutting should be on a threshold probably... least change is kind of how i try to get everything and
+put the intelligence into the rivers"), and "keep the rounding, add the anti-kitty-cornerer". The
+details are in `docs/rivers.md`.
+
+1. **The line's sideways moves are cut:** the wander, its swings, the lean, the meanders, "most
+   sideways" and "keep within". About 40 lines and 8 sliders. Corner cutting (the rounding) stays.
+2. **The bend sides are cut from the banks:** one way for every bank, and no "a bend from", "outside
+   fades over" or "cut banks keep".
+   - Worlds saved with the old `banks` line read back with their straight run's way.
+   - **Presets load with a smooth way.** David's was slope, so he'll need to pick slope again once.
+   - "Steepest bank" is greyed out when "widens up to" is 1.
+3. **"The water's level" after a hollow: cut through, or least change.**
+   - Least change is each stretch's falling level that's nearest its ground in all (least squares,
+     one pass).
+   - **The two thresholds:**
+     - "fill hollows up to" (3): the most the water stands above its ground anywhere;
+     - "cut rises up to" (40): before cutting deeper than this, the hollow before is filled more.
+     - The fill's limit wins.
+   - **A filled hollow:** the water is deeper there, and its banks are raised to the shore and ease
+     down to the land over their fade. With fills of a few blocks it's a low bank along the river,
+     not a causeway.
+     - The bed isn't raised; a flat floor across the whole hollow would need the hollow's extent,
+       like filling a lake with ground.
+4. **The anti-kitty-cornerer** (on by default, kept with the world): the water's blocks join by a face,
+   never only at a corner.
+   - A river under about 1.4 blocks wide steps in a 1-block zigzag on a diagonal. That's for stage 5's
+     1-wide springs; the narrowest river on David's world now is 2.5 wide, so none today.
+   - A spot in any river's water is water, though another river's line is nearer.
+
+**On David's 12:21 preset** (its banks set to slope by hand; 6 cores):
+
+| | cut through | least change |
+|---|---|---|
+| Deepest cut | 115 | 112 |
+| Points cut deeper than 6 | 24,207 | **18,127** |
+| Water above its ground (points) | 705 | 9,803 (the hollows filled) |
+| Land lowered, average (most) | 4.2 (121) | **3.4** (113) |
+| Land raised, average | 0.03 | 0.07 |
+| Flush | 96.2% | 96.4% |
+| Rivers made in | 1.1 s | 1.1 s |
+
+Notes:
+- Least change cuts a quarter fewer points more than 6 deep, and lowers a fifth less land.
+- The water stands "at most 65" above its ground in both modes. That's not the fill: a few reaches end
+  at a lake's water standing well above their last point. It was there before; for later.
+
+**Corner-only joins** (sampled at every 8th point): **176 before, 115 after.**
+- **Fixed:** the 61 were at junctions. A narrow river joined a wide one, and the wide one's water
+  stopped where the narrow one's line was nearer, leaving gaps.
+- **Left:** the 115 are two separate rivers running side by side, their edges touching at corners on a
+  diagonal (a 6-wide river right alongside a 14-wide one, say).
+  - Their water could merge there, or keep a dry block between them.
+  - **A question for David.** It's also odd that the plan sends two rivers side by side at all.
+
+**Tests:** 49 pass. They include:
+- least change filling a hollow and cutting the rise after it, within the fill limit and under the
+  water arriving;
+- the anti-kitty-cornerer on a 1-wide diagonal river (corner joins before, none after) and at a
+  narrow-into-wide junction (the same);
+- old saved banks reading back.
+
+**Next:** stage 5, sizes by area, after David's word.

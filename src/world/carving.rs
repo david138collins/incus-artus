@@ -39,7 +39,8 @@ pub struct Point {
     /// they're on, and its banks held up beside it); NaN elsewhere.
     pub curtain: f32,
     /// How sharply it bends here (its width over the bend's radius; + its outside to the left, as
-    /// `bend`), and how far its banks fade into the land on the inside (blocks; 0 none) [2026-10-30].
+    /// `bend`; kept with the world, unused since the banks' bend sides were cut on 2026-10-31), and
+    /// how far its banks fade into the land (blocks; 0 none) [2026-10-30].
     pub turn: f32,
     pub fade: f32,
 }
@@ -77,12 +78,10 @@ impl FadeWay {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Banks {
-    /// The way on the inside of a bend, its outside, and a straight run.
-    pub ways: [FadeWay; 3],
-    /// How sharp a bend (its width over its radius) before its sides are an inside and an outside.
-    pub bend_from: f32,
-    /// The outside's fade, as a share of the inside's (shorter: the water cuts that bank).
-    pub outside: f32,
+    /// The way every bank fades [2026-10-31, David: bends "don't really seem to have a logical way to
+    /// be used cleanly": a way, fade and cut bank for each side of a bend, switched at how sharp the
+    /// bend was, left notches where a river straightened out. Cut].
+    pub way: FadeWay,
     /// The steepest a fade may be (blocks up for each across) before it widens, and the most it
     /// widens (times); past that, it stays steep (a gorge).
     pub steepest: f32,
@@ -93,16 +92,14 @@ pub struct Banks {
     /// pull down land", flush by default]: every river piece near a spot has its say, the land coming
     /// down to the lowest of their banks (so two rivers' banks meet with no seam); the land beside any
     /// river's water stays at least flush with it, coming down from there no steeper than the
-    /// steepest bank (so no water against air at a step or a bend); the first dry block is the shore
-    /// itself; and on the outside of a bend the bank keeps `cut_bank` of the land's height above the
-    /// water (a share: 0 flush). Off: each spot takes its nearest river's bank alone (the way before).
+    /// steepest bank (so no water against air at a step or a bend); and the first dry block is the
+    /// shore itself. Off: each spot takes its nearest river's bank alone (the way before).
     pub compressor: bool,
-    pub cut_bank: f32,
 }
 
 impl Default for Banks {
     fn default() -> Self {
-        Self { ways: [FadeWay::Smooth, FadeWay::LedgeThenSlope, FadeWay::Smooth], bend_from: 0.15, outside: 0.5, steepest: 1.0, widest: 3.0, terrace: 4.0, compressor: false, cut_bank: 0.25 }
+        Self { way: FadeWay::Smooth, steepest: 1.0, widest: 3.0, terrace: 4.0, compressor: false }
     }
 }
 
@@ -131,19 +128,13 @@ impl Banks {
 
     /// The compressor's ground at `beyond` blocks out from a river's water (at `level`), whose own
     /// ground there is `ground`: the first dry block (`beyond` up to 1) is the shore, flush with the
-    /// water (lowered or raised to it), but for `keep` (a share) of the land's height above it, a
-    /// cut bank (and a ledge way's block); then back to its own height over the fade, widened where
-    /// the way's steepest part would be steeper than the steepest bank, up to `widest` times (past
-    /// that a gorge). `None` past the fade.
-    pub fn compressed(&self, way: FadeWay, level: f32, fade: f32, keep: f32, beyond: f32, ground: f32) -> Option<f32> {
+    /// water (lowered or raised to it), or a block up for a ledge way; then back to its own height
+    /// over the fade, widened where the way's steepest part would be steeper than the steepest bank,
+    /// up to `widest` times (past that a gorge). `None` past the fade.
+    pub fn compressed(&self, way: FadeWay, level: f32, fade: f32, beyond: f32, ground: f32) -> Option<f32> {
         let shore = level - 1.0;
         let rise = ground - shore;
-        let kept = if rise > 0.0 {
-            let ledge = if way == FadeWay::LedgeThenSlope { 1.0f32.min(rise) } else { 0.0 };
-            (rise * keep.clamp(0.0, 1.0)).max(ledge)
-        } else {
-            0.0
-        };
+        let kept = if rise > 0.0 && way == FadeWay::LedgeThenSlope { 1.0f32.min(rise) } else { 0.0 };
         let rest = rise - kept;
         // An S-curve is half again as steep at its middle as on average.
         let peak = if matches!(way, FadeWay::Smooth | FadeWay::LedgeThenSlope) { 1.5 } else { 1.0 };
@@ -395,6 +386,9 @@ pub struct Carving {
     pub banks: Banks,
     /// Whether a waterfall gets a curtain of water down its face (kept with the world).
     pub curtains: bool,
+    /// The anti-kitty-cornerer (`half_across`): the water's blocks always join by a face, never only
+    /// at a corner (kept with the world).
+    pub anti_kitty_corner: bool,
     /// The grid: its cell size (blocks), cells across, the north-west corner, and in each cell the
     /// pieces (reach, first point) passing near it.
     cell: f32,
@@ -410,6 +404,10 @@ pub struct Carving {
     pub took: f32,
     pub deepest_cut: f32,
     pub deep_cuts: usize,
+    /// The highest the water stands above the lowest ground across a river (a hollow filled, or a
+    /// pond; blocks), and at how many points by half a block or more.
+    pub deepest_fill: f32,
+    pub filled: usize,
     pub pools: usize,
     pub rise_ponds: usize,
     pub cut_instead: usize,
@@ -429,7 +427,7 @@ pub struct Carving {
 
 impl PartialEq for Carving {
     fn eq(&self, other: &Self) -> bool {
-        self.reaches == other.reaches && self.lakes == other.lakes && self.banks == other.banks && self.curtains == other.curtains
+        self.reaches == other.reaches && self.lakes == other.lakes && self.banks == other.banks && self.curtains == other.curtains && self.anti_kitty_corner == other.anti_kitty_corner
     }
 }
 
@@ -444,6 +442,10 @@ pub fn depth_across(depth: f32, edge: f32, flat: f32, bowl: f32, across: f32) ->
     let at_edge = edge.clamp(0.0, 1.0) * depth;
     (at_edge + (depth - at_edge) * t.powf(bowl.max(0.05))).round().max(1.0)
 }
+
+/// A river piece as seen from a spot: its distance, which side, the point there blended between its
+/// ends, how far past the piece's start, and half its water across.
+type Piece = (f32, f32, Point, f32, f32);
 
 /// Where a spot is along a river piece: how far from its line (blocks; + toward the left, looking
 /// downstream), and how far along it (0 to 1).
@@ -462,7 +464,7 @@ fn along(a: &Point, b: &Point, north: f32, east: f32) -> (f32, f32, f32) {
 impl Carving {
     pub fn new(reaches: Vec<Reach>, lakes: Lakes, banks: Banks) -> Self {
         let full = !reaches.is_empty() || lakes.lakes.iter().any(|lake| !lake.is_dry());
-        let mut carving = Self { reaches, lakes, banks, curtains: true, full, ..Self::default() };
+        let mut carving = Self { reaches, lakes, banks, curtains: true, anti_kitty_corner: true, full, ..Self::default() };
         carving.index();
         carving
     }
@@ -524,6 +526,30 @@ impl Carving {
     /// The nearest river piece within its own reach of a spot: (its distance, which side, the point
     /// there blended between its ends, and how far past the piece's start).
     fn nearest_river(&self, north: f32, east: f32) -> Option<(f32, f32, Point, f32)> {
+        self.nearest_piece(north, east).map(|(distance, side, point, past, _)| (distance, side, point, past))
+    }
+
+    /// Half a river's water across at a piece from `a` to `b`, `width` wide there: with the
+    /// anti-kitty-cornerer, at least enough that a block the line passes through is water, so the
+    /// water's blocks always join by a face, never only at a corner (a narrow river on a diagonal
+    /// steps in a 1-block zigzag) [David, 2026-10-31: "add the anti-kitty-cornerer"].
+    fn half_across(&self, a: &Point, b: &Point, width: f32) -> f32 {
+        let half = width.max(1.0) / 2.0;
+        if !self.anti_kitty_corner {
+            return half;
+        }
+        let (dn, de) = (b.north - a.north, b.east - a.east);
+        let length = (dn * dn + de * de).sqrt().max(1e-6);
+        // (A line passes through a block where it's within this of its middle, across.)
+        half.max((dn.abs() + de.abs()) / length / 2.0)
+    }
+
+    /// The nearest river piece (as `nearest_river`), and half its water across (`half_across`). With
+    /// the anti-kitty-cornerer, a spot in any piece's water is that piece's (the nearest such), though
+    /// another's line is nearer [2026-10-31: where a narrow river joined a wide one, the wide one's
+    /// water stopped where the narrow one's line was nearer, and the gaps left its blocks joined only
+    /// at a corner: 176 places in a sample of David's world].
+    fn nearest_piece(&self, north: f32, east: f32) -> Option<Piece> {
         if self.cells.is_empty() {
             return None;
         }
@@ -531,22 +557,34 @@ impl Carving {
         if !inside {
             return None;
         }
-        let mut best: Option<(f32, f32, Point, f32)> = None;
+        let (mut best, mut wet): (Option<Piece>, Option<Piece>) = (None, None);
         for &(r, k) in &self.cells[self.row(north) * self.across + self.col(east)] {
             let points = &self.reaches[r as usize].points;
             let (a, b) = (&points[k as usize], &points[k as usize + 1]);
             let (distance, side, t) = along(a, b, north, east);
-            if best.as_ref().is_some_and(|(d, ..)| *d <= distance) {
+            let mix = |x: f32, y: f32| x + (y - x) * t;
+            let nearer = best.as_ref().is_none_or(|(d, ..)| distance < *d);
+            let in_water = self.anti_kitty_corner && wet.as_ref().is_none_or(|(d, ..)| distance < *d) && {
+                let (width, bend) = (mix(a.width, b.width), if t < 0.5 { a.bend } else { b.bend });
+                let shift = if (width.round() as i32) % 2 == 0 { 0.5 * bend } else { 0.0 };
+                (distance * side - shift).abs() <= self.half_across(a, b, width)
+            };
+            if !nearer && !in_water {
                 continue;
             }
-            let mix = |x: f32, y: f32| x + (y - x) * t;
             let span = ((b.north - a.north).powi(2) + (b.east - a.east).powi(2)).sqrt();
             // The level holds the upstream point's until the next (steps happen at points), and so
             // does a waterfall's top (`here` takes it as far past the lip as it reaches).
             let point = Point { north: mix(a.north, b.north), east: mix(a.east, b.east), width: mix(a.width, b.width), depth: mix(a.depth, b.depth), edge: mix(a.edge, b.edge), flat: mix(a.flat, b.flat), bowl: mix(a.bowl, b.bowl), level: a.level, bend: if t < 0.5 { a.bend } else { b.bend }, curtain: a.curtain, turn: mix(a.turn, b.turn), fade: mix(a.fade, b.fade) };
-            best = Some((distance, side, point, t * span));
+            let piece = Some((distance, side, point, t * span, self.half_across(a, b, point.width)));
+            if nearer {
+                best = piece;
+            }
+            if in_water {
+                wet = piece;
+            }
         }
-        best
+        wet.or(best)
     }
 
     /// The compressor's ground at a spot outside the nearest river's water (`Banks::compressor`):
@@ -577,7 +615,7 @@ impl Carving {
             let (distance, side, t) = along(a, c, north, east);
             let mix = |x: f32, y: f32| x + (y - x) * t;
             let (width, fade) = (mix(a.width, c.width), mix(a.fade, c.fade));
-            let half = width.max(1.0) / 2.0;
+            let half = self.half_across(a, c, width);
             let even = (width.round() as i32) % 2 == 0;
             let shift = if even { 0.5 * if t < 0.5 { a.bend } else { c.bend } } else { 0.0 };
             let beyond = (distance * side - shift).abs() - half;
@@ -590,15 +628,8 @@ impl Carving {
                 rim = rim.max(level - 1.0);
             }
             // Its say, unless the spot is in its water or out of its reach.
-            let say = (fade > 0.0 && beyond > 0.0 && beyond <= fade * widest + 2.0).then(|| {
-                let turn = mix(a.turn, c.turn);
-                let bent = turn.abs() >= b.bend_from;
-                let outside = bent && side == turn.signum();
-                let way = b.ways[if !bent { 2 } else if outside { 1 } else { 0 }];
-                let fade = fade * if outside { b.outside.clamp(0.05, 1.0) } else { 1.0 };
-                let target = b.compressed(way, level, fade, if outside { b.cut_bank } else { 0.0 }, beyond, ground);
-                target.map(|target| (target, level - 1.0 - (beyond - 1.0).max(0.0) * b.steepest.max(0.05)))
-            });
+            let say = (fade > 0.0 && beyond > 0.0 && beyond <= fade * widest + 2.0)
+                .then(|| b.compressed(b.way, level, fade, beyond, ground).map(|target| (target, level - 1.0 - (beyond - 1.0).max(0.0) * b.steepest.max(0.05))));
             if r != stretch.0 || k > stretch.1 + 2 {
                 if let Some((target, held)) = stretch.3 {
                     (bank, hold) = (bank.min(target), hold.max(held));
@@ -623,11 +654,11 @@ impl Carving {
         // 2026-10-31: where the broad ground had land, rivers ran on into the sea and their banks
         // stood up out of it as long straight sandbanks].)
         if !under_sea(ground)
-            && let Some((distance, side, point, past)) = self.nearest_river(north, east)
+            && let Some((distance, side, point, past, half)) = self.nearest_piece(north, east)
         {
-            // Inside the river: within half its width of the line, the odd block of an even width to
-            // the outside of the bend (centred where it runs straight) [David].
-            let half = point.width.max(1.0) / 2.0;
+            // Inside the river: within half its width of the line (or of a block the line passes
+            // through, `half_across`), the odd block of an even width to the outside of the bend
+            // (centred where it runs straight) [David].
             let even = (point.width.round() as i32) % 2 == 0;
             let shift = if even { 0.5 * point.bend } else { 0.0 };
             let offset = distance * side - shift;
@@ -652,21 +683,16 @@ impl Carving {
                     }
                 }
             } else if point.fade > 0.0 {
-                // Its bank: the ground faded from the shore back to its own, the way the bank's
-                // side of the bend takes (inside, outside or straight). Beside the first two blocks
-                // past a waterfall's lip, it's the water above the fall's shore: the cliff the fall
-                // comes down [2026-10-31: cut down to the water below, the fall's sides stood in the
-                // air].
+                // Its bank: the ground faded from the shore back to its own. Beside the first two
+                // blocks past a waterfall's lip, it's the water above the fall's shore: the cliff the
+                // fall comes down [2026-10-31: cut down to the water below, the fall's sides stood in
+                // the air].
                 let b = &self.banks;
-                let bent = point.turn.abs() >= b.bend_from;
-                let outside = bent && side == point.turn.signum();
-                let way = b.ways[if !bent { 2 } else if outside { 1 } else { 0 }];
-                let fade = point.fade * if outside { b.outside.clamp(0.05, 1.0) } else { 1.0 };
                 let level = match fall {
                     Some(top) if past < 2.0 => top,
                     _ => point.level.round(),
                 };
-                if let Some(bank) = b.ground(way, level, fade, offset.abs() - half, ground) {
+                if let Some(bank) = b.ground(b.way, level, point.fade, offset.abs() - half, ground) {
                     if bank < ground {
                         here.floor = Some(bank);
                     } else {
@@ -700,26 +726,17 @@ impl Carving {
         self.nearest_river(north, east).map(|(distance, _, point, _)| (distance, point.width))
     }
 
-    /// As text, for saving with a world: the banks (and the curtains, if they're off), each lake's grid
-    /// and its water cells, then each reach's points.
+    /// As text, for saving with a world: the banks (and the curtains and the anti-kitty-cornerer, if
+    /// they're off), each lake's grid and its water cells, then each reach's points.
     pub fn to_text(&self) -> String {
         let b = &self.banks;
-        let way = |w: FadeWay| FadeWay::ALL.iter().position(|&a| a == w).unwrap_or(0);
-        let mut text = format!(
-            "banks {} {} {} {} {} {} {} {} {} {}\n",
-            way(b.ways[0]),
-            way(b.ways[1]),
-            way(b.ways[2]),
-            b.bend_from,
-            b.outside,
-            b.steepest,
-            b.widest,
-            b.terrace,
-            b.compressor as u8,
-            b.cut_bank
-        );
+        let way = FadeWay::ALL.iter().position(|&a| a == b.way).unwrap_or(0);
+        let mut text = format!("bank {way} {} {} {} {}\n", b.steepest, b.widest, b.terrace, b.compressor as u8);
         if !self.curtains {
             text += "curtains 0\n";
+        }
+        if !self.anti_kitty_corner {
+            text += "anti-kitty-corner 0\n";
         }
         for lake in &self.lakes.lakes {
             text += &format!("lake {} {} {} {} {}\n", lake.north, lake.west, lake.cols, lake.rows, lake.cell);
@@ -741,29 +758,23 @@ impl Carving {
         // Each lake's grid (north, west, cols, rows, cell) and surfaces, made up at the end.
         let mut grids: Vec<(f32, f32, usize, usize, f32, Vec<f32>)> = Vec::new();
         let mut reaches: Vec<Reach> = Vec::new();
-        let (mut banks, mut curtains) = (Banks::default(), true);
+        let (mut banks, mut curtains, mut anti_kitty_corner) = (Banks::default(), true, true);
         for (number, line) in text.lines().enumerate() {
             let words: Vec<&str> = line.split_whitespace().collect();
             let bad = || format!("line {}: {line}", number + 1);
             let num = |k: usize| -> Result<f32, String> { words.get(k).and_then(|w| w.parse::<f32>().ok()).ok_or_else(bad) };
+            let way = |k: usize| num(k).map(|w| FadeWay::ALL[(w as usize).min(3)]);
             match words.first().copied() {
+                Some("bank") => banks = Banks { way: way(1)?, steepest: num(2)?, widest: num(3)?, terrace: num(4)?, compressor: num(5)? != 0.0 },
+                // Saved before the bends were cut (2026-10-31): a way for each side of a bend (the
+                // straight run's kept), how sharp a bend, the outside's fade, …, and from that morning
+                // the compressor and the cut banks.
                 Some("banks") => {
-                    let way = |k: usize| num(k).map(|w| FadeWay::ALL[(w as usize).min(3)]);
-                    // (Saved before the compressor, 2026-10-31: without it.)
                     let or = |k: usize, missing: f32| if words.len() > k { num(k) } else { Ok(missing) };
-                    let before = Banks::default();
-                    banks = Banks {
-                        ways: [way(1)?, way(2)?, way(3)?],
-                        bend_from: num(4)?,
-                        outside: num(5)?,
-                        steepest: num(6)?,
-                        widest: num(7)?,
-                        terrace: num(8)?,
-                        compressor: or(9, 0.0)? != 0.0,
-                        cut_bank: or(10, before.cut_bank)?,
-                    };
+                    banks = Banks { way: way(3)?, steepest: num(6)?, widest: num(7)?, terrace: num(8)?, compressor: or(9, 0.0)? != 0.0 };
                 }
                 Some("curtains") => curtains = num(1)? != 0.0,
+                Some("anti-kitty-corner") => anti_kitty_corner = num(1)? != 0.0,
                 Some("lake") => {
                     let (cols, rows) = (num(3)? as usize, num(4)? as usize);
                     grids.push((num(1)?, num(2)?, cols, rows, num(5)?, vec![f32::NAN; cols * rows]));
@@ -791,7 +802,7 @@ impl Carving {
             }
         }
         let lakes = grids.into_iter().filter(|grid| grid.2 * grid.3 > 0).map(|(north, west, cols, rows, cell, surface)| Lake::new(north, west, cols, rows, cell, surface)).collect();
-        Ok(Self { curtains, ..Self::new(reaches, Lakes::new(lakes), banks) })
+        Ok(Self { curtains, anti_kitty_corner, ..Self::new(reaches, Lakes::new(lakes), banks) })
     }
 }
 
@@ -825,10 +836,11 @@ mod tests {
         Carving::new(vec![Reach { points: vec![point(0.5, -50.0, width, 150.0, bend), point(0.5, 50.0, width, 150.0, bend)] }], Lakes::default(), Banks::default())
     }
 
-    /// The same, 4 wide, with banks fading over 8 blocks, bending as `turn` (+ its outside north).
+    /// The same, 4 wide, with smooth banks fading over 8 blocks, bending as `turn` (+ its outside
+    /// north).
     fn banked(turn: f32) -> Carving {
         let at = |east: f32| Point { turn, fade: 8.0, ..point(0.5, east, 4.0, 150.0, 0.0) };
-        Carving::new(vec![Reach { points: vec![at(-50.0), at(50.0)] }], Lakes::default(), Banks::default())
+        Carving::new(vec![Reach { points: vec![at(-50.0), at(50.0)] }], Lakes::default(), Banks { way: FadeWay::Smooth, ..Banks::default() })
     }
 
     #[test]
@@ -848,24 +860,24 @@ mod tests {
     }
 
     #[test]
-    fn a_bend_s_outside_bank_is_a_ledge_and_its_inside_is_flush() {
-        let river = banked(1.0);
-        // Its outside (north): a block above the water, then the slope.
+    fn a_ledge_way_s_bank_is_a_block_above_the_water_on_both_sides_of_a_bend() {
+        // (The bends' sides were cut on 2026-10-31: every bank fades the same way.)
+        let mut river = banked(1.0);
+        river.banks.way = FadeWay::LedgeThenSlope;
         assert_eq!(river.here(3.5, 0.0, 160.0).floor.unwrap().round(), 150.0);
-        // Its inside (south): flush.
-        assert_eq!(river.here(-2.5, 0.0, 160.0).floor.unwrap().round(), 149.0);
+        assert_eq!(river.here(-2.5, 0.0, 160.0).floor.unwrap().round(), 150.0);
     }
 
-    /// Banks by the compressor, smooth all round (the outside keeping `cut_bank`).
-    fn compressed(mut carving: Carving, cut_bank: f32) -> Carving {
-        carving.banks = Banks { ways: [FadeWay::Smooth; 3], compressor: true, cut_bank, ..Banks::default() };
+    /// Banks by the compressor, smooth.
+    fn compressed(mut carving: Carving) -> Carving {
+        carving.banks = Banks { way: FadeWay::Smooth, compressor: true, ..Banks::default() };
         carving
     }
 
     #[test]
-    fn compressor_banks_are_flush_at_the_first_dry_block_and_cut_banks_keep_their_share() {
-        // David: flush is level with the water; the exceptions are cut banks on the outside of bends.
-        let river = compressed(banked(0.0), 0.25);
+    fn compressor_banks_are_flush_at_the_first_dry_block() {
+        // David: flush is level with the water.
+        let river = compressed(banked(0.0));
         // The first dry block out (3.5 from the line, the water 2 either side) is the shore itself,
         // its top at the water's 150: cut down, or raised as a levee.
         assert_eq!(river.here(3.5, 0.0, 160.0).floor.unwrap(), 149.0);
@@ -873,10 +885,80 @@ mod tests {
         // Past the fade (widened so its middle is no steeper than 1 block up a block across), its own.
         let fade = (11.0f32 * 1.5).clamp(8.0, 24.0);
         assert_eq!(river.here(3.5 + fade + 0.5, 0.0, 160.0), Here { floor: None, fill: None, water: None });
-        // On the outside of a bend (north), a cut bank keeping a quarter of the land's 11 above the shore.
-        let bent = compressed(banked(1.0), 0.25);
-        assert!((bent.here(3.5, 0.0, 160.0).floor.unwrap() - (149.0 + 11.0 * 0.25)).abs() < 1e-3);
-        assert_eq!(bent.here(-2.5, 0.0, 160.0).floor.unwrap(), 149.0, "the inside is flush");
+        // Bending, the same on both sides.
+        let bent = compressed(banked(1.0));
+        assert_eq!((bent.here(3.5, 0.0, 160.0).floor.unwrap(), bent.here(-2.5, 0.0, 160.0).floor.unwrap()), (149.0, 149.0));
+    }
+
+    #[test]
+    fn the_anti_kitty_cornerer_joins_a_narrow_river_s_blocks_by_their_faces() {
+        // David: water blocks touching only at a corner don't hold together; "add the anti-kitty-
+        // cornerer". A river a block wide on a diagonal: its blocks touched corner to corner.
+        let at = |n: f32| point(n + 0.5, n + 0.5, 1.0, 150.0, 0.0);
+        let mut river = Carving::new(vec![Reach { points: vec![at(-40.0), at(40.0)] }], Lakes::default(), Banks::default());
+        // Water blocks touching a diagonal neighbour with neither block between them water.
+        let corners = |river: &Carving| {
+            let water = |n: i32, e: i32| river.here(n as f32 + 0.5, e as f32 + 0.5, 160.0).water.is_some();
+            let mut corners = 0;
+            for n in -20..20 {
+                for e in -20..20 {
+                    for de in [-1, 1] {
+                        if water(n, e) && water(n + 1, e + de) && !water(n + 1, e) && !water(n, e + de) {
+                            corners += 1;
+                        }
+                    }
+                }
+            }
+            corners
+        };
+        river.anti_kitty_corner = false;
+        assert!(corners(&river) > 10, "the old way joined only at corners");
+        river.anti_kitty_corner = true;
+        assert_eq!(corners(&river), 0);
+        // A wider river is unchanged.
+        let wide = |on| {
+            let at = |n: f32| point(n + 0.5, n + 0.5, 3.0, 150.0, 0.0);
+            let mut river = Carving::new(vec![Reach { points: vec![at(-40.0), at(40.0)] }], Lakes::default(), Banks::default());
+            river.anti_kitty_corner = on;
+            (-10..10).flat_map(|n| (-10..10).map(move |e| (n, e))).filter(|&(n, e)| river.here(n as f32 + 0.5, e as f32 + 0.5, 160.0).water.is_some()).count()
+        };
+        assert_eq!(wide(true), wide(false));
+    }
+
+    #[test]
+    fn with_the_anti_kitty_cornerer_a_narrow_river_joins_a_wide_one_by_whole_faces() {
+        // A sample of David's world: where a narrow river joined a wide one, the wide one's water
+        // stopped where the narrow one's line was nearer; the gaps joined its blocks only at corners.
+        let main = vec![point(0.5, -60.0, 12.0, 150.0, 0.0), point(0.5, 60.0, 12.0, 150.0, 0.0)];
+        let tributary = vec![point(40.5, 30.0, 3.0, 150.0, 0.0), point(0.5, 0.0, 3.0, 150.0, 0.0)];
+        let mut river = Carving::new(vec![Reach { points: main }, Reach { points: tributary }], Lakes::default(), Banks::default());
+        let corners = |river: &Carving| {
+            let water = |n: i32, e: i32| river.here(n as f32 + 0.5, e as f32 + 0.5, 160.0).water.is_some();
+            let mut corners = 0;
+            for n in -12..45 {
+                for e in -30..40 {
+                    for de in [-1, 1] {
+                        if water(n, e) && water(n + 1, e + de) && !water(n + 1, e) && !water(n, e + de) {
+                            corners += 1;
+                        }
+                    }
+                }
+            }
+            corners
+        };
+        river.anti_kitty_corner = false;
+        assert!(corners(&river) > 0, "the old way joined them at corners");
+        river.anti_kitty_corner = true;
+        assert_eq!(corners(&river), 0);
+        // And the wide river's water is whole where the narrow one's line is nearer: 6 out from its
+        // middle, beside the junction.
+        assert!(river.here(6.5, 4.5, 160.0).water.is_some());
+    }
+
+    #[test]
+    fn banks_saved_before_the_bends_were_cut_read_back_with_the_straight_run_s_way() {
+        let carving = Carving::from_text("banks 0 3 1 0.15 0.5 2 3 4 1 0.25\nr\np 0.5 -50 3 2 150 0 NaN\np 0.5 50 3 2 150 0 NaN\n").unwrap();
+        assert_eq!(carving.banks, Banks { way: FadeWay::Slope, steepest: 2.0, widest: 3.0, terrace: 4.0, compressor: true });
     }
 
     /// The highest any dry column next to a river's or lake's water stands below it (blocks; 0 if
@@ -914,8 +996,8 @@ mod tests {
         let at = |north: f32, east: f32, level: f32| Point { fade: 6.0, ..point(north, east, 3.0, level, 0.0) };
         let reaches = vec![Reach { points: vec![at(0.5, -40.0, 152.0), at(0.5, 0.0, 149.0), at(30.5, 25.0, 149.0), at(60.5, 50.0, 149.0)] }];
         let ground = |_: f32, _: f32| 156.0;
-        let old = Carving::new(reaches.clone(), Lakes::default(), Banks { ways: [FadeWay::Smooth; 3], ..Banks::default() });
-        let new = compressed(Carving::new(reaches, Lakes::default(), Banks::default()), 0.0);
+        let old = Carving::new(reaches.clone(), Lakes::default(), Banks { way: FadeWay::Smooth, ..Banks::default() });
+        let new = compressed(Carving::new(reaches, Lakes::default(), Banks::default()));
         assert!(worst_wall(&old, ground, -20..50, -30..40) > 0, "the old way had no wall here to fix");
         assert_eq!(worst_wall(&new, ground, -20..50, -30..40), 0);
     }
@@ -926,7 +1008,7 @@ mod tests {
         // nearest river's bank, so the land went 178, 218, 178, 218 across.
         let at = |north: f32, east: f32, level: f32| Point { fade: 12.0, ..point(north, east, 3.0, level, 0.0) };
         let reaches = vec![Reach { points: vec![at(0.5, -60.0, 190.0), at(0.5, 60.0, 190.0)] }, Reach { points: vec![at(14.5, -60.0, 160.0), at(14.5, 60.0, 160.0)] }];
-        let banks = Banks { ways: [FadeWay::Smooth; 3], widest: 6.0, ..Banks::default() };
+        let banks = Banks { way: FadeWay::Smooth, widest: 6.0, ..Banks::default() };
         let carving = Carving { banks: Banks { compressor: true, ..banks }, ..Carving::new(reaches.clone(), Lakes::default(), banks) };
         // Across from one river to the other, no step between neighbours steeper than the steepest
         // bank and a block.
@@ -945,7 +1027,7 @@ mod tests {
 
     #[test]
     fn banks_read_back_as_saved() {
-        let banks = Banks { ways: [FadeWay::Terraces, FadeWay::Slope, FadeWay::LedgeThenSlope], steepest: 2.0, compressor: true, cut_bank: 0.4, ..Banks::default() };
+        let banks = Banks { way: FadeWay::Terraces, steepest: 2.0, compressor: true, ..Banks::default() };
         let mut river = banked(0.3);
         river = Carving::new(river.reaches.clone(), Lakes::default(), banks);
         let again = Carving::from_text(&river.to_text()).unwrap();
