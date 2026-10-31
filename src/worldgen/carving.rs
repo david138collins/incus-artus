@@ -22,7 +22,7 @@
 use super::network::Network;
 use super::noise::{Fade, perlin};
 use super::rivers::Flow;
-use crate::world::{Carving, CompiledMap, Lakes, Reach, RiverPoint, SEA_LEVEL};
+use crate::world::{Carving, CompiledMap, Lake, Lakes, Reach, RiverPoint, SEA_LEVEL};
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -54,6 +54,11 @@ pub struct CarvingSettings {
     /// may move it before they're pulled back (blocks) [2026-10-30: "deepest gorge", over the broad
     /// ground].
     pub floor_rise: f32,
+    /// Lakes, filled on the real ground [2026-10-30]: how far round the planned lakes (step 5's,
+    /// on the broad ground) to look for their real basins (blocks), and how deep a pool has to be
+    /// at its deepest to be kept (blocks).
+    pub lake_reach: f32,
+    pub pond_depth: f32,
     /// Sizes [David's profiles drawing, 2026-10-30: "drawing wins", growing "by ratios we set"]: a
     /// spring's width and depth (blocks); then for each step up a rank (spring to creek, creek to
     /// stream, stream to river, river to great river) how many times wider and deeper; and how much a
@@ -92,6 +97,8 @@ impl Default for CarvingSettings {
             corridor: 64.0,
             grain: 4.0,
             floor_rise: 3.0,
+            lake_reach: 64.0,
+            pond_depth: 1.0,
             spring_width: 2.0,
             spring_depth: 1.5,
             width_ratio: [3.0, 2.5, 2.5, 2.5],
@@ -241,6 +248,8 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     let starts: Vec<usize> = (0..n).filter(|&i| on(i) && ups[i].len() != 1).collect();
     // Each river reach's planned path (patch to patch), its number and rank.
     let mut planned: Vec<(Vec<PathPoint>, u64, u32)> = Vec::new();
+    // The lakes first (filled on the real ground), so the rivers into them end at their water.
+    let (lakes, pools) = fill_lakes(flow, blocks, ground, s, stop)?;
     // For each river reach: where it starts and ends (patches), the water's level at its end if it's
     // the sea's or a lake's, and how far its start is from the mouth (deltas aren't listed: they keep
     // the sea's level).
@@ -260,10 +269,14 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
                 break;
             }
             if !on(d) {
-                // Into the sea (or a lake): the line goes on to its edge, at its water's level.
-                let level = if flow.lake[d] > 0.0 { flow.surface[d].round() } else { SEA_LEVEL as f32 };
-                (end, end_level) = (d, Some(level));
-                path.push(path_point(i, place(d), level.min(path.last().map_or(level, |p| p.level))));
+                // Into the sea (or a lake): the line goes on to its edge, at its water's level; a
+                // lake's as it's filled on the real ground (if its water reaches there; if not, the
+                // river just ends).
+                let (north, east) = place(d);
+                let level = if flow.lake[d] > 0.0 { lakes.water(north, east).map(f32::round) } else { Some(SEA_LEVEL as f32) };
+                (end, end_level) = (d, level);
+                let last = path.last().map_or(f32::MAX, |p| p.level);
+                path.push(path_point(i, (north, east), level.unwrap_or(last).min(last)));
                 break;
             }
             if ups[d].len() >= 2 {
@@ -305,15 +318,162 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     // The water levels, from the real ground (never above the banks), only falling downstream.
     let (deepest_cut, deep_cuts) = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
     reaches.extend(deltas);
-    let lakes = Lakes { width: w, blocks, surface: (0..n).map(|i| if flow.lake[i] > 0.0 { flow.surface[i] } else { f32::NAN }).collect() };
     let mut carving = Carving::new(reaches, lakes);
-    (carving.took, carving.deepest_cut, carving.deep_cuts) = (started.elapsed().as_secs_f32(), deepest_cut, deep_cuts);
+    (carving.took, carving.deepest_cut, carving.deep_cuts, carving.pools) = (started.elapsed().as_secs_f32(), deepest_cut, deep_cuts, pools);
     Some(carving)
 }
 
 /// Where a river's water passes below the lowest ground across it by more than this (blocks), it's
 /// counted as a deep cut (for the panel).
 const DEEP_CUT: f32 = 6.0;
+
+/// The lakes, each filled on the real ground [David, 2026-10-30: "perfect elevated rectangular
+/// swimming pools with a chunk of square perimeter"; they were step 5's surface on each 32-block
+/// patch of the broad ground]. Round step 5's lakes (their patches and `lake_reach` blocks round
+/// them, lakes that near each other taken together) the real ground is read on cells `grain` blocks
+/// across and filled and spilled from the edge, as the rivers' routes are: each dip fills to its
+/// lowest gap, whatever its shape. A pool at least `pond_depth` deep at its deepest is kept. With how
+/// many pools; `None` if stopped.
+fn fill_lakes(flow: &Flow, blocks: f32, ground: &CompiledMap, s: &CarvingSettings, stop: &AtomicBool) -> Option<(Lakes, usize)> {
+    let w = flow.width;
+    // The regions: the lake patches grown by the reach, joined where they touch.
+    let grow = (s.lake_reach.max(0.0) / blocks).ceil() as i64;
+    let mut near = vec![false; w * w];
+    for i in (0..w * w).filter(|&i| flow.lake[i] > 0.0) {
+        let (c, r) = ((i % w) as i64, (i / w) as i64);
+        for dr in -grow..=grow {
+            for dc in -grow..=grow {
+                let (c, r) = (c + dc, r + dr);
+                if c >= 0 && r >= 0 && c < w as i64 && r < w as i64 {
+                    near[r as usize * w + c as usize] = true;
+                }
+            }
+        }
+    }
+    let mut region = vec![u32::MAX; w * w];
+    let mut regions: Vec<Vec<usize>> = Vec::new();
+    for i in 0..w * w {
+        if !near[i] || region[i] != u32::MAX {
+            continue;
+        }
+        let k = regions.len() as u32;
+        let mut patches = vec![i];
+        region[i] = k;
+        let mut j = 0;
+        while j < patches.len() {
+            let (c, r) = ((patches[j] % w) as i64, (patches[j] / w) as i64);
+            for (dc, dr) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                let (c, r) = (c + dc, r + dr);
+                if c >= 0 && r >= 0 && c < w as i64 && r < w as i64 {
+                    let next = r as usize * w + c as usize;
+                    if near[next] && region[next] == u32::MAX {
+                        region[next] = k;
+                        patches.push(next);
+                    }
+                }
+            }
+            j += 1;
+        }
+        regions.push(patches);
+    }
+    // Each region filled, on all cores.
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let each = regions.len().div_ceil(cores).max(1);
+    let region = &region;
+    let filled: Vec<Option<(Lake, usize)>> = std::thread::scope(|scope| {
+        let jobs: Vec<_> = regions
+            .chunks(each)
+            .enumerate()
+            .map(|(part, chunk)| scope.spawn(move || chunk.iter().enumerate().map(|(k, patches)| fill_region(patches, (part * each + k) as u32, region, w, blocks, ground, s, stop)).collect::<Vec<_>>()))
+            .collect();
+        jobs.into_iter().flat_map(|job| job.join().unwrap_or_else(|_| vec![None])).collect()
+    });
+    let filled: Vec<(Lake, usize)> = filled.into_iter().collect::<Option<_>>()?;
+    let pools = filled.iter().map(|(_, pools)| pools).sum();
+    Some((Lakes::new(filled.into_iter().map(|(lake, _)| lake).filter(|lake| !lake.is_dry()).collect()), pools))
+}
+
+/// One lake region (`k`, its patches) filled on the real ground: see `fill_lakes`.
+#[allow(clippy::too_many_arguments)]
+fn fill_region(patches: &[usize], k: u32, region: &[u32], w: usize, blocks: f32, ground: &CompiledMap, s: &CarvingSettings, stop: &AtomicBool) -> Option<(Lake, usize)> {
+    let (sea, half) = (SEA_LEVEL as f32, w as f32 / 2.0);
+    let (c0, c1) = patches.iter().map(|&i| i % w).fold((usize::MAX, 0), |(a, b), c| (a.min(c), b.max(c)));
+    let (r0, r1) = patches.iter().map(|&i| i / w).fold((usize::MAX, 0), |(a, b), r| (a.min(r), b.max(r)));
+    // Its grid (coarser for a very big lake, to keep it small).
+    let mut cell = s.grain.max(1.0);
+    let size = |cell: f32| (((c1 - c0 + 1) as f32 * blocks / cell).ceil() as usize, ((r1 - r0 + 1) as f32 * blocks / cell).ceil() as usize);
+    while size(cell).0 * size(cell).1 > 4_000_000 {
+        cell *= 2.0;
+    }
+    let (cols, rows) = size(cell);
+    let (north, west) = ((half - r0 as f32) * blocks, (c0 as f32 - half) * blocks);
+    let centre = |i: usize| (north - ((i / cols) as f32 + 0.5) * cell, west + ((i % cols) as f32 + 0.5) * cell);
+    // Its cells' real ground (NaN outside the region).
+    let mut height = vec![f32::NAN; cols * rows];
+    for (i, h) in height.iter_mut().enumerate() {
+        if i % 65_536 == 0 && stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        let (n, e) = centre(i);
+        let (pc, pr) = ((e / blocks + half).floor(), (half - n / blocks).floor());
+        if pc >= 0.0 && pr >= 0.0 && (pc as usize) < w && (pr as usize) < w && region[pr as usize * w + pc as usize] == k {
+            *h = ground.height(n, e).unwrap_or(sea);
+        }
+    }
+    // Fill and spill from its edge.
+    let neighbours = |i: usize| {
+        let (c, r) = ((i % cols) as i64, (i / cols) as i64);
+        [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)].map(|(dc, dr)| {
+            let (c, r) = (c + dc, r + dr);
+            (c >= 0 && r >= 0 && c < cols as i64 && r < rows as i64).then(|| r as usize * cols + c as usize)
+        })
+    };
+    let mut level = vec![f32::NAN; cols * rows];
+    let mut waiting = BinaryHeap::new();
+    for i in (0..cols * rows).filter(|&i| height[i].is_finite()) {
+        if neighbours(i).iter().any(|n| n.is_none_or(|n| height[n].is_nan())) {
+            level[i] = height[i];
+            waiting.push(Reverse(Waiting { level: height[i], run: 0.0, at: i as u32 }));
+        }
+    }
+    while let Some(Reverse(Waiting { level: at_level, at, .. })) = waiting.pop() {
+        for next in neighbours(at as usize).into_iter().flatten() {
+            if height[next].is_finite() && level[next].is_nan() {
+                level[next] = height[next].max(at_level);
+                waiting.push(Reverse(Waiting { level: level[next], run: 0.0, at: next as u32 }));
+            }
+        }
+    }
+    // The pools (water standing half a block or more, above the sea), each kept if deep enough.
+    let water = |i: usize| level[i].is_finite() && level[i] - height[i] >= 0.5 && level[i] > sea;
+    let mut surface = vec![f32::NAN; cols * rows];
+    let mut seen = vec![false; cols * rows];
+    let mut pools = 0;
+    for i in 0..cols * rows {
+        if seen[i] || !water(i) {
+            continue;
+        }
+        let mut pool = vec![i];
+        seen[i] = true;
+        let mut j = 0;
+        while j < pool.len() {
+            for next in neighbours(pool[j]).into_iter().flatten() {
+                if !seen[next] && water(next) {
+                    seen[next] = true;
+                    pool.push(next);
+                }
+            }
+            j += 1;
+        }
+        if pool.iter().map(|&p| level[p] - height[p]).fold(0.0, f32::max) >= s.pond_depth {
+            pools += 1;
+            for &p in &pool {
+                surface[p] = level[p];
+            }
+        }
+    }
+    Some((Lake::new(north, west, cols, rows, cell, surface), pools))
+}
 
 /// A cell waiting to be reached by the route's fill and spill: lowest first, then the nearer the
 /// reach's end (so it runs the shortest way across level ground), then by place.
@@ -794,6 +954,44 @@ mod tests {
         let widths = || carving.reaches.iter().flat_map(|r| r.points.iter()).map(|p| p.width);
         assert!((widths().fold(f32::MAX, f32::min) - s.spring_width).abs() < 0.01, "no spring-sized start");
         assert!(widths().fold(0.0, f32::max) <= size_in_band(&s, 4, 1.0).0 + 1e-3);
+    }
+
+    #[test]
+    fn a_lake_fills_its_real_basin_and_never_stands_against_air() {
+        // Ground rising east, draining west, with a round crater 20 deep and 6 patches across the
+        // middle at column 40: step 5 makes it a lake on its 32-block patches.
+        let width = 64;
+        let z: Vec<f32> = (0..width * width)
+            .map(|i| {
+                let (c, r) = ((i % width) as f32, (i / width) as f32);
+                let d = ((c - 40.0).powi(2) + (r - 32.0).powi(2)).sqrt();
+                160.0 + c * 0.6 - 20.0 * (1.0 - d / 6.0).max(0.0)
+            })
+            .collect();
+        let broad: Vec<Option<f32>> = z.iter().map(|&h| Some(h)).collect();
+        let flow = crate::worldgen::rivers::flow(width, &broad, &vec![1.0; width * width], 2.0, 7, &AtomicBool::new(false)).unwrap();
+        assert!(flow.lake.iter().any(|&l| l > 0.0), "step 5 found no lake");
+        let ground = CompiledMap::of_heights(width, 32.0, &z);
+        let (lakes, pools) = fill_lakes(&flow, 32.0, &ground, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
+        let (north, east) = ((32.0 - 32.0 - 0.5) * 32.0, (40.0 + 0.5 - 32.0) * 32.0);
+        assert!(pools >= 1 && lakes.water(north, east).is_some(), "no water in the crater");
+        // Every column beside the water is as high as the water, or filled up to just under it.
+        let carving = Carving::new(Vec::new(), lakes);
+        for row in -60..=60 {
+            for col in -60..=60 {
+                let (n, e) = (north + row as f32 * 4.0, east + col as f32 * 4.0);
+                let Some(surface) = carving.lakes.water(n, e) else { continue };
+                for (dn, de) in [(4.0, 0.0), (-4.0, 0.0), (0.0, 4.0), (0.0, -4.0)] {
+                    let (n, e) = (n + dn, e + de);
+                    let real = ground.height(n, e).unwrap();
+                    if carving.lakes.water(n, e).is_none() {
+                        let here = carving.here(n, e, real);
+                        let top = real.max(here.fill.unwrap_or(f32::MIN));
+                        assert!(top >= surface.round() - 1.5, "water at {surface} beside ground at {top}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]

@@ -1155,6 +1155,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.label(format!("{} stretches of river, {points} points, made in {:.1} s", carving.reaches.len(), carving.took));
             ui.label(format!("deepest cut below its banks: {:.0} blocks; {} points cut deeper than 6", carving.deepest_cut, carving.deep_cuts))
                 .on_hover_text("How far the water passes below the lowest ground across a river. Following the valleys, this should stay small; deep cuts are trenches through rises it couldn't find a way round.");
+            ui.label(format!("{} lakes and ponds", carving.pools));
         }
         ui.add_space(4.0);
         ui.strong("The route");
@@ -1204,6 +1205,16 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
         ui.add(crate::debug::Slider::new(&mut c.shape_varies, 0.0..=1.0).text("shape varies")).on_hover_text("How much the shape wanders along a river (David's drawing varies as much within a rank as between them).");
         profiles_preview(ui, c);
+        ui.add_space(4.0);
+        ui.strong("Lakes");
+        ui.small(
+            "Round each lake the Rivers section found (on the broad ground, 32-block patches), the real ground is filled the \
+             way water fills it: each dip to its lowest gap, whatever its shape, at the route's grain. Dips just beside the \
+             water are filled to just under it, so water never stands against air.",
+        );
+        ui.add(crate::debug::Slider::new(&mut c.lake_reach, 0.0..=256.0).text("look round each lake (blocks)"))
+            .on_hover_text("How far round each planned lake its real basin is looked for. Ponds in dips within this reach are found too.");
+        ui.add(crate::debug::Slider::new(&mut c.pond_depth, 0.5..=10.0).text("a pond from (blocks deep)")).on_hover_text("A pool this deep at its deepest or more is kept; shallower dips stay dry.");
         ui.add_space(4.0);
         ui.strong("Falls and deltas");
         ui.checkbox(&mut c.curtains, "waterfalls get a curtain of water").on_hover_text("A one-block sheet of water blocks down each waterfall's face, so it reads as falling water (nothing moves).");
@@ -1823,7 +1834,7 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                     && flow.width == width
                 {
                     if flow.lake[i] > 0.0 {
-                        ui.small(format!("a lake {:.0} deep, its surface at Z {:.0}", flow.lake[i], flow.surface[i]));
+                        ui.small(format!("a planned lake (on the broad ground) {:.0} deep, its surface at Z {:.0}", flow.lake[i], flow.surface[i]));
                     }
                     ui.small(format!("water flowing through: {:.1} units", flow.flow[i])).on_hover_text("1 unit = a patch of land (more with snowmelt and slope-foot springs); it adds up downhill.");
                 }

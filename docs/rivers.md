@@ -156,7 +156,16 @@ the world's.**
      only come from smaller drops, such as a creek's last bit down to its river.
 - **Deltas:** where a river or great river reaches the sea and its last 64 or 128 blocks fall by less
   than 1%, the last stretch fans into three channels, each a third as wide, all at sea level.
-- **Lakes** keep step 5's surface for each lake patch.
+- **Lakes, filled on the real ground** (`fill_lakes`, 2026-10-30; they were step 5's surface on
+  each 32-block patch, raised square pools with square walls round them). Step 5's lake patches,
+  grown by 64 blocks (`lake_reach`, "look round each lake"), are joined into regions where they touch.
+  Each region's real ground is read on 4-block cells (the route's grain) and filled and spilled from
+  its edge, as the routes are: each dip fills to its lowest gap, whatever its shape. A pool at least
+  1 block deep at its deepest (`pond_depth`, "a pond from") is kept. So a planned lake can come out
+  smaller, larger, or as several ponds, and dips near it can become ponds. The panel counts the lakes
+  and ponds. A river into a lake ends at its real water level. If the real water doesn't reach the
+  river's end, the river just ends there. The network still plans with step 5's lakes (springs at big
+  lakes' outlets).
 
 ## 3. In the world (`src/world/carving.rs`, `interpreter.rs`, `terrain.rs`)
 
@@ -166,10 +175,11 @@ the world's.**
     to the outside of the bend. There the ground is cut down to the **channel floor**, the water level
     minus 1 minus the depth, and water fills from the floor up to the level. Just below a waterfall,
     the curtain raises the water to the level above the fall.
-  - **In a lake patch**, water stands to the surface wherever the ground is more than half a block below
-    it.
-  - **In the ring of patches round a lake**, a dip deeper than the surface is filled up to one block
-    under it, so water never stands against air at a crag dip.
+  - **In a lake's water cell**, water stands to the surface wherever the ground is more than half a
+    block below it. Each lake is a fine grid of its own, found through a lookup grid.
+  - **In a dry cell next to the water**, a dip below the surface is filled up to one block under it,
+    so water never stands against air. (Worlds saved before 2026-10-30 read their lakes back as one
+    grid of 32-block cells.)
 - **The carve lowers the recipe's height itself** (`ground_and_water`), so the far terrain, the light
   map and the World Compiler's close-up all see the rivers. The far terrain also blends a creek's water
   in by how much of a far cell it covers, so creeks don't pop.
@@ -442,7 +452,10 @@ a continuous-function terrain (our per-block recipe already gives any resolution
 - **Lakes, after the rivers** (David, 2026-10-30, with a screenshot): lakes come out as "perfect
   elevated rectangular swimming pools with a chunk of square perimeter". Their surface is the broad
   ground's fill on 32-block patches, so the water can stand above the real ground, and the ring fill
-  makes square walls. To address once the rivers are adjusted.
+  makes square walls. To address once the rivers are adjusted. *[Moved ahead of the banks: the
+  rivers into a perched lake were held up to its level, standing as walls of water (David's second
+  screenshot). Built 2026-10-30: lakes filled on the real ground, section 2's "Lakes".]* David: "there
+  should be some lakes and ponds above sea level."
 - **White water at falls, seen from above** (David, 2026-10-30, via Counsel): from above, a waterfall
   looks like the river just carries on. Make the water lighter at the drop wherever a fall is seen
   from above: the map overlays and the far terrain. When convenient, after the routing launch.

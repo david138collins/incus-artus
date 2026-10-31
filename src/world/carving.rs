@@ -45,12 +45,137 @@ pub struct Reach {
     pub points: Vec<Point>,
 }
 
-/// The lakes on the map's grid: each patch's lake surface (NaN for none).
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Lakes {
-    pub width: usize,
-    pub blocks: f32,
+/// One lake, or a few ponds near each other, on a fine grid of its own [2026-10-30: each filled on the
+/// real ground; it was one surface per 32-block patch of the broad ground, raised square pools with a
+/// square wall round them (David's screenshot)]: its north-west corner (blocks from the world's
+/// middle), cells across and down, the cell's size (blocks), and each cell's water surface (NaN where
+/// dry); worked out from that, each dry cell's next-door water surface (NaN if none), so a dip there is
+/// filled up to just under it and water never stands against air.
+#[derive(Clone, Debug, Default)]
+pub struct Lake {
+    pub north: f32,
+    pub west: f32,
+    pub cols: usize,
+    pub rows: usize,
+    pub cell: f32,
     pub surface: Vec<f32>,
+    beside: Vec<f32>,
+}
+
+/// The same lake: the same grid and the same water (dry cells, NaN, alike).
+impl PartialEq for Lake {
+    fn eq(&self, other: &Self) -> bool {
+        (self.north, self.west, self.cols, self.rows, self.cell) == (other.north, other.west, other.cols, other.rows, other.cell)
+            && self.surface.iter().map(|s| s.to_bits()).eq(other.surface.iter().map(|s| s.to_bits()))
+    }
+}
+
+impl Lake {
+    pub fn new(north: f32, west: f32, cols: usize, rows: usize, cell: f32, surface: Vec<f32>) -> Self {
+        let beside = (0..cols * rows)
+            .map(|i| {
+                if surface[i].is_finite() {
+                    return f32::NAN;
+                }
+                let (c, r) = ((i % cols) as i64, (i / cols) as i64);
+                let at = |dc: i64, dr: i64| {
+                    let (c, r) = (c + dc, r + dr);
+                    if c < 0 || r < 0 || c >= cols as i64 || r >= rows as i64 { f32::NAN } else { surface[r as usize * cols + c as usize] }
+                };
+                [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)].iter().map(|&(dc, dr)| at(dc, dr)).filter(|s| s.is_finite()).fold(f32::NAN, f32::max)
+            })
+            .collect();
+        Self { north, west, cols, rows, cell, surface, beside }
+    }
+
+    /// The cell a spot is in, if it's on this lake's grid.
+    fn cell_at(&self, north: f32, east: f32) -> Option<usize> {
+        let (col, row) = ((east - self.west) / self.cell, (self.north - north) / self.cell);
+        (col >= 0.0 && row >= 0.0 && (col as usize) < self.cols && (row as usize) < self.rows).then(|| row as usize * self.cols + col as usize)
+    }
+
+    /// Whether there's any water in it.
+    pub fn is_dry(&self) -> bool {
+        !self.surface.iter().any(|s| s.is_finite())
+    }
+}
+
+/// Every lake, and a lookup grid of which are near each spot.
+#[derive(Clone, Debug, Default)]
+pub struct Lakes {
+    pub lakes: Vec<Lake>,
+    /// The lookup: its cell size (blocks), cells across and down, its north-west corner, and in each
+    /// cell the lakes whose grids reach it.
+    cell: f32,
+    across: (usize, usize),
+    corner: (f32, f32),
+    cells: Vec<Vec<u32>>,
+}
+
+impl PartialEq for Lakes {
+    fn eq(&self, other: &Self) -> bool {
+        self.lakes == other.lakes
+    }
+}
+
+impl Lakes {
+    pub fn new(lakes: Vec<Lake>) -> Self {
+        let mut made = Self { lakes, cell: 256.0, ..Self::default() };
+        if made.lakes.is_empty() {
+            return made;
+        }
+        let (mut north, mut south, mut west, mut east) = (f32::MIN, f32::MAX, f32::MAX, f32::MIN);
+        for l in &made.lakes {
+            (north, west) = (north.max(l.north), west.min(l.west));
+            (south, east) = (south.min(l.north - l.rows as f32 * l.cell), east.max(l.west + l.cols as f32 * l.cell));
+        }
+        made.corner = (north, west);
+        made.across = (((east - west) / made.cell).ceil() as usize + 1, ((north - south) / made.cell).ceil() as usize + 1);
+        made.cells = vec![Vec::new(); made.across.0 * made.across.1];
+        for (k, l) in made.lakes.iter().enumerate() {
+            let (c0, r0) = made.lookup(l.north, l.west);
+            let (c1, r1) = made.lookup(l.north - l.rows as f32 * l.cell, l.west + l.cols as f32 * l.cell);
+            for r in r0..=r1 {
+                for c in c0..=c1 {
+                    made.cells[r * made.across.0 + c].push(k as u32);
+                }
+            }
+        }
+        made
+    }
+
+    fn lookup(&self, north: f32, east: f32) -> (usize, usize) {
+        let col = ((east - self.corner.1) / self.cell).floor().clamp(0.0, self.across.0 as f32 - 1.0) as usize;
+        let row = ((self.corner.0 - north) / self.cell).floor().clamp(0.0, self.across.1 as f32 - 1.0) as usize;
+        (col, row)
+    }
+
+    /// The lake water at a spot: its surface, and whether the spot is only beside it (dry, next to
+    /// the water).
+    pub fn at(&self, north: f32, east: f32) -> Option<(f32, bool)> {
+        if self.cells.is_empty() {
+            return None;
+        }
+        let (col, row) = self.lookup(north, east);
+        let mut beside = None;
+        for &k in &self.cells[row * self.across.0 + col] {
+            let lake = &self.lakes[k as usize];
+            if let Some(i) = lake.cell_at(north, east) {
+                if lake.surface[i].is_finite() {
+                    return Some((lake.surface[i], false));
+                }
+                if lake.beside[i].is_finite() {
+                    beside = Some((lake.beside[i], true));
+                }
+            }
+        }
+        beside
+    }
+
+    /// The lake water's surface at a spot, if there's water there.
+    pub fn water(&self, north: f32, east: f32) -> Option<f32> {
+        self.at(north, east).filter(|&(_, beside)| !beside).map(|(surface, _)| surface)
+    }
 }
 
 /// What the carving does to a column.
@@ -78,10 +203,12 @@ pub struct Carving {
     /// Whether there's anything to carve (worked out once: the height asks at every column).
     full: bool,
     /// How its making went, for the panel (not saved): how long it took (seconds), the water's
-    /// deepest cut below the lowest ground across a river (blocks), and how many points cut deep.
+    /// deepest cut below the lowest ground across a river (blocks), how many points cut deep, and
+    /// how many lakes and ponds.
     pub took: f32,
     pub deepest_cut: f32,
     pub deep_cuts: usize,
+    pub pools: usize,
 }
 
 impl PartialEq for Carving {
@@ -118,7 +245,7 @@ fn along(a: &Point, b: &Point, north: f32, east: f32) -> (f32, f32, f32) {
 
 impl Carving {
     pub fn new(reaches: Vec<Reach>, lakes: Lakes) -> Self {
-        let full = !reaches.is_empty() || lakes.surface.iter().any(|s| s.is_finite());
+        let full = !reaches.is_empty() || lakes.lakes.iter().any(|lake| !lake.is_dry());
         let mut carving = Self { reaches, lakes, full, ..Self::default() };
         carving.index();
         carving
@@ -214,9 +341,9 @@ impl Carving {
                 here.water = Some(top as i32);
             }
         }
-        // Lakes: water to the surface wherever the ground is below it; next to one, a crag dip below
-        // the surface is filled up to it.
-        if let Some((surface, edge)) = self.lake_near(north, east)
+        // Lakes: water to the surface wherever the ground is below it; beside one, a dip below the
+        // surface is filled up to it.
+        if let Some((surface, edge)) = self.lakes.at(north, east)
             && surface > SEA_LEVEL as f32
         {
             let top = surface.round();
@@ -231,35 +358,21 @@ impl Carving {
         here
     }
 
-    /// The lake at a spot: its surface, and whether the spot is only at its edge (in the ring of
-    /// patches round it, not its own).
-    fn lake_near(&self, north: f32, east: f32) -> Option<(f32, bool)> {
-        let l = &self.lakes;
-        if l.width == 0 || l.surface.is_empty() {
-            return None;
-        }
-        let half = l.width as f32 / 2.0;
-        let (col, row) = ((east / l.blocks + half).floor() as i64, (half - north / l.blocks).floor() as i64);
-        let at = |c: i64, r: i64| if c < 0 || r < 0 || c >= l.width as i64 || r >= l.width as i64 { f32::NAN } else { l.surface[r as usize * l.width + c as usize] };
-        let own = at(col, row);
-        if own.is_finite() {
-            return Some((own, false));
-        }
-        let ring = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)].iter().map(|&(dc, dr)| at(col + dc, row + dr)).filter(|s| s.is_finite()).fold(f32::NAN, f32::max);
-        ring.is_finite().then_some((ring, true))
-    }
-
     /// How far a spot is from the nearest river's line, and that river's width there (for the far
     /// terrain, to blend in the water of creeks narrower than its cells).
     pub fn nearest(&self, north: f32, east: f32) -> Option<(f32, f32)> {
         self.nearest_river(north, east).map(|(distance, _, point, _)| (distance, point.width))
     }
 
-    /// As text, for saving with a world: the lakes' grid, then each reach's points.
+    /// As text, for saving with a world: each lake's grid and its water cells, then each reach's
+    /// points.
     pub fn to_text(&self) -> String {
-        let mut text = format!("lakes {} {}\n", self.lakes.width, self.lakes.blocks);
-        for (i, s) in self.lakes.surface.iter().enumerate().filter(|(_, s)| s.is_finite()) {
-            text += &format!("l {i} {s}\n");
+        let mut text = String::new();
+        for lake in &self.lakes.lakes {
+            text += &format!("lake {} {} {} {} {}\n", lake.north, lake.west, lake.cols, lake.rows, lake.cell);
+            for (i, s) in lake.surface.iter().enumerate().filter(|(_, s)| s.is_finite()) {
+                text += &format!("w {i} {s}\n");
+            }
         }
         for reach in &self.reaches {
             text += "r\n";
@@ -272,21 +385,28 @@ impl Carving {
 
     /// Read back from `to_text`.
     pub fn from_text(text: &str) -> Result<Self, String> {
-        let mut lakes = Lakes::default();
+        // Each lake's grid (north, west, cols, rows, cell) and surfaces, made up at the end.
+        let mut grids: Vec<(f32, f32, usize, usize, f32, Vec<f32>)> = Vec::new();
         let mut reaches: Vec<Reach> = Vec::new();
         for (number, line) in text.lines().enumerate() {
             let words: Vec<&str> = line.split_whitespace().collect();
             let bad = || format!("line {}: {line}", number + 1);
             let num = |k: usize| -> Result<f32, String> { words.get(k).and_then(|w| w.parse::<f32>().ok()).ok_or_else(bad) };
             match words.first().copied() {
-                Some("lakes") => {
-                    lakes.width = num(1)? as usize;
-                    lakes.blocks = num(2)?;
-                    lakes.surface = vec![f32::NAN; lakes.width * lakes.width];
+                Some("lake") => {
+                    let (cols, rows) = (num(3)? as usize, num(4)? as usize);
+                    grids.push((num(1)?, num(2)?, cols, rows, num(5)?, vec![f32::NAN; cols * rows]));
                 }
-                Some("l") => {
+                // Saved before the lakes were filled on the real ground (2026-10-30): one grid over
+                // the whole map, a cell a patch.
+                Some("lakes") => {
+                    let (width, blocks) = (num(1)? as usize, num(2)?);
+                    let half = width as f32 / 2.0 * blocks;
+                    grids.push((half, -half, width, width, blocks, vec![f32::NAN; width * width]));
+                }
+                Some("w" | "l") => {
                     let i = num(1)? as usize;
-                    *lakes.surface.get_mut(i).ok_or_else(bad)? = num(2)?;
+                    *grids.last_mut().and_then(|grid| grid.5.get_mut(i)).ok_or_else(bad)? = num(2)?;
                 }
                 Some("r") => reaches.push(Reach::default()),
                 // Saved before the shape across (2026-10-30): a box.
@@ -299,7 +419,8 @@ impl Carving {
                 Some(_) => return Err(bad()),
             }
         }
-        Ok(Self::new(reaches, lakes))
+        let lakes = grids.into_iter().filter(|grid| grid.2 * grid.3 > 0).map(|(north, west, cols, rows, cell, surface)| Lake::new(north, west, cols, rows, cell, surface)).collect();
+        Ok(Self::new(reaches, Lakes::new(lakes)))
     }
 }
 
@@ -358,29 +479,41 @@ mod tests {
         assert!(inside(&other_way, 0.5) && inside(&other_way, -0.5) && !inside(&other_way, 1.5));
     }
 
-    #[test]
-    fn a_lake_fills_below_its_surface_and_its_crag_dip_edges_fill_to_the_water() {
-        // A 3 x 3 grid of 32-block patches, the middle one a lake at Z 140.
+    /// A lake on a 3 x 3 grid of 32-block cells round the world's middle, the middle cell water at
+    /// Z 140.
+    fn pond() -> Lakes {
         let mut surface = vec![f32::NAN; 9];
         surface[4] = 140.0;
-        let carving = Carving::new(Vec::new(), Lakes { width: 3, blocks: 32.0, surface });
+        Lakes::new(vec![Lake::new(48.0, -48.0, 3, 3, 32.0, surface)])
+    }
+
+    #[test]
+    fn a_lake_fills_below_its_surface_and_the_dips_beside_it_fill_to_the_water() {
+        let carving = Carving::new(Vec::new(), pond());
         assert_eq!(carving.here(0.0, 0.0, 130.0).water, Some(140), "in the lake");
         assert_eq!(carving.here(0.0, 0.0, 145.0).water, None, "an island");
-        // In the ring round it: a dip below the water is filled up to it; higher ground is left.
+        // Beside it: a dip below the water is filled up to it; higher ground is left; further off,
+        // nothing.
         assert_eq!(carving.here(40.0, 0.0, 120.0).fill, Some(139.0));
         assert_eq!(carving.here(40.0, 0.0, 150.0).fill, None);
+        assert_eq!(carving.here(200.0, 0.0, 120.0), Here { floor: None, fill: None, water: None });
     }
 
     #[test]
     fn the_carving_reads_back_as_saved() {
-        let mut surface = vec![f32::NAN; 9];
-        surface[4] = 140.0;
-        let carving = Carving::new(vec![Reach { points: vec![point(0.5, -50.0, 3.0, 150.0, 1.0), Point { curtain: 155.0, ..point(0.5, 50.0, 3.0, 148.0, -1.0) }] }], Lakes { width: 3, blocks: 32.0, surface });
+        let carving = Carving::new(vec![Reach { points: vec![point(0.5, -50.0, 3.0, 150.0, 1.0), Point { curtain: 155.0, ..point(0.5, 50.0, 3.0, 148.0, -1.0) }] }], pond());
         let again = Carving::from_text(&carving.to_text()).unwrap();
         assert_eq!(again.reaches.len(), 1);
         assert_eq!(again.reaches[0].points[1].curtain, 155.0);
-        assert_eq!(again.lakes.surface[4], 140.0);
-        assert!(again.lakes.surface[0].is_nan());
+        assert_eq!(again.lakes, carving.lakes);
         assert_eq!(again.here(0.5, 0.0, 160.0), carving.here(0.5, 0.0, 160.0));
+        assert_eq!(again.here(40.0, 0.0, 120.0), carving.here(40.0, 0.0, 120.0));
+    }
+
+    #[test]
+    fn lakes_saved_on_the_old_patch_grid_read_back_the_same() {
+        let old = Carving::from_text("lakes 3 32\nl 4 140\n").unwrap();
+        assert_eq!(old.here(0.0, 0.0, 130.0).water, Some(140));
+        assert_eq!(old.here(40.0, 0.0, 120.0).fill, Some(139.0));
     }
 }
