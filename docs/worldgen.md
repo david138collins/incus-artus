@@ -1128,6 +1128,16 @@ to evaporation.
    the peaks' rise.
 6. **What Ecology will read:** temperature, rainfall, ground wetness, distance to water, height, slope,
    biome core strengths. With 4 seasons, store each place's average *and* its seasonal swing.
+   - **Water you can find** [David 2026-10-31]: "we are gonna need lots of visual cues for rivers and
+     streams on plains, like tall grass, and frog sounds, and lushness from it in general, it is
+     difficult to see in such a big world." *Counsel:* this is what distance to water is for, and it
+     stays one way: Ecology and sound read the rivers and never change them.
+     - **Visual cues:** a band of lusher growth along all water, wider for bigger water (tall grass,
+       reeds and rushes at the edge, greener ground). On plains this could include a line of trees
+       along rivers, which is how rivers show from the air, and in the far terrain too.
+     - **Sound cues:** frogs and insects by still and slow water; running water louder at rapids and
+       falls, so it can be heard before it's seen.
+     - **Timing:** this comes with Ecology and the grass sprites, after the water rework.
 7. **Latitude** [IDEA, David 2026-10-28]: **ice caps** at the poles and an **equatorial band** (or a line
    with a falloff), with temperature fading between them, and **the lines squiggle**. David tunes the ice
    caps until worlds always get a reasonable amount of ice land, and the equatorial band so there are
