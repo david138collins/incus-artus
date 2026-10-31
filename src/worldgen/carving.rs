@@ -54,6 +54,13 @@ pub struct CarvingSettings {
     /// find its way (blocks), and the grain it's found on (blocks a cell).
     pub corridor: f32,
     pub grain: f32,
+    /// Where the way is found [stage 4 of `docs/water-rework.md`, 2026-10-31, David: "it's better for
+    /// the rivers to meander around the terrain down low near sea level", gorges "better up high"]:
+    /// everywhere (in the corridor round every river's plan), only where needed (round each stretch
+    /// where the water would cut deeper than `deep_cut` below the ground: near the sea, and high up,
+    /// blended by the water's height between the sea and the highest river), or off (the plan).
+    pub route: Route,
+    pub deep_cut: [f32; 2],
     /// How far above the valley floor (the real ground under its route) the wander, lean and meanders
     /// may move it before they're pulled back (blocks) [2026-10-30: "deepest gorge", over the broad
     /// ground].
@@ -105,6 +112,18 @@ pub struct CarvingSettings {
     pub cores: usize,
 }
 
+/// Where a river finds its way on the real ground (`CarvingSettings::route`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Route {
+    /// In the corridor round every river's plan.
+    #[default]
+    Everywhere,
+    /// Only round the stretches where the plan would cut too deep.
+    WhereNeeded,
+    /// Nowhere: the plan, smoothed.
+    Off,
+}
+
 /// The cores the making may use: its setting, from one to as many as the machine has.
 fn most_cores(s: &CarvingSettings) -> usize {
     s.cores.clamp(1, std::thread::available_parallelism().map_or(4, |n| n.get()))
@@ -123,6 +142,8 @@ impl Default for CarvingSettings {
             most_sideways: 48.0,
             corridor: 64.0,
             grain: 4.0,
+            route: Route::Everywhere,
+            deep_cut: [8.0, 8.0],
             floor_rise: 3.0,
             lake_reach: 64.0,
             pond_depth: 1.0,
@@ -364,18 +385,47 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
         }
         planned.push((path, k as u64, rank));
     }
-    // Each reach routed on the real ground and made a curve, on the cores it may use.
+    // Each reach routed on the real ground (everywhere, only where needed, or not at all) and made a
+    // curve, on the cores it may use. The deep cut where needed: from near the sea's to high up's,
+    // by the water's level between the sea and the highest river.
     let cores = most_cores(s);
     let each = planned.len().div_ceil(cores).max(1);
-    let made: Vec<Option<Reach>> = std::thread::scope(|scope| {
+    let routing = std::time::Instant::now();
+    let (sea, top) = (SEA_LEVEL as f32, planned.iter().filter_map(|(path, ..)| path.first()).map(|p| p.level).fold(SEA_LEVEL as f32 + 1.0, f32::max));
+    let x = move |level: f32| s.deep_cut[0] + (s.deep_cut[1] - s.deep_cut[0]) * ((level - sea) / (top - sea)).clamp(0.0, 1.0);
+    let made: Vec<Option<(Reach, Found)>> = std::thread::scope(|scope| {
         let jobs: Vec<_> = planned
             .chunks(each)
-            .map(|part| scope.spawn(move || part.iter().map(|(path, id, rank)| route(path, ground, s, stop).map(|line| curve(&line, path, *id, *rank, ground, seed, s))).collect::<Vec<_>>()))
+            .map(|part| {
+                let x = &x;
+                scope.spawn(move || {
+                    part.iter()
+                        .map(|(path, id, rank)| {
+                            let plan = || path.iter().map(|p| (p.north, p.east)).collect::<Vec<_>>();
+                            let (line, found) = match s.route {
+                                Route::Everywhere => (route(path, ground, s, stop)?, Found::default()),
+                                Route::WhereNeeded => route_where_needed(path, ground, s, &x, stop)?,
+                                Route::Off => (plan(), Found::default()),
+                            };
+                            // (The plan's cut and the line's, for the panel, however it was found.)
+                            let found = if s.route == Route::WhereNeeded {
+                                found
+                            } else {
+                                Found { plan_cut: deepest_along(&plan(), ground, f32::MAX), line_cut: deepest_along(&line, ground, f32::MAX), ..found }
+                            };
+                            Some((curve(&line, path, *id, *rank, ground, seed, s), found))
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
             .collect();
         // (A part that failed counts as stopped: its reaches can't go missing out of order.)
         jobs.into_iter().flat_map(|job| job.join().unwrap_or_else(|_| vec![None])).collect()
     });
-    let mut reaches: Vec<Reach> = made.into_iter().collect::<Option<_>>()?;
+    let made: Vec<(Reach, Found)> = made.into_iter().collect::<Option<_>>()?;
+    let route_took = routing.elapsed().as_secs_f32();
+    let found = made.iter().fold(Found::default(), |all, (_, f)| Found { deep: all.deep + f.deep, rerouted: all.rerouted + f.rerouted, plan_cut: all.plan_cut.max(f.plan_cut), line_cut: all.line_cut.max(f.line_cut) });
+    let mut reaches: Vec<Reach> = made.into_iter().map(|(reach, _)| reach).collect();
     // The water levels, from the real ground (never above the banks, but in a pond behind a rise),
     // only falling downstream.
     let laid = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
@@ -394,6 +444,7 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     }
     (carving.took, carving.deepest_cut, carving.deep_cuts, carving.pools) = (started.elapsed().as_secs_f32(), laid.deepest_cut, laid.deep_cuts, pools);
     (carving.rise_ponds, carving.cut_instead, carving.into_water) = (rise_ponds, laid.cut_instead, laid.into_water);
+    (carving.deep_stretches, carving.rerouted, carving.plan_cut, carving.line_cut, carving.route_took) = (found.deep, found.rerouted, found.plan_cut, found.line_cut, route_took);
     Some(carving)
 }
 
@@ -697,6 +748,100 @@ fn to_piece(north: f32, east: f32, a: (f32, f32), b: (f32, f32)) -> f32 {
 /// yet reached always next, so a dip fills to its lowest gap and spills; the route is the way its
 /// start's water then runs. Its ends are the planned path's (pinned, so rivers meet). `None` if
 /// stopped.
+/// How finely a line is read for the cut its water would need (blocks).
+const CUT_STEP: f32 = 8.0;
+
+/// What finding the way did on a reach: its stretches deeper than the deep cut on its plan, how
+/// many were found a better way round, and the deepest cut its plan and its line would need (blocks;
+/// estimated, `cuts_along`).
+#[derive(Clone, Copy, Debug, Default)]
+struct Found {
+    deep: usize,
+    rerouted: usize,
+    plan_cut: f32,
+    line_cut: f32,
+}
+
+/// The cut the water at each of a line's points would need: the ground under it against the water
+/// only falling from `from` (each spot's level the lowest ground so far): (cut, level).
+fn cuts_along(points: &[(f32, f32)], ground: &CompiledMap, from: f32) -> Vec<(f32, f32)> {
+    let mut level = from;
+    points
+        .iter()
+        .map(|&(north, east)| {
+            let here = ground.height(north, east).unwrap_or(SEA_LEVEL as f32);
+            level = level.min(here);
+            (here - level, level)
+        })
+        .collect()
+}
+
+/// The deepest cut along a line, read every `CUT_STEP` blocks, the water falling from `from`.
+fn deepest_along(line: &[(f32, f32)], ground: &CompiledMap, from: f32) -> f32 {
+    cuts_along(&resample(line, CUT_STEP), ground, from).iter().map(|c| c.0).fold(0.0, f32::max)
+}
+
+/// The way found only where it's needed [stage 4 of `docs/water-rework.md`]: the plan, read every
+/// `CUT_STEP` blocks for the cut its water would need; where that's deeper than the deep cut (`x`,
+/// by the water's level), a box round the stretch, out to where the cut is small again, is filled
+/// and spilled as `route` does (its corridor half the stretch's length, or 4 times its deepest cut
+/// if more, 32 to 256 blocks, at an 8-block grain), and its way kept if it cuts less. Elsewhere the
+/// plan stands. `None` if stopped.
+fn route_where_needed(path: &[PathPoint], ground: &CompiledMap, s: &CarvingSettings, x: &dyn Fn(f32) -> f32, stop: &AtomicBool) -> Option<(Vec<(f32, f32)>, Found)> {
+    let plan = resample(&path.iter().map(|p| (p.north, p.east)).collect::<Vec<_>>(), CUT_STEP);
+    let cuts = cuts_along(&plan, ground, f32::MAX);
+    let mut found = Found { plan_cut: cuts.iter().map(|c| c.0).fold(0.0, f32::max), ..Found::default() };
+    // The deep stretches, each out to where the cut is small again, and a point more either side.
+    let small = |k: usize| cuts[k].0 <= (x(cuts[k].1) / 2.0).min(2.0);
+    let mut stretches: Vec<(usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < plan.len() {
+        if cuts[i].0 <= x(cuts[i].1) {
+            i += 1;
+            continue;
+        }
+        let (mut a, mut b) = (i, i);
+        while a > 0 && !small(a) {
+            a -= 1;
+        }
+        while b + 1 < cuts.len() && !small(b) {
+            b += 1;
+        }
+        let (a, b) = (a.saturating_sub(1), (b + 1).min(plan.len() - 1));
+        match stretches.last_mut() {
+            Some(last) if a <= last.1 => last.1 = last.1.max(b),
+            _ => stretches.push((a, b)),
+        }
+        i = b + 1;
+    }
+    found.deep = stretches.len();
+    let mut line = Vec::with_capacity(plan.len());
+    let mut next = 0;
+    for &(a, b) in &stretches {
+        if stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        line.extend_from_slice(&plan[next..a]);
+        let old = &plan[a..=b];
+        let deepest = cuts[a..=b].iter().map(|c| c.0).fold(0.0, f32::max);
+        let boxed = CarvingSettings { corridor: ((b - a) as f32 * CUT_STEP / 2.0).max(deepest * 4.0).clamp(32.0, 256.0), grain: 8.0, ..s.clone() };
+        let sub: Vec<PathPoint> = old.iter().map(|&(north, east)| PathPoint { north, east, ..path[0] }).collect();
+        let new = route(&sub, ground, &boxed, stop)?;
+        // (The water arrives at the stretch at the plan's level there.)
+        let from = cuts[a].1;
+        if deepest_along(&new, ground, from) + 0.5 < deepest_along(old, ground, from) {
+            line.extend_from_slice(&new);
+            found.rerouted += 1;
+        } else {
+            line.extend_from_slice(old);
+        }
+        next = b + 1;
+    }
+    line.extend_from_slice(&plan[next..]);
+    found.line_cut = deepest_along(&line, ground, f32::MAX);
+    Some((line, found))
+}
+
 fn route(path: &[PathPoint], ground: &CompiledMap, s: &CarvingSettings, stop: &AtomicBool) -> Option<Vec<(f32, f32)>> {
     let (start, end) = ((path[0].north, path[0].east), (path[path.len() - 1].north, path[path.len() - 1].east));
     let planned = || path.iter().map(|p| (p.north, p.east)).collect::<Vec<_>>();
@@ -1571,6 +1716,36 @@ mod tests {
         let (round, over) = (highest(160.0), highest(16.0));
         assert!(over > 195.0, "a narrow corridor has to cross the ridge: {over}");
         assert!(round < 180.0, "a wide one goes round through the gap: {round}");
+    }
+
+    #[test]
+    fn only_where_needed_a_river_looks_for_a_way_round_where_it_would_cut_deep() {
+        // Stage 4 (David: rivers meander round the land down low): the same ridge, 50 high across the
+        // plan, with its gap about 108 blocks south. Only where needed, the river keeps its plan up to
+        // the ridge, finds the gap in a box round the stretch, and keeps its plan past it.
+        let width = 64;
+        let z: Vec<f32> = (0..width * width)
+            .map(|i| {
+                let (c, r) = (i % width, i / width);
+                let ridge = (30..=33).contains(&c) && !(44..=47).contains(&r);
+                150.0 + c as f32 * 0.5 + if ridge { 50.0 } else { 0.0 }
+            })
+            .collect();
+        let ground = CompiledMap::of_heights(width, 8.0, &z);
+        let shape = CarvingSettings::default().shapes[0];
+        let at = |c: f32| PathPoint { north: -4.0, east: (c + 0.5 - 32.0) * 8.0, width: 3.0, depth: 2.0, shape, level: 0.0 };
+        let path: Vec<PathPoint> = (0..=12).map(|k| at(56.0 - k as f32 * 4.0)).collect();
+        let s = CarvingSettings { route: Route::WhereNeeded, ..CarvingSettings::default() };
+        let (line, found) = route_where_needed(&path, &ground, &s, &|_| 8.0, &AtomicBool::new(false)).unwrap();
+        assert_eq!((found.deep, found.rerouted), (1, 1), "{found:?}");
+        assert!(found.plan_cut > 40.0 && found.line_cut < 20.0, "{found:?}");
+        assert_eq!((line[0], line[line.len() - 1]), ((path[0].north, path[0].east), (path[12].north, path[12].east)), "the ends are pinned");
+        // Away from the ridge, the plan: the first stretch of the line runs along it.
+        assert!(line.iter().take(10).all(|&(n, _)| (n - -4.0).abs() < 1e-3), "it left its plan before the ridge");
+        // With a deep cut allowed (high up, say), it cuts through on its plan.
+        let (line, found) = route_where_needed(&path, &ground, &s, &|_| 60.0, &AtomicBool::new(false)).unwrap();
+        assert_eq!((found.deep, found.rerouted), (0, 0));
+        assert!(line.iter().all(|&(n, _)| (n - -4.0).abs() < 1e-3));
     }
 
     /// A creek's point, 3 wide.

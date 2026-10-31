@@ -582,3 +582,52 @@ and "max" mean the slider's end. The changes from `rivers-balanced` are in **bol
   fall height together.
 - **Snowmelt** is in effect off ("higher than" 1,020). With rivers moving first in the Climate tab, it
   goes by height anyway.
+
+## 12. Stage 4, built (2026-10-31): the way found only where it's needed
+
+David's go-ahead ("got it, let builder know to proceed"). Built as section 2's piece 1. The details
+are in `docs/rivers.md` (step 7, "Where the way is found"):
+- **The switch:** "found:" everywhere, only where needed, or off.
+- **The deep cut:** "near the sea" and "high up", 2 to 40, both 8 to start, blended by the water's height
+  between the sea and the highest river.
+- **The box:** round each stretch whose plan would cut deeper, out to where the cut is small again.
+  It reaches half the stretch's length or 4 times its cut, 32 to 256 blocks, at an 8-block grain.
+  A 4-block grain took 6.3 s on David's world for the same result.
+- **Greyed out:** the corridor and grain outside "everywhere", and the sliders that can't act.
+- **The readout:** the stretches found and re-routed, the deepest cut before and after, and the time.
+
+**On David's saved preset** (today's bake, 6 cores):
+
+| | everywhere (his) | only where needed | off |
+|---|---|---|---|
+| Stretches too deep, re-routed | — | 326 of 374 | — |
+| Deepest cut along the plans, estimated | 139 | 139 | 139 |
+| Along the lines found | 117 | **90** | 139 |
+| Deepest cut as laid | 439 | 435 | 446 |
+| Points cut deeper than 6 | 25,098 | 23,825 | 29,787 |
+| Land lowered, average (most) | 4.1 (196) | **3.6** (212) | 4.3 (187) |
+| Steepest pull-down | 51 | **30** | 59 |
+| Flush | 95.7% | 96.0% | 96.4% |
+| Time finding the way | 0.3 s | 1.6 s | 0.1 s |
+
+**What it found: most deep cuts don't come from the path.**
+- **Where it works:** where a plan climbs over a ridge, the re-route goes round it. The plans' own
+  deepest cut drops from 139 to 90, the steepest pull-down from 51 to 30, and the land lowered by 13%.
+- **What it can't reach:** the cuts as laid still go to 435, and there are still 23,825 points more
+  than 6. The water's level can only fall, and with ponds off nothing holds it up. So after any dip,
+  the river stays at the dip's level and cuts through every rise after it, until the ground drops
+  below it again.
+  - About 80% of those deep points come from dips earlier along the river's own stretch.
+  - About 20% come from a stream upstream, through a junction.
+  - Rivers here follow their plans and seldom pass a crag, so the dips are mostly the hills (12 up and
+    down).
+- **That's a question of the level, not the path:** a dip "passed over" is filled or cut. Today it's
+  always cut. The cheapest answer is to fill small dips: the water runs level over a dip shallower
+  than a setting, the bed raised under it, instead of dragging the whole river down. That was the
+  "passed over: filled" half of stage 3 (lakes picked first).
+- **A level that changes the land least,** cutting rises and filling dips by turns, is the fuller
+  answer. It's a known method (isotonic regression, "pool adjacent violators") that runs in one pass
+  along a reach. Either is for David to choose.
+
+**Not changed:** "everywhere" is still the default, so David's preset keeps its look until he picks
+"only where needed".

@@ -119,6 +119,27 @@ the world's.**
   plan's, pinned. A very long reach uses a coarser grain, to keep its grid under 4 million cells. The
   panel shows how long it took, and the deepest cut below the banks (with how many points cut deeper
   than 6 blocks).
+- **Where the way is found** (2026-10-31, stage 4 of `docs/water-rework.md`): "found:" **everywhere**,
+  **only where needed**, or **off**. Everywhere is the corridor above, the way before.
+  - **Off:** each river follows its plan, smoothed.
+  - **Only where needed:**
+    - Each river follows its plan, read every 8 blocks for the cut its water would need: the ground
+      against the water only falling, its level the lowest ground so far.
+    - Where the cut is deeper than "a way round where the cut is deeper than", the river looks for a way
+      round. That depth runs from "near the sea" at the sea's level to "high up" at the highest river's,
+      blended by the water's height; both start at 8.
+    - The search is a fill and spill, as the corridor's, in a box round the stretch, out to where the
+      cut is small again. The box reaches half the stretch's length, or 4 times its cut if more, 32 to
+      256 blocks, at an 8-block grain. The way found is kept if it cuts less.
+    - The corridor and grain sliders are greyed out.
+  - **The readout:** how many stretches cut too deep, how many found a better way round, the deepest
+    cut on the plan and on the way found (read the same way), and how long it took.
+- **Sliders that can't act are greyed out** (2026-10-31, with stage 4; David's "grey out, don't hide"):
+  - the wander, swings, lean, meanders and "keep within" when "most sideways" is 0;
+  - meander every and "full meanders below" when the meander size is 0;
+  - each rank's sizes, shape and fade where no river reaches the ranks that use them. A creek's band
+    reaches toward the stream's size and shape, so creeks use the first two steps up and the first two
+    shapes.
 - **The shores readout and overlay** (2026-10-31, stage 0 of `docs/water-rework.md`).
   - **Shores:** at every 8th point of every river above the sea, both sides, the first dry block beside
     the water is counted as one of:

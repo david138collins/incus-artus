@@ -1205,20 +1205,51 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         ui.add_space(4.0);
         ui.strong("The route");
-        ui.add(crate::debug::Slider::new(&mut c.corridor, 8.0..=320.0).logarithmic(true).text("corridor (blocks either side)"))
+        ui.horizontal_wrapped(|ui| {
+            use super::carving::Route;
+            ui.label("found:");
+            ui.selectable_value(&mut c.route, Route::Everywhere, "everywhere").on_hover_text("In the corridor round every river's plan (the way before stage 4).");
+            ui.selectable_value(&mut c.route, Route::WhereNeeded, "only where needed").on_hover_text(
+                "Stage 4 of the water rework: each river follows its plan, and only where its water would cut deeper than the\n\
+                 deep cut below does it look for a way round, in a box round that stretch, out to where the cut is small again\n\
+                 (half the stretch's length or 4 times its cut across, 32 to 256 blocks, at an 8-block grain). It only looks nearby: a\n\
+                 river crossing a whole range with no gap near it still cuts through.",
+            );
+            ui.selectable_value(&mut c.route, Route::Off, "off").on_hover_text("Every river follows its plan, smoothed.");
+        });
+        let everywhere = c.route == super::carving::Route::Everywhere;
+        ui.add_enabled(everywhere, crate::debug::Slider::new(&mut c.corridor, 8.0..=320.0).logarithmic(true).text("corridor (blocks either side)"))
             .on_hover_text("How far either side of the network's plan a river may find its way round hills. Wider follows the land more freely, and takes longer.");
-        ui.add(crate::debug::Slider::new(&mut c.grain, 1.0..=16.0).text("grain (blocks)")).on_hover_text("How finely the way is found: smaller follows the land more closely, and takes longer.");
+        ui.add_enabled(everywhere, crate::debug::Slider::new(&mut c.grain, 1.0..=16.0).text("grain (blocks)")).on_hover_text("How finely the way is found: smaller follows the land more closely, and takes longer.");
+        let needed = c.route == super::carving::Route::WhereNeeded;
+        ui.add_enabled(needed, crate::debug::Slider::new(&mut c.deep_cut[0], 2.0..=40.0).text("a way round where the cut is deeper than (near the sea)")).on_hover_text(
+            "How far below the ground a river's water may cut before it looks for a way round, at the sea's level. Small here\n\
+             means rivers wind round the land down low (David: \"better for the rivers to meander around the terrain down low\").",
+        );
+        ui.add_enabled(needed, crate::debug::Slider::new(&mut c.deep_cut[1], 2.0..=40.0).text("…and high up")).on_hover_text(
+            "The same at the highest river's level; between, it's blended by the water's height. Large here lets rivers cut\n\
+             gorges high up (David: gorges are \"better up high\").",
+        );
+        if let Some(carving) = compiler.climate.carving() {
+            let found = if needed { format!("{} of {} stretches cutting too deep found a better way round; ", carving.rerouted, carving.deep_stretches) } else { String::new() };
+            ui.label(format!("{found}deepest cut on the plan {:.0}, on the way found {:.0}; {:.1} s", carving.plan_cut, carving.line_cut, carving.route_took)).on_hover_text(
+                "The deepest the water would cut below the ground under each river's line (read every 8 blocks along it, the water\n\
+                 only falling), on the network's plan and on the way found; and how long finding the ways (and the curves) took.",
+            );
+        }
         ui.add_space(4.0);
         ui.strong("The line");
         ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=5).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the route, over points about a river's width apart; bigger rivers get one more pass a rank, so they bend wider.");
-        ui.add(crate::debug::Slider::new(&mut c.wander, 0.0..=48.0).text("wander (blocks)")).on_hover_text("A gentle sideways drift (kept on the valley floor).");
-        ui.add(crate::debug::Slider::new(&mut c.wander_length, 50.0..=3_000.0).logarithmic(true).text("…its swings (blocks)"));
-        ui.add(crate::debug::Slider::new(&mut c.lean, 0.0..=2.0).text("lean to the outside of bends")).on_hover_text("Fast water cuts the outer bank: 1 = a river's width at a sharp bend.");
-        ui.add(crate::debug::Slider::new(&mut c.meander_length, 4.0..=30.0).text("meander every (widths)")).on_hover_text("Real meanders repeat about every 10 to 14 river widths.");
-        ui.add(crate::debug::Slider::new(&mut c.meander_size, 0.0..=4.0).text("meander size (widths)"));
-        ui.add(crate::debug::Slider::new(&mut c.flat, 0.001..=0.2).logarithmic(true).text("full meanders below (slope)")).on_hover_text("Meanders are full on ground flatter than this (blocks down per block along), fading on steeper.");
-        ui.add(crate::debug::Slider::new(&mut c.most_sideways, 0.0..=160.0).text("most sideways (blocks)")).on_hover_text("The furthest a river's line moves from its path.");
-        ui.add(crate::debug::Slider::new(&mut c.floor_rise, 0.0..=20.0).text("keep within (blocks above the valley floor)"))
+        let sideways = c.most_sideways > 0.0;
+        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.wander, 0.0..=48.0).text("wander (blocks)")).on_hover_text("A gentle sideways drift (kept on the valley floor). Greyed out: \"most sideways\" is 0.");
+        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.wander_length, 50.0..=3_000.0).logarithmic(true).text("…its swings (blocks)"));
+        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.lean, 0.0..=2.0).text("lean to the outside of bends")).on_hover_text("Fast water cuts the outer bank: 1 = a river's width at a sharp bend.");
+        let meanders = sideways && c.meander_size > 0.0;
+        ui.add_enabled(meanders, crate::debug::Slider::new(&mut c.meander_length, 4.0..=30.0).text("meander every (widths)")).on_hover_text("Real meanders repeat about every 10 to 14 river widths.");
+        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.meander_size, 0.0..=4.0).text("meander size (widths)"));
+        ui.add_enabled(meanders, crate::debug::Slider::new(&mut c.flat, 0.001..=0.2).logarithmic(true).text("full meanders below (slope)")).on_hover_text("Meanders are full on ground flatter than this (blocks down per block along), fading on steeper.");
+        ui.add(crate::debug::Slider::new(&mut c.most_sideways, 0.0..=160.0).text("most sideways (blocks)")).on_hover_text("The furthest a river's line moves from its path. 0 = none: the wander, lean and meanders do nothing.");
+        ui.add_enabled(sideways, crate::debug::Slider::new(&mut c.floor_rise, 0.0..=20.0).text("keep within (blocks above the valley floor)"))
             .on_hover_text("The wander, lean and meanders are pulled back where they'd move the river this far above the ground under its route.");
         ui.add_space(4.0);
         ui.strong("Sizes");
@@ -1229,10 +1260,19 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         ui.add(crate::debug::Slider::new(&mut c.spring_width, 1.0..=4.0).text("a spring's width (blocks)"));
         ui.add(crate::debug::Slider::new(&mut c.spring_depth, 1.0..=3.0).text("…its depth (blocks)"));
+        // Which ranks any river reaches, and so which settings act: a rank's band runs from below its
+        // own size up toward the next rank's (`carving::size_in_band`), so a creek uses the first two
+        // steps up and the first two shapes. (All act until the network's made.)
+        let reached: [bool; 4] = compiler.climate.network().map_or([true; 4], |network| [1, 2, 3, 4].map(|rank| network.rank.contains(&rank)));
+        let any = |from: usize, to: usize| (from.max(1)..=to.min(4)).any(|rank| reached[rank - 1]);
+        if reached != [true; 4] {
+            ui.small("Settings only ranks no river reaches would use are greyed out (fewer stream orders per rank lets rivers reach them).");
+        }
         for (k, step) in ["spring to creek", "creek to stream", "stream to river", "river to great river"].iter().enumerate() {
-            ui.label(*step);
-            ui.add(crate::debug::Slider::new(&mut c.width_ratio[k], 1.5..=5.0).text("times wider"));
-            ui.add(crate::debug::Slider::new(&mut c.depth_ratio[k], 1.0..=3.0).text("times deeper"));
+            let used = any(k, 4);
+            ui.add_enabled(used, egui::Label::new(*step));
+            ui.add_enabled(used, crate::debug::Slider::new(&mut c.width_ratio[k], 1.5..=5.0).text("times wider"));
+            ui.add_enabled(used, crate::debug::Slider::new(&mut c.depth_ratio[k], 1.0..=3.0).text("times deeper"));
         }
         ui.add(crate::debug::Slider::new(&mut c.size_varies, 0.0..=0.5).text("size varies")).on_hover_text("How much a river's size wanders along it, slowly (0.15 = up to 15% either way).");
         for (k, rank) in super::network::RANKS.iter().enumerate() {
@@ -1244,10 +1284,11 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.small("For each rank, in the middle of its band (halfway to its neighbours' at its ends). The preview below draws them like David's drawing.");
         for (k, rank) in super::network::RANKS.iter().enumerate() {
             let shape = &mut c.shapes[k];
-            ui.label(*rank);
-            ui.add(crate::debug::Slider::new(&mut shape.edge, 0.0..=1.0).text("water at the bank (share of the deepest)")).on_hover_text("0.3 = a V; 0.5 = steep sides; 1 = a box.");
-            ui.add(crate::debug::Slider::new(&mut shape.flat, 0.0..=0.9).text("flat floor (share of the width)"));
-            ui.add(crate::debug::Slider::new(&mut shape.bowl, 0.2..=5.0).logarithmic(true).text("bowl")).on_hover_text("Below 1: deep quickly, then flat (steep sides). 1: even steps. Above 1: shallow shelves, then dropping.");
+            let used = any(k, k + 2);
+            ui.add_enabled(used, egui::Label::new(*rank));
+            ui.add_enabled(used, crate::debug::Slider::new(&mut shape.edge, 0.0..=1.0).text("water at the bank (share of the deepest)")).on_hover_text("0.3 = a V; 0.5 = steep sides; 1 = a box.");
+            ui.add_enabled(used, crate::debug::Slider::new(&mut shape.flat, 0.0..=0.9).text("flat floor (share of the width)"));
+            ui.add_enabled(used, crate::debug::Slider::new(&mut shape.bowl, 0.2..=5.0).logarithmic(true).text("bowl")).on_hover_text("Below 1: deep quickly, then flat (steep sides). 1: even steps. Above 1: shallow shelves, then dropping.");
         }
         ui.add(crate::debug::Slider::new(&mut c.shape_varies, 0.0..=1.0).text("shape varies")).on_hover_text("How much the shape wanders along a river (David's drawing varies as much within a rank as between them).");
         profiles_preview(ui, c);
@@ -1259,7 +1300,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
              Where the fade would be steeper than the steepest bank it widens, up to a limit; past that it stays steep (a gorge).",
         );
         for (k, rank) in super::network::RANKS.iter().enumerate() {
-            ui.add(crate::debug::Slider::new(&mut c.fade_widths[k], 0.0..=4.0).text(format!("{rank}s fade over (widths)")));
+            ui.add_enabled(reached[k], crate::debug::Slider::new(&mut c.fade_widths[k], 0.0..=4.0).text(format!("{rank}s fade over (widths)")));
         }
         ui.add(crate::debug::Slider::new(&mut c.fade_least, 0.0..=16.0).text("…at least (blocks)"));
         let banks = &mut c.banks;

@@ -416,6 +416,15 @@ pub struct Carving {
     pub into_water: usize,
     /// Its shores and the land beside them, sampled (`Shores`).
     pub shores: Shores,
+    /// How the way was found (stage 4 of `docs/water-rework.md`): stretches whose plan would cut
+    /// deeper than the deep cut, how many of those found a better way round, the deepest cut on the
+    /// plans and on the lines found (blocks, estimated along each line), and how long it took
+    /// (seconds).
+    pub deep_stretches: usize,
+    pub rerouted: usize,
+    pub plan_cut: f32,
+    pub line_cut: f32,
+    pub route_took: f32,
 }
 
 impl PartialEq for Carving {
