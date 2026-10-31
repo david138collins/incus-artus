@@ -2080,18 +2080,31 @@ to 58, every block regulated). Next:
       talked through first. It's built once, and mineralogy uses it first.
    3. **Mineralogy on it:** rock types and soils. Caves need the rock, and beds and shores read the
       rivers.
-   4. **The asset factory world and the Blueprints tab** (`docs/decisions.md`), "needed before
+   4. **The quartile placement system** (`docs/decisions.md`, Quartile Placement: octants, quarter
+      bars in 12 slots a cell, mixed materials). David, 2026-10-31: "what about the quartile/octant
+      system? we need oak quarter size logs." Trees need it first: quartile oak makes the thin trunks
+      and branches, and the quarter log is also the fires' small log. It reaches several parts:
+      - the world's cells hold bars;
+      - the mesher draws sub-block shapes, and the vertex format addresses half blocks;
+      - collision;
+      - the Registrar's block format;
+      - placing and mining.
+      It doesn't depend on the placing system, so it could come earlier. It also answers the "should
+      quarter blocks spawn in world gen?" reminder: yes, inside the trees the world places.
+   5. **The asset factory world and the Blueprints tab** (`docs/decisions.md`), "needed before
       trees": build a tree from library blocks and register it as a blueprint.
-   5. **Ecology** places tree blueprints with the same system, by temperature, rain, distance to
-      water, slope and height. **Trees in the far view** come with it, which is the real test for
-      performance.
-   6. **Caves:** the far-3D contract (the cave section's proposal, and David's holes in the canvas),
+   6. **Ecology** places tree blueprints with the same system, by temperature, rain, distance to
+      water, slope and height. **Trees in the far view** come with it (sprites of themselves), which
+      is the real test for performance.
+   7. **Caves:** the far-3D contract (the cave section's proposal, and David's holes in the canvas),
       carving under the surface, and the first kind, the waterfall cave.
-   7. Then the graphics pass and the performance overhaul, with all three in.
+   8. Then the graphics pass and the performance overhaul, with all three in.
 
-   **Art David could start on** (his to make): the rock types (the starter set in item 3 above);
-   bark, log ends and leaves for one to three trees; tall grass as a crossed sprite (his "water you can
-   find" cues).
+   **Art David could start on** (his to make):
+   - the rock types (the starter set in item 3 above);
+   - bark, log ends and leaves for one to three trees, plus **quartile oak** (at 32 pixels a block, a
+     quarter bar's long faces are 32×16 and its ends 16×16);
+   - tall grass as a crossed sprite (his "water you can find" cues).
    **Before rivers: rough in a mineralogy section** [David 2026-10-29], somewhere to decide how the new
    blocks get placed, and **retire the old ways they're placed**. Today that's `surface()` in
    `src/world/terrain.rs`: grass below a height, stone from "stone from", gabbro from "gabbro from",
