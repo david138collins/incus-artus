@@ -1109,8 +1109,9 @@ tab done. it should be easy"):
   temperature, wind or rain. Nothing after the rivers reads them yet (the lake effect, milder air by
   big water stay ideas), but it can.
 - **The panel:** the Climate tab goes the ground it reads, Rivers, River network, Carving, Temperature,
-  Wind, Rain, Mineralogy, then Caves (greyed, still to come). "Show over the map" follows the same
-  order: water and rivers before temperature, wind and rain.
+  Wind, Rain. "Show over the map" follows the same order: water and rivers before temperature, wind
+  and rain. (Mineralogy, with the greyed Caves after it, then moved to a panel of its own: "Tabs by
+  stage", `docs/worldgen.md`.)
 - **The same rivers:** David's 15:20 preset gives the same rivers to the byte (their saved text,
   18 MB, compared before and after). Saved worlds read their rivers back from `rivers.txt`, so nothing
   in them changes.

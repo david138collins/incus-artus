@@ -200,7 +200,7 @@ pub struct InterpreterSettings {
     /// The lift: land raised toward the mountains, like a tablecloth draped over points floating
     /// above them, its edges tapering off just before the coast.
     pub lift: Lift,
-    /// Peaks at the mountains' points (the Additives panel's Mountains, Peaks).
+    /// Peaks at the mountains' points (the Topography panel's Mountains, Peaks).
     pub peaks: Peaks,
     /// How tall mountains are for each amount of squeeze, from none (left) to the most crushed rock
     /// in the bake (right): up = a share of the room up to Z 333.
@@ -291,7 +291,7 @@ pub enum LiftFrom {
 
 /// The lift's settings. The points are found from the bake's own crush (how squeezed the rock is,
 /// against the most crushed in the bake, 0 to 1), not the mountains curve, so they hold still as
-/// the mountains are reshaped. On the Additives panel since 2026-10-27, as Mountains: Where (the
+/// the mountains are reshaped. On the Topography panel (the Additives until 2026-10-31) since 2026-10-27, as Mountains: Where (the
 /// points) and Rise (the cloth); kept here, in the recipe, because the cloth is worked out at
 /// every block.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -340,7 +340,7 @@ impl Default for Lift {
     }
 }
 
-/// Peaks: a mountain standing at each of the mountains' points (Additives, Mountains, Where), on
+/// Peaks: a mountain standing at each of the mountains' points (Topography, Mountains, Where), on
 /// top of everything below it. [David, 2026-10-27: `vision/proposal-peaks.md`. First the rise
 /// alone; crags, the slope response and variation come next.]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

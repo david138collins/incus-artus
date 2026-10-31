@@ -1,15 +1,16 @@
-//! The World Compiler's screen: pick a bake, set the compiler's whole-map jobs, the additives and
-//! the Interpreter's recipe, and see the result as the world's blocks. (The work itself is in
-//! `compiler.rs`, `additives.rs` and `crate::world::interpreter`.)
+//! The World Compiler's screen: pick a bake, set the compiler's whole-map jobs, the topography (the
+//! additives, in code), the climate, the mineralogy and the Interpreter's recipe, and see the result
+//! as the world's blocks. (The work itself is in `compiler.rs`, `additives.rs`, `climate.rs` and
+//! `crate::world::interpreter`.)
 //!
 //! ```text
-//! ┌──── top: panels shown, which bake, land share ─────────────────────────────────────────────┐
-//! │ Landmass     │ Additives      │ World Interpreter │                        │ under the    │
-//! │ sea level    │ grain drift    │ the chain         │  the world, in blocks  │ mouse        │
-//! │ coastline    │                │ land and sea      │                        │              │
-//! │ soften       │                │ mountains         │                        │              │
-//! │ save, render │                │ peaks, blocks     │                        │              │
-//! └──────────────┴────────────────┴───────────────────┴────────────────────────┴──────────────┘
+//! ┌──── top: panels shown, which bake, land share ──────────────────────────────────────────────────────────┐
+//! │ Landmass     │ Topography   │ Climate      │ Mineralogy │ World Interpreter │                │ under the │
+//! │ sea level    │ mountains    │ rivers       │ the blocks │ the chain         │ the world, in  │ mouse     │
+//! │ coastline    │ grain drift  │ temperature  │ underfoot  │ land and sea      │ blocks         │           │
+//! │ soften       │              │ wind, rain   │ (caves     │ mountains         │                │           │
+//! │ save, render │              │              │  to come)  │ peaks, blocks     │                │           │
+//! └──────────────┴──────────────┴──────────────┴────────────┴───────────────────┴────────────────┴───────────┘
 //! ```
 
 use super::Suite;
@@ -34,8 +35,10 @@ use std::sync::Arc;
 const BEYOND: [u8; 3] = [10, 10, 14];
 /// The scratch bake EZ-Bake writes (and overwrites) each time.
 const EZ_BAKE: &str = "_ez-bake";
-/// The left-hand panels, in the order things happen.
-const PANELS: [&str; 4] = ["Landmass", "Additives", "Climate", "World Interpreter"];
+/// The left-hand panels, in the order things happen [David, 2026-10-31: "Tabs by stage",
+/// docs/worldgen.md; the Topography panel was the Additives (its settings keep that name in code and
+/// presets), and Mineralogy moved out of Climate: "minerology is gonna need a lot of space"].
+const PANELS: [&str; 5] = ["Landmass", "Topography", "Climate", "Mineralogy", "World Interpreter"];
 
 pub struct Compiler {
     pub settings: CompileSettings,
@@ -100,17 +103,17 @@ pub struct Compiler {
     climate_painted_for: Option<u64>,
     /// How many map pixels across the climate picture covers.
     climate_painted_size: usize,
-    /// The Additives panel's dots.
+    /// The Topography panel's dots.
     pub additives: Additives,
     /// Whether the lift's points are drawn over the map.
     pub show_lift_points: bool,
     /// Where you were in the world when you opened the Editor Suite (F2): north, east (blocks) and
     /// the compass bearing you faced (degrees), drawn on the map. [David, 2026-10-27]
     pub came_from: Option<(f32, f32, f32)>,
-    /// The Landmass, Additives, Climate and World Interpreter panels: shown (the buttons along the top),
-    /// and folded away to thin strips (they start folded, so the map has the room).
-    pub shown: [bool; 4],
-    pub folded: [bool; 4],
+    /// The Landmass, Topography, Climate, Mineralogy and World Interpreter panels: shown (the buttons
+    /// along the top), and folded away to thin strips (they start folded, so the map has the room).
+    pub shown: [bool; 5],
+    pub folded: [bool; 5],
     /// The readouts panel on the right, folded away to a thin strip.
     pub readouts_folded: bool,
 }
@@ -157,8 +160,8 @@ impl Default for Compiler {
             additives: Additives::default(),
             show_lift_points: false,
             came_from: None,
-            shown: [true; 4],
-            folded: [true; 4],
+            shown: [true; 5],
+            folded: [true; 5],
             readouts_folded: true,
         }
     }
@@ -492,8 +495,14 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite, look: &Look) {
         });
     }
     if shown[3] {
-        super::view::foldable_left(root, "world interpreter settings", PANELS[3], &mut folded[3], 320.0, |ui| {
+        super::view::foldable_left(root, "mineralogy settings", PANELS[3], &mut folded[3], 300.0, |ui| {
             super::notes::on_page(Some(PANELS[3]));
+            egui::ScrollArea::vertical().id_salt("mineralogy").show(ui, |ui| mineralogy_panel(ui, compiler));
+        });
+    }
+    if shown[4] {
+        super::view::foldable_left(root, "world interpreter settings", PANELS[4], &mut folded[4], 320.0, |ui| {
+            super::notes::on_page(Some(PANELS[4]));
             egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
         });
     }
@@ -635,7 +644,7 @@ Tectonic Sim -> bake (32-block pixels)
       |
 World Compiler · whole map, once:
   sea level · soften coast · soften mountains
-  where the mountains stand (Additives)
+  where the mountains stand (Topography)
       |  smooth maps
 World Interpreter · every block, as
   the world is made (this panel):
@@ -647,9 +656,10 @@ World Interpreter · every block, as
       |
 the ground (and the distant terrain)";
 
-/// The Additives panel: dots scattered from what the maps know (for now, the ridge streams).
+/// The Topography panel (the Additives until 2026-10-31): dots scattered from what the maps know (for
+/// now, the ridge streams).
 fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
-    ui.heading("Additives");
+    ui.heading("Topography");
     ui.small(
         "Features added onto the landmass, before erosion and the water. Dots are scattered from what the maps already \
          know; next, they'll drive features in the ground. (Saved in the presets with the other panels.)",
@@ -794,7 +804,7 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         });
     });
     ui.add_space(6.0);
-    if ui.small_button("Reset the Additives").clicked() {
+    if ui.small_button("Reset the Topography").clicked() {
         *a = Default::default();
     }
     let additives = &compiler.additives;
@@ -970,9 +980,9 @@ fn spread_row(ui: &mut egui::Ui, spread: &mut f32, slider: crate::debug::Slider<
 fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("Climate");
     ui.small(
-        "Between the Additives and the World Interpreter: the rivers and lakes first (they read the ground alone), then \
-         temperature, wind, rain and the ground's blocks, worked out once over the whole map. It reads the ground the \
-         recipe makes, and the World Interpreter carves what it chooses. Nothing here changes the ground before it.",
+        "Between Topography and Mineralogy: the rivers and lakes first (they read the ground alone), then temperature, \
+         wind and rain, worked out once over the whole map. It reads the ground the recipe makes, and the World \
+         Interpreter carves what it chooses. Nothing here changes the ground before it.",
     );
     let climate = &mut compiler.settings.climate;
     ui.horizontal_wrapped(|ui| {
@@ -1460,7 +1470,14 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.label("The look: the rain worked out (left, dry to wet) to the rain shown (up).");
         spline_box(ui, "rain look", &mut rain.look, &super::rain::RainSettings::default().look, "wetter", "rain");
     });
-    ui.add_space(6.0);
+}
+
+/// The Mineralogy panel [David, 2026-10-31: "minerology is gonna need a lot of space"]: which blocks
+/// the ground is made of, after Climate (it reads the temperature and the rain) and before the World
+/// Interpreter; then caves, still to come (David: they "might go in there after or have its own
+/// page because it might be a pain").
+fn mineralogy_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
+    ui.heading("Mineralogy");
     fold_section(ui, "Mineralogy", |ui| {
         let s = &mut compiler.settings.interpreter;
         let m = &mut s.mineralogy;
@@ -1609,12 +1626,12 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
              high side raised).",
         );
     });
-    // Today's ridged "mountains", which David treats as hill country: the nest the Additives' peaks
+    // Today's ridged "mountains", which David treats as hill country: the nest the Topography panel's peaks
     // stand in [David, 2026-10-27: renamed Ridgelines; "the ridges raise it to the highlands, the
     // additive mountains put the peaks across the same area"].
     fold_section(ui, "Ridgelines", |ui| {
         ui.small(
-            "Ridged high ground from the squeeze map, which the peaks (Additives, Mountains) will stand in. Across: how \
+            "Ridged high ground from the squeeze map, which the peaks (Topography, Mountains) will stand in. Across: how \
              crushed the rock is, from none (left) to the most crushed rock in this bake (right). Up: how tall the \
              ridgelines are, as a share of the room up to Z 333. Keep the left part flat at the bottom to keep lightly \
              squeezed land as plains.",
@@ -2155,14 +2172,14 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.horizontal_wrapped(|ui| {
             for (name, muted, about) in [
                 ("edge rise", &mut m.raised_coast, "The land rising inland from the coast on a plate's high side."),
-                ("rise", &mut m.lift, "The mountains' rise (Additives, Mountains): land raised round their points, like a tablecloth draped over them."),
+                ("rise", &mut m.lift, "The mountains' rise (Topography, Mountains): land raised round their points, like a tablecloth draped over them."),
                 ("ridgelines", &mut m.mountains, "The ridgelines from the squeeze map (with their ridges)."),
                 ("ridge carving", &mut m.ridges, "The ridge pattern carved into the ridgelines. Off: the ridgelines stay, as smooth domes (switch ridgelines off to take the high ground away altogether)."),
                 ("torn coast", &mut m.torn_coast, "Ponds, tide pools, inlets, islets and shoals along the coast."),
                 ("hills", &mut m.detail, "The hills laid on the ground (World Interpreter, Hills)."),
-                ("peaks", &mut m.peaks, "The peaks standing at the mountains' points (Additives, Mountains, Peaks)."),
+                ("peaks", &mut m.peaks, "The peaks standing at the mountains' points (Topography, Mountains, Peaks)."),
                 ("crags", &mut m.crags, "The crags carved into the peaks (off: smooth peaks)."),
-                ("summit crags", &mut m.summit_crags, "The finer crags pressed into the ground high up (Additives, Mountains, Peaks)."),
+                ("summit crags", &mut m.summit_crags, "The finer crags pressed into the ground high up (Topography, Mountains, Peaks)."),
                 (
                     "rivers and lakes",
                     &mut m.rivers,
@@ -2192,7 +2209,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("range spines", &mut s.spines, "The crest line of each mountain range: where its mountains are strongest, across the range."),
                 ("coast distance", &mut s.coast, "The coastline (cyan), and lines every so many blocks inland (white) and out to sea (pale blue)."),
                 ("squeeze direction", &mut s.direction, "Which way the rock was squeezed: longer strokes, harder squeezing. Ridges line up across the strokes."),
-                ("range grain", &mut s.grain, "Which way the mountains run (the Additives panel's mountain grain): longer strokes where it's clearer."),
+                ("range grain", &mut s.grain, "Which way the mountains run (the Topography panel's mountain grain): longer strokes where it's clearer."),
                 ("string or knot", &mut s.knots, "Mountains that clearly run one way, strings, in blue; knots and bundles with no one direction in yellow."),
             ] {
                 ui.checkbox(shown, name).on_hover_text(about);
@@ -2617,7 +2634,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
         }
     }
 
-    // The Additives panel's dots, over the map and the close-up alike: bright at the spine, fading
+    // The Topography panel's dots, over the map and the close-up alike: bright at the spine, fading
     // along each stream.
     compiler.additives.drive(&map, &compiler.settings.additives, blocks);
     if compiler.additives.show {

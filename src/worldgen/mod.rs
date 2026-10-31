@@ -197,7 +197,7 @@ impl Default for Suite {
         // `=world` opens the Tectonic Sim; `=world-run` also starts the tectonics simulation.
         // `=compiler` opens the World Compiler; `=compiler-overlays` also switches on the
         // range spines, coast distance, range grain and string-or-knot overlays, and folds the
-        // Landmass and World Interpreter panels away (leaving Additives open, with its dots).
+        // Landmass and World Interpreter panels away (leaving Topography open, with its dots).
         if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "compiler" || v == "compiler-overlays") {
             suite.kit = Kit::Compiler;
             (suite.compiler.additives.show, suite.compiler.show_lift_points) = (true, true);
@@ -205,7 +205,7 @@ impl Default for Suite {
                 let shown = &mut suite.compiler.lab.overlays.shown;
                 (shown.spines, shown.coast, shown.grain, shown.knots) = (false, true, true, true);
                 suite.compiler.additives.show = false;
-                (suite.compiler.folded[0], suite.compiler.folded[3]) = (true, true);
+                (suite.compiler.folded[0], suite.compiler.folded[4]) = (true, true);
             }
         } else if std::env::var("INCUS_SELFTEST_SUITE").is_ok_and(|v| v == "world" || v == "world-run") {
             suite.kit = Kit::WorldGen;

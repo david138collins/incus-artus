@@ -14,7 +14,7 @@ through · 10. Water standing in the air, sandbanks in the sea, a slab in a lake
 
 ## 1. The pipeline at a glance
 
-Rivers live in **Climate** (the World Compiler's stage between the Additives and the World Interpreter)
+Rivers live in **Climate** (the World Compiler's stage between Topography and Mineralogy, before the World Interpreter)
 and are carved by the **Interpreter**. The pipeline is linear: nothing later feeds back into anything
 earlier, so the rivers are made *from* the ground but never change the ground Climate reads.
 

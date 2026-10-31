@@ -146,7 +146,7 @@ pub struct CompileSettings {
     pub soften_mountains: f32,
     #[serde(flatten)]
     pub interpreter: InterpreterSettings,
-    /// The Additives panel's (not part of compiling: changing them doesn't compile again).
+    /// The Topography panel's (not part of compiling: changing them doesn't compile again).
     pub additives: AdditiveSettings,
     /// The Climate panel's (worked out after compiling, from the recipe: changing them doesn't
     /// compile again).

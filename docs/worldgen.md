@@ -628,6 +628,12 @@ Tectonic Sim
   **Go-ahead** (David, 2026-10-31: "yes, rename and move. minerology is gonna need a lot of space"):
   Additives becomes Topography, and Mineralogy gets its own panel, with the greyed Caves after it for
   now.
+  *[Built 2026-10-31: the World Compiler's panels are Landmass, Topography, Climate, Mineralogy, World
+  Interpreter. Topography is the Additives panel renamed, same contents (still `additives` in code and
+  presets, so presets load as they were; David's section note on Rise moved to the new page name).
+  Climate holds the ground it reads, Rivers, River network, Carving, Temperature, Wind, Rain. Mineralogy
+  is its own panel, its contents as they were, with the greyed Caves after it. No Ecology panel yet.
+  David's 15:20 preset, the startup default, loads and gives the same rivers to the byte.]*
   **Caves are open:** "we still really have no idea how caves factor in. they could be topology i
   think. however they could be after, and we could make caves where rivers end without finding a pond
   lake or ocean." (See "Caves, cliffs and carving" below.)
@@ -1200,7 +1206,8 @@ to evaporation.
   milder air by big water, wetness for Ecology). Part of the water rework, `vision/water-from-the-start.md`.
   *[Built 2026-10-31 (stage 7, `docs/water-rework.md` section 19): the rivers read the ground alone
   and are made first; the panel goes the ground it reads, Rivers, River network, Carving, Temperature,
-  Wind, Rain, Mineralogy, Caves (greyed). Snowmelt, retired, goes by height.]*
+  Wind, Rain. Snowmelt, retired, goes by height. Mineralogy, with the greyed Caves, then moved to a
+  panel of its own ("Tabs by stage" above).]*
 - **Fun first, not science** [David]: "the important thing is they are fun." If rivers and water can
   make fun caves, that's a happy accident, not a requirement.
 - **Where caves go is open again** [David 2026-10-31]: "they could be topology i think. however they

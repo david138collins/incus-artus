@@ -1,4 +1,4 @@
-//! Climate — the World Compiler's stage between the Additives and the World Interpreter: the
+//! Climate — the World Compiler's stage between Topography and Mineralogy, before the World Interpreter: the
 //! weather a world is made with, worked out once over the whole map, and the water it leaves.
 //! [David, 2026-10-28: "Breaking the water loop" in docs/worldgen.md.]
 //!
@@ -6,7 +6,7 @@
 //! the ground (read only: the Interpreter's own recipe, its fine layers left out)
 //!     │
 //!     ▼
-//! rivers (and lakes) · temperature · wind · rain · mineralogy
+//! rivers (and lakes) · temperature · wind · rain   (then Mineralogy, its own panel since 2026-10-31)
 //!     │
 //!     ▼  river lines, lake surfaces, and the fields Ecology reads
 //! World Interpreter (carves what Climate chose)

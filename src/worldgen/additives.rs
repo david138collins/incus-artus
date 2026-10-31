@@ -1,4 +1,5 @@
-//! Additives — the World Compiler's second panel: features added onto the landmass, before
+//! Additives — the World Compiler's second panel, Topography (its name on screen since 2026-10-31,
+//! "Tabs by stage" in docs/worldgen.md; still the Additives in code and presets): features added onto the landmass, before
 //! erosion and the water (which come later). Dots are scattered from what the maps already know,
 //! and will drive terrain features (ridge stamps and the like) once they look right.
 //!
@@ -72,7 +73,7 @@ impl DriftWay {
     }
 }
 
-/// The Additives panel's settings (saved in the compiler's presets).
+/// The Topography panel's settings (saved in the compiler's presets, as `additives`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AdditiveSettings {
