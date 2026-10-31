@@ -1150,6 +1150,12 @@ to evaporation.
 
 - **After mineralogy, caves**, inside Climate [DECIDED 2026-10-29, David]: the Climate tab goes
   **Temperature, Wind, Rain, Rivers, Mineralogy, Caves**.
+  **[DECIDED 2026-10-31, David] Rivers come first in Climate:** "they don't mean anything to rivers,
+  and rivers CAN mean something to them." So the order becomes **Rivers, Temperature, Wind, Rain,
+  Mineralogy, Caves** (Counsel's reading of "first"). Snowmelt, the one thing rivers read from
+  temperature, then goes by height. The climate after the rivers may read them (the lake effect,
+  milder air by big water, wetness for Ecology). Part of the water rework, `vision/water-from-the-start.md`;
+  not built.
 - **Fun first, not science** [David]: "the important thing is they are fun." If rivers and water can
   make fun caves, that's a happy accident, not a requirement.
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
