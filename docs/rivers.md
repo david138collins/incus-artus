@@ -279,6 +279,12 @@ the world's.**
 - **The carve lowers the recipe's height itself** (`ground_and_water`), so the far terrain, the light
   map and the World Compiler's close-up all see the rivers. The far terrain also blends a creek's water
   in by how much of a far cell it covers, so creeks don't pop.
+- **"rivers and lakes" in the Interpreter's Show switches** (2026-10-31, David via Counsel: to tell the
+  sea's water from the water Climate makes): off, the close-up shows the ground as it was before the
+  carve, and only the sea's water. A world spawned from it leaves them out too (`Mutes::rivers`; the
+  top of the screen says so, and its save remembers it). The rivers aren't made again when it's
+  switched: Climate reads the ground without them either way, so the recipe it's handed ignores this
+  switch, and the view leaves them out after.
 - **Blocks:**
   - **Rounding:** each column's ground is rounded to a whole block.
   - **The sea** fills every block below Z 128, so its surface is at Z 128. Sea floor is kept at least

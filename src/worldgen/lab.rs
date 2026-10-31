@@ -77,13 +77,14 @@ impl Lab {
         self.job.is_some()
     }
 
-    /// The recipe as it is now: the compiled maps, read with these settings and switches.
+    /// The recipe as it is now: the compiled maps, read with these settings and switches. (But for
+    /// the rivers and lakes: they're carved in after, by the view, and Climate reads this recipe to
+    /// make them, so switching them off doesn't make them all again.)
     pub fn recipe(&mut self, compiled: &Arc<CompiledMap>, settings: &InterpreterSettings) -> Arc<CompiledMap> {
-        let current = self.map.as_ref().is_some_and(|map| {
-            Arc::ptr_eq(&map.maps, &compiled.maps) && &map.settings == settings && map.mutes == self.mutes
-        });
+        let mutes = Mutes { rivers: false, ..self.mutes };
+        let current = self.map.as_ref().is_some_and(|map| Arc::ptr_eq(&map.maps, &compiled.maps) && &map.settings == settings && map.mutes == mutes);
         if !current {
-            self.map = Some(Arc::new(compiled.with(settings.clone(), self.mutes)));
+            self.map = Some(Arc::new(compiled.with(settings.clone(), mutes)));
         }
         self.map.clone().unwrap()
     }
@@ -241,6 +242,15 @@ mod tests {
         assert!(!Arc::ptr_eq(&first, &second));
         assert!(Arc::ptr_eq(&first.maps, &second.maps), "the maps were copied");
         assert!(second.mutes.torn_coast);
+    }
+
+    #[test]
+    fn switching_the_rivers_off_leaves_the_recipe_climate_reads_alone() {
+        let map = Arc::new(CompiledMap::of_heights(8, 32.0, &[140.0; 64]));
+        let mut lab = Lab::default();
+        let first = lab.recipe(&map, &map.settings.clone());
+        lab.mutes.rivers = true;
+        assert!(Arc::ptr_eq(&first, &lab.recipe(&map, &map.settings.clone())), "the rivers would all be made again");
     }
 
     #[test]

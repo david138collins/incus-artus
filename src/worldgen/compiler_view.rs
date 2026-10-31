@@ -83,8 +83,8 @@ pub struct Compiler {
     pub lab_unlit: bool,
     lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
     /// The view's map with the rivers carved in, and what it was made from (the recipe's map and the
-    /// carving).
-    rivers_view: Option<((usize, usize), Arc<crate::world::CompiledMap>)>,
+    /// carving, and whether the Show switch leaves them out).
+    rivers_view: Option<((usize, usize, bool), Arc<crate::world::CompiledMap>)>,
     lab_hover: Option<(f32, f32, f32)>,
     /// The overlays' picture, and which of their pictures it holds.
     overlay_texture: Option<egui::TextureHandle>,
@@ -1518,16 +1518,19 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 
 impl Compiler {
     /// The recipe's map with the river stage's rivers and lakes carved in (made again only when
-    /// either changes), or as it is before there are any.
+    /// either changes), or as it is before there are any; left out if the Show switch says so.
     fn with_rivers(&mut self, map: &Arc<crate::world::CompiledMap>) -> Arc<crate::world::CompiledMap> {
         let Some(carving) = self.climate.carving().cloned() else { return map.clone() };
-        let key = (Arc::as_ptr(map) as usize, Arc::as_ptr(&carving) as usize);
+        let hidden = self.lab.mutes.rivers;
+        let key = (Arc::as_ptr(map) as usize, Arc::as_ptr(&carving) as usize, hidden);
         if let Some((made_for, carved)) = &self.rivers_view
             && *made_for == key
         {
             return carved.clone();
         }
-        let carved = Arc::new(map.with_rivers(carving));
+        let mut carved = map.with_rivers(carving);
+        carved.mutes.rivers = hidden;
+        let carved = Arc::new(carved);
         self.rivers_view = Some((key, carved.clone()));
         carved
     }
@@ -1963,6 +1966,13 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
                 ("peaks", &mut m.peaks, "The peaks standing at the mountains' points (Additives, Mountains, Peaks)."),
                 ("crags", &mut m.crags, "The crags carved into the peaks (off: smooth peaks)."),
                 ("summit crags", &mut m.summit_crags, "The finer crags pressed into the ground high up (Additives, Mountains, Peaks)."),
+                (
+                    "rivers and lakes",
+                    &mut m.rivers,
+                    "The Climate tab's water: the rivers, lakes and ponds, with their channels and banks (Carving). Off: the ground\n\
+                     as it was before they were carved, and only the sea's water, to tell the two apart. (The rivers aren't made\n\
+                     again: Climate reads the ground without them either way.)",
+                ),
             ] {
                 let mut shown = !*muted;
                 if ui.checkbox(&mut shown, name).on_hover_text(about).changed() {

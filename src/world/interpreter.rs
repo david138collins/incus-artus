@@ -838,7 +838,7 @@ impl Mutes {
             ("peaks", self.peaks),
             ("crags", self.crags),
             ("summit crags", self.summit_crags),
-            ("rivers", self.rivers),
+            ("rivers and lakes", self.rivers),
         ]
         .into_iter()
         .filter_map(|(name, off)| off.then_some(name))
