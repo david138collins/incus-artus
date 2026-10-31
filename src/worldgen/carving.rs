@@ -1066,9 +1066,12 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
                 }
             }
         }
-        // Then each waterfall keeps the water above it, for its curtain and its banks.
+        // Then each waterfall keeps the water above it, for its curtain and its banks: every drop as
+        // tall as a waterfall, and every drop of 2 or more still standing sheer, where rapids had no
+        // room to spread [2026-10-31, David's screenshot: with no steps and falls from 25, rapids at
+        // every point had no run to spread over, 4,895 sheer drops, walls of water up to 24 tall].
         for k in 1..points.len() {
-            if points[k - 1].level - points[k].level >= fall_from {
+            if points[k - 1].level - points[k].level >= fall_from.min(2.0) {
                 points[k].curtain = points[k - 1].level;
             }
         }
@@ -1079,7 +1082,7 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     let (deepest_cut, deep_cuts) = cuts.fold((0.0f32, 0usize), |(deepest, deep), cut| (deepest.max(cut), deep + (cut > DEEP_CUT) as usize));
     let (too_far, into_water): (usize, usize) = (ponds.iter().map(|p| p.too_far).sum(), ponds.iter().map(|p| p.into_water).sum());
     // Then each waterfall dropped at its lip (points put in, so after everything taken by point).
-    falls_at_lips(reaches, ground, fall_from);
+    falls_at_lips(reaches, ground);
     Some(Laid { deepest_cut, deep_cuts, ponds: ponds.into_iter().flat_map(|p| p.lakes).collect(), cut_instead: too_far + into_water, into_water, cut_short })
 }
 
@@ -1169,7 +1172,7 @@ impl<'a> Water<'a> {
 /// ground fell away under it, and its curtain hung out in front of that. Where the ground across the
 /// river first falls below the water above the fall, a point is put in at the water below, so the
 /// water above ends at the edge and the curtain hangs down the face.
-fn falls_at_lips(reaches: &mut [Reach], ground: &CompiledMap, fall_from: f32) {
+fn falls_at_lips(reaches: &mut [Reach], ground: &CompiledMap) {
     for reach in reaches.iter_mut() {
         let old = std::mem::take(&mut reach.points);
         let mut points = Vec::with_capacity(old.len());
@@ -1177,7 +1180,7 @@ fn falls_at_lips(reaches: &mut [Reach], ground: &CompiledMap, fall_from: f32) {
             let a = old[k.saturating_sub(1)];
             let (dn, de) = (b.north - a.north, b.east - a.east);
             let length = (dn * dn + de * de).sqrt();
-            if k > 0 && a.level - b.level >= fall_from && length >= 1.0 {
+            if k > 0 && b.curtain.is_finite() && length >= 1.0 {
                 let (nn, ne) = (de / length, -dn / length);
                 // The lowest ground across the river, `along` blocks down the piece.
                 let low = |along: f32| {
@@ -1723,22 +1726,29 @@ mod tests {
         let mut reaches = vec![Reach { points: (0..=112).map(|k| creek(-4.0, (60.0 - k as f32 * 0.5 - 32.0) * 8.0)).collect() }];
         let s = CarvingSettings { rapids_length: 4.0, rise_pools: false, ..CarvingSettings::default() };
         lay_water(&mut reaches, &[(0, 1, None, 100.0)], &ground, 1.0, 3.0, &s, &AtomicBool::new(false)).unwrap();
-        let points = &reaches[0].points;
-        let (mut falls, mut rapids) = (0, 0);
+        no_sheer_drops(&reaches[0].points);
+        // And David's settings of 2026-10-31 (no steps, falls from 25): rapids at every point, with no
+        // run to spread over, were left as sheer drops with no curtain, walls of water up to 24 tall.
+        let mut reaches = vec![Reach { points: (0..=112).map(|k| creek(-4.0, (60.0 - k as f32 * 0.5 - 32.0) * 8.0)).collect() }];
+        lay_water(&mut reaches, &[(0, 1, None, 100.0)], &ground, 0.0, 25.0, &CarvingSettings { rapids_length: 10.0, ..s }, &AtomicBool::new(false)).unwrap();
+        no_sheer_drops(&reaches[0].points);
+    }
+
+    /// Every drop of 2 or more has a curtain, level with the water above it.
+    fn no_sheer_drops(points: &[RiverPoint]) {
+        let mut falls = 0;
         for k in 1..points.len() {
             let (above, here) = (points[k - 1], points[k]);
             let drop = above.level - here.level;
             if here.curtain.is_finite() {
                 assert_eq!(here.curtain, above.level, "a curtain at {} over water at {}", here.curtain, above.level);
             }
-            if drop >= 3.0 {
+            if drop >= 2.0 {
                 assert!(here.curtain.is_finite(), "a drop of {drop} with no curtain at {}, {}", here.north, here.east);
                 falls += 1;
-            } else if drop >= 1.0 {
-                rapids += 1;
             }
         }
-        assert!(falls > 0 && rapids > 0, "{falls} falls and {rapids} rapids");
+        assert!(falls > 0, "no falls");
     }
 
     #[test]

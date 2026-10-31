@@ -273,6 +273,9 @@ the new way is better.
    - The measure is the same readout. David tunes the threshold, ratio, knee and feather against it.
 2. **The look-ahead along the river** (attack and release).
    - The overlay: the feather's width along each river.
+   - *Folded in (David, 2026-10-31):* the outside of a bend's fade eased by how sharp the bend is,
+     instead of switching at "a bend from". The hard switch left straight-edged notches in the banks
+     where a river straightened out of a bend (David's screenshot, with "outside fades over" below 1).
 3. **Lakes picked first,** with ponds behind rises off.
    - The overlay: every basin, with the picked ones filled.
    - The readout: basins, lakes and ponds picked.
@@ -467,3 +470,115 @@ every step: 80% flush.
 **Not in this stage:** the attack and release along the river (stage 2), and "the water rises to meet
 its banks" (it changes the water, not the land; for later, with the steps).
 
+
+## 11. David's preset after stage 1, annotated (2026-10-31)
+
+David saved his best settings with stage 1 as `presets/compiler/default.toml`, at 11:35. He wrote: "many
+settings on the climate page i've put all the way down, because they do nothing, or are harmful."
+Here is each water setting with its value, what it does, and whether it acts at these values. "Min"
+and "max" mean the slider's end. The changes from `rivers-balanced` are in **bold**.
+
+### Rivers (step 5)
+
+| Setting | Value | What it does here |
+|---|---|---|
+| snowmelt: extra water | 5 (max) | Almost nothing. "Higher than" is 1,020 (near max), so almost no ground qualifies. |
+| …colder than | 1 (max) | Everything counts as cold. |
+| …higher than (Z) | 1,020 | Turns snowmelt off in effect. |
+| springs (slope feet): extra water | 20 (max) | Only how far lone streams run, since "water it needs" is 1. |
+| a lake from (blocks deep) | 24 | Step 5's lakes are basins 24 or more deep. |
+| drawn from | 952 | The picture only. |
+
+### River network (step 6)
+
+| Setting | Value | What it does here |
+|---|---|---|
+| plain or relative | plain | |
+| springs from Z | **128 (min)** | Springs anywhere from sea level up to 700: 573 of them. |
+| up to Z | 700 | |
+| higher than surroundings, within | 40, 2,000 | Inert: relative height is off. |
+| water it needs | 1 (min) | Any land qualifies. |
+| spaced at least / varies | 2,500 / 0.5 | |
+| a lake feeds a river from (patches) | **150** | Only big lakes start rivers. |
+| mouths apart at least | 3,000 | 70 mouths. |
+| how readily rivers split | **0 (min)** | One trunk per mouth; other springs run as lone streams. |
+| a lone stream runs | **7,600** | Lone streams run far: only 9 of 573 springs fizzle. |
+| stream orders per rank | **4 (max)** | **Every river is a creek.** The highest stream order on this world is 4, so nothing reaches stream rank. That's why only "creeks fade over" did anything: every stream, river and great-river size, shape and fade is unused. |
+| drop gathered into one step | **0 (min)** | No steps: the water follows its ground block by block. |
+| a waterfall from | **25** | Only drops of 25 or more were falls. With no steps, every point dropped a little, and rapids had no room. That left 4,895 sheer drops (walls up to 24 tall) until the fix this afternoon: every sheer drop of 2 or more now gets a curtain. |
+
+### Carving (step 7)
+
+| Setting | Value | What it does here |
+|---|---|---|
+| cores | 12 | |
+| corridor / grain | **64 / 16 (max)** | A narrow, coarse way-finding: rivers can't get round much. |
+| corner cutting | **5 (max)** | |
+| wander / its swings / lean | **48 (max) / 3,000 (max) / 2 (max)** | **Inert:** "most sideways" is 0. |
+| meander every / size / full below | **4 (min) / 0 (min) / 0.001 (min)** | Meanders off. |
+| most sideways | **0 (min)** | No sideways moves at all: the line is the route, smoothed. |
+| keep within | **0 (min)** | Inert (nothing moves sideways). |
+| a spring's width / depth | **4 (max) / 2** | |
+| times wider (each rank) | **5 (max)** | Only the creek's applies: creeks grow from 4 to 20 wide (3 to 54 with "size varies"). |
+| times deeper | about 2 | Likewise. |
+| size varies / shape varies | **0.25 / 0.66** | |
+| shapes | edges 0.26–0.41, floors 0.36–0.49, bowls 1.15–2.1 | Only the creek's shape applies. |
+| fade over (widths) | **creeks 2.05; others 0** | The others are unused (no rank above creek). |
+| …at least | **0 (min)** | |
+| bank ways | **slope, slope, slope** | Flush. |
+| a bend from | **0.02 (min)** | Every point counts as a bend. |
+| outside fades over | **1 (max)** | The outside's the same as the inside, so the bend side doesn't matter (and no notches). |
+| steepest bank | **0.2 (min)** | The gentlest: banks widen as far as "widens up to" allows. |
+| widens up to | 6 (max) | |
+| terrace steps | 4 | Inert: no terraces. |
+| compressor banks | **on** | |
+| cut banks keep | **0 (min)** | Flush on the outsides too. |
+| look round each lake / a pond from | 64 / **4** | Pools must be 4 deep: fewer crag-pit ponds. |
+| ponds behind rises | **off** | Every rise is cut through. |
+| cut through rises up to / a pond spreads at most | 4 / 512 | Inert: ponds are off. |
+| curtains | on | |
+| rapids | **10 (max)** | Rapids where there's room. With no steps, there's rarely room. |
+| deltas | **off** | Their settings are inert. |
+
+### Measured on David's world (today's bake, 6 cores)
+
+- **Making the rivers** took 1.0 s.
+- **Springs and mouths:** 573 springs (121 river heads, 157 joined, 286 into a lake or the sea, 9
+  fizzled) and 70 mouths.
+- **Rivers:** 805 stretches of river with 140,957 points, all creeks. River patches by stream order 1
+  to 4: 14,773, 5,139, 1,563, 92.
+- **Sizes:** widths 3 to 54 (average 11); fades 7 to 110 (average 22).
+- **Lakes and ponds:** 21 lakes (46 pools), no ponds behind rises.
+- **Shores (after the curtain fix):** 95.7% flush, 3.6% ledge, 0.5% bank, 0.1% below the water.
+- **Land:** lowered 4.1 on average (most 196), raised 0.01 (most 39). Steepest pull-down 51.
+- **Cuts: deepest 439 blocks; 25,098 points cut deeper than 6.**
+
+### What it says, and what to prepare next
+
+- **David has switched off most of the patches and the extras:** ponds behind rises, steps,
+  meanders, wander and lean, deltas, cut banks, the bend sides, terraces, snowmelt in effect, and every
+  rank above creek. What's left is the plan (springs, mouths, one trunk each), the route, smoothing,
+  creek sizes, gentle flush compressor banks, lakes, curtains and rapids.
+- **The harm now is the cuts.**
+  - With ponds off and a narrow, coarse corridor, rivers saw through whatever is in the way: up to
+    439 blocks deep, and 25,098 points more than 6.
+  - The gentlest banks then spread each cut wide, so the land is lowered by 4 blocks on average
+    and up to 196.
+  - This is what stage 4 (a local re-route where the cut would be deeper than X) is for, and it now
+    looks like the most useful next step, ahead of stage 2.
+- **The ranks are off in practice**, so sizes by area (stage 5) would bring sizes back as one
+  continuous number, and make the size sliders do something again.
+- **Inert sliders could be greyed out** (David's rule: grey out, don't hide):
+  - wander, swings and lean when "most sideways" is 0;
+  - cut and pond reach when ponds are off;
+  - the delta settings when deltas are off;
+  - rise and around when relative height is off;
+  - terrace steps without terraces;
+  - each rank's size, shape and fade when no river reaches that rank (the panel can count it).
+
+  It's a small change, worth doing with whichever stage comes next.
+- **Waterfalls:** with "a waterfall from" at 25 and no steps, nearly every fall is now a short curtain
+  of 2 to 5 blocks (4,902 of them). "Lots of waterfalls high up" might want a look at the step and the
+  fall height together.
+- **Snowmelt** is in effect off ("higher than" 1,020). With rivers moving first in the Climate tab, it
+  goes by height anyway.

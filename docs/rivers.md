@@ -189,6 +189,13 @@ the world's.**
      with no curtain: walls of water. David found that "rapids at 1" got rid of them: its spread never
      reached the next point (2 or more blocks away), so it only hid the bug.]*
 
+     **Every drop of 2 or more left sheer gets a curtain,** not only those as tall as "a waterfall
+     from". That's where rapids had no run to spread over, and it's dropped at its lip like any
+     waterfall (`falls_at_lips` now goes by the curtain). *[2026-10-31, David's screenshot: with no
+     steps and waterfalls only from 25 blocks, the water changes level at nearly every point. Rapids
+     there had no room, and stayed sheer with no curtain: 4,895 drops on David's world, up to 24
+     blocks tall, walls of water. Now none.]*
+
      **Each waterfall drops at its lip** (`falls_at_lips`, 2026-10-31, David's screenshot: pillars of
      water standing in the air). The water above a fall held its level on to the next point, 2 to 6
      blocks on, out past the cliff's edge where the ground had already fallen away, and its curtain
