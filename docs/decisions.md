@@ -233,7 +233,7 @@ Reference: `Art/quartile minecraft illustration.png`
     magenta and blue, like the title-screen backdrop of an old adventure game.
   - **Clouds:** super simple, almost cartoony **sprites**.
   - **Thunderstorms and rain are important to get right.** Lightning for the sky and for magic may be made
-    in the Toy Factory (`vision/toy-factory.md`). **Thunderclouds:** a mush of dark sprites that block
+    in the FX Lab (`vision/toy-factory.md`). **Thunderclouds:** a mush of dark sprites that block
     the sun, fading in HSL toward dark and roiling.
   - **Warm sun:** just a slider David blends to taste.
   - **Moving shadows:** not a priority; the light is static for now.
@@ -338,13 +338,13 @@ Reference: `Art/quartile minecraft illustration.png`
       **scripting page**, where new functionality is added by choosing from a **menu of hooks and their
       behaviour**. David's own zones can have the settings they need built in, but for zones to be
       extensible, anyone has to be able to add to them that way.
-      *Counsel:* it's the same shape as the Toy Factory's wired behaviour modules (`vision/toy-factory.md`)
+      *Counsel:* it's the same shape as the FX Lab's wired behaviour modules (`vision/toy-factory.md`)
       and spell lego (`vision/watch-list.md`, item 18): pieces with inputs and outputs plugged together,
       so the three may share one system. Cheap now: build the first zones out of named hooks and
       behaviours internally, even before there's a page for them, so the page can later list the same
       pieces and modded zones work just like David's.
       **The model: the StarCraft editor's triggers** [David 2026-10-30], for the zone designer and the
-      Toy Factory alike: an intimidating page, but everything it can do combines flexibly, and finding
+      FX Lab alike: an intimidating page, but everything it can do combines flexibly, and finding
       or making a script extends it. *Counsel:* triggers as an event, conditions and actions, each line
       read as a sentence with blanks to fill in, saved scripts importable and usable as new pieces
       (`vision/toy-factory.md`). A zone's script can
