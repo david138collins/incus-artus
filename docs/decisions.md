@@ -533,6 +533,17 @@ Reference: `Art/quartile minecraft illustration.png`
   keeps, and the less likely the project reaches a stage where refactors become both more expensive *and*
   more necessary. Counsel's companion rule: the more often things are refactored, the more they need
   checks that prove nothing broke (old presets still load, the same seed still bakes the same world).
+- **[DECIDED 2026-10-30] Plan for a full revision pass** [David]: once the game is "done", everything
+  gets gone through and adjusted again, so build for that from now on. Keep everything **formulaic,
+  linear, hierarchical and modular** (the world gen's linear pipeline, extended to every system), which
+  makes the second pass easier. *Counsel:* in practice that means
+  - **numbers in data, not code** (sliders, presets, data files), so a revision is retuning, not
+    rewriting;
+  - **each system reads only from what comes before it**, so changing one place has a known reach;
+  - **one formula per behaviour**, shared by everything that does it (the player's mining edge as one
+    number per activity, the same zone rules for built and placed rooms);
+  - **pieces with named seams** (hooks, stages, modules), so one can be swapped without touching its
+    neighbours.
 
 ## World Creation
 
