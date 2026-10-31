@@ -1156,9 +1156,17 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.label(format!("deepest cut below its banks: {:.0} blocks; {} points cut deeper than 6", carving.deepest_cut, carving.deep_cuts))
                 .on_hover_text("How far the water passes below the lowest ground across a river. Following the valleys, this should stay small; deep cuts are trenches through rises it couldn't find a way round.");
             ui.label(format!("{} lakes and ponds", carving.pools));
-            ui.label(format!("{} ponds behind rises; {} rises cut through instead", carving.rise_ponds, carving.cut_instead))
-                .on_hover_text("Rises cut through instead: deeper than the cut, but their pond would have spread too far (Lakes: \"a pond spreads at most\").");
+            ui.label(format!("{} ponds behind rises; {} rises cut through instead ({} would drain into a river)", carving.rise_ponds, carving.cut_instead, carving.into_water)).on_hover_text(
+                "Rises cut through instead: deeper than the cut, but their pond would have spread too far (Lakes: \"a pond spreads at most\"), \
+                 or drained into a river below its water: another river's channel in it (not one flowing into it), its own river below the \
+                 rise, or a river's notch through its rim. It would have stood above that water, in walls. (A lake below a pond is taken in.)",
+            );
         }
+        let most = std::thread::available_parallelism().map_or(4, |n| n.get());
+        ui.add(crate::debug::Slider::new(&mut c.cores, 1..=most).text(format!("cores used (of {most})"))).on_hover_text(
+            "How many of the CPU's cores making the rivers shares its work over (it starts at half). Fewer runs cooler and takes \
+             longer (\"made in\" above); the rivers come out the same either way.",
+        );
         ui.add_space(4.0);
         ui.strong("The route");
         ui.add(crate::debug::Slider::new(&mut c.corridor, 8.0..=320.0).logarithmic(true).text("corridor (blocks either side)"))

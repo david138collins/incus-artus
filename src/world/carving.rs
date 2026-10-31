@@ -12,7 +12,7 @@
 //! map and the World Compiler's viewer all see the rivers. Climate never reads it (`Mutes::rivers`):
 //! the rivers are made from the climate, and mustn't feed back into it.
 
-use super::terrain::SEA_LEVEL;
+use super::terrain::{SEA_LEVEL, under_sea};
 use serde::{Deserialize, Serialize};
 
 /// One point along a river.
@@ -35,8 +35,8 @@ pub struct Point {
     /// Which way the river bends here: +1 its outside is to the left (looking downstream), −1 to the
     /// right, 0 straight. A river's odd block goes to the outside [David].
     pub bend: f32,
-    /// Just below a waterfall: the water level above the fall (a curtain of water down its face);
-    /// NaN elsewhere.
+    /// At a waterfall's lip: the water level above the fall (for a curtain of water down its face, if
+    /// they're on, and its banks held up beside it); NaN elsewhere.
     pub curtain: f32,
     /// How sharply it bends here (its width over the bend's radius; + its outside to the left, as
     /// `bend`), and how far its banks fade into the land on the inside (blocks; 0 none) [2026-10-30].
@@ -233,25 +233,27 @@ impl Lakes {
     }
 
     /// The lake water at a spot: its surface, and whether the spot is only beside it (dry, next to
-    /// the water).
+    /// the water). Where lakes overlap (a pond backed up over another), the highest water, or the
+    /// highest beside it [2026-10-31: the first in the list, so a lower pond showed through a higher
+    /// one, in walls 37 blocks tall].
     pub fn at(&self, north: f32, east: f32) -> Option<(f32, bool)> {
         if self.cells.is_empty() {
             return None;
         }
         let (col, row) = self.lookup(north, east);
-        let mut beside = None;
+        let (mut water, mut beside) = (f32::NAN, f32::NAN);
         for &k in &self.cells[row * self.across.0 + col] {
             let lake = &self.lakes[k as usize];
             if let Some(i) = lake.cell_at(north, east) {
-                if lake.surface[i].is_finite() {
-                    return Some((lake.surface[i], false));
-                }
-                if lake.beside[i].is_finite() {
-                    beside = Some((lake.beside[i], true));
-                }
+                // (A NaN, no water, gives way to any water.)
+                (water, beside) = (water.max(lake.surface[i]), beside.max(lake.beside[i]));
             }
         }
-        beside
+        if water.is_finite() {
+            Some((water, false))
+        } else {
+            beside.is_finite().then_some((beside, true))
+        }
     }
 
     /// The lake water's surface at a spot, if there's water there.
@@ -301,6 +303,8 @@ pub struct Carving {
     pub reaches: Vec<Reach>,
     pub lakes: Lakes,
     pub banks: Banks,
+    /// Whether a waterfall gets a curtain of water down its face (kept with the world).
+    pub curtains: bool,
     /// The grid: its cell size (blocks), cells across, the north-west corner, and in each cell the
     /// pieces (reach, first point) passing near it.
     cell: f32,
@@ -312,18 +316,19 @@ pub struct Carving {
     /// How its making went, for the panel (not saved): how long it took (seconds), the water's
     /// deepest cut below the lowest ground across a river (blocks), how many points cut deep, and
     /// how many lakes and ponds; and how many ponds behind rises, and rises cut through because their
-    /// pond would have spread too far.
+    /// pond would have spread too far or drained into a river below it (and how many of those that).
     pub took: f32,
     pub deepest_cut: f32,
     pub deep_cuts: usize,
     pub pools: usize,
     pub rise_ponds: usize,
     pub cut_instead: usize,
+    pub into_water: usize,
 }
 
 impl PartialEq for Carving {
     fn eq(&self, other: &Self) -> bool {
-        self.reaches == other.reaches && self.lakes == other.lakes && self.banks == other.banks
+        self.reaches == other.reaches && self.lakes == other.lakes && self.banks == other.banks && self.curtains == other.curtains
     }
 }
 
@@ -356,7 +361,7 @@ fn along(a: &Point, b: &Point, north: f32, east: f32) -> (f32, f32, f32) {
 impl Carving {
     pub fn new(reaches: Vec<Reach>, lakes: Lakes, banks: Banks) -> Self {
         let full = !reaches.is_empty() || lakes.lakes.iter().any(|lake| !lake.is_dry());
-        let mut carving = Self { reaches, lakes, banks, full, ..Self::default() };
+        let mut carving = Self { reaches, lakes, banks, curtains: true, full, ..Self::default() };
         carving.index();
         carving
     }
@@ -434,9 +439,10 @@ impl Carving {
                 continue;
             }
             let mix = |x: f32, y: f32| x + (y - x) * t;
-            // The level holds the upstream point's until the next (steps happen at points).
-            let point = Point { north: mix(a.north, b.north), east: mix(a.east, b.east), width: mix(a.width, b.width), depth: mix(a.depth, b.depth), edge: mix(a.edge, b.edge), flat: mix(a.flat, b.flat), bowl: mix(a.bowl, b.bowl), level: a.level, bend: if t < 0.5 { a.bend } else { b.bend }, curtain: if t < 0.5 { a.curtain } else { f32::NAN }, turn: mix(a.turn, b.turn), fade: mix(a.fade, b.fade) };
             let span = ((b.north - a.north).powi(2) + (b.east - a.east).powi(2)).sqrt();
+            // The level holds the upstream point's until the next (steps happen at points), and so
+            // does a waterfall's top (`here` takes it as far past the lip as it reaches).
+            let point = Point { north: mix(a.north, b.north), east: mix(a.east, b.east), width: mix(a.width, b.width), depth: mix(a.depth, b.depth), edge: mix(a.edge, b.edge), flat: mix(a.flat, b.flat), bowl: mix(a.bowl, b.bowl), level: a.level, bend: if t < 0.5 { a.bend } else { b.bend }, curtain: a.curtain, turn: mix(a.turn, b.turn), fade: mix(a.fade, b.fade) };
             best = Some((distance, side, point, t * span));
         }
         best
@@ -445,27 +451,46 @@ impl Carving {
     /// What the rivers and lakes do to the column at a spot whose uncarved ground is `ground`.
     pub fn here(&self, north: f32, east: f32, ground: f32) -> Here {
         let mut here = Here { floor: None, fill: None, water: None };
-        if let Some((distance, side, point, _)) = self.nearest_river(north, east) {
+        // (The sea is left alone: no channel, bank or fall where the ground is under it [David,
+        // 2026-10-31: where the broad ground had land, rivers ran on into the sea and their banks
+        // stood up out of it as long straight sandbanks].)
+        if !under_sea(ground)
+            && let Some((distance, side, point, past)) = self.nearest_river(north, east)
+        {
             // Inside the river: within half its width of the line, the odd block of an even width to
             // the outside of the bend (centred where it runs straight) [David].
             let half = point.width.max(1.0) / 2.0;
             let even = (point.width.round() as i32) % 2 == 0;
             let shift = if even { 0.5 * point.bend } else { 0.0 };
             let offset = distance * side - shift;
+            // Just past a waterfall's lip, the water above it.
+            let fall = point.curtain.is_finite().then(|| point.curtain.round().max(point.level.round()));
             if offset.abs() <= half {
                 let level = point.level.round();
-                let top = if point.curtain.is_finite() { point.curtain.round().max(level) } else { level };
+                // (Its curtain is the block down the face [2026-10-31: it was half the piece after, a
+                // slab of water standing out in front of the cliff (David's screenshot)].)
+                let top = match fall {
+                    Some(top) if self.curtains && past < 1.0 => top,
+                    _ => level,
+                };
                 here.floor = Some(level - 1.0 - depth_across(point.depth, point.edge, point.flat, point.bowl, offset / half));
                 here.water = Some(top as i32);
             } else if point.fade > 0.0 {
                 // Its bank: the ground faded from the shore back to its own, the way the bank's
-                // side of the bend takes (inside, outside or straight).
+                // side of the bend takes (inside, outside or straight). Beside the first two blocks
+                // past a waterfall's lip, it's the water above the fall's shore: the cliff the fall
+                // comes down [2026-10-31: cut down to the water below, the fall's sides stood in the
+                // air].
                 let b = &self.banks;
                 let bent = point.turn.abs() >= b.bend_from;
                 let outside = bent && side == point.turn.signum();
                 let way = b.ways[if !bent { 2 } else if outside { 1 } else { 0 }];
                 let fade = point.fade * if outside { b.outside.clamp(0.05, 1.0) } else { 1.0 };
-                if let Some(bank) = b.ground(way, point.level.round(), fade, offset.abs() - half, ground) {
+                let level = match fall {
+                    Some(top) if past < 2.0 => top,
+                    _ => point.level.round(),
+                };
+                if let Some(bank) = b.ground(way, level, fade, offset.abs() - half, ground) {
                     if bank < ground {
                         here.floor = Some(bank);
                     } else {
@@ -499,12 +524,15 @@ impl Carving {
         self.nearest_river(north, east).map(|(distance, _, point, _)| (distance, point.width))
     }
 
-    /// As text, for saving with a world: each lake's grid and its water cells, then each reach's
-    /// points.
+    /// As text, for saving with a world: the banks (and the curtains, if they're off), each lake's grid
+    /// and its water cells, then each reach's points.
     pub fn to_text(&self) -> String {
         let b = &self.banks;
         let way = |w: FadeWay| FadeWay::ALL.iter().position(|&a| a == w).unwrap_or(0);
         let mut text = format!("banks {} {} {} {} {} {} {} {}\n", way(b.ways[0]), way(b.ways[1]), way(b.ways[2]), b.bend_from, b.outside, b.steepest, b.widest, b.terrace);
+        if !self.curtains {
+            text += "curtains 0\n";
+        }
         for lake in &self.lakes.lakes {
             text += &format!("lake {} {} {} {} {}\n", lake.north, lake.west, lake.cols, lake.rows, lake.cell);
             for (i, s) in lake.surface.iter().enumerate().filter(|(_, s)| s.is_finite()) {
@@ -525,7 +553,7 @@ impl Carving {
         // Each lake's grid (north, west, cols, rows, cell) and surfaces, made up at the end.
         let mut grids: Vec<(f32, f32, usize, usize, f32, Vec<f32>)> = Vec::new();
         let mut reaches: Vec<Reach> = Vec::new();
-        let mut banks = Banks::default();
+        let (mut banks, mut curtains) = (Banks::default(), true);
         for (number, line) in text.lines().enumerate() {
             let words: Vec<&str> = line.split_whitespace().collect();
             let bad = || format!("line {}: {line}", number + 1);
@@ -535,6 +563,7 @@ impl Carving {
                     let way = |k: usize| num(k).map(|w| FadeWay::ALL[(w as usize).min(3)]);
                     banks = Banks { ways: [way(1)?, way(2)?, way(3)?], bend_from: num(4)?, outside: num(5)?, steepest: num(6)?, widest: num(7)?, terrace: num(8)? };
                 }
+                Some("curtains") => curtains = num(1)? != 0.0,
                 Some("lake") => {
                     let (cols, rows) = (num(3)? as usize, num(4)? as usize);
                     grids.push((num(1)?, num(2)?, cols, rows, num(5)?, vec![f32::NAN; cols * rows]));
@@ -562,7 +591,7 @@ impl Carving {
             }
         }
         let lakes = grids.into_iter().filter(|grid| grid.2 * grid.3 > 0).map(|(north, west, cols, rows, cell, surface)| Lake::new(north, west, cols, rows, cell, surface)).collect();
-        Ok(Self::new(reaches, Lakes::new(lakes), banks))
+        Ok(Self { curtains, ..Self::new(reaches, Lakes::new(lakes), banks) })
     }
 }
 
@@ -649,6 +678,51 @@ mod tests {
     }
 
     #[test]
+    fn a_river_leaves_the_sea_alone() {
+        // David's screenshot: rivers ran on into the sea, their banks long straight sandbanks in it.
+        let sea = SEA_LEVEL as f32;
+        let at = |east: f32| Point { fade: 8.0, ..point(0.5, east, 4.0, sea, 0.0) };
+        let mouth = Carving::new(vec![Reach { points: vec![at(-50.0), at(50.0)] }], Lakes::default(), Banks::default());
+        // Its channel and both banks, over the sea floor: no trench, no sandbank.
+        for north in [0.5, 3.5, -2.5, 6.5] {
+            assert_eq!(mouth.here(north, 0.0, sea - 8.0), Here { floor: None, fill: None, water: None }, "the sea floor carved at {north}");
+        }
+        // On the beach, cut as ever.
+        assert!(mouth.here(0.5, 0.0, sea + 2.0).floor.is_some() && mouth.here(3.5, 0.0, sea + 2.0).floor.is_some());
+    }
+
+    #[test]
+    fn a_waterfall_s_curtain_is_the_block_down_its_face() {
+        // A fall at east 0 from 150 to 140: its curtain the block below the fall, not half the piece
+        // after it (David's screenshot: pillars of water standing in the air).
+        let fall = Carving::new(
+            vec![Reach { points: vec![point(0.5, -10.0, 3.0, 150.0, 0.0), Point { curtain: 150.0, ..point(0.5, 0.0, 3.0, 140.0, 0.0) }, point(0.5, 10.0, 3.0, 140.0, 0.0)] }],
+            Lakes::default(),
+            Banks::default(),
+        );
+        assert_eq!(fall.here(0.5, -0.5, 160.0).water, Some(150), "above the fall");
+        assert_eq!(fall.here(0.5, 0.5, 160.0).water, Some(150), "the curtain");
+        assert_eq!(fall.here(0.5, 1.5, 160.0).water, Some(140), "past it");
+    }
+
+    #[test]
+    fn a_waterfall_s_banks_are_the_cliff_beside_it() {
+        // Beside the first blocks past the lip, the banks are the water above the fall's shore, not
+        // cut down to the water below (David's screenshot: a fall's sides stood in the air); further
+        // on, the water below's.
+        let at = |east: f32, level: f32, curtain: f32| Point { fade: 8.0, curtain, ..point(0.5, east, 4.0, level, 0.0) };
+        let fall = Carving::new(vec![Reach { points: vec![at(-10.0, 150.0, f32::NAN), at(0.0, 140.0, 150.0), at(10.0, 140.0, f32::NAN)] }], Lakes::default(), Banks::default());
+        let bank = |carving: &Carving, east: f32| carving.here(3.5, east, 160.0).floor.unwrap().round();
+        assert_eq!(bank(&fall, 0.5), 149.0, "beside the curtain");
+        assert_eq!(bank(&fall, 4.5), 139.0, "further on");
+        // With the curtains off (kept with the world), no curtain, but the same cliff beside the fall.
+        let off = Carving::from_text(&Carving { curtains: false, ..fall.clone() }.to_text()).unwrap();
+        assert!(!off.curtains);
+        assert_eq!(off.here(0.5, 0.5, 160.0).water, Some(140));
+        assert_eq!(bank(&off, 0.5), 149.0);
+    }
+
+    #[test]
     fn a_creek_s_odd_block_goes_to_the_outside_of_the_bend() {
         // 2 wide: straight, the blocks either side of the line; bending with the outside to the left
         // (north, here), the line's block and the one north of it.
@@ -689,6 +763,18 @@ mod tests {
         assert_eq!(carving.here(40.0, 0.0, 120.0).fill, Some(139.0));
         assert_eq!(carving.here(40.0, 0.0, 150.0).fill, None);
         assert_eq!(carving.here(200.0, 0.0, 120.0), Here { floor: None, fill: None, water: None });
+    }
+
+    #[test]
+    fn where_lakes_overlap_the_highest_water_shows() {
+        // A pond backed up over a lower one (David's world: the lower showed through, in walls). The
+        // higher: the middle cell and the one north of it, at 150.
+        let mut high = vec![f32::NAN; 9];
+        (high[1], high[4]) = (150.0, 150.0);
+        let lakes = Lakes::new(pond().lakes.into_iter().chain([Lake::new(48.0, -48.0, 3, 3, 32.0, high)]).collect());
+        assert_eq!(lakes.water(0.0, 0.0), Some(150.0));
+        // And beside both, the higher's water.
+        assert_eq!(lakes.at(-40.0, 0.0), Some((150.0, true)));
     }
 
     #[test]

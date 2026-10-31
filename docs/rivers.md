@@ -7,7 +7,8 @@ behind each part are in `worldgen.md` ("Breaking the water loop", "The river rew
 
 **Contents:** 1. The pipeline at a glance · 2. Each step in detail · 3. In the world · 4. Why every shore
 is a block high (and everything else that sets a shore's height) · 5. The paper · 6. How we differ, and
-what's worth borrowing · 7. Open questions for David.
+what's worth borrowing · 7. Open questions for David · 8. River profiles · 9. Why the rivers cut
+through · 10. Water standing in the air, sandbanks in the sea, a slab in a lake.
 
 ---
 
@@ -116,8 +117,12 @@ the world's.**
   nearer the end), so a dip fills to its lowest gap and spills. The route is the way the start's water
   then runs: round the hills, through the lowest gaps, along the valley floors. Its ends are the
   plan's, pinned. A very long reach uses a coarser grain, to keep its grid under 4 million cells. The
-  reaches are routed on all cores. The panel shows how long it took, and the deepest cut below the
-  banks (with how many points cut deeper than 6 blocks).
+  panel shows how long it took, and the deepest cut below the banks (with how many points cut deeper
+  than 6 blocks).
+- **Cores** (2026-10-31, David: the CPU at 92 to 99 °C while the rivers were made): the making shares
+  its work over half the CPU's cores (`cores`, "cores used", under the Carving section's report; 12
+  of 24 on David's machine). Fewer runs cooler and takes longer; the rivers come out the same on any
+  number (a test checks it).
 - **The line:**
   1. **Corner cutting.** The route is taken at points about a river's width apart (at least 2 cells,
      at most 48 blocks), then Chaikin's method slices every corner off: a creek 2 passes, one more per
@@ -141,7 +146,13 @@ the world's.**
      starts as the lowest of the three, rounded down.
   2. **Only falling downstream.** Stretches are done from upstream down; a stretch starts no higher than
      what flows into it.
-  3. **Never below the sea**, and a stretch into the sea or a lake ends at that water's level.
+  3. **Never below the sea**, and a stretch into the sea or a lake ends at that water's level. Any
+     stretch **ends where it first meets the sea** (2026-10-31): at its first point with the sea
+     under any of its three samples, or with its water at the sea's level on ground more than a step
+     above it (a cliff top with the sea or a beach at its foot), the rest dropped. Across a low plain
+     at the sea's level it carries on. Cut short, it no longer joins the water at its planned end. *[Where the broad ground had land but the real
+     coast came first, a river ran on along a cliff top, dragged down to the sea's level by its bank
+     over the edge: a slot up to 57 blocks deep, 748 points along 22 stretches on David's world.]*
   4. **A stretch ends at the water it joins.** Working downstream first, a stretch that ends at a
      junction ends at the level of the river it joins. Each stretch's level comes from the ground
      across its own width, so a creek could otherwise end blocks above its river.
@@ -154,6 +165,17 @@ the world's.**
      block of drop, stepping down a block at a time. Every step is at least the step size (4), and
      that's taller than "a waterfall from" (3), so at the defaults every step is a waterfall. Rapids
      only come from smaller drops, such as a creek's last bit down to its river.
+
+     **Each waterfall drops at its lip** (`falls_at_lips`, 2026-10-31, David's screenshot: pillars of
+     water standing in the air). The water above a fall held its level on to the next point, 2 to 6
+     blocks on, out past the cliff's edge where the ground had already fallen away, and its curtain
+     hung over half the piece after that, a slab out in front of the face. Now, along each fall's
+     piece, a block at a time, where the lowest ground across the river first falls below the water
+     above the fall, a point is put in at the water below (halfway between that spot and the last one
+     whose ground still held the water). So the water above ends at the edge and the curtain hangs
+     down the face. This is done last, after everything worked out point by point. The water above
+     a fall is kept on its lip point whether the curtains are on or not, for its banks (section 3);
+     the switch is kept with the world.
   7. **Ponds behind rises** (2026-10-30, David: "these streams either need to ride over the terrain
      like a marble, or cut far deeper in the land"; Counsel's option B, breach or fill). Laid as above,
      a rise across a river's way that the route couldn't get round is notched to the water's level
@@ -165,15 +187,26 @@ the world's.**
      counted wet), kept as a lake with the others (saved with the world the same way). A pond that
      would spread more than 512 blocks from its river (`pool_reach`, "a pond spreads at most"), or
      off the map, can't be held: usually its water would spill into the next valley, the way the
-     river ought to have gone. That rise is cut through instead, with the points beside it up and
-     down the rise whose ponds would be much the same (so the rise isn't tried a point at a time,
-     which took 9.6 s), and the stretch is looked at again. Where a stretch joins water held in a
-     pond, its own end backs up to the pond's level (only there: elsewhere a stretch still ends no
-     higher than its own ground). Rises are worked out for each stretch on all cores. The panel (the
-     Lakes heading): "ponds behind rises" (on/off; off, every rise is cut through as before), "cut
-     through rises up to", "a pond spreads at most"; the report adds how many ponds and how many rises
-     were cut through instead. In the world, a river's raised bank inside a pond's water is left out
-     (it would stand up out of the pond).
+     river ought to have gone. Nor can one that **would drain into another river** (2026-10-31):
+     where its water reaches another river's channel whose water is lower, unless that river flows
+     into this one (a creek's pond stood 31 blocks above the river beside it); its own river's line
+     below the rise; or where a river's channel is cut through its rim more than a block and a half
+     below its water, one flowing in too (it would drain back up that notch: a pond had backed up a
+     tributary beyond its own water, in walls 37 blocks tall). The other rivers' water is as laid
+     before any pond, the lowest it can be; their points are looked up by 32-block cell, each in the
+     cells its channel reaches. **A pond that reaches a lake below it takes the lake in**, at one
+     level: where lakes overlap, the highest water shows (section 3). *[Built first that morning as
+     "cut through instead" (David's go-ahead, for the raised slab of a pond over a lake); once the
+     overlap showed the highest water, that only notched more hills, so changed. Builder, for David
+     to confirm.]* That rise is cut through instead, with the points beside it up and down the
+     rise whose ponds would be much the same (so the rise isn't tried a point at a time, which took
+     9.6 s), and the stretch is looked at again. Where a stretch joins water held in a pond, its own
+     end backs up to the pond's level (only there: elsewhere a stretch still ends no higher than its
+     own ground). Rises are worked out for each stretch on the cores it may use. The panel (the Lakes
+     heading): "ponds behind rises" (on/off; off, every rise is cut through as before), "cut through
+     rises up to", "a pond spreads at most"; the report adds how many ponds, and how many rises were
+     cut through instead (and how many of those ran into water below). In the world, a river's raised
+     bank inside a pond's water is left out (it would stand up out of the pond).
 
      On David's \_ez-bake world (an offline check that rebuilds its rivers from a preset), the
      points cut more than 6 blocks below their banks: his default 26,538 → 14,113 (207 ponds, 478
@@ -183,7 +216,10 @@ the world's.**
      hills across the planned way, which only routing on the real ground at the network's own step
      (option A) can fix.
 - **Deltas:** where a river or great river reaches the sea and its last 64 or 128 blocks fall by less
-  than 1%, the last stretch fans into three channels, each a third as wide, all at sea level.
+  than 1%, the last stretch fans into three channels, each a third as wide, all at sea level. Not
+  where the river met the real sea before its planned mouth, nor where the real ground at the
+  delta's head is a step (4 blocks) or more above the sea (2026-10-31: they'd carve slots at the
+  sea's level into high ground).
 - **Lakes, filled on the real ground** (`fill_lakes`, 2026-10-30; they were step 5's surface on
   each 32-block patch, raised square pools with square walls round them). Step 5's lake patches,
   grown by 64 blocks (`lake_reach`, "look round each lake"), are joined into regions where they touch.
@@ -201,14 +237,23 @@ the world's.**
 
 ## 3. In the world (`src/world/carving.rs`, `interpreter.rs`, `terrain.rs`)
 
-- **Saved with the world** as `rivers.txt` (every point of every stretch, and the lake surfaces).
+- **Saved with the world** as `rivers.txt` (every point of every stretch, the lake surfaces, the
+  banks' settings, and a `curtains 0` line if the curtains are off).
 - **Each column** (`Carving::here`) finds the nearest piece of river line through a lookup grid.
   - **Inside the river** means within half its width of the line. For an even width, the odd block goes
     to the outside of the bend. There the ground is cut down to the **channel floor**, the water level
-    minus 1 minus the depth, and water fills from the floor up to the level. Just below a waterfall,
-    the curtain raises the water to the level above the fall.
+    minus 1 minus the depth, and water fills from the floor up to the level. In the block below a
+    waterfall's lip, the curtain raises the water to the level above the fall. *[2026-10-31: it was
+    the first half of the next piece, up to 3 blocks, a slab out in front of the cliff.]*
+  - **The sea is left alone** (2026-10-31): where the ground is under the sea (`under_sea`), a river
+    cuts no channel, cuts or raises no bank, and hangs no curtain. *[Where the broad ground had land
+    but the real ground is sea, rivers ran on into the sea; their trenches showed through shallow
+    water, and their banks stood up out of it as long straight sandbanks (David's screenshots).]*
   - **In a lake's water cell**, water stands to the surface wherever the ground is more than half a
-    block below it. Each lake is a fine grid of its own, found through a lookup grid.
+    block below it. Each lake is a fine grid of its own, found through a lookup grid. Where lakes
+    overlap (a pond backed up over a lower one), the highest water shows, and beside them the highest
+    water's edge (2026-10-31: it was the first in the list, so a lower pond showed through a higher
+    one, in walls up to 37 blocks tall).
   - **In a dry cell next to the water**, a dip below the surface is filled up to one block under it,
     so water never stands against air. (Worlds saved before 2026-10-30 read their lakes back as one
     grid of 32-block cells.)
@@ -216,7 +261,9 @@ the world's.**
     within the point's fade, the ground is pulled to the **shore** and faded back to its own height.
     The shore is flush (the ground block at the level − 1, its top at the water), or a block higher
     for a ledge. Where the land is higher, it's cut. Where it's lower, it's raised (a levee), so the
-    water never stands against air.
+    water never stands against air. Beside the first two blocks past a waterfall's lip, the shore is
+    the water above the fall's: the cliff the fall comes down (2026-10-31: cut down to the water
+    below, the fall's sides stood in the air).
     - **Fade width:** one width each side for every rank (`fade_widths`), at least 2 blocks
       (`fade_least`), and half that on the outside of a bend (`outside`). Where the fade would be
       steeper than 1 block up per block across (`steepest`), it widens, up to 3 times (`widest`).
@@ -744,3 +791,57 @@ lakes.]*
 - **Then the banks** (step 3), at least a width each side, deepen the valley it found instead of
   digging a trench.
 - **Then lakes,** with the same idea: filled on the real ground round their patch.
+
+## 10. Water standing in the air, sandbanks in the sea, a slab in a lake (Builder, 2026-10-31)
+
+**What David saw** (screenshots of the evening of 2026-10-30, after the ponds behind rises): long
+straight channels and sandbanks out in the sea; pillars and walls of water standing in the air; a
+raised rectangle of water inside a lake. The island in the river and the ponds beside a winding river
+looked right.
+
+**How it was checked:** an offline test rebuilt the rivers of David's \_ez-bake world from his default
+preset and counted every column side where water stands against air (by whose water it is: a river,
+a waterfall's curtain, a pond, a lake), every bank raised out of the sea, and every pond over a lower
+lake; then, for the tallest walls, what each one stands against.
+
+**What it found** (not the dead-end fix, as first guessed: that never triggered on his world):
+1. **Sandbanks in the sea:** where the broad ground had land but the real ground is sea, rivers and
+   deltas ran on into it, and their banks were raised as levees out of the water (92,591 columns
+   along 72 stretches). Their trenches showed through shallow water.
+2. **Water in the air at waterfalls:** the water above a fall held its level on to the next point,
+   past the cliff's edge; the curtain hung over half the piece after, a slab out in front of the
+   face; and the banks just below a fall were cut down to the water below, so the fall's sides
+   stood in the air. The ponds made all of it worse: they hold the water up to each rise, so it
+   comes down the far side as a staircase of falls.
+3. **The slab in a lake, and the tallest walls:** where lakes overlapped, the first in the list
+   showed, so a lower pond showed through a higher one, or a lake through a pond over it. And a pond
+   could back up a tributary beyond its own water, past the tributary's own notch, or stand over
+   another river below it.
+4. **Slots along cliff tops by the sea:** a river whose bank looked over a cliff edge down to the sea
+   or a beach was dragged down to the sea's level, and ran on along the cliff top in a slot up to 57
+   blocks deep (748 points along 22 stretches).
+
+**Fixed** (each in sections 2 and 3 above): the sea left alone; each fall dropped at its lip, its
+curtain the block down the face, its banks the cliff beside it; overlapping lakes showing the highest
+water; ponds that would drain into another river (in their water or through a notch in their rim)
+cut through instead; a lake below a pond taken in; any stretch ending where it first meets the sea;
+deltas only on low ground by the sea. And making the rivers now uses half the CPU's cores (David:
+92 to 99 °C), a slider.
+
+**Before and after**, the same test and preset (blocks of water standing against air, and the tallest
+wall):
+
+| Whose water | Before | After |
+|---|---|---|
+| Rivers | 95,535 blocks, tallest 55 (3,513 walls 8 or more tall) | 7,845, tallest 26 (70) |
+| Ponds | 104,453, tallest 55 | 13,549, tallest 3 |
+| Waterfall curtains | 149,320, tallest 51 | 61,796, tallest 23 |
+| Lakes | 514 | 649 |
+| Banks raised out of the sea | 92,591 columns | 0 |
+
+The curtains left are the waterfalls themselves: a one-block sheet at each lip, its back to the
+cliff, facing down over the water below (at a step of 4 blocks, every step is a waterfall). The
+rivers' walls left are mostly a few blocks tall, at junctions and where a stream meets a river below
+it; the 26-block one is a single place, a creek held above a lake it doesn't reach. Ponds' walls are
+a block or three, where a pond's rim is thin beside the river below its rise, or a bank cuts its rim.
+Made in 3.5 s on 12 of 24 cores.
