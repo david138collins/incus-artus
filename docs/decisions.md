@@ -324,8 +324,9 @@ Reference: `Art/quartile minecraft illustration.png`
       only **4-5 kinds of zone** that aren't a contained blueprint, so **each is made idiosyncratically**,
       its own way, rather than through one general system.
       *Counsel:* candidates for the 4-5: pasture, farm field, tree farm (rows replanted), mine or quarry
-      site (placed by mineralogy), graveyard. Rooms inside buildings (bedroom, dining hall) stay Dwarf
-      Fortress's painted zones (`docs/simulation.md`, section 13) and need no script. A zone's script can
+      site (placed by mineralogy), graveyard. Rooms inside buildings (bedroom, dining hall, bar) stay Dwarf
+      Fortress's painted zones (`docs/simulation.md`, section 13) and need no script: built ad hoc and
+      zoned, or placed as a blueprint (a bar blueprint, David). A zone's script can
       still place blueprints (the barn, the gate), so the two kinds meet there.
       **Roads** [David 2026-10-30]: defined and generated in the civilization stage, as a line that
       smooths a bit and lays different kinds of road, with transitions between them. They need special

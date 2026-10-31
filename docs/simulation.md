@@ -313,6 +313,13 @@ Counsel's notes [PROPOSED]:
   *Counsel:* in Incus Artus a zone can be painted over registered buildings or plain blocks alike, so it
   still works on "just blocks" after a building loses its definition. Ownership and patron rules are the
   same rules as the door locks above, so the law reads trespass from them too.
+  **Rooms are built ad hoc and then zoned, or come as blueprints** [David 2026-10-30]: as in DF, a
+  dining hall or bar is made however the player likes and then zoned, and the zone asks for what it
+  needs. A dining hall needs a chair and a table for every villager eating at the same time; a bar needs
+  a bigger counter for a bigger dance floor; each needs storage for its own items (food, drink). "I like
+  that model." There can still be a **bar blueprint** (or a dining hall one) for those who'd rather place
+  one. *Counsel:* a room blueprint can carry its zone with it, so placing it gives a working bar, and
+  checks the same needs as a hand-built one.
   **Area zones** [IDEA, David 2026-10-30]: the few zones that are a building made of an area (a
   pasture, say) each get their own script, such as a fence along the border and a gate. See
   `docs/decisions.md`, the Registrar's Blueprints tab.
