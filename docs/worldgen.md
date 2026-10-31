@@ -2087,6 +2087,8 @@ to 58, every block regulated). Next:
    - Builder was asked for the options (fields, how it decides, what it places, where it runs, data
      not code, the shared widget), with a pick. Then the same for the quartile placement system. Not
      designed or built yet.
+   - **The options are in `docs/placer.md`** (Builder, 2026-10-31), and quartile placement's in
+     `docs/quartile.md`, with questions for David at the end of each.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.

@@ -55,6 +55,8 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** Pallets show stored blocks/stone visually, in miniature and compressed.
 - **[LATER — REMIND DAVID]** Should quarter blocks ever spawn naturally in world gen? Decide while experimenting with world gen.
 - **[LATER]** Floating cone marker showing which face/quarter you're aiming at.
+- What building it touches, the options, the order and the sizes: `docs/quartile.md` (Builder,
+  2026-10-31, an assessment for David; nothing decided beyond the above).
 
 ## Blocks (see also `docs/block-properties.md`)
 

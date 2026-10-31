@@ -1,0 +1,164 @@
+# Quartile placement: what it touches, options and order (Builder, 2026-10-31, for David to choose)
+
+**Status: an assessment. Nothing is built or decided** beyond `docs/decisions.md`, "Quartile Placement
+System".
+
+**The decided design** (`docs/decisions.md`, with `Art/quartile minecraft illustration.png`):
+- Every cell is 8 **octants** (½ × ½ × ½).
+- A **quarter block** is a **bar**, 1 × ½ × ½ (2 octants). It lies along any of the 3 axes, in any of
+  4 positions: **12 bar slots** a cell. Bars may share an octant, which makes corners.
+- Bars replace stairs, slabs and roof pieces. A stair is 3 bars; a half slab is 2 bars side by side.
+- **A cell can mix materials.** Where bars overlap, the bar placed first keeps the shared octant.
+  Mining a mixed cell takes all of it.
+- **Items sit on face quarters** or a face's centre. Objects protect the blocks they stand against.
+
+**David, 2026-10-31:** "what about the quartile/octant system? we need oak quarter size logs." Trees
+need it first: quartile oak makes thin trunks and branches, and the quarter log is the fires' small
+log.
+
+---
+
+## 1. What it touches
+
+| Part | Today | With bars |
+|---|---|---|
+| **Storing cells** | one block number per cell (`BlockId`, 16 bits), in sections of 32³ packed by a palette; each chunk also has a sparse table of extras by position (`BlockExtra`, only a test note so far) | a cell can hold bars of several materials |
+| **The mesher** | binary greedy meshing of whole cells, by opacity bit-columns; vertices are 8 bytes, with each position 6 bits an axis (whole blocks, 0 to 32) | bars drawn as boxes at half-block corners; a cell with bars hides nothing behind it |
+| **The vertex format and shader** | position in whole blocks; textures tile once a block, from the position | positions in half blocks (7 bits an axis, which still fits the 32-bit word); bar textures (32 × 16 long faces, 16 × 16 ends) need the bar's own corner to measure from |
+| **Collision** | the body's box swept cell by cell against `solid(cell)` | a cell with bars is tested against each bar's box; half-block steps need **stepping up**, which doesn't exist yet |
+| **Aiming** (raycast) | stepping through cells to the first solid one, and its face | through a cell's bars to the first bar hit, then which quarter of which face |
+| **Placing and mining** | `Place(block)` or `Break` at a cell | place a bar (slot, axis, material); the first bar keeps shared octants; mining a mixed cell takes all |
+| **The Registrar's block format** | one block, six face textures | whether a block can be a bar, and its bar textures (or a share of the block's own) |
+| **Saves** | chunk files by block name, runs of blocks per section (format 2) | format 3: each section's cells with bars added; format 2 files still load |
+| **World generation** | blocks only | trees' blueprints put bars into cells as they're made |
+| **The far view** | a height sheet made from the recipe; built things aren't shown far away yet | nothing for now; trees are sprites far away; built things wait for "far builds" (`vision/watch-list.md` 17) |
+| **Items on quarters** | not built (no items in the world yet) | its own system later; it needs the same "which quarter of which face" aiming |
+
+---
+
+## 2. Options for storing a cell with bars
+
+- **A. Every cell as 8 octants:** double the world's resolution. That's 8 times the memory and
+  meshing everywhere, for something most cells never use. No.
+- **B. A block number for each shape:** one material's 12 slots give 4,096 shapes, times every
+  material. That's far past the 65,000 block numbers, and it can't mix materials. No.
+- **C. A marker and a side table** (my pick):
+  - **In the section,** a cell with bars holds a reserved number, "bars here". Its palette treats it
+    as one more kind, so packing is unchanged.
+  - **A side table per section** holds, for those cells only, the bars in the order placed: slot and
+    material. That's 1 to 12 bars at 3 bytes each.
+  - Placing order is kept, so "the first bar keeps the shared octant" falls out of drawing them in
+    order.
+  - **Sparse:** a cell without bars costs nothing. A forest of quartile oak might hold a few thousand
+    such cells a chunk, which a table copes with.
+  - It goes per section, not per chunk (the existing `BlockExtra` table is per chunk), so the
+    mesher's job copies a section's bars with its blocks.
+
+---
+
+## 3. The mesher
+
+- **Whole blocks are meshed as now** (greedy, unchanged). A cell with bars counts as not opaque, so
+  the blocks round it draw their faces against it. It's like glass to its neighbours.
+- **Bars are meshed separately:** each bar is a box of 6 faces at half-block corners. A face is
+  dropped where another bar in the cell covers it, or where it's flush with the cell's side against
+  an opaque neighbour. There's no greedy merging for bars, which is fine while they're a small share
+  of cells.
+- **The vertex:** the position becomes half blocks, 7 bits an axis (0 to 64): 21 bits, plus the face's
+  way (3) and the random rotation (1). That's 25 of the 32 bits, so the vertex stays 8 bytes. The
+  shader halves the position. Everything whole-block is unchanged, just doubled.
+- **Textures, two ways:**
+  - **A share of the block's own texture** (free): the textures already tile from the position, so a
+    bar shows the matching half or quarter of its block. An oak bar shows half of the oak block.
+  - **Bar textures of its own** (David's 32 × 16 and 16 × 16 art): the texture is measured from the
+    bar's own corner. That needs the bar's corner in the vertex: the quad number's 16 bits in the
+    second word are only used by the debug view, so they can carry it.
+  - **My pick:** start with the share (no art needed to try it), and add bar textures as an option per
+    block, when David makes them.
+
+---
+
+## 4. Collision, stepping up and aiming
+
+- **Collision:** the sweep already asks `solid(cell)` cell by cell. For a cell with bars, the body's
+  box is tested against each bar's box instead. Whole cells cost the same as now.
+- **Stepping up** (to decide): stairs of bars climb half a block at a time. Without stepping up,
+  every stair needs a jump.
+  - **My pick:** step up anything up to half a block automatically, when walking into it, if there's
+    head room. That's how stairs and slabs feel in most block games.
+  - It's new: there's no stepping up today.
+- **Aiming:** the ray steps through cells as now. In a cell with bars, it's tested against each bar's
+  box. Then the hit point gives which quarter of which face, for placing a bar beside it and later for
+  items. The decided "floating cone marker" shows that quarter.
+
+---
+
+## 5. Placing and mining
+
+- **Placing a bar:** from the face and quarter aimed at, the slot next to it, and its axis from the
+  way you're facing (or a key to turn it).
+  - Into air, or into a cell with bars that has room: the new bar loses any octant already taken.
+  - Into a whole block: refused.
+- **Mining:** a whole block as now. A cell with bars is taken all at once (decided), dropping its
+  bars.
+- **Edits** become `Place(block)`, `PlaceBar(slot, material)` and `Break`. The "changed" message
+  carries the cell's bars, so saving, the mesher and (later) settlers all see them.
+- **Items and inventory:** bars are items like blocks ("oak quarter log"). There's no inventory yet;
+  until then, the hotbar picks bars the way it picks blocks.
+
+---
+
+## 6. The order, and the sizes
+
+Four stops for David, each one something to see:
+
+| Stop | What | About (lines) |
+|---|---|---|
+| 1. See them | the side table, the marker, the mesher's bars at half-block corners (a share of the block's texture), and a debug key to put bars in a cell | 450 |
+| 2. Live with them | collision with bars, stepping up half blocks, aiming at bars, placing and mining bars, edits | 500 |
+| 3. Keep them | the save format 3 (bars by name), format 2 still loading; the Registrar's "can be a bar" and optional bar textures | 300 |
+| 4. Grow them | world generation writing bars (for blueprints); bar textures measured from the bar | 200 |
+| Tests throughout | | 300 |
+| **Total** | | **about 1,750** |
+
+**Risks:**
+- **Speed:** bars aren't greedily merged, so a dense forest of quartile oak is many small quads. It
+  needs measuring with a real forest, and could use merging bars along a line later.
+- **The vertex change** reaches the shader and the debug view. Everything doubles together, and the
+  near/far seam work must be checked again.
+- **Collision edges:** a body can catch on half-block edges, and stepping up must not climb walls.
+  It needs tests at the edges, like the "walking through block sides" ones.
+- **Save format:** a version bump. Old chunk files must still load.
+- **The far view:** built things with bars aren't drawn far away until "far builds".
+
+---
+
+## 7. Beside the placer, or first?
+
+**They're independent.**
+- **The placer** reaches world generation's fields, mineralogy and the panels.
+- **Quartile** reaches storage, the mesher, collision, aiming, edits, saves and the Registrar.
+- **They meet only at blueprints:** a tree placed by the placer is made of bars. That needs both, plus
+  the asset factory and the Blueprints tab. Either can come first.
+
+**My recommendation:**
+1. The placer's first version (mineralogy on it), since David named it most critical and mineralogy
+   is waiting on it.
+2. Quartile stops 1 to 3.
+3. The asset factory and Blueprints, where trees need both.
+
+If trees should come sooner, quartile stop 1 can come first: it's the one to see and judge. The two
+don't block each other, and with one Builder, "beside" means taking stops by turns.
+
+---
+
+## 8. Questions for David
+
+1. **Stepping up:** climb half-block steps automatically when walking into them (section 4)?
+2. **Textures:** start with bars showing a share of their block's own texture, and add 32 × 16 and
+   16 × 16 bar art as an option per block later (section 3)?
+3. **Which blocks can be bars:** every block, or only those the Registrar marks (cut stone, boards,
+   bricks, logs, dirt)?
+4. **Turning a bar:** its axis from the way you face, or a key to turn it?
+5. **The order:** the placer first, then quartile stops 1 to 3? Or quartile stop 1 first, to see bars
+   sooner (section 7)?
