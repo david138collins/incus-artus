@@ -536,7 +536,9 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED 2026-10-30] Plan for a full revision pass** [David]: once the game is "done", everything
   gets gone through and adjusted again, so build for that from now on. Keep everything **formulaic,
   linear, hierarchical and modular** (the world gen's linear pipeline, extended to every system), which
-  makes the second pass easier. *Counsel:* in practice that means
+  makes the second pass easier. **Nothing is ever "done"** [David 2026-10-31]: "nothing is done,
+  everything is only done enough to do the next thing, until we go back and fine tune everything again."
+  *Counsel:* in practice that means
   - **numbers in data, not code** (sliders, presets, data files), so a revision is retuning, not
     rewriting;
   - **each system reads only from what comes before it**, so changing one place has a known reach;

@@ -1993,13 +1993,32 @@ to 58, every block regulated). Next:
    as it stands, sound or patch, is in `docs/water-inventory.md`. Two ideas from the same day there:
    the Climate tab with **rivers before temperature, wind and rain**, and **the webbing**, a soft map of
    every passage between rises for the water to follow.
-   **[SETTLED 2026-10-31] Rivers are settled for now** (David: "i'd say we've pretty much got rivers
-   fixed. any improvements would have to come as part of a bigger rework, where i have a really specific
-   goal in mind"). What was built and what's on file is in `docs/water-rework.md` section 19. The rough
-   edges are to be smoothed later, from David's screenshots. Left in this item:
-   - **rivers first in the Climate tab** (decided, not built);
-   - **mineralogy reading the rivers:** beds, shores and lake floors.
+   **[ENOUGH FOR NOW 2026-10-31] Rivers are done enough to go on** (David: "i'd say we've pretty much
+   got rivers fixed. any improvements would have to come as part of a bigger rework, where i have a
+   really specific goal in mind"; and "rivers arent 'done', nothing is done, everything is only done
+   enough to do the next thing"). What was built and what's on file is in `docs/water-rework.md` section
+   19. The rough edges are to be smoothed later, from David's screenshots. Left in this item:
+   - **rivers first in the Climate tab** (decided; go-ahead 2026-10-31: "lets get the rearrangement of
+     the climate tab done");
+   - **mineralogy,** which first needs a design (below).
    Then trees.
+   **[David 2026-10-31] Mineralogy needs a system for placing things, not rules in code:** "minerology
+   will require some thought. i must be able to add blocks from the library and create a new
+   distributor or layer, along with a wide selection of existing fields to project them from. it cant
+   be hard coded, needs a wrapper to register distributions and locations or fields. so itll have to be
+   able to call up almost any previously defined feature for me to play with. this is a similar process
+   to what well do in the registrar in order to get trees and similar to how ecology will distribute
+   plants and animals." Not designed yet; to be talked through first.
+   *Counsel:* one system with three users (mineralogy's blocks, trees placed as blueprints, Ecology's
+   plants and animals), made of two registered kinds of thing:
+   - **fields:** every map or value a stage makes registers itself by name, with its range (height,
+     slope, temperature, rain, distance to water, a river's size, crush, masks, noise...);
+   - **distributors:** layers David makes, each placing a registered block or blueprint where chosen
+     fields say, stacked in order.
+   The linear pipeline sets the one limit: "previously defined" means a distributor can read any field
+   made *before* its stage, never after. That's why its stage is listed with each field. It fits "layers
+   mix their numbers, not their colours", the adjustment layers, and the FX Lab's modules wired
+   together.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
