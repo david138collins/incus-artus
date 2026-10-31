@@ -1,6 +1,9 @@
-# The placer: options (Builder, 2026-10-31, for David to choose)
+# The placer (Builder, 2026-10-31)
 
-**Status: options only. Nothing is built or decided.**
+**Status: go-ahead given** (David, 2026-10-31: "begin on it, and just proceed cautiously").
+- His answers to the options are in section 10.
+- What the placer has to grow into is in section 11.
+- The first version's stops are in section 12. Stop 1 is being built.
 
 David asked for these through Counsel: "the placer and quartility seem the most critical. but im not
 sure how to observe the placer without minerology. i cant really think why it would need its own
@@ -310,16 +313,169 @@ groups the winners by tag. Gaps then show on the map as places that aren't viabl
 
 ---
 
-## 10. Questions for David
+## 10. Questions for David, and his answers (2026-10-31, through Counsel)
 
 1. **Deciding:** one model, with stacked number layers making each candidate's suitability, and the
    chooser as first that fits, the best fit, or by chance (section 3)?
+   - **Yes.**
 2. **What's built first:** column profiles only, with the format ready for blueprints, 3D and areas
    (section 4)?
+   - **Yes, column profiles first.**
 3. **Where it lives:** in the presets and the world's recipe, with import and export of single
    distributors (section 6)? Or data files like blocks?
+   - **Presets, with import and export.**
 4. **Old worlds:** convert their mineralogy settings once when loading, or let their untouched ground
    change (section 8)?
+   - **Let it change.** No converter (his standing rule on old saves).
 5. **Seeing it:** is the shared widget, with "why is this sand?" under the mouse, the way you'd want to
    observe it (section 7)?
+   - **Yes, and two views besides:**
+     - **the field view:** "switch the screen to black with lines on the map, with shading showing
+       the field i'm *making* from another field";
+     - **the depth sweep:** "scroll through the z layers with the wheel or a scroll bar that can
+       select ranges or individual levels, in order to sweep like lidar and see where the minerals,
+       rocks, and ores are going. same for soils and sands".
 6. **The first fields to offer:** everything in the table in section 1, or a smaller set to start?
+   - **The table**, "especially if i can add or subtract them with blend modes".
+
+---
+
+## 11. What it has to grow into (David's go-ahead)
+
+David: "the placer needs to be able to access more than just fields. it'll place towns, and presumably
+also place the buildings in the town, which has to grow procedurally like jigsaw pieces and also
+through decisions by the npc. it'll need to be able to access fields from tectonics, it'll need to be
+able to place things based on other placed things, it'll need to be able to select entire sections of
+the world, generate its own fields from any points we already have like 'river end' or 'peak'. its
+going to need to be very powerful and flexible, and be able to handle things both at world creation
+and going forward possibly as the game will be able to place things for little reason at any time if
+necessary. as long as we all understand that we might be forgetting something it has to do, i think
+we are good to begin on it, and just proceed cautiously."
+
+**The first version builds little of this, but its format has a place for each,** and every list
+below is open to kinds nobody has thought of yet. In the format, each is a kind with a name. A kind an
+older game doesn't know is shown greyed and named, never crashed on.
+
+**What a layer reads** (its source):
+- **Built in stop 1:**
+  - a field from the table, the Tectonic Sim's included (the bake's height, tilt, squeeze and push);
+  - seeded noise;
+  - another made field above it;
+  - the result so far (for a curve over everything below it);
+  - a number.
+- **Built in stop 3:** which candidate an earlier distributor chose (a kind, such as rock type).
+- **Later:**
+  - **Fields made from lists of points or lines:** the distance to the nearest, how many lie within
+    a reach, or the nearest one's size. The lists are any we have: river ends, peaks, springs,
+    mouths, junctions, falls, craters, and **things already placed** (a distributor's own points, or,
+    in play, whatever has been placed since). Two of these are table fields from stop 1: the distance
+    to a river and to the mountains' points.
+  - **Regions:** a whole section of the world, chosen by a field (every spot where it's above a
+    level), by a kind (one plate, one basin), or drawn by hand.
+  - **The Tectonic Sim's kinds:** which plate a spot is on.
+
+**What a candidate puts down:**
+- **Built in stop 3:** a block, with the blocks under it (a column profile).
+- **Later:**
+  - an inclusion in the rock already there (ores);
+  - points with spacing (trees, boulders, craters, towns);
+  - **pieces joined at hooks**, for towns and buildings that grow like jigsaw pieces. The placer
+    answers "where does this piece fit, at which hook". Civilization's NPCs decide what grows next.
+  - an area handed on to later stages as a field (forest cover, an animal's range, a mine site).
+
+**When it runs:**
+- **Built:** at world creation, in the compiler (over the map) and the Interpreter (at each block).
+- **Later, at any time in play.** A placement in play comes after everything, so it can read
+  everything that exists, placed things included: the linear rule still holds. It's saved as an edit,
+  like a build, and seeded, so it can be repeated.
+
+---
+
+## 12. The first version's stops
+
+Mineralogy is the first user. **Each stop ends with something for David to look at, and I stop there
+and wait for his word.** About 2,400 lines in all. That's more than section 8's 1,450, for the two
+views and the wider format.
+
+### Stop 1: the field view (about 900 lines)
+
+**Built:**
+- **The field table:** the fields a world has, each with its name, stage, unit and range (section 1's
+  table):
+  - **Tectonics:** the bake's height, tilt, squeeze, push strength and push way;
+  - **Landmass:** distance to the coast;
+  - **Topography:** distance to the mountains' points, how much of it is mountains, and the rise,
+    edge rise, ridgelines and peaks there;
+  - **the ground:** its height, its slope, and, per block, the block's Z, its depth below the
+    surface, and that depth as a share of the crust;
+  - **Rivers:** distance to a river, a river's water across, and water over the ground;
+  - **Climate:** temperature and rain.
+- **Made fields:** a stack of layers, run top to bottom.
+  - **Each layer** is a source through a curve, mixed into the result so far by a mode, at a strength.
+  - **The curve** is one of: as it is, a step, a band, or free (the spline box).
+  - **The mode** is one of: normal, add, subtract, multiply, the lower, the higher.
+  - So "copper by a band of depth, minus wet ground" is two layers.
+
+**Where:** a new **Fields** section at the top of the Mineralogy panel holds the made fields and the
+field view's switches. The field under the mouse shows in the right-hand panel. (Easy to move if
+David wants it elsewhere.)
+
+**What David sees:**
+- **The map turns black,** with lines on it (the coast, the rivers and lakes, and contours every so
+  many blocks), and the field being made shaded in it, white where it's highest.
+- **Any step:** the result at any layer, or one layer alone.
+- **Under the mouse:** each layer's value and the result so far.
+- **Depth fields are seen at a level:**
+  - the surface, a Z, or a depth below the surface;
+  - one level, or a range (a range shows the most anywhere in it);
+  - set by a slider, or Ctrl + wheel over the map.
+
+**Not yet:** nothing in the world changes. Made fields are saved with the preset, and used from stop 3.
+
+**I stop here,** for David to make a few fields and say what's missing.
+
+### Stop 2: the depth sweep (about 350 lines)
+
+- **A bar along the map's right edge sets the level:**
+  - drag its two handles apart for a range, or together for one level;
+  - the wheel over it steps a level (Shift: 10 at a time);
+  - by Z, or by depth below the surface.
+  - The same bar sets the field view's level.
+- **The blocks view:** at that level, which block is there across the map, in its colour. For now
+  that's today's mineralogy: the surface, the dirt and sand under it, and stone.
+- **For a range,** each spot shows the first block from the top that isn't see-through:
+  - air and water always are;
+  - stone is too, by a switch ("see through stone").
+  - So soils and sands stand out like a lidar sweep, and later the rocks and ores.
+- **Under the mouse:** the column's blocks from the surface down.
+
+**I stop here.**
+
+### Stop 3: mineralogy on the placer (about 900 lines)
+
+- **Distributors:**
+  - **candidates** from the block library, with their pictures. A block that isn't registered shows
+    greyed and named, and is skipped.
+  - **Each candidate** has its suitability (a stack, like a made field) and its column profile: the
+    top block, then blocks under it, each to a depth, then what's below.
+  - **The chooser:** first that fits, the best fit, or by chance (seeded by the spot).
+  - **Later layers can read what's chosen,** as a kind in a set ("the rock is limestone or marble").
+- **Today's mineralogy rebuilt as three distributors:** the surface, the sea floor, and river and
+  lake beds.
+  - Their starting numbers are David's own (his 15:20 preset: dry grass below rain 0.21, wander 0.3
+    in patches of 512 and so on), and they must give his world to the block. A test compares chunks
+    made both ways.
+  - Today's Mineralogy sliders go, and their numbers become the distributors' curves.
+  - Other presets' and old worlds' mineralogy goes back to these starting numbers (no converter).
+- **One function** for the near ground, the far view and the close-up, as now.
+- **"Why is this sand?":** under the mouse, each candidate's suitability and the chooser's pick.
+- **Speed:** the soak test against today's mineralogy.
+
+**I stop here,** for David to add blocks and layers of his own.
+
+### Stop 4: sharing, and the docs (about 250 lines)
+
+- **Export** a distributor or a made field to a file, and **import** one.
+- The docs brought up to date, with what's next.
+
+**I stop here.** The placer's first version is then done enough to go on to the next thing.
