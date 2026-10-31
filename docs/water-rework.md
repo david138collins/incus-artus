@@ -409,7 +409,7 @@ Today's controls don't aim at it:
   smaller.
 - **Cost:** about 30 lines in the network's growing pass, one slider, and a readout of how many
   junctions join two rivers (both at least river size), against how many join a stream to a river.
-- **Where:** with stage 5 (sizes by area), since "river size" is an area threshold there. The readout
+- **Where, if it's ever taken up:** with stage 5 (sizes by area), since "river size" is an area threshold there. The readout
   could come earlier, counting ranks.
 - **The catch:** fewer springs feed rivers in big basins, so some of those uplands get shorter lone
   streams instead. With petering out by distance (stage 6), they keep running if there's water within
