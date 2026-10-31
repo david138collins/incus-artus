@@ -50,6 +50,14 @@ pub struct CarvingSettings {
     /// where the land rises on both sides across it), its raised banks easing it down.
     pub fill_over_banks: f32,
     pub cut_most: f32,
+    /// Where a river joins another, its water eases down toward the joined river's over its last
+    /// stretch, this many of the joined river's widths, as steeply as rapids go; what's left is a
+    /// fall at the shore (0: none) [David, 2026-10-31: "a linear joint fade similar to how we do the
+    /// lateral bank fades"].
+    pub join_fade: f32,
+    /// Rivers running alongside each other merge, the higher falling into the lower (`merge_alongside`)
+    /// [David, 2026-10-31: "it should cause a waterfall to merge, shouldnt it?"].
+    pub merge_alongside: bool,
     /// The route on the real ground [2026-10-30]: how far either side of its planned path a river may
     /// find its way (blocks), and the grain it's found on (blocks a cell).
     pub corridor: f32,
@@ -193,7 +201,9 @@ impl Default for CarvingSettings {
             anti_kitty_corner: true,
             level: Level::Cut,
             fill_up_to: 3.0,
-            fill_over_banks: 0.0,
+            fill_over_banks: 3.0,
+            join_fade: 3.0,
+            merge_alongside: true,
             cut_most: 40.0,
             corridor: 64.0,
             grain: 4.0,
@@ -477,7 +487,11 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     let mut reaches: Vec<Reach> = made.into_iter().map(|(reach, _)| reach).collect();
     // The water levels, from the real ground (never above the banks, but in a pond behind a rise),
     // only falling downstream.
-    let laid = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
+    let mut laid = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
+    let merged = if s.merge_alongside { merge_alongside(&mut reaches, &ends_of, fall_from) } else { vec![false; reaches.len()] };
+    for (cut, merged) in laid.cut_short.iter_mut().zip(&merged) {
+        *cut |= merged;
+    }
     // The deltas, but where their river met the sea before its planned mouth, or where the real
     // ground at their head isn't low by the sea (they'd carve slots at the sea's level).
     let low_by_the_sea = |p: &RiverPoint| ground.height(p.north, p.east).is_none_or(|h| h < SEA_LEVEL as f32 + step.max(1.0));
@@ -495,6 +509,7 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     (carving.deepest_fill, carving.filled) = (laid.deepest_fill, laid.filled);
     (carving.rise_ponds, carving.cut_instead, carving.into_water) = (rise_ponds, laid.cut_instead, laid.into_water);
     (carving.deep_stretches, carving.rerouted, carving.plan_cut, carving.line_cut, carving.route_took) = (found.deep, found.rerouted, found.plan_cut, found.line_cut, route_took);
+    carving.merged = merged.iter().filter(|&&m| m).count();
     Some(carving)
 }
 
@@ -1177,7 +1192,9 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     let held = Lakes::new(ponds.iter().flat_map(|p| p.lakes.iter().cloned()).collect());
     for &r in order.iter().rev() {
         let (_, end, end_level, _) = ends_of[r];
-        let joins = if end_level.is_none() && !cut_short[r] { from.get(&end).and_then(|&next| reaches[next].points.first()).map(|p| p.level) } else { None };
+        // (The water it joins, and that river's width there.)
+        let joined = if end_level.is_none() && !cut_short[r] { from.get(&end).and_then(|&next| reaches[next].points.first()).map(|p| (p.level, p.width)) } else { None };
+        let joins = joined.map(|(level, _)| level);
         let points = &mut reaches[r].points;
         if let (Some(at), Some(last)) = (joins, points.last_mut()) {
             // (Where the water it joins is held up in a pond, it backs up into this reach too.)
@@ -1264,6 +1281,27 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
                 }
             }
         }
+        // Where it joins another river, it eases down toward that river's water over its last stretch
+        // (`join_fade` of that river's widths), as steeply as rapids go (a block of drop for every
+        // `rapids_length` of river); what that can't take is a fall at the shore. Only lowering.
+        if let Some((at, width)) = joined
+            && s.join_fade > 0.0
+            && points.len() > 1
+        {
+            let fade = s.join_fade * width.max(1.0);
+            let mut from_end = vec![0.0f32; points.len()];
+            for k in (0..points.len() - 1).rev() {
+                from_end[k] = from_end[k + 1] + gap(&points[k], &points[k + 1]);
+            }
+            if let Some(start) = (1..points.len()).find(|&k| from_end[k] <= fade) {
+                let top = points[start - 1].level;
+                let eased = (top - at).max(0.0).min(fade / s.rapids_length.max(1.0));
+                for k in start..points.len() - 1 {
+                    let into = 1.0 - from_end[k] / fade;
+                    points[k].level = points[k].level.min((top - eased * into).floor().max(at));
+                }
+            }
+        }
         // Then each waterfall keeps the water above it, for its curtain and its banks: every drop as
         // tall as a waterfall, and every drop of 2 or more still standing sheer, where rapids had no
         // room to spread [2026-10-31, David's screenshot: with no steps and falls from 25, rapids at
@@ -1282,6 +1320,76 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     // Then each waterfall dropped at its lip (points put in, so after everything taken by point).
     falls_at_lips(reaches, ground);
     Some(Laid { deepest_cut, deep_cuts, deepest_fill, filled, ponds: ponds.into_iter().flat_map(|p| p.lakes).collect(), cut_instead: too_far + into_water, into_water, cut_short })
+}
+
+/// Rivers running alongside each other merge [David, 2026-10-31: two rivers side by side, their edges
+/// touching only at corners, "it should cause a waterfall to merge, shouldnt it?"]. Walking each river
+/// down, at its first point whose water comes within a block of another river's water that's lower
+/// (or as low, the other nearer the sea), it ends there, falling to that river's level, and the rest
+/// of its way alongside is dropped. Clear of its own ends by its width and the widest river's, where
+/// it meets its junctions' rivers. The rivers nearest the sea go first, so none merges into water
+/// that's since gone. Which reaches merged.
+fn merge_alongside(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)], fall_from: f32) -> Vec<bool> {
+    const CELL: f32 = 32.0;
+    let cell = |v: f32| (v / CELL).floor() as i64;
+    let mut cells: std::collections::HashMap<(i64, i64), Vec<(u32, u32)>> = std::collections::HashMap::new();
+    let mut widest = 1.0f32;
+    for (r, reach) in reaches.iter().enumerate() {
+        for (k, p) in reach.points.iter().enumerate() {
+            cells.entry((cell(p.north), cell(p.east))).or_default().push((r as u32, k as u32));
+            widest = widest.max(p.width);
+        }
+    }
+    let mut order: Vec<usize> = (0..reaches.len()).collect();
+    order.sort_by(|&a, &b| ends_of[a].3.total_cmp(&ends_of[b].3));
+    let mut merged = vec![false; reaches.len()];
+    for &r in &order {
+        let p = &reaches[r].points;
+        if p.len() < 3 {
+            continue;
+        }
+        let mut along = vec![0.0f32; p.len()];
+        for k in 1..p.len() {
+            along[k] = along[k - 1] + ((p[k].north - p[k - 1].north).powi(2) + (p[k].east - p[k - 1].east).powi(2)).sqrt();
+        }
+        let total = along[p.len() - 1];
+        let mut found = None;
+        'walk: for k in 1..p.len() - 1 {
+            let a = p[k];
+            let clear = a.width + widest;
+            if along[k] < clear || total - along[k] < clear {
+                continue;
+            }
+            let span = ((a.width + widest) / 2.0 + 1.0) / CELL;
+            let span = span.ceil() as i64;
+            let (cn, ce) = (cell(a.north), cell(a.east));
+            for dn in -span..=span {
+                for de in -span..=span {
+                    for &(r2, k2) in cells.get(&(cn + dn, ce + de)).map_or(&[][..], |v| v.as_slice()) {
+                        let (r2, k2) = (r2 as usize, k2 as usize);
+                        if r2 == r || k2 >= reaches[r2].points.len() {
+                            continue;
+                        }
+                        let b = reaches[r2].points[k2];
+                        let lower = b.level < a.level - 0.5 || (b.level <= a.level && ends_of[r2].3 < ends_of[r].3);
+                        if lower && ((a.north - b.north).powi(2) + (a.east - b.east).powi(2)).sqrt() <= (a.width + b.width) / 2.0 + 1.0 {
+                            found = Some((k, b.level));
+                            break 'walk;
+                        }
+                    }
+                }
+            }
+        }
+        if let Some((k, level)) = found {
+            let points = &mut reaches[r].points;
+            points.truncate(k + 1);
+            let above = points[k - 1].level;
+            points[k].level = points[k].level.min(level);
+            points[k].curtain = if above - points[k].level >= fall_from.min(2.0) { above } else { f32::NAN };
+            merged[r] = true;
+        }
+    }
+    merged
 }
 
 /// What laying the water found: for the panel, the deepest cut below the lowest ground across a
@@ -1847,9 +1955,51 @@ mod tests {
         let flat: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 4.8).collect();
         let ground = CompiledMap::of_heights(width, 8.0, &flat);
         let mut reaches = vec![Reach { points: (0..=112).map(|k| creek(-4.0, (60.0 - k as f32 * 0.5 - 32.0) * 8.0)).collect() }];
-        let s = CarvingSettings { level: Level::LeastChange, fill_up_to: 3.0, rapids_length: 1.0, rise_pools: false, ..CarvingSettings::default() };
+        let s = CarvingSettings { level: Level::LeastChange, fill_up_to: 3.0, fill_over_banks: 0.0, rapids_length: 1.0, rise_pools: false, ..CarvingSettings::default() };
         lay_water(&mut reaches, &[(0, 1, None, 100.0)], &ground, 8.0, 25.0, &s, &AtomicBool::new(false)).unwrap();
         assert!(reaches[0].points.iter().all(|p| p.level <= ground.height(p.north, p.east).unwrap() + 0.5), "filled on a slope");
+    }
+
+    #[test]
+    fn a_river_running_alongside_a_lower_one_merges_into_it_with_a_fall() {
+        // David: two rivers side by side "should cause a waterfall to merge". A river at 160 runs
+        // alongside one at 150, 4.5 apart (their 4-wide waters a block apart): it ends where they
+        // first come close (clear of its start), falling to 150.
+        let line = |north: f32, level: f32| Reach { points: (0..=100).map(|k| RiverPoint { width: 4.0, level, ..creek(north, k as f32 * 4.0 - 200.0) }).collect() };
+        let mut reaches = vec![line(0.5, 160.0), line(5.0, 150.0)];
+        let ends = [(0, 1, None, 100.0), (2, 3, None, 50.0)];
+        let merged = merge_alongside(&mut reaches, &ends, 3.0);
+        assert_eq!(merged, vec![true, false]);
+        let last = *reaches[0].points.last().unwrap();
+        assert!(reaches[0].points.len() < 10, "it ran on alongside: {} points", reaches[0].points.len());
+        assert_eq!((last.level, last.curtain), (150.0, 160.0), "a fall to the lower river");
+        assert_eq!(reaches[1].points.len(), 101, "the lower river carries on");
+        // Further apart (their waters 4 blocks apart), each keeps its own way.
+        let mut apart = vec![line(0.5, 160.0), line(8.5, 150.0)];
+        assert_eq!(merge_alongside(&mut apart, &ends, 3.0), vec![false, false]);
+    }
+
+    #[test]
+    fn a_tributary_eases_down_into_the_river_it_joins() {
+        // David's joint fade: a creek off a plateau (160) joins a river in a trench (150). Without
+        // the fade, it drops 10 at the trench's edge; with it, it eases down over its last 18 blocks
+        // (3 of the river's 6-block widths) and drops what's left at the edge.
+        let width = 256;
+        let z: Vec<f32> = (0..width * width).map(|i| if ((128.0 - (i / width) as f32 - 0.5) - 0.5).abs() <= 4.0 { 150.0 } else { 160.0 }).collect();
+        let ground = CompiledMap::of_heights(width, 1.0, &z);
+        let drops = |join_fade: f32| {
+            let tributary = Reach { points: (0..=25).map(|k| creek(100.5 - k as f32 * 4.0, 0.5)).collect() };
+            let river = Reach { points: (0..=40).map(|k| RiverPoint { width: 6.0, ..creek(0.5, 0.5 + k as f32 * 4.0) }).collect() };
+            let mut reaches = vec![tributary, river];
+            let s = CarvingSettings { join_fade, rapids_length: 1.0, rise_pools: false, ..CarvingSettings::default() };
+            lay_water(&mut reaches, &[(0, 5, None, 200.0), (5, 9, None, 100.0)], &ground, 1.0, 3.0, &s, &AtomicBool::new(false)).unwrap();
+            let levels: Vec<f32> = reaches[0].points.iter().map(|p| p.level).collect();
+            (levels.windows(2).map(|w| w[0] - w[1]).fold(0.0f32, f32::max), *levels.last().unwrap(), reaches[1].points[0].level)
+        };
+        let (hard, end, river) = drops(0.0);
+        assert!(hard >= 9.0 && end == river, "{hard} {end} {river}");
+        let (eased, end, river) = drops(3.0);
+        assert!(eased <= 5.0 && end == river, "{eased} {end} {river}");
     }
 
     /// A creek's point, 3 wide.
@@ -2073,7 +2223,8 @@ mod tests {
         // a waterfall (no rapids), so the levels compare point for point (the points both have: each
         // waterfall puts one in at its lip).
         let (flow, network, ground) = country();
-        let lay = |step| make(&network, &flow, &ground, 32.0, 3, step, 1.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
+        let s = CarvingSettings { join_fade: 0.0, merge_alongside: false, ..CarvingSettings::default() };
+        let lay = |step| make(&network, &flow, &ground, 32.0, 3, step, 1.0, &s, &AtomicBool::new(false)).unwrap();
         let (unstepped, stepped) = (lay(1.0), lay(4.0));
         let mut tops = 0;
         for (a, b) in unstepped.reaches.iter().zip(&stepped.reaches) {

@@ -442,6 +442,8 @@ pub struct Carving {
     pub plan_cut: f32,
     pub line_cut: f32,
     pub route_took: f32,
+    /// How many rivers running alongside another merged into it (`merge_alongside`).
+    pub merged: usize,
 }
 
 impl PartialEq for Carving {
@@ -747,16 +749,21 @@ impl Carving {
             }
         }
         // Lakes: water to the surface wherever the ground is below it; beside one, a dip below the
-        // surface is filled up to it.
+        // surface is filled up to it. The ground as a river's bank has carved it [2026-10-31, David's
+        // screenshot: a pool beside a river, its rim cut by the river's bank, stood as a slab of water
+        // with a sheer side]: a bank cut in a lake's water fills with it, and one cut beside it is held
+        // up to just under it. (A river's own channel there is left as it was: its water joins the
+        // lake's.)
         if let Some((surface, edge)) = self.lakes.at(north, east)
             && surface > SEA_LEVEL as f32
         {
             let top = surface.round();
+            let carved = here.fill.map_or(here.floor.map_or(ground, |f| ground.min(f)), |fill| here.floor.map_or(ground, |f| ground.min(f)).max(fill));
             if edge {
-                if ground < top - 1.0 {
+                if (if here.water.is_none() { carved } else { ground }) < top - 1.0 {
                     here.fill = Some(top - 1.0);
                 }
-            } else if ground < top - 0.5 {
+            } else if carved < top - 0.5 {
                 here.water = Some(here.water.map_or(top as i32, |w| w.max(top as i32)));
                 // (A river's bank raised in a pond would stand up out of its water.)
                 here.fill = None;
@@ -1185,6 +1192,20 @@ mod tests {
         assert_eq!(lakes.nearest_water(40.0, -40.0), Some((0.0, 0.0, 140.0)));
         // Off the lake's grid, none.
         assert_eq!(lakes.nearest_water(200.0, 200.0), None);
+    }
+
+    #[test]
+    fn a_river_s_bank_never_cuts_a_lake_s_rim_below_its_water() {
+        // David's screenshot: a pool beside a river, its rim cut by the river's bank, stood as a slab
+        // of water with a sheer side. A river at 135 runs 6 blocks from a pond at 140, whose rim is 141.
+        let at = |east: f32| Point { fade: 16.0, ..point(22.0, east, 4.0, 135.0, 0.0) };
+        let mut carving = Carving::new(vec![Reach { points: vec![at(-60.0), at(60.0)] }], pond(), Banks::default());
+        carving.banks = Banks { way: FadeWay::Smooth, compressor: true, ..Banks::default() };
+        // The rim beside the pond's water: held up to just under it, not cut to the river's bank.
+        let rim = carving.here(16.5, 0.5, 141.0);
+        assert_eq!(rim.fill, Some(139.0), "{rim:?}");
+        // The pond's water, beside the river's bank: still the pond's.
+        assert_eq!(carving.here(15.5, 0.5, 130.0).water, Some(140));
     }
 
     #[test]

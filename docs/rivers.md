@@ -182,9 +182,24 @@ the world's.**
     river joined a wide one, the wide one's water stopped where the narrow one's line was nearer, and
     the gaps joined blocks only at corners: in a sample of David's world (every 8th point), 176 places
     before, 115 after.]* (This holds with the switch off too, since 2026-10-31's ridge fix.)
-  - **Not yet:** the 115 left are two separate rivers running side by side, their edges touching at
-    corners on a diagonal. David: they should merge, the higher falling into the lower (proposed in
-    `docs/water-rework.md` section 16).
+  - The 115 left were two separate rivers running side by side, their edges touching at corners on a
+    diagonal. They now merge (next).
+- **Rivers running alongside each other merge** ("rivers alongside each other merge", on by default;
+  2026-10-31, David: it "should cause a waterfall to merge").
+  - **How:** after the water's laid, each river is walked down. At its first point whose water comes
+    within a block of another river's lower water (or as low, the other nearer the sea), it ends
+    there: its level falls to the other's, with a curtain if that's 2 or more, and the rest of its
+    way alongside is dropped.
+  - **Where:** only clear of its own ends, by its width plus the widest river's, since that's where it
+    meets its junctions' rivers.
+  - **Order:** rivers nearest the sea go first, so none merges into water that's since gone.
+  - A river that merged loses its delta.
+  - The panel counts how many merged.
+- **Joins ease down** ("joins ease over", 3 of the joined river's widths; 0 off; 2026-10-31, David: "a
+  linear joint fade similar to how we do the lateral bank fades"). Where a river joins another, its
+  water over its last stretch is ramped down toward the joined river's, as steeply as rapids go: a
+  block of drop for every "rapids" blocks of river. What that can't take is a fall at the shore. It
+  only ever lowers, cutting its bed a little deeper there.
 - **Where rivers' waters overlap, the lowest water and then the deepest floor win** (2026-10-31, David's
   screenshot). *[A tributary's last stretch ran on to the junction in the middle of the river it
   joined, and inside that river's water it kept its own shallower floor and higher water: a stone ridge
@@ -218,7 +233,7 @@ the world's.**
        - **Only between banks** (2026-10-31, David's screenshots: a causeway over a valley at fill 20,
          an embankment on a hillside's low side at fill 10): the water also rises no higher than the
          lower bank, sampled 3 blocks out from the water either side, plus "…and above the lower
-         bank up to" (0 to start). At 0 a hollow fills only where the land rises on both sides across
+         bank up to" (3 to start, David: "yes"). At 0 a hollow fills only where the land rises on both sides across
          the river. That removes the embankments, but rivers along a slope can't fill, so more is cut.
          On David's 13:22 preset with no steps: 552 points filled and 15,961 cut more than 6 at 0;
          6,792 filled and 12,477 cut at 3.
@@ -358,6 +373,12 @@ the world's.**
   - **In a dry cell next to the water**, a dip below the surface is filled up to one block under it,
     so water never stands against air. (Worlds saved before 2026-10-30 read their lakes back as one
     grid of 32-block cells.)
+  - **Both are judged on the ground as a river's bank has carved it** (2026-10-31, David's
+    screenshot at "a lake from" 40). A river's bank cut in a lake's water fills with the lake. One
+    cut beside it is held up to one block under the surface. A river's own channel beside a lake is
+    left as it was, since its water joins the lake's. *[They were judged on the uncarved ground.
+    Where a river ran past a pool, its bank cut the pool's rim below the pool's water, and the pool
+    stood as a slab of water with a sheer side.]*
   - **On a river's bank** (`Banks::ground`, profiles step 3, built 2026-10-30): beyond the water,
     within the point's fade, the ground is pulled to the **shore** and faded back to its own height.
     The shore is flush (the ground block at the level − 1, its top at the water), or a block higher

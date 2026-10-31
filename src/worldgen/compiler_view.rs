@@ -1229,6 +1229,19 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add_space(4.0);
         ui.strong("The line");
         ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=5).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the route, over points about a river's width apart; bigger rivers get one more pass a rank, so they bend wider.");
+        ui.checkbox(&mut c.merge_alongside, "rivers alongside each other merge").on_hover_text(
+            "David: two rivers side by side \"should cause a waterfall to merge\". Where a river's water comes within a block of\n\
+             another river's lower water (away from its own ends), it ends there, falling to that river's level, and the rest of\n\
+             its way alongside is dropped.",
+        );
+        if let Some(carving) = compiler.climate.carving() {
+            ui.small(format!("{} rivers merged into one alongside", carving.merged));
+        }
+        ui.add(crate::debug::Slider::new(&mut c.join_fade, 0.0..=10.0).text("joins ease over (the joined river's widths)")).on_hover_text(
+            "David's joint fade: where a river joins another, its water eases down toward the joined river's over its last\n\
+             stretch, this many of the joined river's widths long, as steeply as rapids go; what's left is a fall at the shore.\n\
+             0 = a step at the shore.",
+        );
         ui.checkbox(&mut c.anti_kitty_corner, "anti-kitty-cornerer").on_hover_text(
             "David's rule: the water's blocks always join by a face, never only at a corner. On a diagonal, a river too narrow\n\
              to cover its blocks' faces (under about 1.4 blocks) steps along in a 1-block zigzag: every block the line passes\n\

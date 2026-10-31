@@ -958,3 +958,50 @@ bank fades."
 2. **The joint fade:** build it now (about 30 lines and a slider), or with stage 2?
 3. **"…and above the lower bank up to":** try 3 to start? It halves the cuts against 0, with a few
    blocks of gentle raised bank.
+
+## 17. The merge, the joint fade, a lake's rim: built (2026-10-31)
+
+David's answers to section 16, through Counsel and then directly: build the merge as an early join,
+build the joint fade now, and start "…and above the lower bank up to" at 3. "Go ahead and launch it, do
+those things before the next step, after i close the game." The details are in `docs/rivers.md`.
+
+1. **Rivers alongside each other merge** ("rivers alongside each other merge", on). After the water's
+   laid, each river is walked down, those nearest the sea first. At its first point whose water comes
+   within a block of another river's lower water, it ends there. Its level falls to the other's, with a
+   curtain if the drop is 2 or more, and the rest of its way alongside is dropped. It only looks clear
+   of its own ends, where it meets its junctions' rivers anyway.
+2. **Joins ease down** ("joins ease over", 3 of the joined river's widths). A river's last stretch is
+   ramped down toward the water it joins, a block for every "rapids" blocks. What's left is a fall at
+   the shore. It only ever lowers.
+3. **"…and above the lower bank up to" starts at 3.**
+4. **A lake's rim beside a river** (David's screenshots at "a lake from" 24 and 40: "some odd behavior
+   there"). A pool beside a river stood as a slab of water with a sheer side.
+   - **Why:** a lake's water and its rim were judged on the uncarved ground. A river's bank had cut the
+     pool's rim below the pool's water, so the water stood against air.
+   - **Now:** both are judged on the ground as the bank carved it. A bank cut inside the lake's water
+     fills with the lake, and one cut beside it is held up to one block under the surface.
+
+**On David's 14:07 preset** (6 cores; a lake from 36, steps of 8, falls from 18, fills 10 and 10 above
+the bank, compressor on, widest 1, steepest 4):
+
+| | Merged | Points (all) | Points cut more than 6 | Water above its ground (points) | Deepest cut | Land lowered, average | Flush | Corner-only joins (sample) |
+|---|---|---|---|---|---|---|---|---|
+| No merge, no joint fade | 0 | 82,938 | 12,880 | 14,527 | 112 | 4.01 | 96.4% | 11 |
+| Merge, joints ease over 3 | 21 | 81,688 | 12,931 | 14,218 | 112 | 4.06 | 96.5% | 11 |
+
+Rivers are made in about 3.4 s.
+
+- **The merge:** 21 rivers joined early, and 1,250 points of river alongside others were dropped. The
+  corner-only joins in this sample were already 11 without the merge (115 on an earlier preset, before
+  the ridge fix), and stay 11 with it, so the sample doesn't show the merge's effect. The game is
+  where to look.
+- **The joint fade** barely moves the totals (51 more points cut deep, 0.05 more land lowered on
+  average). It changes the last few widths of each join, not the whole river.
+- **The deepest cut, 112,** is unchanged. It's not at the joins. David's 14:01 screenshot shows the
+  kind: a river falling into a deep, narrow gorge with sheer walls, where the route goes through a ridge
+  and banks at "widens up to" 1 can't slope its sides. Sizes by area (stage 5) and the cuts' banks are
+  where that's addressed. Noted, not acted on.
+
+### Next
+
+Stage 5, sizes by area, as planned, unless David's look at this build turns something up first.
