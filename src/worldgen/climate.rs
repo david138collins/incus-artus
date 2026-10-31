@@ -6,11 +6,15 @@
 //! the ground (read only: the Interpreter's own recipe, its fine layers left out)
 //!     │
 //!     ▼
-//! temperature · wind · rain · rivers (and lakes)
+//! rivers (and lakes) · temperature · wind · rain · mineralogy
 //!     │
 //!     ▼  river lines, lake surfaces, and the fields Ecology reads
 //! World Interpreter (carves what Climate chose)
 //! ```
+//!
+//! **Rivers first** [David, 2026-10-31: "they don't mean anything to rivers, and rivers CAN mean
+//! something to them"]: they read the ground alone, so the order runs one way. Nothing after them
+//! reads them yet; the climate may later (the lake effect, milder air by big water).
 //!
 //! **The ground it reads** (step 1, built first so everything after it stands on something checked):
 //! the Interpreter's recipe itself, asked for the ground's height at the middle of each climate
@@ -204,9 +208,10 @@ pub enum Show {
 }
 
 /// The Climate stage's work, each part made in the background as what it's made from changes: the
-/// ground (from the recipe), then the temperature (from the ground and its settings), the wind (from
-/// the temperature), the rain (from the wind), and the water's flow (over the ground read again on
-/// the map's own grid, with the temperature for snowmelt; not from the rain [2026-10-30]).
+/// water's flow first (over the ground on the map's own grid, and nothing else: not the rain
+/// [2026-10-30], nor the temperature [2026-10-31]), its network and the rivers' curves; then the
+/// ground on the climate's grid (from the recipe), the temperature (from the ground and its
+/// settings), the wind (from the temperature) and the rain (from the wind).
 #[derive(Default)]
 pub struct Climate {
     ground: Stage<(Same<CompiledMap>, usize), Ground>,
@@ -214,7 +219,7 @@ pub struct Climate {
     wind: Stage<(Same<Temperature>, WindSettings), Wind>,
     rain: Stage<(Same<Wind>, RainSettings), Rain>,
     fine: Stage<Same<CompiledMap>, Ground>,
-    flow: Stage<(Same<Temperature>, Same<Ground>, RiverSettings), Flow>,
+    flow: Stage<(Same<Ground>, RiverSettings), Flow>,
     network: Stage<(Same<Flow>, NetworkSettings), Network>,
     carving: Stage<(Same<Network>, Same<CompiledMap>, NetworkSettings, CarvingSettings), crate::world::Carving>,
     /// Goes up with each new result (so pictures know to repaint).
@@ -268,6 +273,8 @@ impl Climate {
         // The ground on the map's own grid, for the water (read alongside the rest).
         let recipe = map.clone();
         self.fine.want(Same(map.clone()), move |stop| read_ground(&recipe, 1, stop));
+        // The rivers first: they read the ground alone, so they wait on nothing after them.
+        self.drive_rivers(map, settings);
         // Each part waits for the one before it to be up to date.
         if self.ground.job.is_some() {
             return;
@@ -279,8 +286,6 @@ impl Climate {
             return;
         }
         let Some(temperature) = self.temperature.result().cloned() else { return };
-        // The rivers don't wait on the wind or the rain [David, 2026-10-30: not driven by rain].
-        self.drive_rivers(map, settings, &ground, &temperature);
         let (wind, cell) = (settings.wind.clone(), ground.pixels as f32 * map.maps.blocks_per_pixel);
         let from = temperature.clone();
         self.wind.want((Same(temperature.clone()), wind.clone()), move |stop| super::wind::make(&from, &wind, cell, stop));
@@ -293,9 +298,9 @@ impl Climate {
         self.rain.want((Same(wind.clone()), rain.clone()), move |stop| super::rain::make(&from.0, &from.1, &wind, &rain, cell, stop));
     }
 
-    /// The water: its flow (from the ground on the map's own grid, and the temperature for
-    /// snowmelt), the river network and the rivers' curves.
-    fn drive_rivers(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings, ground: &Arc<Ground>, temperature: &Arc<Temperature>) {
+    /// The water: its flow (from the ground on the map's own grid alone), the river network and the
+    /// rivers' curves.
+    fn drive_rivers(&mut self, map: &Arc<CompiledMap>, settings: &ClimateSettings) {
         if self.fine.job.is_some() {
             return;
         }
@@ -304,11 +309,10 @@ impl Climate {
         // a spring's own water, which decided nothing that showed. Their code stays in `rivers::water`.)
         let rivers = super::rivers::RiverSettings { snowmelt: 0.0, springs: 0.0, ..settings.rivers.clone() };
         let (seed, blocks) = (map.seed, map.maps.blocks_per_pixel);
-        let from = (fine.clone(), ground.clone(), temperature.clone());
-        self.flow.want((Same(temperature.clone()), Same(fine), rivers.clone()), move |stop| {
-            let (fine, ground, temperature) = from;
-            let water = super::rivers::water(&fine.z, fine.width, &ground, &temperature, &rivers, blocks);
-            super::rivers::flow(fine.width, &fine.z, &water, rivers.lake_depth, seed, stop)
+        let from = fine.clone();
+        self.flow.want((Same(fine), rivers.clone()), move |stop| {
+            let water = super::rivers::water(&from.z, from.width, &rivers, blocks);
+            super::rivers::flow(from.width, &from.z, &water, rivers.lake_depth, seed, stop)
         });
         // Step 6: which of the water's paths are rivers (grown from the mouths up to the springs).
         if self.flow.job.is_some() {

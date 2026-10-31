@@ -20,12 +20,12 @@ earlier, so the rivers are made *from* the ground but never change the ground Cl
 
 ```text
 the recipe (the Interpreter's ground)
-  │  read twice, without the rivers:
-  ├─ broad ground (no crags, summit crags, hills, torn coast) ──► temperature ─► wind ─► rain
-  │                                                                  │              (for Ecology,
-  ▼                                                                  ▼ snowmelt      not rivers)
+  │  read twice, without the rivers: the broad ground (no crags, summit crags, hills, torn coast)
+  │
+  ▼  RIVERS FIRST: they read the ground alone (2026-10-31); after them, on the climate's grid,
+  │  temperature ─► wind ─► rain ─► mineralogy, none of which the rivers read
   step 5  THE FLOW       basins fill and spill; every 32-block patch drains somewhere; water adds up
-  │                      downhill (a unit a patch, plus snowmelt and slope-foot springs; not rain);
+  │                      downhill (a unit a patch; snowmelt and slope-foot springs retired; not rain);
   │                      lakes where the filled water stands 2+ blocks deep
   ▼
   step 6  THE NETWORK    which of those paths are rivers: springs, mouths, grown up from the mouths,
@@ -60,11 +60,16 @@ shows them. "Drawn from" is labelled as the picture's only. "A lake from" stays.
   patch it drains into (8 neighbours, diagonals included), always downhill or across a lake, always
   ending at the sea. Ties on flat ground are broken by a fixed nudge from the seed, so paths wander
   instead of running in grid lines.
-- **Each patch's water:** 1 unit for a patch of land, plus **snowmelt** on cold high ground (colder
-  than −0.2, above Z 300: +1 unit), plus **springs where a slope eases off** (the steepness coming down
-  to it minus the steepness going on). Water adds up downstream. *[2026-10-30, David: rivers aren't
-  driven by rain. It was each patch's rain, with snowmelt and springs as shares of it. The flow is
-  now keyed on the temperature and the ground, so changing the rain no longer relays the rivers.]*
+- **Each patch's water:** 1 unit for a patch of land, plus **snowmelt** on high ground (above Z 300:
+  +1 unit), plus **springs where a slope eases off** (the steepness coming down to it minus the
+  steepness going on); both retired, passed as 0. Water adds up downstream. *[2026-10-30, David:
+  rivers aren't driven by rain. It was each patch's rain, with snowmelt and springs as shares of it.]*
+- **Rivers first in Climate** (2026-10-31, David: "they don't mean anything to rivers, and rivers CAN
+  mean something to them"): the flow reads the ground alone, and is made before the temperature, wind
+  and rain, so changing those never remakes the rivers. *[It was keyed on the temperature too, for
+  snowmelt, which now goes by height alone (it was also colder than −0.2). With snowmelt retired, David's
+  15:20 preset gives the same rivers to the byte.]* Nothing after them reads them yet; the climate may
+  later (the lake effect, milder air by big water).
 - **Lakes:** patches whose filled water stands at least 2 blocks deep (`lake depth`). Fresh lakes only;
   every basin spills (salt lakes later).
 

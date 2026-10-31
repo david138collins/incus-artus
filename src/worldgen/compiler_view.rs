@@ -970,9 +970,9 @@ fn spread_row(ui: &mut egui::Ui, spread: &mut f32, slider: crate::debug::Slider<
 fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("Climate");
     ui.small(
-        "Between the Additives and the World Interpreter: temperature, then wind, then rain; and the rivers and lakes \
-         (not from the rain), worked out once over the whole map. It reads the ground the recipe makes, and the World \
-         Interpreter carves what it chooses. Nothing here changes the ground before it.",
+        "Between the Additives and the World Interpreter: the rivers and lakes first (they read the ground alone), then \
+         temperature, wind, rain and the ground's blocks, worked out once over the whole map. It reads the ground the \
+         recipe makes, and the World Interpreter carves what it chooses. Nothing here changes the ground before it.",
     );
     let climate = &mut compiler.settings.climate;
     ui.horizontal_wrapped(|ui| {
@@ -981,11 +981,11 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         let show = &mut compiler.climate.show;
         ui.selectable_value(show, Show::Nothing, "nothing");
         ui.selectable_value(show, Show::Ground, "the ground it reads").on_hover_text("The broad ground: sea blue, land grey (lighter higher), lit from the north-west.");
+        ui.selectable_value(show, Show::Water, "water").on_hover_text("Where the water flows (brighter and bluer, the more it carries) and the lakes.");
+        ui.selectable_value(show, Show::Rivers, "rivers").on_hover_text("The river network: rivers bluer and more solid by rank, waterfalls white, rapids pale; springs green (a river's head), yellow (joined one), cyan (into a lake or the sea), red (fizzled out); mouths magenta.");
         ui.selectable_value(show, Show::Temperature, "temperature").on_hover_text("Blue frozen, through green, to red hottest; the sea dimmed; the three lines in white.");
         ui.selectable_value(show, Show::Wind, "wind").on_hover_text("Arrows the way the wind blows, longer and brighter where it's stronger, over the ground it reads.");
         ui.selectable_value(show, Show::Rain, "rain").on_hover_text("The rain, or one of its parts (chosen in the Rain section).");
-        ui.selectable_value(show, Show::Water, "water").on_hover_text("Where the water flows (brighter and bluer, the more it carries) and the lakes.");
-        ui.selectable_value(show, Show::Rivers, "rivers").on_hover_text("The river network: rivers bluer and more solid by rank, waterfalls white, rapids pale; springs green (a river's head), yellow (joined one), cyan (into a lake or the sea), red (fizzled out); mouths magenta.");
     });
     fold_section(ui, "The ground it reads", |ui| {
         ui.small(
@@ -995,69 +995,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         let blocks = climate.pixels * MAP_PIXEL_BLOCKS;
         ui.add(crate::debug::Slider::new(&mut climate.pixels, 1..=16).text(format!("climate pixel ({blocks} blocks)")))
-            .on_hover_text("How far across one climate pixel is, in the map's 32-block pixels. Smaller = finer, slower.");
-    });
-    fold_section(ui, "Temperature", |ui| climate_temperature(ui, &mut climate.temperature, compiler.climate.temperature().map(|t| (t.frozen_land, t.hottest_land, t.mean))));
-    fold_section(ui, "Wind", |ui| {
-        let wind = &mut climate.wind;
-        ui.small(
-            "From the temperature at sea level (so mountains don't push air away as if they were cold), blurred: it blows from \
-             cold toward hot, turned to the right north of the equator and to the left south of it, so it swirls round hot \
-             and cold spots and the two halves mirror each other. Mountains don't bend it; they act on the rain.",
-        );
-        ui.add(crate::debug::Slider::new(&mut wind.blur, 0.0..=60_000.0).text("blur (blocks)"))
-            .on_hover_text("How far the temperature is blurred before the wind reads it: higher = broad, steady winds; lower = winds bending round every bay.");
-        ui.add(crate::debug::Slider::new(&mut wind.turn, 0.0..=90.0).text("turned sideways (degrees)")).on_hover_text(
-            "How far the wind is turned from straight cold-to-hot: 0 = straight at the warmth, 90 = running along the temperature bands.",
-        );
-        ui.add(crate::debug::Slider::new(&mut wind.even, 0.0..=1.0).text("even strength")).on_hover_text(
-            "0 = as strong as the temperature's slope says (calm where it's even, as inside the ice caps); 1 = the same strength everywhere.",
-        );
-    });
-    fold_section(ui, "Rain", |ui| {
-        use super::rain::View;
-        let rain = &mut climate.rain;
-        ui.small(
-            "Each spot looks upwind, following the wind, and reads the ground on the way: high ground upwind casts a rain \
-             shadow, ground rising toward it from upwind (facing the wind) is wetter, and the further upwind the sea is, \
-             the drier. Mountains act here, not on the wind.",
-        );
-        ui.horizontal_wrapped(|ui| {
-            ui.label("Show:");
-            let view = &mut compiler.climate.rain_view;
-            ui.selectable_value(view, View::Rain, "rain").on_hover_text("Dry tan, through green, to wet blue.");
-            ui.selectable_value(view, View::Shadow, "shadow").on_hover_text("How much the rain shadow dries each spot (white = all of it).");
-            ui.selectable_value(view, View::Windward, "facing the wind").on_hover_text("How much facing the wind wets each spot (white = all of it).");
-            ui.selectable_value(view, View::Inland, "far from the sea").on_hover_text("How far upwind the sea is, as a share of its reach (white = all the way or further).");
-            if ui.small_button("on the map").on_hover_text("Shows rain over the map (the Show row at the top).").clicked() {
-                compiler.climate.show = super::climate::Show::Rain;
-            }
-        });
-        ui.add(crate::debug::Slider::new(&mut rain.reach, 1_000.0..=80_000.0).logarithmic(true).text("looks upwind (blocks)"))
-            .on_hover_text("How far back along the wind each spot looks for high ground and the sea.");
-        ui.add_space(4.0);
-        ui.strong("Rain shadow");
-        ui.add(crate::debug::Slider::new(&mut rain.shadow, 0.0..=1.0).text("how much it dries")).on_hover_text("0 = no rain shadows; 1 = a full shadow leaves no rain at all.");
-        ui.add(crate::debug::Slider::new(&mut rain.shadow_height, 20.0..=800.0).logarithmic(true).text("full shadow (blocks higher)"))
-            .on_hover_text("How much higher than here the ground upwind has to stand (nearer counting more) for the full shadow.");
-        ui.label("The shadow: from none (left) to full (right), how much of it dries (up).");
-        spline_box(ui, "rain shadow", &mut rain.shadow_curve, &super::rain::RainSettings::default().shadow_curve, "higher ground upwind", "share of the drying");
-        ui.add_space(4.0);
-        ui.strong("Facing the wind");
-        ui.add(crate::debug::Slider::new(&mut rain.windward, 0.0..=1.0).text("how much wetter")).on_hover_text("0 = slopes facing the wind are no wetter; 1 = they're as wet as can be.");
-        ui.add(crate::debug::Slider::new(&mut rain.windward_rise, 5.0..=500.0).logarithmic(true).text("full rise (blocks)"))
-            .on_hover_text("How much the ground has to rise toward here, over the distance below, for all of it.");
-        ui.add(crate::debug::Slider::new(&mut rain.windward_reach, 200.0..=10_000.0).logarithmic(true).text("over (blocks upwind)"))
-            .on_hover_text("How far upwind the rise is measured from.");
-        ui.add_space(4.0);
-        ui.strong("Far from the sea");
-        ui.add(crate::debug::Slider::new(&mut rain.inland, 0.0..=1.0).text("how much it dries")).on_hover_text("0 = no drier inland; 1 = no rain at all that far from the sea.");
-        ui.add(crate::debug::Slider::new(&mut rain.inland_reach, 2_000.0..=100_000.0).logarithmic(true).text("all of it at (blocks upwind)"))
-            .on_hover_text("How far back along the wind the sea has to be for all of it (nearer, less).");
-        ui.add_space(4.0);
-        ui.add(crate::debug::Slider::new(&mut rain.warmth, 0.0..=1.0).text("warm air carries more")).on_hover_text("How much drier the cold side of the world is (warm air holds more water). 0 = not at all.");
-        ui.label("The look: the rain worked out (left, dry to wet) to the rain shown (up).");
-        spline_box(ui, "rain look", &mut rain.look, &super::rain::RainSettings::default().look, "wetter", "rain");
+            .on_hover_text("How far across one climate pixel is, in the map's 32-block pixels, for the temperature, wind and rain. Smaller = finer, slower. (The rivers read the same broad ground on the map's own pixels.)");
     });
     fold_section(ui, "Rivers", |ui| {
         let rivers = &mut climate.rivers;
@@ -1459,6 +1397,68 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.add(crate::debug::Slider::new(&mut c.delta_width[0], 16.0..=256.0).text("a river's delta (blocks wide)"));
             ui.add(crate::debug::Slider::new(&mut c.delta_width[1], 16.0..=512.0).text("a great river's delta (blocks wide)"));
         });
+    });
+    fold_section(ui, "Temperature", |ui| climate_temperature(ui, &mut climate.temperature, compiler.climate.temperature().map(|t| (t.frozen_land, t.hottest_land, t.mean))));
+    fold_section(ui, "Wind", |ui| {
+        let wind = &mut climate.wind;
+        ui.small(
+            "From the temperature at sea level (so mountains don't push air away as if they were cold), blurred: it blows from \
+             cold toward hot, turned to the right north of the equator and to the left south of it, so it swirls round hot \
+             and cold spots and the two halves mirror each other. Mountains don't bend it; they act on the rain.",
+        );
+        ui.add(crate::debug::Slider::new(&mut wind.blur, 0.0..=60_000.0).text("blur (blocks)"))
+            .on_hover_text("How far the temperature is blurred before the wind reads it: higher = broad, steady winds; lower = winds bending round every bay.");
+        ui.add(crate::debug::Slider::new(&mut wind.turn, 0.0..=90.0).text("turned sideways (degrees)")).on_hover_text(
+            "How far the wind is turned from straight cold-to-hot: 0 = straight at the warmth, 90 = running along the temperature bands.",
+        );
+        ui.add(crate::debug::Slider::new(&mut wind.even, 0.0..=1.0).text("even strength")).on_hover_text(
+            "0 = as strong as the temperature's slope says (calm where it's even, as inside the ice caps); 1 = the same strength everywhere.",
+        );
+    });
+    fold_section(ui, "Rain", |ui| {
+        use super::rain::View;
+        let rain = &mut climate.rain;
+        ui.small(
+            "Each spot looks upwind, following the wind, and reads the ground on the way: high ground upwind casts a rain \
+             shadow, ground rising toward it from upwind (facing the wind) is wetter, and the further upwind the sea is, \
+             the drier. Mountains act here, not on the wind.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Show:");
+            let view = &mut compiler.climate.rain_view;
+            ui.selectable_value(view, View::Rain, "rain").on_hover_text("Dry tan, through green, to wet blue.");
+            ui.selectable_value(view, View::Shadow, "shadow").on_hover_text("How much the rain shadow dries each spot (white = all of it).");
+            ui.selectable_value(view, View::Windward, "facing the wind").on_hover_text("How much facing the wind wets each spot (white = all of it).");
+            ui.selectable_value(view, View::Inland, "far from the sea").on_hover_text("How far upwind the sea is, as a share of its reach (white = all the way or further).");
+            if ui.small_button("on the map").on_hover_text("Shows rain over the map (the Show row at the top).").clicked() {
+                compiler.climate.show = super::climate::Show::Rain;
+            }
+        });
+        ui.add(crate::debug::Slider::new(&mut rain.reach, 1_000.0..=80_000.0).logarithmic(true).text("looks upwind (blocks)"))
+            .on_hover_text("How far back along the wind each spot looks for high ground and the sea.");
+        ui.add_space(4.0);
+        ui.strong("Rain shadow");
+        ui.add(crate::debug::Slider::new(&mut rain.shadow, 0.0..=1.0).text("how much it dries")).on_hover_text("0 = no rain shadows; 1 = a full shadow leaves no rain at all.");
+        ui.add(crate::debug::Slider::new(&mut rain.shadow_height, 20.0..=800.0).logarithmic(true).text("full shadow (blocks higher)"))
+            .on_hover_text("How much higher than here the ground upwind has to stand (nearer counting more) for the full shadow.");
+        ui.label("The shadow: from none (left) to full (right), how much of it dries (up).");
+        spline_box(ui, "rain shadow", &mut rain.shadow_curve, &super::rain::RainSettings::default().shadow_curve, "higher ground upwind", "share of the drying");
+        ui.add_space(4.0);
+        ui.strong("Facing the wind");
+        ui.add(crate::debug::Slider::new(&mut rain.windward, 0.0..=1.0).text("how much wetter")).on_hover_text("0 = slopes facing the wind are no wetter; 1 = they're as wet as can be.");
+        ui.add(crate::debug::Slider::new(&mut rain.windward_rise, 5.0..=500.0).logarithmic(true).text("full rise (blocks)"))
+            .on_hover_text("How much the ground has to rise toward here, over the distance below, for all of it.");
+        ui.add(crate::debug::Slider::new(&mut rain.windward_reach, 200.0..=10_000.0).logarithmic(true).text("over (blocks upwind)"))
+            .on_hover_text("How far upwind the rise is measured from.");
+        ui.add_space(4.0);
+        ui.strong("Far from the sea");
+        ui.add(crate::debug::Slider::new(&mut rain.inland, 0.0..=1.0).text("how much it dries")).on_hover_text("0 = no drier inland; 1 = no rain at all that far from the sea.");
+        ui.add(crate::debug::Slider::new(&mut rain.inland_reach, 2_000.0..=100_000.0).logarithmic(true).text("all of it at (blocks upwind)"))
+            .on_hover_text("How far back along the wind the sea has to be for all of it (nearer, less).");
+        ui.add_space(4.0);
+        ui.add(crate::debug::Slider::new(&mut rain.warmth, 0.0..=1.0).text("warm air carries more")).on_hover_text("How much drier the cold side of the world is (warm air holds more water). 0 = not at all.");
+        ui.label("The look: the rain worked out (left, dry to wet) to the rain shown (up).");
+        spline_box(ui, "rain look", &mut rain.look, &super::rain::RainSettings::default().look, "wetter", "rain");
     });
     ui.add_space(6.0);
     fold_section(ui, "Mineralogy", |ui| {

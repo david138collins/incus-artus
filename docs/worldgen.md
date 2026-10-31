@@ -1164,8 +1164,10 @@ to evaporation.
   and rivers CAN mean something to them." So the order becomes **Rivers, Temperature, Wind, Rain,
   Mineralogy, Caves** (Counsel's reading of "first"). Snowmelt, the one thing rivers read from
   temperature, then goes by height. The climate after the rivers may read them (the lake effect,
-  milder air by big water, wetness for Ecology). Part of the water rework, `vision/water-from-the-start.md`;
-  not built.
+  milder air by big water, wetness for Ecology). Part of the water rework, `vision/water-from-the-start.md`.
+  *[Built 2026-10-31 (stage 7, `docs/water-rework.md` section 19): the rivers read the ground alone
+  and are made first; the panel goes the ground it reads, Rivers, River network, Carving, Temperature,
+  Wind, Rain, Mineralogy, Caves (greyed). Snowmelt, retired, goes by height.]*
 - **Fun first, not science** [David]: "the important thing is they are fun." If rivers and water can
   make fun caves, that's a happy accident, not a requirement.
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke

@@ -1074,9 +1074,12 @@ at their broadest and about 13% at their deepest.
 2. Would more joining suit "sizes by area" better? "How readily rivers split" (branching, now 0)
    gives rivers more springs, and so more water from joins. That's a network setting, for him to try.
 
-## 19. Rivers settled for now (2026-10-31)
+## 19. Rivers done enough to do the next thing (2026-10-31)
 
-David, after playing stage 5: "at first i was bothered, but looking at that gorge more closely, its
+David: "rivers arent 'done', nothing is done, everything is only done enough to do the next thing,
+until we go back and fine tune everything again. but i think we did good work today."
+
+After playing stage 5: "at first i was bothered, but looking at that gorge more closely, its
 kind of neat and a really big lake way high up, so it wasn't bad the more i thought about it. i'd say
 we've pretty much got rivers fixed. any improvements would have to come as part of a bigger rework,
 where i have a really specific goal in mind; right now, rivers are about as good as anything else in
@@ -1089,7 +1092,7 @@ huge fuss."
 - **Not built, kept on file:**
   - stage 2 (the fade along the river);
   - stage 3 (lakes picked first);
-  - stages 6 to 8 (petering out, rivers first in the Climate tab, dry beds);
+  - stages 6 and 8 (petering out, dry beds);
   - waterways drawn toward nearby water, and cutting rivers seeking the nearest pond (section 15);
   - the river-to-river join rule (shelved).
 - **Rough edges:** to smooth out later, from David's screenshots, without a rework. The known ones:
@@ -1097,3 +1100,17 @@ huge fuss."
   - a few corner-only joins;
   - shores about 95% flush.
 - **Further changes** come with a bigger rework, when David has a specific goal for one.
+
+**Stage 7, rivers first in the Climate tab: built** (David: "lets get the rearrangement of the climate
+tab done. it should be easy"):
+- **The order runs one way:** the flow reads the ground alone and is made first. It was keyed on the
+  temperature, for snowmelt, so changing a temperature setting remade the rivers. Snowmelt (retired,
+  passed as 0) now goes by height alone. Nothing in the rivers, network or carving reads the
+  temperature, wind or rain. Nothing after the rivers reads them yet (the lake effect, milder air by
+  big water stay ideas), but it can.
+- **The panel:** the Climate tab goes the ground it reads, Rivers, River network, Carving, Temperature,
+  Wind, Rain, Mineralogy, then Caves (greyed, still to come). "Show over the map" follows the same
+  order: water and rivers before temperature, wind and rain.
+- **The same rivers:** David's 15:20 preset gives the same rivers to the byte (their saved text,
+  18 MB, compared before and after). Saved worlds read their rivers back from `rivers.txt`, so nothing
+  in them changes.
