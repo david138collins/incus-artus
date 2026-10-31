@@ -22,7 +22,7 @@
 use super::network::Network;
 use super::noise::{Fade, perlin};
 use super::rivers::Flow;
-use crate::world::{Carving, CompiledMap, Lake, Lakes, Reach, RiverPoint, SEA_LEVEL};
+use crate::world::{Banks, Carving, CompiledMap, Lake, Lakes, Reach, RiverPoint, SEA_LEVEL};
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -59,6 +59,13 @@ pub struct CarvingSettings {
     /// at its deepest to be kept (blocks).
     pub lake_reach: f32,
     pub pond_depth: f32,
+    /// Banks [David's profiles proposal, step 3, 2026-10-30; David: "rivers that are 32 blocks wide
+    /// should be sloping the terrain for at least 32 blocks in either direction"]: how far each
+    /// rank's banks fade into the land (in its widths; creek, stream, river, great river), at least
+    /// this many blocks; and how they fade (kept with the world).
+    pub fade_widths: [f32; 4],
+    pub fade_least: f32,
+    pub banks: Banks,
     /// Sizes [David's profiles drawing, 2026-10-30: "drawing wins", growing "by ratios we set"]: a
     /// spring's width and depth (blocks); then for each step up a rank (spring to creek, creek to
     /// stream, stream to river, river to great river) how many times wider and deeper; and how much a
@@ -99,6 +106,9 @@ impl Default for CarvingSettings {
             floor_rise: 3.0,
             lake_reach: 64.0,
             pond_depth: 1.0,
+            fade_widths: [1.0; 4],
+            fade_least: 2.0,
+            banks: Banks::default(),
             spring_width: 2.0,
             spring_depth: 1.5,
             width_ratio: [3.0, 2.5, 2.5, 2.5],
@@ -318,7 +328,7 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     // The water levels, from the real ground (never above the banks), only falling downstream.
     let (deepest_cut, deep_cuts) = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
     reaches.extend(deltas);
-    let mut carving = Carving::new(reaches, lakes);
+    let mut carving = Carving::new(reaches, lakes, s.banks);
     (carving.took, carving.deepest_cut, carving.deep_cuts, carving.pools) = (started.elapsed().as_secs_f32(), deepest_cut, deep_cuts, pools);
     Some(carving)
 }
@@ -683,6 +693,10 @@ fn curve(route: &[(f32, f32)], path: &[PathPoint], id: u64, rank: u32, ground: &
             level: f32::NAN,
             bend: if bend.abs() < 0.002 { 0.0 } else { bend.signum() },
             curtain: f32::NAN,
+            // Its width over the bend's radius (the bend turns `bend` radians a point, `spacing`
+            // blocks apart).
+            turn: bend * width / spacing,
+            fade: (width * s.fade_widths[(rank as usize).clamp(1, 4) - 1]).max(s.fade_least),
         });
     }
     Reach { points }
@@ -866,8 +880,10 @@ fn delta(path: &[PathPoint], rank: u32, s: &CarvingSettings) -> Option<Vec<Reach
     let (dn, de) = (end.north - start.north, end.east - start.east);
     let length = (dn * dn + de * de).sqrt().max(1.0);
     let (un, ue) = (dn / length, de / length);
-    // Each channel the river's shape, a third as wide and about √3 times shallower.
+    // Each channel the river's shape, a third as wide and about √3 times shallower, its banks its
+    // rank's.
     let (width, depth, shape) = ((end.width / 3.0).max(2.0), (end.depth / 3f32.sqrt()).max(1.0), end.shape);
+    let fade = (width * s.fade_widths[(rank as usize).clamp(1, 4) - 1]).max(s.fade_least);
     let level = SEA_LEVEL as f32;
     let spread = size / 2.0;
     Some(
@@ -876,7 +892,7 @@ fn delta(path: &[PathPoint], rank: u32, s: &CarvingSettings) -> Option<Vec<Reach
             .map(|&side| {
                 // Fanning out sideways (perpendicular to the river) to the delta's width at the coast.
                 let (tip_n, tip_e) = (start.north + un * length * 1.1 - ue * side * spread, start.east + ue * length * 1.1 + un * side * spread);
-                let point = |north: f32, east: f32| RiverPoint { north, east, width, depth, edge: shape.edge, flat: shape.flat, bowl: shape.bowl, level, bend: 0.0, curtain: f32::NAN };
+                let point = |north: f32, east: f32| RiverPoint { north, east, width, depth, edge: shape.edge, flat: shape.flat, bowl: shape.bowl, level, bend: 0.0, curtain: f32::NAN, turn: 0.0, fade };
                 let mid = ((start.north + tip_n) / 2.0 - ue * side * spread * 0.2, (start.east + tip_e) / 2.0 + un * side * spread * 0.2);
                 Reach { points: vec![point(start.north, start.east), point(mid.0, mid.1), point(tip_n, tip_e)] }
             })
@@ -976,7 +992,7 @@ mod tests {
         let (north, east) = ((32.0 - 32.0 - 0.5) * 32.0, (40.0 + 0.5 - 32.0) * 32.0);
         assert!(pools >= 1 && lakes.water(north, east).is_some(), "no water in the crater");
         // Every column beside the water is as high as the water, or filled up to just under it.
-        let carving = Carving::new(Vec::new(), lakes);
+        let carving = Carving::new(Vec::new(), lakes, crate::world::Banks::default());
         for row in -60..=60 {
             for col in -60..=60 {
                 let (n, e) = (north + row as f32 * 4.0, east + col as f32 * 4.0);

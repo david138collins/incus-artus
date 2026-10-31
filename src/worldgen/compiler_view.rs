@@ -1206,6 +1206,33 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut c.shape_varies, 0.0..=1.0).text("shape varies")).on_hover_text("How much the shape wanders along a river (David's drawing varies as much within a rank as between them).");
         profiles_preview(ui, c);
         ui.add_space(4.0);
+        ui.strong("Banks");
+        ui.small(
+            "Beside the water the ground is pulled to the shore (its top flush with the water) and fades back to its own \
+             height: lower where the land is higher, raised as a levee where it's lower, so water never stands against air. \
+             Where the fade would be steeper than the steepest bank it widens, up to a limit; past that it stays steep (a gorge).",
+        );
+        for (k, rank) in super::network::RANKS.iter().enumerate() {
+            ui.add(crate::debug::Slider::new(&mut c.fade_widths[k], 0.0..=4.0).text(format!("{rank}s fade over (widths)")));
+        }
+        ui.add(crate::debug::Slider::new(&mut c.fade_least, 0.0..=16.0).text("…at least (blocks)"));
+        let banks = &mut c.banks;
+        for (k, side) in ["inside of a bend", "outside of a bend", "straight"].iter().enumerate() {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(format!("{side}:"));
+                for way in crate::world::FadeWay::ALL {
+                    ui.selectable_value(&mut banks.ways[k], way, way.name());
+                }
+            });
+        }
+        ui.add(crate::debug::Slider::new(&mut banks.bend_from, 0.02..=1.0).logarithmic(true).text("a bend from (width / radius)"))
+            .on_hover_text("How sharply a river must bend before its banks count as an inside and an outside: 0.15 = a bend whose radius is about 7 widths.");
+        ui.add(crate::debug::Slider::new(&mut banks.outside, 0.1..=1.0).text("outside fades over (share of the inside)")).on_hover_text("The water cuts the outside bank, so it's steeper.");
+        ui.add(crate::debug::Slider::new(&mut banks.steepest, 0.2..=4.0).logarithmic(true).text("steepest bank (blocks up a block across)"));
+        ui.add(crate::debug::Slider::new(&mut banks.widest, 1.0..=6.0).text("widens up to (times)"));
+        let terraced = banks.ways.contains(&crate::world::FadeWay::Terraces);
+        ui.add_enabled(terraced, crate::debug::Slider::new(&mut banks.terrace, 1.0..=12.0).text("terrace steps (blocks)"));
+        ui.add_space(4.0);
         ui.strong("Lakes");
         ui.small(
             "Round each lake the Rivers section found (on the broad ground, 32-block patches), the real ground is filled the \

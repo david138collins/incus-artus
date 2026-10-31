@@ -180,6 +180,23 @@ the world's.**
   - **In a dry cell next to the water**, a dip below the surface is filled up to one block under it,
     so water never stands against air. (Worlds saved before 2026-10-30 read their lakes back as one
     grid of 32-block cells.)
+  - **On a river's bank** (`Banks::ground`, profiles step 3, built 2026-10-30): beyond the water,
+    within the point's fade, the ground is pulled to the **shore** and faded back to its own height.
+    The shore is flush (the ground block at the level − 1, its top at the water), or a block higher
+    for a ledge. Where the land is higher, it's cut. Where it's lower, it's raised (a levee), so the
+    water never stands against air.
+    - **Fade width:** one width each side for every rank (`fade_widths`), at least 2 blocks
+      (`fade_least`), and half that on the outside of a bend (`outside`). Where the fade would be
+      steeper than 1 block up per block across (`steepest`), it widens, up to 3 times (`widest`).
+      Past that it stays steep, a gorge.
+    - **Way, by the bank's side:** a point bends when its width over the bend's radius (`turn`, saved
+      with each point) is at least 0.15 (`bend_from`). The way is chosen by side: the inside of a bend
+      is **smooth** (an S-curve), the outside is **ledge then slope**, and a straight run is
+      **smooth**. **Slope** (a straight ramp) and **terraces** (flat steps 4 blocks high) are the
+      other choices.
+    - The settings are kept with the world (a `banks` line in rivers.txt). Worlds saved before have
+      no fade.
+    - Each river piece is entered in every 64-block lookup cell its banks reach.
 - **The carve lowers the recipe's height itself** (`ground_and_water`), so the far terrain, the light
   map and the World Compiler's close-up all see the rivers. The far terrain also blends a creek's water
   in by how much of a far cell it covers, so creeks don't pop.
@@ -480,6 +497,11 @@ questions:
 *[Step 1, sizes and shape, built 2026-10-30: the ratios, bands, growth and "size varies"; a shape per
 rank and "shape varies"; the preview in the Carving section. Rivers saved before it read back as
 boxes.]*
+
+*[Then, ahead of steps 2 and 3, the routing (section 9) and lakes on the real ground (section 2),
+both David's call. Step 3, the banks' fades, built 2026-10-30 (section 3, "On a river's bank"). It
+includes the outside's "ledge then slope" by bend sharpness, so what's left of step 2 is the
+lopsided bed: the deep part moving toward the outside, a steep outer edge, and point bars.]*
 
 From David's drawing, [`rivers-profiles-2026-10-30.png`](rivers-profiles-2026-10-30.png) (one pixel a
 block; tan ground, blue water). Top to bottom: 9 springs, 7 creeks, 4 streams, 4 rivers.
