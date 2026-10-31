@@ -46,6 +46,12 @@ blocks.
 
 ### Step 5: the flow (`src/worldgen/rivers.rs`)
 
+*Retired 2026-10-31 (David: "cut them"): **snowmelt** and **slope-foot springs**. They only added to
+each spring's own water, which only decided whether a spot could hold a spring ("water it needs" 1 lets
+any land) and how far a lone stream ran, and lone streams already reach other water. Sizes come from
+joins, not water. Their code stays in `rivers::water`; Climate passes them as 0, and the panel no longer
+shows them. "Drawn from" is labelled as the picture's only. "A lake from" stays.*
+
 - **The ground it reads** is the broad ground on the 32-block grid: the recipe's big shapes (curves,
   ridgelines, rise, peaks), without the fine layers, because crag noise makes thousands of false pits.
 - **Fill and spill (priority flood).** Start from the sea and the map's edge; always take the lowest
@@ -175,9 +181,17 @@ the world's.**
   - **A spot in any river's water is water,** though another river's line is nearer. *[Where a narrow
     river joined a wide one, the wide one's water stopped where the narrow one's line was nearer, and
     the gaps joined blocks only at corners: in a sample of David's world (every 8th point), 176 places
-    before, 115 after.]*
+    before, 115 after.]* (This holds with the switch off too, since 2026-10-31's ridge fix.)
   - **Not yet:** the 115 left are two separate rivers running side by side, their edges touching at
-    corners on a diagonal. Whether they merge there or keep a dry block between them is for David.
+    corners on a diagonal. David: they should merge, the higher falling into the lower (proposed in
+    `docs/water-rework.md` section 16).
+- **Where rivers' waters overlap, the lowest water and then the deepest floor win** (2026-10-31, David's
+  screenshot). *[A tributary's last stretch ran on to the junction in the middle of the river it
+  joined, and inside that river's water it kept its own shallower floor and higher water: a stone ridge
+  running out into the river with a ribbon of water on top.]* Now the tributary ends at the river's
+  shore, with its drop there. Within one stretch, the nearest piece still decides: the pieces either
+  side of a step or a fall overlap where they meet, and the lower water winning there would move each
+  fall half a width upstream and notch its cliff.
 - **The water level** (`lay_water`, the 926e66b fix):
   1. **From the real ground.** At each point, sample the real ground (the recipe with hills and crags,
      without rivers) at three spots: the middle of the line and both edges of the river. The level
@@ -201,6 +215,22 @@ the world's.**
          the shore at the water and ease back down to the land over their fade. With fills of a few
          blocks it reads as a low bank along the river, not a causeway.
        - **The readout** counts the water above its ground: at how many points, and the most.
+       - **Only between banks** (2026-10-31, David's screenshots: a causeway over a valley at fill 20,
+         an embankment on a hillside's low side at fill 10): the water also rises no higher than the
+         lower bank, sampled 3 blocks out from the water either side, plus "…and above the lower
+         bank up to" (0 to start). At 0 a hollow fills only where the land rises on both sides across
+         the river. That removes the embankments, but rivers along a slope can't fill, so more is cut.
+         On David's 13:22 preset with no steps: 552 points filled and 15,961 cut more than 6 at 0;
+         6,792 filled and 12,477 cut at 3.
+       - **Steps take it too:** with least change, each flat run of the steps takes the level that
+         changes its land least. That's its points' mean, rounded down, never above any of their
+         ceilings, never below its lowest point. *[Each run was set at its lowest point, cutting its
+         others down to it: with steps of 18, up to 17 blocks, two thirds of all points on David's
+         world cut more than 6. Now 45,690 of 80,457 at 0 above the bank, and 36,646 at 3.]*
+       - **The step and the fall together give a mix.** Drops of "a waterfall from" or more are falls.
+         Smaller ones are spread as rapids where their run has room, and are small curtained falls
+         where it hasn't. So a step below the fall height gives rapids and little falls on gentle
+         ground and big falls where the ground drops further than a fall in one step.
   3. **Never below the sea**, and a stretch into the sea or a lake ends at that water's level. Any
      stretch **ends where it first meets the sea** (2026-10-31): at its first point with the sea
      under any of its three samples, or with its water at the sea's level on ground more than a step
@@ -365,6 +395,12 @@ the world's.**
       - **The first dry block is the shore itself:** flush, or raised to it as a levee.
       - **The fade widens so the S-curve's steepest middle stays within the steepest bank.** That's
         half again as wide as before, gentler, and more land lowered.
+      - **Raised banks** (where the land beside the water is lower than it) ease back down to the land
+        no steeper than "raised banks no steeper than" (0.5), their fade widening with their height up
+        to "raised banks widen up to" (3) times. That's separate from the cuts' "steepest" and
+        "widens up to". The lookup reaches the further of the two. Both are kept with the world, on
+        the `bank` line. *[2026-10-31, David's screenshots: raised banks dropped back over the fade
+        alone, which doesn't widen at "widens up to" 1, as steep embankments.]*
       - A "ledge then slope" way keeps its block above the water. (The cut banks on the outsides of
         bends went with the bends, 2026-10-31.)
     - **Measured on David's world** (`rivers-balanced`, smooth banks all round, 4 cores):

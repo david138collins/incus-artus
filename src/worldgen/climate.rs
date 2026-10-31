@@ -300,7 +300,10 @@ impl Climate {
             return;
         }
         let Some(fine) = self.fine.result().cloned() else { return };
-        let (rivers, seed, blocks) = (settings.rivers.clone(), map.seed, map.maps.blocks_per_pixel);
+        // (Snowmelt and slope-foot springs retired [David, 2026-10-31: "cut them"]: they only added to
+        // a spring's own water, which decided nothing that showed. Their code stays in `rivers::water`.)
+        let rivers = super::rivers::RiverSettings { snowmelt: 0.0, springs: 0.0, ..settings.rivers.clone() };
+        let (seed, blocks) = (map.seed, map.maps.blocks_per_pixel);
         let from = (fine.clone(), ground.clone(), temperature.clone());
         self.flow.want((Same(temperature.clone()), Same(fine), rivers.clone()), move |stop| {
             let (fine, ground, temperature) = from;

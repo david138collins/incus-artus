@@ -865,3 +865,96 @@ That's 274 stretches of river from 192 springs.
 3. Retire snowmelt and slope-foot springs?
 4. (Still open) Two rivers side by side, touching at corners: merge their water there, or keep a dry
    block between them?
+
+## 16. The ridge, least-change steps, gentler raised banks, the Rivers section: built (2026-10-31)
+
+David's answers to section 15: "1. yes. rapids of lots of small falls are nice, but bigger ones are
+also nice. 2 yes 3. yes, cut them. 4, it should cause a waterfall to merge, shouldnt it? ... we can
+proceed to the next step". The details are in `docs/rivers.md`.
+
+1. **The ridge fix.** Where rivers' waters overlap, the lowest water and then the deepest floor win, so
+   a tributary ends at the shore of the river it joins, with its drop there.
+   - Within one stretch, the nearest piece still decides. The pieces either side of a step or fall
+     overlap, and the lower water winning there would move each fall half a width upstream.
+   - "A spot in any river's water is water" now holds with the anti-kitty-cornerer off too.
+2. **Steps by least change.** With least change, each flat run takes its points' mean level (rounded
+   down), within their ceilings, instead of its lowest point's.
+   - **A mix of falls (David):** the dials already give one. Drops from "a waterfall from" up are
+     falls. Smaller ones are rapids where their run has room, and small curtained falls where it
+     hasn't. So a step under the fall height gives rapids and little falls on gentle ground and big
+     falls on steep ground. Nothing new added.
+3. **Gentler raised banks:**
+   - **Their own slope:** "raised banks no steeper than" (0.5) and "raised banks widen up to" (3),
+     separate from the cuts'.
+   - **Fills only between banks:** the water rises no higher than the lower bank, 3 blocks out either
+     side, plus "…and above the lower bank up to" (0 to start). I added that slider because at 0
+     rivers along a slope can't fill, so more is cut.
+   - "Steepest bank" is greyed out at "widens up to" 1.
+4. **The Rivers section:** snowmelt and slope-foot springs are retired (Climate passes them as 0; their
+   code stays). "Drawn from" is labelled the picture's. "A lake from" stays.
+
+**On David's 13:22 preset** (6 cores):
+
+| | Points cut more than 6 | Water above its ground (points) | Land lowered, average | Flush |
+|---|---|---|---|---|
+| Before (this morning's build) | 53,745 | 1,666 | 10.2 | 92.7% |
+| Step 18, 0 above the bank | 45,690 | 626 | 9.6 | 95.4% |
+| Step 18, 3 above the bank | **36,646** | 8,987 | **6.7** | 96.6% |
+| Step 0, 0 above the bank | 15,961 | 552 | 4.6 | 96.2% |
+| Step 0, 3 above the bank | **12,477** | 6,792 | **3.7** | 96.5% |
+
+The rows have about 80,000 points each. Rivers are made in about 3.5 s.
+
+**The sheer face at a sharp bend (David's fill-0 screenshot).**
+- **What the probe did:** it drew the water round the three sharpest bends with a fall on his world
+  (each turning more than a radius of its width).
+- **What it found:** the water steps cleanly from one level to the next round each, with no stone face
+  between.
+- **So the face in the screenshot was most likely a junction:** a higher stream's own floor and water
+  running into a lower river (its upper water curling round, a stone face where it ran into the
+  other's water). The ridge fix is that. To confirm in the game.
+
+### Two rivers side by side, merging with a fall (proposed, not built)
+
+David: "it should cause a waterfall to merge". Two ways:
+
+- **In the carve:** fill the gap between two rivers' waters where they nearly touch, with the lower
+  one's water.
+  - It's small, but along a long side-by-side stretch it makes one long wall of water: a weir the
+    whole way, not one fall.
+- **An early join in the plan** (better). After the levels are laid, walk each river down. At the first
+  point where its water comes within about a block of another river's water that's lower, which isn't
+  its own junction partner, it ends there: its last point at that river's edge, its level dropping to
+  that river's, a fall with its curtain. The rest of its path alongside is dropped.
+  - It's the "join" David described: one fall where they first touch, then one river.
+  - **Cost:** a lookup of every river's points by cell (like the ponds' own), the walk, cutting the
+    river short, and the fall. About 80 to 100 lines with its test, so it's reported, not built.
+  - It fits with the joint fade below, and with David's later idea of water drawn toward nearby water.
+
+### David's joint fade (an idea, assessed)
+
+David: "regarding the jointing issues, perhaps a linear joint fade similar to how we do the lateral
+bank fades."
+
+- **What it is:** over a tributary's last stretch, its water (and floor) eases down toward the level of
+  the river it joins, over a length (say a few of the bigger river's widths). Whatever the ease can't
+  take becomes a fall at the shore. That's how most tributaries meet: at the main river's level, unless
+  they're a hanging valley with a fall.
+- **With the ridge fix:** they don't overlap. The ridge fix decides inside the main river's water; the
+  joint fade shapes the tributary's last stretch outside it, so the drop at the shore is small or
+  nothing.
+- **With the side-by-side merge:** the early join makes a new junction, and the joint fade eases the
+  river into it, leaving a fall for any rest.
+- **Cost:** about 30 lines in `lay_water`, after the steps and rapids, where a reach's end is lowered
+  to the water it joins. It's a ramp down over its last stretch, only ever lowering (cutting its bed a
+  little deeper), plus a slider ("joins ease over (widths)").
+- **Where it belongs:** it's a fade along the river, so it fits stage 2. But it's small, and it stands
+  on its own, so it could come before or with stage 5.
+
+### Questions for David
+
+1. **The two-rivers merge:** build it as an early join (one fall where they first touch)? About 80 to
+   100 lines.
+2. **The joint fade:** build it now (about 30 lines and a slider), or with stage 2?
+3. **"…and above the lower bank up to":** try 3 to start? It halves the cuts against 0, with a few
+   blocks of gentle raised bank.

@@ -1061,8 +1061,9 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.small(
             "Where the water goes, on the map's own grid (32 blocks a pixel). Every dip with no way out fills to the lowest \
              point of its rim, a lake with a flat surface, and spills on downhill; every patch drains somewhere, always to the \
-             sea. Each patch of land gives a unit of water (not its rain), plus snowmelt and slope-foot springs, and it adds up downhill: the \
-             more it carries, the brighter and bluer it's drawn.",
+             sea. Each patch of land gives a unit of water (not its rain), and it adds up downhill: the more it carries, the \
+             brighter and bluer it's drawn. (Snowmelt and slope-foot springs, which added to it, were retired on 2026-10-31: only \
+             a spring's own water read them, and nothing it decided showed. Their code is kept.)",
         );
         if let Some(flow) = compiler.climate.flow() {
             ui.label(format!("Most flow: {:.0} units   land under lakes: {:.1}%", flow.most, flow.lake_share * 100.0));
@@ -1070,22 +1071,10 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         if ui.small_button("show the water on the map").on_hover_text("Shows the water over the map (the Show row at the top).").clicked() {
             compiler.climate.show = super::climate::Show::Water;
         }
-        ui.add(crate::debug::Slider::new(&mut rivers.shown_from, 1.0..=5_000.0).logarithmic(true).text("drawn from (units)"))
-            .on_hover_text("How much water has to flow through a patch for it to be drawn. Lower = every trickle; higher = only the big rivers.");
+        ui.add(crate::debug::Slider::new(&mut rivers.shown_from, 1.0..=5_000.0).logarithmic(true).text("the picture: water drawn from (units)"))
+            .on_hover_text("The picture only (the Show row's \"water\"): how much water has to flow through a patch for it to be drawn. Lower = every trickle; higher = only the big rivers. It changes no river.");
         ui.add(crate::debug::Slider::new(&mut rivers.lake_depth, 0.5..=40.0).logarithmic(true).text("a lake from (blocks deep)"))
             .on_hover_text("How deep a basin's water has to stand to count as a lake (shallower is wet ground, later perhaps marsh).");
-        ui.add_space(4.0);
-        ui.strong("Snowmelt");
-        ui.add(crate::debug::Slider::new(&mut rivers.snowmelt, 0.0..=5.0).text("extra water (units)"))
-            .on_hover_text("On cold high ground, each patch gives this much extra water (on its own 1 unit): mountain rivers run bigger.");
-        ui.add(crate::debug::Slider::new(&mut rivers.snow_below, -1.0..=1.0).text("colder than")).on_hover_text("Only where the temperature is below this (-1 frozen to +1 hottest).");
-        ui.add(crate::debug::Slider::new(&mut rivers.snow_above, 128.0..=1_023.0).text("higher than (Z)")).on_hover_text("Only where the ground is above this.");
-        ui.add_space(4.0);
-        ui.strong("Springs at slope feet");
-        ui.add(crate::debug::Slider::new(&mut rivers.springs, 0.0..=20.0).text("extra water")).on_hover_text(
-            "Where a slope eases off (steep coming down, gentler going on), water comes up: this much extra, for each block of\n\
-             steepness lost per block across, in units (a patch of land gives 1). Springs show at the feet of mountains.",
-        );
     });
     fold_section(ui, "River network", |ui| {
         let n = &mut climate.network;
@@ -1262,7 +1251,17 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         });
         let least = c.level == super::carving::Level::LeastChange;
         ui.add_enabled(least, crate::debug::Slider::new(&mut c.fill_up_to, 0.0..=20.0).text("fill hollows up to (blocks)"))
-            .on_hover_text("The most the water may stand above the lowest ground across a hollow. A deeper hollow is filled this much, and the rise after it cut for the rest.");
+            .on_hover_text(
+                "The most the water may stand above the lowest ground across a hollow. A deeper hollow is filled this much, and the\n\
+                 rise after it cut for the rest. And never above the lower bank, 3 blocks out either side: only where the land rises\n\
+                 on both sides is a hollow filled (no causeways over valleys, no embankments along hillsides). Steps work the same\n\
+                 way: each flat run at the level that changes its land least.",
+            );
+        ui.add_enabled(least, crate::debug::Slider::new(&mut c.fill_over_banks, 0.0..=10.0).text("…and above the lower bank up to (blocks)")).on_hover_text(
+            "How far the water may stand above the lower bank beside it (3 blocks out from the water). 0 = only where the land\n\
+             rises on both sides (no embankments at all, but rivers along a slope can't fill, so more is cut). More lets a filled\n\
+             hollow raise its low side's bank, easing down at \"raised banks no steeper than\".",
+        );
         ui.add_enabled(least, crate::debug::Slider::new(&mut c.cut_most, 0.0..=40.0).text("cut rises up to (blocks)"))
             .on_hover_text("Before cutting a rise deeper than this, the hollow before it is filled more (but never past \"fill hollows up to\", which wins).");
         if let Some(carving) = compiler.climate.carving() {
@@ -1338,6 +1337,10 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
              with it, coming down from there no steeper than the steepest bank, so no water stands against air where a river\n\
              steps down at a bend. The first dry block is the shore itself. Off: each spot takes its nearest river's bank alone.",
         );
+        ui.add_enabled(banks.compressor, crate::debug::Slider::new(&mut banks.raised_steepest, 0.05..=4.0).logarithmic(true).text("raised banks no steeper than (blocks a block)"))
+            .on_hover_text("Where the land beside a river is lower than its water, the bank is raised to the shore and eases back down to the land: no steeper than this, its fade widening with its height.");
+        ui.add_enabled(banks.compressor, crate::debug::Slider::new(&mut banks.raised_widest, 1.0..=6.0).text("raised banks widen up to (times)"))
+            .on_hover_text("How far a raised bank's fade may widen to stay that gentle (times its fade). Wider looks further for banks, so the world takes a little longer to make.");
         ui.add_space(4.0);
         ui.strong("Lakes");
         ui.small(

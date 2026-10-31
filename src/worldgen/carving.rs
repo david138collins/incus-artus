@@ -46,6 +46,9 @@ pub struct CarvingSettings {
     /// `cut_most` it fills the hollow before it more (the fill's limit wins).
     pub level: Level,
     pub fill_up_to: f32,
+    /// With least change, how far the water may stand above the lower bank beside it (blocks; 0: only
+    /// where the land rises on both sides across it), its raised banks easing it down.
+    pub fill_over_banks: f32,
     pub cut_most: f32,
     /// The route on the real ground [2026-10-30]: how far either side of its planned path a river may
     /// find its way (blocks), and the grain it's found on (blocks a cell).
@@ -131,9 +134,9 @@ pub enum Level {
 /// 2026-10-31: after a hollow, the water only falling, a river cut every rise after it down to the
 /// hollow's level]: only falling, as near the lowest ground across each point (`low`) as can be in
 /// all (least squares: pool adjacent violators, one pass), no higher than `cap` (the water arriving at
-/// its start); then no more than `fill` above the ground at any point upstream (`fill` wins), and
-/// no more than `cut` below it at any point downstream.
-fn least_change(low: &[f32], cap: f32, fill: f32, cut: f32) -> Vec<f32> {
+/// its start); then no higher than any point's `ceiling` upstream (its fill limit; it wins), and
+/// no more than `cut` below the ground at any point downstream.
+fn least_change(low: &[f32], ceiling: &[f32], cap: f32, cut: f32) -> Vec<f32> {
     // (Off the map, the ground before it.)
     let mut last = cap.min(low.iter().copied().find(|&l| l < f32::MAX).unwrap_or(SEA_LEVEL as f32));
     let low: Vec<f32> = low
@@ -160,7 +163,7 @@ fn least_change(low: &[f32], cap: f32, fill: f32, cut: f32) -> Vec<f32> {
         }
     }
     let fitted = pools.iter().flat_map(|&(sum, count)| std::iter::repeat_n((sum / count as f64) as f32, count));
-    // The bounds, only falling too: no higher than the fill above any point so far, no lower than the
+    // The bounds, only falling too: no higher than the ceiling of any point so far, no lower than the
     // cut below any point to come.
     let mut lowest = vec![f32::MIN; low.len()];
     let mut most = f32::MIN;
@@ -170,9 +173,9 @@ fn least_change(low: &[f32], cap: f32, fill: f32, cut: f32) -> Vec<f32> {
     }
     let mut highest = cap;
     fitted
-        .zip(low.iter().zip(lowest))
-        .map(|(level, (&l, lowest))| {
-            highest = highest.min(l + fill.max(0.0));
+        .zip(ceiling.iter().zip(lowest))
+        .map(|(level, (&ceiling, lowest))| {
+            highest = highest.min(ceiling);
             level.max(lowest).min(highest)
         })
         .collect()
@@ -190,6 +193,7 @@ impl Default for CarvingSettings {
             anti_kitty_corner: true,
             level: Level::Cut,
             fill_up_to: 3.0,
+            fill_over_banks: 0.0,
             cut_most: 40.0,
             corridor: 64.0,
             grain: 4.0,
@@ -1058,7 +1062,12 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     // may use.
     let cores = most_cores(s);
     let each = reaches.len().div_ceil(cores).max(1);
-    let mut lows: Vec<Vec<f32>> = std::thread::scope(|scope| {
+    // With least change, also the lower bank's ground, 3 blocks out from the water either side: the
+    // water rises over a hollow no higher than that, so it fills only where the land rises on both
+    // sides across it [David, 2026-10-31: a river filled over a valley stood on a causeway, and
+    // along a hillside on an embankment on its low side].
+    let least = s.level == Level::LeastChange;
+    let sampled: Vec<Vec<(f32, f32)>> = std::thread::scope(|scope| {
         let jobs: Vec<_> = reaches
             .chunks(each)
             .map(|part| {
@@ -1069,21 +1078,19 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
                             (0..p.len())
                                 .map(|k| {
                                     if stop.load(Ordering::Relaxed) {
-                                        return sea;
+                                        return (sea, f32::MAX);
                                     }
                                     let (a, b) = (p[k.saturating_sub(1)], p[(k + 1).min(p.len() - 1)]);
                                     let (tn, te) = (b.north - a.north, b.east - a.east);
                                     let length = (tn * tn + te * te).sqrt().max(1e-3);
                                     let (nn, ne) = (te / length, -tn / length);
                                     let half = p[k].width / 2.0;
-                                    [0.0, half, -half]
-                                        .iter()
-                                        .filter_map(|&o| ground.height(p[k].north + nn * o, p[k].east + ne * o))
-                                        .fold(f32::MAX, f32::min)
+                                    let lowest = |offsets: &[f32]| offsets.iter().filter_map(|&o| ground.height(p[k].north + nn * o, p[k].east + ne * o)).fold(f32::MAX, f32::min);
+                                    (lowest(&[0.0, half, -half]), if least { lowest(&[half + 3.0, -half - 3.0]) } else { f32::MAX })
                                 })
                                 .collect()
                         })
-                        .collect::<Vec<Vec<f32>>>()
+                        .collect::<Vec<Vec<(f32, f32)>>>()
                 })
             })
             .collect();
@@ -1092,6 +1099,10 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     if stop.load(Ordering::Relaxed) {
         return None;
     }
+    let mut lows: Vec<Vec<f32>> = sampled.iter().map(|reach| reach.iter().map(|s| s.0).collect()).collect();
+    // The most the water may stand at each point: no more than the fill above the lowest ground
+    // across, nor above the lower bank.
+    let mut ceilings: Vec<Vec<f32>> = sampled.iter().map(|reach| reach.iter().map(|&(low, bank)| (low + s.fill_up_to.max(0.0)).min(bank.max(low) + s.fill_over_banks.max(0.0))).collect()).collect();
     // Downstream: upstream reaches first; each reach no higher than what arrives at its start.
     let mut order: Vec<usize> = (0..reaches.len()).collect();
     order.sort_by(|&a, &b| ends_of[b].3.total_cmp(&ends_of[a].3));
@@ -1102,7 +1113,7 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
         let mut cap = arriving.get(&start).copied().unwrap_or(f32::MAX);
         let floor = end_level.unwrap_or(sea).max(sea);
         // (With least change, the levels that change the land least, which the water then follows.)
-        let target = (s.level == Level::LeastChange).then(|| least_change(&lows[r], cap, s.fill_up_to, s.cut_most));
+        let target = (s.level == Level::LeastChange).then(|| least_change(&lows[r], &ceilings[r], cap, s.cut_most));
         let points = &mut reaches[r].points;
         for k in 0..points.len() {
             let low = if lows[r][k] == f32::MAX { cap } else { lows[r][k] };
@@ -1127,6 +1138,7 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
             if meets_sea {
                 points.truncate(k + 1);
                 lows[r].truncate(k + 1);
+                ceilings[r].truncate(k + 1);
                 cut_short[r] = true;
                 break;
             }
@@ -1186,13 +1198,32 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
         // Steps, from the reach's end upward: flat until the water would have risen a step above the
         // run, then up to it (like the network's bed) [2026-10-30: rounded down to absolute multiples
         // of the step (Z 128, 132, 136…), the water sat up to 3 blocks more below its banks].
+        // With least change, each flat run at the level that changes its land least, not its lowest
+        // point's: its points' mean, rounded down, no higher than any of their ceilings [2026-10-31:
+        // with steps of 18, each run cut its other points down to its lowest, by up to 17 blocks:
+        // two thirds of all points cut more than 6 on David's world].
         if step > 1.0 {
+            let mut runs: Vec<(usize, usize)> = Vec::new();
             let mut run = f32::NAN;
-            for point in points.iter_mut().rev() {
-                if run.is_nan() || point.level - run >= step {
-                    run = point.level;
+            for k in (0..points.len()).rev() {
+                if run.is_nan() || points[k].level - run >= step {
+                    run = points[k].level;
+                    runs.push((k, k));
+                } else if let Some(last) = runs.last_mut() {
+                    last.0 = k;
+                }
+            }
+            for &(first, last) in &runs {
+                let lowest = points[last].level;
+                let level = if least {
+                    let mean = points[first..=last].iter().map(|p| p.level).sum::<f32>() / (last - first + 1) as f32;
+                    let ceiling = ceilings[r][first..=last].iter().copied().fold(f32::MAX, f32::min);
+                    mean.floor().min(ceiling.floor()).max(lowest)
                 } else {
-                    point.level = run;
+                    lowest
+                };
+                for point in &mut points[first..=last] {
+                    point.level = level;
                 }
             }
         }
@@ -1784,15 +1815,41 @@ mod tests {
             Some(*level)
         }).collect();
         let changed = |levels: &[f32]| levels.iter().zip(&low).map(|(l, g)| (l - g).abs()).sum::<f32>();
-        let least = least_change(&low, f32::MAX, 20.0, 40.0);
+        let least = least_change(&low, &low.map(|l| l + 20.0), f32::MAX, 40.0);
         assert!(least.windows(2).all(|w| w[1] <= w[0]), "it rises: {least:?}");
         assert!(changed(&least) < changed(&cut), "{least:?} changes more than {cut:?}");
         assert!(least[3] > 100.0 && least[5] < 106.0, "the hollow filled and the rise cut: {least:?}");
         // No more than 1 above the ground anywhere: the hollow filled 1 at most, the rise cut for the rest.
-        let shallow = least_change(&low, f32::MAX, 1.0, 40.0);
+        let shallow = least_change(&low, &low.map(|l| l + 1.0), f32::MAX, 40.0);
         assert!(shallow.iter().zip(&low).all(|(l, g)| l - g <= 1.0 + 1e-3), "{shallow:?}");
         // Never above the water arriving.
-        assert!(least_change(&low, 105.0, 20.0, 40.0).iter().all(|&l| l <= 105.0));
+        assert!(least_change(&low, &low.map(|l| l + 20.0), 105.0, 40.0).iter().all(|&l| l <= 105.0));
+    }
+
+    #[test]
+    fn with_least_change_each_step_s_run_changes_its_land_least_and_fills_only_between_banks() {
+        // David's preset, steps of 18: each flat run cut its points down to its lowest, by up to 17.
+        // A creek down a valley (its sides rising 16 a pixel either side), steps of 8.
+        let width = 64;
+        let z: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 4.8 + ((i / width) as f32 - 32.0).abs() * 16.0).collect();
+        let ground = CompiledMap::of_heights(width, 8.0, &z);
+        let laid = |level| {
+            let mut reaches = vec![Reach { points: (0..=112).map(|k| creek(-4.0, (60.0 - k as f32 * 0.5 - 32.0) * 8.0)).collect() }];
+            let s = CarvingSettings { level, fill_up_to: 3.0, rapids_length: 1.0, rise_pools: false, ..CarvingSettings::default() };
+            lay_water(&mut reaches, &[(0, 1, None, 100.0)], &ground, 8.0, 25.0, &s, &AtomicBool::new(false)).unwrap();
+            reaches.remove(0).points.iter().map(|p| (ground.height(p.north, p.east).unwrap(), p.level)).collect::<Vec<_>>()
+        };
+        let deepest = |levels: &[(f32, f32)]| levels.iter().map(|(g, l)| g - l).fold(0.0f32, f32::max);
+        let (cut, least) = (laid(Level::Cut), laid(Level::LeastChange));
+        assert!(deepest(&least) < deepest(&cut) - 1.0, "cut {} deep, least change {}", deepest(&cut), deepest(&least));
+        assert!(least.iter().all(|(g, l)| l - g <= 3.5), "filled more than 3: {least:?}");
+        // On ground level across (no banks rising either side), never filled at all.
+        let flat: Vec<f32> = (0..width * width).map(|i| 150.0 + (i % width) as f32 * 4.8).collect();
+        let ground = CompiledMap::of_heights(width, 8.0, &flat);
+        let mut reaches = vec![Reach { points: (0..=112).map(|k| creek(-4.0, (60.0 - k as f32 * 0.5 - 32.0) * 8.0)).collect() }];
+        let s = CarvingSettings { level: Level::LeastChange, fill_up_to: 3.0, rapids_length: 1.0, rise_pools: false, ..CarvingSettings::default() };
+        lay_water(&mut reaches, &[(0, 1, None, 100.0)], &ground, 8.0, 25.0, &s, &AtomicBool::new(false)).unwrap();
+        assert!(reaches[0].points.iter().all(|p| p.level <= ground.height(p.north, p.east).unwrap() + 0.5), "filled on a slope");
     }
 
     /// A creek's point, 3 wide.

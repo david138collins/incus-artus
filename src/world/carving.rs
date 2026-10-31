@@ -95,11 +95,24 @@ pub struct Banks {
     /// steepest bank (so no water against air at a step or a bend); and the first dry block is the
     /// shore itself. Off: each spot takes its nearest river's bank alone (the way before).
     pub compressor: bool,
+    /// With the compressor, banks raised where the land is lower than the water: the steepest they
+    /// ease back down to the land (blocks down a block across), widening with their height up to
+    /// `raised_widest` times their fade [David, 2026-10-31: raised banks stood as steep embankments,
+    /// on one side of a river along a hillside, and on both as a causeway over a valley].
+    pub raised_steepest: f32,
+    pub raised_widest: f32,
 }
 
 impl Default for Banks {
     fn default() -> Self {
-        Self { way: FadeWay::Smooth, steepest: 1.0, widest: 3.0, terrace: 4.0, compressor: false }
+        Self { way: FadeWay::Smooth, steepest: 1.0, widest: 3.0, terrace: 4.0, compressor: false, raised_steepest: 0.5, raised_widest: 3.0 }
+    }
+}
+
+impl Banks {
+    /// How many times its fade a bank may widen to, cut or raised.
+    fn widest_either(&self) -> f32 {
+        if self.compressor { self.widest.max(self.raised_widest).max(1.0) } else { self.widest.max(1.0) }
     }
 }
 
@@ -139,7 +152,13 @@ impl Banks {
         // An S-curve is half again as steep at its middle as on average.
         let peak = if matches!(way, FadeWay::Smooth | FadeWay::LedgeThenSlope) { 1.5 } else { 1.0 };
         let fade = fade.max(1.0);
-        let fade = if rest > 0.0 { (rest * peak / self.steepest.max(0.05)).clamp(fade, fade * self.widest.max(1.0)) } else { fade };
+        let fade = if rest > 0.0 {
+            (rest * peak / self.steepest.max(0.05)).clamp(fade, fade * self.widest.max(1.0))
+        } else if rise < 0.0 {
+            (-rise * peak / self.raised_steepest.max(0.05)).clamp(fade, fade * self.raised_widest.max(1.0))
+        } else {
+            fade
+        };
         let t = (beyond - 1.0).max(0.0) / fade;
         if t >= 1.0 {
             return None;
@@ -447,6 +466,9 @@ pub fn depth_across(depth: f32, edge: f32, flat: f32, bowl: f32, across: f32) ->
 /// ends, how far past the piece's start, and half its water across.
 type Piece = (f32, f32, Point, f32, f32);
 
+/// A piece whose water a spot is in, with that water's level and floor there (lowest wins).
+type Wet = ((f32, f32), Piece);
+
 /// Where a spot is along a river piece: how far from its line (blocks; + toward the left, looking
 /// downstream), and how far along it (0 to 1).
 fn along(a: &Point, b: &Point, north: f32, east: f32) -> (f32, f32, f32) {
@@ -476,7 +498,7 @@ impl Carving {
     /// How far from its line a river reaches at a point: half its width, its banks' fade at its
     /// widest, and a couple of blocks.
     fn reach_of(&self, p: &Point) -> f32 {
-        p.width / 2.0 + p.fade * self.banks.widest.max(1.0) + 2.0
+        p.width / 2.0 + p.fade * self.banks.widest_either() + 2.0
     }
 
     /// The lookup grid: each piece entered in every cell within its reach.
@@ -544,11 +566,15 @@ impl Carving {
         half.max((dn.abs() + de.abs()) / length / 2.0)
     }
 
-    /// The nearest river piece (as `nearest_river`), and half its water across (`half_across`). With
-    /// the anti-kitty-cornerer, a spot in any piece's water is that piece's (the nearest such), though
-    /// another's line is nearer [2026-10-31: where a narrow river joined a wide one, the wide one's
-    /// water stopped where the narrow one's line was nearer, and the gaps left its blocks joined only
-    /// at a corner: 176 places in a sample of David's world].
+    /// The nearest river piece (as `nearest_river`), and half its water across (`half_across`). But a
+    /// spot in any stretch's water is that water's, though another's line is nearer [2026-10-31: where
+    /// a narrow river joined a wide one, the wide one's water stopped where the narrow one's line was
+    /// nearer, and the gaps left its blocks joined only at a corner, 176 places in a sample of David's
+    /// world]; and where stretches' waters overlap, the lowest water, then the deepest floor, wins
+    /// [2026-10-31, David's screenshot: a tributary's last stretch ran on into the middle of the wide
+    /// river it joined, its own shallower floor and higher water a stone ridge with a ribbon of water
+    /// on top]. (Within a stretch, the nearest of its pieces: the pieces either side of a step or a
+    /// fall overlap, and the lower water winning there would move each fall half a width upstream.)
     fn nearest_piece(&self, north: f32, east: f32) -> Option<Piece> {
         if self.cells.is_empty() {
             return None;
@@ -557,34 +583,53 @@ impl Carving {
         if !inside {
             return None;
         }
-        let (mut best, mut wet): (Option<Piece>, Option<Piece>) = (None, None);
+        // The nearest piece; the lowest water the spot is in, of any stretch (its level and floor
+        // there, and the piece); and the stretch being looked through (a cell lists each stretch's
+        // pieces together): its reach, and the nearest of its pieces the spot is in the water of.
+        let mut best: Option<Piece> = None;
+        let mut wet: Option<Wet> = None;
+        let mut stretch: (u32, Option<Wet>) = (u32::MAX, None);
+        let lowest = |wet: &mut Option<Wet>, found: Option<Wet>| {
+            if let Some(found) = found
+                && wet.as_ref().is_none_or(|w| found.0 < w.0)
+            {
+                *wet = Some(found);
+            }
+        };
         for &(r, k) in &self.cells[self.row(north) * self.across + self.col(east)] {
+            if r != stretch.0 {
+                lowest(&mut wet, stretch.1.take());
+                stretch.0 = r;
+            }
             let points = &self.reaches[r as usize].points;
             let (a, b) = (&points[k as usize], &points[k as usize + 1]);
             let (distance, side, t) = along(a, b, north, east);
             let mix = |x: f32, y: f32| x + (y - x) * t;
             let nearer = best.as_ref().is_none_or(|(d, ..)| distance < *d);
-            let in_water = self.anti_kitty_corner && wet.as_ref().is_none_or(|(d, ..)| distance < *d) && {
-                let (width, bend) = (mix(a.width, b.width), if t < 0.5 { a.bend } else { b.bend });
-                let shift = if (width.round() as i32) % 2 == 0 { 0.5 * bend } else { 0.0 };
-                (distance * side - shift).abs() <= self.half_across(a, b, width)
-            };
+            let (width, bend) = (mix(a.width, b.width), if t < 0.5 { a.bend } else { b.bend });
+            let shift = if (width.round() as i32) % 2 == 0 { 0.5 * bend } else { 0.0 };
+            let half = self.half_across(a, b, width);
+            let offset = distance * side - shift;
+            let in_water = offset.abs() <= half && stretch.1.as_ref().is_none_or(|(_, (d, ..))| distance < *d);
             if !nearer && !in_water {
                 continue;
             }
             let span = ((b.north - a.north).powi(2) + (b.east - a.east).powi(2)).sqrt();
             // The level holds the upstream point's until the next (steps happen at points), and so
             // does a waterfall's top (`here` takes it as far past the lip as it reaches).
-            let point = Point { north: mix(a.north, b.north), east: mix(a.east, b.east), width: mix(a.width, b.width), depth: mix(a.depth, b.depth), edge: mix(a.edge, b.edge), flat: mix(a.flat, b.flat), bowl: mix(a.bowl, b.bowl), level: a.level, bend: if t < 0.5 { a.bend } else { b.bend }, curtain: a.curtain, turn: mix(a.turn, b.turn), fade: mix(a.fade, b.fade) };
-            let piece = Some((distance, side, point, t * span, self.half_across(a, b, point.width)));
+            let point = Point { north: mix(a.north, b.north), east: mix(a.east, b.east), width, depth: mix(a.depth, b.depth), edge: mix(a.edge, b.edge), flat: mix(a.flat, b.flat), bowl: mix(a.bowl, b.bowl), level: a.level, bend, curtain: a.curtain, turn: mix(a.turn, b.turn), fade: mix(a.fade, b.fade) };
+            let piece = (distance, side, point, t * span, half);
             if nearer {
-                best = piece;
+                best = Some(piece);
             }
             if in_water {
-                wet = piece;
+                let level = point.level.round();
+                let floor = level - 1.0 - depth_across(point.depth, point.edge, point.flat, point.bowl, offset / half);
+                stretch.1 = Some(((level, floor), piece));
             }
         }
-        wet.or(best)
+        lowest(&mut wet, stretch.1.take());
+        wet.map(|(_, piece)| piece).or(best)
     }
 
     /// The compressor's ground at a spot outside the nearest river's water (`Banks::compressor`):
@@ -599,7 +644,7 @@ impl Carving {
     /// if no bank reaches it.
     fn compressed_bank(&self, north: f32, east: f32, ground: f32) -> Option<f32> {
         let b = &self.banks;
-        let widest = b.widest.max(1.0);
+        let widest = b.widest_either();
         // The lowest bank; how high any stretch's water holds the land up against another's bank (not
         // above the land's own height); and the shore of any river's water right beside it (raised to
         // if lower, so water never stands against air).
@@ -731,7 +776,7 @@ impl Carving {
     pub fn to_text(&self) -> String {
         let b = &self.banks;
         let way = FadeWay::ALL.iter().position(|&a| a == b.way).unwrap_or(0);
-        let mut text = format!("bank {way} {} {} {} {}\n", b.steepest, b.widest, b.terrace, b.compressor as u8);
+        let mut text = format!("bank {way} {} {} {} {} {} {}\n", b.steepest, b.widest, b.terrace, b.compressor as u8, b.raised_steepest, b.raised_widest);
         if !self.curtains {
             text += "curtains 0\n";
         }
@@ -765,13 +810,17 @@ impl Carving {
             let num = |k: usize| -> Result<f32, String> { words.get(k).and_then(|w| w.parse::<f32>().ok()).ok_or_else(bad) };
             let way = |k: usize| num(k).map(|w| FadeWay::ALL[(w as usize).min(3)]);
             match words.first().copied() {
-                Some("bank") => banks = Banks { way: way(1)?, steepest: num(2)?, widest: num(3)?, terrace: num(4)?, compressor: num(5)? != 0.0 },
+                Some("bank") => {
+                    let or = |k: usize, missing: f32| if words.len() > k { num(k) } else { Ok(missing) };
+                    let before = Banks::default();
+                    banks = Banks { way: way(1)?, steepest: num(2)?, widest: num(3)?, terrace: num(4)?, compressor: num(5)? != 0.0, raised_steepest: or(6, before.raised_steepest)?, raised_widest: or(7, before.raised_widest)? };
+                }
                 // Saved before the bends were cut (2026-10-31): a way for each side of a bend (the
                 // straight run's kept), how sharp a bend, the outside's fade, …, and from that morning
                 // the compressor and the cut banks.
                 Some("banks") => {
                     let or = |k: usize, missing: f32| if words.len() > k { num(k) } else { Ok(missing) };
-                    banks = Banks { way: way(3)?, steepest: num(6)?, widest: num(7)?, terrace: num(8)?, compressor: or(9, 0.0)? != 0.0 };
+                    banks = Banks { way: way(3)?, steepest: num(6)?, widest: num(7)?, terrace: num(8)?, compressor: or(9, 0.0)? != 0.0, ..Banks::default() };
                 }
                 Some("curtains") => curtains = num(1)? != 0.0,
                 Some("anti-kitty-corner") => anti_kitty_corner = num(1)? != 0.0,
@@ -926,39 +975,55 @@ mod tests {
     }
 
     #[test]
-    fn with_the_anti_kitty_cornerer_a_narrow_river_joins_a_wide_one_by_whole_faces() {
+    fn a_narrow_river_joins_a_wide_one_by_whole_faces_and_ends_at_its_shore() {
         // A sample of David's world: where a narrow river joined a wide one, the wide one's water
         // stopped where the narrow one's line was nearer; the gaps joined its blocks only at corners.
+        // And David's screenshot: the narrow one's last stretch, its water higher, ran on into the
+        // wide one's middle as a stone ridge with a ribbon of water on top.
         let main = vec![point(0.5, -60.0, 12.0, 150.0, 0.0), point(0.5, 60.0, 12.0, 150.0, 0.0)];
-        let tributary = vec![point(40.5, 30.0, 3.0, 150.0, 0.0), point(0.5, 0.0, 3.0, 150.0, 0.0)];
-        let mut river = Carving::new(vec![Reach { points: main }, Reach { points: tributary }], Lakes::default(), Banks::default());
-        let corners = |river: &Carving| {
-            let water = |n: i32, e: i32| river.here(n as f32 + 0.5, e as f32 + 0.5, 160.0).water.is_some();
-            let mut corners = 0;
-            for n in -12..45 {
-                for e in -30..40 {
-                    for de in [-1, 1] {
-                        if water(n, e) && water(n + 1, e + de) && !water(n + 1, e) && !water(n, e + de) {
-                            corners += 1;
-                        }
+        let tributary = vec![point(40.5, 30.0, 3.0, 154.0, 0.0), point(0.5, 0.0, 3.0, 154.0, 0.0)];
+        let river = Carving::new(vec![Reach { points: main }, Reach { points: tributary }], Lakes::default(), Banks::default());
+        let water = |n: i32, e: i32| river.here(n as f32 + 0.5, e as f32 + 0.5, 160.0).water;
+        let mut corners = 0;
+        for n in -12..45 {
+            for e in -30..40 {
+                for de in [-1, 1] {
+                    if water(n, e).is_some() && water(n + 1, e + de).is_some() && water(n + 1, e).is_none() && water(n, e + de).is_none() {
+                        corners += 1;
                     }
                 }
             }
-            corners
+        }
+        assert_eq!(corners, 0);
+        // In the wide river's water, on the narrow one's line: the wide one's water and floor.
+        let inside = river.here(2.5, 2.5, 160.0);
+        assert_eq!(inside.water, Some(150));
+        assert_eq!(inside.floor, Some(147.0), "a ridge: the narrow one's floor is 151");
+        // Past the wide one's shore, the narrow one's own.
+        assert_eq!(river.here(10.5, 7.5, 160.0).water, Some(154));
+    }
+
+    #[test]
+    fn raised_banks_ease_down_at_their_own_slope() {
+        // David's screenshots: where the land fell away below the water, the raised bank stood as a
+        // steep embankment. Land 9 below the shore: the bank widens its fade to stay that gentle.
+        let steepest_step = |raised_widest: f32| {
+            let mut river = compressed(banked(0.0));
+            river.banks = Banks { raised_steepest: 0.5, raised_widest, ..river.banks };
+            let z = |n: i32| {
+                let here = river.here(n as f32 + 0.5, 0.0, 140.0);
+                here.fill.or(here.floor).unwrap_or(140.0)
+            };
+            (3..40).map(|n| (z(n) - z(n + 1)).abs()).fold(0.0f32, f32::max)
         };
-        river.anti_kitty_corner = false;
-        assert!(corners(&river) > 0, "the old way joined them at corners");
-        river.anti_kitty_corner = true;
-        assert_eq!(corners(&river), 0);
-        // And the wide river's water is whole where the narrow one's line is nearer: 6 out from its
-        // middle, beside the junction.
-        assert!(river.here(6.5, 4.5, 160.0).water.is_some());
+        assert!(steepest_step(3.0) < 0.65, "{}", steepest_step(3.0));
+        assert!(steepest_step(1.0) > 1.0, "{}", steepest_step(1.0));
     }
 
     #[test]
     fn banks_saved_before_the_bends_were_cut_read_back_with_the_straight_run_s_way() {
         let carving = Carving::from_text("banks 0 3 1 0.15 0.5 2 3 4 1 0.25\nr\np 0.5 -50 3 2 150 0 NaN\np 0.5 50 3 2 150 0 NaN\n").unwrap();
-        assert_eq!(carving.banks, Banks { way: FadeWay::Slope, steepest: 2.0, widest: 3.0, terrace: 4.0, compressor: true });
+        assert_eq!(carving.banks, Banks { way: FadeWay::Slope, steepest: 2.0, widest: 3.0, terrace: 4.0, compressor: true, ..Banks::default() });
     }
 
     /// The highest any dry column next to a river's or lake's water stands below it (blocks; 0 if
