@@ -631,3 +631,73 @@ are in `docs/rivers.md` (step 7, "Where the way is found"):
 
 **Not changed:** "everywhere" is still the default, so David's preset keeps its look until he picks
 "only where needed".
+
+## 13. After stage 4: David's notes, and the next step prepared (2026-10-31)
+
+**David, after trying stage 4:**
+- "everywhere setting on the route works pretty good. it doesn't take any time, either. im updating
+  in 2-3 seconds with it."
+- "i think the settings wander through keep within under the line may be useless entirely. they only
+  seem to make it worse at any setting besides off. if there's nothing you think is useful there it can
+  be cut."
+- "im questioning the value of bends, either. they don't really seem to have a logical way to be used
+  cleanly."
+- "it's starting to look good, i think, we're making progress."
+
+**His preset at 12:21** (`presets/compiler/default.toml`), what changed since 11:35:
+- **Banks:** "steepest bank" went to 4 (max) and "widens up to" to 1 (min), so every creek's bank fades
+  over a fixed 4 widths ("fade over" 4), with no widening. At "widens up to" 1, "steepest bank" does
+  nothing.
+- **Lakes:** pools must be 10 deep (it was 4), looked for up to 128 blocks round each lake (it was 64).
+- **Size varies:** 0.5, the maximum.
+- **Bends:** "a bend from" 0.17, and "cut banks keep" 0.05.
+- **The line:** wander, lean and meanders have small values, but "most sideways" is effectively 0, so
+  none of them act. The route stays "everywhere"; the deep cut is 2 near the sea and 8 high up, which
+  only acts "where needed".
+
+**Measured** (today's bake, 6 cores; against 11:35):
+- deepest cut **115** (it was 439);
+- steepest pull-down **15** (51);
+- land lowered 4.2 on average (4.1), at most 121 (196);
+- flush 95.3%, below the water 0.2%;
+- rivers made in 1.2 s.
+
+Still 24,207 points are cut more than 6 below the ground. About a fifth of those come from a stream
+upstream through a junction; the rest from dips earlier on the river's own stretch (section 12).
+
+### What the next step could be
+
+1. **Cut the line's sideways moves** (David's proposal). That's wander, its swings, lean, meander
+   every, meander size, full meanders below, most sideways and keep within: 8 sliders, and about 40
+   lines of `curve`. Corner cutting stays.
+   - *Builder's view: cut them.* Each moves the line off the way found, onto the ground beside it,
+     which is higher (it's what "keep within" pulled back). With the land making way, any wander
+     should come from the route on the real ground, not from noise.
+2. **Cut the bend sides from the banks** (David's question). That's "a bend from", "outside fades
+   over", the three ways by side (one way for all) and "cut banks keep": about 30 lines.
+   - *Builder's view: cut them,* unless David wants cut banks back later. They were his one exception
+     to flush, and a cleaner way to bring them back would be easing by how sharp the bend is, rather
+     than switching at a threshold.
+   - The odd block of an even width going to the outside of a bend stays. It's invisible and harmless.
+3. **The water's level after a dip (the main lever left for the cuts).** A river can only fall, so
+   after a hollow it stays at the hollow's level and cuts through every rise after it. Options, each
+   behind a switch, with the readout counting land raised as well as lowered:
+   - (a) **cut** (today);
+   - (b) **fill**: a hollow shallower than a setting is filled, and the river runs level over it, on
+     its bed raised a little, with the banks holding it;
+   - (c) **least change**: each stretch at the level that cuts and fills the least land, rises cut and
+     hollows filled by turns. It's one pass a reach (isotonic regression, "pool adjacent violators"),
+     with no slider.
+   - *Builder's view:* (c) as the default, with (b)'s depth as a cap on how high it may fill.
+     About 60 to 80 lines, in `lay_water` where the levels are set.
+4. **Sizes by area (stage 5)** after that, as planned.
+
+### Questions for David
+
+1. Cut the line's sideways moves entirely (wander through keep within)? Corner cutting stays.
+2. Cut the bend sides from the banks: one bank way for all, and no "a bend from", "outside fades
+   over" or "cut banks keep"? That drops the cut banks on the outsides of bends, the corner banks
+   jutting up.
+3. When a river dips into a hollow and the land rises again after it, should it cut through the rise
+   (today), fill the hollow so it runs level over it, or do whichever changes the land least?
+4. Then sizes by area (stage 5)?
