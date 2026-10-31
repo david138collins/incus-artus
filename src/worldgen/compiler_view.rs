@@ -2478,8 +2478,9 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
     // The view: the terrain lab's close-up, the ground as the Interpreter makes it, at any zoom.
     let map = compiler.lab.recipe(&compiled_map, &compiler.settings.interpreter);
     // The Climate stage: kept up to date with the recipe (it reads the ground without the rivers,
-    // which are made from it).
-    compiler.climate.drive(&map, &compiler.settings.climate);
+    // which are made from it), but not made again when only mineralogy changes (it comes after).
+    let shape = compiler.lab.shape().cloned().unwrap_or_else(|| map.clone());
+    compiler.climate.drive(&shape, &compiler.settings.climate);
     // The view: the same map with the rivers and lakes carved in, as the world will have them.
     let map = compiler.with_rivers(&map);
     let view = Some((to_blocks(rect.left_top()), to_blocks(rect.right_bottom()), blocks / zoom));

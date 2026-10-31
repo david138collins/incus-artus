@@ -67,6 +67,8 @@ pub struct Lab {
     pub version: u64,
     /// The recipe being shown, for readouts and the cross-section.
     pub map: Option<Arc<CompiledMap>>,
+    /// The recipe as the Climate stage reads it: kept while only what chooses the blocks changes.
+    shape: Option<Arc<CompiledMap>>,
     /// The cross-section's ends (north, east, in blocks), and where a Shift-drag started.
     pub section: Option<((f32, f32), (f32, f32))>,
     pub drawing_from: Option<(f32, f32)>,
@@ -84,9 +86,21 @@ impl Lab {
         let mutes = Mutes { rivers: false, ..self.mutes };
         let current = self.map.as_ref().is_some_and(|map| Arc::ptr_eq(&map.maps, &compiled.maps) && &map.settings == settings && map.mutes == mutes);
         if !current {
-            self.map = Some(Arc::new(compiled.with(settings.clone(), mutes)));
+            let map = Arc::new(compiled.with(settings.clone(), mutes));
+            let same_shape = self.shape.as_ref().is_some_and(|shape| Arc::ptr_eq(&shape.maps, &map.maps) && shape.mutes == mutes && shape_only(&shape.settings) == shape_only(settings));
+            if !same_shape {
+                self.shape = Some(map.clone());
+            }
+            self.map = Some(map);
         }
         self.map.clone().unwrap()
+    }
+
+    /// The recipe as the Climate stage reads it (`recipe` makes it): the same one while only
+    /// mineralogy and the heights stone and gabbro start at change, so moving those doesn't make the
+    /// climate and the rivers all again (they come before mineralogy, and only read the ground).
+    pub fn shape(&self) -> Option<&Arc<CompiledMap>> {
+        self.shape.as_ref()
     }
 
     /// Asks for the close-up of `wanted` (blocks: north-west corner, south-east corner, and blocks
@@ -251,6 +265,29 @@ mod tests {
         let first = lab.recipe(&map, &map.settings.clone());
         lab.mutes.rivers = true;
         assert!(Arc::ptr_eq(&first, &lab.recipe(&map, &map.settings.clone())), "the rivers would all be made again");
+    }
+
+    #[test]
+    fn changing_the_mineralogy_leaves_the_recipe_climate_reads_alone() {
+        let map = Arc::new(CompiledMap::of_heights(8, 32.0, &[140.0; 64]));
+        let mut lab = Lab::default();
+        let first = lab.recipe(&map, &map.settings.clone());
+        let shape = lab.shape().unwrap().clone();
+        // A made field and a stone height: a new recipe to paint from, the same one for the climate.
+        let mut settings = map.settings.clone();
+        settings.mineralogy.fields.push(crate::world::placer::MadeField::default());
+        settings.stone_from += 10;
+        let second = lab.recipe(&map, &settings);
+        assert!(!Arc::ptr_eq(&first, &second));
+        assert_eq!(second.settings.mineralogy.fields.len(), 1);
+        assert!(Arc::ptr_eq(&shape, lab.shape().unwrap()), "the climate would all be made again");
+        // The ground's shape changing makes it again.
+        settings.detail += 1.0;
+        lab.recipe(&map, &settings);
+        assert!(!Arc::ptr_eq(&shape, lab.shape().unwrap()));
+        lab.mutes.torn_coast = true;
+        let muted = lab.recipe(&map, &settings);
+        assert!(Arc::ptr_eq(&muted, lab.shape().unwrap()));
     }
 
     #[test]
