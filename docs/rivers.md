@@ -239,7 +239,7 @@ the world's.**
      bank inside a pond's water is left out (it would stand up out of the pond).
 
      On David's \_ez-bake world (an offline check that rebuilds its rivers from a preset), the
-     points cut more than 6 blocks below their banks: his default 26,538 → 14,113 (207 ponds, 478
+     points cut more than 6 blocks below their banks: David's default 26,538 → 14,113 (207 ponds, 478
      rises cut through instead; made in 2.3 s, was 1.1 s); `rivers-balanced` 24,643 → 7,369 (221
      ponds, 293 cut through instead; the deepest cut 89 → 51 blocks; 3.5 s). Of the rises still cut
      through (at a 512-block reach), about 40% would have needed ponds over 40 blocks deep: whole
@@ -260,7 +260,7 @@ the world's.**
   and ponds. A river into a lake ends at that lake's real water nearest the planned lake (routed
   there like any reach), at its level. *[Fixed 2026-10-30: it ended where the lake was planned, so
   where the real water lay elsewhere the river stopped dead in a field (David's screenshot); 20 of
-  207 reaches on his \_ez-bake world, now none.]* If the lake has no real water at all, the river
+  207 reaches on their \_ez-bake world, now none.]* If the lake has no real water at all, the river
   carries on through it the way step 5 drained it: to the river leaving it (joining it there), the
   sea, or the bottom of its basin. The network still plans with step 5's lakes (springs at big lakes'
   outlets).
@@ -636,7 +636,7 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   "these streams either need to ride over the terrain like a marble, or cut far deeper in the land, to
   fit in cleanly." The cause: a hill on the real ground across the planned path, with no way round
   inside the 64-block corridor, so the stream kept its level and slotted through, and steep banks
-  (his 2.4 up a block across) made it a gash. A preset to try, `rivers-balanced` (his default with:
+  (their 2.4 up a block across) made it a gash. A preset to try, `rivers-balanced` (their default with:
   corridor 256, step 2, steepest bank 1.0, widens up to 6, at least 4, the creek's fade 2.0). What
   settings can't fix: a stream starting in a hollow still notches its rim (pools behind rises, not
   built). The same day: the mountains' points are hidden at startup (they don't save with presets,
@@ -644,7 +644,7 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   (rivers in mineralogy, gravel, sand and mud by the water, is still to come).
 - **Islands in a river: keep them** (David, 2026-10-30, with a screenshot of a winding river with
   small dry spots in its water: "must be preserved, as it is great, and duplicated if possible").
-  They're accidents today. An offline check of his \_ez-bake world (his default preset) found 2,679
+  They're accidents today. An offline check of their \_ez-bake world (their default preset) found 2,679
   dry columns with water on both sides, from three causes: **43%** where one reach's line loops back
   across itself in tight wiggles, leaving a pocket more than half a width from every piece of it;
   **33%** between two reaches running side by side down the same valley floor (each routed to the
@@ -664,7 +664,7 @@ a continuous-function terrain (our per-block recipe already gives any resolution
 
 ## 8. Proposal: river profiles (Builder, for David's approval)
 
-**APPROVED by David, 2026-10-30** ("that sounds good to me, go ahead"), with his answers to the four
+**APPROVED by David, 2026-10-30** ("that sounds good to me, go ahead"), with their answers to the four
 questions:
 1. Keep the default ratios, and try them in the preview first. If great rivers (59–150) feel too big,
    the fallback is a last width ratio of 2 (59–118).
@@ -871,12 +871,12 @@ straight channels and sandbanks out in the sea; pillars and walls of water stand
 raised rectangle of water inside a lake. The island in the river and the ponds beside a winding river
 looked right.
 
-**How it was checked:** an offline test rebuilt the rivers of David's \_ez-bake world from his default
+**How it was checked:** an offline test rebuilt the rivers of David's \_ez-bake world from their default
 preset and counted every column side where water stands against air (by whose water it is: a river,
 a waterfall's curtain, a pond, a lake), every bank raised out of the sea, and every pond over a lower
 lake; then, for the tallest walls, what each one stands against.
 
-**What it found** (not the dead-end fix, as first guessed: that never triggered on his world):
+**What it found** (not the dead-end fix, as first guessed: that never triggered on their world):
 1. **Sandbanks in the sea:** where the broad ground had land but the real ground is sea, rivers and
    deltas ran on into it, and their banks were raised as levees out of the water (92,591 columns
    along 72 stretches). Their trenches showed through shallow water.

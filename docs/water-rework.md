@@ -473,7 +473,7 @@ its banks" (it changes the water, not the land; for later, with the steps).
 
 ## 11. David's preset after stage 1, annotated (2026-10-31)
 
-David saved his best settings with stage 1 as `presets/compiler/default.toml`, at 11:35. He wrote: "many
+David saved their best settings with stage 1 as `presets/compiler/default.toml`, at 11:35. They wrote: "many
 settings on the climate page i've put all the way down, because they do nothing, or are harmful."
 Here is each water setting with its value, what it does, and whether it acts at these values. "Min"
 and "max" mean the slider's end. The changes from `rivers-balanced` are in **bold**.
