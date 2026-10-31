@@ -767,3 +767,101 @@ Notes:
 - old saved banks reading back.
 
 **Next:** stage 5, sizes by area, after David's word.
+
+## 15. After the batch: David's notes, his 13:22 preset, and the next steps (2026-10-31)
+
+**David, after trying it** (four screenshots):
+- "no controls under the rivers tab except 'a lake from blocks deep' seem to do anything."
+- **Least change, "fill hollows up to" 0:** at a sharp bend the water steps down against a sheer stone
+  face.
+- **Fill 20:** the river runs across a valley on a narrow embankment with steep stone sides, a
+  causeway.
+- **Fill 10:** "pretty close to good, on one side, not the other": the land falling away on one side
+  leaves a steep embankment there.
+- **His best preset, saved:** a tributary on a raised bank reaches a wide river, and its channel runs
+  on into the middle of it: a long stone ridge with a ribbon of water on top.
+
+**His 13:22 preset** (`presets/compiler/default.toml`). What changed:
+- **Rivers section:** snowmelt only colder than -1 and above 128, so almost none; slope-foot springs
+  0; "drawn from" 5,000.
+- **River network:**
+  - springs from Z 148, 2,000 apart, varying 0.18;
+  - **mouths apart 0**: every mouth kept, 103 of them;
+  - **a lake feeds a river from 400 patches**: in effect, no lake starts a river;
+  - lone streams run 3,000;
+  - **drop gathered into one step 18**, waterfalls from 25.
+- **Carving:**
+  - least change, fill up to 10, cut up to 40;
+  - route everywhere (corridor 72, grain 4);
+  - banks smooth, "steepest" 4, "widens up to" 1, compressor on.
+
+**Measured** (today's bake, 6 cores):
+
+| | as saved | step 0 (least change) | step 18, cut through |
+|---|---|---|---|
+| Points cut more than 6 deep | **53,745 of 81,193 (66%)** | 7,035 (9%) | 56,899 |
+| Deepest cut | 90 | 87 | 113 |
+| Water above its ground (points) | 1,666 | 8,921 | 624 |
+| Land lowered, average (most) | **10.2** (112) | 2.8 (112) | 12.6 (97) |
+| Land raised, average | 0.08 | 0.19 | 0.04 |
+| Flush | 92.7% | 96.4% | 92.8% |
+| Rivers made in | 3.0 s | 3.0 s | 2.9 s |
+
+That's 274 stretches of river from 192 springs.
+
+### What the screenshots and numbers say
+
+1. **The step is now the biggest cutter.** The steps come after the levels are set. Each flat run
+   takes the level of its lowest point, so everything else in the run is cut down to it, by up to 17
+   blocks with a step of 18. That's two thirds of all points cut more than 6, and 10 blocks of land
+   lowered on average. With no steps it's 9%, and 2.8.
+   - **In keeping with least change:** each run could take the level that changes its land least
+     (its middle, within the fill limit), rather than its lowest point. About 20 lines in the steps.
+2. **Causeways and one-sided embankments come from the raised banks.** Where the water stands above
+   the land (a filled hollow), the banks are raised to the shore at the water and drop back over the
+   bank's fade. That's 4 widths with no widening, since "widens up to" is 1. So where the land falls
+   away, the bank is a narrow, steep embankment: one side at fill 10, both sides (a causeway) at fill
+   20.
+   - **Options:**
+     - raised banks ease back down at a gentle slope of their own ("raised banks no steeper than"),
+       widening with their height, separate from the cuts' "widens up to" (so a fill becomes a low,
+       broad floodplain bank);
+     - and/or only fill a hollow that's a valley, with land rising on both sides, never a strip of
+       water standing over a slope.
+3. **The ridge into the wide river is a junction bug, older than today, and plainer with fills.**
+   - A tributary's last stretch runs on to the junction at the main river's middle. Inside the main
+     river's water it keeps its own shallower floor and its own water, higher than the main river's.
+   - So a stone ridge runs out into the river with a ribbon of water on top.
+   - **The fix:** where rivers' waters overlap, the lowest water and the deepest floor win. The
+     tributary then ends at the main river's shore, with its drop there. It's small, in the carve.
+4. **The sheer face at a bend (fill 0)** is a step falling at a sharp bend. The curtain hangs along
+   the lower piece, so beside it the upper water's face shows. It needs a closer look at such a spot,
+   with a probe.
+5. **The Rivers section does almost nothing, as David found.**
+   - Snowmelt and slope-foot springs only add to each spring's own water. That decides only whether a
+     spot can hold a spring ("water it needs" 1 lets any land) and how far a lone stream runs, which
+     already reaches other water.
+   - Sizes come from joins, not water, so they don't use it either.
+   - "Drawn from" is the picture's only. "A lake from" is the one that acts.
+   - **Proposal:** retire snowmelt and slope-foot springs (or park them until dry beds or sizes want
+     the water), keep "a lake from", and label "drawn from" as the picture's.
+
+### Proposed next steps, in order
+
+1. **The ridge fix:** where waters overlap, the lowest water and deepest floor win. Small, and clearly
+   a bug.
+2. **Steps by least change:** each flat run at the level that changes its land least, within the fill
+   limit.
+3. **Gentler raised banks:** a slope of their own, widening with their height.
+4. **Retire the Rivers section's inert controls.**
+5. **Stage 5:** sizes by area.
+
+### Questions for David
+
+1. "Drop gathered into one step" at 18: was that for bigger, fewer waterfalls? It's what cuts most
+   now. Shall steps take the least-change level for each run?
+2. Raised banks: a gentle slope of their own (a low, broad bank where a hollow's filled)? And fill
+   only hollows with land rising on both sides?
+3. Retire snowmelt and slope-foot springs?
+4. (Still open) Two rivers side by side, touching at corners: merge their water there, or keep a dry
+   block between them?
