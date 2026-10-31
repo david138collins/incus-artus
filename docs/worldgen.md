@@ -1993,6 +1993,13 @@ to 58, every block regulated). Next:
    as it stands, sound or patch, is in `docs/water-inventory.md`. Two ideas from the same day there:
    the Climate tab with **rivers before temperature, wind and rain**, and **the webbing**, a soft map of
    every passage between rises for the water to follow.
+   **[SETTLED 2026-10-31] Rivers are settled for now** (David: "i'd say we've pretty much got rivers
+   fixed. any improvements would have to come as part of a bigger rework, where i have a really specific
+   goal in mind"). What was built and what's on file is in `docs/water-rework.md` section 19. The rough
+   edges are to be smoothed later, from David's screenshots. Left in this item:
+   - **rivers first in the Climate tab** (decided, not built);
+   - **mineralogy reading the rivers:** beds, shores and lake floors.
+   Then trees.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
