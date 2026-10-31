@@ -114,6 +114,39 @@ the world's.**
   0.6; river and great river 0.2, 0.3, 1.6), halfway to its neighbours' at the ends of its band, and
   wandering with "shape varies" (0.3). Each column's depth is `depth_across`: full over the flat
   floor, then the bowl's curve up to the edge depth, rounded to whole blocks.
+- **Sizes by area** ("sizes by area", **off** by default; 2026-10-31, stage 5 of `docs/water-rework.md`).
+  It's an experiment beside the ranks' sizes above. David: "make sure it can be disable with a
+  checkbox". Unticked, everything is as before.
+  - **Size is water across:** a river's size is its blocks of water across, about its width × its
+    depth × how full its bowl is, with every column at least a block (`world::water_across`,
+    `fullness`).
+  - **Gathered on the way down** (`water_by_area`, upstream first):
+    - a spring starts with "a spring's water" (1);
+    - where waters join, they keep a share of both ("where waters join, they keep", 0.9);
+    - running adds a block of water for every "grow a block of water every" blocks (2,000).
+    - A **lake passes on** the water of the rivers into it to the river from its outlet, as a junction
+      would. Without that, an outlet would start again as a spring.
+  - **Laid out by the slope** (`size_by_area`): the broad ground's fall over up to 4 patches down.
+    - Where it falls "flat ground falls at most" (0.2 blocks in 100) or less, the water is at its
+      broadest: "on flat ground, blocks wide for each block deep" (16).
+    - Where it falls "steep ground falls at least" (5 in 100) or more, it's at its deepest: "on steep
+      ground" (0.5, twice as deep as wide; David's "2 deep spring with steep falls and drops").
+    - Between the two, it's mixed evenly by ratio, and so is the shape across, from "by area, on flat
+      ground" to "on steep ground".
+    - It's never under a block wide or deep. A single column holds all its water, and a block-deep
+      river is as wide as its water.
+  - **Banks** fade over "by area, all water fades over (widths)" (1), plus "…at least".
+  - **Names are labels only** (David: "the names dont matter"): under 3 blocks of water a spring, 3 to
+    16 a stream, more a river (`world::STREAM_FROM`, `RIVER_FROM`). They act as ranks 1 to 3 for corner
+    cutting (one more pass each) and deltas (rivers).
+  - **Greyed out when ticked:** the ranks' sizes, shapes and fades, and the network's "stream orders
+    per rank".
+  - **The readout** (ticked or not): how much of the rivers' length has under 3 blocks of water across,
+    3 to 16, and more; the widest, the deepest, and the most water across.
+  - **"Sizes in the close-up"** colours every river's water by its water across: yellow at 1, green at
+    4, sky blue at 16, violet at 64, and magenta at 256 or more.
+  - **The preview** draws 1, 4, 16, 64 and 256 blocks of water on flat ground, halfway and on steep.
+  - **The network map's hover** says a river is sized by area, instead of naming its rank's sizes.
 - **Reaches:** each river is cut into stretches from a spring or junction down to the next junction, a
   lake, or the sea. A stretch's ends are **pinned**, so rivers always meet.
 - **The route** (`route`, 2026-10-30, section 9): the network's path is a plan on the broad ground,

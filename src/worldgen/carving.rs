@@ -102,6 +102,25 @@ pub struct CarvingSettings {
     /// along a river (0 none to 1 a lot).
     pub shapes: [Shape; 4],
     pub shape_varies: f32,
+    /// Sizes by area [stage 5 of `docs/water-rework.md`, 2026-10-31; David: "sizes are area", "make
+    /// sure it can be disable with a checkbox"; an experiment beside the ranks' sizes, off to start]:
+    /// a river's size is the blocks of water across it, gathered on its way down (`water_by_area`): a
+    /// spring's to start; where waters meet, this share of all of theirs; and a block more for every
+    /// `grows_every` blocks run (0: never). Its slope lays it out (`size_by_area`): `broadest` blocks
+    /// wide for every block deep where the broad ground falls `flat_below` blocks in 100 or less,
+    /// `deepest` where it falls `steep_from` or more; its shape across mixed the same way from
+    /// `flat_shape` to `steep_shape`; and its banks fading over `fade_over` of its widths.
+    pub by_area: bool,
+    pub spring_area: f32,
+    pub join_keeps: f32,
+    pub grows_every: f32,
+    pub broadest: f32,
+    pub deepest: f32,
+    pub flat_below: f32,
+    pub steep_from: f32,
+    pub flat_shape: Shape,
+    pub steep_shape: Shape,
+    pub fade_over: f32,
     /// Waterfalls: a curtain of water blocks down the face. Rapids: blocks of river for each block
     /// of drop.
     pub curtains: bool,
@@ -229,6 +248,17 @@ impl Default for CarvingSettings {
                 Shape { edge: 0.2, flat: 0.3, bowl: 1.6 },
             ],
             shape_varies: 0.3,
+            by_area: false,
+            spring_area: 1.0,
+            join_keeps: 0.9,
+            grows_every: 2_000.0,
+            broadest: 16.0,
+            deepest: 0.5,
+            flat_below: 0.2,
+            steep_from: 5.0,
+            flat_shape: Shape { edge: 0.25, flat: 0.4, bowl: 1.6 },
+            steep_shape: Shape { edge: 0.5, flat: 0.4, bowl: 0.8 },
+            fade_over: 1.0,
             curtains: true,
             rapids_length: 3.0,
             deltas: true,
@@ -276,6 +306,110 @@ pub fn size_in_band(s: &CarvingSettings, rank: usize, share: f32) -> (f32, f32, 
     let own = s.shapes[rank - 1];
     let shape = if t < 0.5 { s.shapes[rank.saturating_sub(2)].mix(own, 0.5 + t) } else { own.mix(s.shapes[rank.min(3)], t - 0.5) };
     (grow(low.0, high.0), grow(low.1, high.1), shape)
+}
+
+/// A river's width, depth and shape by area (`CarvingSettings::by_area`): `water` blocks of water
+/// across it, laid out by how steep the land falls along it (`steep`, 0 at the flattest to 1 at the
+/// steepest) [David, 2026-10-31: "deeper and narrower through rapid drops, and flatter and broader
+/// through flat, gentle land"]: wide for every block deep from the broadest to the deepest, evenly by
+/// ratio, its shape mixed the same way; never under a block wide or deep (a single column holds its
+/// whole depth; a block-deep river is as wide as its water).
+pub fn size_by_area(s: &CarvingSettings, water: f32, steep: f32) -> (f32, f32, Shape) {
+    let t = steep.clamp(0.0, 1.0);
+    let shape = s.flat_shape.mix(s.steep_shape, t);
+    let (broadest, deepest) = (s.broadest.max(0.1), s.deepest.max(0.1));
+    let wide = broadest * (deepest / broadest).powf(t);
+    let full = crate::world::fullness(shape.edge, shape.flat, shape.bowl);
+    let depth = (water / (wide * full)).sqrt();
+    if depth * full < 1.0 && wide * depth >= 1.0 {
+        (water.max(1.0), 1.0, shape)
+    } else if wide * depth < 1.0 {
+        (1.0, (water / full).max(1.0), shape)
+    } else {
+        (wide * depth, depth, shape)
+    }
+}
+
+/// The name for a size by area, as a rank for the corner cutting and deltas: 1 a spring, 2 a stream,
+/// 3 a river (`world::STREAM_FROM`, `world::RIVER_FROM`).
+fn rank_by_area(water: f32) -> u32 {
+    if water < crate::world::STREAM_FROM {
+        1
+    } else if water < crate::world::RIVER_FROM {
+        2
+    } else {
+        3
+    }
+}
+
+impl CarvingSettings {
+    /// How many of its widths a river's banks fade over: one for all by area, else its rank's.
+    fn fade_for(&self, rank: u32) -> f32 {
+        if self.by_area { self.fade_over } else { self.fade_widths[(rank as usize).clamp(1, 4) - 1] }
+    }
+}
+
+/// Sizes by area (`CarvingSettings::by_area`): each river patch's water across (blocks), gathered
+/// upstream first; and how steep the broad ground falls along it, over up to 4 patches down (0 at
+/// `flat_below` blocks in 100 or less, 1 at `steep_from` or more, evenly by ratio). A lake passes the
+/// water of the rivers into it on to the river from its outlet, as a junction would.
+fn water_by_area(network: &Network, flow: &Flow, blocks: f32, s: &CarvingSettings) -> (Vec<f32>, Vec<f32>) {
+    let w = network.width;
+    let n = w * w;
+    let down = |i: usize| flow.down[i] as usize;
+    let on = |i: usize| network.rank[i] > 0;
+    let wet = |i: usize| on(i) || flow.lake[i] > 0.0;
+    let apart = |a: usize, b: usize| blocks * (((a / w) as f32 - (b / w) as f32).powi(2) + ((a % w) as f32 - (b % w) as f32).powi(2)).sqrt();
+    // Each wet patch once every wet patch draining into it is done.
+    let mut waiting = vec![0u32; n];
+    for i in (0..n).filter(|&i| wet(i) && down(i) != i && wet(down(i))) {
+        waiting[down(i)] += 1;
+    }
+    let (mut gathered, mut joining) = (vec![0.0f32; n], vec![0u32; n]);
+    let mut water = vec![0.0f32; n];
+    let mut ready: Vec<usize> = (0..n).filter(|&i| wet(i) && waiting[i] == 0).collect();
+    while let Some(i) = ready.pop() {
+        water[i] = match joining[i] {
+            0 if on(i) => s.spring_area,
+            0 | 1 => gathered[i],
+            _ => gathered[i] * s.join_keeps,
+        };
+        let d = down(i);
+        if d != i && wet(d) {
+            if water[i] > 0.0 {
+                let ran = if on(i) && s.grows_every > 0.0 { apart(i, d) / s.grows_every } else { 0.0 };
+                gathered[d] += water[i] + ran;
+                joining[d] += 1;
+            }
+            waiting[d] -= 1;
+            if waiting[d] == 0 {
+                ready.push(d);
+            }
+        }
+    }
+    let sea = SEA_LEVEL as f32;
+    let height = |i: usize| if flow.surface[i].is_finite() { flow.surface[i].max(sea) } else { sea };
+    let flat = s.flat_below.max(0.001);
+    let steep = s.steep_from.max(flat * 1.01);
+    let steepness = (0..n)
+        .map(|i| {
+            if !on(i) {
+                return 0.0;
+            }
+            let (mut j, mut run) = (i, 0.0);
+            for _ in 0..4 {
+                let d = down(j);
+                if d == j {
+                    break;
+                }
+                run += apart(j, d);
+                j = d;
+            }
+            let fall = if run > 0.0 { 100.0 * (height(i) - height(j)).max(0.0) / run } else { 0.0 };
+            ((fall.max(1e-4).ln() - flat.ln()) / (steep.ln() - flat.ln())).clamp(0.0, 1.0)
+        })
+        .collect();
+    (water, steepness)
 }
 
 /// A point on a river's path (before the curve): where, and what the river is like there.
@@ -338,12 +472,13 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
         return None;
     }
     // A patch's size and shape: its rank's band, as far down it as the patch is along its rank's run
-    // (growing downstream) [2026-10-30, replacing "keeps full size for"]; size and shape wandering
-    // slowly along the way.
+    // (growing downstream) [2026-10-30, replacing "keeps full size for"]; or by area, its water
+    // across laid out by its slope; size and shape wandering slowly along the way.
+    let (water, steep) = if s.by_area { water_by_area(network, flow, blocks, s) } else { (Vec::new(), Vec::new()) };
     let size_at = |i: usize, north: f32, east: f32| {
         let run = up_in_rank[i] + down_in_rank[i];
         let share = if run > 0.0 { up_in_rank[i] / run } else { 0.5 };
-        let (width, depth, shape) = size_in_band(s, rank(i) as usize, share);
+        let (width, depth, shape) = if s.by_area { size_by_area(s, water[i].max(s.spring_area), steep[i]) } else { size_in_band(s, rank(i) as usize, share) };
         let wobble = |salt: u64| perlin(seed, salt, Fade::Smooth, north / 600.0, east / 600.0);
         let size = (1.0 + s.size_varies * wobble(0x512e)).max(0.3);
         let v = s.shape_varies;
@@ -432,7 +567,7 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
         if path.len() < 2 {
             continue;
         }
-        let rank = network.rank[start].max(1) as u32;
+        let rank = if s.by_area { rank_by_area(water[start].max(s.spring_area)) } else { network.rank[start].max(1) as u32 };
         ends_of.push((start, end, end_level, to_mouth[start]));
         // A delta, where a river or great river meets the sea over flat ground (with its reach's
         // number).
@@ -510,6 +645,7 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
     (carving.rise_ponds, carving.cut_instead, carving.into_water) = (rise_ponds, laid.cut_instead, laid.into_water);
     (carving.deep_stretches, carving.rerouted, carving.plan_cut, carving.line_cut, carving.route_took) = (found.deep, found.rerouted, found.plan_cut, found.line_cut, route_took);
     carving.merged = merged.iter().filter(|&&m| m).count();
+    carving.sizes = crate::world::Sizes::of(&carving.reaches);
     Some(carving)
 }
 
@@ -1055,7 +1191,7 @@ fn curve(route: &[(f32, f32)], path: &[PathPoint], rank: u32, s: &CarvingSetting
             // Its width over the bend's radius (the bend turns `bend` radians a point, `spacing`
             // blocks apart).
             turn: bend * width / spacing,
-            fade: (width * s.fade_widths[(rank as usize).clamp(1, 4) - 1]).max(s.fade_least),
+            fade: (width * s.fade_for(rank)).max(s.fade_least),
         });
     }
     Reach { points }
@@ -1728,7 +1864,7 @@ fn delta(path: &[PathPoint], rank: u32, s: &CarvingSettings) -> Option<Vec<Reach
     // Each channel the river's shape, a third as wide and about √3 times shallower, its banks its
     // rank's.
     let (width, depth, shape) = ((end.width / 3.0).max(2.0), (end.depth / 3f32.sqrt()).max(1.0), end.shape);
-    let fade = (width * s.fade_widths[(rank as usize).clamp(1, 4) - 1]).max(s.fade_least);
+    let fade = (width * s.fade_for(rank)).max(s.fade_least);
     let level = SEA_LEVEL as f32;
     let spread = size / 2.0;
     Some(
@@ -2270,5 +2406,89 @@ mod tests {
                 assert!(here.floor.unwrap() < here.water.unwrap() as f32, "the floor is above the water at {p:?}");
             }
         }
+    }
+
+    #[test]
+    fn sizes_by_area_spread_on_flat_ground_and_stack_on_steep() {
+        let s = CarvingSettings::default();
+        let across = |(width, depth, shape): (f32, f32, Shape)| width.max(1.0) * (depth * crate::world::fullness(shape.edge, shape.flat, shape.bowl)).max(1.0);
+        for water in [16.0, 64.0, 256.0] {
+            let (flat, steep) = (size_by_area(&s, water, 0.0), size_by_area(&s, water, 1.0));
+            assert!(flat.0 > steep.0 && flat.1 < steep.1, "{water} blocks: flat {flat:?}, steep {steep:?}");
+            for size in [flat, steep, size_by_area(&s, water, 0.5)] {
+                assert!((across(size) / water - 1.0).abs() < 0.01, "{water} blocks laid out as {size:?}: {} across", across(size));
+            }
+        }
+        // A block of water is about a block wide and deep, flat or steep; two on steep ground are about
+        // a block wide and two deep (David's "2 deep spring with steep falls and drops").
+        let flat_one = size_by_area(&s, 1.0, 0.0);
+        assert_eq!((flat_one.0, flat_one.1), (1.0, 1.0));
+        let steep_one = size_by_area(&s, 1.0, 1.0);
+        assert!(steep_one.0 == 1.0 && steep_one.1 < 1.5, "{steep_one:?}");
+        let steep_two = size_by_area(&s, 2.0, 1.0);
+        assert!(steep_two.0 < 1.5 && steep_two.1 >= 2.0, "{steep_two:?}");
+    }
+
+    #[test]
+    fn by_area_water_gathers_downstream_and_joins_keep_their_share() {
+        let (flow, network, _) = country();
+        let n = network.rank.len();
+        let on = |i: usize| network.rank[i] > 0;
+        let down = |i: usize| flow.down[i] as usize;
+        let s = CarvingSettings { grows_every: 0.0, join_keeps: 0.9, ..CarvingSettings::default() };
+        let (water, steep) = water_by_area(&network, &flow, 32.0, &s);
+        let mut joins = 0;
+        for i in (0..n).filter(|&i| on(i)) {
+            assert!((0.0..=1.0).contains(&steep[i]));
+            let ups: Vec<usize> = (0..n).filter(|&u| u != i && down(u) == i && water[u] > 0.0).collect();
+            let gathered: f32 = ups.iter().map(|&u| water[u]).sum();
+            let expected = match ups.len() {
+                0 => 1.0,
+                1 => gathered,
+                _ => 0.9 * gathered,
+            };
+            assert!((water[i] - expected).abs() < 1e-3, "at {i}: {} from {ups:?}, expected {expected}", water[i]);
+            joins += (ups.len() >= 2) as usize;
+        }
+        assert!(joins > 0, "no joins in the test country");
+    }
+
+    #[test]
+    fn a_lake_passes_the_water_of_the_rivers_into_it_on_to_its_outlet() {
+        // A 4 by 4 grid of 32-block patches: springs at 1 and 2 run south into a lake (5 and 6, 5
+        // draining east into 6); its outlet river runs from 10 to the sea at 14.
+        let w = 4;
+        let mut down: Vec<u32> = (0..16).collect();
+        for (from, to) in [(1, 5), (2, 6), (5, 6), (6, 10), (10, 14)] {
+            down[from] = to;
+        }
+        let mut lake = vec![0.0f32; 16];
+        (lake[5], lake[6]) = (3.0, 3.0);
+        let surface: Vec<f32> = (0..16).map(|i| 200.0 - (i / w) as f32 * 10.0).collect();
+        let flow = Flow { width: w, down, surface, flow: vec![1.0; 16], lake, most: 1.0, lake_share: 0.1 };
+        let mut rank = vec![0u8; 16];
+        for i in [1, 2, 10] {
+            rank[i] = 1;
+        }
+        let network = Network { width: w, order: rank.clone(), rank, bed: vec![f32::NAN; 16], drop: vec![0.0; 16], springs: Vec::new(), mouths: Vec::new() };
+        let (water, _) = water_by_area(&network, &flow, 32.0, &CarvingSettings { grows_every: 0.0, ..CarvingSettings::default() });
+        assert!((water[10] - 1.8).abs() < 1e-3, "the outlet's water: {} (two springs joining in the lake, keeping 90%)", water[10]);
+        // Growing a block every patch run (32 blocks): each spring is 2 on reaching the lake.
+        let (water, _) = water_by_area(&network, &flow, 32.0, &CarvingSettings { grows_every: 32.0, ..CarvingSettings::default() });
+        assert!((water[10] - 3.6).abs() < 1e-3, "the outlet's water: {}", water[10]);
+    }
+
+    #[test]
+    fn rivers_sized_by_area_are_never_under_a_block_and_the_readout_counts_them() {
+        let s = CarvingSettings { by_area: true, size_varies: 0.0, shape_varies: 0.0, ..CarvingSettings::default() };
+        let carving = carve_with(&s);
+        assert!(carving.reaches.len() > 2);
+        let points = || carving.reaches.iter().flat_map(|r| r.points.iter());
+        assert!(points().all(|p| p.width >= 1.0 && p.depth >= 1.0));
+        let length: f32 = carving.reaches.iter().flat_map(|r| r.points.windows(2)).map(|p| ((p[1].north - p[0].north).powi(2) + (p[1].east - p[0].east).powi(2)).sqrt()).sum();
+        assert!((carving.sizes.lengths.iter().sum::<f32>() - length).abs() < 1.0);
+        assert!(carving.sizes.most > s.spring_area, "nothing grew: {:?}", carving.sizes);
+        // Unticked, the ranks size them as before.
+        assert_ne!(carve().reaches, carving.reaches);
     }
 }

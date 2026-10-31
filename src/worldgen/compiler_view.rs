@@ -81,8 +81,10 @@ pub struct Compiler {
     /// The close-up shown unlit (flat colours), and the far colours of every block (rebuilt when the
     /// blocks change).
     pub lab_unlit: bool,
-    /// The close-up's shores coloured by how flush they are (the Carving section).
+    /// The close-up's shores coloured by how flush they are, and its rivers by their water across (the
+    /// Carving section).
     pub lab_shores: bool,
+    pub lab_sizes: bool,
     lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
     /// The view's map with the rivers carved in, and what it was made from (the recipe's map and the
     /// carving, and whether the Show switch leaves them out).
@@ -141,6 +143,7 @@ impl Default for Compiler {
             lab_painted_for: None,
             lab_unlit: false,
             lab_shores: false,
+            lab_sizes: false,
             lab_palette: None,
             rivers_view: None,
             lab_hover: None,
@@ -1077,6 +1080,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("How deep a basin's water has to stand to count as a lake (shallower is wet ground, later perhaps marsh).");
     });
     fold_section(ui, "River network", |ui| {
+        let by_area = climate.carving.by_area;
         let n = &mut climate.network;
         ui.small(
             "Which of the water's paths are rivers, grown from the mouths up to the springs along the way the water drains \
@@ -1123,8 +1127,10 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("0 = one trunk to each mouth; 1 = a branch up to every spring. Between: a branch is kept if it carries enough of the springs.");
         ui.add(crate::debug::Slider::new(&mut n.reach, 0.0..=20_000.0).text("a lone stream runs (blocks)"))
             .on_hover_text("How far a spring no river took runs before it dries away (springs with more water run further).");
-        ui.add(crate::debug::Slider::new(&mut n.orders_per_rank, 1..=4).text("stream orders per rank"))
-            .on_hover_text("Where two branches of the same order meet, the order goes up one. This many orders make one rank (creek, stream, river, great river).");
+        ui.add_enabled(!by_area, crate::debug::Slider::new(&mut n.orders_per_rank, 1..=4).text("stream orders per rank")).on_hover_text(
+            "Where two branches of the same order meet, the order goes up one. This many orders make one rank (creek, stream, river,\n\
+             great river). Greyed out: Carving's \"sizes by area\" is ticked, so ranks don't size the rivers.",
+        );
         ui.add_space(4.0);
         ui.strong("The bed: flat runs and steps");
         ui.add(crate::debug::Slider::new(&mut n.step, 0.0..=40.0).text("drop gathered into one step (blocks)"))
@@ -1187,6 +1193,10 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             "Colours the dry block beside every river's and lake's water in the close-up: green flush (you can walk out), amber a\n\
              1-block ledge, red a taller bank, magenta below the water (water standing against air). Closest in, every block.",
         );
+        ui.checkbox(&mut compiler.lab_sizes, "sizes in the close-up").on_hover_text(
+            "Colours every river's water in the close-up by its water across (its blocks of water, width by depth by how full its\n\
+             bowl is): yellow 1 block, green 4, sky blue 16, violet 64, magenta 256 and more. Lakes and the sea are left as they are.",
+        );
         let most = std::thread::available_parallelism().map_or(4, |n| n.get());
         ui.add(crate::debug::Slider::new(&mut c.cores, 1..=most).text(format!("cores used (of {most})"))).on_hover_text(
             "How many of the CPU's cores making the rivers shares its work over (it starts at half). Fewer runs cooler and takes \
@@ -1228,7 +1238,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
         ui.add_space(4.0);
         ui.strong("The line");
-        ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=5).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the route, over points about a river's width apart; bigger rivers get one more pass a rank, so they bend wider.");
+        ui.add(crate::debug::Slider::new(&mut c.smoothing, 0..=5).text("corner cutting (passes for a creek)")).on_hover_text("Each pass slices the corners off the route, over points about a river's width apart; bigger rivers get one more pass a rank (by area: a stream one more, a river two), so they bend wider.");
         ui.checkbox(&mut c.merge_alongside, "rivers alongside each other merge").on_hover_text(
             "David: two rivers side by side \"should cause a waterfall to merge\". Where a river's water comes within a block of\n\
              another river's lower water (away from its own ends), it ends there, falling to that river's level, and the rest of\n\
@@ -1283,13 +1293,66 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
         ui.add_space(4.0);
         ui.strong("Sizes");
-        ui.small(
-            "From David's drawing: each rank so many times wider and deeper than the one below. A rank's sizes are a band \
-             meeting the ranks either side, and a river grows down its band as it goes (a creek from a spring's size), so \
-             it's nearly the next rank's size where it joins one.",
+        ui.checkbox(&mut c.by_area, "sizes by area").on_hover_text(
+            "Stage 5 of the water rework, an experiment beside the ranks' sizes (David: \"make sure it can be disable with a\n\
+             checkbox\"). A river's size is the blocks of water across it, gathered on its way down: a spring's to start, most of\n\
+             both where waters join (a lake passes on the water of the rivers into it), and a little more as it runs. Its slope\n\
+             lays it out: broad and shallow on flat ground, deep and narrow on steep. Unticked, the ranks below size the rivers.",
         );
-        ui.add(crate::debug::Slider::new(&mut c.spring_width, 1.0..=4.0).text("a spring's width (blocks)"));
-        ui.add(crate::debug::Slider::new(&mut c.spring_depth, 1.0..=3.0).text("…its depth (blocks)"));
+        let by_area = c.by_area;
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.spring_area, 0.5..=16.0).logarithmic(true).text("a spring's water (blocks across)"))
+            .on_hover_text("1 = a block of water: a spring a block wide and a block deep (David: \"a spring is 1 block\").");
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.join_keeps, 0.5..=1.0).text("where waters join, they keep (share of both)"))
+            .on_hover_text("David: two runs of water joining \"should probably add most of their area together\". 1 = all of both.");
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.grows_every, 50.0..=20_000.0).logarithmic(true).text("…and grow a block of water every (blocks run)"))
+            .on_hover_text("How fast water grows just by running (David: it \"grows slowly just by running, and quickly by joining\").");
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.broadest, 2.0..=32.0).logarithmic(true).text("on flat ground, blocks wide for each block deep"))
+            .on_hover_text("Flat, gentle land spreads the water broad and shallow.");
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.deepest, 0.25..=4.0).logarithmic(true).text("on steep ground, blocks wide for each block deep")).on_hover_text(
+            "Steep falls and drops stack the water deep and narrow. 0.5 = twice as deep as wide (David's \"2 deep spring with steep\n\
+             falls and drops\"). Never under a block wide or deep.",
+        );
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.flat_below, 0.01..=5.0).logarithmic(true).text("flat ground falls at most (blocks in 100)")).on_hover_text(
+            "Where the broad ground falls this little or less along a river (over up to 4 patches down, 128 blocks), the water is at\n\
+             its broadest. On David's world, a quarter of the rivers' patches are flat, and half fall under 0.5 blocks in 100.",
+        );
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.steep_from, 0.5..=50.0).logarithmic(true).text("steep ground falls at least (blocks in 100)")).on_hover_text(
+            "Where it falls this much or more, the water is at its deepest; between the two, evenly by ratio. On David's world, a\n\
+             tenth of the rivers' patches fall 7 blocks in 100 or more.",
+        );
+        if let Some(carving) = compiler.climate.carving() {
+            let sizes = &carving.sizes;
+            let all = sizes.lengths.iter().sum::<f32>().max(1.0);
+            let share = |k: usize| 100.0 * sizes.lengths[k] / all;
+            let (stream, river) = (crate::world::STREAM_FROM, crate::world::RIVER_FROM);
+            ui.label(format!(
+                "water across: under {stream:.0} blocks for {:.0}% of the rivers' length, {stream:.0} to {river:.0} for {:.0}%, more for {:.0}%; widest {:.0}, deepest {:.0}, most water across {:.0}",
+                share(0),
+                share(1),
+                share(2),
+                sizes.widest,
+                sizes.deepest,
+                sizes.most
+            ))
+            .on_hover_text(
+                "However the rivers are sized (by area or by rank): a river's water across is its width by its depth by how full its\n\
+                 bowl is, every column at least a block. Under 3 is a spring, 3 to 16 a stream, more a river (names only).",
+            );
+        }
+        ui.add_space(2.0);
+        ui.add_enabled(
+            !by_area,
+            egui::Label::new(
+                egui::RichText::new(
+                    "By rank, from David's drawing: each rank so many times wider and deeper than the one below. A rank's sizes are \
+                     a band meeting the ranks either side, and a river grows down its band as it goes (a creek from a spring's size), \
+                     so it's nearly the next rank's size where it joins one.",
+                )
+                .small(),
+            ),
+        );
+        ui.add_enabled(!by_area, crate::debug::Slider::new(&mut c.spring_width, 1.0..=4.0).text("a spring's width (blocks)"));
+        ui.add_enabled(!by_area, crate::debug::Slider::new(&mut c.spring_depth, 1.0..=3.0).text("…its depth (blocks)"));
         // Which ranks any river reaches, and so which settings act: a rank's band runs from below its
         // own size up toward the next rank's (`carving::size_in_band`), so a creek uses the first two
         // steps up and the first two shapes. (All act until the network's made.)
@@ -1299,7 +1362,7 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.small("Settings only ranks no river reaches would use are greyed out (fewer stream orders per rank lets rivers reach them).");
         }
         for (k, step) in ["spring to creek", "creek to stream", "stream to river", "river to great river"].iter().enumerate() {
-            let used = any(k, 4);
+            let used = !by_area && any(k, 4);
             ui.add_enabled(used, egui::Label::new(*step));
             ui.add_enabled(used, crate::debug::Slider::new(&mut c.width_ratio[k], 1.5..=5.0).text("times wider"));
             ui.add_enabled(used, crate::debug::Slider::new(&mut c.depth_ratio[k], 1.0..=3.0).text("times deeper"));
@@ -1311,10 +1374,19 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         }
         ui.add_space(4.0);
         ui.strong("The shape across");
-        ui.small("For each rank, in the middle of its band (halfway to its neighbours' at its ends). The preview below draws them like David's drawing.");
+        ui.small(
+            "By area: the water's on the flattest ground and on the steepest, mixed by the slope between. By rank: for each rank, \
+             in the middle of its band (halfway to its neighbours' at its ends). The preview below draws them like David's drawing.",
+        );
+        for (name, shape) in [("by area, on flat ground", &mut c.flat_shape), ("by area, on steep ground", &mut c.steep_shape)] {
+            ui.add_enabled(by_area, egui::Label::new(name));
+            ui.add_enabled(by_area, crate::debug::Slider::new(&mut shape.edge, 0.0..=1.0).text("water at the bank (share of the deepest)")).on_hover_text("0.3 = a V; 0.5 = steep sides; 1 = a box.");
+            ui.add_enabled(by_area, crate::debug::Slider::new(&mut shape.flat, 0.0..=0.9).text("flat floor (share of the width)"));
+            ui.add_enabled(by_area, crate::debug::Slider::new(&mut shape.bowl, 0.2..=5.0).logarithmic(true).text("bowl")).on_hover_text("Below 1: deep quickly, then flat (steep sides). 1: even steps. Above 1: shallow shelves, then dropping.");
+        }
         for (k, rank) in super::network::RANKS.iter().enumerate() {
             let shape = &mut c.shapes[k];
-            let used = any(k, k + 2);
+            let used = !by_area && any(k, k + 2);
             ui.add_enabled(used, egui::Label::new(*rank));
             ui.add_enabled(used, crate::debug::Slider::new(&mut shape.edge, 0.0..=1.0).text("water at the bank (share of the deepest)")).on_hover_text("0.3 = a V; 0.5 = steep sides; 1 = a box.");
             ui.add_enabled(used, crate::debug::Slider::new(&mut shape.flat, 0.0..=0.9).text("flat floor (share of the width)"));
@@ -1329,8 +1401,10 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
              height: lower where the land is higher, raised as a levee where it's lower, so water never stands against air. \
              Where the fade would be steeper than the steepest bank it widens, up to a limit; past that it stays steep (a gorge).",
         );
+        ui.add_enabled(by_area, crate::debug::Slider::new(&mut c.fade_over, 0.0..=4.0).text("by area, all water fades over (widths)"))
+            .on_hover_text("With sizes by area there are no ranks: every river's banks fade over this many of its widths.");
         for (k, rank) in super::network::RANKS.iter().enumerate() {
-            ui.add_enabled(reached[k], crate::debug::Slider::new(&mut c.fade_widths[k], 0.0..=4.0).text(format!("{rank}s fade over (widths)")));
+            ui.add_enabled(!by_area && reached[k], crate::debug::Slider::new(&mut c.fade_widths[k], 0.0..=4.0).text(format!("{rank}s fade over (widths)")));
         }
         ui.add(crate::debug::Slider::new(&mut c.fade_least, 0.0..=16.0).text("…at least (blocks)"));
         let banks = &mut c.banks;
@@ -1759,17 +1833,24 @@ fn masked_noise(ui: &mut egui::Ui, name: &str, noise: &mut PerlinSettings, defau
     });
 }
 
-/// The rivers' profiles, drawn like David's drawing (a square a block; tan ground, blue water): each
-/// rank at the start, middle and end of its band, running straight, its size and shape not wandering.
+/// The rivers' profiles, drawn like David's drawing (a square a block; tan ground, blue water),
+/// running straight, their size and shape not wandering: by area, 1, 4, 16, 64 and 256 blocks of water
+/// on flat ground, halfway and on steep; by rank, each rank at the start, middle and end of its band.
 fn profiles_preview(ui: &mut egui::Ui, c: &super::carving::CarvingSettings) {
     let (tan, blue) = (Color32::from_rgb(168, 148, 44), Color32::from_rgb(20, 40, 235));
-    for (k, rank) in super::network::RANKS.iter().enumerate() {
-        let sizes = [0.0, 0.5, 1.0].map(|share| super::carving::size_in_band(c, k + 1, share));
+    // Each row: its label, and three sizes (width, depth, shape).
+    type Size = (f32, f32, super::carving::Shape);
+    let rows: Vec<(String, [Size; 3])> = if c.by_area {
+        [1.0f32, 4.0, 16.0, 64.0, 256.0].iter().map(|&water| (format!("{water:.0} blocks of water on flat ground, halfway and on steep"), [0.0, 0.5, 1.0].map(|steep| super::carving::size_by_area(c, water, steep)))).collect()
+    } else {
+        super::network::RANKS.iter().enumerate().map(|(k, rank)| (format!("{rank}s, as they start, halfway and as they join a bigger one"), [0.0, 0.5, 1.0].map(|share| super::carving::size_in_band(c, k + 1, share)))).collect()
+    };
+    for (label, sizes) in rows {
         // Two blocks of bank each side, and a block's gap between.
         let blocks: f32 = sizes.iter().map(|s| s.0.round().max(1.0) + 5.0).sum();
         let pixel = (ui.available_width() / blocks).floor().clamp(1.0, 8.0);
         let rows = sizes.iter().map(|s| s.1.round()).fold(1.0, f32::max) + 2.0;
-        ui.small(format!("{rank}s, as they start, halfway and as they join a bigger one ({pixel:.0} pixels a block)"));
+        ui.small(format!("{label} ({pixel:.0} pixels a block)"));
         let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), rows * pixel), egui::Sense::hover());
         let painter = ui.painter_at(rect);
         let mut x = rect.left();
@@ -1998,7 +2079,11 @@ fn under_the_mouse(ui: &mut egui::Ui, compiler: &mut Compiler) {
                     let rank = network.rank[i] as usize;
                     let carving = &compiler.settings.climate.carving;
                     let (narrowest, widest) = (super::carving::size_in_band(carving, rank, 0.0).0, super::carving::size_in_band(carving, rank, 1.0).0);
-                    ui.small(format!("a {} ({narrowest:.0}-{widest:.0} blocks wide), stream order {}, its bed at Z {:.0}", super::network::RANKS[rank - 1], network.order[i], network.bed[i]));
+                    if carving.by_area {
+                        ui.small(format!("a river (sized by area: see \"sizes in the close-up\"), stream order {}, its bed at Z {:.0}", network.order[i], network.bed[i]));
+                    } else {
+                        ui.small(format!("a {} ({narrowest:.0}-{widest:.0} blocks wide), stream order {}, its bed at Z {:.0}", super::network::RANKS[rank - 1], network.order[i], network.bed[i]));
+                    }
                     let step = network.drop[i];
                     if step > 0.0 {
                         let kind = if step >= compiler.settings.climate.network.fall_from { "a waterfall" } else { "rapids" };
@@ -2201,6 +2286,7 @@ struct PaintKey {
     climate: u64,
     lit: bool,
     shores: bool,
+    sizes: bool,
     blocks: u64,
     shade: crate::render::distant::Shade,
 }
@@ -2219,7 +2305,19 @@ fn to_srgb(c: f32) -> u8 {
 /// With `shores`, the dry block beside a river's or lake's water is coloured by how far it stands
 /// above the water (stage 0 of `docs/water-rework.md`).
 #[allow(clippy::too_many_arguments)]
-fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: Option<&LiveClimate>, look: &Look, palette: &crate::render::distant::Palette, lit: bool, shores: bool) -> Vec<Color32> {
+/// The close-up's colour for a river's water across (`world::water_across`), evenly by ratio: yellow
+/// at a block, green at 4, sky blue at 16, violet at 64, magenta at 256 and more.
+fn water_tint(across: f32) -> [u8; 3] {
+    const STOPS: [[f32; 3]; 5] = [[250.0, 230.0, 60.0], [60.0, 220.0, 120.0], [40.0, 170.0, 240.0], [110.0, 80.0, 240.0], [235.0, 60.0, 200.0]];
+    let t = (across.max(1.0).log2() / 2.0).clamp(0.0, 4.0);
+    let k = (t.floor() as usize).min(3);
+    let f = t - k as f32;
+    let (a, b) = (STOPS[k], STOPS[k + 1]);
+    [0, 1, 2].map(|c| (a[c] + (b[c] - a[c]) * f) as u8)
+}
+
+fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: Option<&LiveClimate>, look: &Look, palette: &crate::render::distant::Palette, wanted: &PaintKey) -> Vec<Color32> {
+    let (lit, shores, sizes) = (wanted.lit, wanted.shores, wanted.sizes);
     let request = &frame.request;
     let (cols, rows, step) = (request.cols, request.rows, request.step);
     let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
@@ -2267,6 +2365,16 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
                         palette.top(top).map(|c| c * light)
                     };
                     *pixel = Color32::from_rgb(to_srgb(colour[0]), to_srgb(colour[1]), to_srgb(colour[2]));
+                    // A river's water by its water across (a lake's and the sea's left as they are).
+                    if sizes
+                        && water.is_some()
+                        && let Some((distance, width, across)) = map.rivers.water_near(north, east)
+                        && distance <= width / 2.0 + 1.0
+                    {
+                        let tint = water_tint(across);
+                        let mix = |a: u8, b: u8| ((a as f32) * 0.3 + (b as f32) * 0.7) as u8;
+                        *pixel = Color32::from_rgb(mix(pixel.r(), tint[0]), mix(pixel.g(), tint[1]), mix(pixel.b(), tint[2]));
+                    }
                 }
             });
         }
@@ -2366,13 +2474,14 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                 climate: compiler.climate.version,
                 lit: !compiler.lab_unlit,
                 shores: compiler.lab_shores,
+                sizes: compiler.lab_sizes,
                 blocks: revision,
                 shade: look.shade.clone(),
             };
             if compiler.lab_painted_for.as_ref() != Some(&wanted) || compiler.lab_texture.is_none() {
                 let climate = LiveClimate::new(compiler, &map);
                 let palette = compiler.lab_palette.as_ref().map(|(_, palette)| palette.clone()).unwrap();
-                let pixels = block_picture(frame, &map, climate.as_ref(), look, &palette, wanted.lit, wanted.shores);
+                let pixels = block_picture(frame, &map, climate.as_ref(), look, &palette, &wanted);
                 let image = egui::ColorImage::new([frame.request.cols, frame.request.rows], pixels);
                 let texture = compiler.lab_texture.get_or_insert_with(|| ui.ctx().load_texture("terrain lab", egui::ColorImage::new([1, 1], vec![Color32::BLACK]), egui::TextureOptions::NEAREST));
                 texture.set(image, egui::TextureOptions::NEAREST);

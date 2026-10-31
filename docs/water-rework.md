@@ -1005,3 +1005,71 @@ Rivers are made in about 3.4 s.
 ### Next
 
 Stage 5, sizes by area, as planned, unless David's look at this build turns something up first.
+
+## 18. Stage 5, sizes by area: built as an experiment (2026-10-31)
+
+David's answers, through Counsel: "1. they can. but on my recent check, they looked ok in general. id
+give it a try, if it was a setting, but its not broken now. 1 block may be better or worse. 2. thats a
+good starting point. but sizes are not a problem now so we are only checking this. make sure it can be
+disable with a checkbox. the names dont matter, since we are going by area. 6. agree. the rest, i dont
+know." Counsel took the rest: the steep end at 1:2 (deeper than wide), two shapes mixed by the slope,
+and one bank fade for all water. The details are in `docs/rivers.md` (step 7, "Sizes by area").
+
+**What's built:**
+- **The "sizes by area" box**, off by default, so David's preset keeps today's look. Unticked,
+  nothing changes.
+- **Ticked:**
+  - Each river patch's water across is gathered upstream first: a spring's (1); where waters join, 90%
+    of both; a block more every 2,000 blocks run.
+  - **A lake passes its rivers' water on** to its outlet's river, as a junction would. This wasn't
+    asked; without it, a river leaving a lake would start again as a 1-block spring.
+  - The slope lays the water out: 16 blocks wide for each block deep where the broad ground falls 0.2
+    blocks in 100 or less, and 0.5 (twice as deep as wide) where it falls 5 or more, evenly by ratio
+    between. The shape across is mixed between a flat-ground and a steep-ground shape the same way.
+  - The banks fade over one setting, in widths, for all water.
+- **The ranks' sliders and the network's "stream orders per rank"** are greyed out when it's ticked.
+- **A readout** of the spread of sizes (ticked or not), "sizes in the close-up" (rivers coloured by
+  their water across), and the preview drawn by area.
+
+**David's world, slopes** (his 14:33 preset; 9,792 river patches of 32 blocks): the fall per 100 blocks
+over 4 patches down is
+
+| Share of patches at or under | 10% | 25% | 50% | 75% | 90% | 99% |
+|---|---|---|---|---|---|---|
+| Fall per 100 blocks | 0.00 | 0.01 | 0.47 | 1.9 | 7.2 | 40 |
+
+A quarter are flat (lakes' surfaces and plains). The defaults of 0.2 and 5 put about 40% of the patches
+at their broadest and about 13% at their deepest.
+
+**On David's 14:33 preset** (6 cores), along the rivers' length:
+
+| | Unticked (ranks) | Ticked, grows every 2,000 | Ticked, grows every 250 |
+|---|---|---|---|
+| Water across: 10% / median / 90% / most | 7 / 22 / 114 / 336 | 1.1 / 1.8 / 5.6 / 25 | 1.8 / 7 / 29 / 139 |
+| Width: 10% / median / 90% / widest | 4.5 / 9.7 / 31 / 57 | 1.0 / 1.6 / 5.0 / 18 | 1.3 / 4.6 / 21 / 54 |
+| Depth: 10% / median / 90% / deepest | 2.0 / 2.9 / 4.7 / 7.0 | 1.0 / 1.1 / 1.8 / 5.6 | 1.0 / 1.5 / 3.6 / 13 |
+| Length under 3 blocks of water / 3-16 / more | 0% / 40% / 60% | 74% / 26% / 0% | 21% / 55% / 24% |
+| Points cut deeper than 6 | 17.6% | 14.0% | 15.3% |
+| Flush shores | 95.7% | 92.3% | 91.5% |
+| Land lowered, average | 4.3 | 3.7 | 3.7 |
+
+**What it shows:**
+- **At the agreed start, rivers by area are much smaller than today's.** Three quarters of their
+  length is spring-sized, and the most water anywhere is 25 blocks, against 336.
+- **Why: David's network rarely joins.** Branching is 0 (one trunk to each mouth), so a river gathers
+  few springs. The water gathered per river patch is at most 15 at the agreed start, and at that rate
+  of growth a long river only gains a few blocks.
+- **Faster growth brings sizes back:** at a block every 250 blocks, the widest is 54 (57 today), with
+  a quarter of the length river-sized, and narrow, deep water on steep ground (up to 13 deep).
+- **Fewer flush shores** (92% against 96%): more of the water is narrow, and a narrow river's shores
+  meet more steep ground.
+- **Points cut deeper than 6 are a smaller share.** Narrow rivers have more points per block, so the
+  share is what compares, not the count.
+
+### Questions for David
+
+1. Look at it ticked, with "sizes in the close-up" on. Is spring-sized water over most of the length
+   (at the agreed start) what he's after, or should growth by running be faster (250 gives sizes near
+   today's)?
+2. Would more joining suit "sizes by area" better? "How readily rivers split" (branching, now 0)
+   gives rivers more springs, and so more water from joins. That's a network setting, for him to try.

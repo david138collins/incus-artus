@@ -444,6 +444,42 @@ pub struct Carving {
     pub route_took: f32,
     /// How many rivers running alongside another merged into it (`merge_alongside`).
     pub merged: usize,
+    /// The rivers' sizes (`Sizes`).
+    pub sizes: Sizes,
+}
+
+/// The rivers' sizes, for the panel (stage 5 of `docs/water-rework.md`): how many blocks of river
+/// (along them) have under `STREAM_FROM` blocks of water across, up to `RIVER_FROM`, and more; the
+/// widest and deepest, and the most water across.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Sizes {
+    pub lengths: [f32; 3],
+    pub widest: f32,
+    pub deepest: f32,
+    pub most: f32,
+}
+
+/// The names for sizes by area (labels only [David, 2026-10-31: "the names dont matter, since we
+/// are going by area"]): a spring under this many blocks of water across, a stream up to the next,
+/// a river from it.
+pub const STREAM_FROM: f32 = 3.0;
+pub const RIVER_FROM: f32 = 16.0;
+
+impl Sizes {
+    /// The sizes along every reach (each stretch between two points counted at the first's size).
+    pub fn of(reaches: &[Reach]) -> Self {
+        let mut sizes = Self::default();
+        for reach in reaches {
+            for pair in reach.points.windows(2) {
+                let (a, b) = (&pair[0], &pair[1]);
+                let water = water_across(a.width, a.depth, a.edge, a.flat, a.bowl);
+                let band = if water < STREAM_FROM { 0 } else if water < RIVER_FROM { 1 } else { 2 };
+                sizes.lengths[band] += ((b.north - a.north).powi(2) + (b.east - a.east).powi(2)).sqrt();
+                (sizes.widest, sizes.deepest, sizes.most) = (sizes.widest.max(a.width), sizes.deepest.max(a.depth), sizes.most.max(water));
+            }
+        }
+        sizes
+    }
 }
 
 impl PartialEq for Carving {
@@ -462,6 +498,19 @@ pub fn depth_across(depth: f32, edge: f32, flat: f32, bowl: f32, across: f32) ->
     let t = if u <= flat { 1.0 } else { (1.0 - u) / (1.0 - flat) };
     let at_edge = edge.clamp(0.0, 1.0) * depth;
     (at_edge + (depth - at_edge) * t.powf(bowl.max(0.05))).round().max(1.0)
+}
+
+/// How full a river's bowl is (`depth_across`, before its whole blocks): its water across over its
+/// width times its depth (1 for a box).
+pub fn fullness(edge: f32, flat: f32, bowl: f32) -> f32 {
+    let (edge, flat) = (edge.clamp(0.0, 1.0), flat.clamp(0.0, 0.95));
+    flat + (1.0 - flat) * (edge + (1.0 - edge) / (bowl.max(0.05) + 1.0))
+}
+
+/// About how many blocks of water a river has across (its cross-section; sizes by area, stage 5 of
+/// `docs/water-rework.md`): every column of its water at least a block deep.
+pub fn water_across(width: f32, depth: f32, edge: f32, flat: f32, bowl: f32) -> f32 {
+    width.max(1.0) * (depth * fullness(edge, flat, bowl)).max(1.0)
 }
 
 /// A river piece as seen from a spot: its distance, which side, the point there blended between its
@@ -776,6 +825,12 @@ impl Carving {
     /// terrain, to blend in the water of creeks narrower than its cells).
     pub fn nearest(&self, north: f32, east: f32) -> Option<(f32, f32)> {
         self.nearest_river(north, east).map(|(distance, _, point, _)| (distance, point.width))
+    }
+
+    /// The river nearest a spot (for the close-up's sizes): how far its line is, its width there, and
+    /// about how many blocks of water it has across (`water_across`).
+    pub fn water_near(&self, north: f32, east: f32) -> Option<(f32, f32, f32)> {
+        self.nearest_river(north, east).map(|(distance, _, p, _)| (distance, p.width, water_across(p.width, p.depth, p.edge, p.flat, p.bowl)))
     }
 
     /// As text, for saving with a world: the banks (and the curtains and the anti-kitty-cornerer, if
