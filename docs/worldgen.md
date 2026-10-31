@@ -2010,6 +2010,18 @@ Earlier (2026-10-27): David is exploring and improving the terrain gen again. **
 a few hundred steps each (the Tectonic Sim's run length), and check each run against rules for whether
 it should be rejected, before baking. The run length (built 2026-10-27) is the first piece.
 
+**Idea: how far the pipeline goes** [IDEA, David 2026-10-30]: a panel that sets how far the World
+Interpreter goes when it spits out a world, since future tuning (the full revision pass,
+`docs/decisions.md`, Platform & Workflow) may mean starting from the beginning and adding steps as you
+go. *Counsel:* the Show switches already leave single layers out of a spawned world (the peaks, hills,
+crags; recorded with the world as what's left out), and the `bare` preset idea is the same wish by hand.
+What this adds is one **"stop after"** control over the whole ordered list of stages (base ground,
+ridgelines, peaks, crags, hills, then climate's flow, network, routing, lakes, banks, mineralogy, and
+later ecology and civilization), so everything after the chosen stage is left out at once, in pipeline
+order, both in the viewer and in a spawned world. Because the pipeline is linear, stopping at a stage is
+always a valid world. The per-layer switches stay for leaving out one thing in the middle. Its place and
+name are David's call.
+
 **A world is a frozen copy, by design** [checked 2026-10-27, David asked]: changing the editor and
 pressing F2 returns to the same world unchanged. Render World and Spawn hands the world its own copy
 of the compiled maps and the recipe's settings (saved in its folder), and only that makes a new one.
