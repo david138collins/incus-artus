@@ -30,6 +30,10 @@ an assessment only; nothing here is built. The parts of today's code are named a
 
 ## 1. The compressor carve
 
+*David's answers (section 8) change one thing here: flush, level with the water, is the default
+everywhere. The ratio applies only to cut banks on the outside of bends and to some lake shores, so
+there's no "flush up to" threshold to tune.*
+
 ### What today's banks already do
 
 For each column beside a river, the bank starts at the shore at the water's edge and rises back to the
@@ -284,18 +288,58 @@ the new way is better.
 
 ## 8. Questions for David, and risks
 
-**Questions:**
-1. **Flush:** level with the water, or is a 1-block ledge flush enough? `rivers-balanced` makes every
-   shore a ledge today.
-2. **Half the shore flush:** overall, or in the hills and lowlands only? The mountains will mostly be
-   gorges.
-3. **How deep a cut before a river looks for a way round (X)?** Today's panel counts cuts over 6 blocks
-   as deep.
-4. **Gorges high up,** with "lots of waterfalls": fine?
-5. **Lakes:** by count or by spacing? And is every basin deeper than some depth always a lake?
-6. **The area thresholds** for a river and a great river.
-7. **Crags beside water:** lowered but kept (the compressor), or smoothed away? Smoothing them means
-   fading the fine layers, which costs a second reading of the ground for each column near a river.
+**David's answers** (2026-10-31, via Counsel; also in `vision/water-from-the-start.md`), and what
+each changes:
+
+1. **Flush means level with the water.** "1 block ledge you can't get out of the water from." The test
+   is that you can walk out of the water.
+   - "Ledge then slope" isn't flush. `rivers-balanced` uses it for all three bank ways, so its inside
+     and straight ways go back to smooth (or slope, or terraces). All three of those are level with the
+     water.
+   - The readout counts a shore column as flush when its ground's top is at the water's surface.
+2. **No target share: flush is the default everywhere.** "i'd like to achieve this by them just being
+   normally flush and some corner banks are jutting up and the lakes and ponds aren't always all
+   flush."
+   - The exceptions are cut banks on the outside of bends, and some lake and pond shores.
+   - **This changes the compressor (section 1).** There's no "flush up to" threshold to tune: the edge
+     is brought flush everywhere, as today's flush ways do.
+   - The ratio applies only on the outside of bends, where the cut bank juts up. It fits today's
+     choice of way by the bend's side: the outside's way becomes "a bank of 1/ratio of the land's
+     height".
+   - **Lake and pond shores** keep their own height where the land rises steeply from the water (a
+     ratio for lakes), and stay flush where it's gentle.
+   - **What still makes it gentle:** the feather across and the attack and release along. The
+     flush-share readout stays as a check.
+3. **X, the cut before a river looks for a way round:** "a sane range to tune with". A slider from 2 to
+   40 blocks, about 8 to start.
+4. **Gorges are better up high; down low, rivers should meander round the terrain.** "they're better
+   up high. its better for the rivers to meander around the terrain down low near sea level."
+   - X could grow with height: a small X near the sea (look for a way round early, so rivers meander),
+     and a large one high up (cut gorges).
+   - That's two values, "near the sea" and "high up", blended by the water's height.
+   - The meanders already grow on flat ground, which is mostly low.
+5. **Lakes: a count, like the mountain peaks' range.** "a count threshold, like there is for the mountain
+   peaks perhaps, where i can select a range from top to bottom."
+   - The basins are ranked **by volume** (area times average depth: "how much lake"), and David picks a
+     range from the Nth to the Mth, with the count shown.
+   - **The catch with "deep basins always kept":** the two agree as long as the range starts at the
+     top, since the deepest basins rank near the top by volume. If David's range leaves out the
+     biggest basins, those are passed over, and passing one over means cutting its rim (or filling it)
+     as deep as it is.
+   - **My suggestion:** keep the range, plus an "always a lake if deeper than" slider that can be set
+     out of reach to switch it off. The readout shows the deepest cut that passing a basin over makes,
+     so David can see what leaving one out costs.
+6. **Area is the size, and the slope only nudges the shape.** "we should try to use area as a simple
+   metric for size, slightly shifted by being broader or deeper depending on rise-over-run."
+   - Each area has a set shape: a broadness, growing gently with area.
+   - The slope tips it a little: broader on flat ground, deeper on steep ground. A strength slider
+     starts low, so the slope can't dominate.
+   - The deepest and broadest limits stay as guards.
+7. **Crags beside water, lowered or smoothed away:** not answered yet. Counsel suggested lowered first,
+   which is the compressor on its own, with no second reading of the ground. That's what stage 1 would
+   build.
+
+**Still open:** the area thresholds for a river and a great river (about 16, and 200 to 250).
 
 **Risks:**
 - **Deep basins passed over** make deep cuts. Keeping the deep ones as lakes avoids it.
