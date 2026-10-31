@@ -598,6 +598,25 @@ Tectonic Sim
   World Compiler panel: sea level, coastline, soften the mountains), **Additives** (geographic features added
   onto the landmass before erosion and hydrology: dots scattered from the maps, then features driven
   by them; first scatterer: ridge streams off the range spines) and the **World Interpreter**.
+  **[IDEA, David 2026-10-31] Tabs by stage:** "we maybe should move minerology to its own tab... it
+  might make sense to go (whatever the first tab is), topology, hydrology, minerology, ecology, and let
+  civilization have its own page entirely. since its the last stage and where behaviors will need a lab
+  we could use that as a place for my saved, finished worlds, and then run civilization on them." Much
+  later: "anyone trying to use more than one tab at a time would wind up in a psych ward so later we can
+  repackage the editor a bit better, but thats much much later."
+  *Counsel* [PROPOSED; names and places are David's call]:
+  - **Landmass** (the first tab today);
+  - **Topography:** today's Additives (mountains, peaks, crags, hills). "Topography" is the word for
+    the land's shape; in maths, "topology" is how things connect;
+  - **Hydrology:** rivers, network, carving;
+  - **Climate:** temperature, wind, rain. They aren't hydrology, so they get their own tab, still after
+    the rivers;
+  - **Mineralogy,** with Caves after it, since caves read the rock;
+  - **Ecology;**
+  - then the **World Interpreter**.
+
+  Each tab is then one stage of the linear pipeline, in order. **Civilization** gets its own page: a
+  library of saved worlds, with the civilization lab running on them (`docs/simulation.md` section 11).
 - **Each stage caches its result.** Changing a slider redoes that stage and the ones after it, never
   the ones before.
 - **World creation budget:** about 10 minutes on a slightly below-average PC (a GTX 980 Ti-era machine

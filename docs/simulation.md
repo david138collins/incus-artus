@@ -183,6 +183,11 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   of the time.
 - **Divergence** [David]: run the same world 300 times to see how differently its history can turn out,
   and 300 different worlds to see the spread across worlds.
+- **On saved, finished worlds** [IDEA, David 2026-10-31]: civilization gets "its own page entirely...
+  since its the last stage and where behaviors will need a lab we could use that as a place for my
+  saved, finished worlds, and then run civilization on them." *Counsel:* a saved world is the world seed
+  held still, so divergence runs change only the history seed. It needs saved worlds to come out the
+  same after the recipe changes (`vision/watch-list.md`, item 20).
 
 Counsel's suggestions **[PROPOSED]**:
 - **It runs the game's own rules**, the same Intermediator/World code and Fate (section 1). A lab with its own
