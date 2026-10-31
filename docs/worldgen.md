@@ -1970,6 +1970,16 @@ to 58, every block regulated). Next:
    block: not solid, replaceable, drawn as a cross, many drawn at once, fading out with distance.
 4. Then what block goes where, climate set up to work on rivers, and the rivers finished. Then it's time
    for trees.
+   **[2026-10-31] Water regrouped from the start** (David: "i kind of lost control somewhere between
+   the first theoretical rivers and trying to get them carving sane paths in a pleasant way"). New river
+   features are paused, and d816b60 is the fallback. The goals, the big choice (the water follows the
+   land, or the land makes way) and the rebuild plan are in `vision/water-from-the-start.md`. The code
+   as it stands, sound or patch, is in `docs/water-inventory.md`. Two ideas from the same day there:
+   the Climate tab with **rivers before temperature, wind and rain**, and **the webbing**, a soft map of
+   every passage between rises for the water to follow.
+5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
+   91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
+   first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
    **Before rivers: rough in a mineralogy section** [David 2026-10-29], somewhere to decide how the new
    blocks get placed, and **retire the old ways they're placed**. Today that's `surface()` in
    `src/world/terrain.rs`: grass below a height, stone from "stone from", gabbro from "gabbro from",
