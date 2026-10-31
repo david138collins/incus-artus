@@ -1073,3 +1073,27 @@ at their broadest and about 13% at their deepest.
    today's)?
 2. Would more joining suit "sizes by area" better? "How readily rivers split" (branching, now 0)
    gives rivers more springs, and so more water from joins. That's a network setting, for him to try.
+
+## 19. Rivers settled for now (2026-10-31)
+
+David, after playing stage 5: "at first i was bothered, but looking at that gorge more closely, its
+kind of neat and a really big lake way high up, so it wasn't bad the more i thought about it. i'd say
+we've pretty much got rivers fixed. any improvements would have to come as part of a bigger rework,
+where i have a really specific goal in mind; right now, rivers are about as good as anything else in
+the game. the rough edges are minor enough that i think they can be smoothed out later on without a
+huge fuss."
+
+- **Where it stands:** stages 0, 1 and 4, then the batches of sections 14 to 17, and stage 5 (sizes by
+  area, its box off by default in the code). David's preset (15:20) has it ticked: a spring's water 3,
+  joins keeping all, a block more every 50 blocks run, steep ground 1:1.
+- **Not built, kept on file:**
+  - stage 2 (the fade along the river);
+  - stage 3 (lakes picked first);
+  - stages 6 to 8 (petering out, rivers first in the Climate tab, dry beds);
+  - waterways drawn toward nearby water, and cutting rivers seeking the nearest pond (section 15);
+  - the river-to-river join rule (shelved).
+- **Rough edges:** to smooth out later, from David's screenshots, without a rework. The known ones:
+  - deep cuts (about 18% of points cut more than 6 deep; the deepest about 170);
+  - a few corner-only joins;
+  - shores about 95% flush.
+- **Further changes** come with a bigger rework, when David has a specific goal for one.
