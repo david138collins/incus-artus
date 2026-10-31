@@ -103,7 +103,9 @@ Every part of step 6 works on the 32-block grid and reads only step 5.
     meanders below; most sideways; keep within.
 - **Laying the water** (`lay_water`, ~185). Its rules, in order:
   1. **Lowest ground across each point** (~35): SOUND if water follows the land; replaced if the land
-     makes way. It keeps the water from ever standing above its banks.
+     makes way. It keeps the water from ever standing above its banks. *(Later the same day: the
+     compressor version of "the land makes way", `docs/water-rework.md`, keeps it. The water's height
+     comes from the real ground there too.)*
   2. **Only falling downstream** (~15): SOUND. Upstream reaches go first, and a reach starts no higher
      than what flows into it.
   3. **Ends at the water it meets** (~15): SOUND. The river ends at a lake's level, the sea's, or a
