@@ -326,7 +326,11 @@ Reference: `Art/quartile minecraft illustration.png`
       *Counsel:* candidates for the 4-5: pasture, farm field, tree farm (rows replanted), mine or quarry
       site (placed by mineralogy), graveyard. Rooms inside buildings (bedroom, dining hall, bar) stay Dwarf
       Fortress's painted zones (`docs/simulation.md`, section 13) and need no script: built ad hoc and
-      zoned, or placed as a blueprint (a bar blueprint, David). A zone's script can
+      zoned, or placed as a blueprint (a bar blueprint, David).
+      **[DECIDED 2026-10-30] Zones are the primitive** (David): zones are part of buildings. Build
+      something, zone it if it meets a room's criteria, and save it as a blueprint if you wish.
+      Blueprints are simple or composites, and a blueprint carries its zones (`docs/simulation.md`,
+      section 13). A zone's script can
       still place blueprints (the barn, the gate), so the two kinds meet there.
       **Roads** [David 2026-10-30]: defined and generated in the civilization stage, as a line that
       smooths a bit and lays different kinds of road, with transitions between them. They need special

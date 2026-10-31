@@ -320,6 +320,13 @@ Counsel's notes [PROPOSED]:
   that model." There can still be a **bar blueprint** (or a dining hall one) for those who'd rather place
   one. *Counsel:* a room blueprint can carry its zone with it, so placing it gives a working bar, and
   checks the same needs as a hand-built one.
+  **Zones are the primitive** [DECIDED, David 2026-10-30]: zones are a part of buildings. It goes both
+  ways: build something, and if it meets the criteria for a dining hall, a bar or a workshop, zone it,
+  then save it as a blueprint if you wish. Blueprints can be **simple** (one room and its zone) or
+  **composites** (several, put together). *Counsel:* so a blueprint is blocks plus the zones it carries,
+  and a composite is blueprints placed together (the same as stamping 32³ segments into something big).
+  A building is whatever its zones say it is, so a hand-built tavern and a placed one are the same
+  thing to the sims.
   **Area zones** [IDEA, David 2026-10-30]: the few zones that are a building made of an area (a
   pasture, say) each get their own script, such as a fence along the border and a gate. See
   `docs/decisions.md`, the Registrar's Blueprints tab.
