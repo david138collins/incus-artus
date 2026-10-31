@@ -149,7 +149,7 @@ impl Default for Compiler {
             climate_painted_size: 0,
             hover: None,
             additives: Additives::default(),
-            show_lift_points: true,
+            show_lift_points: false,
             came_from: None,
             shown: [true; 4],
             folded: [true; 4],
@@ -1253,17 +1253,6 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.add(crate::debug::Slider::new(&mut c.delta_width[1], 16.0..=512.0).text("a great river's delta (blocks wide)"));
         });
     });
-    // Still to come, greyed (David's convention: grey out, don't hide).
-    for (title, about) in [
-        ("River banks", "Mineralogy reading the rivers: gravel in fast water, sand where it slows, mud where it pools, and shores."),
-    ] {
-        ui.add_space(6.0);
-        ui.separator();
-        ui.add_enabled_ui(false, |ui| {
-            ui.strong(title);
-            ui.small(format!("Still to come. {about}"));
-        });
-    }
     ui.add_space(6.0);
     fold_section(ui, "Mineralogy", |ui| {
         let s = &mut compiler.settings.interpreter;

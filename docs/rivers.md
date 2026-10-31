@@ -481,6 +481,16 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   slicing through them", and "roll like a marble between hills, finding natural valleys and deepening
   them, rather than making its own". Banks should slope the land toward the river, at least a width
   each side (a 32-wide river, at least 32 blocks). See "Why the rivers cut through" below.
+- **A small stream notched far too deep** (David, 2026-10-30, after the banks, with a screenshot):
+  "these streams either need to ride over the terrain like a marble, or cut far deeper in the land, to
+  fit in cleanly." The cause: a hill on the real ground across the planned path, with no way round
+  inside the 64-block corridor, so the stream kept its level and slotted through, and steep banks
+  (his 2.4 up a block across) made it a gash. A preset to try, `rivers-balanced` (his default with:
+  corridor 256, step 2, steepest bank 1.0, widens up to 6, at least 4, the creek's fade 2.0). What
+  settings can't fix: a stream starting in a hollow still notches its rim (pools behind rises, not
+  built). The same day: the mountains' points are hidden at startup (they don't save with presets,
+  like the additives' dots), and the greyed "River banks" placeholder is gone now that banks exist
+  (rivers in mineralogy, gravel, sand and mud by the water, is still to come).
 
 ## 8. Proposal: river profiles (Builder, for David's approval)
 
