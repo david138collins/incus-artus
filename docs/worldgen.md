@@ -2087,6 +2087,37 @@ to 58, every block regulated). Next:
    - Builder was asked for the options (fields, how it decides, what it places, where it runs, data
      not code, the shared widget), with a pick. Then the same for the quartile placement system. Not
      designed or built yet.
+   - **Options:** `docs/placer.md` and `docs/quartile.md` (Builder, 2026-10-31).
+   - **[GO-AHEAD, David 2026-10-31] Begin, cautiously:** "the placer needs to be able to access more
+     than just fields. it'll place towns, and presumably also place the buildings in the town, which
+     has to grow procedurally like jigsaw pieces and also through decisions by the npc. it'll need to be
+     able to access fields from tectonics, it'll need to be able to place things based on other placed
+     things, it'll need to be able to select entire sections of the world, generate its own fields from
+     any points we already have like 'river end' or 'peak'. its going to need to be very powerful and
+     flexible, and be able to handle things both at world creation and going forward possibly as the
+     game will be able to place things for little reason at any time if necessary. as long as we all
+     understand that we might be forgetting something it has to do, i think we are good to begin on it,
+     and just proceed cautiously."
+   - **Seeing it** [David]: "i'll definitely need to be able to switch the screen to black with lines on
+     the map, with shading showing the field i'm *making* from another field... i may need to be able
+     to scroll through the z layers with the wheel or a scroll bar that can select ranges or individual
+     levels, in order to sweep like lidar and see where the minerals, rocks, and ores are going. same
+     for soils and sands." Builder's field table is the start, with fields added and subtracted by blend
+     modes.
+   - *Counsel's notes:*
+     - **The first version is mineralogy:**
+       - column profiles;
+       - blend modes;
+       - the black **field view**, showing the field being made at any step;
+       - the **depth sweep**, by absolute Z or depth below the surface, one level or a range.
+     - **The format leaves room for the rest:**
+       - inputs: tectonic fields, things already placed, whole regions, and fields made from any point
+         list (river ends, peaks, springs, mouths, falls);
+       - outputs: towns, and buildings grown like jigsaw pieces joined at the blueprints' hooks, with
+         Civilization's NPCs choosing what grows next while the placer finds where it fits;
+       - times: world creation, and any time in play.
+     - **At play time the linear rule still holds:** a placement then comes after everything, so it can
+       read everything. It's saved as an edit, like a build, and seeded so it can be repeated.
    - **The options are in `docs/placer.md`** (Builder, 2026-10-31), and quartile placement's in
      `docs/quartile.md`, with questions for David at the end of each.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
