@@ -617,6 +617,17 @@ Tectonic Sim
 
   Each tab is then one stage of the linear pipeline, in order. **Civilization** gets its own page: a
   library of saved worlds, with the civilization lab running on them (`docs/simulation.md` section 11).
+  **David's choices** (2026-10-31):
+  - "ah, topography. right."
+  - **Climate keeps its name** and holds the rivers first: "we either keep it as climate, and include
+    rivers first, although rivers are not strictly climate, or call it hydrology, though temperature
+    and wind arent... climate is better."
+
+  So the layout is: **Landmass · Topography · Climate** (Rivers, Temperature, Wind, Rain) **·
+  Mineralogy · Ecology**, then the World Interpreter. Civilization is on its own page. Not built.
+  **Caves are open:** "we still really have no idea how caves factor in. they could be topology i
+  think. however they could be after, and we could make caves where rivers end without finding a pond
+  lake or ocean." (See "Caves, cliffs and carving" below.)
 - **Each stage caches its result.** Changing a slider redoes that stage and the ones after it, never
   the ones before.
 - **World creation budget:** about 10 minutes on a slightly below-average PC (a GTX 980 Ti-era machine
@@ -1189,6 +1200,18 @@ to evaporation.
   Wind, Rain, Mineralogy, Caves (greyed). Snowmelt, retired, goes by height.]*
 - **Fun first, not science** [David]: "the important thing is they are fun." If rivers and water can
   make fun caves, that's a happy accident, not a requirement.
+- **Where caves go is open again** [David 2026-10-31]: "they could be topology i think. however they
+  could be after, and we could make caves where rivers end without finding a pond lake or ocean."
+  *Counsel:*
+  - **A river that ends with nowhere to go sinks into a cave.** That's a sinking stream: the river
+    runs into a swallow hole and carries on underground, as in limestone country. It would give
+    petering out (water rework stage 6) a second ending besides soaking away.
+  - **The two places differ in what each can read.**
+    - In Topography, caves are carved before the rivers. Rivers could then fall into them, but caves
+      couldn't follow the water, the rock or the climate.
+    - After the rivers and the rock (Mineralogy), caves can read where rivers end, and which rock
+      dissolves, as real caves do. That's what the 2026-10-29 decision put them after.
+  - The sinking stream needs the second.
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
   out under a slope gives an overhang, a cave mouth, a rock shelter, an arch.
 - **Non-cave carve features here and there**, too.
