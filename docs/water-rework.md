@@ -340,8 +340,8 @@ each changes:
 8. **No great river:** "great rivers aren't really a 'thing', as we have no discrete types, we should
    just make sure that its rare two whole rivers join up."
    - The names stop at river, from an area of about 16 to start.
-   - What David wants instead is a behaviour: two whole rivers joining is rare. Section 9 covers how
-     to control it.
+   - What David wants instead is a behaviour: two whole rivers joining is rare. Section 9 has how
+     it could be controlled, shelved until it's seen to be needed.
 
 ## 9. Stage 0, built (2026-10-31)
 
@@ -382,7 +382,11 @@ each changes:
   pull-down is 50 to 56 blocks up for one across), and 6,000 to 10,000 points cut deeper than 6.
   That's what the compressor's feathering (stages 1 and 2) and the local re-route (stage 4) are for.
 
-### Two whole rivers joining, rarely: how it could be controlled (not built)
+### Two whole rivers joining, rarely: how it could be controlled (SHELVED)
+
+**[SHELVED 2026-10-31, David via Counsel:** "i don't think we need to try and fix problems before we
+even see them with re things like river-to-river joining." Kept on file in case whole rivers join too
+often once the rework is in. It's in no stage.**]**
 
 Today's controls don't aim at it:
 - **"Mouths apart at least"** decides how many systems reach the sea. Fewer, bigger systems make
