@@ -2077,6 +2077,16 @@ to 58, every block regulated). Next:
    made *before* its stage, never after. That's why its stage is listed with each field. It fits "layers
    mix their numbers, not their colours", the adjustment layers, and the FX Lab's modules wired
    together.
+   **The placer** [David 2026-10-31; his name for it]: "the placer and quartility seem the most
+   critical. but im not sure how to observe the placer without minerology. i cant really think why it
+   would need its own panel, its pretty infra but id like to see some options about how it is done and
+   implemented. it would probably only be seen in the multiple systems that use it. and there will be
+   quite a few i can foresee."
+   - It's infrastructure, with **no panel of its own**: it shows only inside the systems that use it.
+     Mineralogy is the first user, so mineralogy is how it's observed.
+   - Builder was asked for the options (fields, how it decides, what it places, where it runs, data
+     not code, the shared widget), with a pick. Then the same for the quartile placement system. Not
+     designed or built yet.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
