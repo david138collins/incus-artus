@@ -342,7 +342,12 @@ Reference: `Art/quartile minecraft illustration.png`
       and spell lego (`vision/watch-list.md`, item 18): pieces with inputs and outputs plugged together,
       so the three may share one system. Cheap now: build the first zones out of named hooks and
       behaviours internally, even before there's a page for them, so the page can later list the same
-      pieces and modded zones work just like David's. A zone's script can
+      pieces and modded zones work just like David's.
+      **The model: the StarCraft editor's triggers** [David 2026-10-30], for the zone designer and the
+      Toy Factory alike: an intimidating page, but everything it can do combines flexibly, and finding
+      or making a script extends it. *Counsel:* triggers as an event, conditions and actions, each line
+      read as a sentence with blanks to fill in, saved scripts importable and usable as new pieces
+      (`vision/toy-factory.md`). A zone's script can
       still place blueprints (the barn, the gate), so the two kinds meet there.
       **Roads** [David 2026-10-30]: defined and generated in the civilization stage, as a line that
       smooths a bit and lays different kinds of road, with transitions between them. They need special
