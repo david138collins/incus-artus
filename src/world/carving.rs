@@ -258,6 +258,30 @@ impl Lakes {
     pub fn water(&self, north: f32, east: f32) -> Option<f32> {
         self.at(north, east).filter(|&(_, beside)| !beside).map(|(surface, _)| surface)
     }
+
+    /// The water nearest a spot of the lakes whose grids it's on (the middle of its cell, and its
+    /// surface), if they have any.
+    pub fn nearest_water(&self, north: f32, east: f32) -> Option<(f32, f32, f32)> {
+        if self.cells.is_empty() {
+            return None;
+        }
+        let (col, row) = self.lookup(north, east);
+        let mut best: Option<(f32, (f32, f32, f32))> = None;
+        for &k in &self.cells[row * self.across.0 + col] {
+            let lake = &self.lakes[k as usize];
+            if lake.cell_at(north, east).is_none() {
+                continue;
+            }
+            for (i, &s) in lake.surface.iter().enumerate().filter(|(_, s)| s.is_finite()) {
+                let (n, e) = (lake.north - ((i / lake.cols) as f32 + 0.5) * lake.cell, lake.west + ((i % lake.cols) as f32 + 0.5) * lake.cell);
+                let d = (n - north).powi(2) + (e - east).powi(2);
+                if best.is_none_or(|(b, _)| d < b) {
+                    best = Some((d, (n, e, s)));
+                }
+            }
+        }
+        best.map(|(_, water)| water)
+    }
 }
 
 /// What the carving does to a column.
@@ -287,11 +311,14 @@ pub struct Carving {
     full: bool,
     /// How its making went, for the panel (not saved): how long it took (seconds), the water's
     /// deepest cut below the lowest ground across a river (blocks), how many points cut deep, and
-    /// how many lakes and ponds.
+    /// how many lakes and ponds; and how many ponds behind rises, and rises cut through because their
+    /// pond would have spread too far.
     pub took: f32,
     pub deepest_cut: f32,
     pub deep_cuts: usize,
     pub pools: usize,
+    pub rise_ponds: usize,
+    pub cut_instead: usize,
 }
 
 impl PartialEq for Carving {
@@ -459,6 +486,8 @@ impl Carving {
                 }
             } else if ground < top - 0.5 {
                 here.water = Some(here.water.map_or(top as i32, |w| w.max(top as i32)));
+                // (A river's bank raised in a pond would stand up out of its water.)
+                here.fill = None;
             }
         }
         here
@@ -639,6 +668,15 @@ mod tests {
         let mut surface = vec![f32::NAN; 9];
         surface[4] = 140.0;
         Lakes::new(vec![Lake::new(48.0, -48.0, 3, 3, 32.0, surface)])
+    }
+
+    #[test]
+    fn a_river_into_a_lake_finds_the_lake_s_nearest_water() {
+        // David's screenshot: a stream stopped in a field, its lake's water further on.
+        let lakes = pond();
+        assert_eq!(lakes.nearest_water(40.0, -40.0), Some((0.0, 0.0, 140.0)));
+        // Off the lake's grid, none.
+        assert_eq!(lakes.nearest_water(200.0, 200.0), None);
     }
 
     #[test]

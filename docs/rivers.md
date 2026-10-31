@@ -154,6 +154,34 @@ the world's.**
      block of drop, stepping down a block at a time. Every step is at least the step size (4), and
      that's taller than "a waterfall from" (3), so at the defaults every step is a waterfall. Rapids
      only come from smaller drops, such as a creek's last bit down to its river.
+  7. **Ponds behind rises** (2026-10-30, David: "these streams either need to ride over the terrain
+     like a marble, or cut far deeper in the land"; Counsel's option B, breach or fill). Laid as above,
+     a rise across a river's way that the route couldn't get round is notched to the water's level
+     upstream, however deep. Now, from each stretch's end upward, the water has to be no lower than
+     each rise less 4 blocks (`cut_up_to`, "cut through rises up to"): a rise is cut through at most
+     that deep, and above a higher one the water is held back, level, up to the rise's height less
+     the cut. Where that leaves it standing above the ground, it's a **pond**: the real ground below
+     that height, reached from under the river on the route's 4-block cells (the river's own cell
+     counted wet), kept as a lake with the others (saved with the world the same way). A pond that
+     would spread more than 512 blocks from its river (`pool_reach`, "a pond spreads at most"), or
+     off the map, can't be held: usually its water would spill into the next valley, the way the
+     river ought to have gone. That rise is cut through instead, with the points beside it up and
+     down the rise whose ponds would be much the same (so the rise isn't tried a point at a time,
+     which took 9.6 s), and the stretch is looked at again. Where a stretch joins water held in a
+     pond, its own end backs up to the pond's level (only there: elsewhere a stretch still ends no
+     higher than its own ground). Rises are worked out for each stretch on all cores. The panel (the
+     Lakes heading): "ponds behind rises" (on/off; off, every rise is cut through as before), "cut
+     through rises up to", "a pond spreads at most"; the report adds how many ponds and how many rises
+     were cut through instead. In the world, a river's raised bank inside a pond's water is left out
+     (it would stand up out of the pond).
+
+     On David's \_ez-bake world (an offline check that rebuilds its rivers from a preset), the
+     points cut more than 6 blocks below their banks: his default 26,538 → 14,113 (207 ponds, 478
+     rises cut through instead; made in 2.3 s, was 1.1 s); `rivers-balanced` 24,643 → 7,369 (221
+     ponds, 293 cut through instead; the deepest cut 89 → 51 blocks; 3.5 s). Of the rises still cut
+     through (at a 512-block reach), about 40% would have needed ponds over 40 blocks deep: whole
+     hills across the planned way, which only routing on the real ground at the network's own step
+     (option A) can fix.
 - **Deltas:** where a river or great river reaches the sea and its last 64 or 128 blocks fall by less
   than 1%, the last stretch fans into three channels, each a third as wide, all at sea level.
 - **Lakes, filled on the real ground** (`fill_lakes`, 2026-10-30; they were step 5's surface on
@@ -163,9 +191,13 @@ the world's.**
   its edge, as the routes are: each dip fills to its lowest gap, whatever its shape. A pool at least
   1 block deep at its deepest (`pond_depth`, "a pond from") is kept. So a planned lake can come out
   smaller, larger, or as several ponds, and dips near it can become ponds. The panel counts the lakes
-  and ponds. A river into a lake ends at its real water level. If the real water doesn't reach the
-  river's end, the river just ends there. The network still plans with step 5's lakes (springs at big
-  lakes' outlets).
+  and ponds. A river into a lake ends at that lake's real water nearest the planned lake (routed
+  there like any reach), at its level. *[Fixed 2026-10-30: it ended where the lake was planned, so
+  where the real water lay elsewhere the river stopped dead in a field (David's screenshot); 20 of
+  207 reaches on his \_ez-bake world, now none.]* If the lake has no real water at all, the river
+  carries on through it the way step 5 drained it: to the river leaving it (joining it there), the
+  sea, or the bottom of its basin. The network still plans with step 5's lakes (springs at big lakes'
+  outlets).
 
 ## 3. In the world (`src/world/carving.rs`, `interpreter.rs`, `terrain.rs`)
 
@@ -491,6 +523,25 @@ a continuous-function terrain (our per-block recipe already gives any resolution
   built). The same day: the mountains' points are hidden at startup (they don't save with presets,
   like the additives' dots), and the greyed "River banks" placeholder is gone now that banks exist
   (rivers in mineralogy, gravel, sand and mud by the water, is still to come).
+- **Islands in a river: keep them** (David, 2026-10-30, with a screenshot of a winding river with
+  small dry spots in its water: "must be preserved, as it is great, and duplicated if possible").
+  They're accidents today. An offline check of his \_ez-bake world (his default preset) found 2,679
+  dry columns with water on both sides, from three causes: **43%** where one reach's line loops back
+  across itself in tight wiggles, leaving a pocket more than half a width from every piece of it;
+  **33%** between two reaches running side by side down the same valley floor (each routed to the
+  lowest ground, so a creek can run alongside its river before they meet); **24%** where a creek's
+  line runs inside a river's water, so the column counts as the creek's (narrow) bank, raised to a
+  ledge (mostly 2-wide creeks in 11-wide streams). So: don't change the wiggles, the routing of
+  side-by-side reaches, or "nearest piece wins" in the carve without checking the islands still
+  come. [LATER IDEA, David via Counsel, 2026-10-30: "sounds nice but im not sure if its critical right
+  now"] Islands on purpose: where a river is wide and gentle, bump some noise up through the bed,
+  more the gentler and wider. Nothing to build yet.
+- **Counsel's go-ahead on the rivers report** (David, 2026-10-30): the dead-end fix and ponds behind
+  rises (option B, breach or fill), then stop for David to look. Not now: A (plan the flow on the real
+  ground; Counsel advised starting at 32-block patches, given the rejector's budget of 10 worlds in
+  under 15 seconds and A redoing the rivers whenever the crags or hills change), C (cheapest detour)
+  and D (an erosion stage). David decides on A after seeing these. Built: see Step 7, "Ponds behind
+  rises", and Lakes.
 
 ## 8. Proposal: river profiles (Builder, for David's approval)
 

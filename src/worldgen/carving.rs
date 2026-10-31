@@ -15,6 +15,10 @@
 //! 5. **The carve** (in the world): each block measures its distance to the line; the odd block of an
 //!    even width goes to the outside of the bend.
 //!
+//! 6. **Ponds behind rises** [David, 2026-10-30: "ride over the terrain like a marble, or cut far
+//!    deeper"]: a rise the route couldn't get round is cut through up to a few blocks; a higher one
+//!    holds the water back in a pond up to its lowest gap (unless the pond would spread too far).
+//!
 //! Safety: the water level is laid from the real ground under the line, only falling downstream; the
 //! ends (junctions, lake outlets, mouths) are pinned, the sideways moves fading to nothing there, so
 //! rivers always meet; and a sideways move that would climb above the valley floor is pulled back.
@@ -59,6 +63,14 @@ pub struct CarvingSettings {
     /// at its deepest to be kept (blocks).
     pub lake_reach: f32,
     pub pond_depth: f32,
+    /// Ponds behind rises [David, 2026-10-30: "either need to ride over the terrain like a marble, or
+    /// cut far deeper in the land"; breach or fill]: a rise across a river's way is cut through up to
+    /// this deep (blocks); a deeper one, if `rise_pools`, holds the water back in a pond up to its
+    /// lowest gap, as long as the pond stays within `pool_reach` blocks of the river (if not, it's
+    /// cut through).
+    pub rise_pools: bool,
+    pub cut_up_to: f32,
+    pub pool_reach: f32,
     /// Banks [David's profiles proposal, step 3, 2026-10-30; David: "rivers that are 32 blocks wide
     /// should be sloping the terrain for at least 32 blocks in either direction"]: how far each
     /// rank's banks fade into the land (in its widths; creek, stream, river, great river), at least
@@ -106,6 +118,9 @@ impl Default for CarvingSettings {
             floor_rise: 3.0,
             lake_reach: 64.0,
             pond_depth: 1.0,
+            rise_pools: true,
+            cut_up_to: 4.0,
+            pool_reach: 512.0,
             fade_widths: [1.0; 4],
             fade_least: 2.0,
             banks: Banks::default(),
@@ -280,13 +295,38 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
             }
             if !on(d) {
                 // Into the sea (or a lake): the line goes on to its edge, at its water's level; a
-                // lake's as it's filled on the real ground (if its water reaches there; if not, the
-                // river just ends).
-                let (north, east) = place(d);
-                let level = if flow.lake[d] > 0.0 { lakes.water(north, east).map(f32::round) } else { Some(SEA_LEVEL as f32) };
-                (end, end_level) = (d, level);
+                // lake's as it's filled on the real ground, at its water nearest the planned lake
+                // [2026-10-30: it ended where the lake was planned, and where the real water lay
+                // elsewhere the river just stopped in a field (David's screenshot)].
                 let last = path.last().map_or(f32::MAX, |p| p.level);
-                path.push(path_point(i, (north, east), level.unwrap_or(last).min(last)));
+                if flow.lake[d] == 0.0 {
+                    (end, end_level) = (d, Some(SEA_LEVEL as f32));
+                    path.push(path_point(i, place(d), (SEA_LEVEL as f32).min(last)));
+                    break;
+                }
+                let (north, east) = place(d);
+                if let Some((north, east, surface)) = lakes.nearest_water(north, east) {
+                    (end, end_level) = (d, Some(surface.round()));
+                    path.push(path_point(i, (north, east), surface.round().min(last)));
+                    break;
+                }
+                // A lake with no water on the real ground: on through it the way it drains, to the
+                // river leaving it (joining it there), the sea, or the bottom of a basin.
+                let mut j = d;
+                for _ in 0..n {
+                    if on(j) || flow.lake[j] == 0.0 || down(j) == j {
+                        break;
+                    }
+                    path.push(path_point(i, place(j), last));
+                    j = down(j);
+                }
+                end = j;
+                if on(j) {
+                    path.push(path_point(i, place(j), network.bed[j].round().min(last)));
+                } else if flow.lake[j] == 0.0 {
+                    end_level = Some(SEA_LEVEL as f32);
+                    path.push(path_point(i, place(j), (SEA_LEVEL as f32).min(last)));
+                }
                 break;
             }
             if ups[d].len() >= 2 {
@@ -325,11 +365,15 @@ pub fn make(network: &Network, flow: &Flow, ground: &CompiledMap, blocks: f32, s
         jobs.into_iter().flat_map(|job| job.join().unwrap_or_else(|_| vec![None])).collect()
     });
     let mut reaches: Vec<Reach> = made.into_iter().collect::<Option<_>>()?;
-    // The water levels, from the real ground (never above the banks), only falling downstream.
-    let (deepest_cut, deep_cuts) = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
+    // The water levels, from the real ground (never above the banks, but in a pond behind a rise),
+    // only falling downstream.
+    let (deepest_cut, deep_cuts, ponds, cut_instead) = lay_water(&mut reaches, &ends_of, ground, step, fall_from, s, stop)?;
     reaches.extend(deltas);
+    let rise_ponds = ponds.len();
+    let lakes = if ponds.is_empty() { lakes } else { Lakes::new(lakes.lakes.into_iter().chain(ponds).collect()) };
     let mut carving = Carving::new(reaches, lakes, s.banks);
     (carving.took, carving.deepest_cut, carving.deep_cuts, carving.pools) = (started.elapsed().as_secs_f32(), deepest_cut, deep_cuts, pools);
+    (carving.rise_ponds, carving.cut_instead) = (rise_ponds, cut_instead);
     Some(carving)
 }
 
@@ -712,7 +756,7 @@ fn curve(route: &[(f32, f32)], path: &[PathPoint], id: u64, rank: u32, ground: &
 /// block at a time. Never below the sea's surface, and a reach into the sea or a lake ends at its
 /// level. Gives the deepest cut below the lowest ground across a river, and how many points cut
 /// deeper than `DEEP_CUT`.
-fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)], ground: &CompiledMap, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<(f32, usize)> {
+fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)], ground: &CompiledMap, step: f32, fall_from: f32, s: &CarvingSettings, stop: &AtomicBool) -> Option<(f32, usize, Vec<Lake>, usize)> {
     let sea = SEA_LEVEL as f32;
     // The lowest real ground across each point's width (its middle and both banks), on all cores.
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
@@ -776,16 +820,50 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
         let last = points.last().map_or(sea, |p| p.level);
         arriving.entry(end).and_modify(|l| *l = l.min(last)).or_insert(last);
     }
+    // Which rises hold a pond and which are cut through, each reach on its own, on all cores.
+    let ponds: Vec<Ponds> = if s.rise_pools {
+        let each = reaches.len().div_ceil(cores).max(1);
+        let reaches = &*reaches;
+        let lows = &lows;
+        let made: Vec<Option<Ponds>> = std::thread::scope(|scope| {
+            let jobs: Vec<_> = (0..reaches.len())
+                .collect::<Vec<_>>()
+                .chunks(each)
+                .map(|part| {
+                    let part = part.to_vec();
+                    scope.spawn(move || part.into_iter().map(|r| ponds_of(&reaches[r].points, &lows[r], ground, s, stop)).collect::<Vec<_>>())
+                })
+                .collect();
+            jobs.into_iter().flat_map(|job| job.join().unwrap_or_else(|_| vec![None])).collect()
+        });
+        made.into_iter().collect::<Option<_>>()?
+    } else {
+        reaches.iter().map(|reach| Ponds { cut: vec![false; reach.points.len()], too_far: 0, lakes: Vec::new() }).collect()
+    };
     // Then downstream reaches first: each ends at the level of the water it joins (at a junction
     // each reach's level comes from the ground across its own width, so a creek could end blocks
     // above the river it meets), then its steps and drops.
     let from: std::collections::HashMap<usize, usize> = ends_of.iter().enumerate().map(|(r, e)| (e.0, r)).collect();
+    let held = Lakes::new(ponds.iter().flat_map(|p| p.lakes.iter().cloned()).collect());
     for &r in order.iter().rev() {
         let (_, end, end_level, _) = ends_of[r];
         let joins = if end_level.is_none() { from.get(&end).and_then(|&next| reaches[next].points.first()).map(|p| p.level) } else { None };
         let points = &mut reaches[r].points;
         if let (Some(at), Some(last)) = (joins, points.last_mut()) {
-            last.level = last.level.min(at);
+            // (Where the water it joins is held up in a pond, it backs up into this reach too.)
+            let pond = held.water(last.north, last.east).is_some_and(|w| w >= at);
+            last.level = if pond { at } else { last.level.min(at) };
+        }
+        // Ponds behind rises: the water held up to its rise's height less the cut, up to each rise
+        // that keeps its pond, from the end upward.
+        if s.rise_pools {
+            let mut need = points.last().map_or(f32::MIN, |p| p.level);
+            for k in (0..points.len().saturating_sub(1)).rev() {
+                if lows[r][k] < f32::MAX && !ponds[r].cut[k] {
+                    need = need.max((lows[r][k] - s.cut_up_to.max(0.0)).floor());
+                }
+                points[k].level = points[k].level.max(need);
+            }
         }
         // Steps, from the reach's end upward: flat until the water would have risen a step above the
         // run, then up to it (like the network's bed) [2026-10-30: rounded down to absolute multiples
@@ -833,7 +911,147 @@ fn lay_water(reaches: &mut [Reach], ends_of: &[(usize, usize, Option<f32>, f32)]
     // How far the water passes below the lowest ground across it: the deepest, and how many points
     // deeper than a deep cut.
     let cuts = reaches.iter().zip(&lows).flat_map(|(reach, low)| reach.points.iter().zip(low).filter(|&(_, &l)| l < f32::MAX).map(|(p, &l)| l - p.level));
-    Some(cuts.fold((0.0f32, 0usize), |(deepest, deep), cut| (deepest.max(cut), deep + (cut > DEEP_CUT) as usize)))
+    let (deepest, deep) = cuts.fold((0.0f32, 0usize), |(deepest, deep), cut| (deepest.max(cut), deep + (cut > DEEP_CUT) as usize));
+    let cut_instead = ponds.iter().map(|p| p.too_far).sum();
+    Some((deepest, deep, ponds.into_iter().flat_map(|p| p.lakes).collect(), cut_instead))
+}
+
+/// A reach's rises: which are cut through though deeper than the cut (their pond would spread too
+/// far), by point, and the ponds the others hold.
+struct Ponds {
+    cut: Vec<bool>,
+    too_far: usize,
+    lakes: Vec<Lake>,
+}
+
+/// Which rises across a reach hold its water back in a pond (David's "marble"). From the end
+/// upward, the water has to be no lower than each rise less the cut (`cut_up_to`), so the rise that
+/// sets that height holds the water above it; where that leaves the water standing above the ground,
+/// it's a pond, filled out over the real ground at that height. A pond that spreads further than
+/// `pool_reach` from the river (or off the map) can't be held: that rise is cut through instead, and
+/// the rest looked at again. `low` is the lowest ground across each point (as `lay_water` reads it),
+/// and each point's level is the water's with every rise cut through. `None` if stopped.
+fn ponds_of(points: &[RiverPoint], low: &[f32], ground: &CompiledMap, s: &CarvingSettings, stop: &AtomicBool) -> Option<Ponds> {
+    let count = points.len();
+    let (mut cut, mut too_far) = (vec![false; count], 0);
+    // Each rise looked at so far: the points it held standing above their ground, and its pond.
+    let mut seen: std::collections::HashMap<usize, (Vec<usize>, Option<Lake>)> = std::collections::HashMap::new();
+    loop {
+        // The rise holding each point, and the points it holds above their ground.
+        let mut held: std::collections::BTreeMap<usize, Vec<usize>> = std::collections::BTreeMap::new();
+        let (mut need, mut rise) = (f32::MIN, usize::MAX);
+        for k in (0..count.saturating_sub(1)).rev() {
+            if low[k] < f32::MAX && !cut[k] && (low[k] - s.cut_up_to.max(0.0)).floor() > need {
+                (need, rise) = ((low[k] - s.cut_up_to.max(0.0)).floor(), k);
+            }
+            if need > points[k].level && need > low[k] + 0.5 {
+                held.entry(rise).or_default().push(k);
+            }
+        }
+        let mut changed = false;
+        for (&rise, under) in &held {
+            if seen.get(&rise).is_some_and(|(before, _)| before == under) {
+                continue;
+            }
+            let level = (low[rise] - s.cut_up_to.max(0.0)).floor();
+            match pond(points, under, level, ground, s, stop)? {
+                Pond::Held(lake) => {
+                    seen.insert(rise, (under.clone(), Some(lake)));
+                }
+                Pond::Dry => {
+                    seen.insert(rise, (under.clone(), None));
+                }
+                Pond::TooFar => {
+                    // Cut through, with the points beside it up and down the rise whose ponds would
+                    // be much the same (each a little lower, so as big).
+                    let close = |k: usize| low[k] < f32::MAX && (low[k] - s.cut_up_to.max(0.0)).floor() >= level - s.cut_up_to.max(1.0);
+                    (cut[rise], too_far) = (true, too_far + 1);
+                    for k in (0..rise).rev().take_while(|&k| close(k)).chain((rise + 1..count).take_while(|&k| close(k))).collect::<Vec<_>>() {
+                        cut[k] = true;
+                    }
+                    seen.remove(&rise);
+                    changed = true;
+                }
+            }
+        }
+        if !changed {
+            let lakes = held.keys().filter_map(|rise| seen.remove(rise).and_then(|(_, lake)| lake)).collect();
+            return Some(Ponds { cut, too_far, lakes });
+        }
+    }
+}
+
+/// A rise's pond: none (the ground isn't below it after all, or it's the sea's), held, or spreading
+/// too far to hold.
+enum Pond {
+    Dry,
+    Held(Lake),
+    TooFar,
+}
+
+/// The pond held at `level` round some of a reach's points: the real ground below it reached from
+/// under them, on cells `grain` blocks across; too far if it spreads more than `pool_reach` from
+/// them, or off the map. `None` if stopped.
+fn pond(points: &[RiverPoint], under: &[usize], level: f32, ground: &CompiledMap, s: &CarvingSettings, stop: &AtomicBool) -> Option<Pond> {
+    if level <= SEA_LEVEL as f32 + 0.5 {
+        return Some(Pond::Dry);
+    }
+    let g = s.grain.max(1.0);
+    let reach = s.pool_reach.max(0.0);
+    let (mut north, mut south, mut west, mut east) = (f32::MIN, f32::MAX, f32::MAX, f32::MIN);
+    for &k in under {
+        let p = &points[k];
+        (north, south, west, east) = (north.max(p.north), south.min(p.north), west.min(p.east), east.max(p.east));
+    }
+    let (top, bottom, left, right) = (((north + reach) / g).floor() as i64, ((south - reach) / g).floor() as i64, ((west - reach) / g).floor() as i64, ((east + reach) / g).floor() as i64);
+    let wet = |a: i64, b: i64| ground.height((a as f32 + 0.5) * g, (b as f32 + 0.5) * g).map(|h| h < level - 0.5);
+    let mut cells: std::collections::HashMap<(i64, i64), bool> = std::collections::HashMap::new();
+    let mut queue = Vec::new();
+    for &k in under {
+        let at = ((points[k].north / g).floor() as i64, (points[k].east / g).floor() as i64);
+        if let std::collections::hash_map::Entry::Vacant(cell) = cells.entry(at) {
+            // (Its cell is wet if the river is under water there, though the cell's middle may not be.)
+            let w = wet(at.0, at.1) == Some(true) || ground.height(points[k].north, points[k].east).is_some_and(|h| h < level - 0.5);
+            cell.insert(w);
+            if w {
+                queue.push(at);
+            }
+        }
+    }
+    let mut popped = 0usize;
+    while let Some((a, b)) = queue.pop() {
+        popped += 1;
+        if popped.is_multiple_of(4096) && stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        for (da, db) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
+            let next = (a + da, b + db);
+            if cells.contains_key(&next) {
+                continue;
+            }
+            if next.0 > top || next.0 < bottom || next.1 < left || next.1 > right {
+                return Some(Pond::TooFar);
+            }
+            let Some(w) = wet(next.0, next.1) else { return Some(Pond::TooFar) };
+            cells.insert(next, w);
+            if w {
+                queue.push(next);
+            }
+        }
+    }
+    let water: Vec<(i64, i64)> = cells.into_iter().filter(|&(_, w)| w).map(|(at, _)| at).collect();
+    if water.is_empty() {
+        return Some(Pond::Dry);
+    }
+    // Its grid, a cell bigger all round (so its edge is beside it).
+    let (a1, a0) = water.iter().fold((i64::MIN, i64::MAX), |(hi, lo), &(a, _)| (hi.max(a), lo.min(a)));
+    let (b1, b0) = water.iter().fold((i64::MIN, i64::MAX), |(hi, lo), &(_, b)| (hi.max(b), lo.min(b)));
+    let (rows, cols) = ((a1 - a0 + 3) as usize, (b1 - b0 + 3) as usize);
+    let mut surface = vec![f32::NAN; rows * cols];
+    for (a, b) in water {
+        surface[(a1 + 1 - a) as usize * cols + (b - b0 + 1) as usize] = level;
+    }
+    Some(Pond::Held(Lake::new((a1 + 2) as f32 * g, (b0 - 1) as f32 * g, cols, rows, g, surface)))
 }
 
 /// A line's points again, `spacing` blocks apart along it (the ends kept).
@@ -1037,14 +1255,71 @@ mod tests {
         assert!(round < 180.0, "a wide one goes round through the gap: {round}");
     }
 
+    /// A creek running west along row 32 over ground rising east, 8 blocks a pixel, across a ridge 20
+    /// high (columns 30 to 33), in a valley walled north and south; its water laid with `s`.
+    fn over_a_ridge(s: &CarvingSettings) -> (Vec<RiverPoint>, (f32, usize, Vec<Lake>, usize), CompiledMap) {
+        let width = 64;
+        let z: Vec<f32> = (0..width * width)
+            .map(|i| {
+                let (c, r) = (i % width, i / width);
+                let ridge = if (30..=33).contains(&c) { 20.0 } else { 0.0 };
+                let walls = if !(24..=40).contains(&r) { 60.0 } else { 0.0 };
+                150.0 + c as f32 * 0.5 + ridge + walls
+            })
+            .collect();
+        let ground = CompiledMap::of_heights(width, 8.0, &z);
+        let point = |c: f32| RiverPoint { north: -4.0, east: (c + 0.5 - 32.0) * 8.0, width: 3.0, depth: 2.0, edge: 0.3, flat: 0.2, bowl: 1.0, level: f32::NAN, bend: 0.0, curtain: f32::NAN, turn: 0.0, fade: 2.0 };
+        let mut reaches = vec![Reach { points: (0..=112).map(|k| point(60.0 - k as f32 * 0.5)).collect() }];
+        let laid = lay_water(&mut reaches, &[(0, 1, None, 100.0)], &ground, 1.0, 3.0, s, &AtomicBool::new(false)).unwrap();
+        (reaches.remove(0).points, laid, ground)
+    }
+
+    #[test]
+    fn a_rise_too_deep_to_cut_holds_a_pond_behind_it_and_is_cut_no_deeper_than_the_cut() {
+        // David: "these streams either need to ride over the terrain like a marble, or cut far deeper".
+        let s = CarvingSettings::default();
+        let (points, (_, _, ponds, cut_instead), ground) = over_a_ridge(&s);
+        assert_eq!((ponds.len(), cut_instead), (1, 0), "one pond, none cut through");
+        let lakes = Lakes::new(ponds);
+        let cut = |p: &RiverPoint| ground.height(p.north, p.east).unwrap() - p.level;
+        // Over the ridge, cut through no deeper than the cut (and a block for its rounding).
+        let ridge: Vec<&RiverPoint> = points.iter().filter(|p| (-16.0..16.0).contains(&p.east)).collect();
+        assert!(ridge.iter().all(|p| cut(p) <= s.cut_up_to + 1.0), "cut {} through the ridge", ridge.iter().map(|p| cut(p)).fold(0.0, f32::max));
+        // Behind it, the water held at one level, a pond on the ground all round.
+        let behind: Vec<&RiverPoint> = points.iter().filter(|p| (40.0..120.0).contains(&p.east)).collect();
+        let level = behind[0].level;
+        assert!(behind.iter().all(|p| p.level == level), "the pond's water isn't level");
+        assert!(behind.iter().all(|p| cut(p) < 0.0), "the pond's water is below its ground");
+        for (n, e) in [(-4.0, 60.0), (20.0, 80.0), (-30.0, 100.0)] {
+            assert_eq!(lakes.water(n, e), Some(level), "no pond at {n}, {e}");
+        }
+        // Off, the ridge is notched its full height.
+        let (points, (_, _, ponds, _), _) = over_a_ridge(&CarvingSettings { rise_pools: false, ..s });
+        assert!(ponds.is_empty());
+        assert!(points.iter().map(cut).fold(0.0, f32::max) > 15.0, "no notch with the ponds off");
+    }
+
+    #[test]
+    fn a_pond_that_would_spread_too_far_is_cut_through_instead() {
+        let s = CarvingSettings { pool_reach: 16.0, ..CarvingSettings::default() };
+        let (points, (_, _, ponds, cut_instead), ground) = over_a_ridge(&s);
+        assert!(ponds.is_empty() && cut_instead >= 1, "{} ponds, {cut_instead} cut through", ponds.len());
+        assert!(points.iter().map(|p| ground.height(p.north, p.east).unwrap() - p.level).fold(0.0, f32::max) > 15.0, "not cut through");
+        // And the water never rises downstream.
+        assert!(points.windows(2).all(|w| w[1].level <= w[0].level));
+    }
+
     #[test]
     fn the_water_never_stands_above_the_real_ground_under_it() {
         // David's screenshot: water laid on the broad ground stood above the real ground as walls.
+        // (But in a pond behind a rise, whose water is all round it; and held up by one, the water can
+        // stand up to half a block over its bed short of a pond, its banks raised to hold it.)
         let (flow, network, ground) = country();
         let carving = make(&network, &flow, &ground, 32.0, 3, 4.0, 3.0, &CarvingSettings::default(), &AtomicBool::new(false)).unwrap();
         for p in carving.reaches.iter().flat_map(|reach| reach.points.iter()) {
             let real = ground.height(p.north, p.east).unwrap();
-            assert!(p.level <= real.max(SEA_LEVEL as f32) + 1e-3, "water at {} over ground at {real}", p.level);
+            let pond = carving.lakes.water(p.north, p.east).is_some_and(|w| w >= p.level);
+            assert!(pond || p.level <= real.max(SEA_LEVEL as f32) + 0.5 + 1e-3, "water at {} over ground at {real}", p.level);
         }
     }
 

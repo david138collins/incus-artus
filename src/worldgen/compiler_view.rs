@@ -1156,6 +1156,8 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             ui.label(format!("deepest cut below its banks: {:.0} blocks; {} points cut deeper than 6", carving.deepest_cut, carving.deep_cuts))
                 .on_hover_text("How far the water passes below the lowest ground across a river. Following the valleys, this should stay small; deep cuts are trenches through rises it couldn't find a way round.");
             ui.label(format!("{} lakes and ponds", carving.pools));
+            ui.label(format!("{} ponds behind rises; {} rises cut through instead", carving.rise_ponds, carving.cut_instead))
+                .on_hover_text("Rises cut through instead: deeper than the cut, but their pond would have spread too far (Lakes: \"a pond spreads at most\").");
         }
         ui.add_space(4.0);
         ui.strong("The route");
@@ -1242,6 +1244,17 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut c.lake_reach, 0.0..=256.0).text("look round each lake (blocks)"))
             .on_hover_text("How far round each planned lake its real basin is looked for. Ponds in dips within this reach are found too.");
         ui.add(crate::debug::Slider::new(&mut c.pond_depth, 0.5..=10.0).text("a pond from (blocks deep)")).on_hover_text("A pool this deep at its deepest or more is kept; shallower dips stay dry.");
+        ui.checkbox(&mut c.rise_pools, "ponds behind rises").on_hover_text(
+            "Where a rise crosses a river's way, the river cuts through it up to the depth below; a deeper rise holds the water \
+             back in a pond up to its lowest gap, and the river spills on over the top (David's marble). Off: every rise is cut \
+             through, however deep.",
+        );
+        ui.add_enabled_ui(c.rise_pools, |ui| {
+            ui.add(crate::debug::Slider::new(&mut c.cut_up_to, 0.0..=40.0).text("cut through rises up to (blocks)"))
+                .on_hover_text("A rise this much higher than the water, or less, is cut through; a higher one makes a pond behind it.");
+            ui.add(crate::debug::Slider::new(&mut c.pool_reach, 32.0..=2048.0).logarithmic(true).text("a pond spreads at most (blocks)"))
+                .on_hover_text("How far a pond may spread from its river. One that would spread further (its water spilling off into the next valley, say) is cut through instead. Further takes longer to make.");
+        });
         ui.add_space(4.0);
         ui.strong("Falls and deltas");
         ui.checkbox(&mut c.curtains, "waterfalls get a curtain of water").on_hover_text("A one-block sheet of water blocks down each waterfall's face, so it reads as falling water (nothing moves).");
