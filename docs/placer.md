@@ -116,9 +116,17 @@ world's save for each field handed over, so they're handed over only when a dist
 
 **My pick: C as the frame, with A and B as the chooser's modes, all in one model.**
 - **A distributor** has a list of **candidates** (blocks, or later blueprints).
-- **Each candidate's suitability** is a small stack of terms: a field, then a curve (0 to 1), mixed
-  by a mode. Multiply means "and": every term must hold. A term can add noise to its field before
-  the curve: that's today's wander, for any field.
+- **Each candidate's suitability** is a small stack of terms, mixed by a mode. Multiply means "and":
+  every term must hold. There are two kinds of term:
+  - **a number through a curve** (0 to 1). A term can add noise to its field before the curve:
+    that's today's wander, for any field;
+  - **a kind in a set:** for fields that name a kind rather than a number, such as rock type, or
+    which candidate an earlier layer chose. For example, "the host rock is limestone or marble".
+- **Curves come in three shapes:**
+  - **a step** ("below 0.3"): today's rules;
+  - **a band**, by its middle and spread ("around 40 deep, give or take 15"), which suits ores by
+    depth;
+  - **a free curve** (the spline box).
 - **The distributor's chooser** then picks:
   - **first that fits:** in order, the first candidate whose suitability passes a threshold (today's
     mineralogy, exactly);
@@ -151,6 +159,11 @@ world's save for each field handed over, so they're handed over only when a dist
 
 **My pick:** design the format for all five now, so nothing has to be redone, and build only 1 (column
 profiles) for the first version, with mineralogy. The others arrive with their first users.
+- **What a candidate puts down** is one of three kinds in the format from the start: a block (now),
+  an inclusion over the block it's in (ores, with the "material × inclusion" decision), or points
+  (pipes, craters, trees). Only blocks are built first.
+- **A distributor's result can be read by later layers:** which candidate it chose (a kind), and,
+  for points, the distance to the nearest and how many lie within a reach (numbers).
 
 ---
 
@@ -234,10 +247,11 @@ rivers were today). From there David adds blocks, layers and fields of his own.
 |---|---|
 | The field table and reading fields at a column | 250 |
 | Distributors, candidates, terms, choosers, saving them, turning them into steps | 300 |
+| Room for ores in the format (term kinds, curve shapes, what's put down, results read later: section 9) | 100 |
 | The shared widget (candidates, block picker, field picker, curves, chooser) | 400 |
 | Previews (over the map, one term, why under the mouse) | 200 |
 | Mineralogy rebuilt on it, with the same-world test | 200 |
-| **Total** | **about 1,350**, in 3 or 4 stops for David |
+| **Total** | **about 1,450**, in 3 or 4 stops for David |
 
 **Later, with their first users:**
 - blueprints with spacing: about 500;
@@ -260,7 +274,43 @@ rivers were today). From there David adds blocks, layers and fields of his own.
 
 ---
 
-## 9. Questions for David
+## 9. Room for ores (Counsel's input, 2026-10-31)
+
+**Where the ores come from:** David asked for a cross-reference of the ores in Minecraft, Vintage
+Story and Dwarf Fortress, ranked by a reasonable mean depth (`vision/ores-by-depth.md`; about 130
+blocks of crust). Ores are the "3D blocks" kind (section 4), which comes after column profiles. The
+first version doesn't build them, but its format must not need redoing when they come.
+
+| Ores will ask for | Where the format has room |
+|---|---|
+| **Depth below the surface, with a mean and a spread** | a per-block field, "depth below the surface", and a band curve (section 3) |
+| **…as a share of the crust**, since how deep the world goes is open | the same field also offered as a share of the crust (0 at the surface, 1 at its bottom), measured against one world setting, "the crust's depth" (130 to start). When the world's depth is decided, ores keep their places in it. |
+| **Rock type** (most ores follow their host rock) | rock type is a mineralogy layer; later layers read which rock it chose, as a kind in a set ("in limestone or marble") |
+| **Child deposits** (gold inside quartz, silver inside galena, sylvite inside salt) | a later layer whose term is "the earlier layer chose quartz", placing gold there by chance. It's linear, since the child comes after its parent. |
+| **Point fields** (kimberlite pipes, impact craters) | a distributor that puts down points; later layers read the distance to the nearest (a pipe is a narrow distance across, over a range of depth) |
+| **Ties to the land:** rivers (placers), deserts (evaporites), wetlands (bog iron), the tropics (bauxite), crush (lode gold) | fields in the table already: under a river's water, its water across, distance to a river, lake depth, rain, temperature, slope, height, squeeze (crush) |
+| **Ores as inclusions in their rock** ("material × inclusion") | a candidate that puts down an inclusion over the block it's in, rather than a block of its own |
+
+**Four additions to the first version's format,** all small, all built in from the start:
+1. terms of two kinds (a number through a curve, a kind in a set);
+2. curves of three shapes (step, band, free);
+3. what a candidate puts down (block, inclusion, points), with only blocks working at first;
+4. a distributor's result readable by later layers, as a kind, or as distances for points.
+
+Together they add about 100 lines to the first version.
+
+**Speed for ores:** they're checked at every block underground, not only at the surface, so they
+must stay cheap. A depth term tells the evaluator the depth window it can hold in, so it skips the
+column outside it. They're made only in near chunks: the far view sees only the surface.
+
+**Balance** (David: "making sure that areas are diverse, but viable"): a map readout, with the ores,
+of the distance from each spot to the nearest fuel, copper, tin, iron, flux and salt. This needs no
+format change: the Registrar's block tags already exist ("resource/copper" and so on), and the readout
+groups the winners by tag. Gaps then show on the map as places that aren't viable to start from.
+
+---
+
+## 10. Questions for David
 
 1. **Deciding:** one model, with stacked number layers making each candidate's suitability, and the
    chooser as first that fits, the best fit, or by chance (section 3)?
