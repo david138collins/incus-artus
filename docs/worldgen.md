@@ -2020,7 +2020,8 @@ ridgelines, peaks, crags, hills, then climate's flow, network, routing, lakes, b
 later ecology and civilization), so everything after the chosen stage is left out at once, in pipeline
 order, both in the viewer and in a spawned world. Because the pipeline is linear, stopping at a stage is
 always a valid world. The per-layer switches stay for leaving out one thing in the middle. Its place and
-name are David's call.
+name are David's call. **When** [David]: not now; before the whole game is "made" and the polish pass
+starts (a reminder is in `vision/watch-list.md`, item 21).
 
 **A world is a frozen copy, by design** [checked 2026-10-27, David asked]: changing the editor and
 pressing F2 returns to the same world unchanged. Render World and Spawn hands the world its own copy
