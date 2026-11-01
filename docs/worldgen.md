@@ -1323,6 +1323,10 @@ to evaporation.
       battlefields, catacombs and lost mines, and Life and Death's moon may stir them.
     - **Glowing lichen:** placed by damp, depth and darkness, a faint light that's precious because
       it's rare. It could mark the way along old water routes.
+- **[LATER, David 2026-11-01] Respawn at the same point, for tuning:** when tuning gets difficult
+  (caves especially), "Render World and Spawn" at the exact same point and view as before, so David
+  can take exact comparison screenshots of settings for Builder to analyse. He'll ask for it when it's
+  needed (Counsel reminds him).
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
   out under a slope gives an overhang, a cave mouth, a rock shelter, an arch.
 - **Non-cave carve features here and there**, too.
