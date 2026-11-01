@@ -324,3 +324,25 @@ the numbers ask for it.
    waterfall cave's mouth is a shaft seen from above?
 6. **The first waterfall cave's size:** one passage from the swallow hole to a spring, or a small system
    with a chamber or two?
+
+## 8. David's answers  [DECIDED 2026-11-01]
+
+David: "i would start with a simple, dead end cave, that worms a bit into the side of a mountain and
+stops, so thats a perfect plan, we can worry about a waterfall cave after we have some more basic
+ones functioning. i like those steps in the plan. caves panel of its own, but we may experiment with
+where it goes in the pipeline. earlier is better if it doesnt clash"
+- **The steps stand,** stops 1 to 4 in order. **Go ahead with stop 1.**
+- **The first cave is a simple dead end:** a mouth in a mountainside, a tunnel that worms a little way
+  in, and stops. The test button places it at the crosshair (question 3).
+- **The waterfall cave waits** until more basic caves work. Petering out waits with it (question 1,
+  answered then). Stop 5 becomes "the first planned kind" when its turn comes.
+- **Caves get a panel of their own** (question 4). Its place in the pipeline is to be tried: earlier
+  is better if it doesn't clash. *Counsel:* the rule from "content is added across the pipeline"
+  (`docs/decisions.md`) applies. A kind of cave sits at the earliest stage that has what it needs. A
+  dead-end mountain cave needs only the ground, so it could come right after Topography. Kinds that
+  read the rivers or the rock come after those stages. Caves never change the ground the climate
+  reads.
+- **Not yet answered:** how black is pitch black (question 2; Counsel's lean: true black by default,
+  with a slider for a faint floor), and the first waterfall cave's size (question 6). Ask him at
+  stop 3 and stop 5.
+- **The far mouth (question 5)** stays at stop 4, before any planned kind, as the steps have it.
