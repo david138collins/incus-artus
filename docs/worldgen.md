@@ -656,6 +656,20 @@ Tectonic Sim
   ground detail is gone": it is. It became Hills on 2026-10-28, and the Hills section is that one.
   The order is the panel's, so if the recipe works them out in a different order, the world stays as
   it is.
+  *[Built 2026-10-31: Topography holds Land and sea · Ridgelines · Mountains · Hills · Torn coast, in
+  David's order. Only the panels changed: the settings are still the Interpreter's recipe's, so presets
+  load and give the same world.*
+  - *The recipe's own order differs in two places, and is kept as it was: the mountains' rise comes
+    before ridgelines (and the peaks after them), and the torn coast before the hills.*
+  - *The chain at the top of the World Interpreter panel shows the recipe's order, with the Topography
+    section that sets each part, and on after it to Climate and Mineralogy.*
+  - *The World Interpreter panel now holds only that chain and a note of where its parts are set. The
+    view of the result (Under the mouse, The world, Terrain lab, Show, Overlays, Cross-section) was
+    already in the readouts on the right. David: "for now, just leave the interpreter panel empty if
+    need be."*
+  - *In Topography, the dots' switches and count moved into the Mountains section, since the dots are
+    the grain drift's and the ridge streams'. "Reset the Topography" became "Reset the grain, drift and
+    streams", since that's all it ever reset.]*
   **Caves are open:** "we still really have no idea how caves factor in. they could be topology i
   think. however they could be after, and we could make caves where rivers end without finding a pond
   lake or ocean." (See "Caves, cliffs and carving" below.)

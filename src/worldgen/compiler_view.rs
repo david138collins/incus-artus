@@ -6,10 +6,11 @@
 //! ```text
 //! ┌──── top: panels shown, which bake, land share ──────────────────────────────────────────────────────────┐
 //! │ Landmass     │ Topography   │ Climate      │ Mineralogy │ World Interpreter │                │ under the │
-//! │ sea level    │ mountains    │ rivers       │ the blocks │ the chain         │ the world, in  │ mouse     │
-//! │ coastline    │ grain drift  │ temperature  │ underfoot  │ land and sea      │ blocks         │           │
-//! │ soften       │              │ wind, rain   │ (caves     │ mountains         │                │           │
-//! │ save, render │              │              │  to come)  │ peaks, blocks     │                │           │
+//! │ sea level    │ land and sea │ rivers       │ the blocks │ the chain, and    │ the world, in  │ mouse     │
+//! │ coastline    │ ridgelines   │ temperature  │ underfoot  │ where each part   │ blocks         │           │
+//! │ soften       │ mountains    │ wind, rain   │ (caves     │ is set            │                │           │
+//! │ save, render │ hills, torn  │              │  to come)  │                   │                │           │
+//! │ presets      │ coast        │              │            │                   │                │           │
 //! └──────────────┴──────────────┴──────────────┴────────────┴───────────────────┴────────────────┴───────────┘
 //! ```
 
@@ -506,7 +507,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite, look: &Look) {
     if shown[4] {
         super::view::foldable_left(root, "world interpreter settings", PANELS[4], &mut folded[4], 320.0, |ui| {
             super::notes::on_page(Some(PANELS[4]));
-            egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
+            egui::ScrollArea::vertical().id_salt("interpreter").show(ui, interpreter_panel);
         });
     }
     compiler.folded = folded;
@@ -641,45 +642,55 @@ fn save_buttons(ui: &mut egui::Ui, compiler: &mut Compiler, bake: &Bake) {
     }
 }
 
-/// The signal chain, for the top of the Interpreter panel.
+/// The signal chain, for the top of the Interpreter panel: the recipe's order, and where each part is
+/// set (the Topography panel's sections in [ ]).
 const CHAIN: &str = "\
 Tectonic Sim -> bake (32-block pixels)
       |
 World Compiler · whole map, once:
-  sea level · soften coast · soften mountains
-  where the mountains stand (Topography)
+  sea level · soften coast  [Landmass]
+  soften mountains          [Landmass]
+  where the mountains stand [Mountains]
       |  smooth maps
 World Interpreter · every block, as
-  the world is made (this panel):
+  the world is made. In this order:
   blend the maps to the block, then
-  curves · grade · edge rise
-  the mountains' rise
-  ridgelines
-  the peaks · torn coast · hills
+  curves · grade · edge rise [Land and sea]
+  the mountains' rise        [Mountains]
+  ridgelines                 [Ridgelines]
+  the peaks                  [Mountains]
+  torn coast                 [Torn coast]
+  hills                      [Hills]
+      |  the ground's height
+Climate reads it (without the hills,
+  torn coast and crags), and carves
+  its rivers and lakes into it
       |
-the ground (and the distant terrain)";
+Mineralogy: the blocks on it
+      |
+the world (and the distant terrain)";
 
-/// The Topography panel (the Additives until 2026-10-31): dots scattered from what the maps know (for
-/// now, the ridge streams).
+/// The Topography panel (the Additives until 2026-10-31): the ground's shape, in David's order [David,
+/// 2026-10-31: "move the features where they belong. it should be land and sea, ridgelines, mountains,
+/// hills, torn coast"]. Land and sea, Ridgelines, Hills and Torn coast were the Interpreter panel's
+/// until then; their settings are still the Interpreter's recipe's, so presets load as they were. The
+/// recipe works them out in its own order (the chain on the Interpreter panel).
 fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("Topography");
     ui.small(
-        "Features added onto the landmass, before erosion and the water. Dots are scattered from what the maps already \
-         know; next, they'll drive features in the ground. (Saved in the presets with the other panels.)",
+        "The ground's shape, before the water: the land and the sea, the ridgelines, the mountains, the hills and the torn \
+         coast, worked out at every block as the world is made (the chain on the World Interpreter panel shows in what \
+         order). Saved in the presets with the other panels.",
     );
     ui.add_space(4.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.checkbox(&mut compiler.additives.show, "show the dots").on_hover_text("Draws the dots over the map and the close-up.");
-        ui.label("size:");
-        for size in [1.0, 2.0, 4.0, 8.0] {
-            ui.selectable_value(&mut compiler.additives.dot_size, size, format!("{size}x"))
-                .on_hover_text("Draws the dots this many times bigger (the seeds stay as they are), to see them from further out.");
-        }
-    });
+    let defaults = InterpreterSettings::default();
+    land_and_sea(ui, &mut compiler.settings.interpreter, &defaults);
+    ridgelines(ui, &mut compiler.settings.interpreter, &defaults);
     let points = compiler.result.as_ref().map(|r| r.made.lift_points.len());
     let show_points = &mut compiler.show_lift_points;
     let (lift, peaks) = (&mut compiler.settings.interpreter.lift, &mut compiler.settings.interpreter.peaks);
     let a = &mut compiler.settings.additives;
+    let dots = &mut compiler.additives;
 
     // Everything here is about mountains, so it's under one heading, with Hydrology to come beside it
     // [David, 2026-10-27]. Where and Rise were the Interpreter's Lift: its point picker gives the
@@ -691,6 +702,14 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             "Where the mountains stand, the rise they stand on, and how the mountain belts run. Peaks are next: \
              they'll stand at the points, cut down out of the rise.",
         );
+        ui.horizontal_wrapped(|ui| {
+            ui.checkbox(&mut dots.show, "show the dots").on_hover_text("Draws the grain drift's and the ridge streams' dots over the map and the close-up.");
+            ui.label("size:");
+            for size in [1.0, 2.0, 4.0, 8.0] {
+                ui.selectable_value(&mut dots.dot_size, size, format!("{size}x"))
+                    .on_hover_text("Draws the dots this many times bigger (the seeds stay as they are), to see them from further out.");
+            }
+        });
         fold_section(ui, "Where", |ui| mountain_points(ui, lift, show_points, points));
         fold_section(ui, "Rise", |ui| mountain_rise(ui, lift));
         let mut on = peaks.on;
@@ -805,25 +824,25 @@ fn additives_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
                  to keep them to the main ranges.",
             );
         });
+        ui.add_space(6.0);
+        // (It resets only these three, as it always did: Where, Rise and Peaks are the Interpreter's.)
+        if ui
+            .small_button("Reset the grain, drift and streams")
+            .on_hover_text("Mountain grain, Grain drift and Ridge streams back to their defaults (called \"Reset the Topography\" until 2026-10-31).")
+            .clicked()
+        {
+            *a = Default::default();
+        }
+        if !dots.show {
+            ui.small("The dots are hidden.");
+        } else if dots.found.is_none() || dots.is_making() {
+            ui.small("Finding the range spines and grain…");
+        } else {
+            ui.small(format!("grain drift: {} seeds, {} dots · ridge streams: {} streams, {} dots", dots.seeds.len(), dots.drift.len(), dots.streams, dots.dots.len()));
+        }
     });
-    ui.add_space(6.0);
-    if ui.small_button("Reset the Topography").clicked() {
-        *a = Default::default();
-    }
-    let additives = &compiler.additives;
-    if !additives.show {
-        ui.small("The dots are hidden.");
-    } else if additives.found.is_none() || additives.is_making() {
-        ui.small("Finding the range spines and grain…");
-    } else {
-        ui.small(format!(
-            "grain drift: {} seeds, {} dots · ridge streams: {} streams, {} dots",
-            additives.seeds.len(),
-            additives.drift.len(),
-            additives.streams,
-            additives.dots.len()
-        ));
-    }
+    hills(ui, &mut compiler.settings.interpreter, &defaults);
+    torn_coast(ui, &mut compiler.settings.interpreter, &defaults);
 }
 
 /// Mountains, Where: the points the mountains stand at (what was the Lift's point picker).
@@ -1577,12 +1596,15 @@ fn climate_temperature(ui: &mut egui::Ui, t: &mut super::temperature::Temperatur
     ui.add(crate::debug::Slider::new(&mut t.cooling, 0.0..=0.5).text("colder per 100 blocks up")).on_hover_text("How much colder the ground is for every 100 blocks above the sea.");
 }
 
-/// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block.
-fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
+/// The Interpreter's recipe: how the compiler's maps become the ground, worked out at every block. Its
+/// settings are set where each part belongs in the chain: the ground's shape on the Topography panel,
+/// its blocks on the Mineralogy panel [David, 2026-10-31: "move the features where they belong"]. This
+/// panel shows the chain.
+fn interpreter_panel(ui: &mut egui::Ui) {
     ui.heading("World Interpreter");
     ui.small(
         "The end of the chain: the recipe that gives every column of blocks its height, worked out at that block as the \
-         world is made. The map here shows it worked out at each pixel's centre.",
+         world is made. The map shows it worked out at every block (or every few, zoomed out).",
     );
     ui.add(egui::Label::new(egui::RichText::new(CHAIN).monospace().small())).on_hover_text(
         "Moved here from the World Compiler: the compiler used to work this recipe out once per 32-block\n\
@@ -1591,12 +1613,19 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
          heights swings past every sharp step: one hump per pixel, in rows along every coast and cliff.\n\
          Now the smooth maps are blended to each block first, and the sharp curves applied after.",
     );
-    if compiler.bake.is_none() {
-        return;
-    }
-    let defaults = InterpreterSettings::default();
-    let s = &mut compiler.settings.interpreter;
+    ui.add_space(4.0);
+    ui.small(
+        "Its parts are set where they come in the chain: the ground's shape on the Topography panel (Land and sea, Ridgelines, \
+         Mountains, Hills, Torn coast), its blocks on the Mineralogy panel. What it makes is seen on the map, with the readouts \
+         on the right (Under the mouse, The world, Terrain lab, Show, Overlays, Cross-section).",
+    );
+    ui.add_space(4.0);
+    ui.small("Presets, and back-to-defaults, are on the Landmass panel: they cover every panel.");
+}
 
+/// Topography, Land and sea: the curves from the coast up the land and down the sea, the grade by
+/// tilt, and the edge rise (the Interpreter panel's until 2026-10-31).
+fn land_and_sea(ui: &mut egui::Ui, s: &mut InterpreterSettings, defaults: &InterpreterSettings) {
     fold_section(ui, "Land and sea", |ui| {
         ui.add(crate::debug::Slider::new(&mut s.deepest, 1.0..=127.0).text("deepest sea floor (Z)")).on_hover_text("The Z the deepest ocean reaches.");
         ui.add(crate::debug::Slider::new(&mut s.highlands, 129.0..=HIGHEST as f32).text("highlands (Z)"))
@@ -1631,9 +1660,12 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
              high side raised).",
         );
     });
-    // Today's ridged "mountains", which David treats as hill country: the nest the Topography panel's peaks
-    // stand in [David, 2026-10-27: renamed Ridgelines; "the ridges raise it to the highlands, the
-    // additive mountains put the peaks across the same area"].
+}
+
+/// Topography, Ridgelines: today's ridged "mountains", which David treats as hill country, the nest
+/// the peaks stand in [David, 2026-10-27: renamed Ridgelines; "the ridges raise it to the highlands, the
+/// additive mountains put the peaks across the same area"] (the Interpreter panel's until 2026-10-31).
+fn ridgelines(ui: &mut egui::Ui, s: &mut InterpreterSettings, defaults: &InterpreterSettings) {
     fold_section(ui, "Ridgelines", |ui| {
         ui.small(
             "Ridged high ground from the squeeze map, which the peaks (Topography, Mountains) will stand in. Across: how \
@@ -1680,6 +1712,10 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         ui.add(crate::debug::Slider::new(&mut s.ridge_wander_size, 250.0..=16_000.0).logarithmic(true).text("wander size (blocks)"))
             .on_hover_text("How big the swirls that nudge the ridges are. Smaller = ridges kink more often.");
     });
+}
+
+/// Topography, Torn coast (the Interpreter panel's until 2026-10-31).
+fn torn_coast(ui: &mut egui::Ui, s: &mut InterpreterSettings, defaults: &InterpreterSettings) {
     fold_section(ui, "Torn coast", |ui| {
         ui.small(
             "Ponds, tide pools and inlets on land, islets and shoals at sea: in a band along the coastline, a pattern pushes \
@@ -1708,6 +1744,10 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
             .on_hover_text("About how long the torn and clean stretches of coast are.");
         noise_box(ui, "torn coast", &mut t.noise, &d.noise, 16.0..=2_000.0);
     });
+}
+
+/// Topography, Hills (ground detail until 2026-10-28; the Interpreter panel's until 2026-10-31).
+fn hills(ui: &mut egui::Ui, s: &mut InterpreterSettings, defaults: &InterpreterSettings) {
     fold_section(ui, "Hills", |ui| {
         ui.add(crate::debug::Slider::new(&mut s.detail, 0.0..=40.0).text("hills (blocks)")).on_hover_text(
             "Hills and bumps on the ground: a Perlin field laid on the ground, this many blocks up and down (called\n\
@@ -1719,9 +1759,6 @@ fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         masked_noise(ui, "hills", &mut s.detail_noise, &defaults.detail_noise, 16.0..=2_000.0, &mut s.detail_mask);
     });
-    ui.small("The surface blocks (bare stone and gabbro by height) are in the Climate tab's Mineralogy section now.");
-    ui.add_space(4.0);
-    ui.small("Presets, and back-to-defaults, are on the World Compiler panel: they cover both.");
 }
 
 impl Compiler {
