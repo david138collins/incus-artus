@@ -1233,6 +1233,9 @@ to evaporation.
 
 #### Caves, cliffs and carving  [IDEA, David 2026-10-29; after forests, a "caves and cliffs" pass]
 
+*Builder's assessment of how to start, with options, stops and questions: `docs/caves.md`
+(2026-11-01, for David to choose).*
+
 - **After mineralogy, caves**, inside Climate [DECIDED 2026-10-29, David]: the Climate tab goes
   **Temperature, Wind, Rain, Rivers, Mineralogy, Caves**.
   **[DECIDED 2026-10-31, David] Rivers come first in Climate:** "they don't mean anything to rivers,
