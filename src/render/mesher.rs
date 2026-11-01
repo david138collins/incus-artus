@@ -29,15 +29,21 @@
 //! ## Vertex format (8 bytes per corner)
 //! - word 0: x (7 bits) | y (7 bits) | z (7 bits), in half blocks | face direction (3 bits) | random
 //!   rotation (1 bit) | which way is out of the rectangle, along x, y and z (1 bit each)
-//! - word 1: texture layer (16 bits) | quad number (16 bits, only used by the debug view)
+//! - word 1: texture layer (16 bits) | quad number (15 bits, only used by the debug view; or, with the
+//!   top bit set, a bar with textures of its own and its slot)
 
 use crate::coords::game_to_bevy;
-use crate::world::BlockId;
+use crate::world::{BlockId, Owners};
 use bevy::math::Vec3;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 const N: usize = 32;
+/// A face's quad number with this bit set is part of a bar with textures of its own, the low 5 bits
+/// its slot (`push_quad`; the shader's `bar_uv`).
+const BAR_TAG: u32 = 0x8000;
+/// In the pieces' grids: no bar of its own textures.
+const NO_BAR: u8 = u8::MAX;
 
 /// Everything the mesher needs, copied out of the world so it can run on another thread.
 pub struct MeshInput {
@@ -60,11 +66,13 @@ pub struct MeshInput {
     pub face_layers: Arc<Vec<[u32; 6]>>,
     /// Per block number: is each face's texture randomly rotated?
     pub face_random_rotation: Arc<Vec<[bool; 6]>>,
-    /// The cells built of pieces (their blocks are `BlockId::PIECES`): each one's index, and what
-    /// fills its 8 octants.
-    pub pieces: Vec<(usize, [BlockId; 8])>,
-    /// The same for cells just outside the section next to those (by their place, −1 or 32 along
-    /// one axis), so bars meeting across a section's side show no seam.
+    /// The cells built of pieces (their blocks are `BlockId::PIECES`): each one's index, and
+    /// the piece filling each of its 8 octants (its slot and block).
+    pub pieces: Vec<(usize, Owners)>,
+    /// Per block number: its bars' own textures (a long side, an end), if it has them.
+    pub bar_layers: Arc<Vec<Option<[u32; 2]>>>,
+    /// The cells of pieces just outside the section next to those, and what fills their octants (by
+    /// their place, −1 or 32 along one axis), so bars meeting across a section's side show no seam.
     pub beyond_pieces: HashMap<[i32; 3], [BlockId; 8]>,
 }
 
@@ -196,7 +204,7 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
                 // The face of a block at `depth` lies on its far side when facing the positive way.
                 let plane_position = depth + positive as u32;
                 merge_plane(&mut plane, |u, v, width, height| {
-                    push_quad(out, input, block, (axis, positive), plane_position * 2, [u * 2, v * 2, width * 2, height * 2], both_sides);
+                    push_quad(out, input, block, (axis, positive), plane_position * 2, [u * 2, v * 2, width * 2, height * 2], both_sides, None);
                 });
             }
         }
@@ -205,14 +213,25 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
 
 /// One rectangle of `block`'s face, facing along `axis` (the positive way or not), on the plane
 /// `plane` across it, from (`u`, `v`) along the plane's axes, `width` × `height`: all in half blocks.
-fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool) {
+/// `bar`: the slot of the bar it's part of, if the bar has textures of its own. Then its layer is the
+/// bar's side or end, and its quad number is `BAR_TAG` and the slot, for the shader to measure the
+/// texture from the bar's own corner.
+#[allow(clippy::too_many_arguments)]
+fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool, bar: Option<u8>) {
     let (u_axis, v_axis) = plane_axes(axis);
     let face = face_index(axis, positive);
-    let layer = input.face_layers.get(block.0 as usize).map_or(0, |layers| layers[face]);
-    let random_rotation = input.face_random_rotation.get(block.0 as usize).is_some_and(|faces| faces[face]);
+    let bar_layers = bar.and_then(|slot| input.bar_layers.get(block.0 as usize).copied().flatten().map(|layers| (slot, layers)));
+    let (layer, random_rotation, quad_tag) = match bar_layers {
+        // The end where the bar's own axis comes out of the face, else a long side.
+        Some((slot, [side, end])) => (if (slot / 4) as usize == axis { end } else { side }, false, BAR_TAG | slot as u32),
+        None => (
+            input.face_layers.get(block.0 as usize).map_or(0, |layers| layers[face]),
+            input.face_random_rotation.get(block.0 as usize).is_some_and(|faces| faces[face]),
+            out.quads & 0x7FFF,
+        ),
+    };
     let corners = [(u, v), (u + width, v), (u + width, v + height), (u, v + height)];
     let base = out.vertices.len() as u32;
-    let quad_tag = out.quads & 0xFFFF;
     for (cu, cv) in corners {
         let mut p = [0u32; 3];
         p[axis] = plane;
@@ -244,25 +263,29 @@ fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, pos
 /// covers them (another octant of the cell, a neighbouring cell's octant, or a whole block), merged
 /// within the cell, so a bar's long side is one rectangle. Not merged across cells: they're few.
 fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(BlockId) -> bool) {
-    let cells: HashMap<usize, [BlockId; 8]> = input.pieces.iter().copied().collect();
+    // Each cell's octants as the blocks filling them (for what covers what).
+    let blocks_of = |owners: &Owners| owners.map(|owner| owner.map_or(BlockId::AIR, |(_, block)| block));
+    let cells: HashMap<usize, [BlockId; 8]> = input.pieces.iter().map(|(index, owners)| (*index, blocks_of(owners))).collect();
+    // A bar with textures of its own is measured from its own corner, so it's merged only with itself.
+    let own_textures = |block: BlockId| input.bar_layers.get(block.0 as usize).is_some_and(Option::is_some);
     let octant = |h: [usize; 3]| h[0] + 2 * h[1] + 4 * h[2];
-    for &(index, octants) in &input.pieces {
+    for (index, owners) in &input.pieces {
+        let (index, octants) = (*index, blocks_of(owners));
         let cell = [index % N, (index / N) % N, index / (N * N)];
         for axis in 0..3 {
             let (u_axis, v_axis) = plane_axes(axis);
             for positive in [true, false] {
                 let face = face_index(axis, positive);
                 for depth in 0..2 {
-                    // The octants' faces showing at this depth, as a 2 × 2 grid across the face.
-                    let mut grid = [[BlockId::AIR; 2]; 2];
+                    // The octants' faces showing at this depth, as a 2 × 2 grid across the face: the
+                    // block, and its bar's slot if the bar has textures of its own (else `NO_BAR`).
+                    let mut grid = [[(BlockId::AIR, NO_BAR); 2]; 2];
                     for (hv, row) in grid.iter_mut().enumerate() {
                         for (hu, shown) in row.iter_mut().enumerate() {
                             let mut h = [0; 3];
                             (h[axis], h[u_axis], h[v_axis]) = (depth, hu, hv);
-                            let block = octants[octant(h)];
-                            if block.is_air() {
-                                continue;
-                            }
+                            let Some((slot, block)) = owners[octant(h)] else { continue };
+                            let bar = if own_textures(block) { slot.0 } else { NO_BAR };
                             let inside = if positive { depth == 0 } else { depth == 1 };
                             let covered = if inside {
                                 h[axis] = 1 - depth;
@@ -286,15 +309,17 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(Block
                                 }
                             };
                             if !covered {
-                                *shown = block;
+                                *shown = (block, bar);
                             }
                         }
                     }
                     // Merged within the cell: the whole face, rows, columns, then single octants.
                     let plane = (cell[axis] * 2 + depth) as u32 + positive as u32;
                     let (u0, v0) = ((cell[u_axis] * 2) as u32, (cell[v_axis] * 2) as u32);
-                    let mut emit = |block: BlockId, [u, v, width, height]: [u32; 4]| push_quad(out, input, block, (axis, positive), plane, [u0 + u, v0 + v, width, height], false);
-                    let same = |a: BlockId, b: BlockId| !a.is_air() && a == b;
+                    let mut emit = |(block, bar): (BlockId, u8), [u, v, width, height]: [u32; 4]| {
+                        push_quad(out, input, block, (axis, positive), plane, [u0 + u, v0 + v, width, height], false, (bar != NO_BAR).then_some(bar));
+                    };
+                    let same = |a: (BlockId, u8), b: (BlockId, u8)| !a.0.is_air() && a == b;
                     if same(grid[0][0], grid[0][1]) && same(grid[0][0], grid[1][0]) && same(grid[0][0], grid[1][1]) {
                         emit(grid[0][0], [0, 0, 2, 2]);
                         continue;
@@ -314,7 +339,7 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(Block
                     }
                     for v in 0..2 {
                         for u in 0..2 {
-                            if !done[v][u] && !grid[v][u].is_air() {
+                            if !done[v][u] && !grid[v][u].0.is_air() {
                                 emit(grid[v][u], [u as u32, v as u32, 1, 1]);
                             }
                         }
@@ -383,6 +408,7 @@ mod tests {
             face_layers: Arc::new(vec![[0; 6], [1; 6], [2; 6], [3; 6], [3; 6]]),
             face_random_rotation: Arc::new(vec![[false; 6]; 5]),
             pieces: Vec::new(),
+            bar_layers: Arc::new(Vec::new()),
             beyond_pieces: HashMap::new(),
         }
     }
@@ -538,7 +564,7 @@ mod tests {
             blocks[index] = block;
         }
         let mut data = input(blocks);
-        data.pieces = vec![(at, pieces.octants())];
+        data.pieces = vec![(at, pieces.owners())];
         mesh_section(&data)
     }
 
@@ -564,6 +590,32 @@ mod tests {
             let [a, b, c] = [0, 1, 2].map(|k| game_to_bevy(corners[triangle[k] as usize]));
             assert!((b - a).cross(c - a).dot((a + b + c) / 3.0 - centre) > 0.0, "a triangle faces inward");
         }
+    }
+
+    #[test]
+    fn a_bar_with_its_own_textures_shows_its_side_and_end_measured_from_its_own_corner() {
+        use crate::world::{Pieces, Slot};
+        // Stone's bars have textures of their own: a side (layer 7) and an end (layer 8).
+        let mut corner = Pieces::default();
+        corner.add(Slot::bar(0, 0, 0), STONE);
+        corner.add(Slot::bar(1, 0, 0), STONE);
+        let mut blocks = empty();
+        let at = 5 + 5 * N + 5 * N * N;
+        blocks[at] = BlockId::PIECES;
+        let mut data = input(blocks);
+        data.pieces = vec![(at, corner.owners())];
+        data.bar_layers = Arc::new(vec![None, Some([7, 8])]);
+        let mesh = mesh_section(&data);
+        for quad in mesh.vertices.chunks_exact(4) {
+            let (face, layer, tag) = ((quad[0][0] >> 21) & 7, quad[0][1] & 0xFFFF, quad[0][1] >> 16);
+            assert!(tag & BAR_TAG != 0, "every face says which bar it's part of");
+            let slot = Slot((tag & 31) as u8);
+            // The faces along the bar's own axis are its ends.
+            assert_eq!(layer, if face / 2 == slot.0 as u32 / 4 { 8 } else { 7 }, "{} face {face}", slot.name());
+        }
+        // The two bars aren't merged into one face (each is measured from its own corner): 6 faces
+        // for the first, and the second's one free octant's 5 showing.
+        assert_eq!(mesh.quads, 6 + 5);
     }
 
     #[test]

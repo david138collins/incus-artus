@@ -255,3 +255,32 @@ Waiting for David to look.
   - a bar is a box of 6 rectangles at half-block corners, facing outward;
   - an L has no faces between its bars, and a whole block hides the side against it;
   - the edit into air and into a cell of bars, refusals, and a break taking the cell.
+
+**[BUILT 2026-11-01] Bar blocks with pictures of their own, brought forward** (David: "can you create a
+new type of block in the library for this, and a registrar entry for it as the first test for a quarter
+block? then i can register my own oak tree blocks"):
+- **Only marked blocks can be bars** (decided): a block file's `bar` setting (`docs/data-files.md`).
+  - `bar = {}` is a share of the block's own textures.
+  - `bar = { side = "…", end = "…", only = true }` gives pictures of its own, and only ever a bar.
+  - B with an unmarked block is refused ("not a bar"), and placing a bar-only block whole is refused.
+- **Its pictures** are in `assets/textures/bars/`: a long side 16 × 32 (its length up the picture) and
+  an end 16 × 16, 32 pixels to a block like every block. Each is loaded into its own layer with its
+  pixels repeated to fill it.
+- **Measured from the bar's own corner:**
+  - Each face of such a bar carries its slot (the quad number's top bit and low 5 bits), and the
+    shader (`bar_uv`) lays the side's picture along the bar's length, whichever way it lies, and the
+    end's on its ends.
+  - Where a bar that came first took part of it, what's left shows the matching part of its own
+    picture.
+  - Such bars aren't merged with each other, and never turned at random.
+- **The first: "Stone brick"** (`incus:stone_brick`), from David's `quartile_cut_stone_block_small`
+  pictures in `assets/new`.
+- **The Registrar's "Load a bar block…":** pick a side picture and an end picture (from Art/ or
+  `assets/new`, or drag them onto the window: each goes in by its size), name it, and register. It
+  copies both to `assets/textures/bars/` and writes the block file, after an undo step.
+- **The hotbar:** the player panel picks any block for the selected slot ("can be a bar" marked). It
+  isn't kept between runs yet.
+- **David's notes for stop 2:** placing will show a transparent ghost of where the piece goes, and
+  bars must be placeable across two cells.
+- **To check by eye:** which way each picture faces on each side (mirrored or turned), since that
+  can only be seen in the game.

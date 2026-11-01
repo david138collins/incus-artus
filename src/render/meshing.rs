@@ -382,7 +382,7 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
     let mut beyond_pieces = std::collections::HashMap::new();
     for (&block, cell) in chunk.pieces_in(key.level as usize) {
         let local = block - origin;
-        pieces.push((index_of(local), cell.octants()));
+        pieces.push((index_of(local), cell.owners()));
         for axis in 0..3 {
             for step in [-1, 1] {
                 let mut next = local;
@@ -406,6 +406,7 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         inner_faces: terrain.inner_faces.clone(),
         face_layers: terrain.face_layers.clone(),
         face_random_rotation: terrain.face_random_rotation.clone(),
+        bar_layers: terrain.bar_layers.clone(),
         pieces,
         beyond_pieces,
     })

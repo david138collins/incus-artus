@@ -80,6 +80,8 @@ pub struct Registrar {
     art_textures: BTreeSet<String>,
     /// Loading a new asset: the PNG coming in, the Art/ picker open or not, its files and filter.
     incoming: Option<Incoming>,
+    /// Loading a bar block (a quarter block with its own side and end pictures).
+    bar_incoming: Option<IncomingBar>,
     loading: bool,
     art_files: Vec<PathBuf>,
     art_filter: String,
@@ -612,11 +614,19 @@ fn dock(ui: &mut egui::Ui, registrar: &mut Registrar, defs: &[&BlockDef]) {
                 registrar.art_files = art_pngs();
             }
         }
+        if ui.button("Load a bar block…").on_hover_text("A quarter block (a bar) with its own pictures: a long side, 16 × 32, and an end, 16 × 16").clicked() {
+            registrar.bar_incoming = if registrar.bar_incoming.is_some() { None } else { Some(IncomingBar { files: bar_pngs(), picking_side: true, ..IncomingBar::default() }) };
+        }
     });
     if registrar.loading {
         art_picker(ui, registrar);
     }
     ui.separator();
+    // A bar block coming in takes the dock until it's registered or cancelled.
+    if registrar.bar_incoming.is_some() {
+        bar_dock(ui, registrar);
+        return;
+    }
     // A PNG coming in takes the dock until it's registered or cancelled.
     if registrar.incoming.is_some() {
         incoming_dock(ui, registrar);
@@ -931,9 +941,112 @@ fn art_pngs() -> Vec<PathBuf> {
     found
 }
 
+// ── Loading a bar block ───────────────────────────────────────────────────
+
+/// A bar block being brought in (`docs/quartile.md`): its long side's picture (16 × 32, its length up
+/// the picture) and its end's (16 × 16), each a file and its pixels (or why it can't be used), and
+/// the block's name.
+#[derive(Default)]
+pub struct IncomingBar {
+    side: Option<(PathBuf, Result<Vec<u8>, String>)>,
+    end: Option<(PathBuf, Result<Vec<u8>, String>)>,
+    name: String,
+    display: String,
+    /// Which picture the list below picks (true: the side), the PNGs to pick from, and the filter.
+    picking_side: bool,
+    files: Vec<PathBuf>,
+    filter: String,
+    images: [Option<egui::TextureHandle>; 2],
+}
+
+/// The sizes of a bar's pictures: a long side, and an end.
+const BAR_SIDE: (u32, u32) = (16, 32);
+const BAR_END: (u32, u32) = (16, 16);
+
+/// Every PNG under Art/ and `assets/new` (where new art is often put), for picking a bar's pictures.
+fn bar_pngs() -> Vec<PathBuf> {
+    let mut files = art_pngs();
+    let new = crate::data::assets_folder().join("new");
+    files.extend(std::fs::read_dir(new).into_iter().flatten().flatten().map(|entry| entry.path()).filter(|path| path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("png"))));
+    files.sort();
+    files
+}
+
+/// A bar picture's pixels, if it's the size wanted.
+fn bar_picture(path: &Path, (wide, tall): (u32, u32)) -> Result<Vec<u8>, String> {
+    let (width, height, pixels) = crate::render::textures::read_png(path)?;
+    if (width, height) == (wide, tall) { Ok(pixels) } else { Err(format!("is {width}×{height}, must be {wide}×{tall}")) }
+}
+
+impl IncomingBar {
+    /// Takes a picture as the side or the end, by its size (16 × 32 or 16 × 16), or as the one being
+    /// picked if it's neither; names the block after it if it has no name yet.
+    fn take(&mut self, path: &Path) {
+        let size = crate::render::textures::read_png(path).map(|(width, height, _)| (width, height)).ok();
+        let side = match size {
+            Some(BAR_SIDE) => true,
+            Some(BAR_END) => false,
+            _ => self.picking_side,
+        };
+        let picture = (path.to_path_buf(), bar_picture(path, if side { BAR_SIDE } else { BAR_END }));
+        if side {
+            self.side = Some(picture);
+            self.picking_side = false;
+        } else {
+            self.end = Some(picture);
+        }
+        self.images[usize::from(!side)] = None;
+        if self.name.is_empty() {
+            let name = asset_name(path);
+            let name = name.trim_end_matches("_side").trim_end_matches("_end").to_string();
+            self.display = name.replace('_', " ");
+            self.name = name;
+        }
+    }
+}
+
 impl Registrar {
-    /// A PNG to bring in (picked from Art/, or dragged onto the window): shown in the dock.
+    /// Copy the bar's pictures into the bars' textures (`<name>_side.png`, `<name>_end.png`) and make
+    /// its block, only ever a bar, after an undo step. The game reads them at once.
+    fn register_bar(&mut self) {
+        let Some(incoming) = self.bar_incoming.take() else { return };
+        let (Some((side, Ok(_))), Some((end, Ok(_)))) = (&incoming.side, &incoming.end) else { return };
+        let name = asset_name(Path::new(&incoming.name));
+        let id = format!("incus:{name}");
+        let folder = crate::data::bar_texture_folder();
+        let (side_to, end_to) = (folder.join(format!("{name}_side.png")), folder.join(format!("{name}_end.png")));
+        let block = crate::data::data_folder().join("incus").join("blocks").join(format!("{name}.toml"));
+        let what = format!("Registered the bar block {id}");
+        if let Err(error) = save_undo_step(&undo_folder(), &what, &[side_to.clone(), end_to.clone(), block.clone()]) {
+            self.message = format!("Not registered: couldn't save the undo step ({error}).");
+            return;
+        }
+        let written = std::fs::create_dir_all(&folder).map_err(|error| error.to_string()).and_then(|()| std::fs::copy(side, &side_to).map_err(|error| error.to_string())).and_then(|_| std::fs::copy(end, &end_to).map_err(|error| error.to_string()));
+        if let Err(error) = written {
+            self.message = format!("Couldn't copy the pictures: {error}. Undo takes back anything written.");
+            return;
+        }
+        let mut def = BlockDef::uniform(&id, "");
+        def.display_name = if incoming.display.trim().is_empty() { name.replace('_', " ") } else { incoming.display.trim().to_string() };
+        def.bar = Some(crate::data::BarLook { side: format!("{name}_side"), end: format!("{name}_end"), only: true });
+        let from = |path: &PathBuf| path.file_name().map_or(String::new(), |file| file.to_string_lossy().into_owned());
+        let header = format!("# {name}: a bar block (a quarter block), registered in the Registrar from {} and {}.\n# This file defines the block \"{id}\". See docs/data-files.md for every setting.", from(side), from(end));
+        if let Err(error) = std::fs::write(&block, crate::data::block_file_text(&def, &header)) {
+            self.message = format!("Couldn't write {}: {error}. Undo takes back anything written.", block.display());
+            return;
+        }
+        self.undo.push(what.clone());
+        self.selected = vec![Item::Block(id)];
+        self.message = format!("{what}; it shows in the library in a moment, and on the player panel's hotbar picker.");
+    }
+
+    /// A PNG to bring in (picked from Art/, or dragged onto the window): shown in the dock. While a
+    /// bar block is being loaded, it's one of the bar's pictures.
     pub fn receive(&mut self, path: &Path) {
+        if let Some(bar) = self.bar_incoming.as_mut() {
+            bar.take(path);
+            return;
+        }
         self.incoming = Some(Incoming {
             from: path.to_path_buf(),
             pixels: crate::render::textures::load_texture(path),
@@ -985,6 +1098,96 @@ impl Registrar {
         self.undo.push(what.clone());
         self.selected = vec![if making_block { Item::Block(id) } else { Item::Texture(name) }];
         self.message = format!("{what}; it shows in the library in a moment.");
+    }
+}
+
+/// A bar block coming in, in the dock: its two pictures (picked from the list, or dragged onto the
+/// window, each going in by its size), its name, and Register.
+fn bar_dock(ui: &mut egui::Ui, registrar: &mut Registrar) {
+    let (mut register, mut cancel, mut picked, mut pick_side) = (false, false, None, None);
+    let project = crate::debug::project_folder();
+    {
+        let Some(bar) = registrar.bar_incoming.as_mut() else { return };
+        ui.heading("New: a bar block");
+        ui.small("A quarter block with pictures of its own: its long side (16 × 32, its length up the picture) and its end (16 × 16), 32 pixels to a block like every block. Pick each from the list, or drag them onto the window: each goes in by its size.");
+        for (k, (label, (wide, tall))) in [("Side", BAR_SIDE), ("End", BAR_END)].into_iter().enumerate() {
+            let is_side = k == 0;
+            let picking = bar.picking_side == is_side;
+            let picture = if is_side { &bar.side } else { &bar.end };
+            let image = &mut bar.images[k];
+            ui.horizontal(|ui| {
+                if ui.selectable_label(picking, format!("{label}, {wide} × {tall}")).on_hover_text("Pick this one from the list below.").clicked() {
+                    pick_side = Some(is_side);
+                }
+                match picture {
+                    None => {
+                        ui.small("(none yet)");
+                    }
+                    Some((path, Ok(pixels))) => {
+                        let handle = image.get_or_insert_with(|| ui.ctx().load_texture(format!("bar picture {k}"), egui::ColorImage::from_rgba_unmultiplied([wide as usize, tall as usize], pixels), egui::TextureOptions::NEAREST));
+                        let (rect, _) = ui.allocate_exact_size(egui::vec2(wide as f32 * 3.0, tall as f32 * 3.0), egui::Sense::hover());
+                        ui.painter().image(handle.id(), rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
+                        ui.small(path.strip_prefix(&project).unwrap_or(path).display().to_string());
+                    }
+                    Some((path, Err(problem))) => {
+                        ui.colored_label(Color32::from_rgb(255, 80, 200), format!("{}: {problem}", path.file_name().map_or(String::new(), |file| file.to_string_lossy().into_owned())));
+                    }
+                }
+            });
+        }
+        ui.horizontal(|ui| {
+            ui.label("name:");
+            if ui.text_edit_singleline(&mut bar.name).lost_focus() {
+                bar.name = asset_name(Path::new(&bar.name));
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.label("shown as:");
+            ui.text_edit_singleline(&mut bar.display);
+        });
+        let name = asset_name(Path::new(&bar.name));
+        let exists = crate::data::data_folder().join("incus").join("blocks").join(format!("{name}.toml")).exists();
+        let ready = matches!((&bar.side, &bar.end), (Some((_, Ok(_))), Some((_, Ok(_))))) && !name.is_empty() && !exists;
+        ui.horizontal(|ui| {
+            let button = ui.add_enabled(ready, egui::Button::new("Register")).on_hover_text(format!("Copies the pictures to assets/textures/bars ({name}_side.png and {name}_end.png) and makes the block incus:{name}, only ever a bar."));
+            let why = if exists { format!("There's a block incus:{name} already: give it another name.") } else { "Both pictures, the right sizes, and a name.".to_string() };
+            if button.on_disabled_hover_text(why).clicked() {
+                register = true;
+            }
+            if ui.button("Cancel").clicked() {
+                cancel = true;
+            }
+        });
+        ui.separator();
+        ui.horizontal(|ui| {
+            ui.label(format!("Pick the {}:", if bar.picking_side { "side" } else { "end" }));
+            ui.add(egui::TextEdit::singleline(&mut bar.filter).hint_text("filter").desired_width(140.0));
+            if ui.small_button("Look again").clicked() {
+                bar.files = bar_pngs();
+            }
+        });
+        let filter = bar.filter.to_lowercase();
+        egui::ScrollArea::vertical().max_height(220.0).id_salt("bar picker").show(ui, |ui| {
+            for path in &bar.files {
+                let shown = path.strip_prefix(&project).unwrap_or(path).display().to_string().replace('\\', "/");
+                if (filter.is_empty() || shown.to_lowercase().contains(&filter)) && ui.selectable_label(false, &shown).clicked() {
+                    picked = Some(path.clone());
+                }
+            }
+        });
+    }
+    if let Some(bar) = registrar.bar_incoming.as_mut() {
+        if let Some(side) = pick_side {
+            bar.picking_side = side;
+        }
+        if let Some(path) = picked {
+            bar.take(&path);
+        }
+    }
+    if register {
+        registrar.register_bar();
+    } else if cancel {
+        registrar.bar_incoming = None;
     }
 }
 

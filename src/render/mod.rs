@@ -242,6 +242,8 @@ pub struct TerrainAssets {
     pub face_layers: Arc<Vec<[u32; 6]>>,
     /// Per block number: is each face's texture randomly rotated?
     pub face_random_rotation: Arc<Vec<[bool; 6]>>,
+    /// Per block number: its bars' own textures (a long side, an end), if it has them.
+    pub bar_layers: Arc<Vec<Option<[u32; 2]>>>,
     pub layer_names: Vec<String>,
     pub texture_problems: Vec<String>,
     /// Whether the shrunk textures keep their painted colours (`RenderSettings::painted_mips`).
@@ -283,6 +285,7 @@ fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>, pa
         inner_faces: Arc::new(registry.defs().iter().map(|def| def.inner_faces).collect()),
         face_layers: Arc::new(textures.face_layers),
         face_random_rotation: Arc::new(rotation_table(registry)),
+        bar_layers: Arc::new(textures.bar_layers),
         layer_names: textures.layer_names,
         texture_problems: textures.problems,
         painted_mips,

@@ -82,6 +82,9 @@ impl Slot {
     }
 }
 
+/// The piece filling each of a cell's 8 octants: its slot and its block.
+pub type Owners = [Option<(Slot, BlockId)>; 8];
+
 /// A cell's pieces, in the order placed.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Pieces {
@@ -112,16 +115,22 @@ impl Pieces {
 
     /// What fills each octant (`AIR`: nothing), the first piece keeping a shared one.
     pub fn octants(&self) -> [BlockId; 8] {
-        let mut octants = [BlockId::AIR; 8];
+        self.owners().map(|owner| owner.map_or(BlockId::AIR, |(_, block)| block))
+    }
+
+    /// The piece filling each octant, its slot and block (the first piece keeping a shared one): a
+    /// bar's own textures are measured from its own corner, even where another took part of it.
+    pub fn owners(&self) -> Owners {
+        let mut owners = [None; 8];
         for &(slot, block) in &self.list {
             let mask = slot.octants();
-            for (o, octant) in octants.iter_mut().enumerate() {
-                if mask >> o & 1 == 1 && octant.is_air() {
-                    *octant = block;
+            for (o, owner) in owners.iter_mut().enumerate() {
+                if mask >> o & 1 == 1 && owner.is_none() {
+                    *owner = Some((slot, block));
                 }
             }
         }
-        octants
+        owners
     }
 }
 

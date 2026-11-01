@@ -77,6 +77,10 @@ pub enum RefuseReason {
     NotLoaded,
     /// Time is paused, so the world can't change.
     TimePaused,
+    /// A bar of a block that isn't marked as one that can be a bar (its file's `bar`).
+    NotABar,
+    /// A whole block of one that's only ever a bar.
+    OnlyABar,
 }
 
 /// "That request was turned down, and here's why."
@@ -192,6 +196,10 @@ pub fn apply_block_edits(
         let mut pieces = None;
         let new = match request.kind {
             EditKind::AddPiece { slot, block } => {
+                if registry.def(block).is_none_or(|def| def.bar.is_none()) {
+                    refuse(request, RefuseReason::NotABar, &mut recent);
+                    continue;
+                }
                 let mut cell = if old == BlockId::PIECES {
                     world.get_pieces(request.position).cloned().unwrap_or_default()
                 } else if registry.is_replaceable(old) {
@@ -219,6 +227,10 @@ pub fn apply_block_edits(
                 BlockId::AIR
             }
             EditKind::Place(block) => {
+                if registry.def(block).is_some_and(|def| def.bar.as_ref().is_some_and(|bar| bar.only)) {
+                    refuse(request, RefuseReason::OnlyABar, &mut recent);
+                    continue;
+                }
                 // Into air, or into something replaceable (like the grid), but never into the
                 // same block that's already there.
                 if !registry.is_replaceable(old) || old == block {
@@ -260,7 +272,10 @@ mod tests {
 
     /// A tiny app with just the test world and the edit system, run for one update.
     fn run_requests(requests: &[BlockEditRequest]) -> (App, TestBlocks) {
-        let registry = BlockRegistry::default();
+        // Stone can be a bar here (for the bars' tests).
+        let mut registry = BlockRegistry::default();
+        let stone = registry.id("incus:stone").unwrap();
+        registry.def_mut(stone).unwrap().bar = Some(Default::default());
         let blocks = TestBlocks::from_registry(&registry);
         let mut voxels = VoxelWorld::default();
         generate_test_world(&mut voxels, &TestWorldSettings::default(), &blocks);
@@ -325,8 +340,11 @@ mod tests {
         // Two bars, then one whose octants are both taken (the same slot again), then one into the
         // grass below (a whole block): those two refused.
         let below = BlockEditRequest { position: IVec3::new(0, 0, 144), ..bar(0) };
-        let (mut app, _) = run_requests(&[bar(0), bar(4), bar(0), below]);
-        assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied, RefuseReason::Occupied]);
+        // And a bar of grass, which isn't marked as a block that can be a bar.
+        let grass = BlockRegistry::default().id("incus:grass").unwrap();
+        let grass_bar = BlockEditRequest { position: IVec3::new(2, 0, 145), kind: EditKind::AddPiece { slot: Slot(0), block: grass }, source: PLAYER };
+        let (mut app, _) = run_requests(&[bar(0), bar(4), bar(0), below, grass_bar]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied, RefuseReason::Occupied, RefuseReason::NotABar]);
         let world = app.world().resource::<VoxelWorld>();
         assert_eq!(world.get_block(cell), BlockId::PIECES);
         assert_eq!(world.get_pieces(cell).map(|pieces| pieces.list().len()), Some(2));

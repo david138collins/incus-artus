@@ -220,16 +220,44 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
     return light;
 }
 
+// A bar's own texture, measured from the bar's own corner (src/render/mesher.rs, `BAR_TAG`): `slot`
+// says which bar (its axis × 4 + its place across). A long side's picture runs up the bar's length,
+// whichever way the bar lies; an end's covers the ½ × ½ end. Each layer is the bar's picture with
+// its pixels repeated to fill 32 × 32, so 0 to 1 across the bar's own width covers it.
+fn bar_uv(face: u32, p: vec3<f32>, slot: u32) -> vec2<f32> {
+    let axis = slot / 4u;
+    let u = (axis + 1u) % 3u;
+    let v = (axis + 2u) % 3u;
+    // Where in its cell (0 to 1 each way), from a hair inside the face.
+    let inside = p - face_normal(face) * 0.001;
+    let c = inside - floor(inside);
+    let along = c[axis];
+    let across_u = (c[u] - f32(slot & 1u) * 0.5) * 2.0;
+    let across_v = (c[v] - f32((slot >> 1u) & 1u) * 0.5) * 2.0;
+    let facing = face / 2u;
+    if facing == axis {
+        return vec2<f32>(across_u, 1.0 - across_v);
+    }
+    // A long side: across is the bar's other axis lying in this face.
+    let across = select(across_u, across_v, facing == u);
+    return vec2<f32>(across, 1.0 - along);
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let base_uv = face_uv(in.face, in.local);
+    let bar = (in.quad & 0x8000u) != 0u;
+    var base_uv = face_uv(in.face, in.local);
+    if bar {
+        // (Kept off the far edge, which the sampler would wrap back to the near one.)
+        base_uv = clamp(bar_uv(in.face, in.local, in.quad & 31u), vec2<f32>(0.0), vec2<f32>(0.9999));
+    }
     // How fast the texture position changes across the screen: picks the distant (mip) version.
     // Taken from the unrotated position, so turning a block never changes its blurriness.
     let uv_dx = dpdx(base_uv);
     let uv_dy = dpdy(base_uv);
 
     var uv = base_uv;
-    if in.random_rotation == 1u && settings.options.x > 0.5 {
+    if in.random_rotation == 1u && settings.options.x > 0.5 && !bar {
         // The block this pixel belongs to: step half a block back from the face, into the block.
         let in_block = in.local - face_normal(in.face) * 0.5;
         let block = in.section_origin + vec3<i32>(floor(in_block));

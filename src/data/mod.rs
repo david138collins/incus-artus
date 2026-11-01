@@ -42,6 +42,11 @@ pub fn data_folder() -> PathBuf {
 }
 
 /// `assets/textures/blocks`: the block face images.
+/// Where bars' own textures are (a long side 16 × 32, an end 16 × 16).
+pub fn bar_texture_folder() -> PathBuf {
+    assets_folder().join("textures").join("bars")
+}
+
 pub fn block_texture_folder() -> PathBuf {
     assets_folder().join("textures").join("blocks")
 }
@@ -97,6 +102,19 @@ pub struct BlockDef {
     pub tags: Vec<String>,
     /// A building aid (grid, outline): its colours stay out of the master palette, as the UI's do.
     pub tool: bool,
+    /// Whether it can be a bar (a quarter block, `world/pieces.rs`): only blocks marked can [David,
+    /// 2026-11-01], and how a bar of it looks.
+    pub bar: Option<BarLook>,
+}
+
+/// How a block's bars look: their own textures, a long side (16 × 32 pixels, its length up the
+/// picture) and an end (16 × 16), in `assets/textures/bars/`; or, left empty, a share of the block's
+/// own textures. `only`: it's only ever a bar, never placed whole.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BarLook {
+    pub side: String,
+    pub end: String,
+    pub only: bool,
 }
 
 impl BlockDef {
@@ -117,6 +135,7 @@ impl BlockDef {
             friction: 1.0,
             tags: Vec::new(),
             tool: false,
+            bar: None,
         }
     }
 
@@ -136,6 +155,7 @@ impl BlockDef {
             friction: 1.0,
             tags: Vec::new(),
             tool: false,
+            bar: None,
         }
     }
 }

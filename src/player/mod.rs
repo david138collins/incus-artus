@@ -386,14 +386,14 @@ struct SprintView {
 /// The blocks keys 1 to 5 choose between.
 #[derive(Resource)]
 pub struct Hotbar {
-    pub slots: Vec<&'static str>,
+    pub slots: Vec<String>,
     pub selected: usize,
 }
 
 impl Default for Hotbar {
     fn default() -> Self {
         Self {
-            slots: vec!["incus:stone", "incus:gabbro", "incus:grass", "incus:grid", "incus:outline"],
+            slots: ["incus:stone", "incus:gabbro", "incus:grass", "incus:grid", "incus:outline"].map(String::from).to_vec(),
             selected: 0,
         }
     }
@@ -1058,7 +1058,7 @@ fn draw_hotbar(
         let label = registry
             .id(name)
             .and_then(|id| registry.def(id))
-            .map_or(*name, |def| def.display_name.as_str());
+            .map_or(name.as_str(), |def| def.display_name.as_str());
         painter.text(
             rect.center(),
             egui::Align2::CENTER_CENTER,
@@ -1254,6 +1254,29 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
             }
         });
         ui.checkbox(&mut piece.advance, "go on to the next after each").on_hover_text("Pressing B again and again goes round all 12 bars, so a cell fills up bar by bar.");
+    }
+    {
+        // Any block onto the selected hotbar slot (registered blocks, bar blocks among them).
+        let blocks: Vec<(String, String, bool)> = {
+            let registry = world.resource::<BlockRegistry>();
+            registry.defs().iter().skip(1).map(|def| (def.name.clone(), def.display_name.clone(), def.bar.is_some())).collect()
+        };
+        let mut hotbar = world.resource_mut::<Hotbar>();
+        let selected = hotbar.selected;
+        if let Some(slot) = hotbar.slots.get_mut(selected) {
+            ui.horizontal(|ui| {
+                ui.label(format!("Hotbar slot {}:", selected + 1));
+                let shown = blocks.iter().find(|(name, _, _)| name == slot).map_or(slot.clone(), |(_, display, _)| display.clone());
+                egui::ComboBox::from_id_salt("hotbar slot block").selected_text(shown).show_ui(ui, |ui| {
+                    for (name, display, bar) in &blocks {
+                        let text = if *bar { format!("{display} (can be a bar)") } else { display.clone() };
+                        if ui.selectable_label(slot == name, text).on_hover_text(name).clicked() {
+                            *slot = name.clone();
+                        }
+                    }
+                });
+            });
+        }
     }
 
     // ── Recent block changes (the messages the world sent) ──

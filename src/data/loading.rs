@@ -14,6 +14,9 @@
 //! friction = 1.0                     # 1 = ordinary ground, lower = slipperier
 //! tags = ["rock/igneous", "ore"]     # for grouping in the Registrar; "/" nests, as folders do
 //! tool = false                       # a building aid: its colours stay out of the master palette
+//! bar = { side = "x_side", end = "x_end", only = true }  # it can be a bar (quarter block): its
+//!                                    # own textures (assets/textures/bars/; none = a share of its
+//!                                    # own), and only ever a bar
 //! ```
 //!
 //! Face words, for `textures` and `random_rotation`: `all`, `sides`, `top`, `bottom`, `north`,
@@ -22,7 +25,7 @@
 //! Mistakes are reported (with the file and line), never crash the game: a file that can't
 //! be read leaves its block as it was.
 
-use super::{BlockDef, TextureRotation};
+use super::{BarLook, BlockDef, TextureRotation};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -56,6 +59,17 @@ struct BlockFile {
     replaceable: Option<bool>,
     tags: Vec<String>,
     tool: bool,
+    bar: Option<BarFile>,
+}
+
+/// `bar = { side = "…", end = "…", only = true }`: it can be a bar, with these textures of its own
+/// (in `assets/textures/bars/`; none: a share of the block's), and perhaps only ever a bar.
+#[derive(Deserialize, Default)]
+#[serde(default, deny_unknown_fields)]
+struct BarFile {
+    side: String,
+    end: String,
+    only: bool,
 }
 
 /// Which faces a face word means (numbers as in `FACE_NAMES`), and how specific it is.
@@ -107,8 +121,15 @@ pub fn parse_block(id: &str, text: &str) -> Result<(BlockDef, Vec<String>), Stri
             None => warnings.push(format!("unknown face '{word}' in textures (use {FACE_WORDS})")),
         }
     }
-    if def.faces.iter().any(String::is_empty) {
+    def.bar = file.bar.map(|bar| BarLook { side: bar.side, end: bar.end, only: bar.only });
+    // (A block that's only ever a bar needs no whole faces.)
+    if def.faces.iter().any(String::is_empty) && !def.bar.as_ref().is_some_and(|bar| bar.only) {
         warnings.push("some faces have no texture (they show the magenta checkerboard)".to_string());
+    }
+    if let Some(bar) = &def.bar
+        && bar.side.is_empty() != bar.end.is_empty()
+    {
+        warnings.push("a bar needs both a side and an end texture of its own, or neither (a share of the block's)".to_string());
     }
 
     for word in &file.random_rotation {
@@ -234,6 +255,16 @@ pub fn block_file_text(def: &BlockDef, header: &str) -> String {
     if def.tool {
         text += "tool = true\n";
     }
+    if let Some(bar) = &def.bar {
+        let mut parts = Vec::new();
+        if !bar.side.is_empty() || !bar.end.is_empty() {
+            parts.push(format!("side = {:?}, end = {:?}", bar.side, bar.end));
+        }
+        if bar.only {
+            parts.push("only = true".to_string());
+        }
+        text += &format!("bar = {{ {} }}\n", parts.join(", "));
+    }
     text
 }
 
@@ -341,6 +372,9 @@ mod tests {
             "name = \"Grass\"\ntextures = { top = \"grass_top\", sides = \"grass_side\", bottom = \"dirt\" }\nrandom_rotation = [\"top\"]\ntags = [\"ground\"]",
             "look = \"outline\"\ntextures = { all = \"grid\" }\ntool = true",
             "textures = { north = \"a\", south = \"b\", east = \"a\", west = \"a\", top = \"c\", bottom = \"c\" }\nrandom_rotation = [\"sides\", \"bottom\"]\nfriction = 0.25\nsolid = false\ntargetable = false",
+            // Bars: a block that can be one (a share of its own textures), and one that's only a bar.
+            "textures = { all = \"oak_log\" }\nbar = {}",
+            "name = \"Stone brick\"\nbar = { side = \"stone_brick_side\", end = \"stone_brick_end\", only = true }",
         ];
         for file in files {
             let (def, _) = parse_block("incus:grass", file).unwrap();

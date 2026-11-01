@@ -30,7 +30,7 @@ pub mod placer;
 mod terrain;
 
 pub use block::BlockId;
-pub use pieces::{Pieces, Slot};
+pub use pieces::{Owners, Pieces, Slot};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason,

@@ -41,6 +41,8 @@ pub struct BlockTextures {
     pub problems: Vec<String>,
     /// Per block number: the layer used by each of its six faces.
     pub face_layers: Vec<[u32; 6]>,
+    /// Per block number: its bars' own textures (a long side, an end), if it has them.
+    pub bar_layers: Vec<Option<[u32; 2]>>,
 }
 
 /// `painted`: the shrunk versions keep the texture's own colours (see `keep_painted`), and the GPU
@@ -54,6 +56,7 @@ pub fn build_block_textures(registry: &BlockRegistry, painted: bool) -> BlockTex
     let mut layer_of: HashMap<String, u32> = HashMap::new();
 
     let mut face_layers = Vec::with_capacity(registry.len());
+    let mut bar_layers = Vec::with_capacity(registry.len());
     for def in registry.defs() {
         let mut faces = [0u32; 6];
         for (face, texture) in def.faces.iter().enumerate() {
@@ -77,6 +80,24 @@ pub fn build_block_textures(registry: &BlockRegistry, painted: bool) -> BlockTex
             faces[face] = layer;
         }
         face_layers.push(faces);
+        // Its bars' own textures, if it has them: a long side and an end.
+        let bar = def.bar.as_ref().filter(|bar| !bar.side.is_empty() && !bar.end.is_empty()).map(|bar| {
+            [(&bar.side, (16, 32)), (&bar.end, (16, 16))].map(|(texture, size)| {
+                *layer_of.entry(format!("bar:{texture}")).or_insert_with(|| match load_bar_texture(&crate::data::bar_texture_folder().join(format!("{texture}.png")), size) {
+                    Ok(pixels) => {
+                        layers.push(pixels);
+                        layer_names.push(format!("{texture} (a bar's)"));
+                        (layers.len() - 1) as u32
+                    }
+                    Err(reason) => {
+                        warn!("Bar texture '{texture}': {reason}");
+                        problems.push(format!("{texture} (a bar's): {reason}"));
+                        0
+                    }
+                })
+            })
+        });
+        bar_layers.push(bar);
     }
 
     BlockTextures {
@@ -84,32 +105,44 @@ pub fn build_block_textures(registry: &BlockRegistry, painted: bool) -> BlockTex
         layer_names,
         problems,
         face_layers,
+        bar_layers,
     }
+}
+
+/// Load a bar's texture (`assets/textures/bars/`): a long side, `wide` × `tall` 16 × 32, or an end,
+/// 16 × 16 (32 pixels a block, as every block's). Each pixel is repeated to fill a layer (32 × 32),
+/// so the bar's own corner measures it in the shader and every pixel keeps its size.
+pub(crate) fn load_bar_texture(path: &std::path::Path, (wide, tall): (u32, u32)) -> Result<Vec<u8>, String> {
+    let (width, height, rgba) = read_png(path)?;
+    if (width, height) != (wide, tall) {
+        return Err(format!("is {width}×{height}, a bar's must be {wide}×{tall}"));
+    }
+    let mut pixels = Vec::with_capacity((TEXTURE_SIZE * TEXTURE_SIZE * 4) as usize);
+    for y in 0..TEXTURE_SIZE {
+        for x in 0..TEXTURE_SIZE {
+            let from = ((y * tall / TEXTURE_SIZE) * wide + x * wide / TEXTURE_SIZE) as usize * 4;
+            pixels.extend_from_slice(&rgba[from..from + 4]);
+        }
+    }
+    Ok(pixels)
+}
+
+/// A PNG's size and RGBA pixels, or why not.
+pub(crate) fn read_png(path: &std::path::Path) -> Result<(u32, u32, Vec<u8>), String> {
+    let bytes = std::fs::read(path).map_err(|_| format!("file not found ({})", path.display()))?;
+    let image = Image::from_buffer(&bytes, ImageType::Extension("png"), CompressedImageFormats::NONE, true, ImageSampler::Default, RenderAssetUsages::MAIN_WORLD)
+        .map_err(|e| format!("not a readable PNG ({e})"))?;
+    let (width, height) = (image.width(), image.height());
+    let rgba = image.convert(TextureFormat::Rgba8UnormSrgb).and_then(|converted| converted.data).ok_or_else(|| "unsupported pixel format".to_string())?;
+    Ok((width, height, rgba))
 }
 
 /// Load a PNG as 32 × 32 RGBA pixels, or explain why not.
 pub(crate) fn load_texture(path: &std::path::Path) -> Result<Vec<u8>, String> {
-    let bytes = std::fs::read(path).map_err(|_| format!("file not found ({})", path.display()))?;
-    let image = Image::from_buffer(
-        &bytes,
-        ImageType::Extension("png"),
-        CompressedImageFormats::NONE,
-        true,
-        ImageSampler::Default,
-        RenderAssetUsages::MAIN_WORLD,
-    )
-    .map_err(|e| format!("not a readable PNG ({e})"))?;
-    if image.width() != TEXTURE_SIZE || image.height() != TEXTURE_SIZE {
-        return Err(format!(
-            "is {}×{}, must be {TEXTURE_SIZE}×{TEXTURE_SIZE}",
-            image.width(),
-            image.height()
-        ));
+    let (width, height, rgba) = read_png(path)?;
+    if width != TEXTURE_SIZE || height != TEXTURE_SIZE {
+        return Err(format!("is {width}×{height}, must be {TEXTURE_SIZE}×{TEXTURE_SIZE}"));
     }
-    let rgba = image
-        .convert(TextureFormat::Rgba8UnormSrgb)
-        .and_then(|converted| converted.data)
-        .ok_or_else(|| "unsupported pixel format".to_string())?;
     Ok(rgba)
 }
 
