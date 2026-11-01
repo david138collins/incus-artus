@@ -109,6 +109,10 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
         *Counsel's guesses, unchecked:* the ridges' wander is in the ground the rivers are planned on,
         so new barcodes give a new river network; and 64 evenly spread arrows give evener texture
         than arrows at any angle (as in Perlin's improved noise of 2002).
+        **Checked later the same day:** the coarse first version's flaw wasn't the cause. David,
+        comparing it with the finer fix: "fine noise doesn't change the rivers at all... whole numbers
+        is the same. no worries." Both versions share the new barcodes and the 64 arrows, so which of
+        those two it is stays open, and David doesn't need it separated.
       - **[DECIDED 2026-11-01] Whole numbers are the default** (David: "i'd like for whole math to be
         the default setting now; when we gotta can the fractional code entirely just for
         housekeeping or software reasons, i'll make the final call."). The fractional noise stays
