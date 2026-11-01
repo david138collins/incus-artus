@@ -2150,12 +2150,28 @@ to 58, every block regulated). Next:
       quarter blocks spawn in world gen?" reminder: yes, inside the trees the world places.
    5. **The asset factory world and the Blueprints tab** (`docs/decisions.md`), "needed before
       trees": build a tree from library blocks and register it as a blueprint.
+      **[David 2026-10-31] The orthographic camera, roughed in with the Registrar upgrade:** "it
+      should be present enough to be relevantly measured during the graphics and performance pass."
+      It's already decided to come with the blueprint module (`docs/decisions.md`, "The isometric
+      perspective is built with the blueprint module"), and the dock's previews are its pictures.
+      *Counsel* [PROPOSED]: to be measured, it has to look at a real world, not only the factory's
+      platform:
+      - switchable in any world;
+      - zoom, pan, and turns of 90°;
+      - the soak test given a leg with it, at a foreman's height over a wide area.
+      Seen from above, it puts far more of the world on screen at middle distance than first person
+      does, which is a different load to measure. The height cut and indicators on people can wait for
+      the foreman view.
    6. **Ecology** places tree blueprints with the same system, by temperature, rain, distance to
       water, slope and height. **Trees in the far view** come with it (sprites of themselves), which
       is the real test for performance.
    7. **Caves:** the far-3D contract (the cave section's proposal, and David's holes in the canvas),
       carving under the surface, and the first kind, the waterfall cave.
-   8. Then the graphics pass and the performance overhaul, with all three in.
+   8. Then the graphics pass and the performance overhaul, with all three in, and the orthographic
+      camera measured alongside first person. **[David 2026-10-31] Its aim:** it "hopefully will
+      reduce cpu temp and raise gpu temp", moving the work from the CPU to the GPU (the kung fu in
+      `vision/proposal-voxel-renderer.md`). *Counsel:* the soak test could then record how busy the
+      CPU and the GPU are next to the frame times, so each change shows which way the work moved.
 
    **Art David could start on** (his to make):
    - the rock types (the starter set in item 3 above);

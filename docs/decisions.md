@@ -359,6 +359,9 @@ Reference: `Art/quartile minecraft illustration.png`
       reason to wait, and it isn't terribly complex. Like Minecraft's OrthoCamera mod. *Counsel:* the
       dock's preview is then that camera's render baked to a small picture when registered, which is
       also the tree sprite's first step.
+      **[David 2026-10-31] Roughed in with the Registrar upgrade, and measurable:** the orthographic
+      camera mode should be "present enough to be relevantly measured during the graphics and
+      performance pass" (`docs/worldgen.md`, "Where the road stands", path steps 5 and 8).
     - **Blueprints in segments:** players can make blueprints too, up to **32×32×32 blocks** each.
       Enormous things are made by stamping segments together and rotating them (90° turns): a 50-block
       wall from a lower section and an upper section.
