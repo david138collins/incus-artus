@@ -502,6 +502,19 @@ Reference: `Art/quartile minecraft illustration.png`
       where they'd land. Branches on the side the tree falls toward break off.
     - **Leaves piled on half the logs:** "there should be s grass piled up on half the logs", and
       then "i mean leaves, not grass".
+    - **The fall itself is simple:** it tips over an edge, slowly getting faster until it's at 90
+      degrees, then drops straight down, and may bounce once. It can injure and knock back players.
+    - **The hard part is the branch underneath:** unless it snaps off whole and finds a place to one
+      side of the main log and the other branches, it would land on top of them. David's words:
+      "except for the branch on the bottom, unless it snaps off whole, and somehow finds a place to
+      either side of the main log and other branches, that would land on top."
+    - *Counsel* [PROPOSED], for the branch underneath, in order of preference:
+      1. **It folds aside:** it turns another quarter turn at its joint and lies flat beside the
+         trunk, still attached, so the logs stay together.
+      2. **It snaps off whole** and skids out to the nearest free place on either side.
+      3. **Neither fits:** it breaks into pieces you can pick up.
+      - **Who gets hit:** the fall is planned before it starts, so the ground it sweeps is known. Anyone
+        under it is hit and knocked back, and there's room for a warning first (a creak, a shadow).
     - **The fall looks bouncy but snaps:** a path that looks like physics but only takes each piece to
       its place on the octant grid. It has to be fun to watch.
     - **Dropped items and breaking:** "if i cant think of a better way, minecraft isnt broken."
