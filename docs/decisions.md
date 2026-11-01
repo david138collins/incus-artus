@@ -492,6 +492,25 @@ Reference: `Art/quartile minecraft illustration.png`
       like the world (`vision/watch-list.md`, item 17, far entities as sprites).
     - **What it needs first:** the quartile placement system built (quartile oak), the block register
       (oak blocks), and the structure suite. Then trees, then felling.
+  - **[IDEA, David 2026-11-01] How a felled tree lands, and chopping it up:**
+    - **Logs stay together as much as they can:** "once you chop it down, you have to chop it up
+      again."
+    - **Chopping up is a minigame:** logs into quarter logs, for fires or building, "just like hammer
+      and chiseling full blocks apart". Once a piece is cut, "it has to pop off and be pickupable".
+    - **Leaves can just vanish.** Branches on the side the tree falls toward break off.
+    - **The fall looks bouncy but snaps:** a path that looks like physics but only takes each piece to
+      its place on the octant grid. It has to be fun to watch.
+    - **Dropped items and breaking:** "if i cant think of a better way, minecraft isnt broken."
+    - *Counsel* [PROPOSED]:
+      - **The whole fall is worked out when the last cut lands:** the direction, where the trunk rests
+        (downhill wins, kept in one piece), and which branches break. The fall is then only an
+        animation toward those places (a tipping arc, a bounce or two that get smaller, a settle),
+        tuned like a cartoon. It's the same every time, and only where things ended up is saved.
+      - **Breaking:** crack stages drawn by David over the block, and chips coloured from the block's
+        own texture.
+      - **Dropped pieces could settle onto an octant as small objects**, so a pile is a real pile.
+        Minecraft's floating, spinning drop is the fallback. Whether drops fade away after a while is
+        David's call, later.
   - **[IDEA, David 2026-10-29] The asset factory world and entity assets.**
     - **Where:** a little lab, a world set up as a nice platform. There you build Minecraft-style with
       the library's blocks, insert data (hook) blocks over the build, and register it as an **entity

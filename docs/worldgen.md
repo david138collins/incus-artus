@@ -1309,6 +1309,12 @@ to evaporation.
     dark pixels ("holes in the canvas", below). By night, in a dark world, a lair's fire at a mouth on
     a mountainside shows for miles: a point of light that tells a story and warns. Far lights can be
     cheap points or sprites in the far view, placed from the plan and the sites.
+  - **[David 2026-11-01] Lights inside show from outside:** "lights have to be visible from inside
+    the cave. snd statues maybe light permitting. for dwarves there will be villagers in and out of
+    great hall entrances." A fire or brazier inside a mouth shows from the outside, and a statue at a
+    mouth shows if there's light enough on it. A dwarf great hall's entrance is busy: villagers go in
+    and out. *Counsel:* so the far mouth (caves stop 4) is more than a dark spot. What a mouth shows
+    from far away is its light and what that light falls on, and up close the comings and goings.
   - **[IDEA, David 2026-11-01] What's down there:** "underground dungeons could have magic
     [braziers] like from doom II, undeground cult lairs, spider nests, goblin hovels, trolls, ogres,
     skeletons and zombies for some reason. glowing lichen could be helpful." It fits the hostile
