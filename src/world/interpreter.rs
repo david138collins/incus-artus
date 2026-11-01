@@ -49,7 +49,7 @@
 //!    2026-10-28: David found none of the hill controls did what he wanted.]
 
 use super::terrain::SEA_LEVEL;
-use crate::worldgen::noise::{Fade, PerlinSettings, perlin};
+use crate::worldgen::noise::{Fade, NoiseMaths, PerlinSettings, perlin_in, perlin_with_slope_in};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -239,6 +239,9 @@ pub struct InterpreterSettings {
     /// stone and gabbro start at were settings of their own until 2026-11-01; they're those
     /// candidates' steps now.)
     pub mineralogy: super::mineralogy::MineralogySettings,
+    /// The maths the recipe's noise is worked out in (an A/B switch for now, to compare worlds both ways
+    /// before it's whole numbers for good) [David, 2026-11-01].
+    pub noise_maths: NoiseMaths,
 }
 
 impl Default for InterpreterSettings {
@@ -273,6 +276,7 @@ impl Default for InterpreterSettings {
             detail_keeps_coast: true,
             torn_coast: TornCoast::default(),
             mineralogy: Default::default(),
+            noise_maths: NoiseMaths::Fractions,
         }
     }
 }
@@ -874,8 +878,8 @@ pub struct CompiledMap {
 
 /// A Perlin field (as a Graphics Kit layer makes it, output shaping and all) at a spot, about −1
 /// to 1. (Filling black to white needs the whole field at once, so it has no say here.)
-fn noise_at(noise: &PerlinSettings, seed: u64, north: f32, east: f32) -> f32 {
-    noise.output.shape(noise.raw(seed, north, east) * 0.5 + 0.5) * 2.0 - 1.0
+fn noise_at(maths: NoiseMaths, noise: &PerlinSettings, seed: u64, north: f32, east: f32) -> f32 {
+    noise.output.shape(noise.raw_in(maths, seed, north, east) * 0.5 + 0.5) * 2.0 - 1.0
 }
 
 fn smooth(t: f32) -> f32 {
@@ -895,10 +899,10 @@ const RIDGE_DIRECTIONS: usize = 12;
 
 /// A ridge pattern, 0 to 1 (1 = a crest): `layers` of "folded" noise stacked, each 2.1 times finer
 /// and `roughness` times as strong as the last, whose creases are the crests.
-fn ridges(seed: u64, u: f32, v: f32, sharpness: f32, layers: u32, roughness: f32) -> f32 {
+fn ridges(maths: NoiseMaths, seed: u64, u: f32, v: f32, sharpness: f32, layers: u32, roughness: f32) -> f32 {
     let (mut total, mut strength, mut strengths, mut scale) = (0.0, 1.0, 0.0, 1.0);
     for octave in 0..layers.max(1) as u64 {
-        let crest = 1.0 - perlin(seed, 0xa11 + octave, Fade::Smooth, u * scale, v * scale).abs().min(1.0);
+        let crest = 1.0 - perlin_in(maths, seed, 0xa11 + octave, Fade::Smooth, u * scale, v * scale).abs().min(1.0);
         total += crest.powf(sharpness.max(0.1)) * strength;
         strengths += strength;
         strength *= roughness;
@@ -1040,7 +1044,7 @@ impl CompiledMap {
         // bases shift instead of running dead straight side by side.
         let (x, y) = if s.ridge_wander > 0.0 {
             let size = s.ridge_wander_size.max(1.0);
-            let nudge = |k| perlin(seed, k, Fade::Smooth, x / size, y / size) * s.ridge_wander;
+            let nudge = |k| perlin_in(s.noise_maths, seed, k, Fade::Smooth, x / size, y / size) * s.ridge_wander;
             (x + nudge(0x3a1), y + nudge(0x3a2))
         } else {
             (x, y)
@@ -1050,7 +1054,7 @@ impl CompiledMap {
             let push = (direction.cos(), -direction.sin());
             let across = x * push.0 + y * push.1;
             let along = -x * push.1 + y * push.0;
-            ridges(seed ^ k.wrapping_mul(0x9e37_79b9), across / spacing, along / length.max(1.0), s.sharpness, layers, roughness)
+            ridges(s.noise_maths, seed ^ k.wrapping_mul(0x9e37_79b9), across / spacing, along / length.max(1.0), s.sharpness, layers, roughness)
         };
         let lined_up = if s.steady_ridges {
             // Steady: each of a few fixed directions has its own pattern laid across the whole
@@ -1069,7 +1073,7 @@ impl CompiledMap {
         } else {
             lined(angle, 0)
         };
-        let wandering = ridges(seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness, layers, roughness);
+        let wandering = ridges(s.noise_maths, seed ^ 0x5eed, x / spacing, y / spacing, s.sharpness, layers, roughness);
         let clear = smooth(here.push_strength * s.ridge_alignment.max(0.0) / 0.1);
         wandering + (lined_up - wandering) * clear
     }
@@ -1116,7 +1120,7 @@ impl CompiledMap {
                 // The outline wanders in and out round the peak: a slow noise over its own ground
                 // (the same for the spots a block away: it hardly changes over a block).
                 let size = width * 0.6;
-                width *= 1.0 + peak.wobble * perlin(peak.seed, 0x0b1e, Fade::Smooth, dx / size, dy / size);
+                width *= 1.0 + peak.wobble * perlin_in(self.settings.noise_maths, peak.seed, 0x0b1e, Fade::Smooth, dx / size, dy / size);
             }
             let width = width.max(1.0);
             for (k, (dx, dy)) in [(dx, dy), (dx + 1.0, dy), (dx, dy + 1.0)].into_iter().enumerate() {
@@ -1148,7 +1152,7 @@ impl CompiledMap {
             return 0.0;
         }
         let coast = smooth(here.coast_distance / p.coast_fade.max(1.0)).powf(p.coast_falloff.max(0.01));
-        noise_at(&p.summit_noise, self.noise_seed ^ 0x5a_c4a6, -y, x) * p.summit * shown * coast
+        noise_at(self.settings.noise_maths, &p.summit_noise, self.noise_seed ^ 0x5a_c4a6, -y, x) * p.summit * shown * coast
     }
 
     /// How much room a peak's crags have, as a share of its height: faded in from its foot (`t` 0)
@@ -1172,7 +1176,7 @@ impl CompiledMap {
             if size < 1.0 {
                 break;
             }
-            let (value, along_x, along_y) = crate::worldgen::noise::perlin_with_slope(self.noise_seed ^ 0xc4a6, layer as u64, x / size, y / size);
+            let (value, along_x, along_y) = perlin_with_slope_in(self.settings.noise_maths, self.noise_seed ^ 0xc4a6, layer as u64, x / size, y / size);
             let kept = self.slope_response.at((steep.0.hypot(steep.1) / steepest).min(1.0)).clamp(0.0, 1.0);
             total += strength * kept * value;
             steep = (steep.0 + strength * kept * along_x / size, steep.1 + strength * kept * along_y / size);
@@ -1229,13 +1233,13 @@ impl CompiledMap {
             0.0
         } else {
             let size = t.patch_size.max(1.0);
-            let patch = perlin(self.noise_seed, 0x7042, Fade::Smooth, x / size, y / size) * 0.5 + 0.5;
+            let patch = perlin_in(self.settings.noise_maths, self.noise_seed, 0x7042, Fade::Smooth, x / size, y / size) * 0.5 + 0.5;
             smooth((patch - (1.0 - t.patches)) * 5.0 + 0.5)
         };
         if shown <= 0.0 {
             return 0.0;
         }
-        let push = noise_at(&t.noise, self.noise_seed ^ 0x70c0a5, -y, x) + t.balance;
+        let push = noise_at(self.settings.noise_maths, &t.noise, self.noise_seed ^ 0x70c0a5, -y, x) + t.balance;
         push * t.amount * smooth(band) * shown
     }
 
@@ -1360,7 +1364,7 @@ impl CompiledMap {
             return Some(ground);
         }
         let shown = self.mask(&s.detail_mask, &self.detail_mask, &here, ground);
-        let mut detail = if shown > 0.0 { noise_at(&s.detail_noise, self.seed ^ 0xde7a11, north, east) * s.detail * shown } else { 0.0 };
+        let mut detail = if shown > 0.0 { noise_at(s.noise_maths, &s.detail_noise, self.seed ^ 0xde7a11, north, east) * s.detail * shown } else { 0.0 };
         if s.detail_keeps_coast {
             // Held back from the waterline (a block is land from Z 127.5, as it's rounded): land
             // bumps down no further than it, sea floor bumps up no further.
@@ -1479,6 +1483,35 @@ mod tests {
     /// Is the block at (`north`, `east`) land, as the world rounds it?
     fn is_land(map: &CompiledMap, north: f32, east: f32) -> bool {
         map.height(north, east).unwrap().round() >= SEA_LEVEL as f32
+    }
+
+    #[test]
+    fn whole_number_noise_makes_the_same_kind_of_ground_and_keeps_through_a_preset() {
+        // Hills and a torn coast, both of them noise, worked out in each maths.
+        let plain = low_coast();
+        let noisy = |maths| plain.with(InterpreterSettings { detail: 12.0, torn_coast: TornCoast { amount: 10.0, inland: 120.0, out_to_sea: 120.0, patches: 1.0, ..TornCoast::default() }, noise_maths: maths, ..plain.settings.clone() }, Mutes::default());
+        let (fractions, whole) = (noisy(NoiseMaths::Fractions), noisy(NoiseMaths::WholeNumbers));
+        let (mut differ, mut count) = (0, 0);
+        let (mut rough_fractions, mut rough_whole) = (0.0, 0.0);
+        for north in (-200..200).step_by(4) {
+            for east in (-150..150).step_by(4) {
+                let (north, east) = (north as f32, east as f32);
+                let (a, b) = (fractions.height(north, east).unwrap(), whole.height(north, east).unwrap());
+                assert!(b.is_finite());
+                differ += (a.round() != b.round()) as usize;
+                count += 1;
+                // How much the noise moves the ground from the plain map.
+                let base = plain.height(north, east).unwrap();
+                rough_fractions += (a - base).abs();
+                rough_whole += (b - base).abs();
+            }
+        }
+        // New barcodes: a new pattern, as rough as the old.
+        assert!(differ > count / 4, "only {differ} of {count} columns differ");
+        assert!((rough_whole / rough_fractions - 1.0).abs() < 0.25, "{rough_whole} against {rough_fractions}");
+        let back: InterpreterSettings = toml::from_str(&toml::to_string(&whole.settings).unwrap()).unwrap();
+        assert_eq!(back.noise_maths, NoiseMaths::WholeNumbers);
+        assert_eq!(toml::from_str::<InterpreterSettings>("").unwrap().noise_maths, NoiseMaths::Fractions, "older presets: fractions, as always");
     }
 
     #[test]

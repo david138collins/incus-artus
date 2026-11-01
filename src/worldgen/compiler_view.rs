@@ -92,6 +92,8 @@ pub struct Compiler {
     /// The placer's field view (the Mineralogy panel's Fields section).
     pub fields: super::placer_view::FieldView,
     lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
+    /// The noise maths' timings, once asked for (the World Interpreter panel).
+    noise_timing: Option<String>,
     /// The view's map with the rivers carved in, and what it was made from (the recipe's map and the
     /// carving, and whether the Show switch leaves them out).
     rivers_view: Option<((usize, usize, bool), Arc<crate::world::CompiledMap>)>,
@@ -152,6 +154,7 @@ impl Default for Compiler {
             lab_sizes: false,
             fields: Default::default(),
             lab_palette: None,
+            noise_timing: None,
             rivers_view: None,
             lab_hover: None,
             overlay_texture: None,
@@ -507,7 +510,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite, look: &Look) {
     if shown[4] {
         super::view::foldable_left(root, "world interpreter settings", PANELS[4], &mut folded[4], 320.0, |ui| {
             super::notes::on_page(Some(PANELS[4]));
-            egui::ScrollArea::vertical().id_salt("interpreter").show(ui, interpreter_panel);
+            egui::ScrollArea::vertical().id_salt("interpreter").show(ui, |ui| interpreter_panel(ui, compiler));
         });
     }
     compiler.folded = folded;
@@ -1578,7 +1581,7 @@ fn climate_temperature(ui: &mut egui::Ui, t: &mut super::temperature::Temperatur
 /// settings are set where each part belongs in the chain: the ground's shape on the Topography panel,
 /// its blocks on the Mineralogy panel [David, 2026-10-31: "move the features where they belong"]. This
 /// panel shows the chain.
-fn interpreter_panel(ui: &mut egui::Ui) {
+fn interpreter_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
     ui.heading("World Interpreter");
     ui.small(
         "The end of the chain: the recipe that gives every column of blocks its height, worked out at that block as the \
@@ -1599,6 +1602,71 @@ fn interpreter_panel(ui: &mut egui::Ui) {
     );
     ui.add_space(4.0);
     ui.small("Presets, and back-to-defaults, are on the Landmass panel: they cover every panel.");
+    ui.add_space(6.0);
+    noise_maths_section(ui, compiler);
+}
+
+/// The A/B switch for the recipe's noise [David, 2026-11-01: whole numbers, so a GPU can project the
+/// world exactly as the CPU does; "if i cant look at ten worlds and tell you which one was 64 bit
+/// seeds and which was 32 bit, it doesnt matter"], and how long each takes.
+fn noise_maths_section(ui: &mut egui::Ui, compiler: &mut Compiler) {
+    use crate::worldgen::noise::NoiseMaths;
+    fold_section(ui, "Noise maths (for now)", |ui| {
+        ui.small(
+            "Which maths the recipe's noise is worked out in, as the world is played: the hills, the crags, the ridges' wander, the \
+             torn coast, mineralogy's wander. Whole numbers give the same answer on every chip, so a graphics card could make \
+             the world exactly as the processor does. Their barcodes are new, so the patterns are new: compare a few worlds of \
+             each, and see whether you can tell them apart. Saved with the preset and the world.",
+        );
+        let maths = &mut compiler.settings.interpreter.noise_maths;
+        ui.horizontal(|ui| {
+            ui.selectable_value(maths, NoiseMaths::Fractions, "fractions (as always)").on_hover_text("With sines and cosines, as the noise has always been.");
+            ui.selectable_value(maths, NoiseMaths::WholeNumbers, "whole numbers").on_hover_text("32-bit whole numbers only: the same on every chip, CPU or GPU.");
+        });
+        let base = compiler.result.as_ref().map(|result| result.made.map.clone());
+        ui.horizontal(|ui| {
+            if ui.add_enabled(base.is_some(), egui::Button::new("Time both")).on_hover_text("Times the noise alone, and the recipe at a few thousand columns of this world, both ways (a second or so).").on_disabled_hover_text("Compile a world first.").clicked()
+                && let Some(base) = &base
+            {
+                compiler.noise_timing = Some(time_noise_maths(base, &compiler.settings.interpreter, compiler.lab.mutes));
+            }
+        });
+        if let Some(timing) = &compiler.noise_timing {
+            ui.small(timing);
+        }
+    });
+}
+
+/// How long the noise takes, alone and in the recipe at a column of this world, in each maths.
+fn time_noise_maths(base: &crate::world::CompiledMap, settings: &InterpreterSettings, mutes: crate::world::Mutes) -> String {
+    use crate::worldgen::noise::{Fade, NoiseMaths, perlin_in};
+    use std::hint::black_box;
+    let calls = 200_000;
+    let spots: Vec<(f32, f32)> = (0..calls).map(|k| ((k * 37 % 9_973) as f32 * 0.731, (k * 91 % 7_919) as f32 * 0.377)).collect();
+    let alone = |maths: NoiseMaths| {
+        let started = std::time::Instant::now();
+        let sum: f32 = spots.iter().map(|&(x, y)| perlin_in(maths, 7, 3, Fade::Smooth, x, y)).sum();
+        black_box(sum);
+        started.elapsed().as_nanos() as f64 / calls as f64
+    };
+    // Columns over the land and sea, on a spiral out from the middle.
+    let reach = base.maps.width as f32 * base.maps.blocks_per_pixel / 2.0 * 0.7;
+    let columns: Vec<(f32, f32)> = (0..5_000).map(|k| {
+        let (turn, out) = (k as f32 * 2.399_963, (k as f32 / 5_000.0).sqrt() * reach);
+        (out * turn.cos(), out * turn.sin())
+    }).collect();
+    let recipe = |maths: NoiseMaths| {
+        let map = base.with(InterpreterSettings { noise_maths: maths, ..settings.clone() }, mutes);
+        let started = std::time::Instant::now();
+        let sum: f32 = columns.iter().filter_map(|&(north, east)| map.height(north, east)).sum();
+        black_box(sum);
+        started.elapsed().as_nanos() as f64 / 1_000.0 / columns.len() as f64
+    };
+    let (fractions, whole) = (alone(NoiseMaths::Fractions), alone(NoiseMaths::WholeNumbers));
+    let (in_fractions, in_whole) = (recipe(NoiseMaths::Fractions), recipe(NoiseMaths::WholeNumbers));
+    format!(
+        "The noise alone: fractions {fractions:.1} ns a call, whole numbers {whole:.1} ns.\nThe recipe at a column (the ground's height, before the rivers' carving, which has no noise): fractions {in_fractions:.2} µs, whole numbers {in_whole:.2} µs."
+    )
 }
 
 /// Topography, Land and sea: the curves from the coast up the land and down the sea, the grade by

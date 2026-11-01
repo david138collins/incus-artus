@@ -16,7 +16,7 @@ use super::super::interpreter::{CompiledMap, Here, Parts};
 use super::super::mineralogy::NO_CLIMATE;
 use super::super::position::{WORLD_BOTTOM, WORLD_HEIGHT};
 use super::super::terrain::SEA_LEVEL;
-use crate::worldgen::noise::{Fade, perlin};
+use crate::worldgen::noise::{Fade, perlin_in};
 
 /// The stages that make fields, in the order things happen. A field may be read only by a stage
 /// after its own: the linear rule. (The ground at each block is last before Mineralogy: it's the
@@ -185,7 +185,7 @@ impl<'a> Reading<'a> {
         if let Some(&(_, _, value)) = self.noises[..self.noises_kept].iter().find(|(s, z, _)| *s == salt && *z == size) {
             return value;
         }
-        let value = perlin(self.map.seed, salt, Fade::Smooth, self.column.north / size, self.column.east / size);
+        let value = perlin_in(self.map.settings.noise_maths, self.map.seed, salt, Fade::Smooth, self.column.north / size, self.column.east / size);
         if self.noises_kept < self.noises.len() {
             self.noises[self.noises_kept] = (salt, size, value);
             self.noises_kept += 1;

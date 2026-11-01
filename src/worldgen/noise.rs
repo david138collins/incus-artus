@@ -160,9 +160,167 @@ pub fn perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f32, f32
     (value * 1.4, along_x * 1.4, along_y * 1.4)
 }
 
+/// Which maths the noise is worked out in, in the recipe that makes blocks as the game is played
+/// (saved with it, so a world always comes back with its own) [David, 2026-11-01: "projected code is
+/// GPU-safe"; for now a switch, to compare worlds both ways].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoiseMaths {
+    /// Fractions, with sines and cosines: as the noise has always been.
+    #[default]
+    Fractions,
+    /// Whole numbers only (`whole_perlin`): every chip, the CPU's or the GPU's, gets the same answer
+    /// exactly.
+    WholeNumbers,
+}
+
+/// Perlin noise in the maths given.
+pub fn perlin_in(maths: NoiseMaths, seed: u64, salt: u64, fade: Fade, x: f32, y: f32) -> f32 {
+    match maths {
+        NoiseMaths::Fractions => perlin(seed, salt, fade, x, y),
+        NoiseMaths::WholeNumbers => whole_perlin(seed, salt, fade, x, y),
+    }
+}
+
+/// The same, with its slope (`perlin_with_slope`).
+pub fn perlin_with_slope_in(maths: NoiseMaths, seed: u64, salt: u64, x: f32, y: f32) -> (f32, f32, f32) {
+    match maths {
+        NoiseMaths::Fractions => perlin_with_slope(seed, salt, x, y),
+        NoiseMaths::WholeNumbers => whole_perlin_with_slope(seed, salt, x, y),
+    }
+}
+
+// ── Whole-number noise ──────────────────────────────────────────────────────────────────────────
+//
+// The same idea as `perlin` (posts one unit apart, an arrow at each, blended by the fade), in whole
+// numbers only, in 32 bits, so a GPU shader can do exactly the same:
+// - **the barcodes** are a 32-bit hash (shaders have no 64-bit numbers), so the patterns are new;
+// - **the arrows** are 64 fixed directions from a table, not sines and cosines;
+// - **positions and fades** are in 4096ths of a unit, the values in 16384ths. Every step is chosen
+//   so nothing can overflow 32 bits.
+// Only the way in (a position given as a fraction) and the way out (back to a fraction, by a power
+// of two, which is exact) aren't whole numbers.
+
+/// 4096ths: a unit, in the fixed-point positions and fades.
+const ONE: i32 = 4096;
+
+/// 64 arrows, evenly round a turn, each 4096 long.
+#[rustfmt::skip]
+const ARROWS: [(i32, i32); 64] = [
+    (4096, 0), (4076, 401), (4017, 799), (3920, 1189), (3784, 1567), (3612, 1931), (3406, 2276), (3166, 2598),
+    (2896, 2896), (2598, 3166), (2276, 3406), (1931, 3612), (1567, 3784), (1189, 3920), (799, 4017), (401, 4076),
+    (0, 4096), (-401, 4076), (-799, 4017), (-1189, 3920), (-1567, 3784), (-1931, 3612), (-2276, 3406), (-2598, 3166),
+    (-2896, 2896), (-3166, 2598), (-3406, 2276), (-3612, 1931), (-3784, 1567), (-3920, 1189), (-4017, 799), (-4076, 401),
+    (-4096, 0), (-4076, -401), (-4017, -799), (-3920, -1189), (-3784, -1567), (-3612, -1931), (-3406, -2276), (-3166, -2598),
+    (-2896, -2896), (-2598, -3166), (-2276, -3406), (-1931, -3612), (-1567, -3784), (-1189, -3920), (-799, -4017), (-401, -4076),
+    (0, -4096), (401, -4076), (799, -4017), (1189, -3920), (1567, -3784), (1931, -3612), (2276, -3406), (2598, -3166),
+    (2896, -2896), (3166, -2598), (3406, -2276), (3612, -1931), (3784, -1567), (3920, -1189), (4017, -799), (4076, -401),
+];
+
+/// A 32-bit barcode for a grid post (murmur3's mixing): the seed, what it's for, and where.
+fn hash32(seed: u64, salt: u64, x: i32, y: i32) -> u32 {
+    let fold = |v: u64| (v ^ (v >> 32)) as u32;
+    let mut h = fold(seed) ^ fold(salt).wrapping_mul(0x9e37_79b9);
+    for k in [x as u32, y as u32] {
+        h ^= k.wrapping_mul(0xcc9e_2d51).rotate_left(15).wrapping_mul(0x1b87_3593);
+        h = h.rotate_left(13).wrapping_mul(5).wrapping_add(0xe654_6b64);
+    }
+    h ^= h >> 16;
+    h = h.wrapping_mul(0x85eb_ca6b);
+    h ^= h >> 13;
+    h = h.wrapping_mul(0xc2b2_ae35);
+    h ^ (h >> 16)
+}
+
+/// A post's arrow.
+fn arrow(seed: u64, salt: u64, x: i32, y: i32) -> (i32, i32) {
+    ARROWS[(hash32(seed, salt, x, y) >> 26) as usize]
+}
+
+/// A fade, in 4096ths, of `t` (0 to 4096).
+fn whole_fade(fade: Fade, t: i32) -> i32 {
+    match fade {
+        // 6t⁵ − 15t⁴ + 10t³, as t³ (t (6t − 15) + 10).
+        Fade::Smooth => {
+            let t3 = (((t * t) >> 12) * t) >> 12;
+            let inner = ((t * (6 * t - 15 * ONE)) >> 12) + 10 * ONE;
+            (t3 * inner) >> 12
+        }
+        Fade::Soft => (((t * t) >> 12) * (3 * ONE - 2 * t)) >> 12,
+        Fade::Straight => t,
+    }
+}
+
+/// A position as a whole number of 4096ths: its grid post, and how far past it (0 to 4095).
+fn fixed(x: f32) -> (i32, i32) {
+    let q = (x * ONE as f32).floor() as i32;
+    (q >> 12, q & (ONE - 1))
+}
+
+/// The four posts' arrows round a point, and how far along each the point lies (in 4096ths).
+struct Corners {
+    arrows: [(i32, i32); 4],
+    dots: [i32; 4],
+}
+
+fn corners(seed: u64, salt: u64, (ix, fx): (i32, i32), (iy, fy): (i32, i32)) -> Corners {
+    let arrows = [arrow(seed, salt, ix, iy), arrow(seed, salt, ix + 1, iy), arrow(seed, salt, ix, iy + 1), arrow(seed, salt, ix + 1, iy + 1)];
+    let offsets = [(fx, fy), (fx - ONE, fy), (fx, fy - ONE), (fx - ONE, fy - ONE)];
+    // Each at most 4096 × 4096 × 2 (under 2²⁶) before it's brought back to 4096ths.
+    let dots = [0, 1, 2, 3].map(|k| (arrows[k].0 * offsets[k].0 + arrows[k].1 * offsets[k].1) >> 12);
+    Corners { arrows, dots }
+}
+
+/// `a` to `b` by `t` (in 4096ths).
+fn mix(a: i32, b: i32, t: i32) -> i32 {
+    a + (((b - a) * t) >> 12)
+}
+
+/// Stretched to about ±1 as `perlin` is (× 1.4, as 1434/1024), then back to a fraction.
+fn out(value: i32) -> f32 {
+    ((value * 1434) >> 10) as f32 / ONE as f32
+}
+
+/// Perlin noise at a point, about −1 to 1, one feature per unit, in whole numbers.
+pub fn whole_perlin(seed: u64, salt: u64, fade: Fade, x: f32, y: f32) -> f32 {
+    let (px, py) = (fixed(x), fixed(y));
+    let c = corners(seed, salt, px, py);
+    let (u, v) = (whole_fade(fade, px.1), whole_fade(fade, py.1));
+    let [a, b, cc, d] = c.dots;
+    out(mix(mix(a, b, u), mix(cc, d, u), v))
+}
+
+/// The same with its slope along x and y (per unit), as `perlin_with_slope` gives them, in whole
+/// numbers (the smooth fade).
+pub fn whole_perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f32, f32) {
+    let (px, py) = (fixed(x), fixed(y));
+    let c = corners(seed, salt, px, py);
+    let (fx, fy) = (px.1, py.1);
+    let (u, v) = (whole_fade(Fade::Smooth, fx), whole_fade(Fade::Smooth, fy));
+    // The smooth fade's steepness, 30 t² (t − 1)², in 4096ths.
+    let steep = |t: i32| 30 * ((((t * t) >> 12) * (((t - ONE) * (t - ONE)) >> 12)) >> 12);
+    let (du, dv) = (steep(fx), steep(fy));
+    let [a, b, cc, d] = c.dots;
+    let [ga, gb, gc, gd] = c.arrows;
+    let k = a - b - cc + d;
+    let uv = (u * v) >> 12;
+    let value = mix(mix(a, b, u), mix(cc, d, u), v);
+    let along = |g: [i32; 4], fade_steep: i32, across: i32| {
+        g[0] + ((u * (g[1] - g[0])) >> 12) + ((v * (g[2] - g[0])) >> 12) + ((uv * (g[0] - g[1] - g[2] + g[3])) >> 12) + ((fade_steep * across) >> 12)
+    };
+    let along_x = along([ga.0, gb.0, gc.0, gd.0], du, (b - a) + ((v * k) >> 12));
+    let along_y = along([ga.1, gb.1, gc.1, gd.1], dv, (cc - a) + ((u * k) >> 12));
+    (out(value), out(along_x), out(along_y))
+}
+
 impl PerlinSettings {
     /// The raw stacked value at a position in blocks (about −1 to 1), before the output shaping.
     pub fn raw(&self, seed: u64, north: f32, east: f32) -> f32 {
+        self.raw_in(NoiseMaths::Fractions, seed, north, east)
+    }
+
+    /// The same, its noise in the maths given.
+    pub fn raw_in(&self, maths: NoiseMaths, seed: u64, north: f32, east: f32) -> f32 {
         let (mut x, mut y) = (east + self.offset_east, north + self.offset_north);
         // Stretch: turn into the stretch's direction, then squash along it.
         let (sin, cos) = self.stretch_angle.to_radians().sin_cos();
@@ -172,7 +330,7 @@ impl PerlinSettings {
         let (mut total, mut strength, mut strengths) = (0.0, 1.0, 0.0);
         let mut size = self.scale.max(1.0);
         for octave in 1..=self.octaves.max(1) {
-            let value = perlin(seed, octave as u64, self.fade, x / size, y / size);
+            let value = perlin_in(maths, seed, octave as u64, self.fade, x / size, y / size);
             if self.solo_octave == octave {
                 return value;
             }
@@ -213,6 +371,52 @@ mod tests {
             let measured_y = (perlin(9, 3, Fade::Smooth, x, y + h) - perlin(9, 3, Fade::Smooth, x, y - h)) / (2.0 * h);
             assert!((along_x - measured_x).abs() < 0.02, "along x at {x}, {y}: {along_x} vs {measured_x}");
             assert!((along_y - measured_y).abs() < 0.02, "along y at {x}, {y}: {along_y} vs {measured_y}");
+        }
+    }
+
+    #[test]
+    fn whole_number_noise_is_smooth_zero_on_its_posts_and_like_the_old_in_character() {
+        // Zero on every post, as Perlin noise is.
+        assert_eq!(whole_perlin(3, 1, Fade::Smooth, 4.0, -2.0), 0.0);
+        // Smooth: a 4096th of a unit moves it hardly at all, anywhere.
+        for k in 0..2_000 {
+            let (x, y) = (k as f32 * 0.6173 - 500.0, k as f32 * 0.4219 + 77.0);
+            let step = whole_perlin(1, 2, Fade::Smooth, x + 1.0 / 4096.0, y) - whole_perlin(1, 2, Fade::Smooth, x, y);
+            assert!(step.abs() < 0.01, "a jump of {step} at {x}, {y}");
+        }
+        // Its spread of values: as wide, and as often near the middle, as the old noise's.
+        let stats = |noise: &dyn Fn(f32, f32) -> f32| {
+            let values: Vec<f32> = (0..40_000).map(|k| noise((k % 200) as f32 * 0.137, (k / 200) as f32 * 0.137)).collect();
+            let mean = values.iter().sum::<f32>() / values.len() as f32;
+            let spread = (values.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / values.len() as f32).sqrt();
+            let (low, high) = values.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+            (mean, spread, low, high)
+        };
+        let (old_mean, old_spread, _, _) = stats(&|x, y| perlin(11, 4, Fade::Smooth, x, y));
+        let (mean, spread, low, high) = stats(&|x, y| whole_perlin(11, 4, Fade::Smooth, x, y));
+        assert!(mean.abs() < 0.05 && old_mean.abs() < 0.05, "{mean} {old_mean}");
+        assert!((spread / old_spread - 1.0).abs() < 0.15, "spread {spread} against {old_spread}");
+        assert!(low > -1.5 && high < 1.5 && low < -0.6 && high > 0.6, "{low}..{high}");
+        // Every fade, far out (no number too big for 32 bits).
+        for fade in Fade::ALL {
+            for k in 0..500 {
+                let v = whole_perlin(u64::MAX - k, k, fade, 40_000.0 - k as f32 * 77.7, -39_000.0 + k as f32 * 81.1);
+                assert!(v.abs() < 1.5, "{fade:?}: {v}");
+            }
+        }
+    }
+
+    #[test]
+    fn whole_number_noise_with_its_slope_matches_it_and_its_measured_slope() {
+        for k in 0..300 {
+            let (x, y) = (k as f32 * 0.731 - 40.0, k as f32 * 0.377 + 13.1);
+            let (value, along_x, along_y) = whole_perlin_with_slope(9, 3, x, y);
+            assert_eq!(value, whole_perlin(9, 3, Fade::Smooth, x, y), "the value at {x}, {y}");
+            let h = 1.0 / 64.0;
+            let measured_x = (whole_perlin(9, 3, Fade::Smooth, x + h, y) - whole_perlin(9, 3, Fade::Smooth, x - h, y)) / (2.0 * h);
+            let measured_y = (whole_perlin(9, 3, Fade::Smooth, x, y + h) - whole_perlin(9, 3, Fade::Smooth, x, y - h)) / (2.0 * h);
+            assert!((along_x - measured_x).abs() < 0.08, "along x at {x}, {y}: {along_x} vs {measured_x}");
+            assert!((along_y - measured_y).abs() < 0.08, "along y at {x}, {y}: {along_y} vs {measured_y}");
         }
     }
 

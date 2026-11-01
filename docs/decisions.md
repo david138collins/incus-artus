@@ -68,6 +68,25 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
     performance pass.
   - **First step now:** a whole-number noise, with an A/B switch on the World Compiler ("noise maths:
     fractions / whole numbers") and a timing readout.
+    - **[BUILT 2026-11-01]** `worldgen/noise.rs`: `whole_perlin` and `whole_perlin_with_slope`.
+      - It uses 32-bit whole numbers only: a murmur3-style 32-bit barcode, and 64 fixed arrows from a
+        table. Positions and fades are in 4096ths, with every step checked to stay within 32 bits.
+      - The only fractions are the way in (the position) and the way out (a division by a power of
+        two, which is exact).
+      - The switch is the recipe's `noise_maths` (fractions by default), saved with the preset and
+        the world. It covers every noise the recipe uses in play: hills, crags, summit crags, the
+        ridges and their wander, the peaks' wobble, the torn coast, and mineralogy's wander. World
+        creation's noise is untouched.
+      - It sits in the World Interpreter panel's "Noise maths (for now)" section, with "Time both"
+        (the noise alone, and the recipe at 5,000 columns of the world compiled, both ways).
+      - **Speed:** in a release build the whole-number noise took about 14 ns a call against about
+        70 ns for fractions, roughly 5 times faster (no sines or cosines, and a cheaper hash). With
+        its slope, it was about 20 ns against 80.
+      - **Tests:** it's smooth, zero on its posts, and its slope matches its measured slope. Its spread
+        of values is within 15% of the old noise's, and nothing overflows far out. A map made both
+        ways is as rough either way, in a new pattern.
+      - **Not yet:** the recipe's own fractions (curves, blends, pow), and the GPU check (running it
+        in a shader and comparing block for block), both with the graphics pass.
   - **The test is David's eye, not the bits** (David: "if i cant look at ten worlds and tell you which
     one was 64 bit seeds and which was 32 bit, it doesnt matter. i dont care about anything saved in
     the world gen stack except for the default presets i have and their apparent outcomes. as long as
