@@ -108,6 +108,10 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
         *Counsel's guesses, unchecked:* the ridges' wander is in the ground the rivers are planned on,
         so new barcodes give a new river network; and 64 evenly spread arrows give evener texture
         than arrows at any angle (as in Perlin's improved noise of 2002).
+      - **[DECIDED 2026-11-01] Whole numbers are the default** (David: "i'd like for whole math to be
+        the default setting now; when we gotta can the fractional code entirely just for
+        housekeeping or software reasons, i'll make the final call."). The fractional noise stays
+        behind the switch until he decides to remove it.
       - **Speed:** in a release build the whole-number noise took about 14 ns a call against about
         70 ns for fractions, roughly 5 times faster (no sines or cosines, and a cheaper hash). With
         its slope, it was about 20 ns against 80.
