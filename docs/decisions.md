@@ -41,6 +41,29 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
   work never has to be handed back. Nothing is worked out twice. The less a feature strays from the
   projection, the less it costs. David: "the entire project can fail if we don't find a way to make it
   run like a top."
+- **[DECIDED 2026-11-01] Projected code is GPU-safe** (David agreed to Builder's assessment and
+  Counsel's advice: "i agree with all if its like i described"). Code that projects blocks during
+  play (the ground's height per column, river carving, the noise, the placer and mineralogy, and
+  later caves, ores, tree placement and roads) uses whole numbers and fixed point, and no sin, cos,
+  pow or other maths that varies by chip, driver or operating system. Then the CPU and the GPU agree
+  bit for bit.
+  - **World creation is exempt:** its results are stored (the bake, the climate, the rivers, the
+    peaks). David: "its totally fine to roast the crap out of peoples cpu when they generate a new
+    world... i'm only concerned with the performance when the player is playing."
+  - **From now on,** new projected code is written GPU-safe, with a small kit of GPU-safe maths so
+    it's no harder to write. Today's roughly 5,500 lines are converted with the graphics and
+    performance pass.
+  - **First step now:** a whole-number noise, with an A/B switch on the World Compiler ("noise maths:
+    fractions / whole numbers") and a timing readout.
+  - **The test is David's eye, not the bits** (David: "if i cant look at ten worlds and tell you which
+    one was 64 bit seeds and which was 32 bit, it doesnt matter. i dont care about anything saved in
+    the world gen stack except for the default presets i have and their apparent outcomes. as long as
+    it all works the same. if it comes out drastically different we have to assess whether its
+    possible to find out why and fix it."). So a new 32-bit hash, with new barcodes, is fine if his
+    default presets still look and work the same.
+  - **Also fixed with it:** saved maps reload exactly as played (the maps are rounded at spawn as
+    they'll be saved), and slope is one measurement in every view, from whole blocks, with a
+    whole-number square root and its span named in the field.
 
 ---
 
