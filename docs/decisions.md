@@ -54,6 +54,25 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
   does. If it should shape the broad land the rivers flow over, it has to be found in Topography
   from what's known there, and the rivers then react to it. Either way works; the choice is made on
   purpose, per feature.
+  - **[IDEA, David 2026-11-01] A second pass:** "you just have to work left to right when thinking
+    about creating detail and how it finds its place. i think we can also create a modular re-read
+    method that gets to the end, and then goes back again. it could be a discrete 2nd order locale
+    generator... the only cost may be running a 25 second world gen twice."
+    *Counsel* [PROPOSED]:
+    - **It keeps the rule.** A second pass is just more stages to the right: the first pass's
+      results become inputs, like the bake is. Two passes, fixed, never "repeat until it settles",
+      which may never settle.
+    - **What the first pass hands on is small:** the locales (centres, regions and their kinds, such
+      as "a swamp here", "badlands here"), never its fine detail. The second pass builds the world
+      from them.
+    - **The catch:** the second pass can undo a first-pass reason. A swamp centre found beside a
+      river shapes the land, the river moves, and the swamp is no longer beside it. So the locale
+      must be checked against the finished world, or chosen from causes the second pass keeps.
+    - **Cheaper version:** the first pass can be a quick, coarse scout (the rivers already run on the
+      broad ground), so it costs well under double. Stages before the re-entry point don't rerun.
+    - **The costs to watch:** tuning (a first-pass slider moves second-pass results in ways that are
+      hard to follow) and "why is this here?", which then has to show both passes.
+    - **When:** when a feature first needs it, not before.
 - **[DECIDED 2026-11-01] Projected code is GPU-safe** (David agreed to Builder's assessment and
   Counsel's advice: "i agree with all if its like i described"). Code that projects blocks during
   play (the ground's height per column, river carving, the noise, the placer and mineralogy, and
