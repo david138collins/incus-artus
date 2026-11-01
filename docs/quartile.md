@@ -200,5 +200,8 @@ before mineralogy's rock layers and ores.
   - **Mixed shapes break whole and drop nothing when mined.** *Counsel:* this refines "mining a mixed
     cell takes all of it" above. Open: does a single-material shape, such as an L of cut stone, also
     drop nothing, or only cells mixing materials? For stop 2, where mining comes in.
+    **Answered** (David): "yes, no odd shapes have any chance of giving anything." Any joined shape
+    drops nothing, single material or mixed. *Counsel's reading:* a lone bar is the item itself (an
+    oak quarter log) and drops as itself; Builder confirms that with David at stop 2.
   - **Everything has collision:** bars, joined shapes and octant items.
   - **The simple placing control is fine to start with.**
