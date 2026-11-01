@@ -243,6 +243,28 @@ Reference: `Art/quartile minecraft illustration.png`
     the recipe offers. David's idea [IDEA]: infer **two** rays from the sun's position and the angle of the
     shadow of whatever blocks it, and cast simple bands of lighter shade when the sun is hidden but
     shining.
+- **[DECIDED 2026-11-01] Every element owns its compromise artistically** (David): "we cant think of
+  any element of graphics as plumbing, it has to be like the gilded external plumbing and electrical
+  conduits of blued brass with filigree moulding at the ends found only in napoleonic french chateus.
+  every element has to own its compromise artistically." Every shortcut taken for speed (lower
+  resolution, fewer faces, sprites far away, fog, dithering) is shown as a chosen style, never hidden
+  as a defect.
+  - **An artistic upscaler for the distance** (David): "we need an artistic upscaler in order to
+    render the distance in a way that is simultaniously fast and a joy to look at." The far view is
+    drawn at lower resolution, and the upscaler turns that into a look of its own.
+    *Counsel* [PROPOSED; the look is David's call], candidates to try side by side:
+    - **Edge-keeping upscaling,** as pixel-art upscalers do (the xBR and Scale2x family): it keeps
+      silhouettes crisp (ridgelines, the horizon, coasts) and fills inside them. The eye reads the
+      distance by its edges.
+    - **Painterly smoothing** (a Kuwahara filter): flat patches of colour with sharp borders, like
+      brushwork. It's cheap on the GPU.
+    - **Air, as chosen colour:** the fog of a couple of miles, tinted in steps toward the sky's
+      colours, with dithered bands between steps rather than smooth blending, which matches the skies.
+    - **Pixel size growing with distance in steps,** like a mosaic, with dithered seams, so the drop
+      in resolution reads as a deliberate scale.
+    These can be combined. It's measured and judged in the graphics pass (`docs/worldgen.md`, path
+    step 8; `vision/proposal-voxel-renderer.md`, "Temporal reuse"). Hue still carries meaning: no
+    upscaler may shift a block's colour into another's.
 
 ## Textures & Assets
 
