@@ -383,3 +383,7 @@ upways, that way the crosshair always knows which oct it should start with."
   needs. A cut piece, whose link points elsewhere, may need its axis stored too. It would replace bar
   slots plus links with one rule. For Builder to assess before stop 3's save format, and for David to
   choose.
+- **[DECIDED 2026-11-01] Stick-ons, go** (David: "if the player has to mine an oct they can cry me a
+  procedurally generated river that looks real, send it"). The stick-on format is a go. A leftover
+  lone octant that has to be mined by itself is acceptable. *Counsel:* read as no need to engineer
+  around the edge case; the target box still takes a bar's cut pieces with it, as he first asked.
