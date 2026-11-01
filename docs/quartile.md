@@ -284,3 +284,25 @@ block? then i can register my own oak tree blocks"):
   bars must be placeable across two cells.
 - **To check by eye:** which way each picture faces on each side (mirrored or turned), since that
   can only be seen in the game.
+
+## 10. Bars across two cells: linked half-bars  [DECIDED 2026-11-01]
+
+David asked for bars placeable across two cells. Builder proposed **linked half-bars**, and David
+answered the question that went with it: "yes, if you mix bars, it all just becomes nothing when
+mined." Builder and Counsel take that as a yes to the proposal too. *(Counsel: inferred from his
+answer, not asked outright; he can say otherwise at stop 2.)*
+- **A bar shifted half a block is two half-bars,** one octant of material in each cell, each pointing
+  to the other. A piece stays one byte: its slot in 5 bits (0 to 11 bars, 12 to 19 octants) and its
+  link in 3 (none, or which of the 6 ways its other half lies). Octant slots hold material only as
+  linked halves; a lone octant of material can't be placed.
+- **Objects** (cups, candles) get a list of their own per cell, each claiming its octant for
+  collision and against bars.
+- **Drawing:** each half shows its half of the bar's picture, measured from the whole bar's corner
+  across both cells; the faces between the halves are hidden, so the bar is seamless.
+- **Mining:** breaking either half takes both. One material, mined by the player: one bar back. If
+  either cell mixes materials, it all becomes nothing (David); the bar's other half goes too, and its
+  cell keeps its other pieces.
+- **Collision and aiming** treat each half as its octant.
+- **Across chunks** (Counsel): the halves can lie in different chunks and save files, so each half
+  draws right while its partner's chunk isn't loaded. Bars the world places (trees) that straddle a
+  chunk border come from one plan, so both chunks agree.
