@@ -519,6 +519,33 @@ bread and a blank diary. Birds sing and flit about.
   on quarters and centres); structure-editor "temple" with wave-function-collapse village pieces.
 - Few inventory slots, extended by backpacks, followers, carts and pack animals. Weight and volume;
   containers; staged mining (rock → boulder → block); logs processed on sawhorses and workbenches.
+- **[IDEA, David 2026-11-01] One slot holds a material in every size.** "a storage system where you can
+  have cut stone in a slot, and it stacks to 16; but that could be 16 whole blocks, 64 quarter blocks,
+  or a mix of them; every block type which stores by itself, is like a hidden container of its own
+  family in the inventory. that makes physical sense and improves quality of life, so when we're
+  stressing the player on choosing what he carries, he doesn't feel like it's BS to need 3 slots to
+  carry whole blocks, quarter blocks, and octblocks of 1 stone type."
+  - A slot counts **volume**: 16 whole blocks' worth, so 64 bars or 128 octants, or any mix that adds
+    up. It fits "weight and volume" above, and the pieces format already stores every size of a
+    material alike (`docs/quartile.md`).
+  - *Counsel* [PROPOSED; for when the inventory is built]:
+    - **The family is one material in one form:** granite cut stone whole, as bars and as octants
+      shares a slot; natural granite or granite brick is another family (the open "what kind of
+      thing" question in `docs/decisions.md`, Blocks).
+    - **Placing from a mixed slot:** placing a bar uses a bar. With only whole blocks in the slot,
+      you'd cut one first (below), unless David wants the slot to cut for you.
+    - **The slot shows its mix** at a glance (say "12¾"), with the sizes inside on hover.
+- **[IDEA, David 2026-11-01] Cutting stone with a chisel, on screen:** "honestly i think the stone
+  cutting action should be done on screen with a chisel on the ground, and so there's no reason
+  octblocks shouldn't be a thing." So octblocks (lone octants of material) exist, made by cutting.
+  - *Counsel* [PROPOSED]: lay a block on the ground and work it with the chisel in the world, where you
+    can see it (the personal view's "click items within reach in the world"; the hammer and chisel of
+    staged mining in `docs/decisions.md`). A clean cut loses nothing: a whole block gives 4 bars or 8
+    octants. Only a piece cut by placing it against another is lost (`docs/quartile.md` section 12).
+    Speed follows the tool, the material and the skill; for villagers, skill may also give a chance of
+    spoiling a cut.
+  - Until there's a chisel and an inventory, Shift + right click places a lone octant (Builder's
+    stand-in).
 - Workshops are blueprints of stations; villagers do visible multi-step labor; warehouse capacity is
   what you build; regions are shapes; seasons matter (spring and fall wheat; 2-week growing cycles).
 - **[IDEA 2026-10-26] Workshops of any size** [David], as in Songs of Syx: how many tables, shelves and
