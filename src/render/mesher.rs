@@ -33,17 +33,28 @@
 //!   top bit set, a bar with textures of its own and its slot)
 
 use crate::coords::game_to_bevy;
-use crate::world::{BlockId, Owners, Slot};
+use crate::world::{BlockId, Owners, Part};
 use bevy::math::Vec3;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 const N: usize = 32;
-/// A face's quad number with this bit set is part of a bar with textures of its own, the low 8 bits
-/// its slot and link (`push_quad`; the shader's `bar_uv`).
+
+/// A face's quad number with this bit set is part of a bar (or an octant) of a block with pictures
+/// of its own: the low 11 bits say which, `bar_tag` (`push_quad`; the shader's `bar_uv`).
 const BAR_TAG: u32 = 0x8000;
-/// In the pieces' grids: no bar of its own textures.
-const NO_BAR: u8 = u8::MAX;
+/// In the pieces' grids: no bar of pictures of its own.
+const NO_BAR: u16 = u16::MAX;
+
+/// The tag of an octant of a block with pictures of its own: its place in its cell (3 bits) and its
+/// part (8 bits), for the shader to measure the picture from the bar's own corner. The two octants
+/// of a whole bar inside one cell get the same tag (its low end's), so their faces merge as one.
+fn bar_tag(octant: usize, part: Part) -> u16 {
+    match part.axis() {
+        Some(axis) if part.whole() && (octant >> axis) & 1 == part.end() as usize => ((Part::of_bar(axis, 0, true).0 as u16) << 3) | (octant & !(1 << axis)) as u16,
+        _ => ((part.0 as u16) << 3) | octant as u16,
+    }
+}
 
 /// Everything the mesher needs, copied out of the world so it can run on another thread.
 pub struct MeshInput {
@@ -213,17 +224,18 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
 
 /// One rectangle of `block`'s face, facing along `axis` (the positive way or not), on the plane
 /// `plane` across it, from (`u`, `v`) along the plane's axes, `width` × `height`: all in half blocks.
-/// `bar`: the slot of the bar it's part of, if the bar has textures of its own. Then its layer is the
-/// bar's side or end, and its quad number is `BAR_TAG` and the slot, for the shader to measure the
-/// texture from the bar's own corner.
+/// `bar`: the tag of the octants it shows (`bar_tag`), if their block has pictures of its own. Then
+/// its layer is the bar's side or end, and its quad number is `BAR_TAG` and the tag, for the shader to
+/// measure the picture from the bar's own corner.
 #[allow(clippy::too_many_arguments)]
-fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool, bar: Option<u8>) {
+fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool, bar: Option<u16>) {
     let (u_axis, v_axis) = plane_axes(axis);
     let face = face_index(axis, positive);
-    let bar_layers = bar.and_then(|slot| input.bar_layers.get(block.0 as usize).copied().flatten().map(|layers| (slot, layers)));
+    let bar_layers = bar.and_then(|tag| input.bar_layers.get(block.0 as usize).copied().flatten().map(|layers| (tag, layers)));
     let (layer, random_rotation, quad_tag) = match bar_layers {
-        // The end where the bar's own axis comes out of the face, else a long side.
-        Some((slot, [side, end])) => (if Slot(slot).bar_axis() == Some(axis) { end } else { side }, false, BAR_TAG | slot as u32),
+        // The end where the bar's own axis comes out of the face (every face of a lone octant), else a
+        // long side.
+        Some((tag, [side, end])) => (if Part((tag >> 3) as u8).axis().is_none_or(|bar_axis| bar_axis == axis) { end } else { side }, false, BAR_TAG | tag as u32),
         None => (
             input.face_layers.get(block.0 as usize).map_or(0, |layers| layers[face]),
             input.face_random_rotation.get(block.0 as usize).is_some_and(|faces| faces[face]),
@@ -278,14 +290,14 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(Block
                 let face = face_index(axis, positive);
                 for depth in 0..2 {
                     // The octants' faces showing at this depth, as a 2 × 2 grid across the face: the
-                    // block, and its bar's slot if the bar has textures of its own (else `NO_BAR`).
+                    // block, and its tag if it has pictures of its own (else `NO_BAR`).
                     let mut grid = [[(BlockId::AIR, NO_BAR); 2]; 2];
                     for (hv, row) in grid.iter_mut().enumerate() {
                         for (hu, shown) in row.iter_mut().enumerate() {
                             let mut h = [0; 3];
                             (h[axis], h[u_axis], h[v_axis]) = (depth, hu, hv);
-                            let Some((slot, block)) = owners[octant(h)] else { continue };
-                            let bar = if own_textures(block) { slot.0 } else { NO_BAR };
+                            let Some((part, block)) = owners[octant(h)] else { continue };
+                            let bar = if own_textures(block) { bar_tag(octant(h), part) } else { NO_BAR };
                             let inside = if positive { depth == 0 } else { depth == 1 };
                             let covered = if inside {
                                 h[axis] = 1 - depth;
@@ -316,10 +328,10 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(Block
                     // Merged within the cell: the whole face, rows, columns, then single octants.
                     let plane = (cell[axis] * 2 + depth) as u32 + positive as u32;
                     let (u0, v0) = ((cell[u_axis] * 2) as u32, (cell[v_axis] * 2) as u32);
-                    let mut emit = |(block, bar): (BlockId, u8), [u, v, width, height]: [u32; 4]| {
+                    let mut emit = |(block, bar): (BlockId, u16), [u, v, width, height]: [u32; 4]| {
                         push_quad(out, input, block, (axis, positive), plane, [u0 + u, v0 + v, width, height], false, (bar != NO_BAR).then_some(bar));
                     };
-                    let same = |a: (BlockId, u8), b: (BlockId, u8)| !a.0.is_air() && a == b;
+                    let same = |a: (BlockId, u16), b: (BlockId, u16)| !a.0.is_air() && a == b;
                     if same(grid[0][0], grid[0][1]) && same(grid[0][0], grid[1][0]) && same(grid[0][0], grid[1][1]) {
                         emit(grid[0][0], [0, 0, 2, 2]);
                         continue;
@@ -573,12 +585,26 @@ mod tests {
         mesh.vertices.iter().map(|v| Vec3::new((v[0] & 127) as f32, ((v[0] >> 7) & 127) as f32, ((v[0] >> 14) & 127) as f32) / 2.0).collect()
     }
 
+    /// A cell's pieces from bars (each its octants and axis, as `place_bar` would make them: an octant
+    /// already taken keeps what's there, and the bar's other octant is cut).
+    fn bars(list: &[(&[usize], usize, BlockId)]) -> crate::world::Pieces {
+        use crate::world::{Part, Pieces};
+        let mut pieces = Pieces::default();
+        for &(octants, axis, block) in list {
+            let free: Vec<usize> = octants.iter().copied().filter(|&o| pieces.get(o).is_none()).collect();
+            let whole = free.len() == octants.len();
+            for &o in &free {
+                pieces.set(o, block, Part::of_bar(axis, ((o >> axis) & 1) as u8, whole));
+            }
+        }
+        pieces
+    }
+
     #[test]
     fn a_bar_is_a_box_of_six_faces_at_half_block_corners() {
-        use crate::world::{Pieces, Slot};
-        // A low north–south bar on the west: 1 × ½ × ½ in the cell's south-west-low corner.
-        let mut pieces = Pieces::default();
-        pieces.add(Slot::bar(0, 0, 0), STONE);
+        // A low north–south bar on the west (octants 0 and 1): 1 × ½ × ½ in the cell's south-west-low
+        // corner.
+        let pieces = bars(&[(&[0, 1], 0, STONE)]);
         let mesh = with_pieces(&pieces, &[]);
         assert_eq!(mesh.quads, 6, "its long sides each one rectangle");
         let corners = corners(&mesh);
@@ -593,12 +619,10 @@ mod tests {
     }
 
     #[test]
-    fn a_bar_with_its_own_textures_shows_its_side_and_end_measured_from_its_own_corner() {
-        use crate::world::{Pieces, Slot};
-        // Stone's bars have textures of their own: a side (layer 7) and an end (layer 8).
-        let mut corner = Pieces::default();
-        corner.add(Slot::bar(0, 0, 0), STONE);
-        corner.add(Slot::bar(1, 0, 0), STONE);
+    fn a_bar_with_its_own_pictures_shows_its_side_and_end_measured_from_its_own_corner() {
+        // Stone's bars have pictures of their own: a side (layer 7) and an end (layer 8). A bar
+        // north–south (octants 0, 1), then one east–west (0, 2) cut to octant 2.
+        let corner = bars(&[(&[0, 1], 0, STONE), (&[0, 2], 1, STONE)]);
         let mut blocks = empty();
         let at = 5 + 5 * N + 5 * N * N;
         blocks[at] = BlockId::PIECES;
@@ -609,21 +633,21 @@ mod tests {
         for quad in mesh.vertices.chunks_exact(4) {
             let (face, layer, tag) = ((quad[0][0] >> 21) & 7, quad[0][1] & 0xFFFF, quad[0][1] >> 16);
             assert!(tag & BAR_TAG != 0, "every face says which bar it's part of");
-            let slot = Slot((tag & 31) as u8);
+            let part = Part(((tag & 0x7FF) >> 3) as u8);
             // The faces along the bar's own axis are its ends.
-            assert_eq!(layer, if face / 2 == slot.0 as u32 / 4 { 8 } else { 7 }, "{} face {face}", slot.name());
+            assert_eq!(layer, if Some(face as usize / 2) == part.axis() { 8 } else { 7 }, "{} face {face}", part.name());
         }
-        // The two bars aren't merged into one face (each is measured from its own corner): 6 faces
-        // for the first, and the second's one free octant's 5 showing.
+        // The bars aren't merged into one face (each is measured from its own corner): 6 faces for
+        // the first, and the cut one's 5 showing.
         assert_eq!(mesh.quads, 6 + 5);
     }
 
     #[test]
-    fn half_a_bar_shows_its_side_and_end_and_carries_its_link_for_the_shader() {
-        use crate::world::{Pieces, Slot};
-        // Half a bar in the north-west-low octant, its other half on to the north.
+    fn half_of_a_bar_across_two_cells_shows_its_side_and_end_and_tells_the_shader_which_half() {
+        use crate::world::Pieces;
+        // The north-west-low octant (1), the low end of a north–south bar going on north.
         let mut half = Pieces::default();
-        half.add(Slot::half(1, 0, 0, bevy::math::IVec3::X), STONE);
+        half.set(1, STONE, Part::of_bar(0, 0, true));
         let mut blocks = empty();
         let at = 5 + 5 * N + 5 * N * N;
         blocks[at] = BlockId::PIECES;
@@ -634,20 +658,21 @@ mod tests {
         assert_eq!(mesh.quads, 6, "a half-block cube");
         for quad in mesh.vertices.chunks_exact(4) {
             let (face, layer, tag) = ((quad[0][0] >> 21) & 7, quad[0][1] & 0xFFFF, quad[0][1] >> 16);
-            assert_eq!(Slot((tag & 255) as u8).link(), Some(bevy::math::IVec3::X));
+            // Not one of a bar within the cell: its own octant and part, as they are.
+            assert_eq!((tag & 7, Part(((tag & 0x7FF) >> 3) as u8)), (1, Part::of_bar(0, 0, true)));
             // Its north and south faces (along the bar) are ends, the rest sides.
             assert_eq!(layer, if face / 2 == 0 { 8 } else { 7 }, "face {face}");
         }
+        // Within one cell, a bar's two octants share a tag (so its sides merge): its low end's.
+        assert_eq!(bar_tag(1, Part::of_bar(0, 1, true)), bar_tag(0, Part::of_bar(0, 0, true)));
+        assert_ne!(bar_tag(1, Part::of_bar(0, 0, true)), bar_tag(0, Part::of_bar(0, 0, true)), "half across a side");
     }
 
     #[test]
     fn bars_meeting_hide_their_faces_between_and_a_whole_block_hides_the_side_against_it() {
-        use crate::world::{Pieces, Slot};
         // Two low bars, both on the west (north–south) and the south (east–west), meeting in the
         // corner they share: an L of three octants, with no faces between them.
-        let mut corner = Pieces::default();
-        corner.add(Slot::bar(0, 0, 0), STONE);
-        corner.add(Slot::bar(1, 0, 0), DIRT);
+        let corner = bars(&[(&[0, 1], 0, STONE), (&[0, 2], 1, DIRT)]);
         let mesh = with_pieces(&corner, &[]);
         let area: f32 = mesh.vertices.chunks_exact(4).map(|quad| {
             let c: Vec<Vec3> = quad.iter().map(|v| Vec3::new((v[0] & 127) as f32, ((v[0] >> 7) & 127) as f32, ((v[0] >> 14) & 127) as f32) / 2.0).collect();
@@ -657,8 +682,7 @@ mod tests {
         assert!((area - 14.0 * 0.25).abs() < 1e-4, "{area}");
         // Stone under the cell: the bar's bottom isn't drawn (and the stone's top still is: the
         // cell hides nothing behind it).
-        let mut bar = Pieces::default();
-        bar.add(Slot::bar(0, 0, 0), STONE);
+        let bar = bars(&[(&[0, 1], 0, STONE)]);
         let below = 5 + 5 * N + 4 * N * N;
         let mesh = with_pieces(&bar, &[(below, STONE)]);
         assert_eq!(mesh.quads, 5 + 6);

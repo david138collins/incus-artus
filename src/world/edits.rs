@@ -11,7 +11,7 @@
 //! world, like dig designations and blueprint ghosts, are a separate layer that will work
 //! while paused; see docs/decisions.md.)
 
-use super::{BlockId, Pieces, Slot, VoxelWorld};
+use super::{BlockId, Part, Pieces, VoxelWorld, bar_halves, octant_of};
 use crate::data::BlockRegistry;
 use crate::events::{LoggedEvent, PlayerId};
 use crate::time::TimeControl;
@@ -40,6 +40,11 @@ pub enum EditKind {
     /// A bar of a block (`pieces.rs`) from its corner `at`, counted in half blocks (its lowest), lying
     /// along `axis` (0 north–south, 1 east–west, 2 upright): in one cell, or across two.
     PlaceBar { at: IVec3, axis: u8, block: BlockId },
+    /// The piece at an octant (counted in half blocks): a bar, with what's stuck to it, or a lone
+    /// octant.
+    BreakPiece { half: IVec3 },
+    /// A single octant of a bar block, an octblock (counted in half blocks), part of no bar.
+    PlaceOctant { half: IVec3, block: BlockId },
 }
 
 /// A block's name for the log ("pieces" for a cell built of them).
@@ -95,6 +100,8 @@ pub struct BlockEditRefused {
 fn describe_kind(kind: EditKind, blocks: &BlockRegistry) -> String {
     match kind {
         EditKind::Break => "break".to_string(),
+        EditKind::BreakPiece { half } => format!("break the piece at {} {} {} (half blocks)", half.x, half.y, half.z),
+        EditKind::PlaceOctant { half, block } => format!("place an octant of {} at {} {} {} (half blocks)", blocks.name(block), half.x, half.y, half.z),
         EditKind::Place(block) => format!("place {}", blocks.name(block)),
         EditKind::PlaceBar { at, axis, block } => format!("place a {} bar of {} from {} {} {} (half blocks)", ["north–south", "east–west", "upright"][axis as usize % 3], blocks.name(block), at.x, at.y, at.z),
     }
@@ -196,6 +203,8 @@ pub fn apply_block_edits(
             EditKind::Break => break_block(&mut world, &rules, request.position),
             EditKind::Place(block) => place_block(&mut world, &registry, request.position, block),
             EditKind::PlaceBar { at, axis, block } => place_bar(&mut world, &registry, at, axis, block),
+            EditKind::BreakPiece { half } => break_piece(&mut world, half),
+            EditKind::PlaceOctant { half, block } => place_octant(&mut world, &registry, half, block),
         };
         match changes {
             Err(reason) => refuse(request, reason, &mut recent),
@@ -228,9 +237,8 @@ fn place_block(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, bloc
     Ok(vec![(at, old, block)])
 }
 
-/// A block broken, a cell of pieces whole (David: "if you mix bars, it all just becomes nothing when
-/// mined"; there are no items yet, so nothing drops). A bar running on into the cell next door goes
-/// too: its other half.
+/// A block broken. A cell of pieces is taken piece by piece, each with its bar's other half (in this
+/// cell or the next) and the cut pieces stuck to it. (There are no items yet, so nothing drops.)
 fn break_block(world: &mut VoxelWorld, rules: &EditRules, at: IVec3) -> Changes {
     let old = world.get_block(at);
     if old.is_air() {
@@ -239,71 +247,112 @@ fn break_block(world: &mut VoxelWorld, rules: &EditRules, at: IVec3) -> Changes 
     if rules.protect_bottom_layer && at.z == 0 {
         return Err(RefuseReason::BottomLayerProtected);
     }
-    let halves: Vec<(Slot, IVec3)> = world.get_pieces(at).map_or_else(Vec::new, |pieces| pieces.list().iter().filter_map(|&(slot, _)| Some((slot, slot.link()?))).collect());
+    if old == BlockId::PIECES {
+        let halves: Vec<IVec3> = (0..8).map(|o| at * 2 + IVec3::new(o & 1, (o >> 1) & 1, (o >> 2) & 1)).flat_map(|half| world.piece_halves(half)).collect();
+        return clear_halves(world, &halves);
+    }
     world.set_block(at, BlockId::AIR).ok_or(RefuseReason::NotLoaded)?;
-    let mut changes = vec![(at, old, BlockId::AIR)];
-    for (slot, toward) in halves {
-        let next = at + toward;
-        let Some(mut pieces) = world.get_pieces(next).cloned() else { continue };
-        // Its other half: the octant across the side between them, pointing back.
-        let partner = (slot.index() - 12) ^ (1 << toward.abs().max_position());
-        if pieces.remove_half(partner, -toward) {
-            let new = if pieces.is_empty() { BlockId::AIR } else { BlockId::PIECES };
-            if world.set_pieces(next, pieces).is_some() {
-                changes.push((next, BlockId::PIECES, new));
-            }
+    Ok(vec![(at, old, BlockId::AIR)])
+}
+
+/// One piece broken, from any octant of it (in half blocks): a bar, with the cut pieces stuck to it,
+/// or a lone octant [David, 2026-11-01: "you can mine individual slabs in minecraft theres no reason
+/// you shouldnt be able to target and mine quarter blocks"]. A cut piece can't be got back; there are
+/// no items yet, so nothing drops at all.
+fn break_piece(world: &mut VoxelWorld, half: IVec3) -> Changes {
+    let halves = world.piece_halves(half);
+    if halves.is_empty() {
+        return Err(RefuseReason::NothingThere);
+    }
+    clear_halves(world, &halves)
+}
+
+/// Empties these octants (in half blocks), each cell once; a cell left with none is air.
+fn clear_halves(world: &mut VoxelWorld, halves: &[IVec3]) -> Changes {
+    let mut cells: Vec<IVec3> = halves.iter().map(|half| half.div_euclid(IVec3::splat(2))).collect();
+    cells.sort_by_key(|cell| cell.to_array());
+    cells.dedup();
+    let mut changes = Vec::new();
+    for cell in cells {
+        let Some(mut pieces) = world.get_pieces(cell).cloned() else { continue };
+        for half in halves.iter().filter(|half| half.div_euclid(IVec3::splat(2)) == cell) {
+            pieces.clear(octant_of(*half));
         }
+        let new = if pieces.is_empty() { BlockId::AIR } else { BlockId::PIECES };
+        world.set_pieces(cell, pieces).ok_or(RefuseReason::NotLoaded)?;
+        changes.push((cell, BlockId::PIECES, new));
     }
     Ok(changes)
 }
 
-/// A bar of `block` from its corner `at` (in half blocks, its lowest), lying along `axis`. From a
-/// whole cell's side it's a bar in that cell; from halfway, half a bar in each of two cells, linked
-/// (`docs/quartile.md` section 10). Into air, something replaceable, or a cell of pieces with room;
-/// both halves or neither.
+/// A single octant of a bar block, an octblock (David: "there's no reason octblocks shouldn't be a
+/// thing"), at `half` (in half blocks): into air, something replaceable, or a free octant of a cell of
+/// pieces.
+fn place_octant(world: &mut VoxelWorld, registry: &BlockRegistry, half: IVec3, block: BlockId) -> Changes {
+    if registry.def(block).is_none_or(|def| def.bar.is_none()) {
+        return Err(RefuseReason::NotABar);
+    }
+    let cell = half.div_euclid(IVec3::splat(2));
+    if !world.is_loaded(cell) {
+        return Err(RefuseReason::NotLoaded);
+    }
+    let old = world.get_block(cell);
+    let mut pieces = if old == BlockId::PIECES {
+        world.get_pieces(cell).cloned().unwrap_or_default()
+    } else if registry.is_replaceable(old) {
+        Pieces::default()
+    } else {
+        return Err(RefuseReason::Occupied);
+    };
+    if !pieces.set(octant_of(half), block, Part::LONE) {
+        return Err(RefuseReason::Occupied);
+    }
+    world.set_pieces(cell, pieces).ok_or(RefuseReason::NotLoaded)?;
+    Ok(vec![(cell, old, BlockId::PIECES)])
+}
+
+/// A bar of `block` from its corner `at` (in half blocks, its lowest), lying along `axis`: its two
+/// octants, in one cell or across two. An octant already taken keeps what's there (the first piece
+/// keeps it): the bar is cut, its other octant placed as a cut piece stuck to it. Into air,
+/// something replaceable, or a cell of pieces; refused if neither octant is free.
 fn place_bar(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, axis: u8, block: BlockId) -> Changes {
     if registry.def(block).is_none_or(|def| def.bar.is_none()) {
         return Err(RefuseReason::NotABar);
     }
-    let a = axis as usize;
-    let mut step = IVec3::ZERO;
-    step[a] = 1;
-    let two = IVec3::splat(2);
-    let part = |half: IVec3, toward: Option<IVec3>| {
-        let h = half.rem_euclid(two);
-        let slot = match toward {
-            None => Slot::bar(axis, h[(a + 1) % 3] as u8, h[(a + 2) % 3] as u8),
-            Some(toward) => Slot::half(h.x as u8, h.y as u8, h.z as u8, toward),
-        };
-        (half.div_euclid(two), slot)
-    };
-    let parts = if at[a].rem_euclid(2) == 0 { vec![part(at, None)] } else { vec![part(at, Some(step)), part(at + step, Some(-step))] };
-    let mut cells = Vec::new();
-    for (cell, slot) in parts {
+    let halves = bar_halves(at, axis);
+    // Each octant's cell as it would become, if the octant's free.
+    let mut free = Vec::new();
+    for (end, half) in halves.into_iter().enumerate() {
+        let cell = half.div_euclid(IVec3::splat(2));
         if !world.is_loaded(cell) {
             return Err(RefuseReason::NotLoaded);
         }
         let old = world.get_block(cell);
-        let mut pieces = if old == BlockId::PIECES {
+        let pieces = if old == BlockId::PIECES {
             world.get_pieces(cell).cloned().unwrap_or_default()
         } else if registry.is_replaceable(old) {
             Pieces::default()
         } else {
-            return Err(RefuseReason::Occupied);
+            continue;
         };
-        if !pieces.add(slot, block) {
-            return Err(RefuseReason::Occupied);
+        if pieces.get(octant_of(half)).is_none() {
+            free.push((end as u8, half, cell, old));
         }
-        cells.push((cell, old, pieces));
     }
+    if free.is_empty() {
+        return Err(RefuseReason::Occupied);
+    }
+    let whole = free.len() == 2;
     let mut changes = Vec::new();
-    for (cell, old, pieces) in cells {
+    for (end, half, cell, old) in free {
+        // (Both octants may be in one cell: read it again for the second.)
+        let mut pieces = if world.get_block(cell) == BlockId::PIECES { world.get_pieces(cell).cloned().unwrap_or_default() } else { Pieces::default() };
+        pieces.set(octant_of(half), block, Part::of_bar(axis as usize, end, whole));
         world.set_pieces(cell, pieces).ok_or(RefuseReason::NotLoaded)?;
         changes.push((cell, old, BlockId::PIECES));
     }
     Ok(changes)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -375,52 +424,91 @@ mod tests {
         );
     }
 
+    /// A bar of `block` from its corner (in half blocks), along an axis.
+    fn bar(at: IVec3, axis: u8, block: BlockId) -> BlockEditRequest {
+        BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceBar { at, axis, block }, source: PLAYER }
+    }
+
+    /// The octants filled in a cell, by number.
+    fn filled(world: &VoxelWorld, cell: IVec3) -> Vec<usize> {
+        world.get_pieces(cell).map_or_else(Vec::new, |pieces| (0..8).filter(|&o| pieces.get(o).is_some()).collect())
+    }
+
     #[test]
-    fn bars_go_into_air_and_into_a_cell_of_bars_with_room_and_a_break_takes_the_cell() {
+    fn a_bar_crossing_one_already_there_is_cut_and_goes_with_it_when_that_s_mined() {
         let stone = BlockRegistry::default().id("incus:stone").unwrap();
         let cell = IVec3::new(0, 0, 145);
-        // A bar from a corner of the cell (counted in half blocks), along an axis.
-        let bar = |at: IVec3, axis: u8, block: BlockId| BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceBar { at, axis, block }, source: PLAYER };
         let low_west = cell * 2;
-        // Two bars, then one whose octants are both taken (the same again), then one into the grass
-        // below (a whole block): those two refused.
-        let below = bar(low_west - IVec3::Z * 2, 0, stone);
-        // And a bar of grass, which isn't marked as a block that can be a bar.
+        // A: a low bar north–south on the west (octants 0 and 1). B: a low bar east–west on the south
+        // (octants 0 and 2): 0 is A's, so B is cut to octant 2. The same A again, and one into the grass
+        // below (a whole block): refused. A bar of grass (not a bar block): refused.
         let grass = BlockRegistry::default().id("incus:grass").unwrap();
+        let below = bar(low_west - IVec3::Z * 2, 0, stone);
         let (mut app, _) = run_requests(&[bar(low_west, 0, stone), bar(low_west, 1, stone), bar(low_west, 0, stone), below, bar(low_west + IVec3::X * 4, 0, grass)]);
         assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied, RefuseReason::Occupied, RefuseReason::NotABar]);
         let world = app.world().resource::<VoxelWorld>();
-        assert_eq!(world.get_block(cell), BlockId::PIECES);
-        assert_eq!(world.get_pieces(cell).map(|pieces| pieces.list().len()), Some(2));
-        // Breaking it takes the whole cell.
-        let (mut app, _) = run_requests(&[bar(low_west, 0, stone), BlockEditRequest { position: cell, kind: EditKind::Break, source: PLAYER }]);
+        assert_eq!(filled(world, cell), [0, 1, 2]);
+        let pieces = world.get_pieces(cell).unwrap();
+        assert!(pieces.get(2).unwrap().1.is_cut(), "B, cut");
+        assert!(pieces.get(0).unwrap().1.whole() && pieces.get(1).unwrap().1.whole(), "A, whole");
+        // A's piece: A and B's cut octant, stuck to it. B's: its cut octant alone.
+        assert_eq!(world.piece_halves(low_west).len(), 3);
+        assert_eq!(world.piece_halves(low_west + IVec3::Y), vec![low_west + IVec3::Y]);
+        // Mining B's cut octant takes only it; mining A takes A and what's stuck to it.
+        let mine = |half: IVec3| BlockEditRequest { position: cell, kind: EditKind::BreakPiece { half }, source: PLAYER };
+        let (mut app, _) = run_requests(&[bar(low_west, 0, stone), bar(low_west, 1, stone), mine(low_west + IVec3::Y)]);
         assert!(refusals(&mut app).is_empty());
+        assert_eq!(filled(app.world().resource::<VoxelWorld>(), cell), [0, 1]);
+        let (mut app, _) = run_requests(&[bar(low_west, 0, stone), bar(low_west, 1, stone), mine(low_west + IVec3::X), mine(low_west)]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::NothingThere], "the second, A already gone");
         let world = app.world().resource::<VoxelWorld>();
         assert_eq!((world.get_block(cell), world.get_pieces(cell).is_none()), (BlockId::AIR, true));
     }
 
     #[test]
-    fn a_bar_across_two_cells_is_two_linked_halves_and_goes_whole_when_either_is_broken() {
+    fn an_octblock_goes_in_alone_cuts_a_bar_across_it_and_takes_that_with_it_when_mined() {
+        let stone = BlockRegistry::default().id("incus:stone").unwrap();
+        let cell = IVec3::new(0, 0, 145);
+        let low_west = cell * 2;
+        let octant = BlockEditRequest { position: cell, kind: EditKind::PlaceOctant { half: low_west, block: stone }, source: PLAYER };
+        let mine = BlockEditRequest { position: cell, kind: EditKind::BreakPiece { half: low_west }, source: PLAYER };
+        // The octblock, then the same again (taken), then a bar across it: cut to its other octant.
+        let (mut app, _) = run_requests(&[octant, octant, bar(low_west, 0, stone)]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied]);
+        let world = app.world().resource::<VoxelWorld>();
+        assert_eq!(world.octant(low_west).map(|(_, part)| part), Some(Part::LONE));
+        assert!(world.octant(low_west + IVec3::X).is_some_and(|(_, part)| part.is_cut()));
+        // Mining the octblock takes the cut bar stuck to it.
+        let (mut app, _) = run_requests(&[octant, bar(low_west, 0, stone), mine]);
+        assert!(refusals(&mut app).is_empty());
+        assert_eq!(app.world().resource::<VoxelWorld>().get_block(cell), BlockId::AIR);
+    }
+
+    #[test]
+    fn a_bar_across_two_cells_is_mined_whole_from_either() {
         let stone = BlockRegistry::default().id("incus:stone").unwrap();
         let (first, second) = (IVec3::new(0, 0, 145), IVec3::new(1, 0, 145));
-        // From halfway along the first cell, north: half in each.
+        // From halfway along the first cell, north: an octant in each, whole.
         let at = first * 2 + IVec3::X;
-        let place = BlockEditRequest { position: first, kind: EditKind::PlaceBar { at, axis: 0, block: stone }, source: PLAYER };
-        // A bar in the second cell besides (east–west, high): breaking that cell takes it, and the
-        // straddling bar's half in the first cell too.
-        let other = BlockEditRequest { position: second, kind: EditKind::PlaceBar { at: second * 2 + IVec3::Z, axis: 1, block: stone }, source: PLAYER };
-        let (mut app, _) = run_requests(&[place, other, BlockEditRequest { position: second, kind: EditKind::Break, source: PLAYER }, place]);
+        // A bar besides it in the second cell (east–west, high), which stays.
+        let other = bar(second * 2 + IVec3::Z, 1, stone);
+        let mine = BlockEditRequest { position: second, kind: EditKind::BreakPiece { half: at + IVec3::X }, source: PLAYER };
+        let (mut app, _) = run_requests(&[bar(at, 0, stone), other]);
         assert!(refusals(&mut app).is_empty());
-        // Placed, broken from the second cell (taking the first's half too), placed again.
-        let changes = app.world_mut().run_system_once(|mut changed: MessageReader<BlockChanged>| changed.read().map(|change| (change.position, change.new)).collect::<Vec<_>>()).unwrap();
-        assert_eq!(changes[..3], [(first, BlockId::PIECES), (second, BlockId::PIECES), (second, BlockId::PIECES)]);
-        assert_eq!(changes[3..5], [(second, BlockId::AIR), (first, BlockId::AIR)], "the break took the first cell's half too");
         let world = app.world().resource::<VoxelWorld>();
-        let halves = |cell: IVec3| world.get_pieces(cell).map(|pieces| pieces.list().iter().map(|(slot, _)| (slot.index(), slot.link())).collect::<Vec<_>>());
-        // The first cell's half (its north, west, low octant: 12 + 1) goes on north; the second's
-        // south half goes back south.
-        assert_eq!(halves(first), Some(vec![(13, Some(IVec3::X))]));
-        assert_eq!(halves(second), Some(vec![(12, Some(IVec3::NEG_X))]));
+        assert_eq!((filled(world, first), filled(world, second)), (vec![1], vec![0, 4, 6]));
+        assert_eq!(world.octant(at).map(|(_, part)| (part.end(), part.whole())), Some((0, true)));
+        assert_eq!(world.octant(at + IVec3::X).map(|(_, part)| (part.end(), part.whole())), Some((1, true)));
+        // Mined from the second cell: both halves go, the other bar stays.
+        let (mut app, _) = run_requests(&[bar(at, 0, stone), other, mine]);
+        assert!(refusals(&mut app).is_empty());
+        let world = app.world().resource::<VoxelWorld>();
+        assert_eq!((world.get_block(first), filled(world, second)), (BlockId::AIR, vec![4, 6]));
+        // Breaking a whole cell of pieces takes each piece in it, and the halves they run into.
+        let (mut app, _) = run_requests(&[bar(at, 0, stone), BlockEditRequest { position: second, kind: EditKind::Break, source: PLAYER }]);
+        assert!(refusals(&mut app).is_empty());
+        let world = app.world().resource::<VoxelWorld>();
+        assert_eq!((world.get_block(first), world.get_block(second)), (BlockId::AIR, BlockId::AIR));
     }
 
     #[test]

@@ -387,3 +387,55 @@ upways, that way the crosshair always knows which oct it should start with."
   procedurally generated river that looks real, send it"). The stick-on format is a go. A leftover
   lone octant that has to be mined by itself is acceptable. *Counsel:* read as no need to engineer
   around the edge case; the target box still takes a bar's cut pieces with it, as he first asked.
+
+---
+
+## 13. Stick-ons, built: [BUILT 2026-11-01]
+
+David's rules after stop 2 (section 12), and the stick-on format he chose ("if the player has to mine an
+oct they can cry me a procedurally generated river that looks real, send it"). Waiting for David to
+look.
+- **The format** (`world/pieces.rs`): a cell of pieces holds, for each of its 8 octants, its material
+  and a `Part` byte: its bar's axis (or none, a lone octant), which end of the bar it is, and
+  whether its other half is there. That replaces bar slots and links (sections 9 to 11).
+  - A bar is two octants pointing at each other, in one cell or across a cell's side.
+  - A cut piece is an octant whose other half was taken. It's "stuck to" whatever holds that octant.
+  - A lone octant belongs to no bar.
+  - Each half knows whether its other half is there, so it draws right even when the other half's
+    chunk isn't loaded.
+- **Placing** (`EditKind::PlaceBar`): a bar fills its two octants. If one is already taken, the bar
+  is cut: its other octant goes in as a cut piece. If both are taken, it's refused.
+- **The selector:** placing outlines exactly the octants the bar would fill (one, for a cut bar). The
+  piece aimed at in a cell of pieces is outlined, not the whole cell: a bar and the cut pieces stuck
+  to it, or a lone octant.
+- **Mining** (`EditKind::BreakPiece`, `VoxelWorld::piece_halves`): one piece at a time, with its
+  bar's other half (in this cell or the next) and the cut pieces stuck to it. A cut piece mined
+  alone is just itself. Breaking a whole cell of pieces (any other way) takes each piece in it.
+  There are no items yet, so nothing drops. When items come, a cut piece can't be got back.
+- **Drawing:** a face's tag is its octant and part. The shader (`bar_uv`) measures the bar's picture
+  from where the bar starts: the octant's place, less half a block for its high end. So one rule
+  draws a bar in one cell, a bar across two, and a cut piece (its part of the picture). A lone
+  octant shows its end picture on every face. A bar's two octants in one cell share a tag, so its
+  sides merge into one face.
+- **Edge case, decided:** a cut piece goes with what it's stuck to. So nothing new can take its
+  blocker's place while it's there, and "stuck to" never changes to something that didn't cut it.
+- **Tests:** a part's axis, end and whole; the first piece keeping an octant; the placing rule; a bar
+  crossing one already there, cut, and mined with it or alone; a bar across two cells mined whole
+  from either; a broken cell taking its pieces and their halves; tags and pictures for bars, cut
+  pieces and halves.
+- **B three ways, from the crosshair** (David: "B 3 ways. sideways, longways, upways. i think that'll
+  simplify things. when things are upways, you can treat left as its 'bottom' for the time being, we
+  may evolve on that?"; Minecraft's way of placing by the way you face):
+  - A piece starts at the octant in front of the face at the crosshair (`piece_start`), so the
+    crosshair always knows its octant.
+  - A bar runs one octant on (`bar_placement`): upways up, longways away from you (the way you're
+    looking), sideways to your right (your left is its "bottom" end).
+  - A way that would go into the face aimed at goes out of it instead: longways on a wall sticks
+    straight out, and upways under a ceiling hangs down.
+  - This replaces centring the bar on the crosshair (section 11). A bar still runs across two cells
+    when its start is at a cell's side.
+- **Octblocks** (David: "honestly i think the stone cutting action should be done on screen with a
+  chisel on the ground, and so there's no reason octblocks shouldn't be a thing"): Shift + right
+  click places a single octant of a bar block at the start octant (`EditKind::PlaceOctant`), a
+  stand-in until there's a chisel and an inventory (`docs/vision.md`, "Building, resources and
+  labor"). A bar across an octblock is cut by it, and mining the octblock takes that cut piece too.

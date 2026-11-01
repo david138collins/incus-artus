@@ -163,10 +163,13 @@ pub struct LookTarget {
     /// bar of a cell, and which part of a face, the crosshair is on.
     pub half: Option<IVec3>,
     pub point: Option<Vec3>,
-    /// Where what's being placed would go (its two corners, blocks), when that isn't simply the cell
-    /// in front of the face: a bar (set by the player's placing, `player/mod.rs`). Outlined instead
-    /// of the block.
-    pub ghost: Option<(Vec3, Vec3)>,
+    /// Where what's being placed would go, when that isn't simply the cell in front of the face: the
+    /// octants a bar would fill (each box's two corners, blocks; set by the player's placing,
+    /// `player/mod.rs`), exactly, a cut one's single octant included. Outlined in magenta.
+    pub ghost: Vec<(Vec3, Vec3)>,
+    /// The piece aimed at, in a cell of pieces: its octants (a bar, and the cut pieces stuck to it),
+    /// outlined instead of the whole cell.
+    pub piece: Vec<(Vec3, Vec3)>,
 }
 
 fn spawn_camera(mut commands: Commands, settings: Res<CameraSettings>) {
@@ -387,13 +390,21 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     // Slightly bigger than the block, so the lines sit just outside its faces instead of
     // flickering in and out of them.
     let grow = 0.004;
-    // A bar being placed: its ghost, where it would go (magenta), instead of the block.
-    if let Some((low, high)) = target.ghost {
-        let centre = (low + high) / 2.0;
+    // A box outlined (its two corners, blocks), a hair bigger than it.
+    let mut outline = |(low, high): (Vec3, Vec3), colour: Color| {
         let size = high - low + Vec3::splat(2.0 * grow);
         // (A cube scaled to the box; `game_to_bevy` swaps the axes, so the size is swapped too.)
-        let bevy_size = game_to_bevy(size).abs();
-        gizmos.cube(Transform::from_translation(game_to_bevy(centre)).with_scale(bevy_size), Color::srgb(1.0, 0.0, 1.0));
+        gizmos.cube(Transform::from_translation(game_to_bevy((low + high) / 2.0)).with_scale(game_to_bevy(size).abs()), colour);
+    };
+    // A bar being placed: the octants it would fill (magenta). The piece aimed at, if it's in a cell
+    // of pieces (white): instead of the whole block.
+    for &octant in &target.ghost {
+        outline(octant, Color::srgb(1.0, 0.0, 1.0));
+    }
+    for &octant in &target.piece {
+        outline(octant, Color::WHITE);
+    }
+    if !target.ghost.is_empty() || !target.piece.is_empty() {
         return;
     }
     let centre = hit.block.as_vec3() + Vec3::splat(0.5);

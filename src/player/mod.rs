@@ -41,7 +41,7 @@ use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_box, bar_placement,
+    RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, half_box, piece_start,
 };
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
@@ -406,45 +406,61 @@ struct ActionCooldowns {
     last_place: f32,
 }
 
-/// Placing bars, David's control (`docs/quartile.md`, stop 2: "the quarter blocks either snap to the
-/// face you're aiming at sideways, or longways, and you toggle with a button, like B. the selector
-/// box should snap to quarter blocks as well"): with a bar block in the hotbar, the selector shows
-/// where the bar would go (`world::bar_placement`), B turns it, and right click places it. Kept
-/// apart from storage and aiming, so the control can change without touching them.
-#[derive(Resource)]
+/// Placing bars, David's control (`docs/quartile.md`, sections 11 to 13): with a bar block in the
+/// hotbar, the selector shows exactly the octants a piece would fill, from the octant in front of the
+/// face at the crosshair; B turns the bar three ways (sideways, longways, upways: "B 3 ways"), right
+/// click places it, and Shift + right click places a single octant (an octblock: a stand-in until
+/// there's a chisel). Kept apart from storage and aiming, so the control can change without
+/// touching them.
+#[derive(Resource, Default)]
 struct PieceChoice {
-    /// Longways (true) or sideways.
-    longways: bool,
-    /// Where the bar would go this frame (its corner in half blocks, and its axis), if one would.
-    aim: Option<(IVec3, u8)>,
+    turn: Turn,
+    /// What would be placed this frame, if anything: a bar (its corner in half blocks, and its axis),
+    /// or one octant (where).
+    aim: Option<Aim>,
 }
 
-impl Default for PieceChoice {
-    fn default() -> Self {
-        Self { longways: true, aim: None }
-    }
+#[derive(Clone, Copy)]
+enum Aim {
+    Bar(IVec3, u8),
+    Octant(IVec3),
 }
 
 /// With a bar block selected: B turns the bar, and the selector snaps to where it would go.
 fn aim_bar(
-    keys: Res<ButtonInput<KeyCode>>,
-    capture: Res<MouseCapture>,
+    (keys, capture): (Res<ButtonInput<KeyCode>>, Res<MouseCapture>),
     hotbar: Res<Hotbar>,
     registry: Res<BlockRegistry>,
     cameras: Query<&FlyCamera>,
+    world: Res<VoxelWorld>,
     mut target: ResMut<LookTarget>,
     mut piece: ResMut<PieceChoice>,
 ) {
     let bar_selected = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)).and_then(|id| registry.def(id)).is_some_and(|def| def.bar.is_some());
     if bar_selected && capture.captured && keys.just_pressed(KeyCode::KeyB) {
-        piece.longways = !piece.longways;
+        piece.turn = piece.turn.next();
     }
     let looking = cameras.iter().next().map_or(Vec3::X, |camera| camera.looking());
-    piece.aim = match (bar_selected, target.hit, target.half, target.point) {
-        (true, Some(hit), Some(half), Some(point)) => bar_placement(half, hit.normal, point, looking, piece.longways),
+    let octant = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    piece.aim = match (bar_selected, target.hit, target.half) {
+        (true, Some(hit), Some(half)) if octant => piece_start(half, hit.normal).map(Aim::Octant),
+        (true, Some(hit), Some(half)) => bar_placement(half, hit.normal, looking, piece.turn).map(|(at, axis)| Aim::Bar(at, axis)),
         _ => None,
     };
-    target.ghost = piece.aim.map(|(at, axis)| bar_box(at, axis));
+    // Exactly the octants it would fill: those free (David: "it should highlight exactly the oct itd
+    // fill"); a bar crossing one already there is cut to its other octant.
+    let free = |half: &IVec3| match world.get_block(half.div_euclid(IVec3::splat(2))) {
+        BlockId::PIECES => world.octant(*half).is_none(),
+        block => registry.is_replaceable(block),
+    };
+    let halves = match piece.aim {
+        Some(Aim::Bar(at, axis)) => bar_halves(at, axis).to_vec(),
+        Some(Aim::Octant(half)) => vec![half],
+        None => Vec::new(),
+    };
+    target.ghost = halves.into_iter().filter(free).map(half_box).collect();
+    // The piece aimed at in a cell of pieces: a bar and what's stuck to it, or a lone octant.
+    target.piece = target.half.map_or_else(Vec::new, |half| world.piece_halves(half).into_iter().map(half_box).collect());
 }
 
 /// Where a respawn puts your feet: on top of the highest block at the world's spawn spot (the
@@ -977,7 +993,7 @@ fn block_actions(
     mut cooldowns: ResMut<ActionCooldowns>,
     mut requests: MessageWriter<BlockEditRequest>,
     mut refused: MessageWriter<BlockEditRefused>,
-    piece: Res<PieceChoice>,
+    (piece, world): (Res<PieceChoice>, Res<VoxelWorld>),
 ) {
     // With the mouse free, clicks belong to the debug panel.
     if !capture.captured {
@@ -1004,9 +1020,14 @@ fn block_actions(
 
     if mouse.pressed(MouseButton::Left) && now - cooldowns.last_break >= settings.break_cooldown {
         cooldowns.last_break = now;
+        // In a cell of pieces, just the piece aimed at (a bar and what's stuck to it, or an octant).
+        let kind = match target.half.filter(|&half| world.octant(half).is_some()) {
+            Some(half) => EditKind::BreakPiece { half },
+            None => EditKind::Break,
+        };
         send(BlockEditRequest {
             position: hit.block,
-            kind: EditKind::Break,
+            kind,
             source: EditSource::Player(player),
         });
     }
@@ -1018,7 +1039,11 @@ fn block_actions(
         // A bar (a bar block selected, aimed at a face): where the selector shows it. Else a whole
         // block, in the cell in front of the face.
         let (place, (low, high)) = match piece.aim {
-            Some((at, axis)) => (BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceBar { at, axis, block }, source: EditSource::Player(player) }, bar_box(at, axis)),
+            Some(Aim::Bar(at, axis)) => {
+                let [first, last] = bar_halves(at, axis);
+                (BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceBar { at, axis, block }, source: EditSource::Player(player) }, (half_box(first).0, half_box(last).1))
+            }
+            Some(Aim::Octant(half)) => (BlockEditRequest { position: half.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceOctant { half, block }, source: EditSource::Player(player) }, half_box(half)),
             None => {
                 let Some(cell) = hit.in_front() else {
                     return;
@@ -1256,14 +1281,15 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.checkbox(&mut rules.protect_bottom_layer, "bottom layer (Z 0) can't be broken");
     }
     {
-        // Placing bars (quartile stop 2, David's control).
+        // Placing bars (David's control, docs/quartile.md sections 11 to 13).
         let mut piece = world.resource_mut::<PieceChoice>();
         ui.strong("Bars");
-        ui.small("With a bar block in the hotbar (pick one below), the selector shows where the bar would go: flat on the face you aim at, in the half of it you point at, centred along its length on the crosshair (so it can run across two cells). B turns it; right click places it. A bar fills only the octants still free, so bars make corners and L shapes.");
+        ui.small("With a bar block in the hotbar (pick one below), the selector shows exactly the octants a bar would fill: from the octant in front of the face at your crosshair, on the way it's turned. B turns it (sideways, longways, upways); right click places it; Shift + right click places a single octant. A bar crossing one already there is cut to its other octant. Left click mines one piece: a bar and what's stuck to it.");
         ui.horizontal(|ui| {
             ui.label("turned:");
-            ui.selectable_value(&mut piece.longways, true, "longways").on_hover_text("On a floor or ceiling, the way you're looking; on a wall, upright.");
-            ui.selectable_value(&mut piece.longways, false, "sideways").on_hover_text("On a floor or ceiling, across the way you're looking; on a wall, lying flat.");
+            ui.selectable_value(&mut piece.turn, Turn::Sideways, Turn::Sideways.name()).on_hover_text("To your right (your left is its bottom end).");
+            ui.selectable_value(&mut piece.turn, Turn::Longways, Turn::Longways.name()).on_hover_text("Away from you, the way you're looking (out of a wall you face).");
+            ui.selectable_value(&mut piece.turn, Turn::Upways, Turn::Upways.name()).on_hover_text("Up (down from a ceiling).");
         });
     }
     {

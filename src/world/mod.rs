@@ -30,7 +30,7 @@ pub mod placer;
 mod terrain;
 
 pub use block::BlockId;
-pub use pieces::{Owners, Pieces, Slot, bar_box, bar_placement};
+pub use pieces::{Owners, Part, Pieces, Turn, bar_halves, bar_placement, half_box, octant_of, piece_start};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason,
@@ -119,12 +119,44 @@ impl VoxelWorld {
         if block != BlockId::PIECES {
             return filled(block);
         }
-        let o = half.rem_euclid(IVec3::splat(2));
-        let octant = (o.x + 2 * o.y + 4 * o.z) as usize;
-        self.get_pieces(cell).is_some_and(|pieces| {
-            let block = pieces.octants()[octant];
-            !block.is_air() && filled(block)
-        })
+        self.octant(half).is_some_and(|(block, _)| filled(block))
+    }
+
+    /// The octant of material at `half` (in half blocks), and what it's part of, if it's in a cell of
+    /// pieces.
+    pub fn octant(&self, half: IVec3) -> Option<(BlockId, Part)> {
+        self.get_pieces(half.div_euclid(IVec3::splat(2)))?.get(octant_of(half))
+    }
+
+    /// The octants (in half blocks) of the piece at `half`: that octant, its bar's other half if it's
+    /// whole, and any cut pieces stuck to them (whose other half would have been one of these). What's
+    /// aimed at and mined at once [David, 2026-11-01: "the target box would target the whole
+    /// quarterblock plus any octblocks that are stuck to it"]. Empty if there's no octant there.
+    pub fn piece_halves(&self, half: IVec3) -> Vec<IVec3> {
+        let Some((_, part)) = self.octant(half) else { return Vec::new() };
+        let mut halves = vec![half];
+        if part.whole()
+            && let Some(other) = part.other_half()
+        {
+            halves.push(half + other);
+        }
+        for core in halves.clone() {
+            for axis in 0..3 {
+                for way in [-1, 1] {
+                    let mut step = IVec3::ZERO;
+                    step[axis] = way;
+                    let next = core + step;
+                    if !halves.contains(&next)
+                        && let Some((_, stuck)) = self.octant(next)
+                        && stuck.is_cut()
+                        && stuck.other_half() == Some(-step)
+                    {
+                        halves.push(next);
+                    }
+                }
+            }
+        }
+        halves
     }
 
     /// The pieces of a cell built of them, if it is one (and loaded).
