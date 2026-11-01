@@ -394,7 +394,8 @@ pub struct Hotbar {
 impl Default for Hotbar {
     fn default() -> Self {
         Self {
-            slots: ["incus:stone", "incus:gabbro", "incus:grass", "incus:grid", "incus:outline"].map(String::from).to_vec(),
+            // Stone brick first, chosen to start with (David: "make stone brick the default").
+            slots: ["incus:stone_brick", "incus:stone", "incus:gabbro", "incus:grass", "incus:grid", "incus:outline"].map(String::from).to_vec(),
             selected: 0,
         }
     }
@@ -676,7 +677,7 @@ fn choose_block(
     if !keys_are_ours(&capture, &egui_input) {
         return;
     }
-    let keys_in_order = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5];
+    let keys_in_order = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6];
     for (slot, key) in keys_in_order.into_iter().enumerate() {
         if keys.just_pressed(key) && slot < hotbar.slots.len() {
             hotbar.selected = slot;
@@ -1070,7 +1071,7 @@ fn draw_hotbar(
     mode: Res<ControlMode>,
     registry: Res<BlockRegistry>,
     time: Res<Time<Real>>,
-    flash: Res<FootstepFlash>,
+    (flash, piece): (Res<FootstepFlash>, Res<PieceChoice>),
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("hotbar")));
@@ -1104,6 +1105,19 @@ fn draw_hotbar(
             pink,
         );
         left += slot_size.x + gap;
+    }
+
+    // With a bar block in hand: the quarter-block controls, in small magenta along the top (David:
+    // "include a very small line of magenta text at top with the controls").
+    let bar_in_hand = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)).and_then(|id| registry.def(id)).is_some_and(|def| def.bar.is_some());
+    if bar_in_hand {
+        painter.text(
+            egui::pos2(screen.center().x, screen.top() + 4.0),
+            egui::Align2::CENTER_TOP,
+            format!("B turns it ({}: sideways · longways · upways)   right click places   Shift + right click an octblock   left click mines a piece", piece.turn.name()),
+            egui::FontId::proportional(11.0),
+            magenta,
+        );
     }
 
     let mode_text = match *mode {
