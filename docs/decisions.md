@@ -525,6 +525,14 @@ Reference: `Art/quartile minecraft illustration.png`
       the plan, never saved); only ones a player changes are stored. And 2D objects in bulk can be
       drawn into their chunk's mesh as crossed sprites, as Minecraft draws grass, while staying
       objects in the data.
+      **Plants change over time** (David: "the plants may need to change from time to time").
+      *Counsel* [PROPOSED]: time is one more input to the projection. A plant's stage (sprouting,
+      grown, flowering, seeding, dead in winter) is worked out from its place, the seed, the calendar
+      and the season, so untouched plants change with nothing saved and 1 still equals 1. A
+      disturbance (eaten, cut, trampled, burned) is stored as a difference with its time, and the
+      regrowth after it is worked out from the time since. Slow changes across whole regions (a
+      forest spreading, a pasture overgrazed) are kept as coarse maps that the plants are then
+      projected from.
       **Zones that are areas, not blueprints** [IDEA, David 2026-10-30]: a pasture is a zone, which is
       also a kind of building (a building that's an area). It probably has no blueprint, but a script of
       its own: a fence along the border, a gate you place, maybe a barn (how is still open). There may be
