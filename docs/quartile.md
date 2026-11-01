@@ -200,8 +200,15 @@ before mineralogy's rock layers and ores.
   - **Mixed shapes break whole and drop nothing when mined.** *Counsel:* this refines "mining a mixed
     cell takes all of it" above. Open: does a single-material shape, such as an L of cut stone, also
     drop nothing, or only cells mixing materials? For stop 2, where mining comes in.
-    **Answered** (David): "yes, no odd shapes have any chance of giving anything." Any joined shape
-    drops nothing, single material or mixed. *Counsel's reading:* a lone bar is the item itself (an
-    oak quarter log) and drops as itself; Builder confirms that with David at stop 2.
+    **Answered** (David): "yes, no odd shapes have any chance of giving anything." Then, clarifying:
+    "for the player, if he makes some stairs out of a single cut stone and then mines them up, he'll
+    get it all back. npc's will probably have a chance based on their mining or some other skill."
+    So, as Counsel reads the two together:
+    - **One material, mined by the player:** everything comes back. Stairs made from one cut stone
+      return what went into them; a lone bar returns itself.
+    - **Mixed materials ("odd shapes"):** break whole and drop nothing.
+    - **Mined by NPCs:** a chance to get the pieces back, by their mining skill or a similar one
+      (rolled through the Goddess of Fate, `docs/simulation.md` section 8).
+    Builder confirms this reading with David at stop 2.
   - **Everything has collision:** bars, joined shapes and octant items.
   - **The simple placing control is fine to start with.**
