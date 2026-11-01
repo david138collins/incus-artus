@@ -429,3 +429,19 @@ them vanish where the far view takes over, about 1,000 blocks out (stop 4).
 - **What decides the next part:** if the fill adds many rectangles in view from above (caves behind
   rock being drawn) and costs frames, section visibility (3.2 B) comes next, behind an A/B switch. If
   not, it waits, and stop 3 (darkness) is next.
+- **David's numbers (2026-11-01, uncapped, one spot, read 10 seconds after each fill):**
+
+  | | No caves | 200 caves (410 round) | 2,000 caves (1,025 round) |
+  |---|---|---|---|
+  | Sections in view | 1,932 | 2,118 | 3,659 (+89%) |
+  | Rectangles in view | 628,774 | 657,251 | 863,619 (+37%) |
+  | fps | 253 | 260 | 252 |
+  | 1% low | 166 | 157 | 163 |
+  | Worst frame | 8.0 ms | 11.5 ms | 10.3 ms |
+
+  - The fill of 2,000 remade 2,850 chunks in 1,316 ms.
+  - Hidden caves are drawn (the rectangles in view go up), but even 2,000 of them cost no frame
+    rate on David's machine.
+  - **So section visibility (3.2 B) waits.** It comes back if forests, cities or denser cave kinds
+    push the count much higher. The fill is the way to measure it again. **Stop 3 (darkness) is
+    next.**
