@@ -31,7 +31,7 @@ use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
 use meshing::{MeshingState, SectionMesh};
 pub(crate) use light::LightSettings;
-pub(crate) use performance::{Timed, soak_line};
+pub(crate) use performance::{Timed, drawing_line, soak_line};
 pub use deep_shot::deep_shot_section;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

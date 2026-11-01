@@ -251,17 +251,22 @@ pub fn generate_around(world: &mut VoxelWorld, map: &CompiledMap, blocks: &Terra
             }
         }
     }
-    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
-    let each = wanted.len().div_ceil(cores).max(1);
-    let made: Vec<Chunk> = std::thread::scope(|scope| {
-        let jobs: Vec<_> = wanted.chunks(each).map(|part| scope.spawn(move || part.iter().filter_map(|&pos| map.chunk(pos, blocks, caves)).collect::<Vec<_>>())).collect();
-        jobs.into_iter().flat_map(|job| job.join().unwrap_or_default()).collect()
-    });
+    let made = make_chunks(map, blocks, caves, &wanted);
     let count = made.len();
     for chunk in made {
         world.insert_chunk(chunk);
     }
     count
+}
+
+/// Makes the chunks at `places` on all the computer's cores (those past the map are left out).
+pub fn make_chunks(map: &CompiledMap, blocks: &TerrainBlocks, caves: &CavePlan, places: &[ChunkPos]) -> Vec<Chunk> {
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let each = places.len().div_ceil(cores).max(1);
+    std::thread::scope(|scope| {
+        let jobs: Vec<_> = places.chunks(each).map(|part| scope.spawn(move || part.iter().filter_map(|&pos| map.chunk(pos, blocks, caves)).collect::<Vec<_>>())).collect();
+        jobs.into_iter().flat_map(|job| job.join().unwrap_or_default()).collect()
+    })
 }
 
 #[cfg(test)]

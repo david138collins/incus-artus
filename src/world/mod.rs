@@ -470,7 +470,7 @@ fn place_test_cave(world: &mut World) -> String {
     let places = CavePlan::chunks_near(&tunnel);
     let plan = std::sync::Arc::new(CavePlan::new(old.tunnels.iter().cloned().chain([tunnel]).collect()));
     world.insert_resource(Caves(plan.clone()));
-    let (with, without, kept) = remake_chunks(world, &map, &places, &plan, &old);
+    let (with, without, kept) = remake_chunks(world, &map, &places, &plan, Some(&old));
     let mut note = format!("A test cave, {:.0} blocks in. Its {} chunks made again in {with:.1} ms ({without:.1} ms without it).", settings.length, places.len());
     if kept > 0 {
         note += &format!(" {kept} you'd changed were carved, keeping your changes.");
@@ -485,7 +485,7 @@ fn remove_test_caves(world: &mut World) -> String {
     let places: HashSet<ChunkPos> = old.tunnels.iter().flat_map(CavePlan::chunks_near).collect();
     let plan = std::sync::Arc::new(CavePlan::default());
     world.insert_resource(Caves(plan.clone()));
-    let (_, _, kept) = remake_chunks(world, &map, &places, &plan, &old);
+    let (_, _, kept) = remake_chunks(world, &map, &places, &plan, None);
     let mut note = format!("{} test caves removed.", old.tunnels.len());
     if kept > 0 {
         note += &format!(" {kept} chunks you'd changed keep their holes.");
@@ -493,15 +493,17 @@ fn remove_test_caves(world: &mut World) -> String {
     note
 }
 
-/// Makes the loaded chunks at `places` again from the recipe with the caves in `plan`, timing it
-/// (with them, and with the `old` plan); chunks you've changed are carved instead, so your changes
-/// stay. Returns the two times (ms) and how many changed chunks there were.
-fn remake_chunks(world: &mut World, map: &CompiledMap, places: &HashSet<ChunkPos>, plan: &CavePlan, old: &CavePlan) -> (f64, f64, usize) {
+/// Makes the loaded chunks at `places` again from the recipe with the caves in `plan`, on all cores,
+/// timing it (and, if `old` is given, timing them with that plan too, to compare); chunks you've
+/// changed are carved instead, so your changes stay. Returns the two times (ms, start to finish) and
+/// how many changed chunks there were.
+fn remake_chunks(world: &mut World, map: &CompiledMap, places: &HashSet<ChunkPos>, plan: &CavePlan, old: Option<&CavePlan>) -> (f64, f64, usize) {
     let blocks = TerrainBlocks::from_registry(world.resource::<BlockRegistry>());
     world.resource_mut::<Streaming>().forget(places);
     let ms = |started: Instant| started.elapsed().as_secs_f64() * 1000.0;
-    let (mut with, mut without, mut kept) = (0.0, 0.0, 0);
     let mut voxel = world.resource_mut::<VoxelWorld>();
+    let mut kept = 0;
+    let mut remake = Vec::new();
     for &pos in places {
         if voxel.chunk(pos).is_none() {
             continue;
@@ -512,18 +514,65 @@ fn remake_chunks(world: &mut World, map: &CompiledMap, places: &HashSet<ChunkPos
             }
             voxel.mark_chunk_dirty(pos);
             kept += 1;
-            continue;
-        }
-        let started = Instant::now();
-        let _ = map.chunk(pos, &blocks, old);
-        without += ms(started);
-        let started = Instant::now();
-        if let Some(chunk) = map.chunk(pos, &blocks, plan) {
-            with += ms(started);
-            voxel.insert_chunk(chunk);
+        } else {
+            remake.push(pos);
         }
     }
+    let started = Instant::now();
+    if let Some(old) = old {
+        terrain::make_chunks(map, &blocks, old, &remake);
+    }
+    let without = ms(started);
+    let started = Instant::now();
+    let made = terrain::make_chunks(map, &blocks, plan, &remake);
+    let with = ms(started);
+    for chunk in made {
+        voxel.insert_chunk(chunk);
+    }
     (with, without, kept)
+}
+
+/// Fills the ground round you with test caves, for measuring what caves cost to draw
+/// (`docs/caves.md`, stop 2): `fill` dead-end tunnels like the test cave, each wholly underground
+/// (8 to 100 blocks under the surface), heading every which way, within `fill_reach` blocks.
+fn fill_with_test_caves(world: &mut World) -> String {
+    let Some(map) = world.resource::<Terrain>().compiled().cloned() else { return "Needs a compiled world.".to_string() };
+    let Some(centre) = world.query::<&crate::camera::FlyCamera>().iter(world).next().map(|camera| camera.position) else { return String::new() };
+    let settings = world.resource::<TestCaveSettings>().clone();
+    let old = world.resource::<Caves>().0.clone();
+    let mut tunnels = old.tunnels.clone();
+    let mut places = HashSet::new();
+    // The same fill from the same spot: the dice are seeded by where you are.
+    let mut random = (centre.x as i32).wrapping_mul(73_856_093) as u32 ^ (centre.y as i32).wrapping_mul(19_349_663) as u32 ^ old.tunnels.len() as u32 | 1;
+    let mut next = move || {
+        random ^= random << 13;
+        random ^= random >> 17;
+        random ^= random << 5;
+        random as f32 / u32::MAX as f32
+    };
+    let mut added = 0;
+    for _ in 0..settings.fill.max(0) * 4 {
+        if added == settings.fill {
+            break;
+        }
+        let (angle, distance) = (next() * std::f32::consts::TAU, next().sqrt() * settings.fill_reach);
+        let (north, east) = (centre.x + angle.cos() * distance, centre.y + angle.sin() * distance);
+        let Some((ground, _)) = map.column(north.floor() as i32, east.floor() as i32) else { continue };
+        let depth = 8.0 + next() * 92.0;
+        let up = ground as f32 - depth;
+        if up < (WORLD_BOTTOM + 12) as f32 {
+            continue;
+        }
+        let heading = next() * std::f32::consts::TAU;
+        let tunnel = settings.tunnel(Vec3::new(north, east, up), Vec2::new(heading.cos(), heading.sin()), (next() * u32::MAX as f32) as u32);
+        places.extend(CavePlan::chunks_near(&tunnel));
+        tunnels.push(tunnel);
+        added += 1;
+    }
+    let plan = std::sync::Arc::new(CavePlan::new(tunnels));
+    world.insert_resource(Caves(plan.clone()));
+    let (with, _, _) = remake_chunks(world, &map, &places, &plan, None);
+    format!("{added} test caves underground within {:.0} blocks; {} chunks made again in {with:.0} ms. Compare the numbers below with and without them, from above and from inside one.", settings.fill_reach, places.len())
 }
 
 // ── Debug page ──────────────────────────────────────────────────────────────
@@ -617,17 +666,33 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
     }
     let compiled = world.resource::<Terrain>().compiled().is_some();
     let count = world.resource::<Caves>().0.tunnels.len();
-    let (mut place, mut remove, mut reset) = (false, false, false);
+    let (mut place, mut remove, mut reset, mut fill) = (false, false, false, false);
     ui.horizontal_wrapped(|ui| {
         place = ui.add_enabled(compiled, egui::Button::new("Place a test cave at the crosshair")).on_disabled_hover_text("Needs a compiled world (World Compiler, Render World and Spawn)").clicked();
         remove = ui.add_enabled(count > 0, egui::Button::new(format!("Remove the test caves ({count})"))).clicked();
         reset = ui.button("Reset to defaults").clicked();
     });
+    // What caves cost to draw (stop 2): many at once, underground, and the numbers to compare.
+    ui.add_space(4.0);
+    ui.label("What caves cost to draw:");
+    {
+        let mut settings = world.resource_mut::<TestCaveSettings>();
+        ui.add(crate::debug::Slider::new(&mut settings.fill, 10..=2_000).logarithmic(true).text("how many"));
+        ui.add(crate::debug::Slider::new(&mut settings.fill_reach, 32.0..=1_024.0).text("how far round you (blocks)"));
+    }
+    ui.horizontal_wrapped(|ui| {
+        fill = ui.add_enabled(compiled, egui::Button::new("Fill the ground round me with test caves")).on_hover_text("Dead ends like the test cave, each wholly underground (8 to 100 blocks down), heading every which way, with the settings above").on_disabled_hover_text("Needs a compiled world").clicked();
+    });
+    ui.small(crate::render::drawing_line(world));
     if reset {
         *world.resource_mut::<TestCaveSettings>() = TestCaveSettings::default();
     }
     if place {
         let note = place_test_cave(world);
+        world.resource_mut::<WorldDebugState>().cave_note = note;
+    }
+    if fill {
+        let note = fill_with_test_caves(world);
         world.resource_mut::<WorldDebugState>().cave_note = note;
     }
     if remove {

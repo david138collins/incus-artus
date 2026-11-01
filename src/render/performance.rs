@@ -213,6 +213,23 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
 
 /// The page's numbers on one line, plus how many of each kind of thing the engine is holding (a
 /// count that keeps climbing on a long flight is a leak): for the soak test's log.
+/// What's being drawn, in a line (the World page's test caves, `docs/caves.md` stop 2): the sections
+/// in view this frame and their rectangles, of every section meshed, and the frame rate.
+pub fn drawing_line(world: &mut World) -> String {
+    let fps = summary(&world.resource::<FrameTimes>().0).map_or("no frames".to_string(), |(average, low, worst)| format!("{average:.0} fps, 1% low {low:.0}, worst {worst:.1} ms"));
+    let (mut sections, mut quads, mut in_view, mut quads_in_view) = (0u64, 0u64, 0u64, 0u64);
+    let mut query = world.query::<(&SectionMesh, &ViewVisibility)>();
+    for (mesh, visibility) in query.iter(world) {
+        sections += 1;
+        quads += mesh.quads as u64;
+        if visibility.get() {
+            in_view += 1;
+            quads_in_view += mesh.quads as u64;
+        }
+    }
+    format!("In view: {in_view} of {sections} sections, {quads_in_view} of {quads} rectangles. {fps}")
+}
+
 pub fn soak_line(world: &mut World) -> String {
     let fps = summary(&world.resource::<FrameTimes>().0).map_or("no frames".to_string(), |(average, low, worst)| format!("{average:.0} fps, 1% low {low:.0}, worst {worst:.1} ms"));
     let streaming = world.resource::<Streaming>();

@@ -405,3 +405,27 @@ stops". No chamber.
   - the plan survives `caves.toml`;
   - the biggest tunnel far out (30,000 blocks) is carved with no overflow;
   - the same seed worms the same way.
+
+## 10. Stop 2, what caves cost to draw: the measuring [BUILT 2026-11-01]
+
+David on stop 1's test caves: "there's nothing wrong with how the test caves came out, they were
+quite nice actually, i played with the settings and tried making different shapes". He also saw
+them vanish where the far view takes over, about 1,000 blocks out (stop 4).
+- **The fill** (the World page, "What caves cost to draw"): "Fill the ground round me with test caves"
+  places `how many` dead ends (10 to 2,000; 200 to start) within `how far round you` (32 to 1,024
+  blocks; 400 to start).
+  - Each is like the test cave, with the sliders above, wholly underground (8 to 100 blocks under
+    the surface), heading every which way.
+  - The worst case for culling is caves you can't see, which still have faces.
+  - The fill is the same from the same spot: its dice are seeded by where you are.
+  - "Remove the test caves" takes them out again, to compare.
+- **Remaking chunks runs on every core** (`terrain::make_chunks`, shared with starting a world), so a
+  fill of hundreds doesn't freeze the game for long. The World page says how long it took.
+- **The numbers, live, under the buttons** (`render::drawing_line`):
+  - the sections in view this frame (after Bevy's view culling) out of every section meshed;
+  - their rectangles;
+  - the frame rate (average, 1% low, worst frame).
+  - Compare them with and without the fill, from above and from inside a tunnel.
+- **What decides the next part:** if the fill adds many rectangles in view from above (caves behind
+  rock being drawn) and costs frames, section visibility (3.2 B) comes next, behind an A/B switch. If
+  not, it waits, and stop 3 (darkness) is next.

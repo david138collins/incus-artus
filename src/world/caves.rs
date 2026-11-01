@@ -243,11 +243,15 @@ pub struct TestCaveSettings {
     pub lump: i32,
     /// How far down the floor is cut flat, a share of its height (1 = round, no flat floor).
     pub floor: f32,
+    /// Filling the ground round you with them, to measure what caves cost to draw (stop 2): how many,
+    /// and how far round (blocks).
+    pub fill: i32,
+    pub fill_reach: f32,
 }
 
 impl Default for TestCaveSettings {
     fn default() -> Self {
-        Self { length: 30.0, width: 2.5, height: 2.0, wander: 20.0, rise_and_fall: 6.0, dip: 4.0, end_size: 0.5, rough: 0.8, lump: 3, floor: 0.6 }
+        Self { length: 30.0, width: 2.5, height: 2.0, wander: 20.0, rise_and_fall: 6.0, dip: 4.0, end_size: 0.5, rough: 0.8, lump: 3, floor: 0.6, fill: 200, fill_reach: 400.0 }
     }
 }
 
