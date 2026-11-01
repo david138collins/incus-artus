@@ -184,3 +184,28 @@ time.
 - **Tests:** the object file read and written back; an object saved with its chunk (and one the game
   no longer has, kept); placing, refusals (taken, nothing under it, a block into its upper cell) and
   taking it away.
+
+## 9. After trying stop 1: sizes and snapping (David, 2026-11-01) [PROPOSED, not built]
+
+David, after placing the brazier: "we would need a simple preview of the object. however, i think an
+isometric view would be preferred, so we can wait for that until we build the blueprints section. the
+brazier places. i would also need settings for its dimensions, and size of object. an object larger
+than 16x16 shouldn't take up more than it's model in collision, but it should count as a 'full block
+object', meaning it snaps around like the regular blocks do. blocks that are thinner than 16x16 can
+sit on octants, or the center, working like the other blocks. since quarter blocks are 16 wide, you
+wouldn't be able to snap an oct sized object to the center against the wall. but you could half a
+block forward."
+
+- **The preview waits** for the blueprints section's isometric view.
+- **Builder's proposal (stop 1b, before the flame):**
+  - **Its size:** the dock shows the model's own size in pixels (16 to a block), width × depth ×
+    height. One size setting scales it evenly (stretching would make its pixels uneven), with "as
+    made" (Blockbench's 16 to a block, the blocks' own pixel size) as the default.
+  - **Bumping:** a solid object stops bodies at the box round its model, not its whole cells.
+  - **Two kinds by footprint:**
+    - **Wider than half a block** (more than 8 pixels either way): a full-block object. It snaps to
+      cells as blocks do, centred, and claims every cell its box reaches, so blocks can't go into it.
+    - **Half a block or less both ways** (8 × 8 or smaller): it sits on the octant grid, against a
+      wall or half a block forward, or in the middle of a cell, as blocks do (Shift for the octant
+      grid). It claims only its octants.
+  - **Not in it:** turning (facing), so a bed's long side always points one way for now.
