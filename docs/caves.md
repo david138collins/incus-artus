@@ -445,3 +445,27 @@ them vanish where the far view takes over, about 1,000 blocks out (stop 4).
   - **So section visibility (3.2 B) waits.** It comes back if forests, cities or denser cave kinds
     push the count much higher. The fill is the way to measure it again. **Stop 3 (darkness) is
     next.**
+
+## 11. Pitch black, and the three kinds of light  [DECIDED 2026-11-01, David; the plan is Builder's]
+
+David: "gameplay wise, i want them to be pitch black unless something is making light down there,
+like a magic braziere from a cult lair or glow-lichen. how would you implement a lantern for me?"
+- **Pitch black:** no faint floor. Underground is lit only by daylight near openings and by things that
+  make light.
+- **Three kinds of light, one brightness (16 levels):**
+  1. **Sky light** (stop 3): a cell open to the sky is lit, and the light spreads a short way into
+     covered cells (mouths, overhangs, dug holes); further in it's black. It's worked out when a
+     section is meshed and stored at each face's corners. It changes only when blocks change.
+  2. **Placed lights** (with the first glowing block, glow lichen perhaps): a block file's
+     `light = 12`, spread a short way through air, stored the same way. A lair's braziers cost
+     only the faces near them.
+  3. **Moving lights** (a held lantern, a settler's torch, a fire arrow; when there are items to
+     hold):
+     - a small cube of light round the light, about 32 blocks across, flooded through the air on
+       the CPU whenever the light moves a block (32,000 cells, a fraction of a millisecond);
+     - sent to the GPU as a 3D texture, and read by each pixel;
+     - it curls round corners and doesn't go through walls.
+- **Stop 3's test lantern:** a light round the camera, in the shader, for tuning. It goes through walls;
+  it's only for seeing a black cave.
+- **Colour later:** brightness first. A brazier's orange and lichen's green need more than the
+  vertex's 4 spare bits, so colour waits for a glowing block to look at.
