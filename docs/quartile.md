@@ -525,6 +525,9 @@ It's built as Counsel guessed, about 250 lines, with format 3 unchanged.
   - the mesher drawing its own face, slid, merged in its cell, and never turned.
 - **For David:** when some of the 8 octants are taken, refuse (as now) or cut, the free ones going in
   as pieces stuck to what's there, as bars do?
+- **Overlap: deferred by David until he's tried shifted blocks** ("i think we can leave the overlap
+  question over for now, i might have a question about the way shifting whole blocks works after
+  trying it"). Bars stay as they are.
 - **[IDEA, David 2026-11-01] L pieces, if they're needed:** with no overlap, an L is a bar plus a lone
   octant, and with bar art the two may not match ("you'd be using a quarter piece on one side of a
   corner, and an oct on the other"). David: "i think maybe we can just make L's into blocks too, if we
