@@ -651,6 +651,11 @@ Tectonic Sim
   hills). The Interpreter keeps the view of the result (under the mouse, the world, the terrain lab,
   show, overlays, the cross-section). Only the panels change, as with Additives: the settings stay
   where presets keep them.
+  **[DECIDED 2026-10-31] Move them** (David: "yes, move the features where they belong"), with
+  Topography in **his order: Land and sea · Ridgelines · Mountains · Hills · Torn coast**. "I believe
+  ground detail is gone": it is. It became Hills on 2026-10-28, and the Hills section is that one.
+  The order is the panel's, so if the recipe works them out in a different order, the world stays as
+  it is.
   **Caves are open:** "we still really have no idea how caves factor in. they could be topology i
   think. however they could be after, and we could make caves where rivers end without finding a pond
   lake or ocean." (See "Caves, cliffs and carving" below.)
