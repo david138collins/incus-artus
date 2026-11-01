@@ -176,27 +176,33 @@ pub fn piece_start(half: IVec3, normal: IVec3) -> Option<IVec3> {
 }
 
 /// Where a bar would go, aimed at a face (David's control, 2026-11-01): from the octant in front of
-/// the face at the crosshair, one octant on the way B has turned it, as Minecraft places by the way
-/// you face. Upways goes up, longways away from you (the way you're `looking`), sideways to your
-/// right. A way that would go into the face aimed at goes out of it instead (longways on a wall sticks
-/// straight out). It can run across two cells. Returns the bar's corner (in half blocks, its lowest)
-/// and its axis, for `EditKind::PlaceBar`.
-pub fn bar_placement(half: IVec3, normal: IVec3, looking: Vec3, turn: Turn) -> Option<(IVec3, u8)> {
+/// the face at the crosshair, one octant on along the line B has turned it, as Minecraft places by the
+/// way you face. Upways is upright, longways the way you're `looking`, sideways across that. Which way
+/// along the line is the half of the octant the crosshair is on, at the `point` it met the face (David:
+/// "can we have the octfaces split so the left or right side flips the quarterblocks orientation?"):
+/// its right half runs right, its left half left, so you needn't turn round. A line straight through
+/// the face goes out of it (longways on a wall sticks straight out, upways under a ceiling hangs
+/// down). It can run across two cells. Returns the bar's corner (in half blocks, its lowest) and its
+/// axis, for `EditKind::PlaceBar`.
+pub fn bar_placement(half: IVec3, normal: IVec3, point: Vec3, looking: Vec3, turn: Turn) -> Option<(IVec3, u8)> {
     let start = piece_start(half, normal)?;
-    // The way you face, on the ground, and your right (north to the right is east).
-    let ahead = if looking.x.abs() >= looking.y.abs() { IVec3::new(looking.x.signum() as i32, 0, 0) } else { IVec3::new(0, looking.y.signum() as i32, 0) };
-    let right = IVec3::new(-ahead.y, ahead.x, 0);
-    let mut step = match turn {
-        Turn::Sideways => right,
+    // The way you face, on the ground, and across it.
+    let ahead = if looking.x.abs() >= looking.y.abs() { IVec3::X } else { IVec3::Y };
+    let axis = match turn {
+        Turn::Sideways => IVec3::new(ahead.y, ahead.x, 0),
         Turn::Longways => ahead,
         Turn::Upways => IVec3::Z,
-    };
-    // Never into the face: out of it.
-    if step == -normal {
-        step = normal;
     }
-    let axis = step.abs().max_position() as u8;
-    Some((start.min(start + step), axis))
+    .max_position();
+    let step = if normal[axis] != 0 {
+        normal
+    } else {
+        // Where in the octant's face the crosshair is, 0 to 1 along the line: past the middle runs on.
+        let mut step = IVec3::ZERO;
+        step[axis] = if point[axis] * 2.0 - half[axis] as f32 >= 0.5 { 1 } else { -1 };
+        step
+    };
+    Some((start.min(start + step), axis as u8))
 }
 
 /// The two octants a bar fills (in half blocks), from its corner and its axis.
@@ -254,26 +260,35 @@ mod tests {
         let half = IVec3::new(1, 1, 21);
         let north = Vec3::new(1.0, 0.2, -0.5);
         assert_eq!(piece_start(half, IVec3::Z), Some(IVec3::new(1, 1, 22)));
-        // Longways: north, on into the next cell. Sideways: to the right, east, on into the next.
-        // Upways: up.
-        assert_eq!(bar_placement(half, IVec3::Z, north, Turn::Longways), Some((IVec3::new(1, 1, 22), 0)));
-        assert_eq!(bar_placement(half, IVec3::Z, north, Turn::Sideways), Some((IVec3::new(1, 1, 22), 1)));
-        assert_eq!(bar_placement(half, IVec3::Z, north, Turn::Upways), Some((IVec3::new(1, 1, 22), 2)));
-        // Looking south, the right is west: the bar runs west from its start, so its corner is one
-        // octant west.
-        assert_eq!(bar_placement(half, IVec3::Z, -north, Turn::Sideways), Some((IVec3::new(1, 0, 22), 1)));
+        // Aimed at the octant's north-east quarter: longways runs north, on into the next cell;
+        // sideways east, on into the next; upways up.
+        let north_east = Vec3::new(0.8, 0.8, 11.0);
+        assert_eq!(bar_placement(half, IVec3::Z, north_east, north, Turn::Longways), Some((IVec3::new(1, 1, 22), 0)));
+        assert_eq!(bar_placement(half, IVec3::Z, north_east, north, Turn::Sideways), Some((IVec3::new(1, 1, 22), 1)));
+        assert_eq!(bar_placement(half, IVec3::Z, north_east, north, Turn::Upways), Some((IVec3::new(1, 1, 22), 2)));
+        // The other half of the octant flips it, whichever way you face: on its west half, sideways
+        // runs west, so the corner is one octant west; on its south half, longways runs south.
+        let west = Vec3::new(0.8, 0.6, 11.0);
+        assert_eq!(bar_placement(half, IVec3::Z, west, north, Turn::Sideways), Some((IVec3::new(1, 0, 22), 1)));
+        assert_eq!(bar_placement(half, IVec3::Z, west, -north, Turn::Sideways), Some((IVec3::new(1, 0, 22), 1)));
+        assert_eq!(bar_placement(half, IVec3::Z, north_east, -north, Turn::Sideways), Some((IVec3::new(1, 1, 22), 1)));
+        assert_eq!(bar_placement(half, IVec3::Z, Vec3::new(0.6, 0.8, 11.0), north, Turn::Longways), Some((IVec3::new(0, 1, 22), 0)));
         // A wall facing north (its north face), looking south at it: longways would go into it, so it
-        // sticks out north; upways stands; sideways (west, to the right) lies along it.
+        // sticks out north; upways stands on its top half and hangs on its bottom half; sideways lies
+        // along it, west on its west half.
         let wall = IVec3::new(1, 0, 20);
         let south = Vec3::new(-1.0, 0.1, 0.0);
-        assert_eq!(bar_placement(wall, IVec3::X, south, Turn::Longways), Some((IVec3::new(2, 0, 20), 0)));
-        assert_eq!(bar_placement(wall, IVec3::X, south, Turn::Upways), Some((IVec3::new(2, 0, 20), 2)));
-        assert_eq!(bar_placement(wall, IVec3::X, south, Turn::Sideways), Some((IVec3::new(2, -1, 20), 1)));
+        let (top_west, bottom_east) = (Vec3::new(1.0, 0.1, 10.4), Vec3::new(1.0, 0.4, 10.1));
+        assert_eq!(bar_placement(wall, IVec3::X, top_west, south, Turn::Longways), Some((IVec3::new(2, 0, 20), 0)));
+        assert_eq!(bar_placement(wall, IVec3::X, top_west, south, Turn::Upways), Some((IVec3::new(2, 0, 20), 2)));
+        assert_eq!(bar_placement(wall, IVec3::X, bottom_east, south, Turn::Upways), Some((IVec3::new(2, 0, 19), 2)));
+        assert_eq!(bar_placement(wall, IVec3::X, top_west, south, Turn::Sideways), Some((IVec3::new(2, -1, 20), 1)));
+        assert_eq!(bar_placement(wall, IVec3::X, bottom_east, south, Turn::Sideways), Some((IVec3::new(2, 0, 20), 1)));
         // A ceiling: upways would go into it, so it hangs down.
-        assert_eq!(bar_placement(IVec3::new(0, 0, 30), IVec3::NEG_Z, north, Turn::Upways), Some((IVec3::new(0, 0, 28), 2)));
+        assert_eq!(bar_placement(IVec3::new(0, 0, 30), IVec3::NEG_Z, Vec3::new(0.2, 0.2, 15.0), north, Turn::Upways), Some((IVec3::new(0, 0, 28), 2)));
         // B goes round all three; nothing when the ray started inside a block.
         assert_eq!(Turn::Sideways.next().next().next(), Turn::Sideways);
-        assert_eq!(bar_placement(half, IVec3::ZERO, north, Turn::Upways), None);
+        assert_eq!(bar_placement(half, IVec3::ZERO, north_east, north, Turn::Upways), None);
         assert_eq!(bar_halves(IVec3::new(1, 1, 22), 1), [IVec3::new(1, 1, 22), IVec3::new(1, 2, 22)]);
         assert_eq!(half_box(IVec3::new(1, 1, 22)), (Vec3::new(0.5, 0.5, 11.0), Vec3::new(1.0, 1.0, 11.5)));
     }

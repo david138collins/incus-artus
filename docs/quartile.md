@@ -428,10 +428,17 @@ look.
   may evolve on that?"; Minecraft's way of placing by the way you face):
   - A piece starts at the octant in front of the face at the crosshair (`piece_start`), so the
     crosshair always knows its octant.
-  - A bar runs one octant on (`bar_placement`): upways up, longways away from you (the way you're
-    looking), sideways to your right (your left is its "bottom" end).
-  - A way that would go into the face aimed at goes out of it instead: longways on a wall sticks
-    straight out, and upways under a ceiling hangs down.
+  - A bar runs one octant on (`bar_placement`) along a line: upways upright, longways the way you're
+    looking, sideways across that.
+  - **Which way along the line is the half of the octant the crosshair is on** (David, 2026-11-01:
+    "i notice i have to rotate my body to place them going the other direction; can we have the
+    octfaces split so the left or right side flips the quarterblocks orientation?"). Aimed at an
+    octant's right half, sideways runs right; at its left half, left. The same goes for longways on
+    a floor (far half away, near half toward you) and upways on a wall (top half up, bottom half
+    down). The ghost flips as the crosshair crosses the middle. This replaced "sideways always to
+    your right".
+  - A line straight through the face aimed at goes out of it: longways on a wall sticks straight
+    out, upways on a floor stands up, and upways under a ceiling hangs down.
   - This replaces centring the bar on the crosshair (section 11). A bar still runs across two cells
     when its start is at a cell's side.
 - **Octblocks** (David: "honestly i think the stone cutting action should be done on screen with a

@@ -443,9 +443,9 @@ fn aim_bar(
     }
     let looking = cameras.iter().next().map_or(Vec3::X, |camera| camera.looking());
     let octant = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
-    piece.aim = match (bar_selected, target.hit, target.half) {
-        (true, Some(hit), Some(half)) if octant => piece_start(half, hit.normal).map(Aim::Octant),
-        (true, Some(hit), Some(half)) => bar_placement(half, hit.normal, looking, piece.turn).map(|(at, axis)| Aim::Bar(at, axis)),
+    piece.aim = match (bar_selected, target.hit, target.half, target.point) {
+        (true, Some(hit), Some(half), _) if octant => piece_start(half, hit.normal).map(Aim::Octant),
+        (true, Some(hit), Some(half), Some(point)) => bar_placement(half, hit.normal, point, looking, piece.turn).map(|(at, axis)| Aim::Bar(at, axis)),
         _ => None,
     };
     // Exactly the octants it would fill: those free (David: "it should highlight exactly the oct itd
@@ -1298,12 +1298,12 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         // Placing bars (David's control, docs/quartile.md sections 11 to 13).
         let mut piece = world.resource_mut::<PieceChoice>();
         ui.strong("Bars");
-        ui.small("With a bar block in the hotbar (pick one below), the selector shows exactly the octants a bar would fill: from the octant in front of the face at your crosshair, on the way it's turned. B turns it (sideways, longways, upways); right click places it; Shift + right click places a single octant. A bar crossing one already there is cut to its other octant. Left click mines one piece: a bar and what's stuck to it.");
+        ui.small("With a bar block in the hotbar (pick one below), the selector shows exactly the octants a bar would fill: from the octant in front of the face at your crosshair, along the line it's turned, toward the half of the octant your crosshair is on. B turns it (sideways, longways, upways); right click places it; Shift + right click places a single octant. A bar crossing one already there is cut to its other octant. Left click mines one piece: a bar and what's stuck to it.");
         ui.horizontal(|ui| {
             ui.label("turned:");
-            ui.selectable_value(&mut piece.turn, Turn::Sideways, Turn::Sideways.name()).on_hover_text("To your right (your left is its bottom end).");
-            ui.selectable_value(&mut piece.turn, Turn::Longways, Turn::Longways.name()).on_hover_text("Away from you, the way you're looking (out of a wall you face).");
-            ui.selectable_value(&mut piece.turn, Turn::Upways, Turn::Upways.name()).on_hover_text("Up (down from a ceiling).");
+            ui.selectable_value(&mut piece.turn, Turn::Sideways, Turn::Sideways.name()).on_hover_text("Across the way you face: right on the right half of the octant, left on its left half.");
+            ui.selectable_value(&mut piece.turn, Turn::Longways, Turn::Longways.name()).on_hover_text("The way you face: away on the far half of the octant, toward you on its near half (straight out of a wall).");
+            ui.selectable_value(&mut piece.turn, Turn::Upways, Turn::Upways.name()).on_hover_text("Upright: up on the top half of the octant, down on its bottom half (straight out of a floor or ceiling).");
         });
     }
     {
