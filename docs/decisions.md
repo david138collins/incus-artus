@@ -497,7 +497,11 @@ Reference: `Art/quartile minecraft illustration.png`
       again."
     - **Chopping up is a minigame:** logs into quarter logs, for fires or building, "just like hammer
       and chiseling full blocks apart". Once a piece is cut, "it has to pop off and be pickupable".
-    - **Leaves can just vanish.** Branches on the side the tree falls toward break off.
+    - **The tree turns over whole:** "most blocks should do a 90 degree rotation", so the tree lies
+      down keeping its shape. "not all leaves vanish. only ones that have to": only leaves with no room
+      where they'd land. Branches on the side the tree falls toward break off.
+    - **Leaves piled on part of it:** "there should be s grass piled up on half the logs" (Counsel
+      reads it as leaves piled over about half the trunk; David to confirm).
     - **The fall looks bouncy but snaps:** a path that looks like physics but only takes each piece to
       its place on the octant grid. It has to be fun to watch.
     - **Dropped items and breaking:** "if i cant think of a better way, minecraft isnt broken."
