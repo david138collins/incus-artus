@@ -371,3 +371,15 @@ upways, that way the crosshair always knows which oct it should start with."
   can go from the octant under the crosshair to its piece cleanly. What "stuck to it" means exactly,
   and whether mining an intact bar with cut pieces stuck to it returns the bar, are for Builder to
   ask David directly (he'll answer her questions).
+- **[IDEA, David 2026-11-01] Every octant a stick-on:** "this may simplify storing block data, as any
+  oct can just be a stickon." *Counsel:* the octant becomes the only unit. Each octant of a cell holds
+  a material and a link to the octant it's joined to:
+  - a bar is two linked octants;
+  - a bar across two cells is the same thing over a cell border;
+  - a cut piece is an octant stuck on to the piece that cut it;
+  - mining follows the links.
+
+  The link's direction along a bar also gives its axis and which end it is, which the bar's picture
+  needs. A cut piece, whose link points elsewhere, may need its axis stored too. It would replace bar
+  slots plus links with one rule. For Builder to assess before stop 3's save format, and for David to
+  choose.
