@@ -380,9 +380,11 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 ((z(1, 0) - z(-1, 0)) / (2.0 * cell), (z(0, 1) - z(0, -1)) / (2.0 * cell))
             };
             // What the ground is made of here (mineralogy, as the near ground has it).
-            let ground = (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1);
+            let (ground, _) = crate::world::whole_column(h, None);
             let (block_north, block_east) = (x.floor() + 0.5, y.floor() + 0.5);
-            let column = crate::world::placer::Column { north: block_north, east: block_east, ground: ground as f32, slope: north.hypot(east), climate: map.climate(block_north, block_east, ground as f32), water: river(i, j).map(|top| top as i32) };
+            // The slope as every view measures it (not the shading's, which is across the cell).
+            let ground_slope = if mineralogy.reads_slope { map.slope(x.floor() as i32, y.floor() as i32, ground) } else { 0.0 };
+            let column = crate::world::placer::Column { north: block_north, east: block_east, ground: ground as f32, slope: ground_slope, climate: map.climate(block_north, block_east, ground as f32), water: river(i, j).map(|top| top as i32) };
             let block = mineralogy.layers(map, column).top;
             let (mut top_colour, mut side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block), palette.side(block)) };
             // A river narrower than a cell: its water blended in by the share of the cell it covers,

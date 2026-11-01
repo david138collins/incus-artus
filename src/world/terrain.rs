@@ -75,6 +75,16 @@ impl CompiledMap {
         self.ground_and_water(x as f32 + 0.5, y as f32 + 0.5).map(|(z, water)| whole_column(z, water))
     }
 
+    /// The slope at the column of blocks at (`x` north, `y` east), whose ground is at `ground`: the
+    /// one measure every view uses (the near chunks, the distant terrain, the World Compiler), so a
+    /// layer that reads it gets the same answer near and far [the Metaphysics Engine, 2026-11-01: "1
+    /// always equals 1"]. It's measured across the whole-block ground `SLOPE_REACH` either side (a
+    /// neighbour past the map counts as level), whole numbers until the last step.
+    pub fn slope(&self, x: i32, y: i32, ground: i32) -> f32 {
+        let at = |dx: i32, dy: i32| self.column(x + dx, y + dy).map_or(ground, |(z, _)| z);
+        slope_across(at(SLOPE_REACH, 0) - at(-SLOPE_REACH, 0), at(0, SLOPE_REACH) - at(0, -SLOPE_REACH))
+    }
+
     /// One chunk, or `None` if it's wholly past the edge of the map.
     pub fn chunk(&self, pos: ChunkPos, blocks: &TerrainBlocks) -> Option<Chunk> {
         let origin = pos.min_block();
@@ -92,8 +102,8 @@ impl CompiledMap {
                 }
             }
         }
-        // What each column is made of (mineralogy), with its slope if anything reads it: across its
-        // neighbours, those past the chunk's edge asked for.
+        // What each column is made of (mineralogy), with its slope if anything reads it (as
+        // `CompiledMap::slope` measures it, the neighbours past the chunk's edge asked for).
         let mineralogy = self.mineralogy(blocks);
         let ground_at = |x: i32, y: i32| -> Option<i32> {
             if (0..size as i32).contains(&x) && (0..size as i32).contains(&y) {
@@ -111,8 +121,8 @@ impl CompiledMap {
                 }
                 let (x, y) = (local_x as i32, local_y as i32);
                 let slope = if mineralogy.reads_slope {
-                    let at = |dx: i32, dy: i32| ground_at(x + dx, y + dy).unwrap_or(z) as f32;
-                    ((at(1, 0) - at(-1, 0)) / 2.0).hypot((at(0, 1) - at(0, -1)) / 2.0)
+                    let at = |dx: i32, dy: i32| ground_at(x + dx, y + dy).unwrap_or(z);
+                    slope_across(at(SLOPE_REACH, 0) - at(-SLOPE_REACH, 0), at(0, SLOPE_REACH) - at(0, -SLOPE_REACH))
                 } else {
                     0.0
                 };
@@ -158,6 +168,16 @@ impl CompiledMap {
         }
         Some(Chunk::from_sections(pos, sections))
     }
+}
+
+/// How far either side of a column its slope is measured (blocks).
+pub const SLOPE_REACH: i32 = 2;
+
+/// Blocks up per block across, from how much the ground rises across `2 × SLOPE_REACH` blocks north
+/// and east.
+fn slope_across(north_rise: i32, east_rise: i32) -> f32 {
+    let span = (2 * SLOPE_REACH) as f32;
+    ((north_rise * north_rise + east_rise * east_rise) as f32).sqrt() / span
 }
 
 /// A column's ground and its river's or lake's water as the world fills it, from the ground's height
@@ -332,6 +352,39 @@ mod tests {
         assert_eq!(at(g), blocks.grass);
         assert!((1..=depth).all(|k| at(g - k) == BlockId(50)));
         assert_eq!(at(g - depth - 1), blocks.stone);
+    }
+
+    #[test]
+    fn a_layer_reading_the_slope_gets_the_same_answer_in_the_chunks_as_everywhere_else() {
+        // Sand where steeper than 0.6 (the map rises about 0.7 a block, so its whole blocks are
+        // sometimes steeper and sometimes not), grass elsewhere.
+        use crate::world::placer::{Candidate, Column, Curve, Distributor, Layer, Source};
+        let mut map = map();
+        let steep = Layer { source: Source::Field { key: "ground/slope".into() }, curve: Curve::Step { at: 0.6, above: true, soft: 0.0 }, ..Layer::default() };
+        let candidates = vec![Candidate { block: "incus:sand".into(), layers: vec![steep], ..Candidate::default() }, Candidate { block: "incus:grass".into(), ..Candidate::default() }];
+        map.settings.mineralogy.distributors = vec![Distributor { candidates, ..Distributor::default() }];
+        let mut blocks = only_the_first_blocks();
+        Arc::make_mut(&mut blocks.names).insert("incus:sand".into(), BlockId(60));
+        let mineralogy = map.mineralogy(&blocks);
+        assert!(mineralogy.reads_slope);
+        let pos = ChunkPos::of_block(IVec3::new(-16, -40, 0));
+        let chunk = map.chunk(pos, &blocks).unwrap();
+        let (mut sand, mut grass) = (0, 0);
+        for x in pos.min_block().x..pos.min_block().x + CHUNK_SIZE {
+            for y in pos.min_block().y..pos.min_block().y + CHUNK_SIZE {
+                let Some((g, _)) = map.column(x, y) else { continue };
+                if g < SEA_LEVEL {
+                    continue;
+                }
+                // As the distant terrain and the World Compiler ask it.
+                let (north, east) = (x as f32 + 0.5, y as f32 + 0.5);
+                let column = Column { north, east, ground: g as f32, slope: map.slope(x, y, g), climate: None, water: None };
+                let top = mineralogy.layers(&map, column).top;
+                assert_eq!(chunk.get(IVec3::new(x, y, g)), top, "at ({x}, {y})");
+                if top == BlockId(60) { sand += 1 } else { grass += 1 }
+            }
+        }
+        assert!(sand > 50 && grass > 50, "{sand} steep, {grass} not");
     }
 
     #[test]

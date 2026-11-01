@@ -617,6 +617,27 @@ with minerology and the placer"). As planned, with these details:
 - **Room in the format, not built:** a newer game's chooser, or kind of thing put down (inclusions,
   points, pieces joined at hooks), reads as unknown: shown, and skipped.
 
+**[BUILT 2026-11-01] Two fixes for "1 always equals 1"** (the Metaphysics Engine, `docs/decisions.md`).
+David: "sounds like common sense"; and "if you say it's small... just want done right and not have bite
+me later, so i trust you on it."
+- **The close-up rounds as the world does.** It cut the ground's height down (255.6 became 255) where
+  the world rounds it (256). So its surface could be a block off where a height draws a line (stone
+  from Z 256, say). It also decided water by the unrounded height, and read the climate at the
+  sample, not the block's middle.
+  - Every view in the World Compiler (the picture, the field view, the depth sweep, under the mouse)
+    now makes its column the world's way, with one function: `placer_view::world_spot`.
+- **The slope is measured one way everywhere.** It used to be measured between neighbouring blocks up
+  close, across the far view's cells far away, and across the close-up's samples (which change as you
+  zoom). So a layer reading the slope could pick another block far away than up close, and blocks
+  would change as the chunks came in.
+  - It's now `CompiledMap::slope`, everywhere: the rise across the whole-block ground 2 blocks either
+    side, north and east. It's whole numbers until the last step, a square root that every CPU
+    rounds the same.
+  - It's worked out only when a layer reads it, so a world that doesn't costs nothing.
+  - A test puts sand on slopes steeper than 0.6 and checks that a chunk and the other views agree at
+    every column.
+  - No starting distributor reads the slope, so David's world is unchanged.
+
 ### Stop 4: sharing, and the docs (about 250 lines)
 
 - **Export** a distributor or a made field to a file, and **import** one.

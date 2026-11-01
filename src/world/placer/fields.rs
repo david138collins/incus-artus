@@ -125,7 +125,7 @@ pub const FIELDS: [Info; 23] = [
     row(Field::Temperature, "climate/temperature", "temperature", Stage::Climate, "", (-1.0, 1.0), "−1 frozen to +1 the hottest, colder the higher the ground stands above the sea (the Climate tab's live one here)."),
     row(Field::Rain, "climate/rain", "rain", Stage::Climate, "", (0.0, 1.0), "0 dry to 1 the wettest."),
     row(Field::Height, "ground/height", "the ground's height", Stage::Ground, "Z", (0.0, TOP), "The ground's Z, as the world has it (the sea's surface is at 128, the peaks reach about 900)."),
-    row(Field::Slope, "ground/slope", "slope", Stage::Ground, "blocks up per block", (0.0, 3.0), "How steep the ground is: blocks up per block across (1 is 45°). Measured between neighbouring samples, so zoomed out it's over more blocks."),
+    row(Field::Slope, "ground/slope", "slope", Stage::Ground, "blocks up per block", (0.0, 3.0), "How steep the ground is: blocks up per block across (1 is 45°), measured across 4 blocks of the ground (2 either side), the same near, far and in the World Compiler."),
     per_block(row(Field::Z, "ground/z", "the block's Z", Stage::Ground, "Z", (WORLD_BOTTOM as f32, TOP), "The block's own height, at each block down the column.")),
     per_block(row(Field::Depth, "ground/depth", "depth below the surface", Stage::Ground, "blocks", (0.0, 130.0), "How far a block is below the ground's surface (0 is the surface block).")),
     per_block(row(Field::CrustShare, "ground/crust_share", "depth, as a share of the crust", Stage::Ground, "share", (0.0, 1.0), "Depth below the surface over the crust's depth (Mineralogy's setting): 0 at the surface, 1 at the crust's bottom. Things placed by it keep their places whatever depth the world ends up with.")),

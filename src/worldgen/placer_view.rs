@@ -432,27 +432,24 @@ fn at_level(program: &Program, k: usize, upto: Upto, reading: &mut Reading, leve
     zs.into_iter().map(|z| (program.value_upto(k, reading, z, upto), z)).max_by(|a, b| a.0.total_cmp(&b.0))
 }
 
-/// The column the field view reads at a spot: the ground there (from the close-up), its slope
-/// across `step` blocks, the climate, and the water over it.
-pub fn column_at(map: &CompiledMap, climate: &ClimateAt, north: f32, east: f32, ground: f32, slope: f32) -> Column {
-    let water = if map.mutes.rivers { None } else { map.rivers.here(north, east, ground).water.filter(|&top| top as f32 > ground + 1.0) };
-    Column { north, east, ground, slope, climate: climate(north, east, ground), water }
-}
-
-/// A close-up's sample as the world fills it (the ground's `height` there from the close-up, its
-/// `slope`), as a column for mineralogy: its whole block, its ground, the climate given, and the water
-/// over it.
-fn world_spot(map: &CompiledMap, climate: &ClimateAt, north: f32, east: f32, height: f32, slope: f32) -> Column {
+/// A close-up's sample (the ground's `height` there from the close-up) as the world fills it, as a
+/// column for mineralogy and the field view: its whole block, its ground rounded as the world rounds
+/// it, the climate given there, the water over it, and its slope as every view measures it (when a
+/// layer reads it) [the Metaphysics Engine: "1 always equals 1"; until 2026-11-01 the close-up cut
+/// the height down where the world rounds it, and measured the slope across its own samples].
+pub fn world_spot(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, north: f32, east: f32, height: f32) -> Column {
     let water = if map.mutes.rivers { None } else { map.rivers.here(north, east, height).water };
     let (ground, water) = whole_column(height, water);
-    let (north, east) = (north.floor() + 0.5, east.floor() + 0.5);
+    let (x, y) = (north.floor() as i32, east.floor() as i32);
+    let slope = if mineralogy.reads_slope { map.slope(x, y, ground) } else { 0.0 };
+    let (north, east) = (x as f32 + 0.5, y as f32 + 0.5);
     Column { north, east, ground: ground as f32, slope, climate: climate(north, east, ground as f32), water }
 }
 
 /// The same, filled: its ground, what it's made of (mineralogy's choice in the climate given, a
 /// river's or lake's bed under its water), and its water's top (0 for none).
-pub fn world_column(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, north: f32, east: f32, height: f32, slope: f32) -> (i32, Layers, i32) {
-    let column = world_spot(map, climate, north, east, height, slope);
+pub fn world_column(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, north: f32, east: f32, height: f32) -> (i32, Layers, i32) {
+    let column = world_spot(map, climate, mineralogy, north, east, height);
     (column.ground as i32, mineralogy.layers(map, column), column.water.unwrap_or(0))
 }
 
@@ -501,25 +498,9 @@ fn height(frame: &Frame, col: usize, row: usize) -> f32 {
     frame.heights[row.min(rows - 1) * cols + col.min(cols - 1)]
 }
 
-/// The slope at a spot (`north`, `east`, its ground at `z`) across `step` blocks either side, as the
-/// close-up's samples measure it (blocks up per block across).
-pub fn slope_at(map: &CompiledMap, (north, east, z): (f32, f32, f32), step: f32) -> f32 {
-    let height = |n: f32, e: f32| map.height(n, e).map_or(z, f32::round);
-    ((height(north, east + step) - height(north, east - step)) / (2.0 * step)).hypot((height(north + step, east) - height(north - step, east)) / (2.0 * step))
-}
-
-/// The slope at a close-up's sample, from its neighbours (blocks up per block across).
-pub fn slope(frame: &Frame, col: usize, row: usize) -> f32 {
-    let (here, step) = (height(frame, col, row), frame.request.step);
-    let or_here = |v: f32| if v.is_nan() { here } else { v };
-    let east_rise = (or_here(height(frame, col + 1, row)) - or_here(height(frame, col.saturating_sub(1), row))) / (2.0 * step);
-    let north_rise = (or_here(height(frame, col, row.saturating_sub(1))) - or_here(height(frame, col, row + 1))) / (2.0 * step);
-    east_rise.hypot(north_rise)
-}
-
-/// A sample's colour, given its column, row, north, east and ground; and its water (0 dry, 1 the sea,
-/// 2 a river's or lake's).
-type Colour<'a> = dyn Fn(usize, usize, f32, f32, f32) -> (Color32, u8) + Sync + 'a;
+/// A sample's colour, given its north, east and ground; and its water (0 dry, 1 the sea, 2 a river's
+/// or lake's).
+type Colour<'a> = dyn Fn(f32, f32, f32) -> (Color32, u8) + Sync + 'a;
 
 /// A close-up's picture, on all the computer's cores: each sample coloured by `colour`, with the
 /// view's lines drawn over it. Past the map is `BEYOND`.
@@ -546,7 +527,7 @@ fn picture(frame: &Frame, look: &FieldLook, colour: &Colour) -> Vec<Color32> {
                     }
                     let north = request.north - (row as f32 + 0.5) * step;
                     let east = request.east + (col as f32 + 0.5) * step;
-                    (*pixel, wet[i]) = colour(col, row, north, east, here);
+                    (*pixel, wet[i]) = colour(north, east, here);
                 }
             });
         }
@@ -586,8 +567,8 @@ pub fn field_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, mine
     let k = k.min(program.count().saturating_sub(1));
     let (low, high) = program.range_upto(k, look.upto);
     let (low, high) = if high > low { (low, high) } else { (low - 0.5, low + 0.5) };
-    picture(frame, look, &|col, row, north, east, here| {
-        let column = column_at(map, climate, north, east, here, slope(frame, col, row));
+    picture(frame, look, &|north, east, here| {
+        let column = world_spot(map, climate, mineralogy, north, east, here);
         let wet = if under_sea(here) { 1 } else if column.water.is_some() { 2 } else { 0 };
         let mut reading = mineralogy.reading(map, column, k);
         let grey = at_level(program, k, look.upto, &mut reading, &look.level).map_or(Color32::BLACK, |(value, _)| Color32::from_gray((((value - low) / (high - low)).clamp(0.0, 1.0) * 255.0).round() as u8));
@@ -602,8 +583,8 @@ pub fn sweep_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, bloc
     let water = colour(blocks.water);
     let deep = Color32::from_rgb(water.r() / 3, water.g() / 3, water.b() / 3);
     let mineralogy = map.mineralogy(blocks);
-    picture(frame, look, &|col, row, north, east, here| {
-        let (ground, layers, top) = world_column(map, climate, &mineralogy, north, east, here, slope(frame, col, row));
+    picture(frame, look, &|north, east, here| {
+        let (ground, layers, top) = world_column(map, climate, &mineralogy, north, east, here);
         let wet = if under_sea(here) { 1 } else if top > 0 { 2 } else { 0 };
         let pixel = match seen(&look.level, look.see_stone, ground, &layers, top, blocks) {
             Seen::Block(block, _) => colour(block),
@@ -616,8 +597,8 @@ pub fn sweep_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, bloc
 
 /// The column under the mouse at (`north`, `east`), the ground's height `z` there, for the depth
 /// sweep's readout (`name` names a block).
-pub fn column_hover(map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBlocks, name: &dyn Fn(BlockId) -> String, look: &FieldLook, (north, east, z): (f32, f32, f32), slope: f32) -> ColumnHover {
-    let (ground, layers, water) = world_column(map, climate, &map.mineralogy(blocks), north, east, z, slope);
+pub fn column_hover(map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBlocks, name: &dyn Fn(BlockId) -> String, look: &FieldLook, (north, east, z): (f32, f32, f32)) -> ColumnHover {
+    let (ground, layers, water) = world_column(map, climate, &map.mineralogy(blocks), north, east, z);
     let seen = match seen(&look.level, look.see_stone, ground, &layers, water, blocks) {
         Seen::Block(block, at) if at == ground => format!("{} at Z {at} (the surface)", name(block)),
         Seen::Block(block, at) => format!("{} at Z {at} ({} down)", name(block), ground - at),
@@ -629,18 +610,18 @@ pub fn column_hover(map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBloc
 }
 
 /// Works out stack `k` under the mouse at (`north`, `east`), the ground `z` there, for the readout.
-pub fn hover(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, k: usize, look: &FieldLook, (north, east, z): (f32, f32, f32), slope: f32) -> Option<Hover> {
+pub fn hover(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, k: usize, look: &FieldLook, (north, east, z): (f32, f32, f32)) -> Option<Hover> {
     let program = mineralogy.program();
     let k = k.min(program.count().checked_sub(1)?);
-    let mut reading = mineralogy.reading(map, column_at(map, climate, north, east, z, slope), k);
+    let mut reading = mineralogy.reading(map, world_spot(map, climate, mineralogy, north, east, z), k);
     let (value, at) = at_level(program, k, look.upto, &mut reading, &look.level)?;
     Some(Hover { z: at, value, layers: program.trace(k, &mut reading, at) })
 }
 
 /// Why the column under the mouse is made of what it is ("why is this sand?"): every distributor's
 /// candidates' suitability there (`name` names a block), and which was chosen.
-pub fn why(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, name: &dyn Fn(&str) -> String, (north, east, z): (f32, f32, f32), slope: f32) -> Vec<Why> {
-    mineralogy.why(map, world_spot(map, climate, north, east, z, slope), name)
+pub fn why(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, name: &dyn Fn(&str) -> String, (north, east, z): (f32, f32, f32)) -> Vec<Why> {
+    mineralogy.why(map, world_spot(map, climate, mineralogy, north, east, z), name)
 }
 
 /// A source's name, as the layer's picker shows it.
@@ -1441,7 +1422,7 @@ mod tests {
         let name = |block: &str| block.trim_start_matches("incus:").to_string();
         // On the beach (just above the sea), at Z 128: the surface is sand, the sea floor and the
         // beds choose nothing.
-        let whys = why(&map, &no_climate, &mineralogy, &name, (0.0, 0.0, 128.0), 0.0);
+        let whys = why(&map, &no_climate, &mineralogy, &name, (0.0, 0.0, 128.0));
         assert_eq!(whys.len(), 3);
         let surface = &whys[0];
         assert_eq!((surface.distributor.as_str(), surface.chosen), ("the surface", Some(3)));
@@ -1524,7 +1505,7 @@ mod tests {
         let mut kinds = std::collections::HashSet::new();
         for (col, row) in [(10, 10), (60, 40), (110, 70), (150, 20), (190, 100), (250, 120)] {
             let (north, east) = (request.north - (row as f32 + 0.5), request.east + (col as f32 + 0.5));
-            let (ground, layers, water) = world_column(&map, &no_climate, &map.mineralogy(&b), north, east, frame.heights[row * cols + col], 0.0);
+            let (ground, layers, water) = world_column(&map, &no_climate, &map.mineralogy(&b), north, east, frame.heights[row * cols + col]);
             let (x, y) = (north.floor() as i32, east.floor() as i32);
             assert_eq!(map.column(x, y).map(|(z, _)| z), Some(ground));
             let chunk = map.chunk(crate::world::ChunkPos::of_block(bevy::prelude::IVec3::new(x, y, 0)), &b).unwrap();

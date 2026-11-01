@@ -2386,14 +2386,14 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
                     }
                     let north = request.north - (row as f32 + 0.5) * step;
                     let east = request.east + (col as f32 + 0.5) * step;
-                    // Water: the sea's, or a river's or lake's standing over the ground here.
-                    let water = if map.mutes.rivers { None } else { map.rivers.here(north, east, here).water.filter(|&top| top as f32 > here + 1.0) };
-                    tops[k] = water.unwrap_or(0);
-                    let colour = if crate::world::under_sea(here) || water.is_some() {
+                    // The sample as the world fills it: water (the sea's, or a river's or lake's
+                    // standing over the ground here), and what the ground is made of.
+                    let at = |north: f32, east: f32, z: f32| climate.map(|climate| climate.at(north, east, z));
+                    let column = super::placer_view::world_spot(map, &at, mineralogy, north, east, here);
+                    tops[k] = column.water.unwrap_or(0);
+                    let colour = if crate::world::under_sea(here) || column.water.is_some() {
                         palette.water.map(|c| c * shade.top)
                     } else {
-                        let climate = climate.map(|climate| climate.at(north, east, here));
-                        let column = crate::world::placer::Column { north: north.floor() + 0.5, east: east.floor() + 0.5, ground: (here as i32) as f32, slope: super::placer_view::slope(frame, col, row), climate, water: None };
                         let top = mineralogy.layers(map, column).top;
                         let mut light = shade.top;
                         if lit {
@@ -2410,7 +2410,7 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
                     *pixel = Color32::from_rgb(to_srgb(colour[0]), to_srgb(colour[1]), to_srgb(colour[2]));
                     // A river's water by its water across (a lake's and the sea's left as they are).
                     if sizes
-                        && water.is_some()
+                        && column.water.is_some()
                         && let Some((distance, width, across)) = map.rivers.water_near(north, east)
                         && distance <= width / 2.0 + 1.0
                     {
@@ -2567,17 +2567,15 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
             let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
             let mineralogy = map.mineralogy(&blocks);
-            let step = compiler.lab.frame.as_ref().map_or(1.0, |frame| frame.request.step);
-            let slope = super::placer_view::slope_at(&map, (north, east, z.round()), step);
             if let Some(k) = compiler.fields.shown(&map.settings.mineralogy) {
-                compiler.fields.hover = super::placer_view::hover(&map, &at, &mineralogy, k, &compiler.fields.look, (north, east, z.round()), slope);
+                compiler.fields.hover = super::placer_view::hover(&map, &at, &mineralogy, k, &compiler.fields.look, (north, east, z));
             }
             let name = |block: crate::world::BlockId| look.registry.def(block).map_or_else(|| look.registry.name(block).to_string(), |def| def.display_name.clone());
             if compiler.fields.shows == super::placer_view::Shows::Blocks {
-                compiler.fields.column = Some(super::placer_view::column_hover(&map, &at, &blocks, &name, &compiler.fields.look, (north, east, z), slope));
+                compiler.fields.column = Some(super::placer_view::column_hover(&map, &at, &blocks, &name, &compiler.fields.look, (north, east, z)));
             }
             let named = |block: &str| look.registry.id(block).map_or_else(|| format!("{block} (not registered)"), name);
-            compiler.fields.why = super::placer_view::why(&map, &at, &mineralogy, &named, (north, east, z), slope);
+            compiler.fields.why = super::placer_view::why(&map, &at, &mineralogy, &named, (north, east, z));
         }
     }
 
