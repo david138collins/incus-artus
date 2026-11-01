@@ -2314,8 +2314,9 @@ struct PaintKey {
     sizes: bool,
     blocks: u64,
     shade: crate::render::distant::Shade,
-    /// The field view's look, when it's on (`placer_view.rs`).
-    field: Option<super::placer_view::FieldLook>,
+    /// What the map shows, and the field view's or the depth sweep's look, when it shows one
+    /// (`placer_view.rs`).
+    field: Option<(super::placer_view::Shows, super::placer_view::FieldLook)>,
 }
 
 /// Linear light (0 to 1) as a screen's 0 to 255.
@@ -2507,7 +2508,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                 sizes: compiler.lab_sizes,
                 blocks: revision,
                 shade: look.shade.clone(),
-                field: compiler.fields.on.then(|| compiler.fields.look.clone()),
+                field: (compiler.fields.shows != super::placer_view::Shows::World).then(|| (compiler.fields.shows, compiler.fields.look.clone())),
             };
             if compiler.lab_painted_for.as_ref() != Some(&wanted) || compiler.lab_texture.is_none() {
                 let climate = LiveClimate::new(compiler, &map);
@@ -2517,6 +2518,16 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                     Some((_, program)) => {
                         let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
                         super::placer_view::field_picture(frame, &map, &at, s.mineralogy.crust, &program, &compiler.fields.look)
+                    }
+                    // The depth sweep: the blocks at the level, in their far colours, unlit.
+                    None if compiler.fields.shows == super::placer_view::Shows::Blocks => {
+                        let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
+                        let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
+                        let colour = |block: crate::world::BlockId| {
+                            let [r, g, b] = palette.top(block).map(|c| to_srgb(c * look.shade.top));
+                            Color32::from_rgb(r, g, b)
+                        };
+                        super::placer_view::sweep_picture(frame, &map, &at, &blocks, &colour, &compiler.fields.look)
                     }
                     None => block_picture(frame, &map, climate.as_ref(), look, &palette, &wanted),
                 };
@@ -2547,6 +2558,17 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
             let step = compiler.lab.frame.as_ref().map_or(1.0, |frame| frame.request.step);
             compiler.fields.hover = super::placer_view::hover(&map, &at, map.settings.mineralogy.crust, &program, &compiler.fields.look, (north, east, z.round()), step);
+        }
+        // The column under the mouse, block by block (in the depth sweep).
+        compiler.fields.column = None;
+        if compiler.fields.shows == super::placer_view::Shows::Blocks
+            && let Some((north, east, z)) = compiler.lab_hover
+        {
+            let climate = LiveClimate::new(compiler, &map);
+            let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
+            let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
+            let name = |block: crate::world::BlockId| look.registry.def(block).map_or_else(|| look.registry.name(block).to_string(), |def| def.display_name.clone());
+            compiler.fields.column = Some(super::placer_view::column_hover(&map, &at, &blocks, &name, &compiler.fields.look, (north, east, z)));
         }
     }
 
@@ -2766,6 +2788,9 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             compiler.picking = false;
         }
     }
+
+    // The level bar, for the field view and the depth sweep (`placer_view.rs`).
+    super::placer_view::level_bar(ui, rect, &mut compiler.fields);
 
     let help = "every column as the Interpreter makes it   drag = move   scroll = zoom   Shift + drag = cross-section   double-click = fit   north is up";
     painter.text(rect.left_bottom() + Vec2::new(8.0, -8.0), egui::Align2::LEFT_BOTTOM, help, egui::FontId::proportional(12.0), PINK);

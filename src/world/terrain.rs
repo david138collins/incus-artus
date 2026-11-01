@@ -83,10 +83,7 @@ impl CompiledMap {
     /// The column's ground (as `ground`), and the Z below which a river's or lake's water fills it
     /// (`carving.rs`), if any.
     pub fn column(&self, x: i32, y: i32) -> Option<(i32, Option<i32>)> {
-        self.ground_and_water(x as f32 + 0.5, y as f32 + 0.5).map(|(z, water)| {
-            let z = (z.round() as i32).clamp(1, WORLD_HEIGHT - 1);
-            (if under_sea(z as f32) { z.min(SEA_LEVEL - 2) } else { z }, water.filter(|&w| w > z + 1).map(|w| w.min(WORLD_HEIGHT)))
-        })
+        self.ground_and_water(x as f32 + 0.5, y as f32 + 0.5).map(|(z, water)| whole_column(z, water))
     }
 
     /// One chunk, or `None` if it's wholly past the edge of the map.
@@ -105,11 +102,8 @@ impl CompiledMap {
                     ground[column] = z;
                     layers[column] = self.layers(origin.x + local_x as i32, origin.y + local_y as i32, z, blocks);
                     if let Some(top) = over {
-                        // Under a river or lake: a bed of gravel (or sand), as the sea's floor.
                         water[column] = top;
-                        if let Some(bed) = blocks.gravel.or(blocks.sand) {
-                            layers[column].top = bed;
-                        }
+                        layers[column] = layers[column].bedded(blocks);
                     }
                 }
             }
@@ -144,24 +138,45 @@ impl CompiledMap {
                 let layer = &mut buffer[local_z * size * size..(local_z + 1) * size * size];
                 for column in 0..size * size {
                     let g = ground[column];
-                    layer[column] = if g < 0 || z >= WORLD_HEIGHT {
-                        BlockId::AIR
-                    } else if z < g - layers[column].depth {
-                        blocks.stone
-                    } else if z < g {
-                        layers[column].under
-                    } else if z == g {
-                        layers[column].top
-                    } else if z < SEA_LEVEL || z < water[column] {
-                        blocks.water
-                    } else {
-                        BlockId::AIR
-                    };
+                    layer[column] = if g < 0 || z >= WORLD_HEIGHT { BlockId::AIR } else { layers[column].block_at(z, g, water[column], blocks) };
                 }
             }
             sections.push(Section::from_blocks(&buffer));
         }
         Some(Chunk::from_sections(pos, sections))
+    }
+}
+
+/// A column's ground and its river's or lake's water as the world fills it, from the ground's height
+/// and the water's top: whole blocks, the sea floor at least a block under the sea's surface, and the
+/// water only where it stands over the ground.
+pub fn whole_column(height: f32, water: Option<i32>) -> (i32, Option<i32>) {
+    let z = (height.round() as i32).clamp(1, WORLD_HEIGHT - 1);
+    (if under_sea(z as f32) { z.min(SEA_LEVEL - 2) } else { z }, water.filter(|&w| w > z + 1).map(|w| w.min(WORLD_HEIGHT)))
+}
+
+impl super::Layers {
+    /// The block at `z` in a column whose ground is at `ground`, made of these layers, with water up to
+    /// the sea's surface and up to below `water` (a river's or lake's top; 0 for none): the one rule
+    /// every column is filled by (the world's chunks, and the World Compiler's depth sweep).
+    #[inline]
+    pub fn block_at(&self, z: i32, ground: i32, water: i32, blocks: &TerrainBlocks) -> BlockId {
+        if z < ground - self.depth {
+            blocks.stone
+        } else if z < ground {
+            self.under
+        } else if z == ground {
+            self.top
+        } else if z < SEA_LEVEL || z < water {
+            blocks.water
+        } else {
+            BlockId::AIR
+        }
+    }
+
+    /// Under a river or lake: a bed of gravel (or sand), as the sea's floor.
+    pub fn bedded(self, blocks: &TerrainBlocks) -> Self {
+        Self { top: blocks.gravel.or(blocks.sand).unwrap_or(self.top), ..self }
     }
 }
 

@@ -3,8 +3,9 @@
 **Status: go-ahead given** (David, 2026-10-31: "begin on it, and just proceed cautiously").
 - His answers to the options are in section 10.
 - What the placer has to grow into is in section 11.
-- The first version's stops are in section 12. **Stop 1 (the field view) is built**, waiting for David
-  to look.
+- The first version's stops are in section 12.
+  - **Stop 1 (the field view) is built.** David looked: "it looks ok so far".
+  - **Stop 2 (the depth sweep) is built**, waiting for David to look.
 
 David asked for these through Counsel: "the placer and quartility seem the most critical. but im not
 sure how to observe the placer without minerology. i cant really think why it would need its own
@@ -477,6 +478,40 @@ David wants it elsewhere.)
 - **Under the mouse:** the column's blocks from the surface down.
 
 **I stop here.**
+
+**[BUILT 2026-10-31]** As planned, with these details:
+- **What the map shows** is now a row at the top of the Fields section: "the world", "the field view"
+  (greyed until there's a field) or "the depth sweep". It replaces stop 1's "field view" checkbox.
+- **The bar:**
+  - two handles, the left for the level's one end and the right for its other, so they can be pulled
+    apart from one level;
+  - dragging between them moves the range;
+  - a click brings the nearer end there;
+  - the wheel over the bar steps it, by 10 with Shift; Ctrl + the wheel over the map still steps it
+    too;
+  - the label above it ("by depth" or "by Z") switches between the two;
+  - the sea's level is marked on the Z bar;
+  - it's greyed while the map shows the world.
+  - The panel's level sliders are the same level, and stay.
+- **The blocks** are drawn in their far colours, flat (unlit), with the same lines as the field view.
+  Where a range sees only water it's dark blue; where it sees only air (or what's seen through),
+  it's black.
+- **"See through stone"** sees through stone and gabbro, the two rocks so far. It's on the panel
+  under the lines' switches, greyed outside the sweep.
+- **Under the mouse:** what the sweep sees there, then the column's blocks, a line for each run:
+  water, the surface, the layers under it, then "stone: Z … and down".
+- **One rule fills a column:** the world's chunks and the sweep both use `Layers::block_at` (with the
+  same ground rounding, `whole_column`, and the same river beds, `Layers::bedded`, now shared from
+  `world/terrain.rs`).
+  - So when stop 3 changes what's placed, the sweep shows it with no change of its own.
+- **Tests:**
+  - what the sweep sees at a level, in a range, through stone, through the sea and in a river;
+  - the column's runs;
+  - six columns of a test map compared block for block with the world's own chunks.
+
+**[BUILT 2026-10-31]** Also from David's look at stop 1: a field change no longer makes the climate
+again. The Climate stage now reads the recipe without mineralogy, so it remakes only when the ground's
+shape changes (502a3a7).
 
 ### Stop 3: mineralogy on the placer (about 900 lines)
 

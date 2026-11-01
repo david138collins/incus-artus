@@ -2123,7 +2123,10 @@ to 58, every block regulated). Next:
    - **The stops** are in `docs/placer.md` section 12: the field view, the depth sweep, mineralogy on
      the placer, then sharing. **[BUILT 2026-10-31] Stop 1, the field view:** the Mineralogy panel's
      new Fields section holds made fields (stacks of layers with blend modes), and the map switches
-     to black to show them. Nothing in the world changes yet.
+     to black to show them. Nothing in the world changes yet. **[BUILT 2026-10-31] Stop 2, the depth
+     sweep:** a level bar on the map's right edge, and the map showing the blocks at that level, or
+     for a range the first block from the top that isn't see-through (stone too, by a switch); the
+     world's chunks and the sweep fill columns by the one rule.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
