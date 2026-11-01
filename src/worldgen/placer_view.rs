@@ -27,7 +27,7 @@
 use super::lab::Frame;
 use super::view::fold_section;
 use crate::world::placer::{Column, Curve, FIELDS, Field, Layer, MadeField, Mode, Program, Reading, Source, Stage, Traced, Upto};
-use crate::world::{BlockId, CompiledMap, Layers, MineralogySettings, SEA_LEVEL, Spline, TerrainBlocks, under_sea, whole_column};
+use crate::world::{BlockId, CompiledMap, Layers, MineralogySettings, SEA_LEVEL, Spline, TerrainBlocks, WORLD_HEIGHT, under_sea, whole_column};
 use bevy_egui::egui::{self, Color32, RichText};
 
 /// The climate at a spot (temperature and rain at north, east and a Z), or none.
@@ -51,12 +51,10 @@ pub enum LevelBy {
 }
 
 impl LevelBy {
-    /// How shallow or low, and how deep or high, a level can be set.
+    /// How shallow or low, and how deep or high, a level can be set: the world's whole height, from
+    /// the top (peaks reach about 900 [David]) to the bottom.
     fn ends(self) -> (f32, f32) {
-        match self {
-            LevelBy::Depth => (0.0, 200.0),
-            LevelBy::Z => (1.0, crate::world::HIGHEST),
-        }
+        (0.0, (WORLD_HEIGHT - 1) as f32)
     }
 }
 
@@ -115,11 +113,13 @@ impl Level {
         }
     }
 
-    /// Switches it to be given by depth or by Z, starting at the surface or at the sea.
+    /// Switches it to be given by depth or by Z, starting at the surface or at the top of the world
+    /// (to sweep down from above the peaks [David]).
     fn set_by(&mut self, by: LevelBy) {
         if by != self.by {
             self.by = by;
-            (self.from, self.to) = if by == LevelBy::Z { (SEA_LEVEL as f32, SEA_LEVEL as f32) } else { (0.0, 0.0) };
+            let start = if by == LevelBy::Z { self.by.ends().1 } else { 0.0 };
+            (self.from, self.to) = (start, start);
         }
     }
 
@@ -280,13 +280,13 @@ fn turned(ui: &egui::Ui, held: impl Fn(&egui::Modifiers) -> bool) -> f32 {
 /// as handles left and right of a track, the level between them filled. Drag a handle to move its
 /// end (apart for a range, together for one level), drag between them to move the range, click to
 /// bring the nearer end there; the wheel over it steps a level (Shift: 10). The label above it
-/// switches between depth and Z. Greyed while the map shows the world.
+/// switches between depth and Z. Only in the depth sweep [David]; the field view's level is set on
+/// the panel, or with Ctrl + the wheel.
 pub fn level_bar(ui: &mut egui::Ui, map: egui::Rect, view: &mut FieldView) {
     let track = egui::Rect::from_min_max(egui::pos2(map.right() - 30.0, map.top() + 40.0), egui::pos2(map.right() - 22.0, map.bottom() - 44.0));
-    if track.height() < 60.0 {
+    if track.height() < 60.0 || view.shows != Shows::Blocks {
         return;
     }
-    let on = view.shows != Shows::World;
     let (lowest, highest) = view.look.level.by.ends();
     let (by, span) = (view.look.level.by, highest - lowest);
     // A level's place down the bar (0 at the top: the surface, or the highest Z), and back.
@@ -297,8 +297,8 @@ pub fn level_bar(ui: &mut egui::Ui, map: egui::Rect, view: &mut FieldView) {
         (if by == LevelBy::Depth { lowest + t * span } else { highest - t * span }).round()
     };
     let painter = ui.painter_at(map);
-    let dim = |colour: Color32| if on { colour } else { colour.gamma_multiply(0.35) };
-    if on {
+    // What the mouse does to it: the switch above it, then the handles and the wheel.
+    {
         let label = egui::Rect::from_center_size(egui::pos2(track.center().x - 6.0, track.top() - 24.0), egui::vec2(52.0, 16.0));
         let switch = ui.interact(label, ui.id().with("level bar by"), egui::Sense::click()).on_hover_text("Click: the level by depth below the surface, or by Z.");
         if switch.clicked() {
@@ -363,20 +363,20 @@ pub fn level_bar(ui: &mut egui::Ui, map: egui::Rect, view: &mut FieldView) {
         painter.text(at, align, text, font, colour);
     };
     // The switch, the ends' names, the track, and the sea's level on it.
-    shadowed(egui::pos2(track.center().x - 6.0, track.top() - 24.0), egui::Align2::CENTER_CENTER, if by == LevelBy::Depth { "by depth" } else { "by Z" }, dim(Color32::WHITE));
-    shadowed(egui::pos2(track.center().x - 6.0, track.top() - 8.0), egui::Align2::CENTER_BOTTOM, &level.end(if by == LevelBy::Depth { lowest } else { highest }), dim(faint));
-    shadowed(egui::pos2(track.center().x - 6.0, track.bottom() + 8.0), egui::Align2::CENTER_TOP, &level.end(if by == LevelBy::Depth { highest } else { lowest }), dim(faint));
-    painter.rect_filled(track, 3.0, dim(Color32::from_gray(35)));
-    painter.rect_stroke(track, 3.0, egui::Stroke::new(1.0, dim(Color32::from_gray(110))), egui::StrokeKind::Outside);
+    shadowed(egui::pos2(track.center().x - 6.0, track.top() - 24.0), egui::Align2::CENTER_CENTER, if by == LevelBy::Depth { "by depth" } else { "by Z" }, Color32::WHITE);
+    shadowed(egui::pos2(track.center().x - 6.0, track.top() - 8.0), egui::Align2::CENTER_BOTTOM, &level.end(if by == LevelBy::Depth { lowest } else { highest }), faint);
+    shadowed(egui::pos2(track.center().x - 6.0, track.bottom() + 8.0), egui::Align2::CENTER_TOP, &level.end(if by == LevelBy::Depth { highest } else { lowest }), faint);
+    painter.rect_filled(track, 3.0, Color32::from_gray(35));
+    painter.rect_stroke(track, 3.0, egui::Stroke::new(1.0, Color32::from_gray(110)), egui::StrokeKind::Outside);
     if by == LevelBy::Z {
         let y = y_of(SEA_LEVEL as f32);
         let [r, g, b] = COAST;
-        painter.line_segment([egui::pos2(track.left(), y), egui::pos2(track.right(), y)], egui::Stroke::new(1.0, dim(Color32::from_rgb(r, g, b))));
+        painter.line_segment([egui::pos2(track.left(), y), egui::pos2(track.right(), y)], egui::Stroke::new(1.0, Color32::from_rgb(r, g, b)));
     }
     // The level, the handles and where their ends are.
     let (a, b) = (y_of(level.from), y_of(level.to));
     let band = egui::Rect::from_min_max(egui::pos2(track.left(), a.min(b) - 1.0), egui::pos2(track.right(), a.max(b) + 1.0));
-    let amber = dim(Color32::from_rgb(240, 175, 60));
+    let amber = Color32::from_rgb(240, 175, 60);
     painter.rect_filled(band, 1.0, amber);
     let handle = |y: f32, left: bool| {
         let (x, way) = if left { (track.left() - 2.0, -1.0) } else { (track.right() + 2.0, 1.0) };
@@ -385,9 +385,9 @@ pub fn level_bar(ui: &mut egui::Ui, map: egui::Rect, view: &mut FieldView) {
     };
     handle(a, true);
     handle(b, false);
-    shadowed(egui::pos2(track.left() - 14.0, a), egui::Align2::RIGHT_CENTER, &level.end(level.from), dim(Color32::WHITE));
+    shadowed(egui::pos2(track.left() - 14.0, a), egui::Align2::RIGHT_CENTER, &level.end(level.from), Color32::WHITE);
     if (a - b).abs() >= 12.0 {
-        shadowed(egui::pos2(track.left() - 14.0, b), egui::Align2::RIGHT_CENTER, &level.end(level.to), dim(Color32::WHITE));
+        shadowed(egui::pos2(track.left() - 14.0, b), egui::Align2::RIGHT_CENTER, &level.end(level.to), Color32::WHITE);
     }
 }
 
@@ -899,7 +899,8 @@ fn level_ui(ui: &mut egui::Ui, level: &mut Level) {
     .response
     .on_hover_text(
         "The depth sweep shows the blocks at this level, and the field view fields that change down a column (the block's Z,\n\
-         its depth below the surface) at it. Also set by the bar on the map's right edge, or Ctrl + the wheel over the map.",
+         its depth below the surface) at it. Also set by the bar on the map's right edge (in the depth sweep), or Ctrl + the\n\
+         wheel over the map.",
     );
     let mut one = level.from == level.to;
     let (bottom, top) = level.by.ends();

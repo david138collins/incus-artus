@@ -491,7 +491,7 @@ David wants it elsewhere.)
     too;
   - the label above it ("by depth" or "by Z") switches between the two;
   - the sea's level is marked on the Z bar;
-  - it's greyed while the map shows the world.
+  - it was greyed while the map showed the world (since 2026-11-01, shown only in the depth sweep).
   - The panel's level sliders are the same level, and stay.
 - **The blocks** are drawn in their far colours, flat (unlit), with the same lines as the field view.
   Where a range sees only water it's dark blue; where it sees only air (or what's seen through),
@@ -512,6 +512,19 @@ David wants it elsewhere.)
 **[BUILT 2026-10-31]** Also from David's look at stop 1: a field change no longer makes the climate
 again. The Climate stage now reads the recipe without mineralogy, so it remakes only when the ground's
 shape changes (502a3a7).
+
+**[BUILT 2026-11-01]** From David's look at stop 2 ("other than that it seems to be taking the right
+shape"):
+- **The whole height:** the level goes from the top of the world down to its bottom, Z 1023 to 0 (sea
+  level is Z 128), by Z or by depth. David: "it needs to start at the highest peaks, which go up to
+  around 900". It was Z 1 to 333 (the ridgelines' measuring stick), and depth 0 to 200.
+  - By Z it now starts at the top of the world, to sweep down; by depth, still at the surface.
+  - David asked for Z 1024 to -128, "in theory, i don't know exactly how deep we'll need to go yet.
+    probably not that deep." The world itself has nothing below Z 0, so the bar stops there.
+    Going deeper would mean a taller world, and that's its own question.
+- **The bar shows only in the depth sweep** (David: "the bar can be hidden when we're not selecting
+  the depth sweep"). It's hidden, not greyed, at his word. The field view's level is still set on the
+  panel, or with Ctrl + the wheel.
 
 ### Stop 3: mineralogy on the placer (about 900 lines)
 
