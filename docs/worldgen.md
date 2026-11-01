@@ -2259,6 +2259,9 @@ to 58, every block regulated). Next:
      river and lake beds) in David's numbers, giving his world to the block. Their candidates are
      blocks from the library, each with a column profile and its suitability as layers. Under the
      mouse, the readout says why each block is what it is. The details are in `docs/placer.md`, stop 3.
+     **[BUILT 2026-11-01] Stop 4, sharing:** a distributor or a made field exported to a file of its
+     own (`presets/placer/`), with the fields it reads, and imported into any preset. The placer's
+     first version is then done enough to go on; what's next is in `docs/placer.md` section 13.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.

@@ -193,6 +193,8 @@ pub struct FieldView {
     /// The made field open in the Fields section, and the distributor in the Mineralogy section.
     open_field: usize,
     open_distributor: usize,
+    /// What the last export or import did.
+    share_note: String,
 }
 
 /// Which of the level bar's handles is being dragged: the left (the level's `from`), the right
@@ -714,6 +716,72 @@ impl Library<'_> {
     }
 }
 
+/// Where exported distributors and made fields are kept (`kind`: "distributors" or "fields"): plain
+/// TOML files, one each, `presets/placer/<kind>/<name>.toml` (stop 4 of `docs/placer.md`).
+fn shared_folder(kind: &str) -> std::path::PathBuf {
+    crate::debug::project_folder().join("presets").join("placer").join(kind)
+}
+
+/// A name as a file's: letters, digits, `-` and `_` (spaces become `_`).
+fn file_name(name: &str) -> String {
+    let name: String = name.trim().chars().map(|c| if c == ' ' { '_' } else { c }).filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').collect();
+    if name.is_empty() { "unnamed".into() } else { name }
+}
+
+/// Writes a shared file (replacing one of the same name); says how it went.
+fn export_shared(kind: &str, name: &str, shared: Option<crate::world::placer::Shared>) -> String {
+    let Some(shared) = shared else { return "Nothing to export.".into() };
+    let (folder, file) = (shared_folder(kind), file_name(name));
+    let path = folder.join(format!("{file}.toml"));
+    let replaced = path.exists();
+    let written = std::fs::create_dir_all(&folder).map_err(|error| error.to_string()).and_then(|()| toml::to_string_pretty(&shared).map_err(|error| error.to_string())).and_then(|text| std::fs::write(&path, text).map_err(|error| error.to_string()));
+    let carried = shared.fields.len() - usize::from(shared.distributors.is_empty());
+    let with = if carried == 0 { String::new() } else { format!(", with the {carried} field{} it reads", if carried == 1 { "" } else { "s" }) };
+    match written {
+        Ok(()) => format!("Exported to presets/placer/{kind}/{file}.toml{with}{}.", if replaced { " (the old one of that name replaced)" } else { "" }),
+        Err(error) => format!("Couldn't export it: {error}"),
+    }
+}
+
+/// The section's import list: every file exported so far (picking one imports it, at the end), and
+/// the folder they're in.
+fn import_row(ui: &mut egui::Ui, kind: &str, what: &str, m: &mut MineralogySettings, view: &mut FieldView) {
+    ui.horizontal(|ui| {
+        let folder = shared_folder(kind);
+        let mut picked = None;
+        egui::ComboBox::from_id_salt(("import", kind)).selected_text(format!("import a {what}…")).show_ui(ui, |ui| {
+            let mut files: Vec<String> = std::fs::read_dir(&folder).into_iter().flatten().flatten().map(|entry| entry.path()).filter(|path| path.extension().is_some_and(|extension| extension == "toml")).filter_map(|path| path.file_stem().map(|stem| stem.to_string_lossy().into_owned())).collect();
+            files.sort();
+            if files.is_empty() {
+                ui.label(format!("(no {kind} exported yet)"));
+            }
+            for file in files {
+                if ui.selectable_label(false, &file).clicked() {
+                    picked = Some(file);
+                }
+            }
+        })
+        .response
+        .on_hover_text(format!("Brings in a {what} exported before (from presets/placer/{kind}), at the end of the list, with the fields it reads that this preset hasn't got."));
+        if let Some(file) = picked {
+            let read = std::fs::read_to_string(folder.join(format!("{file}.toml"))).map_err(|error| error.to_string()).and_then(|text| toml::from_str::<crate::world::placer::Shared>(&text).map_err(|error| error.to_string()));
+            view.share_note = match read {
+                Ok(shared) => {
+                    let notes = crate::world::placer::import(m, shared);
+                    (view.open_field, view.open_distributor) = (m.fields.len().saturating_sub(1), m.distributors.len().saturating_sub(1));
+                    format!("From {file}: {}.", if notes.is_empty() { "nothing new".into() } else { notes.join("; ") })
+                }
+                Err(error) => format!("Couldn't read {file}: {error}"),
+            };
+        }
+        if ui.small_button("folder").on_hover_text(format!("Opens presets/placer/{kind}, to copy files in or out.")).clicked()
+            && let Err(error) = super::export::open_folder(&folder)
+        {
+            view.share_note = format!("Couldn't open the folder: {error}");
+        }
+    });
+}
+
 /// What a candidate's layers can read besides what a made field can: the block library (for "chosen
 /// by"), and the distributors before its own.
 struct ForCandidate<'a> {
@@ -775,6 +843,10 @@ pub fn fields_section(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut 
                 view.show(m.fields.len() - 1, Upto::All);
             }
         });
+        import_row(ui, "fields", "field", m, view);
+        if !view.share_note.is_empty() {
+            ui.small(&view.share_note);
+        }
         if m.fields.is_empty() {
             ui.small("No fields yet.");
         } else {
@@ -832,6 +904,9 @@ fn made_field(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut FieldVie
             copy.name += " (copy)";
             m.fields.push(copy);
             moved = Some(m.fields.len() - 1);
+        }
+        if ui.small_button("export").on_hover_text("Saves it to a file of its own (presets/placer/fields), with the fields it reads, to share or bring into another preset.").clicked() {
+            view.share_note = export_shared("fields", &m.fields[k].name, crate::world::placer::export_field(m, k));
         }
         if ui.small_button("▲").on_hover_text("Up the list (a field reads only those above it).").clicked() && k > 0 {
             m.fields.swap(k, k - 1);
@@ -1072,6 +1147,10 @@ pub fn distributors_section(ui: &mut egui::Ui, m: &mut MineralogySettings, view:
                 view.open_distributor = m.distributors.len() - 1;
             }
         });
+        import_row(ui, "distributors", "distributor", m, view);
+        if !view.share_note.is_empty() {
+            ui.small(&view.share_note);
+        }
         if m.distributors.is_empty() {
             ui.small("No distributors: the ground is all stone.");
         } else {
@@ -1127,6 +1206,9 @@ fn distributor_ui(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut Fiel
             copy.name = unused_name(m, &format!("{} (copy)", copy.name));
             m.distributors.push(copy);
             moved = Some(m.distributors.len() - 1);
+        }
+        if ui.small_button("export").on_hover_text("Saves it to a file of its own (presets/placer/distributors), with the made fields its candidates read,\nto share or bring into another preset. (What it reads as \"chosen by\" another distributor isn't carried.)").clicked() {
+            view.share_note = export_shared("distributors", &m.distributors[d].name, crate::world::placer::export_distributor(m, d));
         }
         if ui.small_button("▲").on_hover_text("Earlier: under the ones after it (a candidate reads only what the distributors before its own chose).").clicked() && d > 0 {
             m.distributors.swap(d, d - 1);

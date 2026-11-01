@@ -6,7 +6,10 @@
 - The first version's stops are in section 12.
   - **Stop 1 (the field view) is built.** David looked: "it looks ok so far".
   - **Stop 2 (the depth sweep) is built.** David looked: "it seems to be taking the right shape".
-  - **Stop 3 (mineralogy on the placer) is built** (2026-11-01), waiting for David to look.
+  - **Stop 3 (mineralogy on the placer) is built** (2026-11-01). David looked, and found that
+    mineralogy made the climate again (fixed).
+  - **Stop 4 (sharing) is built** (2026-11-01), waiting for David to look. With it, the first
+    version is done enough to go on to the next thing. What's next is in section 13.
 
 David asked for these through Counsel: "the placer and quartility seem the most critical. but im not
 sure how to observe the placer without minerology. i cant really think why it would need its own
@@ -672,3 +675,56 @@ reruns the climate rather than just redrawing; is that necessary?"). It wasn't n
 - The docs brought up to date, with what's next.
 
 **I stop here.** The placer's first version is then done enough to go on to the next thing.
+
+**[BUILT 2026-11-01]** On David's word ("proceed"):
+- **Export:** an "export" button by each made field's name and each distributor's.
+  - It writes one file, `presets/placer/fields/<name>.toml` or `presets/placer/distributors/<name>.toml`.
+    The format is the presets' own TOML, so it can be read, compared and edited by hand.
+  - The file carries the made fields it reads, and those they read, in order, so it works wherever
+    it's imported.
+  - It doesn't carry another distributor it reads as "chosen by". What comes before it depends on
+    where it's imported; a missing one shows as a problem on that layer.
+  - Exporting under a name already used replaces that file, and says so.
+- **Import:** an "import a field…" and an "import a distributor…" list in their sections, of every
+  file exported so far. Picking one brings it in at the end of its list and opens it.
+  - A field it needs that the preset hasn't got comes too.
+  - A field of the same name the preset already has is kept, and the note says so if the file's
+    differs. Renaming it instead would break what reads it.
+  - A distributor or field whose own name is taken comes in renamed ("beaches 2").
+  - A "folder" button opens the folder, to copy files in or out.
+  - A note under the list says what the last export or import did.
+- **Code:** `world/placer/share.rs` holds `Shared`, `export_field`, `export_distributor` and `import`.
+  Its tests check what's carried, a file's round trip, and importing into an empty preset, into the
+  one it came from, and over a field that differs.
+- **The docs:** brought up to date here (section 13), with a pointer in `docs/worldgen.md`.
+
+---
+
+## 13. What's next for the placer (after the first version)
+
+The first version is done enough to go on: fields, made fields, the field view, the depth sweep,
+mineralogy as distributors, "why it's made of this", and sharing. The format has room for all of
+what follows (section 11). Each comes with its first user, and nothing is built ahead of it.
+
+- **Ores and rock in 3D** (section 4, kind 2; section 9):
+  - rock in bands by depth, and inclusions in their rock, by noise in 3D and chance;
+  - checked at every block underground, but only in the near chunks. The far view sees only the
+    surface.
+  - It needs the "material × inclusion" decision, and it's what caves need. Depth terms stay depth
+    below the surface or a share of the crust, never a fixed Z (`WORLD_BOTTOM`: David may go below
+    Z 0 one day).
+  - David will centre a good deal of it on the mountains.
+- **Points with spacing** (trees, boulders, craters, towns): with the asset factory and Ecology.
+- **Fields from lists of points and lines** (river ends, peaks, springs, mouths, and things already
+  placed): the distance to the nearest, how many lie within a reach, the nearest one's size.
+- **Regions:** a whole section of the world, chosen by a field, by a kind (one plate) or by hand.
+- **Areas handed on as fields** (forest cover, an animal's range, a mine site).
+- **Pieces joined at hooks** for towns and buildings, Civilization's NPCs deciding what grows next.
+- **Placing in play:** after everything, saved as edits, seeded.
+- **GPU-safe from the start** (`docs/decisions.md`, the Metaphysics Engine): every new kind is whole
+  numbers in what it projects in play.
+
+**Still open from the stops, for David:**
+- the depth sweep's "see through stone": a switch per rock, or every rock by a tag;
+- the sweep's colours: flat, or darker with depth inside a range;
+- a slope from before the rivers' carving, as a field of its own, if it's ever wanted.

@@ -13,6 +13,8 @@
 //!   every curve built, the ranges worked out. The World Compiler's field view reads one at every
 //!   sample; from stop 3, mineralogy at every column.
 //!
+//! - **Sharing** (`share.rs`, stop 4): a distributor or a made field exported to a file with the
+//!   fields it reads, and imported into any preset.
 //! - **Distributors** (`distribute.rs`, stop 3): what's placed. Each has candidates (blocks, from the
 //!   library), and each candidate's suitability is a stack of layers like a made field's; the
 //!   distributor's chooser picks one at each spot. Mineralogy's surface, sea floor and river beds are
@@ -29,9 +31,11 @@
 
 mod distribute;
 mod fields;
+mod share;
 
 pub use distribute::{Candidate, Chooser, Distributor, Puts, Under};
 pub use fields::{Column, FIELDS, Field, Reading, Stage};
+pub use share::{Shared, export_distributor, export_field, import};
 
 use super::block::BlockId;
 use super::interpreter::{Curve as SplineCurve, Spline};
