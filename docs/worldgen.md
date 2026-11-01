@@ -634,6 +634,23 @@ Tectonic Sim
   Climate holds the ground it reads, Rivers, River network, Carving, Temperature, Wind, Rain. Mineralogy
   is its own panel, its contents as they were, with the greyed Caves after it. No Ecology panel yet.
   David's 15:20 preset, the startup default, loads and gives the same rivers to the byte.]*
+  **[David 2026-10-31] "some topographical features are still in the interpreter. is that where they
+  are in the pipeline still?"** *Counsel:* no. The World Interpreter panel still holds four sections
+  that shape the ground:
+  - Land and sea (the curves, grade by tilt, edge rise);
+  - Ridgelines;
+  - Torn coast;
+  - Hills.
+  The Climate stage reads them: "the ground it reads" is the Interpreter's recipe, with hills, torn
+  coast and crags left out, and the rivers' water levels are laid on the real ground, hills included.
+  So in the chain they come before Climate, though their panel comes last. They're there because the
+  recipe moved from the compiler to the Interpreter, to be worked out at each block (the humps along
+  coasts), and its settings moved with it. The tab move renamed Additives only; Counsel's list
+  above wrongly put hills in Additives. *Proposed* [placement and names are David's call]: move the
+  four into Topography, in the chain's order (land and sea, the mountains, ridgelines, torn coast,
+  hills). The Interpreter keeps the view of the result (under the mouse, the world, the terrain lab,
+  show, overlays, the cross-section). Only the panels change, as with Additives: the settings stay
+  where presets keep them.
   **Caves are open:** "we still really have no idea how caves factor in. they could be topology i
   think. however they could be after, and we could make caves where rivers end without finding a pond
   lake or ocean." (See "Caves, cliffs and carving" below.)
