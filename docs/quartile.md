@@ -189,3 +189,16 @@ before mineralogy's rock layers and ores.
 - **The placing control is David's to design** (David: "ill need to come up with a slick physical
   placing control"). Until he has, placing uses a plain stand-in (facing plus a key), kept separate
   from storage and aiming so his control can replace it without touching them.
+- **[DECIDED 2026-11-01] Octant items, joined bars and mining** (David): "an octant *item* would be a
+  cup or a candle. but if you join two cut stone blocks (not the large full block versions) you would
+  have an L shape. that needs to be implemented seamlessly. mixed shapes will just break and drop
+  nothing when mined. but all of them will have collision. the simple control is fine to start with."
+  - **Octant items are objects** (a cup, a candle) resting in an octant, not a material filling it.
+  - **Joined bars are seamless:** two cut stone bars making an L show no line where they meet. No
+    faces are drawn between touching bars, in one cell or across neighbouring cells, and textures
+    follow the world position, so the pattern runs straight across the join.
+  - **Mixed shapes break whole and drop nothing when mined.** *Counsel:* this refines "mining a mixed
+    cell takes all of it" above. Open: does a single-material shape, such as an L of cut stone, also
+    drop nothing, or only cells mixing materials? For stop 2, where mining comes in.
+  - **Everything has collision:** bars, joined shapes and octant items.
+  - **The simple placing control is fine to start with.**
