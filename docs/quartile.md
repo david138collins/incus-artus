@@ -175,3 +175,17 @@ don't block each other, and with one Builder, "beside" means taking stops by tur
    stops 1 to 3 next. Counsel's lean: quartile before mineralogy's rock layers and ores, since David
    named the placer and quartile the most critical, quartile depends on nothing else, and rock
    layers are best seen with his rock textures.
+
+**[DECIDED 2026-11-01] Quartile next, with Counsel's five answers** (David: "quartiles, i agree"):
+step up half blocks automatically; a share of the block's own texture first, bar art per block later;
+only blocks the Registrar marks can be bars; turning by facing plus a key; quartile stops 1 to 3 now,
+before mineralogy's rock layers and ores.
+- **It must work for octant items too** (David: "lets make sure we are careful it works for octant
+  items too"). An octant is one eighth of a cell (½ × ½ × ½); a bar is two. So the cell's side table,
+  the slot numbering, the mesher, collision and aiming should all take a single octant as well as a
+  bar from the start: 12 bar slots plus 8 octant slots fit in one byte. Whether an octant item is a
+  block material in an octant, or a small object resting there (see "Items sit on face quarters"
+  above), is for Builder to assess and David to choose.
+- **The placing control is David's to design** (David: "ill need to come up with a slick physical
+  placing control"). Until he has, placing uses a plain stand-in (facing plus a key), kept separate
+  from storage and aiming so his control can replace it without touching them.
