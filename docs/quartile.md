@@ -350,3 +350,24 @@ Waiting for David to look.
   - a half-bar's side, ends and tag.
 - **To confirm with David:** that "linked half-bars" is what he meant (Counsel inferred it from his
   answer).
+
+## 12. Mining single bars, cut pieces, and three turns  [DECIDED 2026-11-01, David; replaces "breaks whole"]
+
+David, after stop 2: "you can mine individual slabs in minecraft theres no reason you shouldnt be
+able to target and mine quarter blocks, so lets change it: if you have 'cut' a block, its no longer
+retrievable. the target box would target the whole quarterblock plus any octblocks that are stuck to
+it, having been 'cut' when placed. additionally, when adding a octblock to any other block, it should
+highlight exactly the oct itd fill. additionally, the B should cycle between sideways, longways, and
+upways, that way the crosshair always knows which oct it should start with."
+- **Single bars are aimed at and mined one at a time,** like Minecraft's slabs. This replaces "a cell
+  with bars breaks whole" (sections 5, 9 to 11).
+- **Cut pieces are lost.** A bar placed where an octant is already taken loses that octant (the first
+  piece keeps it, as decided): it's been cut, and a cut piece can't be got back.
+- **The target box** takes in the whole bar, plus any cut octants stuck to it from when it was placed.
+- **Placing shows exactly the octants it will fill,** a single octant included.
+- **B cycles three ways: sideways, longways, upways,** so the axis is always chosen, and the crosshair
+  always knows which octant the piece starts from.
+- *Counsel:* no objections. Each octant belongs to exactly one piece (the first keeps it), so aiming
+  can go from the octant under the crosshair to its piece cleanly. What "stuck to it" means exactly,
+  and whether mining an intact bar with cut pieces stuck to it returns the bar, are for Builder to
+  ask David directly (he'll answer her questions).
