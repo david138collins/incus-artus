@@ -298,3 +298,51 @@ David's flame: `assets/new/green_flame_animation.png`, 112 × 24, 7 frames of 16
 top of them. they place and move correctly." Seen: the first brazier placed takes a second to appear
 (its model loads only when it's first needed). Loading every object's model when the game starts
 would answer it.
+
+## 11. Later: overlays, random sets, alt textures (David, through Counsel, 2026-11-01) [NOT BUILT]
+
+David: "we also need decoration type objects that are just a flat overlay that could be an ore or moss,
+and we will want randomized set choices for blocks and object components (probably just 2d) so an
+object like grass can place one of several sprites, or there are multiple moss patterns. id like to be
+able to make different kinds of the same stone too, if that winds up looking cool. i guess itd be alt
+textures?"
+
+**Not in a current stop.** Recorded so it's built on what's already decided:
+- `docs/decisions.md` (Blocks): "A block = material × inclusion... Inclusions are an optional overlay
+  layer (ores first; the same mechanism can carry other overlays later)", and blocks may carry true
+  texture variants.
+- "Random face variants (e.g. some logs with knots)... picked from the block's position, so it needs no
+  storage."
+- The grass edge is already one shared overlay drawn over any soil, and `random_rotation`
+  (`docs/data-files.md`) already turns faces at random by position.
+
+1. **Overlays: a flat layer drawn over a block's face** (moss, an ore showing in stone).
+   - **An ore is still a block of its own,** mined as itself. The overlay is only how it's drawn: the
+     stone under it, plus the ore's layer. So one ore layer serves every stone it's found in (Counsel's
+     suggestion; it's the "material × inclusion" already decided).
+   - **Moss in the natural world** is the same kind of layer, decided by the projection (damp, dark,
+     facing which way), not stored. It isn't a sub-block piece ("only blueprint stuff and player
+     stuff"): it's a face drawn differently.
+   - **Moss someone puts there** (a player or a blueprint) is a 2D object that sits on a face. That's
+     the "sits on a wall" placing already on the list, saved like any placed object.
+   - **The cost:** a second texture on a face needs room in the face's vertex, and only 7 of its 32
+     bits are free (`docs/quartile.md`). The third vertex word planned for coloured light could carry
+     it.
+2. **Random sets: one of several, picked at random.** A block's face, or an object or a part of one
+   (most often 2D), holds a list of choices:
+   - grass places one of several sprites;
+   - moss has several patterns;
+   - a stone has several looks (David's alt textures, below).
+   - **Picked from a hash of the position** (Counsel's suggestion, and the decided way): the same
+     every time, nothing stored, whole numbers only (the Metaphysics Engine; `worldgen/noise.rs`
+     already has `hash32_3`). A placed object's position is saved anyway, so its pick comes back the
+     same. Only a choice someone makes by hand ("this one") is stored.
+   - **Weights** on the choices (Counsel's suggestion, as Minecraft's resource packs do): a rare
+     knotted log, a common plain one.
+3. **Alt textures: different kinds of the same stone.** There are two ways, both on file:
+   - **Looks of one block:** a random set on its faces (above). It's the same stone, mined and named
+     as one.
+   - **Blocks of their own:** a new block file (red granite, grey granite), if they should differ in
+     more than looks.
+
+   Which is right depends on how they look: David's "if that winds up looking cool".
