@@ -69,6 +69,7 @@ mod palette;
 mod placer_view;
 mod plates;
 mod rags;
+mod objects_tab;
 mod registrar;
 mod rain;
 mod rivers;
@@ -386,7 +387,7 @@ fn draw_suite(
     mut next: ResMut<NextState<Screen>>,
     mut next_terrain: ResMut<crate::world::NextTerrain>,
     mut requests: MessageWriter<crate::save::WorldFileRequest>,
-    registry: Res<crate::data::BlockRegistry>,
+    (registry, objects): (Res<crate::data::BlockRegistry>, Res<crate::data::ObjectRegistry>),
     (render, distant, light): (Res<crate::render::RenderSettings>, Res<crate::render::distant::DistantSettings>, Res<crate::render::light::LightSettings>),
 ) -> Result {
     // Which tab, for crash and freeze reports.
@@ -398,7 +399,7 @@ fn draw_suite(
     });
     let ctx = contexts.ctx_mut()?.clone();
     // The game's blocks and lighting, so the World Compiler's close-up shows the world as it will be.
-    let look = compiler_view::Look { registry: &registry, shade: crate::render::distant::Shade::new(&render, &distant, &light), finest_cell: distant.finest_cell as f32 };
+    let look = compiler_view::Look { registry: &registry, objects: &objects, shade: crate::render::distant::Shade::new(&render, &distant, &light), finest_cell: distant.finest_cell as f32 };
     if view::draw(&ctx, &mut suite, &look) {
         next.set(Screen::Play);
     }

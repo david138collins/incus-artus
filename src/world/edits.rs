@@ -11,8 +11,8 @@
 //! world, like dig designations and blueprint ghosts, are a separate layer that will work
 //! while paused; see docs/decisions.md.)
 
-use super::{BlockId, Part, Pieces, VoxelWorld, bar_halves, block_halves, octant_of};
-use crate::data::BlockRegistry;
+use super::{BlockId, Part, Pieces, PlacedObject, VoxelWorld, bar_halves, block_halves, octant_of};
+use crate::data::{BlockRegistry, ObjectId, ObjectRegistry};
 use crate::events::{LoggedEvent, PlayerId};
 use crate::time::TimeControl;
 use bevy::prelude::*;
@@ -48,6 +48,11 @@ pub enum EditKind {
     /// A whole block on the octant grid, from its lowest corner `at` (counted in half blocks): half
     /// a block off the cells along one, two or three axes, its 8 octants across 2, 4 or 8 cells.
     PlaceShifted { at: IVec3, block: BlockId },
+    /// An object (`data/objects.rs`), its foot at `at` (16ths of a block), facing `facing` (quarter
+    /// turns from north).
+    PlaceObject { at: IVec3, object: ObjectId, facing: u8 },
+    /// The object whose foot is at `at` (16ths of a block), taken away.
+    BreakObject { at: IVec3 },
 }
 
 /// A block's name for the log ("pieces" for a cell built of them).
@@ -90,6 +95,8 @@ pub enum RefuseReason {
     NotABar,
     /// A whole block of one that's only ever a bar.
     OnlyABar,
+    /// An object with nothing solid under it to stand on.
+    NothingUnder,
 }
 
 /// "That request was turned down, and here's why."
@@ -108,6 +115,8 @@ fn describe_kind(kind: EditKind, blocks: &BlockRegistry) -> String {
         EditKind::Place(block) => format!("place {}", blocks.name(block)),
         EditKind::PlaceBar { at, axis, block } => format!("place a {} bar of {} from {} {} {} (half blocks)", ["north–south", "east–west", "upright"][axis as usize % 3], blocks.name(block), at.x, at.y, at.z),
         EditKind::PlaceShifted { at, block } => format!("place {} on the octant grid from {} {} {} (half blocks)", blocks.name(block), at.x, at.y, at.z),
+        EditKind::PlaceObject { at, object, .. } => format!("place object {} at {} {} {} (16ths)", object.0, at.x, at.y, at.z),
+        EditKind::BreakObject { at } => format!("take the object at {} {} {} (16ths)", at.x, at.y, at.z),
     }
 }
 
@@ -189,7 +198,7 @@ pub fn apply_block_edits(
     mut refused: MessageWriter<BlockEditRefused>,
     mut world: ResMut<VoxelWorld>,
     rules: Res<EditRules>,
-    registry: Res<BlockRegistry>,
+    (registry, objects): (Res<BlockRegistry>, Res<ObjectRegistry>),
     time: Res<TimeControl>,
     mut recent: ResMut<RecentBlockChanges>,
 ) {
@@ -205,11 +214,13 @@ pub fn apply_block_edits(
     for request in requests.read() {
         let changes = match request.kind {
             EditKind::Break => break_block(&mut world, &rules, request.position),
-            EditKind::Place(block) => place_block(&mut world, &registry, request.position, block),
+            EditKind::Place(block) => place_block(&mut world, &registry, &objects, request.position, block),
             EditKind::PlaceBar { at, axis, block } => place_bar(&mut world, &registry, at, axis, block),
             EditKind::BreakPiece { half } => break_piece(&mut world, half),
             EditKind::PlaceOctant { half, block } => place_octant(&mut world, &registry, half, block),
-            EditKind::PlaceShifted { at, block } => place_shifted(&mut world, &registry, at, block),
+            EditKind::PlaceShifted { at, block } => place_shifted(&mut world, &registry, &objects, at, block),
+            EditKind::PlaceObject { at, object, facing } => place_object(&mut world, &registry, &objects, at, object, facing, tick),
+            EditKind::BreakObject { at } => world.remove_object(at).map(|_| Vec::new()).ok_or(RefuseReason::NothingThere),
         };
         match changes {
             Err(reason) => refuse(request, reason, &mut recent),
@@ -230,7 +241,10 @@ type Changes = Result<Vec<(IVec3, BlockId, BlockId)>, RefuseReason>;
 
 /// A whole block into air, or into something replaceable (like the grid), but never into the same
 /// block that's already there, nor a block that's only ever a bar.
-fn place_block(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, block: BlockId) -> Changes {
+fn place_block(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &ObjectRegistry, at: IVec3, block: BlockId) -> Changes {
+    if object_in(world, objects, at) {
+        return Err(RefuseReason::Occupied);
+    }
     if registry.def(block).is_some_and(|def| def.bar.as_ref().is_some_and(|bar| bar.only)) {
         return Err(RefuseReason::OnlyABar);
     }
@@ -364,9 +378,9 @@ fn place_bar(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, axis: 
 /// corner `at` (in half blocks): its 8 octants, each a corner of it (`Part::of_block`), across 2, 4
 /// or 8 cells, into air, something replaceable, or free octants of cells of pieces. Refused if any
 /// octant is taken. Lined up with the cells, it's an ordinary block.
-fn place_shifted(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, block: BlockId) -> Changes {
+fn place_shifted(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &ObjectRegistry, at: IVec3, block: BlockId) -> Changes {
     if at.rem_euclid(IVec3::splat(2)) == IVec3::ZERO {
-        return place_block(world, registry, at.div_euclid(IVec3::splat(2)), block);
+        return place_block(world, registry, objects, at.div_euclid(IVec3::splat(2)), block);
     }
     if registry.def(block).is_some_and(|def| def.bar.as_ref().is_some_and(|bar| bar.only)) {
         return Err(RefuseReason::OnlyABar);
@@ -399,6 +413,61 @@ fn place_shifted(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, bl
     Ok(changes)
 }
 
+/// The cells an object stands in: its foot's cell, and the cells above it up to its height (a brazier
+/// 1.5 blocks tall stands in two).
+pub fn cells_of(object: &PlacedObject, objects: &ObjectRegistry) -> std::ops::RangeInclusive<i32> {
+    let height = objects.by_name(&object.name).map_or(1.0, |def| def.height);
+    let foot = object.at.z as f32 / 16.0;
+    let cell = object.cell();
+    cell.z..=((foot + height - 0.001).floor() as i32).max(cell.z)
+}
+
+/// An object's box (its two corners, blocks): its cell across, from its foot up its height.
+pub fn object_box(object: &PlacedObject, objects: &ObjectRegistry) -> (Vec3, Vec3) {
+    let height = objects.by_name(&object.name).map_or(1.0, |def| def.height);
+    let cell = object.cell().as_vec3();
+    let foot = object.at.z as f32 / 16.0;
+    (Vec3::new(cell.x, cell.y, foot), Vec3::new(cell.x + 1.0, cell.y + 1.0, foot + height))
+}
+
+/// Is this half block (counted in half blocks) inside a solid object, for bodies bumping into it?
+pub fn solid_object_half(world: &VoxelWorld, objects: &ObjectRegistry, half: IVec3) -> bool {
+    let cell = half.div_euclid(IVec3::splat(2));
+    let (low, high) = (half.z as f32 / 2.0, (half.z + 1) as f32 / 2.0);
+    world.objects_near(cell).iter().any(|object| {
+        let (bottom, top) = object_box(object, objects);
+        object.cell().truncate() == cell.truncate() && objects.by_name(&object.name).is_some_and(|def| def.solid) && low < top.z && high > bottom.z
+    })
+}
+
+/// Does an object stand in this cell?
+pub fn object_in(world: &VoxelWorld, objects: &ObjectRegistry, cell: IVec3) -> bool {
+    world.objects_near(cell).iter().any(|object| object.cell().truncate() == cell.truncate() && cells_of(object, objects).contains(&cell.z))
+}
+
+/// An object, its foot at `at` (16ths of a block), standing on the floor of its cell: every cell it
+/// stands in must be free (air or something replaceable, and no other object), and what's under it
+/// solid. When it was placed is kept (`since`), for things that change with time.
+fn place_object(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &ObjectRegistry, at: IVec3, object: ObjectId, facing: u8, tick: u64) -> Changes {
+    let def = objects.def(object).ok_or(RefuseReason::NothingThere)?;
+    let placed = PlacedObject { name: def.name.clone(), at, facing, stage: 0, since: tick };
+    let cell = placed.cell();
+    if !world.is_loaded(cell) {
+        return Err(RefuseReason::NotLoaded);
+    }
+    for z in cells_of(&placed, objects) {
+        let here = IVec3::new(cell.x, cell.y, z);
+        if !registry.is_replaceable(world.get_block(here)) || object_in(world, objects, here) {
+            return Err(RefuseReason::Occupied);
+        }
+    }
+    if !registry.is_solid(world.get_block(cell - IVec3::Z)) {
+        return Err(RefuseReason::NothingUnder);
+    }
+    world.place_object(placed).ok_or(RefuseReason::NotLoaded)?;
+    Ok(Vec::new())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -406,6 +475,33 @@ mod tests {
     use bevy::ecs::system::RunSystemOnce;
 
     const PLAYER: EditSource = EditSource::Player(PlayerId(0));
+
+    /// One object for the tests: a brazier, 1.5 blocks tall.
+    fn test_objects() -> ObjectRegistry {
+        ObjectRegistry::with(vec![crate::data::ObjectDef { name: "incus:braziere".into(), display_name: "Brazier".into(), model: "braziere.gltf".into(), height: 1.5, solid: true, sits: crate::data::Sits::Floor, tags: Vec::new() }])
+    }
+
+    #[test]
+    fn an_object_stands_on_the_floor_takes_its_cells_and_is_taken_away_whole() {
+        let stone = BlockRegistry::default().id("incus:stone").unwrap();
+        // The test world's ground is grass at Z 144: the cell above, 145, is the floor's.
+        let cell = IVec3::new(2, 3, 145);
+        let at = cell * 16 + IVec3::new(8, 8, 0);
+        let brazier = BlockEditRequest { position: cell, kind: EditKind::PlaceObject { at, object: ObjectId(0), facing: 0 }, source: PLAYER };
+        let floating = BlockEditRequest { position: cell, kind: EditKind::PlaceObject { at: at + IVec3::Z * 16 * 5, object: ObjectId(0), facing: 0 }, source: PLAYER };
+        // Placed; the same again (taken); one in the air (nothing under it); a block in its upper cell
+        // (it's 1.5 tall, so it stands in two).
+        let block_above = BlockEditRequest { position: cell + IVec3::Z, kind: EditKind::Place(stone), source: PLAYER };
+        let (mut app, _) = run_requests(&[brazier, brazier, floating, block_above]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied, RefuseReason::NothingUnder, RefuseReason::Occupied]);
+        let world = app.world().resource::<VoxelWorld>();
+        assert_eq!(world.objects_near(cell).iter().map(|object| (object.name.as_str(), object.at)).collect::<Vec<_>>(), vec![("incus:braziere", at)]);
+        // Taken away; then nothing to take.
+        let take = BlockEditRequest { position: cell, kind: EditKind::BreakObject { at }, source: PLAYER };
+        let (mut app, _) = run_requests(&[brazier, take, take]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::NothingThere]);
+        assert!(app.world().resource::<VoxelWorld>().objects_near(cell).is_empty());
+    }
 
     /// A tiny app with just the test world and the edit system, run for one update.
     fn run_requests(requests: &[BlockEditRequest]) -> (App, TestBlocks) {
@@ -419,6 +515,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(registry)
             .insert_resource(voxels)
+            .insert_resource(test_objects())
             .init_resource::<EditRules>()
             .init_resource::<TimeControl>()
             .init_resource::<RecentBlockChanges>()

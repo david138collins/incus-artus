@@ -19,6 +19,7 @@ mod material;
 mod mesher;
 mod meshing;
 mod performance;
+mod objects;
 mod sky_light;
 pub(crate) mod textures;
 
@@ -78,6 +79,7 @@ impl Plugin for RenderPlugin {
             .add_systems(Update, (light::update_light, light::update_near_light))
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
+            .init_resource::<objects::ObjectsDrawn>()
             .init_resource::<performance::FrameTimes>()
             .init_resource::<performance::StepTimes>()
             .add_systems(Last, performance::collect_steps)
@@ -96,6 +98,7 @@ impl Plugin for RenderPlugin {
                     distant::update_shown_chunks,
                     apply_render_distance,
                     update_shader_settings,
+                    objects::draw_objects,
                 )
                     .chain(),
             )

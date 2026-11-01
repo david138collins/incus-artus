@@ -136,3 +136,51 @@ far lights, and David's own objects (cups, plates, bread).
 3. **The flame:** how many frames a second (Doom's are about 8)? And does it sit in the cup at the size
    of the cup, or bigger?
 4. **Torches:** on the floor first, or on walls (which needs "sits on a wall" in stop 1)?
+
+## 8. Stop 1, see it and place it: [BUILT 2026-11-01]
+
+David's answers through Counsel: "youre right, these are all the same thing, swords, armor, brazieres,
+torches, bread. blocks are blocks, objects are objects, and blueprints are made of both". The tab is
+**Objects**. The brazier is solid, centred in its cell, and stands on the floor. Plants are objects
+too ("objects can be 2D, like grass, or 3d, like corn or brazieres or beds"), and they may change over
+time.
+
+- **Object files** (`data/objects.rs`): `assets/data/<pack>/objects/<name>.toml`, holding `name`,
+  `model` (a glTF in `assets/models/`), `height`, `solid`, `sits` (floor; wall and ceiling later) and
+  `tags`. They're reloaded as they change, like blocks.
+- **Placed objects are saved with their chunk** (chunk format 4; format 3 still loads). Each keeps
+  its name, its foot (16ths of a block), which way it faces, and, kept for things that change with
+  time, its stage and since when (the tick it was placed). One the game no longer has is kept, and
+  not drawn.
+- **Edits:** `PlaceObject` and `BreakObject`, through the edit system as blocks go.
+  - An object stands on the floor of the cell in front of the face aimed at, in its middle. It's
+    refused if a cell it would stand in is taken (it's 1.5 tall, so it stands in two) or if there's
+    nothing solid under it.
+  - A block can't be placed into a cell an object stands in.
+- **Drawn** (`render/objects.rs`):
+  - The model's meshes are drawn one by one, each with its texture, flat (unlit, no realistic
+    lighting).
+  - It's scaled to its height and stands with its feet's middle on its spot.
+  - It's lit by its cell's daylight (the same walk as the blocks', `sky_light.rs`), eased as the
+    shader eases it, and lit again when the sections round it are made again.
+- **In play:**
+  - An object in the hotbar (the Player page's slot picker lists objects too) shows where it would
+    stand in magenta. Right click places it.
+  - The object under the crosshair (nearer than the block) is outlined in white, and left click
+    takes it away.
+  - Solid objects stop bodies: their cell, up to their height.
+- **The Registrar's tabs:** Blocks, **Objects**, and Blueprints (greyed, later).
+  - The Objects tab lists them. Its dock has the name, the model, the height, solid, how it sits and
+    the tags, saved to the file. Attachments are greyed until stops 2 and 3.
+  - "Load a model…" picks a glTF from `Art/`, copies it into `assets/models/` and makes its file. It
+    warns if the textures aren't packed inside.
+- **David's brazier** is registered for trying (`incus:braziere`, 1.5 tall, solid), from his first
+  export. It's his to replace with the remade one.
+- **Not yet:**
+  - the turning preview in the dock;
+  - the test lantern lighting objects (it's in the terrain shader only);
+  - placing on walls;
+  - facing other than north.
+- **Tests:** the object file read and written back; an object saved with its chunk (and one the game
+  no longer has, kept); placing, refusals (taken, nothing under it, a block into its upper cell) and
+  taking it away.

@@ -200,7 +200,7 @@ pub fn draw(ctx: &egui::Context, suite: &mut Suite, look: &super::compiler_view:
     // Note buttons only on the panels that set their page.
     super::notes::on_page(None);
     match suite.kit {
-        Kit::Registrar => super::registrar::draw(&mut root, &mut suite.registrar, look.registry),
+        Kit::Registrar => super::registrar::draw(&mut root, &mut suite.registrar, look.registry, look.objects),
         Kit::Graphics => graphics_kit(&mut root, suite),
         Kit::WorldGen => super::world::draw(&mut root, suite),
         Kit::Compiler => super::compiler_view::draw(&mut root, suite, look),

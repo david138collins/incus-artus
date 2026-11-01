@@ -97,8 +97,19 @@ pub struct Registrar {
     /// Goes up by one whenever the palette is saved.
     palette_changes: u64,
     mapping_version: u64,
+    /// Which tab is open, and the Objects tab's own state.
+    tab: RegistrarTab,
+    objects: super::objects_tab::ObjectsTab,
     /// Show the blocks as they are, not as the transform would make them.
     before: bool,
+}
+
+/// The Registrar's tabs: blocks, objects, and (later) blueprints.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum RegistrarTab {
+    #[default]
+    Blocks,
+    Objects,
 }
 
 /// Something in the library that can be selected: a block, or one texture on its own (one of a
@@ -353,7 +364,20 @@ impl Registrar {
 }
 
 /// Draws the Registrar.
-pub fn draw(root: &mut egui::Ui, registrar: &mut Registrar, registry: &BlockRegistry) {
+pub fn draw(root: &mut egui::Ui, registrar: &mut Registrar, registry: &BlockRegistry, objects: &crate::data::ObjectRegistry) {
+    // The three kinds (David: "blocks are blocks, objects are objects, and blueprints are made of
+    // both").
+    egui::Panel::top("registrar tabs").show(root, |ui| {
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut registrar.tab, RegistrarTab::Blocks, "Blocks");
+            ui.selectable_value(&mut registrar.tab, RegistrarTab::Objects, "Objects");
+            ui.add_enabled(false, egui::Button::new("Blueprints")).on_disabled_hover_text("Later: trees, buildings, made of blocks and objects");
+        });
+    });
+    if registrar.tab == RegistrarTab::Objects {
+        super::objects_tab::draw(root, &mut registrar.objects, objects);
+        return;
+    }
     registrar.refresh(registry);
     // Escape deselects every colour; a box whose squares have gone ends when the mouse is let go.
     let (escape, held) = root.input(|input| (input.key_pressed(egui::Key::Escape), input.pointer.primary_down() || input.pointer.primary_released()));
@@ -967,7 +991,7 @@ pub struct Incoming {
 
 /// A file's name as a texture or block name: lowercase letters, digits and `_` only
 /// ("Red Granite-2.png" → "red_granite_2").
-fn asset_name(path: &Path) -> String {
+pub(super) fn asset_name(path: &Path) -> String {
     let stem = path.file_stem().map_or(String::new(), |stem| stem.to_string_lossy().to_lowercase());
     let name: String = stem.chars().map(|c| if c.is_ascii_lowercase() || c.is_ascii_digit() { c } else { '_' }).collect();
     name.split('_').filter(|part| !part.is_empty()).collect::<Vec<_>>().join("_")

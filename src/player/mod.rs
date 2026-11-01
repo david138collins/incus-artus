@@ -31,7 +31,7 @@
 mod collision;
 
 use crate::camera::{FieldOfViewBoost, FlyCamera, LookTarget, MouseCapture};
-use crate::data::BlockRegistry;
+use crate::data::{BlockRegistry, ObjectId, ObjectRegistry};
 use crate::debug::{DebugAppExt, SettingsAppExt, preset_bar};
 use crate::kinematics::{Envelope, EnvelopeState, envelope_editor};
 use crate::events::{EventLogAppExt, LocalPlayer, LoggedEvent, PlayerId};
@@ -41,7 +41,7 @@ use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, block_halves, block_placement, half_box, piece_start,
+    RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, block_halves, block_placement, half_box, object_box, piece_start, PlacedObject, solid_object_half,
 };
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
@@ -418,8 +418,11 @@ struct ActionCooldowns {
 struct PieceChoice {
     turn: Turn,
     /// What would be placed this frame, if anything: a bar (its corner in half blocks, and its axis),
-    /// one octant (where), or a whole block on the octant grid (its lowest corner, in half blocks).
+    /// one octant (where), a whole block on the octant grid (its lowest corner, in half blocks), or
+    /// an object (its foot, in 16ths of a block).
     aim: Option<Aim>,
+    /// The object under the crosshair, nearer than any block (its foot, 16ths): what left click takes.
+    aimed_object: Option<IVec3>,
 }
 
 #[derive(Clone, Copy)]
@@ -427,6 +430,40 @@ enum Aim {
     Bar(IVec3, u8),
     Octant(IVec3),
     Shifted(IVec3),
+    Object(IVec3, ObjectId),
+}
+
+/// The nearest object a ray meets (its foot, in 16ths, and how far along), within `reach` blocks:
+/// each object's box (`object_box`) in the chunks round where the ray starts.
+fn object_on_ray(world: &VoxelWorld, objects: &ObjectRegistry, from: Vec3, toward: Vec3, reach: f32) -> Option<(IVec3, f32)> {
+    let toward = toward.normalize_or_zero();
+    let start = ChunkPos::of_block(from.floor().as_ivec3());
+    let mut nearest: Option<(IVec3, f32)> = None;
+    for x in -1..=1 {
+        for y in -1..=1 {
+            let cell = IVec3::new((start.x + x) * CHUNK_SIZE, (start.y + y) * CHUNK_SIZE, 0);
+            for object in world.objects_near(cell) {
+                let (low, high) = object_box(object, objects);
+                // Where the ray enters and leaves the box, along each axis in turn.
+                let (mut enter, mut leave) = (0.0f32, reach);
+                for axis in 0..3 {
+                    if toward[axis].abs() < 1e-6 {
+                        if from[axis] < low[axis] || from[axis] > high[axis] {
+                            leave = -1.0;
+                        }
+                        continue;
+                    }
+                    let (a, b) = ((low[axis] - from[axis]) / toward[axis], (high[axis] - from[axis]) / toward[axis]);
+                    enter = enter.max(a.min(b));
+                    leave = leave.min(a.max(b));
+                }
+                if enter <= leave && nearest.is_none_or(|(_, best)| enter < best) {
+                    nearest = Some((object.at, enter));
+                }
+            }
+        }
+    }
+    nearest
 }
 
 /// With a bar block selected: B turns the bar, and the selector snaps to where it would go. With
@@ -434,7 +471,7 @@ enum Aim {
 fn aim_bar(
     (keys, capture): (Res<ButtonInput<KeyCode>>, Res<MouseCapture>),
     hotbar: Res<Hotbar>,
-    registry: Res<BlockRegistry>,
+    (registry, objects): (Res<BlockRegistry>, Res<ObjectRegistry>),
     cameras: Query<&FlyCamera>,
     world: Res<VoxelWorld>,
     mut target: ResMut<LookTarget>,
@@ -448,7 +485,15 @@ fn aim_bar(
     let block_in_hand = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)).is_some_and(|id| !id.is_air());
     let off_the_grid = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     let octant = keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
+    // An object in hand stands on the floor of the cell in front of the face aimed at, in its middle.
+    let object_in_hand = hotbar.slots.get(hotbar.selected).and_then(|name| objects.id(name));
+    // The object under the crosshair, if it's nearer than the block.
+    piece.aimed_object = cameras.iter().next().and_then(|camera| {
+        let reach = target.hit.map_or(8.0, |hit| hit.distance);
+        object_on_ray(&world, &objects, camera.position, camera.looking(), reach).map(|(at, _)| at)
+    });
     piece.aim = match (target.hit, target.half, target.point) {
+        (Some(hit), _, _) if object_in_hand.is_some() => hit.in_front().map(|cell| Aim::Object(cell * 16 + IVec3::new(8, 8, 0), object_in_hand.unwrap())),
         (Some(hit), Some(half), Some(point)) if off_the_grid && block_in_hand => block_placement(half, hit.normal, point).map(Aim::Shifted),
         (Some(hit), Some(half), _) if octant && bar_selected => piece_start(half, hit.normal).map(Aim::Octant),
         (Some(hit), Some(half), Some(point)) if bar_selected => bar_placement(half, hit.normal, point, looking, piece.turn).map(|(at, axis)| Aim::Bar(at, axis)),
@@ -464,11 +509,24 @@ fn aim_bar(
         Some(Aim::Bar(at, axis)) => bar_halves(at, axis).to_vec(),
         Some(Aim::Octant(half)) => vec![half],
         Some(Aim::Shifted(at)) => block_halves(at).to_vec(),
-        None => Vec::new(),
+        Some(Aim::Object(..)) | None => Vec::new(),
     };
     target.ghost = halves.into_iter().filter(free).map(half_box).collect();
-    // The piece aimed at in a cell of pieces: a bar and what's stuck to it, or a lone octant.
+    // An object in hand: the box it would stand in.
+    if let Some(Aim::Object(at, object)) = piece.aim
+        && let Some(def) = objects.def(object)
+    {
+        let placed = PlacedObject { name: def.name.clone(), at, facing: 0, stage: 0, since: 0 };
+        target.ghost = vec![object_box(&placed, &objects)];
+    }
+    // The piece aimed at in a cell of pieces: a bar and what's stuck to it, or a lone octant. Or the
+    // object aimed at, its box.
     target.piece = target.half.map_or_else(Vec::new, |half| world.piece_halves(half).into_iter().map(half_box).collect());
+    if let Some(at) = piece.aimed_object
+        && let Some(object) = world.objects_near(at.div_euclid(IVec3::splat(16))).iter().find(|object| object.at == at)
+    {
+        target.piece = vec![object_box(object, &objects)];
+    }
 }
 
 /// Where a respawn puts your feet: on top of the highest block at the world's spawn spot (the
@@ -769,7 +827,7 @@ fn move_pawn(
     mode: Res<ControlMode>,
     settings: Res<PlayerSettings>,
     world: Res<VoxelWorld>,
-    registry: Res<BlockRegistry>,
+    (registry, objects): (Res<BlockRegistry>, Res<ObjectRegistry>),
     time_control: Res<TimeControl>,
     mut footsteps: MessageWriter<Footstep>,
     mut landings: MessageWriter<Landed>,
@@ -777,7 +835,8 @@ fn move_pawn(
 ) {
     let dt = time.delta_secs();
     let tick = time_control.tick();
-    let solid = |half: IVec3| world.half_filled(half, |block| registry.is_solid(block));
+    // Blocks, and solid objects (a brazier), are bumped into.
+    let solid = |half: IVec3| world.half_filled(half, |block| registry.is_solid(block)) || solid_object_half(&world, &objects, half);
     for (mut pawn, mut position, mut input, &player, local) in &mut pawns {
         let jump = input.jump_held || input.jump_tapped;
         input.jump_tapped = false;
@@ -1028,10 +1087,12 @@ fn block_actions(
 
     if mouse.pressed(MouseButton::Left) && now - cooldowns.last_break >= settings.break_cooldown {
         cooldowns.last_break = now;
-        // In a cell of pieces, just the piece aimed at (a bar and what's stuck to it, or an octant).
-        let kind = match target.half.filter(|&half| world.octant(half).is_some()) {
-            Some(half) => EditKind::BreakPiece { half },
-            None => EditKind::Break,
+        // An object aimed at (nearer than the block) is taken away. In a cell of pieces, just the
+        // piece aimed at (a bar and what's stuck to it, or an octant).
+        let kind = match (piece.aimed_object, target.half.filter(|&half| world.octant(half).is_some())) {
+            (Some(at), _) => EditKind::BreakObject { at },
+            (None, Some(half)) => EditKind::BreakPiece { half },
+            (None, None) => EditKind::Break,
         };
         send(BlockEditRequest {
             position: hit.block,
@@ -1041,6 +1102,12 @@ fn block_actions(
     }
 
     if mouse.pressed(MouseButton::Right) && now - cooldowns.last_place >= settings.place_cooldown {
+        // An object: standing where the selector shows it.
+        if let Some(Aim::Object(at, object)) = piece.aim {
+            cooldowns.last_place = now;
+            send(BlockEditRequest { position: at.div_euclid(IVec3::splat(16)), kind: EditKind::PlaceObject { at, object, facing: 0 }, source: EditSource::Player(player) });
+            return;
+        }
         let Some(block) = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)) else {
             return;
         };
@@ -1053,6 +1120,8 @@ fn block_actions(
             }
             Some(Aim::Octant(half)) => (BlockEditRequest { position: half.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceOctant { half, block }, source: EditSource::Player(player) }, half_box(half)),
             Some(Aim::Shifted(at)) => (BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceShifted { at, block }, source: EditSource::Player(player) }, (half_box(at).0, half_box(at).0 + Vec3::ONE)),
+            // (Placed above.)
+            Some(Aim::Object(..)) => return,
             None => {
                 let Some(cell) = hit.in_front() else {
                     return;
@@ -1077,7 +1146,7 @@ fn draw_hotbar(
     mut contexts: EguiContexts,
     hotbar: Res<Hotbar>,
     mode: Res<ControlMode>,
-    registry: Res<BlockRegistry>,
+    (registry, objects): (Res<BlockRegistry>, Res<ObjectRegistry>),
     time: Res<Time<Real>>,
     (flash, piece): (Res<FootstepFlash>, Res<PieceChoice>),
 ) -> Result {
@@ -1104,7 +1173,9 @@ fn draw_hotbar(
         let label = registry
             .id(name)
             .and_then(|id| registry.def(id))
-            .map_or(name.as_str(), |def| def.display_name.as_str());
+            .map(|def| def.display_name.as_str())
+            .or_else(|| objects.by_name(name).map(|def| def.display_name.as_str()))
+            .unwrap_or(name.as_str());
         painter.text(
             rect.center(),
             egui::Align2::CENTER_CENTER,
@@ -1315,10 +1386,13 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         });
     }
     {
-        // Any block onto the selected hotbar slot (registered blocks, bar blocks among them).
+        // Any block or object onto the selected hotbar slot (registered blocks, bar blocks among them;
+        // then the objects).
         let blocks: Vec<(String, String, bool)> = {
             let registry = world.resource::<BlockRegistry>();
-            registry.defs().iter().skip(1).map(|def| (def.name.clone(), def.display_name.clone(), def.bar.is_some())).collect()
+            let objects = world.resource::<ObjectRegistry>();
+            let blocks = registry.defs().iter().skip(1).map(|def| (def.name.clone(), def.display_name.clone(), def.bar.is_some()));
+            blocks.chain(objects.defs().iter().map(|def| (def.name.clone(), format!("{} (object)", def.display_name), false))).collect()
         };
         let mut hotbar = world.resource_mut::<Hotbar>();
         let selected = hotbar.selected;
@@ -1390,6 +1464,7 @@ mod tests {
         let settings = PlayerSettings { slide_distance, ..default() };
         let start = Vec3::new(-100.0, 0.5, terrain.grass_z as f32 + 1.0);
         world.insert_resource(registry);
+        world.insert_resource(ObjectRegistry::default());
         world.insert_resource(voxel);
         world.insert_resource(settings);
         world.insert_resource(ControlMode::Walk);

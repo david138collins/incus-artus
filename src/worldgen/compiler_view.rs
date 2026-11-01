@@ -2338,6 +2338,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
 /// colours), and how the distant terrain lights the ground (the same settings: `distant::Shade`).
 pub struct Look<'a> {
     pub registry: &'a crate::data::BlockRegistry,
+    pub objects: &'a crate::data::ObjectRegistry,
     pub shade: crate::render::distant::Shade,
     /// The distance the hill shading's slope is measured over (the distant terrain's finest cell).
     pub finest_cell: f32,

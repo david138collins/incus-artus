@@ -1,0 +1,224 @@
+//! The Registrar's Objects tab [`docs/objects.md`; David, 2026-11-01: "blocks are blocks, objects are
+//! objects, and blueprints are made of both"]: every object, its settings, and bringing a new model in.
+//!
+//! - **The list** (left): each object, by name.
+//! - **The dock** (middle): the object open: its name, its model, how tall it stands, whether it's
+//!   solid, how it sits; saved to its data file (`data/objects.rs`), and the game picks it up in a
+//!   moment. Attachments (a flame, its light) come with stops 2 and 3, greyed until then.
+//! - **"Load a model…":** a glTF from `Art/` (Blockbench's export, its textures packed inside),
+//!   copied into `assets/models/` with a data file made for it.
+//!
+//! To see one: put it in a hotbar slot (the Player page) and place it in the world. A turning preview
+//! here comes later.
+
+use crate::data::{ObjectDef, ObjectRegistry, Sits, data_folder, header_of, models_folder, object_file_text};
+use bevy_egui::egui;
+use std::path::{Path, PathBuf};
+
+/// The Objects tab's own state.
+#[derive(Default)]
+pub struct ObjectsTab {
+    /// The object open in the dock, and its settings as being edited.
+    selected: Option<String>,
+    draft: Option<ObjectDef>,
+    tags_text: String,
+    /// What the last action did.
+    message: String,
+    /// A model being brought in.
+    loading: Option<Loading>,
+}
+
+/// A model being brought in: the glTFs in `Art/`, the one picked, and the object's name.
+struct Loading {
+    files: Vec<PathBuf>,
+    picked: Option<PathBuf>,
+    name: String,
+    height: f32,
+}
+
+pub fn draw(root: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
+    egui::Panel::left("registrar objects list").resizable(true).default_size(260.0).size_range(180.0..=600.0).show(root, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| list(ui, tab, objects));
+    });
+    egui::CentralPanel::default().show(root, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| dock(ui, tab, objects));
+    });
+}
+
+fn list(ui: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
+    ui.heading("Objects");
+    if ui.button("Load a model…").on_hover_text("A glTF from Art/ (Blockbench: File → Export → glTF, textures packed inside), made into an object").clicked() {
+        tab.loading = if tab.loading.is_some() { None } else { Some(Loading { files: gltf_files(), picked: None, name: String::new(), height: 1.0 }) };
+    }
+    ui.separator();
+    if objects.defs().is_empty() {
+        ui.label("None yet.");
+    }
+    for def in objects.defs() {
+        let open = tab.selected.as_deref() == Some(def.name.as_str());
+        if ui.selectable_label(open, &def.display_name).on_hover_text(&def.name).clicked() {
+            tab.selected = Some(def.name.clone());
+            tab.loading = None;
+        }
+    }
+    for (file, problem) in &objects.problems {
+        ui.colored_label(egui::Color32::from_rgb(230, 160, 60), format!("{}: {problem}", Path::new(file).file_name().map_or(String::new(), |name| name.to_string_lossy().into_owned())));
+    }
+}
+
+fn dock(ui: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
+    if !tab.message.is_empty() {
+        ui.label(&tab.message);
+        ui.separator();
+    }
+    if tab.loading.is_some() {
+        loading(ui, tab);
+        return;
+    }
+    let Some(def) = tab.selected.as_deref().and_then(|name| objects.by_name(name)) else {
+        ui.label("Click an object in the list to open it here, or load a model.");
+        return;
+    };
+    if tab.draft.as_ref().is_none_or(|draft| draft.name != def.name) {
+        tab.draft = Some(def.clone());
+        tab.tags_text = def.tags.join(", ");
+    }
+    let Some(draft) = tab.draft.as_mut() else { return };
+    ui.heading(&def.display_name);
+    ui.small(&def.name);
+    ui.horizontal(|ui| {
+        ui.label("name:");
+        ui.text_edit_singleline(&mut draft.display_name);
+    });
+    let models = model_files();
+    ui.horizontal(|ui| {
+        ui.label("model:");
+        egui::ComboBox::from_id_salt("object model").selected_text(&draft.model).show_ui(ui, |ui| {
+            for model in &models {
+                ui.selectable_value(&mut draft.model, model.clone(), model);
+            }
+        });
+    });
+    ui.add(crate::debug::Slider::new(&mut draft.height, 0.1..=8.0).text("how tall it stands (blocks)")).on_hover_text("The model is scaled to this, whatever size it was made at");
+    ui.checkbox(&mut draft.solid, "solid").on_hover_text("Bodies bump into it: its cell, up to its height");
+    ui.horizontal(|ui| {
+        ui.label("sits:");
+        ui.radio_value(&mut draft.sits, Sits::Floor, "on a floor").on_hover_text("Standing in the middle of its cell");
+        ui.add_enabled(false, egui::RadioButton::new(draft.sits == Sits::Wall, "on a wall")).on_disabled_hover_text("Later (torches)");
+        ui.add_enabled(false, egui::RadioButton::new(draft.sits == Sits::Ceiling, "from a ceiling")).on_disabled_hover_text("Later");
+    });
+    ui.horizontal(|ui| {
+        ui.label("tags:");
+        if ui.text_edit_singleline(&mut tab.tags_text).on_hover_text("Separated by commas").changed() {
+            draft.tags = tab.tags_text.split(',').map(str::trim).filter(|tag| !tag.is_empty()).map(str::to_string).collect();
+        }
+    });
+    ui.add_enabled_ui(false, |ui| {
+        egui::CollapsingHeader::new("Attachments (a flame, its light)").id_salt("object attachments").show(ui, |_| {});
+    })
+    .response
+    .on_disabled_hover_text("Things hung on the model's named points (a Blockbench locator, e.g. \"flame\"): an animated sprite (objects stop 2), a light (stop 3)");
+
+    let changed = draft != def;
+    let draft = draft.clone();
+    let path = objects.source(&def.name).map(Path::to_path_buf);
+    ui.horizontal(|ui| {
+        if ui.add_enabled(changed && path.is_some(), egui::Button::new("Save to the object file")).clicked()
+            && let Some(path) = &path
+        {
+            let header = std::fs::read_to_string(path).map(|text| header_of(&text)).unwrap_or_default();
+            tab.message = match std::fs::write(path, object_file_text(&draft, &header)) {
+                Ok(()) => format!("Saved {}; the game picks it up in a moment.", path.file_name().map_or(String::new(), |name| name.to_string_lossy().into_owned())),
+                Err(error) => format!("Couldn't save {}: {error}.", path.display()),
+            };
+        }
+        if ui.add_enabled(changed, egui::Button::new("Revert")).clicked() {
+            tab.draft = Some(def.clone());
+            tab.tags_text = def.tags.join(", ");
+        }
+    });
+    ui.add_space(8.0);
+    ui.small("To see it: put it in a hotbar slot (the Player page) and place it in the world. A turning preview here comes later.");
+}
+
+/// Bringing a model in: pick a glTF from Art/, name it, register it.
+fn loading(ui: &mut egui::Ui, tab: &mut ObjectsTab) {
+    let Some(loading) = tab.loading.as_mut() else { return };
+    ui.heading("Load a model");
+    if loading.files.is_empty() {
+        ui.label("No glTF files in Art/. In Blockbench: File → Export → glTF, with the textures packed inside.");
+    }
+    for file in loading.files.clone() {
+        let shown = file.strip_prefix(crate::debug::project_folder().join("Art")).unwrap_or(&file).display().to_string();
+        if ui.selectable_label(loading.picked.as_ref() == Some(&file), shown).clicked() {
+            loading.name = super::registrar::asset_name(&file);
+            loading.picked = Some(file);
+        }
+    }
+    let Some(picked) = loading.picked.clone() else { return };
+    ui.separator();
+    ui.horizontal(|ui| {
+        ui.label("name:");
+        ui.text_edit_singleline(&mut loading.name);
+    });
+    ui.add(crate::debug::Slider::new(&mut loading.height, 0.1..=8.0).text("how tall it stands (blocks)"));
+    let name = loading.name.trim().to_string();
+    let ok_name = !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    let file = data_folder().join("incus").join("objects").join(format!("{name}.toml"));
+    let taken = file.exists();
+    // A glTF that points at files beside it (rather than packing them inside) wouldn't come with them.
+    let separate = std::fs::read_to_string(&picked).map(|text| text.contains("\"uri\":\"") && text.split("\"uri\":\"").skip(1).any(|uri| !uri.starts_with("data:"))).unwrap_or(false);
+    if separate {
+        ui.colored_label(egui::Color32::from_rgb(230, 160, 60), "This glTF keeps its textures in separate files. Export it again with them packed inside (Blockbench does this by default).");
+    }
+    let enabled = ok_name && !taken && !separate;
+    let register = ui.add_enabled(enabled, egui::Button::new(format!("Register incus:{name}"))).on_disabled_hover_text(if !ok_name { "Lowercase letters, digits and _ only" } else if taken { "There's an object of that name already" } else { "Its textures need to be inside it" }).clicked();
+    if register {
+        let model = format!("{name}.gltf");
+        let def = ObjectDef { name: format!("incus:{name}"), display_name: name.replace('_', " "), model: model.clone(), height: loading.height, solid: false, sits: Sits::Floor, tags: Vec::new() };
+        let header = format!("# {}: from {}.\n# See docs/objects.md for every setting.\n\n", def.display_name, picked.file_name().map_or(String::new(), |name| name.to_string_lossy().into_owned()));
+        let result = std::fs::create_dir_all(models_folder())
+            .and_then(|()| std::fs::copy(&picked, models_folder().join(&model)).map(|_| ()))
+            .and_then(|()| std::fs::create_dir_all(file.parent().unwrap_or(Path::new("."))))
+            .and_then(|()| std::fs::write(&file, object_file_text(&def, &header)));
+        tab.message = match result {
+            Ok(()) => format!("Registered incus:{name}; the game picks it up in a moment."),
+            Err(error) => format!("Couldn't register it: {error}."),
+        };
+        if tab.message.starts_with("Registered") {
+            tab.selected = Some(def.name);
+            tab.loading = None;
+        }
+    }
+}
+
+/// Every glTF in Art/ (a few folders deep).
+fn gltf_files() -> Vec<PathBuf> {
+    fn walk(folder: &Path, depth: u32, found: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(folder).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() && depth < 6 {
+                walk(&path, depth + 1, found);
+            } else if path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("gltf")) {
+                found.push(path);
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(&crate::debug::project_folder().join("Art"), 0, &mut found);
+    found.sort();
+    found
+}
+
+/// The models in `assets/models/`.
+fn model_files() -> Vec<String> {
+    let mut found: Vec<String> = std::fs::read_dir(models_folder())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|extension| extension.eq_ignore_ascii_case("gltf") || extension.eq_ignore_ascii_case("glb")))
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    found.sort();
+    found
+}

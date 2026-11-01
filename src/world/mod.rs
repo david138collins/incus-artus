@@ -35,11 +35,11 @@ pub use caves::{CavePlan, Caves, TestCaveSettings};
 pub use pieces::{Owners, Part, Pieces, Turn, bar_halves, bar_placement, block_halves, block_placement, half_box, octant_of, piece_start};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason,
+    RefuseReason, object_box, solid_object_half,
 };
 pub use raycast::{RayHit, cast_ray_halves};
 #[allow(unused_imports)] // re-exported for later modules (rendering, saving)
-pub use chunk::{BlockExtra, Chunk, ColumnSummary};
+pub use chunk::{BlockExtra, Chunk, ColumnSummary, PlacedObject};
 pub use generator::{TestBlocks, TestWorldSettings, generate_test_world};
 #[allow(unused_imports)]
 pub use position::{
@@ -78,9 +78,39 @@ pub struct VoxelWorld {
     /// Where new arrivals start (north, east): the middle of the test cylinder, or the spot chosen
     /// on a compiled world's map.
     spawn: IVec2,
+    /// Chunks whose objects have changed (placed, taken, or the chunk itself come or gone), for the
+    /// objects' drawing to catch up with (`render/objects.rs`).
+    objects_changed: HashSet<ChunkPos>,
 }
 
 impl VoxelWorld {
+    /// Places an object. `None` if its chunk isn't loaded (nothing happens then).
+    pub fn place_object(&mut self, object: PlacedObject) -> Option<()> {
+        let pos = ChunkPos::of_block(object.cell());
+        self.chunks.get_mut(&pos)?.add_object(object);
+        self.changed.insert(pos);
+        self.objects_changed.insert(pos);
+        Some(())
+    }
+
+    /// Takes away the object whose foot is at `at` (16ths of a block).
+    pub fn remove_object(&mut self, at: IVec3) -> Option<PlacedObject> {
+        let pos = ChunkPos::of_block(at.div_euclid(IVec3::splat(16)));
+        let removed = self.chunks.get_mut(&pos)?.remove_object(at)?;
+        self.changed.insert(pos);
+        self.objects_changed.insert(pos);
+        Some(removed)
+    }
+
+    /// The objects standing in the column of chunks holding `cell` (their feet anywhere in it).
+    pub fn objects_near(&self, cell: IVec3) -> &[PlacedObject] {
+        self.chunks.get(&ChunkPos::of_block(cell)).map_or(&[], |chunk| chunk.objects())
+    }
+
+    /// The chunks whose objects have changed since last asked, and forgets them.
+    pub fn take_objects_changed(&mut self) -> HashSet<ChunkPos> {
+        std::mem::take(&mut self.objects_changed)
+    }
     /// Block at a position. Outside the world or in an unloaded chunk → air.
     pub fn get_block(&self, block: IVec3) -> BlockId {
         if !z_in_world(block.z) {
@@ -218,6 +248,7 @@ impl VoxelWorld {
     /// Add (or replace) a chunk. All its sections become dirty so they get drawn.
     pub fn insert_chunk(&mut self, chunk: Chunk) {
         let pos = chunk.pos();
+        self.objects_changed.insert(pos);
         for level in 0..SECTIONS_PER_CHUNK {
             self.dirty.insert(SectionKey { chunk: pos, level: level as u8 });
         }
@@ -227,6 +258,7 @@ impl VoxelWorld {
     /// Add a chunk without marking it for drawing (streaming draws it once its neighbours are in,
     /// so its edges are right the first time; see `streaming.rs`).
     pub fn insert_chunk_quiet(&mut self, chunk: Chunk) {
+        self.objects_changed.insert(chunk.pos());
         self.chunks.insert(chunk.pos(), chunk);
     }
 
@@ -243,6 +275,7 @@ impl VoxelWorld {
         let removed = self.chunks.remove(&pos);
         if removed.is_some() {
             self.mark_chunk_dirty(pos);
+            self.objects_changed.insert(pos);
         }
         removed
     }
@@ -273,6 +306,7 @@ impl VoxelWorld {
     /// Remove every chunk. Their sections are marked dirty so the renderer removes their meshes.
     pub fn clear(&mut self) {
         self.put_away.clear();
+        self.objects_changed.extend(self.chunks.keys().copied());
         for &pos in self.chunks.keys() {
             for level in 0..SECTIONS_PER_CHUNK {
                 self.dirty.insert(SectionKey { chunk: pos, level: level as u8 });

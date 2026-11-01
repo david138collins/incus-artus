@@ -61,6 +61,8 @@ pub struct MeshingState {
     /// Each chunk's sky heights (`sky_light::sky_heights`), worked out when first needed and
     /// forgotten when any of its sections changes.
     pub sky: HashMap<ChunkPos, Vec<i32>>,
+    /// Chunks whose light may have changed since the objects were drawn (`objects.rs`).
+    pub relight: HashSet<ChunkPos>,
 }
 
 pub struct JobResult {
@@ -78,6 +80,7 @@ pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWor
     let mut gone = HashSet::new();
     for key in dirty {
         state.sky.remove(&key.chunk);
+        state.relight.insert(key.chunk);
         let section = world.chunk(key.chunk).map(|chunk| &chunk.sections()[key.level as usize]);
         match section {
             // A chunk that's gone (dropped behind you): just remove its meshes.

@@ -298,6 +298,12 @@ pub struct FoundFile {
 /// Every `data/<pack>/blocks/*.toml`, sorted by ID (so block numbers come out the same every
 /// run). Badly named files are skipped and reported in `problems`.
 pub fn find_block_files(data: &Path, problems: &mut Vec<String>) -> Vec<FoundFile> {
+    find_files(data, "blocks", problems)
+}
+
+/// Every `data/<pack>/<kind>/*.toml` (`blocks`, `objects`), sorted by ID. Badly named files are
+/// skipped and reported in `problems`.
+pub fn find_files(data: &Path, kind: &str, problems: &mut Vec<String>) -> Vec<FoundFile> {
     let mut found = Vec::new();
     let Ok(packs) = std::fs::read_dir(data) else {
         problems.push(format!("no data folder at {}", data.display()));
@@ -305,7 +311,7 @@ pub fn find_block_files(data: &Path, problems: &mut Vec<String>) -> Vec<FoundFil
     };
     for pack in packs.flatten().filter(|entry| entry.path().is_dir()) {
         let pack_name = pack.file_name().to_string_lossy().into_owned();
-        let Ok(files) = std::fs::read_dir(pack.path().join("blocks")) else {
+        let Ok(files) = std::fs::read_dir(pack.path().join(kind)) else {
             continue;
         };
         for file in files.flatten() {

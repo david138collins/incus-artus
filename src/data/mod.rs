@@ -12,6 +12,7 @@
 
 mod loading;
 pub mod master_palette;
+pub mod objects;
 
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::world::BlockId;
@@ -19,6 +20,7 @@ use bevy::prelude::*;
 use bevy_egui::egui;
 use loading::find_block_files;
 pub use loading::{block_file_text, header_of, parse_block};
+pub use objects::{ObjectDef, ObjectId, ObjectRegistry, Sits, models_folder, object_file_text};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -365,6 +367,7 @@ pub struct DataPlugin;
 impl Plugin for DataPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BlockRegistry>()
+            .insert_resource(ObjectRegistry::load())
             .init_resource::<DataSettings>()
             .init_resource::<DataWatch>()
             .add_debug_page("Blocks", blocks_debug_page)
@@ -422,6 +425,7 @@ fn watch_data_files(
     settings: Res<DataSettings>,
     mut watch: ResMut<DataWatch>,
     mut registry: ResMut<BlockRegistry>,
+    mut objects: ResMut<ObjectRegistry>,
 ) {
     let now = time.elapsed_secs();
     let due = settings.live_reload && now - watch.last_check >= settings.check_every;
@@ -436,6 +440,9 @@ fn watch_data_files(
     let textures_changed = !watch.textures.is_empty() && textures != watch.textures;
     watch.textures = textures;
 
+    if objects.reload_changed_files() {
+        info!("Object data reloaded");
+    }
     if registry.reload_changed_files() {
         info!("Block data reloaded");
     }

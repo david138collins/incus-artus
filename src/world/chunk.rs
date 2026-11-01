@@ -28,12 +28,35 @@ pub enum BlockExtra {
     DebugNote(String),
 }
 
+/// An object placed in the world (`data/objects.rs`): which one (by name, as saves keep it), where
+/// (its foot, in 16ths of a block: the middle of a cell's floor is `cell × 16 + (8, 8, 0)`), and which
+/// way it faces (quarter turns from north). Room kept for things that change with time (a plant
+/// growing, a fire burning down; Counsel, 2026-11-01): which stage its look is at, and when it was
+/// placed or last changed (the world's tick), so what's happened since can be worked out.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlacedObject {
+    pub name: String,
+    pub at: IVec3,
+    pub facing: u8,
+    pub stage: u8,
+    pub since: u64,
+}
+
+impl PlacedObject {
+    /// The cell its foot is in.
+    pub fn cell(&self) -> IVec3 {
+        self.at.div_euclid(IVec3::splat(16))
+    }
+}
+
 pub struct Chunk {
     pos: ChunkPos,
     sections: Vec<Section>,
     extra: HashMap<IVec3, BlockExtra>,
     /// The cells built of pieces (`pieces.rs`; their sections hold `BlockId::PIECES`).
     pieces: HashMap<IVec3, Pieces>,
+    /// The objects placed in it (`data/objects.rs`), in the order they were placed.
+    objects: Vec<PlacedObject>,
 }
 
 impl Chunk {
@@ -44,6 +67,7 @@ impl Chunk {
             sections,
             extra: HashMap::new(),
             pieces: HashMap::new(),
+            objects: Vec::new(),
         }
     }
 
@@ -61,6 +85,22 @@ impl Chunk {
         let old = self.set(block, BlockId::PIECES);
         self.pieces.insert(block, pieces);
         old
+    }
+
+    /// The objects placed in it.
+    pub fn objects(&self) -> &[PlacedObject] {
+        &self.objects
+    }
+
+    /// Places an object (its foot in this chunk).
+    pub fn add_object(&mut self, object: PlacedObject) {
+        self.objects.push(object);
+    }
+
+    /// Takes away the object whose foot is at `at` (16ths), if there is one.
+    pub fn remove_object(&mut self, at: IVec3) -> Option<PlacedObject> {
+        let index = self.objects.iter().position(|object| object.at == at)?;
+        Some(self.objects.remove(index))
     }
 
     /// Every cell built of pieces, with its pieces (in no order).

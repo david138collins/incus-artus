@@ -13,6 +13,8 @@
 //! cells built of pieces (format 3 on): count (u32), then each cell:
 //!   x, y, z (i32 each, blocks)  which octants are filled (u8, a bit each, octant 0 lowest)
 //!   then for each filled octant: name number (u16), part (u8: its bar's axis, end and whether whole)
+//! objects (format 4 on): count (u32), then each: its name (length u16 + text), where its foot is
+//!   (i32 × 3, 16ths of a block), which way it faces (u8), its stage (u8), since when (u64, ticks)
 //! ```
 //! Blocks are stored by **name**, not number, so a world still loads after block files are
 //! added, removed or renamed. A name that no longer exists loads as air (and is reported).
@@ -24,7 +26,7 @@ use super::chunk::Chunk;
 use super::pieces::{Part, Pieces};
 use super::position::{ChunkPos, SECTION_VOLUME, SECTIONS_PER_CHUNK, z_in_world};
 use super::section::Section;
-use super::{CavePlan, Caves, CompiledMap, InterpreterSettings, Maps, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
+use super::{CavePlan, Caves, CompiledMap, PlacedObject, InterpreterSettings, Maps, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
 use crate::data::BlockRegistry;
 use crate::save::{WorldFolder, write_file};
 use bevy::prelude::*;
@@ -36,7 +38,8 @@ use std::sync::Arc;
 const MAGIC: &[u8; 4] = b"IACH";
 /// 2: the section count is written (format 1 always had 13, when the world was 400 tall).
 /// 3: cells built of pieces are listed after the sections (quartile stop 3).
-const CHUNK_FORMAT: u16 = 3;
+/// 4: objects are listed after the pieces (`docs/objects.md`, stop 1).
+const CHUNK_FORMAT: u16 = 4;
 /// Sections in a format 1 chunk.
 const FORMAT_1_SECTIONS: usize = 13;
 
@@ -93,6 +96,17 @@ pub fn encode_chunk(chunk: &Chunk, registry: &BlockRegistry) -> Vec<u8> {
             body.extend(number_of(block).to_le_bytes());
             body.push(part.0);
         }
+    }
+    // The objects placed in it, by name.
+    body.extend((chunk.objects().len() as u32).to_le_bytes());
+    for object in chunk.objects() {
+        body.extend((object.name.len() as u16).to_le_bytes());
+        body.extend(object.name.as_bytes());
+        for value in object.at.to_array() {
+            body.extend(value.to_le_bytes());
+        }
+        body.extend([object.facing, object.stage]);
+        body.extend(object.since.to_le_bytes());
     }
 
     let mut bytes = Vec::with_capacity(body.len() + 64);
@@ -206,6 +220,21 @@ pub fn decode_chunk(bytes: &[u8], registry: &BlockRegistry) -> Result<(Chunk, Ve
             }
             if ChunkPos::of_block(block) == pos && z_in_world(block.z) && !pieces.is_empty() {
                 chunk.set_pieces(block, pieces);
+            }
+        }
+    }
+    // The objects, kept by name even if the game doesn't have them now (they're not drawn then, and
+    // come back if their file does).
+    if format >= 4 {
+        for _ in 0..reader.u32()? {
+            let length = reader.u16()? as usize;
+            let name = String::from_utf8_lossy(reader.take(length)?).to_string();
+            let at = IVec3::new(reader.i32()?, reader.i32()?, reader.i32()?);
+            let (facing, stage) = (reader.u8()?, reader.u8()?);
+            let since = u64::from_le_bytes(reader.take(8)?.try_into().unwrap());
+            let object = PlacedObject { name, at, facing, stage, since };
+            if ChunkPos::of_block(object.cell()) == pos {
+                chunk.add_object(object);
             }
         }
     }
@@ -565,6 +594,27 @@ mod tests {
                 assert_eq!(back.get(block), chunk.get(block), "at {block}");
             }
         }
+    }
+
+    #[test]
+    fn a_chunk_keeps_its_objects_when_saved_even_ones_the_game_no_longer_has() {
+        let registry = BlockRegistry::default();
+        let blocks = TestBlocks::from_registry(&registry);
+        let mut world = VoxelWorld::default();
+        generate_test_world(&mut world, &TestWorldSettings::default(), &blocks);
+        world.take_objects_changed();
+        let brazier = PlacedObject { name: "incus:braziere".into(), at: IVec3::new(3 * 16 + 8, 4 * 16 + 8, 145 * 16), facing: 1, stage: 0, since: 1_234 };
+        let gone = PlacedObject { name: "incus:no_such_thing".into(), at: IVec3::new(31 * 16, 0, 200 * 16), facing: 0, stage: 2, since: 7 };
+        world.place_object(brazier.clone()).unwrap();
+        world.place_object(gone.clone()).unwrap();
+        assert!(world.take_objects_changed().contains(&ChunkPos::new(0, 0)));
+        assert!(world.changed_chunks().contains(&ChunkPos::new(0, 0)), "saved");
+        let chunk = world.chunk(ChunkPos::new(0, 0)).unwrap();
+        let (back, _) = decode_chunk(&encode_chunk(chunk, &registry), &registry).unwrap();
+        assert_eq!(back.objects(), &[brazier.clone(), gone]);
+        // Taken away again.
+        assert_eq!(world.remove_object(brazier.at), Some(brazier));
+        assert_eq!(world.objects_near(IVec3::new(3, 4, 145)).len(), 1);
     }
 
     #[test]
