@@ -514,6 +514,13 @@ Reference: `Art/quartile minecraft illustration.png`
       **[DECIDED 2026-10-30] The fourth tab is Blueprints** (David). Trees are blueprints the world
       places during creation, buildings are blueprints, and players have blueprints too: one kind of
       thing for all of them.
+      **[DECIDED 2026-11-01] Three kinds of thing: blocks, objects, blueprints** (David: "these are all
+      the same thing, swords, armor, brazieres, torches, bread. blocks are blocks, objects are objects,
+      and blueprints are made of both."). An **object** is a model plus attachments (a sprite, a light,
+      later particles and sound), whether it's held, worn or placed (`docs/objects.md`). So the decided
+      **items** tab is the Objects tab. *Open:* where flat plants (the decorations tab: tall grass,
+      flowers) belong. They could be objects that are only a sprite, or a kind of block drawn as
+      crossed sprites, which is cheaper in the numbers a meadow needs.
       **Zones that are areas, not blueprints** [IDEA, David 2026-10-30]: a pasture is a zone, which is
       also a kind of building (a building that's an area). It probably has no blueprint, but a script of
       its own: a fence along the border, a gate you place, maybe a barn (how is still open). There may be
