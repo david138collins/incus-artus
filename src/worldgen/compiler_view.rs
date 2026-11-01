@@ -1627,8 +1627,8 @@ fn noise_maths_section(ui: &mut egui::Ui, compiler: &mut Compiler) {
         );
         let maths = &mut compiler.settings.interpreter.noise_maths;
         ui.horizontal(|ui| {
-            ui.selectable_value(maths, NoiseMaths::Fractions, "fractions (as always)").on_hover_text("With sines and cosines, as the noise has always been.");
-            ui.selectable_value(maths, NoiseMaths::WholeNumbers, "whole numbers").on_hover_text("32-bit whole numbers only: the same on every chip, CPU or GPU.");
+            ui.selectable_value(maths, NoiseMaths::Fractions, "fractions (the old way)").on_hover_text("With sines and cosines, as the noise was until 2026-11-01.");
+            ui.selectable_value(maths, NoiseMaths::WholeNumbers, "whole numbers (the default)").on_hover_text("32-bit whole numbers only: the same on every chip, CPU or GPU. The default since 2026-11-01.");
         });
         let base = compiler.result.as_ref().map(|result| result.made.map.clone());
         ui.horizontal(|ui| {
@@ -3024,7 +3024,7 @@ mod tests {
         changed.interpreter.mineralogy.distributors[0].on = false;
         changed.interpreter.mineralogy.fields.push(crate::world::placer::MadeField::default());
         assert!(compiled_from(&changed) == compiled_from(&settings), "the climate would all be made again");
-        changed.interpreter.noise_maths = crate::worldgen::noise::NoiseMaths::WholeNumbers;
+        changed.interpreter.noise_maths = crate::worldgen::noise::NoiseMaths::Fractions;
         assert!(compiled_from(&changed) != compiled_from(&settings));
     }
 }

@@ -162,15 +162,16 @@ pub fn perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f32, f32
 
 /// Which maths the noise is worked out in, in the recipe that makes blocks as the game is played
 /// (saved with it, so a world always comes back with its own) [David, 2026-11-01: "projected code is
-/// GPU-safe"; for now a switch, to compare worlds both ways].
+/// GPU-safe"; a switch, to compare worlds both ways]. Whole numbers by default since David's look
+/// ("i'd like for whole math to be the default setting now"); the fractions stay until he says.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NoiseMaths {
-    /// Fractions, with sines and cosines: as the noise has always been.
-    #[default]
+    /// Fractions, with sines and cosines: as the noise was until 2026-11-01.
     Fractions,
     /// Whole numbers only (`whole_perlin`): every chip, the CPU's or the GPU's, gets the same answer
     /// exactly.
+    #[default]
     WholeNumbers,
 }
 
@@ -196,13 +197,17 @@ pub fn perlin_with_slope_in(maths: NoiseMaths, seed: u64, salt: u64, x: f32, y: 
 // numbers only, in 32 bits, so a GPU shader can do exactly the same:
 // - **the barcodes** are a 32-bit hash (shaders have no 64-bit numbers), so the patterns are new;
 // - **the arrows** are 64 fixed directions from a table, not sines and cosines;
-// - **positions and fades** are in 4096ths of a unit, the values in 16384ths. Every step is chosen
-//   so nothing can overflow 32 bits.
+// - **positions and values** are in 65536ths of a unit, **the arrows and fades** in 4096ths. Every
+//   step is chosen so nothing can overflow 32 bits. [At first the positions and values were in
+//   4096ths too: that grain was coarse enough to make tiny wiggles, false crests along the ridges,
+//   found by a ridges test the day whole numbers became the default.]
 // Only the way in (a position given as a fraction) and the way out (back to a fraction, by a power
 // of two, which is exact) aren't whole numbers.
 
-/// 4096ths: a unit, in the fixed-point positions and fades.
+/// 4096ths: a unit, in the arrows and the fades.
 const ONE: i32 = 4096;
+/// 65536ths: a unit, in the positions and the values.
+const FINE: i32 = 65_536;
 
 /// 64 arrows, evenly round a turn, each 4096 long.
 #[rustfmt::skip]
@@ -237,27 +242,33 @@ fn arrow(seed: u64, salt: u64, x: i32, y: i32) -> (i32, i32) {
     ARROWS[(hash32(seed, salt, x, y) >> 26) as usize]
 }
 
-/// A fade, in 4096ths, of `t` (0 to 4096).
+/// A fade, in 65536ths, of `t` (0 to 65535). In unsigned 32 bits, each product split so it fits: a
+/// fade only in 4096ths stepped, and the value ticked back a little at each step, a faint sawtooth
+/// that made false crests.
 fn whole_fade(fade: Fade, t: i32) -> i32 {
+    let t = t as u32;
+    let t2 = (t * t) >> 16;
     match fade {
-        // 6t⁵ − 15t⁴ + 10t³, as t³ (t (6t − 15) + 10).
+        // 6t⁵ − 15t⁴ + 10t³, as t³ (6t² − 15t + 10): the second factor 1 to 10, in 65536ths.
         Fade::Smooth => {
-            let t3 = (((t * t) >> 12) * t) >> 12;
-            let inner = ((t * (6 * t - 15 * ONE)) >> 12) + 10 * ONE;
-            (t3 * inner) >> 12
+            let t3 = (t2 * t) >> 16;
+            let inner = 10 * FINE as u32 + 6 * t2 - 15 * t;
+            ((t3 * (inner >> 4)) >> 12) as i32
         }
-        Fade::Soft => (((t * t) >> 12) * (3 * ONE - 2 * t)) >> 12,
-        Fade::Straight => t,
+        // 3t² − 2t³, as t² (3 − 2t).
+        Fade::Soft => ((t2 * ((3 * FINE as u32 - 2 * t) >> 2)) >> 14) as i32,
+        Fade::Straight => t as i32,
     }
 }
 
-/// A position as a whole number of 4096ths: its grid post, and how far past it (0 to 4095).
+/// A position as a whole number of 65536ths: its grid post, and how far past it (0 to 65535). (The
+/// post wraps round far out, past 32,768 units, so the pattern repeats there rather than failing.)
 fn fixed(x: f32) -> (i32, i32) {
-    let q = (x * ONE as f32).floor() as i32;
-    (q >> 12, q & (ONE - 1))
+    let q = (x as f64 * FINE as f64).floor() as i64;
+    ((q >> 16) as i32, (q & (FINE as i64 - 1)) as i32)
 }
 
-/// The four posts' arrows round a point, and how far along each the point lies (in 4096ths).
+/// The four posts' arrows round a point, and how far along each the point lies (in 65536ths).
 struct Corners {
     arrows: [(i32, i32); 4],
     dots: [i32; 4],
@@ -265,20 +276,23 @@ struct Corners {
 
 fn corners(seed: u64, salt: u64, (ix, fx): (i32, i32), (iy, fy): (i32, i32)) -> Corners {
     let arrows = [arrow(seed, salt, ix, iy), arrow(seed, salt, ix + 1, iy), arrow(seed, salt, ix, iy + 1), arrow(seed, salt, ix + 1, iy + 1)];
-    let offsets = [(fx, fy), (fx - ONE, fy), (fx, fy - ONE), (fx - ONE, fy - ONE)];
-    // Each at most 4096 × 4096 × 2 (under 2²⁶) before it's brought back to 4096ths.
+    let offsets = [(fx, fy), (fx - FINE, fy), (fx, fy - FINE), (fx - FINE, fy - FINE)];
+    // Each at most 4096 × 65536 × 2 (2²⁹) before it's brought back to 65536ths.
     let dots = [0, 1, 2, 3].map(|k| (arrows[k].0 * offsets[k].0 + arrows[k].1 * offsets[k].1) >> 12);
     Corners { arrows, dots }
 }
 
-/// `a` to `b` by `t` (in 4096ths).
+/// `a` to `b` by `t` (in 65536ths). `b − a` is at most 2¹⁸, so `t` goes in two parts: its 4096ths,
+/// then the rest, each product under 2³⁰.
 fn mix(a: i32, b: i32, t: i32) -> i32 {
-    a + (((b - a) * t) >> 12)
+    let gap = b - a;
+    a + ((gap * (t >> 4)) >> 12) + ((gap * (t & 15)) >> 16)
 }
 
-/// Stretched to about ±1 as `perlin` is (× 1.4, as 1434/1024), then back to a fraction.
-fn out(value: i32) -> f32 {
-    ((value * 1434) >> 10) as f32 / ONE as f32
+/// Stretched to about ±1 as `perlin` is (× 1.4, as 1434/1024), then back to a fraction: a value in
+/// 65536ths, or a slope in 4096ths.
+fn out(value: i32, unit: i32) -> f32 {
+    ((value * 1434) >> 10) as f32 / unit as f32
 }
 
 /// Perlin noise at a point, about −1 to 1, one feature per unit, in whole numbers.
@@ -287,7 +301,7 @@ pub fn whole_perlin(seed: u64, salt: u64, fade: Fade, x: f32, y: f32) -> f32 {
     let c = corners(seed, salt, px, py);
     let (u, v) = (whole_fade(fade, px.1), whole_fade(fade, py.1));
     let [a, b, cc, d] = c.dots;
-    out(mix(mix(a, b, u), mix(cc, d, u), v))
+    out(mix(mix(a, b, u), mix(cc, d, u), v), FINE)
 }
 
 /// The same with its slope along x and y (per unit), as `perlin_with_slope` gives them, in whole
@@ -295,8 +309,11 @@ pub fn whole_perlin(seed: u64, salt: u64, fade: Fade, x: f32, y: f32) -> f32 {
 pub fn whole_perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f32, f32) {
     let (px, py) = (fixed(x), fixed(y));
     let c = corners(seed, salt, px, py);
-    let (fx, fy) = (px.1, py.1);
-    let (u, v) = (whole_fade(Fade::Smooth, fx), whole_fade(Fade::Smooth, fy));
+    let (fine_u, fine_v) = (whole_fade(Fade::Smooth, px.1), whole_fade(Fade::Smooth, py.1));
+    let value = mix(mix(c.dots[0], c.dots[1], fine_u), mix(c.dots[2], c.dots[3], fine_u), fine_v);
+    // The slopes in 4096ths (they're finer than the blocks need).
+    let (fx, fy) = (px.1 >> 4, py.1 >> 4);
+    let (u, v) = (fine_u >> 4, fine_v >> 4);
     // The smooth fade's steepness, 30 t² (t − 1)², in 4096ths.
     let steep = |t: i32| 30 * ((((t * t) >> 12) * (((t - ONE) * (t - ONE)) >> 12)) >> 12);
     let (du, dv) = (steep(fx), steep(fy));
@@ -304,13 +321,14 @@ pub fn whole_perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f3
     let [ga, gb, gc, gd] = c.arrows;
     let k = a - b - cc + d;
     let uv = (u * v) >> 12;
-    let value = mix(mix(a, b, u), mix(cc, d, u), v);
+    // In 4096ths: the arrows blended, and the fade's steepness times the values' change across
+    // (65536ths brought to 4096ths).
     let along = |g: [i32; 4], fade_steep: i32, across: i32| {
-        g[0] + ((u * (g[1] - g[0])) >> 12) + ((v * (g[2] - g[0])) >> 12) + ((uv * (g[0] - g[1] - g[2] + g[3])) >> 12) + ((fade_steep * across) >> 12)
+        g[0] + ((u * (g[1] - g[0])) >> 12) + ((v * (g[2] - g[0])) >> 12) + ((uv * (g[0] - g[1] - g[2] + g[3])) >> 12) + ((fade_steep * (across >> 4)) >> 12)
     };
     let along_x = along([ga.0, gb.0, gc.0, gd.0], du, (b - a) + ((v * k) >> 12));
     let along_y = along([ga.1, gb.1, gc.1, gd.1], dv, (cc - a) + ((u * k) >> 12));
-    (out(value), out(along_x), out(along_y))
+    (out(value, FINE), out(along_x, ONE), out(along_y, ONE))
 }
 
 impl PerlinSettings {
@@ -404,6 +422,34 @@ mod tests {
                 assert!(v.abs() < 1.5, "{fade:?}: {v}");
             }
         }
+    }
+
+    #[test]
+    fn whole_number_noise_is_fine_enough_to_make_no_false_crests() {
+        // Crests (as the ridges fold the noise) along lines: as many as the old noise's, give or take.
+        let (mut old, mut new) = (0, 0);
+        for seed in 0..30u64 {
+            let count = |f: &dyn Fn(f32) -> f32| {
+                let s: Vec<f32> = (0..1000).map(|k| 1.0 - f(k as f32 * 0.01 - 5.0).abs()).collect();
+                s.windows(3).filter(|w| w[1] > w[0] && w[1] >= w[2]).count()
+            };
+            old += count(&|x| perlin(seed, 0xa11, Fade::Smooth, x, 3.3));
+            new += count(&|x| whole_perlin(seed, 0xa11, Fade::Smooth, x, 3.3));
+        }
+        assert!((new as f32 / old as f32 - 1.0).abs() < 0.2, "{new} crests against {old}");
+        // And it never ticks back against its way by more than a thousandth (a fifth of a block on
+        // a 200-block ridge, far less in practice).
+        let mut most = 0.0f32;
+        for seed in 0..20u64 {
+            let s: Vec<f32> = (0..5_000).map(|k| whole_perlin(seed, 0xa11, Fade::Smooth, k as f32 * 0.001 - 3.0, 3.3)).collect();
+            for k in 5..s.len() - 6 {
+                let (trend, step) = (s[k + 5] - s[k - 5], s[k + 1] - s[k]);
+                if trend.abs() > 0.002 && step * trend < 0.0 {
+                    most = most.max(step.abs());
+                }
+            }
+        }
+        assert!(most < 0.001, "it ticked back {most}");
     }
 
     #[test]

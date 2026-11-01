@@ -401,7 +401,8 @@ mod tests {
         let width = 8;
         let (temperature, rain) = climate.map_or((Vec::new(), Vec::new()), |(t, r)| (vec![t; width * width], vec![r; width * width]));
         let maps = Maps { width, blocks_per_pixel: 32.0, temperature, rain, cooling, coast: vec![1.0; width * width], height: vec![0.0; width * width], tilt: vec![0.0; width * width], squeeze: vec![0.0; width * width], push_x: vec![0.0; width * width], push_y: vec![0.0; width * width], push_strength: vec![0.0; width * width], coast_distance: vec![100.0; width * width], lift_distance: vec![1_000.0; width * width], ..Maps::default() };
-        CompiledMap::new(Arc::new(maps), 1, InterpreterSettings::default())
+        // In fractions: the first rules, kept word for word below, wandered by fractional noise.
+        CompiledMap::new(Arc::new(maps), 1, InterpreterSettings { noise_maths: crate::worldgen::noise::NoiseMaths::Fractions, ..InterpreterSettings::default() })
     }
 
     fn map(climate: Option<(f32, f32)>) -> CompiledMap {

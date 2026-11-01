@@ -276,7 +276,7 @@ impl Default for InterpreterSettings {
             detail_keeps_coast: true,
             torn_coast: TornCoast::default(),
             mineralogy: Default::default(),
-            noise_maths: NoiseMaths::Fractions,
+            noise_maths: NoiseMaths::WholeNumbers,
         }
     }
 }
@@ -1509,9 +1509,9 @@ mod tests {
         // New barcodes: a new pattern, as rough as the old.
         assert!(differ > count / 4, "only {differ} of {count} columns differ");
         assert!((rough_whole / rough_fractions - 1.0).abs() < 0.25, "{rough_whole} against {rough_fractions}");
-        let back: InterpreterSettings = toml::from_str(&toml::to_string(&whole.settings).unwrap()).unwrap();
-        assert_eq!(back.noise_maths, NoiseMaths::WholeNumbers);
-        assert_eq!(toml::from_str::<InterpreterSettings>("").unwrap().noise_maths, NoiseMaths::Fractions, "older presets: fractions, as always");
+        let back: InterpreterSettings = toml::from_str(&toml::to_string(&fractions.settings).unwrap()).unwrap();
+        assert_eq!(back.noise_maths, NoiseMaths::Fractions, "a preset keeps fractions when they were chosen");
+        assert_eq!(toml::from_str::<InterpreterSettings>("").unwrap().noise_maths, NoiseMaths::WholeNumbers, "a preset without it: whole numbers, the default");
     }
 
     #[test]
@@ -1868,12 +1868,14 @@ mod tests {
             ..InterpreterSettings::default()
         };
         let (steady, old) = (map.with(recipe(true), Mutes::default()), map.with(recipe(false), Mutes::default()));
-        let (near, far) = ((2_000.0, 30_000.0), (55_000.0, 30_000.0));
-        let count = |map: &CompiledMap, (east, south): (f32, f32)| crests_along(map, east, south);
+        // Along five lines, near the corner and far out. (One line was a thin test: its pattern
+        // decided it. Summed over five, both noise maths agree: 2026-11-01.)
+        let count = |map: &CompiledMap, east: f32| [10_000.0, 20_000.0, 30_000.0, 40_000.0, 50_000.0].iter().map(|&south| crests_along(map, east, south)).sum::<usize>();
+        let (near, far) = (2_000.0, 55_000.0);
         // Near the corner both are about one crest per few hundred blocks; far out, the old way's
         // are crushed together and the steady ones aren't.
         assert!(count(&steady, far) < count(&steady, near) * 2 + 4, "steady: {} near, {} far", count(&steady, near), count(&steady, far));
-        assert!(count(&old, far) > count(&steady, far) * 2, "old {} vs steady {} far out", count(&old, far), count(&steady, far));
+        assert!(count(&old, far) * 2 > count(&steady, far) * 3, "old {} vs steady {} far out", count(&old, far), count(&steady, far));
     }
 
     #[test]

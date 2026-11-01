@@ -93,10 +93,11 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
     fractions / whole numbers") and a timing readout.
     - **[BUILT 2026-11-01]** `worldgen/noise.rs`: `whole_perlin` and `whole_perlin_with_slope`.
       - It uses 32-bit whole numbers only: a murmur3-style 32-bit barcode, and 64 fixed arrows from a
-        table. Positions and fades are in 4096ths, with every step checked to stay within 32 bits.
+        table. Positions, values and fades are in 65536ths (4096ths until the fix below), the arrows
+        in 4096ths, with every step checked to stay within 32 bits.
       - The only fractions are the way in (the position) and the way out (a division by a power of
         two, which is exact).
-      - The switch is the recipe's `noise_maths` (fractions by default), saved with the preset and
+      - The switch is the recipe's `noise_maths` (whole numbers by default since David's word below), saved with the preset and
         the world. It covers every noise the recipe uses in play: hills, crags, summit crags, the
         ridges and their wander, the peaks' wobble, the torn coast, and mineralogy's wander. World
         creation's noise is untouched.
@@ -112,6 +113,25 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
         the default setting now; when we gotta can the fractional code entirely just for
         housekeeping or software reasons, i'll make the final call."). The fractional noise stays
         behind the switch until he decides to remove it.
+      - **[BUILT 2026-11-01] Made the default, and made finer.** `noise_maths` is now whole numbers by
+        default. None of David's presets saved a choice, so they all come up in whole numbers, his
+        startup default included, with nothing re-saved.
+        - Making it the default turned up a flaw. A ridges test failed: the first whole-number noise
+          had too coarse a grain. Positions, values and fades were in 4096ths, and the rounding at
+          each step made faint wiggles, about a thousandth of the noise. Folded into ridges, those
+          made false crests: 71 along a test line where fractions made 2. On a 200-block ridge that's
+          a fifth of a block, enough for stray one-block bumps.
+        - Positions, values and the fade are now in 65536ths, still within 32 bits (the larger
+          products split in two).
+        - Along lines it now makes as many crests as fractions do (11 against 10, 12 against 10).
+          Its biggest tick back is 0.0002 of the noise, 0.04 of a block on a 200-block ridge.
+        - The speed is unchanged: about 14 ns against 67.
+        - A test now checks the crests and the ticks.
+        - The ridges test was a single line, a thin test that its pattern decided. It now sums five
+          lines. Both maths pass it alike: steady ridges stay apart far out, about 10 crests a line,
+          while the old way's crush together, about 20.
+        - The rivers David found "more pleasant" were made with the coarse version. A look at the
+          finer one would tell whether that holds.
       - **Speed:** in a release build the whole-number noise took about 14 ns a call against about
         70 ns for fractions, roughly 5 times faster (no sines or cosines, and a cheaper hash). With
         its slope, it was about 20 ns against 80.
