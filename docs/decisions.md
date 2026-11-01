@@ -8,6 +8,42 @@ Status tags: **[DECIDED]** agreed · **[OPEN]** still needs an answer · **[LATE
 
 ---
 
+## The Metaphysics Engine (the guiding principle)
+
+**[DECIDED 2026-11-01]** (David: "make what we have said about caves, the 'metaphysics engine' we have
+created official"). The thinking behind it is in `vision/projection.md`.
+
+David: "what we have actually constructed is a metaphysical world, and a physical world. i think if
+we think of every way we implement features in this way, so that 1 always equals 1, that will
+actually be what makes the emergent behaviors that fool the human eye into enough orderly commotion
+that you can look at and touch and it has meaning and reasons. its still chaos, but it's the strict
+reasoning that enables the chaos." And: "*nothing* in my world is truly random, because the 'random'
+parts have barcodes on their noise that lets us run it forwards and backwards at any time."
+
+- **The metaphysical world is the form:** the seed and its barcoded noise, the stored maps, the plans
+  (the river network, the peaks, the placer's choices, later caves and roads), and the recipe. It
+  answers "what's here?" for any point, at any time.
+- **The physical world is the form projected into blocks** where they're needed: the near chunks, the
+  far view, the sweep. It's made from the form and can always be made again.
+- **What can't be projected is stored as differences on top:** edits, the settlers' work, simulations
+  with a history.
+- **1 always equals 1:** the same question at the same place gets the same answer, near or far, on the
+  CPU or the GPU, today or after a reload. Noise is barcoded, built from whole numbers so every chip
+  agrees exactly, and tested block for block.
+- **Every feature is asked, in order:**
+  1. Can it be projected from position, seed and earlier stages? Then it's a recipe or a field.
+  2. Does it need a plan? Then the plan is made once in its stage, stored compactly, and blocks ask
+     "am I inside it?" Rivers set the pattern; caves follow it.
+  3. Does it have a history? Then it's stored as differences on top, kept small.
+  4. Never let a later stage feed an earlier one (the linear pipeline, `docs/worldgen.md`).
+- **Speed follows from it:** the CPU keeps the small world near you that it needs now (collision,
+  aiming, digging, settlers, saves). The GPU takes what's seen out to the horizon, because projected
+  work never has to be handed back. Nothing is worked out twice. The less a feature strays from the
+  projection, the less it costs. David: "the entire project can fail if we don't find a way to make it
+  run like a top."
+
+---
+
 ## Units & Coordinates
 
 - **[DECIDED]** 1 block = Minecraft scale (1 m).
@@ -262,7 +298,9 @@ Reference: `Art/quartile minecraft illustration.png`
       colours, with dithered bands between steps rather than smooth blending, which matches the skies.
     - **Pixel size growing with distance in steps,** like a mosaic, with dithered seams, so the drop
       in resolution reads as a deliberate scale.
-    These can be combined. It's measured and judged in the graphics pass (`docs/worldgen.md`, path
+    **They'll probably need to be layered** (David, 2026-11-01: "all those artistic upscaling options
+    will probably need to be layered"), for example crisp silhouettes, painterly inside them, and air
+    in dithered steps over all. It's measured and judged in the graphics pass (`docs/worldgen.md`, path
     step 8; `vision/proposal-voxel-renderer.md`, "Temporal reuse"). Hue still carries meaning: no
     upscaler may shift a block's colour into another's.
 

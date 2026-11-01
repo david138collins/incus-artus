@@ -1262,6 +1262,42 @@ to evaporation.
     it might be a pain, and having waterways make a waterfall cave is a good idea. theres one kind of
     cave." So the waterfall cave, where a river with nowhere to go falls underground, is the **first
     kind of cave**, and others come later.
+- **[DECIDED 2026-11-01] Caves are formed deliberately, like the rivers** (David): "there are no
+  'random' caves"; "my caves would be a bit more like it's constructed of designed cave biomes";
+  "noise can still inform their content but theyre formed deliberately just like rivers were." This
+  follows the Metaphysics Engine (`docs/decisions.md`). In Minecraft, caves are noise shapes run
+  across each other, worked out everywhere underground. Here every cave has a cause, and noise only
+  dresses it.
+  *Counsel* [PROPOSED, from the talk of 2026-11-01; the kinds and their order are David's call]:
+  - **Plan, then carve, as the rivers do.** A cave system is a plan, made once in its stage (after
+    Mineralogy, so it can read the rock, the rivers and the water) and stored compactly: tunnels as 3D
+    lines with a width along them, chambers as shapes. Each block asks "am I inside a cave?" through a
+    look-up of what's near. For most rock the answer is "none", found at once, so the cost grows with
+    the caves' volume, not the world's. Minecraft pays across the whole underground.
+  - **The column recipe stays the base, and caves are taken from it:** inside a cave, air or water;
+    otherwise the column's own block. Nothing earlier in the chain changes. Openings (a sinkhole, a
+    cave mouth) are the one place the surface changes, as rivers carve after Climate has read the
+    broad ground.
+  - **Cave biomes are kits:** pieces (tunnels, chambers, shafts, galleries, pools) with rules for how
+    they join, chosen by the placer from rock, water, depth and stress. The kinds and their causes:
+    - **limestone caves in levels,** one at each height the nearby valley floor once stood (from the
+      rivers' levels), running along the beds and along cracks in a few set directions (from the
+      squeeze), sloping toward the valley and coming out as springs in its sides;
+    - **the waterfall cave** (the first kind), where a river with nowhere to go falls underground:
+      the top of a limestone system;
+    - **lava tubes** in basalt: long, round, single tunnels down old flows;
+    - **sea caves** in cliffs at the waterline;
+    - **fault caves:** tall, narrow splits along plate edges, from Tectonics;
+    - **mines,** dug by people (Civilization, at runtime, stored as edits).
+  - **What noise does:** the walls' shape (so tunnels aren't pipes), what's in them (decoration, pools,
+    crystals), and sizes within a kit's range. Never whether there's a cave.
+  - **Everywhere without repeating** (the hard part, as a game): a grammar of pieces joined by causes
+    rather than a set of fixed rooms. The causes vary from place to place, so the caves do too. Add
+    rare set pieces made in the asset factory (a great hall, a geode, a buried ruin), placed like the
+    peaks. Density is a dial by rock: limestone mountains riddled, granite nearly solid.
+  - **Needed first:** rock in layers (Mineralogy); hiding what can't be seen (with caves everywhere,
+    every cave wall is faces, so GPU culling stops being optional); light underground; the far-3D
+    contract for openings (below).
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
   out under a slope gives an overhang, a cave mouth, a rock shelter, an arch.
 - **Non-cave carve features here and there**, too.
