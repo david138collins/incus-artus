@@ -522,6 +522,13 @@ shape"):
   - David asked for Z 1024 to -128, "in theory, i don't know exactly how deep we'll need to go yet.
     probably not that deep." The world itself has nothing below Z 0, so the bar stops there.
     Going deeper would mean a taller world, and that's its own question.
+  - David on that question (via Counsel): Z 0 is probably deep enough, but "i would like to be able to
+    go below zero if necessary". The mountains are "eight hundred blocks tall", and he'll centre a
+    good deal of mineralogy in them. Recorded in docs/worldgen.md, "To decide before release".
+  - **So new code doesn't take Z 0 as fixed:** the world's bottom is `WORLD_BOTTOM` (in
+    `world/position.rs`), and the bar reads it. From stop 3 on, the placer's depth terms are depth
+    below the surface or a share of the crust, never a set Z. Going deeper later should then cost a
+    save conversion, not a search through the code. (Chunk storage itself still starts at 0.)
 - **The bar shows only in the depth sweep** (David: "the bar can be hidden when we're not selecting
   the depth sweep"). It's hidden, not greyed, at his word. The field view's level is still set on the
   panel, or with Ctrl + the wheel.

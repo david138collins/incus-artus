@@ -40,7 +40,7 @@ pub use generator::{TestBlocks, TestWorldSettings, generate_test_world};
 #[allow(unused_imports)]
 pub use position::{
     CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTION_VOLUME, SECTIONS_PER_CHUNK, SectionKey,
-    WORLD_HEIGHT, z_in_world,
+    WORLD_BOTTOM, WORLD_HEIGHT, z_in_world,
 };
 pub use section::Section;
 pub use streaming::{StreamSettings, Streaming};

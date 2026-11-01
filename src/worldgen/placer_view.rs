@@ -27,7 +27,7 @@
 use super::lab::Frame;
 use super::view::fold_section;
 use crate::world::placer::{Column, Curve, FIELDS, Field, Layer, MadeField, Mode, Program, Reading, Source, Stage, Traced, Upto};
-use crate::world::{BlockId, CompiledMap, Layers, MineralogySettings, SEA_LEVEL, Spline, TerrainBlocks, WORLD_HEIGHT, under_sea, whole_column};
+use crate::world::{BlockId, CompiledMap, Layers, MineralogySettings, SEA_LEVEL, Spline, TerrainBlocks, WORLD_BOTTOM, WORLD_HEIGHT, under_sea, whole_column};
 use bevy_egui::egui::{self, Color32, RichText};
 
 /// The climate at a spot (temperature and rain at north, east and a Z), or none.
@@ -54,7 +54,10 @@ impl LevelBy {
     /// How shallow or low, and how deep or high, a level can be set: the world's whole height, from
     /// the top (peaks reach about 900 [David]) to the bottom.
     fn ends(self) -> (f32, f32) {
-        (0.0, (WORLD_HEIGHT - 1) as f32)
+        match self {
+            LevelBy::Depth => (0.0, (WORLD_HEIGHT - 1 - WORLD_BOTTOM) as f32),
+            LevelBy::Z => (WORLD_BOTTOM as f32, (WORLD_HEIGHT - 1) as f32),
+        }
     }
 }
 

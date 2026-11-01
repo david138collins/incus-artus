@@ -16,6 +16,9 @@ pub const SECTION_SIZE: i32 = 32;
 pub const SECTION_VOLUME: usize = (SECTION_SIZE * SECTION_SIZE * SECTION_SIZE) as usize;
 /// Valid Z values are 0 ..= 1,023.
 pub const WORLD_HEIGHT: i32 = 1_024;
+/// The lowest Z, for new code to read rather than writing 0: David may want to go below it one day
+/// ("i would like to be able to go below zero if necessary"). Chunk storage still starts at 0.
+pub const WORLD_BOTTOM: i32 = 0;
 /// Sections stacked in one chunk (1,024 / 32 = 32).
 pub const SECTIONS_PER_CHUNK: usize = ((WORLD_HEIGHT + SECTION_SIZE - 1) / SECTION_SIZE) as usize;
 
