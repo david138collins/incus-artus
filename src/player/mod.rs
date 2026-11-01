@@ -41,7 +41,7 @@ use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason, VoxelWorld, WORLD_HEIGHT, WorldEdits,
+    RefuseReason, Slot, VoxelWorld, WORLD_HEIGHT, WorldEdits,
 };
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
@@ -57,6 +57,7 @@ impl Plugin for PlayerPlugin {
             .init_resource::<PlayerSettings>()
             .init_resource::<Hotbar>()
             .init_resource::<ActionCooldowns>()
+            .init_resource::<PieceChoice>()
             .init_resource::<SprintView>()
             .init_resource::<FootstepFlash>()
             .add_message::<Footstep>()
@@ -402,6 +403,22 @@ impl Default for Hotbar {
 struct ActionCooldowns {
     last_break: f32,
     last_place: f32,
+}
+
+/// Quartile stop 1's stand-in for placing bars (`docs/quartile.md`): B puts a bar of the selected
+/// block, in the slot chosen on the player panel, into the cell you aim at. David designs the real
+/// placing control; this is kept apart from storage and aiming so his can replace it.
+#[derive(Resource)]
+struct PieceChoice {
+    slot: Slot,
+    /// After each bar, go on to the next slot (so pressing B again and again builds shapes).
+    advance: bool,
+}
+
+impl Default for PieceChoice {
+    fn default() -> Self {
+        Self { slot: Slot(0), advance: true }
+    }
 }
 
 /// Where a respawn puts your feet: on top of the highest block at the world's spawn spot (the
@@ -934,6 +951,7 @@ fn block_actions(
     mut cooldowns: ResMut<ActionCooldowns>,
     mut requests: MessageWriter<BlockEditRequest>,
     mut refused: MessageWriter<BlockEditRefused>,
+    (keys, world, mut piece): (Res<ButtonInput<KeyCode>>, Res<VoxelWorld>, ResMut<PieceChoice>),
 ) {
     // With the mouse free, clicks belong to the debug panel.
     if !capture.captured {
@@ -957,6 +975,22 @@ fn block_actions(
             });
         }
     };
+
+    // B: a bar of the selected block into the cell of bars aimed at, or the cell in front of the
+    // face aimed at (quartile stop 1's stand-in; see `PieceChoice`).
+    if keys.just_pressed(KeyCode::KeyB)
+        && let Some(cell) = if world.get_block(hit.block) == BlockId::PIECES { Some(hit.block) } else { hit.in_front() }
+        && let Some(block) = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name))
+    {
+        send(BlockEditRequest {
+            position: cell,
+            kind: EditKind::AddPiece { slot: piece.slot, block },
+            source: EditSource::Player(player),
+        });
+        if piece.advance {
+            piece.slot = Slot((piece.slot.0 + 1) % 12);
+        }
+    }
 
     if mouse.pressed(MouseButton::Left) && now - cooldowns.last_break >= settings.break_cooldown {
         cooldowns.last_break = now;
@@ -1208,6 +1242,18 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
     {
         let mut rules = world.resource_mut::<EditRules>();
         ui.checkbox(&mut rules.protect_bottom_layer, "bottom layer (Z 0) can't be broken");
+    }
+    {
+        // Quartile stop 1: bars, by a key for now (David designs the placing control).
+        let mut piece = world.resource_mut::<PieceChoice>();
+        ui.strong("Bars (for now)");
+        ui.small("B puts a bar of the selected block into the cell in front of the face you aim at, or into the cell of bars you aim at. A bar fills only the octants still free, so bars make corners and L shapes.");
+        egui::ComboBox::from_id_salt("piece slot").selected_text(piece.slot.name()).show_ui(ui, |ui| {
+            for s in 0..12 {
+                ui.selectable_value(&mut piece.slot, Slot(s), Slot(s).name());
+            }
+        });
+        ui.checkbox(&mut piece.advance, "go on to the next after each").on_hover_text("Pressing B again and again goes round all 12 bars, so a cell fills up bar by bar.");
     }
 
     // ── Recent block changes (the messages the world sent) ──

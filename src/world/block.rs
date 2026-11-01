@@ -12,6 +12,10 @@ impl BlockId {
     /// Empty space. Always number 0.
     pub const AIR: BlockId = BlockId(0);
 
+    /// The marker for a cell built of pieces (bars and octants, `pieces.rs`), which its chunk's side
+    /// table holds. Never a block of its own: the registry doesn't have it.
+    pub const PIECES: BlockId = BlockId(u16::MAX);
+
     pub fn is_air(self) -> bool {
         self == Self::AIR
     }

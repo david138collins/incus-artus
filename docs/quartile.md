@@ -1,7 +1,6 @@
 # Quartile placement: what it touches, options and order (Builder, 2026-10-31, for David to choose)
 
-**Status: an assessment. Nothing is built or decided** beyond `docs/decisions.md`, "Quartile Placement
-System".
+**Status: stops 1 to 3 decided (section 8, end); stop 1 built (section 9), waiting for David to look.**
 
 **The decided design** (`docs/decisions.md`, with `Art/quartile minecraft illustration.png`):
 - Every cell is 8 **octants** (½ × ½ × ½).
@@ -212,3 +211,47 @@ before mineralogy's rock layers and ores.
     Builder confirms this reading with David at stop 2.
   - **Everything has collision:** bars, joined shapes and octant items.
   - **The simple placing control is fine to start with.**
+
+---
+
+## 9. Stop 1, see them: [BUILT 2026-11-01]
+
+Waiting for David to look.
+- **The pieces** (`world/pieces.rs`):
+  - A slot is one byte: 0 to 11 are bars (the axis × 4 + the place across), 12 to 19 octants.
+  - Bars are the pieces of a material. The octant slots are kept for objects resting in an octant (a
+    cup, a candle). Those come later, on their own, and will claim their octant for collision and
+    against bars.
+  - A cell's pieces are kept in the order placed, and the first keeps a shared octant. A bar is only
+    placed if it fills at least one free octant.
+- **Storage:** a cell of pieces holds the marker `BlockId::PIECES` in its section, so packing is
+  unchanged. Its pieces sit in its chunk's side table (by position, as the chunk's extras are).
+  Changing the block removes them.
+- **The mesher:**
+  - Whole blocks are meshed as before. A cell of pieces hides nothing behind it, as glass doesn't.
+  - Pieces are drawn by octant: a face shows where no opaque octant covers it, whether in the cell,
+    in a neighbouring cell of pieces (across a section's side too), or as a whole block.
+  - Faces are merged within the cell, so a bar's long side is one rectangle.
+  - **Joined bars are seamless:** no faces between bars that touch, and the texture follows the world
+    position, so it runs straight across the join.
+- **The vertex:** positions are in half blocks, 7 bits an axis. The shader halves them, so whole
+  blocks are as before. Bars show their share of their block's texture. The vertex is still 8 bytes.
+- **The edit:** `EditKind::AddPiece { slot, block }` goes into air (or anything replaceable), or into a
+  cell of pieces with room. Anything else is refused ("occupied"). Breaking a cell of pieces takes it
+  all; what it drops comes with stop 2.
+- **The stand-in for placing (for now):** B puts a bar of the hotbar's block into the cell in front of
+  the face aimed at, or into the cell of bars aimed at. The slot is chosen on the player panel ("Bars
+  (for now)"), going on to the next after each by default, so pressing B again and again fills a
+  cell bar by bar. It's kept apart from storage and aiming, for David's own control to replace.
+- **Not yet, by plan:**
+  - collision with each bar: a cell of pieces is solid as a whole block for now;
+  - aiming at a bar, stepping up, and drops: stop 2;
+  - saves: a cell of pieces is saved as air until stop 3;
+  - the Registrar's "can be a bar": stop 3, so any block can be a bar for now.
+- **To look at:** the shading at an L's inside corner (the step and foot shading were made for whole
+  blocks), and the seams between bars in neighbouring cells.
+- **Tests:**
+  - the slots' octants, the first piece keeping a shared octant, and bars only;
+  - a bar is a box of 6 rectangles at half-block corners, facing outward;
+  - an L has no faces between its bars, and a whole block hides the side against it;
+  - the edit into air and into a cell of bars, refusals, and a break taking the cell.

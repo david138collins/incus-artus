@@ -306,7 +306,7 @@ fn index_of(local: IVec3) -> usize {
 fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) -> Option<MeshInput> {
     let chunk = world.chunk(key.chunk)?;
     let section = &chunk.sections()[key.level as usize];
-    let is_opaque = |id: BlockId| terrain.opaque.get(id.0 as usize).copied().unwrap_or(true);
+    let is_opaque = |id: BlockId| id != BlockId::PIECES && terrain.opaque.get(id.0 as usize).copied().unwrap_or(true);
     let is_see_through = |id: BlockId| terrain.see_through.get(id.0 as usize).copied().unwrap_or(false);
     let is_grid = |id: BlockId| is_see_through(id) && terrain.inner_faces.get(id.0 as usize).copied().unwrap_or(false);
     if let Section::Uniform(id) = section {
@@ -375,6 +375,27 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         }
     }
 
+    // The cells built of pieces, and those just across the section's sides from them (so bars
+    // meeting across a side show no seam there).
+    let origin = section_origin(key);
+    let mut pieces = Vec::new();
+    let mut beyond_pieces = std::collections::HashMap::new();
+    for (&block, cell) in chunk.pieces_in(key.level as usize) {
+        let local = block - origin;
+        pieces.push((index_of(local), cell.octants()));
+        for axis in 0..3 {
+            for step in [-1, 1] {
+                let mut next = local;
+                next[axis] += step;
+                if !(0..size).contains(&next[axis])
+                    && let Some(other) = world.get_pieces(origin + next)
+                {
+                    beyond_pieces.insert(next.to_array(), other.octants());
+                }
+            }
+        }
+    }
+
     Some(MeshInput {
         blocks,
         outside,
@@ -385,5 +406,7 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         inner_faces: terrain.inner_faces.clone(),
         face_layers: terrain.face_layers.clone(),
         face_random_rotation: terrain.face_random_rotation.clone(),
+        pieces,
+        beyond_pieces,
     })
 }

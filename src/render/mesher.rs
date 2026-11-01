@@ -22,11 +22,13 @@
 //! - **Grid** blocks: faces everywhere except against opaque blocks, so every cell shows. Where
 //!   two grid blocks touch, only one of them draws the shared face (never two on top of each other).
 //!
-//! Positions use the game's axes (X north, Y east, Z up), measured inside the section (0 ..= 32).
+//! Positions use the game's axes (X north, Y east, Z up), measured inside the section in half blocks
+//! (0 ..= 64), so the pieces of a cell (bars and octants, `world/pieces.rs`) sit at half-block corners.
 //! The shader converts them for drawing.
 //!
 //! ## Vertex format (8 bytes per corner)
-//! - word 0: x (6 bits) | y (6 bits) | z (6 bits) | face direction (3 bits) | random rotation (1 bit)
+//! - word 0: x (7 bits) | y (7 bits) | z (7 bits), in half blocks | face direction (3 bits) | random
+//!   rotation (1 bit) | which way is out of the rectangle, along x, y and z (1 bit each)
 //! - word 1: texture layer (16 bits) | quad number (16 bits, only used by the debug view)
 
 use crate::coords::game_to_bevy;
@@ -58,6 +60,12 @@ pub struct MeshInput {
     pub face_layers: Arc<Vec<[u32; 6]>>,
     /// Per block number: is each face's texture randomly rotated?
     pub face_random_rotation: Arc<Vec<[bool; 6]>>,
+    /// The cells built of pieces (their blocks are `BlockId::PIECES`): each one's index, and what
+    /// fills its 8 octants.
+    pub pieces: Vec<(usize, [BlockId; 8])>,
+    /// The same for cells just outside the section next to those (by their place, −1 or 32 along
+    /// one axis), so bars meeting across a section's side show no seam.
+    pub beyond_pieces: HashMap<[i32; 3], [BlockId; 8]>,
 }
 
 #[derive(Default)]
@@ -81,7 +89,9 @@ pub fn face_index(axis: usize, positive: bool) -> usize {
 type Columns = Vec<[u64; N * N]>;
 
 pub fn mesh_section(input: &MeshInput) -> MeshOutput {
-    let is_opaque = |id: BlockId| input.opaque.get(id.0 as usize).copied().unwrap_or(true);
+    // A cell built of pieces hides nothing behind it, as glass doesn't: its pieces are drawn on their
+    // own (`emit_pieces`).
+    let is_opaque = |id: BlockId| id != BlockId::PIECES && input.opaque.get(id.0 as usize).copied().unwrap_or(true);
     let is_see_through = |id: BlockId| input.see_through.get(id.0 as usize).copied().unwrap_or(false);
     let is_grid = |id: BlockId| is_see_through(id) && input.inner_faces.get(id.0 as usize).copied().unwrap_or(false);
     let is_outline = |id: BlockId| is_see_through(id) && !is_grid(id);
@@ -90,6 +100,7 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
     // Opaque blocks: faces where they meet anything not opaque.
     let opaque = build_columns(&input.blocks, is_opaque, &input.outside);
     emit_faces(&mut out, input, &opaque, [&opaque, &opaque], false);
+    emit_pieces(&mut out, input, &is_opaque);
 
     if !input.blocks.iter().any(|&id| is_see_through(id)) {
         return out;
@@ -156,8 +167,6 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
     for axis in 0..3 {
         let (u_axis, v_axis) = plane_axes(axis);
         for positive in [true, false] {
-            let face = face_index(axis, positive);
-
             // (depth, block) → 32 rows of bits
             let mut planes: HashMap<(u32, BlockId), [u32; N]> = HashMap::new();
             for v in 0..N {
@@ -183,48 +192,134 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
                 }
             }
 
-            let flip = needs_flip(axis, positive);
             for ((depth, block), mut plane) in planes {
-                let layer = input
-                    .face_layers
-                    .get(block.0 as usize)
-                    .map_or(0, |layers| layers[face]);
-                let random_rotation = input
-                    .face_random_rotation
-                    .get(block.0 as usize)
-                    .is_some_and(|faces| faces[face]);
                 // The face of a block at `depth` lies on its far side when facing the positive way.
                 let plane_position = depth + positive as u32;
                 merge_plane(&mut plane, |u, v, width, height| {
-                    let corners = [(u, v), (u + width, v), (u + width, v + height), (u, v + height)];
-                    let base = out.vertices.len() as u32;
-                    let quad_tag = out.quads & 0xFFFF;
-                    for (cu, cv) in corners {
-                        let mut p = [0u32; 3];
-                        p[axis] = plane_position;
-                        p[u_axis] = cu;
-                        p[v_axis] = cv;
-                        // Which way is out of the rectangle at this corner, along each game axis
-                        // (1 = the positive way): the shader nudges the corner that way by a hair,
-                        // so neighbouring rectangles overlap instead of leaving pixel-thin cracks
-                        // where a big one's edge meets small ones' corners (the sky flickered through).
-                        let mut out_bits = [0u32; 3];
-                        out_bits[u_axis] = (cu != u) as u32;
-                        out_bits[v_axis] = (cv != v) as u32;
-                        out.vertices.push([
-                            p[0] | p[1] << 6 | p[2] << 12 | (face as u32) << 18 | (random_rotation as u32) << 21 | out_bits[0] << 22 | out_bits[1] << 23 | out_bits[2] << 24,
-                            (layer & 0xFFFF) | quad_tag << 16,
-                        ]);
-                    }
-                    let front: [u32; 6] = [0, 1, 2, 0, 2, 3];
-                    let back: [u32; 6] = [0, 2, 1, 0, 3, 2];
-                    let (outward, inward) = if flip { (back, front) } else { (front, back) };
-                    out.indices.extend(outward.iter().map(|i| base + i));
-                    if both_sides {
-                        out.indices.extend(inward.iter().map(|i| base + i));
-                    }
-                    out.quads += 1;
+                    push_quad(out, input, block, (axis, positive), plane_position * 2, [u * 2, v * 2, width * 2, height * 2], both_sides);
                 });
+            }
+        }
+    }
+}
+
+/// One rectangle of `block`'s face, facing along `axis` (the positive way or not), on the plane
+/// `plane` across it, from (`u`, `v`) along the plane's axes, `width` × `height`: all in half blocks.
+fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool) {
+    let (u_axis, v_axis) = plane_axes(axis);
+    let face = face_index(axis, positive);
+    let layer = input.face_layers.get(block.0 as usize).map_or(0, |layers| layers[face]);
+    let random_rotation = input.face_random_rotation.get(block.0 as usize).is_some_and(|faces| faces[face]);
+    let corners = [(u, v), (u + width, v), (u + width, v + height), (u, v + height)];
+    let base = out.vertices.len() as u32;
+    let quad_tag = out.quads & 0xFFFF;
+    for (cu, cv) in corners {
+        let mut p = [0u32; 3];
+        p[axis] = plane;
+        p[u_axis] = cu;
+        p[v_axis] = cv;
+        // Which way is out of the rectangle at this corner, along each game axis (1 = the positive
+        // way): the shader nudges the corner that way by a hair, so neighbouring rectangles overlap
+        // instead of leaving pixel-thin cracks where a big one's edge meets small ones' corners (the
+        // sky flickered through).
+        let mut out_bits = [0u32; 3];
+        out_bits[u_axis] = (cu != u) as u32;
+        out_bits[v_axis] = (cv != v) as u32;
+        out.vertices.push([
+            p[0] | p[1] << 7 | p[2] << 14 | (face as u32) << 21 | (random_rotation as u32) << 24 | out_bits[0] << 25 | out_bits[1] << 26 | out_bits[2] << 27,
+            (layer & 0xFFFF) | quad_tag << 16,
+        ]);
+    }
+    let front: [u32; 6] = [0, 1, 2, 0, 2, 3];
+    let back: [u32; 6] = [0, 2, 1, 0, 3, 2];
+    let (outward, inward) = if needs_flip(axis, positive) { (back, front) } else { (front, back) };
+    out.indices.extend(outward.iter().map(|i| base + i));
+    if both_sides {
+        out.indices.extend(inward.iter().map(|i| base + i));
+    }
+    out.quads += 1;
+}
+
+/// The cells built of pieces (`world/pieces.rs`): each filled octant's faces, where nothing opaque
+/// covers them (another octant of the cell, a neighbouring cell's octant, or a whole block), merged
+/// within the cell, so a bar's long side is one rectangle. Not merged across cells: they're few.
+fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(BlockId) -> bool) {
+    let cells: HashMap<usize, [BlockId; 8]> = input.pieces.iter().copied().collect();
+    let octant = |h: [usize; 3]| h[0] + 2 * h[1] + 4 * h[2];
+    for &(index, octants) in &input.pieces {
+        let cell = [index % N, (index / N) % N, index / (N * N)];
+        for axis in 0..3 {
+            let (u_axis, v_axis) = plane_axes(axis);
+            for positive in [true, false] {
+                let face = face_index(axis, positive);
+                for depth in 0..2 {
+                    // The octants' faces showing at this depth, as a 2 × 2 grid across the face.
+                    let mut grid = [[BlockId::AIR; 2]; 2];
+                    for (hv, row) in grid.iter_mut().enumerate() {
+                        for (hu, shown) in row.iter_mut().enumerate() {
+                            let mut h = [0; 3];
+                            (h[axis], h[u_axis], h[v_axis]) = (depth, hu, hv);
+                            let block = octants[octant(h)];
+                            if block.is_air() {
+                                continue;
+                            }
+                            let inside = if positive { depth == 0 } else { depth == 1 };
+                            let covered = if inside {
+                                h[axis] = 1 - depth;
+                                is_opaque(octants[octant(h)])
+                            } else {
+                                // The neighbouring cell's octant that touches this one.
+                                h[axis] = depth ^ 1;
+                                let mut next = cell.map(|c| c as i32);
+                                next[axis] += if positive { 1 } else { -1 };
+                                if (0..N as i32).contains(&next[axis]) {
+                                    let at = next[0] as usize + next[1] as usize * N + next[2] as usize * N * N;
+                                    match input.blocks[at] {
+                                        BlockId::PIECES => cells.get(&at).is_some_and(|other| is_opaque(other[octant(h)])),
+                                        whole => is_opaque(whole),
+                                    }
+                                } else {
+                                    match input.beyond_pieces.get(&next) {
+                                        Some(other) => is_opaque(other[octant(h)]),
+                                        None => (input.outside[face][cell[v_axis]] >> cell[u_axis]) & 1 == 1,
+                                    }
+                                }
+                            };
+                            if !covered {
+                                *shown = block;
+                            }
+                        }
+                    }
+                    // Merged within the cell: the whole face, rows, columns, then single octants.
+                    let plane = (cell[axis] * 2 + depth) as u32 + positive as u32;
+                    let (u0, v0) = ((cell[u_axis] * 2) as u32, (cell[v_axis] * 2) as u32);
+                    let mut emit = |block: BlockId, [u, v, width, height]: [u32; 4]| push_quad(out, input, block, (axis, positive), plane, [u0 + u, v0 + v, width, height], false);
+                    let same = |a: BlockId, b: BlockId| !a.is_air() && a == b;
+                    if same(grid[0][0], grid[0][1]) && same(grid[0][0], grid[1][0]) && same(grid[0][0], grid[1][1]) {
+                        emit(grid[0][0], [0, 0, 2, 2]);
+                        continue;
+                    }
+                    let mut done = [[false; 2]; 2];
+                    for v in 0..2 {
+                        if same(grid[v][0], grid[v][1]) {
+                            emit(grid[v][0], [0, v as u32, 2, 1]);
+                            done[v] = [true, true];
+                        }
+                    }
+                    for u in 0..2 {
+                        if !done[0][u] && !done[1][u] && same(grid[0][u], grid[1][u]) {
+                            emit(grid[0][u], [u as u32, 0, 1, 2]);
+                            (done[0][u], done[1][u]) = (true, true);
+                        }
+                    }
+                    for v in 0..2 {
+                        for u in 0..2 {
+                            if !done[v][u] && !grid[v][u].is_air() {
+                                emit(grid[v][u], [u as u32, v as u32, 1, 1]);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -287,6 +382,8 @@ mod tests {
             inner_faces: Arc::new(vec![false, false, false, true, false]),
             face_layers: Arc::new(vec![[0; 6], [1; 6], [2; 6], [3; 6], [3; 6]]),
             face_random_rotation: Arc::new(vec![[false; 6]; 5]),
+            pieces: Vec::new(),
+            beyond_pieces: HashMap::new(),
         }
     }
 
@@ -379,8 +476,8 @@ mod tests {
         data.face_random_rotation = Arc::new(vec![[false; 6], stone, [false; 6]]);
         let mesh = mesh_section(&data);
         for vertex in &mesh.vertices {
-            let face = (vertex[0] >> 18) & 7;
-            let rotates = (vertex[0] >> 21) & 1 == 1;
+            let face = (vertex[0] >> 21) & 7;
+            let rotates = (vertex[0] >> 24) & 1 == 1;
             assert_eq!(rotates, face == 4);
         }
     }
@@ -395,11 +492,11 @@ mod tests {
         }
         let mesh = mesh_section(&input(blocks));
         for quad in mesh.vertices.chunks_exact(4) {
-            let at = |v: &[u32; 2], k: u32| ((v[0] >> (6 * k)) & 63) as f32;
+            let at = |v: &[u32; 2], k: u32| ((v[0] >> (7 * k)) & 127) as f32 / 2.0;
             let middle: Vec<f32> = (0..3).map(|k| quad.iter().map(|v| at(v, k)).sum::<f32>() / 4.0).collect();
             for v in quad {
                 for k in 0..3u32 {
-                    let out = (v[0] >> (22 + k)) & 1 == 1;
+                    let out = (v[0] >> (25 + k)) & 1 == 1;
                     let offset = at(v, k) - middle[k as usize];
                     if offset != 0.0 {
                         assert_eq!(out, offset > 0.0, "axis {k}: corner {} vs middle {}", at(v, k), middle[k as usize]);
@@ -418,9 +515,9 @@ mod tests {
         let position = |i: u32| {
             let w = mesh.vertices[i as usize][0];
             game_to_bevy(Vec3::new(
-                (w & 63) as f32,
-                ((w >> 6) & 63) as f32,
-                ((w >> 12) & 63) as f32,
+                (w & 127) as f32 / 2.0,
+                ((w >> 7) & 127) as f32 / 2.0,
+                ((w >> 14) & 127) as f32 / 2.0,
             ))
         };
         let block_centre = game_to_bevy(Vec3::splat(5.5));
@@ -430,5 +527,66 @@ mod tests {
             let middle = (a + b + c) / 3.0;
             assert!(normal.dot(middle - block_centre) > 0.0, "a triangle faces inward");
         }
+    }
+
+    /// A section with one cell built of these pieces at (5, 5, 5), and `whole` blocks.
+    fn with_pieces(pieces: &crate::world::Pieces, whole: &[(usize, BlockId)]) -> MeshOutput {
+        let mut blocks = empty();
+        let at = 5 + 5 * N + 5 * N * N;
+        blocks[at] = BlockId::PIECES;
+        for &(index, block) in whole {
+            blocks[index] = block;
+        }
+        let mut data = input(blocks);
+        data.pieces = vec![(at, pieces.octants())];
+        mesh_section(&data)
+    }
+
+    /// Every corner of the mesh, in blocks (game axes).
+    fn corners(mesh: &MeshOutput) -> Vec<Vec3> {
+        mesh.vertices.iter().map(|v| Vec3::new((v[0] & 127) as f32, ((v[0] >> 7) & 127) as f32, ((v[0] >> 14) & 127) as f32) / 2.0).collect()
+    }
+
+    #[test]
+    fn a_bar_is_a_box_of_six_faces_at_half_block_corners() {
+        use crate::world::{Pieces, Slot};
+        // A low north–south bar on the west: 1 × ½ × ½ in the cell's south-west-low corner.
+        let mut pieces = Pieces::default();
+        pieces.add(Slot::bar(0, 0, 0), STONE);
+        let mesh = with_pieces(&pieces, &[]);
+        assert_eq!(mesh.quads, 6, "its long sides each one rectangle");
+        let corners = corners(&mesh);
+        let (low, high) = corners.iter().fold((Vec3::MAX, Vec3::MIN), |(lo, hi), &c| (lo.min(c), hi.max(c)));
+        assert_eq!((low, high), (Vec3::new(5.0, 5.0, 5.0), Vec3::new(6.0, 5.5, 5.5)));
+        // Its triangles face outward, as a block's do.
+        let centre = game_to_bevy(Vec3::new(5.5, 5.25, 5.25));
+        for triangle in mesh.indices.chunks(3) {
+            let [a, b, c] = [0, 1, 2].map(|k| game_to_bevy(corners[triangle[k] as usize]));
+            assert!((b - a).cross(c - a).dot((a + b + c) / 3.0 - centre) > 0.0, "a triangle faces inward");
+        }
+    }
+
+    #[test]
+    fn bars_meeting_hide_their_faces_between_and_a_whole_block_hides_the_side_against_it() {
+        use crate::world::{Pieces, Slot};
+        // Two low bars, both on the west (north–south) and the south (east–west), meeting in the
+        // corner they share: an L of three octants, with no faces between them.
+        let mut corner = Pieces::default();
+        corner.add(Slot::bar(0, 0, 0), STONE);
+        corner.add(Slot::bar(1, 0, 0), DIRT);
+        let mesh = with_pieces(&corner, &[]);
+        let area: f32 = mesh.vertices.chunks_exact(4).map(|quad| {
+            let c: Vec<Vec3> = quad.iter().map(|v| Vec3::new((v[0] & 127) as f32, ((v[0] >> 7) & 127) as f32, ((v[0] >> 14) & 127) as f32) / 2.0).collect();
+            (c[1] - c[0]).length() * (c[3] - c[0]).length()
+        }).sum();
+        // Three octants, an L: the outside of 3 half-cubes (14 of their 18 faces, a ¼ each).
+        assert!((area - 14.0 * 0.25).abs() < 1e-4, "{area}");
+        // Stone under the cell: the bar's bottom isn't drawn (and the stone's top still is: the
+        // cell hides nothing behind it).
+        let mut bar = Pieces::default();
+        bar.add(Slot::bar(0, 0, 0), STONE);
+        let below = 5 + 5 * N + 4 * N * N;
+        let mesh = with_pieces(&bar, &[(below, STONE)]);
+        assert_eq!(mesh.quads, 5 + 6);
     }
 }

@@ -4,7 +4,8 @@
 //   vertex   — once per corner: unpack the 8-byte vertex, work out where it lands on screen
 //   fragment — once per pixel: look up the texture, apply face shading and fog
 //
-// Positions arrive in GAME axes inside the section (X north, Y east, Z up, 0..32) and are
+// Positions arrive in GAME axes inside the section (X north, Y east, Z up, 0..32; in half blocks in the
+// vertex, 0..64, halved here) and are
 // converted to Bevy's axes here, matching src/coords.rs: bevy = (game.y, game.z, -game.x).
 
 import bevy_pbr::render::mesh_functions::get_world_from_local;
@@ -81,14 +82,15 @@ struct VertexOutput {
 fn vertex(in: Vertex) -> VertexOutput {
     let a = in.packed.x;
     let b = in.packed.y;
-    let corner = vec3<f32>(f32(a & 63u), f32((a >> 6u) & 63u), f32((a >> 12u) & 63u));
-    let face = (a >> 18u) & 7u;
+    // In half blocks (src/render/mesher.rs), so a cell's pieces sit at half-block corners.
+    let corner = vec3<f32>(f32(a & 127u), f32((a >> 7u) & 127u), f32((a >> 14u) & 127u)) * 0.5;
+    let face = (a >> 21u) & 7u;
 
     let world_from_local = get_world_from_local(in.instance_index);
     // Nudged a hair out of its rectangle, in the face's plane (src/render/mesher.rs: which way is
     // out at this corner), about a third of a pixel at this distance: neighbouring rectangles
     // overlap, so no pixel-thin cracks open where a big one's edge meets small ones' corners.
-    let out_of = vec3<f32>(f32((a >> 22u) & 1u), f32((a >> 23u) & 1u), f32((a >> 24u) & 1u)) * 2.0 - 1.0;
+    let out_of = vec3<f32>(f32((a >> 25u) & 1u), f32((a >> 26u) & 1u), f32((a >> 27u) & 1u)) * 2.0 - 1.0;
     let in_plane = out_of * (1.0 - abs(face_normal(face)));
     let at = world_from_local * vec4<f32>(vec3<f32>(corner.y, corner.z, -corner.x), 1.0);
     let hair = max(0.0005, 0.0006 * length(at.xyz - view.world_position));
@@ -105,7 +107,7 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.layer = b & 0xFFFFu;
     out.face = face;
     out.quad = b >> 16u;
-    out.random_rotation = (a >> 21u) & 1u;
+    out.random_rotation = (a >> 24u) & 1u;
     out.section_origin = vec3<i32>(round(vec3<f32>(-origin.z, origin.x, origin.y)));
     return out;
 }

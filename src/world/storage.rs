@@ -38,6 +38,8 @@ pub fn encode_chunk(chunk: &Chunk, registry: &BlockRegistry) -> Vec<u8> {
     let mut names: Vec<BlockId> = Vec::new();
     let mut number: HashMap<BlockId, u16> = HashMap::new();
     let mut number_of = |id: BlockId| {
+        // A cell built of pieces is saved as air until saves keep pieces (quartile stop 3).
+        let id = if id == BlockId::PIECES { BlockId::AIR } else { id };
         *number.entry(id).or_insert_with(|| {
             names.push(id);
             (names.len() - 1) as u16

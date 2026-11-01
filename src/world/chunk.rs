@@ -15,6 +15,7 @@ use super::position::{
     CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTIONS_PER_CHUNK, WORLD_HEIGHT, index_in_section,
     section_level,
 };
+use super::pieces::Pieces;
 use super::section::Section;
 use bevy::math::IVec3;
 use std::collections::HashMap;
@@ -31,6 +32,8 @@ pub struct Chunk {
     pos: ChunkPos,
     sections: Vec<Section>,
     extra: HashMap<IVec3, BlockExtra>,
+    /// The cells built of pieces (`pieces.rs`; their sections hold `BlockId::PIECES`).
+    pieces: HashMap<IVec3, Pieces>,
 }
 
 impl Chunk {
@@ -40,7 +43,29 @@ impl Chunk {
             pos,
             sections,
             extra: HashMap::new(),
+            pieces: HashMap::new(),
         }
+    }
+
+    /// The pieces in a cell built of them.
+    pub fn pieces(&self, block: IVec3) -> Option<&Pieces> {
+        self.pieces.get(&block)
+    }
+
+    /// Makes a cell one built of these pieces (or, if there are none, air). Returns the block that
+    /// was there before.
+    pub fn set_pieces(&mut self, block: IVec3, pieces: Pieces) -> BlockId {
+        if pieces.is_empty() {
+            return self.set(block, BlockId::AIR);
+        }
+        let old = self.set(block, BlockId::PIECES);
+        self.pieces.insert(block, pieces);
+        old
+    }
+
+    /// Every cell built of pieces in section `level`, with its pieces.
+    pub fn pieces_in(&self, level: usize) -> impl Iterator<Item = (&IVec3, &Pieces)> {
+        self.pieces.iter().filter(move |(block, _)| section_level(block.z) == level)
     }
 
     #[allow(dead_code)] // used by saving (step 8)
@@ -61,7 +86,7 @@ impl Chunk {
         self.sections[section_level(block.z)].get(index_in_section(block))
     }
 
-    /// Replace a block. Any extra state the old block had is removed with it.
+    /// Replace a block. Any extra state the old block had is removed with it, and its pieces.
     /// Returns the block that was there before.
     pub fn set(&mut self, block: IVec3, id: BlockId) -> BlockId {
         let section = &mut self.sections[section_level(block.z)];
@@ -69,6 +94,7 @@ impl Chunk {
         let old = section.get(index);
         section.set(index, id);
         self.extra.remove(&block);
+        self.pieces.remove(&block);
         old
     }
 

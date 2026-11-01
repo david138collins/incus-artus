@@ -18,6 +18,7 @@ mod chunk;
 mod edits;
 mod generator;
 mod position;
+mod pieces;
 mod raycast;
 mod section;
 mod storage;
@@ -29,6 +30,7 @@ pub mod placer;
 mod terrain;
 
 pub use block::BlockId;
+pub use pieces::{Pieces, Slot};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason,
@@ -99,6 +101,28 @@ impl VoxelWorld {
             self.mark_dirty_around(block);
             self.changed.insert(chunk_pos);
         }
+        Some(old)
+    }
+
+    /// The pieces of a cell built of them, if it is one (and loaded).
+    pub fn get_pieces(&self, block: IVec3) -> Option<&Pieces> {
+        if !z_in_world(block.z) {
+            return None;
+        }
+        self.chunks.get(&ChunkPos::of_block(block))?.pieces(block)
+    }
+
+    /// Makes a cell one built of these pieces. Returns the old block, or `None` if the position isn't
+    /// loaded (nothing happens then).
+    pub fn set_pieces(&mut self, block: IVec3, pieces: Pieces) -> Option<BlockId> {
+        if !z_in_world(block.z) {
+            return None;
+        }
+        let chunk_pos = ChunkPos::of_block(block);
+        let old = self.chunks.get_mut(&chunk_pos)?.set_pieces(block, pieces);
+        // Even from pieces to pieces: they're drawn again.
+        self.mark_dirty_around(block);
+        self.changed.insert(chunk_pos);
         Some(old)
     }
 

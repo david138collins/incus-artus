@@ -11,7 +11,7 @@
 //! world, like dig designations and blueprint ghosts, are a separate layer that will work
 //! while paused; see docs/decisions.md.)
 
-use super::{BlockId, VoxelWorld};
+use super::{BlockId, Pieces, Slot, VoxelWorld};
 use crate::data::BlockRegistry;
 use crate::events::{LoggedEvent, PlayerId};
 use crate::time::TimeControl;
@@ -37,6 +37,13 @@ impl std::fmt::Display for EditSource {
 pub enum EditKind {
     Break,
     Place(BlockId),
+    /// A bar of a block into a cell (`pieces.rs`): into air, or a cell of pieces with room.
+    AddPiece { slot: Slot, block: BlockId },
+}
+
+/// A block's name for the log ("pieces" for a cell built of them).
+fn name_of(block: BlockId, blocks: &BlockRegistry) -> String {
+    if block == BlockId::PIECES { "pieces".into() } else { blocks.name(block).to_string() }
 }
 
 /// "Please change this block."
@@ -84,6 +91,7 @@ fn describe_kind(kind: EditKind, blocks: &BlockRegistry) -> String {
     match kind {
         EditKind::Break => "break".to_string(),
         EditKind::Place(block) => format!("place {}", blocks.name(block)),
+        EditKind::AddPiece { slot, block } => format!("add a {} of {}", slot.name(), blocks.name(block)),
     }
 }
 
@@ -104,8 +112,8 @@ impl LoggedEvent for BlockChanged {
             p.x,
             p.y,
             p.z,
-            blocks.name(self.old),
-            blocks.name(self.new),
+            name_of(self.old, blocks),
+            name_of(self.new, blocks),
             self.source
         )
     }
@@ -180,7 +188,25 @@ pub fn apply_block_edits(
     };
     for request in requests.read() {
         let old = world.get_block(request.position);
+        // A bar into a cell: its pieces with the bar added, if there's room for it.
+        let mut pieces = None;
         let new = match request.kind {
+            EditKind::AddPiece { slot, block } => {
+                let mut cell = if old == BlockId::PIECES {
+                    world.get_pieces(request.position).cloned().unwrap_or_default()
+                } else if registry.is_replaceable(old) {
+                    Pieces::default()
+                } else {
+                    refuse(request, RefuseReason::Occupied, &mut recent);
+                    continue;
+                };
+                if !cell.add(slot, block) {
+                    refuse(request, RefuseReason::Occupied, &mut recent);
+                    continue;
+                }
+                pieces = Some(cell);
+                BlockId::PIECES
+            }
             EditKind::Break => {
                 if old.is_air() {
                     refuse(request, RefuseReason::NothingThere, &mut recent);
@@ -203,7 +229,11 @@ pub fn apply_block_edits(
             }
         };
         // `None` = not loaded / outside the world: nothing happened.
-        if world.set_block(request.position, new).is_none() {
+        let done = match pieces {
+            Some(cell) => world.set_pieces(request.position, cell),
+            None => world.set_block(request.position, new),
+        };
+        if done.is_none() {
             refuse(request, RefuseReason::NotLoaded, &mut recent);
             continue;
         }
@@ -285,6 +315,26 @@ mod tests {
             refusals(&mut app),
             vec![RefuseReason::NothingThere, RefuseReason::BottomLayerProtected, RefuseReason::Occupied]
         );
+    }
+
+    #[test]
+    fn bars_go_into_air_and_into_a_cell_of_bars_with_room_and_a_break_takes_the_cell() {
+        let stone = BlockRegistry::default().id("incus:stone").unwrap();
+        let cell = IVec3::new(0, 0, 145);
+        let bar = |s: u8| BlockEditRequest { position: cell, kind: EditKind::AddPiece { slot: Slot(s), block: stone }, source: PLAYER };
+        // Two bars, then one whose octants are both taken (the same slot again), then one into the
+        // grass below (a whole block): those two refused.
+        let below = BlockEditRequest { position: IVec3::new(0, 0, 144), ..bar(0) };
+        let (mut app, _) = run_requests(&[bar(0), bar(4), bar(0), below]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied, RefuseReason::Occupied]);
+        let world = app.world().resource::<VoxelWorld>();
+        assert_eq!(world.get_block(cell), BlockId::PIECES);
+        assert_eq!(world.get_pieces(cell).map(|pieces| pieces.list().len()), Some(2));
+        // Breaking it takes the whole cell.
+        let (mut app, _) = run_requests(&[bar(0), BlockEditRequest { position: cell, kind: EditKind::Break, source: PLAYER }]);
+        assert!(refusals(&mut app).is_empty());
+        let world = app.world().resource::<VoxelWorld>();
+        assert_eq!((world.get_block(cell), world.get_pieces(cell).is_none()), (BlockId::AIR, true));
     }
 
     #[test]
