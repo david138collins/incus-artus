@@ -480,3 +480,11 @@ now, but i'd like to work that in immediately if its not too intensive."
   3 should take it without a bump.
 - Builder assesses how much it costs, and does it straight away if it's light (David's word), once
   he's done trying the test caves.
+- **[David 2026-11-01] Shift frees you from the main grid:** "i think for now, shift should free you
+  from the main grid?" So holding Shift places a whole block on the octant grid. *Counsel:* Shift +
+  right click is today's stand-in for a lone octblock, so that stand-in needs another key.
+- **[DECIDED 2026-11-01] Only blueprints and players make sub-block pieces** (David: "note that non of
+  the non-living parts of the world are being considered to be sub-block elements. only blueprint
+  stuff and player stuff."). The ground, rock, caves and water are whole blocks. Bars and octants come
+  only from blueprints (trees, buildings) and from what players and settlers build. So caves carve
+  whole blocks, and world creation writes pieces only when it places a blueprint (stop 4).
