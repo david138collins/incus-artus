@@ -467,3 +467,16 @@ look.
 - **Tests:** a chunk keeping its pieces through a save (a whole bar, a cut piece, a lone octant, a
   cell at a chunk's corner), saving the same bytes twice, and a lost block's octants going empty.
 - **Next, stop 4 (grow them):** world creation writing pieces, for blueprints and trees.
+
+## Whole blocks on the octant grid  [IDEA, David 2026-11-01; for Builder to assess]
+
+David: "we should be able to place whole blocks on the oct grid, as well. we're trying test caves
+now, but i'd like to work that in immediately if its not too intensive."
+- A whole block shifted by half a block in any direction covers 8 octants across 2, 4 or 8 cells.
+- *Counsel:* the stick-on format may take it with one new kind of part: "a corner of a whole block",
+  3 bits for which corner (the part byte has 4 spare). Each octant then shows its eighth of the
+  block's picture, measured from the block's corner. Mining takes all eight. If some octants are
+  taken, either refuse or cut, as bars do; David's call. Saves only meet a new part kind, so format
+  3 should take it without a bump.
+- Builder assesses how much it costs, and does it straight away if it's light (David's word), once
+  he's done trying the test caves.
