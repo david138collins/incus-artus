@@ -501,7 +501,7 @@ pub fn draw(root: &mut egui::Ui, suite: &mut Suite, look: &Look) {
     if shown[3] {
         super::view::foldable_left(root, "mineralogy settings", PANELS[3], &mut folded[3], 300.0, |ui| {
             super::notes::on_page(Some(PANELS[3]));
-            egui::ScrollArea::vertical().id_salt("mineralogy").show(ui, |ui| mineralogy_panel(ui, compiler));
+            egui::ScrollArea::vertical().id_salt("mineralogy").show(ui, |ui| mineralogy_panel(ui, compiler, look));
         });
     }
     if shown[4] {
@@ -1498,41 +1498,19 @@ fn climate_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
 /// the ground is made of, after Climate (it reads the temperature and the rain) and before the World
 /// Interpreter; then caves, still to come (David: they "might go in there after or have its own
 /// page because it might be a pain").
-fn mineralogy_panel(ui: &mut egui::Ui, compiler: &mut Compiler) {
+fn mineralogy_panel(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
     ui.heading("Mineralogy");
     // The placer's made fields, and the field view (stop 1 of docs/placer.md).
     super::placer_view::fields_section(ui, &mut compiler.settings.interpreter.mineralogy, &mut compiler.fields);
-    fold_section(ui, "Mineralogy", |ui| {
-        let s = &mut compiler.settings.interpreter;
-        let m = &mut s.mineralogy;
-        ui.small(
-            "Which blocks the ground is made of, by the climate and the height (a rough first version: rivers add gravel, sand \
-             and mud by the water later). The surface, first rule that applies: snowy ground where it's cold enough (colder \
-             the higher up, peaks too); gabbro on the peaks and stone on the mountainsides; sand on beaches and in hot, dry \
-             deserts; dry grass where it's dry; grass. Under grass, dry grass and snow, dirt; under sand, sand; then stone. \
-             The sea floor: sand in the shallows, gravel deeper. Only in a world spawned from here (and its distant terrain).",
-        );
-        ui.small(
-            "A rule whose block isn't registered yet is skipped: it uses incus:snowy_ground, incus:sand, incus:dry_grass, \
-             incus:dirt and incus:gravel as they're made in the Registrar. Worlds keep the blocks they were made with until \
-             they're made again.",
-        );
-        ui.add(crate::debug::Slider::new(&mut m.snow_below, -1.0..=1.0).text("snowy ground below (temperature)"))
-            .on_hover_text("Snowy ground where it's colder than this (−1 frozen to +1 hottest; the Temperature section's colours). A block cools for its height above the sea, so mountains turn white above a line.");
-        ui.add(crate::debug::Slider::new(&mut s.gabbro_from, SEA_LEVEL as i32..=HIGHEST as i32).text("gabbro from Z"))
-            .on_hover_text("The surface is gabbro from this height up, so peaks stand out from a distance (unless snowy).");
-        ui.add(crate::debug::Slider::new(&mut s.stone_from, SEA_LEVEL as i32..=HIGHEST as i32).text("bare stone from Z"))
-            .on_hover_text("The surface is stone from this height up (mountainsides).");
-        ui.add(crate::debug::Slider::new(&mut m.beach, 0..=12).text("beaches (blocks above the sea)")).on_hover_text("Sand up to this many blocks above the sea.");
-        ui.add(crate::debug::Slider::new(&mut m.desert_below, 0.0..=1.0).text("desert where the rain is below"));
-        ui.add(crate::debug::Slider::new(&mut m.desert_above, -1.0..=1.0).text("…and the temperature above")).on_hover_text("Deserts are dry and hot: both at once.");
-        ui.add(crate::debug::Slider::new(&mut m.dry_below, 0.0..=1.0).text("dry grass where the rain is below"));
-        ui.add(crate::debug::Slider::new(&mut m.dirt_depth, 0..=8).text("dirt under grass (blocks)")).on_hover_text("So a step's side shows earth, not grey stone, up close.");
-        ui.add(crate::debug::Slider::new(&mut m.sand_depth, 0..=8).text("sand under sand (blocks)"));
-        ui.add(crate::debug::Slider::new(&mut m.shallows, 0..=40).text("sea floor sand down to (blocks deep)")).on_hover_text("Deeper than this, gravel.");
-        ui.add(crate::debug::Slider::new(&mut m.wander, 0.0..=0.3).text("zones' edges wander")).on_hover_text("How far the lines between zones wander, in temperature and rain, so they don't follow the climate's pixels.");
-        ui.add(crate::debug::Slider::new(&mut m.wander_size, 8.0..=512.0).text("…in patches this big (blocks)"));
-    });
+    // What's placed: the distributors (stop 3 of docs/placer.md), with the blocks' far colours.
+    let palette = compiler.lab_palette.as_ref().map(|(_, palette)| palette.clone());
+    let swatch = |block: crate::world::BlockId| {
+        palette.as_ref().map(|palette| {
+            let [r, g, b] = palette.top(block).map(|c| to_srgb(c * look.shade.top));
+            Color32::from_rgb(r, g, b)
+        })
+    };
+    super::placer_view::distributors_section(ui, &mut compiler.settings.interpreter.mineralogy, &mut compiler.fields, look.registry, &swatch);
     ui.add_space(6.0);
     ui.separator();
     ui.add_enabled_ui(false, |ui| {
@@ -2343,8 +2321,6 @@ impl LiveClimate {
 struct PaintKey {
     frame: u64,
     mineralogy: crate::world::MineralogySettings,
-    stone_from: i32,
-    gabbro_from: i32,
     climate: u64,
     lit: bool,
     shores: bool,
@@ -2386,6 +2362,7 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
     let request = &frame.request;
     let (cols, rows, step) = (request.cols, request.rows, request.step);
     let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
+    let mineralogy = map.mineralogy(&blocks);
     let shade = &look.shade;
     let sea = SEA_LEVEL as f32;
     let z = |col: usize, row: usize| frame.heights[row.min(rows - 1) * cols + col.min(cols - 1)];
@@ -2397,7 +2374,7 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
     std::thread::scope(|scope| {
         let each = rows_each * cols.max(1);
         for (band, (part, tops)) in pixels.chunks_mut(each).zip(tops.chunks_mut(each)).enumerate() {
-            let (blocks, z) = (&blocks, &z);
+            let (z, mineralogy) = (&z, &mineralogy);
             scope.spawn(move || {
                 for (k, pixel) in part.iter_mut().enumerate() {
                     let (col, row) = (k % cols, band * rows_each + k / cols);
@@ -2416,7 +2393,8 @@ fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: O
                         palette.water.map(|c| c * shade.top)
                     } else {
                         let climate = climate.map(|climate| climate.at(north, east, here));
-                        let top = map.layers_in(north.floor() as i32, east.floor() as i32, here as i32, blocks, climate).top;
+                        let column = crate::world::placer::Column { north: north.floor() + 0.5, east: east.floor() + 0.5, ground: (here as i32) as f32, slope: super::placer_view::slope(frame, col, row), climate, water: None };
+                        let top = mineralogy.layers(map, column).top;
                         let mut light = shade.top;
                         if lit {
                             // The slope, blocks up per block across, as the distant terrain measures it
@@ -2537,8 +2515,6 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             let wanted = PaintKey {
                 frame: compiler.lab.version,
                 mineralogy: s.mineralogy.clone(),
-                stone_from: s.stone_from,
-                gabbro_from: s.gabbro_from,
                 climate: compiler.climate.version,
                 lit: !compiler.lab_unlit,
                 shores: compiler.lab_shores,
@@ -2550,16 +2526,13 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             if compiler.lab_painted_for.as_ref() != Some(&wanted) || compiler.lab_texture.is_none() {
                 let climate = LiveClimate::new(compiler, &map);
                 let palette = compiler.lab_palette.as_ref().map(|(_, palette)| palette.clone()).unwrap();
+                let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
+                let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
                 let pixels = match compiler.fields.shown(&s.mineralogy) {
-                    // The field view: the field being made, on black.
-                    Some((_, program)) => {
-                        let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
-                        super::placer_view::field_picture(frame, &map, &at, s.mineralogy.crust, &program, &compiler.fields.look)
-                    }
+                    // The field view: the field being made (or a candidate's suitability), on black.
+                    Some(k) => super::placer_view::field_picture(frame, &map, &at, &map.mineralogy(&blocks), k, &compiler.fields.look),
                     // The depth sweep: the blocks at the level, in their far colours, unlit.
                     None if compiler.fields.shows == super::placer_view::Shows::Blocks => {
-                        let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
-                        let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
                         let colour = |block: crate::world::BlockId| {
                             let [r, g, b] = palette.top(block).map(|c| to_srgb(c * look.shade.top));
                             Color32::from_rgb(r, g, b)
@@ -2586,26 +2559,25 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
                 compiler.lab_hover = Some((north, east, z));
             }
         }
-        // The field under the mouse, layer by layer (shown in the right-hand panel).
-        compiler.fields.hover = None;
-        if let Some((north, east, z)) = compiler.lab_hover
-            && let Some((_, program)) = compiler.fields.shown(&map.settings.mineralogy)
-        {
-            let climate = LiveClimate::new(compiler, &map);
-            let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
-            let step = compiler.lab.frame.as_ref().map_or(1.0, |frame| frame.request.step);
-            compiler.fields.hover = super::placer_view::hover(&map, &at, map.settings.mineralogy.crust, &program, &compiler.fields.look, (north, east, z.round()), step);
-        }
-        // The column under the mouse, block by block (in the depth sweep).
-        compiler.fields.column = None;
-        if compiler.fields.shows == super::placer_view::Shows::Blocks
-            && let Some((north, east, z)) = compiler.lab_hover
-        {
+        // Under the mouse (shown in the right-hand panel): the field layer by layer (in the field
+        // view), the column block by block (in the depth sweep), and why it's made of what it is.
+        (compiler.fields.hover, compiler.fields.column, compiler.fields.why) = (None, None, Vec::new());
+        if let Some((north, east, z)) = compiler.lab_hover {
             let climate = LiveClimate::new(compiler, &map);
             let at = |north: f32, east: f32, z: f32| climate.as_ref().map(|climate| climate.at(north, east, z));
             let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
+            let mineralogy = map.mineralogy(&blocks);
+            let step = compiler.lab.frame.as_ref().map_or(1.0, |frame| frame.request.step);
+            let slope = super::placer_view::slope_at(&map, (north, east, z.round()), step);
+            if let Some(k) = compiler.fields.shown(&map.settings.mineralogy) {
+                compiler.fields.hover = super::placer_view::hover(&map, &at, &mineralogy, k, &compiler.fields.look, (north, east, z.round()), slope);
+            }
             let name = |block: crate::world::BlockId| look.registry.def(block).map_or_else(|| look.registry.name(block).to_string(), |def| def.display_name.clone());
-            compiler.fields.column = Some(super::placer_view::column_hover(&map, &at, &blocks, &name, &compiler.fields.look, (north, east, z)));
+            if compiler.fields.shows == super::placer_view::Shows::Blocks {
+                compiler.fields.column = Some(super::placer_view::column_hover(&map, &at, &blocks, &name, &compiler.fields.look, (north, east, z), slope));
+            }
+            let named = |block: &str| look.registry.id(block).map_or_else(|| format!("{block} (not registered)"), name);
+            compiler.fields.why = super::placer_view::why(&map, &at, &mineralogy, &named, (north, east, z), slope);
         }
     }
 

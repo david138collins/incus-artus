@@ -11,9 +11,12 @@
 //!   over it) comes in with the column: the chunk maker, the far view and the World Compiler's
 //!   close-up each have it to hand, and the close-up's climate is the Climate tab's live one.
 
+use super::super::block::BlockId;
 use super::super::interpreter::{CompiledMap, Here, Parts};
 use super::super::mineralogy::NO_CLIMATE;
+use super::super::position::{WORLD_BOTTOM, WORLD_HEIGHT};
 use super::super::terrain::SEA_LEVEL;
+use crate::worldgen::noise::{Fade, perlin};
 
 /// The stages that make fields, in the order things happen. A field may be read only by a stage
 /// after its own: the linear rule. (The ground at each block is last before Mineralogy: it's the
@@ -63,6 +66,7 @@ pub enum Field {
     RiverDistance,
     WaterAcross,
     WaterDepth,
+    UnderWater,
     Temperature,
     Rain,
     Height,
@@ -90,6 +94,9 @@ pub struct Info {
 /// How far "distance to a river" looks (blocks): further than this is this far.
 pub const RIVER_REACH: f32 = 2_000.0;
 
+/// The highest Z, the end of heights' ranges.
+const TOP: f32 = (WORLD_HEIGHT - 1) as f32;
+
 const fn row(field: Field, key: &'static str, name: &'static str, stage: Stage, unit: &'static str, range: (f32, f32), about: &'static str) -> Info {
     Info { field, key, name, stage, unit, range, per_block: false, about }
 }
@@ -98,7 +105,7 @@ const fn per_block(info: Info) -> Info {
     Info { per_block: true, ..info }
 }
 
-pub const FIELDS: [Info; 22] = [
+pub const FIELDS: [Info; 23] = [
     row(Field::BakeHeight, "tectonics/height", "the bake's height", Stage::Tectonics, "", (-1.5, 5.0), "The Tectonic Sim's height map, before the World Compiler's curves: below 0 is sea (about), the higher the more the plates piled up."),
     row(Field::Tilt, "tectonics/tilt", "tilt", Stage::Tectonics, "", (-1.5, 1.5), "How far up (+) or down (−) its plate's tilt each spot is."),
     row(Field::Squeeze, "tectonics/squeeze", "squeeze", Stage::Tectonics, "", (-1.0, 1.0), "How crushed (+, up to the map's most crushed at 1) or stretched (−, its most stretched at −1) the rock is."),
@@ -114,11 +121,12 @@ pub const FIELDS: [Info; 22] = [
     row(Field::RiverDistance, "rivers/distance", "distance to a river", Stage::Rivers, "blocks", (0.0, RIVER_REACH), "Blocks to the nearest river's water (0 in it), up to 2,000. Lakes aren't counted."),
     row(Field::WaterAcross, "rivers/water_across", "a river's water across", Stage::Rivers, "blocks", (0.0, 256.0), "About how many blocks of water the nearest river has across (its width times its depth), within its banks' reach; 0 further away."),
     row(Field::WaterDepth, "rivers/water_depth", "water over the ground", Stage::Rivers, "blocks", (0.0, 40.0), "How many blocks of water stand over the ground here: the sea's, a river's or a lake's (0 on dry land)."),
+    row(Field::UnderWater, "rivers/under_water", "under a river's or lake's water", Stage::Rivers, "", (0.0, 1.0), "1 where a river's or a lake's water stands over the ground (its bed), 0 elsewhere (the sea's floor is 0)."),
     row(Field::Temperature, "climate/temperature", "temperature", Stage::Climate, "", (-1.0, 1.0), "−1 frozen to +1 the hottest, colder the higher the ground stands above the sea (the Climate tab's live one here)."),
     row(Field::Rain, "climate/rain", "rain", Stage::Climate, "", (0.0, 1.0), "0 dry to 1 the wettest."),
-    row(Field::Height, "ground/height", "the ground's height", Stage::Ground, "Z", (0.0, 333.0), "The ground's Z, as the world has it (the sea's surface is at 128)."),
+    row(Field::Height, "ground/height", "the ground's height", Stage::Ground, "Z", (0.0, TOP), "The ground's Z, as the world has it (the sea's surface is at 128, the peaks reach about 900)."),
     row(Field::Slope, "ground/slope", "slope", Stage::Ground, "blocks up per block", (0.0, 3.0), "How steep the ground is: blocks up per block across (1 is 45°). Measured between neighbouring samples, so zoomed out it's over more blocks."),
-    per_block(row(Field::Z, "ground/z", "the block's Z", Stage::Ground, "Z", (0.0, 333.0), "The block's own height, at each block down the column.")),
+    per_block(row(Field::Z, "ground/z", "the block's Z", Stage::Ground, "Z", (WORLD_BOTTOM as f32, TOP), "The block's own height, at each block down the column.")),
     per_block(row(Field::Depth, "ground/depth", "depth below the surface", Stage::Ground, "blocks", (0.0, 130.0), "How far a block is below the ground's surface (0 is the surface block).")),
     per_block(row(Field::CrustShare, "ground/crust_share", "depth, as a share of the crust", Stage::Ground, "share", (0.0, 1.0), "Depth below the surface over the crust's depth (Mineralogy's setting): 0 at the surface, 1 at the crust's bottom. Things placed by it keep their places whatever depth the world ends up with.")),
 ];
@@ -159,11 +167,30 @@ pub struct Reading<'a> {
     maps: Option<Option<(Here, f32, f32)>>,
     parts: Option<Parts>,
     values: [f32; FIELDS.len()],
+    /// The noise read here so far (its salt, its patches' size, its value): a few kept, as the same
+    /// wander is often read by several candidates.
+    noises: [(u64, f32, f32); 4],
+    noises_kept: usize,
+    /// What each distributor so far chose here (`AIR`: nothing), for the candidates after them.
+    pub chosen: Vec<BlockId>,
 }
 
 impl<'a> Reading<'a> {
     pub fn new(map: &'a CompiledMap, column: Column, crust: f32) -> Self {
-        Self { map, column, crust: crust.max(1.0), maps: None, parts: None, values: [f32::NAN; FIELDS.len()] }
+        Self { map, column, crust: crust.max(1.0), maps: None, parts: None, values: [f32::NAN; FIELDS.len()], noises: [(0, 0.0, 0.0); 4], noises_kept: 0, chosen: Vec::new() }
+    }
+
+    /// Seeded noise here, −1 to 1, in patches about `size` blocks across, its pattern chosen by `salt`.
+    pub fn noise(&mut self, salt: u64, size: f32) -> f32 {
+        if let Some(&(_, _, value)) = self.noises[..self.noises_kept].iter().find(|(s, z, _)| *s == salt && *z == size) {
+            return value;
+        }
+        let value = perlin(self.map.seed, salt, Fade::Smooth, self.column.north / size, self.column.east / size);
+        if self.noises_kept < self.noises.len() {
+            self.noises[self.noises_kept] = (salt, size, value);
+            self.noises_kept += 1;
+        }
+        value
     }
 
     /// A field's value at the block `z` high in this column.
@@ -222,6 +249,7 @@ impl<'a> Reading<'a> {
                 let river = water.map_or(0.0, |top| top as f32 - 1.0 - ground);
                 sea.max(river).max(0.0)
             }
+            Field::UnderWater => water.is_some() as u8 as f32,
             Field::Temperature => temperature,
             Field::Rain => rain,
             Field::Height => ground,

@@ -263,7 +263,7 @@ pub fn stream_chunks(
             streaming.finished.push((pos, Some(chunk)));
             continue;
         }
-        let map = map.clone();
+        let (map, blocks) = (map.clone(), blocks.clone());
         let task = pool.spawn(async move { map.chunk(pos, &blocks) });
         streaming.making.insert(pos, task);
         streaming.made += 1;

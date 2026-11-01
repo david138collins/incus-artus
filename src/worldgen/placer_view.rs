@@ -23,11 +23,18 @@
 //!   sands stand out, and later the rocks and ores. The world's own rule fills the columns
 //!   (`Layers::block_at`).
 //! - **Under the mouse:** the column's blocks, from its water or its surface down.
+//!
+//! And **what's placed** (stop 3): the Mineralogy section's distributors, each a list of candidate
+//! blocks from the library (with their colours; one not registered greyed and named), each
+//! candidate's column profile and its suitability as a stack of layers, and the chooser. Any
+//! candidate's suitability can be shown in the field view, as a made field can, and **"why is this
+//! sand?"**: under the mouse, every candidate's suitability there and which was chosen.
 
 use super::lab::Frame;
 use super::view::fold_section;
-use crate::world::placer::{Column, Curve, FIELDS, Field, Layer, MadeField, Mode, Program, Reading, Source, Stage, Traced, Upto};
-use crate::world::{BlockId, CompiledMap, Layers, MineralogySettings, SEA_LEVEL, Spline, TerrainBlocks, WORLD_BOTTOM, WORLD_HEIGHT, under_sea, whole_column};
+use crate::data::BlockRegistry;
+use crate::world::placer::{Candidate, Chooser, Column, Curve, Distributor, FIELDS, Field, Layer, MadeField, Mode, Program, Puts, Reading, Source, Stage, Traced, Under, Upto, Wander};
+use crate::world::{BlockId, CompiledMap, Layers, Mineralogy, MineralogySettings, SEA_LEVEL, Spline, TerrainBlocks, WORLD_BOTTOM, WORLD_HEIGHT, Why, under_sea, whole_column};
 use bevy_egui::egui::{self, Color32, RichText};
 
 /// The climate at a spot (temperature and rain at north, east and a Z), or none.
@@ -149,7 +156,8 @@ pub enum Shows {
 /// What the field view shows (when any of it changes, it's painted again).
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldLook {
-    /// Which made field, and which step of it.
+    /// Which stack of layers (a made field, or after them a candidate's suitability, as
+    /// `MineralogySettings::stacks` lists them), and which step of it.
     pub chosen: usize,
     pub upto: Upto,
     pub coast: bool,
@@ -178,9 +186,13 @@ pub struct FieldView {
     /// Which of the level bar's handles is being dragged.
     grip: Option<Grip>,
     /// What's under the mouse (worked out with the close-up, shown in the right-hand panel): the field,
-    /// and the column's blocks.
+    /// the column's blocks, and why it's made of what it is.
     pub hover: Option<Hover>,
     pub column: Option<ColumnHover>,
+    pub why: Vec<Why>,
+    /// The made field open in the Fields section, and the distributor in the Mineralogy section.
+    open_field: usize,
+    open_distributor: usize,
 }
 
 /// Which of the level bar's handles is being dragged: the left (the level's `from`), the right
@@ -250,10 +262,25 @@ impl FieldView {
         level.to += moved;
     }
 
-    /// The made field shown (if the map shows one), and the program to read it.
-    pub fn shown(&self, m: &MineralogySettings) -> Option<(usize, Program)> {
-        (self.shows == Shows::Field && !m.fields.is_empty()).then(|| (self.look.chosen.min(m.fields.len() - 1), Program::new(&m.fields, m.crust)))
+    /// The stack of layers shown (if the map shows one): a made field, or a candidate's suitability.
+    pub fn shown(&self, m: &MineralogySettings) -> Option<usize> {
+        let count = stack_count(m);
+        (self.shows == Shows::Field && count > 0).then(|| self.look.chosen.min(count - 1))
     }
+
+    /// Shows stack `k`, at step `upto`, in the field view.
+    fn show(&mut self, k: usize, upto: Upto) {
+        (self.look.chosen, self.look.upto, self.shows) = (k, upto, Shows::Field);
+    }
+
+    fn showing(&self, k: usize, upto: Upto) -> bool {
+        self.shows == Shows::Field && self.look.chosen == k && self.look.upto == upto
+    }
+}
+
+/// How many stacks of layers there are: the made fields, and every candidate's.
+fn stack_count(m: &MineralogySettings) -> usize {
+    m.fields.len() + m.distributors.iter().map(|distributor| distributor.candidates.len()).sum::<usize>()
 }
 
 /// How far the wheel turned this frame (in notches, up positive), counting only turns with
@@ -412,17 +439,21 @@ pub fn column_at(map: &CompiledMap, climate: &ClimateAt, north: f32, east: f32, 
     Column { north, east, ground, slope, climate: climate(north, east, ground), water }
 }
 
-/// A close-up's sample as the world fills it (the ground's `height` there from the close-up): its
-/// ground, what it's made of (mineralogy's choice in the climate given, and a river's or lake's bed
-/// under its water), and its water's top (0 for none).
-pub fn world_column(map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBlocks, north: f32, east: f32, height: f32) -> (i32, Layers, i32) {
+/// A close-up's sample as the world fills it (the ground's `height` there from the close-up, its
+/// `slope`), as a column for mineralogy: its whole block, its ground, the climate given, and the water
+/// over it.
+fn world_spot(map: &CompiledMap, climate: &ClimateAt, north: f32, east: f32, height: f32, slope: f32) -> Column {
     let water = if map.mutes.rivers { None } else { map.rivers.here(north, east, height).water };
     let (ground, water) = whole_column(height, water);
-    let layers = map.layers_in(north.floor() as i32, east.floor() as i32, ground, blocks, climate(north, east, ground as f32));
-    match water {
-        Some(top) => (ground, layers.bedded(blocks), top),
-        None => (ground, layers, 0),
-    }
+    let (north, east) = (north.floor() + 0.5, east.floor() + 0.5);
+    Column { north, east, ground: ground as f32, slope, climate: climate(north, east, ground as f32), water }
+}
+
+/// The same, filled: its ground, what it's made of (mineralogy's choice in the climate given, a
+/// river's or lake's bed under its water), and its water's top (0 for none).
+pub fn world_column(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, north: f32, east: f32, height: f32, slope: f32) -> (i32, Layers, i32) {
+    let column = world_spot(map, climate, north, east, height, slope);
+    (column.ground as i32, mineralogy.layers(map, column), column.water.unwrap_or(0))
 }
 
 /// What the depth sweep sees in a column at the level: the first block from the top of it that isn't
@@ -470,8 +501,15 @@ fn height(frame: &Frame, col: usize, row: usize) -> f32 {
     frame.heights[row.min(rows - 1) * cols + col.min(cols - 1)]
 }
 
+/// The slope at a spot (`north`, `east`, its ground at `z`) across `step` blocks either side, as the
+/// close-up's samples measure it (blocks up per block across).
+pub fn slope_at(map: &CompiledMap, (north, east, z): (f32, f32, f32), step: f32) -> f32 {
+    let height = |n: f32, e: f32| map.height(n, e).map_or(z, f32::round);
+    ((height(north, east + step) - height(north, east - step)) / (2.0 * step)).hypot((height(north + step, east) - height(north - step, east)) / (2.0 * step))
+}
+
 /// The slope at a close-up's sample, from its neighbours (blocks up per block across).
-fn slope(frame: &Frame, col: usize, row: usize) -> f32 {
+pub fn slope(frame: &Frame, col: usize, row: usize) -> f32 {
     let (here, step) = (height(frame, col, row), frame.request.step);
     let or_here = |v: f32| if v.is_nan() { here } else { v };
     let east_rise = (or_here(height(frame, col + 1, row)) - or_here(height(frame, col.saturating_sub(1), row))) / (2.0 * step);
@@ -540,16 +578,18 @@ fn picture(frame: &Frame, look: &FieldLook, colour: &Colour) -> Vec<Color32> {
     pixels
 }
 
-/// The field view's picture of a close-up: the field shaded black (its least) to white (its most),
-/// black where the level has no ground, with the lines drawn over it.
-pub fn field_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, crust: f32, program: &Program, look: &FieldLook) -> Vec<Color32> {
-    let k = look.chosen.min(program.count().saturating_sub(1));
+/// The field view's picture of a close-up: stack `k` (a made field, or a candidate's suitability, with
+/// what the distributors before its own chose) shaded black (its least) to white (its most), black
+/// where the level has no ground, with the lines drawn over it.
+pub fn field_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, k: usize, look: &FieldLook) -> Vec<Color32> {
+    let program = mineralogy.program();
+    let k = k.min(program.count().saturating_sub(1));
     let (low, high) = program.range_upto(k, look.upto);
     let (low, high) = if high > low { (low, high) } else { (low - 0.5, low + 0.5) };
     picture(frame, look, &|col, row, north, east, here| {
         let column = column_at(map, climate, north, east, here, slope(frame, col, row));
         let wet = if under_sea(here) { 1 } else if column.water.is_some() { 2 } else { 0 };
-        let mut reading = Reading::new(map, column, crust);
+        let mut reading = mineralogy.reading(map, column, k);
         let grey = at_level(program, k, look.upto, &mut reading, &look.level).map_or(Color32::BLACK, |(value, _)| Color32::from_gray((((value - low) / (high - low)).clamp(0.0, 1.0) * 255.0).round() as u8));
         (grey, wet)
     })
@@ -561,8 +601,9 @@ pub fn field_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, crus
 pub fn sweep_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBlocks, colour: &(dyn Fn(BlockId) -> Color32 + Sync), look: &FieldLook) -> Vec<Color32> {
     let water = colour(blocks.water);
     let deep = Color32::from_rgb(water.r() / 3, water.g() / 3, water.b() / 3);
-    picture(frame, look, &|_, _, north, east, here| {
-        let (ground, layers, top) = world_column(map, climate, blocks, north, east, here);
+    let mineralogy = map.mineralogy(blocks);
+    picture(frame, look, &|col, row, north, east, here| {
+        let (ground, layers, top) = world_column(map, climate, &mineralogy, north, east, here, slope(frame, col, row));
         let wet = if under_sea(here) { 1 } else if top > 0 { 2 } else { 0 };
         let pixel = match seen(&look.level, look.see_stone, ground, &layers, top, blocks) {
             Seen::Block(block, _) => colour(block),
@@ -575,8 +616,8 @@ pub fn sweep_picture(frame: &Frame, map: &CompiledMap, climate: &ClimateAt, bloc
 
 /// The column under the mouse at (`north`, `east`), the ground's height `z` there, for the depth
 /// sweep's readout (`name` names a block).
-pub fn column_hover(map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBlocks, name: &dyn Fn(BlockId) -> String, look: &FieldLook, (north, east, z): (f32, f32, f32)) -> ColumnHover {
-    let (ground, layers, water) = world_column(map, climate, blocks, north, east, z);
+pub fn column_hover(map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBlocks, name: &dyn Fn(BlockId) -> String, look: &FieldLook, (north, east, z): (f32, f32, f32), slope: f32) -> ColumnHover {
+    let (ground, layers, water) = world_column(map, climate, &map.mineralogy(blocks), north, east, z, slope);
     let seen = match seen(&look.level, look.see_stone, ground, &layers, water, blocks) {
         Seen::Block(block, at) if at == ground => format!("{} at Z {at} (the surface)", name(block)),
         Seen::Block(block, at) => format!("{} at Z {at} ({} down)", name(block), ground - at),
@@ -587,14 +628,19 @@ pub fn column_hover(map: &CompiledMap, climate: &ClimateAt, blocks: &TerrainBloc
     ColumnHover { ground, seen, runs }
 }
 
-/// Works out what's under the mouse at (`north`, `east`), the ground `z` there, for the readout.
-pub fn hover(map: &CompiledMap, climate: &ClimateAt, crust: f32, program: &Program, look: &FieldLook, (north, east, z): (f32, f32, f32), step: f32) -> Option<Hover> {
-    let k = look.chosen.min(program.count().checked_sub(1)?);
-    let height = |n: f32, e: f32| map.height(n, e).map_or(z, f32::round);
-    let slope = ((height(north, east + step) - height(north, east - step)) / (2.0 * step)).hypot((height(north + step, east) - height(north - step, east)) / (2.0 * step));
-    let mut reading = Reading::new(map, column_at(map, climate, north, east, z, slope), crust);
+/// Works out stack `k` under the mouse at (`north`, `east`), the ground `z` there, for the readout.
+pub fn hover(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, k: usize, look: &FieldLook, (north, east, z): (f32, f32, f32), slope: f32) -> Option<Hover> {
+    let program = mineralogy.program();
+    let k = k.min(program.count().checked_sub(1)?);
+    let mut reading = mineralogy.reading(map, column_at(map, climate, north, east, z, slope), k);
     let (value, at) = at_level(program, k, look.upto, &mut reading, &look.level)?;
     Some(Hover { z: at, value, layers: program.trace(k, &mut reading, at) })
+}
+
+/// Why the column under the mouse is made of what it is ("why is this sand?"): every distributor's
+/// candidates' suitability there (`name` names a block), and which was chosen.
+pub fn why(map: &CompiledMap, climate: &ClimateAt, mineralogy: &Mineralogy, name: &dyn Fn(&str) -> String, (north, east, z): (f32, f32, f32), slope: f32) -> Vec<Why> {
+    mineralogy.why(map, world_spot(map, climate, north, east, z, slope), name)
 }
 
 /// A source's name, as the layer's picker shows it.
@@ -605,15 +651,93 @@ fn source_name(source: &Source) -> String {
         Source::Made { name } => format!("made: {name}"),
         Source::SoFar => "the result so far".into(),
         Source::Number { value } => format!("the number {value}"),
+        Source::Chosen { distributor, .. } => format!("chosen by {distributor}"),
         Source::Unknown => "? (unknown)".into(),
     }
 }
 
-/// What a layer's buttons asked for, done after the layers are drawn.
+/// What a layer's (or a candidate's, or an under-block's) buttons asked for, done after they're
+/// drawn.
 enum Change {
     Up(usize),
     Down(usize),
     Remove(usize),
+}
+
+impl Change {
+    fn apply<T>(self, list: &mut Vec<T>) {
+        match self {
+            Change::Up(n) if n > 0 && n < list.len() => list.swap(n, n - 1),
+            Change::Down(n) if n + 1 < list.len() => list.swap(n, n + 1),
+            Change::Remove(n) if n < list.len() => {
+                list.remove(n);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The ▲ ▼ ✕ buttons of item `n` in a list.
+fn order_buttons(ui: &mut egui::Ui, n: usize, what: &str, change: &mut Option<Change>) {
+    if ui.small_button("▲").clicked() {
+        *change = Some(Change::Up(n));
+    }
+    if ui.small_button("▼").clicked() {
+        *change = Some(Change::Down(n));
+    }
+    if ui.small_button("✕").on_hover_text(format!("Remove this {what}.")).clicked() {
+        *change = Some(Change::Remove(n));
+    }
+}
+
+/// The block library, for the candidates' pickers: the blocks, and each one's colour (its far
+/// colour, once the close-up has made them).
+pub struct Library<'a> {
+    pub registry: &'a BlockRegistry,
+    pub swatch: &'a dyn Fn(BlockId) -> Option<Color32>,
+}
+
+impl Library<'_> {
+    /// A block's name as David sees it, or its name and "not registered".
+    fn name(&self, block: &str) -> String {
+        match self.registry.id(block).and_then(|id| self.registry.def(id)) {
+            Some(def) => def.display_name.clone(),
+            None => format!("{block} (not registered)"),
+        }
+    }
+
+    /// A picker for a block by its name: every block in the library, with its colour. One that
+    /// isn't registered shows greyed and named (and is skipped in the world).
+    fn picker(&self, ui: &mut egui::Ui, id: impl std::hash::Hash + std::fmt::Debug, block: &mut String) {
+        let registered = self.registry.id(block);
+        let shown = self.name(block);
+        if let Some(colour) = registered.and_then(self.swatch) {
+            ui.label(RichText::new("■").color(colour));
+        }
+        let text = if registered.is_some() { RichText::new(shown) } else { RichText::new(shown).color(Color32::GRAY).italics() };
+        egui::ComboBox::from_id_salt(id).width(150.0).selected_text(text).show_ui(ui, |ui| {
+            for (k, def) in self.registry.defs().iter().enumerate().skip(1) {
+                ui.horizontal(|ui| {
+                    match (self.swatch)(BlockId(k as u16)) {
+                        Some(colour) => ui.label(RichText::new("■").color(colour)),
+                        None => ui.label("□"),
+                    };
+                    if ui.selectable_label(*block == def.name, &def.display_name).on_hover_text(&def.name).clicked() {
+                        *block = def.name.clone();
+                    }
+                });
+            }
+        })
+        .response
+        .on_hover_text(if registered.is_some() { block.clone() } else { format!("{block}: not in the library (yet), so it's skipped. Pick one that is, or make it in the Registrar.") });
+    }
+}
+
+/// What a candidate's layers can read besides what a made field can: the block library (for "chosen
+/// by"), and the distributors before its own.
+struct ForCandidate<'a> {
+    library: &'a Library<'a>,
+    earlier: &'a [Distributor],
 }
 
 /// The Mineralogy panel's Fields section: the made fields, each a stack of layers, and the field
@@ -621,21 +745,22 @@ enum Change {
 pub fn fields_section(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut FieldView) {
     fold_section(ui, "Fields", |ui| {
         ui.small(
-            "Make fields from the world's own (the climate, the ground, the rivers, the bake's maps…), to see them and, later, to \
-             place blocks by them. A field is a stack of layers, run top to bottom: each layer reads a source, through a curve, \
-             and is mixed into the result so far by a mode. Saved with the preset; nothing in the world changes yet.",
+            "Make fields from the world's own (the climate, the ground, the rivers, the bake's maps…), to see them and to place \
+             blocks by them (a candidate's layers below can read any of them). A field is a stack of layers, run top to bottom: \
+             each layer reads a source, through a curve, and is mixed into the result so far by a mode. Saved with the preset.",
         );
         ui.horizontal_wrapped(|ui| {
             ui.label("The map shows:");
             ui.selectable_value(&mut view.shows, Shows::World, "the world").on_hover_text("The blocks on top, as the world will have them.");
-            let field = ui.add_enabled(!m.fields.is_empty(), egui::Button::selectable(view.shows == Shows::Field, "the field view"));
+            let field = ui.add_enabled(stack_count(m) > 0, egui::Button::selectable(view.shows == Shows::Field, "the field view"));
             if field.clicked() {
                 view.shows = Shows::Field;
             }
             field
                 .on_hover_text(
                     "The map black, with the coast, the rivers and the contours drawn on it, and the chosen field shaded in it:\n\
-                     black where it's least, white where it's most. The whole stack, or any step of it (each layer's buttons).",
+                     black where it's least, white where it's most. The whole stack, or any step of it (each layer's buttons). A\n\
+                     candidate's suitability can be shown the same way (its \"show\" buttons in the Mineralogy section).",
                 )
                 .on_disabled_hover_text("Make a field first (+ new field).");
             ui.selectable_value(&mut view.shows, Shows::Blocks, "the depth sweep").on_hover_text(
@@ -644,10 +769,15 @@ pub fn fields_section(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut 
                  so the soils and sands stand out, like a lidar sweep.",
             );
         });
+        if let Some(k) = view.shown(m) {
+            let stacks = m.stacks();
+            ui.small(format!("The field view shows: {}", stacks.get(k).map_or("?", |(name, _)| name.as_str())));
+        }
         ui.add_space(4.0);
         ui.horizontal_wrapped(|ui| {
             for (k, made) in m.fields.iter().enumerate() {
-                if ui.selectable_label(view.look.chosen == k, &made.name).clicked() {
+                if ui.selectable_label(view.open_field == k, &made.name).on_hover_text("Open it (the field view shows it).").clicked() {
+                    view.open_field = k;
                     (view.look.chosen, view.look.upto) = (k, Upto::All);
                 }
             }
@@ -660,7 +790,8 @@ pub fn fields_section(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut 
                     name = format!("a new field {n}");
                 }
                 m.fields.push(MadeField { name, ..MadeField::default() });
-                (view.look.chosen, view.look.upto, view.shows) = (m.fields.len() - 1, Upto::All, Shows::Field);
+                view.open_field = m.fields.len() - 1;
+                view.show(m.fields.len() - 1, Upto::All);
             }
         });
         if m.fields.is_empty() {
@@ -694,23 +825,24 @@ pub fn fields_section(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut 
     });
 }
 
-/// The chosen made field: its name and buttons, then its layers.
+/// The open made field: its name and buttons, then its layers.
 fn made_field(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut FieldView) {
-    let k = view.look.chosen.min(m.fields.len() - 1);
-    view.look.chosen = k;
+    let k = view.open_field.min(m.fields.len() - 1);
+    view.open_field = k;
     let program = Program::new(&m.fields, m.crust);
+    let mut moved = None;
     ui.horizontal(|ui| {
         let old = m.fields[k].name.clone();
         ui.add(egui::TextEdit::singleline(&mut m.fields[k].name).desired_width(140.0)).on_hover_text("Its name (layers that read it follow a new name).");
         let new = m.fields[k].name.clone();
         if new != old {
-            for made in m.fields.iter_mut() {
-                for layer in &mut made.layers {
-                    if let Source::Made { name } = &mut layer.source
-                        && *name == old
-                    {
-                        *name = new.clone();
-                    }
+            let candidates = m.distributors.iter_mut().flat_map(|distributor| distributor.candidates.iter_mut());
+            let layers = m.fields.iter_mut().flat_map(|made| made.layers.iter_mut()).chain(candidates.flat_map(|candidate| candidate.layers.iter_mut()));
+            for layer in layers {
+                if let Source::Made { name } = &mut layer.source
+                    && *name == old
+                {
+                    *name = new.clone();
                 }
             }
         }
@@ -718,65 +850,58 @@ fn made_field(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut FieldVie
             let mut copy = m.fields[k].clone();
             copy.name += " (copy)";
             m.fields.push(copy);
-            view.look.chosen = m.fields.len() - 1;
+            moved = Some(m.fields.len() - 1);
         }
         if ui.small_button("▲").on_hover_text("Up the list (a field reads only those above it).").clicked() && k > 0 {
             m.fields.swap(k, k - 1);
-            view.look.chosen = k - 1;
+            moved = Some(k - 1);
         }
         if ui.small_button("▼").clicked() && k + 1 < m.fields.len() {
             m.fields.swap(k, k + 1);
-            view.look.chosen = k + 1;
+            moved = Some(k + 1);
         }
         if ui.small_button("delete").clicked() {
             m.fields.remove(k);
-            view.look.chosen = k.saturating_sub(1);
+            moved = Some(k.saturating_sub(1));
         }
     });
-    let Some(made) = m.fields.get(view.look.chosen) else { return };
-    if view.look.chosen != k {
+    if let Some(to) = moved {
+        // The list changed: what the field view shows follows the open field.
+        view.open_field = to;
+        if view.shows == Shows::Field {
+            view.show(to, Upto::All);
+        }
         return;
     }
     let (low, high) = program.range(k);
     ui.horizontal(|ui| {
-        ui.radio_value(&mut view.look.upto, Upto::All, "show the whole stack");
+        if ui.radio(view.showing(k, Upto::All), "show the whole stack").clicked() {
+            view.show(k, Upto::All);
+        }
         ui.small(format!("from {low:.2} to {high:.2}")).on_hover_text("The least and most it can be: the field view's black and white.");
     });
     let names: Vec<String> = m.fields.iter().map(|made| made.name.clone()).collect();
     let mut change = None;
-    for n in 0..made.layers.len() {
+    for n in 0..m.fields[k].layers.len() {
         let layer = &mut m.fields[k].layers[n];
-        ui.group(|ui| layer_ui(ui, layer, n, &program, k, &names, view, &mut change));
+        ui.group(|ui| layer_ui(ui, layer, n, &program, k, &names, None, view, &mut change));
     }
-    let layers = &mut m.fields[k].layers;
-    match change {
-        Some(Change::Up(n)) if n > 0 => layers.swap(n, n - 1),
-        Some(Change::Down(n)) if n + 1 < layers.len() => layers.swap(n, n + 1),
-        Some(Change::Remove(n)) => {
-            layers.remove(n);
-            view.look.upto = Upto::All;
-        }
-        _ => {}
+    if let Some(change) = change {
+        change.apply(&mut m.fields[k].layers);
+        view.look.upto = Upto::All;
     }
     if ui.small_button("+ add a layer").on_hover_text("A new layer at the bottom of the stack (it mixes into everything above it).").clicked() {
-        layers.push(Layer::default());
+        m.fields[k].layers.push(Layer::default());
     }
 }
 
+/// One layer of stack `k` (a made field's, or after them a candidate's).
 #[allow(clippy::too_many_arguments)]
-fn layer_ui(ui: &mut egui::Ui, layer: &mut Layer, n: usize, program: &Program, k: usize, names: &[String], view: &mut FieldView, change: &mut Option<Change>) {
+fn layer_ui(ui: &mut egui::Ui, layer: &mut Layer, n: usize, program: &Program, k: usize, names: &[String], candidate: Option<&ForCandidate>, view: &mut FieldView, change: &mut Option<Change>) {
     ui.horizontal_wrapped(|ui| {
         ui.checkbox(&mut layer.on, format!("{}.", n + 1)).on_hover_text("Off: left out, to see what it does.");
-        source_picker(ui, layer, n, k, names);
-        if ui.small_button("▲").clicked() {
-            *change = Some(Change::Up(n));
-        }
-        if ui.small_button("▼").clicked() {
-            *change = Some(Change::Down(n));
-        }
-        if ui.small_button("✕").on_hover_text("Remove this layer.").clicked() {
-            *change = Some(Change::Remove(n));
-        }
+        source_picker(ui, layer, n, k, names, candidate);
+        order_buttons(ui, n, "layer", change);
     });
     let (low, high) = program.source_range(k, n);
     match &mut layer.source {
@@ -790,7 +915,38 @@ fn layer_ui(ui: &mut egui::Ui, layer: &mut Layer, n: usize, program: &Program, k
         Source::Number { value } => {
             ui.add(egui::DragValue::new(value).speed(0.01).prefix("the number "));
         }
+        Source::Chosen { blocks, .. } => {
+            ui.small("1 where it chose one of these, 0 where it didn't:");
+            let mut gone = None;
+            for (b, block) in blocks.iter_mut().enumerate() {
+                ui.horizontal(|ui| {
+                    if let Some(candidate) = candidate {
+                        candidate.library.picker(ui, ("chosen block", k, n, b), block);
+                    }
+                    if ui.small_button("✕").clicked() {
+                        gone = Some(b);
+                    }
+                });
+            }
+            if let Some(b) = gone {
+                blocks.remove(b);
+            }
+            if ui.small_button("+ a block").clicked() {
+                blocks.push("incus:stone".into());
+            }
+        }
         _ => {}
+    }
+    // Noise added to the source before its curve: a step's or band's edge wanders.
+    let mut wanders = layer.wander.is_some();
+    if ui.checkbox(&mut wanders, "wander").on_hover_text("Noise added to the source before its curve, so a step's or a band's edge wanders rather than following the\nclimate's pixels (as mineralogy's zones' edges always have).").changed() {
+        layer.wander = wanders.then(Wander::default);
+    }
+    if let Some(wander) = &mut layer.wander {
+        let span = (high - low).abs().max(0.01);
+        ui.add(crate::debug::Slider::new(&mut wander.amount, 0.0..=span / 2.0).text("…by up to (either way)"));
+        ui.add(crate::debug::Slider::new(&mut wander.size, 4.0..=16_384.0).logarithmic(true).text("…in patches (blocks)"));
+        ui.add(egui::DragValue::new(&mut wander.seed).prefix("…seed "));
     }
     ui.horizontal(|ui| {
         ui.label("through");
@@ -847,16 +1003,21 @@ fn layer_ui(ui: &mut egui::Ui, layer: &mut Layer, n: usize, program: &Program, k
     ui.add(crate::debug::Slider::new(&mut layer.strength, 0.0..=1.0).text("strength"));
     ui.horizontal(|ui| {
         ui.small("show:");
-        ui.radio_value(&mut view.look.upto, Upto::After(n), "up to here").on_hover_text("The result after this layer.");
-        ui.radio_value(&mut view.look.upto, Upto::Alone(n), "alone").on_hover_text("This layer by itself, through its curve, before it's mixed in.");
+        if ui.radio(view.showing(k, Upto::After(n)), "up to here").on_hover_text("The result after this layer, in the field view.").clicked() {
+            view.show(k, Upto::After(n));
+        }
+        if ui.radio(view.showing(k, Upto::Alone(n)), "alone").on_hover_text("This layer by itself, through its curve, before it's mixed in.").clicked() {
+            view.show(k, Upto::Alone(n));
+        }
     });
     if let Some(problem) = program.problem(k, n) {
         ui.colored_label(Color32::from_rgb(230, 120, 90), problem);
     }
 }
 
-/// The picker for a layer's source: the table's fields by stage, then what Mineralogy has.
-fn source_picker(ui: &mut egui::Ui, layer: &mut Layer, n: usize, k: usize, names: &[String]) {
+/// The picker for a layer's source: the table's fields by stage, then what Mineralogy has (and, for a
+/// candidate, what the distributors before its own chose).
+fn source_picker(ui: &mut egui::Ui, layer: &mut Layer, n: usize, k: usize, names: &[String], candidate: Option<&ForCandidate>) {
     egui::ComboBox::from_id_salt(("source", k, n)).width(190.0).selected_text(source_name(&layer.source)).show_ui(ui, |ui| {
         for stage in Stage::ALL.into_iter().filter(|&stage| stage != Stage::Mineralogy) {
             ui.label(RichText::new(stage.name()).small().strong());
@@ -886,6 +1047,231 @@ fn source_picker(ui: &mut egui::Ui, layer: &mut Layer, n: usize, k: usize, names
         }
         if ui.selectable_label(matches!(layer.source, Source::Number { .. }), "a number").clicked() && !matches!(layer.source, Source::Number { .. }) {
             layer.source = Source::Number { value: 1.0 };
+        }
+        // What the distributors before this candidate's chose (greyed for a made field: they come
+        // before any distributor).
+        let earlier = candidate.map_or(&[][..], |candidate| candidate.earlier);
+        if earlier.is_empty() {
+            ui.add_enabled(false, egui::Button::selectable(false, "chosen by a distributor")).on_disabled_hover_text(if candidate.is_some() {
+                "What a distributor before this one chose: this is the first."
+            } else {
+                "Only a distributor's candidates read what's chosen (made fields come before any distributor)."
+            });
+        }
+        for distributor in earlier {
+            let chosen = matches!(&layer.source, Source::Chosen { distributor: shown, .. } if *shown == distributor.name);
+            if ui.selectable_label(chosen, format!("chosen by {}", distributor.name)).on_hover_text("1 where it chose one of the blocks you pick, 0 where it didn't (\"the rock is limestone or marble\").").clicked() && !chosen {
+                let block = distributor.candidates.first().map_or_else(|| "incus:stone".to_string(), |candidate| candidate.block.clone());
+                layer.source = Source::Chosen { distributor: distributor.name.clone(), blocks: vec![block] };
+            }
+        }
+    });
+}
+
+/// The Mineralogy panel's Mineralogy section: what's placed, the distributors (stop 3 of
+/// `docs/placer.md`), run in order, later ones over earlier ones.
+pub fn distributors_section(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut FieldView, registry: &BlockRegistry, swatch: &dyn Fn(BlockId) -> Option<Color32>) {
+    let library = Library { registry, swatch };
+    fold_section(ui, "Mineralogy", |ui| {
+        ui.small(
+            "What the ground is made of: distributors, run in order, each choosing one of its candidate blocks at every \
+             column, later ones over earlier ones where they choose. A candidate's suitability is a stack of layers, as a \
+             field is (multiply means \"and\"; no layers: everywhere). It puts down its block on top, then the blocks under \
+             it, each so deep, then stone; or only on top, over what's there. A block that isn't registered is skipped.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            for (d, distributor) in m.distributors.iter().enumerate() {
+                let text = if distributor.on { RichText::new(&distributor.name) } else { RichText::new(&distributor.name).color(Color32::GRAY) };
+                if ui.selectable_label(view.open_distributor == d, text).clicked() {
+                    view.open_distributor = d;
+                }
+            }
+            if ui.small_button("+ new distributor").on_hover_text("A new distributor, at the end: over all the others, where it chooses.").clicked() {
+                m.distributors.push(Distributor { name: unused_name(m, "a new distributor"), ..Distributor::default() });
+                view.open_distributor = m.distributors.len() - 1;
+            }
+        });
+        if m.distributors.is_empty() {
+            ui.small("No distributors: the ground is all stone.");
+        } else {
+            distributor_ui(ui, m, view, &library);
+        }
+        ui.add_space(4.0);
+        if ui.small_button("Back to the starting distributors").on_hover_text("The surface, the sea floor and river and lake beds, in David's numbers of 2026-10-31 (the made fields stay).").clicked() {
+            m.distributors = crate::world::starting_distributors();
+            view.open_distributor = 0;
+        }
+    });
+}
+
+/// A distributor name not yet used.
+fn unused_name(m: &MineralogySettings, name: &str) -> String {
+    let mut wanted = name.to_string();
+    for n in 2.. {
+        if !m.distributors.iter().any(|distributor| distributor.name == wanted) {
+            break;
+        }
+        wanted = format!("{name} {n}");
+    }
+    wanted
+}
+
+/// The open distributor: its name and buttons, its chooser, then its candidates.
+fn distributor_ui(ui: &mut egui::Ui, m: &mut MineralogySettings, view: &mut FieldView, library: &Library) {
+    let d = view.open_distributor.min(m.distributors.len() - 1);
+    view.open_distributor = d;
+    let blocks = TerrainBlocks::from_registry(library.registry);
+    let ready = Mineralogy::new(m, &blocks);
+    let program = ready.program();
+    // Where its candidates' stacks start (after the made fields and the distributors before it's).
+    let first = m.fields.len() + m.distributors[..d].iter().map(|distributor| distributor.candidates.len()).sum::<usize>();
+    let names: Vec<String> = m.fields.iter().map(|made| made.name.clone()).collect();
+    let mut moved = None;
+    ui.horizontal(|ui| {
+        let old = m.distributors[d].name.clone();
+        ui.add(egui::TextEdit::singleline(&mut m.distributors[d].name).desired_width(140.0)).on_hover_text("Its name (candidates that read what it chose follow a new name).");
+        let new = m.distributors[d].name.clone();
+        if new != old {
+            for layer in m.distributors.iter_mut().flat_map(|distributor| distributor.candidates.iter_mut()).flat_map(|candidate| candidate.layers.iter_mut()) {
+                if let Source::Chosen { distributor, .. } = &mut layer.source
+                    && *distributor == old
+                {
+                    *distributor = new.clone();
+                }
+            }
+        }
+        ui.checkbox(&mut m.distributors[d].on, "on").on_hover_text("Off: left out, to see what it does.");
+        if ui.small_button("copy").clicked() {
+            let mut copy = m.distributors[d].clone();
+            copy.name = unused_name(m, &format!("{} (copy)", copy.name));
+            m.distributors.push(copy);
+            moved = Some(m.distributors.len() - 1);
+        }
+        if ui.small_button("▲").on_hover_text("Earlier: under the ones after it (a candidate reads only what the distributors before its own chose).").clicked() && d > 0 {
+            m.distributors.swap(d, d - 1);
+            moved = Some(d - 1);
+        }
+        if ui.small_button("▼").on_hover_text("Later: over the ones before it, where it chooses.").clicked() && d + 1 < m.distributors.len() {
+            m.distributors.swap(d, d + 1);
+            moved = Some(d + 1);
+        }
+        if ui.small_button("delete").clicked() {
+            m.distributors.remove(d);
+            moved = Some(d.saturating_sub(1));
+        }
+    });
+    if let Some(to) = moved {
+        view.open_distributor = to;
+        return;
+    }
+    let (earlier, rest) = m.distributors.split_at_mut(d);
+    let distributor = &mut rest[0];
+    ui.horizontal(|ui| {
+        ui.label("chooses");
+        egui::ComboBox::from_id_salt(("chooser", d)).selected_text(distributor.chooser.name()).show_ui(ui, |ui| {
+            let fits = match distributor.chooser {
+                Chooser::FirstFit { at } => at,
+                _ => 0.5,
+            };
+            for (chooser, about) in [
+                (Chooser::FirstFit { at: fits }, "In order: the first whose suitability is at least so much (the order matters)."),
+                (Chooser::Best, "The most suitable (the first of equals); nothing where all are 0."),
+                (Chooser::Chance, "At random, weighted by suitability, the same at a spot every time; nothing where all are 0."),
+            ] {
+                if ui.selectable_label(std::mem::discriminant(&distributor.chooser) == std::mem::discriminant(&chooser), chooser.name()).on_hover_text(about).clicked() {
+                    distributor.chooser = chooser;
+                }
+            }
+        });
+    });
+    match &mut distributor.chooser {
+        Chooser::FirstFit { at } => {
+            ui.add(crate::debug::Slider::new(at, 0.0..=1.0).text("fits from (suitability)"));
+        }
+        Chooser::Unknown => {
+            ui.colored_label(Color32::from_rgb(230, 120, 90), "A kind of chooser this game doesn't know (from a newer one?): nothing is chosen.");
+        }
+        _ => {}
+    }
+    ui.small("Where none is chosen, the column is left as the distributors before it made it.");
+    let for_candidate = ForCandidate { library, earlier };
+    let mut change = None;
+    for (c, candidate) in distributor.candidates.iter_mut().enumerate() {
+        let k = first + c;
+        ui.group(|ui| candidate_ui(ui, candidate, (d, c, k), program, &names, &for_candidate, view, &mut change));
+    }
+    if let Some(change) = change {
+        change.apply(&mut distributor.candidates);
+        if view.shows == Shows::Field && view.look.chosen >= first {
+            view.shows = Shows::World;
+        }
+    }
+    if ui.small_button("+ add a candidate").on_hover_text("A new candidate at the end (stone, everywhere: give it a block and its layers).").clicked() {
+        distributor.candidates.push(Candidate::default());
+    }
+}
+
+/// One candidate: its block, what it puts down, and its suitability's layers.
+#[allow(clippy::too_many_arguments)]
+fn candidate_ui(ui: &mut egui::Ui, candidate: &mut Candidate, (d, c, k): (usize, usize, usize), program: &Program, names: &[String], for_candidate: &ForCandidate, view: &mut FieldView, change: &mut Option<Change>) {
+    let library = for_candidate.library;
+    ui.horizontal_wrapped(|ui| {
+        ui.checkbox(&mut candidate.on, format!("{}.", c + 1)).on_hover_text("Off: skipped, to see what it does.");
+        library.picker(ui, ("candidate", d, c), &mut candidate.block);
+        order_buttons(ui, c, "candidate", change);
+    });
+    match &mut candidate.puts {
+        Puts::Column { under, top_only } => {
+            ui.checkbox(top_only, "only on top").on_hover_text("Puts only its block on top, over what the distributors before it put down (a river's bed over the soil).");
+            ui.add_enabled_ui(!*top_only, |ui| {
+                let mut gone = None;
+                for (u, below) in under.iter_mut().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.small("then");
+                        library.picker(ui, ("under", d, c, u), &mut below.block);
+                        ui.add(egui::DragValue::new(&mut below.depth).range(0..=64).suffix(" deep"));
+                        if ui.small_button("✕").clicked() {
+                            gone = Some(u);
+                        }
+                    });
+                }
+                if let Some(u) = gone {
+                    under.remove(u);
+                }
+                ui.horizontal(|ui| {
+                    if ui.add_enabled(under.len() < crate::world::MOST_UNDER, egui::Button::new("+ a block under").small()).on_disabled_hover_text(format!("At most {} under the top, for now.", crate::world::MOST_UNDER)).clicked() {
+                        under.push(Under::default());
+                    }
+                    ui.small("then stone");
+                });
+            });
+        }
+        Puts::Unknown => {
+            ui.colored_label(Color32::GRAY, "Puts down a kind of thing this game doesn't know (from a newer one?): skipped.");
+        }
+    }
+    let on = candidate.layers.iter().filter(|layer| layer.on).count();
+    let summary = if on == 0 { "suits: everywhere (no layers)".to_string() } else { format!("suits: {on} layer{}", if on == 1 { "" } else { "s" }) };
+    egui::CollapsingHeader::new(summary).id_salt(("candidate layers", d, c)).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            if ui.radio(view.showing(k, Upto::All), "show its suitability").on_hover_text("In the field view: black where it doesn't suit, white where it does.").clicked() {
+                view.show(k, Upto::All);
+            }
+            let (low, high) = program.range(k);
+            if on > 0 {
+                ui.small(format!("from {low:.2} to {high:.2}"));
+            }
+        });
+        let mut layer_change = None;
+        for (n, layer) in candidate.layers.iter_mut().enumerate() {
+            ui.group(|ui| layer_ui(ui, layer, n, program, k, names, Some(for_candidate), view, &mut layer_change));
+        }
+        if let Some(layer_change) = layer_change {
+            layer_change.apply(&mut candidate.layers);
+            view.look.upto = Upto::All;
+        }
+        if ui.small_button("+ add a layer").on_hover_text("A new layer at the bottom of its stack (multiply: \"and\").").clicked() {
+            candidate.layers.push(Layer { mode: if candidate.layers.is_empty() { Mode::Normal } else { Mode::Multiply }, ..Layer::default() });
         }
     });
 }
@@ -925,7 +1311,7 @@ fn level_ui(ui: &mut egui::Ui, level: &mut Level) {
 }
 
 /// The right-hand panel's part: the column's blocks (in the depth sweep), or the field under the mouse,
-/// layer by layer (in the field view).
+/// layer by layer (in the field view); then why it's made of what it is.
 pub fn readout(ui: &mut egui::Ui, m: &MineralogySettings, view: &FieldView) {
     if view.shows == Shows::Blocks
         && let Some(column) = &view.column
@@ -945,21 +1331,50 @@ pub fn readout(ui: &mut egui::Ui, m: &MineralogySettings, view: &FieldView) {
             };
             ui.small(text);
         }
+    } else if let Some(hover) = &view.hover
+        && let Some((name, layers)) = m.stacks().get(view.look.chosen).cloned()
+    {
+        let level = &view.look.level;
+        ui.separator();
+        ui.strong(if view.look.chosen < m.fields.len() { format!("Field: {name}") } else { format!("Suits: {name}") });
+        ui.label(format!("{:.3}", hover.value)).on_hover_text("What the field view shows here (at the step chosen).");
+        ui.small(format!("at Z {:.0} ({}{})", hover.z, if level.is_range() { "the most " } else { "" }, level.describe()));
+        for (n, (layer, traced)) in layers.iter().zip(&hover.layers).enumerate() {
+            let text = match traced {
+                Some(t) => format!("{}. {}: {:.3} → {:.3}, {} → {:.3}", n + 1, source_name(&layer.source), t.source, t.curved, layer.mode.name(), t.so_far),
+                None => format!("{}. {} (off)", n + 1, source_name(&layer.source)),
+            };
+            ui.small(text);
+        }
+    }
+    why_readout(ui, &view.why);
+}
+
+/// "Why is this sand?": each distributor, what it chose under the mouse, and every candidate's
+/// suitability there.
+fn why_readout(ui: &mut egui::Ui, whys: &[Why]) {
+    if whys.is_empty() {
         return;
     }
-    let Some(hover) = &view.hover else { return };
-    let Some(made) = m.fields.get(view.look.chosen) else { return };
-    let level = &view.look.level;
     ui.separator();
-    ui.strong(format!("Field: {}", made.name));
-    ui.label(format!("{:.3}", hover.value)).on_hover_text("What the field view shows here (at the step chosen).");
-    ui.small(format!("at Z {:.0} ({}{})", hover.z, if level.is_range() { "the most " } else { "" }, level.describe()));
-    for (n, (layer, traced)) in made.layers.iter().zip(&hover.layers).enumerate() {
-        let text = match traced {
-            Some(t) => format!("{}. {}: {:.3} → {:.3}, {} → {:.3}", n + 1, source_name(&layer.source), t.source, t.curved, layer.mode.name(), t.so_far),
-            None => format!("{}. {} (off)", n + 1, source_name(&layer.source)),
+    ui.strong("Why it's made of this").on_hover_text("Each distributor (Mineralogy), in order: what it chose here, and how well each of its candidates suits here.");
+    for why in whys {
+        let chosen = why.chosen.and_then(|c| why.candidates.get(c)).map_or_else(|| "nothing (left as it was)".to_string(), |(name, _)| name.clone());
+        let off = if why.on { "" } else { " (off)" };
+        ui.label(format!("{}{off}: {chosen}", why.distributor));
+        let at = match why.chooser {
+            Chooser::FirstFit { at } => format!(" from {at:.2}"),
+            _ => String::new(),
         };
-        ui.small(text);
+        ui.small(format!("  {}{at}:", why.chooser.name()));
+        for (c, (name, suits)) in why.candidates.iter().enumerate() {
+            let mark = if why.chosen == Some(c) { "  ◀ chosen" } else { "" };
+            let text = match suits {
+                Some(suits) => format!("    {}. {name}: {suits:.2}{mark}", c + 1),
+                None => format!("    {}. {name}: skipped", c + 1),
+            };
+            ui.small(text);
+        }
     }
 }
 
@@ -988,10 +1403,11 @@ mod tests {
         let (map, frame) = close_up();
         // White where the ground is at Z 150 or higher, black below.
         let high = MadeField { name: "high".into(), layers: vec![Layer { curve: Curve::Step { at: 150.0, above: true, soft: 0.0 }, ..Layer::default() }] };
-        let program = Program::new(&[high], 130.0);
+        let settings = MineralogySettings { fields: vec![high], ..MineralogySettings::default() };
+        let mineralogy = Mineralogy::new(&settings, &blocks());
         let no_climate = |_: f32, _: f32, _: f32| None;
         let look = FieldLook { contours: false, ..FieldLook::default() };
-        let pixels = field_picture(&frame, &map, &no_climate, 130.0, &program, &look);
+        let pixels = field_picture(&frame, &map, &no_climate, &mineralogy, 0, &look);
         let (mut white, mut black, mut lines) = (0, 0, 0);
         for (pixel, &z) in pixels.iter().zip(&frame.heights) {
             if *pixel == Color32::WHITE {
@@ -1007,7 +1423,31 @@ mod tests {
         assert!(white > 1_000 && black > 1_000 && lines > 50, "{white} white, {black} black, {lines} on the coast");
         // A level above the ground everywhere: nothing to shade.
         let above = FieldLook { level: Level { by: LevelBy::Z, from: 300.0, to: 300.0 }, coast: false, water: false, contours: false, ..FieldLook::default() };
-        assert!(field_picture(&frame, &map, &no_climate, 130.0, &program, &above).iter().all(|&pixel| pixel == Color32::BLACK));
+        assert!(field_picture(&frame, &map, &no_climate, &mineralogy, 0, &above).iter().all(|&pixel| pixel == Color32::BLACK));
+        // A candidate's suitability, the same way: the starting surface's gabbro (from Z 333) is
+        // nowhere on this low map, its grass (everywhere) all one grey.
+        let gabbro = field_picture(&frame, &map, &no_climate, &mineralogy, 2, &above);
+        assert!(gabbro.iter().all(|&pixel| pixel == Color32::BLACK));
+        let surface = FieldLook { coast: false, water: false, contours: false, ..FieldLook::default() };
+        let grass = field_picture(&frame, &map, &no_climate, &mineralogy, 7, &surface);
+        assert!(grass.iter().zip(&frame.heights).all(|(&pixel, z)| z.is_nan() || pixel == grass[frame.heights.iter().position(|z| !z.is_nan()).unwrap()]));
+    }
+
+    #[test]
+    fn why_is_this_sand_lists_every_candidate_and_the_one_chosen() {
+        let (map, _) = close_up();
+        let mineralogy = map.mineralogy(&blocks());
+        let no_climate = |_: f32, _: f32, _: f32| None;
+        let name = |block: &str| block.trim_start_matches("incus:").to_string();
+        // On the beach (just above the sea), at Z 128: the surface is sand, the sea floor and the
+        // beds choose nothing.
+        let whys = why(&map, &no_climate, &mineralogy, &name, (0.0, 0.0, 128.0), 0.0);
+        assert_eq!(whys.len(), 3);
+        let surface = &whys[0];
+        assert_eq!((surface.distributor.as_str(), surface.chosen), ("the surface", Some(3)));
+        assert_eq!(surface.candidates[3], ("sand".to_string(), Some(1.0)));
+        assert_eq!(surface.candidates[6], ("grass".to_string(), Some(1.0)), "grass fits everywhere");
+        assert_eq!((whys[1].chosen, whys[2].chosen), (None, None));
     }
 
     #[test]
@@ -1030,16 +1470,19 @@ mod tests {
         assert_eq!(at_level(&program, 0, Upto::All, &mut reading, &Level::default()).unwrap().0, 0.0, "at the surface");
     }
 
-    /// Every block registered, numbered by hand.
+    /// Every block registered, numbered by hand (1 gabbro, 2 stone, 3 grass, 4 water, 5 dirt, 6 sand,
+    /// 7 dry grass, 8 snowy ground, 9 gravel).
     fn blocks() -> TerrainBlocks {
-        TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), dirt: Some(BlockId(5)), sand: Some(BlockId(6)), dry_grass: Some(BlockId(7)), snow: Some(BlockId(8)), gravel: Some(BlockId(9)) }
+        let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
+        let names = names.iter().enumerate().map(|(k, name)| (name.to_string(), BlockId(k as u16 + 1))).collect();
+        TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: Arc::new(names) }
     }
 
     #[test]
     fn the_depth_sweep_sees_the_first_block_from_the_top_that_isn_t_see_through() {
         let b = blocks();
         let (grass, dirt, sand, gravel) = (b.grass, BlockId(5), BlockId(6), BlockId(9));
-        let land = Layers { top: grass, under: dirt, depth: 3 };
+        let land = Layers::of(grass, [(dirt, 3)]);
         let depth = |from: f32, to: f32| Level { by: LevelBy::Depth, from, to };
         let z = |from: f32, to: f32| Level { by: LevelBy::Z, from, to };
         let on_land = |level: Level, see_stone: bool| seen(&level, see_stone, 150, &land, 0, &b);
@@ -1055,14 +1498,14 @@ mod tests {
         assert_eq!(on_land(depth(5.0, 60.0), false), Seen::Block(b.stone, 145));
         assert_eq!(on_land(depth(5.0, 60.0), true), Seen::Nothing);
         assert_eq!(on_land(depth(0.0, 60.0), true), Seen::Block(grass, 150));
-        let mountain = Layers { top: b.stone, under: b.stone, depth: 0 };
+        let mountain = Layers::rock(b.stone);
         assert_eq!(seen(&depth(0.0, 100.0), true, 250, &mountain, 0, &b), Seen::Nothing);
         // The sea floor: seen through the water, and only water over it.
-        let floor = Layers { top: sand, under: sand, depth: 3 };
+        let floor = Layers::of(sand, [(sand, 3)]);
         assert_eq!(seen(&z(90.0, 140.0), false, 100, &floor, 0, &b), Seen::Block(sand, 100));
         assert_eq!(seen(&z(110.0, 140.0), false, 100, &floor, 0, &b), Seen::Water);
         // A river 2 deep over ground at 150 (its water below Z 153), on a bed of gravel.
-        let river = land.bedded(&b);
+        let river = land.with_top(gravel);
         assert_eq!(seen(&z(152.0, 152.0), false, 150, &river, 153, &b), Seen::Water);
         assert_eq!(seen(&z(153.0, 153.0), false, 150, &river, 153, &b), Seen::Nothing);
         assert_eq!(seen(&z(140.0, 160.0), false, 150, &river, 153, &b), Seen::Block(gravel, 150));
@@ -1081,7 +1524,7 @@ mod tests {
         let mut kinds = std::collections::HashSet::new();
         for (col, row) in [(10, 10), (60, 40), (110, 70), (150, 20), (190, 100), (250, 120)] {
             let (north, east) = (request.north - (row as f32 + 0.5), request.east + (col as f32 + 0.5));
-            let (ground, layers, water) = world_column(&map, &no_climate, &b, north, east, frame.heights[row * cols + col]);
+            let (ground, layers, water) = world_column(&map, &no_climate, &map.mineralogy(&b), north, east, frame.heights[row * cols + col], 0.0);
             let (x, y) = (north.floor() as i32, east.floor() as i32);
             assert_eq!(map.column(x, y).map(|(z, _)| z), Some(ground));
             let chunk = map.chunk(crate::world::ChunkPos::of_block(bevy::prelude::IVec3::new(x, y, 0)), &b).unwrap();
@@ -1100,15 +1543,17 @@ mod tests {
         let mut settings = super::super::compiler::CompileSettings::default();
         let layers = vec![
             Layer { source: Source::Field { key: "climate/rain".into() }, curve: Curve::Step { at: 0.3, above: false, soft: 0.05 }, ..Layer::default() },
-            Layer { source: Source::Noise { size: 64.0, seed: 2 }, curve: Curve::Free { spline: Spline::through(&[(0.0, 0.0), (0.4, 0.1), (1.0, 1.0)]) }, mode: Mode::Subtract, strength: 0.25, on: false },
+            Layer { source: Source::Noise { size: 64.0, seed: 2 }, curve: Curve::Free { spline: Spline::through(&[(0.0, 0.0), (0.4, 0.1), (1.0, 1.0)]) }, mode: Mode::Subtract, strength: 0.25, on: false, wander: Some(Wander { amount: 0.1, size: 200.0, seed: 7 }) },
         ];
         settings.interpreter.mineralogy.fields = vec![MadeField { name: "dry".into(), layers }, MadeField::default()];
         settings.interpreter.mineralogy.crust = 150.0;
         let text = toml::to_string_pretty(&settings).unwrap();
         let back: super::super::compiler::CompileSettings = toml::from_str(&text).unwrap();
         assert_eq!(back, settings);
-        // A preset from before made fields reads with none, and the crust at 130.
+        // A preset from before made fields and distributors reads with no fields, the crust at 130, and
+        // the starting distributors (its old mineralogy settings let go).
         let old: super::super::compiler::CompileSettings = toml::from_str("[mineralogy]\nbeach = 1\n").unwrap();
-        assert_eq!((old.interpreter.mineralogy.fields.len(), old.interpreter.mineralogy.crust, old.interpreter.mineralogy.beach), (0, 130.0, 1));
+        assert_eq!((old.interpreter.mineralogy.fields.len(), old.interpreter.mineralogy.crust), (0, 130.0));
+        assert_eq!(old.interpreter.mineralogy.distributors, crate::world::starting_distributors(), "the first rules' settings are let go: the starting distributors");
     }
 }

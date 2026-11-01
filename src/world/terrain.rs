@@ -23,6 +23,7 @@ use super::VoxelWorld;
 use crate::data::BlockRegistry;
 use super::interpreter::CompiledMap;
 use bevy::prelude::*;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Ground at this Z or above is dry land; water fills everything below it down to the sea floor.
@@ -36,35 +37,23 @@ pub fn under_sea(height: f32) -> bool {
     (height.round() as i32) < SEA_LEVEL
 }
 
-/// The blocks the interpreter uses: the four it always has, and the ones mineralogy uses when they're
-/// registered (none: its rules for them are skipped).
-#[derive(Clone, Copy)]
+/// The blocks the terrain always has (the rock, water, and gabbro and grass for the far view and the
+/// tests), and every block by its name, for mineralogy's distributors (a block not in it isn't
+/// registered: its candidates are skipped).
+#[derive(Clone, PartialEq)]
 pub struct TerrainBlocks {
     pub gabbro: BlockId,
     pub stone: BlockId,
     pub grass: BlockId,
     pub water: BlockId,
-    pub dirt: Option<BlockId>,
-    pub sand: Option<BlockId>,
-    pub dry_grass: Option<BlockId>,
-    pub snow: Option<BlockId>,
-    pub gravel: Option<BlockId>,
+    pub names: Arc<HashMap<String, BlockId>>,
 }
 
 impl TerrainBlocks {
     pub fn from_registry(registry: &BlockRegistry) -> Self {
         let get = |name: &str| registry.id(name).unwrap_or_else(|| panic!("the terrain needs block '{name}'"));
-        Self {
-            gabbro: get("incus:gabbro"),
-            stone: get("incus:stone"),
-            grass: get("incus:grass"),
-            water: get("incus:water"),
-            dirt: registry.id("incus:dirt"),
-            sand: registry.id("incus:sand"),
-            dry_grass: registry.id("incus:dry_grass"),
-            snow: registry.id("incus:snowy_ground"),
-            gravel: registry.id("incus:gravel"),
-        }
+        let names = registry.defs().iter().filter_map(|def| Some((def.name.clone(), registry.id(&def.name)?))).collect();
+        Self { gabbro: get("incus:gabbro"), stone: get("incus:stone"), grass: get("incus:grass"), water: get("incus:water"), names: Arc::new(names) }
     }
 }
 
@@ -93,19 +82,43 @@ impl CompiledMap {
         // Each column's ground (−1 = past the map), what it's made of (mineralogy), and where a river's or
         // lake's water over it stops (0 = none).
         let mut ground = vec![-1i32; size * size];
-        let mut layers = vec![super::Layers { top: BlockId::AIR, under: blocks.stone, depth: 0 }; size * size];
+        let mut layers = vec![super::Layers::rock(blocks.stone); size * size];
         let mut water = vec![0i32; size * size];
         for local_y in 0..size {
             for local_x in 0..size {
-                let column = local_x + local_y * size;
                 if let Some((z, over)) = self.column(origin.x + local_x as i32, origin.y + local_y as i32) {
-                    ground[column] = z;
-                    layers[column] = self.layers(origin.x + local_x as i32, origin.y + local_y as i32, z, blocks);
-                    if let Some(top) = over {
-                        water[column] = top;
-                        layers[column] = layers[column].bedded(blocks);
-                    }
+                    ground[local_x + local_y * size] = z;
+                    water[local_x + local_y * size] = over.unwrap_or(0);
                 }
+            }
+        }
+        // What each column is made of (mineralogy), with its slope if anything reads it: across its
+        // neighbours, those past the chunk's edge asked for.
+        let mineralogy = self.mineralogy(blocks);
+        let ground_at = |x: i32, y: i32| -> Option<i32> {
+            if (0..size as i32).contains(&x) && (0..size as i32).contains(&y) {
+                Some(ground[x as usize + y as usize * size]).filter(|&z| z >= 0)
+            } else {
+                self.column(origin.x + x, origin.y + y).map(|(z, _)| z)
+            }
+        };
+        for local_y in 0..size {
+            for local_x in 0..size {
+                let column = local_x + local_y * size;
+                let z = ground[column];
+                if z < 0 {
+                    continue;
+                }
+                let (x, y) = (local_x as i32, local_y as i32);
+                let slope = if mineralogy.reads_slope {
+                    let at = |dx: i32, dy: i32| ground_at(x + dx, y + dy).unwrap_or(z) as f32;
+                    ((at(1, 0) - at(-1, 0)) / 2.0).hypot((at(0, 1) - at(0, -1)) / 2.0)
+                } else {
+                    0.0
+                };
+                let (north, east) = ((origin.x + x) as f32 + 0.5, (origin.y + y) as f32 + 0.5);
+                let over = Some(water[column]).filter(|&top| top > 0);
+                layers[column] = mineralogy.layers(self, super::placer::Column { north, east, ground: z as f32, slope, climate: self.climate(north, east, z as f32), water: over });
             }
         }
         let inside: Vec<&i32> = ground.iter().filter(|&&z| z >= 0).collect();
@@ -164,7 +177,7 @@ impl super::Layers {
         if z < ground - self.depth {
             blocks.stone
         } else if z < ground {
-            self.under
+            self.under_at(ground - z)
         } else if z == ground {
             self.top
         } else if z < SEA_LEVEL || z < water {
@@ -172,11 +185,6 @@ impl super::Layers {
         } else {
             BlockId::AIR
         }
-    }
-
-    /// Under a river or lake: a bed of gravel (or sand), as the sea's floor.
-    pub fn bedded(self, blocks: &TerrainBlocks) -> Self {
-        Self { top: blocks.gravel.or(blocks.sand).unwrap_or(self.top), ..self }
     }
 }
 
@@ -242,6 +250,14 @@ mod tests {
         TerrainBlocks::from_registry(&BlockRegistry::default())
     }
 
+    /// The registry's blocks, but only the four the terrain always had by name (whatever else this
+    /// computer has registered).
+    fn only_the_first_blocks() -> TerrainBlocks {
+        let blocks = blocks();
+        let names = blocks.names.iter().filter(|(name, _)| ["incus:gabbro", "incus:stone", "incus:grass", "incus:water"].contains(&name.as_str())).map(|(name, &id)| (name.clone(), id)).collect();
+        TerrainBlocks { names: Arc::new(names), ..blocks }
+    }
+
     #[test]
     fn the_ground_follows_the_map_smoothly() {
         let map = map();
@@ -272,7 +288,7 @@ mod tests {
             let layers = map.layers(x, y, g, &blocks);
             assert_eq!(at(g), layers.top);
             if layers.depth > 0 {
-                assert_eq!(at(g - 1), layers.under);
+                assert_eq!(at(g - 1), layers.under_at(1));
             }
             assert_eq!(at(g - layers.depth - 1), blocks.stone);
             if g < SEA_LEVEL {
@@ -289,11 +305,11 @@ mod tests {
     #[test]
     fn peaks_are_gabbro_mountainsides_stone_and_land_grass() {
         let map = map();
-        // Without mineralogy's blocks (whatever's registered): the ground as it always was.
-        let blocks = TerrainBlocks { dirt: None, sand: None, dry_grass: None, snow: None, gravel: None, ..blocks() };
+        // Without mineralogy's other blocks (whatever's registered): the ground as it always was.
+        let blocks = only_the_first_blocks();
         let top = |z: i32| map.layers(0, 0, z, &blocks).top;
-        assert_eq!(top(300), blocks.gabbro);
-        assert_eq!(top(230), blocks.stone);
+        assert_eq!(top(340), blocks.gabbro);
+        assert_eq!(top(300), blocks.stone);
         assert_eq!(top(140), blocks.grass);
         // The sea floor, with no sand or gravel registered: stone.
         assert_eq!(top(90), blocks.stone);
@@ -303,14 +319,16 @@ mod tests {
     #[test]
     fn land_has_its_dirt_layers_between_the_surface_and_the_stone() {
         let map = map();
-        let blocks = TerrainBlocks { dirt: Some(BlockId(50)), ..blocks() };
+        let mut blocks = only_the_first_blocks();
+        Arc::make_mut(&mut blocks.names).insert("incus:dirt".into(), BlockId(50));
         // A low column on land (the map rises 22 blocks a pixel from Z 100 in the west).
         let (x, y) = (-16, -48);
         let g = map.ground(x, y).unwrap();
-        assert!((SEA_LEVEL + 3..map.settings.stone_from).contains(&g), "a grassy column ({g})");
+        assert!((SEA_LEVEL + 3..256).contains(&g), "a grassy column ({g})");
         let chunk = map.chunk(ChunkPos::of_block(IVec3::new(x, y, 0)), &blocks).unwrap();
         let at = |z: i32| chunk.get(IVec3::new(x, y, z));
-        let depth = map.settings.mineralogy.dirt_depth;
+        // The surface's dirt goes 2 down (David's).
+        let depth = 2;
         assert_eq!(at(g), blocks.grass);
         assert!((1..=depth).all(|k| at(g - k) == BlockId(50)));
         assert_eq!(at(g - depth - 1), blocks.stone);

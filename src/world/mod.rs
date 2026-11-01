@@ -46,7 +46,7 @@ pub use section::Section;
 pub use streaming::{StreamSettings, Streaming};
 pub use interpreter::{CompiledMap, HIGHEST, InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Maps, Mutes, Peaks, Spline, coast_distance, point_distance};
 pub use carving::{Banks, Carving, FadeWay, Lake, Lakes, Point as RiverPoint, RIVER_FROM, Reach, STREAM_FROM, Shores, Sizes, depth_across, fullness};
-pub use mineralogy::{Layers, MineralogySettings};
+pub use mineralogy::{Layers, MOST_UNDER, Mineralogy, MineralogySettings, Why, starting_distributors};
 pub use terrain::{NextTerrain, SEA_LEVEL, Terrain, TerrainBlocks, under_sea, whole_column};
 #[cfg(test)]
 pub use storage::{fresh_terrain, load_terrain, save_terrain};

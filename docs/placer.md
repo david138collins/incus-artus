@@ -5,7 +5,8 @@
 - What the placer has to grow into is in section 11.
 - The first version's stops are in section 12.
   - **Stop 1 (the field view) is built.** David looked: "it looks ok so far".
-  - **Stop 2 (the depth sweep) is built**, waiting for David to look.
+  - **Stop 2 (the depth sweep) is built.** David looked: "it seems to be taking the right shape".
+  - **Stop 3 (mineralogy on the placer) is built** (2026-11-01), waiting for David to look.
 
 David asked for these through Counsel: "the placer and quartility seem the most critical. but im not
 sure how to observe the placer without minerology. i cant really think why it would need its own
@@ -554,6 +555,67 @@ shape"):
 - **Speed:** the soak test against today's mineralogy.
 
 **I stop here,** for David to add blocks and layers of his own.
+
+**[BUILT 2026-11-01]** On David's go-ahead ("go ahead and complete the remaining work in the next step
+with minerology and the placer"). As planned, with these details:
+- **Where it is:** the Mineralogy panel's Mineralogy section, under Fields. Its sliders are gone. The
+  section's name was kept, and no new section was made.
+  - The distributors are a row of names, with "+ new distributor".
+  - The open one has: its name, on, copy, ▲ ▼ and delete; "chooses" (the first that fits from a
+    suitability, the best fit, or by chance); then its candidates.
+  - "Back to the starting distributors" puts back the three below.
+- **A candidate** has:
+  - on;
+  - its block, picked from the library with its far colour. One not registered shows greyed and
+    italic, "(not registered)", and is skipped;
+  - what it puts down: its block on top, then up to 4 blocks under it, each so many deep, then stone;
+    or "only on top", over what the distributors before it put down;
+  - "suits:", its stack of layers, folded. It works as a made field's layers do, multiply being
+    "and"; with no layers, it fits everywhere. "Show its suitability" shows it in the field view, as a
+    made field is shown, and so does each layer's "up to here" or "alone".
+- **New in every layer** (made fields too): **wander**, noise added to the source before its curve
+  (how much, its patches' size, its seed). It's how the zones' edges have always wandered.
+- **New sources for a candidate's layers:**
+  - **"chosen by" a distributor before its own:** 1 where it chose one of the blocks picked, 0 where it
+    didn't (the kind in a set, "the rock is limestone or marble");
+  - **"under a river's or lake's water",** a new field in the table (1 or 0).
+  - The field view's level and the depth sweep now reach the world's whole height, and the
+    heights' ranges in the table do too.
+- **The starting distributors, in David's numbers** (his startup preset, `presets/compiler/default.toml`):
+  1. **the surface,** the first that fits:
+     - snowy ground below temperature −0.45;
+     - gabbro from Z 333;
+     - stone from Z 256;
+     - sand below Z 129 (the beach);
+     - sand where the rain is below 0 and the temperature above 0.11 (desert);
+     - dry grass below rain 0.21;
+     - grass everywhere.
+
+     Temperature and rain wander 0.3 in patches of 512. Under the soils is 2 of dirt, and under the
+     sand, 0 of sand.
+  2. **the sea floor:** sand below Z 128 and from Z 120 (the shallows), gravel below Z 120, else stone;
+  3. **river and lake beds:** gravel, or sand, only on top, under a river's or lake's water (moved in
+     from `terrain.rs`).
+- **The same world:** a test runs the first rules, kept word for word, beside the distributors. It
+  covers over 25,000 columns: 8 climates, 16 heights from Z 100 to 900, rivers and none, and four sets
+  of missing blocks. Every block matches, down to 4 below the surface.
+- **The dirt:** the first rules looked for `incus:dirt`, but David's dirt is registered as
+  `incus:dirt1`. So there has never been dirt under the grass in his world. The starting distributors
+  keep that, for the same world, and the panel now shows "incus:dirt (not registered)" greyed. Picking
+  Dirt1 there puts it in.
+- **"Why is this sand?":** under the mouse, in the right-hand readouts, in every view. For each
+  distributor it shows what it chose there and each candidate's suitability (or "skipped").
+- **One function:** the near chunks, the distant terrain, the close-up and the depth sweep all ask
+  `Mineralogy::layers`. It's made ready once per map and set of blocks, and kept on the map.
+  - The near ground works out the slope only if a layer reads it. The far view uses its own.
+- **Speed:** measured offline, not with the soak test, since that needs the game launched. The first
+  rules took about 214 ns a column, the distributors about 237 ns, roughly 10% more. That's about
+  0.02 ms a chunk, small beside the rest of making it. The soak test can confirm it in play.
+- **Presets:** `stone_from` and `gabbro_from` (the Interpreter's) and the old Mineralogy sliders are let
+  go: a preset with them reads with the starting distributors, which are David's numbers, so his
+  preset gives the same world (David's rule: no shims for old presets).
+- **Room in the format, not built:** a newer game's chooser, or kind of thing put down (inclusions,
+  points, pieces joined at hooks), reads as unknown: shown, and skipped.
 
 ### Stop 4: sharing, and the docs (about 250 lines)
 

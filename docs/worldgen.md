@@ -2171,7 +2171,11 @@ to 58, every block regulated). Next:
      to black to show them. Nothing in the world changes yet. **[BUILT 2026-10-31] Stop 2, the depth
      sweep:** a level bar on the map's right edge, and the map showing the blocks at that level, or
      for a range the first block from the top that isn't see-through (stone too, by a switch); the
-     world's chunks and the sweep fill columns by the one rule.
+     world's chunks and the sweep fill columns by the one rule. **[BUILT 2026-11-01] Stop 3,
+     mineralogy on the placer:** the first rules are three distributors (the surface, the sea floor,
+     river and lake beds) in David's numbers, giving his world to the block. Their candidates are
+     blocks from the library, each with a column profile and its suitability as layers. Under the
+     mouse, the readout says why each block is what it is. The details are in `docs/placer.md`, stop 3.
 5. **[DECIDED 2026-10-31] A performance overhaul once forests are in** (David), after the CPU read
    91–99 °C both while making rivers and in play. The cores slider for making rivers (12 of 24) is the
    first piece; `vision/watch-list.md` item 8 (a performance target machine) belongs with it.
@@ -2241,6 +2245,8 @@ to 58, every block regulated). Next:
    (it uses `incus:snowy_ground`, `incus:sand`, `incus:dry_grass`, `incus:dirt`, `incus:gravel`), so each
    block lands as David registers it; worlds from before climate stay mild and grassy. The distant
    terrain colours every block (each block's own far colour), so near and far agree whatever is placed.
+   *[2026-11-01: these rules are now the placer's three starting distributors, the sliders their
+   layers; see `docs/placer.md`, stop 3.]*
 **Reminder: fix the collision bug (walking through block sides) before the asset factory world is added
 to the Registrar**, which comes when it's time for trees. **[FIXED 2026-10-29]** It came from the
 position's precision: from 2,048 blocks out a position only changes in steps of 0.0002 blocks or more,

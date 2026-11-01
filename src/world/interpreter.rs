@@ -235,11 +235,9 @@ pub struct InterpreterSettings {
     /// cross it (off = the old way, where detail tore coasts up; that's the torn coast's job now).
     pub detail_keeps_coast: bool,
     pub torn_coast: TornCoast,
-    /// The surface is bare stone from this Z up, and gabbro (the peaks) from this Z up (set in the
-    /// Climate tab's Mineralogy section).
-    pub stone_from: i32,
-    pub gabbro_from: i32,
-    /// Which blocks the ground is made of, by climate and height (`mineralogy.rs`).
+    /// Which blocks the ground is made of: its distributors (`mineralogy.rs`). (The heights bare
+    /// stone and gabbro start at were settings of their own until 2026-11-01; they're those
+    /// candidates' steps now.)
     pub mineralogy: super::mineralogy::MineralogySettings,
 }
 
@@ -274,8 +272,6 @@ impl Default for InterpreterSettings {
             detail_mask: Mask::default(),
             detail_keeps_coast: true,
             torn_coast: TornCoast::default(),
-            stone_from: 215,
-            gabbro_from: 285,
             mineralogy: Default::default(),
         }
     }
@@ -872,6 +868,8 @@ pub struct CompiledMap {
     peak_cells: PeakCells,
     /// The rivers and lakes carved into the ground (from the World Compiler's river stage).
     pub rivers: Arc<super::carving::Carving>,
+    /// Mineralogy made ready (`CompiledMap::mineralogy`).
+    pub(super) mineralogy_kept: Arc<super::mineralogy::Kept>,
 }
 
 /// A Perlin field (as a Graphics Kit layer makes it, output shaping and all) at a spot, about −1
@@ -930,6 +928,7 @@ impl CompiledMap {
             slope_response: settings.peaks.slope_response.curve(),
             crag_steps: crag_steps(&settings.peaks),
             rivers: Arc::default(),
+            mineralogy_kept: Arc::default(),
             peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
             mutes: Mutes::default(),
             maps,

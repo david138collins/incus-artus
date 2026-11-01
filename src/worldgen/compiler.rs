@@ -403,12 +403,12 @@ mod tests {
     #[test]
     fn a_preset_holds_both_panels_in_one_flat_list_as_before() {
         // Presets saved before the recipe moved to the Interpreter list everything side by side.
-        let text = "water = -0.003\nsoften = 96.0\nfoothills = 6900.0\nridges = 0.89\nhills = 14.0\nstone_from = 220\n\
+        let text = "water = -0.003\nsoften = 96.0\nfoothills = 6900.0\nridges = 0.89\nhills = 14.0\nsharpness = 1.5\n\
                     [land]\ndots = [[0.0, 0.0], [1.0, 0.98]]\n";
         let settings: CompileSettings = toml::from_str(text).unwrap();
         // (Foothills, cut 2026-10-27, and hills, cut 2026-10-28, are passed over.)
         assert_eq!((settings.water, settings.soften), (-0.003, 96.0));
-        assert_eq!((settings.interpreter.ridges, settings.interpreter.stone_from), (0.89, 220));
+        assert_eq!((settings.interpreter.ridges, settings.interpreter.sharpness), (0.89, 1.5));
         assert_eq!(settings.interpreter.land.dots, vec![(0.0, 0.0), (1.0, 0.98)]);
         // And written back the same way: one flat list.
         let written = toml::to_string_pretty(&settings).unwrap();

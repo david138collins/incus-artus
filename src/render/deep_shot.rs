@@ -260,7 +260,7 @@ pub fn run_deep_shot(
             while shot.making.len() < most {
                 let Some(key) = shot.wanted.pop() else { break };
                 let map = map.clone();
-                let palette = palette.clone();
+                let (palette, blocks) = (palette.clone(), blocks.clone());
                 let task = pool.spawn(async move { distant::tile_mesh_measured(&map, &blocks, &palette, key, 1, SLOPE_CELL, false) });
                 shot.making.insert(key, task);
             }

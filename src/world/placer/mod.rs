@@ -13,20 +13,28 @@
 //!   every curve built, the ranges worked out. The World Compiler's field view reads one at every
 //!   sample; from stop 3, mineralogy at every column.
 //!
+//! - **Distributors** (`distribute.rs`, stop 3): what's placed. Each has candidates (blocks, from the
+//!   library), and each candidate's suitability is a stack of layers like a made field's; the
+//!   distributor's chooser picks one at each spot. Mineralogy's surface, sea floor and river beds are
+//!   three of them.
+//!
 //! **The kinds of source and curve are open** (section 11 of the plan): fields made from lists of
 //! points and lines, things already placed, regions and the plates come later, as more kinds. A kind
 //! this game doesn't know (a newer game's) is read as `Unknown`: shown greyed and named, never
 //! crashed on.
 //!
 //! **The linear rule:** a made field reads only fields from earlier stages, and only made fields
-//! above it in the list.
+//! above it in the list; a candidate reads any made field, and what the distributors before its own
+//! chose.
 
+mod distribute;
 mod fields;
 
+pub use distribute::{Candidate, Chooser, Distributor, Puts, Under};
 pub use fields::{Column, FIELDS, Field, Reading, Stage};
 
+use super::block::BlockId;
 use super::interpreter::{Curve as SplineCurve, Spline};
-use crate::worldgen::noise::{Fade, perlin};
 use serde::{Deserialize, Serialize};
 
 /// A field made from others: a stack of layers, run top to bottom.
@@ -53,12 +61,33 @@ pub struct Layer {
     /// How much of it is mixed in (0 none, 1 all).
     pub strength: f32,
     pub source: Source,
+    /// Noise added to the source before its curve, so a step's or a band's edge wanders (as
+    /// mineralogy's zones' edges always have) rather than following the climate's pixels.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wander: Option<Wander>,
     pub curve: Curve,
 }
 
 impl Default for Layer {
     fn default() -> Self {
-        Self { on: true, mode: Mode::Normal, strength: 1.0, source: Source::Field { key: "ground/height".into() }, curve: Curve::AsIs }
+        Self { on: true, mode: Mode::Normal, strength: 1.0, source: Source::Field { key: "ground/height".into() }, wander: None, curve: Curve::AsIs }
+    }
+}
+
+/// Noise added to a layer's source: up to `amount` either way, in patches about `size` blocks across,
+/// each `seed` its own pattern. (Its own seeds, not the noise source's: the starting distributors'
+/// wander keeps mineralogy's first patterns, seeds 24079 and 31261.)
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Wander {
+    pub amount: f32,
+    pub size: f32,
+    pub seed: u32,
+}
+
+impl Default for Wander {
+    fn default() -> Self {
+        Self { amount: 0.05, size: 64.0, seed: 1 }
     }
 }
 
@@ -76,6 +105,10 @@ pub enum Source {
     SoFar,
     /// A number, the same everywhere.
     Number { value: f32 },
+    /// Which block an earlier distributor chose here, as a kind in a set: 1 if it's one of `blocks`,
+    /// 0 if not ("the rock is limestone or marble"). Only a distributor's candidates read it, and
+    /// only the distributors before their own.
+    Chosen { distributor: String, blocks: Vec<String> },
     /// A kind this game doesn't know.
     #[serde(other)]
     Unknown,
@@ -171,6 +204,8 @@ enum Input {
     Made(usize),
     SoFar,
     Number(f32),
+    /// 1 if the distributor at this place in the list chose one of these blocks here.
+    Chosen { distributor: usize, blocks: Vec<BlockId> },
     /// Nothing to read (something's wrong with it: its `problem` says what).
     Missing,
 }
@@ -186,6 +221,8 @@ enum Shaped {
 struct Step {
     on: bool,
     input: Input,
+    /// Noise added to the source: how much, its patches' size and its salt.
+    wander: Option<(f32, f32, u64)>,
     shaped: Shaped,
     mode: Mode,
     strength: f32,
@@ -219,71 +256,116 @@ fn smooth(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// A stack of layers that isn't a made field: a distributor's candidate's suitability, read after
+/// every made field. `after` is its distributor's place in the list: it may read what the
+/// distributors before that one chose.
+pub struct Stack<'a> {
+    pub layers: &'a [Layer],
+    pub after: usize,
+}
+
+/// What a "what's chosen" source names, found: the distributor's place in the list (before `after`)
+/// and the blocks' numbers; or what's wrong.
+pub type FindChosen<'a> = dyn Fn(&str, &[String], usize) -> Result<(usize, Vec<BlockId>), String> + 'a;
+
 impl Program {
     /// `crust`: the crust's depth (blocks), the end of depth's range.
     pub fn new(fields: &[MadeField], crust: f32) -> Self {
-        let mut program = Self { made: Vec::with_capacity(fields.len()) };
+        Self::with_stacks(fields, crust, &[], &|_, _, _| Err("only a distributor's candidates read what's chosen".into()))
+    }
+
+    /// The made fields, then the stacks (read as made field `fields.len() + n`).
+    pub fn with_stacks(fields: &[MadeField], crust: f32, stacks: &[Stack], find: &FindChosen) -> Self {
+        let mut program = Self { made: Vec::with_capacity(fields.len() + stacks.len()) };
         for (k, made) in fields.iter().enumerate() {
-            let mut steps: Vec<Step> = Vec::with_capacity(made.layers.len());
-            let mut so_far = (0.0, 0.0);
-            let mut per_block = false;
-            for layer in &made.layers {
-                let mut problem = None;
-                let (input, range_in) = match &layer.source {
-                    Source::Field { key } => match Field::by_key(key) {
-                        Some(field) => {
-                            per_block |= layer.on && field.info().per_block;
-                            (Input::Field(field), if field == Field::Depth { (0.0, crust.max(1.0)) } else { field.info().range })
-                        }
-                        None => {
-                            problem = Some(format!("no field \"{key}\" (from a newer game?)"));
-                            (Input::Missing, (0.0, 1.0))
-                        }
-                    },
-                    Source::Noise { size, seed } => (Input::Noise { size: size.max(1.0), salt: 0x9_1ace_0000 + *seed as u64 }, (-1.0, 1.0)),
-                    Source::Made { name } => match fields[..k].iter().position(|other| &other.name == name) {
-                        Some(j) => {
-                            per_block |= layer.on && program.made[j].per_block;
-                            (Input::Made(j), program.range(j))
-                        }
-                        None => {
-                            problem = Some(if fields[k..].iter().any(|other| &other.name == name) {
-                                format!("\"{name}\" comes after this one: a made field reads only those above it")
-                            } else {
-                                format!("no made field \"{name}\"")
-                            });
-                            (Input::Missing, (0.0, 1.0))
-                        }
-                    },
-                    Source::SoFar => (Input::SoFar, so_far),
-                    Source::Number { value } => (Input::Number(*value), (*value, *value)),
-                    Source::Unknown => {
-                        problem = Some("a kind of source this game doesn't know (from a newer one?)".into());
-                        (Input::Missing, (0.0, 1.0))
-                    }
-                };
-                let (shaped, curved) = match &layer.curve {
-                    Curve::AsIs => (Shaped::AsIs, range_in),
-                    Curve::Step { at, above, soft } => (Shaped::Step { at: *at, above: *above, soft: soft.max(0.0) }, (0.0, 1.0)),
-                    Curve::Band { middle, spread } => (Shaped::Band { middle: *middle, spread: spread.max(0.0) }, (0.0, 1.0)),
-                    Curve::Free { spline } => {
-                        let dots = spline.dots.iter().map(|&(_, up)| up);
-                        let (low, high) = dots.fold((f32::MAX, f32::MIN), |(lo, hi), up| (lo.min(up), hi.max(up)));
-                        (Shaped::Free(spline.curve()), if low <= high { (low, high) } else { (0.0, 1.0) })
-                    }
-                    Curve::Unknown => {
-                        problem.get_or_insert_with(|| "a kind of curve this game doesn't know (from a newer one?)".into());
-                        (Shaped::Zero, (0.0, 0.0))
-                    }
-                };
-                if layer.on {
-                    so_far = layer.mode.mix_range(so_far, curved, layer.strength);
-                }
-                steps.push(Step { on: layer.on, input, shaped, mode: layer.mode, strength: layer.strength, range_in, range_out: so_far, problem });
-            }
-            program.made.push(Compiled { steps, per_block });
+            let compiled = program.compile(&made.layers, crust, fields, k, None, find);
+            program.made.push(compiled);
+        }
+        for stack in stacks {
+            let compiled = program.compile(stack.layers, crust, fields, fields.len(), Some(stack.after), find);
+            program.made.push(compiled);
         }
         program
+    }
+
+    /// One stack, reading the made fields before `k` (all of them for a candidate's, whose
+    /// distributor is at `after`).
+    fn compile(&self, layers: &[Layer], crust: f32, fields: &[MadeField], k: usize, after: Option<usize>, find: &FindChosen) -> Compiled {
+        let mut steps: Vec<Step> = Vec::with_capacity(layers.len());
+        let mut so_far = (0.0, 0.0);
+        let mut per_block = false;
+        for layer in layers {
+            let mut problem = None;
+            let (input, range_in) = match &layer.source {
+                Source::Field { key } => match Field::by_key(key) {
+                    Some(field) => {
+                        per_block |= layer.on && field.info().per_block;
+                        (Input::Field(field), if field == Field::Depth { (0.0, crust.max(1.0)) } else { field.info().range })
+                    }
+                    None => {
+                        problem = Some(format!("no field \"{key}\" (from a newer game?)"));
+                        (Input::Missing, (0.0, 1.0))
+                    }
+                },
+                Source::Noise { size, seed } => (Input::Noise { size: size.max(1.0), salt: 0x9_1ace_0000 + *seed as u64 }, (-1.0, 1.0)),
+                Source::Made { name } => match fields[..k].iter().position(|other| &other.name == name) {
+                    Some(j) => {
+                        per_block |= layer.on && self.made[j].per_block;
+                        (Input::Made(j), self.range(j))
+                    }
+                    None => {
+                        problem = Some(if fields[k..].iter().any(|other| &other.name == name) {
+                            format!("\"{name}\" comes after this one: a made field reads only those above it")
+                        } else {
+                            format!("no made field \"{name}\"")
+                        });
+                        (Input::Missing, (0.0, 1.0))
+                    }
+                },
+                Source::SoFar => (Input::SoFar, so_far),
+                Source::Number { value } => (Input::Number(*value), (*value, *value)),
+                Source::Chosen { distributor, blocks } => match find(distributor, blocks, after.unwrap_or(0)) {
+                    Ok((distributor, blocks)) if after.is_some() => (Input::Chosen { distributor, blocks }, (0.0, 1.0)),
+                    Ok(_) => {
+                        problem = Some("only a distributor's candidates read what's chosen".into());
+                        (Input::Missing, (0.0, 1.0))
+                    }
+                    Err(why) => {
+                        problem = Some(why);
+                        (Input::Missing, (0.0, 1.0))
+                    }
+                },
+                Source::Unknown => {
+                    problem = Some("a kind of source this game doesn't know (from a newer one?)".into());
+                    (Input::Missing, (0.0, 1.0))
+                }
+            };
+            let wander = layer.wander.map(|w| (w.amount, w.size.max(1.0), w.seed as u64));
+            let (shaped, curved) = match &layer.curve {
+                Curve::AsIs => (Shaped::AsIs, range_in),
+                Curve::Step { at, above, soft } => (Shaped::Step { at: *at, above: *above, soft: soft.max(0.0) }, (0.0, 1.0)),
+                Curve::Band { middle, spread } => (Shaped::Band { middle: *middle, spread: spread.max(0.0) }, (0.0, 1.0)),
+                Curve::Free { spline } => {
+                    let dots = spline.dots.iter().map(|&(_, up)| up);
+                    let (low, high) = dots.fold((f32::MAX, f32::MIN), |(lo, hi), up| (lo.min(up), hi.max(up)));
+                    (Shaped::Free(spline.curve()), if low <= high { (low, high) } else { (0.0, 1.0) })
+                }
+                Curve::Unknown => {
+                    problem.get_or_insert_with(|| "a kind of curve this game doesn't know (from a newer one?)".into());
+                    (Shaped::Zero, (0.0, 0.0))
+                }
+            };
+            if layer.on {
+                so_far = layer.mode.mix_range(so_far, curved, layer.strength);
+            }
+            steps.push(Step { on: layer.on, input, wander, shaped, mode: layer.mode, strength: layer.strength, range_in, range_out: so_far, problem });
+        }
+        Compiled { steps, per_block }
+    }
+
+    /// Whether any layer that's on reads this field (the near ground works out the slope only if so).
+    pub fn reads(&self, field: Field) -> bool {
+        self.made.iter().any(|made| made.steps.iter().any(|step| step.on && matches!(step.input, Input::Field(f) if f == field)))
     }
 
     /// How many made fields it has.
@@ -372,13 +454,18 @@ impl Program {
     }
 
     fn source(&self, step: &Step, reading: &mut Reading, z: f32, so_far: f32) -> f32 {
-        match step.input {
-            Input::Field(field) => reading.read(field, z),
-            Input::Noise { size, salt } => perlin(reading.map.seed, salt, Fade::Smooth, reading.column.north / size, reading.column.east / size),
-            Input::Made(j) => self.value(j, reading, z),
+        let value = match &step.input {
+            Input::Field(field) => reading.read(*field, z),
+            Input::Noise { size, salt } => reading.noise(*salt, *size),
+            Input::Made(j) => self.value(*j, reading, z),
             Input::SoFar => so_far,
-            Input::Number(value) => value,
+            Input::Number(value) => *value,
+            Input::Chosen { distributor, blocks } => reading.chosen.get(*distributor).is_some_and(|chosen| blocks.contains(chosen)) as u8 as f32,
             Input::Missing => 0.0,
+        };
+        match step.wander {
+            Some((amount, size, salt)) => value + reading.noise(salt, size) * amount,
+            None => value,
         }
     }
 
@@ -413,7 +500,7 @@ mod tests {
     use crate::world::interpreter::CompiledMap;
 
     fn layer(source: Source, curve: Curve, mode: Mode, strength: f32) -> Layer {
-        Layer { on: true, mode, strength, source, curve }
+        Layer { on: true, mode, strength, source, wander: None, curve }
     }
 
     fn field(key: &str) -> Source {

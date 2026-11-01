@@ -160,11 +160,11 @@ impl Lab {
     }
 }
 
-/// The recipe without what only decides which blocks cover the ground (mineralogy, and the heights
-/// stone and gabbro start at): moving those only repaints the close-up, its heights kept [David and
+/// The recipe without what only decides which blocks cover the ground (mineralogy, its distributors
+/// and fields): moving those only repaints the close-up, its heights kept [David and
 /// Counsel, 2026-10-30: move a slider and see the world change at once].
 fn shape_only(settings: &InterpreterSettings) -> InterpreterSettings {
-    InterpreterSettings { mineralogy: Default::default(), stone_from: 0, gabbro_from: 0, ..settings.clone() }
+    InterpreterSettings { mineralogy: Default::default(), ..settings.clone() }
 }
 
 /// Works out a close-up on all the computer's cores.
@@ -273,10 +273,10 @@ mod tests {
         let mut lab = Lab::default();
         let first = lab.recipe(&map, &map.settings.clone());
         let shape = lab.shape().unwrap().clone();
-        // A made field and a stone height: a new recipe to paint from, the same one for the climate.
+        // A made field and a distributor: a new recipe to paint from, the same one for the climate.
         let mut settings = map.settings.clone();
         settings.mineralogy.fields.push(crate::world::placer::MadeField::default());
-        settings.stone_from += 10;
+        settings.mineralogy.distributors.pop();
         let second = lab.recipe(&map, &settings);
         assert!(!Arc::ptr_eq(&first, &second));
         assert_eq!(second.settings.mineralogy.fields.len(), 1);

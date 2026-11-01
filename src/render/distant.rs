@@ -362,13 +362,12 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
     let (ease_from, ease_to) = if eases { (EASE_FROM * size, EASE_TO * size) } else { (f32::MAX, f32::MAX) };
     // Each corner's place in the list (`u32::MAX` past the map).
     let mut index = vec![u32::MAX; corners * corners];
+    let mineralogy = map.mineralogy(blocks);
     for j in 0..=CELLS {
         for i in 0..=CELLS {
             let (Some(h), Some(top)) = (at(i, j), surface(i, j)) else { continue };
             let (x, y) = (corner.x + i as f32 * cell, corner.y + j as f32 * cell);
             let water = under_sea(h) || river(i, j).is_some();
-            // What the ground is made of here (mineralogy, as the near ground has it).
-            let block = map.layers(x.floor() as i32, y.floor() as i32, (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1), blocks).top;
             // The slope, blocks up per block across.
             let (north, east) = if water {
                 (0.0, 0.0)
@@ -380,6 +379,11 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
                 ((z(1, 0) - z(-1, 0)) / (2.0 * cell), (z(0, 1) - z(0, -1)) / (2.0 * cell))
             };
+            // What the ground is made of here (mineralogy, as the near ground has it).
+            let ground = (h.round() as i32).clamp(1, crate::world::WORLD_HEIGHT - 1);
+            let (block_north, block_east) = (x.floor() + 0.5, y.floor() + 0.5);
+            let column = crate::world::placer::Column { north: block_north, east: block_east, ground: ground as f32, slope: north.hypot(east), climate: map.climate(block_north, block_east, ground as f32), water: river(i, j).map(|top| top as i32) };
+            let block = mineralogy.layers(map, column).top;
             let (mut top_colour, mut side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block), palette.side(block)) };
             // A river narrower than a cell: its water blended in by the share of the cell it covers,
             // so a creek fades in from afar as a texture's mipmaps do, rather than appearing where the
@@ -701,7 +705,7 @@ pub fn update_distant(
             continue;
         }
         let map = map.clone();
-        let palette = palette.clone();
+        let (palette, blocks) = (palette.clone(), blocks.clone());
         let task = pool.spawn(async move { tile_mesh(&map, &blocks, &palette, key, finest) });
         state.making.insert(key, task);
     }
