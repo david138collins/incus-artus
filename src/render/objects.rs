@@ -3,8 +3,8 @@
 //! - **The model** is the object's glTF (Blockbench's export, `assets/models/`). Its meshes are drawn
 //!   one by one, each with its texture, as the blocks are drawn: flat, with no realistic lighting (not
 //!   Bevy's glTF scene, which would bring it).
-//! - **Scaled to its height** (the object's `height`), standing with its feet's middle on its spot,
-//!   whatever size it was made at.
+//! - **As made, or scaled to its height** (the object's `height`), standing with its feet's middle on
+//!   its spot, as its shape was read (`data/objects.rs`), so what's drawn is what bodies bump into.
 //! - **Lit like the blocks round it:** the daylight of the cell it stands in (`sky_light.rs`: open sky
 //!   full, a short way in from it fading, black beyond), eased as the terrain shader eases it. Worked
 //!   out when it's drawn, and again when the sections round it are made again.
@@ -122,9 +122,13 @@ pub fn draw_objects(
                 }
                 Model::Failed => continue,
             };
-            // Scaled to its height, its feet's middle on its spot, turned to face its way.
-            let scale = def.height / (high.y - low.y).max(0.001);
-            let feet = Vec3::new((low.x + high.x) / 2.0, low.y, (low.z + high.z) / 2.0);
+            // As made or scaled to its height, its feet's middle on its spot, turned to face its way
+            // (a quarter turn each, as `world::turned` turns its shape): as its shape was read, so
+            // what's drawn is what's bumped into.
+            let (scale, feet) = match &def.shape {
+                Some(shape) => (shape.scale, shape.feet),
+                None => (def.height.map_or(1.0, |height| height / (high.y - low.y).max(0.001)), Vec3::new((low.x + high.x) / 2.0, low.y, (low.z + high.z) / 2.0)),
+            };
             let spot = game_to_bevy(object.at.as_vec3() / 16.0);
             let turn = Quat::from_rotation_y(-((object.facing % 4) as f32) * std::f32::consts::FRAC_PI_2);
             let placing = Mat4::from_scale_rotation_translation(Vec3::splat(scale), turn, spot) * Mat4::from_translation(-feet);

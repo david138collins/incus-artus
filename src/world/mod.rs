@@ -17,6 +17,7 @@ mod block;
 mod chunk;
 mod edits;
 mod generator;
+mod objects;
 mod position;
 mod pieces;
 mod raycast;
@@ -32,10 +33,11 @@ mod terrain;
 
 pub use block::BlockId;
 pub use caves::{CavePlan, Caves, TestCaveSettings};
+pub use objects::{held, is_small, object_box, room, shape_boxes, solid_boxes, spot, turned};
 pub use pieces::{Owners, Part, Pieces, Turn, bar_halves, bar_placement, block_halves, block_placement, half_box, octant_of, piece_start};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason, object_box, solid_object_half,
+    RefuseReason,
 };
 pub use raycast::{RayHit, cast_ray_halves};
 #[allow(unused_imports)] // re-exported for later modules (rendering, saving)

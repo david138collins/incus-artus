@@ -10,6 +10,10 @@
 //!
 //! Doing the axes separately is what makes you *slide* along a wall when walking into it at
 //! an angle: the blocked axis stops, the other keeps going.
+//!
+//! **Boxes** as well as blocks: a solid object's shape is boxes of any size, off the grid (its
+//! model's own parts, pixel by pixel: `world/objects.rs`), and a body stops flush against those too
+//! (David, 2026-11-01: "the collision still needs to be from the models geometry, not its volume").
 
 use bevy::math::{IVec3, Vec3};
 
@@ -43,17 +47,27 @@ pub struct Blocked {
     pub up: bool,
 }
 
+/// Boxes a body bumps into besides the blocks: each one's two corners, in the grid's units.
+pub type Boxes<'a> = &'a [(Vec3, Vec3)];
+
 /// Move the body by `motion` (game axes). Returns the new feet position and what blocked it.
-pub fn move_body(
+#[cfg(test)]
+pub fn move_body(feet: Vec3, size: BodySize, motion: Vec3, solid: impl FnMut(IVec3) -> bool) -> (Vec3, Blocked) {
+    move_body_among(feet, size, motion, &[], solid)
+}
+
+/// `move_body`, bumping into `boxes` too.
+fn move_body_among(
     feet: Vec3,
     size: BodySize,
     motion: Vec3,
+    boxes: Boxes,
     mut solid: impl FnMut(IVec3) -> bool,
 ) -> (Vec3, Blocked) {
     let mut feet = feet;
     let mut blocked = Blocked::default();
     for axis in [2, 0, 1] {
-        let (moved, hit) = sweep_axis(feet, size, axis, motion[axis], &mut solid);
+        let (moved, hit) = sweep_axis(feet, size, axis, motion[axis], boxes, &mut solid);
         feet = moved;
         if hit {
             match axis {
@@ -79,20 +93,25 @@ impl BodySize {
     }
 }
 
-/// `move_body`, on the half-block grid.
-pub fn move_body_halves(feet: Vec3, size: BodySize, motion: Vec3, solid_half: impl FnMut(IVec3) -> bool) -> (Vec3, Blocked) {
-    let (feet, blocked) = move_body(feet * 2.0, size.doubled(), motion * 2.0, solid_half);
+/// Boxes (blocks) on the half-block grid.
+fn doubled(boxes: Boxes) -> Vec<(Vec3, Vec3)> {
+    boxes.iter().map(|&(low, high)| (low * 2.0, high * 2.0)).collect()
+}
+
+/// `move_body`, on the half-block grid, bumping into `boxes` (blocks) too.
+pub fn move_body_halves(feet: Vec3, size: BodySize, motion: Vec3, boxes: Boxes, solid_half: impl FnMut(IVec3) -> bool) -> (Vec3, Blocked) {
+    let (feet, blocked) = move_body_among(feet * 2.0, size.doubled(), motion * 2.0, &doubled(boxes), solid_half);
     (feet / 2.0, blocked)
 }
 
-/// `overlaps_solid`, on the half-block grid.
-pub fn overlaps_solid_halves(feet: Vec3, size: BodySize, solid_half: impl FnMut(IVec3) -> bool) -> bool {
-    overlaps_solid(feet * 2.0, size.doubled(), solid_half)
+/// `overlaps_solid`, on the half-block grid, `boxes` (blocks) too.
+pub fn overlaps_solid_halves(feet: Vec3, size: BodySize, boxes: Boxes, solid_half: impl FnMut(IVec3) -> bool) -> bool {
+    overlaps_among(feet * 2.0, size.doubled(), &doubled(boxes), solid_half)
 }
 
-/// `has_support`, on the half-block grid.
-pub fn has_support_halves(feet: Vec3, size: BodySize, solid_half: impl FnMut(IVec3) -> bool) -> bool {
-    has_support(feet * 2.0, size.doubled(), solid_half)
+/// `has_support`, on the half-block grid, `boxes` (blocks) too.
+pub fn has_support_halves(feet: Vec3, size: BodySize, boxes: Boxes, solid_half: impl FnMut(IVec3) -> bool) -> bool {
+    has_support_among(feet * 2.0, size.doubled(), &doubled(boxes), solid_half)
 }
 
 /// How high a body steps up without jumping, walking into it: half a block (a bar, a slab or a stair of
@@ -102,17 +121,17 @@ pub const STEP_UP: f32 = 0.5;
 /// `move_body_halves`, stepping up: a body `on_ground` walking into something no higher than
 /// `STEP_UP`, with room above, goes up onto it. Tried raised, moved across, then set down; kept if it
 /// got further. A full block's side still stops it.
-pub fn move_body_stepping(feet: Vec3, size: BodySize, motion: Vec3, on_ground: bool, mut solid_half: impl FnMut(IVec3) -> bool) -> (Vec3, Blocked) {
-    let (moved, blocked) = move_body_halves(feet, size, motion, &mut solid_half);
+pub fn move_body_stepping(feet: Vec3, size: BodySize, motion: Vec3, on_ground: bool, boxes: Boxes, mut solid_half: impl FnMut(IVec3) -> bool) -> (Vec3, Blocked) {
+    let (moved, blocked) = move_body_halves(feet, size, motion, boxes, &mut solid_half);
     if !on_ground || !(blocked.x || blocked.y) || motion.z > 0.0 {
         return (moved, blocked);
     }
     let raised = feet + Vec3::Z * STEP_UP;
-    if overlaps_solid_halves(raised, size, &mut solid_half) {
+    if overlaps_solid_halves(raised, size, boxes, &mut solid_half) {
         return (moved, blocked);
     }
-    let (across, stepped) = move_body_halves(raised, size, Vec3::new(motion.x, motion.y, 0.0), &mut solid_half);
-    let (settled, _) = move_body_halves(across, size, Vec3::Z * -STEP_UP, &mut solid_half);
+    let (across, stepped) = move_body_halves(raised, size, Vec3::new(motion.x, motion.y, 0.0), boxes, &mut solid_half);
+    let (settled, _) = move_body_halves(across, size, Vec3::Z * -STEP_UP, boxes, &mut solid_half);
     let gone = |to: Vec3| (to.x - feet.x).hypot(to.y - feet.y);
     if gone(settled) > gone(moved) + 1e-4 {
         (settled, Blocked { x: stepped.x, y: stepped.y, down: true, up: false })
@@ -131,17 +150,37 @@ pub fn body_bounds(feet: Vec3, size: BodySize) -> (Vec3, Vec3) {
 }
 
 /// Is there anything solid just under the body's footprint (something to stand on)?
+#[cfg(test)]
 pub fn has_support(feet: Vec3, size: BodySize, solid: impl FnMut(IVec3) -> bool) -> bool {
+    has_support_among(feet, size, &[], solid)
+}
+
+/// `has_support`, `boxes` too.
+fn has_support_among(feet: Vec3, size: BodySize, boxes: Boxes, solid: impl FnMut(IVec3) -> bool) -> bool {
     let sliver = BodySize {
         width: size.width,
         height: 0.1,
     };
-    overlaps_solid(feet - Vec3::Z * 0.1, sliver, solid)
+    overlaps_among(feet - Vec3::Z * 0.1, sliver, boxes, solid)
 }
 
 /// Does the body overlap any solid block where it stands?
-pub fn overlaps_solid(feet: Vec3, size: BodySize, mut solid: impl FnMut(IVec3) -> bool) -> bool {
+#[cfg(test)]
+pub fn overlaps_solid(feet: Vec3, size: BodySize, solid: impl FnMut(IVec3) -> bool) -> bool {
+    overlaps_among(feet, size, &[], solid)
+}
+
+/// Do these two ranges overlap by more than the gap at their ends?
+fn ranges_meet(low: f32, high: f32, from: f32, to: f32) -> bool {
+    from < high - margin(high) && to > low + margin(low)
+}
+
+/// `overlaps_solid`, `boxes` too.
+fn overlaps_among(feet: Vec3, size: BodySize, boxes: Boxes, mut solid: impl FnMut(IVec3) -> bool) -> bool {
     let (min, max) = body_bounds(feet, size);
+    if boxes.iter().any(|(low, high)| (0..3).all(|axis| ranges_meet(min[axis], max[axis], low[axis], high[axis]))) {
+        return true;
+    }
     let low = (min + min.map(margin)).floor().as_ivec3();
     let high = (max - max.map(margin)).floor().as_ivec3();
     for z in low.z..=high.z {
@@ -156,20 +195,39 @@ pub fn overlaps_solid(feet: Vec3, size: BodySize, mut solid: impl FnMut(IVec3) -
     false
 }
 
-/// Move along one axis, stopping at the first solid block in the way.
+/// Move along one axis, stopping at the first solid block, or box, in the way.
 fn sweep_axis(
     feet: Vec3,
     size: BodySize,
     axis: usize,
     distance: f32,
+    boxes: Boxes,
     solid: &mut impl FnMut(IVec3) -> bool,
 ) -> (Vec3, bool) {
     if distance == 0.0 {
         return (feet, false);
     }
     let (min, max) = body_bounds(feet, size);
-    // The block range the box covers on the two other axes.
+    // The nearest box in the way stops it first, if it's nearer than any block: the move is cut to
+    // it, and the blocks are swept only that far.
     let (a, b) = ((axis + 1) % 3, (axis + 2) % 3);
+    let mut distance = distance;
+    let mut boxed = false;
+    for (low, high) in boxes {
+        if !ranges_meet(min[a], max[a], low[a], high[a]) || !ranges_meet(min[b], max[b], low[b], high[b]) {
+            continue;
+        }
+        let gap = if distance > 0.0 { low[axis] - max[axis] } else { high[axis] - min[axis] };
+        let ahead = if distance > 0.0 { gap > -margin(max[axis]) } else { gap < margin(min[axis]) };
+        if ahead && gap.abs() < distance.abs() {
+            distance = if gap.abs() <= margin(max[axis].abs().max(min[axis].abs())) { 0.0 } else { gap };
+            boxed = true;
+        }
+    }
+    if distance == 0.0 {
+        return (feet, boxed);
+    }
+    // The block range the box covers on the two other axes.
     let a_range = (min[a] + margin(min[a])).floor() as i32..=(max[a] - margin(max[a])).floor() as i32;
     let b_range = (min[b] + margin(min[b])).floor() as i32..=(max[b] - margin(max[b])).floor() as i32;
     let layer_is_solid = |layer: i32, solid: &mut dyn FnMut(IVec3) -> bool| {
@@ -211,7 +269,7 @@ fn sweep_axis(
         }
     }
     result[axis] += distance;
-    (result, false)
+    (result, boxed)
 }
 
 #[cfg(test)]
@@ -238,23 +296,46 @@ mod tests {
     fn a_body_steps_up_half_a_block_but_not_a_whole_one() {
         let feet = Vec3::new(4.0, 0.5, 10.0);
         // Walking into the half step: up onto it, on the ground.
-        let (moved, blocked) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, steps);
+        let (moved, blocked) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, &[], steps);
         assert_eq!((moved.x, moved.z, blocked.down), (6.0, 10.5, true));
         // In the air (or rising): no stepping, it stops against the step's side.
-        let (moved, _) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), false, steps);
+        let (moved, _) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), false, &[], steps);
         assert!(moved.x < 4.71 && moved.z < 10.5, "{moved}");
         // From the step, into the whole block (another half up, from 10.5 to 11): up again. But from
         // the floor straight into a whole block's side: stopped.
-        let (moved, _) = move_body_stepping(Vec3::new(7.0, 0.5, 10.5), DWARF, Vec3::new(2.0, 0.0, -0.01), true, steps);
+        let (moved, _) = move_body_stepping(Vec3::new(7.0, 0.5, 10.5), DWARF, Vec3::new(2.0, 0.0, -0.01), true, &[], steps);
         assert_eq!((moved.x, moved.z), (9.0, 11.0));
         let wall = |half: IVec3| half.z < 20 || (half.x >= 10 && half.z < 22);
-        let (moved, blocked) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, wall);
+        let (moved, blocked) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, &[], wall);
         assert!(moved.x < 4.71 && moved.z == 10.0 && blocked.x, "{moved}");
         // No room overhead (a ceiling at Z 11.5, just over a body standing on the floor, so not over
         // one on the step): no stepping up.
         let low = |half: IVec3| steps(half) || half.z >= 23;
-        let (moved, _) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, low);
+        let (moved, _) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, &[], low);
         assert!(moved.x < 4.71, "{moved}");
+    }
+
+    #[test]
+    fn a_body_bumps_into_an_objects_boxes_not_the_cell_round_them() {
+        // A pole 2 pixels thick in the middle of cell (6, 0), on the floor (Z 10), 1.5 tall.
+        let pole = [(Vec3::new(6.4375, 0.4375, 10.0), Vec3::new(6.5625, 0.5625, 11.5))];
+        let feet = Vec3::new(4.0, 0.5, 10.0);
+        // Walking into it: stopped flush against it (the body is 0.6 across), well inside its cell.
+        let (moved, blocked) = move_body_stepping(feet, DWARF, Vec3::new(3.0, 0.0, -0.01), true, &pole, steps_free);
+        assert!((moved.x - (6.4375 - 0.3)).abs() < 1e-3 && blocked.x, "{moved}");
+        // Beside it, in the same cell: walks on by.
+        let (moved, blocked) = move_body_stepping(Vec3::new(4.0, 0.1, 10.0), DWARF, Vec3::new(3.0, 0.0, -0.01), true, &pole, steps_free);
+        assert!(moved.x == 7.0 && !blocked.x, "{moved}");
+        // A low box (a pixel under half a block): stepped up onto, and stood on.
+        let slab = [(Vec3::new(5.0, 0.0, 10.0), Vec3::new(8.0, 1.0, 10.4375))];
+        let (moved, _) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, &slab, steps_free);
+        assert!(moved.x == 6.0 && (moved.z - 10.4375).abs() < 1e-3, "{moved}");
+        assert!(has_support_halves(moved, DWARF, &slab, steps_free));
+    }
+
+    /// On the half-block grid: just the floor (its top at Z 10).
+    fn steps_free(half: IVec3) -> bool {
+        half.z < 20
     }
 
     #[test]

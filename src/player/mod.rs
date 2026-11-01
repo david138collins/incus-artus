@@ -41,7 +41,7 @@ use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, block_halves, block_placement, half_box, object_box, piece_start, PlacedObject, solid_object_half,
+    RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, block_halves, block_placement, half_box, held, object_box, piece_start, PlacedObject, shape_boxes, solid_boxes, spot, turned,
 };
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
@@ -414,12 +414,18 @@ struct ActionCooldowns {
 /// there's a chisel). With any block in hand, holding Shift places it whole on the octant grid (David:
 /// "shift should free you from the main grid"). Kept apart from storage and aiming, so the control
 /// can change without touching them.
+///
+/// With an object in hand (`docs/objects.md` section 9), it snaps by its size (`world/objects.rs`):
+/// a small one to the middle of a cell, or with Shift an octant; a full-block one as a block does.
+/// It faces you, and B turns it a quarter at a time (David: "rotation might as well be B").
 #[derive(Resource, Default)]
 struct PieceChoice {
     turn: Turn,
+    /// How many quarter turns B has turned the object in hand from facing you.
+    object_turn: u8,
     /// What would be placed this frame, if anything: a bar (its corner in half blocks, and its axis),
     /// one octant (where), a whole block on the octant grid (its lowest corner, in half blocks), or
-    /// an object (its foot, in 16ths of a block).
+    /// an object (its feet, in 16ths of a block, and which way it faces).
     aim: Option<Aim>,
     /// The object under the crosshair, nearer than any block (its foot, 16ths): what left click takes.
     aimed_object: Option<IVec3>,
@@ -430,11 +436,29 @@ enum Aim {
     Bar(IVec3, u8),
     Octant(IVec3),
     Shifted(IVec3),
-    Object(IVec3, ObjectId),
+    Object(IVec3, ObjectId, u8),
 }
 
-/// The nearest object a ray meets (its foot, in 16ths, and how far along), within `reach` blocks:
-/// each object's box (`object_box`) in the chunks round where the ray starts.
+/// Where a ray enters a box (blocks along it), if it meets it within `reach`.
+fn ray_meets(from: Vec3, toward: Vec3, reach: f32, (low, high): (Vec3, Vec3)) -> Option<f32> {
+    let (mut enter, mut leave) = (0.0f32, reach);
+    for axis in 0..3 {
+        if toward[axis].abs() < 1e-6 {
+            if from[axis] < low[axis] || from[axis] > high[axis] {
+                return None;
+            }
+            continue;
+        }
+        let (a, b) = ((low[axis] - from[axis]) / toward[axis], (high[axis] - from[axis]) / toward[axis]);
+        enter = enter.max(a.min(b));
+        leave = leave.min(a.max(b));
+    }
+    (enter <= leave).then_some(enter)
+}
+
+/// The nearest object a ray meets (its feet, in 16ths, and how far along), within `reach` blocks:
+/// its model's own boxes (`shape_boxes`), so the crosshair passes through the gaps in it, in the
+/// chunks round where the ray starts.
 fn object_on_ray(world: &VoxelWorld, objects: &ObjectRegistry, from: Vec3, toward: Vec3, reach: f32) -> Option<(IVec3, f32)> {
     let toward = toward.normalize_or_zero();
     let start = ChunkPos::of_block(from.floor().as_ivec3());
@@ -443,22 +467,11 @@ fn object_on_ray(world: &VoxelWorld, objects: &ObjectRegistry, from: Vec3, towar
         for y in -1..=1 {
             let cell = IVec3::new((start.x + x) * CHUNK_SIZE, (start.y + y) * CHUNK_SIZE, 0);
             for object in world.objects_near(cell) {
-                let (low, high) = object_box(object, objects);
-                // Where the ray enters and leaves the box, along each axis in turn.
-                let (mut enter, mut leave) = (0.0f32, reach);
-                for axis in 0..3 {
-                    if toward[axis].abs() < 1e-6 {
-                        if from[axis] < low[axis] || from[axis] > high[axis] {
-                            leave = -1.0;
-                        }
-                        continue;
+                let Some(def) = objects.by_name(&object.name) else { continue };
+                for found in shape_boxes(object, def).into_iter().filter_map(|part| ray_meets(from, toward, reach, part)) {
+                    if nearest.is_none_or(|(_, best)| found < best) {
+                        nearest = Some((object.at, found));
                     }
-                    let (a, b) = ((low[axis] - from[axis]) / toward[axis], (high[axis] - from[axis]) / toward[axis]);
-                    enter = enter.max(a.min(b));
-                    leave = leave.min(a.max(b));
-                }
-                if enter <= leave && nearest.is_none_or(|(_, best)| enter < best) {
-                    nearest = Some((object.at, enter));
                 }
             }
         }
@@ -466,8 +479,22 @@ fn object_on_ray(world: &VoxelWorld, objects: &ObjectRegistry, from: Vec3, towar
     nearest
 }
 
+/// Which way an object faces to face you, looking `looking`: its front (`turned(X, facing)`, the
+/// model's north in Blockbench) toward you.
+fn facing_you(looking: Vec3) -> u8 {
+    let back = -looking;
+    if back.x.abs() >= back.y.abs() {
+        if back.x >= 0.0 { 0 } else { 2 }
+    } else if back.y >= 0.0 {
+        1
+    } else {
+        3
+    }
+}
+
 /// With a bar block selected: B turns the bar, and the selector snaps to where it would go. With
-/// Shift held and any block in hand, where it would go whole on the octant grid.
+/// Shift held and any block in hand, where it would go whole on the octant grid. With an object in
+/// hand: B turns it, and the selector shows the room it would hold and which way it would face.
 fn aim_bar(
     (keys, capture): (Res<ButtonInput<KeyCode>>, Res<MouseCapture>),
     hotbar: Res<Hotbar>,
@@ -478,22 +505,29 @@ fn aim_bar(
     mut piece: ResMut<PieceChoice>,
 ) {
     let bar_selected = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)).and_then(|id| registry.def(id)).is_some_and(|def| def.bar.is_some());
-    if bar_selected && capture.captured && keys.just_pressed(KeyCode::KeyB) {
-        piece.turn = piece.turn.next();
+    let object_in_hand = hotbar.slots.get(hotbar.selected).and_then(|name| objects.id(name));
+    if capture.captured && keys.just_pressed(KeyCode::KeyB) {
+        if bar_selected {
+            piece.turn = piece.turn.next();
+        } else if object_in_hand.is_some() {
+            piece.object_turn = (piece.object_turn + 1) % 4;
+        }
     }
     let looking = cameras.iter().next().map_or(Vec3::X, |camera| camera.looking());
     let block_in_hand = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)).is_some_and(|id| !id.is_air());
     let off_the_grid = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     let octant = keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
-    // An object in hand stands on the floor of the cell in front of the face aimed at, in its middle.
-    let object_in_hand = hotbar.slots.get(hotbar.selected).and_then(|name| objects.id(name));
     // The object under the crosshair, if it's nearer than the block.
     piece.aimed_object = cameras.iter().next().and_then(|camera| {
         let reach = target.hit.map_or(8.0, |hit| hit.distance);
         object_on_ray(&world, &objects, camera.position, camera.looking(), reach).map(|(at, _)| at)
     });
+    let facing = (facing_you(looking) + piece.object_turn) % 4;
     piece.aim = match (target.hit, target.half, target.point) {
-        (Some(hit), _, _) if object_in_hand.is_some() => hit.in_front().map(|cell| Aim::Object(cell * 16 + IVec3::new(8, 8, 0), object_in_hand.unwrap())),
+        (Some(hit), Some(half), Some(point)) if object_in_hand.is_some() => {
+            let object = object_in_hand.unwrap();
+            objects.def(object).and_then(|def| spot(def, facing, half, hit.normal, point, off_the_grid)).map(|at| Aim::Object(at, object, facing))
+        }
         (Some(hit), Some(half), Some(point)) if off_the_grid && block_in_hand => block_placement(half, hit.normal, point).map(Aim::Shifted),
         (Some(hit), Some(half), _) if octant && bar_selected => piece_start(half, hit.normal).map(Aim::Octant),
         (Some(hit), Some(half), Some(point)) if bar_selected => bar_placement(half, hit.normal, point, looking, piece.turn).map(|(at, axis)| Aim::Bar(at, axis)),
@@ -512,12 +546,19 @@ fn aim_bar(
         Some(Aim::Object(..)) | None => Vec::new(),
     };
     target.ghost = halves.into_iter().filter(free).map(half_box).collect();
-    // An object in hand: the box it would stand in.
-    if let Some(Aim::Object(at, object)) = piece.aim
+    target.arrow = None;
+    // An object in hand: the room it would hold (its octants), and an arrow from its middle out of
+    // its front.
+    if let Some(Aim::Object(at, object, facing)) = piece.aim
         && let Some(def) = objects.def(object)
     {
-        let placed = PlacedObject { name: def.name.clone(), at, facing: 0, stage: 0, since: 0 };
-        target.ghost = vec![object_box(&placed, &objects)];
+        let placed = PlacedObject { name: def.name.clone(), at, facing, stage: 0, since: 0 };
+        let (low, high) = held(&placed, def);
+        let (low, high) = (half_box(low).0, half_box(high).1);
+        target.ghost = vec![(low, high)];
+        let middle = Vec3::new((low.x + high.x) / 2.0, (low.y + high.y) / 2.0, low.z + 0.05);
+        let reach = 0.5 * ((high - low).x.max((high - low).y)).max(1.0);
+        target.arrow = Some((middle, middle + turned(Vec3::X, facing) * reach));
     }
     // The piece aimed at in a cell of pieces: a bar and what's stuck to it, or a lone octant. Or the
     // object aimed at, its box.
@@ -671,7 +712,7 @@ fn place_pawn(
 ) {
     let mut feet = feet;
     let solid = |half: IVec3| world.half_filled(half, |block| registry.is_solid(block));
-    while overlaps_solid_halves(feet, settings.body(), solid) && feet.z < WORLD_HEIGHT as f32 {
+    while overlaps_solid_halves(feet, settings.body(), &[], solid) && feet.z < WORLD_HEIGHT as f32 {
         feet.z = feet.z.floor() + 1.0;
     }
     position.teleport(feet);
@@ -835,8 +876,8 @@ fn move_pawn(
 ) {
     let dt = time.delta_secs();
     let tick = time_control.tick();
-    // Blocks, and solid objects (a brazier), are bumped into.
-    let solid = |half: IVec3| world.half_filled(half, |block| registry.is_solid(block)) || solid_object_half(&world, &objects, half);
+    // Blocks are bumped into, and solid objects (a brazier): their models' boxes, gathered for each body.
+    let solid = |half: IVec3| world.half_filled(half, |block| registry.is_solid(block));
     for (mut pawn, mut position, mut input, &player, local) in &mut pawns {
         let jump = input.jump_held || input.jump_tapped;
         input.jump_tapped = false;
@@ -845,7 +886,9 @@ fn move_pawn(
             continue;
         }
         // Crouching: Ctrl held, or no room to stand up (you stay crouched under a low ceiling).
-        let room_to_stand = !overlaps_solid_halves(position.current, settings.body(), solid);
+        // Solid objects near it: their models' boxes.
+        let boxes = solid_boxes(&world, &objects, position.current - Vec3::splat(4.0), position.current + Vec3::splat(4.0));
+        let room_to_stand = !overlaps_solid_halves(position.current, settings.body(), &boxes, solid);
         pawn.crouched = input.crouch || (pawn.crouched && !room_to_stand);
         let crouched = pawn.crouched;
         pawn.crouch_previous = pawn.crouch.level;
@@ -939,7 +982,7 @@ fn move_pawn(
         let mut motion = pawn.velocity * dt;
         if crouched && settings.crouch_edge_guard && pawn.on_ground && pawn.velocity.z <= 0.0 {
             let feet = position.current;
-            let supported = |offset: Vec3| has_support_halves(feet + offset, body, solid);
+            let supported = |offset: Vec3| has_support_halves(feet + offset, body, &boxes, solid);
             if !supported(Vec3::new(motion.x, 0.0, 0.0)) {
                 motion.x = 0.0;
                 pawn.velocity.x = 0.0;
@@ -957,7 +1000,7 @@ fn move_pawn(
         }
 
         let falling_speed = -pawn.velocity.z;
-        let (feet, blocked) = move_body_stepping(position.current, body, motion, pawn.on_ground, solid);
+        let (feet, blocked) = move_body_stepping(position.current, body, motion, pawn.on_ground, &boxes, solid);
         position.current = feet;
         if blocked.x {
             pawn.velocity.x = 0.0;
@@ -1103,9 +1146,9 @@ fn block_actions(
 
     if mouse.pressed(MouseButton::Right) && now - cooldowns.last_place >= settings.place_cooldown {
         // An object: standing where the selector shows it.
-        if let Some(Aim::Object(at, object)) = piece.aim {
+        if let Some(Aim::Object(at, object, facing)) = piece.aim {
             cooldowns.last_place = now;
-            send(BlockEditRequest { position: at.div_euclid(IVec3::splat(16)), kind: EditKind::PlaceObject { at, object, facing: 0 }, source: EditSource::Player(player) });
+            send(BlockEditRequest { position: at.div_euclid(IVec3::splat(16)), kind: EditKind::PlaceObject { at, object, facing }, source: EditSource::Player(player) });
             return;
         }
         let Some(block) = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)) else {

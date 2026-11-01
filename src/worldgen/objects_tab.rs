@@ -12,6 +12,7 @@
 //! here comes later.
 
 use crate::data::{ObjectDef, ObjectRegistry, Sits, data_folder, header_of, models_folder, object_file_text};
+use bevy::math::IVec3;
 use bevy_egui::egui;
 use std::path::{Path, PathBuf};
 
@@ -33,6 +34,7 @@ struct Loading {
     files: Vec<PathBuf>,
     picked: Option<PathBuf>,
     name: String,
+    as_made: bool,
     height: f32,
 }
 
@@ -48,7 +50,7 @@ pub fn draw(root: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry)
 fn list(ui: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
     ui.heading("Objects");
     if ui.button("Load a model…").on_hover_text("A glTF from Art/ (Blockbench: File → Export → glTF, textures packed inside), made into an object").clicked() {
-        tab.loading = if tab.loading.is_some() { None } else { Some(Loading { files: gltf_files(), picked: None, name: String::new(), height: 1.0 }) };
+        tab.loading = if tab.loading.is_some() { None } else { Some(Loading { files: gltf_files(), picked: None, name: String::new(), as_made: true, height: 1.0 }) };
     }
     ui.separator();
     if objects.defs().is_empty() {
@@ -84,6 +86,8 @@ fn dock(ui: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
         tab.tags_text = def.tags.join(", ");
     }
     let Some(draft) = tab.draft.as_mut() else { return };
+    // Its shape is read from its model, not edited here: kept as the game has it.
+    draft.shape = def.shape.clone();
     ui.heading(&def.display_name);
     ui.small(&def.name);
     ui.horizontal(|ui| {
@@ -99,8 +103,8 @@ fn dock(ui: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
             }
         });
     });
-    ui.add(crate::debug::Slider::new(&mut draft.height, 0.1..=8.0).text("how tall it stands (blocks)")).on_hover_text("The model is scaled to this, whatever size it was made at");
-    ui.checkbox(&mut draft.solid, "solid").on_hover_text("Bodies bump into it: its cell, up to its height");
+    size_settings(ui, draft, def);
+    ui.checkbox(&mut draft.solid, "solid").on_hover_text("Bodies bump into it: into its model's own shape, pixel by pixel");
     ui.horizontal(|ui| {
         ui.label("sits:");
         ui.radio_value(&mut draft.sits, Sits::Floor, "on a floor").on_hover_text("Standing in the middle of its cell");
@@ -141,6 +145,46 @@ fn dock(ui: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
     ui.small("To see it: put it in a hotbar slot (the Player page) and place it in the world. A turning preview here comes later.");
 }
 
+/// Its size: as made, or scaled to a height; how far it may stick over; and what that makes it (small,
+/// on the octant grid, or a full-block object), with the room it holds.
+fn size_settings(ui: &mut egui::Ui, draft: &mut ObjectDef, def: &ObjectDef) {
+    let mut as_made = draft.height.is_none();
+    if ui.checkbox(&mut as_made, "as made").on_hover_text("At the size it was made: Blockbench's 16 pixels to a block, the blocks' own pixels").changed() {
+        let made_tall = def.shape.as_ref().map_or(1.0, |shape| shape.size.z as f32 / 16.0 / shape.scale);
+        draft.height = if as_made { None } else { Some((made_tall * 16.0).round() / 16.0) };
+    }
+    let mut height = draft.height.unwrap_or_else(|| def.shape.as_ref().map_or(1.0, |shape| shape.size.z as f32 / 16.0 / shape.scale));
+    let slider = ui.add_enabled(!as_made, crate::debug::Slider::new(&mut height, 0.1..=8.0).text("how tall it stands (blocks)"));
+    slider.on_hover_text("The model is scaled to this, evenly, whatever size it was made at").on_disabled_hover_text("Untick \"as made\" to scale it");
+    if !as_made {
+        draft.height = Some(height);
+    }
+    let mut over = draft.stick_over as i32;
+    ui.add(crate::debug::Slider::new(&mut over, 0..=8).text("may stick over (pixels)")).on_hover_text("How far it may stick out of the room it holds, and just clip, and still count as that size");
+    draft.stick_over = over as u8;
+    // Its size as it would be with these settings (the saved shape, scaled), and what that makes it.
+    let Some(shape) = &def.shape else {
+        ui.colored_label(egui::Color32::from_rgb(230, 160, 60), "Its model couldn't be read: it counts as a block across.");
+        return;
+    };
+    let made_tall = shape.size.z as f32 / 16.0 / shape.scale;
+    let scale = draft.height.map_or(1.0, |height| height / made_tall.max(1e-3));
+    let mut preview = draft.clone();
+    let size = (shape.size.as_vec3() * scale / shape.scale).round().as_ivec3().max(IVec3::ONE);
+    preview.shape = Some(crate::data::Shape { size, ..shape.clone() });
+    ui.label(format!("size: {} × {} × {} pixels (across, along, up)", size.x, size.y, size.z));
+    let room = crate::world::room(&preview, 0);
+    let held = if crate::world::is_small(&preview) {
+        format!("small: on the octant grid or a cell's middle, holding an octant across and {} up", room.z / 8)
+    } else {
+        format!("full-block: snaps as blocks do, holding {} × {} blocks across and {} octants up", room.x / 16, room.y / 16, room.z / 8)
+    };
+    ui.label(held).on_hover_text("Half a block across or less (with what it may stick over) is small. Its model's own shape is what bodies bump into, not this room.");
+    if draft.height != def.height {
+        ui.small("(what bodies bump into is worked out again when it's saved)");
+    }
+}
+
 /// Bringing a model in: pick a glTF from Art/, name it, register it.
 fn loading(ui: &mut egui::Ui, tab: &mut ObjectsTab) {
     let Some(loading) = tab.loading.as_mut() else { return };
@@ -161,7 +205,8 @@ fn loading(ui: &mut egui::Ui, tab: &mut ObjectsTab) {
         ui.label("name:");
         ui.text_edit_singleline(&mut loading.name);
     });
-    ui.add(crate::debug::Slider::new(&mut loading.height, 0.1..=8.0).text("how tall it stands (blocks)"));
+    ui.checkbox(&mut loading.as_made, "as made").on_hover_text("At the size it was made: Blockbench's 16 pixels to a block");
+    ui.add_enabled(!loading.as_made, crate::debug::Slider::new(&mut loading.height, 0.1..=8.0).text("how tall it stands (blocks)")).on_disabled_hover_text("Untick \"as made\" to scale it");
     let name = loading.name.trim().to_string();
     let ok_name = !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
     let file = data_folder().join("incus").join("objects").join(format!("{name}.toml"));
@@ -175,7 +220,8 @@ fn loading(ui: &mut egui::Ui, tab: &mut ObjectsTab) {
     let register = ui.add_enabled(enabled, egui::Button::new(format!("Register incus:{name}"))).on_disabled_hover_text(if !ok_name { "Lowercase letters, digits and _ only" } else if taken { "There's an object of that name already" } else { "Its textures need to be inside it" }).clicked();
     if register {
         let model = format!("{name}.gltf");
-        let def = ObjectDef { name: format!("incus:{name}"), display_name: name.replace('_', " "), model: model.clone(), height: loading.height, solid: false, sits: Sits::Floor, tags: Vec::new() };
+        let height = (!loading.as_made).then_some(loading.height);
+        let def = ObjectDef { name: format!("incus:{name}"), display_name: name.replace('_', " "), model: model.clone(), height, stick_over: 2, solid: false, sits: Sits::Floor, tags: Vec::new(), shape: None };
         let header = format!("# {}: from {}.\n# See docs/objects.md for every setting.\n\n", def.display_name, picked.file_name().map_or(String::new(), |name| name.to_string_lossy().into_owned()));
         let result = std::fs::create_dir_all(models_folder())
             .and_then(|()| std::fs::copy(&picked, models_folder().join(&model)).map(|_| ()))

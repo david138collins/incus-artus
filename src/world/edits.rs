@@ -11,6 +11,7 @@
 //! world, like dig designations and blueprint ghosts, are a separate layer that will work
 //! while paused; see docs/decisions.md.)
 
+use super::objects::{held, holder};
 use super::{BlockId, Part, Pieces, PlacedObject, VoxelWorld, bar_halves, block_halves, octant_of};
 use crate::data::{BlockRegistry, ObjectId, ObjectRegistry};
 use crate::events::{LoggedEvent, PlayerId};
@@ -215,9 +216,9 @@ pub fn apply_block_edits(
         let changes = match request.kind {
             EditKind::Break => break_block(&mut world, &rules, request.position),
             EditKind::Place(block) => place_block(&mut world, &registry, &objects, request.position, block),
-            EditKind::PlaceBar { at, axis, block } => place_bar(&mut world, &registry, at, axis, block),
+            EditKind::PlaceBar { at, axis, block } => place_bar(&mut world, &registry, &objects, at, axis, block),
             EditKind::BreakPiece { half } => break_piece(&mut world, half),
-            EditKind::PlaceOctant { half, block } => place_octant(&mut world, &registry, half, block),
+            EditKind::PlaceOctant { half, block } => place_octant(&mut world, &registry, &objects, half, block),
             EditKind::PlaceShifted { at, block } => place_shifted(&mut world, &registry, &objects, at, block),
             EditKind::PlaceObject { at, object, facing } => place_object(&mut world, &registry, &objects, at, object, facing, tick),
             EditKind::BreakObject { at } => world.remove_object(at).map(|_| Vec::new()).ok_or(RefuseReason::NothingThere),
@@ -242,7 +243,7 @@ type Changes = Result<Vec<(IVec3, BlockId, BlockId)>, RefuseReason>;
 /// A whole block into air, or into something replaceable (like the grid), but never into the same
 /// block that's already there, nor a block that's only ever a bar.
 fn place_block(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &ObjectRegistry, at: IVec3, block: BlockId) -> Changes {
-    if object_in(world, objects, at) {
+    if block_halves(at * 2).iter().any(|&half| holder(world, objects, half).is_some()) {
         return Err(RefuseReason::Occupied);
     }
     if registry.def(block).is_some_and(|def| def.bar.as_ref().is_some_and(|bar| bar.only)) {
@@ -307,13 +308,16 @@ fn clear_halves(world: &mut VoxelWorld, halves: &[IVec3]) -> Changes {
 /// A single octant of a bar block, an octblock (David: "there's no reason octblocks shouldn't be a
 /// thing"), at `half` (in half blocks): into air, something replaceable, or a free octant of a cell of
 /// pieces.
-fn place_octant(world: &mut VoxelWorld, registry: &BlockRegistry, half: IVec3, block: BlockId) -> Changes {
+fn place_octant(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &ObjectRegistry, half: IVec3, block: BlockId) -> Changes {
     if registry.def(block).is_none_or(|def| def.bar.is_none()) {
         return Err(RefuseReason::NotABar);
     }
     let cell = half.div_euclid(IVec3::splat(2));
     if !world.is_loaded(cell) {
         return Err(RefuseReason::NotLoaded);
+    }
+    if holder(world, objects, half).is_some() {
+        return Err(RefuseReason::Occupied);
     }
     let old = world.get_block(cell);
     let mut pieces = if old == BlockId::PIECES {
@@ -334,7 +338,7 @@ fn place_octant(world: &mut VoxelWorld, registry: &BlockRegistry, half: IVec3, b
 /// octants, in one cell or across two. An octant already taken keeps what's there (the first piece
 /// keeps it): the bar is cut, its other octant placed as a cut piece stuck to it. Into air,
 /// something replaceable, or a cell of pieces; refused if neither octant is free.
-fn place_bar(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, axis: u8, block: BlockId) -> Changes {
+fn place_bar(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &ObjectRegistry, at: IVec3, axis: u8, block: BlockId) -> Changes {
     if registry.def(block).is_none_or(|def| def.bar.is_none()) {
         return Err(RefuseReason::NotABar);
     }
@@ -354,7 +358,7 @@ fn place_bar(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, axis: 
         } else {
             continue;
         };
-        if pieces.get(octant_of(half)).is_none() {
+        if pieces.get(octant_of(half)).is_none() && holder(world, objects, half).is_none() {
             free.push((end as u8, half, cell, old));
         }
     }
@@ -393,7 +397,7 @@ fn place_shifted(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &Obj
         }
         let old = world.get_block(cell);
         let free = if old == BlockId::PIECES { world.octant(half).is_none() } else { registry.is_replaceable(old) };
-        if !free {
+        if !free || holder(world, objects, half).is_some() {
             return Err(RefuseReason::Occupied);
         }
     }
@@ -413,55 +417,30 @@ fn place_shifted(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &Obj
     Ok(changes)
 }
 
-/// The cells an object stands in: its foot's cell, and the cells above it up to its height (a brazier
-/// 1.5 blocks tall stands in two).
-pub fn cells_of(object: &PlacedObject, objects: &ObjectRegistry) -> std::ops::RangeInclusive<i32> {
-    let height = objects.by_name(&object.name).map_or(1.0, |def| def.height);
-    let foot = object.at.z as f32 / 16.0;
-    let cell = object.cell();
-    cell.z..=((foot + height - 0.001).floor() as i32).max(cell.z)
-}
-
-/// An object's box (its two corners, blocks): its cell across, from its foot up its height.
-pub fn object_box(object: &PlacedObject, objects: &ObjectRegistry) -> (Vec3, Vec3) {
-    let height = objects.by_name(&object.name).map_or(1.0, |def| def.height);
-    let cell = object.cell().as_vec3();
-    let foot = object.at.z as f32 / 16.0;
-    (Vec3::new(cell.x, cell.y, foot), Vec3::new(cell.x + 1.0, cell.y + 1.0, foot + height))
-}
-
-/// Is this half block (counted in half blocks) inside a solid object, for bodies bumping into it?
-pub fn solid_object_half(world: &VoxelWorld, objects: &ObjectRegistry, half: IVec3) -> bool {
-    let cell = half.div_euclid(IVec3::splat(2));
-    let (low, high) = (half.z as f32 / 2.0, (half.z + 1) as f32 / 2.0);
-    world.objects_near(cell).iter().any(|object| {
-        let (bottom, top) = object_box(object, objects);
-        object.cell().truncate() == cell.truncate() && objects.by_name(&object.name).is_some_and(|def| def.solid) && low < top.z && high > bottom.z
-    })
-}
-
-/// Does an object stand in this cell?
-pub fn object_in(world: &VoxelWorld, objects: &ObjectRegistry, cell: IVec3) -> bool {
-    world.objects_near(cell).iter().any(|object| object.cell().truncate() == cell.truncate() && cells_of(object, objects).contains(&cell.z))
-}
-
-/// An object, its foot at `at` (16ths of a block), standing on the floor of its cell: every cell it
-/// stands in must be free (air or something replaceable, and no other object), and what's under it
-/// solid. When it was placed is kept (`since`), for things that change with time.
+/// An object, its feet at `at` (16ths of a block), turned to `facing`: every octant it holds
+/// (`world/objects.rs`) must be free (air or something replaceable, and no other object's), and
+/// something solid under at least one of them. When it was placed is kept (`since`), for things that
+/// change with time.
 fn place_object(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &ObjectRegistry, at: IVec3, object: ObjectId, facing: u8, tick: u64) -> Changes {
     let def = objects.def(object).ok_or(RefuseReason::NothingThere)?;
-    let placed = PlacedObject { name: def.name.clone(), at, facing, stage: 0, since: tick };
-    let cell = placed.cell();
-    if !world.is_loaded(cell) {
-        return Err(RefuseReason::NotLoaded);
-    }
-    for z in cells_of(&placed, objects) {
-        let here = IVec3::new(cell.x, cell.y, z);
-        if !registry.is_replaceable(world.get_block(here)) || object_in(world, objects, here) {
-            return Err(RefuseReason::Occupied);
+    let placed = PlacedObject { name: def.name.clone(), at, facing: facing % 4, stage: 0, since: tick };
+    let (low, high) = held(&placed, def);
+    let mut under = false;
+    for y in low.y..=high.y {
+        for x in low.x..=high.x {
+            for z in low.z..=high.z {
+                let half = IVec3::new(x, y, z);
+                if !world.is_loaded(half.div_euclid(IVec3::splat(2))) {
+                    return Err(RefuseReason::NotLoaded);
+                }
+                if world.half_filled(half, |block| !registry.is_replaceable(block)) || holder(world, objects, half).is_some() {
+                    return Err(RefuseReason::Occupied);
+                }
+            }
+            under |= world.half_filled(IVec3::new(x, y, low.z - 1), |block| registry.is_solid(block));
         }
     }
-    if !registry.is_solid(world.get_block(cell - IVec3::Z)) {
+    if !under {
         return Err(RefuseReason::NothingUnder);
     }
     world.place_object(placed).ok_or(RefuseReason::NotLoaded)?;
@@ -477,8 +456,15 @@ mod tests {
     const PLAYER: EditSource = EditSource::Player(PlayerId(0));
 
     /// One object for the tests: a brazier, 1.5 blocks tall.
+    /// Two objects for the tests: a brazier 12 pixels across and 24 tall (a full-block object, 1.5
+    /// blocks tall), and a cup 6 across (small: it sits on an octant).
     fn test_objects() -> ObjectRegistry {
-        ObjectRegistry::with(vec![crate::data::ObjectDef { name: "incus:braziere".into(), display_name: "Brazier".into(), model: "braziere.gltf".into(), height: 1.5, solid: true, sits: crate::data::Sits::Floor, tags: Vec::new() }])
+        let object = |name: &str, size: IVec3| {
+            let half = size.as_vec3() / 32.0;
+            let shape = crate::data::Shape { scale: 1.0, feet: Vec3::ZERO, size, boxes: vec![(Vec3::new(-half.x, -half.y, 0.0), Vec3::new(half.x, half.y, size.z as f32 / 16.0))] };
+            crate::data::ObjectDef { name: format!("incus:{name}"), display_name: name.into(), model: format!("{name}.gltf"), height: None, stick_over: 2, solid: true, sits: crate::data::Sits::Floor, tags: Vec::new(), shape: Some(shape) }
+        };
+        ObjectRegistry::with(vec![object("braziere", IVec3::new(12, 12, 24)), object("cup", IVec3::new(6, 6, 7))])
     }
 
     #[test]
@@ -490,9 +476,11 @@ mod tests {
         let brazier = BlockEditRequest { position: cell, kind: EditKind::PlaceObject { at, object: ObjectId(0), facing: 0 }, source: PLAYER };
         let floating = BlockEditRequest { position: cell, kind: EditKind::PlaceObject { at: at + IVec3::Z * 16 * 5, object: ObjectId(0), facing: 0 }, source: PLAYER };
         // Placed; the same again (taken); one in the air (nothing under it); a block in its upper cell
-        // (it's 1.5 tall, so it stands in two).
+        // (it's 1.5 tall, so it holds the lower half of that cell too); a bar along the top of that
+        // cell, which it leaves free.
         let block_above = BlockEditRequest { position: cell + IVec3::Z, kind: EditKind::Place(stone), source: PLAYER };
-        let (mut app, _) = run_requests(&[brazier, brazier, floating, block_above]);
+        let bar_on_top = BlockEditRequest { position: cell + IVec3::Z, kind: EditKind::PlaceBar { at: (cell + IVec3::Z) * 2 + IVec3::Z, axis: 0, block: stone }, source: PLAYER };
+        let (mut app, _) = run_requests(&[brazier, brazier, floating, block_above, bar_on_top]);
         assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied, RefuseReason::NothingUnder, RefuseReason::Occupied]);
         let world = app.world().resource::<VoxelWorld>();
         assert_eq!(world.objects_near(cell).iter().map(|object| (object.name.as_str(), object.at)).collect::<Vec<_>>(), vec![("incus:braziere", at)]);
@@ -501,6 +489,22 @@ mod tests {
         let (mut app, _) = run_requests(&[brazier, take, take]);
         assert_eq!(refusals(&mut app), vec![RefuseReason::NothingThere]);
         assert!(app.world().resource::<VoxelWorld>().objects_near(cell).is_empty());
+    }
+
+    #[test]
+    fn small_objects_hold_only_their_octants() {
+        let stone = BlockRegistry::default().id("incus:stone").unwrap();
+        let cell = IVec3::new(2, 3, 145);
+        // Two cups on two octants of one cell's floor, against its -x wall.
+        let cup = |half: IVec3| BlockEditRequest { position: cell, kind: EditKind::PlaceObject { at: half * 8 + IVec3::new(4, 4, 0), object: ObjectId(1), facing: 0 }, source: PLAYER };
+        let (near, far) = (cell * 2, cell * 2 + IVec3::Y);
+        // An octant beside them is free; one a cup holds isn't; a cup in the middle of the cell
+        // would hold all four floor octants, so it's refused.
+        let octant = |half: IVec3| BlockEditRequest { position: cell, kind: EditKind::PlaceOctant { half, block: stone }, source: PLAYER };
+        let middle = BlockEditRequest { position: cell, kind: EditKind::PlaceObject { at: cell * 16 + IVec3::new(8, 8, 0), object: ObjectId(1), facing: 0 }, source: PLAYER };
+        let (mut app, _) = run_requests(&[cup(near), cup(far), octant(near + IVec3::X), octant(far), middle]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied, RefuseReason::Occupied]);
+        assert_eq!(app.world().resource::<VoxelWorld>().objects_near(cell).len(), 2);
     }
 
     /// A tiny app with just the test world and the edit system, run for one update.

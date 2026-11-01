@@ -20,7 +20,7 @@ use bevy::prelude::*;
 use bevy_egui::egui;
 use loading::find_block_files;
 pub use loading::{block_file_text, header_of, parse_block};
-pub use objects::{ObjectDef, ObjectId, ObjectRegistry, Sits, models_folder, object_file_text};
+pub use objects::{ObjectDef, ObjectId, ObjectRegistry, Shape, Sits, models_folder, object_file_text};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;

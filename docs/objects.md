@@ -185,7 +185,7 @@ time.
   no longer has, kept); placing, refusals (taken, nothing under it, a block into its upper cell) and
   taking it away.
 
-## 9. After trying stop 1: sizes and snapping (David, 2026-11-01) [PROPOSED, not built]
+## 9. After trying stop 1: sizes and snapping (David, 2026-11-01) [stop 1b BUILT]
 
 David, after placing the brazier: "we would need a simple preview of the object. however, i think an
 isometric view would be preferred, so we can wait for that until we build the blueprints section. the
@@ -209,3 +209,64 @@ block forward."
       wall or half a block forward, or in the middle of a cell, as blocks do (Shift for the octant
       grid). It claims only its octants.
   - **Not in it:** turning (facing), so a bed's long side always points one way for now.
+
+David's answers: "yes, right. i forgot octants are 8 pixels. that is correct. basically we just go by
+the models size, or model volume i guess. it can still stick a little over probably and just clip if i
+made a larger model? and if it's bigger than that, it can't go on an octant. it needs 4 octants just
+like a gabbro block. and, as long as its set by the model size, is hould have no problem making a
+64x32x32 bed model and placing it. rotation might as well be B. i think helpers on screen that can be
+dimmed will probably stay in some form in the end game, i just think it's good to have." And: "the
+collision still needs to be from the models geometry, not its volume".
+
+### Stop 1b, built
+
+- **Its shape, read from its model** (`data/objects.rs`, `read_shape`, with the `gltf` crate Bevy
+  already uses):
+  - Every mesh in the model, placed as its nodes place it. Each of Blockbench's cubes is the box round
+    its own points, turned as its node is.
+  - Filled in pixel by pixel (16 to a block): a pixel is filled where its middle is inside a part. A
+    part thinner than a pixel (a flat plane) still fills one. The pixels are then joined into boxes.
+  - **Its size** is the model's in pixels, across, along and up.
+  - It's read again when the object file or its model changes.
+- **Its size settings** (the Objects tab):
+  - **"as made"**: a glTF's unit is a block, Blockbench's 16 pixels, the blocks' own pixel size.
+    It's the default for a model brought in.
+  - Or **a height**: scaled evenly to it. The brazier's file still says 1.5.
+  - **"may stick over"** (`stick_over`, pixels, default 2): how far it may stick out of its room and
+    just clip.
+  - The tab shows its size in pixels and what that makes it.
+- **Small or full-block, by its size** (`world/objects.rs`):
+  - **Small:** 8 pixels across or less both ways, plus what it may stick over. It goes in the middle
+    of a cell (holding the four octants round the middle), or with Shift on one octant: against a
+    wall, or half a block on.
+  - **Full-block:** anything wider. It snaps as blocks do: centred in the cell in front of the face.
+    With Shift, it goes on the octant grid. It holds whole blocks across (a bed 64 × 32 holds 4 × 2,
+    reaching out of the face aimed at, never into it).
+  - Either way it holds octants up its height. Blocks, bars and octants can't go into an object's
+    octants, and an object can't go where they are.
+  - It needs something solid under at least one of its octants.
+- **Bumping into its model's own shape:** bodies stop flush against its boxes, not its room
+  (`player/collision.rs` takes boxes as well as blocks). You can stand against the brazier's pole,
+  and step up onto a low one as onto a bar. The crosshair meets its boxes too, so it passes through
+  the gaps.
+- **Turning:** an object in hand faces you, and **B** turns it a quarter at a time. What's drawn,
+  bumped into and held all turn with it.
+- **Helpers:**
+  - The magenta box shows the room it would hold, with an arrow out of its front (the model's north
+    in Blockbench).
+  - **"how bright the outlines and placing helpers are"** (the Camera page) dims them all, the block
+    outline too.
+- **David's brazier as it is:**
+  - At 1.5 tall it's 6 × 6 × 24 pixels, so it's **small**.
+  - As made, it would be 13 × 13 × 55 (3.4 blocks tall).
+- **Not yet:**
+  - standing on another object (a cup on a table);
+  - the isometric preview (with the blueprints);
+  - turning a shifted full-block object toward the crosshair's side.
+- **Tests:**
+  - shapes read from a glTF (as made, scaled, a pole under a plate, a flat plane);
+  - small and full-block rooms (a cup, a brazier, a bed turned);
+  - snapping (the middle, an octant, half a block on, a bed on the floor and against a wall);
+  - turning;
+  - collision with boxes (stopped flush, walking past, stepping up onto a low one);
+  - cups on two octants of one cell, and a block refused from an octant a cup holds.

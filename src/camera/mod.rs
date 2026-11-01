@@ -84,6 +84,9 @@ pub struct CameraSettings {
     /// How far the debug ray reaches, in blocks.
     pub ray_length: f32,
     pub show_target_outline: bool,
+    /// How bright the outlines and placing helpers are drawn, 0 to 1 (David, 2026-11-01: "helpers on
+    /// screen that can be dimmed will probably stay in some form in the end game").
+    pub helper_brightness: f32,
 }
 
 impl Default for CameraSettings {
@@ -97,6 +100,7 @@ impl Default for CameraSettings {
             field_of_view: 100.0,
             ray_length: 64.0,
             show_target_outline: true,
+            helper_brightness: 1.0,
         }
     }
 }
@@ -170,6 +174,8 @@ pub struct LookTarget {
     /// The piece aimed at, in a cell of pieces: its octants (a bar, and the cut pieces stuck to it),
     /// outlined instead of the whole cell.
     pub piece: Vec<(Vec3, Vec3)>,
+    /// An object being placed: an arrow (from, to: blocks) out of its front, the way it would face.
+    pub arrow: Option<(Vec3, Vec3)>,
 }
 
 fn spawn_camera(mut commands: Commands, settings: Res<CameraSettings>) {
@@ -390,6 +396,17 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     // Slightly bigger than the block, so the lines sit just outside its faces instead of
     // flickering in and out of them.
     let grow = 0.004;
+    // Dimmed as the helpers are set: toward black, and see-through.
+    let dim = settings.helper_brightness.clamp(0.0, 1.0);
+    let shade = |red: f32, green: f32, blue: f32| Color::srgba(red * dim, green * dim, blue * dim, dim);
+    let (magenta, white) = (shade(1.0, 0.0, 1.0), shade(1.0, 1.0, 1.0));
+    if dim <= 0.0 {
+        return;
+    }
+    // An object being placed: the way it would face, an arrow out of its front.
+    if let Some((from, to)) = target.arrow {
+        gizmos.arrow(game_to_bevy(from), game_to_bevy(to), magenta);
+    }
     // A box outlined (its two corners, blocks), a hair bigger than it.
     let mut outline = |(low, high): (Vec3, Vec3), colour: Color| {
         let size = high - low + Vec3::splat(2.0 * grow);
@@ -399,10 +416,10 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     // A bar being placed: the octants it would fill (magenta). The piece aimed at, if it's in a cell
     // of pieces (white): instead of the whole block.
     for &octant in &target.ghost {
-        outline(octant, Color::srgb(1.0, 0.0, 1.0));
+        outline(octant, magenta);
     }
     for &octant in &target.piece {
-        outline(octant, Color::WHITE);
+        outline(octant, white);
     }
     if !target.ghost.is_empty() || !target.piece.is_empty() {
         return;
@@ -410,7 +427,7 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     let centre = hit.block.as_vec3() + Vec3::splat(0.5);
     gizmos.cube(
         Transform::from_translation(game_to_bevy(centre)).with_scale(Vec3::splat(1.0 + 2.0 * grow)),
-        Color::WHITE,
+        white,
     );
 
     if hit.normal == IVec3::ZERO {
@@ -426,7 +443,6 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     u[(axis + 1) % 3] = 0.5;
     v[(axis + 2) % 3] = 0.5;
     let corners = [-u - v, u - v, u + v, -u + v].map(|offset| game_to_bevy(face_centre + offset));
-    let magenta = Color::srgb(1.0, 0.0, 1.0);
     gizmos.lineloop(corners, magenta);
     gizmos.line(corners[0], corners[2], magenta);
     gizmos.line(corners[1], corners[3], magenta);
@@ -569,6 +585,8 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.add(crate::debug::Slider::new(&mut settings.field_of_view, 30.0..=150.0).text("field of view (°, up-down)"));
     ui.add(crate::debug::Slider::new(&mut settings.ray_length, 1.0..=256.0).text("ray length while flying (blocks)"));
     ui.checkbox(&mut settings.show_target_outline, "outline the block being looked at");
+    let outlined = settings.show_target_outline;
+    ui.add_enabled(outlined, crate::debug::Slider::new(&mut settings.helper_brightness, 0.0..=1.0).text("how bright the outlines and placing helpers are")).on_hover_text("The block outline, the magenta room a block, bar or object would take, and an object's facing arrow");
     if ui.button("Reset camera settings").clicked() {
         *settings = crate::debug::page_default("camera", "camera");
     }

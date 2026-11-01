@@ -27,6 +27,9 @@ serde = { version = "=1.0.229", features = ["derive"] }
 toml = "=1.1.8"
 # Writes PNG pictures (exporting fields from the World Gen suite). Bevy already uses this version.
 png = "=0.18.1"
+# Reads glTF models' shapes (an object's size and what bodies bump into, data/objects.rs). Bevy
+# already uses this version, with these features among its own.
+gltf = { version = "=1.4.1", default-features = false, features = ["names", "utils"] }
 
 # ── Build speed settings ────────────────────────────────────────────────
 # Bevy is huge and runs painfully slowly unoptimised. These settings optimise
