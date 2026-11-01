@@ -41,7 +41,7 @@ Every setting is optional; leave out anything you don't need.
 | `replaceable` | Does placing a block into it just replace it, like air? | `false` for solid, `true` for grid/outline |
 | `tags` | Labels the Registrar groups and sorts blocks by, as many as you like, like being in several folders at once. A `/` nests one tag inside another, as folders do: `tags = ["rock/igneous", "ore"]`. | none |
 | `tool` | A building aid (like the grid and outline), not world art: its colours stay out of the Registrar's master palette, as the UI's do. | `false` |
-| `bar` | It can be a bar (a quarter block, `docs/quartile.md`): only blocks marked can be. `bar = {}` shows a share of the block's own textures; `bar = { side = "…", end = "…" }` gives it pictures of its own in `assets/textures/bars/` (a long side 16 × 32, its length up the picture, and an end 16 × 16); `only = true` makes it only ever a bar, never placed whole. The Registrar's "Load a bar block…" makes one. | none (not a bar) |
+| `bar` | It can be a bar (a quarter block, `docs/quartile.md`): only blocks marked can be. `bar = {}` shows a share of the block's own textures; `bar = { side = "…", end = "…" }` gives it pictures of its own in `assets/textures/bars/` (a long side 16 × 32, its length up the picture, and an end 16 × 16); `only = true` makes it only ever a bar, never placed whole. The Registrar's "Load a bar block…" makes one, and a block's settings have "can be a quarter block". | none (not a bar) |
 
 ### Faces
 

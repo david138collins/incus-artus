@@ -446,3 +446,24 @@ look.
   click places a single octant of a bar block at the start octant (`EditKind::PlaceOctant`), a
   stand-in until there's a chisel and an inventory (`docs/vision.md`, "Building, resources and
   labor"). A bar across an octblock is cut by it, and mining the octblock takes that cut piece too.
+
+---
+
+## 14. Stop 3, keep them: [BUILT 2026-11-01]
+
+- **Saves keep pieces** (chunk format 3, `world/storage.rs`). A cell built of pieces is air in its
+  section, and a list after the sections puts it back: each cell's place, which octants are filled,
+  and for each its block (by name, like every block in a save) and its part (bar axis, end, whole).
+  - Format 2 files still load, with no pieces (they were saved as air). A game from before this
+    can't read format 3 files.
+  - An octant of a block that's gone from the game is left empty, and a cell left with none is air
+    (the missing name is reported, as for whole blocks).
+  - The list is written in order, so the same chunk always saves the same bytes.
+- **The Registrar's "can be a quarter block"** (a block's settings in the dock): any block can be
+  marked, with "only ever a quarter block" (cut stone), and a bar side and end picture chosen from
+  `assets/textures/bars/`, or "(a share of its own)". Greyed out until it's marked. A side without
+  an end (or the other way round) is warned about. Saved to the block file as `bar = { … }`
+  (`docs/data-files.md`), and the game picks it up without a restart.
+- **Tests:** a chunk keeping its pieces through a save (a whole bar, a cut piece, a lone octant, a
+  cell at a chunk's corner), saving the same bytes twice, and a lost block's octants going empty.
+- **Next, stop 4 (grow them):** world creation writing pieces, for blueprints and trees.

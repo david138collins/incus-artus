@@ -263,7 +263,7 @@ pub fn block_file_text(def: &BlockDef, header: &str) -> String {
         if bar.only {
             parts.push("only = true".to_string());
         }
-        text += &format!("bar = {{ {} }}\n", parts.join(", "));
+        text += &if parts.is_empty() { "bar = {}\n".to_string() } else { format!("bar = {{ {} }}\n", parts.join(", ")) };
     }
     text
 }

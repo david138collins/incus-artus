@@ -10,13 +10,19 @@
 //! section count (u16; format 1 had none: always 13), then each section, either:
 //!   0, name number (u16)                          every block the same
 //!   1, run count (u32), then (name number u16, run length u16) ...   runs of the same block
+//! cells built of pieces (format 3 on): count (u32), then each cell:
+//!   x, y, z (i32 each, blocks)  which octants are filled (u8, a bit each, octant 0 lowest)
+//!   then for each filled octant: name number (u16), part (u8: its bar's axis, end and whether whole)
 //! ```
 //! Blocks are stored by **name**, not number, so a world still loads after block files are
 //! added, removed or renamed. A name that no longer exists loads as air (and is reported).
+//! A cell built of pieces is air in its section; its pieces, listed after, put it back. A game from
+//! before pieces were saved can't read format 3, and format 2 files load with no pieces.
 
 use super::block::BlockId;
 use super::chunk::Chunk;
-use super::position::{ChunkPos, SECTION_VOLUME, SECTIONS_PER_CHUNK};
+use super::pieces::{Part, Pieces};
+use super::position::{ChunkPos, SECTION_VOLUME, SECTIONS_PER_CHUNK, z_in_world};
 use super::section::Section;
 use super::{CompiledMap, InterpreterSettings, Maps, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
 use crate::data::BlockRegistry;
@@ -29,7 +35,8 @@ use std::sync::Arc;
 
 const MAGIC: &[u8; 4] = b"IACH";
 /// 2: the section count is written (format 1 always had 13, when the world was 400 tall).
-const CHUNK_FORMAT: u16 = 2;
+/// 3: cells built of pieces are listed after the sections (quartile stop 3).
+const CHUNK_FORMAT: u16 = 3;
 /// Sections in a format 1 chunk.
 const FORMAT_1_SECTIONS: usize = 13;
 
@@ -38,7 +45,7 @@ pub fn encode_chunk(chunk: &Chunk, registry: &BlockRegistry) -> Vec<u8> {
     let mut names: Vec<BlockId> = Vec::new();
     let mut number: HashMap<BlockId, u16> = HashMap::new();
     let mut number_of = |id: BlockId| {
-        // A cell built of pieces is saved as air until saves keep pieces (quartile stop 3).
+        // A cell built of pieces is air in its section; the pieces listed after put it back.
         let id = if id == BlockId::PIECES { BlockId::AIR } else { id };
         *number.entry(id).or_insert_with(|| {
             names.push(id);
@@ -70,6 +77,21 @@ pub fn encode_chunk(chunk: &Chunk, registry: &BlockRegistry) -> Vec<u8> {
                     body.extend(length.to_le_bytes());
                 }
             }
+        }
+    }
+    // The cells built of pieces, in order so the same chunk always saves the same bytes.
+    let mut cells: Vec<_> = chunk.all_pieces().collect();
+    cells.sort_by_key(|(block, _)| (block.z, block.y, block.x));
+    body.extend((cells.len() as u32).to_le_bytes());
+    for (block, pieces) in cells {
+        for value in block.to_array() {
+            body.extend(value.to_le_bytes());
+        }
+        let filled = (0..8).filter(|&o| pieces.get(o).is_some()).fold(0u8, |mask, o| mask | 1 << o);
+        body.push(filled);
+        for (block, part) in (0..8).filter_map(|o| pieces.get(o)) {
+            body.extend(number_of(block).to_le_bytes());
+            body.push(part.0);
         }
     }
 
@@ -169,7 +191,25 @@ pub fn decode_chunk(bytes: &[u8], registry: &BlockRegistry) -> Result<(Chunk, Ve
     }
     sections.truncate(SECTIONS_PER_CHUNK);
     sections.resize_with(SECTIONS_PER_CHUNK, || Section::Uniform(BlockId::AIR));
-    Ok((Chunk::from_sections(pos, sections), missing))
+    let mut chunk = Chunk::from_sections(pos, sections);
+
+    // The cells built of pieces. An octant of a block that no longer exists is left empty (a cell
+    // left with none stays air), and a cell outside this chunk or the world's height is skipped.
+    if format >= 3 {
+        for _ in 0..reader.u32()? {
+            let block = IVec3::new(reader.i32()?, reader.i32()?, reader.i32()?);
+            let filled = reader.u8()?;
+            let mut pieces = Pieces::default();
+            for o in (0..8).filter(|o| filled & 1 << o != 0) {
+                let piece = id(reader.u16()?)?;
+                pieces.set(o, piece, Part(reader.u8()?));
+            }
+            if ChunkPos::of_block(block) == pos && z_in_world(block.z) && !pieces.is_empty() {
+                chunk.set_pieces(block, pieces);
+            }
+        }
+    }
+    Ok((chunk, missing))
 }
 
 // ── The "terrain" part of a saved world ─────────────────────────────────────
@@ -510,6 +550,49 @@ mod tests {
                 assert_eq!(back.get(block), chunk.get(block), "at {block}");
             }
         }
+    }
+
+    #[test]
+    fn a_chunk_keeps_its_pieces_when_saved_and_a_lost_blocks_octants_go_empty() {
+        let registry = BlockRegistry::default();
+        let blocks = TestBlocks::from_registry(&registry);
+        let mut world = VoxelWorld::default();
+        generate_test_world(&mut world, &TestWorldSettings::default(), &blocks);
+        // A whole stone bar along x, a cut grass piece and a lone octant above the ground, and a
+        // cell below the bottom of the first section of the next chunk east.
+        let mut steps = Pieces::default();
+        steps.set(0, blocks.stone, Part::of_bar(0, 0, true));
+        steps.set(1, blocks.stone, Part::of_bar(0, 1, true));
+        steps.set(6, blocks.grass, Part::of_bar(2, 1, false));
+        steps.set(7, blocks.stone, Part::LONE);
+        let mut corner = Pieces::default();
+        corner.set(4, blocks.grass, Part::of_bar(1, 0, true));
+        world.set_pieces(IVec3::new(3, 4, 150), steps.clone());
+        world.set_pieces(IVec3::new(31, 31, 5), corner.clone());
+
+        let chunk = world.chunk(ChunkPos::new(0, 0)).unwrap();
+        let bytes = encode_chunk(chunk, &registry);
+        assert_eq!(bytes, encode_chunk(chunk, &registry), "the same chunk saves the same bytes");
+        let (back, missing) = decode_chunk(&bytes, &registry).unwrap();
+        assert!(missing.is_empty());
+        assert_eq!(back.get(IVec3::new(3, 4, 150)), BlockId::PIECES);
+        assert_eq!(back.pieces(IVec3::new(3, 4, 150)), Some(&steps));
+        assert_eq!(back.pieces(IVec3::new(31, 31, 5)), Some(&corner));
+        assert_eq!(back.all_pieces().count(), 2);
+        assert_eq!(back.get(IVec3::new(3, 4, 151)), chunk.get(IVec3::new(3, 4, 151)));
+
+        // A block gone from the game (grass, renamed in the file): its octants are left empty, and
+        // a cell of only that is air.
+        let name = registry.name(blocks.grass).as_bytes();
+        let at = bytes.windows(name.len()).position(|window| window == name).unwrap();
+        let mut renamed = bytes.clone();
+        *renamed[at..at + name.len()].last_mut().unwrap() = b'#';
+        let (back, missing) = decode_chunk(&renamed, &registry).unwrap();
+        assert_eq!(missing.len(), 1);
+        let mut no_grass = steps.clone();
+        no_grass.clear(6);
+        assert_eq!(back.pieces(IVec3::new(3, 4, 150)), Some(&no_grass));
+        assert_eq!((back.pieces(IVec3::new(31, 31, 5)), back.get(IVec3::new(31, 31, 5))), (None, BlockId::AIR));
     }
 
     #[test]

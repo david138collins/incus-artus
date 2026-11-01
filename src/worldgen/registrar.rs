@@ -12,7 +12,7 @@
 
 use crate::data::master_palette::{self, MasterPalette, Rgb};
 use super::palette::Spread;
-use crate::data::{BlockDef, BlockRegistry, block_texture_folder};
+use crate::data::{BarLook, BlockDef, BlockRegistry, bar_texture_folder, block_texture_folder};
 use bevy_egui::egui::{self, Color32, Stroke};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -69,9 +69,11 @@ pub struct Registrar {
     /// blocks using it).
     colour_hover: Option<Rgb>,
     last_colour_hover: Option<Rgb>,
-    /// Each block's data file, and every block texture file's name.
+    /// Each block's data file, every block texture file's name, and every bar texture file's
+    /// (`assets/textures/bars/`).
     sources: BTreeMap<String, PathBuf>,
     texture_files: Vec<String>,
+    bar_files: Vec<String>,
     /// The open block's settings as being edited in the dock (saved to its file on "Save"), and its
     /// tags as typed.
     draft: Option<BlockDef>,
@@ -113,6 +115,13 @@ fn shown(def: &BlockDef) -> bool {
     def.opaque || def.see_through
 }
 
+/// The names of the PNGs in a folder (without ".png"), sorted.
+fn png_names(folder: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(folder).into_iter().flatten().flatten().filter_map(|entry| entry.path().file_stem().filter(|_| entry.path().extension().is_some_and(|extension| extension == "png")).map(|stem| stem.to_string_lossy().into_owned())).collect();
+    names.sort();
+    names
+}
+
 /// A block's texture names, each once, in face order.
 fn texture_names(def: &BlockDef) -> Vec<&str> {
     let mut names: Vec<&str> = Vec::new();
@@ -149,8 +158,8 @@ impl Registrar {
         self.art_textures.clear();
         self.sources = registry.defs().iter().filter_map(|def| registry.source(&def.name).map(|path| (def.name.clone(), path.to_path_buf()))).collect();
         // Every texture file there is, for choosing a face's.
-        self.texture_files = std::fs::read_dir(&folder).into_iter().flatten().flatten().filter_map(|entry| entry.path().file_stem().filter(|_| entry.path().extension().is_some_and(|extension| extension == "png")).map(|stem| stem.to_string_lossy().into_owned())).collect();
-        self.texture_files.sort();
+        self.texture_files = png_names(&folder);
+        self.bar_files = png_names(&bar_texture_folder());
         for def in registry.defs().iter().filter(|def| shown(def)) {
             for name in texture_names(def) {
                 if self.textures.contains_key(name) {
@@ -780,6 +789,7 @@ fn block_settings(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) 
         registrar.tags_text = def.tags.join(", ");
     }
     let files = registrar.texture_files.clone();
+    let bar_files = registrar.bar_files.clone();
     let Some(draft) = registrar.draft.as_mut() else { return };
     ui.horizontal(|ui| {
         ui.label("name:");
@@ -879,6 +889,46 @@ fn block_settings(ui: &mut egui::Ui, registrar: &mut Registrar, def: &BlockDef) 
         ui.checkbox(&mut draft.replaceable, "replaceable").on_hover_text("Placing a block into it just replaces it, like air");
         ui.checkbox(&mut draft.tool, "building aid").on_hover_text("Not world art: its colours stay out of the master palette");
     });
+
+    // Quarter blocks: whether it can be one, and how one looks (its own pictures, or a share of the
+    // block's).
+    let mut can_be_bar = draft.bar.is_some();
+    let mut only = draft.bar.as_ref().is_some_and(|bar| bar.only);
+    ui.horizontal_wrapped(|ui| {
+        if ui.checkbox(&mut can_be_bar, "can be a quarter block").on_hover_text("Placed as bars (quarter blocks) and octblocks: with it in the hotbar, B turns a bar and Shift + right click places an octant").changed() {
+            draft.bar = can_be_bar.then(BarLook::default);
+        }
+        if ui.add_enabled(can_be_bar, egui::Checkbox::new(&mut only, "only ever a quarter block")).on_hover_text("Never placed whole, like cut stone (it needs no whole faces)").changed()
+            && let Some(bar) = &mut draft.bar
+        {
+            bar.only = only;
+        }
+    });
+    ui.add_enabled_ui(can_be_bar, |ui| {
+        egui::Grid::new("registrar bar").num_columns(2).show(ui, |ui| {
+            for (label, long) in [("bar side (16 × 32)", true), ("bar end (16 × 16)", false)] {
+                ui.label(label);
+                let was = draft.bar.as_ref().map_or(String::new(), |bar| if long { bar.side.clone() } else { bar.end.clone() });
+                let mut texture = was.clone();
+                egui::ComboBox::from_id_salt(("registrar bar", label)).selected_text(if texture.is_empty() { "(a share of its own)" } else { &texture }).show_ui(ui, |ui| {
+                    ui.selectable_value(&mut texture, String::new(), "(a share of its own)");
+                    for file in &bar_files {
+                        ui.selectable_value(&mut texture, file.clone(), file);
+                    }
+                });
+                if texture != was
+                    && let Some(bar) = &mut draft.bar
+                {
+                    *(if long { &mut bar.side } else { &mut bar.end }) = texture;
+                }
+                ui.end_row();
+            }
+        });
+    });
+    if draft.bar.as_ref().is_some_and(|bar| bar.side.is_empty() != bar.end.is_empty()) {
+        ui.colored_label(Color32::from_rgb(230, 160, 60), "A bar needs both a side and an end picture of its own, or neither (a share of the block's).");
+    }
+
     ui.horizontal(|ui| {
         ui.label("tags:");
         if ui.text_edit_singleline(&mut registrar.tags_text).on_hover_text("Separated by commas; a / nests one in another, as folders do").changed() {
