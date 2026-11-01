@@ -1298,6 +1298,9 @@ to evaporation.
   - **Needed first:** rock in layers (Mineralogy); hiding what can't be seen (with caves everywhere,
     every cave wall is faces, so GPU culling stops being optional); light underground; the far-3D
     contract for openings (below).
+  - **Caves are pitch black unless lit** [DECIDED 2026-11-01, David: "i want light to be precious"]
+    (`docs/decisions.md`, Time, "Light is precious"). Daylight reaches only a little way in at the
+    mouths, which the plan knows; every other light is a placed source.
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
   out under a slope gives an overhang, a cave mouth, a rock shelter, an arch.
 - **Non-cave carve features here and there**, too.

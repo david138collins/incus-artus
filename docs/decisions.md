@@ -186,6 +186,28 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** Max speed 4× (dev tool; may not ship to players). Pause must be possible
   (dev + manager screen + optional setting).
 - **[DECIDED]** Calendar target: year = 4 seasons × 7 days; day = 15 min light + 15 min dark.
+- **[DECIDED 2026-11-01] Light is precious** (David): "the world will be very dark at night. i want
+  light to be precious. wouldnt caves just be pitch black unless lit by things just like the world
+  above at night, depending on the moons?" So nights are very dark, and **caves are pitch black**
+  unless something lights them (torches, fire, glowing things), or near a mouth by day. It fits the
+  aim in Look & UI: "dark rooms, black screens, high contrast".
+  - **[IDEA] Moonlight from the two moons** (David: "moon stuff is gonna be big, since theres two
+    goddesses and one god that are not inimical"; `docs/vision.md`, Story and setting: both goddesses
+    live inside a moon, Fire at the centre of the earth, Darkness in the wandering planet X).
+    *Counsel* [PROPOSED]:
+    - **Two phases make many kinds of night:** both moons full (bright), one, or neither (black).
+      Periods that fit the 28-day year (one of 7 days and one of 28, say) make a calendar of nights
+      players learn and plan by.
+    - **Each goddess's moon may carry her nature:** Fate's moon full, the odds lean kindly; Life and
+      Death's, healing and the dead stir. Planet X near might darken nights on its own.
+    - **Fire's light from below:** the deeper you go, the nearer Fire, so the deep glows (magma,
+      warm crystals) while the middle depths are blackest.
+  - **[PROPOSED, Counsel] Darkness is also cheaper.** Sky and moon light are projected (the sun's or
+    moons' place and the ground, the same light canvas in other colours and strengths). Underground,
+    sky light only reaches in a little way at mouths, and the cave plan knows where those are. Every
+    other light is a placed source (torches, fires), stored as edits and spread a short way. With
+    few sources, that stays small. Much of Minecraft's light cost is sky light spreading through
+    every cave, which this skips.
 - **[DECIDED]** The calendar is 0 at world generation until the world is populated, then runs through 1,000 years
   of history. Play starts in year 1000. (The world clock currently starts at year 1; this changes when history
   generation exists.) See `docs/worldgen.md`.
