@@ -1356,6 +1356,23 @@ Counsel's notes [PROPOSED]:
   layers, a magma sea, then the underworld.
 - **Carve features, besides caves:** ravines, gorges, sinkholes, sea cliffs and sea caves, rock
   shelters, arches.
+  **[David 2026-11-01] Placed by the placer:** "i think if i wanted i could even just place badland
+  canyons." Yes: a region chosen from fields, plus a carving kit, at world creation or later.
+- **[IDEA, David 2026-11-01] Swamps, pocked with small ponds:** "we definitely need to place swamps
+  because there are naturally areas that are pocked with tons of small ponds."
+  *Counsel* [PROPOSED]: they occur where the ground is flat, low and poorly drained, and the water
+  stands close beneath it: river floodplains (with old oxbows), lowland by lakes, wet coastal flats,
+  and land left by glaciers (kettle ponds). Two ways to make them, which can work together:
+  - **A water table as a field:** the height water stands at underground, projected from the nearby
+    rivers' and lakes' levels and the rain, falling away from them. Wherever the fine ground (hills,
+    dips) sits below it, there's a pond. The torn coast does this already against the sea's level;
+    this does it against a local one. The ponds then follow a cause, and their surfaces are known, so
+    nothing has to settle. Swamps appear where flat, wet ground lies just above the water table.
+  - **Placed ponds:** the placer picks a swamp region from fields (flat, low, wet, near water) and
+    scatters ponds as points, each a small plan with its surface set from its own rim, so none spills.
+  Ponds this small are finer than the rivers' 32-block grid, so they're a detail the rivers don't
+  read, like the torn coast. It goes after the rivers (Climate) and before Ecology, which grows the
+  reeds, the frogs and the "water you can find" cues on them.
 - **To decide before release, or before caves, whichever is first:** how deep the world goes
   (Minecraft's painful one: changing world height means converting saved worlds).
   **[David 2026-11-01] Z 0 is probably deep enough:** "im not sure we need to go deeper than 0,
