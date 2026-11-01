@@ -102,6 +102,12 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
         creation's noise is untouched.
       - It sits in the World Interpreter panel's "Noise maths (for now)" section, with "Time both"
         (the noise alone, and the recipe at 5,000 columns of the world compiled, both ways).
+      - **David's first look (2026-11-01):** "on first glance, nothing got worse or that different but
+        rivers became more... pleasant somehow." **The switch stays** "until it becomes expedient to
+        delete any of the fractional maths coding. that'll give me time to get a better impression."
+        *Counsel's guesses, unchecked:* the ridges' wander is in the ground the rivers are planned on,
+        so new barcodes give a new river network; and 64 evenly spread arrows give evener texture
+        than arrows at any angle (as in Perlin's improved noise of 2002).
       - **Speed:** in a release build the whole-number noise took about 14 ns a call against about
         70 ns for fractions, roughly 5 times faster (no sines or cosines, and a cheaper hash). With
         its slope, it was about 20 ns against 80.
