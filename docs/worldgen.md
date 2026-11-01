@@ -648,9 +648,9 @@ Tectonic Sim
   coasts), and its settings moved with it. The tab move renamed Additives only; Counsel's list
   above wrongly put hills in Additives. *Proposed* [placement and names are David's call]: move the
   four into Topography, in the chain's order (land and sea, the mountains, ridgelines, torn coast,
-  hills). The Interpreter keeps the view of the result (under the mouse, the world, the terrain lab,
-  show, overlays, the cross-section). Only the panels change, as with Additives: the settings stay
-  where presets keep them.
+  hills). Only the panels change, as with Additives: the settings stay where presets keep them.
+  (Counsel also listed the view of the result as staying on the Interpreter panel. Those sections
+  were never there; they're in the readouts on the right. See the note below.)
   **[DECIDED 2026-10-31] Move them** (David: "yes, move the features where they belong"), with
   Topography in **his order: Land and sea · Ridgelines · Mountains · Hills · Torn coast**. "I believe
   ground detail is gone": it is. It became Hills on 2026-10-28, and the Hills section is that one.
