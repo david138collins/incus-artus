@@ -521,8 +521,13 @@ Reference: `Art/quartile minecraft illustration.png`
       - **Leaves end up on top,** because "any collision breaks them like shooting a goosedown pillow":
         leaves that hit anything burst.
       - **The direction is slightly random,** so slow or clumsy villagers and players may be injured.
-      - *Counsel:* "slightly random" is barcoded like everything else: the same tree, cut the same way,
-        falls the same way. A villager's skill could narrow it.
+      - **It's a roll at the cut, with a range** (David, correcting Counsel): "it wouldnt fall the same
+        way though if it was rolling when you cut it. itd just have a range, if you roll below a
+        theshold it may fall to the back or side." Usually it falls about the way it was cut. A roll
+        below a threshold sends it backward or to the side.
+      - *Counsel:* a cut is history, not projection, so a real roll is fine (`docs/decisions.md`, the
+        Metaphysics Engine). The game rolls once at the cut, and the result is saved with the fall.
+        A villager's skill could move the threshold.
     - **The fall looks bouncy but snaps:** a path that looks like physics but only takes each piece to
       its place on the octant grid. It has to be fun to watch.
     - **Dropped items and breaking:** "if i cant think of a better way, minecraft isnt broken."
