@@ -50,6 +50,7 @@ pub use mineralogy::{Layers, MOST_UNDER, Mineralogy, MineralogySettings, Why, st
 pub use terrain::{NextTerrain, SEA_LEVEL, Terrain, TerrainBlocks, under_sea, whole_column};
 #[cfg(test)]
 pub use storage::{fresh_terrain, load_terrain, save_terrain};
+pub use storage::as_saved;
 
 use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, SettingsAppExt};

@@ -404,7 +404,8 @@ fn draw_suite(
     }
     // "Render World and Spawn": a new world made from the compiled map, and back to the world.
     if let Some((name, seed, map, spawn)) = suite.compiler.render.take() {
-        next_terrain.0 = Some((map, spawn));
+        // As it will be once saved and loaded again, so it plays the same from the start.
+        next_terrain.0 = Some((std::sync::Arc::new(crate::world::as_saved(&map)), spawn));
         requests.write(crate::save::WorldFileRequest::New { name, seed: Some(seed) });
         next.set(Screen::Play);
     }

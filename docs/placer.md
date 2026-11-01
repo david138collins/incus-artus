@@ -638,6 +638,22 @@ me later, so i trust you on it."
     every column.
   - No starting distributor reads the slope, so David's world is unchanged.
 
+**[BUILT 2026-11-01] David's answers on the assessment** ("i agree with all if its like i described";
+recorded in `docs/decisions.md`, the Metaphysics Engine):
+- **The slope is whole numbers to the end,** the square root too: in 16ths of a block, within 32
+  bits, so a GPU can do the same.
+  - Its span is part of its name: "slope, 2 either side". A wider one, for scree and hillsides, would
+    be a field of its own, never the view's resolution.
+  - **It reads the ground carved by the rivers:** the ground as the world has it, last before
+    Mineralogy in the chain. A slope from before the carving (the land's own shape, so a river's banks
+    don't count as steep) would be another field, if it's ever wanted.
+- **A spawned world plays on exactly what it reloads** (`storage::as_saved`). Saving keeps the maps as
+  16-bit pictures, and that rounding moved about one column in a thousand a block after a reload.
+  - "Render World and Spawn" now rounds the maps (and passes the rivers through their text) as the
+    save will, before the world is made.
+  - The top of each map's range comes back as itself, so saving again changes nothing.
+  - A test spawns a world, saves and reloads it twice, and finds every column the same each time.
+
 ### Stop 4: sharing, and the docs (about 250 lines)
 
 - **Export** a distributor or a made field to a file, and **import** one.

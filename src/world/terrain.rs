@@ -174,10 +174,13 @@ impl CompiledMap {
 pub const SLOPE_REACH: i32 = 2;
 
 /// Blocks up per block across, from how much the ground rises across `2 × SLOPE_REACH` blocks north
-/// and east.
+/// and east. All whole numbers, the square root too (in 16ths of a block, within 32 bits), so every
+/// chip gets the same answer exactly [GPU-safe: David, 2026-11-01]; then two divisions by powers of
+/// two, which are exact.
 fn slope_across(north_rise: i32, east_rise: i32) -> f32 {
-    let span = (2 * SLOPE_REACH) as f32;
-    ((north_rise * north_rise + east_rise * east_rise) as f32).sqrt() / span
+    let squared = (north_rise * north_rise + east_rise * east_rise).unsigned_abs().min(u32::MAX / 256);
+    let sixteenths = (squared * 256).isqrt();
+    sixteenths as f32 / 16.0 / (2 * SLOPE_REACH) as f32
 }
 
 /// A column's ground and its river's or lake's water as the world fills it, from the ground's height

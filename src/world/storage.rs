@@ -222,6 +222,50 @@ fn named_maps(maps: &Maps) -> [(&'static str, &Vec<f32>); 9] {
     ]
 }
 
+/// A map's range, as saved: its least and most (0 and 0 for none).
+fn range_of(values: &[f32]) -> [f32; 2] {
+    let (low, high) = values.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+    if low > high { [0.0, 0.0] } else { [low, high] }
+}
+
+/// A map's value as its 16-bit file keeps it, stretched over its range.
+fn to_16_bits(value: f32, [low, high]: [f32; 2]) -> u16 {
+    ((value - low) / (high - low).max(1e-12) * 65_535.0).round() as u16
+}
+
+/// And back. The top of the range comes back as itself exactly, so a map saved again has the same
+/// range, and comes back the same.
+fn from_16_bits(stored: u16, [low, high]: [f32; 2]) -> f32 {
+    if stored == u16::MAX { high } else { low + stored as f32 / 65_535.0 * (high - low) }
+}
+
+/// A compiled world as it will be after it's saved and loaded again: every map rounded as its file
+/// keeps it, the rivers as their text keeps them. A world is spawned from this, so it plays from the
+/// start on exactly what it reloads [the Metaphysics Engine, 2026-11-01: "1 always equals 1"; until
+/// then about one column in a thousand came back a block higher or lower after a reload].
+pub fn as_saved(map: &CompiledMap) -> CompiledMap {
+    let mut maps = (*map.maps).clone();
+    let width = maps.width;
+    let round = |values: &mut Vec<f32>| {
+        let range = range_of(values);
+        for value in values.iter_mut() {
+            *value = from_16_bits(to_16_bits(*value, range), range);
+        }
+    };
+    for values in [&mut maps.coast, &mut maps.coast_distance, &mut maps.lift_distance, &mut maps.height, &mut maps.tilt, &mut maps.squeeze, &mut maps.push_x, &mut maps.push_y, &mut maps.push_strength] {
+        round(values);
+    }
+    for values in [&mut maps.temperature, &mut maps.rain] {
+        if values.len() == width * width {
+            round(values);
+        }
+    }
+    let mut saved = CompiledMap::new(Arc::new(maps), map.seed, map.settings.clone());
+    saved.mutes = map.mutes;
+    saved.rivers = if map.rivers.is_empty() { map.rivers.clone() } else { Arc::new(super::carving::Carving::from_text(&map.rivers.to_text()).unwrap_or_else(|_| (*map.rivers).clone())) };
+    saved
+}
+
 /// Writes a compiled world's maps into its folder: `compiled.toml`, and one `map-<name>.png` each
 /// (16-bit grey, stretched over the map's own range, which `compiled.toml` records).
 fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), String> {
@@ -230,16 +274,14 @@ fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), S
     // The climate maps only when the world has a climate.
     let climate = [("temperature", &m.temperature), ("rain", &m.rain)].into_iter().filter(|(_, values)| values.len() == m.width * m.width);
     for (name, values) in named_maps(m).into_iter().chain(climate) {
-        let (low, high) = values.iter().fold((f32::MAX, f32::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
-        let (low, high) = if low > high { (0.0, 0.0) } else { (low, high) };
-        ranges.insert(name.to_string(), [low, high]);
-        let span = (high - low).max(1e-12);
+        let range = range_of(values);
+        ranges.insert(name.to_string(), range);
         let file = std::fs::File::create(folder.join(format!("map-{name}.png"))).map_err(|error| error.to_string())?;
         let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), m.width as u32, m.width as u32);
         encoder.set_color(png::ColorType::Grayscale);
         encoder.set_depth(png::BitDepth::Sixteen);
         let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
-        let bytes: Vec<u8> = values.iter().flat_map(|&v| (((v - low) / span * 65_535.0).round() as u16).to_be_bytes()).collect();
+        let bytes: Vec<u8> = values.iter().flat_map(|&v| to_16_bits(v, range).to_be_bytes()).collect();
         writer.write_image_data(&bytes).map_err(|error| error.to_string())?;
         writer.finish().map_err(|error| error.to_string())?;
     }
@@ -276,7 +318,7 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
     let info: CompiledFile = toml::from_str(&text).map_err(|error| format!("compiled.toml: {error}"))?;
     let read = |name: &str| -> Result<Vec<f32>, String> {
         let file_name = format!("map-{name}.png");
-        let [low, high] = *info.ranges.get(name).ok_or(format!("compiled.toml has no range for {file_name}"))?;
+        let range = *info.ranges.get(name).ok_or(format!("compiled.toml has no range for {file_name}"))?;
         let file = std::fs::File::open(folder.join(&file_name)).map_err(|error| format!("{file_name}: {error}"))?;
         let mut reader = png::Decoder::new(std::io::BufReader::new(file)).read_info().map_err(|error| format!("{file_name}: {error}"))?;
         let mut buffer = vec![0; reader.output_buffer_size().ok_or(format!("{file_name} is too big"))?];
@@ -284,7 +326,7 @@ fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> 
         if frame.bit_depth != png::BitDepth::Sixteen || frame.width as usize != info.width {
             return Err(format!("{file_name} isn't the 16-bit map compiled.toml describes"));
         }
-        Ok(buffer[..frame.buffer_size()].chunks_exact(2).map(|b| low + u16::from_be_bytes([b[0], b[1]]) as f32 / 65_535.0 * (high - low)).collect())
+        Ok(buffer[..frame.buffer_size()].chunks_exact(2).map(|b| from_16_bits(u16::from_be_bytes([b[0], b[1]]), range)).collect())
     };
     let coast = read("coast")?;
     // Worlds saved before the coast distance was kept work it out again.
@@ -494,6 +536,37 @@ mod tests {
         assert_eq!(chunk.get(IVec3::new(64 + 5, -96 + 5, 31)), stone);
         assert_eq!(chunk.get(IVec3::new(64 + 5, -96 + 5, 32)), BlockId::AIR);
         assert_eq!(chunk.get(IVec3::new(64 + 5, -96 + 5, super::super::WORLD_HEIGHT - 1)), BlockId::AIR);
+    }
+
+    #[test]
+    fn a_spawned_world_plays_on_exactly_what_it_reloads() {
+        // A map whose ground lands on every fraction of a block, so rounding it would show.
+        let z: Vec<f32> = (0..256).map(|i| 60.0 + (i % 200) as f32 * 1.37).collect();
+        let mut map = CompiledMap::of_heights(16, 32.0, &z);
+        for i in 0..256 {
+            Arc::make_mut(&mut map.maps).squeeze[i] = (i as f32 * 0.37).sin();
+        }
+        let map = CompiledMap::new(map.maps, 0xABCD, InterpreterSettings::default());
+        let spawned = as_saved(&map);
+        let folder = std::env::temp_dir().join(format!("incus-artus-as-saved-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        save_compiled(&spawned, IVec2::ZERO, &folder).unwrap();
+        let (once, _) = load_compiled(&folder).unwrap().unwrap();
+        save_compiled(&once, IVec2::ZERO, &folder).unwrap();
+        let (twice, _) = load_compiled(&folder).unwrap().unwrap();
+        let _ = std::fs::remove_dir_all(&folder);
+        let (mut columns, mut moved) = (0, 0);
+        for x in (-250..250).step_by(3) {
+            for y in (-250..250).step_by(3) {
+                let column = spawned.column(x, y);
+                assert_eq!(once.column(x, y), column, "at ({x}, {y}), reloaded");
+                assert_eq!(twice.column(x, y), column, "at ({x}, {y}), reloaded twice");
+                columns += 1;
+                moved += (map.column(x, y) != column) as usize;
+            }
+        }
+        // Rounding the maps at spawn moves a few columns from the compiler's own, once and for good.
+        assert!(columns > 20_000 && moved < columns / 100, "{moved} of {columns}");
     }
 
     #[test]
