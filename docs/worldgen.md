@@ -1296,7 +1296,16 @@ Counsel's notes [PROPOSED]:
 - **Carve features, besides caves:** ravines, gorges, sinkholes, sea cliffs and sea caves, rock
   shelters, arches.
 - **To decide before release, or before caves, whichever is first:** how deep the world goes
-  (Minecraft's painful one: changing world height means converting saved worlds); rock in 3D layers,
+  (Minecraft's painful one: changing world height means converting saved worlds).
+  **[David 2026-11-01] Z 0 is probably deep enough:** "im not sure we need to go deeper than 0,
+  because it would be more difficult and dangerous to go very deep than in minecraft i suppose, and
+  because the mountains are *eight hundred blocks tall*, and thousands of blocks wide. i'll definitely
+  be centralizing some minerology into the mountains as figures of central interest in general... but
+  i would like to be able to go below zero if necessary." So the world stays at Z 0 to 1023 for now,
+  with the way kept open to go below 0. *Counsel:* the cheap way to keep it open is to never treat Z 0
+  as fixed in new code. The placer measures by depth or by a share of the crust, and the bar reads
+  the world's bottom from one setting. Then going deeper later costs a save conversion, not a hunt
+  through the code. Rock in 3D layers,
   so mineralogy can grow into ore and caves; block light underground (today faces well below the
   surface get plain light).
 
