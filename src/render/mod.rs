@@ -19,6 +19,7 @@ mod material;
 mod mesher;
 mod meshing;
 mod performance;
+mod sky_light;
 pub(crate) mod textures;
 
 use crate::coords::bevy_to_game;
@@ -149,6 +150,16 @@ pub struct RenderSettings {
     /// Draw a frame every this many refreshes of the screen (1 = every one; 2 = half as many…),
     /// or 0 = as fast as possible, vsync off (see `frame_cap.rs`).
     pub frame_cap: u32,
+    /// Daylight underground (`sky_light.rs`, `docs/caves.md` stop 3): on (pitch black where it can't
+    /// reach), or off (everything fully lit, as before), and how far it reaches in from the open sky
+    /// (blocks).
+    pub sky_light: bool,
+    pub sky_reach: i32,
+    /// The test lantern: a light round the camera, for seeing in the dark while tuning (it goes
+    /// through walls; the real lantern comes with items). How far it reaches (blocks; 0 = off), and how
+    /// bright it is at its middle.
+    pub lantern: f32,
+    pub lantern_brightness: f32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -182,6 +193,10 @@ impl Default for RenderSettings {
             survey_darkness: 0.35,
             // Every other refresh: 120 on a 240 screen, smooth, and much cooler than 240.
             frame_cap: 2,
+            sky_light: true,
+            sky_reach: 8,
+            lantern: 12.0,
+            lantern_brightness: 0.9,
         }
     }
 }
@@ -221,6 +236,7 @@ impl RenderSettings {
             // light only (the seam probe's plain grey).
             options: Vec4::new(1.0, if self.light_only { 1.0 } else { 0.0 }, 0.0, 0.0),
             survey: self.survey_for_shader(),
+            underground: Vec4::new(if self.sky_light { 1.0 } else { 0.0 }, self.lantern.max(0.0), self.lantern_brightness, 0.0),
         }
     }
 }
@@ -442,6 +458,26 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         remesh = true;
     }
     if remesh {
+        let keys: Vec<SectionKey> = world.resource::<MeshingState>().entities.keys().copied().collect();
+        world.resource_mut::<MeshingState>().waiting.extend(keys);
+    }
+
+    // ── Underground light (docs/caves.md, stop 3) ──
+    ui.separator();
+    ui.strong("Light underground");
+    ui.small("Pitch black wherever daylight can't reach (David: \"pitch black unless something is making light down there\"). Daylight spreads a short way in from open sky: into cave mouths, under overhangs, down holes you dig.");
+    let relight = {
+        let mut settings = world.resource_mut::<RenderSettings>();
+        let was = (settings.sky_light, settings.sky_reach);
+        ui.checkbox(&mut settings.sky_light, "daylight underground").on_hover_text("Off: everything fully lit, as before (to compare)");
+        ui.add_enabled(settings.sky_light, crate::debug::Slider::new(&mut settings.sky_reach, 1..=sky_light::MOST_REACH).text("how far daylight reaches in (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.lantern, 0.0..=40.0).text("test lantern: how far (blocks; 0 = off)"))
+            .on_hover_text("A light round the camera, for seeing in the dark while tuning. It goes through walls; the real lantern comes with items (docs/caves.md, section 11).");
+        ui.add_enabled(settings.lantern > 0.0, crate::debug::Slider::new(&mut settings.lantern_brightness, 0.0..=1.0).text("test lantern: brightness"));
+        was != (settings.sky_light, settings.sky_reach)
+    };
+    // The daylight is kept in the meshes: every one made again.
+    if relight {
         let keys: Vec<SectionKey> = world.resource::<MeshingState>().entities.keys().copied().collect();
         world.resource_mut::<MeshingState>().waiting.extend(keys);
     }

@@ -23,6 +23,9 @@ struct TerrainShaderSettings {
     options: vec4<f32>,
     // Survey view: x on, y every how many levels, z darkness, w sea level
     survey: vec4<f32>,
+    // Underground (src/render/sky_light.rs): x daylight on, y the test lantern's reach (blocks; 0 off),
+    // z its brightness
+    underground: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var block_textures: texture_2d_array<f32>;
@@ -76,6 +79,8 @@ struct VertexOutput {
     @location(5) @interpolate(flat) random_rotation: u32,
     // The section's south-west bottom corner in the world, game axes.
     @location(6) @interpolate(flat) section_origin: vec3<i32>,
+    // Daylight at this corner, 0 (black) to 1 (full): src/render/sky_light.rs.
+    @location(7) daylight: f32,
 }
 
 @vertex
@@ -109,6 +114,7 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.quad = b >> 16u;
     out.random_rotation = (a >> 24u) & 1u;
     out.section_origin = vec3<i32>(round(vec3<f32>(-origin.z, origin.x, origin.y)));
+    out.daylight = f32((a >> 28u) & 15u) / 15.0;
     return out;
 }
 
@@ -260,6 +266,23 @@ fn bar_uv(face: u32, p: vec3<f32>, tag: u32) -> vec2<f32> {
     return vec2<f32>(select(across_u, across_v, facing == u), 1.0 - along);
 }
 
+// How lit a face is underground (src/render/sky_light.rs; docs/caves.md, stop 3): its daylight, eased
+// (squared, so it falls away quickly into the dark), or the test lantern round the camera, whichever
+// is brighter. Pitch black where neither reaches [David: "pitch black unless something is making
+// light down there"].
+fn underground_light(daylight: f32, world_position: vec3<f32>) -> f32 {
+    var lit = 1.0;
+    if settings.underground.x > 0.5 {
+        lit = daylight * daylight;
+    }
+    let reach = settings.underground.y;
+    if reach > 0.0 {
+        let near = 1.0 - clamp(length(world_position - view.world_position) / reach, 0.0, 1.0);
+        lit = max(lit, settings.underground.z * near * near);
+    }
+    return lit;
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let bar = (in.quad & 0x8000u) != 0u;
@@ -327,7 +350,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else if in.face <= 3u {
         shade = settings.face_shade.w;
     }
-    colour = colour * shade * ground_light(in.world_position, in.face);
+    colour = colour * shade * ground_light(in.world_position, in.face) * underground_light(in.daylight, in.world_position);
 
     // Survey view: every Nth level of blocks above sea level darkened, like a contour map's bands.
     if settings.survey.x > 0.5 {

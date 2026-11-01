@@ -28,11 +28,13 @@
 //!
 //! ## Vertex format (8 bytes per corner)
 //! - word 0: x (7 bits) | y (7 bits) | z (7 bits), in half blocks | face direction (3 bits) | random
-//!   rotation (1 bit) | which way is out of the rectangle, along x, y and z (1 bit each)
+//!   rotation (1 bit) | which way is out of the rectangle, along x, y and z (1 bit each) | daylight
+//!   (4 bits: 0 black to 15 full, `sky_light.rs`)
 //! - word 1: texture layer (16 bits) | quad number (15 bits, only used by the debug view; or, with the
 //!   top bit set, a bar with textures of its own and its slot)
 
 use crate::coords::game_to_bevy;
+use super::sky_light::{Daylight, LightRegion, flood};
 use crate::world::{BlockId, Owners, Part};
 use bevy::math::Vec3;
 use std::collections::HashMap;
@@ -91,6 +93,10 @@ pub struct MeshInput {
     /// The cells of pieces just outside the section next to those, and what fills their octants (by
     /// their place, −1 or 32 along one axis), so bars meeting across a section's side show no seam.
     pub beyond_pieces: HashMap<[i32; 3], [BlockId; 8]>,
+    /// The cells round the section daylight is worked out from, and how far it reaches in (blocks),
+    /// when there's covered air near it (`sky_light.rs`). `None`: full daylight everywhere.
+    pub light: Option<LightRegion>,
+    pub reach: i32,
 }
 
 #[derive(Default)]
@@ -121,11 +127,12 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
     let is_grid = |id: BlockId| is_see_through(id) && input.inner_faces.get(id.0 as usize).copied().unwrap_or(false);
     let is_outline = |id: BlockId| is_see_through(id) && !is_grid(id);
     let mut out = MeshOutput::default();
+    let daylight = input.light.as_ref().map_or_else(Daylight::default, |region| flood(region, input.reach));
 
     // Opaque blocks: faces where they meet anything not opaque.
     let opaque = build_columns(&input.blocks, is_opaque, &input.outside);
-    emit_faces(&mut out, input, &opaque, [&opaque, &opaque], false);
-    emit_pieces(&mut out, input, &is_opaque);
+    emit_faces(&mut out, input, &daylight, &opaque, [&opaque, &opaque], false);
+    emit_pieces(&mut out, input, &daylight, &is_opaque);
 
     if !input.blocks.iter().any(|&id| is_see_through(id)) {
         return out;
@@ -140,12 +147,12 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
 
     // Outline blocks: faces where they meet anything neither opaque nor see-through.
     let anything = union(&opaque, &grid, &outline);
-    emit_faces(&mut out, input, &outline, [&anything, &anything], true);
+    emit_faces(&mut out, input, &daylight, &outline, [&anything, &anything], true);
 
     // Grid blocks: faces everywhere except against opaque blocks. A face shared by two grid
     // blocks is drawn only once: by the block on its negative side, as that block's positive face.
     let opaque_or_grid = union(&opaque, &grid, &grid);
-    emit_faces(&mut out, input, &grid, [&opaque, &opaque_or_grid], true);
+    emit_faces(&mut out, input, &daylight, &grid, [&opaque, &opaque_or_grid], true);
     out
 }
 
@@ -188,12 +195,12 @@ fn build_columns(blocks: &[BlockId], include: impl Fn(BlockId) -> bool, outside:
 /// `blockers` = [what blocks positive-facing faces, what blocks negative-facing faces].
 /// Faces are merged into rectangles and added to `out`. `both_sides` also adds each
 /// rectangle facing the other way (for see-through blocks).
-fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blockers: [&Columns; 2], both_sides: bool) {
+fn emit_faces(out: &mut MeshOutput, input: &MeshInput, daylight: &Daylight, columns: &Columns, blockers: [&Columns; 2], both_sides: bool) {
     for axis in 0..3 {
         let (u_axis, v_axis) = plane_axes(axis);
         for positive in [true, false] {
-            // (depth, block) → 32 rows of bits
-            let mut planes: HashMap<(u32, BlockId), [u32; N]> = HashMap::new();
+            // (depth, block, daylight in front) → 32 rows of bits: faces merge only with the same light
+            let mut planes: HashMap<(u32, BlockId, u32), [u32; N]> = HashMap::new();
             for v in 0..N {
                 for u in 0..N {
                     let column = columns[axis][u + v * N];
@@ -212,16 +219,20 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
                         p[u_axis] = u;
                         p[v_axis] = v;
                         let block = input.blocks[p[0] + p[1] * N + p[2] * N * N];
-                        planes.entry((depth as u32, block)).or_insert([0; N])[v] |= 1 << u;
+                        // The cell in front of the face.
+                        let mut front = p.map(|c| c as i32);
+                        front[axis] += if positive { 1 } else { -1 };
+                        let light = daylight.at(front[0], front[1], front[2]);
+                        planes.entry((depth as u32, block, light)).or_insert([0; N])[v] |= 1 << u;
                     }
                 }
             }
 
-            for ((depth, block), mut plane) in planes {
+            for ((depth, block, light), mut plane) in planes {
                 // The face of a block at `depth` lies on its far side when facing the positive way.
                 let plane_position = depth + positive as u32;
                 merge_plane(&mut plane, |u, v, width, height| {
-                    push_quad(out, input, block, (axis, positive), plane_position * 2, [u * 2, v * 2, width * 2, height * 2], both_sides, None);
+                    push_quad(out, input, block, (axis, positive), plane_position * 2, [u * 2, v * 2, width * 2, height * 2], both_sides, None, light);
                 });
             }
         }
@@ -234,7 +245,7 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
 /// its layer is the bar's side or end, and its quad number is `BAR_TAG` and the tag, for the shader to
 /// measure the picture from the bar's own corner.
 #[allow(clippy::too_many_arguments)]
-fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool, bar: Option<u16>) {
+fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool, bar: Option<u16>, light: u32) {
     let (u_axis, v_axis) = plane_axes(axis);
     let face = face_index(axis, positive);
     // A whole block on the octant grid: the block's own face, slid by half a block (never turned).
@@ -266,7 +277,7 @@ fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, pos
         out_bits[u_axis] = (cu != u) as u32;
         out_bits[v_axis] = (cv != v) as u32;
         out.vertices.push([
-            p[0] | p[1] << 7 | p[2] << 14 | (face as u32) << 21 | (random_rotation as u32) << 24 | out_bits[0] << 25 | out_bits[1] << 26 | out_bits[2] << 27,
+            p[0] | p[1] << 7 | p[2] << 14 | (face as u32) << 21 | (random_rotation as u32) << 24 | out_bits[0] << 25 | out_bits[1] << 26 | out_bits[2] << 27 | (light & 15) << 28,
             (layer & 0xFFFF) | quad_tag << 16,
         ]);
     }
@@ -283,7 +294,7 @@ fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, pos
 /// The cells built of pieces (`world/pieces.rs`): each filled octant's faces, where nothing opaque
 /// covers them (another octant of the cell, a neighbouring cell's octant, or a whole block), merged
 /// within the cell, so a bar's long side is one rectangle. Not merged across cells: they're few.
-fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(BlockId) -> bool) {
+fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, daylight: &Daylight, is_opaque: &dyn Fn(BlockId) -> bool) {
     // Each cell's octants as the blocks filling them (for what covers what).
     let blocks_of = |owners: &Owners| owners.map(|owner| owner.map_or(BlockId::AIR, |(_, block)| block));
     let cells: HashMap<usize, [BlockId; 8]> = input.pieces.iter().map(|(index, owners)| (*index, blocks_of(owners))).collect();
@@ -293,6 +304,8 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(Block
     for (index, owners) in &input.pieces {
         let (index, octants) = (*index, blocks_of(owners));
         let cell = [index % N, (index / N) % N, index / (N * N)];
+        // Its faces take the cell's own daylight (it holds air between its pieces).
+        let light = daylight.at(cell[0] as i32, cell[1] as i32, cell[2] as i32);
         for axis in 0..3 {
             let (u_axis, v_axis) = plane_axes(axis);
             for positive in [true, false] {
@@ -338,7 +351,7 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(Block
                     let plane = (cell[axis] * 2 + depth) as u32 + positive as u32;
                     let (u0, v0) = ((cell[u_axis] * 2) as u32, (cell[v_axis] * 2) as u32);
                     let mut emit = |(block, bar): (BlockId, u16), [u, v, width, height]: [u32; 4]| {
-                        push_quad(out, input, block, (axis, positive), plane, [u0 + u, v0 + v, width, height], false, (bar != NO_BAR).then_some(bar));
+                        push_quad(out, input, block, (axis, positive), plane, [u0 + u, v0 + v, width, height], false, (bar != NO_BAR).then_some(bar), light);
                     };
                     let same = |a: (BlockId, u16), b: (BlockId, u16)| !a.0.is_air() && a == b;
                     if same(grid[0][0], grid[0][1]) && same(grid[0][0], grid[1][0]) && same(grid[0][0], grid[1][1]) {
@@ -431,6 +444,8 @@ mod tests {
             pieces: Vec::new(),
             bar_layers: Arc::new(Vec::new()),
             beyond_pieces: HashMap::new(),
+            light: None,
+            reach: 8,
         }
     }
 

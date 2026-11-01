@@ -469,3 +469,58 @@ like a magic braziere from a cult lair or glow-lichen. how would you implement a
   it's only for seeing a black cave.
 - **Colour later:** brightness first. A brazier's orange and lichen's green need more than the
   vertex's 4 spare bits, so colour waits for a glowing block to look at.
+- **[2026-11-01, David through Counsel] Colour is planned in from the first glowing block** ("i agree
+  about colors"): in a world where light is precious, colour carries meaning (a warm torch, a cult
+  brazier's green, the lichen's cold blue).
+  - **The format, settled so colour never redoes it:** the vertex's 4 spare bits are the sky's
+    channel only; its colour comes from the sky (day, the moons).
+  - Placed lights get their own channel, brightness and colour (4 bits each for red, green and
+    blue), in a third word of the vertex, when the first glowing block comes.
+  - Moving lights' cube of light holds colour from the start.
+- **[2026-11-01] The brazier:** David is modelling a Doom-style brazier in Blockbench.
+  *Builder, for when he brings it:*
+  - **Coming in:** Blockbench exports glTF, which Bevy loads as is. It's an object, not a block: the
+    Registrar's tabs by kind (blocks, items, decorations, Blueprints) would take it as a
+    decoration, with its model, the light it gives, and where its flame is.
+  - **The flame, ways to animate it:**
+    1. sprite frames, as Doom's own braziers are: a strip of frames drawn in Aseprite, on a flat
+       flame that faces the camera, the shader stepping through them by time (cheap, and true to
+       Doom);
+    2. palette cycling (the water's plan, `docs/decisions.md`): one frame whose colours roll;
+    3. the FX Lab's particles, later.
+    - My lean: frames first. It's the look he's after, and it's the least to build.
+  - **Its light:** a placed light, coloured, with a flicker in the shader (brightness wavering by
+    time), so it costs nothing to animate.
+
+## 12. Stop 3, darkness: [BUILT 2026-11-01]
+
+- **Daylight** (`render/sky_light.rs`):
+  - **The sky height:** each column's sky height is its highest solid block, worked out per chunk
+    when a section first needs it and forgotten when the chunk changes (`MeshingState::sky`).
+  - **The light:** a cell above that is open to the sky, full daylight (15). From there light walks
+    through cells that aren't solid, one even step darker each block, to black at "how far daylight
+    reaches in" (8 to start, up to 15). It goes round corners, never through rock, and further in
+    it's pitch black. The walk is whole numbers and bounded.
+  - **Most sections skip it:** when every cell in a section and just round it is solid or open to the
+    sky, it's all full daylight. Only sections with covered air near them (caves, overhangs, holes
+    dug, the inside of a roofed building) get the walk, from the cells `reach` + 1 blocks round them.
+  - **Unloaded neighbours** count as solid and covered.
+- **Stored with the faces:** each face takes the light of the cell in front of it, in the vertex's 4
+  spare bits. Faces merge only with the same light. Pieces take their own cell's light.
+- **The shader:**
+  - daylight is squared, so it falls away quickly into the dark;
+  - "plain light" for deep faces is gone in effect: deep faces are black;
+  - the light map and hill shading are as before above ground.
+- **Edits** make every section within 16 blocks again (`LIGHT_MARGIN`), for the light they change.
+  - *Known gap:* opening a column to the sky changes the light all the way down it. A cave more than
+    16 blocks below a hole dug down to it is lit only when its section is next made.
+- **The Render page, "Light underground":**
+  - "daylight underground" switches it on or off, to compare;
+  - "how far daylight reaches in" (changing either makes every mesh again);
+  - the **test lantern**: a light round the camera, 12 blocks by default, with its brightness. It
+    goes through walls; it's for tuning only (section 11).
+- **Tests:**
+  - daylight reaching a tunnel from a shaft, a step darker each block, black beyond its reach;
+  - none through rock to a pocket beside open air;
+  - full where nothing is worked out;
+  - an edit marking the sections within 16 blocks.

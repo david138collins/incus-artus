@@ -309,29 +309,19 @@ impl VoxelWorld {
         }
     }
 
-    /// Mark the block's section dirty, plus any neighbouring section it touches.
+    /// Mark every section within `LIGHT_MARGIN` blocks of the block dirty: its own, the ones its faces
+    /// touch, and those whose daylight it may change (`render/sky_light.rs`: daylight reaches up to 15
+    /// blocks in from open sky, so a block placed or dug changes the light that far round it).
+    /// [Known gap: opening a column to the sky changes the light all the way down it; a cave further
+    /// below than this is lit again only when its section is next made.]
     fn mark_dirty_around(&mut self, block: IVec3) {
-        let last = SECTION_SIZE - 1;
-        let local = block.rem_euclid(IVec3::splat(SECTION_SIZE));
-        let mut offsets = vec![IVec3::ZERO];
-        for axis in 0..3 {
-            if local[axis] == 0 {
-                let mut offset = IVec3::ZERO;
-                offset[axis] = -1;
-                offsets.push(offset);
-            } else if local[axis] == last {
-                let mut offset = IVec3::ZERO;
-                offset[axis] = 1;
-                offsets.push(offset);
-            }
-        }
-        for offset in offsets {
-            let neighbour = block + offset;
-            if z_in_world(neighbour.z) {
-                self.dirty.insert(SectionKey {
-                    chunk: ChunkPos::of_block(neighbour),
-                    level: position::section_level(neighbour.z) as u8,
-                });
+        let low = (block - IVec3::splat(LIGHT_MARGIN)).div_euclid(IVec3::new(CHUNK_SIZE, CHUNK_SIZE, SECTION_SIZE));
+        let high = (block + IVec3::splat(LIGHT_MARGIN)).div_euclid(IVec3::new(CHUNK_SIZE, CHUNK_SIZE, SECTION_SIZE));
+        for level in low.z.max(0)..=high.z.min(SECTIONS_PER_CHUNK as i32 - 1) {
+            for y in low.y..=high.y {
+                for x in low.x..=high.x {
+                    self.dirty.insert(SectionKey { chunk: ChunkPos::new(x, y), level: level as u8 });
+                }
             }
         }
     }
@@ -416,6 +406,10 @@ fn show_left_out(mut contexts: bevy_egui::EguiContexts, terrain: Res<Terrain>) {
 /// How far around the middle of a compiled world chunks are made at once when it starts, so
 /// there's ground under you straight away. The rest stream in (see `streaming.rs`).
 const COMPILED_RADIUS_CHUNKS: i32 = 2;
+
+/// How far round an edited block sections are made again (blocks): daylight's longest reach and one
+/// more (`render/sky_light.rs`).
+const LIGHT_MARGIN: i32 = 16;
 
 /// Make the terrain of a compiled world around its spawn spot (north, east), timing how long it
 /// takes.
@@ -872,14 +866,16 @@ mod tests {
     fn set_block_and_dirty_neighbours() {
         let (mut world, blocks) = test_world();
         world.take_dirty();
-        // X = 0 is on a section's west edge, so its neighbour at X = −1 must redraw too.
+        // Every section within 16 blocks redraws, for the faces it touches and the daylight it
+        // changes: X −16 to 16 and Y −11 to 21 are two chunks each, Z 84 to 116 two levels.
         let old = world.set_block(IVec3::new(0, 5, 100), BlockId::AIR);
         assert_eq!(old, Some(blocks.stone));
         assert_eq!(world.get_block(IVec3::new(0, 5, 100)), BlockId::AIR);
         let dirty = world.take_dirty();
-        assert!(dirty.contains(&SectionKey { chunk: ChunkPos::new(0, 0), level: 3 }));
-        assert!(dirty.contains(&SectionKey { chunk: ChunkPos::new(-1, 0), level: 3 }));
-        assert_eq!(dirty.len(), 2);
+        for (x, y, level) in [(0, 0, 3), (-1, 0, 3), (0, -1, 2), (-1, -1, 2)] {
+            assert!(dirty.contains(&SectionKey { chunk: ChunkPos::new(x, y), level }), "{x} {y} {level}");
+        }
+        assert_eq!(dirty.len(), 8);
     }
 
     #[test]

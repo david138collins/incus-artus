@@ -17,10 +17,11 @@
 
 use super::material::{ATTRIBUTE_PACKED_VOXEL, TerrainMaterial};
 use super::mesher::{MeshInput, MeshOutput, face_index, mesh_section, plane_axes};
+use super::sky_light::{LightRegion, MOST_REACH, sky_heights};
 use super::{RenderSettings, TerrainAssets};
 use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::world::{
-    BlockId, CHUNK_SIZE, SECTION_SIZE, SECTION_VOLUME, Section, SectionKey, VoxelWorld,
+    BlockId, CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTION_VOLUME, Section, SectionKey, VoxelWorld, WORLD_HEIGHT,
 };
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::primitives::Aabb;
@@ -57,6 +58,9 @@ pub struct MeshingState {
     pub jobs_finished: u64,
     pub total_job_micros: u64,
     pub slowest_job_micros: u64,
+    /// Each chunk's sky heights (`sky_light::sky_heights`), worked out when first needed and
+    /// forgotten when any of its sections changes.
+    pub sky: HashMap<ChunkPos, Vec<i32>>,
 }
 
 pub struct JobResult {
@@ -73,6 +77,7 @@ pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWor
     state.changes += 1;
     let mut gone = HashSet::new();
     for key in dirty {
+        state.sky.remove(&key.chunk);
         let section = world.chunk(key.chunk).map(|chunk| &chunk.sections()[key.level as usize]);
         match section {
             // A chunk that's gone (dropped behind you): just remove its meshes.
@@ -146,7 +151,7 @@ pub fn start_jobs(
     let pool = AsyncComputeTaskPool::get();
     for key in keys {
         state.waiting.remove(&key);
-        match gather_input(&world, key, &terrain) {
+        match gather_input(&world, key, &terrain, &settings, &mut state.sky) {
             Some(input) => {
                 let task = pool.spawn(async move {
                     let started = Instant::now();
@@ -303,7 +308,7 @@ fn index_of(local: IVec3) -> usize {
 }
 
 /// Copy everything the mesher needs out of the world. `None` = nothing to draw.
-fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) -> Option<MeshInput> {
+fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets, settings: &RenderSettings, sky: &mut HashMap<ChunkPos, Vec<i32>>) -> Option<MeshInput> {
     let chunk = world.chunk(key.chunk)?;
     let section = &chunk.sections()[key.level as usize];
     let is_opaque = |id: BlockId| id != BlockId::PIECES && terrain.opaque.get(id.0 as usize).copied().unwrap_or(true);
@@ -396,6 +401,11 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         }
     }
 
+    // Daylight (`sky_light.rs`), worked out only where there's covered air in or right round the
+    // section.
+    let reach = settings.sky_reach.clamp(1, MOST_REACH);
+    let light = if settings.sky_light { light_region(world, key, &blocks, &outside, reach, &is_opaque, sky) } else { None };
+
     Some(MeshInput {
         blocks,
         outside,
@@ -409,5 +419,91 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets) ->
         bar_layers: terrain.bar_layers.clone(),
         pieces,
         beyond_pieces,
+        light,
+        reach,
     })
+}
+
+/// The cells round a section daylight is worked out from (`sky_light.rs`: the section and `reach` +
+/// 1 blocks round it), if any air in it or just across its sides is covered (something solid above
+/// it); `None` if every cell there is solid or open to the sky, so everything's in full daylight.
+/// Unloaded chunks count as solid, and as covered.
+fn light_region(world: &VoxelWorld, key: SectionKey, blocks: &[BlockId], outside: &[[u32; 32]; 6], reach: i32, is_opaque: &dyn Fn(BlockId) -> bool, sky: &mut HashMap<ChunkPos, Vec<i32>>) -> Option<LightRegion> {
+    let origin = section_origin(key);
+    let (size, margin) = (SECTION_SIZE, reach + 1);
+    let span = size + 2 * margin;
+    // The sky height of each column round it (each chunk's worked out once, until it changes).
+    let mut heights = vec![i32::MAX; (span * span) as usize];
+    let chunks = |low: i32| (low - margin).div_euclid(CHUNK_SIZE)..=(low + size - 1 + margin).div_euclid(CHUNK_SIZE);
+    for cy in chunks(origin.y) {
+        for cx in chunks(origin.x) {
+            let pos = ChunkPos::new(cx, cy);
+            let Some(chunk) = world.chunk(pos) else { continue };
+            let column = sky.entry(pos).or_insert_with(|| sky_heights(chunk, is_opaque));
+            for ly in 0..CHUNK_SIZE {
+                for lx in 0..CHUNK_SIZE {
+                    let (x, y) = (cx * CHUNK_SIZE + lx - origin.x + margin, cy * CHUNK_SIZE + ly - origin.y + margin);
+                    if (0..span).contains(&x) && (0..span).contains(&y) {
+                        heights[(x + y * span) as usize] = column[(lx + ly * CHUNK_SIZE) as usize];
+                    }
+                }
+            }
+        }
+    }
+    // (From a place relative to the section.)
+    let height = |x: i32, y: i32| heights[((x + margin) + (y + margin) * span) as usize];
+    let covered = |x: i32, y: i32, z: i32| origin.z + z < height(x, y);
+
+    // Any covered air in the section, or just across its sides?
+    let inside = (0..size).any(|z| (0..size).any(|y| (0..size).any(|x| !is_opaque(blocks[(x + y * size + z * size * size) as usize]) && covered(x, y, z))));
+    let beside = || {
+        (0..3).any(|axis| {
+            let (u_axis, v_axis) = plane_axes(axis);
+            [true, false].into_iter().any(|positive| {
+                let face = face_index(axis, positive);
+                (0..size).any(|v| {
+                    (0..size).any(|u| {
+                        let mut p = [0; 3];
+                        (p[axis], p[u_axis], p[v_axis]) = (if positive { size } else { -1 }, u, v);
+                        (outside[face][v as usize] >> u) & 1 == 0 && covered(p[0], p[1], p[2])
+                    })
+                })
+            })
+        })
+    };
+    if !inside && !beside() {
+        return None;
+    }
+
+    // Each cell round it: solid or not, open to the sky or not, read a section at a time.
+    let mut region = LightRegion::new(margin);
+    let levels = (origin.z - margin).div_euclid(size)..=(origin.z + size - 1 + margin).div_euclid(size);
+    for level in levels {
+        for cy in chunks(origin.y) {
+            for cx in chunks(origin.x) {
+                let section = usize::try_from(level).ok().and_then(|level| world.chunk(ChunkPos::new(cx, cy)).and_then(|chunk| chunk.sections().get(level)));
+                let above = level * size >= WORLD_HEIGHT;
+                // This section's corner, relative to the one being meshed.
+                let low = IVec3::new(cx * CHUNK_SIZE, cy * CHUNK_SIZE, level * size) - origin;
+                for z in low.z.max(-margin)..(low.z + size).min(size + margin) {
+                    for y in low.y.max(-margin)..(low.y + size).min(size + margin) {
+                        for x in low.x.max(-margin)..(low.x + size).min(size + margin) {
+                            let id = match section {
+                                Some(Section::Uniform(id)) => *id,
+                                Some(other) => other.get(index_of(IVec3::new(x, y, z) - low)),
+                                // Past the top of the world: air. Below it, or not loaded: solid.
+                                None if above => BlockId::AIR,
+                                None => continue,
+                            };
+                            let i = region.index(IVec3::new(x, y, z));
+                            let solid = is_opaque(id);
+                            region.opaque[i] = solid;
+                            region.open[i] = !solid && !covered(x, y, z);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Some(region)
 }

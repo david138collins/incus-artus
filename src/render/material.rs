@@ -81,6 +81,9 @@ pub struct TerrainShaderSettings {
     pub options: Vec4,
     /// Survey view: x on, y every how many levels, z darkness, w sea level.
     pub survey: Vec4,
+    /// Underground (`sky_light.rs`): x daylight on (else everything fully lit), y the test lantern's
+    /// reach (blocks; 0 off), z its brightness at its middle.
+    pub underground: Vec4,
 }
 
 impl Material for TerrainMaterial {
