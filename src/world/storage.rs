@@ -24,7 +24,7 @@ use super::chunk::Chunk;
 use super::pieces::{Part, Pieces};
 use super::position::{ChunkPos, SECTION_VOLUME, SECTIONS_PER_CHUNK, z_in_world};
 use super::section::Section;
-use super::{CompiledMap, InterpreterSettings, Maps, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
+use super::{CavePlan, Caves, CompiledMap, InterpreterSettings, Maps, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
 use crate::data::BlockRegistry;
 use crate::save::{WorldFolder, write_file};
 use bevy::prelude::*;
@@ -429,6 +429,13 @@ pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, Strin
             let _ = std::fs::remove_file(folder.path.join("rivers.txt"));
         }
     }
+    // The caves (`caves.rs`), so chunks made again from the recipe have them too.
+    let caves = world.get_resource::<Caves>().map(|caves| caves.0.clone()).unwrap_or_default();
+    if caves.is_empty() {
+        let _ = std::fs::remove_file(folder.path.join("caves.toml"));
+    } else {
+        write_file(&folder.path.join("caves.toml"), caves.to_text().as_bytes())?;
+    }
     let chunks_folder = folder.sub_folder("chunks")?;
     let voxel = world.resource::<VoxelWorld>();
     let registry = world.resource::<BlockRegistry>();
@@ -463,6 +470,12 @@ pub fn save_terrain(world: &World, folder: &WorldFolder) -> Result<String, Strin
 pub fn load_terrain(world: &mut World, folder: &WorldFolder) -> Result<String, String> {
     let settings = folder.read_toml::<TestWorldSettings>()?.unwrap_or_default();
     world.insert_resource(settings.clone());
+    // The caves first, so the chunks are made with them (none in worlds saved before them).
+    let caves = match std::fs::read_to_string(folder.path.join("caves.toml")) {
+        Ok(text) => CavePlan::from_text(&text).map_err(|error| format!("caves.toml: {error}"))?,
+        Err(_) => CavePlan::default(),
+    };
+    world.insert_resource(Caves(Arc::new(caves)));
     match load_compiled(&folder.path)? {
         Some((map, spawn)) => {
             let map = Arc::new(map);
@@ -514,6 +527,8 @@ pub fn load_terrain(world: &mut World, folder: &WorldFolder) -> Result<String, S
 /// A fresh world: a compiled world, if the World Compiler asked for one ("Render World and
 /// Spawn"), or else the test cylinder from the current settings.
 pub fn fresh_terrain(world: &mut World, _seed: u64) {
+    // A new world has no caves yet.
+    world.insert_resource(Caves::default());
     match world.get_resource_mut::<NextTerrain>().and_then(|mut next| next.0.take()) {
         Some((map, spawn)) => {
             world.insert_resource(Terrain::Compiled(map.clone()));

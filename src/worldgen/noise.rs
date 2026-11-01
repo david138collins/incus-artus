@@ -331,6 +331,39 @@ pub fn whole_perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f3
     (out(value, FINE), out(along_x, ONE), out(along_y, ONE))
 }
 
+// ── Whole-number noise in 3D, for cave walls ────────────────────────────────
+//
+// Value noise (a number at each post, blended by the smooth fade), given whole blocks and a feature
+// size in whole blocks, so nothing at all is a fraction: a GPU shader can do exactly the same, in 32
+// bits [GPU-safe: docs/caves.md, stop 1]. Lumps rather than Perlin's swirls, which is what a wall
+// pushed in and out needs.
+
+/// A 32-bit barcode for a post in 3D (murmur3's mixing, as `hash32`).
+fn hash32_3(seed: u32, x: i32, y: i32, z: i32) -> u32 {
+    let mut h = seed ^ 0x2545_f491;
+    for k in [x as u32, y as u32, z as u32] {
+        h ^= k.wrapping_mul(0xcc9e_2d51).rotate_left(15).wrapping_mul(0x1b87_3593);
+        h = h.rotate_left(13).wrapping_mul(5).wrapping_add(0xe654_6b64);
+    }
+    h ^= h >> 16;
+    h = h.wrapping_mul(0x85eb_ca6b);
+    h ^= h >> 13;
+    h = h.wrapping_mul(0xc2b2_ae35);
+    h ^ (h >> 16)
+}
+
+/// Value noise at a block, one lump every `size` blocks (at least 1): −65536 to 65535, in 65536ths.
+pub fn whole_value3(seed: u32, block: [i32; 3], size: i32) -> i32 {
+    let size = size.max(1);
+    // Each axis: its post, and how far past it in 65536ths (the remainder is under `size`, so this
+    // stays under 2³¹ for lumps up to 32,768 blocks).
+    let [(ix, fx), (iy, fy), (iz, fz)] = block.map(|b| (b.div_euclid(size), b.rem_euclid(size) * FINE / size));
+    let value = |x: i32, y: i32, z: i32| (hash32_3(seed, x, y, z) >> 15) as i32 - FINE;
+    let (u, v, w) = (whole_fade(Fade::Smooth, fx), whole_fade(Fade::Smooth, fy), whole_fade(Fade::Smooth, fz));
+    let plane = |z: i32| mix(mix(value(ix, iy, z), value(ix + 1, iy, z), u), mix(value(ix, iy + 1, z), value(ix + 1, iy + 1, z), u), v);
+    mix(plane(iz), plane(iz + 1), w)
+}
+
 impl PerlinSettings {
     /// The raw stacked value at a position in blocks (about −1 to 1), before the output shaping.
     pub fn raw(&self, seed: u64, north: f32, east: f32) -> f32 {

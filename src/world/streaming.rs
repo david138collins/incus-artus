@@ -81,6 +81,14 @@ pub struct Streaming {
 }
 
 impl Streaming {
+    /// Drops chunks being made (or made and not yet in) at these places, made from a plan that's
+    /// since changed (a cave placed): they're made again from the new one.
+    pub fn forget(&mut self, places: &HashSet<ChunkPos>) {
+        self.making.retain(|pos, _| !places.contains(pos));
+        self.finished.retain(|(pos, _)| !places.contains(pos));
+        self.queued_when = None;
+    }
+
     pub fn queued(&self) -> usize {
         self.queue.len()
     }
@@ -168,6 +176,7 @@ fn wanted(streaming: &Streaming, world: &VoxelWorld, centre: ChunkPos, facing: V
 /// The streaming system (see the top of this file).
 pub fn stream_chunks(
     terrain: Res<Terrain>,
+    caves: Res<super::Caves>,
     settings: Res<StreamSettings>,
     registry: Res<BlockRegistry>,
     camera: Query<&Transform, With<Camera3d>>,
@@ -263,8 +272,8 @@ pub fn stream_chunks(
             streaming.finished.push((pos, Some(chunk)));
             continue;
         }
-        let (map, blocks) = (map.clone(), blocks.clone());
-        let task = pool.spawn(async move { map.chunk(pos, &blocks) });
+        let (map, blocks, caves) = (map.clone(), blocks.clone(), caves.0.clone());
+        let task = pool.spawn(async move { map.chunk(pos, &blocks, &caves) });
         streaming.making.insert(pos, task);
         streaming.made += 1;
     }

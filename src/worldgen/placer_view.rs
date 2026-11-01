@@ -1590,7 +1590,7 @@ mod tests {
             let (ground, layers, water) = world_column(&map, &no_climate, &map.mineralogy(&b), north, east, frame.heights[row * cols + col]);
             let (x, y) = (north.floor() as i32, east.floor() as i32);
             assert_eq!(map.column(x, y).map(|(z, _)| z), Some(ground));
-            let chunk = map.chunk(crate::world::ChunkPos::of_block(bevy::prelude::IVec3::new(x, y, 0)), &b).unwrap();
+            let chunk = map.chunk(crate::world::ChunkPos::of_block(bevy::prelude::IVec3::new(x, y, 0)), &b, &crate::world::CavePlan::default()).unwrap();
             for z in ground - 8..=ground.max(SEA_LEVEL) + 4 {
                 let block = layers.block_at(z, ground, water, &b);
                 assert_eq!(block, chunk.get(bevy::prelude::IVec3::new(x, y, z)), "at ({x}, {y}, Z {z})");

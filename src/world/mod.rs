@@ -24,12 +24,14 @@ mod section;
 mod storage;
 mod streaming;
 mod carving;
+mod caves;
 mod interpreter;
 mod mineralogy;
 pub mod placer;
 mod terrain;
 
 pub use block::BlockId;
+pub use caves::{CavePlan, Caves, TestCaveSettings};
 pub use pieces::{Owners, Part, Pieces, Turn, bar_halves, bar_placement, half_box, octant_of, piece_start};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
@@ -372,6 +374,9 @@ impl Plugin for WorldPlugin {
             .init_resource::<Streaming>()
             .init_resource::<StreamSettings>()
             .add_settings::<StreamSettings>("streaming")
+            .init_resource::<Caves>()
+            .init_resource::<TestCaveSettings>()
+            .add_settings::<TestCaveSettings>("test_cave")
             .add_systems(Update, streaming::stream_chunks)
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
@@ -411,12 +416,13 @@ const COMPILED_RADIUS_CHUNKS: i32 = 2;
 /// takes.
 fn generate_compiled_world(world: &mut World, map: &CompiledMap, spawn: IVec2) {
     let blocks = TerrainBlocks::from_registry(world.resource::<BlockRegistry>());
+    let caves = world.get_resource::<Caves>().map(|caves| caves.0.clone()).unwrap_or_default();
     let started = Instant::now();
     let mut voxel = world.resource_mut::<VoxelWorld>();
     voxel.clear();
     voxel.set_spawn(spawn);
     let centre = ChunkPos::of_block(IVec3::new(spawn.x, spawn.y, 0));
-    let chunks = terrain::generate_around(&mut voxel, map, &blocks, centre, COMPILED_RADIUS_CHUNKS);
+    let chunks = terrain::generate_around(&mut voxel, map, &blocks, &caves, centre, COMPILED_RADIUS_CHUNKS);
     let millis = started.elapsed().as_secs_f64() * 1000.0;
     info!("Generated compiled world: {chunks} chunks in {millis:.1} ms");
     // Streaming starts over too, even for the same map (spawning again somewhere else).
@@ -441,6 +447,80 @@ fn regenerate_test_world(world: &mut World) {
     }
 }
 
+// ── The test cave (docs/caves.md, stop 1) ───────────────────────────────────
+
+/// Places a test cave at the crosshair: a dead end worming into the face aimed at (into a wall the
+/// way it faces, or, aimed at the ground, the way you're looking). Its chunks are made again with it.
+/// Says what happened.
+fn place_test_cave(world: &mut World) -> String {
+    let Some(map) = world.resource::<Terrain>().compiled().cloned() else { return "A test cave needs a compiled world.".to_string() };
+    let target = world.resource::<crate::camera::LookTarget>();
+    let (Some(hit), Some(point)) = (target.hit, target.point) else { return "Aim at a hillside first (within reach).".to_string() };
+    let looking = world.query::<&crate::camera::FlyCamera>().iter(world).next().map_or(Vec3::X, |camera| camera.looking());
+    let heading = if hit.normal.z == 0 && hit.normal != IVec3::ZERO { -hit.normal.truncate().as_vec2() } else { looking.truncate().normalize_or(Vec2::X) };
+    let old = world.resource::<Caves>().0.clone();
+    let seed = (hit.block.x.wrapping_mul(73_856_093) ^ hit.block.y.wrapping_mul(19_349_663) ^ hit.block.z.wrapping_mul(83_492_791)) as u32 ^ old.tunnels.len() as u32;
+    let settings = world.resource::<TestCaveSettings>().clone();
+    let tunnel = settings.tunnel(point + hit.normal.as_vec3(), heading, seed);
+    let places = CavePlan::chunks_near(&tunnel);
+    let plan = std::sync::Arc::new(CavePlan::new(old.tunnels.iter().cloned().chain([tunnel]).collect()));
+    world.insert_resource(Caves(plan.clone()));
+    let (with, without, kept) = remake_chunks(world, &map, &places, &plan, &old);
+    let mut note = format!("A test cave, {:.0} blocks in. Its {} chunks made again in {with:.1} ms ({without:.1} ms without it).", settings.length, places.len());
+    if kept > 0 {
+        note += &format!(" {kept} you'd changed were carved, keeping your changes.");
+    }
+    note
+}
+
+/// Takes every test cave out. Chunks you've changed keep their holes (they're saved as they are).
+fn remove_test_caves(world: &mut World) -> String {
+    let Some(map) = world.resource::<Terrain>().compiled().cloned() else { return String::new() };
+    let old = world.resource::<Caves>().0.clone();
+    let places: HashSet<ChunkPos> = old.tunnels.iter().flat_map(CavePlan::chunks_near).collect();
+    let plan = std::sync::Arc::new(CavePlan::default());
+    world.insert_resource(Caves(plan.clone()));
+    let (_, _, kept) = remake_chunks(world, &map, &places, &plan, &old);
+    let mut note = format!("{} test caves removed.", old.tunnels.len());
+    if kept > 0 {
+        note += &format!(" {kept} chunks you'd changed keep their holes.");
+    }
+    note
+}
+
+/// Makes the loaded chunks at `places` again from the recipe with the caves in `plan`, timing it
+/// (with them, and with the `old` plan); chunks you've changed are carved instead, so your changes
+/// stay. Returns the two times (ms) and how many changed chunks there were.
+fn remake_chunks(world: &mut World, map: &CompiledMap, places: &HashSet<ChunkPos>, plan: &CavePlan, old: &CavePlan) -> (f64, f64, usize) {
+    let blocks = TerrainBlocks::from_registry(world.resource::<BlockRegistry>());
+    world.resource_mut::<Streaming>().forget(places);
+    let ms = |started: Instant| started.elapsed().as_secs_f64() * 1000.0;
+    let (mut with, mut without, mut kept) = (0.0, 0.0, 0);
+    let mut voxel = world.resource_mut::<VoxelWorld>();
+    for &pos in places {
+        if voxel.chunk(pos).is_none() {
+            continue;
+        }
+        if voxel.changed_chunks().contains(&pos) {
+            if let Some(chunk) = voxel.chunk_mut(pos) {
+                caves::carve_chunk(chunk, plan, blocks.water);
+            }
+            voxel.mark_chunk_dirty(pos);
+            kept += 1;
+            continue;
+        }
+        let started = Instant::now();
+        let _ = map.chunk(pos, &blocks, old);
+        without += ms(started);
+        let started = Instant::now();
+        if let Some(chunk) = map.chunk(pos, &blocks, plan) {
+            with += ms(started);
+            voxel.insert_chunk(chunk);
+        }
+    }
+    (with, without, kept)
+}
+
 // ── Debug page ──────────────────────────────────────────────────────────────
 
 #[derive(Resource)]
@@ -449,6 +529,8 @@ struct WorldDebugState {
     lookup: IVec3,
     last_generation_ms: f64,
     note_text: String,
+    /// What placing or removing a test cave did.
+    cave_note: String,
 }
 
 impl Default for WorldDebugState {
@@ -457,6 +539,7 @@ impl Default for WorldDebugState {
             lookup: IVec3::new(0, 0, 144),
             last_generation_ms: 0.0,
             note_text: "hello".to_string(),
+            cave_note: String::new(),
         }
     }
 }
@@ -508,6 +591,47 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
     {
         let streaming = world.resource::<Streaming>();
         ui.label(format!("Waiting: {}   being made: {}   made: {}   dropped: {}", streaming.queued(), streaming.being_made(), streaming.made, streaming.dropped));
+    }
+
+    // ── The test cave (docs/caves.md, stop 1) ──
+    ui.separator();
+    ui.strong("Test cave");
+    ui.small("A dead-end tunnel worming into the hillside at your crosshair, taken out of the ground as its chunks are made, and saved with the world. To compare settings: remove the test caves, change them, and place again.");
+    {
+        let mut settings = world.resource_mut::<TestCaveSettings>();
+        ui.add(crate::debug::Slider::new(&mut settings.length, 6.0..=120.0).text("how far in (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.width, 0.5..=8.0).text("half its width (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.height, 0.5..=8.0).text("half its height (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.wander, 0.0..=60.0).text("how much it worms (degrees every 3 blocks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.rise_and_fall, 0.0..=30.0).text("rise and fall as it worms (degrees)"));
+        ui.add(crate::debug::Slider::new(&mut settings.dip, -20.0..=30.0).text("heading down (degrees)")).on_hover_text("Below 0 it heads up into the hill");
+        ui.add(crate::debug::Slider::new(&mut settings.end_size, 0.1..=1.0).text("size at its end (share)")).on_hover_text("How narrow its last third gets: 1 = no narrower");
+        ui.add(crate::debug::Slider::new(&mut settings.rough, 0.0..=4.0).text("rough walls (blocks)")).on_hover_text("How far the walls are pushed in and out, so it isn't a pipe");
+        ui.add(crate::debug::Slider::new(&mut settings.lump, 1..=16).text("lumps (blocks)")).on_hover_text("How big the walls' lumps are");
+        ui.add(crate::debug::Slider::new(&mut settings.floor, 0.0..=1.0).text("flat floor (share of its height down)")).on_hover_text("1 = round all the way down; lower = a flatter floor, higher up");
+    }
+    let compiled = world.resource::<Terrain>().compiled().is_some();
+    let count = world.resource::<Caves>().0.tunnels.len();
+    let (mut place, mut remove, mut reset) = (false, false, false);
+    ui.horizontal_wrapped(|ui| {
+        place = ui.add_enabled(compiled, egui::Button::new("Place a test cave at the crosshair")).on_disabled_hover_text("Needs a compiled world (World Compiler, Render World and Spawn)").clicked();
+        remove = ui.add_enabled(count > 0, egui::Button::new(format!("Remove the test caves ({count})"))).clicked();
+        reset = ui.button("Reset to defaults").clicked();
+    });
+    if reset {
+        *world.resource_mut::<TestCaveSettings>() = TestCaveSettings::default();
+    }
+    if place {
+        let note = place_test_cave(world);
+        world.resource_mut::<WorldDebugState>().cave_note = note;
+    }
+    if remove {
+        let note = remove_test_caves(world);
+        world.resource_mut::<WorldDebugState>().cave_note = note;
+    }
+    let note = world.resource::<WorldDebugState>().cave_note.clone();
+    if !note.is_empty() {
+        ui.small(note);
     }
 
     // ── Storage statistics ──

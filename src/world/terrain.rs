@@ -20,6 +20,7 @@ use super::chunk::Chunk;
 use super::position::{CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTION_VOLUME, SECTIONS_PER_CHUNK, WORLD_HEIGHT};
 use super::section::Section;
 use super::VoxelWorld;
+use super::caves::CavePlan;
 use crate::data::BlockRegistry;
 use super::interpreter::CompiledMap;
 use bevy::prelude::*;
@@ -85,8 +86,9 @@ impl CompiledMap {
         slope_across(at(SLOPE_REACH, 0) - at(-SLOPE_REACH, 0), at(0, SLOPE_REACH) - at(0, -SLOPE_REACH))
     }
 
-    /// One chunk, or `None` if it's wholly past the edge of the map.
-    pub fn chunk(&self, pos: ChunkPos, blocks: &TerrainBlocks) -> Option<Chunk> {
+    /// One chunk, or `None` if it's wholly past the edge of the map, with the caves in `caves` taken
+    /// out of it (`caves.rs`: the column first, then every solid block inside a cave becomes air).
+    pub fn chunk(&self, pos: ChunkPos, blocks: &TerrainBlocks, caves: &CavePlan) -> Option<Chunk> {
         let origin = pos.min_block();
         let size = CHUNK_SIZE as usize;
         // Each column's ground (−1 = past the map), what it's made of (mineralogy), and where a river's or
@@ -147,12 +149,14 @@ impl CompiledMap {
         for level in 0..SECTIONS_PER_CHUNK {
             let bottom = level as i32 * SECTION_SIZE;
             let top_z = bottom + SECTION_SIZE - 1;
-            // Shortcuts: whole sections of sky, or of solid stone, need no per-block work.
+            // Shortcuts: whole sections of sky, or of solid stone with no cave near, need no
+            // per-block work.
             if bottom > highest {
                 sections.push(Section::Uniform(BlockId::AIR));
                 continue;
             }
-            if all_inside && top_z < lowest - deepest_layer {
+            let caved = caves.touches(pos, level);
+            if all_inside && top_z < lowest - deepest_layer && !caved {
                 sections.push(Section::Uniform(blocks.stone));
                 continue;
             }
@@ -161,7 +165,10 @@ impl CompiledMap {
                 let layer = &mut buffer[local_z * size * size..(local_z + 1) * size * size];
                 for column in 0..size * size {
                     let g = ground[column];
-                    layer[column] = if g < 0 || z >= WORLD_HEIGHT { BlockId::AIR } else { layers[column].block_at(z, g, water[column], blocks) };
+                    let block = if g < 0 || z >= WORLD_HEIGHT { BlockId::AIR } else { layers[column].block_at(z, g, water[column], blocks) };
+                    // The caves, taken out (water never is).
+                    let carved = caved && !block.is_air() && block != blocks.water && caves.inside(origin + IVec3::new((column % size) as i32, (column / size) as i32, z));
+                    layer[column] = if carved { BlockId::AIR } else { block };
                 }
             }
             sections.push(Section::from_blocks(&buffer));
@@ -235,7 +242,7 @@ pub struct NextTerrain(pub Option<(Arc<CompiledMap>, IVec2)>);
 
 /// Makes every chunk within `radius` chunks of `centre` (a circle), on all the computer's cores,
 /// and puts them in the world. Returns how many were made.
-pub fn generate_around(world: &mut VoxelWorld, map: &CompiledMap, blocks: &TerrainBlocks, centre: ChunkPos, radius: i32) -> usize {
+pub fn generate_around(world: &mut VoxelWorld, map: &CompiledMap, blocks: &TerrainBlocks, caves: &CavePlan, centre: ChunkPos, radius: i32) -> usize {
     let mut wanted = Vec::new();
     for x in -radius..=radius {
         for y in -radius..=radius {
@@ -247,7 +254,7 @@ pub fn generate_around(world: &mut VoxelWorld, map: &CompiledMap, blocks: &Terra
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
     let each = wanted.len().div_ceil(cores).max(1);
     let made: Vec<Chunk> = std::thread::scope(|scope| {
-        let jobs: Vec<_> = wanted.chunks(each).map(|part| scope.spawn(move || part.iter().filter_map(|&pos| map.chunk(pos, blocks)).collect::<Vec<_>>())).collect();
+        let jobs: Vec<_> = wanted.chunks(each).map(|part| scope.spawn(move || part.iter().filter_map(|&pos| map.chunk(pos, blocks, caves)).collect::<Vec<_>>())).collect();
         jobs.into_iter().flat_map(|job| job.join().unwrap_or_default()).collect()
     });
     let count = made.len();
@@ -305,7 +312,7 @@ mod tests {
         // A column in the sea (the west) and one on land (the east).
         for (x, y) in [(-16, -112), (-16, 80)] {
             let g = map.ground(x, y).unwrap();
-            let chunk = map.chunk(ChunkPos::of_block(IVec3::new(x, y, 0)), &blocks).unwrap();
+            let chunk = map.chunk(ChunkPos::of_block(IVec3::new(x, y, 0)), &blocks, &CavePlan::default()).unwrap();
             let at = |z: i32| chunk.get(IVec3::new(x, y, z));
             // The surface, its layers, then stone (mineralogy).
             let layers = map.layers(x, y, g, &blocks);
@@ -348,7 +355,7 @@ mod tests {
         let (x, y) = (-16, -48);
         let g = map.ground(x, y).unwrap();
         assert!((SEA_LEVEL + 3..256).contains(&g), "a grassy column ({g})");
-        let chunk = map.chunk(ChunkPos::of_block(IVec3::new(x, y, 0)), &blocks).unwrap();
+        let chunk = map.chunk(ChunkPos::of_block(IVec3::new(x, y, 0)), &blocks, &CavePlan::default()).unwrap();
         let at = |z: i32| chunk.get(IVec3::new(x, y, z));
         // The surface's dirt goes 2 down (David's).
         let depth = 2;
@@ -371,7 +378,7 @@ mod tests {
         let mineralogy = map.mineralogy(&blocks);
         assert!(mineralogy.reads_slope);
         let pos = ChunkPos::of_block(IVec3::new(-16, -40, 0));
-        let chunk = map.chunk(pos, &blocks).unwrap();
+        let chunk = map.chunk(pos, &blocks, &CavePlan::default()).unwrap();
         let (mut sand, mut grass) = (0, 0);
         for x in pos.min_block().x..pos.min_block().x + CHUNK_SIZE {
             for y in pos.min_block().y..pos.min_block().y + CHUNK_SIZE {
@@ -406,12 +413,12 @@ mod tests {
     fn chunks_past_the_map_are_nothing_and_generation_fills_a_circle() {
         let map = map();
         let blocks = blocks();
-        assert!(map.chunk(ChunkPos::new(50, 50), &blocks).is_none());
+        assert!(map.chunk(ChunkPos::new(50, 50), &blocks, &CavePlan::default()).is_none());
         let mut world = VoxelWorld::default();
-        let made = generate_around(&mut world, &map, &blocks, ChunkPos::new(0, 0), 3);
+        let made = generate_around(&mut world, &map, &blocks, &CavePlan::default(), ChunkPos::new(0, 0), 3);
         assert!(made > 0 && made == world.chunk_count());
         // The same chunk made twice is the same.
-        let (a, b) = (map.chunk(ChunkPos::new(0, 0), &blocks).unwrap(), map.chunk(ChunkPos::new(0, 0), &blocks).unwrap());
+        let (a, b) = (map.chunk(ChunkPos::new(0, 0), &blocks, &CavePlan::default()).unwrap(), map.chunk(ChunkPos::new(0, 0), &blocks, &CavePlan::default()).unwrap());
         for z in [100, 128, 140, 200] {
             assert_eq!(a.get(IVec3::new(3, 5, z)), b.get(IVec3::new(3, 5, z)));
         }

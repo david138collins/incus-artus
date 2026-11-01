@@ -346,3 +346,62 @@ where it goes in the pipeline. earlier is better if it doesnt clash"
   with a slider for a faint floor), and the first waterfall cave's size (question 6). Ask him at
   stop 3 and stop 5.
 - **The far mouth (question 5)** stays at stop 4, before any planned kind, as the steps have it.
+
+---
+
+## 9. Stop 1, a cave you can walk into: [BUILT 2026-11-01]
+
+David: "i would start with a simple, dead end cave, that worms a bit into the side of a mountain and
+stops". No chamber.
+
+- **The plan** (`world/caves.rs`, `CavePlan`):
+  - A list of tunnels. Each tunnel is a line of points (north, east, up, in 16ths of a block) with a
+    half width and a half height at each, plus its walls' look (rough, lump, flat floor) and seed.
+  - It's sorted into section-sized boxes, each listing the pieces of tunnel near it. Most of the
+    underground answers "nothing here" at once.
+  - The plan is the `Caves` resource, shared with the chunk-making threads.
+- **The carve** (`inside_piece`): GPU-safe, whole numbers in 32 bits, with no square roots.
+  - The nearest place on the piece is worked out in 256ths along it, and the size there is blended
+    from the piece's two ends.
+  - The walls are pushed in or out by `whole_value3`, the new whole-number 3D noise (`worldgen/noise.rs`:
+    value noise, lumps every `lump` blocks).
+  - The cross-section is an oval, wide `width` and tall `height`, with its floor cut flat `floor` of the
+    way down. It's measured flat and up, so a tunnel should lie nearer flat than upright.
+  - To fit 32 bits, a half width or height is at most 8 blocks and a piece at most 16 blocks long. A
+    piece past that (only from a hand-edited `caves.toml`) is left out, so it's never carved.
+- **In chunk making** (`CompiledMap::chunk`, which takes the plan now): the column first, then every
+  solid block inside a cave becomes air. Water is never carved.
+  - The uniform-stone shortcut stays for every section no cave comes near.
+  - A chunk already made can be carved the same way (`carve_chunk`). A test checks that a chunk made
+    with the caves and one made without and carved after are the same, block for block.
+- **The ground doesn't change:** `CompiledMap::height`, the light map, the far view, the climate and
+  mineralogy never see caves.
+- **The test cave** (the World page, "Test cave"):
+  - "Place a test cave at the crosshair" worms a dead end into the face aimed at. Aimed at a wall, it
+    heads straight in; aimed at the ground, it heads the way you're looking.
+  - It starts a step outside the face, so the mouth is cut clean. It has a point every 3 blocks,
+    turning a little each time, and narrows over its last third to a round end.
+  - **Sliders:** how far in, half width and height, how much it worms, rise and fall, heading down,
+    size at its end, rough walls, lumps, and the flat floor. They're saved in "everything" presets as
+    `test_cave`.
+  - Its chunks are made again with it and timed, with and without it, and the World page says how
+    long both took.
+  - Chunks you've changed are carved instead, so your changes stay. "Remove the test caves" takes them
+    all out, but changed chunks keep their holes, since they're saved as they are.
+  - Chunks being made when a cave is placed are dropped and made again (`Streaming::forget`).
+- **Saved with the world** as `caves.toml`, read before the chunks are made. A new world has none.
+- **Lit by plain light** as before, until stop 3.
+- **Not done yet, on file:**
+  - a cave opening beside water leaves water standing against air (the skin of rock in 3.1). Not seen
+    yet; to do if it shows.
+  - the far view doesn't show the mouth (stop 4).
+- **Tests:**
+  - a tunnel is air inside and rock outside, stops at a round end, and has its flat floor;
+  - rough walls wander, but the same seed carves the same;
+  - the noise stays in range, is the same each time, and is smooth;
+  - two tunnels cross the corner of four chunks: every block in six chunks is air exactly where the
+    plan says, and made-with matches carved-after;
+  - a cave's section isn't uniform any more, while one far from it is;
+  - the plan survives `caves.toml`;
+  - the biggest tunnel far out (30,000 blocks) is carved with no overflow;
+  - the same seed worms the same way.
