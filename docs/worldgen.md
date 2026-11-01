@@ -1301,6 +1301,28 @@ to evaporation.
   - **Caves are pitch black unless lit** [DECIDED 2026-11-01, David: "i want light to be precious"]
     (`docs/decisions.md`, Time, "Light is precious"). Daylight reaches only a little way in at the
     mouths, which the plan knows; every other light is a placed source.
+  - **[David 2026-11-01] Cave mouths are lit and seen from a distance:** "obviously the cave mouths
+    need lighting and to be seen from a distance." *Counsel:* by day, a mouth is the far view's few
+    dark pixels ("holes in the canvas", below). By night, in a dark world, a lair's fire at a mouth on
+    a mountainside shows for miles: a point of light that tells a story and warns. Far lights can be
+    cheap points or sprites in the far view, placed from the plan and the sites.
+  - **[IDEA, David 2026-11-01] What's down there:** "underground dungeons could have magic
+    [braziers] like from doom II, undeground cult lairs, spider nests, goblin hovels, trolls, ogres,
+    skeletons and zombies for some reason. glowing lichen could be helpful." It fits the hostile
+    sites already on file (`docs/vision.md`: goblin den, troll cave, cult hideout, evil cemetery, the
+    Temple of Darkness and its dungeon).
+    *Counsel* [PROPOSED]: each gets its reason, as the caves do:
+    - **Magic braziers:** a lair's own lights, burning without fuel. That makes them a sign that
+      magic, or someone, keeps them lit.
+    - **Cult lairs:** deep, hidden, near the Temple of Darkness's influence.
+    - **Spider nests:** damp limestone caves; webs across the passages.
+    - **Goblin hovels:** near mouths and shallow, close to the surface they raid. They grow by the
+      den rules (`docs/vision.md`, "Evil grows on its own").
+    - **Trolls and ogres:** big chambers, under mountains and bridges.
+    - **Skeletons and zombies:** where people died or were buried. The 1,000 years of history leave
+      battlefields, catacombs and lost mines, and Life and Death's moon may stir them.
+    - **Glowing lichen:** placed by damp, depth and darkness, a faint light that's precious because
+      it's rare. It could mark the way along old water routes.
 - **Cliffs carefully.** Cliffs and overhangs could be a sort of aborted cave feature: a cave that broke
   out under a slope gives an overhang, a cave mouth, a rock shelter, an arch.
 - **Non-cave carve features here and there**, too.
