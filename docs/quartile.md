@@ -162,3 +162,16 @@ don't block each other, and with one Builder, "beside" means taking stops by tur
 4. **Turning a bar:** its axis from the way you face, or a key to turn it?
 5. **The order:** the placer first, then quartile stops 1 to 3? Or quartile stop 1 first, to see bars
    sooner (section 7)?
+
+*Counsel's suggested answers (2026-11-01; David: "record them in the notes"; not yet his choices):*
+1. **Stepping up:** yes, automatically, up to half a block, with head room, like stairs and slabs in
+   most block games.
+2. **Textures:** start with a share of the block's own texture; add David's 32 × 16 and 16 × 16 bar
+   art per block as he makes it.
+3. **Which blocks:** only those the Registrar marks (logs, boards, cut stone, bricks to start), so the
+   choice stays David's, block by block.
+4. **Turning:** from the way you face, plus a key to turn it.
+5. **The order:** the placer's first version is done enough to go on (stop 4, 840af55), so quartile
+   stops 1 to 3 next. Counsel's lean: quartile before mineralogy's rock layers and ores, since David
+   named the placer and quartile the most critical, quartile depends on nothing else, and rock
+   layers are best seen with his rock textures.

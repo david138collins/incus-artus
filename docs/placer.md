@@ -728,3 +728,9 @@ what follows (section 11). Each comes with its first user, and nothing is built 
 - the depth sweep's "see through stone": a switch per rock, or every rock by a tag;
 - the sweep's colours: flat, or darker with depth inside a range;
 - a slope from before the rivers' carving, as a field of its own, if it's ever wanted.
+
+*Counsel's suggested answers (2026-11-01; David: "record them in the notes"; not yet his choices):*
+- **See through stone:** by a tag. Mineralogy will add many rocks, and a switch for each would crowd
+  the panel; per-rock switches only if a need shows.
+- **The sweep's colours:** look first. Darker with depth if a range is hard to read.
+- **A pre-carving slope:** leave it until something needs it.
