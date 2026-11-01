@@ -270,3 +270,26 @@ collision still needs to be from the models geometry, not its volume".
   - turning;
   - collision with boxes (stopped flush, walking past, stepping up onto a low one);
   - cups on two octants of one cell, and a block refused from an octant a cup holds.
+
+## 10. Stop 2, the flame: what's settled before it's built (David, 2026-11-01)
+
+David's flame: `assets/new/green_flame_animation.png`, 112 × 24, 7 frames of 16 × 24, with transparency.
+- **The strip marks its own frames** (David: "i put a magenta dot at the corner of each 16 pixel cell,
+  i thought maybe it could hook that so mapping them in aseprite would remain a simple png"):
+  - The marker colour is whatever colour the image's bottom-left pixel is (his: 254, 0, 191).
+  - Each pixel of that colour along the bottom row starts a frame, which runs to the next one (or to
+    the edge), so frames could be different widths.
+  - The markers are erased when the strip is loaded.
+  - With no markers, frames are square, as tall as the strip.
+- **Its timing:** milliseconds per frame, one number for now ("probably just set by ms for now").
+  Aseprite's sheet data (a time for each frame) is for later.
+- **Set in the Objects tab's attachments section** (David's "loader window"): the strip, what was
+  found ("7 frames, 16 × 24"), the milliseconds, and a small preview playing.
+- **Where it sits:**
+  - which point of the frame goes on the spot (David: "a drop down for bottom, bottom center, top
+    center"): bottom centre by default, for a flame;
+  - the spot itself: a Blockbench locator in the model (listed in a dropdown, and it turns and
+    scales with the model), or an offset from the object's feet in pixels, which works with no
+    locator.
+- **Its size:** one strip pixel is one block pixel by default, with a scale slider and **½ and 2×
+  buttons** (David: "a 1/2 / 2x button could be useful").
