@@ -226,42 +226,42 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
 // long side's picture runs up the bar's length, whichever way the bar lies; an end's covers the ½ × ½
 // end. Each layer is the bar's picture with its pixels repeated to fill 32 × 32, so 0 to 1 across the
 // bar's own width covers it.
+// One along an axis (0 x, 1 y, 2 z), as a vector: picks a vector's part by a number worked out as the
+// shader runs, which DirectX's compiler won't do by indexing (it quit the game at its first launch,
+// 2026-11-01: "array reference cannot be used as an l-value").
+fn unit(axis: u32) -> vec3<f32> {
+    return vec3<f32>(f32(axis == 0u), f32(axis == 1u), f32(axis == 2u));
+}
+
 fn bar_uv(face: u32, p: vec3<f32>, slot: u32) -> vec2<f32> {
     let index = slot & 31u;
     let link = slot >> 5u;
     // The bar's axis, and its corner across (`corner`: which half of each way across it it's in; and,
     // for half a bar, which half of its length this cell holds: the first if the other lies the positive
     // way).
-    var axis = index / 4u;
-    var corner = vec3<f32>(0.0);
-    var start = 0.0;
-    if index >= 12u {
-        let o = index - 12u;
-        axis = (link - 1u) / 2u;
-        corner = vec3<f32>(f32(o & 1u), f32((o >> 1u) & 1u), f32((o >> 2u) & 1u)) * 0.5;
-        start = select(-0.5, 0.5, link % 2u == 1u);
-    }
+    let is_half = index >= 12u;
+    let axis = select(index / 4u, (link - 1u) / 2u, is_half);
     let u = (axis + 1u) % 3u;
     let v = (axis + 2u) % 3u;
-    if index < 12u {
-        corner[u] = f32(index & 1u) * 0.5;
-        corner[v] = f32((index >> 1u) & 1u) * 0.5;
-    }
+    let o = index - 12u;
+    let octant = vec3<f32>(f32(o & 1u), f32((o >> 1u) & 1u), f32((o >> 2u) & 1u)) * 0.5;
+    let across = unit(u) * f32(index & 1u) * 0.5 + unit(v) * f32((index >> 1u) & 1u) * 0.5;
+    let corner = select(across, octant, is_half);
+    let start = select(0.0, select(-0.5, 0.5, link % 2u == 1u), is_half);
     // Where in its cell (0 to 1 each way), from a hair inside the face.
     let inside = p - face_normal(face) * 0.001;
     let c = inside - floor(inside);
     // Along the bar from its own start: a half's cell holds 0 to ½ (the first half: its octant from ½
     // to 1 in the cell) or ½ to 1 (the second: from 0 to ½).
-    let along = c[axis] - start;
-    let across_u = (c[u] - corner[u]) * 2.0;
-    let across_v = (c[v] - corner[v]) * 2.0;
+    let along = dot(c, unit(axis)) - start;
+    let across_u = dot(c - corner, unit(u)) * 2.0;
+    let across_v = dot(c - corner, unit(v)) * 2.0;
     let facing = face / 2u;
     if facing == axis {
         return vec2<f32>(across_u, 1.0 - across_v);
     }
     // A long side: across is the bar's other axis lying in this face.
-    let across = select(across_u, across_v, facing == u);
-    return vec2<f32>(across, 1.0 - along);
+    return vec2<f32>(select(across_u, across_v, facing == u), 1.0 - along);
 }
 
 @fragment
