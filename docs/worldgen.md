@@ -2308,6 +2308,16 @@ to 58, every block regulated). Next:
       `vision/proposal-voxel-renderer.md`). *Counsel:* the soak test could then record how busy the
       CPU and the GPU are next to the frame times, so each change shows which way the work moved.
 
+   **[DECIDED 2026-11-01] Caves come next, before trees** (David: "i think that the caves are the
+   scariest thing coming up and we should think about how we start going about it. trees will be fun
+   and easy, so we should get on to caves, somehow, and then we can add the blueprint factory and
+   rough out an ecology tab."). Where the path stands:
+   - built: 1 (the tabs), 2 (the placer's first version), 4 (quartile stops 1 to 3);
+   - **next: 7, caves,** starting with an assessment and probes of the riskiest parts;
+   - then 5 (the asset factory and Blueprints, with the orthographic camera and quartile stop 4);
+   - then a rough Ecology tab (6);
+   - 3 (rock layers and ores) when the caves that need rock come.
+
    **Art David could start on** (his to make):
    - the rock types (the starter set in item 3 above);
    - bark, log ends and leaves for one to three trees, plus **quartile oak** (at 32 pixels a block, a
