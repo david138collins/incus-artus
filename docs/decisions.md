@@ -515,6 +515,14 @@ Reference: `Art/quartile minecraft illustration.png`
       3. **Neither fits:** it breaks into pieces you can pick up.
       - **Who gets hit:** the fall is planned before it starts, so the ground it sweeps is known. Anyone
         under it is hit and knocked back, and there's room for a warning first (a creak, a shadow).
+    - **[David 2026-11-01] Folding first, and leaves like a pillow:**
+      - **The branch folds before the tree hits 90 degrees,** toward the end of the tip, so the tree
+        lands as a flat stack and bounces as one.
+      - **Leaves end up on top,** because "any collision breaks them like shooting a goosedown pillow":
+        leaves that hit anything burst.
+      - **The direction is slightly random,** so slow or clumsy villagers and players may be injured.
+      - *Counsel:* "slightly random" is barcoded like everything else: the same tree, cut the same way,
+        falls the same way. A villager's skill could narrow it.
     - **The fall looks bouncy but snaps:** a path that looks like physics but only takes each piece to
       its place on the octant grid. It has to be fun to watch.
     - **Dropped items and breaking:** "if i cant think of a better way, minecraft isnt broken."
