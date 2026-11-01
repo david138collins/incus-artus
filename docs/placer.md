@@ -654,6 +654,18 @@ recorded in `docs/decisions.md`, the Metaphysics Engine):
   - The top of each map's range comes back as itself, so saving again changes nothing.
   - A test spawns a world, saves and reloads it twice, and finds every column the same each time.
 
+**[FIXED 2026-11-01] Mineralogy no longer makes the climate again** (David: "toggling the distributors
+reruns the climate rather than just redrawing; is that necessary?"). It wasn't necessary.
+- **The cause:** the World Compiler compiled its whole map again whenever any of the recipe's
+  settings changed, mineralogy's included. A new map meant a new climate, rivers and all. The fix
+  of 502a3a7 had only kept the Climate stage's own copy of the recipe.
+- **The fix:** a compile now reads everything but the additives, the climate and mineralogy
+  (`compiled_from`). So a distributor or a made field only redraws.
+- **"Render World and Spawn" now takes the recipe as it is now,** not the copy from the last compile,
+  which may be from before mineralogy last changed.
+- A test checks that a distributor or a field changes nothing a compile reads, and that the noise
+  maths does.
+
 ### Stop 4: sharing, and the docs (about 250 lines)
 
 - **Export** a distributor or a made field to a file, and **import** one.

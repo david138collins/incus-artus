@@ -19,7 +19,7 @@ use super::additives::{Additives, DriftWay, Sides};
 use super::bake::{self, Baked};
 use super::canvas::Camera;
 use super::compiler::{self, Bake, CompileSettings, Compiled, HIGHEST, SEA_LEVEL, Spline, TOP_OF_THE_WORLD};
-use crate::world::{InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Mutes, Peaks};
+use crate::world::{InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Peaks};
 use super::noise::PerlinSettings;
 use super::image::{Picture, Placement};
 use super::layers::LayerKind;
@@ -280,8 +280,7 @@ impl Compiler {
                 }
             }
         }
-        // The additives and climate aren't compiled (moving their sliders compiles nothing again).
-        let now = (chosen, CompileSettings { additives: Default::default(), climate: Default::default(), ..self.settings.clone() });
+        let now = (chosen, compiled_from(&self.settings));
         if self.seen.as_ref() != Some(&now) {
             self.seen = Some(now);
             self.wanted = true;
@@ -313,6 +312,14 @@ impl Compiler {
 
 /// Copies a bake's folder (its files; bakes have no folders inside) to `to`, replacing what's
 /// there.
+/// The settings a compile reads, so a change to any other compiles nothing again: the additives,
+/// climate and mineralogy are left out (they come after it, and moving their sliders only redraws;
+/// until 2026-11-01 mineralogy's compiled again, and a new compile made the climate all again).
+fn compiled_from(settings: &CompileSettings) -> CompileSettings {
+    let interpreter = InterpreterSettings { mineralogy: Default::default(), ..settings.interpreter.clone() };
+    CompileSettings { additives: Default::default(), climate: Default::default(), interpreter, ..settings.clone() }
+}
+
 fn copy_folder(from: &std::path::Path, to: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(to).map_err(|error| error.to_string())?;
     for entry in std::fs::read_dir(from).map_err(|error| error.to_string())?.flatten() {
@@ -1865,8 +1872,9 @@ impl Compiler {
         let (Some(bake), Some(result)) = (&self.bake, &self.result) else { return };
         let name = if self.world_name.trim().is_empty() { bake.name.clone() } else { self.world_name.clone() };
         let seed = u64::from_str_radix(&bake.info.seed, 16).unwrap_or(0);
-        let map = &result.made.map;
-        let map = if self.lab.mutes == Mutes::default() { map.clone() } else { Arc::new(map.with(map.settings.clone(), self.lab.mutes)) };
+        // The recipe as it is now: the compile is from before mineralogy last changed (that doesn't
+        // compile again), so its own copy may be older.
+        let map = Arc::new(result.made.map.with(self.settings.interpreter.clone(), self.lab.mutes));
         let map = self.with_climate(map);
         self.render = Some((name, seed, map, spawn));
         self.picking = false;
@@ -3007,5 +3015,16 @@ mod tests {
         // The coast is a clear change: blue below, green above.
         let (sea, land) = (colour_at(127.0), colour_at(128.0));
         assert!(sea[2] > sea[1] && land[1] > land[2]);
+    }
+
+    #[test]
+    fn mineralogy_compiles_nothing_again_but_the_ground_s_shape_does() {
+        let settings = CompileSettings::default();
+        let mut changed = settings.clone();
+        changed.interpreter.mineralogy.distributors[0].on = false;
+        changed.interpreter.mineralogy.fields.push(crate::world::placer::MadeField::default());
+        assert!(compiled_from(&changed) == compiled_from(&settings), "the climate would all be made again");
+        changed.interpreter.noise_maths = crate::worldgen::noise::NoiseMaths::WholeNumbers;
+        assert!(compiled_from(&changed) != compiled_from(&settings));
     }
 }
