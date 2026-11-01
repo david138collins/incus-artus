@@ -30,12 +30,12 @@ pub mod placer;
 mod terrain;
 
 pub use block::BlockId;
-pub use pieces::{Owners, Pieces, Slot};
+pub use pieces::{Owners, Pieces, Slot, bar_box, bar_placement};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason,
 };
-pub use raycast::{RayHit, cast_ray};
+pub use raycast::{RayHit, cast_ray_halves};
 #[allow(unused_imports)] // re-exported for later modules (rendering, saving)
 pub use chunk::{BlockExtra, Chunk, ColumnSummary};
 pub use generator::{TestBlocks, TestWorldSettings, generate_test_world};
@@ -102,6 +102,29 @@ impl VoxelWorld {
             self.changed.insert(chunk_pos);
         }
         Some(old)
+    }
+
+    /// Is the chunk holding this block loaded (and the block inside the world's height)?
+    pub fn is_loaded(&self, block: IVec3) -> bool {
+        z_in_world(block.z) && self.chunks.contains_key(&ChunkPos::of_block(block))
+    }
+
+    /// Is the half-block at `half` (counted in half blocks: its cell is `half / 2`, its octant
+    /// `half % 2`) filled by something `filled` says yes to? A whole block fills all eight of its
+    /// halves, a cell of pieces only its octants. Collision and aiming step through the world on this
+    /// finer grid, so they meet bars as they are (quartile stop 2).
+    pub fn half_filled(&self, half: IVec3, filled: impl Fn(BlockId) -> bool) -> bool {
+        let cell = half.div_euclid(IVec3::splat(2));
+        let block = self.get_block(cell);
+        if block != BlockId::PIECES {
+            return filled(block);
+        }
+        let o = half.rem_euclid(IVec3::splat(2));
+        let octant = (o.x + 2 * o.y + 4 * o.z) as usize;
+        self.get_pieces(cell).is_some_and(|pieces| {
+            let block = pieces.octants()[octant];
+            !block.is_air() && filled(block)
+        })
     }
 
     /// The pieces of a cell built of them, if it is one (and loaded).

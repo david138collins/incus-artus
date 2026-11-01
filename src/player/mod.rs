@@ -41,12 +41,12 @@ use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason, Slot, VoxelWorld, WORLD_HEIGHT, WorldEdits,
+    RefuseReason, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_box, bar_placement,
 };
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
-use collision::{BodySize, body_bounds, has_support, move_body, overlaps_solid};
+use collision::{BodySize, body_bounds, has_support_halves, move_body_stepping, overlaps_solid_halves};
 use serde::{Deserialize, Serialize};
 
 pub struct PlayerPlugin;
@@ -72,6 +72,7 @@ impl Plugin for PlayerPlugin {
                     read_walk_input,
                     follow_pawn.before(crate::camera::place_camera),
                     widen_view_when_sprinting.before(crate::camera::place_camera),
+                    aim_bar.before(block_actions),
                     block_actions,
                     notice_footsteps,
                     update_presence,
@@ -405,20 +406,45 @@ struct ActionCooldowns {
     last_place: f32,
 }
 
-/// Quartile stop 1's stand-in for placing bars (`docs/quartile.md`): B puts a bar of the selected
-/// block, in the slot chosen on the player panel, into the cell you aim at. David designs the real
-/// placing control; this is kept apart from storage and aiming so his can replace it.
+/// Placing bars, David's control (`docs/quartile.md`, stop 2: "the quarter blocks either snap to the
+/// face you're aiming at sideways, or longways, and you toggle with a button, like B. the selector
+/// box should snap to quarter blocks as well"): with a bar block in the hotbar, the selector shows
+/// where the bar would go (`world::bar_placement`), B turns it, and right click places it. Kept
+/// apart from storage and aiming, so the control can change without touching them.
 #[derive(Resource)]
 struct PieceChoice {
-    slot: Slot,
-    /// After each bar, go on to the next slot (so pressing B again and again builds shapes).
-    advance: bool,
+    /// Longways (true) or sideways.
+    longways: bool,
+    /// Where the bar would go this frame (its corner in half blocks, and its axis), if one would.
+    aim: Option<(IVec3, u8)>,
 }
 
 impl Default for PieceChoice {
     fn default() -> Self {
-        Self { slot: Slot(0), advance: true }
+        Self { longways: true, aim: None }
     }
+}
+
+/// With a bar block selected: B turns the bar, and the selector snaps to where it would go.
+fn aim_bar(
+    keys: Res<ButtonInput<KeyCode>>,
+    capture: Res<MouseCapture>,
+    hotbar: Res<Hotbar>,
+    registry: Res<BlockRegistry>,
+    cameras: Query<&FlyCamera>,
+    mut target: ResMut<LookTarget>,
+    mut piece: ResMut<PieceChoice>,
+) {
+    let bar_selected = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)).and_then(|id| registry.def(id)).is_some_and(|def| def.bar.is_some());
+    if bar_selected && capture.captured && keys.just_pressed(KeyCode::KeyB) {
+        piece.longways = !piece.longways;
+    }
+    let looking = cameras.iter().next().map_or(Vec3::X, |camera| camera.looking());
+    piece.aim = match (bar_selected, target.hit, target.half, target.point) {
+        (true, Some(hit), Some(half), Some(point)) => bar_placement(half, hit.normal, point, looking, piece.longways),
+        _ => None,
+    };
+    target.ghost = piece.aim.map(|(at, axis)| bar_box(at, axis));
 }
 
 /// Where a respawn puts your feet: on top of the highest block at the world's spawn spot (the
@@ -562,8 +588,8 @@ fn place_pawn(
     registry: &BlockRegistry,
 ) {
     let mut feet = feet;
-    let solid = |cell: IVec3| registry.is_solid(world.get_block(cell));
-    while overlaps_solid(feet, settings.body(), solid) && feet.z < WORLD_HEIGHT as f32 {
+    let solid = |half: IVec3| world.half_filled(half, |block| registry.is_solid(block));
+    while overlaps_solid_halves(feet, settings.body(), solid) && feet.z < WORLD_HEIGHT as f32 {
         feet.z = feet.z.floor() + 1.0;
     }
     position.teleport(feet);
@@ -727,7 +753,7 @@ fn move_pawn(
 ) {
     let dt = time.delta_secs();
     let tick = time_control.tick();
-    let solid = |cell: IVec3| registry.is_solid(world.get_block(cell));
+    let solid = |half: IVec3| world.half_filled(half, |block| registry.is_solid(block));
     for (mut pawn, mut position, mut input, &player, local) in &mut pawns {
         let jump = input.jump_held || input.jump_tapped;
         input.jump_tapped = false;
@@ -736,7 +762,7 @@ fn move_pawn(
             continue;
         }
         // Crouching: Ctrl held, or no room to stand up (you stay crouched under a low ceiling).
-        let room_to_stand = !overlaps_solid(position.current, settings.body(), solid);
+        let room_to_stand = !overlaps_solid_halves(position.current, settings.body(), solid);
         pawn.crouched = input.crouch || (pawn.crouched && !room_to_stand);
         let crouched = pawn.crouched;
         pawn.crouch_previous = pawn.crouch.level;
@@ -830,7 +856,7 @@ fn move_pawn(
         let mut motion = pawn.velocity * dt;
         if crouched && settings.crouch_edge_guard && pawn.on_ground && pawn.velocity.z <= 0.0 {
             let feet = position.current;
-            let supported = |offset: Vec3| has_support(feet + offset, body, solid);
+            let supported = |offset: Vec3| has_support_halves(feet + offset, body, solid);
             if !supported(Vec3::new(motion.x, 0.0, 0.0)) {
                 motion.x = 0.0;
                 pawn.velocity.x = 0.0;
@@ -848,7 +874,7 @@ fn move_pawn(
         }
 
         let falling_speed = -pawn.velocity.z;
-        let (feet, blocked) = move_body(position.current, body, motion, solid);
+        let (feet, blocked) = move_body_stepping(position.current, body, motion, pawn.on_ground, solid);
         position.current = feet;
         if blocked.x {
             pawn.velocity.x = 0.0;
@@ -951,7 +977,7 @@ fn block_actions(
     mut cooldowns: ResMut<ActionCooldowns>,
     mut requests: MessageWriter<BlockEditRequest>,
     mut refused: MessageWriter<BlockEditRefused>,
-    (keys, world, mut piece): (Res<ButtonInput<KeyCode>>, Res<VoxelWorld>, ResMut<PieceChoice>),
+    piece: Res<PieceChoice>,
 ) {
     // With the mouse free, clicks belong to the debug panel.
     if !capture.captured {
@@ -976,22 +1002,6 @@ fn block_actions(
         }
     };
 
-    // B: a bar of the selected block into the cell of bars aimed at, or the cell in front of the
-    // face aimed at (quartile stop 1's stand-in; see `PieceChoice`).
-    if keys.just_pressed(KeyCode::KeyB)
-        && let Some(cell) = if world.get_block(hit.block) == BlockId::PIECES { Some(hit.block) } else { hit.in_front() }
-        && let Some(block) = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name))
-    {
-        send(BlockEditRequest {
-            position: cell,
-            kind: EditKind::AddPiece { slot: piece.slot, block },
-            source: EditSource::Player(player),
-        });
-        if piece.advance {
-            piece.slot = Slot((piece.slot.0 + 1) % 12);
-        }
-    }
-
     if mouse.pressed(MouseButton::Left) && now - cooldowns.last_break >= settings.break_cooldown {
         cooldowns.last_break = now;
         send(BlockEditRequest {
@@ -1002,27 +1012,29 @@ fn block_actions(
     }
 
     if mouse.pressed(MouseButton::Right) && now - cooldowns.last_place >= settings.place_cooldown {
-        let Some(cell) = hit.in_front() else {
-            return;
-        };
         let Some(block) = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)) else {
             return;
         };
-        // Don't place a solid block inside your own body while walking.
+        // A bar (a bar block selected, aimed at a face): where the selector shows it. Else a whole
+        // block, in the cell in front of the face.
+        let (place, (low, high)) = match piece.aim {
+            Some((at, axis)) => (BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceBar { at, axis, block }, source: EditSource::Player(player) }, bar_box(at, axis)),
+            None => {
+                let Some(cell) = hit.in_front() else {
+                    return;
+                };
+                (BlockEditRequest { position: cell, kind: EditKind::Place(block), source: EditSource::Player(player) }, (cell.as_vec3(), cell.as_vec3() + Vec3::ONE))
+            }
+        };
+        // Don't place something solid inside your own body while walking.
         if *mode == ControlMode::Walk && registry.is_solid(block) {
             let (min, max) = body_bounds(position.current, settings.body());
-            let cell_min = cell.as_vec3();
-            let cell_max = cell_min + Vec3::ONE;
-            if min.cmplt(cell_max).all() && max.cmpgt(cell_min).all() {
+            if min.cmplt(high).all() && max.cmpgt(low).all() {
                 return;
             }
         }
         cooldowns.last_place = now;
-        send(BlockEditRequest {
-            position: cell,
-            kind: EditKind::Place(block),
-            source: EditSource::Player(player),
-        });
+        send(place);
     }
 }
 
@@ -1244,16 +1256,15 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.checkbox(&mut rules.protect_bottom_layer, "bottom layer (Z 0) can't be broken");
     }
     {
-        // Quartile stop 1: bars, by a key for now (David designs the placing control).
+        // Placing bars (quartile stop 2, David's control).
         let mut piece = world.resource_mut::<PieceChoice>();
-        ui.strong("Bars (for now)");
-        ui.small("B puts a bar of the selected block into the cell in front of the face you aim at, or into the cell of bars you aim at. A bar fills only the octants still free, so bars make corners and L shapes.");
-        egui::ComboBox::from_id_salt("piece slot").selected_text(piece.slot.name()).show_ui(ui, |ui| {
-            for s in 0..12 {
-                ui.selectable_value(&mut piece.slot, Slot(s), Slot(s).name());
-            }
+        ui.strong("Bars");
+        ui.small("With a bar block in the hotbar (pick one below), the selector shows where the bar would go: flat on the face you aim at, in the half of it you point at, centred along its length on the crosshair (so it can run across two cells). B turns it; right click places it. A bar fills only the octants still free, so bars make corners and L shapes.");
+        ui.horizontal(|ui| {
+            ui.label("turned:");
+            ui.selectable_value(&mut piece.longways, true, "longways").on_hover_text("On a floor or ceiling, the way you're looking; on a wall, upright.");
+            ui.selectable_value(&mut piece.longways, false, "sideways").on_hover_text("On a floor or ceiling, across the way you're looking; on a wall, lying flat.");
         });
-        ui.checkbox(&mut piece.advance, "go on to the next after each").on_hover_text("Pressing B again and again goes round all 12 bars, so a cell fills up bar by bar.");
     }
     {
         // Any block onto the selected hotbar slot (registered blocks, bar blocks among them).

@@ -221,19 +221,40 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
 }
 
 // A bar's own texture, measured from the bar's own corner (src/render/mesher.rs, `BAR_TAG`): `slot`
-// says which bar (its axis × 4 + its place across). A long side's picture runs up the bar's length,
-// whichever way the bar lies; an end's covers the ½ × ½ end. Each layer is the bar's picture with
-// its pixels repeated to fill 32 × 32, so 0 to 1 across the bar's own width covers it.
+// says which bar (src/world/pieces.rs: its place, 0 to 11 a bar, its axis × 4 + its place across, 12
+// to 19 half a bar across two cells in that octant; and its link, which way the other half lies). A
+// long side's picture runs up the bar's length, whichever way the bar lies; an end's covers the ½ × ½
+// end. Each layer is the bar's picture with its pixels repeated to fill 32 × 32, so 0 to 1 across the
+// bar's own width covers it.
 fn bar_uv(face: u32, p: vec3<f32>, slot: u32) -> vec2<f32> {
-    let axis = slot / 4u;
+    let index = slot & 31u;
+    let link = slot >> 5u;
+    // The bar's axis, and its corner across (`corner`: which half of each way across it it's in; and,
+    // for half a bar, which half of its length this cell holds: the first if the other lies the positive
+    // way).
+    var axis = index / 4u;
+    var corner = vec3<f32>(0.0);
+    var start = 0.0;
+    if index >= 12u {
+        let o = index - 12u;
+        axis = (link - 1u) / 2u;
+        corner = vec3<f32>(f32(o & 1u), f32((o >> 1u) & 1u), f32((o >> 2u) & 1u)) * 0.5;
+        start = select(-0.5, 0.5, link % 2u == 1u);
+    }
     let u = (axis + 1u) % 3u;
     let v = (axis + 2u) % 3u;
+    if index < 12u {
+        corner[u] = f32(index & 1u) * 0.5;
+        corner[v] = f32((index >> 1u) & 1u) * 0.5;
+    }
     // Where in its cell (0 to 1 each way), from a hair inside the face.
     let inside = p - face_normal(face) * 0.001;
     let c = inside - floor(inside);
-    let along = c[axis];
-    let across_u = (c[u] - f32(slot & 1u) * 0.5) * 2.0;
-    let across_v = (c[v] - f32((slot >> 1u) & 1u) * 0.5) * 2.0;
+    // Along the bar from its own start: a half's cell holds 0 to ½ (the first half: its octant from ½
+    // to 1 in the cell) or ½ to 1 (the second: from 0 to ½).
+    let along = c[axis] - start;
+    let across_u = (c[u] - corner[u]) * 2.0;
+    let across_v = (c[v] - corner[v]) * 2.0;
     let facing = face / 2u;
     if facing == axis {
         return vec2<f32>(across_u, 1.0 - across_v);
@@ -249,7 +270,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var base_uv = face_uv(in.face, in.local);
     if bar {
         // (Kept off the far edge, which the sampler would wrap back to the near one.)
-        base_uv = clamp(bar_uv(in.face, in.local, in.quad & 31u), vec2<f32>(0.0), vec2<f32>(0.9999));
+        base_uv = clamp(bar_uv(in.face, in.local, in.quad & 255u), vec2<f32>(0.0), vec2<f32>(0.9999));
     }
     // How fast the texture position changes across the screen: picks the distant (mip) version.
     // Taken from the unrotated position, so turning a block never changes its blurriness.

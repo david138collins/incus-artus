@@ -67,6 +67,60 @@ pub fn move_body(
     (feet, blocked)
 }
 
+// ── On the half-block grid ────────────────────────────────────────────────
+//
+// A body meets the bars in a cell as they are by stepping through the world in half blocks
+// (`VoxelWorld::half_filled`): every position and size doubled, moved as ever, and halved back, which
+// is exact (quartile stop 2). `solid_half` says whether a half-block is solid.
+
+impl BodySize {
+    fn doubled(self) -> Self {
+        Self { width: self.width * 2.0, height: self.height * 2.0 }
+    }
+}
+
+/// `move_body`, on the half-block grid.
+pub fn move_body_halves(feet: Vec3, size: BodySize, motion: Vec3, solid_half: impl FnMut(IVec3) -> bool) -> (Vec3, Blocked) {
+    let (feet, blocked) = move_body(feet * 2.0, size.doubled(), motion * 2.0, solid_half);
+    (feet / 2.0, blocked)
+}
+
+/// `overlaps_solid`, on the half-block grid.
+pub fn overlaps_solid_halves(feet: Vec3, size: BodySize, solid_half: impl FnMut(IVec3) -> bool) -> bool {
+    overlaps_solid(feet * 2.0, size.doubled(), solid_half)
+}
+
+/// `has_support`, on the half-block grid.
+pub fn has_support_halves(feet: Vec3, size: BodySize, solid_half: impl FnMut(IVec3) -> bool) -> bool {
+    has_support(feet * 2.0, size.doubled(), solid_half)
+}
+
+/// How high a body steps up without jumping, walking into it: half a block (a bar, a slab or a stair of
+/// bars), if there's room above [David, 2026-11-01: step up half blocks automatically, with head room].
+pub const STEP_UP: f32 = 0.5;
+
+/// `move_body_halves`, stepping up: a body `on_ground` walking into something no higher than
+/// `STEP_UP`, with room above, goes up onto it. Tried raised, moved across, then set down; kept if it
+/// got further. A full block's side still stops it.
+pub fn move_body_stepping(feet: Vec3, size: BodySize, motion: Vec3, on_ground: bool, mut solid_half: impl FnMut(IVec3) -> bool) -> (Vec3, Blocked) {
+    let (moved, blocked) = move_body_halves(feet, size, motion, &mut solid_half);
+    if !on_ground || !(blocked.x || blocked.y) || motion.z > 0.0 {
+        return (moved, blocked);
+    }
+    let raised = feet + Vec3::Z * STEP_UP;
+    if overlaps_solid_halves(raised, size, &mut solid_half) {
+        return (moved, blocked);
+    }
+    let (across, stepped) = move_body_halves(raised, size, Vec3::new(motion.x, motion.y, 0.0), &mut solid_half);
+    let (settled, _) = move_body_halves(across, size, Vec3::Z * -STEP_UP, &mut solid_half);
+    let gone = |to: Vec3| (to.x - feet.x).hypot(to.y - feet.y);
+    if gone(settled) > gone(moved) + 1e-4 {
+        (settled, Blocked { x: stepped.x, y: stepped.y, down: true, up: false })
+    } else {
+        (moved, blocked)
+    }
+}
+
 /// The box's corners: (min, max).
 pub fn body_bounds(feet: Vec3, size: BodySize) -> (Vec3, Vec3) {
     let half = size.width / 2.0;
@@ -172,6 +226,35 @@ mod tests {
     /// Flat floor: blocks at Z ≤ 9 are solid, so the floor's top surface is Z = 10.
     fn floor(cell: IVec3) -> bool {
         cell.z <= 9
+    }
+
+    /// On the half-block grid: the floor (its top at Z 10), with a half-block step from X 5 (top
+    /// 10.5), then a whole block from X 8 (top 11).
+    fn steps(half: IVec3) -> bool {
+        half.z < 20 || (half.x >= 10 && half.z < 21) || (half.x >= 16 && half.z < 22)
+    }
+
+    #[test]
+    fn a_body_steps_up_half_a_block_but_not_a_whole_one() {
+        let feet = Vec3::new(4.0, 0.5, 10.0);
+        // Walking into the half step: up onto it, on the ground.
+        let (moved, blocked) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, steps);
+        assert_eq!((moved.x, moved.z, blocked.down), (6.0, 10.5, true));
+        // In the air (or rising): no stepping, it stops against the step's side.
+        let (moved, _) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), false, steps);
+        assert!(moved.x < 4.71 && moved.z < 10.5, "{moved}");
+        // From the step, into the whole block (another half up, from 10.5 to 11): up again. But from
+        // the floor straight into a whole block's side: stopped.
+        let (moved, _) = move_body_stepping(Vec3::new(7.0, 0.5, 10.5), DWARF, Vec3::new(2.0, 0.0, -0.01), true, steps);
+        assert_eq!((moved.x, moved.z), (9.0, 11.0));
+        let wall = |half: IVec3| half.z < 20 || (half.x >= 10 && half.z < 22);
+        let (moved, blocked) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, wall);
+        assert!(moved.x < 4.71 && moved.z == 10.0 && blocked.x, "{moved}");
+        // No room overhead (a ceiling at Z 11.5, just over a body standing on the floor, so not over
+        // one on the step): no stepping up.
+        let low = |half: IVec3| steps(half) || half.z >= 23;
+        let (moved, _) = move_body_stepping(feet, DWARF, Vec3::new(2.0, 0.0, -0.01), true, low);
+        assert!(moved.x < 4.71, "{moved}");
     }
 
     #[test]

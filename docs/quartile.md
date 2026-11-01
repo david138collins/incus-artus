@@ -1,6 +1,6 @@
 # Quartile placement: what it touches, options and order (Builder, 2026-10-31, for David to choose)
 
-**Status: stops 1 to 3 decided (section 8, end); stop 1 built (section 9), waiting for David to look.**
+**Status: stops 1 to 3 decided (section 8, end); stop 1 built (section 9); stop 2 built (section 11), waiting for David to look.**
 
 **The decided design** (`docs/decisions.md`, with `Art/quartile minecraft illustration.png`):
 - Every cell is 8 **octants** (½ × ½ × ½).
@@ -306,3 +306,47 @@ answer, not asked outright; he can say otherwise at stop 2.)*
 - **Across chunks** (Counsel): the halves can lie in different chunks and save files, so each half
   draws right while its partner's chunk isn't loaded. Bars the world places (trees) that straddle a
   chunk border come from one plan, so both chunks agree.
+
+---
+
+## 11. Stop 2, live with them: [BUILT 2026-11-01]
+
+Waiting for David to look.
+- **The placing control, David's** ("the quarter blocks either snap to the face you're aiming at
+  sideways, or longways, and you toggle with a button, like B. the selector box should snap to
+  quarter blocks as well when you have a quarter block selection, and show the rotation when you hit
+  B"):
+  - With a bar block in the hotbar, the selector is the bar's box where it would go
+    (`world::bar_placement`). It lies flat against the face aimed at, in the half of the face the
+    crosshair is in, and is centred along its length on the crosshair, snapped to half blocks. So it
+    runs across two cells when the crosshair is near a cell's side.
+  - On a floor or a ceiling, longways points the way you're looking and sideways across it. On a
+    wall, sideways lies flat and longways stands upright.
+  - B turns it, and right click places it. The player panel's "Bars" section shows which way it's
+    turned. It's kept apart from storage and aiming (`PieceChoice`, `aim_bar`), so the control can
+    change.
+- **Bars across two cells: linked half-bars** (section 10). A piece's byte holds its place (5 bits)
+  and its link (3 bits: which way its other half lies). `EditKind::PlaceBar { at, axis, block }`
+  takes the bar's corner in half blocks: a bar in one cell, or a linked half in each of two, both or
+  neither.
+- **Mining:** a cell of pieces breaks whole, and a bar running on into the next cell goes with it,
+  its other half taken out there. There are no items yet, so nothing drops. When items come, the
+  rule is David's: the player gets back a shape of one material, a mixed shape gives nothing, and
+  NPCs get a chance by skill.
+- **Aiming:** the ray steps through the world in half blocks (`VoxelWorld::half_filled`,
+  `cast_ray_halves`). A whole block fills all eight of its halves, a cell of pieces only its octants,
+  so the crosshair meets each bar as it is and passes the empty parts of a cell.
+- **Collision:** the same half-block grid, every position and size doubled and halved back (exact):
+  bars, L shapes and half-bars are all solid as they are.
+- **Stepping up:** walking on the ground into something no higher than half a block, with room
+  above, the body goes up onto it (`move_body_stepping`). A whole block's side still stops you.
+- **Drawing halves:** each half shows its half of the bar's own picture, measured from the whole
+  bar's corner across the two cells (the face's tag carries the link; the shader's `bar_uv`).
+- **Tests:**
+  - the placing rule (longways, sideways, on floors and walls, across two cells);
+  - a bar across two cells as linked halves, broken whole from either cell;
+  - stepping up half a block twice, but not into a whole block's side, not in the air, not without
+    head room;
+  - a half-bar's side, ends and tag.
+- **To confirm with David:** that "linked half-bars" is what he meant (Counsel inferred it from his
+  answer).

@@ -44,6 +44,14 @@ impl RayHit {
     }
 }
 
+/// The same on the half-block grid (`VoxelWorld::half_filled`), so a ray meets the bars in a cell as
+/// they are: the hit in blocks (the cell, the face's way, the distance), and the half-block hit.
+/// (Every distance doubled, then halved back: exact.)
+pub fn cast_ray_halves(origin: Vec3, direction: Vec3, max_distance: f32, solid_half: impl FnMut(IVec3) -> bool) -> Option<(RayHit, IVec3)> {
+    let hit = cast_ray(origin * 2.0, direction, max_distance * 2.0, solid_half)?;
+    Some((RayHit { block: hit.block.div_euclid(IVec3::splat(2)), normal: hit.normal, distance: hit.distance / 2.0 }, hit.block))
+}
+
 /// Walk from `origin` along `direction` (game axes) for up to `max_distance` blocks,
 /// returning the first block for which `solid` says yes.
 pub fn cast_ray(

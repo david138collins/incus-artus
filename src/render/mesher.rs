@@ -33,14 +33,14 @@
 //!   top bit set, a bar with textures of its own and its slot)
 
 use crate::coords::game_to_bevy;
-use crate::world::{BlockId, Owners};
+use crate::world::{BlockId, Owners, Slot};
 use bevy::math::Vec3;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 const N: usize = 32;
-/// A face's quad number with this bit set is part of a bar with textures of its own, the low 5 bits
-/// its slot (`push_quad`; the shader's `bar_uv`).
+/// A face's quad number with this bit set is part of a bar with textures of its own, the low 8 bits
+/// its slot and link (`push_quad`; the shader's `bar_uv`).
 const BAR_TAG: u32 = 0x8000;
 /// In the pieces' grids: no bar of its own textures.
 const NO_BAR: u8 = u8::MAX;
@@ -223,7 +223,7 @@ fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, pos
     let bar_layers = bar.and_then(|slot| input.bar_layers.get(block.0 as usize).copied().flatten().map(|layers| (slot, layers)));
     let (layer, random_rotation, quad_tag) = match bar_layers {
         // The end where the bar's own axis comes out of the face, else a long side.
-        Some((slot, [side, end])) => (if (slot / 4) as usize == axis { end } else { side }, false, BAR_TAG | slot as u32),
+        Some((slot, [side, end])) => (if Slot(slot).bar_axis() == Some(axis) { end } else { side }, false, BAR_TAG | slot as u32),
         None => (
             input.face_layers.get(block.0 as usize).map_or(0, |layers| layers[face]),
             input.face_random_rotation.get(block.0 as usize).is_some_and(|faces| faces[face]),
@@ -616,6 +616,28 @@ mod tests {
         // The two bars aren't merged into one face (each is measured from its own corner): 6 faces
         // for the first, and the second's one free octant's 5 showing.
         assert_eq!(mesh.quads, 6 + 5);
+    }
+
+    #[test]
+    fn half_a_bar_shows_its_side_and_end_and_carries_its_link_for_the_shader() {
+        use crate::world::{Pieces, Slot};
+        // Half a bar in the north-west-low octant, its other half on to the north.
+        let mut half = Pieces::default();
+        half.add(Slot::half(1, 0, 0, bevy::math::IVec3::X), STONE);
+        let mut blocks = empty();
+        let at = 5 + 5 * N + 5 * N * N;
+        blocks[at] = BlockId::PIECES;
+        let mut data = input(blocks);
+        data.pieces = vec![(at, half.owners())];
+        data.bar_layers = Arc::new(vec![None, Some([7, 8])]);
+        let mesh = mesh_section(&data);
+        assert_eq!(mesh.quads, 6, "a half-block cube");
+        for quad in mesh.vertices.chunks_exact(4) {
+            let (face, layer, tag) = ((quad[0][0] >> 21) & 7, quad[0][1] & 0xFFFF, quad[0][1] >> 16);
+            assert_eq!(Slot((tag & 255) as u8).link(), Some(bevy::math::IVec3::X));
+            // Its north and south faces (along the bar) are ends, the rest sides.
+            assert_eq!(layer, if face / 2 == 0 { 8 } else { 7 }, "face {face}");
+        }
     }
 
     #[test]

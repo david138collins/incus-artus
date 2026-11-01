@@ -25,7 +25,7 @@ use crate::data::{BlockRegistry, FACE_NAMES};
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::player::{ControlMode, PlayerSettings};
 use crate::screen::Screen;
-use crate::world::{ChunkPos, RayHit, VoxelWorld, cast_ray};
+use crate::world::{ChunkPos, RayHit, VoxelWorld, cast_ray_halves};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use bevy::render::view::{DebandDither, Tonemapping};
@@ -159,6 +159,14 @@ fn not_held(hold: Res<CameraHold>) -> bool {
 #[derive(Resource, Default)]
 pub struct LookTarget {
     pub hit: Option<RayHit>,
+    /// The half-block hit (counted in half blocks), and the point the ray met it (blocks): which
+    /// bar of a cell, and which part of a face, the crosshair is on.
+    pub half: Option<IVec3>,
+    pub point: Option<Vec3>,
+    /// Where what's being placed would go (its two corners, blocks), when that isn't simply the cell
+    /// in front of the face: a bar (set by the player's placing, `player/mod.rs`). Outlined instead
+    /// of the block.
+    pub ghost: Option<(Vec3, Vec3)>,
 }
 
 fn spawn_camera(mut commands: Commands, settings: Res<CameraSettings>) {
@@ -359,12 +367,16 @@ fn find_look_target(
         ControlMode::Walk => player.reach,
     };
     // The ray passes through anything the crosshair can't target (air, and the grid if
-    // its "crosshair can target it" switch is off).
-    let stops = |cell: IVec3| registry.is_targetable(world.get_block(cell));
-    target.hit = cameras
-        .iter()
-        .next()
-        .and_then(|camera| cast_ray(camera.position, camera.looking(), length, stops));
+    // its "crosshair can target it" switch is off), on the half-block grid, so it meets the bars of
+    // a cell as they are.
+    let stops = |half: IVec3| world.half_filled(half, |block| registry.is_targetable(block));
+    let found = cameras.iter().next().and_then(|camera| {
+        let (hit, half) = cast_ray_halves(camera.position, camera.looking(), length, stops)?;
+        Some((hit, half, camera.position + camera.looking().normalize_or_zero() * hit.distance))
+    });
+    target.hit = found.map(|(hit, _, _)| hit);
+    target.half = found.map(|(_, half, _)| half);
+    target.point = found.map(|(_, _, point)| point);
 }
 
 /// Outline the targeted block (white) and the face being pointed at (magenta, with a cross).
@@ -375,6 +387,15 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     // Slightly bigger than the block, so the lines sit just outside its faces instead of
     // flickering in and out of them.
     let grow = 0.004;
+    // A bar being placed: its ghost, where it would go (magenta), instead of the block.
+    if let Some((low, high)) = target.ghost {
+        let centre = (low + high) / 2.0;
+        let size = high - low + Vec3::splat(2.0 * grow);
+        // (A cube scaled to the box; `game_to_bevy` swaps the axes, so the size is swapped too.)
+        let bevy_size = game_to_bevy(size).abs();
+        gizmos.cube(Transform::from_translation(game_to_bevy(centre)).with_scale(bevy_size), Color::srgb(1.0, 0.0, 1.0));
+        return;
+    }
     let centre = hit.block.as_vec3() + Vec3::splat(0.5);
     gizmos.cube(
         Transform::from_translation(game_to_bevy(centre)).with_scale(Vec3::splat(1.0 + 2.0 * grow)),
