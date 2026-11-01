@@ -41,6 +41,19 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
   work never has to be handed back. Nothing is worked out twice. The less a feature strays from the
   projection, the less it costs. David: "the entire project can fail if we don't find a way to make it
   run like a top."
+- **Content is added across the pipeline** (David, 2026-11-01): "as long as we have a stable
+  foundation that i know wont break when i want to add features like a layer that finds swampiness
+  centers, and can effect the ecology and topography and the civilization gen can place structures
+  and bad guys, we can add content horizontally through the pipeline that fills area that need detail
+  or attention."
+  *Counsel:* one feature (a swamp, say) touches many stages: flat lowland in Topography, the water
+  table in Climate, peat and mud in Mineralogy, reeds and frogs in Ecology, a bog village or witch
+  house in Civilization. The rule that keeps it from breaking: **its centre is defined at the
+  earliest stage that has what it needs, and every later stage reads it.** A centre found from the
+  rivers can still shape the ground, but only as fine detail after the rivers, as the river carving
+  does. If it should shape the broad land the rivers flow over, it has to be found in Topography
+  from what's known there, and the rivers then react to it. Either way works; the choice is made on
+  purpose, per feature.
 - **[DECIDED 2026-11-01] Projected code is GPU-safe** (David agreed to Builder's assessment and
   Counsel's advice: "i agree with all if its like i described"). Code that projects blocks during
   play (the ground's height per column, river carving, the noise, the placer and mineralogy, and
