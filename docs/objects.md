@@ -293,3 +293,8 @@ David's flame: `assets/new/green_flame_animation.png`, 112 × 24, 7 frames of 16
     locator.
 - **Its size:** one strip pixel is one block pixel by default, with a scale slider and **½ and 2×
   buttons** (David: "a 1/2 / 2x button could be useful").
+
+**Tried (David, 2026-11-01):** "looks good... everything works like i asked it to, i can even jump on
+top of them. they place and move correctly." Seen: the first brazier placed takes a second to appear
+(its model loads only when it's first needed). Loading every object's model when the game starts
+would answer it.
