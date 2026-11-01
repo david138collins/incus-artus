@@ -73,6 +73,10 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
     - **The costs to watch:** tuning (a first-pass slider moves second-pass results in ways that are
       hard to follow) and "why is this here?", which then has to show both passes.
     - **When:** when a feature first needs it, not before.
+    - **David, later the same day:** "we can also just keep adding tabs as far to the right in the
+      order as we find it necessary. we may not need a 2nd pass if it is arranged as a boutique world
+      engine. but it could conceivably be used to good end, so keep it to think about." So the first
+      answer is a new stage further right; the second pass stays on file.
 - **[DECIDED 2026-11-01] Projected code is GPU-safe** (David agreed to Builder's assessment and
   Counsel's advice: "i agree with all if its like i described"). Code that projects blocks during
   play (the ground's height per column, river carving, the noise, the placer and mineralogy, and
