@@ -49,7 +49,13 @@ const NO_BAR: u16 = u16::MAX;
 /// The tag of an octant of a block with pictures of its own: its place in its cell (3 bits) and its
 /// part (8 bits), for the shader to measure the picture from the bar's own corner. The two octants
 /// of a whole bar inside one cell get the same tag (its low end's), so their faces merge as one.
+/// An octant of a whole block on the octant grid gets, instead, which ways its block is half a block
+/// off the cells (3 bits, as its corner, from its corner and its octant), for the shader to slide the
+/// block's own picture by half: the same for all of its octants in a cell, so their faces merge.
 fn bar_tag(octant: usize, part: Part) -> u16 {
+    if let Some(corner) = part.corner() {
+        return (Part::of_block(corner ^ octant).0 as u16) << 3;
+    }
     match part.axis() {
         Some(axis) if part.whole() && (octant >> axis) & 1 == part.end() as usize => ((Part::of_bar(axis, 0, true).0 as u16) << 3) | (octant & !(1 << axis)) as u16,
         _ => ((part.0 as u16) << 3) | octant as u16,
@@ -231,12 +237,15 @@ fn emit_faces(out: &mut MeshOutput, input: &MeshInput, columns: &Columns, blocke
 fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, positive): (usize, bool), plane: u32, [u, v, width, height]: [u32; 4], both_sides: bool, bar: Option<u16>) {
     let (u_axis, v_axis) = plane_axes(axis);
     let face = face_index(axis, positive);
-    let bar_layers = bar.and_then(|tag| input.bar_layers.get(block.0 as usize).copied().flatten().map(|layers| (tag, layers)));
-    let (layer, random_rotation, quad_tag) = match bar_layers {
+    // A whole block on the octant grid: the block's own face, slid by half a block (never turned).
+    let shifted = bar.filter(|tag| Part((tag >> 3) as u8).corner().is_some());
+    let bar_layers = bar.filter(|_| shifted.is_none()).and_then(|tag| input.bar_layers.get(block.0 as usize).copied().flatten().map(|layers| (tag, layers)));
+    let (layer, random_rotation, quad_tag) = match (shifted, bar_layers) {
+        (Some(tag), _) => (input.face_layers.get(block.0 as usize).map_or(0, |layers| layers[face]), false, BAR_TAG | tag as u32),
         // The end where the bar's own axis comes out of the face (every face of a lone octant), else a
         // long side.
-        Some((tag, [side, end])) => (if Part((tag >> 3) as u8).axis().is_none_or(|bar_axis| bar_axis == axis) { end } else { side }, false, BAR_TAG | tag as u32),
-        None => (
+        (None, Some((tag, [side, end]))) => (if Part((tag >> 3) as u8).axis().is_none_or(|bar_axis| bar_axis == axis) { end } else { side }, false, BAR_TAG | tag as u32),
+        (None, None) => (
             input.face_layers.get(block.0 as usize).map_or(0, |layers| layers[face]),
             input.face_random_rotation.get(block.0 as usize).is_some_and(|faces| faces[face]),
             out.quads & 0x7FFF,
@@ -297,7 +306,7 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, is_opaque: &dyn Fn(Block
                             let mut h = [0; 3];
                             (h[axis], h[u_axis], h[v_axis]) = (depth, hu, hv);
                             let Some((part, block)) = owners[octant(h)] else { continue };
-                            let bar = if own_textures(block) { bar_tag(octant(h), part) } else { NO_BAR };
+                            let bar = if own_textures(block) || part.corner().is_some() { bar_tag(octant(h), part) } else { NO_BAR };
                             let inside = if positive { depth == 0 } else { depth == 1 };
                             let covered = if inside {
                                 h[axis] = 1 - depth;
@@ -640,6 +649,32 @@ mod tests {
         // The bars aren't merged into one face (each is measured from its own corner): 6 faces for
         // the first, and the cut one's 5 showing.
         assert_eq!(mesh.quads, 6 + 5);
+    }
+
+    #[test]
+    fn a_whole_block_on_the_octant_grid_shows_its_own_faces_slid_by_half_and_merges_in_its_cell() {
+        use crate::world::Pieces;
+        // Half a block off the cells northward: this cell holds its south half, the north octants
+        // (1, 3, 5, 7), its corners 0, 2, 4, 6. Stone has bar pictures too, which it doesn't use.
+        let mut south_half = Pieces::default();
+        for o in [1, 3, 5, 7] {
+            south_half.set(o, STONE, Part::of_block(o ^ 1));
+        }
+        let mut blocks = empty();
+        let at = 5 + 5 * N + 5 * N * N;
+        blocks[at] = BlockId::PIECES;
+        let mut data = input(blocks);
+        data.pieces = vec![(at, south_half.owners())];
+        data.bar_layers = Arc::new(vec![None, Some([7, 8])]);
+        let mesh = mesh_section(&data);
+        assert_eq!(mesh.quads, 6, "a ½ × 1 × 1 box, each face one rectangle");
+        for quad in mesh.vertices.chunks_exact(4) {
+            let (face, layer, tag) = ((quad[0][0] >> 21) & 7, quad[0][1] & 0xFFFF, quad[0][1] >> 16);
+            assert_eq!(layer, data.face_layers[STONE.0 as usize][face as usize], "the block's own face");
+            // Slid along north only, for the shader.
+            assert_eq!(tag, BAR_TAG | (Part::of_block(1).0 as u32) << 3);
+            assert_eq!((quad[0][0] >> 24) & 1, 0, "never turned");
+        }
     }
 
     #[test]

@@ -264,7 +264,15 @@ fn bar_uv(face: u32, p: vec3<f32>, tag: u32) -> vec2<f32> {
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let bar = (in.quad & 0x8000u) != 0u;
     var base_uv = face_uv(in.face, in.local);
-    if bar {
+    let part = (in.quad & 0x7FFu) >> 3u;
+    if bar && (part & 16u) != 0u {
+        // A whole block on the octant grid (src/world/pieces.rs, `Part::of_block`): its own face,
+        // slid by half a block along each way it's off the cells (the part's top 3 bits, from the
+        // mesher's `bar_tag`), so its picture lines up with the block, not the cell.
+        let off = part >> 5u;
+        let slide = vec3<f32>(f32(off & 1u), f32((off >> 1u) & 1u), f32((off >> 2u) & 1u)) * 0.5;
+        base_uv = face_uv(in.face, in.local - slide);
+    } else if bar {
         // (Kept off the far edge, which the sampler would wrap back to the near one.)
         base_uv = clamp(bar_uv(in.face, in.local, in.quad & 0x7FFu), vec2<f32>(0.0), vec2<f32>(0.9999));
     }

@@ -488,3 +488,47 @@ now, but i'd like to work that in immediately if its not too intensive."
   stuff and player stuff."). The ground, rock, caves and water are whole blocks. Bars and octants come
   only from blueprints (trees, buildings) and from what players and settlers build. So caves carve
   whole blocks, and world creation writes pieces only when it places a blueprint (stop 4).
+
+## 15. Whole blocks on the octant grid, built: [BUILT 2026-11-01]
+
+It's built as Counsel guessed, about 250 lines, with format 3 unchanged.
+- **A new part kind** (`Part::of_block`, `Part::corner`): bit 4 set, and bits 5 to 7 say which corner
+  of the block this octant is (`x + 2y + 4z`). Its axis bits are 0, so it's no bar, never cut, and
+  has no other half.
+- **Placing** (`EditKind::PlaceShifted`, `place_shifted`, `pieces::block_placement`):
+  - It starts from the octant in front of the face at the crosshair, then goes one octant on along
+    every axis: straight out of the face, and across it toward the half of the octant the crosshair
+    is on, the same split-face rule bars use.
+  - So it lands half a block off the cells along one or two axes (2 or 4 cells), or lines up with
+    them, when it's an ordinary block in the cell in front of the face. (Three axes, across 8
+    cells, happens only from a placement made in code.)
+  - Any block can be placed this way, except one that's only ever a bar.
+  - **Refused if any of its 8 octants is taken** (for now; David's call, below).
+- **Mining** (`VoxelWorld::piece_halves`): from any of its octants it takes all 8 (found from its
+  corner), with any cut pieces stuck to them.
+- **Drawing:**
+  - Each octant gets a tag saying which ways its block is off the cells (`bar_tag`: the corner XOR the
+    octant). That's the same for all of a block's octants in a cell, so their faces merge.
+  - The shader slides the block's own face picture by half a block along those ways, so the picture
+    lines up with the block, not the cell. It's never turned, and a block's bar pictures aren't used.
+- **The controls** (David: "i think for now, shift should free you from the main grid?"):
+  - **Shift + right click** places the block in hand whole on the octant grid. The selector outlines
+    its 8 octants.
+  - **The octblock stand-in moved to Alt + right click.**
+  - The controls line along the top and the Player page say so.
+  - Shift is also run while walking, so placing while running puts blocks off the grid.
+- **Tests:**
+  - where it goes, toward the crosshair's half, out of a wall, or lined up;
+  - the part knowing its corner;
+  - 8 cells an eighth each, refused when taken, and mined whole from its far corner;
+  - two cells of four, and lined up as an ordinary block;
+  - the mesher drawing its own face, slid, merged in its cell, and never turned.
+- **For David:** when some of the 8 octants are taken, refuse (as now) or cut, the free ones going in
+  as pieces stuck to what's there, as bars do?
+- **[IDEA, David 2026-11-01] L pieces, if they're needed:** with no overlap, an L is a bar plus a lone
+  octant, and with bar art the two may not match ("you'd be using a quarter piece on one side of a
+  corner, and an oct on the other"). David: "i think maybe we can just make L's into blocks too, if we
+  need to... we could just make the stone cutting minigame let you hunk an oct off the corner of a
+  slab, maybe." *Counsel:* see it first. A bar plus an octant of a block with no bar art already
+  joins seamlessly, since both measure the block's picture by world position. If a bar-art L looks
+  wrong in play, an L piece (3 octants, one picture) cut with the chisel is the answer.

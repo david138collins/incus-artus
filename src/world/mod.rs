@@ -32,7 +32,7 @@ mod terrain;
 
 pub use block::BlockId;
 pub use caves::{CavePlan, Caves, TestCaveSettings};
-pub use pieces::{Owners, Part, Pieces, Turn, bar_halves, bar_placement, half_box, octant_of, piece_start};
+pub use pieces::{Owners, Part, Pieces, Turn, bar_halves, bar_placement, block_halves, block_placement, half_box, octant_of, piece_start};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason,
@@ -135,12 +135,17 @@ impl VoxelWorld {
     /// aimed at and mined at once [David, 2026-11-01: "the target box would target the whole
     /// quarterblock plus any octblocks that are stuck to it"]. Empty if there's no octant there.
     pub fn piece_halves(&self, half: IVec3) -> Vec<IVec3> {
-        let Some((_, part)) = self.octant(half) else { return Vec::new() };
+        let Some((block, part)) = self.octant(half) else { return Vec::new() };
         let mut halves = vec![half];
         if part.whole()
             && let Some(other) = part.other_half()
         {
             halves.push(half + other);
+        }
+        // A whole block on the octant grid: all 8 of its octants, found from its corner.
+        if let Some(corner) = part.corner() {
+            let low = half - IVec3::new(corner as i32 & 1, (corner as i32 >> 1) & 1, (corner as i32 >> 2) & 1);
+            halves = block_halves(low).into_iter().enumerate().filter(|&(c, other)| self.octant(other) == Some((block, Part::of_block(c)))).map(|(_, other)| other).collect();
         }
         for core in halves.clone() {
             for axis in 0..3 {

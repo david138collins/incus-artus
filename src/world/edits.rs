@@ -11,7 +11,7 @@
 //! world, like dig designations and blueprint ghosts, are a separate layer that will work
 //! while paused; see docs/decisions.md.)
 
-use super::{BlockId, Part, Pieces, VoxelWorld, bar_halves, octant_of};
+use super::{BlockId, Part, Pieces, VoxelWorld, bar_halves, block_halves, octant_of};
 use crate::data::BlockRegistry;
 use crate::events::{LoggedEvent, PlayerId};
 use crate::time::TimeControl;
@@ -45,6 +45,9 @@ pub enum EditKind {
     BreakPiece { half: IVec3 },
     /// A single octant of a bar block, an octblock (counted in half blocks), part of no bar.
     PlaceOctant { half: IVec3, block: BlockId },
+    /// A whole block on the octant grid, from its lowest corner `at` (counted in half blocks): half
+    /// a block off the cells along one, two or three axes, its 8 octants across 2, 4 or 8 cells.
+    PlaceShifted { at: IVec3, block: BlockId },
 }
 
 /// A block's name for the log ("pieces" for a cell built of them).
@@ -104,6 +107,7 @@ fn describe_kind(kind: EditKind, blocks: &BlockRegistry) -> String {
         EditKind::PlaceOctant { half, block } => format!("place an octant of {} at {} {} {} (half blocks)", blocks.name(block), half.x, half.y, half.z),
         EditKind::Place(block) => format!("place {}", blocks.name(block)),
         EditKind::PlaceBar { at, axis, block } => format!("place a {} bar of {} from {} {} {} (half blocks)", ["north–south", "east–west", "upright"][axis as usize % 3], blocks.name(block), at.x, at.y, at.z),
+        EditKind::PlaceShifted { at, block } => format!("place {} on the octant grid from {} {} {} (half blocks)", blocks.name(block), at.x, at.y, at.z),
     }
 }
 
@@ -205,6 +209,7 @@ pub fn apply_block_edits(
             EditKind::PlaceBar { at, axis, block } => place_bar(&mut world, &registry, at, axis, block),
             EditKind::BreakPiece { half } => break_piece(&mut world, half),
             EditKind::PlaceOctant { half, block } => place_octant(&mut world, &registry, half, block),
+            EditKind::PlaceShifted { at, block } => place_shifted(&mut world, &registry, at, block),
         };
         match changes {
             Err(reason) => refuse(request, reason, &mut recent),
@@ -354,6 +359,46 @@ fn place_bar(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, axis: 
     Ok(changes)
 }
 
+/// A whole block of `block` on the octant grid (David, 2026-11-01: "we should be able to place whole
+/// blocks on the oct grid, as well"; "shift should free you from the main grid"), from its lowest
+/// corner `at` (in half blocks): its 8 octants, each a corner of it (`Part::of_block`), across 2, 4
+/// or 8 cells, into air, something replaceable, or free octants of cells of pieces. Refused if any
+/// octant is taken. Lined up with the cells, it's an ordinary block.
+fn place_shifted(world: &mut VoxelWorld, registry: &BlockRegistry, at: IVec3, block: BlockId) -> Changes {
+    if at.rem_euclid(IVec3::splat(2)) == IVec3::ZERO {
+        return place_block(world, registry, at.div_euclid(IVec3::splat(2)), block);
+    }
+    if registry.def(block).is_some_and(|def| def.bar.as_ref().is_some_and(|bar| bar.only)) {
+        return Err(RefuseReason::OnlyABar);
+    }
+    let halves = block_halves(at);
+    for half in halves {
+        let cell = half.div_euclid(IVec3::splat(2));
+        if !world.is_loaded(cell) {
+            return Err(RefuseReason::NotLoaded);
+        }
+        let old = world.get_block(cell);
+        let free = if old == BlockId::PIECES { world.octant(half).is_none() } else { registry.is_replaceable(old) };
+        if !free {
+            return Err(RefuseReason::Occupied);
+        }
+    }
+    let mut changes = Vec::new();
+    let mut cells: Vec<IVec3> = halves.iter().map(|half| half.div_euclid(IVec3::splat(2))).collect();
+    cells.sort_by_key(|cell| cell.to_array());
+    cells.dedup();
+    for cell in cells {
+        let old = world.get_block(cell);
+        let mut pieces = if old == BlockId::PIECES { world.get_pieces(cell).cloned().unwrap_or_default() } else { Pieces::default() };
+        for (corner, half) in halves.iter().enumerate().filter(|(_, half)| half.div_euclid(IVec3::splat(2)) == cell) {
+            pieces.set(octant_of(*half), block, Part::of_block(corner));
+        }
+        world.set_pieces(cell, pieces).ok_or(RefuseReason::NotLoaded)?;
+        changes.push((cell, old, BlockId::PIECES));
+    }
+    Ok(changes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -482,6 +527,38 @@ mod tests {
         let (mut app, _) = run_requests(&[octant, bar(low_west, 0, stone), mine]);
         assert!(refusals(&mut app).is_empty());
         assert_eq!(app.world().resource::<VoxelWorld>().get_block(cell), BlockId::AIR);
+    }
+
+    #[test]
+    fn a_whole_block_on_the_octant_grid_fills_eight_cells_an_eighth_each_and_is_mined_whole_from_any() {
+        let grass = BlockRegistry::default().id("incus:grass").unwrap();
+        let cell = IVec3::new(0, 0, 145);
+        // Half a block off the cells every way: an octant in each of 8 cells.
+        let at = cell * 2 + IVec3::ONE;
+        let shifted = BlockEditRequest { position: cell, kind: EditKind::PlaceShifted { at, block: grass }, source: PLAYER };
+        let (mut app, _) = run_requests(&[shifted, shifted]);
+        assert_eq!(refusals(&mut app), vec![RefuseReason::Occupied], "the same again: taken");
+        let world = app.world().resource::<VoxelWorld>();
+        for (corner, half) in block_halves(at).into_iter().enumerate() {
+            let here = half.div_euclid(IVec3::splat(2));
+            assert_eq!(filled(world, here), vec![7 - corner], "corner {corner}");
+            assert_eq!(world.octant(half), Some((grass, Part::of_block(corner))));
+            assert_eq!(world.piece_halves(half).len(), 8);
+        }
+        // Mined from its far corner: all of it, every cell air again.
+        let mine = BlockEditRequest { position: cell, kind: EditKind::BreakPiece { half: at + IVec3::ONE }, source: PLAYER };
+        let (mut app, _) = run_requests(&[shifted, mine]);
+        assert!(refusals(&mut app).is_empty());
+        let world = app.world().resource::<VoxelWorld>();
+        assert!(block_halves(at).iter().all(|half| world.get_block(half.div_euclid(IVec3::splat(2))) == BlockId::AIR));
+        // Half a block off along one axis only: two cells, four octants each. Lined up: an ordinary block.
+        let along = BlockEditRequest { position: cell, kind: EditKind::PlaceShifted { at: cell * 2 + IVec3::X, block: grass }, source: PLAYER };
+        let lined_up = BlockEditRequest { position: cell, kind: EditKind::PlaceShifted { at: (cell + IVec3::Y * 3) * 2, block: grass }, source: PLAYER };
+        let (mut app, _) = run_requests(&[along, lined_up]);
+        assert!(refusals(&mut app).is_empty());
+        let world = app.world().resource::<VoxelWorld>();
+        assert_eq!((filled(world, cell), filled(world, cell + IVec3::X)), (vec![1, 3, 5, 7], vec![0, 2, 4, 6]));
+        assert_eq!(world.get_block(cell + IVec3::Y * 3), grass);
     }
 
     #[test]

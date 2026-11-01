@@ -41,7 +41,7 @@ use crate::sim::Presence;
 use crate::time::{InterpolationSettings, SimPosition, TimeControl, blend_fraction};
 use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
-    RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, half_box, piece_start,
+    RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, block_halves, block_placement, half_box, piece_start,
 };
 use bevy::prelude::*;
 use bevy_egui::input::EguiWantsInput;
@@ -410,14 +410,15 @@ struct ActionCooldowns {
 /// Placing bars, David's control (`docs/quartile.md`, sections 11 to 13): with a bar block in the
 /// hotbar, the selector shows exactly the octants a piece would fill, from the octant in front of the
 /// face at the crosshair; B turns the bar three ways (sideways, longways, upways: "B 3 ways"), right
-/// click places it, and Shift + right click places a single octant (an octblock: a stand-in until
-/// there's a chisel). Kept apart from storage and aiming, so the control can change without
-/// touching them.
+/// click places it, and Alt + right click places a single octant (an octblock: a stand-in until
+/// there's a chisel). With any block in hand, holding Shift places it whole on the octant grid (David:
+/// "shift should free you from the main grid"). Kept apart from storage and aiming, so the control
+/// can change without touching them.
 #[derive(Resource, Default)]
 struct PieceChoice {
     turn: Turn,
     /// What would be placed this frame, if anything: a bar (its corner in half blocks, and its axis),
-    /// or one octant (where).
+    /// one octant (where), or a whole block on the octant grid (its lowest corner, in half blocks).
     aim: Option<Aim>,
 }
 
@@ -425,9 +426,11 @@ struct PieceChoice {
 enum Aim {
     Bar(IVec3, u8),
     Octant(IVec3),
+    Shifted(IVec3),
 }
 
-/// With a bar block selected: B turns the bar, and the selector snaps to where it would go.
+/// With a bar block selected: B turns the bar, and the selector snaps to where it would go. With
+/// Shift held and any block in hand, where it would go whole on the octant grid.
 fn aim_bar(
     (keys, capture): (Res<ButtonInput<KeyCode>>, Res<MouseCapture>),
     hotbar: Res<Hotbar>,
@@ -442,10 +445,13 @@ fn aim_bar(
         piece.turn = piece.turn.next();
     }
     let looking = cameras.iter().next().map_or(Vec3::X, |camera| camera.looking());
-    let octant = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
-    piece.aim = match (bar_selected, target.hit, target.half, target.point) {
-        (true, Some(hit), Some(half), _) if octant => piece_start(half, hit.normal).map(Aim::Octant),
-        (true, Some(hit), Some(half), Some(point)) => bar_placement(half, hit.normal, point, looking, piece.turn).map(|(at, axis)| Aim::Bar(at, axis)),
+    let block_in_hand = hotbar.slots.get(hotbar.selected).and_then(|name| registry.id(name)).is_some_and(|id| !id.is_air());
+    let off_the_grid = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let octant = keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
+    piece.aim = match (target.hit, target.half, target.point) {
+        (Some(hit), Some(half), Some(point)) if off_the_grid && block_in_hand => block_placement(half, hit.normal, point).map(Aim::Shifted),
+        (Some(hit), Some(half), _) if octant && bar_selected => piece_start(half, hit.normal).map(Aim::Octant),
+        (Some(hit), Some(half), Some(point)) if bar_selected => bar_placement(half, hit.normal, point, looking, piece.turn).map(|(at, axis)| Aim::Bar(at, axis)),
         _ => None,
     };
     // Exactly the octants it would fill: those free (David: "it should highlight exactly the oct itd
@@ -457,6 +463,7 @@ fn aim_bar(
     let halves = match piece.aim {
         Some(Aim::Bar(at, axis)) => bar_halves(at, axis).to_vec(),
         Some(Aim::Octant(half)) => vec![half],
+        Some(Aim::Shifted(at)) => block_halves(at).to_vec(),
         None => Vec::new(),
     };
     target.ghost = halves.into_iter().filter(free).map(half_box).collect();
@@ -1045,6 +1052,7 @@ fn block_actions(
                 (BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceBar { at, axis, block }, source: EditSource::Player(player) }, (half_box(first).0, half_box(last).1))
             }
             Some(Aim::Octant(half)) => (BlockEditRequest { position: half.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceOctant { half, block }, source: EditSource::Player(player) }, half_box(half)),
+            Some(Aim::Shifted(at)) => (BlockEditRequest { position: at.div_euclid(IVec3::splat(2)), kind: EditKind::PlaceShifted { at, block }, source: EditSource::Player(player) }, (half_box(at).0, half_box(at).0 + Vec3::ONE)),
             None => {
                 let Some(cell) = hit.in_front() else {
                     return;
@@ -1114,7 +1122,7 @@ fn draw_hotbar(
         painter.text(
             egui::pos2(screen.center().x, screen.top() + 4.0),
             egui::Align2::CENTER_TOP,
-            format!("B turns it ({}: sideways · longways · upways)   right click places   Shift + right click an octblock   left click mines a piece", piece.turn.name()),
+            format!("B turns it ({}: sideways · longways · upways)   right click places   Alt + right click an octblock   Shift + right click a whole block off the grid   left click mines a piece", piece.turn.name()),
             egui::FontId::proportional(11.0),
             magenta,
         );
@@ -1298,7 +1306,7 @@ fn player_debug_page(ui: &mut egui::Ui, world: &mut World) {
         // Placing bars (David's control, docs/quartile.md sections 11 to 13).
         let mut piece = world.resource_mut::<PieceChoice>();
         ui.strong("Bars");
-        ui.small("With a bar block in the hotbar (pick one below), the selector shows exactly the octants a bar would fill: from the octant in front of the face at your crosshair, along the line it's turned, toward the half of the octant your crosshair is on. B turns it (sideways, longways, upways); right click places it; Shift + right click places a single octant. A bar crossing one already there is cut to its other octant. Left click mines one piece: a bar and what's stuck to it.");
+        ui.small("With a bar block in the hotbar (pick one below), the selector shows exactly the octants a bar would fill: from the octant in front of the face at your crosshair, along the line it's turned, toward the half of the octant your crosshair is on. B turns it (sideways, longways, upways); right click places it; Alt + right click places a single octant. With any block in hand, Shift + right click places it whole on the octant grid, half a block off the cells, toward the half of the octant your crosshair is on (refused if any of its octants is taken). A bar crossing one already there is cut to its other octant. Left click mines one piece: a bar and what's stuck to it.");
         ui.horizontal(|ui| {
             ui.label("turned:");
             ui.selectable_value(&mut piece.turn, Turn::Sideways, Turn::Sideways.name()).on_hover_text("Across the way you face: right on the right half of the octant, left on its left half.");

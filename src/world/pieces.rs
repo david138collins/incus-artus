@@ -28,12 +28,26 @@ use bevy::math::{IVec3, Vec3};
 /// What an octant of material is part of, in one byte: its bar's axis (2 bits: 0 none, a lone
 /// octant; 1 north–south, 2 east–west, 3 upright), which end of the bar it is (1 bit: 0 the low end,
 /// its other half the positive way), and whether its other half is there (1 bit; not: it was cut).
+/// Or, with bit 4 set, **a corner of a whole block on the octant grid** (David, 2026-11-01: "we
+/// should be able to place whole blocks on the oct grid, as well"): a block half a block off the
+/// cells along one, two or three axes, its 8 octants across 2, 4 or 8 cells, each knowing which of
+/// the block's corners it is (3 bits, `x + 2y + 4z`), so it's mined whole from any of them.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Part(pub u8);
 
 impl Part {
     /// A lone octant, part of no bar.
     pub const LONE: Part = Part(0);
+
+    /// Corner `corner` (`x + 2y + 4z`, each 0 low or 1 high) of a whole block on the octant grid.
+    pub fn of_block(corner: usize) -> Self {
+        Part(16 | (corner as u8 & 7) << 5)
+    }
+
+    /// Which corner of a whole block on the octant grid this is, if it's one.
+    pub fn corner(self) -> Option<usize> {
+        (self.0 & 16 != 0).then_some((self.0 >> 5) as usize)
+    }
 
     /// Half of a bar along `axis`: its `end` (0 low, 1 high), and whether the other half is `whole`.
     pub fn of_bar(axis: usize, end: u8, whole: bool) -> Self {
@@ -73,6 +87,9 @@ impl Part {
     /// Its name, as the log shows it.
     #[allow(dead_code)] // for the log and the panel; used by the tests so far
     pub fn name(self) -> String {
+        if let Some(corner) = self.corner() {
+            return format!("corner {corner} of a whole block on the octant grid");
+        }
         match self.axis() {
             None => "an octant".into(),
             Some(axis) => {
@@ -197,12 +214,37 @@ pub fn bar_placement(half: IVec3, normal: IVec3, point: Vec3, looking: Vec3, tur
     let step = if normal[axis] != 0 {
         normal
     } else {
-        // Where in the octant's face the crosshair is, 0 to 1 along the line: past the middle runs on.
         let mut step = IVec3::ZERO;
-        step[axis] = if point[axis] * 2.0 - half[axis] as f32 >= 0.5 { 1 } else { -1 };
+        step[axis] = toward(half, point, axis);
         step
     };
     Some((start.min(start + step), axis as u8))
+}
+
+/// Which way along `axis` (lying in the face) the crosshair's half of the octant `half` is: where in
+/// the octant's face the `point` is, 0 to 1 along it, past the middle the positive way.
+fn toward(half: IVec3, point: Vec3, axis: usize) -> i32 {
+    if point[axis] * 2.0 - half[axis] as f32 >= 0.5 { 1 } else { -1 }
+}
+
+/// Where a whole block on the octant grid would go, aimed at a face: its lowest corner (in half
+/// blocks), from the octant in front of the face at the crosshair, one octant on along every axis:
+/// straight out of the face, and across it toward the half of the octant the crosshair is on, as a
+/// bar goes (`bar_placement`). Its 8 octants are `block_halves`. Where it lines up with the cells
+/// (every corner even), it's an ordinary block in the cell in front of the face.
+pub fn block_placement(half: IVec3, normal: IVec3, point: Vec3) -> Option<IVec3> {
+    let start = piece_start(half, normal)?;
+    let mut corner = start;
+    for axis in 0..3 {
+        let step = if normal[axis] != 0 { normal[axis] } else { toward(half, point, axis) };
+        corner[axis] = start[axis].min(start[axis] + step);
+    }
+    Some(corner)
+}
+
+/// A whole block's 8 octants (in half blocks) from its lowest corner, in corner order (`x + 2y + 4z`).
+pub fn block_halves(at: IVec3) -> [IVec3; 8] {
+    std::array::from_fn(|c| at + IVec3::new(c as i32 & 1, (c as i32 >> 1) & 1, (c as i32 >> 2) & 1))
 }
 
 /// The two octants a bar fills (in half blocks), from its corner and its axis.
@@ -291,5 +333,26 @@ mod tests {
         assert_eq!(bar_placement(half, IVec3::ZERO, north_east, north, Turn::Upways), None);
         assert_eq!(bar_halves(IVec3::new(1, 1, 22), 1), [IVec3::new(1, 1, 22), IVec3::new(1, 2, 22)]);
         assert_eq!(half_box(IVec3::new(1, 1, 22)), (Vec3::new(0.5, 0.5, 11.0), Vec3::new(1.0, 1.0, 11.5)));
+    }
+
+    #[test]
+    fn a_whole_block_on_the_octant_grid_goes_toward_the_crosshair_s_half_and_knows_its_corners() {
+        // The top of the block at (0, 0, 10), aimed at in its north-east-high octant: from the octant
+        // above, north and east of it on the north-east quarter (half a block off the cells both
+        // ways), and lined up with the cells on the south-west quarter (an ordinary block above).
+        let half = IVec3::new(1, 1, 21);
+        assert_eq!(block_placement(half, IVec3::Z, Vec3::new(0.8, 0.8, 11.0)), Some(IVec3::new(1, 1, 22)));
+        assert_eq!(block_placement(half, IVec3::Z, Vec3::new(0.6, 0.6, 11.0)), Some(IVec3::new(0, 0, 22)));
+        // A wall's north face: straight out north, and along it by the crosshair's half.
+        assert_eq!(block_placement(IVec3::new(1, 0, 20), IVec3::X, Vec3::new(1.0, 0.1, 10.4)), Some(IVec3::new(2, -1, 20)));
+        assert_eq!(block_placement(half, IVec3::ZERO, Vec3::ZERO), None);
+        let halves = block_halves(IVec3::new(1, 1, 22));
+        assert_eq!((halves[0], halves[7]), (IVec3::new(1, 1, 22), IVec3::new(2, 2, 23)));
+        // Each of its octants knows which corner it is, and is no bar.
+        for corner in 0..8 {
+            let part = Part::of_block(corner);
+            assert_eq!((part.corner(), part.axis(), part.whole(), part.is_cut(), part.other_half()), (Some(corner), None, false, false, None));
+        }
+        assert_eq!((Part::LONE.corner(), Part::of_bar(1, 1, true).corner()), (None, None));
     }
 }
