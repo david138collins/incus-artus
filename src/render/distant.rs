@@ -56,7 +56,7 @@ pub const CELLS: i32 = 16;
 const RING_TILES: i32 = 16;
 /// The side of the texture marking the chunks on screen, in chunks (centred on the camera's chunk:
 /// 128 each way, far past where real chunks ever reach).
-const SHOWN_SIZE: i32 = 256;
+pub(super) const SHOWN_SIZE: i32 = 256;
 
 /// Tunables (on the "Render" debug page, saved in "everything" presets).
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -536,9 +536,9 @@ pub struct DistantState {
     /// distance it was made for.
     shown_texture: Option<Handle<Image>>,
     shown: HashSet<ChunkPos>,
-    shown_for: Option<(IVec2, i32)>,
+    shown_for: Option<(IVec2, i32, u64)>,
     /// What the hand-off was last looked over for (see `update_shown_chunks`).
-    looked_over: Option<(u64, u64, usize, IVec2, i32)>,
+    looked_over: Option<(u64, u64, usize, IVec2, i32, u64)>,
     // ── For the Performance page ──
     pub quads: u64,
 }
@@ -749,6 +749,7 @@ pub fn update_shown_chunks(
     world: Res<VoxelWorld>,
     meshing: Res<MeshingState>,
     render: Res<RenderSettings>,
+    copies: Res<super::far_copies::FarCopies>,
     camera: Query<&Transform, With<Camera3d>>,
     mut state: ResMut<DistantState>,
     mut images: ResMut<Assets<Image>>,
@@ -760,7 +761,7 @@ pub fn update_shown_chunks(
     let at = bevy_to_game(camera.translation);
     let centre = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
     // Nothing to look over again unless the meshing, the chunks handed over, or the view moved on.
-    let looked = (meshing.changes, streaming.drawn_changes(), streaming.drawn().len(), centre, render.render_distance_chunks);
+    let looked = (meshing.changes, streaming.drawn_changes(), streaming.drawn().len(), centre, render.render_distance_chunks, copies.changes);
     if state.looked_over == Some(looked) {
         return;
     }
@@ -778,7 +779,7 @@ pub fn update_shown_chunks(
             changed = true;
         }
     }
-    let now = (centre, render.render_distance_chunks);
+    let now = (centre, render.render_distance_chunks, copies.changes);
     if !changed && state.shown_for == Some(now) {
         return;
     }
@@ -799,6 +800,14 @@ pub fn update_shown_chunks(
         let around = (-1..=1).flat_map(|x| (-1..=1).map(move |y| ChunkPos::new(pos.x + x, pos.y + y)));
         if around.into_iter().all(on_screen) {
             let offset = IVec2::new(pos.x, pos.y) - centre;
+            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
+        }
+    }
+    // The chunks drawn by far copies (`far_copies.rs`), each on its own: a copy's skirt hides its
+    // edge, so it needs no sheet under its neighbours.
+    for pos in copies.covered() {
+        let offset = IVec2::new(pos.x, pos.y) - centre;
+        if offset.x.abs() < half && offset.y.abs() < half {
             pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
         }
     }

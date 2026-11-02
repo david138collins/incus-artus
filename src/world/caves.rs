@@ -120,6 +120,12 @@ impl CavePlan {
         self.index.contains_key(&(chunk.x, chunk.y, level as i32))
     }
 
+    /// Every section-sized box any cave comes near: its chunk, and its level (the far copies look
+    /// for those near the ground, `render/far_copies.rs`).
+    pub fn boxes(&self) -> impl Iterator<Item = (ChunkPos, i32)> + '_ {
+        self.index.keys().map(|&(x, y, level)| (ChunkPos::new(x, y), level))
+    }
+
     /// The chunks a tunnel comes near.
     pub fn chunks_near(tunnel: &Tunnel) -> HashSet<ChunkPos> {
         (0..tunnel.points.len().saturating_sub(1)).flat_map(|p| piece_boxes(tunnel, p)).map(|(x, y, _)| ChunkPos::new(x, y)).collect()

@@ -730,7 +730,7 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
         sites = ui
             .add_enabled(compiled, egui::Button::new("Place the far test sites"))
             .on_hover_text(
-                "In a line the way you're facing, at 600 blocks, on the edge of the real chunks, at 1,500 and at 3,000: a cave mouth in a cliff,\n\
+                "In a line the way you're facing, at 600 blocks, on the edge of the real chunks, and 500 and 1,500 past it: a cave mouth in a cliff,\n\
                  one on a chunk's edge, a pillar in a gorge, a thin wall beside a pillar, and a pit. For checking the far view with\n\
                  \"who drew this\" (Render page). Save the world to keep them.",
             )

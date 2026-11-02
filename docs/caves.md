@@ -734,3 +734,60 @@ have been added.
 - Should the far copies' controls be a section of their own on the Render page, called "Far copies"
   beside the distant terrain's, or somewhere else?
 - Build 1 is the first build carrying the number. Is counting from 1 right?
+
+**David's answers (2026-11-02):**
+- The build number goes "somewhere out of sight in the debug panel": the Overview page.
+- "Far copies is fine for now."
+- Counting from 1: "yes thats fine".
+
+### 13.12 What build 2 showed (David, 2026-11-02)
+
+The gap at the edge of the real chunks is real, as section 3 of the assessment expected. With "who
+drew this" on: "there is a distance you can sit where yellow appears as a dot in the black, from the
+back of the cave, while the mouth is blue/yellow overlapped, and then it is covered in yellow as i
+move back". The far sheet, drawn one chunk deep under the real chunks' edge, shows through the cave
+from behind and then covers the mouth. Step 3's copies cut the sheet out round a copy's chunks, but
+not in that last ring of real chunks; whether that ring needs the same is for David to judge in
+build 3.
+
+Also seen in the log: David's render distance is 64 chunks (about 2,048 blocks), so the sites at 1,500
+were inside the real chunks. The sites now follow the render distance: 600, the edge, and 500 and
+1,500 past it.
+
+### 13.13 Step 3, the far copies  [BUILT 2026-11-02: build 3; not yet seen by David]
+
+`render/far_copies.rs`. Where it differs from the plan above:
+- **Tiles, not single chunks:** a copy is a tile of 2 × 2, 4 × 4 or 8 × 8 chunks in cells of 2, 4 or 8
+  blocks (or one chunk at full detail), so every tile is 32 cells across: one section of the near
+  mesher's, unchanged except that the daylight can be handed to it ready-made. A tile is only ever
+  wholly outside the real chunks; near their edge, finer tiles fill in.
+- **Choosing a size:** the coarsest that fits outside the real chunks and inside the hand-off mask,
+  and is coarse enough for its distance. A drawn tile keeps its size until it's a quarter past the
+  line (`SWITCH_PAST`).
+- **Sharpness:** a cell is about 4 ÷ sharpness pixels, so 1 is soft (4 pixels) and 4 is crisp (one
+  pixel). The plan's wording had it the wrong way round.
+- **A cell's look:** the highest solid block in it, not the one most of it is made of, since the top
+  is what's seen from afar (a grass top is a thin layer).
+- **Objects** count by their shapes toward a cell being solid. They take the blocks' look; their
+  models' own colours are for later.
+- **Showing, and the neighbours:** a chunk shows if it's changed or daylight reaches covered air in it.
+  The 8 chunks round each one that shows are copied too (their tiles are made even if nothing in them
+  shows).
+- **Daylight** is worked out in each tile, so light from outside a tile's edge doesn't reach in.
+- **Skirts:** the ground beside a tile counts as open for 2 cells below its surface there, so the
+  tile's sides show as a skirt. In "who drew this", every face on a copy's outer edge is magenta,
+  skirt or not.
+- **Who drew this:** copies are green, lighter at 2 blocks a cell and darker at 8.
+- **The numbers** are on the Render page under "Far copies" (tiles by size, being made, faces, memory,
+  and the time to make one), rather than the Performance page.
+- **At most 2 tiles are made at once,** so streaming and the processor's heat come first.
+- **A changed chunk** makes the tiles holding it again. A new cave plan, other blocks, or a new "how
+  much must be solid" makes all of them again.
+- **Known risk, not yet seen:** the near shader's hill shading reads a window of the ground as wide as
+  the render distance. Copies past it get the light map but not the lie of the land, so they may look
+  flatter than the sheet round them.
+- **Tests:**
+  - a mouth in a hillside is copied, darker round it, and plain ground is left to the sheet;
+  - a 1 × 1 pillar shows when an eighth must be solid and not when half must;
+  - cells are coarser further away and finer the sharper;
+  - a tile's nearest and furthest chunks.

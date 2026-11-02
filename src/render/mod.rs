@@ -12,6 +12,7 @@
 //!   (Simulation distance is a separate setting, added when there's simulation to limit.)
 
 mod deep_shot;
+mod far_copies;
 pub(crate) mod distant;
 mod frame_cap;
 pub(crate) mod light;
@@ -66,6 +67,9 @@ impl Plugin for RenderPlugin {
             .init_resource::<distant::DistantState>()
             .init_resource::<distant::DistantSettings>()
             .add_settings::<distant::DistantSettings>("distant")
+            .init_resource::<far_copies::FarCopies>()
+            .init_resource::<far_copies::FarCopySettings>()
+            .add_settings::<far_copies::FarCopySettings>("far_copies")
             .add_systems(Startup, distant::setup_distant)
             .add_systems(Update, (distant::update_distant, distant::update_distant_material))
             .init_resource::<deep_shot::DeepShot>()
@@ -97,6 +101,7 @@ impl Plugin for RenderPlugin {
                     meshing::collect_dirty_sections,
                     meshing::start_jobs,
                     meshing::finish_jobs,
+                    far_copies::update_far_copies,
                     distant::update_shown_chunks,
                     apply_render_distance,
                     update_shader_settings,
@@ -106,7 +111,7 @@ impl Plugin for RenderPlugin {
                     .chain(),
             )
             .add_debug_page("Render", render_debug_page)
-            .add_page_preset("render", &["render", "distant", "light"])
+            .add_page_preset("render", &["render", "distant", "far_copies", "light"])
             .add_debug_page("Performance", performance::performance_debug_page)
             .add_settings::<RenderSettings>("render");
         // A developer tool, as F12's screenshot is.
@@ -607,6 +612,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             *settings = crate::debug::page_default("render", "distant");
         }
     }
+
+    // ── Far copies ──
+    ui.separator();
+    ui.strong("Far copies");
+    ui.small("Past the real chunks, wherever the world differs from the plain land (cave mouths, digging, building), a coarse copy of it.");
+    far_copies::controls(ui, world);
 
     // ── Light ──
     ui.separator();

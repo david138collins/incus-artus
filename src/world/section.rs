@@ -17,6 +17,7 @@ use super::block::BlockId;
 use super::position::SECTION_VOLUME;
 use std::collections::HashMap;
 
+#[derive(Clone)]
 pub enum Section {
     Uniform(BlockId),
     Packed(PackedSection),
@@ -113,6 +114,7 @@ impl Section {
 }
 
 /// Palette + bit-packed indices. See the module notes above.
+#[derive(Clone)]
 pub struct PackedSection {
     palette: Vec<BlockId>,
     bits: u32,

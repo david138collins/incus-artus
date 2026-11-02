@@ -49,6 +49,7 @@ impl PlacedObject {
     }
 }
 
+#[derive(Clone)]
 pub struct Chunk {
     pos: ChunkPos,
     sections: Vec<Section>,

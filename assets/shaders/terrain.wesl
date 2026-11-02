@@ -19,7 +19,7 @@ struct TerrainShaderSettings {
     fog_color: vec4<f32>,
     // x fog start, y fog end, z fog on, w debug view (1 rectangles, 2 face directions, 3 who drew this)
     fog_and_debug: vec4<f32>,
-    // x random texture rotation on, y light only (plain grey)
+    // x random texture rotation on, y light only (plain grey), z a far copy's material (far_copies.rs)
     options: vec4<f32>,
     // Survey view: x on, y every how many levels, z darkness, w sea level
     survey: vec4<f32>,
@@ -85,6 +85,8 @@ struct VertexOutput {
     @location(7) daylight: f32,
     // Placed light (red, green, blue, 0 to 1): src/render/placed_light.rs.
     @location(8) @interpolate(flat) placed: vec3<f32>,
+    // How many blocks a cell is: 1, or a far copy's 2, 4 or 8 (src/render/far_copies.rs).
+    @location(9) @interpolate(flat) scale: f32,
 }
 
 @vertex
@@ -121,6 +123,7 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.daylight = f32((a >> 28u) & 15u) / 15.0;
     let c = in.packed.z;
     out.placed = vec3<f32>(f32(c & 15u), f32((c >> 4u) & 15u), f32((c >> 8u) & 15u)) / 15.0;
+    out.scale = length(world_from_local[0].xyz);
     return out;
 }
 
@@ -355,9 +358,19 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else if debug_view == 2u {
         colour = debug_colour(in.face + 100u);
     } else if debug_view == 3u {
-        // Who drew this (`docs/caves.md` 13.7): the real chunks blue, the texture's light and dark
-        // kept faintly and all the lighting after, so shapes still read.
-        colour = vec3<f32>(0.25, 0.45, 1.0) * (0.6 + 0.4 * dot(colour, vec3<f32>(0.3, 0.59, 0.11)));
+        // Who drew this (`docs/caves.md` 13.7): the real chunks blue, the far copies green (darker the
+        // coarser), their outer edges magenta (the skirts, and any face there); the texture's light and
+        // dark kept faintly and all the lighting after, so shapes still read.
+        var who = vec3<f32>(0.25, 0.45, 1.0);
+        if settings.options.z > 0.5 {
+            who = mix(vec3<f32>(0.45, 1.0, 0.35), vec3<f32>(0.05, 0.45, 0.1), clamp(log2(in.scale) / 3.0, 0.0, 1.0));
+            let across = select(in.local.y, in.local.x, in.face <= 1u);
+            let outward = select(0.0, 32.0, in.face == 0u || in.face == 2u);
+            if in.face <= 3u && abs(across - outward) < 0.01 {
+                who = vec3<f32>(1.0, 0.2, 0.9);
+            }
+        }
+        colour = who * (0.6 + 0.4 * dot(colour, vec3<f32>(0.3, 0.59, 0.11)));
     }
 
     // Classic block shading: brightness by which way the face points.

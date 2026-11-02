@@ -3,8 +3,8 @@
 //! view can be checked against each, before and after the far copies.
 //!
 //! **The distances** are counted as the render distance counts them (the larger of north-south and
-//! east-west): about 600 blocks (inside the real chunks), the last ring of real chunks (the 1,024
-//! edge, at the default render distance), 1,500 and 3,000 (the far copies' band).
+//! east-west): about 600 blocks (inside the real chunks), the last ring of real chunks (the edge),
+//! and 500 and 1,500 past the edge (the far copies' band), whatever the render distance.
 //!
 //! **At each distance:**
 //! - **a mouth in a cliff:** the test cave, worming into the steepest slope near the line;
@@ -190,7 +190,8 @@ pub(super) fn place_far_test_sites(world: &mut World) -> String {
         dir.y.atan2(dir.x).to_degrees().rem_euclid(360.0)
     )];
     let (mut tunnels, mut edits) = (Vec::new(), Vec::new());
-    for (k, (name, distance)) in [("600", along(600.0)), ("the edge", edge), ("1,500", along(1_500.0)), ("3,000", along(3_000.0))].into_iter().enumerate() {
+    // Past the edge by 500 and 1,500: in the far copies' band, whatever the render distance.
+    for (k, (name, distance)) in [("600", along(600.0)), ("the edge", edge), ("500 past the edge", edge + along(500.0)), ("1,500 past the edge", edge + along(1_500.0))].into_iter().enumerate() {
         let at = from.truncate() + dir * distance;
         let sites = sites_at(&map, at, dir, &settings, seed.wrapping_add(k as u32 * 7_919));
         lines.push(format!("At {name}: {}", if sites.placed.is_empty() { "nothing found (past the map, or under the sea)".to_string() } else { sites.placed.join(", ") }));

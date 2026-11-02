@@ -68,7 +68,7 @@ pub struct TerrainLight {
 }
 
 /// Values the shader reads every frame. Kept to `Vec4`s, which the GPU handles most simply.
-#[derive(ShaderType, Clone, Copy, Debug)]
+#[derive(ShaderType, Clone, Copy, Debug, PartialEq)]
 pub struct TerrainShaderSettings {
     /// Brightness of faces: x = top, y = bottom, z = north/south, w = east/west.
     pub face_shade: Vec4,

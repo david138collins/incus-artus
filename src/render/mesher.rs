@@ -139,6 +139,14 @@ pub fn face_index(axis: usize, positive: bool) -> usize {
 type Columns = Vec<[u64; N * N]>;
 
 pub fn mesh_section(input: &MeshInput) -> MeshOutput {
+    let daylight = input.light.as_ref().map_or_else(Daylight::default, |region| flood(region, input.reach));
+    mesh_section_lit(input, daylight)
+}
+
+/// The same, with the daylight of the section and the one cell round it already worked out (the far
+/// copies, `far_copies.rs`, whose cells are each several blocks: their daylight is the blocks'
+/// averaged).
+pub fn mesh_section_lit(input: &MeshInput, daylight: Daylight) -> MeshOutput {
     // A cell built of pieces hides nothing behind it, as glass doesn't: its pieces are drawn on their
     // own (`emit_pieces`).
     let is_opaque = |id: BlockId| id != BlockId::PIECES && input.opaque.get(id.0 as usize).copied().unwrap_or(true);
@@ -146,7 +154,6 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
     let is_grid = |id: BlockId| is_see_through(id) && input.inner_faces.get(id.0 as usize).copied().unwrap_or(false);
     let is_outline = |id: BlockId| is_see_through(id) && !is_grid(id);
     let mut out = MeshOutput::default();
-    let daylight = input.light.as_ref().map_or_else(Daylight::default, |region| flood(region, input.reach));
     let daylight = Lights { daylight, placed: &input.placed };
 
     // Opaque blocks: faces where they meet anything not opaque.
