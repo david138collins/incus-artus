@@ -11,7 +11,7 @@
 import bevy_pbr::render::mesh_functions::get_world_from_local;
 import bevy_pbr::render::view_transformations::position_world_to_clip;
 import bevy_pbr::render::mesh_view_bindings::{globals, view};
-import super::lighting::{eased, height_tint, hill_light, light_from_map, side_lie, unroot};
+import super::lighting::{eased, height_tint, hill_light, land, light_from_map, side_lie, to_game, unroot};
 
 struct TerrainShaderSettings {
     // x top, y bottom, z north/south, w east/west
@@ -53,6 +53,13 @@ struct TerrainLight {
     shade: vec4<f32>,
     // x how much of the lie of the land's sun and shade the steps' sides take (0 to 1)
     sides: vec4<f32>,
+    // For the far copies' plain ground, lit as the far terrain is (`far_ground`): x how much the far
+    // slopes take on the steps' shade, y the steepest slope the tables reach; and the steps' feet's
+    // shade by steepness (from flat to `far.y` in 32 steps, four to a vec4), all round and from the
+    // sun's side (the far terrain's own tables).
+    far: vec4<f32>,
+    foot: array<vec4<f32>, 9>,
+    step: array<vec4<f32>, 9>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var light_map: texture_2d<f32>;
@@ -235,6 +242,59 @@ fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
     return light;
 }
 
+// One of the far terrain's steps' shade tables (`step` if `steps`, else `foot`) at a slope `rise`
+// blocks up per block across, blended between its two nearest entries (as distant.wesl's `table_at`).
+fn far_table_at(steps: bool, rise: f32) -> f32 {
+    let k = min(rise / max(lighting.far.y, 1e-3) * 32.0, 32.0);
+    let low = u32(floor(k));
+    let high = min(low + 1u, 32u);
+    let a = select(lighting.foot[low / 4u][low % 4u], lighting.step[low / 4u][low % 4u], steps);
+    let b = select(lighting.foot[high / 4u][high % 4u], lighting.step[high / 4u][high % 4u], steps);
+    return mix(a, b, fract(k));
+}
+
+// A far copy's plain ground (`far_copies.rs`: natural open land, nothing changed or carved in its
+// column), drawn as the far terrain round it draws the land, so the copy doesn't show as a patch
+// [David, build 5: "has different shading than the surrounding areas"]: the surface block's top
+// and side colours (its textures' smallest versions, as the far terrain's are their averages), lit
+// by the far terrain's sums (lighting.wesl, `land`) with the slope from the window round you, and
+// the light map. Every face of the cell the same, as the far terrain's smooth surface has no steps.
+fn far_ground(top_colour: vec3<f32>, side_colour: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
+    let north = -world_position.z;
+    let east = world_position.x;
+    var light = 1.0;
+    if lighting.light.x > 0.5 {
+        let uv = vec2<f32>(east + lighting.light_area.x, lighting.light_area.x - north) / max(lighting.light_area.y, 1.0);
+        light = light_from_map(textureSampleLevel(light_map, light_sampler, uv, 0.0), lighting.light);
+    }
+    var slope = vec2<f32>(0.0);
+    if lighting.near_area.w > 0.5 {
+        let uv = vec2<f32>(east - lighting.near_area.y, lighting.near_area.x - north) / lighting.near_area.z;
+        let near = textureSampleLevel(near_map, near_sampler, uv, 0.0);
+        if all(uv >= vec2<f32>(0.0)) && all(uv <= vec2<f32>(1.0)) && near.a > 0.5 {
+            // Stored as up to 4 blocks up per block across (src/render/light.rs, `STEEPEST`).
+            slope = vec2<f32>(unroot(near.r), unroot(near.g)) * 4.0;
+        }
+    }
+    let rise = length(slope);
+    let faces = vec4<f32>(settings.face_shade.x, settings.face_shade.z, settings.face_shade.w, lighting.sides.x);
+    return light * land(
+        top_colour,
+        side_colour,
+        slope,
+        world_position.y,
+        to_game(normalize(view.world_position - world_position)),
+        lighting.sun,
+        vec3<f32>(lighting.hill.x, lighting.hill.z, lighting.shade.w),
+        lighting.hill.y,
+        lighting.shade.x,
+        faces,
+        lighting.far.x,
+        far_table_at(false, rise),
+        far_table_at(true, rise),
+    );
+}
+
 // One along an axis (0 x, 1 y, 2 z), as a vector: picks a vector's part by a number worked out as the
 // shader runs, which DirectX's compiler won't do by indexing (it quit the game at its first launch,
 // 2026-11-01: "array reference cannot be used as an l-value").
@@ -342,7 +402,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         uv = cell + f;
     }
 
-    let sampled = textureSampleGrad(block_textures, block_sampler, uv, in.layer, uv_dx, uv_dy);
+    // A far copy's plain ground (`far_ground`) carries its block's top and side layers instead of
+    // one of its own (`far_copies.rs`, `PLAIN`): the top's for its top, the side's for its sides.
+    let plain = (in.layer & 0x8000u) != 0u;
+    let top_layer = in.layer & 127u;
+    let side_layer = (in.layer >> 7u) & 127u;
+    let layer = select(in.layer, select(side_layer, top_layer, in.face >= 4u), plain);
+    let sampled = textureSampleGrad(block_textures, block_sampler, uv, layer, uv_dx, uv_dy);
     // See-through blocks (like the grid): pixels less than half opaque are cut out entirely.
     // Ordinary block textures are fully opaque, so this never affects them.
     if sampled.a < 0.5 {
@@ -368,6 +434,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
             who = mix(vec3<f32>(0.45, 1.0, 0.35), vec3<f32>(0.05, 0.45, 0.1), clamp(log2(in.scale) / 3.0, 0.0, 1.0));
             let across = select(in.local.y, in.local.x, in.face <= 1u);
             let outward = select(0.0, 32.0, in.face == 0u || in.face == 2u);
+            // Plain ground (drawn as the far terrain draws the land) paler.
+            if plain {
+                who = mix(who, vec3<f32>(1.0), 0.45);
+            }
             if in.face <= 3u && abs(across - outward) < 0.01 {
                 who = vec3<f32>(1.0, 0.2, 0.9);
             }
@@ -384,7 +454,19 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else if in.face <= 3u {
         shade = settings.face_shade.w;
     }
-    colour = colour * shade * ground_light(in.world_position, in.face) * underground_light(in.daylight, in.placed, in.world_position);
+    if plain && debug_view == 0u {
+        // The textures' smallest versions: one colour each, as the far terrain's.
+        let smallest = f32(textureNumLevels(block_textures) - 1u);
+        var top_colour = textureSampleLevel(block_textures, block_sampler, vec2<f32>(0.5), top_layer, smallest).rgb;
+        var side_colour = textureSampleLevel(block_textures, block_sampler, vec2<f32>(0.5), side_layer, smallest).rgb;
+        if settings.options.y > 0.5 {
+            top_colour = vec3<f32>(0.5);
+            side_colour = vec3<f32>(0.5);
+        }
+        colour = far_ground(top_colour, side_colour, in.world_position) * underground_light(in.daylight, in.placed, in.world_position);
+    } else {
+        colour = colour * shade * ground_light(in.world_position, in.face) * underground_light(in.daylight, in.placed, in.world_position);
+    }
 
     // Survey view: every Nth level of blocks above sea level darkened, like a contour map's bands.
     if settings.survey.x > 0.5 {

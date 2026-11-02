@@ -65,6 +65,13 @@ pub struct TerrainLight {
     pub shade: Vec4,
     /// x how much of the lie of the land's sun and shade the steps' sides take (0 to 1).
     pub sides: Vec4,
+    /// For the far copies' plain ground, lit as the far terrain is (`far_copies.rs`, terrain.wesl
+    /// `far_ground`): x how much the far slopes take on the steps' shade, y the steepest slope the
+    /// tables reach; and the steps' feet's shade by steepness, all round and from the sun's side
+    /// (the far terrain's own tables, `distant.rs`, `Shade`).
+    pub far: Vec4,
+    pub foot: [Vec4; super::distant::TABLE_VEC4S],
+    pub step: [Vec4; super::distant::TABLE_VEC4S],
 }
 
 /// Values the shader reads every frame. Kept to `Vec4`s, which the GPU handles most simply.

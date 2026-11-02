@@ -858,3 +858,20 @@ blue to yellow; it never turned green.
   areas":** the copy is blocks, lit as the real chunks are, set in the smooth far sheet, so the
   difference between the two, which along the real chunks' edge is one long line far off, shows as a
   square. Waiting for David's choice.
+
+### 13.17 Build 6: a copy's plain ground drawn as the far terrain draws the land (David: "lets try 1")
+
+- **Plain ground:** in a copy, columns of cells solid up to a point and open above (no cave, no
+  overhang), with no objects, in chunks nobody changed. Everything else in a copy (a cave mouth and
+  the cliff over it, your buildings, the test sites) stays blocks, lit as the real chunks are.
+- **How it's drawn:** the far terrain's own sums, now written once in `lighting.wesl` (`land`) and
+  used by both: the surface block's top and side colours (the textures' smallest versions; the far
+  terrain uses their averages, the same unless "far textures keep their painted colours" is on),
+  the lie of the land from the slope (the window round you), the height tint, the steps' feet from
+  the far terrain's own tables, tops and sides mixed by how much of each the camera sees, and the
+  light map. Every face of such a cell gets the same colour, as the far terrain's smooth surface
+  has no steps; only the copy's shape still steps.
+- **How it's marked:** a stand-in block number past the real ones, whose faces carry a flag and its
+  block's top and side layers (`far_copies.rs`, `PLAIN`). Works while there are under 128 texture
+  layers (16 now); past that, plain ground is drawn as blocks again.
+- **Who drew this:** plain ground in a copy shows a paler green.

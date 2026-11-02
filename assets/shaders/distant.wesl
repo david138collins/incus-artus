@@ -15,7 +15,7 @@
 import bevy_pbr::render::mesh_functions::get_world_from_local;
 import bevy_pbr::render::view_transformations::position_world_to_clip;
 import bevy_pbr::render::mesh_view_bindings::view;
-import super::lighting::{as_seen, height_tint, hill_light, light_from_map, side_lie, to_game};
+import super::lighting::{land, light_from_map, to_game};
 
 struct DistantShaderSettings {
     fog_color: vec4<f32>,
@@ -108,29 +108,23 @@ fn table_at(steps: bool, rise: f32) -> f32 {
     return mix(a, b, fract(k));
 }
 
-// The land's colour as the near ground's blocks show it on average, from here: the tops (the lie of
-// the land, the height tint, the shade at the feet of the steps, more on the side away from the sun)
-// and the steps' sides, each its own colour and brightness, mixed by how much the camera sees of each.
-fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, world_position: vec3<f32>) -> vec3<f32> {
-    let up = world_position.y;
-    let lie = hill_light(slope * settings.hill.y, settings.sun.w, settings.sun.xyz, settings.shade.x) * height_tint(up, settings.hill.z, settings.hill.w, settings.hill.x);
-    let top = top_colour * settings.faces.x * lie;
+// The land's colour here, by the sums the far copies' plain ground shares (lighting.wesl, `land`).
+fn far_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, world_position: vec3<f32>) -> vec3<f32> {
     let rise = length(slope);
-    let matched = settings.shade.y;
-    if matched <= 0.0 || rise <= 1e-4 {
-        return top;
-    }
-    // The step shadows fall where the slope rises toward the sun (the steps' walls face away).
-    let sun = settings.sun.xy;
-    let toward_sun = select(0.0, clamp(dot(slope / rise, normalize(sun)), 0.0, 1.0), length(sun) > 1e-5);
-    let feet = table_at(false, rise) * mix(1.0, table_at(true, rise), toward_sun);
-    let sides = side_lie(lie, settings.faces.w);
-    return as_seen(
-        top * mix(1.0, feet, min(matched, 1.0)),
-        side_colour * settings.faces.y * sides,
-        side_colour * settings.faces.z * sides,
-        slope * matched,
+    return land(
+        top_colour,
+        side_colour,
+        slope,
+        world_position.y,
         to_game(normalize(view.world_position - world_position)),
+        settings.sun,
+        vec3<f32>(settings.hill.x, settings.hill.z, settings.hill.w),
+        settings.hill.y,
+        settings.shade.x,
+        settings.faces,
+        settings.shade.y,
+        table_at(false, rise),
+        table_at(true, rise),
     );
 }
 
@@ -162,7 +156,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
     // The sea stays flat; between a sea corner and a land one, a blend of the two.
     let sea = top_colour * settings.faces.x;
-    var colour = mix(sea, land(top_colour, side_colour, in.slope, in.world_position), clamp(in.colour.a, 0.0, 1.0));
+    var colour = mix(sea, far_land(top_colour, side_colour, in.slope, in.world_position), clamp(in.colour.a, 0.0, 1.0));
     if settings.light.x > 0.5 {
         colour = colour * light_from_map(light_pixel, settings.light);
     }

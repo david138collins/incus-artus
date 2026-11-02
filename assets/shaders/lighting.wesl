@@ -74,6 +74,38 @@ fn as_seen(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: v
     return (top * top_seen + north_south * north_seen + east_west * east_seen) / seen;
 }
 
+// The land as the far terrain draws it: its colour as the near ground's blocks show it on average,
+// from where you look: the tops (the lie of the land, the height tint, the shade at the feet of the
+// steps, more on the side away from the sun) and the steps' sides, each its own colour and
+// brightness, mixed by how much the camera sees of each. The far terrain (distant.wesl) and the far
+// copies' plain ground (terrain.wesl, `far_ground`) both draw with it, so they match.
+//   `slope`: blocks up per block across, north and east; `up`: the height (Z); `toward`: the way to
+//   the camera (game axes); `sun`: xyz toward the sun, w hill shading strength; `tint`: x the height
+//   tint's strength, y sea level, z the height it counts up to; `finest`: the distance the slope's
+//   light is measured over; `fade`: hill shading's fade; `faces`: x tops, y north/south sides, z
+//   east/west sides, w how much of the slope's light the sides take; `matched`: how much the far
+//   slopes take on the steps' shade; `foot`, `step`: the steps' feet's shade at this steepness, all
+//   round and from the sun's side.
+fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, up: f32, toward: vec3<f32>, sun: vec4<f32>, tint: vec3<f32>, finest: f32, fade: f32, faces: vec4<f32>, matched: f32, foot: f32, step: f32) -> vec3<f32> {
+    let lie = hill_light(slope * finest, sun.w, sun.xyz, fade) * height_tint(up, tint.y, tint.z, tint.x);
+    let top = top_colour * faces.x * lie;
+    let rise = length(slope);
+    if matched <= 0.0 || rise <= 1e-4 {
+        return top;
+    }
+    // The step shadows fall where the slope rises toward the sun (the steps' walls face away).
+    let toward_sun = select(0.0, clamp(dot(slope / rise, normalize(sun.xy)), 0.0, 1.0), length(sun.xy) > 1e-5);
+    let feet = foot * mix(1.0, step, toward_sun);
+    let sides = side_lie(lie, faces.w);
+    return as_seen(
+        top * mix(1.0, feet, min(matched, 1.0)),
+        side_colour * faces.y * sides,
+        side_colour * faces.z * sides,
+        slope * matched,
+        toward,
+    );
+}
+
 // Bevy's axes to the game's: game x north = Bevy -z, y east = Bevy x, z up = Bevy y.
 fn to_game(bevy: vec3<f32>) -> vec3<f32> {
     return vec3<f32>(-bevy.z, bevy.x, bevy.y);

@@ -272,9 +272,19 @@ impl Shade {
         settings.faces = Vec4::new(self.top, self.north_south, self.east_west, self.sides);
         settings.hill = Vec4::new(self.height_tint, finest_cell, sea, crate::world::HIGHEST);
         settings.shade = Vec4::new(self.fade, self.slope_match, if self.grey { 1.0 } else { 0.0 }, STEEPEST_STEPS);
+        (settings.foot, settings.step) = self.tables();
+    }
+
+    /// The steps' feet's shade tables, packed four to a `Vec4` for the shaders.
+    pub fn tables(&self) -> ([Vec4; TABLE_VEC4S], [Vec4; TABLE_VEC4S]) {
         let pack = |table: &[f32; SLOPE_STEPS + 1]| std::array::from_fn(|k| Vec4::from_array(std::array::from_fn(|j| table.get(k * 4 + j).copied().unwrap_or(1.0))));
-        settings.foot = pack(&self.foot);
-        settings.step = pack(&self.step);
+        (pack(&self.foot), pack(&self.step))
+    }
+
+    /// For the near shader's far copies (`TerrainLight::far`): how much the far slopes take on the
+    /// steps' shade, and the steepest slope the tables reach.
+    pub fn far(&self) -> Vec4 {
+        Vec4::new(self.slope_match, STEEPEST_STEPS, 0.0, 0.0)
     }
 
     /// How brightly the ground is lit, rising `north` and `east` blocks per finest cell across it
@@ -287,7 +297,7 @@ impl Shade {
 }
 
 /// The steps' tables packed four to a `Vec4` for the shader (33 values, so 9).
-const TABLE_VEC4S: usize = SLOPE_STEPS.div_ceil(4) + 1;
+pub(super) const TABLE_VEC4S: usize = SLOPE_STEPS.div_ceil(4) + 1;
 
 /// Hill shading's darkest and brightest (1 = as painted), as lighting.wesl has them.
 pub const DARKEST: f32 = 0.35;

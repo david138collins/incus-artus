@@ -385,11 +385,17 @@ pub fn update_near_light(
     let _timed = crate::render::Timed::new("near light");
     let Some(handle) = near.map(|near| near.material.clone()) else { return };
     let sea = SEA_LEVEL as f32;
+    // The far terrain's own sums, for the far copies' plain ground (`far_copies.rs`).
+    let shade = super::distant::Shade::new(&render, &distant, &settings);
+    let (foot, step) = shade.tables();
     let mut wanted = TerrainLight {
         sun: settings.sun().extend(distant.hill_shading),
         hill: Vec4::new(distant.height_tint, distant.finest_cell as f32, sea, NEAR_TOP),
         shade: Vec4::new(distant.shading_fade, settings.foot_shading, settings.step_shadows, TINT_TOP),
         sides: Vec4::new(settings.side_shading, 0.0, 0.0, 0.0),
+        far: shade.far(),
+        foot,
+        step,
         ..default()
     };
     let map = terrain.compiled().filter(|_| settings.near).cloned();

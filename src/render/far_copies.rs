@@ -65,6 +65,9 @@ const SKIRT: i32 = 2;
 const BELOW: i32 = 24;
 /// The most tiles being made at once (the processor runs hot; streaming comes first).
 const MOST_AT_ONCE: usize = 2;
+/// Marks a face of plain ground in its texture layer, which then carries its block's top layer (the
+/// low 7 bits) and side layer (the 7 above): terrain.wesl draws it as the far terrain draws the land.
+const PLAIN: u32 = 0x8000;
 /// How far past the line between two sizes a tile has to be before it changes size (a share of the
 /// distance), so going back and forth on the line doesn't flip it.
 const SWITCH_PAST: f32 = 1.25;
@@ -404,6 +407,7 @@ fn make_copy(mut job: CopyJob) -> Made {
     }
     let lit = |p: IVec3| steps.get(&p).map_or(0, |&s| if s >= reach { 0 } else { FULL as i32 * (reach - s) / reach }) as u32;
     // Changed chunks show; so do those daylight reaches covered air in.
+    let was_changed = changed_here.clone();
     let mut hot = changed_here;
     for (p, _) in steps.iter().filter(|(p, _)| lit(**p) > 0) {
         hot.insert(ChunkPos::of_block(IVec3::new(corner.x + p.x, corner.y + p.y, 0)));
@@ -480,6 +484,42 @@ fn make_copy(mut job: CopyJob) -> Made {
         })
         .collect();
     let cell = |x: i32, y: i32, z: i32| cells[index(x, y, z)];
+    // Plain ground: columns of cells solid up to a point and open above (no cave, no overhang), with
+    // no objects, in chunks nobody changed. Their solid cells are drawn as the far terrain draws the
+    // land (terrain.wesl, `far_ground`), so the copy doesn't show as a patch round what's different
+    // in it [David, build 5]. Each such block is a stand-in, its number past the real ones', whose
+    // faces all carry `PLAIN` and its top's and side's layers.
+    let real_count = job.face_layers.len();
+    let stand_ins = real_count * 2 < BlockId::PIECES.0 as usize && job.face_layers.iter().all(|layers| layers[4] < 128 && layers[0] < 128);
+    let plain: Vec<bool> = (0..CELLS * CELLS)
+        .map(|k| {
+            let (x, y) = (k % CELLS, k / CELLS);
+            if !stand_ins || was_changed.contains(&ChunkPos::of_block(IVec3::new(corner.x + x * s, corner.y + y * s, 0))) {
+                return false;
+            }
+            let mut opened = false;
+            for z in 0..tall {
+                if tallies[index(x, y, z)].objects > 0.0 {
+                    return false;
+                }
+                if !is_opaque(cell(x, y, z)) {
+                    opened = true;
+                } else if opened {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+    let drawn_as = |x: i32, y: i32, z: i32| {
+        let id = cell(x, y, z);
+        if plain[(x + y * CELLS) as usize] && is_opaque(id) { BlockId(id.0 + real_count as u16) } else { id }
+    };
+    let doubled = |table: &Arc<Vec<bool>>| Arc::new(table.iter().chain(table.iter()).copied().collect::<Vec<bool>>());
+    let (opaque, see_through, inner_faces) = (doubled(&job.opaque), doubled(&job.see_through), doubled(&job.inner_faces));
+    let face_layers = Arc::new(job.face_layers.iter().copied().chain(job.face_layers.iter().map(|layers| [PLAIN | layers[4] | layers[0] << 7; 6])).collect::<Vec<_>>());
+    let face_random_rotation = Arc::new(job.face_random_rotation.iter().copied().chain(std::iter::repeat_n([false; 6], real_count)).collect::<Vec<_>>());
+    let bar_layers = Arc::new(job.bar_layers.iter().copied().chain(std::iter::repeat_n(None, real_count)).collect::<Vec<_>>());
     // An air cell's daylight: its own air's, and the air hidden in the solid cells beside it.
     let around = [IVec3::X, IVec3::NEG_X, IVec3::Y, IVec3::NEG_Y, IVec3::Z, IVec3::NEG_Z];
     let light_of = |x: i32, y: i32, z: i32| -> u8 {
@@ -504,7 +544,7 @@ fn make_copy(mut job: CopyJob) -> Made {
         let blocks: Vec<BlockId> = (0..CELLS * CELLS * CELLS)
             .map(|k| {
                 let z = first + k / (CELLS * CELLS);
-                if z < tall { cell(k % CELLS, (k / CELLS) % CELLS, z) } else { BlockId::AIR }
+                if z < tall { drawn_as(k % CELLS, (k / CELLS) % CELLS, z) } else { BlockId::AIR }
             })
             .collect();
         // The cells just outside: below the copied range solid, above it open; beside the tile, the
@@ -562,13 +602,13 @@ fn make_copy(mut job: CopyJob) -> Made {
             outside,
             outside_outline: [[0; 32]; 6],
             outside_grid: [[0; 32]; 6],
-            opaque: job.opaque.clone(),
-            see_through: job.see_through.clone(),
-            inner_faces: job.inner_faces.clone(),
-            face_layers: job.face_layers.clone(),
-            face_random_rotation: job.face_random_rotation.clone(),
+            opaque: opaque.clone(),
+            see_through: see_through.clone(),
+            inner_faces: inner_faces.clone(),
+            face_layers: face_layers.clone(),
+            face_random_rotation: face_random_rotation.clone(),
             pieces: Vec::new(),
-            bar_layers: job.bar_layers.clone(),
+            bar_layers: bar_layers.clone(),
             beyond_pieces: HashMap::new(),
             light: None,
             reach,
@@ -930,6 +970,21 @@ mod tests {
         // Daylight fades into it: some faces are darker than full.
         let (_, darkest) = highest_and_darkest(&made, 2);
         assert!(darkest < 15, "{darkest}");
+        // The open hillside round it is plain ground (drawn as the far terrain draws the land); the
+        // columns the cave runs under aren't.
+        let plain = |made: &Made| made.sections.iter().flat_map(|(_, output)| output.vertices.iter()).map(|vertex| vertex[1] & PLAIN != 0).collect::<Vec<_>>();
+        let faces = plain(&made);
+        assert!(faces.iter().any(|&p| p) && faces.iter().any(|&p| !p));
+        // In a changed chunk nothing is plain ground.
+        let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
+        let changed = CompiledMap::of_heights(width, 32.0, &heights).chunk(ChunkPos::new(0, 0), &blocks, &CavePlan::default()).unwrap();
+        let made = make_copy(job(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::default(), HashMap::from([(ChunkPos::new(0, 0), changed)]), 0.5));
+        let ground_of_changed: Vec<bool> = made.sections.iter().flat_map(|(_, output)| output.vertices.iter()).filter(|vertex| {
+            // Faces in chunk (0, 0): the tile's first 16 cells each way (2 blocks a cell).
+            let (x, y) = ((vertex[0] & 127) / 2, ((vertex[0] >> 7) & 127) / 2);
+            x < 16 && y < 16
+        }).map(|vertex| vertex[1] & PLAIN != 0).collect();
+        assert!(!ground_of_changed.is_empty() && ground_of_changed.iter().all(|&p| !p));
     }
 
     #[test]
