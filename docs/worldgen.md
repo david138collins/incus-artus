@@ -1400,6 +1400,19 @@ Counsel's notes [PROPOSED]:
   through the code. Rock in 3D layers,
   so mineralogy can grow into ore and caves; block light underground (today faces well below the
   surface get plain light).
+- **Recipe versions** (Builder's assessment, 2026-11-02): untouched land is made again from the recipe
+  each time, so a change to how the recipe works moves an old world's untouched land, and a saved
+  chunk can end up on different ground. Minecraft avoids it by keeping everything it generated.
+  **[David 2026-11-02] Versions are fine, and worlds needn't carry over updates:** "im fine with an
+  idea of versions, when its released it is what it is for a while, during prealpha youd start new
+  worlds in a new build, it becomes an issue if we have millions of players and an update cycle, but
+  i dont think it really matters to be able to update a world. if you are modding with the editor
+  you better know what youre doing at least that much." So during pre-alpha a new build means new
+  worlds. Keeping old worlds working across updates waits until there's a release with players and
+  an update cycle. Modders who change the recipe with the editor take that on themselves.
+  *Counsel:* the cheap thing to do now is write the build's version into each saved world, so a
+  world from an older build can be recognised and the player warned, rather than loading onto ground
+  that has moved.
 
 #### Strata: what's underground  [IDEA, David 2026-10-30]
 
