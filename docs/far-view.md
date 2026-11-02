@@ -186,3 +186,32 @@ was." Builder's advice, taken: set it aside, written down here, and fix it with 
      every drawing part, the march included, so it belongs with the renderer work.
   - Physics, aiming and building far out keep to the same steps; not seen to matter yet.
 - **When:** before or with moving the march's line inward, or sooner if it's seen to matter.
+
+## The far copies drawn by the march (build 18, step 1 part 5)
+
+David: "go ahead." Render page, Far copies: **"drawn by the march (new)"** (on by default; it works
+only while the far land is drawn by the march too). Off, the copies are drawn as their own blocks,
+as before, to compare. "Who drew this" shows the march's copies green.
+- **What the march reads:** each copy's cells as `far_copies.rs` already works them out (step 3 of
+  making one): solid, water or air; the block it looks like; whether it's plain ground; an air cell's
+  daylight. Packed one number a cell (`CopyCells`), they go to the graphics card in pages of 32
+  levels (512 pages, 64 MB), with a record of each copy (where, its cell size, how tall, its pages)
+  and a map of which copy draws each chunk round you. A copy that doesn't fit is left to the land
+  (and said once in the log).
+- **Each ray:** in a chunk a copy draws, it steps through its cells one at a time; over a copy's top
+  it goes straight on. It meets the copy coming from the air into anything solid or water, from
+  above or the side, and meets the land the same way leaving a copy, so where a copy meets the land
+  there's no seam to hide (the copies' skirt isn't needed).
+- **Its look:** plain cells take the far land's look there (as the copies' plain ground does);
+  the others their block's far colour, top or side by the face the ray came in through, that face's
+  brightness, and the daylight of the air the ray came through, eased (squared) as the near ground's
+  is underground, so a cave's inside is dark.
+- **Long steps never go over a copy:** each ring tile's highest land is raised over any copy on it
+  (a tower stands above the land), and stays raised while the copy's there.
+- The hand-off mask now marks the copies' chunks 160 and the real chunks 255: the sheet isn't drawn
+  under either; the march, drawing the copies itself, leaves only the real chunks to the near world.
+- **Not yet:** the braziers' own light far off (part 6); the copies' cells still come from the
+  copies' own making, as meshes too (retiring those is part 7).
+- **Tested:** a copy's cells carry plain ground and not and dark cave air; a copy taken in raises
+  the land's highest under it, keeps it raised when the land's tile comes in again, one too tall is
+  left out, and all are let go when off.

@@ -84,11 +84,21 @@ pub struct FarCopySettings {
     pub solid_share: f32,
     /// How far copies reach (blocks, the larger of north-south and east-west).
     pub reach: f32,
+    /// Drawn by the march from their cells, not as meshes (while the march draws the far land:
+    /// `march.rs`, `docs/far-view.md` step 1 part 5).
+    pub march: bool,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0 }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true }
+    }
+}
+
+impl FarCopySettings {
+    /// Whether the march draws the copies (it has to be drawing the far land too).
+    pub fn marched(&self, distant: &super::distant::DistantSettings) -> bool {
+        self.on && self.march && distant.march && distant.enabled
     }
 }
 
@@ -131,16 +141,33 @@ impl TileKey {
     }
 }
 
-/// A tile made: its sections (where each starts, blocks; and its mesh), the chunks in it that show,
-/// and how long it took.
+/// A tile made: its sections (where each starts, blocks; and its mesh), its cells for the march, the
+/// chunks in it that show, and how long it took.
 struct Made {
     sections: Vec<(IVec3, MeshOutput)>,
+    cells: Option<Arc<CopyCells>>,
     hot: Vec<ChunkPos>,
     ms: f32,
 }
 
+/// A tile's cells as the march reads them (`march.rs`, step 1 part 5): where its first cell's corner
+/// is (blocks), its cell size, how many cells tall it is, and each cell (`CELLS` × `CELLS` a level,
+/// row by row east, north first, from the bottom), packed: its look's block number in the low 12
+/// bits; 1 solid or 2 water in the 2 above; 1 << 14 if plain ground; an air cell's daylight (0 to
+/// `FULL`) in bits 16 to 19. Below its bottom is solid ground; above its top, open air.
+pub struct CopyCells {
+    pub corner: IVec3,
+    pub scale: i32,
+    pub tall: i32,
+    pub cells: Vec<u32>,
+}
+
+pub const CELL_SOLID: u32 = 1 << 12;
+pub const CELL_WATER: u32 = 2 << 12;
+pub const CELL_PLAIN: u32 = 1 << 14;
+
 enum Tile {
-    Drawn { entities: Vec<Entity>, faces: u32, bytes: usize },
+    Drawn { entities: Vec<Entity>, faces: u32, bytes: usize, cells: Option<Arc<CopyCells>> },
     /// Nothing in it shows: the sheet draws it.
     Empty,
 }
@@ -178,7 +205,7 @@ pub struct FarCopies {
     wanted: HashMap<TileKey, bool>,
     queue: Vec<TileKey>,
     wanted_for: Option<WantedFor>,
-    retiring: Vec<(TileKey, Vec<Entity>)>,
+    retiring: Vec<(TileKey, Vec<Entity>, Option<Arc<CopyCells>>)>,
     /// The chunks drawn by copies (cut out of the sheet), and a count of its changes.
     covered: HashSet<ChunkPos>,
     pub changes: u64,
@@ -190,6 +217,17 @@ impl FarCopies {
     /// The chunks the copies draw, for the hand-off mask.
     pub fn covered(&self) -> &HashSet<ChunkPos> {
         &self.covered
+    }
+
+    /// The tiles drawn, with their cells, for the march (`march.rs`): those drawn first, then those
+    /// still waiting to retire (which the march draws only where no tile drawn covers).
+    pub fn march_tiles(&self) -> Vec<(TileKey, Arc<CopyCells>)> {
+        let drawn = self.tiles.iter().filter_map(|(key, tile)| match tile {
+            Tile::Drawn { cells: Some(cells), .. } => Some((*key, cells.clone())),
+            _ => None,
+        });
+        let retiring = self.retiring.iter().filter_map(|(key, _, cells)| cells.clone().map(|cells| (*key, cells)));
+        drawn.chain(retiring).collect()
     }
 
     /// Might this chunk show something the distant terrain can't (a cave near the ground, or one
@@ -205,7 +243,7 @@ impl FarCopies {
                 entities.into_iter().for_each(|entity| commands.entity(entity).despawn());
             }
         }
-        for (_, entities) in self.retiring.drain(..) {
+        for (_, entities, _) in self.retiring.drain(..) {
             entities.into_iter().for_each(|entity| commands.entity(entity).despawn());
         }
         self.making.clear();
@@ -217,15 +255,15 @@ impl FarCopies {
     }
 
     fn retire(&mut self, key: TileKey) {
-        if let Some(Tile::Drawn { entities, .. }) = self.tiles.remove(&key) {
-            self.retiring.push((key, entities));
+        if let Some(Tile::Drawn { entities, cells, .. }) = self.tiles.remove(&key) {
+            self.retiring.push((key, entities, cells));
         }
         self.making.remove(&key);
     }
 
     fn update_covered(&mut self) {
         let drawn = self.tiles.iter().filter(|(_, tile)| matches!(tile, Tile::Drawn { .. })).map(|(key, _)| *key);
-        self.covered = drawn.chain(self.retiring.iter().map(|(key, _)| *key)).flat_map(TileKey::chunks).collect();
+        self.covered = drawn.chain(self.retiring.iter().map(|(key, ..)| *key)).flat_map(TileKey::chunks).collect();
         self.changes += 1;
     }
 
@@ -361,7 +399,7 @@ fn make_copy(mut job: CopyJob) -> Made {
     }
     let present: Vec<i32> = sky.iter().copied().filter(|&h| h != i32::MIN).collect();
     let (Some(&lowest), Some(&highest)) = (present.iter().min(), present.iter().max()) else {
-        return Made { sections: Vec::new(), hot: Vec::new(), ms: 0.0 };
+        return Made { sections: Vec::new(), cells: None, hot: Vec::new(), ms: 0.0 };
     };
     let (bottom, top) = ((lowest - BELOW).max(WORLD_BOTTOM), highest + 1);
     let sky_at = |x: i32, y: i32| if (0..width).contains(&x) && (0..width).contains(&y) { sky[(x + y * width) as usize] } else { i32::MIN };
@@ -519,12 +557,12 @@ fn make_copy(mut job: CopyJob) -> Made {
     let covered_air = |p: IVec3| {
         (0..CELLS).contains(&p.x) && (0..CELLS).contains(&p.y) && (0..tall).contains(&p.z) && !is_opaque(cell(p.x, p.y, p.z)) && p.z < roof[(p.x + p.y * CELLS) as usize]
     };
-    let plain = |x: i32, y: i32, z: i32| {
-        stand_ins
-            && tallies[index(x, y, z)].objects <= 0.0
+    let plain_ground = |x: i32, y: i32, z: i32| {
+        tallies[index(x, y, z)].objects <= 0.0
             && !was_changed.contains(&ChunkPos::of_block(IVec3::new(corner.x + x * s, corner.y + y * s, 0)))
             && !sides.iter().any(|&side| covered_air(IVec3::new(x, y, z) + side))
     };
+    let plain = |x: i32, y: i32, z: i32| stand_ins && plain_ground(x, y, z);
     let drawn_as = |x: i32, y: i32, z: i32| {
         let id = cell(x, y, z);
         if is_opaque(id) && plain(x, y, z) { BlockId(id.0 + real_count as u16) } else { id }
@@ -547,6 +585,21 @@ fn make_copy(mut job: CopyJob) -> Made {
         }
         light.checked_div(air).map_or(FULL, |level| level as u8)
     };
+    // The cells as the march reads them (`CopyCells`).
+    let packed: Vec<u32> = (0..CELLS * CELLS * tall)
+        .map(|k| {
+            let (x, y, z) = (k % CELLS, (k / CELLS) % CELLS, k / (CELLS * CELLS));
+            let id = cell(x, y, z);
+            if is_opaque(id) {
+                id.0 as u32 & 0xFFF | CELL_SOLID | if plain_ground(x, y, z) { CELL_PLAIN } else { 0 }
+            } else if id != BlockId::AIR {
+                id.0 as u32 & 0xFFF | CELL_WATER
+            } else {
+                (light_of(x, y, z) as u32) << 16
+            }
+        })
+        .collect();
+    let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, cells: packed });
 
     // 4. Meshed, a section of cells at a time, from the bottom.
     // The plain ground beside the tile: the lowest of a cell's corners and middle, and of the cell
@@ -655,7 +708,8 @@ fn make_copy(mut job: CopyJob) -> Made {
     if hot.is_empty() && !job.force {
         sections.clear();
     }
-    Made { sections, hot: hot.into_iter().collect(), ms: started.elapsed().as_secs_f32() * 1000.0 }
+    let cells = (!sections.is_empty()).then_some(copy_cells);
+    Made { sections, cells, hot: hot.into_iter().collect(), ms: started.elapsed().as_secs_f32() * 1000.0 }
 }
 
 /// Keeps the copies up to date round you: which tiles are wanted, making them in the background,
@@ -842,7 +896,7 @@ pub fn update_far_copies(
                     .id(),
             );
         }
-        state.tiles.insert(key, Tile::Drawn { entities, faces, bytes });
+        state.tiles.insert(key, Tile::Drawn { entities, faces, bytes, cells: made.cells });
     }
 
     // Tiles no longer wanted stay until every wanted tile over them is in, and the real chunks over
@@ -859,7 +913,7 @@ pub fn update_far_copies(
         let overlap = |a: (i32, i32, i32), b: (i32, i32, i32)| a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.2 && b.1 < a.1 + a.2;
         let waiting: Vec<(i32, i32, i32)> = state.wanted.keys().filter(|key| !state.tiles.contains_key(key)).map(area).collect();
         let mut done_with = Vec::new();
-        state.retiring.retain(|(key, entities)| {
+        state.retiring.retain(|(key, entities, _)| {
             let still = waiting.iter().any(|&w| overlap(area(key), w)) || unready(key);
             if !still {
                 done_with.extend(entities.iter().copied());
@@ -924,6 +978,10 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
         ui.checkbox(&mut settings.on, "far copies").on_hover_text("Off: past the real chunks there's only the smooth far surface, as before (to compare).");
         let on = settings.on;
         ui.add_enabled_ui(on, |ui| {
+            ui.checkbox(&mut settings.march, "drawn by the march (new)").on_hover_text(
+                "The copies' cells drawn by the march, with the far land, instead of as blocks of their own (docs/far-view.md).\n\
+                 Only while the far land is drawn by the march too. Flip it to compare.",
+            );
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(
                 "How crisp the copies are: a copy's cell is about 4 ÷ this pixels on screen (1: 4 pixels, soft and cheap; 4: a pixel\n\
                  a cell, crisp and dearer). Finer than a pixel only shimmers, so it stops there.",
@@ -1022,6 +1080,12 @@ mod tests {
         let plain = |made: &Made| made.sections.iter().flat_map(|(_, output)| output.vertices.iter()).map(|vertex| vertex[1] & PLAIN != 0).collect::<Vec<_>>();
         let faces = plain(&made);
         assert!(faces.iter().any(|&p| p) && faces.iter().any(|&p| !p));
+        // The cells the march reads: plain ground and not, and air in the cave darker than full.
+        let cells = made.cells.as_ref().expect("cells for the march");
+        assert_eq!(cells.cells.len(), (CELLS * CELLS * cells.tall) as usize);
+        assert!(cells.cells.iter().any(|&c| c & CELL_SOLID != 0 && c & CELL_PLAIN != 0));
+        assert!(cells.cells.iter().any(|&c| c & CELL_SOLID != 0 && c & CELL_PLAIN == 0));
+        assert!(cells.cells.iter().any(|&c| (c >> 12) & 3 == 0 && (c >> 16) & 15 < 15));
         // In a changed chunk nothing is plain ground.
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let changed = CompiledMap::of_heights(width, 32.0, &heights).chunk(ChunkPos::new(0, 0), &blocks, &CavePlan::default()).unwrap();

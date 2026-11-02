@@ -34,8 +34,10 @@ struct DistantShaderSettings {
 }
 
 struct MarchSettings {
-    // x rings, y the finest cell (blocks), z the highest land, w the most steps a pixel takes
+    // x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes
     grid: vec4<f32>,
+    // The far copies: x 1 if the march draws them, yz the chunk their map is centred on
+    copies: vec4<f32>,
     // The square of real chunks round you (game axes, blocks): least x, y, greatest x, y; all 0: none
     inner: vec4<f32>,
 }
@@ -60,6 +62,16 @@ struct Corner {
 // Each slot's highest land: its 16 blocks of 4 x 4 cells (row by row east, north first), then the
 // tile's; 5 x 4 numbers a slot
 @group(constants::MATERIAL_BIND_GROUP) @binding(7) var<storage, read> tops: array<vec4<f32>>;
+// The far copies (src/render/far_copies.rs, `CopyCells`; src/render/march.rs, `Copies`): their
+// cells in pages of 32 levels of 32 x 32, each packed (look's block in the low 12 bits; 1 solid or
+// 2 water above that; 1 << 14 plain ground; an air cell's daylight, 0 to 15, in bits 16 to 19); a
+// record of each copy (its first cell's corner x, y, z in blocks and its cell size; how many cells
+// tall and how many pages; 2 spare; its pages); a map of which copy draws each chunk round the
+// chunk `march.copies.yz` (0 none, else the record's number + 1); and each block's colours, top then side.
+@group(constants::MATERIAL_BIND_GROUP) @binding(8) var<storage, read> copy_cells: array<u32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(9) var<storage, read> copy_records: array<u32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage, read> copy_map: array<u32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(11) var<storage, read> block_colours: array<vec4<f32>>;
 
 const CELLS: f32 = 16.0;
 const TILES: i32 = 16;
@@ -206,13 +218,74 @@ fn surface(a: f32, b: f32, c: f32, d: f32, uv: vec2<f32>) -> f32 {
 }
 
 // Whether the real chunks or the far copies draw this spot (the sheet's `shown` texture).
+// The real chunks are marked 255 and the far copies' 160 (distant.rs, `COPY_MARK`): while the march
+// draws the copies, only the real chunks are someone else's.
 fn drawn_near(at: vec2<f32>) -> bool {
     if settings.fog.w > 0.5 {
         return false;
     }
     let size = vec2<i32>(textureDimensions(shown));
     let pixel = vec2<i32>(floor(at / 32.0)) - vec2<i32>(settings.shown_centre.xy) + size / 2;
-    return all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > 0.5;
+    let least = select(0.5, 0.9, march.copies.x > 0.5);
+    return all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > least;
+}
+
+const MAP: i32 = 256;
+const COPY_RECORD: u32 = 24u;
+const PAGE: u32 = 32768u;
+const SOLID: u32 = 1u;
+const PLAIN: u32 = 16384u;
+
+// Which far copy draws the chunk a spot is in: its record's number, or -1.
+fn copy_at(at: vec2<f32>) -> i32 {
+    if march.copies.x < 0.5 {
+        return -1;
+    }
+    let chunk = vec2<i32>(floor(at / 32.0)) - vec2<i32>(march.copies.yz) + vec2<i32>(MAP / 2);
+    if any(chunk < vec2<i32>(0)) || any(chunk >= vec2<i32>(MAP)) {
+        return -1;
+    }
+    return i32(copy_map[u32(chunk.y * MAP + chunk.x)]) - 1;
+}
+
+// A copy's cell (x, y across, z up from its bottom), packed as above: solid below its bottom, open
+// air in full daylight above its top.
+fn copy_cell(record: u32, c: vec3<i32>) -> u32 {
+    let base = record * COPY_RECORD;
+    let tall = i32(copy_records[base + 4u]);
+    if c.z < 0 {
+        return SOLID << 12u;
+    }
+    if c.z >= tall {
+        return 15u << 16u;
+    }
+    let page = copy_records[base + 8u + u32(c.z) / 32u];
+    return copy_cells[page * PAGE + (u32(c.z) % 32u) * 1024u + u32(c.y) * 32u + u32(c.x)];
+}
+
+// Where a ray leaves the box from `low` to `high` (cells), from `t` where it's at `local`, changing
+// by `rate` cells a block: the distance along it, and which way it leaves (0 north-south, 1
+// east-west, 2 up-down).
+fn leave_box(t: f32, local: vec3<f32>, rate: vec3<f32>, low: vec3<f32>, high: vec3<f32>) -> vec2<f32> {
+    var out = vec3<f32>(1.0e9);
+    for (var a = 0; a < 3; a++) {
+        if rate[a] > 1e-9 {
+            out[a] = (high[a] - local[a]) / rate[a];
+        } else if rate[a] < -1e-9 {
+            out[a] = (low[a] - local[a]) / rate[a];
+        }
+    }
+    var axis = 0.0;
+    var least = out.x;
+    if out.y < least {
+        least = out.y;
+        axis = 1.0;
+    }
+    if out.z < least {
+        least = out.z;
+        axis = 2.0;
+    }
+    return vec2<f32>(t + max(least, 0.0), axis);
 }
 
 // One of the steps' shade tables, as distant.wesl reads it.
@@ -223,6 +296,87 @@ fn table_at(steps: bool, rise: f32) -> f32 {
     let a = select(settings.foot[low / 4u][low % 4u], settings.step[low / 4u][low % 4u], steps);
     let b = select(settings.foot[high / 4u][high % 4u], settings.step[high / 4u][high % 4u], steps);
     return mix(a, b, fract(k));
+}
+
+// The far land's colour where a ray met it (cell `cell` of the tile at `place`, `uv` across it), lit
+// with the sheet's own sums.
+fn land_colour(place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) -> vec3<f32> {
+    let tri = triangle(uv);
+    let ca = corner_at(place, cell.x + tri.a.x, cell.y + tri.a.y);
+    let cb = corner_at(place, cell.x + tri.b.x, cell.y + tri.b.y);
+    let cc = corner_at(place, cell.x + tri.c.x, cell.y + tri.c.y);
+    let w = tri.w;
+    var top_colour = ca.top.rgb * w.x + cb.top.rgb * w.y + cc.top.rgb * w.z;
+    var side_colour = ca.side.rgb * w.x + cb.side.rgb * w.y + cc.side.rgb * w.z;
+    let land_share = ca.top.a * w.x + cb.top.a * w.y + cc.top.a * w.z;
+    let slope = ca.ground.zw * w.x + cb.ground.zw * w.y + cc.ground.zw * w.z;
+    let world_position = to_bevy(spot);
+    let grey = settings.shade.z > 0.5;
+    top_colour = select(top_colour, vec3<f32>(0.5), grey);
+    side_colour = select(side_colour, vec3<f32>(0.5), grey);
+    // Who drew this: the march blue, toward purple further out, its lighting kept.
+    if settings.view.x > 0.5 {
+        top_colour = mix(vec3<f32>(0.3, 0.65, 1.0), vec3<f32>(0.55, 0.2, 0.75), min(f32(place.ring) / 6.0, 1.0));
+        side_colour = top_colour;
+    }
+    let sea = top_colour * settings.faces.x;
+    let rise = length(slope);
+    let lit = land(
+        top_colour,
+        side_colour,
+        slope,
+        world_position.y,
+        to_game(normalize(view.world_position - world_position)),
+        settings.sun,
+        vec3<f32>(settings.hill.x, settings.hill.z, settings.hill.w),
+        settings.hill.y,
+        settings.shade.x,
+        settings.faces,
+        settings.shade.y,
+        table_at(false, rise),
+        table_at(true, rise),
+    );
+    return mix(sea, lit, clamp(land_share, 0.0, 1.0));
+}
+
+// A far copy's cell where a ray met it (`value` packed as above; `local` where the ray was, in its
+// cells, and `rate` how fast that changes), lit by the daylight `light` (0 to 15) of the air cell it
+// came through: its block's colour, top or side by the face it came in through, shaded by which way
+// that faces, and the daylight eased (squared) as the near ground's is underground, so a cave's
+// inside is dark.
+fn copy_colour(value: u32, local: vec3<f32>, rate: vec3<f32>, light: u32) -> vec3<f32> {
+    // The face it came in through: the one it crossed last.
+    let into = local - floor(local);
+    var since = vec3<f32>(1.0e9);
+    for (var a = 0; a < 3; a++) {
+        if abs(rate[a]) > 1e-9 {
+            since[a] = select(1.0 - into[a], into[a], rate[a] > 0.0) / abs(rate[a]);
+        }
+    }
+    var axis = 2;
+    if since.x < since.y && since.x < since.z {
+        axis = 0;
+    } else if since.y < since.z {
+        axis = 1;
+    }
+    let block = value & 0xFFFu;
+    let up = axis == 2 && rate.z < 0.0;
+    var colour = select(block_colours[block * 2u + 1u].rgb, block_colours[block * 2u].rgb, up);
+    if settings.shade.z > 0.5 {
+        colour = vec3<f32>(0.5);
+    }
+    // Who drew this: the march's far copies green.
+    if settings.view.x > 0.5 {
+        colour = vec3<f32>(0.3, 0.85, 0.4);
+    }
+    var shade = settings.faces.x;
+    if axis == 0 {
+        shade = settings.faces.y;
+    } else if axis == 1 {
+        shade = settings.faces.z;
+    }
+    let daylight = f32(light) / 15.0;
+    return colour * shade * daylight * daylight;
 }
 
 struct Output {
@@ -274,6 +428,13 @@ fn fragment(in: VertexOutput) -> Output {
     // starting under the land went in under the near world). A ray above the land leaving one step
     // and under it entering the next met it in between [build 15: "a field of sky speckles"].
     var was_above = false;
+    // A far copy met: its cell, where the ray was in its cells and how fast that changes, and the
+    // daylight of the air cell the ray came through (full in the open).
+    var hit_copy = false;
+    var hit_value = 0u;
+    var hit_local = vec3<f32>(0.0);
+    var hit_rate = vec3<f32>(0.0);
+    var last_light = 15u;
     for (var k = 0u; k < most; k++) {
         if t > furthest {
             break;
@@ -281,6 +442,44 @@ fn fragment(in: VertexOutput) -> Output {
         let p = origin + ray * t;
         if ray.z >= 0.0 && p.z > highest {
             break;
+        }
+        // In a chunk a far copy draws: through its cells, one at a time (step 1 part 5).
+        let record = copy_at(p.xy);
+        if record >= 0 {
+            let base = u32(record) * COPY_RECORD;
+            let corner = vec3<f32>(f32(bitcast<i32>(copy_records[base])), f32(bitcast<i32>(copy_records[base + 1u])), f32(bitcast<i32>(copy_records[base + 2u])));
+            let scale = f32(copy_records[base + 3u]);
+            let tall = f32(copy_records[base + 4u]);
+            let local = (p - corner) / scale;
+            let rate = ray / scale;
+            let nudge = scale * 1e-3;
+            let c = vec3<i32>(clamp(floor(local), vec3<f32>(0.0, 0.0, -1.0), vec3<f32>(31.0, 31.0, tall)));
+            if f32(c.z) >= tall {
+                // Above it: on to where the ray leaves the air over it, or comes down to its top.
+                let out = leave_box(t, local, rate, vec3<f32>(0.0, 0.0, tall), vec3<f32>(32.0, 32.0, 1.0e9));
+                was_above = true;
+                last_light = 15u;
+                t = out.x + nudge;
+                continue;
+            }
+            let value = copy_cell(u32(record), c);
+            if ((value >> 12u) & 3u) != 0u {
+                // Solid, or water: met, coming from the air.
+                if was_above && !drawn_near(p.xy) {
+                    hit = true;
+                    hit_copy = true;
+                    hit_value = value;
+                    hit_local = local;
+                    hit_rate = rate;
+                }
+                // Else in the ground: gone in under the near world.
+                break;
+            }
+            was_above = true;
+            last_light = (value >> 16u) & 15u;
+            let out = leave_box(t, local, rate, vec3<f32>(c), vec3<f32>(c) + 1.0);
+            t = out.x + nudge;
+            continue;
         }
         let place = locate(p.xy);
         if !place.found {
@@ -376,46 +575,25 @@ fn fragment(in: VertexOutput) -> Output {
         discard;
     }
     let spot = origin + ray * t;
-    let tri = triangle(hit_uv);
-    let ca = corner_at(hit_place, hit_cell.x + tri.a.x, hit_cell.y + tri.a.y);
-    let cb = corner_at(hit_place, hit_cell.x + tri.b.x, hit_cell.y + tri.b.y);
-    let cc = corner_at(hit_place, hit_cell.x + tri.c.x, hit_cell.y + tri.c.y);
-    let w = tri.w;
-    var top_colour = ca.top.rgb * w.x + cb.top.rgb * w.y + cc.top.rgb * w.z;
-    var side_colour = ca.side.rgb * w.x + cb.side.rgb * w.y + cc.side.rgb * w.z;
-    let land_share = ca.top.a * w.x + cb.top.a * w.y + cc.top.a * w.z;
-    let slope = ca.ground.zw * w.x + cb.ground.zw * w.y + cc.ground.zw * w.z;
     let world_position = to_bevy(spot);
+    var colour = vec3<f32>(0.0);
+    if hit_copy {
+        // Plain ground in a copy takes the far land's look there, so the copy doesn't show as a patch.
+        let place = locate(spot.xy);
+        if (hit_value & PLAIN) != 0u && place.found {
+            let local = (spot.xy - place.origin) / (place.size / CELLS);
+            let ij = clamp(floor(local), vec2<f32>(0.0), vec2<f32>(CELLS - 1.0));
+            colour = land_colour(place, vec2<u32>(ij), clamp(local - ij, vec2<f32>(0.0), vec2<f32>(1.0)), spot);
+        } else {
+            colour = copy_colour(hit_value, hit_local, hit_rate, last_light);
+        }
+    } else {
+        colour = land_colour(hit_place, hit_cell, hit_uv, spot);
+    }
 
     // From here on, as the sheet's fragment part.
     let light_uv = vec2<f32>(spot.y + settings.light_area.x, settings.light_area.x - spot.x) / max(settings.light_area.y, 1.0);
     let light_pixel = textureSampleLevel(light_map, light_sampler, light_uv, 0.0);
-    let grey = settings.shade.z > 0.5;
-    top_colour = select(top_colour, vec3<f32>(0.5), grey);
-    side_colour = select(side_colour, vec3<f32>(0.5), grey);
-    // Who drew this: the march blue, toward purple further out, its lighting kept.
-    if settings.view.x > 0.5 {
-        top_colour = mix(vec3<f32>(0.3, 0.65, 1.0), vec3<f32>(0.55, 0.2, 0.75), min(f32(hit_place.ring) / 6.0, 1.0));
-        side_colour = top_colour;
-    }
-    let sea = top_colour * settings.faces.x;
-    let rise = length(slope);
-    let lit = land(
-        top_colour,
-        side_colour,
-        slope,
-        world_position.y,
-        to_game(normalize(view.world_position - world_position)),
-        settings.sun,
-        vec3<f32>(settings.hill.x, settings.hill.z, settings.hill.w),
-        settings.hill.y,
-        settings.shade.x,
-        settings.faces,
-        settings.shade.y,
-        table_at(false, rise),
-        table_at(true, rise),
-    );
-    var colour = mix(sea, lit, clamp(land_share, 0.0, 1.0));
     if settings.light.x > 0.5 {
         colour = colour * light_from_map(light_pixel, settings.light);
     }

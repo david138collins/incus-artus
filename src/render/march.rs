@@ -22,10 +22,18 @@
 //! the same way, so the two draw the same shape. `MarchState::march_ray` is the shader's steps in
 //! Rust, which the tests check against a slow search in small steps.
 //!
-//! **Not yet:** caves, changes and objects (the far copies still draw them, as with the sheet), its
+//! **The far copies** (part 5): their cells (`far_copies::CopyCells`) go to the graphics card in pages,
+//! with a record of each copy and a map of which chunks each draws; a ray in one of those chunks steps
+//! through its cells one at a time, and meets it coming from the air into anything solid (or water),
+//! whichever side it comes from. Plain cells take the far land's look; the rest their block's colour,
+//! shaded by the face and darkened by the daylight of the air the ray came through.
+//!
+//! **Not yet:** night light (the braziers'), its
 //! own line in "Graphics card time".
 
-use super::distant::{CELLS, DistantMaterial, DistantSettings, DistantShaderSettings, DistantState, DistantTile, RING_TILES, TileKey, TileMesh};
+use super::distant::{CELLS, DistantMaterial, DistantSettings, DistantShaderSettings, DistantState, DistantTile, Palette, RING_TILES, TileKey, TileMesh};
+use super::far_copies::{CopyCells, FarCopies, FarCopy, FarCopySettings, TileKey as CopyKey};
+use std::collections::HashMap;
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::visibility::NoFrustumCulling;
 use bevy::mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology};
@@ -54,6 +62,51 @@ const MISSING: f32 = -1.0e30;
 const TOPS: usize = 20;
 const TILE_TOP: usize = 16;
 const BLOCK: i32 = 4;
+
+/// Cells across a far copy (one section of the mesher's, `far_copies.rs`).
+const COPY_CELLS: i32 = 32;
+/// A page of the copies' cells on the graphics card: 32 levels of one copy (128 KB).
+const PAGE: usize = (COPY_CELLS * COPY_CELLS * COPY_CELLS) as usize;
+/// How many pages there are (64 MB), how many copies at once, and the most pages one copy takes
+/// (512 cells tall). A copy that doesn't fit is left to the land.
+const PAGES: usize = 512;
+const MOST_COPIES: usize = 1024;
+const COPY_PAGES: usize = 16;
+/// Numbers kept for each copy: its first cell's corner (x, y, z, blocks) and its cell size; how many
+/// cells tall it is and how many pages it has; 2 spare; then its pages.
+const COPY_RECORD: usize = 8 + COPY_PAGES;
+/// The copies' map of chunks (which copy, if any, draws each), as wide as the sheet's `shown` texture.
+const MAP: i32 = super::distant::SHOWN_SIZE;
+
+/// The far copies the march draws (step 1 part 5): each copy's cells in pages on the graphics card,
+/// a record of each, and a map of which chunks each covers, round the camera's chunk.
+#[derive(Default)]
+struct Copies {
+    cells_buffer: Option<Handle<ShaderBuffer>>,
+    records_buffer: Option<Handle<ShaderBuffer>>,
+    map_buffer: Option<Handle<ShaderBuffer>>,
+    colours_buffer: Option<Handle<ShaderBuffer>>,
+    drawn: HashMap<CopyKey, MarchedCopy>,
+    free_pages: Vec<u32>,
+    free_records: Vec<u32>,
+    /// The map's centre chunk and whether it's up to date.
+    centre: IVec2,
+    map_stale: bool,
+    /// The colours the cells are drawn in were sent for this palette.
+    palette: Option<Arc<Palette>>,
+    /// The highest any copy reaches (blocks).
+    top: f32,
+    /// Copies that didn't fit (for the log, once each).
+    left_out: usize,
+}
+
+struct MarchedCopy {
+    cells: Arc<CopyCells>,
+    record: u32,
+    pages: Vec<u32>,
+    /// Its least and greatest corner (blocks, north and east) and its top.
+    footprint: (IVec2, IVec2, f32),
+}
 
 /// Parts of the lists to write on the graphics card, handed from the game to Bevy's drawing side
 /// (`write_march`), which writes each straight into the list already there. Only the tiles that came
@@ -90,22 +143,28 @@ pub struct MarchState {
     /// Every ring's slots: the tile's x and y, then 0 nothing yet, 1 land, 2 wholly past the map; and a 0.
     slots: Vec<i32>,
     rings: u32,
+    /// The finest ring's cell (blocks).
+    finest: f32,
     /// The distant terrain's `cleared` count this copy follows.
     cleared: u64,
     /// The highest land in it (a ray going up past it has missed).
     highest: f32,
     /// Started again: the lists go to the graphics card whole, once (made again if their size changed).
     whole: bool,
+    /// The far copies the march draws (step 1 part 5).
+    copies: Copies,
 }
 
 impl MarchState {
-    /// Starts again, empty, when the sheet threw its tiles away or the number of rings changed.
-    pub(super) fn follow(&mut self, cleared: u64, rings: u32) {
-        if self.cleared == cleared && self.rings == rings && !self.slots.is_empty() {
+    /// Starts again, empty, when the sheet threw its tiles away or the number of rings or the
+    /// finest cell changed.
+    pub(super) fn follow(&mut self, cleared: u64, rings: u32, finest: i32) {
+        if self.cleared == cleared && self.rings == rings && self.finest == finest as f32 && !self.slots.is_empty() {
             return;
         }
         self.cleared = cleared;
         self.rings = rings;
+        self.finest = finest as f32;
         self.corners = vec![MISSING; rings as usize * SLOTS * SIDE * SIDE * CORNER];
         self.tops = vec![MISSING; rings as usize * SLOTS * TOPS];
         self.slots = vec![0; rings as usize * SLOTS * 4];
@@ -165,11 +224,129 @@ impl MarchState {
                 tops[TILE_TOP] = tops[TILE_TOP].max(top);
             }
             self.tops[slot * TOPS..slot * TOPS + TOPS].copy_from_slice(&tops);
-            self.queue(&self.tops_buffer, slot * TOPS * 4, bytes_of(&tops, f32::to_le_bytes));
+            // Anything a far copy holds higher than the land (a tower), so no long step goes over it.
+            let raises: Vec<(IVec2, IVec2, f32)> = self.copies.drawn.values().map(|copy| copy.footprint).collect();
+            for footprint in raises {
+                self.raise_tops(slot, key, footprint);
+            }
+            self.queue(&self.tops_buffer, slot * TOPS * 4, bytes_of(&self.tops[slot * TOPS..slot * TOPS + TOPS], f32::to_le_bytes));
         }
         // The slot after its corners, so a ray never reads it before they're there.
         self.slots[slot * 4..slot * 4 + 4].copy_from_slice(&[key.x, key.y, if tile.is_some() { 1 } else { 2 }, 0]);
         self.queue(&self.slots_buffer, slot * 16, bytes_of(&self.slots[slot * 4..slot * 4 + 4], i32::to_le_bytes));
+    }
+
+    /// Raises a ring tile's highest land (in `self.tops`, not sent) over a far copy's footprint (its
+    /// least and greatest corner, blocks, and its top): its blocks of cells that overlap, and the tile.
+    /// Returns whether anything rose.
+    fn raise_tops(&mut self, slot: usize, key: TileKey, (low, high, top): (IVec2, IVec2, f32)) -> bool {
+        let size = self.finest * CELLS as f32 * 2f32.powi(key.ring as i32);
+        let origin = Vec2::new(key.x as f32, key.y as f32) * size;
+        let block = size / (CELLS / BLOCK) as f32;
+        let (from, to) = (((low.as_vec2() - origin) / block).floor(), ((high.as_vec2() - origin) / block).ceil());
+        let blocks = CELLS / BLOCK;
+        let (from, to) = (from.max(Vec2::ZERO).as_ivec2(), to.min(Vec2::splat(blocks as f32)).as_ivec2());
+        let mut rose = false;
+        for by in from.y..to.y {
+            for bx in from.x..to.x {
+                let at = slot * TOPS + (by * blocks + bx) as usize;
+                if self.tops[at] < top {
+                    self.tops[at] = top;
+                    self.tops[slot * TOPS + TILE_TOP] = self.tops[slot * TOPS + TILE_TOP].max(top);
+                    rose = true;
+                }
+            }
+        }
+        rose
+    }
+
+    /// Keeps the copies the march draws the same as the far copies drawn (`tiles`, those drawn first),
+    /// with the map round `centre` (a chunk); none while `on` is false.
+    fn follow_copies(&mut self, tiles: Vec<(CopyKey, Arc<CopyCells>)>, centre: IVec2, on: bool) {
+        if self.copies.free_pages.is_empty() && self.copies.drawn.is_empty() {
+            self.copies.free_pages = (0..PAGES as u32).rev().collect();
+            self.copies.free_records = (0..MOST_COPIES as u32).rev().collect();
+            self.copies.map_stale = true;
+        }
+        let mut wanted: Vec<(CopyKey, Arc<CopyCells>)> = Vec::new();
+        if on {
+            for (key, cells) in tiles {
+                if !wanted.iter().any(|(k, _)| *k == key) {
+                    wanted.push((key, cells));
+                }
+            }
+        }
+        // Gone, or made again: let go.
+        let gone: Vec<CopyKey> =
+            self.copies.drawn.iter().filter(|(key, copy)| !wanted.iter().any(|(k, cells)| k == *key && Arc::ptr_eq(cells, &copy.cells))).map(|(key, _)| *key).collect();
+        for key in gone {
+            if let Some(copy) = self.copies.drawn.remove(&key) {
+                self.copies.free_pages.extend(copy.pages);
+                self.copies.free_records.push(copy.record);
+                self.copies.map_stale = true;
+            }
+        }
+        // New: into pages, with a record.
+        for (key, cells) in &wanted {
+            if self.copies.drawn.contains_key(key) {
+                continue;
+            }
+            let pages = (cells.tall as usize).div_ceil(COPY_CELLS as usize);
+            if pages > COPY_PAGES || pages > self.copies.free_pages.len() || self.copies.free_records.is_empty() {
+                self.copies.left_out += 1;
+                if self.copies.left_out.is_power_of_two() {
+                    info!("March: a far copy at ({}, {}) didn't fit ({} pages; {} free); {} left out so far", cells.corner.x, cells.corner.y, pages, self.copies.free_pages.len(), self.copies.left_out);
+                }
+                continue;
+            }
+            let taken: Vec<u32> = (0..pages).filter_map(|_| self.copies.free_pages.pop()).collect();
+            let record = self.copies.free_records.pop().unwrap_or(0);
+            for (k, &page) in taken.iter().enumerate() {
+                let span = k * PAGE..((k + 1) * PAGE).min(cells.cells.len());
+                self.queue(&self.copies.cells_buffer, page as usize * PAGE * 4, bytes_of(&cells.cells[span], u32::to_le_bytes));
+            }
+            let mut numbers = [0u32; COPY_RECORD];
+            numbers[..6].copy_from_slice(&[cells.corner.x as u32, cells.corner.y as u32, cells.corner.z as u32, cells.scale as u32, cells.tall as u32, pages as u32]);
+            numbers[8..8 + pages].copy_from_slice(&taken);
+            self.queue(&self.copies.records_buffer, record as usize * COPY_RECORD * 4, bytes_of(&numbers, u32::to_le_bytes));
+            let width = COPY_CELLS * cells.scale;
+            let footprint = (cells.corner.truncate(), cells.corner.truncate() + IVec2::splat(width), (cells.corner.z + cells.tall * cells.scale) as f32);
+            self.copies.drawn.insert(*key, MarchedCopy { cells: cells.clone(), record, pages: taken, footprint });
+            self.copies.map_stale = true;
+            // The ring tiles under it: their highest land raised over it.
+            for slot in 0..self.slots.len() / 4 {
+                let info = &self.slots[slot * 4..slot * 4 + 4];
+                if info[2] != 1 {
+                    continue;
+                }
+                let ring_key = TileKey { ring: (slot / SLOTS) as u8, x: info[0], y: info[1] };
+                if self.raise_tops(slot, ring_key, footprint) {
+                    self.queue(&self.tops_buffer, slot * TOPS * 4, bytes_of(&self.tops[slot * TOPS..slot * TOPS + TOPS], f32::to_le_bytes));
+                }
+            }
+        }
+        self.copies.top = self.copies.drawn.values().map(|copy| copy.footprint.2).fold(f32::MIN, f32::max);
+        // The map: which copy draws each chunk round the camera's (one drawn now wins over one retiring).
+        if self.copies.map_stale || self.copies.centre != centre {
+            self.copies.map_stale = false;
+            self.copies.centre = centre;
+            let half = MAP / 2;
+            let mut map = vec![0u32; (MAP * MAP) as usize];
+            for (key, _) in &wanted {
+                let Some(copy) = self.copies.drawn.get(key) else { continue };
+                let (low, high, _) = copy.footprint;
+                let chunk = crate::world::CHUNK_SIZE;
+                for cy in low.y.div_euclid(chunk)..high.y.div_euclid(chunk) {
+                    for cx in low.x.div_euclid(chunk)..high.x.div_euclid(chunk) {
+                        let (x, y) = (cx - centre.x + half, cy - centre.y + half);
+                        if (0..MAP).contains(&x) && (0..MAP).contains(&y) && map[(y * MAP + x) as usize] == 0 {
+                            map[(y * MAP + x) as usize] = copy.record + 1;
+                        }
+                    }
+                }
+            }
+            self.queue(&self.copies.map_buffer, 0, bytes_of(&map, u32::to_le_bytes));
+        }
     }
 
     /// The CPU's twins of the shader's `locate`, `eased_height` and march, for the tests (the
@@ -368,12 +545,23 @@ pub struct MarchMaterial {
     pub slots: Handle<ShaderBuffer>,
     #[storage(7, read_only)]
     pub tops: Handle<ShaderBuffer>,
+    /// The far copies' cells, records, map of chunks, and the blocks' colours (top, side) to draw them in.
+    #[storage(8, read_only)]
+    pub copy_cells: Handle<ShaderBuffer>,
+    #[storage(9, read_only)]
+    pub copy_records: Handle<ShaderBuffer>,
+    #[storage(10, read_only)]
+    pub copy_map: Handle<ShaderBuffer>,
+    #[storage(11, read_only)]
+    pub block_colours: Handle<ShaderBuffer>,
 }
 
 #[derive(ShaderType, Clone, Copy, Debug, Default, PartialEq)]
 pub struct MarchShaderSettings {
-    /// x rings, y the finest cell (blocks), z the highest land, w the most steps a pixel takes.
+    /// x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes.
     pub grid: Vec4,
+    /// The far copies: x 1 if the march draws them, y and z the chunk their map is centred on.
+    pub copies: Vec4,
     /// The square of real chunks the rays start at the edge of (game axes, blocks): its least x and
     /// y, its greatest x and y; all 0 if there's none.
     pub inner: Vec4,
@@ -426,6 +614,11 @@ pub fn setup_march(
     let corners = buffers.add(ShaderBuffer::new(vec![MISSING; CORNER], RenderAssetUsages::RENDER_WORLD));
     let slots = buffers.add(ShaderBuffer::new(vec![0i32; 4], RenderAssetUsages::RENDER_WORLD));
     let tops = buffers.add(ShaderBuffer::new(vec![MISSING; TOPS], RenderAssetUsages::RENDER_WORLD));
+    // The copies' lists at their full size from the start (written into a piece at a time).
+    let copy_cells = buffers.add(ShaderBuffer::new(vec![0u32; PAGES * PAGE], RenderAssetUsages::RENDER_WORLD));
+    let copy_records = buffers.add(ShaderBuffer::new(vec![0u32; MOST_COPIES * COPY_RECORD], RenderAssetUsages::RENDER_WORLD));
+    let copy_map = buffers.add(ShaderBuffer::new(vec![0u32; (MAP * MAP) as usize], RenderAssetUsages::RENDER_WORLD));
+    let block_colours = buffers.add(ShaderBuffer::new(vec![0.5f32; 8], RenderAssetUsages::RENDER_WORLD));
     let material = materials.add(MarchMaterial {
         settings: DistantShaderSettings::default(),
         shown: images.add(super::light::placeholder()),
@@ -434,7 +627,15 @@ pub fn setup_march(
         corners: corners.clone(),
         slots: slots.clone(),
         tops: tops.clone(),
+        copy_cells: copy_cells.clone(),
+        copy_records: copy_records.clone(),
+        copy_map: copy_map.clone(),
+        block_colours: block_colours.clone(),
     });
+    state.copies.cells_buffer = Some(copy_cells);
+    state.copies.records_buffer = Some(copy_records);
+    state.copies.map_buffer = Some(copy_map);
+    state.copies.colours_buffer = Some(block_colours);
     // One triangle past the screen's corners: the screen is wholly inside it.
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[-1.0f32, -1.0, 0.0], [3.0, -1.0, 0.0], [-1.0, 3.0, 0.0]]);
@@ -449,10 +650,12 @@ pub fn setup_march(
 /// After starting again, makes the lists on the graphics card the right size and sends them whole
 /// (tiles coming in go a piece at a time, `MarchState::store`); and keeps the material's settings in
 /// step with the sheet's and the march's own.
+#[allow(clippy::too_many_arguments)]
 pub fn update_march(
     mut state: ResMut<MarchState>,
-    distant: Res<DistantState>,
-    settings: Res<DistantSettings>,
+    (distant, settings): (Res<DistantState>, Res<DistantSettings>),
+    (far, far_settings): (Res<FarCopies>, Res<FarCopySettings>),
+    camera: Query<&Transform, With<Camera3d>>,
     mut changed_sheet: MessageReader<AssetEvent<DistantMaterial>>,
     sheets: Res<Assets<DistantMaterial>>,
     mut materials: ResMut<Assets<MarchMaterial>>,
@@ -462,8 +665,10 @@ pub fn update_march(
     let Some(handle) = state.material.clone() else { return };
     if state.whole && !state.slots.is_empty() {
         state.whole = false;
+        // What's waiting for the land's lists is in them now (the copies' still goes).
+        let land: Vec<AssetId<ShaderBuffer>> = [&state.corners_buffer, &state.tops_buffer, &state.slots_buffer].iter().filter_map(|buffer| buffer.as_ref().map(|b| b.id())).collect();
         if let Ok(mut writes) = state.writes.0.lock() {
-            writes.clear();
+            writes.retain(|write| !land.contains(&write.buffer));
         }
         // The lists whole, at their size (once: tiles coming in after go a piece at a time).
         if let Some(buffer) = &state.corners_buffer {
@@ -476,13 +681,33 @@ pub fn update_march(
             let _ = buffers.insert(buffer, ShaderBuffer::new(state.slots.clone(), RenderAssetUsages::RENDER_WORLD));
         }
     }
+    // The far copies, if the march draws them, and the colours their cells are drawn in.
+    let marched = far_settings.marched(&settings);
+    let centre = camera.iter().next().map_or(IVec2::ZERO, |camera| {
+        let at = crate::coords::bevy_to_game(camera.translation);
+        let chunk = crate::world::CHUNK_SIZE as f32;
+        IVec2::new((at.x / chunk).floor() as i32, (at.y / chunk).floor() as i32)
+    });
+    state.follow_copies(if marched { far.march_tiles() } else { Vec::new() }, centre, marched);
+    if let Some(palette) = distant.palette().cloned()
+        && state.copies.palette.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &palette))
+    {
+        let colours: Vec<f32> = palette.blocks.iter().flat_map(|(top, side)| [top[0], top[1], top[2], 1.0, side[0], side[1], side[2], 1.0]).collect();
+        if let Some(buffer) = &state.copies.colours_buffer
+            && !colours.is_empty()
+        {
+            let _ = buffers.insert(buffer, ShaderBuffer::new(colours, RenderAssetUsages::RENDER_WORLD));
+        }
+        state.copies.palette = Some(palette);
+    }
     let sheet_changed = changed_sheet.read().any(|event| matches!(event, AssetEvent::Modified { .. }));
     let inner = distant.inner.map_or(Vec4::ZERO, |(centre, reach)| {
         let size = crate::world::CHUNK_SIZE as f32;
         Vec4::new((centre.x - reach) as f32 * size, (centre.y - reach) as f32 * size, (centre.x + reach + 1) as f32 * size, (centre.y + reach + 1) as f32 * size)
     });
     let march = MarchShaderSettings {
-        grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest, settings.march_most as f32),
+        grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
+        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, state.copies.centre.x as f32, state.copies.centre.y as f32, 0.0),
         inner,
     };
     let unchanged = materials.get(&handle).is_some_and(|material| material.march == march);
@@ -516,14 +741,23 @@ pub fn write_march(writes: Res<MarchWrites>, gpu_buffers: Res<RenderAssets<GpuSh
 }
 
 /// One of the two draws the far land: the march's triangle or the sheet's tiles, by the switch
-/// (neither while the deep screenshot is being taken: it draws its own).
+/// (neither while the deep screenshot is being taken: it draws its own); and the far copies' own
+/// blocks are hidden while the march draws them.
+#[allow(clippy::type_complexity)]
 pub fn show_one_drawer(
     state: Res<MarchState>,
     settings: Res<DistantSettings>,
+    far_settings: Res<FarCopySettings>,
     shot: Res<super::deep_shot::DeepShot>,
-    mut screens: Query<&mut Visibility, (With<MarchScreen>, Without<DistantTile>)>,
-    mut tiles: Query<&mut Visibility, (With<DistantTile>, Without<MarchScreen>)>,
+    mut screens: Query<&mut Visibility, (With<MarchScreen>, Without<DistantTile>, Without<FarCopy>)>,
+    mut tiles: Query<&mut Visibility, (With<DistantTile>, Without<MarchScreen>, Without<FarCopy>)>,
+    mut copies: Query<&mut Visibility, (With<FarCopy>, Without<MarchScreen>, Without<DistantTile>)>,
 ) {
+    // New copies come in all the time: every frame.
+    let marched = far_settings.marched(&settings) && !shot.busy();
+    for mut visibility in &mut copies {
+        visibility.set_if_neq(if marched { Visibility::Hidden } else { Visibility::Inherited });
+    }
     if shot.busy() {
         if let Some(mut visibility) = state.screen.and_then(|screen| screens.get_mut(screen).ok()) {
             visibility.set_if_neq(Visibility::Hidden);
@@ -560,7 +794,7 @@ mod tests {
         let finest = 16;
         let camera = Vec3::new(40.0, -70.0, 200.0);
         let mut state = MarchState::default();
-        state.follow(1, 1);
+        state.follow(1, 1, 16);
         let mut meshes = Vec::new();
         for key in super::super::distant::wanted_tiles(camera, finest, 1) {
             let tile = super::super::distant::tile_mesh(&map, &blocks, &palette, key, finest);
@@ -642,7 +876,7 @@ mod tests {
         let finest = 16;
         let camera = Vec3::new(100.0, -150.0, 260.0);
         let mut state = MarchState::default();
-        state.follow(1, 2);
+        state.follow(1, 2, 16);
         for key in super::super::distant::wanted_tiles(camera, finest, 2) {
             state.store(key, super::super::distant::tile_mesh(&map, &blocks, &palette, key, finest).as_ref());
         }
@@ -712,7 +946,7 @@ mod tests {
         let finest = 16;
         let camera = Vec3::new(100.0, -150.0, 300.0);
         let mut state = MarchState::default();
-        state.follow(1, 2);
+        state.follow(1, 2, 16);
         for key in super::super::distant::wanted_tiles(camera, finest, 2) {
             state.store(key, super::super::distant::tile_mesh(&map, &blocks, &palette, key, finest).as_ref());
         }
@@ -729,9 +963,42 @@ mod tests {
     }
 
     #[test]
+    fn a_far_copy_is_taken_in_raises_the_land_s_highest_under_it_and_is_let_go() {
+        let mut state = MarchState::default();
+        state.follow(1, 1, 16);
+        // A flat ring tile at 50 high, from (0, 0) to (256, 256).
+        let tile = TileMesh { positions: vec![[0.0, 50.0, 0.0]], colours: vec![[0.5; 4]], sides: vec![[0.5; 4]], slopes: vec![[0.0; 4]], morph: vec![[50.0, 0.0, 0.0]], indices: Vec::new(), corner: Vec3::ZERO, grid: vec![0; SIDE * SIDE] };
+        state.store(TileKey { ring: 0, x: 0, y: 0 }, Some(&tile));
+        let slot = MarchState::slot(TileKey { ring: 0, x: 0, y: 0 });
+        assert_eq!(state.tops[slot * TOPS + TILE_TOP], 50.0);
+        // A copy of one chunk at (64, 64), 40 cells of a block from 40 high: its top is 80.
+        let cells = Arc::new(CopyCells { corner: IVec3::new(64, 64, 40), scale: 1, tall: 40, cells: vec![0; 32 * 32 * 40] });
+        let key = CopyKey { scale: 1, x: 2, y: 2 };
+        state.follow_copies(vec![(key, cells.clone())], IVec2::ZERO, true);
+        assert_eq!(state.copies.drawn.len(), 1);
+        assert_eq!(state.copies.drawn[&key].pages.len(), 2);
+        assert_eq!(state.copies.top, 80.0);
+        // The blocks of cells under it (64 blocks each: the one from 64 to 128) and the tile rose.
+        assert_eq!(state.tops[slot * TOPS + TILE_TOP], 80.0);
+        assert_eq!(state.tops[slot * TOPS + 4 + 1], 80.0);
+        assert_eq!(state.tops[slot * TOPS], 50.0);
+        // A tile coming in again under it keeps the copy's height.
+        state.store(TileKey { ring: 0, x: 0, y: 0 }, Some(&tile));
+        assert_eq!(state.tops[slot * TOPS + 4 + 1], 80.0);
+        // One far too tall is left to the land.
+        let tall = Arc::new(CopyCells { corner: IVec3::ZERO, scale: 1, tall: 600, cells: vec![0; 32 * 32 * 600] });
+        state.follow_copies(vec![(key, cells), (CopyKey { scale: 1, x: 0, y: 0 }, tall)], IVec2::ZERO, true);
+        assert_eq!(state.copies.drawn.len(), 1);
+        // Off: all let go, and their pages free again.
+        state.follow_copies(Vec::new(), IVec2::ZERO, false);
+        assert!(state.copies.drawn.is_empty());
+        assert_eq!(state.copies.free_pages.len(), PAGES);
+    }
+
+    #[test]
     fn a_ray_never_reads_a_tile_that_isnt_in_yet() {
         let mut state = MarchState::default();
-        state.follow(1, 1);
+        state.follow(1, 1, 16);
         let key = TileKey { ring: 0, x: 3, y: -2 };
         // A tile 16 along shares its slot; until it's in, the old one's there and isn't read for it.
         let mut tile = TileMesh { positions: vec![[0.0, 50.0, 0.0]], colours: vec![[0.5; 4]], sides: vec![[0.5; 4]], slopes: vec![[0.0; 4]], morph: vec![[50.0, 0.0, 0.0]], indices: Vec::new(), corner: Vec3::ZERO, grid: vec![0; SIDE * SIDE] };

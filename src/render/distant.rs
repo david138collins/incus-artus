@@ -57,6 +57,9 @@ pub(super) const RING_TILES: i32 = 16;
 /// The side of the texture marking the chunks on screen, in chunks (centred on the camera's chunk:
 /// 128 each way, far past where real chunks ever reach).
 pub(super) const SHOWN_SIZE: i32 = 256;
+/// How a chunk the far copies draw is marked in that texture (a real chunk is 255; both are more
+/// than half, which is all the sheet asks).
+const COPY_MARK: u8 = 160;
 
 /// Tunables (on the "Render" debug page, saved in "everything" presets).
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -621,6 +624,11 @@ impl DistantState {
         &self.shown
     }
 
+    /// The blocks' far colours the tiles are made with (the march colours the far copies' cells by them).
+    pub(super) fn palette(&self) -> Option<&Arc<Palette>> {
+        self.palette.as_ref()
+    }
+
     pub fn tiles_drawn(&self) -> usize {
         self.tiles.values().filter(|tile| tile.is_some()).count()
     }
@@ -732,7 +740,7 @@ pub fn update_distant(
         None => true,
     });
     let material = state.material.clone();
-    march.follow(state.cleared, settings.rings);
+    march.follow(state.cleared, settings.rings, settings.finest_cell);
     for (key, mesh) in done {
         // The march reads the same land (`march.rs`).
         march.store(key, mesh.as_ref());
@@ -893,15 +901,18 @@ pub fn update_shown_chunks(
         }
     }
     // The chunks drawn by far copies (`far_copies.rs`), each on its own: a copy's skirt hides its
-    // edge, so it needs no sheet under its neighbours.
+    // edge, so it needs no sheet under its neighbours. Marked a little less (`COPY_MARK`): the sheet
+    // isn't drawn under them either way, but the march, drawing them itself, tells them apart from
+    // the real chunks.
     for pos in copies.covered() {
         let offset = IVec2::new(pos.x, pos.y) - centre;
         if offset.x.abs() < half && offset.y.abs() < half {
-            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
+            let pixel = &mut pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize];
+            *pixel = (*pixel).max(COPY_MARK);
         }
     }
-    // The square round the camera's chunk wholly marked: the march starts its rays at its edge.
-    let marked = |offset: IVec2| offset.x.abs() < half && offset.y.abs() < half && pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] > 0;
+    // The square round the camera's chunk wholly marked as real: the march starts its rays at its edge.
+    let marked = |offset: IVec2| offset.x.abs() < half && offset.y.abs() < half && pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] == 255;
     let mut reach = -1;
     while reach < half - 2 && (-(reach + 1)..=reach + 1).all(|a| [IVec2::new(a, reach + 1), IVec2::new(a, -(reach + 1)), IVec2::new(reach + 1, a), IVec2::new(-(reach + 1), a)].into_iter().all(marked)) {
         reach += 1;
