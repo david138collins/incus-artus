@@ -88,6 +88,8 @@ impl Plugin for RenderPlugin {
             .init_resource::<placed_light::PlacedLights>()
             .init_resource::<performance::FrameTimes>()
             .init_resource::<performance::StepTimes>()
+            // The graphics card's time for each drawing pass (the Performance page).
+            .add_plugins(bevy::render::diagnostic::RenderDiagnosticsPlugin)
             .add_systems(Last, performance::collect_steps)
             .add_systems(Update, performance::record_frame_time)
             .add_systems(Last, frame_cap::cap_frames)

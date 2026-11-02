@@ -121,6 +121,72 @@ pub fn record_frame_time(time: Res<Time<Real>>, mut times: ResMut<FrameTimes>, m
     }
 }
 
+/// Bevy's drawing passes in plain words (the ones this game uses; any other shows its own name).
+fn pass_name(name: &str) -> &str {
+    match name {
+        "main_opaque_pass_3d" => "solid things: near blocks, far land, far copies, objects",
+        "main_transparent_pass_3d" => "see-through things: water",
+        "main_transmissive_pass_3d" => "glass-like things",
+        "shadows" => "shadows",
+        "per_view_shadow_pass" => "one light's shadows",
+        "early_mesh_preprocessing" => "Bevy sorting out what to draw",
+        "late_mesh_preprocessing" => "Bevy sorting out what to draw, second look",
+        "clustering" => "Bevy sorting the lights",
+        "render_sky" => "the sky",
+        "tonemapping" => "finishing the colours",
+        "upscaling" => "putting the picture on the screen",
+        "ui" => "Bevy's on-screen text",
+        other => other,
+    }
+}
+
+/// The graphics card's time for each drawing pass, averaged over the last 20 frames (ms), with how
+/// deep it sits inside another pass (0 = not inside one): slowest first among each level's own. Only
+/// passes drawn in the last second; Bevy times them (`RenderDiagnosticsPlugin`) on DX12 and Vulkan.
+/// Not timed: the Panini pass and the debug panel.
+pub fn card_times(world: &World) -> Vec<(String, f64, usize)> {
+    let Some(store) = world.get_resource::<bevy::diagnostic::DiagnosticsStore>() else { return Vec::new() };
+    let mut times: Vec<(Vec<String>, f64)> = store
+        .iter()
+        .filter(|diagnostic| diagnostic.path().as_str().starts_with("render/") && diagnostic.path().as_str().ends_with("/elapsed_gpu"))
+        .filter(|diagnostic| diagnostic.measurement().is_some_and(|m| m.time.elapsed().as_secs_f32() < 1.0))
+        .filter_map(|diagnostic| {
+            let parts: Vec<String> = diagnostic.path().components().map(str::to_string).collect();
+            Some((parts[1..parts.len() - 1].to_vec(), diagnostic.average()?))
+        })
+        .collect();
+    // Each pass after the one it's inside, the slowest first at every level.
+    let total_of = |times: &[(Vec<String>, f64)], parts: &[String]| -> Vec<f64> { (1..=parts.len()).map(|n| times.iter().find(|(p, _)| p[..] == parts[..n]).map_or(0.0, |t| t.1)).collect() };
+    let keys: Vec<Vec<f64>> = times.iter().map(|(parts, _)| total_of(&times, parts)).collect();
+    let mut order: Vec<usize> = (0..times.len()).collect();
+    order.sort_by(|&a, &b| {
+        let (ka, kb) = (&keys[a], &keys[b]);
+        for (x, y) in ka.iter().zip(kb) {
+            if x != y {
+                return y.total_cmp(x);
+            }
+        }
+        ka.len().cmp(&kb.len())
+    });
+    let mut sorted = Vec::new();
+    for k in order {
+        let (parts, ms) = std::mem::take(&mut times[k]);
+        sorted.push((pass_name(parts.last().map_or("", |s| s)).to_string(), ms, parts.len() - 1));
+    }
+    sorted
+}
+
+/// The card's time on one line: the passes not inside another, added up, and the three slowest.
+pub fn card_line(world: &World) -> String {
+    let times = card_times(world);
+    if times.is_empty() {
+        return "graphics card: not timed".to_string();
+    }
+    let total: f64 = times.iter().filter(|t| t.2 == 0).map(|t| t.1).sum();
+    let slowest: Vec<String> = times.iter().filter(|t| t.2 == 0).take(3).map(|(name, ms, _)| format!("{name} {ms:.2}")).collect();
+    format!("graphics card {total:.2} ms a frame ({})", slowest.join(", "))
+}
+
 /// Average FPS, 1%-low FPS and the worst frame (ms) over the frames kept.
 fn summary(times: &VecDeque<f32>) -> Option<(f32, f32, f32)> {
     if times.is_empty() {
@@ -183,6 +249,21 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
     }
 
     ui.separator();
+    ui.strong("Graphics card time");
+    ui.small("How long the graphics card spends on each part of the drawing, averaged over the last 20 frames (ms). If the total is close to a whole frame, the card is what holds the frame rate back; if it's well under, the time goes elsewhere (the game, Bevy, Windows). The far land and copies are drawn with the near blocks: turn them off to see their share.");
+    let times = card_times(world);
+    if times.is_empty() {
+        ui.small("Not timed yet (the card times its passes on DirectX 12 and Vulkan only).");
+    } else {
+        let total: f64 = times.iter().filter(|t| t.2 == 0).map(|t| t.1).sum();
+        let frame = summary(&world.resource::<FrameTimes>().0).map_or(0.0, |(average, _, _)| 1000.0 / average as f64);
+        ui.label(format!("{total:6.2}  in all, of a {frame:.2} ms frame"));
+        for (name, ms, depth) in &times {
+            ui.label(format!("{ms:6.2}  {}{name}", "    ".repeat(*depth + 1)));
+        }
+    }
+
+    ui.separator();
     ui.strong("Work in flight");
     let streaming = world.resource::<Streaming>();
     ui.label(format!("Chunks waiting: {}   being made: {}", streaming.queued(), streaming.being_made()));
@@ -227,7 +308,7 @@ pub fn drawing_line(world: &mut World) -> String {
             quads_in_view += mesh.quads as u64;
         }
     }
-    format!("In view: {in_view} of {sections} sections, {quads_in_view} of {quads} rectangles. {fps}")
+    format!("In view: {in_view} of {sections} sections, {quads_in_view} of {quads} rectangles. {fps}; {}", card_line(world))
 }
 
 pub fn soak_line(world: &mut World) -> String {
