@@ -93,3 +93,18 @@ nothing.
   8 to 12 ms of the frame each time. Build 14 sends only each tile that comes in (about 14 KB),
   written straight into the list on the graphics card on Bevy's drawing side (`write_march`); the
   lists go whole only when the far land starts again (a new world, other rings).
+
+### Build 14 seen (David, 2026-11-02)
+David: "i almost couldn't tell anything had changed when i turned on marching." No shaking.
+
+| Reading (no cave mouths placed) | Sections in view | fps | 1% low | Card's time a frame |
+|---|---|---|---|---|
+| The march, copies on | 2,609 | 120 | 84 | 3.48 ms |
+| The march, copies off | 2,301 | 107 | 25 | 2.98 ms |
+| The sheet, copies off | 1,975 | 109 | 25 | 1.31 ms |
+
+- **The march costs the card about 2 ms more than the sheet** on this card (the views weren't the
+  same, so roughly). A 980 Ti is several times slower, so this is what part 4's long steps are for.
+- **No more hitches from the march:** it no longer shows among the slow frames' steps.
+- **Stalls of 110 to 140 ms every few seconds, with either drawer,** with none of the game's own
+  steps slow (build 11's 117 ms worst was one). Not the march; not yet looked into.
