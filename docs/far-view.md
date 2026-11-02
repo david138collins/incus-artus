@@ -137,3 +137,14 @@ speckles", and "when i move, the speckles sparkle, but i can see bands that they
   the next met it in between.
 - **Tested:** 20,000 rays steeply down at hilly land must all meet it; with build 15's steps 27 of
   them slipped through, with build 16's none.
+
+### Build 16 seen; the stalls found (David, 2026-11-02)
+David: "yes, the speckles were gone." On the stalls of 110 to 140 ms every few seconds while
+flying: "the spikes arent the gui. it seems to be usually big hits of near light", and with "light
+the near chunks like the distant terrain" off, "there are no 'near light' spikes, its always start
+meshing. i can fly smoothly and, once the rendered chunks around me catch up, its done."
+- The log agrees: with it off, one frame over 50 ms in 70 seconds of flying; with it on, stalls again.
+- **Why (likely):** the near light window (`light.rs`) is made again each time you've moved about
+  500 blocks, and each new one is handed to the graphics card as two new 2,048 × 2,048 pictures;
+  making them on the card happens on Bevy's drawing side, which the game's own step timings don't
+  see. Not yet fixed.
