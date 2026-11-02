@@ -886,3 +886,30 @@ the hill) was left as blocks.
 **Build 7:** a solid cell is plain ground unless it touches covered air (air with something solid
 over it in its column: a cave mouth's rim, an overhang), holds an object, or is in a changed chunk.
 So only the mouth's rim keeps the blocks' look round a cave.
+
+### 13.19 Build 8: what build 7 showed, and three changes
+
+**David's checks (build 7):**
+- **"Light only"** (everything grey, the lighting kept): the copy's patch all but vanished, so it
+  was the colour, not the light.
+- **Measured on nice25's mountains** (a throwaway test): the far terrain's blocks, one spot a corner,
+  matched the real tops seen overall (dry grass 50% against 48%, stone 28% against 28%, gabbro 14%
+  against 14%). But at 1,000 to 2,000 blocks its corners are 64 to 128 blocks apart, so each
+  painted a wide stretch with whatever one spot happened to be: the cave's hill, mostly stone and
+  gabbro, came out the olive of dry grass, and the copy, which shows the real blocks, stood out.
+- **"Who drew this":** the copy as meant (plain ground pale, the cells along the cave darker; the
+  test cave runs just under the hillside, as the real ground shows too).
+- **The mouth vanishing near the threshold:** the far terrain is drawn one chunk deep under the real
+  chunks' edge (so no sky shows at the seam); there its smooth ground covered the mouth, and filled
+  the dip over the tunnel ("a visible solid color amongst the other blocks").
+
+**Build 8:**
+1. **The far terrain's colours averaged over each corner's cell:** one spot every 32 blocks or so,
+   up to 3 × 3, leaving out spots under water (`distant.rs`, `COLOUR_SPACING`). A tile now takes 1
+   to 8 ms to make instead of about 1 (measured on nice25, release build).
+2. **No far terrain under a chunk that differs** at the real chunks' edge: changed chunks, chunks with
+   a cave near the ground, and those a copy found to show (`far_copies.rs`, `differs`).
+3. **A copy no longer wanted waits for the real chunks over it to be meshed**, not only handed over.
+
+**Not yet looked at:** the flicker where the smooth snowy far terrain meets the blocks along a ridge
+(David's "jitter"); the same seam as 2, along the skyline.

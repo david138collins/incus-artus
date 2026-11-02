@@ -212,6 +212,8 @@ pub struct Shade {
 /// steps from flat (the shader reads the tables at these, distant.wesl).
 const STEEPEST_STEPS: f32 = 4.0;
 const SLOPE_STEPS: usize = 32;
+/// How far apart the spots a far corner's colours are averaged over (blocks; `tile_mesh_measured`).
+const COLOUR_SPACING: f32 = 32.0;
 
 /// How dark the foot of block steps is on average, across one step, on ground rising `rise` blocks
 /// per block (so a step every 1/rise blocks), with the near shader's sums: each step's top casts a
@@ -389,14 +391,46 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
                 let z = |di: i32, dj: i32| surface(i + di, j + dj).unwrap_or(top);
                 ((z(1, 0) - z(-1, 0)) / (2.0 * cell), (z(0, 1) - z(0, -1)) / (2.0 * cell))
             };
-            // What the ground is made of here (mineralogy, as the near ground has it).
-            let (ground, _) = crate::world::whole_column(h, None);
-            let (block_north, block_east) = (x.floor() + 0.5, y.floor() + 0.5);
-            // The slope as every view measures it (not the shading's, which is across the cell).
-            let ground_slope = if mineralogy.reads_slope { map.slope(x.floor() as i32, y.floor() as i32, ground) } else { 0.0 };
-            let column = crate::world::placer::Column { north: block_north, east: block_east, ground: ground as f32, slope: ground_slope, climate: map.climate(block_north, block_east, ground as f32), water: river(i, j).map(|top| top as i32) };
-            let block = mineralogy.layers(map, column).top;
-            let (mut top_colour, mut side_colour) = if water { (palette.water, palette.water) } else { (palette.top(block), palette.side(block)) };
+            // What the ground is made of here (mineralogy, as the near ground has it): the surface
+            // block's colours at a spot, and those averaged over spots across the cell round the
+            // corner, one every `COLOUR_SPACING` blocks or so (up to 3 × 3). One spot a corner, in the
+            // coarse rings, painted a hillside with whatever that spot happened to be (dry grass on a
+            // hill mostly of stone and gabbro), and a far copy there showed as a patch of another
+            // colour [David, build 7: "it's kind of obvious"].
+            let colours_at = |north: f32, east: f32, h: f32, water: Option<i32>| {
+                let (ground, _) = crate::world::whole_column(h, None);
+                let (block_north, block_east) = (north.floor() + 0.5, east.floor() + 0.5);
+                // The slope as every view measures it (not the shading's, which is across the cell).
+                let ground_slope = if mineralogy.reads_slope { map.slope(north.floor() as i32, east.floor() as i32, ground) } else { 0.0 };
+                let column = crate::world::placer::Column { north: block_north, east: block_east, ground: ground as f32, slope: ground_slope, climate: map.climate(block_north, block_east, ground as f32), water };
+                let block = mineralogy.layers(map, column).top;
+                (palette.top(block), palette.side(block))
+            };
+            let (mut top_colour, mut side_colour) = if water {
+                (palette.water, palette.water)
+            } else {
+                let spots = ((cell / COLOUR_SPACING).round() as i32).clamp(1, 3);
+                let mut sum = ([0.0f32; 3], [0.0f32; 3], 0.0f32);
+                for b in 0..spots {
+                    for a in 0..spots {
+                        let (north, east) = (x + ((a as f32 + 0.5) / spots as f32 - 0.5) * cell, y + ((b as f32 + 0.5) / spots as f32 - 0.5) * cell);
+                        // Spots under the sea or a river, or past the map, leave the land's colour to
+                        // the rest.
+                        if spots > 1
+                            && let Some((h, None)) = map.ground_and_water(north, east)
+                            && !under_sea(h)
+                        {
+                            let (top, side) = colours_at(north, east, h, None);
+                            sum = ([0, 1, 2].map(|k| sum.0[k] + top[k]), [0, 1, 2].map(|k| sum.1[k] + side[k]), sum.2 + 1.0);
+                        }
+                    }
+                }
+                if sum.2 > 0.0 {
+                    (sum.0.map(|v| v / sum.2), sum.1.map(|v| v / sum.2))
+                } else {
+                    colours_at(x, y, h, river(i, j).map(|top| top as i32))
+                }
+            };
             // A river narrower than a cell: its water blended in by the share of the cell it covers,
             // so a creek fades in from afar as a texture's mipmaps do, rather than appearing where the
             // near ground begins.
@@ -555,6 +589,12 @@ pub struct DistantState {
 }
 
 impl DistantState {
+    /// The real chunks handed over and wholly meshed: on screen (the far copies wait for them before
+    /// going, `far_copies.rs`).
+    pub fn shown(&self) -> &HashSet<ChunkPos> {
+        &self.shown
+    }
+
     pub fn tiles_drawn(&self) -> usize {
         self.tiles.values().filter(|tile| tile.is_some()).count()
     }
@@ -806,10 +846,15 @@ pub fn update_shown_chunks(
         // The same square the render distance hides sections outside of.
         offset.x.abs().max(offset.y.abs()) <= limit && state.shown.contains(&pos)
     };
+    // But not under a chunk holding what the distant terrain can't show (a cave mouth, anything
+    // changed): its smooth ground would cover the mouth, or fill the dip of a cave just under the
+    // surface [David, build 7: the mouth "stops appearing ... a visible solid color amongst the
+    // other blocks"].
+    let differs = |pos: ChunkPos| world.changed_chunks().contains(&pos) || copies.differs(pos);
     let mut pixels = vec![0u8; (SHOWN_SIZE * SHOWN_SIZE) as usize];
     for &pos in &state.shown {
         let around = (-1..=1).flat_map(|x| (-1..=1).map(move |y| ChunkPos::new(pos.x + x, pos.y + y)));
-        if around.into_iter().all(on_screen) {
+        if (on_screen(pos) && differs(pos)) || around.into_iter().all(on_screen) {
             let offset = IVec2::new(pos.x, pos.y) - centre;
             pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
         }

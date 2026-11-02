@@ -40,7 +40,7 @@ use super::sky_light::{Daylight, FULL, sky_heights};
 use super::{RenderSettings, TerrainAssets};
 use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::data::{BlockRegistry, ObjectRegistry};
-use crate::world::{BlockId, CHUNK_SIZE, CavePlan, Caves, Chunk, ChunkPos, CompiledMap, StreamSettings, Streaming, Terrain, TerrainBlocks, VoxelWorld, WORLD_BOTTOM, real_chunk, shape_boxes};
+use crate::world::{BlockId, CHUNK_SIZE, CavePlan, Caves, Chunk, ChunkPos, CompiledMap, StreamSettings, Terrain, TerrainBlocks, VoxelWorld, WORLD_BOTTOM, real_chunk, shape_boxes};
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::primitives::Aabb;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -186,6 +186,13 @@ impl FarCopies {
     /// The chunks the copies draw, for the hand-off mask.
     pub fn covered(&self) -> &HashSet<ChunkPos> {
         &self.covered
+    }
+
+    /// Might this chunk show something the distant terrain can't (a cave near the ground, or one
+    /// found to show)? The distant terrain isn't drawn under it at the real chunks' edge
+    /// (`distant.rs`, `update_shown_chunks`).
+    pub fn differs(&self, pos: ChunkPos) -> bool {
+        self.hot.contains(&pos) || self.near_ground.contains(&pos)
     }
 
     fn clear(&mut self, commands: &mut Commands) {
@@ -627,7 +634,7 @@ pub fn update_far_copies(
     settings: Res<FarCopySettings>,
     render: Res<RenderSettings>,
     streaming: Res<StreamSettings>,
-    streamed: Res<Streaming>,
+    distant: Res<super::distant::DistantState>,
     terrain: Res<Terrain>,
     caves: Res<Caves>,
     world: Res<VoxelWorld>,
@@ -800,11 +807,11 @@ pub fn update_far_copies(
     }
 
     // Tiles no longer wanted stay until every wanted tile over them is in, and the real chunks over
-    // them are drawn (coming close, the cave vanished for a second while they were made: David,
+    // them are drawn and meshed (coming close, the cave vanished for a second while they were made: David,
     // build 5).
     let mut retired = false;
     if !state.retiring.is_empty() {
-        let drawn = streamed.drawn();
+        let drawn = distant.shown();
         let unready = |key: &TileKey| key.chunks().any(|pos| real_chunk(IVec2::new(pos.x - home.x, pos.y - home.y), edge, radius) && !drawn.contains(&pos));
         let area = |key: &TileKey| {
             let width = CHUNK_SIZE * key.scale;
