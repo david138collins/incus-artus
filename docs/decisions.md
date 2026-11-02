@@ -41,6 +41,23 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
   work never has to be handed back. Nothing is worked out twice. The less a feature strays from the
   projection, the less it costs. David: "the entire project can fail if we don't find a way to make it
   run like a top."
+- **[David 2026-11-02; Builder to assess] The renderer treats everything the same:** "i dont like the
+  idea of caves having ids to the renderer rather than the renderer eating them like everything else,
+  if if they are formed by the recipe. what if the player forms them?" And: "i think its cleaner for
+  the renderer to treat everything the same and send it things in a format and order that produces
+  the right result, and concentrate the black magic into an analogy for the interpreter; no knotted
+  pipelines that become difficult to manage or improve."
+  - **Nothing gets an ID for the renderer.** A cave from the recipe, a hole the player dug, a mine, a
+    great hall and a castle all reach it the same way, as the world as it is.
+  - **The cleverness lives in one place before the renderer**, as the World Interpreter does for
+    world creation: it prepares the world in a format and an order that draws right, at every
+    distance.
+  - *Counsel:* the far view then asks the chunks' question, "what's here?", only more coarsely: the
+    recipe, minus the cave plan, plus the saved edits. The plain column keeps its fast smooth sheet.
+    Only where the world differs from it (the cave plan's boxes, the changed chunks, both already
+    known) is a cell built from the world itself, coarsened. Openings big enough at a ring's cell size
+    stay holes; smaller ones average into a darker cell, so "a few dark pixels" falls out of the
+    averaging with no special rule. Far lights come from the lights placed in the world.
 - **Content is added across the pipeline** (David, 2026-11-01): "as long as we have a stable
   foundation that i know wont break when i want to add features like a layer that finds swampiness
   centers, and can effect the ecology and topography and the civilization gen can place structures
