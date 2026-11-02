@@ -232,17 +232,22 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     - **School:** a schoolhouse and a teacher (an assignment), giving every child a small start on the
       basics (reading, numbers, a trade's first steps), so a schooled village grows up a little better
       at everything.
-    - **Two houses of research:**
-      - **the college:** magic, alchemy, engineering, the natural world, in a library or laboratory
-        with wizards, sages and scribes (the intellect workers already on file, who also assemble the
-        Necronomicon's scraps);
-      - **the church:** the gods, healing, blessings, the moons and the old stories (the mural of the
-        six progenitors).
     - **Research makes knowledge you can hold:** new spells, recipes, enchantments, maps, written into
       books in the settlement's library. Books are items (tomes, above), so knowledge can be copied,
       traded, stolen or burned.
-    - **They can disagree.** A college and a church with different views of magic and the gods are a
-      ready source of the slow politics in the story.
+  - **[David, the same day] An idiosyncratic split:** "i would say the college does alchemy and the
+    church does more magic. they probably both have different kinds of magic and alchemy. i like an
+    idiosyncratic split."
+    - **The college leans to alchemy, the church to magic,** and each has its own kinds of both, so the
+      line between them is particular, not tidy. The college's research is done by its wizards, sages
+      and scribes (the intellect workers already on file, who also assemble the Necronomicon's scraps).
+    - **No underlying conflict between them:** "idk about any underlying conflict between the two,
+      specific conflicts possibly. or personal ones." Conflicts are specific or personal, between
+      particular people or over particular things, not built into the two.
+    - **Healing two ways:** "physicians and magic should both be methods of healing."
+  - **Guilds** (David): "places for tradesmen of a type to gather and improve and socialize."
+    *Counsel:* a guild hall is where a trade's people meet, train each other and drink together, so it
+    serves skill and social needs at once (the needs above: work, socialise).
 - **[IDEA] Food → spheres.** Each food has amounts of **protein, carbs and nutrition**. Variety matters:
   - **Carbs:** the biggest immediate stamina boost; also speed up blood regeneration and injury recovery.
   - **Protein:** does more for blood regeneration and injury recovery.
