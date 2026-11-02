@@ -56,6 +56,24 @@ pub const BUILD: &str = match option_env!("INCUS_BUILD") {
     None => "unknown",
 };
 
+/// The build's number, counted from 1: one more for each build handed to David to play (the `BUILD`
+/// file; see `build.rs`). 0 if it's missing. Saved worlds keep the build they were made in
+/// (`save/mod.rs`).
+pub const BUILD_NUMBER: u32 = whole_number(option_env!("INCUS_BUILD_NUMBER"));
+
+const fn whole_number(text: Option<&str>) -> u32 {
+    let Some(text) = text else { return 0 };
+    let digits = text.as_bytes();
+    let (mut number, mut k) = (0u32, 0);
+    while k < digits.len() {
+        if digits[k].is_ascii_digit() {
+            number = number * 10 + (digits[k] - b'0') as u32;
+        }
+        k += 1;
+    }
+    number
+}
+
 /// What this session shares between the game, the watchdog and the panic hook.
 struct Session {
     folder: PathBuf,
@@ -106,7 +124,7 @@ pub fn start() {
             None => "The last session didn't end normally (closed from Windows or the power went), and left no report.".to_string(),
         }
     });
-    let _ = std::fs::write(&marker, format!("started {started}\nbuild {BUILD}\nThis file is removed when the game closes normally.\n"));
+    let _ = std::fs::write(&marker, format!("started {started}\nbuild {BUILD_NUMBER} ({BUILD})\nThis file is removed when the game closes normally.\n"));
     tidy(&folder, "session-", SESSIONS_KEPT);
     tidy(&folder, "crash-", REPORTS_KEPT);
     tidy(&folder, "freeze-", REPORTS_KEPT);
@@ -125,7 +143,7 @@ pub fn start() {
     if SESSION.set(session).is_err() {
         return;
     }
-    write_line(&format!("Incus Artus session, started {started} (seconds since 1970), build {BUILD}"));
+    write_line(&format!("Incus Artus session, started {started} (seconds since 1970), build {BUILD_NUMBER} ({BUILD})"));
     if let Some(last) = &SESSION.get().unwrap().last_session {
         write_line(last);
     }
@@ -274,7 +292,7 @@ fn input(text: String) {
 fn going_on(session: &Session) -> String {
     let mut text = String::new();
     let seconds = session.clock.elapsed().as_secs_f32();
-    text.push_str(&format!("Build: {BUILD}\nSession started {} (seconds since 1970); {seconds:.1} s in, {} frames.\n", session.started, session.frames.load(Ordering::Relaxed)));
+    text.push_str(&format!("Build: {BUILD_NUMBER} ({BUILD})\nSession started {} (seconds since 1970); {seconds:.1} s in, {} frames.\n", session.started, session.frames.load(Ordering::Relaxed)));
     // `try_lock` throughout: whatever was holding these may be what went wrong.
     match session.places.try_lock() {
         Ok(places) => {
@@ -464,7 +482,7 @@ fn show_last_session_notice(mut contexts: EguiContexts, mut notice: ResMut<LastS
 /// The Overview page's part: the build, this session's log, how the last session ended.
 pub fn overview(ui: &mut egui::Ui) {
     ui.strong("Diagnostics");
-    ui.small(format!("Build {BUILD}"));
+    ui.small(format!("Build {BUILD_NUMBER} ({BUILD})"));
     let Some(session) = SESSION.get() else {
         ui.small("Not started.");
         return;

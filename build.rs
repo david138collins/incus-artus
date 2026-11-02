@@ -1,6 +1,7 @@
 //! Build script: stamps the game with the commit it was built from, for crash and freeze reports
 //! (see `src/diagnostics.rs`). "+ changes" means the code (src, assets, Cargo.toml) had changes not
-//! yet committed. Without git, the stamp is "unknown".
+//! yet committed. Without git, the stamp is "unknown". It also reads the build's number from the
+//! `BUILD` file (`docs/caves.md` 13.2).
 
 use std::process::Command;
 
@@ -15,6 +16,10 @@ fn main() {
         None => "unknown".to_string(),
     };
     println!("cargo:rustc-env=INCUS_BUILD={stamp}");
+    // The build's number (the `BUILD` file: one more for each build handed to David to play).
+    let number = std::fs::read_to_string("BUILD").map(|text| text.trim().to_string()).unwrap_or_default();
+    println!("cargo:rustc-env=INCUS_BUILD_NUMBER={number}");
+    println!("cargo:rerun-if-changed=BUILD");
     // Stamped again when the commit or the code changes.
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs/heads");

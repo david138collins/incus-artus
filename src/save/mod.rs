@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! worlds/<world name>/
-//!   world.toml      format version, name, seed, when created and saved
+//!   world.toml      format version, name, seed, the build it was made in, when created and saved
 //!   clock.toml      ...one file (or folder) per part of the game...
 //!   chunks/         changed chunks only
 //! ```
@@ -23,6 +23,7 @@
 //! Saving, loading and starting a new world are **requests** (`WorldFileRequest`), carried out once
 //! per frame. They work while time is paused. What happened is announced (`WorldFileDone`).
 
+use crate::diagnostics::BUILD_NUMBER;
 use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, project_folder};
 use crate::events::{EventLogAppExt, LoggedEvent};
@@ -171,6 +172,11 @@ pub struct CurrentWorld {
     pub seed: u64,
     /// Seconds since 1970.
     pub created: u64,
+    /// The build it was made in (`None`: made before build numbers). Untouched land is made again by
+    /// whichever build plays it, so in another build its land may have moved (`docs/worldgen.md`,
+    /// recipe versions): loading it says so.
+    #[serde(default)]
+    pub build: Option<u32>,
     /// When it was last saved or loaded (`None` = never saved).
     #[serde(skip)]
     pub saved: Option<u64>,
@@ -183,9 +189,20 @@ impl Default for CurrentWorld {
             name: "New World".to_string(),
             seed: crate::fate::seed_from_clock(),
             created: now,
+            build: Some(BUILD_NUMBER),
             saved: None,
         }
     }
+}
+
+/// The warning for loading a world made in another build, if it was.
+fn other_build(name: &str, made_in: Option<u32>) -> Option<String> {
+    let made = match made_in {
+        Some(build) if build == BUILD_NUMBER => return None,
+        Some(build) => format!("was made in build {build}"),
+        None => "was made before build numbers".to_string(),
+    };
+    Some(format!("\"{name}\" {made}; this is build {BUILD_NUMBER}. The land the recipe makes may have moved since. Start a new world to be sure."))
 }
 
 /// What `world.toml` holds.
@@ -399,6 +416,7 @@ fn load_world_from(world: &mut World, path: &Path) -> Result<String, String> {
     }
 
     let seed = info.world.seed;
+    let warning = other_build(&info.world.name, info.world.build);
     let mut loaded = info.world;
     loaded.saved = Some(info.saved_at);
     world.insert_resource(loaded);
@@ -423,6 +441,10 @@ fn load_world_from(world: &mut World, path: &Path) -> Result<String, String> {
     if !problems.is_empty() {
         report.push_str(&format!("\nProblems: {}", problems.join("; ")));
     }
+    if let Some(warning) = warning {
+        warn!("{warning}");
+        report = format!("{warning}\n{report}");
+    }
     Ok(report)
 }
 
@@ -432,6 +454,7 @@ fn new_world(world: &mut World, name: String, seed: Option<u64>) -> Result<Strin
         name: if name.trim().is_empty() { "New World".to_string() } else { name },
         seed,
         created: unix_seconds(),
+        build: Some(BUILD_NUMBER),
         saved: None,
     });
     fresh_world(world, seed);
@@ -626,12 +649,26 @@ mod tests {
         let info = WorldInfo {
             format: FORMAT_VERSION,
             game_version: "0.1.0".to_string(),
-            world: CurrentWorld { name: "Test".to_string(), seed: u64::MAX - 5, created: 12, saved: None },
+            world: CurrentWorld { name: "Test".to_string(), seed: u64::MAX - 5, created: 12, build: Some(BUILD_NUMBER + 1), saved: None },
             saved_at: 34,
         };
         let text = toml::to_string_pretty(&info).unwrap();
+        assert!(text.contains(&format!("build = {}", BUILD_NUMBER + 1)), "{text}");
         let back: WorldInfo = toml::from_str(&text).unwrap();
         assert_eq!(back.world.seed, u64::MAX - 5);
         assert_eq!(back.world.name, "Test");
+        assert_eq!(back.world.build, Some(BUILD_NUMBER + 1));
+        // A world from before build numbers reads as one.
+        let old: WorldInfo = toml::from_str("format = 1\ngame_version = \"0.1.0\"\nname = \"nice25\"\nseed = \"89e944ac43497f87\"\ncreated = 1\nsaved_at = 2\n").unwrap();
+        assert_eq!(old.world.build, None);
+    }
+
+    #[test]
+    fn a_world_from_another_build_is_warned_about_and_this_builds_isnt() {
+        assert_eq!(other_build("Here", Some(BUILD_NUMBER)), None);
+        let older = other_build("Old", Some(BUILD_NUMBER + 1)).unwrap();
+        assert!(older.contains(&format!("made in build {}", BUILD_NUMBER + 1)) && older.contains(&format!("this is build {BUILD_NUMBER}")), "{older}");
+        assert!(other_build("nice25", None).unwrap().contains("made before build numbers"));
+        assert_eq!(CurrentWorld::default().build, Some(BUILD_NUMBER));
     }
 }

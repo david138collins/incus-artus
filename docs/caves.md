@@ -548,7 +548,7 @@ probe of two candidates.
 "Differs from the recipe" covers caves from the plan, holes, mines, builds, felled trees and placed
 objects, all in the same way.
 
-### 13.2 Build numbers (first, on their own)
+### 13.2 Build numbers (first, on their own)  [BUILT 2026-11-02: build 1]
 
 David: "we should start labelling builds sequentially". It's the cheap half of recipe versions
 (`docs/worldgen.md`: during pre-alpha a new build means new worlds; an old world only has to be
@@ -559,7 +559,8 @@ recognised and warned about, not converted).
   logs already show "5d9239c + changes".
 - **Where it shows:**
   - the first line of every session, crash and freeze log ("build 12, 5d9239c");
-  - on screen (where is David's call: 13.11);
+  - on the debug panel's Overview page, under Diagnostics (David: "somewhere out of sight in the
+    debug panel");
   - written into each saved world's `world.toml` (`build = 12`, beside the `game_version` that's
     already there).
 - **Loading an older world:** it loads, with a warning: "nice25 was made in build 11; this is build
