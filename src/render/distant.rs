@@ -904,11 +904,14 @@ pub fn update_shown_chunks(
     // edge, so it needs no sheet under its neighbours. Marked a little less (`COPY_MARK`): the sheet
     // isn't drawn under them either way, but the march, drawing them itself, tells them apart from
     // the real chunks.
+    // Always the copies' mark, even where the real chunk is still in: the near world hides its
+    // sections under a copy (`apply_render_distance`), so marked real, nobody drew it [David, build 20:
+    // the peak by a cave just past the real chunks lost its top, sky in its place, once he'd moved back
+    // across their edge].
     for pos in copies.covered() {
         let offset = IVec2::new(pos.x, pos.y) - centre;
         if offset.x.abs() < half && offset.y.abs() < half {
-            let pixel = &mut pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize];
-            *pixel = (*pixel).max(COPY_MARK);
+            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = COPY_MARK;
         }
     }
     // The square round the camera's chunk wholly marked as real: the march starts its rays at its edge.

@@ -233,3 +233,13 @@ stopping when i stopped moving", then went away further out.
   width (256 chunks), so moving never changes it; a ray also checks the copy it finds covers the
   spot. The copies lie within the hand-off mask, less than half the map's width from you, so no two
   share a place.
+
+### Build 20 seen, and build 21 (David, 2026-11-02)
+The shards while moving were gone, but a peak by a cave mouth about 1,000 blocks off lost its top,
+sky in its place, once David had moved back across the real chunks' edge ("Who drew this": the
+march's land round it, nothing in the hole). Not too few steps (2,000 changed nothing), not the
+world's ceiling (the peak is 988).
+- **Why:** where a far copy covers a chunk, the near world hides its sections
+  (`apply_render_distance`), but the hand-off mask kept a chunk still in marked as real (255, the
+  larger of the two marks), so the march left it to the near world, which wasn't drawing it.
+- **Build 21:** a chunk a copy covers is always marked as the copy's.
