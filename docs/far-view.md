@@ -33,3 +33,20 @@ means the time goes elsewhere (the game, Bevy, Windows).
 - Not timed: the Panini pass and the debug panel.
 - "Write the frame rate to the log" (Far copies) now adds the card's total and its three slowest
   passes.
+
+### Build 12 measured (David, 2026-11-02)
+50 new mouths round (-3441, 17980), 45 past the real chunks; frame cap off; RTX 5070 Ti laptop.
+
+| Reading | Sections in view | fps | 1% low | Card's time a frame |
+|---|---|---|---|---|
+| Copies on (56 drawn) | 2,522 | 133 | 74 | 1.25 ms |
+| Copies off | 1,982 | 124 | 50 | 0.82 ms |
+| Copies off (the third reading) | 2,129 | 145 | 65 | 0.88 ms |
+
+David: "with everything on and caves, gpu time stays under 4ms."
+- **The card isn't what holds the frame rate.** A frame takes about 7 ms; the card is busy for 1 to
+  4 of them. The rest is on the processor's side, most likely Bevy preparing some 2,000 separate
+  section meshes each frame (not yet measured).
+- **For the march:** the card has plenty of room. A 980 Ti is several times slower than this card,
+  and that still leaves room.
+- The log line didn't say whether the far land was on; from build 13 it does.
