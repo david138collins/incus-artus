@@ -108,3 +108,21 @@ David: "i almost couldn't tell anything had changed when i turned on marching." 
 - **No more hitches from the march:** it no longer shows among the slow frames' steps.
 - **Stalls of 110 to 140 ms every few seconds, with either drawer,** with none of the game's own
   steps slow (build 11's 117 ms worst was one). Not the march; not yet looked into.
+
+## Long steps over plain land (build 15, step 1 part 4)
+
+David, on the first look at build 13: "it was very pixelized. but it didn't look 'bad', it just
+needed some tuning" (that was the shaking rays; a chunky far view on purpose is step 2's to offer).
+
+- **A third list on the graphics card:** each tile's highest land, and each block of 4 × 4 cells'
+  (the highest its corners reach either way their easing goes, so the eased land is never higher).
+- **Each step is now one of three:** past a tile the ray is wholly above until it leaves it; past a
+  block of cells likewise; or across one cell, meeting its two triangles exactly (no stepping into
+  the land and narrowing in). A ray over plain land crosses a tile in one step.
+- **"march: step" and "march: shortest step" are gone** (there's no step size left to tune); "march:
+  most steps" stays, now 200, counting steps of all three kinds.
+- **Tested:** `MarchState::march_ray` is the shader's steps in Rust; a test marches 360 rays over
+  hilly land, two rings, through their easing, against a slow search in quarter-block steps. Every
+  hit is on the land, never later than the slow search's, and nothing it finds is missed. (The slow
+  search can step over a ray grazing the land for a few hundredths of a block; the long steps
+  can't.)

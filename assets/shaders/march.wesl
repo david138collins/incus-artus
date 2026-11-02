@@ -3,14 +3,16 @@
 //
 // One triangle covers the screen. For each pixel:
 //   - the ray starts where it leaves the square of real chunks round you (nothing far shows inside);
-//   - it steps on, further the higher above the land it is (a share of the height, never less
-//     than a share of the distance), until it goes under the land somewhere the real chunks and the
-//     far copies don't draw (the `shown` texture, as the sheet uses it), then narrows in on the spot;
+//   - each step goes past a tile the ray is wholly above (by the tile's highest land), past a block
+//     of 4 x 4 cells likewise, or across one cell, where it meets the cell's two triangles exactly;
+//   - the first triangle it comes down onto, outside what the real chunks and the far copies draw
+//     (the `shown` texture, as the sheet uses it), is where it meets the land;
 //   - a ray that goes deep under the land has gone into the ground the near world draws, and stops;
 //   - the land there is lit with the sheet's own sums, from the sheet's settings, and the pixel's
 //     depth is written, so the near world, water and the far copies draw in front where they're nearer.
 // The land is read from the sheet's own tiles' corners: two triangles a cell, eased into the next
-// ring out toward a ring's edge, so the march and the sheet are the same shape.
+// ring out toward a ring's edge, so the march and the sheet are the same shape. Each step follows
+// `MarchState::march_ray` (src/render/march.rs), which the tests check against small steps.
 
 import bevy_pbr::render::mesh_view_bindings::view;
 import super::lighting::{land, light_from_map, to_game};
@@ -34,8 +36,6 @@ struct DistantShaderSettings {
 struct MarchSettings {
     // x rings, y the finest cell (blocks), z the highest land, w the most steps a pixel takes
     grid: vec4<f32>,
-    // x a step's share of the height above the land, y the shortest step's share of the distance
-    steps: vec4<f32>,
     // The square of real chunks round you (game axes, blocks): least x, y, greatest x, y; all 0: none
     inner: vec4<f32>,
 }
@@ -57,10 +57,14 @@ struct Corner {
 @group(constants::MATERIAL_BIND_GROUP) @binding(5) var<storage, read> corners: array<Corner>;
 // Each slot's tile: x, y, then 0 nothing yet, 1 land, 2 wholly past the map
 @group(constants::MATERIAL_BIND_GROUP) @binding(6) var<storage, read> slots: array<vec4<i32>>;
+// Each slot's highest land: its 16 blocks of 4 x 4 cells (row by row east, north first), then the
+// tile's; 5 x 4 numbers a slot
+@group(constants::MATERIAL_BIND_GROUP) @binding(7) var<storage, read> tops: array<vec4<f32>>;
 
 const CELLS: f32 = 16.0;
 const TILES: i32 = 16;
 const SIDE: u32 = 17u;
+const BLOCK: f32 = 4.0;
 const MISSING: f32 = -1.0e29;
 
 struct Vertex {
@@ -82,17 +86,13 @@ fn to_bevy(game: vec3<f32>) -> vec3<f32> {
     return vec3<f32>(game.y, game.z, -game.x);
 }
 
-// Where a spot's land is kept: which ring's tile, and where in it.
+// Where a spot's land is kept: its tile's slot, the tile's corner and size.
 struct Place {
     found: bool,
     // Past every ring (or wholly past the map): no land here or further on
     beyond: bool,
     ring: u32,
-    // The first corner's index of the tile, the cell's corner (i north, j east), and how far across it
-    base: u32,
-    i: u32,
-    j: u32,
-    uv: vec2<f32>,
+    slot: u32,
     origin: vec2<f32>,
     size: f32,
 }
@@ -123,15 +123,9 @@ fn locate(at: vec2<f32>) -> Place {
             place.beyond = true;
             return place;
         }
-        let cell = size / CELLS;
-        let local = (at - vec2<f32>(tile) * size) / cell;
-        let ij = min(vec2<u32>(max(floor(local), vec2<f32>(0.0))), vec2<u32>(15u));
         place.found = true;
         place.ring = r;
-        place.base = slot * SIDE * SIDE;
-        place.i = ij.x;
-        place.j = ij.y;
-        place.uv = local - vec2<f32>(ij);
+        place.slot = slot;
         place.origin = vec2<f32>(tile) * size;
         place.size = size;
         return place;
@@ -139,26 +133,47 @@ fn locate(at: vec2<f32>) -> Place {
     return place;
 }
 
-fn corner_at(place: Place, di: u32, dj: u32) -> Corner {
-    return corners[place.base + (place.j + dj) * SIDE + place.i + di];
+fn corner_at(place: Place, i: u32, j: u32) -> Corner {
+    return corners[place.slot * SIDE * SIDE + j * SIDE + i];
 }
 
-// A corner's height, eased toward the coarser ring's toward its ring's outer edge (as the sheet's
-// vertex part does), or MISSING past the map.
-fn eased_height(place: Place, di: u32, dj: u32) -> f32 {
-    let c = corner_at(place, di, dj);
+// Corner (i, j)'s height, eased toward the coarser ring's toward its ring's outer edge (as the
+// sheet's vertex part does), or below MISSING past the map.
+fn eased_height(place: Place, i: u32, j: u32) -> f32 {
+    let c = corner_at(place, i, j);
     if c.ground.x < MISSING {
         return MISSING * 2.0;
     }
-    let cell = place.size / CELLS;
-    let spot = place.origin + vec2<f32>(f32(place.i + di), f32(place.j + dj)) * cell;
+    let spot = place.origin + vec2<f32>(f32(i), f32(j)) * (place.size / CELLS);
     let camera = to_game(view.world_position).xy;
     let away = max(abs(spot.x - camera.x), abs(spot.y - camera.y));
     let eased = clamp((away - settings.view.y * place.size) / max(place.size, 1.0), 0.0, 1.0);
     return mix(c.ground.x, c.ground.y, eased);
 }
 
-// The cell's triangle the spot is in: its three corners (as (di, dj) pairs) and their weights. The
+// One of a slot's highest-land numbers (0 to 15 its blocks, 16 the tile).
+fn top_of(slot: u32, k: u32) -> f32 {
+    return tops[slot * 5u + k / 4u][k % 4u];
+}
+
+// Where a ray leaves the square from `low` to `high` (cells across the tile), as a distance along
+// it, from `t` where it's at `local` (cells), changing by `rate` cells a block.
+fn leave(t: f32, local: vec2<f32>, rate: vec2<f32>, low: vec2<f32>, high: vec2<f32>) -> f32 {
+    var out = vec2<f32>(1.0e9);
+    if rate.x > 1e-9 {
+        out.x = (high.x - local.x) / rate.x;
+    } else if rate.x < -1e-9 {
+        out.x = (low.x - local.x) / rate.x;
+    }
+    if rate.y > 1e-9 {
+        out.y = (high.y - local.y) / rate.y;
+    } else if rate.y < -1e-9 {
+        out.y = (low.y - local.y) / rate.y;
+    }
+    return t + max(min(out.x, out.y), 0.0);
+}
+
+// The cell's triangle a spot is in: its three corners (as (di, dj) pairs) and their weights. The
 // sheet splits each cell from its first corner to the opposite one.
 struct Triangle {
     a: vec2<u32>,
@@ -179,18 +194,6 @@ fn triangle(uv: vec2<f32>) -> Triangle {
         t.w = vec3<f32>(1.0 - uv.y, uv.y - uv.x, uv.x);
     }
     return t;
-}
-
-// The land's height at a spot; below MISSING where there's none.
-fn height_of(place: Place) -> f32 {
-    let t = triangle(place.uv);
-    let ha = eased_height(place, t.a.x, t.a.y);
-    let hb = eased_height(place, t.b.x, t.b.y);
-    let hc = eased_height(place, t.c.x, t.c.y);
-    if min(ha, min(hb, hc)) < MISSING {
-        return MISSING * 2.0;
-    }
-    return dot(t.w, vec3<f32>(ha, hb, hc));
 }
 
 // Whether the real chunks or the far copies draw this spot (the sheet's `shown` texture).
@@ -220,15 +223,15 @@ struct Output {
 
 @fragment
 fn fragment(in: VertexOutput) -> Output {
-    // The pixel's ray, in game axes.
+    // The pixel's ray, in game axes: worked out from the camera, then turned to the world; never
+    // from two points in the world. A point on the near plane is a tenth of a block from the camera,
+    // and thousands of blocks out the world's positions are kept only to a few thousandths of a
+    // block, so the difference pointed every ray a little wrong, differently each frame [David,
+    // build 13: "its jiggly"].
     let ndc = vec2<f32>(
         (in.clip_position.x - view.viewport.x) / view.viewport.z * 2.0 - 1.0,
         1.0 - (in.clip_position.y - view.viewport.y) / view.viewport.w * 2.0,
     );
-    // Worked out from the camera, then turned to the world: never from two points in the world. A
-    // point on the near plane is a tenth of a block from the camera, and thousands of blocks out the
-    // world's positions are kept only to a few thousandths of a block, so the difference pointed
-    // every ray a little wrong, differently each frame [David, build 13: "its jiggly"].
     let on_near = view.view_from_clip * vec4<f32>(ndc, 1.0, 1.0);
     let toward = normalize(on_near.xyz / on_near.w);
     let origin = to_game(view.world_position);
@@ -239,14 +242,14 @@ fn fragment(in: VertexOutput) -> Output {
     let inner = march.inner;
     if inner.z > inner.x && all(origin.xy >= inner.xy) && all(origin.xy <= inner.zw) {
         let bound = select(inner.xy, inner.zw, ray.xy > vec2<f32>(0.0));
-        var leave = vec2<f32>(1.0e9);
+        var out = vec2<f32>(1.0e9);
         if abs(ray.x) > 1e-9 {
-            leave.x = (bound.x - origin.x) / ray.x;
+            out.x = (bound.x - origin.x) / ray.x;
         }
         if abs(ray.y) > 1e-9 {
-            leave.y = (bound.y - origin.y) / ray.y;
+            out.y = (bound.y - origin.y) / ray.y;
         }
-        t = max(t, min(leave.x, leave.y));
+        t = max(t, min(out.x, out.y));
     }
     var furthest = 1.0e7;
     if settings.fog.z > 0.5 {
@@ -254,10 +257,10 @@ fn fragment(in: VertexOutput) -> Output {
     }
     let highest = march.grid.z;
     let most = u32(march.grid.w);
-    var last_t = t;
-    var last_above = true;
-    var first = true;
     var hit = false;
+    var hit_place: Place;
+    var hit_cell = vec2<u32>(0u);
+    var hit_uv = vec2<f32>(0.0);
     for (var k = 0u; k < most; k++) {
         if t > furthest {
             break;
@@ -267,67 +270,85 @@ fn fragment(in: VertexOutput) -> Output {
             break;
         }
         let place = locate(p.xy);
-        if place.beyond && !place.found {
-            break;
+        if !place.found {
+            if place.beyond {
+                break;
+            }
+            // No tile in yet here: on, at a twentieth of the distance.
+            t += max(t * 0.05, 16.0);
+            continue;
         }
-        var gap = 1.0e9;
-        var has_land = false;
-        if place.found {
-            let h = height_of(place);
-            if h > MISSING {
-                gap = p.z - h;
-                has_land = true;
+        let cell = place.size / CELLS;
+        let local = (p.xy - place.origin) / cell;
+        let rate = ray.xy / cell;
+        let nudge = cell * 1e-3;
+        // Past the tile, if the ray is above all of it until it leaves.
+        let out_of_tile = leave(t, local, rate, vec2<f32>(0.0), vec2<f32>(CELLS));
+        if min(p.z, origin.z + ray.z * out_of_tile) > top_of(place.slot, 16u) {
+            t = out_of_tile + nudge;
+            continue;
+        }
+        // Past the block of 4 x 4 cells, likewise.
+        let block = clamp(floor(local / BLOCK), vec2<f32>(0.0), vec2<f32>(CELLS / BLOCK - 1.0));
+        let out_of_block = leave(t, local, rate, block * BLOCK, (block + 1.0) * BLOCK);
+        if min(p.z, origin.z + ray.z * out_of_block) > top_of(place.slot, u32(block.y * (CELLS / BLOCK) + block.x)) {
+            t = out_of_block + nudge;
+            continue;
+        }
+        // Across one cell: where the ray comes down onto either of its triangles.
+        let ij = clamp(floor(local), vec2<f32>(0.0), vec2<f32>(CELLS - 1.0));
+        let out_of_cell = leave(t, local, rate, ij, ij + 1.0);
+        let i = u32(ij.x);
+        let j = u32(ij.y);
+        let a = eased_height(place, i, j);
+        let b = eased_height(place, i + 1u, j);
+        let c = eased_height(place, i + 1u, j + 1u);
+        let d = eased_height(place, i, j + 1u);
+        if min(min(a, b), min(c, d)) > MISSING {
+            let uv = local - ij;
+            // Each triangle's plane: height = h0 + gu u + gv v, and which half of the cell it covers.
+            var nearest = 1.0e9;
+            for (var half = 0; half < 2; half++) {
+                let first_half = half == 0;
+                let h0 = a;
+                let gu = select(c - d, b - a, first_half);
+                let gv = select(d - a, c - b, first_half);
+                let gap = p.z - (h0 + gu * uv.x + gv * uv.y);
+                let closing = ray.z - gu * rate.x - gv * rate.y;
+                if gap >= 0.0 && closing < 0.0 {
+                    let at = t + gap / -closing;
+                    let there = uv + rate * (at - t);
+                    if at <= out_of_cell && (there.x >= there.y) == first_half {
+                        nearest = min(nearest, at);
+                    }
+                }
+            }
+            if nearest < 1.0e9 && !drawn_near((origin + ray * nearest).xy) {
+                hit = true;
+                hit_place = place;
+                hit_cell = vec2<u32>(i, j);
+                hit_uv = clamp(uv + rate * (nearest - t), vec2<f32>(0.0), vec2<f32>(1.0));
+                t = nearest;
+                break;
+            }
+            // Deep under the land: gone in under the near world, whose ground draws in front of
+            // anything further along.
+            let w = triangle(uv).w;
+            let under = select(a * w.x + d * w.y + c * w.z, a * w.x + b * w.y + c * w.z, uv.x >= uv.y);
+            if p.z < under - max(16.0, 2.0 * cell) {
+                break;
             }
         }
-        let above = gap >= 0.0;
-        if !above && last_above && !first && !drawn_near(p.xy) {
-            hit = true;
-            break;
-        }
-        // Deep under the land: it went in under the near world, whose ground draws in front of
-        // anything further along.
-        if gap < -max(16.0, place.size / CELLS * 2.0) {
-            break;
-        }
-        first = false;
-        last_above = above;
-        last_t = t;
-        var stride = t * march.steps.y;
-        if has_land {
-            stride = max(abs(gap) * march.steps.x, stride);
-        } else {
-            // No land here (not in yet, or past the map's edge): on, at a twentieth of the distance.
-            stride = max(t * 0.05, 16.0);
-        }
-        t += stride;
+        t = out_of_cell + nudge;
     }
     if !hit {
         discard;
     }
-    // Narrow in on where the ray met the land.
-    var low = last_t;
-    var high = t;
-    for (var k = 0; k < 8; k++) {
-        let mid = 0.5 * (low + high);
-        let p = origin + ray * mid;
-        let place = locate(p.xy);
-        var under = false;
-        if place.found {
-            let h = height_of(place);
-            under = h > MISSING && p.z < h;
-        }
-        if under {
-            high = mid;
-        } else {
-            low = mid;
-        }
-    }
-    let spot = origin + ray * high;
-    let place = locate(spot.xy);
-    let tri = triangle(place.uv);
-    let ca = corner_at(place, tri.a.x, tri.a.y);
-    let cb = corner_at(place, tri.b.x, tri.b.y);
-    let cc = corner_at(place, tri.c.x, tri.c.y);
+    let spot = origin + ray * t;
+    let tri = triangle(hit_uv);
+    let ca = corner_at(hit_place, hit_cell.x + tri.a.x, hit_cell.y + tri.a.y);
+    let cb = corner_at(hit_place, hit_cell.x + tri.b.x, hit_cell.y + tri.b.y);
+    let cc = corner_at(hit_place, hit_cell.x + tri.c.x, hit_cell.y + tri.c.y);
     let w = tri.w;
     var top_colour = ca.top.rgb * w.x + cb.top.rgb * w.y + cc.top.rgb * w.z;
     var side_colour = ca.side.rgb * w.x + cb.side.rgb * w.y + cc.side.rgb * w.z;
@@ -343,7 +364,7 @@ fn fragment(in: VertexOutput) -> Output {
     side_colour = select(side_colour, vec3<f32>(0.5), grey);
     // Who drew this: the march blue, toward purple further out, its lighting kept.
     if settings.view.x > 0.5 {
-        top_colour = mix(vec3<f32>(0.3, 0.65, 1.0), vec3<f32>(0.55, 0.2, 0.75), min(f32(place.ring) / 6.0, 1.0));
+        top_colour = mix(vec3<f32>(0.3, 0.65, 1.0), vec3<f32>(0.55, 0.2, 0.75), min(f32(hit_place.ring) / 6.0, 1.0));
         side_colour = top_colour;
     }
     let sea = top_colour * settings.faces.x;

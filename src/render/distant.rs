@@ -88,11 +88,7 @@ pub struct DistantSettings {
     /// Drawn by the march instead of the sheet (`march.rs`, `docs/far-view.md`): each pixel's ray finds
     /// the same land the sheet is made of. [David, 2026-11-02]
     pub march: bool,
-    /// The march's steps: how far a step goes, as a share of the height above the land (lower is
-    /// safer over steep land, and slower); the shortest step, as a share of the distance; and the
-    /// most steps a pixel takes.
-    pub march_step: f32,
-    pub march_shortest: f32,
+    /// The most steps a pixel's ray takes (each past a tile, a block of cells, or one cell).
     pub march_most: u32,
 }
 
@@ -108,9 +104,7 @@ impl Default for DistantSettings {
             height_tint: 0.15,
             slope_match: 1.0,
             march: false,
-            march_step: 0.4,
-            march_shortest: 0.002,
-            march_most: 300,
+            march_most: 200,
         }
     }
 }

@@ -650,15 +650,9 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
                  (docs/far-view.md). Flip it to compare. Who drew this shows the march blue, toward purple further out.",
             );
             ui.add_enabled_ui(settings.march, |ui| {
-                ui.add(crate::debug::Slider::new(&mut settings.march_step, 0.1..=1.0).text("march: step")).on_hover_text(
-                    "How far a ray steps, as a share of its height above the land. Lower is safer over steep land (a thin ridge\n\
-                     isn't stepped over) and slower.",
-                );
-                ui.add(crate::debug::Slider::new(&mut settings.march_shortest, 0.0005..=0.02).logarithmic(true).text("march: shortest step")).on_hover_text(
-                    "The shortest step, as a share of the distance. Lower is more exact along the land's edge against the sky, and slower.",
-                );
-                ui.add(crate::debug::Slider::new(&mut settings.march_most, 32..=2000).logarithmic(true).text("march: most steps")).on_hover_text(
-                    "The most steps a pixel takes. Too few and the furthest land, or land seen at a low angle, goes missing (sky shows).",
+                ui.add(crate::debug::Slider::new(&mut settings.march_most, 16..=2000).logarithmic(true).text("march: most steps")).on_hover_text(
+                    "The most steps a pixel's ray takes: each one past a tile it's wholly above, past a block of 4 x 4 cells, or\n\
+                     across one cell. Too few and the furthest land, or land seen at a low angle, goes missing (sky shows).",
                 );
             });
         });
