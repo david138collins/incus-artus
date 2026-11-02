@@ -364,6 +364,25 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
 - **REMIND DAVID when magic design starts** [IDEA 2026-10-26]: **"spell lego"** à la Noita, where you can
   concoct spells irresponsibly. Bizarre, useless, dumb and dangerous spells that are amusing to make and
   watch may be a great feature.
+- **[IDEA, David 2026-11-01] Spellmaking, enchanting and wands:** "i want you to be able to make spells
+  and enchantments a bit like morrwind or daggerfall or noita, with unpredictable results. noita kept me
+  playing like a crackhead just to make cooler wands. also wands work like this, ands staffs, you can
+  put spells in them and the base item has modifiers too. fennling, like from ragnarok."
+  - **Spells and enchantments are made**, as in Morrowind's and Daggerfall's spellmakers and Noita's
+    wands, **with unpredictable results**.
+  - **Wands and staffs hold spells,** and the base item has modifiers of its own, so the wand matters
+    as well as what's in it.
+  - **"Fennling, like from ragnarok":** not yet clear what it names (Counsel asked David). Ragnarok
+    Online's refining (+1 to +10, with a chance of breaking) and its card slots both fit.
+  - *Counsel* [PROPOSED]:
+    - **The base item is a wand's frame:** wood or metal (the vault's wands list) sets its slots, its
+      cast speed, how much it spreads or shuffles, and how much energy it holds, as Noita's wands do.
+      The spells go in the slots.
+    - **Unpredictable but not arbitrary:** each made spell or enchantment rolls once when it's made, so
+      it's a real thing you can keep, trade or regret. Odd combinations misbehave in ways you learn.
+    - **It's spell lego** (above, `vision/watch-list.md` item 18) and the FX Lab's pieces, so the
+      spellmaker and the effects can share one system, drawn with the sprite particles
+      (`docs/decisions.md`, objects, "Sprites for effects and spells").
 
 ## Economy  [IDEA]
 

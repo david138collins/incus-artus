@@ -624,6 +624,17 @@ Reference: `Art/quartile minecraft illustration.png`
       regrowth after it is worked out from the time since. Slow changes across whole regions (a
       forest spreading, a pasture overgrazed) are kept as coarse maps that the plants are then
       projected from.
+      **Sprites for effects and spells** [IDEA, David 2026-11-01, after seeing his flame in the game:
+      "i did the most haphazard bs in aseprite real quick and that flame sprite animation looks
+      terrific"]: "a lot of spells can throw sprites or cause sprites. ive seen really good bouncing
+      particles that are sprites."
+      *Counsel* [PROPOSED]: one sprite-particle system for all of it: the flame, the leaf burst from a
+      felled tree, chips from mining, brazier sparks, splashes, spells. David draws the strips, and each
+      effect is a recipe: how many, how fast, how bouncy, how long they last, the light they carry.
+      Bouncing is a whole-number check of the cell a particle moves into, so thousands can run on the
+      graphics card (Noita and Terraria get a lot from this). A spell sprite carries a moving light, the
+      third kind already planned, so a fireball in a pitch-black cave lights the walls as it flies. It's
+      the FX Lab's particles (`vision/toy-factory.md`).
       **Zones that are areas, not blueprints** [IDEA, David 2026-10-30]: a pasture is a zone, which is
       also a kind of building (a building that's an area). It probably has no blueprint, but a script of
       its own: a fence along the border, a gate you place, maybe a barn (how is still open). There may be
