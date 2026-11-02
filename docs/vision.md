@@ -372,8 +372,9 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     wands, **with unpredictable results**.
   - **Wands and staffs hold spells,** and the base item has modifiers of its own, so the wand matters
     as well as what's in it.
-  - **"Fennling, like from ragnarok":** not yet clear what it names (Counsel asked David). Ragnarok
-    Online's refining (+1 to +10, with a chance of breaking) and its card slots both fit.
+  - **Fennling** (David): "fennling is the skill of transferring charge between wands. saves you from
+    carrying multiple." A skill that moves charge from one wand into another, so you can drain spare
+    wands into the one you carry instead of carrying several.
   - *Counsel* [PROPOSED]:
     - **The base item is a wand's frame:** wood or metal (the vault's wands list) sets its slots, its
       cast speed, how much it spreads or shuffles, and how much energy it holds, as Noita's wands do.
