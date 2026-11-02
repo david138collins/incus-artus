@@ -82,7 +82,8 @@ pub struct TerrainShaderSettings {
     /// Survey view: x on, y every how many levels, z darkness, w sea level.
     pub survey: Vec4,
     /// Underground (`sky_light.rs`): x daylight on (else everything fully lit), y the test lantern's
-    /// reach (blocks; 0 off), z its brightness at its middle.
+    /// reach (blocks; 0 off), z its brightness at its middle, w how bright the sky is (0 to 1: daylight
+    /// times this, a stand-in for night).
     pub underground: Vec4,
     /// Placed light (`placed_light.rs`, in the vertex): x on, y how much it flickers (0 to 1), z how
     /// fast (wavers a second).

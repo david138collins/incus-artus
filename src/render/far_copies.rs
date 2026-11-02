@@ -343,29 +343,39 @@ fn make_copy(mut job: CopyJob) -> Made {
     };
     let (bottom, top) = ((lowest - BELOW).max(WORLD_BOTTOM), highest + 1);
     let sky_at = |x: i32, y: i32| if (0..width).contains(&x) && (0..width).contains(&y) { sky[(x + y * width) as usize] } else { i32::MIN };
+    let reach = job.reach.clamp(1, super::sky_light::MOST_REACH);
+    // Each column is only looked into down to daylight's reach below the lowest open air beside it:
+    // deeper than that nothing is lit, and from outside it's solid ground. (Looking through every
+    // block from the lowest ground up made a mountain tile take seconds.)
+    let lowest_beside = |x: i32, y: i32| {
+        let here = sky_at(x, y);
+        [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|&(dx, dy)| sky_at(x + dx, y + dy)).filter(|&h| h != i32::MIN).fold(here, i32::min)
+    };
+    let from: Vec<i32> = (0..width * width).map(|k| (lowest_beside(k % width, k / width) - reach - 1).max(bottom)).collect();
+    let from_at = |x: i32, y: i32| from[(x + y * width) as usize];
     let block_at = |x: i32, y: i32, z: i32| {
         let at = IVec3::new(corner.x + x, corner.y + y, z);
         chunks.get(&ChunkPos::of_block(at)).map_or(BlockId::AIR, |chunk| chunk.get(at))
     };
-    // Covered: below its column's sky height, in the copied range, and not solid.
+    // Covered: below its column's sky height, in the range looked into, and not solid.
     let covered = |p: IVec3| {
         let height = sky_at(p.x, p.y);
-        height != i32::MIN && p.z >= bottom && p.z <= height && !is_opaque(block_at(p.x, p.y, p.z))
+        height != i32::MIN && p.z >= from_at(p.x, p.y) && p.z <= height && !is_opaque(block_at(p.x, p.y, p.z))
     };
     let open = |p: IVec3| {
         let height = sky_at(p.x, p.y);
         height != i32::MIN && p.z > height
     };
 
-    // 2. Daylight in covered air: one step in from the open, a step darker each block on.
-    let reach = job.reach.clamp(1, super::sky_light::MOST_REACH);
+    // 2. Daylight in covered air: one step in from the open, a step darker each block on. Only air
+    // with open air beside it starts: lower than the lowest open air beside its column, there's none.
     let sides = [IVec3::X, IVec3::NEG_X, IVec3::Y, IVec3::NEG_Y, IVec3::Z, IVec3::NEG_Z];
     let mut steps: HashMap<IVec3, i32> = HashMap::new();
     let mut queue = VecDeque::new();
     for y in 0..width {
         for x in 0..width {
             let height = sky_at(x, y);
-            for z in bottom..=height {
+            for z in (lowest_beside(x, y) + 1).max(from_at(x, y))..height {
                 let p = IVec3::new(x, y, z);
                 if covered(p) && sides.iter().any(|&side| open(p + side)) {
                     steps.insert(p, 1);
@@ -405,13 +415,11 @@ fn make_copy(mut job: CopyJob) -> Made {
             if height == i32::MIN {
                 continue;
             }
-            for z in bottom..=(high_cell + 1) * s - 1 {
+            // Below where the column is looked into, it counts as solid; above its sky height it's open
+            // air, counted a cell at a time.
+            let last = (high_cell + 1) * s - 1;
+            for z in from_at(x, y)..=height.min(last) {
                 let tally = &mut tallies[index(x / s, y / s, z.div_euclid(s) - low_cell)];
-                if z > height {
-                    tally.air += 1;
-                    tally.light += FULL as u32;
-                    continue;
-                }
                 let id = block_at(x, y, z);
                 if is_opaque(id) {
                     if tally.top.is_none_or(|(at, _)| z > at) {
@@ -424,6 +432,12 @@ fn make_copy(mut job: CopyJob) -> Made {
                     tally.air += 1;
                     tally.light += lit(IVec3::new(x, y, z));
                 }
+            }
+            for level in (height + 1).max(bottom).div_euclid(s)..=high_cell {
+                let open = ((level + 1) * s).min(last + 1) - (level * s).max(height + 1).max(bottom);
+                let tally = &mut tallies[index(x / s, y / s, level - low_cell)];
+                tally.air += open as u32;
+                tally.light += open as u32 * FULL as u32;
             }
         }
     }
@@ -677,7 +691,8 @@ pub fn update_far_copies(
                 if nearest <= edge || furthest > limit {
                     continue;
                 }
-                let drawn = state.tiles.contains_key(&key);
+                // Drawn or being made: kept until well past the line, so moving doesn't throw it away.
+                let drawn = state.tiles.contains_key(&key) || state.making.contains_key(&key);
                 let distance = key.middle().distance(at.truncate()) * if drawn { SWITCH_PAST } else { 1.0 / SWITCH_PAST };
                 if scale == 1 || scale <= scale_for(distance, settings.sharpness, fov, height) {
                     *wanted.entry(key).or_insert(false) |= force;
@@ -691,6 +706,9 @@ pub fn update_far_copies(
         }
         let mut queue: Vec<TileKey> = wanted.keys().copied().filter(|key| !state.tiles.contains_key(key) && !state.making.contains_key(key)).collect();
         queue.sort_by(|a, b| b.middle().distance(at.truncate()).total_cmp(&a.middle().distance(at.truncate())));
+        if wanted.len() != state.wanted.len() {
+            info!("Far copies: {} tiles wanted, {} to make", wanted.len(), queue.len());
+        }
         state.queue = queue;
         state.wanted = wanted;
         state.update_covered();
@@ -711,6 +729,7 @@ pub fn update_far_copies(
         if state.times.len() > 64 {
             state.times.pop_front();
         }
+        info!("Far copy {} blocks a cell at ({}, {}): {:.0} ms, {} sections, {} chunks showing", key.scale, key.x * key.scale * CHUNK_SIZE, key.y * key.scale * CHUNK_SIZE, made.ms, made.sections.len(), made.hot.len());
         state.hot.extend(made.hot);
         if made.sections.is_empty() {
             state.tiles.insert(key, Tile::Empty);

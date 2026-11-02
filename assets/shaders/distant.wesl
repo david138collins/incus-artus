@@ -43,7 +43,7 @@ struct DistantShaderSettings {
     foot: array<vec4<f32>, 9>,
     step: array<vec4<f32>, 9>,
     // x the "who drew this" view on (`docs/caves.md` 13.7), y where a ring's easing starts, in its
-    // own tiles (so a corner's ring can be told from its easing)
+    // own tiles (so a corner's ring can be told from its easing), z how bright the sky is (0 to 1)
     view: vec4<f32>,
 }
 
@@ -176,6 +176,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
             colour = colour * (1.0 - settings.survey.z);
         }
     }
+    // How bright the sky is: the far land dimmed with the near (a stand-in for night).
+    colour = colour * settings.view.z;
     if settings.fog.z > 0.5 {
         let distance = length(in.world_position - view.world_position);
         colour = mix(colour, settings.fog_color.rgb, smoothstep(settings.fog.x, settings.fog.y, distance));

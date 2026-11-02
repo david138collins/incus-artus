@@ -791,3 +791,35 @@ were inside the real chunks. The sites now follow the render distance: 600, the 
   - a 1 × 1 pillar shows when an eighth must be solid and not when half must;
   - cells are coarser further away and finer the sharper;
   - a tile's nearest and furthest chunks.
+
+### 13.14 Build 4: why build 3 showed no copies, and a stand-in night (David, 2026-11-02)
+
+**What David saw in build 3:** "i did not see the caves turn green, they went from blue to yellow".
+The log couldn't say why, since copies wrote nothing to it. The likely reasons, from the code and a
+timing test:
+- **Copies were slow in mountains:** each column was looked through from below the lowest ground in
+  the tile up, and every block of open air above it one by one. A steep test tile at 8 blocks a cell
+  took 431 ms, and the real chunks cost more to make than the test map's.
+- **Copies being made were thrown away as you moved:** a tile's size was chosen afresh each chunk you
+  crossed, and only drawn tiles kept their size until well past the line. So while flying, a copy
+  being made could be dropped for one of another size, again and again.
+
+**Build 4:**
+- Each column is looked into only down to daylight's reach below the lowest open air beside it
+  (deeper is unlit, and solid from outside), and open air above is counted a cell at a time. The same
+  test tile: 149 ms.
+- A tile being made keeps its size as a drawn one does.
+- The log now says how many tiles are wanted, and each copy made: its size, where, how long it took,
+  and how many of its chunks show.
+
+**The stand-in night** (David: "you can add the how bright the sky is test slider", "a night button"):
+- **What it is:** "how bright the sky is" (0 to 1), with "night" (0.05) and "day" (1) buttons, under
+  "Light underground" on the Render page.
+- **What it dims:** all daylight, the near blocks, the far copies and the far surface alike, as well
+  as objects' daylight, and the sky's and fog's colour (toward a night blue).
+- **What it doesn't:** placed light. So turned down, braziers light the ground round them outside, as
+  they do in caves.
+- **Why it was needed:** the brazier's light is added to daylight and capped at full, so in full
+  daylight it has nothing to add (David: "the brazieres light doesn't work outside").
+- **Later:** the real night, with the day and the moons (`docs/decisions.md`, "Light is precious"),
+  takes its place.

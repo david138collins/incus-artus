@@ -79,8 +79,9 @@ pub struct ObjectsDrawn {
     waiting: HashSet<ChunkPos>,
     /// One material for each texture and colour of light (16 levels each of red, green, blue).
     materials: LitMaterials,
-    /// The object registry's revision drawn with.
+    /// The object registry's revision drawn with, and how bright the sky was (as bits).
     revision: Option<u64>,
+    sky: Option<u32>,
 }
 
 /// A sprite playing: its frames, how long each shows, and which it starts on.
@@ -164,6 +165,12 @@ pub fn draw_objects(
     again.extend(meshing.relight.drain());
     let waiting = std::mem::take(&mut drawn.waiting);
     again.extend(waiting);
+    // The sky brightened or dimmed (the stand-in for night): every object lit again.
+    if drawn.sky != Some(settings.sky_brightness.to_bits()) {
+        drawn.sky = Some(settings.sky_brightness.to_bits());
+        let all: Vec<ChunkPos> = drawn.drawn.keys().copied().collect();
+        again.extend(all);
+    }
     if drawn.revision != Some(objects.revision()) {
         drawn.revision = Some(objects.revision());
         let all: Vec<ChunkPos> = drawn.drawn.keys().copied().chain(placed.chunks()).collect();
@@ -257,7 +264,7 @@ pub fn draw_objects(
             // Lit by its cell's daylight and the placed light at its middle (its own among it), eased
             // as the terrain shader eases them, in 16 steps of each colour.
             let level = if settings.sky_light { daylight_at(&world, &terrain.opaque, &mut meshing.sky, object.cell(), settings.sky_reach) } else { FULL };
-            let daylight = (level as f32 / FULL as f32).powi(2);
+            let daylight = (level as f32 / FULL as f32).powi(2) * settings.sky_brightness.clamp(0.0, 1.0);
             let middle = (feet + Vec3::Z * def.shape_or_block().size.z as f32 / 32.0).floor().as_ivec3();
             let lit = if settings.placed_light { placed_at(&placed, middle) } else { Vec3::ZERO };
             let light = (Vec3::splat(daylight) + lit).min(Vec3::ONE);

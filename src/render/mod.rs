@@ -92,6 +92,7 @@ impl Plugin for RenderPlugin {
             .add_systems(Update, performance::record_frame_time)
             .add_systems(Last, frame_cap::cap_frames)
             .insert_resource(ClearColor(SKY_COLOUR))
+            .add_systems(Update, dim_sky.before(update_shader_settings))
             .add_systems(Startup, setup_terrain)
             .add_systems(
                 Update,
@@ -122,6 +123,19 @@ impl Plugin for RenderPlugin {
 
 /// Placeholder sky (also the fog colour).
 const SKY_COLOUR: Color = Color::srgb(0.53, 0.62, 0.75);
+/// The sky (and the fog) with no daylight at all: the stand-in night's (`RenderSettings::sky_brightness`).
+const NIGHT_SKY: Color = Color::srgb(0.02, 0.025, 0.05);
+
+/// The sky's colour (also the fog's) follows how bright the sky is, from the night's to the day's.
+fn dim_sky(settings: Res<RenderSettings>, mut clear: ResMut<ClearColor>) {
+    if !settings.is_changed() {
+        return;
+    }
+    let colour = NIGHT_SKY.mix(&SKY_COLOUR, settings.sky_brightness.clamp(0.0, 1.0));
+    if clear.0 != colour {
+        clear.0 = colour;
+    }
+}
 
 /// Tunables for drawing (shown on the "Render" debug page, and saved in "everything" presets).
 #[derive(Resource, Clone, Serialize, Deserialize)]
@@ -176,6 +190,9 @@ pub struct RenderSettings {
     pub placed_light: bool,
     pub flicker: f32,
     pub flicker_speed: f32,
+    /// How bright the sky is (0 to 1): daylight everywhere, near and far, times this. A stand-in for
+    /// night until the day and the moons are built (David, 2026-11-02: "a night button").
+    pub sky_brightness: f32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -219,6 +236,7 @@ impl Default for RenderSettings {
             placed_light: true,
             flicker: 0.15,
             flicker_speed: 1.5,
+            sky_brightness: 1.0,
         }
     }
 }
@@ -259,7 +277,7 @@ impl RenderSettings {
             // light only (the seam probe's plain grey).
             options: Vec4::new(1.0, if self.light_only { 1.0 } else { 0.0 }, 0.0, 0.0),
             survey: self.survey_for_shader(),
-            underground: Vec4::new(if self.sky_light { 1.0 } else { 0.0 }, self.lantern.max(0.0), self.lantern_brightness, 0.0),
+            underground: Vec4::new(if self.sky_light { 1.0 } else { 0.0 }, self.lantern.max(0.0), self.lantern_brightness, self.sky_brightness.clamp(0.0, 1.0)),
             placed: Vec4::new(if self.placed_light { 1.0 } else { 0.0 }, self.flicker.clamp(0.0, 1.0), self.flicker_speed.max(0.0), 0.0),
         }
     }
@@ -502,6 +520,18 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         let placed = settings.placed_light;
         ui.add_enabled(placed, crate::debug::Slider::new(&mut settings.flicker, 0.0..=1.0).text("how much it flickers (0 steady)"));
         ui.add_enabled(placed && settings.flicker > 0.0, crate::debug::Slider::new(&mut settings.flicker_speed, 0.1..=8.0).text("how fast it flickers"));
+        ui.horizontal(|ui| {
+            ui.add(crate::debug::Slider::new(&mut settings.sky_brightness, 0.0..=1.0).text("how bright the sky is")).on_hover_text(
+                "A stand-in for night until the day and the moons are built: all daylight, near and far, and the sky's colour,\n\
+                 dimmed by this. Placed light (braziers) isn't, so turned down they light the ground round them outside too.",
+            );
+            if ui.small_button("night").clicked() {
+                settings.sky_brightness = 0.05;
+            }
+            if ui.small_button("day").clicked() {
+                settings.sky_brightness = 1.0;
+            }
+        });
         was != (settings.sky_light, settings.sky_reach)
     };
     // The daylight is kept in the meshes: every one made again.

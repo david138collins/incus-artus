@@ -477,7 +477,8 @@ pub struct DistantShaderSettings {
     pub foot: [Vec4; TABLE_VEC4S],
     pub step: [Vec4; TABLE_VEC4S],
     /// x the "who drew this" view on (`docs/caves.md` 13.7), y where a ring's easing starts, in its
-    /// own tiles (`EASE_FROM`: the shader tells a corner's ring by it).
+    /// own tiles (`EASE_FROM`: the shader tells a corner's ring by it), z how bright the sky is (the
+    /// near terrain's stand-in for night: `RenderSettings::sky_brightness`).
     pub view: Vec4,
 }
 
@@ -734,7 +735,7 @@ pub fn update_distant_material(
         material.settings.fog_color = Vec4::new(fog.red, fog.green, fog.blue, 1.0);
         material.settings.fog = Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, if render.seam_probe { 1.0 } else { 0.0 });
         material.settings.survey = render.survey_for_shader();
-        material.settings.view = Vec4::new(if render.debug_view == super::DebugView::WhoDrew { 1.0 } else { 0.0 }, EASE_FROM, 0.0, 0.0);
+        material.settings.view = Vec4::new(if render.debug_view == super::DebugView::WhoDrew { 1.0 } else { 0.0 }, EASE_FROM, render.sky_brightness.clamp(0.0, 1.0), 0.0);
         // The lighting, from the same settings as the near ground's (lit in the shader).
         Shade::new(&render, &distant, &light).uniforms(&mut material.settings, distant.finest_cell as f32);
     }

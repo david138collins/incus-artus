@@ -24,7 +24,7 @@ struct TerrainShaderSettings {
     // Survey view: x on, y every how many levels, z darkness, w sea level
     survey: vec4<f32>,
     // Underground (src/render/sky_light.rs): x daylight on, y the test lantern's reach (blocks; 0 off),
-    // z its brightness
+    // z its brightness, w how bright the sky is (0 to 1: a stand-in for night)
     underground: vec4<f32>,
     // Placed light (src/render/placed_light.rs, in the vertex): x on, y how much it flickers, z how fast
     placed: vec4<f32>,
@@ -285,6 +285,8 @@ fn underground_light(daylight: f32, placed: vec3<f32>, world_position: vec3<f32>
     if settings.underground.x > 0.5 {
         lit = daylight * daylight;
     }
+    // How bright the sky is: all daylight dimmed by it (a stand-in for night, David 2026-11-02).
+    lit = lit * settings.underground.w;
     let reach = settings.underground.y;
     if reach > 0.0 {
         let near = 1.0 - clamp(length(world_position - view.world_position) / reach, 0.0, 1.0);

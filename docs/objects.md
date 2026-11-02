@@ -339,11 +339,16 @@ off the sprite, while its still visible". He'd placed 17 braziers, and only the 
 the shader, so the 9th-nearest's glow switches off as you walk. **Left for stop 3** (David: "lets just
 wait for objects step 3"), whose light is worked into the faces and has no such limit.
 
-## 10b. Stop 3, light through the air (David, 2026-11-01) [BUILT, not yet tried]
+## 10b. Stop 3, light through the air (David, 2026-11-01) [BUILT; David: "excellent. i can see them from far away sparkling."]
 
 David: "you may proceed with step 3, but don't worry about implementing a torch or a wall light just
 now, i should be able to build and register them myself from the registrar". He can: a model, its
 sprite and its light are all set in the Objects tab. Only placing on walls is still to come.
+
+**Outside in the day (2026-11-02):** David: "the brazieres light doesn't work outside". Placed light is
+added to daylight and capped at full, so in full daylight it has nothing to add. It shows outside once
+the sky is dim: for now the stand-in night, "how bright the sky is" on the Render page
+(`docs/caves.md` 13.14); later the real night.
 
 - **Placed light** (`render/placed_light.rs`), the second kind of light in `docs/caves.md` section
   11:
