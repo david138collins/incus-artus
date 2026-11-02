@@ -190,6 +190,9 @@ There are two candidates, tried on one mouth (`vision/watch-list.md`, item 17b):
 My guess: holes in the canvas, since it reuses the far sheets, their rings and the light. It has to be
 measured, though. The probe needs a mouth to look at, so it comes after stop 1.
 
+**[2026-11-02] Replaced:** coarse copies won, as one path for caves, builds and objects alike (section
+13). The far view treats everything the same, with no IDs (David).
+
 How urgent it is depends on the first kind of cave:
 - A waterfall cave's mouth is a shaft, seen from above: the river vanishes into a dark spot a few
   blocks wide. In the far view that's a few dark pixels at most, which a darker cell on the sheet can
@@ -244,6 +247,8 @@ what's most unknown.
 
 - The 17b probe, on stop 1's test mouth. Both candidates behind a switch, measured, and one chosen
   with David.
+- **Replanned 2026-11-02:** one path, far copies, for caves, builds and objects alike, with build
+  numbers first. See section 13. The two-candidate probe is gone.
 
 ### Stop 5: the waterfall cave (about 900 lines, petering out included)
 
@@ -524,3 +529,181 @@ like a magic braziere from a cult lair or glow-lichen. how would you implement a
   - none through rock to a pocket beside open air;
   - full where nothing is worked out;
   - an edit marking the sections within 16 blocks.
+
+## 13. Stop 4, far away: one path for everything that isn't the plain recipe  [PLANNED 2026-11-02, Builder; waiting for David's go-ahead]
+
+David's principle (`docs/decisions.md`, the Metaphysics Engine): the renderer treats everything the
+same, and nothing gets an ID for it. The cleverness lives in one layer before it. Builder's assessment
+(2026-11-02, through Counsel) chose coarse copies over a second sheet, so stop 4 is one path, not a
+probe of two candidates.
+
+### 13.1 The bands
+
+| Distance | What draws the plain land | What draws where the world differs from the recipe |
+|---|---|---|
+| 0 to 1,024 blocks (render distance) | real chunks | real chunks |
+| 1,024 to about 4,000 | the smooth sheet | **far copies** (this stop) |
+| past about 4,000 | the sheet | nothing yet (big builds later: section 13.10) |
+
+"Differs from the recipe" covers caves from the plan, holes, mines, builds, felled trees and placed
+objects, all in the same way.
+
+### 13.2 Build numbers (first, on their own)
+
+David: "we should start labelling builds sequentially". It's the cheap half of recipe versions
+(`docs/worldgen.md`: during pre-alpha a new build means new worlds; an old world only has to be
+recognised and warned about, not converted).
+- **The number:** a small file in the repository, `BUILD`, holding one whole number. Builder adds one
+  each time a build with code changes is handed to David to play, in the commit before the launch.
+  The first is build 1. A launch with changes not yet committed shows "build 12 + changes", as the
+  logs already show "5d9239c + changes".
+- **Where it shows:**
+  - the first line of every session, crash and freeze log ("build 12, 5d9239c");
+  - on screen (where is David's call: 13.11);
+  - written into each saved world's `world.toml` (`build = 12`, beside the `game_version` that's
+    already there).
+- **Loading an older world:** it loads, with a warning: "nice25 was made in build 11; this is build
+  12. Land the recipe makes may have moved since. Start a new world to be sure." A world from before
+  build numbers says "made before build numbers". No conversion.
+- About 80 lines.
+
+### 13.3 Which chunks get a copy
+
+The layer before the renderer asks the chunks' question, "what's here?", coarsely, and only where
+the answer can differ from the sheet:
+- **Changed chunks:** the list the save already keeps (all of them are in memory).
+- **The cave plan's boxes** (section-sized, already sorted for the carve), only those whose height
+  range meets the ground's in that column. A tunnel deep underground changes nothing seen from
+  outside.
+- **Then, once a chunk is made, the test that needs no IDs:** keep a copy only if the chunk has
+  covered air that daylight reaches (daylight's own walk), or if it's a changed chunk with anything
+  above the ground. Mouths, open shafts, pits and builds pass. Deep tunnels and deep mines don't.
+- **Round each one:** its 8 neighbouring chunks are copied too (plain ground, cheap), so a copy's
+  edge always meets plain ground, never a cliff or a gorge.
+- **Range:** from render distance out to "how far copies reach" (up to 4,096 blocks, where the hand-off
+  mask ends).
+
+### 13.4 Making a copy (in the background, nearest first)
+
+1. **The chunk at full detail,** the same way streaming makes it: the recipe carved by the plan, or
+   the changed chunk itself.
+2. **Daylight at full detail:** the same walk the near chunks use.
+3. **Coarsened** into copy blocks 1, 2, 4 or 8 blocks across (the sharpness setting, 13.6, chooses
+   which, by distance):
+   - a copy block is solid if at least "how much must be solid" of it is (a half to start);
+   - it takes the colour of the block most of it is made of;
+   - each face takes the **average daylight** of the cells it faces into. So an opening bigger
+     than a copy block stays a hole, dark inside, and a smaller one leaves the face solid but
+     darker by its share. It's one rule, like a texture's mipmap. The darkness is carried as daylight,
+     not baked into the colour, so day and night still work later.
+4. **Meshed by the near mesher and drawn with the near shader,** scaled up: the same faces, the same
+   light, the same fog. Teaching the mesher a coarse grid is the main new piece of code.
+5. **Skirts:** short walls hung down from the copy's outer edge, below the ground, so no sliver of sky
+   shows where its steps meet the smooth sheet.
+
+### 13.5 Drawing it, and the hand-offs
+
+- **The cut:** a copy marks its chunks in the hand-off mask the real chunks already use, so the sheet
+  isn't drawn there. A lone copy marks itself (today a chunk is marked only if all 8 round it are
+  drawn, which is changed for copies).
+- **In order:** a copy's chunks are marked only once it's drawn, and an old copy, or the sheet, stays
+  until its replacement is in, as tiles and real chunks already do. So nothing opens to the sky and
+  nothing covers a mouth for a frame.
+- **Coarser with distance:** a copy is made again at the next size when it crosses a band. It switches
+  a little past the line, so walking back and forth on the line doesn't flip it. The old copy stays
+  until the new one is in.
+- **Real chunks take over at render distance:** a copy is dropped once its real chunk is drawn.
+- **Made again when the chunk changes** (an edit near the edge, later villagers building far away).
+
+### 13.6 Controls (the Render page; greyed when copies are off)
+
+- **far copies on / off** (to compare, and the A/B for every test);
+- **sharpness** (David's slider): how many pixels a copy block should take on screen, 1 to 4 (2 to
+  start). Higher is crisper and costs more faces. Below about a pixel a block only shimmers, so the
+  slider stops there. The copy block's size, 1 to 8 blocks, follows from this and the distance;
+- **how much must be solid:** an eighth to a half. Lower keeps thin walls and pillars; higher keeps
+  small holes open. It's the thin-wall test's slider;
+- **how far copies reach** (blocks, up to 4,096).
+
+### 13.7 The "who drew this" view
+
+A debug view (on the Render page, beside the survey view) that colours every pixel by what drew it,
+with the lighting kept so shapes still read:
+- real chunks one colour;
+- far copies another, a shade for each copy block size;
+- skirts another;
+- the sheet another, a shade for each ring.
+
+Wrong hiding shows at a glance: a mouth painted in the sheet's colour, or a copy with sheet showing
+over its edge. With same-spot respawns, it gives before-and-after screenshots. About 80 lines.
+
+### 13.8 Objects (the brazier, later furniture and statues)
+
+- **Through the same path, as blocks.** Objects are saved in their chunks, so a chunk with objects is
+  a changed chunk and gets a copy. When it's coarsened, each object counts by its **shape**, the
+  1/16-block pixels already worked out from its model for collision, in its model's average colour.
+  It adds to the solid share of the copy blocks it's in, like any block.
+- **So they drop out by size, not by a distance setting:**
+  - a brazier (6 × 6 × 24 pixels, under half a block wide) is under half a pixel at 1,024 blocks, so
+    it's gone from the copies at once, as it should be;
+  - a 3-block statue lasts until its copy blocks are bigger than it;
+  - a big object (a wagon, a ship later) lasts like a small building.
+- **Not as models far away:** a model past render distance is a few pixels, and drawing each one costs
+  a draw. Within render distance they stay real models, as now.
+- **Sprites and light:** a flame sprite stops at render distance. An object's light far away is a far
+  light, which waits for night (13.10).
+
+### 13.9 Test sites, and what's measured
+
+A button places the test sites in a line from you, each at three distances: inside render distance
+(about 600 blocks), on the 1,024 edge, and in the copies' band (about 1,500 and 3,000 blocks). They're
+saved with the world, so a same-spot respawn sees them again. The sites:
+- **a mouth in a cliff:** the test cave, aimed into a slope;
+- **a mouth on a copy's chunk edge:** the test cave started a block from a chunk's side;
+- **a gorge with a pillar:** a 1×1 pillar 20 tall at the bottom of the narrowest river valley near the
+  line (found by hand), where the sheet may bridge the gorge;
+- **a thin wall:** a 1-block-thick wall, 20 long and 10 high, beside a 1×1 pillar;
+- **a pit:** a 6 × 6 hole dug 20 deep, seen from above (the darker-cell case).
+
+**The fast flight:** the soak test's flight, along the line of sites at top speed, watching for sky
+showing through or a mouth covered as copies come in and change size.
+
+**Measured** (on the Performance page):
+- copies kept, and being made;
+- the time to make one (least, average, most);
+- their faces, and their memory;
+- the frame rate, 1% low and worst frame, with copies on and off, at sharpness 1, 2 and 4, from the
+  first site looking down the line.
+
+### 13.10 Not in stop 4
+
+- **Far lights** (a brazier glowing in a cave mouth at night, a castle's windows): they wait for night.
+  When they come, a far light is shown only where its building is drawn, so a window light never
+  floats over a castle that isn't there.
+- **Big builds past 4,000 blocks** (a keep is still a dozen pixels tall at 8,000): coarser copies, or
+  the sheet taking a build's height and colour. Not designed yet.
+- **Trees** (none exist yet): far trees as sprites from the recipe's list, and a felled tree's sprite
+  skipped by its own blocks, not by its whole chunk.
+- **Far changed chunks kept on disk** with only their copies in memory: when towns make the count grow.
+- **The same gap at the 1,024 edge today:** the sheet is drawn one chunk deep under the real chunks'
+  edge, and its cliff triangle can fill a mouth in that last chunk. The test sites check it; if David
+  sees it, the copies' cut covers it too.
+
+### 13.11 The order, the size, and questions for David
+
+1. Build numbers (13.2), about 80 lines. A launch, so David sees the number.
+2. The "who drew this" view and the test sites, about 200 lines. A launch, to see today's gap at the
+   1,024 edge and that every site is in place, before any copy exists.
+3. The far copies (13.3 to 13.8), about 600 to 700 lines. A launch, the sites flown, then the
+   measurements with David.
+
+About 900 to 1,000 lines in all, a little over the first guess, since build numbers and the test sites
+have been added.
+
+**Questions for David:**
+- Where should the build number show on screen? There's no title screen yet. It could go in a corner
+  while the debug panel is open, at the top of the Performance page, or beside each world in the World
+  page's list.
+- Should the far copies' controls be a section of their own on the Render page, called "Far copies"
+  beside the distant terrain's, or somewhere else?
+- Build 1 is the first build carrying the number. Is counting from 1 right?

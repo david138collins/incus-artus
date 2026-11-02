@@ -1413,6 +1413,8 @@ Counsel's notes [PROPOSED]:
   *Counsel:* the cheap thing to do now is write the build's version into each saved world, so a
   world from an older build can be recognised and the player warned, rather than loading onto ground
   that has moved.
+  *Builder's plan (2026-11-02):* build numbers, counted from 1, shown in the logs and on screen and
+  written into `world.toml`, with a warning on loading an older world (`docs/caves.md` 13.2).
 
 #### Strata: what's underground  [IDEA, David 2026-10-30]
 
