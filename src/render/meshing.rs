@@ -16,6 +16,7 @@
 //! a fresh one started, so a stale mesh never replaces a newer one.
 
 use super::material::{ATTRIBUTE_PACKED_VOXEL, TerrainMaterial};
+use super::placed_light::PlacedLights;
 use super::mesher::{MeshInput, MeshOutput, face_index, mesh_section, plane_axes};
 use super::sky_light::{LightRegion, MOST_REACH, sky_heights};
 use super::{RenderSettings, TerrainAssets};
@@ -113,8 +114,7 @@ pub fn start_jobs(
     mut commands: Commands,
     world: Res<VoxelWorld>,
     terrain: Res<TerrainAssets>,
-    settings: Res<RenderSettings>,
-    time: Res<Time<Real>>,
+    (settings, time, placed): (Res<RenderSettings>, Res<Time<Real>>, Res<PlacedLights>),
     mut state: ResMut<MeshingState>,
     camera: Query<&Transform, With<Camera3d>>,
 ) {
@@ -154,7 +154,7 @@ pub fn start_jobs(
     let pool = AsyncComputeTaskPool::get();
     for key in keys {
         state.waiting.remove(&key);
-        match gather_input(&world, key, &terrain, &settings, &mut state.sky) {
+        match gather_input(&world, key, &terrain, &settings, &mut state.sky, &placed) {
             Some(input) => {
                 let task = pool.spawn(async move {
                     let started = Instant::now();
@@ -311,7 +311,7 @@ fn index_of(local: IVec3) -> usize {
 }
 
 /// Copy everything the mesher needs out of the world. `None` = nothing to draw.
-fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets, settings: &RenderSettings, sky: &mut HashMap<ChunkPos, Vec<i32>>) -> Option<MeshInput> {
+fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets, settings: &RenderSettings, sky: &mut HashMap<ChunkPos, Vec<i32>>, placed: &PlacedLights) -> Option<MeshInput> {
     let chunk = world.chunk(key.chunk)?;
     let section = &chunk.sections()[key.level as usize];
     let is_opaque = |id: BlockId| id != BlockId::PIECES && terrain.opaque.get(id.0 as usize).copied().unwrap_or(true);
@@ -424,6 +424,8 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets, se
         beyond_pieces,
         light,
         reach,
+        // Placed light (`placed_light.rs`): only the cells some light reaches.
+        placed: placed.around_section(section_origin(key)),
     })
 }
 

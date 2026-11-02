@@ -304,11 +304,11 @@ fn anchor_name(anchor: Anchor) -> &'static str {
     }
 }
 
-/// The light it gives: its colour, how far, how bright. For now a glow that passes through walls.
+/// The light it gives: its colour, how far, how bright (`render/placed_light.rs`).
 fn light_settings(ui: &mut egui::Ui, draft: &mut ObjectDef) {
     let mut on = draft.light.is_some();
     if ui.checkbox(&mut on, "gives light").on_hover_text("From its sprite's spot (or its middle)").changed() {
-        draft.light = on.then(|| LightAttach { colour: [255, 160, 60], reach: 8.0, brightness: 1.0 });
+        draft.light = on.then_some(LightAttach { colour: [255, 160, 60], reach: 8.0, brightness: 1.0 });
     }
     let mut light = draft.light.clone().unwrap_or(LightAttach { colour: [255, 160, 60], reach: 8.0, brightness: 1.0 });
     ui.add_enabled_ui(on, |ui| {
@@ -316,9 +316,9 @@ fn light_settings(ui: &mut egui::Ui, draft: &mut ObjectDef) {
             ui.label("colour:");
             egui::color_picker::color_edit_button_srgb(ui, &mut light.colour);
         });
-        ui.add(crate::debug::Slider::new(&mut light.reach, 1.0..=32.0).text("how far it reaches (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut light.reach, 1.0..=15.0).text("how far it reaches (blocks)")).on_hover_text("Through the air, round corners, stopping at walls: a step dimmer each block");
         ui.add(crate::debug::Slider::new(&mut light.brightness, 0.0..=1.0).text("how bright, at its middle"));
-        ui.small("For now a glow that fades with distance and passes through walls; light spreading through the air comes with stop 3.");
+        ui.small("It spreads through the air into the faces round it, and flickers (Render page: Light underground).");
     });
     if on {
         draft.light = Some(light);

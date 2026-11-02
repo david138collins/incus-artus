@@ -1,5 +1,5 @@
-//! Objects drawn — each placed object's model in the world, its flame, and its glow [`docs/objects.md`,
-//! stops 1 and 2].
+//! Objects drawn — each placed object's model in the world, its flame, and its light [`docs/objects.md`,
+//! stops 1 to 3].
 //!
 //! - **The model** is the object's glTF (Blockbench's export, `assets/models/`). Its meshes are drawn
 //!   one by one, each with its texture, as the blocks are drawn: flat, with no realistic lighting (not
@@ -11,23 +11,24 @@
 //!   frames), on its spot (a named point in the model, or on top), played at its milliseconds a frame,
 //!   turning about the upright to face you as Doom's flames do, and full bright. Each one starts on its
 //!   own frame (from its place), so a row of braziers doesn't flicker in step.
-//! - **Its glow:** the light it gives, in its colour, from its sprite's spot. For now the nearest 8
-//!   glows to the camera go to the terrain shader (`Glows`), each fading with distance and passing
-//!   through walls: a stand-in, until light spreads through the air (stop 3).
-//! - **Lit like the blocks round it:** the daylight of the cell it stands in (`sky_light.rs`: open sky
-//!   full, a short way in from it fading, black beyond), eased as the terrain shader eases it, and the
-//!   glows round it. Worked out when it's drawn, and again when the sections or glows round it change.
+//! - **Its light:** the light it gives, in its colour, from its sprite's spot (or its middle), handed
+//!   to the placed lights (`placed_light.rs`), which spread it through the air into the faces round
+//!   it. Flooded again when blocks change near it, or chunks round it come in.
+//! - **Lit like the blocks round it:** the daylight and placed light of the cell at its middle
+//!   (`sky_light.rs`, `placed_light.rs`), eased as the terrain shader eases them. Worked out when it's
+//!   drawn, and again when the sections or lights round it change.
 //! - **Kept in step:** a chunk's objects are drawn again whenever they change (placed, taken), the
 //!   chunk comes or goes, or the light round them changes; and once a model they need has loaded.
 
 use super::RenderSettings;
 use super::TerrainAssets;
 use super::meshing::MeshingState;
+use super::placed_light::{LightFrom, MOST_REACH, PlacedLights};
 use super::sky_light::{FULL, sky_heights};
 use crate::camera::FlyCamera;
 use crate::coords::game_to_bevy;
 use crate::data::{Anchor, ObjectRegistry, read_strip, sprites_folder};
-use crate::world::{BlockId, CHUNK_SIZE, ChunkPos, PlacedObject, VoxelWorld, WORLD_HEIGHT, turned};
+use crate::world::{BlockChanged, BlockId, CHUNK_SIZE, ChunkPos, PlacedObject, VoxelWorld, WORLD_HEIGHT, turned};
 use bevy::asset::{LoadState, RenderAssetUsages};
 use bevy::ecs::system::SystemParam;
 use bevy::gltf::{Gltf, GltfMaterial, GltfMesh, GltfNode};
@@ -60,14 +61,8 @@ struct StripDrawn {
     size: UVec2,
 }
 
-/// The light an object gives: where (the game's axes, blocks), how far, and its colour times its
-/// brightness (linear).
-#[derive(Clone, Copy, PartialEq)]
-struct Glow {
-    at: Vec3,
-    reach: f32,
-    colour: Vec3,
-}
+/// A material for each texture and colour of light.
+type LitMaterials = HashMap<(Option<AssetId<Image>>, [u8; 3]), Handle<StandardMaterial>>;
 
 /// What's drawn for the objects.
 #[derive(Resource, Default)]
@@ -80,22 +75,12 @@ pub struct ObjectsDrawn {
     quads: HashMap<(u32, u32, Anchor), Handle<Mesh>>,
     /// The entities drawing each chunk's objects.
     drawn: HashMap<ChunkPos, Vec<Entity>>,
-    /// The glows each chunk's objects give.
-    lights: HashMap<ChunkPos, Vec<Glow>>,
-    /// Chunks waiting for a model to load, or to be lit again by a glow beside them.
+    /// Chunks waiting for a model to load, or to be lit again by a light near them.
     waiting: HashSet<ChunkPos>,
     /// One material for each texture and colour of light (16 levels each of red, green, blue).
-    materials: HashMap<(Option<AssetId<Image>>, [u8; 3]), Handle<StandardMaterial>>,
+    materials: LitMaterials,
     /// The object registry's revision drawn with.
     revision: Option<u64>,
-}
-
-/// The glows sent to the terrain shader: the nearest 8 to the camera (`underground_light` in
-/// `terrain.wesl`).
-#[derive(Resource, Default, PartialEq)]
-pub struct Glows {
-    pub at: [Vec4; 8],
-    pub colour: [Vec4; 8],
 }
 
 /// A sprite playing: its frames, how long each shows, and which it starts on.
@@ -115,17 +100,11 @@ pub struct GltfAssets<'w> {
     materials: Res<'w, Assets<GltfMaterial>>,
 }
 
-/// The light the glows give at a place (linear, each colour up to 1), as the terrain shader works it
-/// out.
-fn glow_at(lights: &HashMap<ChunkPos, Vec<Glow>>, at: Vec3) -> Vec3 {
-    lights
-        .values()
-        .flatten()
-        .map(|glow| {
-            let near = 1.0 - (at.distance(glow.at) / glow.reach.max(0.01)).clamp(0.0, 1.0);
-            glow.colour * near * near
-        })
-        .sum()
+/// The placed light at a cell (each colour 0 to 1), eased as the terrain shader eases it (squared).
+fn placed_at(placed: &PlacedLights, cell: IVec3) -> Vec3 {
+    let packed = placed.at(cell) as u32;
+    let level = Vec3::new((packed & 15) as f32, ((packed >> 4) & 15) as f32, ((packed >> 8) & 15) as f32) / 15.0;
+    level * level
 }
 
 /// A sprite strip read from `assets/textures/sprites/` and made ready to draw: its picture (sharp
@@ -168,23 +147,26 @@ pub fn draw_objects(
     objects: Res<ObjectRegistry>,
     asset_server: Res<AssetServer>,
     gltf: GltfAssets,
-    (mut meshes, mut materials, mut images): (ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>, ResMut<Assets<Image>>),
+    mut meshes: ResMut<Assets<Mesh>>,
+    (mut materials, mut images): (ResMut<Assets<StandardMaterial>>, ResMut<Assets<Image>>),
     (terrain, settings): (Option<Res<TerrainAssets>>, Res<RenderSettings>),
-    mut meshing: ResMut<MeshingState>,
+    (mut meshing, mut placed, mut edits): (ResMut<MeshingState>, ResMut<PlacedLights>, MessageReader<BlockChanged>),
     mut drawn: ResMut<ObjectsDrawn>,
 ) {
     let _timed = crate::render::Timed::new("draw objects");
     let Some(terrain) = terrain else { return };
     let drawn = &mut *drawn;
+    let is_opaque = |id: BlockId| id != BlockId::PIECES && terrain.opaque.get(id.0 as usize).copied().unwrap_or(true);
     // What to draw again: chunks whose objects changed, whose light changed, or that were waiting
     // for a model; and every one, if an object's settings changed.
-    let mut again = world.take_objects_changed();
+    let objects_changed = world.take_objects_changed();
+    let mut again = objects_changed.clone();
     again.extend(meshing.relight.drain());
     let waiting = std::mem::take(&mut drawn.waiting);
     again.extend(waiting);
     if drawn.revision != Some(objects.revision()) {
         drawn.revision = Some(objects.revision());
-        let all: Vec<ChunkPos> = drawn.drawn.keys().chain(drawn.lights.keys()).copied().collect();
+        let all: Vec<ChunkPos> = drawn.drawn.keys().copied().chain(placed.chunks()).collect();
         again.extend(all);
         // Every model loaded now, before it's placed; strips read again (one may have changed).
         for def in objects.defs() {
@@ -202,6 +184,44 @@ pub fn draw_objects(
             }
         }
     }
+    // ── The placed lights kept in step (`placed_light.rs`), before anything's drawn: blocks changed
+    // near a light, or chunks come in round one, flood it again; each chunk drawn again hands over the
+    // lights its objects give now.
+    let mut relit = HashSet::new();
+    for change in edits.read() {
+        relit.extend(placed.reflood_near(&world, &is_opaque, change.position, change.position));
+    }
+    for &pos in &objects_changed {
+        if placed.near_chunk(pos) {
+            let low = IVec3::new(pos.x * CHUNK_SIZE, pos.y * CHUNK_SIZE, 0);
+            relit.extend(placed.reflood_near(&world, &is_opaque, low, low + IVec3::new(CHUNK_SIZE - 1, CHUNK_SIZE - 1, WORLD_HEIGHT)));
+        }
+    }
+    let mut spots: HashMap<ChunkPos, Vec<(Vec3, Vec3)>> = HashMap::new();
+    for &pos in &again {
+        let here: Vec<PlacedObject> = world.chunk(pos).map(|chunk| chunk.objects().to_vec()).unwrap_or_default();
+        let chunk_spots = spots_of(&objects, &here);
+        let lights: Vec<LightFrom> = here
+            .iter()
+            .zip(&chunk_spots)
+            .filter_map(|(object, &(_, spot))| {
+                let light = objects.by_name(&object.name)?.light.as_ref()?;
+                let colour = light.colour.map(|channel| (channel as f32 / 255.0 * light.brightness.clamp(0.0, 1.0) * 15.0).round() as u32);
+                Some(LightFrom { object: object.at, cell: spot.floor().as_ivec3(), colour, reach: (light.reach.round() as i32).clamp(1, MOST_REACH) })
+            })
+            .collect();
+        relit.extend(placed.set_chunk(&world, &is_opaque, pos, &lights));
+        spots.insert(pos, chunk_spots);
+    }
+    // The sections a light changed in are made again; the objects near them lit again.
+    for key in relit {
+        if world.chunk(key.chunk).is_some() {
+            meshing.waiting.insert(key);
+            if !again.contains(&key.chunk) {
+                drawn.waiting.insert(key.chunk);
+            }
+        }
+    }
     if again.is_empty() {
         return;
     }
@@ -210,47 +230,11 @@ pub fn draw_objects(
         for entity in drawn.drawn.remove(&pos).unwrap_or_default() {
             commands.entity(entity).despawn();
         }
-        let before = drawn.lights.remove(&pos).unwrap_or_default();
-        let Some(chunk) = world.chunk(pos) else {
-            if !before.is_empty() {
-                drawn.waiting.extend(beside(pos));
-            }
-            continue;
-        };
-        let placed: Vec<PlacedObject> = chunk.objects().to_vec();
-        // Each object's feet and its sprite's spot (the game's axes, blocks), and the glows they give,
-        // first: an object is lit by its own glow too.
-        let spots: Vec<(Vec3, Vec3)> = placed
-            .iter()
-            .map(|object| {
-                let feet = object.at.as_vec3() / 16.0;
-                let def = objects.by_name(&object.name);
-                let shape = def.map(|def| def.shape_or_block());
-                let spot = match (def.and_then(|def| def.sprite.as_ref()), &shape) {
-                    (Some(sprite), Some(shape)) => shape.spot(sprite),
-                    (None, Some(shape)) => Vec3::new(0.0, 0.0, shape.size.z as f32 / 32.0),
-                    _ => Vec3::ZERO,
-                };
-                (feet, feet + turned(spot, object.facing))
-            })
-            .collect();
-        let lights: Vec<Glow> = placed
-            .iter()
-            .zip(&spots)
-            .filter_map(|(object, &(_, spot))| {
-                let light = objects.by_name(&object.name)?.light.as_ref()?;
-                let colour = Color::srgb_u8(light.colour[0], light.colour[1], light.colour[2]).to_linear();
-                Some(Glow { at: spot, reach: light.reach, colour: Vec3::new(colour.red, colour.green, colour.blue) * light.brightness })
-            })
-            .collect();
-        if lights != before {
-            drawn.waiting.extend(beside(pos).filter(|&next| next != pos));
-        }
-        if !lights.is_empty() {
-            drawn.lights.insert(pos, lights);
-        }
+        let Some(chunk) = world.chunk(pos) else { continue };
+        let placed_here: Vec<PlacedObject> = chunk.objects().to_vec();
+        let spots = spots.remove(&pos).unwrap_or_default();
         let mut entities = Vec::new();
-        for (object, &(feet, spot)) in placed.iter().zip(&spots) {
+        for (object, &(feet, spot)) in placed_here.iter().zip(&spots) {
             let Some(def) = objects.by_name(&object.name) else { continue };
             let model = drawn.models.entry(def.model.clone()).or_insert_with(|| Model::Loading(asset_server.load(format!("models/{}", def.model))));
             let (parts, low, high) = match model {
@@ -270,12 +254,13 @@ pub fn draw_objects(
             };
             let turn = Quat::from_rotation_y(-((object.facing % 4) as f32) * std::f32::consts::FRAC_PI_2);
             let placing = Mat4::from_scale_rotation_translation(Vec3::splat(scale), turn, game_to_bevy(feet)) * Mat4::from_translation(-model_feet);
-            // Lit by its cell's daylight, eased as the terrain shader eases it, and the glows round
-            // it (its own among them), in 16 steps of each colour.
+            // Lit by its cell's daylight and the placed light at its middle (its own among it), eased
+            // as the terrain shader eases them, in 16 steps of each colour.
             let level = if settings.sky_light { daylight_at(&world, &terrain.opaque, &mut meshing.sky, object.cell(), settings.sky_reach) } else { FULL };
             let daylight = (level as f32 / FULL as f32).powi(2);
-            let middle = feet + Vec3::Z * def.shape_or_block().size.z as f32 / 32.0;
-            let light = (Vec3::splat(daylight) + glow_at(&drawn.lights, middle)).min(Vec3::ONE);
+            let middle = (feet + Vec3::Z * def.shape_or_block().size.z as f32 / 32.0).floor().as_ivec3();
+            let lit = if settings.placed_light { placed_at(&placed, middle) } else { Vec3::ZERO };
+            let light = (Vec3::splat(daylight) + lit).min(Vec3::ONE);
             let steps = (light * 15.0).round().as_uvec3();
             let key = [steps.x as u8, steps.y as u8, steps.z as u8];
             let parts: Vec<(Handle<Mesh>, Option<Handle<Image>>, Mat4)> = parts.iter().map(|part| (part.mesh.clone(), part.texture.clone(), part.place)).collect();
@@ -325,22 +310,23 @@ pub fn draw_objects(
     }
 }
 
-/// A chunk and the eight round it.
-fn beside(pos: ChunkPos) -> impl Iterator<Item = ChunkPos> {
-    (-1..=1).flat_map(move |y| (-1..=1).map(move |x| ChunkPos::of_block(IVec3::new((pos.x + x) * CHUNK_SIZE, (pos.y + y) * CHUNK_SIZE, 0))))
-}
-
-/// The nearest 8 glows to the camera, for the terrain shader; changed only when they change.
-pub fn choose_glows(drawn: Res<ObjectsDrawn>, cameras: Query<&FlyCamera>, mut glows: ResMut<Glows>) {
-    let Some(camera) = cameras.iter().next() else { return };
-    let mut all: Vec<&Glow> = drawn.lights.values().flatten().collect();
-    all.sort_by(|a, b| a.at.distance_squared(camera.position).total_cmp(&b.at.distance_squared(camera.position)));
-    let mut chosen = Glows::default();
-    for (i, glow) in all.into_iter().take(8).enumerate() {
-        chosen.at[i] = game_to_bevy(glow.at).extend(glow.reach);
-        chosen.colour[i] = glow.colour.extend(1.0);
-    }
-    glows.set_if_neq(chosen);
+/// Each object's feet and its sprite's spot (the game's axes, blocks): where its light comes from
+/// too (or its middle, without a sprite).
+fn spots_of(objects: &ObjectRegistry, placed: &[PlacedObject]) -> Vec<(Vec3, Vec3)> {
+    placed
+        .iter()
+        .map(|object| {
+            let feet = object.at.as_vec3() / 16.0;
+            let def = objects.by_name(&object.name);
+            let shape = def.map(|def| def.shape_or_block());
+            let spot = match (def.and_then(|def| def.sprite.as_ref()), &shape) {
+                (Some(sprite), Some(shape)) => shape.spot(sprite),
+                (None, Some(shape)) => Vec3::new(0.0, 0.0, shape.size.z as f32 / 32.0),
+                _ => Vec3::ZERO,
+            };
+            (feet, feet + turned(spot, object.facing))
+        })
+        .collect()
 }
 
 /// Sprites play: each shows the frame for the time (from its own frame), and turns about the upright

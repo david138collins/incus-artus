@@ -124,15 +124,14 @@ fn one() -> f32 {
     1.0
 }
 
-/// The light an object gives, from its sprite's spot (or its middle). For now a glow that fades with
-/// distance and passes through walls (`render`); light that spreads through the air and stops at
-/// walls is stop 3.
+/// The light an object gives, from its sprite's spot (or its middle): spread through the air into
+/// the faces round it, a step dimmer each block, stopping at walls (`render/placed_light.rs`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LightAttach {
     /// Its colour (0 to 255 each: red, green, blue).
     pub colour: [u8; 3],
-    /// How far it reaches, in blocks.
+    /// How far it reaches, in blocks (15 at most).
     #[serde(default = "reach")]
     pub reach: f32,
     /// How bright it is at its middle, 0 to 1.

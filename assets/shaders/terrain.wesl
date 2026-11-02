@@ -10,7 +10,7 @@
 
 import bevy_pbr::render::mesh_functions::get_world_from_local;
 import bevy_pbr::render::view_transformations::position_world_to_clip;
-import bevy_pbr::render::mesh_view_bindings::view;
+import bevy_pbr::render::mesh_view_bindings::{globals, view};
 import super::lighting::{eased, height_tint, hill_light, light_from_map, side_lie, unroot};
 
 struct TerrainShaderSettings {
@@ -26,10 +26,8 @@ struct TerrainShaderSettings {
     // Underground (src/render/sky_light.rs): x daylight on, y the test lantern's reach (blocks; 0 off),
     // z its brightness
     underground: vec4<f32>,
-    // The objects' glows (src/render/objects.rs, the nearest 8): each one's place (xyz, Bevy's axes) and
-    // reach (w, blocks; 0 none), and its colour times its brightness (rgb)
-    glow_at: array<vec4<f32>, 8>,
-    glow_colour: array<vec4<f32>, 8>,
+    // Placed light (src/render/placed_light.rs, in the vertex): x on, y how much it flickers, z how fast
+    placed: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var block_textures: texture_2d_array<f32>;
@@ -68,7 +66,7 @@ struct TerrainLight {
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
-    @location(0) packed: vec2<u32>,
+    @location(0) packed: vec3<u32>,
 }
 
 struct VertexOutput {
@@ -85,6 +83,8 @@ struct VertexOutput {
     @location(6) @interpolate(flat) section_origin: vec3<i32>,
     // Daylight at this corner, 0 (black) to 1 (full): src/render/sky_light.rs.
     @location(7) daylight: f32,
+    // Placed light (red, green, blue, 0 to 1): src/render/placed_light.rs.
+    @location(8) @interpolate(flat) placed: vec3<f32>,
 }
 
 @vertex
@@ -119,6 +119,8 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.random_rotation = (a >> 24u) & 1u;
     out.section_origin = vec3<i32>(round(vec3<f32>(-origin.z, origin.x, origin.y)));
     out.daylight = f32((a >> 28u) & 15u) / 15.0;
+    let c = in.packed.z;
+    out.placed = vec3<f32>(f32(c & 15u), f32((c >> 4u) & 15u), f32((c >> 8u) & 15u)) / 15.0;
     return out;
 }
 
@@ -272,10 +274,10 @@ fn bar_uv(face: u32, p: vec3<f32>, tag: u32) -> vec2<f32> {
 
 // How lit a face is underground (src/render/sky_light.rs; docs/caves.md, stop 3): its daylight, eased
 // (squared, so it falls away quickly into the dark), or the test lantern round the camera, whichever
-// is brighter; and the objects' glows on top, each in its colour (docs/objects.md, stop 2: a stand-in
-// that passes through walls, until light spreads through the air in stop 3). Pitch black where none
-// reaches [David: "pitch black unless something is making light down there"].
-fn underground_light(daylight: f32, world_position: vec3<f32>) -> vec3<f32> {
+// is brighter; and the placed light on top, in its colour (src/render/placed_light.rs; docs/objects.md,
+// stop 3), eased the same way and wavering a little with time, as a fire's does. Pitch black where
+// none reaches [David: "pitch black unless something is making light down there"].
+fn underground_light(daylight: f32, placed: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
     var lit = 1.0;
     if settings.underground.x > 0.5 {
         lit = daylight * daylight;
@@ -286,12 +288,12 @@ fn underground_light(daylight: f32, world_position: vec3<f32>) -> vec3<f32> {
         lit = max(lit, settings.underground.z * near * near);
     }
     var light = vec3<f32>(lit);
-    for (var i = 0u; i < 8u; i = i + 1u) {
-        let glow = settings.glow_at[i];
-        if glow.w > 0.0 {
-            let near = 1.0 - clamp(length(world_position - glow.xyz) / glow.w, 0.0, 1.0);
-            light = light + settings.glow_colour[i].rgb * near * near;
-        }
+    if settings.placed.x > 0.5 {
+        // The flicker: two slow waves and a quicker one, so it never quite repeats.
+        let t = globals.time * settings.placed.z;
+        let waver = 0.5 + 0.25 * sin(t * 6.1) + 0.15 * sin(t * 13.7 + 1.3) + 0.1 * sin(t * 29.3 + 2.9);
+        let flicker = 1.0 - settings.placed.y * waver;
+        light = light + placed * placed * flicker;
     }
     return min(light, vec3<f32>(1.0));
 }
@@ -363,7 +365,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else if in.face <= 3u {
         shade = settings.face_shade.w;
     }
-    colour = colour * shade * ground_light(in.world_position, in.face) * underground_light(in.daylight, in.world_position);
+    colour = colour * shade * ground_light(in.world_position, in.face) * underground_light(in.daylight, in.placed, in.world_position);
 
     // Survey view: every Nth level of blocks above sea level darkened, like a contour map's bands.
     if settings.survey.x > 0.5 {

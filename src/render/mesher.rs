@@ -26,15 +26,31 @@
 //! (0 ..= 64), so the pieces of a cell (bars and octants, `world/pieces.rs`) sit at half-block corners.
 //! The shader converts them for drawing.
 //!
-//! ## Vertex format (8 bytes per corner)
+//! ## Vertex format (12 bytes per corner)
 //! - word 0: x (7 bits) | y (7 bits) | z (7 bits), in half blocks | face direction (3 bits) | random
 //!   rotation (1 bit) | which way is out of the rectangle, along x, y and z (1 bit each) | daylight
 //!   (4 bits: 0 black to 15 full, `sky_light.rs`)
 //! - word 1: texture layer (16 bits) | quad number (15 bits, only used by the debug view; or, with the
 //!   top bit set, a bar with textures of its own and its slot)
+//! - word 2: placed light (`placed_light.rs`): red, green, blue (4 bits each, 0 to 15); the rest kept
 
 use crate::coords::game_to_bevy;
 use super::sky_light::{Daylight, LightRegion, flood};
+
+/// The light of the cells round a section: daylight, and placed light (packed red, green, blue, by
+/// their place relative to the section).
+struct Lights<'a> {
+    daylight: Daylight,
+    placed: &'a HashMap<[i32; 3], u16>,
+}
+
+impl Lights<'_> {
+    /// A cell's light (from its place relative to the section, −1 to 32): its daylight (4 bits) and
+    /// its placed light above it (12 bits), so faces merge only with the same of both.
+    fn at(&self, x: i32, y: i32, z: i32) -> u32 {
+        self.daylight.at(x, y, z) | (self.placed.get(&[x, y, z]).copied().unwrap_or(0) as u32) << 4
+    }
+}
 use crate::world::{BlockId, Owners, Part};
 use bevy::math::Vec3;
 use std::collections::HashMap;
@@ -97,11 +113,14 @@ pub struct MeshInput {
     /// when there's covered air near it (`sky_light.rs`). `None`: full daylight everywhere.
     pub light: Option<LightRegion>,
     pub reach: i32,
+    /// The placed light of the cells round the section (`placed_light.rs`), by their place relative to
+    /// it (−1 to 32), packed red, green, blue; cells with none left out.
+    pub placed: HashMap<[i32; 3], u16>,
 }
 
 #[derive(Default)]
 pub struct MeshOutput {
-    pub vertices: Vec<[u32; 2]>,
+    pub vertices: Vec<[u32; 3]>,
     pub indices: Vec<u32>,
     pub quads: u32,
 }
@@ -128,6 +147,7 @@ pub fn mesh_section(input: &MeshInput) -> MeshOutput {
     let is_outline = |id: BlockId| is_see_through(id) && !is_grid(id);
     let mut out = MeshOutput::default();
     let daylight = input.light.as_ref().map_or_else(Daylight::default, |region| flood(region, input.reach));
+    let daylight = Lights { daylight, placed: &input.placed };
 
     // Opaque blocks: faces where they meet anything not opaque.
     let opaque = build_columns(&input.blocks, is_opaque, &input.outside);
@@ -195,11 +215,12 @@ fn build_columns(blocks: &[BlockId], include: impl Fn(BlockId) -> bool, outside:
 /// `blockers` = [what blocks positive-facing faces, what blocks negative-facing faces].
 /// Faces are merged into rectangles and added to `out`. `both_sides` also adds each
 /// rectangle facing the other way (for see-through blocks).
-fn emit_faces(out: &mut MeshOutput, input: &MeshInput, daylight: &Daylight, columns: &Columns, blockers: [&Columns; 2], both_sides: bool) {
+fn emit_faces(out: &mut MeshOutput, input: &MeshInput, daylight: &Lights, columns: &Columns, blockers: [&Columns; 2], both_sides: bool) {
     for axis in 0..3 {
         let (u_axis, v_axis) = plane_axes(axis);
         for positive in [true, false] {
-            // (depth, block, daylight in front) → 32 rows of bits: faces merge only with the same light
+            // (depth, block, light in front: daylight and placed light) → 32 rows of bits: faces merge
+            // only with the same light
             let mut planes: HashMap<(u32, BlockId, u32), [u32; N]> = HashMap::new();
             for v in 0..N {
                 for u in 0..N {
@@ -279,6 +300,7 @@ fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, pos
         out.vertices.push([
             p[0] | p[1] << 7 | p[2] << 14 | (face as u32) << 21 | (random_rotation as u32) << 24 | out_bits[0] << 25 | out_bits[1] << 26 | out_bits[2] << 27 | (light & 15) << 28,
             (layer & 0xFFFF) | quad_tag << 16,
+            (light >> 4) & 0xFFF,
         ]);
     }
     let front: [u32; 6] = [0, 1, 2, 0, 2, 3];
@@ -294,7 +316,7 @@ fn push_quad(out: &mut MeshOutput, input: &MeshInput, block: BlockId, (axis, pos
 /// The cells built of pieces (`world/pieces.rs`): each filled octant's faces, where nothing opaque
 /// covers them (another octant of the cell, a neighbouring cell's octant, or a whole block), merged
 /// within the cell, so a bar's long side is one rectangle. Not merged across cells: they're few.
-fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, daylight: &Daylight, is_opaque: &dyn Fn(BlockId) -> bool) {
+fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, daylight: &Lights, is_opaque: &dyn Fn(BlockId) -> bool) {
     // Each cell's octants as the blocks filling them (for what covers what).
     let blocks_of = |owners: &Owners| owners.map(|owner| owner.map_or(BlockId::AIR, |(_, block)| block));
     let cells: HashMap<usize, [BlockId; 8]> = input.pieces.iter().map(|(index, owners)| (*index, blocks_of(owners))).collect();
@@ -304,7 +326,7 @@ fn emit_pieces(out: &mut MeshOutput, input: &MeshInput, daylight: &Daylight, is_
     for (index, owners) in &input.pieces {
         let (index, octants) = (*index, blocks_of(owners));
         let cell = [index % N, (index / N) % N, index / (N * N)];
-        // Its faces take the cell's own daylight (it holds air between its pieces).
+        // Its faces take the cell's own light (it holds air between its pieces).
         let light = daylight.at(cell[0] as i32, cell[1] as i32, cell[2] as i32);
         for axis in 0..3 {
             let (u_axis, v_axis) = plane_axes(axis);
@@ -446,6 +468,7 @@ mod tests {
             beyond_pieces: HashMap::new(),
             light: None,
             reach: 8,
+            placed: HashMap::new(),
         }
     }
 
@@ -503,6 +526,21 @@ mod tests {
     }
 
     #[test]
+    fn a_face_carries_the_placed_light_in_front_of_it() {
+        let mut blocks = empty();
+        blocks[5 + 5 * N + 5 * N * N] = STONE;
+        let mut input = input(blocks);
+        // Green light (red 0, green 12, blue 3) in the cell above the block.
+        input.placed.insert([5, 5, 6], 12 << 4 | 3 << 8);
+        let mesh = mesh_section(&input);
+        // Only the top face (direction 4) has it, in the third word; the others none.
+        for vertex in &mesh.vertices {
+            let face = (vertex[0] >> 21) & 7;
+            assert_eq!(vertex[2], if face == 4 { 12 << 4 | 3 << 8 } else { 0 }, "face {face}");
+        }
+    }
+
+    #[test]
     fn solid_section_merges_to_six_quads() {
         let mesh = mesh_section(&input(vec![STONE; N * N * N]));
         assert_eq!(mesh.quads, 6);
@@ -554,7 +592,7 @@ mod tests {
         }
         let mesh = mesh_section(&input(blocks));
         for quad in mesh.vertices.chunks_exact(4) {
-            let at = |v: &[u32; 2], k: u32| ((v[0] >> (7 * k)) & 127) as f32 / 2.0;
+            let at = |v: &[u32; 3], k: u32| ((v[0] >> (7 * k)) & 127) as f32 / 2.0;
             let middle: Vec<f32> = (0..3).map(|k| quad.iter().map(|v| at(v, k)).sum::<f32>() / 4.0).collect();
             for v in quad {
                 for k in 0..3u32 {

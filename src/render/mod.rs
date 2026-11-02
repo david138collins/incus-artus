@@ -19,6 +19,7 @@ mod material;
 mod mesher;
 mod meshing;
 mod performance;
+mod placed_light;
 mod objects;
 mod sky_light;
 pub(crate) mod textures;
@@ -80,7 +81,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
             .init_resource::<objects::ObjectsDrawn>()
-            .init_resource::<objects::Glows>()
+            .init_resource::<placed_light::PlacedLights>()
             .init_resource::<performance::FrameTimes>()
             .init_resource::<performance::StepTimes>()
             .add_systems(Last, performance::collect_steps)
@@ -98,7 +99,6 @@ impl Plugin for RenderPlugin {
                     meshing::finish_jobs,
                     distant::update_shown_chunks,
                     apply_render_distance,
-                    objects::choose_glows,
                     update_shader_settings,
                     objects::draw_objects,
                     objects::play_sprites,
@@ -166,6 +166,11 @@ pub struct RenderSettings {
     /// bright it is at its middle.
     pub lantern: f32,
     pub lantern_brightness: f32,
+    /// Placed light (`placed_light.rs`, `docs/objects.md` stop 3): the light things give (a brazier),
+    /// spreading through the air; on or off, how much it flickers (0 steady to 1), and how fast.
+    pub placed_light: bool,
+    pub flicker: f32,
+    pub flicker_speed: f32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -203,6 +208,9 @@ impl Default for RenderSettings {
             sky_reach: 8,
             lantern: 12.0,
             lantern_brightness: 0.9,
+            placed_light: true,
+            flicker: 0.15,
+            flicker_speed: 1.5,
         }
     }
 }
@@ -243,8 +251,7 @@ impl RenderSettings {
             options: Vec4::new(1.0, if self.light_only { 1.0 } else { 0.0 }, 0.0, 0.0),
             survey: self.survey_for_shader(),
             underground: Vec4::new(if self.sky_light { 1.0 } else { 0.0 }, self.lantern.max(0.0), self.lantern_brightness, 0.0),
-            glow_at: [Vec4::ZERO; 8],
-            glow_colour: [Vec4::ZERO; 8],
+            placed: Vec4::new(if self.placed_light { 1.0 } else { 0.0 }, self.flicker.clamp(0.0, 1.0), self.flicker_speed.max(0.0), 0.0),
         }
     }
 }
@@ -406,7 +413,6 @@ fn apply_render_distance(
 fn update_shader_settings(
     settings: Res<RenderSettings>,
     clear: Res<ClearColor>,
-    glows: Res<objects::Glows>,
     terrain: Option<Res<TerrainAssets>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
 ) {
@@ -414,12 +420,11 @@ fn update_shader_settings(
     let Some(terrain) = terrain else {
         return;
     };
-    if !settings.is_changed() && !clear.is_changed() && !glows.is_changed() {
+    if !settings.is_changed() && !clear.is_changed() {
         return;
     }
     if let Some(mut material) = materials.get_mut(&terrain.material) {
         material.settings = settings.shader_settings(clear.0);
-        (material.settings.glow_at, material.settings.glow_colour) = (glows.at, glows.colour);
     }
 }
 
@@ -484,6 +489,10 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         ui.add(crate::debug::Slider::new(&mut settings.lantern, 0.0..=40.0).text("test lantern: how far (blocks; 0 = off)"))
             .on_hover_text("A light round the camera, for seeing in the dark while tuning. It goes through walls; the real lantern comes with items (docs/caves.md, section 11).");
         ui.add_enabled(settings.lantern > 0.0, crate::debug::Slider::new(&mut settings.lantern_brightness, 0.0..=1.0).text("test lantern: brightness"));
+        ui.checkbox(&mut settings.placed_light, "placed light (braziers)").on_hover_text("The light objects give, spreading through the air and stopping at walls, in its colour (docs/objects.md, stop 3). Each object's colour, reach and brightness are in the Registrar's Objects tab.");
+        let placed = settings.placed_light;
+        ui.add_enabled(placed, crate::debug::Slider::new(&mut settings.flicker, 0.0..=1.0).text("how much it flickers (0 steady)"));
+        ui.add_enabled(placed && settings.flicker > 0.0, crate::debug::Slider::new(&mut settings.flicker_speed, 0.1..=8.0).text("how fast it flickers"));
         was != (settings.sky_light, settings.sky_reach)
     };
     // The daylight is kept in the meshes: every one made again.

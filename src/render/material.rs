@@ -14,10 +14,10 @@ use bevy::render::render_resource::{
 };
 use bevy::shader::ShaderRef;
 
-/// Our packed 8-byte vertex (see `mesher.rs` for the bit layout).
+/// Our packed 12-byte vertex (see `mesher.rs` for the bit layout).
 /// The number is just a unique ID so Bevy can tell this attribute apart from others.
 pub const ATTRIBUTE_PACKED_VOXEL: MeshVertexAttribute =
-    MeshVertexAttribute::new("PackedVoxel", 0x1A5C_A7_05, VertexFormat::Uint32x2);
+    MeshVertexAttribute::new("PackedVoxel", 0x1A5C_A7_05, VertexFormat::Uint32x3);
 
 const SHADER_PATH: &str = "shaders/terrain.wesl";
 
@@ -84,10 +84,9 @@ pub struct TerrainShaderSettings {
     /// Underground (`sky_light.rs`): x daylight on (else everything fully lit), y the test lantern's
     /// reach (blocks; 0 off), z its brightness at its middle.
     pub underground: Vec4,
-    /// The objects' glows, the nearest 8 (`objects.rs`, `Glows`): each one's place (xyz, Bevy's axes)
-    /// and reach (w, blocks; 0 none), and its colour times its brightness (rgb).
-    pub glow_at: [Vec4; 8],
-    pub glow_colour: [Vec4; 8],
+    /// Placed light (`placed_light.rs`, in the vertex): x on, y how much it flickers (0 to 1), z how
+    /// fast (wavers a second).
+    pub placed: Vec4,
 }
 
 impl Material for TerrainMaterial {

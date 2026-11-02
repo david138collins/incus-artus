@@ -339,6 +339,49 @@ off the sprite, while its still visible". He'd placed 17 braziers, and only the 
 the shader, so the 9th-nearest's glow switches off as you walk. **Left for stop 3** (David: "lets just
 wait for objects step 3"), whose light is worked into the faces and has no such limit.
 
+## 10b. Stop 3, light through the air (David, 2026-11-01) [BUILT, not yet tried]
+
+David: "you may proceed with step 3, but don't worry about implementing a torch or a wall light just
+now, i should be able to build and register them myself from the registrar". He can: a model, its
+sprite and its light are all set in the Objects tab. Only placing on walls is still to come.
+
+- **Placed light** (`render/placed_light.rs`), the second kind of light in `docs/caves.md` section
+  11:
+  - Each object with a light floods it out from its spot through cells that aren't solid: full at
+    its spot, an even step darker each block, none at its reach (15 at most). It goes round corners
+    and down tunnels, and **stops at walls**. Unloaded chunks count as solid.
+  - **In colour:** each cell keeps red, green and blue, 16 levels each (its colour × its brightness
+    × how near). Where lights meet, each colour is the brighter.
+  - **Stored in the faces:** each face takes the light of the cell in front of it, in the vertex's
+    **third word** (12 bytes a corner now, from 8). Faces merge only with the same light.
+  - **There's no limit to how many lights there are.** A light costs only the faces it reaches.
+    This ends the stand-in glow's "nearest 8" snapping.
+  - **Worked out when it changes:**
+    - when a light is placed or taken;
+    - when blocks change near one (dig a wall away and the light comes through);
+    - when chunks round one come in.
+    The sections it reaches are made again.
+- **In the shader** (`terrain.wesl`):
+  - placed light is added to daylight, eased (squared) as daylight is;
+  - **a flicker:** a gentle waver over time, from three waves, so it never quite repeats. All placed
+    light flickers together for now.
+  - On the Render page, under "Light underground": **placed light** on or off, **how much it
+    flickers**, and **how fast**.
+- **Objects are lit the same way:** daylight and placed light at the cell at their middle. A brazier
+  is lit by its own fire, and a cup beside it by the brazier.
+- **The stand-in glow is gone:** the nearest-8 shader glows and their arrays.
+- **The Objects tab:** a light's reach goes to 15. The note says it spreads through the air and
+  flickers.
+- **Not yet:**
+  - a flicker of each light's own, beside its neighbours';
+  - light given by blocks (glow lichen), which is the same flood from a block;
+  - moving lights (a held lantern: `docs/caves.md` section 11's third kind);
+  - placing on walls.
+- **Tests:**
+  - a light spreads fading through the air, not into the ground, round a wall rather than through
+    it, through once the wall is gone, and away when it's taken;
+  - a face carries the light in front of it in its third word.
+
 ## 11. Later: overlays, random sets, alt textures (David, through Counsel, 2026-11-01) [NOT BUILT]
 
 David: "we also need decoration type objects that are just a flat overlay that could be an ore or moss,
