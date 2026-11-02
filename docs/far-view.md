@@ -172,3 +172,17 @@ and watch very closely".
   feet shifts by about a pixel. (Its "turned 0.04°" is the readout's own rounding: two identical
   rotations measure that far apart.) The cure for every case is drawing relative to the camera
   (for the renderer work); a standing pawn holding exactly still would cure it standing only.
+
+### Set aside, not forgotten: positions far from the world's middle (David, 2026-11-02)
+David: "it seems insignificant but also like it could cause problems later and we'd forget what it
+was." Builder's advice, taken: set it aside, written down here, and fix it with the renderer work.
+- **What it is:** positions are kept as 32-bit numbers, exact to about 1/500 of a block 18,000
+  blocks out and 1/250 at the world's edge (36,000). Two things follow, both growing toward the edge:
+  1. **The camera wobbles while you stand** (the pawn settling by one step of that), so near blocks
+     shimmer by about a pixel. Cure for standing: a standing pawn holding exactly still.
+  2. **Everything drawn is placed from the world's middle**, so blocks' corners round to those
+     steps: the "vibrating blocks" while moving. Cure: draw relative to the camera (a "floating
+     origin": what's drawn is placed from a point near you, moved along as you go). It touches
+     every drawing part, the march included, so it belongs with the renderer work.
+  - Physics, aiming and building far out keep to the same steps; not seen to matter yet.
+- **When:** before or with moving the march's line inward, or sooner if it's seen to matter.
