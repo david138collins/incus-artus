@@ -363,9 +363,74 @@ struct NearKey {
 pub struct NearLightState {
     /// The window showing, and the one being made (with its stop switch).
     shown: Option<NearKey>,
-    job: Option<(NearKey, Arc<AtomicBool>, Task<Option<NearMade>>)>,
+    job: Option<(NearKey, Arc<AtomicBool>, Task<Option<NearReady>>)>,
     /// The ground the last window read, for the next one to slide over (see `make_near`).
     heights: Option<(NearKey, Arc<Vec<f32>>)>,
+    /// The window's picture and cone map on the graphics card, and their width (pixels).
+    pictures: Option<(Handle<Image>, Handle<Image>, u32)>,
+}
+
+/// A window made, ready for the graphics card (turned into its bytes in the background too): its
+/// width, its picture's bytes and its cone map's, and the ground it read.
+struct NearReady {
+    width: u32,
+    picture: Arc<Vec<u8>>,
+    cones: Arc<Vec<u8>>,
+    heights: Arc<Vec<f32>>,
+}
+
+/// The picture's and the cone map's ids, their width (pixels), and their bytes.
+type NearPictures = (AssetId<Image>, AssetId<Image>, u32, Arc<Vec<u8>>, Arc<Vec<u8>>);
+
+/// A new window written over the one on the graphics card, on Bevy's drawing side
+/// (`write_near_light`), in the same frame the material moves to it. [Each window used to be two
+/// new pictures, about 2,048 × 2,048 pixels, 48 MB, made on the graphics card every time you'd moved
+/// about 500 blocks, and the frame stalled 100 to 140 ms each time: David, build 16, "big hits of
+/// near light".]
+#[derive(Resource, Clone, Default)]
+pub struct NearLightUpload {
+    /// Counts the windows sent, so each is written once.
+    generation: u64,
+    /// The picture's and the cone map's ids, their width, and their bytes.
+    pictures: Option<NearPictures>,
+}
+
+impl bevy::render::extract_resource::ExtractResource<bevy::render::RenderApp> for NearLightUpload {
+    type Source = NearLightUpload;
+
+    fn extract_resource(source: &Self::Source) -> Self {
+        source.clone()
+    }
+}
+
+/// On Bevy's drawing side: writes a window sent over into its two pictures, if they're there at
+/// its size (a window that doesn't fit was given new pictures instead, `update_near_light`).
+pub fn write_near_light(
+    upload: Option<Res<NearLightUpload>>,
+    mut written: Local<u64>,
+    images: Res<bevy::render::render_asset::RenderAssets<bevy::render::texture::GpuImage>>,
+    queue: Res<bevy::render::renderer::RenderQueue>,
+) {
+    use bevy::render::render_resource::{Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect};
+    let Some(upload) = upload else { return };
+    if upload.generation == *written {
+        return;
+    }
+    let Some((picture_id, cones_id, width, picture, cones)) = &upload.pictures else { return };
+    let (Some(picture_gpu), Some(cones_gpu)) = (images.get(*picture_id), images.get(*cones_id)) else { return };
+    if picture_gpu.texture.width() != *width || cones_gpu.texture.width() != *width {
+        return;
+    }
+    let size = Extent3d { width: *width, height: *width, depth_or_array_layers: 1 };
+    for (texture, bytes, per_pixel) in [(&picture_gpu.texture, picture, 4), (&cones_gpu.texture, cones, 8)] {
+        queue.write_texture(
+            TexelCopyTextureInfo { texture, mip_level: 0, origin: Origin3d::ZERO, aspect: TextureAspect::All },
+            bytes,
+            TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(width * per_pixel), rows_per_image: None },
+            size,
+        );
+    }
+    *written = upload.generation;
 }
 
 /// Keeps the window of the ground around you up to date, and the near chunks' sun and hill shading
@@ -379,6 +444,7 @@ pub fn update_near_light(
     near: Option<Res<TerrainAssets>>,
     camera: Query<&Transform, With<Camera3d>>,
     mut state: ResMut<NearLightState>,
+    mut upload: ResMut<NearLightUpload>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
 ) {
@@ -422,19 +488,35 @@ pub fn update_near_light(
             let (made, stop) = (key.clone(), Arc::new(AtomicBool::new(false)));
             let flag = stop.clone();
             let previous = state.heights.clone();
-            let task = AsyncComputeTaskPool::get().spawn(async move { make_near(&made, previous, &flag) });
+            let task = AsyncComputeTaskPool::get().spawn(async move {
+                make_near(&made, previous, &flag).map(|(picture, cones, heights)| NearReady { width: picture.width, picture: Arc::new(picture.data), cones: Arc::new(cones_bytes(&cones)), heights })
+            });
             state.job = Some((key, stop, task));
         }
         if let Some((key, _, task)) = state.job.as_mut() {
             if let Some(made) = check_ready(task) {
                 let key = key.clone();
                 state.job = None;
-                if let Some((picture, cones, heights)) = made {
-                    state.heights = Some((key.clone(), heights));
-                    let (image, cones) = (images.add(picture_image(picture)), images.add(cones_image(cones)));
-                    if let Some(mut material) = materials.get_mut(&handle) {
-                        material.near_map = image;
-                        material.near_cones = cones;
+                if let Some(ready) = made {
+                    state.heights = Some((key.clone(), ready.heights));
+                    match &state.pictures {
+                        // The same size: written over the pictures there (`write_near_light`).
+                        Some((picture, cones, width)) if *width == ready.width => {
+                            upload.generation += 1;
+                            upload.pictures = Some((picture.id(), cones.id(), ready.width, ready.picture, ready.cones));
+                        }
+                        // The first, or another size: new pictures.
+                        _ => {
+                            let owned = |bytes: Arc<Vec<u8>>| Arc::try_unwrap(bytes).unwrap_or_else(|shared| (*shared).clone());
+                            let picture = images.add(picture_image(Picture { width: ready.width, levels: 1, data: owned(ready.picture) }));
+                            let cones = images.add(cones_image_of(ready.width, owned(ready.cones)));
+                            if let Some(mut material) = materials.get_mut(&handle) {
+                                material.near_map = picture.clone();
+                                material.near_cones = cones.clone();
+                            }
+                            state.pictures = Some((picture, cones, ready.width));
+                            upload.pictures = None;
+                        }
                     }
                     state.shown = Some(key);
                 }
@@ -612,8 +694,16 @@ fn cones(tops: &[f32], width: usize, fall: f32, toward_sun: Option<(f32, f32)>, 
 
 /// The cone map as an image: two 32-bit numbers a pixel (all round, from the sun), read unblended.
 fn cones_image(cones: Cones) -> Image {
-    let size = Extent3d { width: cones.width, height: cones.width, depth_or_array_layers: 1 };
-    let data: Vec<u8> = cones.all_round.iter().zip(&cones.from_sun).flat_map(|(a, s)| a.to_le_bytes().into_iter().chain(s.to_le_bytes())).collect();
+    cones_image_of(cones.width, cones_bytes(&cones))
+}
+
+/// The cone map's bytes, as the graphics card reads them.
+fn cones_bytes(cones: &Cones) -> Vec<u8> {
+    cones.all_round.iter().zip(&cones.from_sun).flat_map(|(a, s)| a.to_le_bytes().into_iter().chain(s.to_le_bytes())).collect()
+}
+
+fn cones_image_of(width: u32, data: Vec<u8>) -> Image {
+    let size = Extent3d { width, height: width, depth_or_array_layers: 1 };
     Image::new(size, TextureDimension::D2, data, TextureFormat::Rg32Float, RenderAssetUsages::RENDER_WORLD)
 }
 

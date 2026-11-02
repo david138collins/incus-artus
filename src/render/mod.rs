@@ -94,6 +94,8 @@ impl Plugin for RenderPlugin {
             .init_resource::<light::LightState>()
             .add_settings::<light::LightSettings>("light")
             .init_resource::<light::NearLightState>()
+            .init_resource::<light::NearLightUpload>()
+            .add_plugins(bevy::render::extract_resource::ExtractResourcePlugin::<light::NearLightUpload>::default())
             .add_systems(Update, (light::update_light, light::update_near_light))
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
@@ -133,7 +135,7 @@ impl Plugin for RenderPlugin {
         // The march's pieces of the far land, written on Bevy's drawing side (`march::write_march`).
         let writes = app.world().resource::<march::MarchWrites>().clone();
         if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
-            render_app.insert_resource(writes).add_systems(bevy::render::Render, march::write_march.in_set(bevy::render::RenderSystems::PrepareResources));
+            render_app.insert_resource(writes).add_systems(bevy::render::Render, (march::write_march, light::write_near_light).in_set(bevy::render::RenderSystems::PrepareResources));
         }
         // A developer tool, as F12's screenshot is.
         #[cfg(feature = "dev")]

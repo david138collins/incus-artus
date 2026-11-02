@@ -103,7 +103,7 @@ impl Default for DistantSettings {
             shading_fade: 2.0,
             height_tint: 0.15,
             slope_match: 1.0,
-            march: false,
+            march: true,
             march_most: 200,
         }
     }

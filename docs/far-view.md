@@ -148,3 +148,15 @@ meshing. i can fly smoothly and, once the rendered chunks around me catch up, it
   500 blocks, and each new one is handed to the graphics card as two new 2,048 × 2,048 pictures;
   making them on the card happens on Bevy's drawing side, which the game's own step timings don't
   see. Not yet fixed.
+
+### Build 17: the near light window without stalls; the march on by default (David, 2026-11-02)
+David: "yes, fix the near light stall, and lets turn march on by default."
+- **The near light window's two pictures stay on the graphics card.** A new window the same size is
+  written over them on Bevy's drawing side (`light::write_near_light`), handed over with the
+  frame's other changes so it lands the same frame the near ground moves to it. New pictures are
+  made only for the first window or one of another size (the render distance changed). Turning
+  the cone map into bytes (32 MB) moved off the main thread, into the background job that makes it.
+- If a stall is left, it's the writing itself (48 MB a window); the next step would be writing only
+  the strip that's new, as the window slides.
+- **"drawn by the march (new)" is on by default** (presets that don't say otherwise take it); the
+  switch stays, to go back to the sheet.
