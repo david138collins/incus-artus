@@ -334,6 +334,11 @@ David: "go ahead, i'd love to see a glowing braziere in a cave before bed".
 - **Tests:** the strip's dots found and taken out (even and uneven frames, none), and the sprite and
   light read and written back with the sprite's spot.
 
+**Tried (David, 2026-11-01):** "it looks really good... they look sick though." Seen: "the glow snaps
+off the sprite, while its still visible". He'd placed 17 braziers, and only the nearest 8 glows go to
+the shader, so the 9th-nearest's glow switches off as you walk. **Left for stop 3** (David: "lets just
+wait for objects step 3"), whose light is worked into the faces and has no such limit.
+
 ## 11. Later: overlays, random sets, alt textures (David, through Counsel, 2026-11-01) [NOT BUILT]
 
 David: "we also need decoration type objects that are just a flat overlay that could be an ore or moss,
