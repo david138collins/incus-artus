@@ -223,6 +223,26 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     or tell them to hang out at their house.
 - **[DECIDED]** RPG system for NPCs and player alike. Attributes (from the mockup): Str, Con, End, Int,
   Wil, Cha, Spd, Dex, Agi. Skills such as Athletics (modulates sprinting).
+- **[IDEA, David 2026-11-01] School, college and church:** "i think all juveniles can benefit from
+  school, but there needs to be some kind of college and church system for research into magic and
+  other things."
+  - **School is for every child.** All juveniles benefit from it.
+  - **A college and a church** carry research, into magic and other things.
+  - *Counsel* [PROPOSED]:
+    - **School:** a schoolhouse and a teacher (an assignment), giving every child a small start on the
+      basics (reading, numbers, a trade's first steps), so a schooled village grows up a little better
+      at everything.
+    - **Two houses of research:**
+      - **the college:** magic, alchemy, engineering, the natural world, in a library or laboratory
+        with wizards, sages and scribes (the intellect workers already on file, who also assemble the
+        Necronomicon's scraps);
+      - **the church:** the gods, healing, blessings, the moons and the old stories (the mural of the
+        six progenitors).
+    - **Research makes knowledge you can hold:** new spells, recipes, enchantments, maps, written into
+      books in the settlement's library. Books are items (tomes, above), so knowledge can be copied,
+      traded, stolen or burned.
+    - **They can disagree.** A college and a church with different views of magic and the gods are a
+      ready source of the slow politics in the story.
 - **[IDEA] Food → spheres.** Each food has amounts of **protein, carbs and nutrition**. Variety matters:
   - **Carbs:** the biggest immediate stamina boost; also speed up blood regeneration and injury recovery.
   - **Protein:** does more for blood regeneration and injury recovery.
