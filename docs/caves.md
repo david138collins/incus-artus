@@ -980,3 +980,23 @@ then "thats a good idea" to a button for many mouths at once.
   setting tried.
 - "how much must be solid" now goes up to 0.875 (it stopped at 0.5, too low to keep small mouths
   open further off, which needs it higher).
+
+### 13.24 Build 11 measured: the baseline for the far-view march (David, 2026-11-02)
+David decided the far view becomes a ray marcher (`docs/decisions.md`); these readings are what it
+must beat. Nice25, 50 mouths round (-4625, 18186), 40 of them past the real chunks (placing took
+4.4 s); frame cap 0; RTX 5070 Ti laptop (the stand-in for the 980 Ti target), render distance 64.
+
+| Reading | Sections in view | fps | 1% low | worst frame |
+|---|---|---|---|---|
+| Copies off, turning | 2,395 | 146 | 109 | 11.0 ms |
+| Copies on (67 drawn), turning | 2,355 | 145 | 116 | 9.7 ms |
+| Just after a fast flight | 926 (still streaming) | 179 | 57 | 18.8 ms |
+| Settled after the flight | 2,395 | 126 | 29 | 117 ms |
+
+- **Standing still, the copies cost nothing measurable.** Drawing them is free here; what limits
+  the 146 fps isn't known yet (the GPU timer, the march's step 2, will say).
+- **Moving is where they cost:** after the flight about 40 copies were remade at 8 blocks a cell,
+  200 to 320 ms each, over about 4 seconds, while frames hitched from 25 to 117 ms with the game's
+  own steps under 16 ms. Likely the copy jobs crowding the cores (as the light window once did), not
+  checked. Copy making overall: 9 / 95 / 346 ms (least / average / most).
+- **What the march must do:** match the still frame rate, and not hitch after moving.
