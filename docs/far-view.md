@@ -215,3 +215,9 @@ as before, to compare. "Who drew this" shows the march's copies green.
 - **Tested:** a copy's cells carry plain ground and not and dark cave air; a copy taken in raises
   the land's highest under it, keeps it raised when the land's tile comes in again, one too tall is
   left out, and all are let go when off.
+
+### Build 18 stopped at the start; build 19
+DirectX 12's shader compiler (FXC) refused the march's shader: "unable to unroll loop" (log,
+2026-11-02). The new loops over the three ways (north-south, east-west, up-down) indexed a vector
+by the loop's count, which it can only do by writing the loop out, and it wouldn't. Build 19 writes
+each way out by hand (`leave_axis`, `since_entering`).

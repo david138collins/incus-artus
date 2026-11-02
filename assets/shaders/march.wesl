@@ -266,15 +266,20 @@ fn copy_cell(record: u32, c: vec3<i32>) -> u32 {
 // Where a ray leaves the box from `low` to `high` (cells), from `t` where it's at `local`, changing
 // by `rate` cells a block: the distance along it, and which way it leaves (0 north-south, 1
 // east-west, 2 up-down).
-fn leave_box(t: f32, local: vec3<f32>, rate: vec3<f32>, low: vec3<f32>, high: vec3<f32>) -> vec2<f32> {
-    var out = vec3<f32>(1.0e9);
-    for (var a = 0; a < 3; a++) {
-        if rate[a] > 1e-9 {
-            out[a] = (high[a] - local[a]) / rate[a];
-        } else if rate[a] < -1e-9 {
-            out[a] = (low[a] - local[a]) / rate[a];
-        }
+// (Each way written out: DirectX's shader compiler can't turn a loop over them into straight code.
+// Build 18 stopped at the start: "unable to unroll loop".)
+fn leave_axis(at: f32, rate: f32, low: f32, high: f32) -> f32 {
+    if rate > 1e-9 {
+        return (high - at) / rate;
     }
+    if rate < -1e-9 {
+        return (low - at) / rate;
+    }
+    return 1.0e9;
+}
+
+fn leave_box(t: f32, local: vec3<f32>, rate: vec3<f32>, low: vec3<f32>, high: vec3<f32>) -> vec2<f32> {
+    let out = vec3<f32>(leave_axis(local.x, rate.x, low.x, high.x), leave_axis(local.y, rate.y, low.y, high.y), leave_axis(local.z, rate.z, low.z, high.z));
     var axis = 0.0;
     var least = out.x;
     if out.y < least {
@@ -339,6 +344,14 @@ fn land_colour(place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) ->
     return mix(sea, lit, clamp(land_share, 0.0, 1.0));
 }
 
+// How long ago (along the ray) it came in through a cell's face this way, `into` across the cell.
+fn since_entering(into: f32, rate: f32) -> f32 {
+    if abs(rate) < 1e-9 {
+        return 1.0e9;
+    }
+    return select(1.0 - into, into, rate > 0.0) / abs(rate);
+}
+
 // A far copy's cell where a ray met it (`value` packed as above; `local` where the ray was, in its
 // cells, and `rate` how fast that changes), lit by the daylight `light` (0 to 15) of the air cell it
 // came through: its block's colour, top or side by the face it came in through, shaded by which way
@@ -347,12 +360,7 @@ fn land_colour(place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) ->
 fn copy_colour(value: u32, local: vec3<f32>, rate: vec3<f32>, light: u32) -> vec3<f32> {
     // The face it came in through: the one it crossed last.
     let into = local - floor(local);
-    var since = vec3<f32>(1.0e9);
-    for (var a = 0; a < 3; a++) {
-        if abs(rate[a]) > 1e-9 {
-            since[a] = select(1.0 - into[a], into[a], rate[a] > 0.0) / abs(rate[a]);
-        }
-    }
+    let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
     var axis = 2;
     if since.x < since.y && since.x < since.z {
         axis = 0;
