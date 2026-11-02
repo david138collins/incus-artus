@@ -947,3 +947,18 @@ Build 8's copies took about 40 ms (1 block a cell), 58 (2), 138 (4) and 380 (8).
   cell), and a mouth 2 or 3 blocks across is less than half a cell, so with "how much must be solid"
   at 0.5 the cell counts as rock. The sliders working as set; David to try sharpness higher, or "how
   much must be solid" higher (say 0.7, so small openings last), and say which he likes as the default.
+
+### 13.22 Build 10 seen (David, 2026-11-02)
+
+- "fog off, looks good. honestly it looks good in general."
+- **The cave looking like sky with the fog on:** the fog fades the dark inside, about 1,000 blocks
+  off, toward the sky's colour. The fog's sums, not a hole; for the graphics pass.
+- **"if i zoom really quickly i see sky for a second before it fills":** expected (copies and real
+  chunks are made in the background); stop 4's fast flight measures it.
+- Copies took about 13 ms (1 block a cell), 28 (2) and 112 (4).
+- **Left for the graphics pass, or the voxel renderer** (David asked whether this can be tuned
+  further then: yes, copies are blocks in the same format, lit by the same shared sums): fog on dark
+  things far off; the flicker where the smooth far terrain meets the blocks along a skyline; a copy's
+  cell-by-cell detail against the far terrain's averaged colour.
+- **Next in stop 4:** the measurements (frame rate with copies on and off at sharpness 1, 2 and 4;
+  the fast flight).
