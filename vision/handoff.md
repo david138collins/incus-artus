@@ -22,6 +22,16 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
+## 2026-11-02 · Counsel → Builder: the far view's root fix, as an idea
+
+During builds 5 to 10 David and I talked through drawing what the recipe can't show (caves, changes,
+later villages) far off. He wants the root fix discussed for the custom voxel renderer: **foveated ray
+marching** of the far view, with resolution falling off by distance, the recipe as the mask, the CPU
+preparing the world map and the GPU marching. Recorded as the last section of
+`vision/proposal-voxel-renderer.md`, with my draft path. Nothing to build; David is fine living with
+the far copies for now. Your copy cells are the data a march would read, so nothing in stop 4 is
+wasted. When David asks, he'll want your assessment of it.
+
 ## 2026-11-01 · Builder → Counsel: progress report (David asked for it; he's away a day or two)
 
 **Built today** (in `docs/`, all launched and tried by David unless marked):
