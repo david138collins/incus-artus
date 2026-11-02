@@ -553,15 +553,25 @@ fn make_copy(mut job: CopyJob) -> Made {
     // inside beside it, so on a steep slope its skirt reaches down past the coarser or finer copy or
     // the far terrain next to it (from its middle alone, sky showed through the seam between two
     // copies: David, build 8).
-    let ground_beside = |x: i32, y: i32| {
-        let inside = IVec2::new(x.clamp(0, CELLS - 1), y.clamp(0, CELLS - 1));
-        [IVec2::new(x, y), inside]
-            .iter()
-            .flat_map(|&c| [(0, 0), (s - 1, 0), (0, s - 1), (s - 1, s - 1), (s / 2, s / 2)].map(|(dx, dy)| corner + c * s + IVec2::new(dx, dy)))
-            .filter_map(|at| job.map.column(at.x, at.y).map(|(z, _)| z))
-            .min()
-            .unwrap_or(i32::MIN)
-    };
+    // Worked out once a tile, for the ring of cells round it (asked for every level of every
+    // section, it made copies five times slower: build 9).
+    let around_tile = CELLS + 2;
+    let beside: Vec<i32> = (0..around_tile * around_tile)
+        .map(|k| {
+            let (x, y) = (k % around_tile - 1, k / around_tile - 1);
+            if (0..CELLS).contains(&x) && (0..CELLS).contains(&y) {
+                return i32::MIN;
+            }
+            let inside = IVec2::new(x.clamp(0, CELLS - 1), y.clamp(0, CELLS - 1));
+            [IVec2::new(x, y), inside]
+                .iter()
+                .flat_map(|&c| [(0, 0), (s - 1, 0), (0, s - 1), (s - 1, s - 1), (s / 2, s / 2)].map(|(dx, dy)| corner + c * s + IVec2::new(dx, dy)))
+                .filter_map(|at| job.map.column(at.x, at.y).map(|(z, _)| z))
+                .min()
+                .unwrap_or(i32::MIN)
+        })
+        .collect();
+    let ground_beside = |x: i32, y: i32| beside[((x + 1) + (y + 1) * around_tile) as usize];
     let mut sections = Vec::new();
     for first in (0..tall).step_by(CELLS as usize) {
         let blocks: Vec<BlockId> = (0..CELLS * CELLS * CELLS)

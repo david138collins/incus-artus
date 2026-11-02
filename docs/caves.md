@@ -934,7 +934,7 @@ there's some seams and discoloration, and i have to turn off fog to see it."
 2. A copy's skirt reaches down from the lowest of the corners and middles of the cell beside it and
    the cell inside next to it.
 
-Build 8's copies took about 40 ms (1 block a cell), 58 (2), 138 (4) and 380 (8).
+Build 8's copies took about 40 ms (1 block a cell), 58 (2), 138 (4) and 380 (8). Build 9's took five times as long (207 ms at 1 block a cell): the skirt's lowest ground was looked up again for every level of every section; build 10 works it out once a tile.
 
 ### 13.21 Build 10: what build 9 showed
 
