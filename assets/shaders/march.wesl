@@ -196,6 +196,15 @@ fn triangle(uv: vec2<f32>) -> Triangle {
     return t;
 }
 
+// The land's height across a cell from its corners' heights (a at its first corner, b one cell
+// north, c north-east, d east), at `uv` from 0 to 1: the sheet's two triangles.
+fn surface(a: f32, b: f32, c: f32, d: f32, uv: vec2<f32>) -> f32 {
+    if uv.x >= uv.y {
+        return a * (1.0 - uv.x) + b * (uv.x - uv.y) + c * uv.y;
+    }
+    return a * (1.0 - uv.y) + c * uv.x + d * (uv.y - uv.x);
+}
+
 // Whether the real chunks or the far copies draw this spot (the sheet's `shown` texture).
 fn drawn_near(at: vec2<f32>) -> bool {
     if settings.fog.w > 0.5 {
@@ -261,6 +270,10 @@ fn fragment(in: VertexOutput) -> Output {
     var hit_place: Place;
     var hit_cell = vec2<u32>(0u);
     var hit_uv = vec2<f32>(0.0);
+    // Whether the ray was above the land where the last step left it (not known at the start: a ray
+    // starting under the land went in under the near world). A ray above the land leaving one step
+    // and under it entering the next met it in between [build 15: "a field of sky speckles"].
+    var was_above = false;
     for (var k = 0u; k < most; k++) {
         if t > furthest {
             break;
@@ -276,6 +289,7 @@ fn fragment(in: VertexOutput) -> Output {
             }
             // No tile in yet here: on, at a twentieth of the distance.
             t += max(t * 0.05, 16.0);
+            was_above = false;
             continue;
         }
         let cell = place.size / CELLS;
@@ -286,6 +300,7 @@ fn fragment(in: VertexOutput) -> Output {
         let out_of_tile = leave(t, local, rate, vec2<f32>(0.0), vec2<f32>(CELLS));
         if min(p.z, origin.z + ray.z * out_of_tile) > top_of(place.slot, 16u) {
             t = out_of_tile + nudge;
+            was_above = true;
             continue;
         }
         // Past the block of 4 x 4 cells, likewise.
@@ -293,6 +308,7 @@ fn fragment(in: VertexOutput) -> Output {
         let out_of_block = leave(t, local, rate, block * BLOCK, (block + 1.0) * BLOCK);
         if min(p.z, origin.z + ray.z * out_of_block) > top_of(place.slot, u32(block.y * (CELLS / BLOCK) + block.x)) {
             t = out_of_block + nudge;
+            was_above = true;
             continue;
         }
         // Across one cell: where the ray comes down onto either of its triangles.
@@ -304,41 +320,56 @@ fn fragment(in: VertexOutput) -> Output {
         let b = eased_height(place, i + 1u, j);
         let c = eased_height(place, i + 1u, j + 1u);
         let d = eased_height(place, i, j + 1u);
-        if min(min(a, b), min(c, d)) > MISSING {
-            let uv = local - ij;
-            // Each triangle's plane: height = h0 + gu u + gv v, and which half of the cell it covers.
-            var nearest = 1.0e9;
-            for (var half = 0; half < 2; half++) {
-                let first_half = half == 0;
-                let h0 = a;
-                let gu = select(c - d, b - a, first_half);
-                let gv = select(d - a, c - b, first_half);
-                let gap = p.z - (h0 + gu * uv.x + gv * uv.y);
-                let closing = ray.z - gu * rate.x - gv * rate.y;
-                if gap >= 0.0 && closing < 0.0 {
-                    let at = t + gap / -closing;
-                    let there = uv + rate * (at - t);
-                    if at <= out_of_cell && (there.x >= there.y) == first_half {
-                        nearest = min(nearest, at);
-                    }
+        if min(min(a, b), min(c, d)) <= MISSING {
+            t = out_of_cell + nudge;
+            was_above = false;
+            continue;
+        }
+        let uv = local - ij;
+        let under = surface(a, b, c, d, uv);
+        // Above the land leaving the last step and under it here: it met the land in between.
+        if was_above && p.z < under && !drawn_near(p.xy) {
+            hit = true;
+            hit_place = place;
+            hit_cell = vec2<u32>(i, j);
+            hit_uv = clamp(uv, vec2<f32>(0.0), vec2<f32>(1.0));
+            break;
+        }
+        // Each triangle's plane: height = h0 + gu u + gv v, and which half of the cell it covers
+        // (with a hair either side, where the two planes are the same height anyway).
+        var nearest = 1.0e9;
+        for (var half = 0; half < 2; half++) {
+            let first_half = half == 0;
+            let h0 = a;
+            let gu = select(c - d, b - a, first_half);
+            let gv = select(d - a, c - b, first_half);
+            let gap = p.z - (h0 + gu * uv.x + gv * uv.y);
+            let closing = ray.z - gu * rate.x - gv * rate.y;
+            if gap >= 0.0 && closing < 0.0 {
+                let at = t + gap / -closing;
+                let there = uv + rate * (at - t);
+                let across = there.x - there.y;
+                let in_half = select(across <= 1e-3, across >= -1e-3, first_half);
+                if at <= out_of_cell + nudge && in_half {
+                    nearest = min(nearest, at);
                 }
             }
-            if nearest < 1.0e9 && !drawn_near((origin + ray * nearest).xy) {
-                hit = true;
-                hit_place = place;
-                hit_cell = vec2<u32>(i, j);
-                hit_uv = clamp(uv + rate * (nearest - t), vec2<f32>(0.0), vec2<f32>(1.0));
-                t = nearest;
-                break;
-            }
-            // Deep under the land: gone in under the near world, whose ground draws in front of
-            // anything further along.
-            let w = triangle(uv).w;
-            let under = select(a * w.x + d * w.y + c * w.z, a * w.x + b * w.y + c * w.z, uv.x >= uv.y);
-            if p.z < under - max(16.0, 2.0 * cell) {
-                break;
-            }
         }
+        if nearest < 1.0e9 && !drawn_near((origin + ray * nearest).xy) {
+            hit = true;
+            hit_place = place;
+            hit_cell = vec2<u32>(i, j);
+            hit_uv = clamp(uv + rate * (nearest - t), vec2<f32>(0.0), vec2<f32>(1.0));
+            t = nearest;
+            break;
+        }
+        // Deep under the land: gone in under the near world, whose ground draws in front of
+        // anything further along.
+        if p.z < under - max(16.0, 2.0 * cell) {
+            break;
+        }
+        let leaving = clamp(local + rate * (out_of_cell - t) - ij, vec2<f32>(0.0), vec2<f32>(1.0));
+        was_above = origin.z + ray.z * out_of_cell >= surface(a, b, c, d, leaving);
         t = out_of_cell + nudge;
     }
     if !hit {

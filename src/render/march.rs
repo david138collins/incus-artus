@@ -230,10 +230,19 @@ impl MarchState {
     /// `None` if it misses (or goes deep under the land first). Each step is one of: past a tile the
     /// ray is wholly above (by its highest), past a block of 4 × 4 cells likewise, or across one cell,
     /// meeting its two triangles exactly.
+    ///
+    /// **Never slipping through** [build 15: "a field of sky speckles"]: a ray meeting the land right
+    /// on the line between a cell's two triangles, or right at a cell's edge, could be turned away by
+    /// both triangles, or by both cells, by a rounding hair. So a triangle takes a meeting a hair past
+    /// its edge, and a ray that was above the land leaving one step and is under it entering the next
+    /// met it there, between them.
     #[cfg(test)]
     fn march_ray(&self, finest: f32, origin: Vec3, ray: Vec3, start: f32, most: u32, drawn_near: impl Fn(Vec2) -> bool) -> Option<f32> {
         let camera = origin.truncate();
         let mut t = start;
+        // Whether the ray was above the land where the last step left it (not known at the start:
+        // a ray starting under the land went in under the near world).
+        let mut was_above = false;
         for _ in 0..most {
             let p = origin + ray * t;
             if ray.z >= 0.0 && p.z > self.highest {
@@ -243,6 +252,7 @@ impl MarchState {
                 Located::Beyond => return None,
                 Located::NotIn => {
                     t += (t * 0.05).max(16.0);
+                    was_above = false;
                     continue;
                 }
                 Located::Land(place) => place,
@@ -262,42 +272,57 @@ impl MarchState {
             let out_of_tile = leave(Vec2::ZERO, Vec2::splat(CELLS as f32));
             if above_all(out_of_tile, tops[TILE_TOP]) {
                 t = out_of_tile + nudge;
+                was_above = true;
                 continue;
             }
             let block = (local / BLOCK as f32).floor().clamp(Vec2::ZERO, Vec2::splat((CELLS / BLOCK - 1) as f32));
             let out_of_block = leave(block * BLOCK as f32, (block + 1.0) * BLOCK as f32);
             if above_all(out_of_block, tops[(block.y as usize) * (CELLS / BLOCK) as usize + block.x as usize]) {
                 t = out_of_block + nudge;
+                was_above = true;
                 continue;
             }
             let ij = local.floor().clamp(Vec2::ZERO, Vec2::splat((CELLS - 1) as f32));
             let out_of_cell = leave(ij, ij + 1.0);
             let (i, j) = (ij.x as usize, ij.y as usize);
             let heights = [(0, 0), (1, 0), (1, 1), (0, 1)].map(|(di, dj)| self.eased(place, i + di, j + dj, camera));
-            if let [Some(a), Some(b), Some(c), Some(d)] = heights {
-                let (u, v) = (local.x - ij.x, local.y - ij.y);
-                // Each triangle's plane: height = h0 + gu u + gv v; and which half of the cell it covers.
-                let mut hit = f32::MAX;
-                for (h0, gu, gv, first_half) in [(a, b - a, c - b, true), (a, c - d, d - a, false)] {
-                    let gap = p.z - (h0 + gu * u + gv * v);
-                    let closing = ray.z - gu * rate.x - gv * rate.y;
-                    if gap >= 0.0 && closing < 0.0 {
-                        let at = t + gap / -closing;
-                        let (ua, va) = (u + rate.x * (at - t), v + rate.y * (at - t));
-                        if at <= out_of_cell && (ua >= va) == first_half {
-                            hit = hit.min(at);
-                        }
+            let [Some(a), Some(b), Some(c), Some(d)] = heights else {
+                t = out_of_cell + nudge;
+                was_above = false;
+                continue;
+            };
+            // The land's height at a spot across the cell (u, v from 0 to 1).
+            let surface = |u: f32, v: f32| if u >= v { a * (1.0 - u) + b * (u - v) + c * v } else { a * (1.0 - v) + c * u + d * (v - u) };
+            let (u, v) = (local.x - ij.x, local.y - ij.y);
+            let under = surface(u, v);
+            // Above the land leaving the last step and under it here: it met the land in between.
+            if was_above && p.z < under && !drawn_near(p.truncate()) {
+                return Some(t);
+            }
+            // Each triangle's plane: height = h0 + gu u + gv v; and which half of the cell it covers
+            // (with a hair either side, where the two planes are the same height anyway).
+            let mut hit = f32::MAX;
+            for (h0, gu, gv, first_half) in [(a, b - a, c - b, true), (a, c - d, d - a, false)] {
+                let gap = p.z - (h0 + gu * u + gv * v);
+                let closing = ray.z - gu * rate.x - gv * rate.y;
+                if gap >= 0.0 && closing < 0.0 {
+                    let at = t + gap / -closing;
+                    let across = (u + rate.x * (at - t)) - (v + rate.y * (at - t));
+                    let in_half = if first_half { across >= -1e-3 } else { across <= 1e-3 };
+                    if at <= out_of_cell + nudge && in_half {
+                        hit = hit.min(at);
                     }
                 }
-                if hit < f32::MAX && !drawn_near((origin + ray * hit).truncate()) {
-                    return Some(hit);
-                }
-                // Deep under the land: gone in under the near world.
-                let under = if u >= v { a * (1.0 - u) + b * (u - v) + c * v } else { a * (1.0 - v) + c * u + d * (v - u) };
-                if p.z < under - (2.0 * cell).max(16.0) {
-                    return None;
-                }
             }
+            if hit < f32::MAX && !drawn_near((origin + ray * hit).truncate()) {
+                return Some(hit);
+            }
+            // Deep under the land: gone in under the near world.
+            if p.z < under - (2.0 * cell).max(16.0) {
+                return None;
+            }
+            let leaving = ((local + rate * (out_of_cell - t)) - ij).clamp(Vec2::ZERO, Vec2::ONE);
+            was_above = origin.z + ray.z * out_of_cell >= surface(leaving.x, leaving.y);
             t = out_of_cell + nudge;
         }
         None
@@ -666,6 +691,41 @@ mod tests {
             }
         }
         assert!(hits > 100 && misses > 5, "{hits} hits, {misses} misses");
+    }
+
+    #[test]
+    fn no_ray_slips_through_the_land() {
+        // Rays every way and steeply down from above hilly land, all inside the map: every one meets
+        // the land. [Build 15: "a field of sky speckles", rays slipping through between a cell's two
+        // triangles or across a cell's edge.]
+        let width = 64;
+        let z: Vec<f32> = (0..width * width)
+            .map(|i| {
+                let (x, y) = ((i % width) as f32, (i / width) as f32);
+                150.0 + 40.0 * (x * 0.4).sin() * (y * 0.3).cos() + ((i * 7) % 5) as f32 * 3.0
+            })
+            .collect();
+        let map = CompiledMap::of_heights(width, 32.0, &z);
+        let registry = crate::data::BlockRegistry::default();
+        let blocks = TerrainBlocks::from_registry(&registry);
+        let palette = super::super::distant::Palette::from_textures(&registry, &blocks);
+        let finest = 16;
+        let camera = Vec3::new(100.0, -150.0, 300.0);
+        let mut state = MarchState::default();
+        state.follow(1, 2);
+        for key in super::super::distant::wanted_tiles(camera, finest, 2) {
+            state.store(key, super::super::distant::tile_mesh(&map, &blocks, &palette, key, finest).as_ref());
+        }
+        let mut slipped = Vec::new();
+        for k in 0..20_000 {
+            let heading = k as f32 * 0.618_034 * std::f32::consts::TAU;
+            let dip = -0.3 - 0.5 * ((k * 7919) % 1000) as f32 / 1000.0;
+            let ray = Vec3::new(heading.cos(), heading.sin(), dip).normalize();
+            if state.march_ray(finest as f32, camera, ray, 0.0, 2000, |_| false).is_none() {
+                slipped.push((heading, dip));
+            }
+        }
+        assert!(slipped.is_empty(), "{} of 20,000 rays slipped through, first {:?}", slipped.len(), slipped.first());
     }
 
     #[test]

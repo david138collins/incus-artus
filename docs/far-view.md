@@ -126,3 +126,14 @@ needed some tuning" (that was the shaking rays; a chunky far view on purpose is 
   hit is on the land, never later than the slow search's, and nothing it finds is missed. (The slow
   search can step over a ray grazing the land for a few hundredths of a block; the long steps
   can't.)
+
+### Build 15 seen, and build 16 (David, 2026-11-02)
+David: "without having moved my camera, after turning on the march, there is a field of sky
+speckles", and "when i move, the speckles sparkle, but i can see bands that they sparkle in lines".
+- **Rays slipping through:** a ray meeting the land right on the line between a cell's two
+  triangles, or right at a cell's edge, could be turned away by both triangles, or both cells, by a
+  rounding hair (the lines David saw are the cells' edges and diagonals). Build 16: a triangle takes
+  a meeting a hair past its edge, and a ray above the land leaving one step and under it entering
+  the next met it in between.
+- **Tested:** 20,000 rays steeply down at hilly land must all meet it; with build 15's steps 27 of
+  them slipped through, with build 16's none.
