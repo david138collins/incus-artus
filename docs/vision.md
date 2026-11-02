@@ -599,6 +599,23 @@ bread and a blank diary. Birds sing and flit about.
     not an item at all. And variety can come the way blocks already do (material × inclusion): a few drawn
     forms × materials × gems by palette swap, so one drawing makes many items. The art is one artist's
     time (`vision/watch-list.md`, item 4), so variety should go where it means something.
+- **[IDEA, David 2026-11-01] Quality, material and encrusting make an item:** "item quality, material,
+  encrusting will make a big deal to the items strength, gems can be enchanted too for jewelry or
+  encrusting weapons, armor, furniture, tools."
+  - An item's strength comes from its **quality**, its **material** and its **encrusting**.
+  - **Gems can be enchanted,** then set into jewellery or encrusted on weapons, armour, furniture and
+    tools.
+  - *Counsel* [PROPOSED]:
+    - **Three layers, like a wand** (Magic, above): a form (sword, chair, ring), a material (bronze,
+      steel, oak) and a quality from the maker's skill, then gems set into it. An enchanted gem works
+      like a spell in a wand's slot.
+    - **The item remembers who made it:** a maker's name and skill on fine work, as in Dwarf Fortress.
+      A masterwork from a famous smith becomes a story, and a stolen one is noticed.
+    - **The look comes cheap:** a few drawn forms × materials × gems by palette swap (the note above),
+      so a gem-encrusted steel sword needs no new drawing.
+    - **Gems tie mining to magic:** the gem list in the vault (diamond to onyx) becomes the enchanter's
+      raw material, so the ladder of getting ore (`docs/decisions.md`, Blocks) feeds magic as well as
+      metal.
 - Calendar: year = 4 seasons × 7 days; day = 15 min light + 15 min dark.
 
 ## Multiplayer and modding  [DECIDED]
