@@ -160,3 +160,15 @@ David: "yes, fix the near light stall, and lets turn march on by default."
   the strip that's new, as the window slides.
 - **"drawn by the march (new)" is on by default** (presets that don't say otherwise take it); the
   switch stays, to go back to the sheet.
+
+### Build 17 seen (David, 2026-11-02)
+David: "overall, it looks and runs good", and of the jitter left, "very very subtle, i have to stop
+and watch very closely".
+- **The flying stalls are gone:** after the world loaded, no frame of 110 to 140 ms; a few of 50 to
+  70 ms, minutes apart.
+- **The jitter left is the camera:** the Camera page's wobble line showed it moving up to 0.0039
+  blocks every frame while standing, at (-1438, 17719). That far out a position is kept to 0.002
+  blocks, so the pawn settling by one or two of those steps moves the camera, and the ground at your
+  feet shifts by about a pixel. (Its "turned 0.04°" is the readout's own rounding: two identical
+  rotations measure that far apart.) The cure for every case is drawing relative to the camera
+  (for the renderer work); a standing pawn holding exactly still would cure it standing only.
