@@ -164,6 +164,10 @@ pub struct FarCopies {
     share: f32,
     /// Chunk columns where a cave comes near the ground.
     near_ground: HashSet<ChunkPos>,
+    /// Each cave's chunks: once any of them shows, all are copied, so the cave is closed wherever it
+    /// runs (a tunnel running on into a chunk with no copy was open at the tile's edge, and the sky
+    /// showed through it: David, build 9).
+    caves: Vec<HashSet<ChunkPos>>,
     /// Changed chunks known of, and chunks found to show.
     known_changed: HashSet<ChunkPos>,
     hot: HashSet<ChunkPos>,
@@ -682,6 +686,7 @@ pub fn update_far_copies(
     if !same {
         state.clear(&mut commands);
         state.near_ground = near_ground(&plan, &map);
+        state.caves = plan.tunnels.iter().map(CavePlan::chunks_near).collect();
         state.map = Some(map.clone());
         state.plan = Some(plan.clone());
         state.revision = assets.revision;
@@ -741,6 +746,12 @@ pub fn update_far_copies(
         for pos in &state.hot {
             for (x, y) in [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
                 candidates.entry(ChunkPos::new(pos.x + x, pos.y + y)).or_insert(true);
+            }
+        }
+        // A cave that shows anywhere is copied all along.
+        for cave in state.caves.iter().filter(|cave| cave.iter().any(|pos| state.hot.contains(pos))) {
+            for &pos in cave {
+                candidates.insert(pos, true);
             }
         }
         let mut wanted: HashMap<TileKey, bool> = HashMap::new();

@@ -935,3 +935,15 @@ there's some seams and discoloration, and i have to turn off fog to see it."
    the cell inside next to it.
 
 Build 8's copies took about 40 ms (1 block a cell), 58 (2), 138 (4) and 380 (8).
+
+### 13.21 Build 10: what build 9 showed
+
+- **"sky through the cave"** (from 496, 12384, facing north-west): looking into the mouth, the sky
+  behind the mountain. The test cave's tunnel runs about 100 blocks, through several chunks; only
+  the chunks daylight reaches and those round them were copied, so where the tunnel ran on into a
+  chunk with no copy it was open at the tile's edge, with only the far terrain's skin beyond.
+  **Build 10:** once any chunk of a cave shows, every chunk the cave runs through is copied.
+- **"backed up, cave vanishes"** (from 344, 12472): further off the copy is coarser (4 blocks a
+  cell), and a mouth 2 or 3 blocks across is less than half a cell, so with "how much must be solid"
+  at 0.5 the cell counts as rock. The sliders working as set; David to try sharpness higher, or "how
+  much must be solid" higher (say 0.7, so small openings last), and say which he likes as the default.
