@@ -875,3 +875,14 @@ blue to yellow; it never turned green.
   block's top and side layers (`far_copies.rs`, `PLAIN`). Works while there are under 128 texture
   layers (16 now); past that, plain ground is drawn as blocks again.
 - **Who drew this:** plain ground in a copy shows a paler green.
+
+### 13.18 Build 7: plain ground decided cell by cell
+
+**Build 6's screenshots:** the copy's plain ground blended in, but a pale square on the hillside
+over David's test cave kept the blocks' look, its steps showing. Build 6 asked plainness of whole
+columns, so every column with the cave anywhere under it (the tunnel runs about 100 blocks into
+the hill) was left as blocks.
+
+**Build 7:** a solid cell is plain ground unless it touches covered air (air with something solid
+over it in its column: a cave mouth's rim, an overhang), holds an object, or is in a changed chunk.
+So only the mouth's rim keeps the blocks' look round a cave.

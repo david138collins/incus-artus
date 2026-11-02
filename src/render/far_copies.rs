@@ -484,36 +484,30 @@ fn make_copy(mut job: CopyJob) -> Made {
         })
         .collect();
     let cell = |x: i32, y: i32, z: i32| cells[index(x, y, z)];
-    // Plain ground: columns of cells solid up to a point and open above (no cave, no overhang), with
-    // no objects, in chunks nobody changed. Their solid cells are drawn as the far terrain draws the
+    // Plain ground: solid cells touching only open air (air with nothing solid over it in its
+    // column), with no objects, in chunks nobody changed. They're drawn as the far terrain draws the
     // land (terrain.wesl, `far_ground`), so the copy doesn't show as a patch round what's different
-    // in it [David, build 5]. Each such block is a stand-in, its number past the real ones', whose
-    // faces all carry `PLAIN` and its top's and side's layers.
+    // in it [David, build 5]; only cells touching covered air (a cave mouth's rim, an overhang) and
+    // what you've changed keep the blocks' look. (Build 6 asked it of whole columns, so the hillside
+    // over a whole test cave kept the blocks' look: David's paler square.) Each plain cell is a
+    // stand-in block, its number past the real ones', whose faces all carry `PLAIN` and its top's and
+    // side's layers.
     let real_count = job.face_layers.len();
     let stand_ins = real_count * 2 < BlockId::PIECES.0 as usize && job.face_layers.iter().all(|layers| layers[4] < 128 && layers[0] < 128);
-    let plain: Vec<bool> = (0..CELLS * CELLS)
-        .map(|k| {
-            let (x, y) = (k % CELLS, k / CELLS);
-            if !stand_ins || was_changed.contains(&ChunkPos::of_block(IVec3::new(corner.x + x * s, corner.y + y * s, 0))) {
-                return false;
-            }
-            let mut opened = false;
-            for z in 0..tall {
-                if tallies[index(x, y, z)].objects > 0.0 {
-                    return false;
-                }
-                if !is_opaque(cell(x, y, z)) {
-                    opened = true;
-                } else if opened {
-                    return false;
-                }
-            }
-            true
-        })
-        .collect();
+    // Each column's highest solid cell (cells above it are open air).
+    let roof: Vec<i32> = (0..CELLS * CELLS).map(|k| (0..tall).rev().find(|&z| is_opaque(cell(k % CELLS, k / CELLS, z))).unwrap_or(-1)).collect();
+    let covered_air = |p: IVec3| {
+        (0..CELLS).contains(&p.x) && (0..CELLS).contains(&p.y) && (0..tall).contains(&p.z) && !is_opaque(cell(p.x, p.y, p.z)) && p.z < roof[(p.x + p.y * CELLS) as usize]
+    };
+    let plain = |x: i32, y: i32, z: i32| {
+        stand_ins
+            && tallies[index(x, y, z)].objects <= 0.0
+            && !was_changed.contains(&ChunkPos::of_block(IVec3::new(corner.x + x * s, corner.y + y * s, 0)))
+            && !sides.iter().any(|&side| covered_air(IVec3::new(x, y, z) + side))
+    };
     let drawn_as = |x: i32, y: i32, z: i32| {
         let id = cell(x, y, z);
-        if plain[(x + y * CELLS) as usize] && is_opaque(id) { BlockId(id.0 + real_count as u16) } else { id }
+        if is_opaque(id) && plain(x, y, z) { BlockId(id.0 + real_count as u16) } else { id }
     };
     let doubled = |table: &Arc<Vec<bool>>| Arc::new(table.iter().chain(table.iter()).copied().collect::<Vec<bool>>());
     let (opaque, see_through, inner_faces) = (doubled(&job.opaque), doubled(&job.see_through), doubled(&job.inner_faces));
@@ -971,7 +965,7 @@ mod tests {
         let (_, darkest) = highest_and_darkest(&made, 2);
         assert!(darkest < 15, "{darkest}");
         // The open hillside round it is plain ground (drawn as the far terrain draws the land); the
-        // columns the cave runs under aren't.
+        // mouth's rim, touching the cave's air, isn't.
         let plain = |made: &Made| made.sections.iter().flat_map(|(_, output)| output.vertices.iter()).map(|vertex| vertex[1] & PLAIN != 0).collect::<Vec<_>>();
         let faces = plain(&made);
         assert!(faces.iter().any(|&p| p) && faces.iter().any(|&p| !p));
