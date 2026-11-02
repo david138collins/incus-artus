@@ -89,8 +89,7 @@ struct Copies {
     drawn: HashMap<CopyKey, MarchedCopy>,
     free_pages: Vec<u32>,
     free_records: Vec<u32>,
-    /// The map's centre chunk and whether it's up to date.
-    centre: IVec2,
+    /// Whether the map needs making again.
     map_stale: bool,
     /// The colours the cells are drawn in were sent for this palette.
     palette: Option<Arc<Palette>>,
@@ -261,8 +260,8 @@ impl MarchState {
     }
 
     /// Keeps the copies the march draws the same as the far copies drawn (`tiles`, those drawn first),
-    /// with the map round `centre` (a chunk); none while `on` is false.
-    fn follow_copies(&mut self, tiles: Vec<(CopyKey, Arc<CopyCells>)>, centre: IVec2, on: bool) {
+    /// with their map; none while `on` is false.
+    fn follow_copies(&mut self, tiles: Vec<(CopyKey, Arc<CopyCells>)>, on: bool) {
         if self.copies.free_pages.is_empty() && self.copies.drawn.is_empty() {
             self.copies.free_pages = (0..PAGES as u32).rev().collect();
             self.copies.free_records = (0..MOST_COPIES as u32).rev().collect();
@@ -326,11 +325,15 @@ impl MarchState {
             }
         }
         self.copies.top = self.copies.drawn.values().map(|copy| copy.footprint.2).fold(f32::MIN, f32::max);
-        // The map: which copy draws each chunk round the camera's (one drawn now wins over one retiring).
-        if self.copies.map_stale || self.copies.centre != centre {
+        // The map: which copy draws each chunk (one drawn now wins over one retiring). It's laid out
+        // by the world, each chunk at its place counted round the map's width, not round you: one laid
+        // out round you was made again at every chunk you crossed, and for a frame the graphics card
+        // could read it against the last one's middle, so a mountain showed sky through it while you
+        // moved [David, build 19: "shards of sky appeared in several layers, stopping when i stopped
+        // moving"]. The copies all lie within the hand-off mask (`far_copies::MASK_REACH`, less than
+        // half the map's width from you), so no two share a place; a ray also checks its copy covers it.
+        if self.copies.map_stale {
             self.copies.map_stale = false;
-            self.copies.centre = centre;
-            let half = MAP / 2;
             let mut map = vec![0u32; (MAP * MAP) as usize];
             for (key, _) in &wanted {
                 let Some(copy) = self.copies.drawn.get(key) else { continue };
@@ -338,9 +341,9 @@ impl MarchState {
                 let chunk = crate::world::CHUNK_SIZE;
                 for cy in low.y.div_euclid(chunk)..high.y.div_euclid(chunk) {
                     for cx in low.x.div_euclid(chunk)..high.x.div_euclid(chunk) {
-                        let (x, y) = (cx - centre.x + half, cy - centre.y + half);
-                        if (0..MAP).contains(&x) && (0..MAP).contains(&y) && map[(y * MAP + x) as usize] == 0 {
-                            map[(y * MAP + x) as usize] = copy.record + 1;
+                        let at = (cy.rem_euclid(MAP) * MAP + cx.rem_euclid(MAP)) as usize;
+                        if map[at] == 0 {
+                            map[at] = copy.record + 1;
                         }
                     }
                 }
@@ -560,7 +563,7 @@ pub struct MarchMaterial {
 pub struct MarchShaderSettings {
     /// x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes.
     pub grid: Vec4,
-    /// The far copies: x 1 if the march draws them, y and z the chunk their map is centred on.
+    /// The far copies: x 1 if the march draws them.
     pub copies: Vec4,
     /// The square of real chunks the rays start at the edge of (game axes, blocks): its least x and
     /// y, its greatest x and y; all 0 if there's none.
@@ -655,7 +658,6 @@ pub fn update_march(
     mut state: ResMut<MarchState>,
     (distant, settings): (Res<DistantState>, Res<DistantSettings>),
     (far, far_settings): (Res<FarCopies>, Res<FarCopySettings>),
-    camera: Query<&Transform, With<Camera3d>>,
     mut changed_sheet: MessageReader<AssetEvent<DistantMaterial>>,
     sheets: Res<Assets<DistantMaterial>>,
     mut materials: ResMut<Assets<MarchMaterial>>,
@@ -683,12 +685,7 @@ pub fn update_march(
     }
     // The far copies, if the march draws them, and the colours their cells are drawn in.
     let marched = far_settings.marched(&settings);
-    let centre = camera.iter().next().map_or(IVec2::ZERO, |camera| {
-        let at = crate::coords::bevy_to_game(camera.translation);
-        let chunk = crate::world::CHUNK_SIZE as f32;
-        IVec2::new((at.x / chunk).floor() as i32, (at.y / chunk).floor() as i32)
-    });
-    state.follow_copies(if marched { far.march_tiles() } else { Vec::new() }, centre, marched);
+    state.follow_copies(if marched { far.march_tiles() } else { Vec::new() }, marched);
     if let Some(palette) = distant.palette().cloned()
         && state.copies.palette.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &palette))
     {
@@ -707,7 +704,7 @@ pub fn update_march(
     });
     let march = MarchShaderSettings {
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
-        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, state.copies.centre.x as f32, state.copies.centre.y as f32, 0.0),
+        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0),
         inner,
     };
     let unchanged = materials.get(&handle).is_some_and(|material| material.march == march);
@@ -974,7 +971,7 @@ mod tests {
         // A copy of one chunk at (64, 64), 40 cells of a block from 40 high: its top is 80.
         let cells = Arc::new(CopyCells { corner: IVec3::new(64, 64, 40), scale: 1, tall: 40, cells: vec![0; 32 * 32 * 40] });
         let key = CopyKey { scale: 1, x: 2, y: 2 };
-        state.follow_copies(vec![(key, cells.clone())], IVec2::ZERO, true);
+        state.follow_copies(vec![(key, cells.clone())], true);
         assert_eq!(state.copies.drawn.len(), 1);
         assert_eq!(state.copies.drawn[&key].pages.len(), 2);
         assert_eq!(state.copies.top, 80.0);
@@ -987,10 +984,10 @@ mod tests {
         assert_eq!(state.tops[slot * TOPS + 4 + 1], 80.0);
         // One far too tall is left to the land.
         let tall = Arc::new(CopyCells { corner: IVec3::ZERO, scale: 1, tall: 600, cells: vec![0; 32 * 32 * 600] });
-        state.follow_copies(vec![(key, cells), (CopyKey { scale: 1, x: 0, y: 0 }, tall)], IVec2::ZERO, true);
+        state.follow_copies(vec![(key, cells), (CopyKey { scale: 1, x: 0, y: 0 }, tall)], true);
         assert_eq!(state.copies.drawn.len(), 1);
         // Off: all let go, and their pages free again.
-        state.follow_copies(Vec::new(), IVec2::ZERO, false);
+        state.follow_copies(Vec::new(), false);
         assert!(state.copies.drawn.is_empty());
         assert_eq!(state.copies.free_pages.len(), PAGES);
     }

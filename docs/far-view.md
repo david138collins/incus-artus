@@ -221,3 +221,15 @@ DirectX 12's shader compiler (FXC) refused the march's shader: "unable to unroll
 2026-11-02). The new loops over the three ways (north-south, east-west, up-down) indexed a vector
 by the loop's count, which it can only do by writing the loop out, and it wouldn't. Build 19 writes
 each way out by hand (`leave_axis`, `since_entering`).
+
+### Build 19 seen, and build 20 (David, 2026-11-02)
+David, of a far cave mouth: "its the first look at this, so it can improve, but at first glance, this
+is a more, 'verasimilitudinous' look." But backing away, "shards of sky appeared in several layers,
+stopping when i stopped moving", then went away further out.
+- **Why:** the copies' map (which copy draws each chunk) was laid out round your chunk and made again
+  at every chunk you crossed; the map and its middle reached the graphics card by different paths,
+  and for a frame could disagree, so rays looked up the wrong chunks and found air in a mountain.
+- **Build 20:** the map is laid out by the world, each chunk at its place counted round the map's
+  width (256 chunks), so moving never changes it; a ray also checks the copy it finds covers the
+  spot. The copies lie within the hand-off mask, less than half the map's width from you, so no two
+  share a place.

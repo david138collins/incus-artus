@@ -36,7 +36,7 @@ struct DistantShaderSettings {
 struct MarchSettings {
     // x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes
     grid: vec4<f32>,
-    // The far copies: x 1 if the march draws them, yz the chunk their map is centred on
+    // The far copies: x 1 if the march draws them
     copies: vec4<f32>,
     // The square of real chunks round you (game axes, blocks): least x, y, greatest x, y; all 0: none
     inner: vec4<f32>,
@@ -66,8 +66,8 @@ struct Corner {
 // cells in pages of 32 levels of 32 x 32, each packed (look's block in the low 12 bits; 1 solid or
 // 2 water above that; 1 << 14 plain ground; an air cell's daylight, 0 to 15, in bits 16 to 19); a
 // record of each copy (its first cell's corner x, y, z in blocks and its cell size; how many cells
-// tall and how many pages; 2 spare; its pages); a map of which copy draws each chunk round the
-// chunk `march.copies.yz` (0 none, else the record's number + 1); and each block's colours, top then side.
+// tall and how many pages; 2 spare; its pages); a map of which copy draws each chunk, each at its
+// place counted round the map's width (0 none, else the record's number + 1); and each block's colours, top then side.
 @group(constants::MATERIAL_BIND_GROUP) @binding(8) var<storage, read> copy_cells: array<u32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(9) var<storage, read> copy_records: array<u32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage, read> copy_map: array<u32>;
@@ -241,11 +241,21 @@ fn copy_at(at: vec2<f32>) -> i32 {
     if march.copies.x < 0.5 {
         return -1;
     }
-    let chunk = vec2<i32>(floor(at / 32.0)) - vec2<i32>(march.copies.yz) + vec2<i32>(MAP / 2);
-    if any(chunk < vec2<i32>(0)) || any(chunk >= vec2<i32>(MAP)) {
+    // Laid out by the world: each chunk at its place counted round the map's width (march.rs, why).
+    let chunk = vec2<i32>(floor(at / 32.0));
+    let wrapped = ((chunk % MAP) + MAP) % MAP;
+    let record = i32(copy_map[u32(wrapped.y * MAP + wrapped.x)]) - 1;
+    if record < 0 {
         return -1;
     }
-    return i32(copy_map[u32(chunk.y * MAP + chunk.x)]) - 1;
+    // And that copy covers the spot (not one a map's width away).
+    let base = u32(record) * COPY_RECORD;
+    let low = vec2<f32>(f32(bitcast<i32>(copy_records[base])), f32(bitcast<i32>(copy_records[base + 1u])));
+    let width = 32.0 * f32(copy_records[base + 3u]);
+    if any(at < low) || any(at >= low + vec2<f32>(width)) {
+        return -1;
+    }
+    return record;
 }
 
 // A copy's cell (x, y across, z up from its bottom), packed as above: solid below its bottom, open
