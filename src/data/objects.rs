@@ -73,6 +73,140 @@ pub struct ObjectDef {
     /// Its model's shape, read when it's loaded (`read_shape`); `None` until then, or if the model
     /// couldn't be read (it then counts as a block across, its height tall).
     pub shape: Option<Shape>,
+    /// An animated sprite hung on it (a brazier's flame), and the light it gives (stop 2).
+    pub sprite: Option<SpriteAttach>,
+    pub light: Option<LightAttach>,
+}
+
+/// Which point of a sprite's frame goes on its spot [David: "a drop down for bottom, bottom center,
+/// top center"].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Anchor {
+    /// Its base on the spot, growing up from it: a flame in a cup.
+    #[default]
+    BottomCentre,
+    /// Its middle on the spot: something floating.
+    Centre,
+    /// Its top on the spot, hanging down: a drip under a ceiling.
+    TopCentre,
+}
+
+/// An animated sprite hung on an object: a strip of frames side by side (`read_strip`), drawn full
+/// bright and turning to face you, as Doom's flames do [`docs/objects.md` section 10].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpriteAttach {
+    /// The strip, in `assets/textures/sprites/`.
+    pub file: String,
+    /// How long each frame shows, in milliseconds ("probably just set by ms for now").
+    #[serde(default = "frame_ms")]
+    pub frame_ms: u32,
+    #[serde(default)]
+    pub anchor: Anchor,
+    /// The model's named point it goes on (a Blockbench locator); none: on top of the model, in the
+    /// middle.
+    #[serde(default)]
+    pub at: Option<String>,
+    /// Moved from there, in pixels: across, along, up.
+    #[serde(default)]
+    pub offset: [i32; 3],
+    /// Its size: 1, one strip pixel to one block pixel.
+    #[serde(default = "one")]
+    pub scale: f32,
+}
+
+fn frame_ms() -> u32 {
+    110
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+/// The light an object gives, from its sprite's spot (or its middle). For now a glow that fades with
+/// distance and passes through walls (`render`); light that spreads through the air and stops at
+/// walls is stop 3.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LightAttach {
+    /// Its colour (0 to 255 each: red, green, blue).
+    pub colour: [u8; 3],
+    /// How far it reaches, in blocks.
+    #[serde(default = "reach")]
+    pub reach: f32,
+    /// How bright it is at its middle, 0 to 1.
+    #[serde(default = "one")]
+    pub brightness: f32,
+}
+
+fn reach() -> f32 {
+    8.0
+}
+
+/// `assets/textures/sprites`: the objects' sprite strips.
+pub fn sprites_folder() -> PathBuf {
+    super::assets_folder().join("textures").join("sprites")
+}
+
+/// A sprite strip, read: its pixels (RGBA, the markers taken out), its size, and its frames (each
+/// one's left edge and width, in pixels).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Strip {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+    pub frames: Vec<(u32, u32)>,
+}
+
+/// A strip of frames side by side, from a PNG's bytes. **The strip marks its own frames** (David: "i
+/// put a magenta dot at the corner of each 16 pixel cell"): the colour of its bottom-left pixel is the
+/// marker, and each pixel of that colour along the bottom row starts a frame, running to the next (or
+/// to the edge). The markers are taken out. With no marker (the bottom-left pixel clear), the frames
+/// are square, as tall as the strip.
+pub fn read_strip(bytes: &[u8]) -> Result<Strip, String> {
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    decoder.set_transformations(png::Transformations::normalize_to_color8());
+    let mut reader = decoder.read_info().map_err(|error| error.to_string())?;
+    let mut buffer = vec![0; reader.output_buffer_size().ok_or("it's too big")?];
+    let info = reader.next_frame(&mut buffer).map_err(|error| error.to_string())?;
+    let (width, height) = (info.width, info.height);
+    let channels = match info.color_type {
+        png::ColorType::Rgba => 4,
+        png::ColorType::Rgb => 3,
+        png::ColorType::GrayscaleAlpha => 2,
+        _ => 1,
+    };
+    let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let pixel = &buffer[y * info.line_size + x * channels..][..channels];
+            rgba.extend_from_slice(&match channels {
+                4 => [pixel[0], pixel[1], pixel[2], pixel[3]],
+                3 => [pixel[0], pixel[1], pixel[2], 255],
+                2 => [pixel[0], pixel[0], pixel[0], pixel[1]],
+                _ => [pixel[0], pixel[0], pixel[0], 255],
+            });
+        }
+    }
+    if width == 0 || height == 0 {
+        return Err("it's empty".to_string());
+    }
+    let at = |x: u32| ((height - 1) * width + x) as usize * 4;
+    let marker: [u8; 4] = rgba[at(0)..at(0) + 4].try_into().unwrap_or_default();
+    let mut starts = Vec::new();
+    if marker[3] > 0 {
+        for x in 0..width {
+            if rgba[at(x)..at(x) + 4] == marker {
+                starts.push(x);
+                rgba[at(x)..at(x) + 4].copy_from_slice(&[0; 4]);
+            }
+        }
+    } else {
+        starts = (0..width).step_by(height as usize).collect();
+    }
+    let frames = starts.iter().enumerate().map(|(i, &start)| (start, starts.get(i + 1).copied().unwrap_or(width) - start)).collect();
+    Ok(Strip { width, height, rgba, frames })
 }
 
 impl ObjectDef {
@@ -94,13 +228,23 @@ pub struct Shape {
     /// The boxes its parts fill, pixel by pixel (blocks, from its feet, the game's axes): what bodies
     /// bump into.
     pub boxes: Vec<(Vec3, Vec3)>,
+    /// Its named points (Blockbench's locators, and its groups), where things hang on it (blocks,
+    /// from its feet, the game's axes).
+    pub points: Vec<(String, Vec3)>,
 }
 
 impl Shape {
     /// A block across, `height` blocks tall, one box: for a model that couldn't be read.
     pub fn block(height: f32) -> Self {
         let size = IVec3::new(16, 16, (height * 16.0).round().max(1.0) as i32);
-        Self { scale: 1.0, feet: Vec3::ZERO, size, boxes: vec![(Vec3::new(-0.5, -0.5, 0.0), Vec3::new(0.5, 0.5, size.z as f32 / 16.0))] }
+        Self { scale: 1.0, feet: Vec3::ZERO, size, boxes: vec![(Vec3::new(-0.5, -0.5, 0.0), Vec3::new(0.5, 0.5, size.z as f32 / 16.0))], points: Vec::new() }
+    }
+
+    /// Where a sprite goes (blocks, from the feet, unturned): its named point, or on top in the
+    /// middle; then moved by its offset (pixels).
+    pub fn spot(&self, sprite: &SpriteAttach) -> Vec3 {
+        let point = sprite.at.as_ref().and_then(|name| self.points.iter().find(|(point, _)| point == name)).map(|(_, at)| *at);
+        point.unwrap_or(Vec3::new(0.0, 0.0, self.size.z as f32 / 16.0)) + IVec3::from_array(sprite.offset).as_vec3() / 16.0
     }
 }
 
@@ -123,10 +267,17 @@ pub fn read_shape(bytes: &[u8], height: Option<f32>) -> Result<Shape, String> {
         (numbers.len() == 3).then(|| Vec3::new(numbers[0], numbers[1], numbers[2]))
     };
     let mut parts: Vec<(Vec3, Vec3, Mat4)> = Vec::new();
+    // Its named points: the nodes with no mesh of their own (Blockbench's locators, and its groups).
+    let mut points: Vec<(String, Vec3)> = Vec::new();
     let mut stack: Vec<(gltf::Node, Mat4)> = scene.nodes().map(|node| (node, Mat4::IDENTITY)).collect();
     while let Some((node, above)) = stack.pop() {
         let place = above * Mat4::from_cols_array_2d(&node.transform().matrix());
         stack.extend(node.children().map(|child| (child, place)));
+        if node.mesh().is_none()
+            && let Some(name) = node.name()
+        {
+            points.push((name.to_string(), place.transform_point3(Vec3::ZERO)));
+        }
         for primitive in node.mesh().iter().flat_map(|mesh| mesh.primitives()) {
             if let Some(points) = primitive.get(&gltf::Semantic::Positions)
                 && let (Some(low), Some(high)) = (corner(points.min()), corner(points.max()))
@@ -217,7 +368,8 @@ pub fn read_shape(bytes: &[u8], height: Option<f32>) -> Result<Shape, String> {
             }
         }
     }
-    Ok(Shape { scale, feet: to_model(feet), size, boxes })
+    let points = points.into_iter().map(|(name, at)| (name, (to_game(at) - feet) * scale)).collect();
+    Ok(Shape { scale, feet: to_model(feet), size, boxes, points })
 }
 
 /// What an object's data file holds.
@@ -237,6 +389,10 @@ struct ObjectFile {
     sits: Sits,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default)]
+    sprite: Option<SpriteAttach>,
+    #[serde(default)]
+    light: Option<LightAttach>,
 }
 
 fn two() -> u8 {
@@ -250,7 +406,7 @@ pub fn parse_object(id: &str, text: &str) -> Result<ObjectDef, String> {
         return Err(format!("height {height} is out of range (0.05 to 16 blocks)"));
     }
     let display_name = file.name.unwrap_or_else(|| id.split(':').nth(1).unwrap_or(id).replace('_', " "));
-    Ok(ObjectDef { name: id.to_string(), display_name, model: file.model, height: file.height, stick_over: file.stick_over, solid: file.solid, sits: file.sits, tags: file.tags, shape: None })
+    Ok(ObjectDef { name: id.to_string(), display_name, model: file.model, height: file.height, stick_over: file.stick_over, solid: file.solid, sits: file.sits, tags: file.tags, shape: None, sprite: file.sprite, light: file.light })
 }
 
 /// An object's data file, as text (kept to the settings it has, with the file's own header).
@@ -272,6 +428,24 @@ pub fn object_file_text(def: &ObjectDef, header: &str) -> String {
     if !def.tags.is_empty() {
         text += &format!("tags = {:?}\n", def.tags);
     }
+    if let Some(sprite) = &def.sprite {
+        text += &format!("\n[sprite]\nfile = {:?}\nframe_ms = {}\n", sprite.file, sprite.frame_ms);
+        if sprite.anchor != Anchor::BottomCentre {
+            text += &format!("anchor = {:?}\n", if sprite.anchor == Anchor::Centre { "centre" } else { "top_centre" });
+        }
+        if let Some(at) = &sprite.at {
+            text += &format!("at = {at:?}\n");
+        }
+        if sprite.offset != [0; 3] {
+            text += &format!("offset = {:?}\n", sprite.offset);
+        }
+        if sprite.scale != 1.0 {
+            text += &format!("scale = {}\n", sprite.scale);
+        }
+    }
+    if let Some(light) = &def.light {
+        text += &format!("\n[light]\ncolour = {:?}\nreach = {}\nbrightness = {}\n", light.colour, light.reach, light.brightness);
+    }
     text
 }
 
@@ -281,8 +455,9 @@ pub struct ObjectRegistry {
     defs: Vec<ObjectDef>,
     ids: HashMap<String, ObjectId>,
     files: HashMap<PathBuf, Option<SystemTime>>,
-    /// Each object file's model, and when the model was last changed: a model changed is read again.
-    models: HashMap<PathBuf, (PathBuf, Option<SystemTime>)>,
+    /// Each object file's model and sprite strip, and when each was last changed: one changed is read
+    /// again.
+    models: HashMap<PathBuf, Vec<(PathBuf, Option<SystemTime>)>>,
     sources: HashMap<String, PathBuf>,
     /// What's wrong, per file.
     pub problems: BTreeMap<String, String>,
@@ -305,7 +480,7 @@ impl ObjectRegistry {
         let mut changed = false;
         let modified = |path: &Path| std::fs::metadata(path).and_then(|metadata| metadata.modified()).ok();
         for file in found {
-            let model_same = self.models.get(&file.path).is_none_or(|(model, when)| modified(model) == *when);
+            let model_same = self.models.get(&file.path).is_none_or(|watched| watched.iter().all(|(path, when)| modified(path) == *when));
             if self.files.get(&file.path) == Some(&file.modified) && model_same {
                 continue;
             }
@@ -317,14 +492,20 @@ impl ObjectRegistry {
                     self.sources.insert(file.id.clone(), file.path.clone());
                     // Its shape, from its model.
                     let model = models_folder().join(&def.model);
-                    self.models.insert(file.path.clone(), (model.clone(), modified(&model)));
+                    let mut watched = vec![(model.clone(), modified(&model))];
+                    if let Some(sprite) = &def.sprite {
+                        let strip = sprites_folder().join(&sprite.file);
+                        watched.push((strip.clone(), modified(&strip)));
+                    }
+                    self.models.insert(file.path.clone(), watched);
                     match std::fs::read(&model).map_err(|error| error.to_string()).and_then(|bytes| read_shape(&bytes, def.height)) {
                         Ok(shape) => def.shape = Some(shape),
                         Err(error) => {
                             self.problems.insert(key, format!("its model {} couldn't be read ({error}): it counts as a block across", def.model));
                         }
                     }
-                    changed |= self.insert_or_replace(def);
+                    // A model or strip changed on its own changes what's drawn, if not the settings.
+                    changed |= self.insert_or_replace(def) || !model_same;
                 }
                 Err(error) => {
                     self.problems.insert(key, format!("couldn't be used: {error}"));
@@ -434,6 +615,48 @@ mod tests {
     /// Is the point (blocks, from the feet) inside one of the shape's boxes?
     fn inside(shape: &Shape, at: Vec3) -> bool {
         shape.boxes.iter().any(|(low, high)| at.cmpgt(*low).all() && at.cmplt(*high).all())
+    }
+
+    /// A PNG, `width` × `height`, every pixel `fill`, with `marks` (x along the bottom row) in pink.
+    fn strip_png(width: u32, height: u32, fill: [u8; 4], marks: &[u32]) -> Vec<u8> {
+        let mut pixels: Vec<u8> = (0..width * height).flat_map(|_| fill).collect();
+        for &x in marks {
+            let at = (((height - 1) * width + x) * 4) as usize;
+            pixels[at..at + 4].copy_from_slice(&[254, 0, 191, 255]);
+        }
+        let mut bytes = Vec::new();
+        let mut encoder = png::Encoder::new(&mut bytes, width, height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.write_header().unwrap().write_image_data(&pixels).unwrap();
+        bytes
+    }
+
+    #[test]
+    fn a_strip_marks_its_own_frames_and_the_marks_are_taken_out() {
+        // David's: frames 16 wide and 24 tall, a pink dot at each one's bottom-left corner.
+        let strip = read_strip(&strip_png(112, 24, [0, 0, 0, 0], &[0, 16, 32, 48, 64, 80, 96])).unwrap();
+        assert_eq!(strip.frames, (0..7).map(|i| (i * 16, 16)).collect::<Vec<_>>());
+        assert!(strip.rgba.chunks(4).all(|pixel| pixel == [0, 0, 0, 0]), "the dots are gone");
+        // Frames needn't be the same width.
+        assert_eq!(read_strip(&strip_png(20, 8, [0, 0, 0, 0], &[0, 12])).unwrap().frames, vec![(0, 12), (12, 8)]);
+        // No dots (the corner clear): square frames, as tall as the strip.
+        assert_eq!(read_strip(&strip_png(48, 16, [0, 0, 0, 0], &[])).unwrap().frames, vec![(0, 16), (16, 16), (32, 16)]);
+    }
+
+    #[test]
+    fn a_sprite_and_a_light_read_and_write_back_the_same() {
+        let text = "name = \"Brazier\"\nmodel = \"braziere.gltf\"\nheight = 1.5\nsolid = true\n\n[sprite]\nfile = \"green_flame_animation.png\"\nframe_ms = 110\nat = \"flame\"\noffset = [0, 0, -2]\nscale = 0.5\n\n[light]\ncolour = [80, 255, 60]\nreach = 8\nbrightness = 0.9\n";
+        let def = parse_object("incus:braziere", text).unwrap();
+        let sprite = def.sprite.as_ref().unwrap();
+        assert_eq!((sprite.frame_ms, sprite.anchor, sprite.at.as_deref(), sprite.offset, sprite.scale), (110, Anchor::BottomCentre, Some("flame"), [0, 0, -2], 0.5));
+        assert_eq!(def.light.as_ref().map(|light| light.colour), Some([80, 255, 60]));
+        assert_eq!(object_file_text(&def, ""), text);
+        // A sprite goes on its named point, or on top in the middle; moved by its offset.
+        let mut shape = Shape::block(1.5);
+        assert_eq!(shape.spot(sprite), Vec3::new(0.0, 0.0, 1.5 - 2.0 / 16.0));
+        shape.points.push(("flame".into(), Vec3::new(0.0, 0.25, 1.0)));
+        assert_eq!(shape.spot(sprite), Vec3::new(0.0, 0.25, 1.0 - 2.0 / 16.0));
     }
 
     #[test]

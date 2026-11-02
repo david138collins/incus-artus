@@ -80,6 +80,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderSettings>()
             .init_resource::<MeshingState>()
             .init_resource::<objects::ObjectsDrawn>()
+            .init_resource::<objects::Glows>()
             .init_resource::<performance::FrameTimes>()
             .init_resource::<performance::StepTimes>()
             .add_systems(Last, performance::collect_steps)
@@ -97,8 +98,10 @@ impl Plugin for RenderPlugin {
                     meshing::finish_jobs,
                     distant::update_shown_chunks,
                     apply_render_distance,
+                    objects::choose_glows,
                     update_shader_settings,
                     objects::draw_objects,
+                    objects::play_sprites,
                 )
                     .chain(),
             )
@@ -240,6 +243,8 @@ impl RenderSettings {
             options: Vec4::new(1.0, if self.light_only { 1.0 } else { 0.0 }, 0.0, 0.0),
             survey: self.survey_for_shader(),
             underground: Vec4::new(if self.sky_light { 1.0 } else { 0.0 }, self.lantern.max(0.0), self.lantern_brightness, 0.0),
+            glow_at: [Vec4::ZERO; 8],
+            glow_colour: [Vec4::ZERO; 8],
         }
     }
 }
@@ -401,6 +406,7 @@ fn apply_render_distance(
 fn update_shader_settings(
     settings: Res<RenderSettings>,
     clear: Res<ClearColor>,
+    glows: Res<objects::Glows>,
     terrain: Option<Res<TerrainAssets>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
 ) {
@@ -408,11 +414,12 @@ fn update_shader_settings(
     let Some(terrain) = terrain else {
         return;
     };
-    if !settings.is_changed() && !clear.is_changed() {
+    if !settings.is_changed() && !clear.is_changed() && !glows.is_changed() {
         return;
     }
     if let Some(mut material) = materials.get_mut(&terrain.material) {
         material.settings = settings.shader_settings(clear.0);
+        (material.settings.glow_at, material.settings.glow_colour) = (glows.at, glows.colour);
     }
 }
 

@@ -11,7 +11,7 @@
 //! To see one: put it in a hotbar slot (the Player page) and place it in the world. A turning preview
 //! here comes later.
 
-use crate::data::{ObjectDef, ObjectRegistry, Sits, data_folder, header_of, models_folder, object_file_text};
+use crate::data::{Anchor, LightAttach, ObjectDef, ObjectRegistry, Sits, SpriteAttach, data_folder, header_of, models_folder, object_file_text, read_strip, sprites_folder};
 use bevy::math::IVec3;
 use bevy_egui::egui;
 use std::path::{Path, PathBuf};
@@ -27,7 +27,21 @@ pub struct ObjectsTab {
     message: String,
     /// A model being brought in.
     loading: Option<Loading>,
+    /// The sprite strip shown playing in the attachments: its file, its picture, and its frames.
+    preview: Option<Preview>,
 }
+
+/// A sprite strip, read for its preview.
+struct Preview {
+    file: String,
+    texture: Option<egui::TextureHandle>,
+    width: u32,
+    height: u32,
+    frames: Vec<(u32, u32)>,
+}
+
+/// How much bigger the preview is drawn than the strip's pixels.
+const PREVIEW_ZOOM: f32 = 4.0;
 
 /// A model being brought in: the glTFs in `Art/`, the one picked, and the object's name.
 struct Loading {
@@ -117,11 +131,11 @@ fn dock(ui: &mut egui::Ui, tab: &mut ObjectsTab, objects: &ObjectRegistry) {
             draft.tags = tab.tags_text.split(',').map(str::trim).filter(|tag| !tag.is_empty()).map(str::to_string).collect();
         }
     });
-    ui.add_enabled_ui(false, |ui| {
-        egui::CollapsingHeader::new("Attachments (a flame, its light)").id_salt("object attachments").show(ui, |_| {});
-    })
-    .response
-    .on_disabled_hover_text("Things hung on the model's named points (a Blockbench locator, e.g. \"flame\"): an animated sprite (objects stop 2), a light (stop 3)");
+    egui::CollapsingHeader::new("Attachments (a flame, its light)").id_salt("object attachments").default_open(true).show(ui, |ui| {
+        sprite_settings(ui, &mut tab.preview, draft);
+        ui.separator();
+        light_settings(ui, draft);
+    });
 
     let changed = draft != def;
     let draft = draft.clone();
@@ -185,6 +199,145 @@ fn size_settings(ui: &mut egui::Ui, draft: &mut ObjectDef, def: &ObjectDef) {
     }
 }
 
+/// Its sprite (`docs/objects.md` section 10): the strip (its frames marked by its own dots), how long
+/// each frame shows, which point of the frame goes on its spot, the spot (a named point in the model,
+/// or on top), moved by pixels, its size (with ½ and 2×), and the strip playing.
+fn sprite_settings(ui: &mut egui::Ui, preview: &mut Option<Preview>, draft: &mut ObjectDef) {
+    let strips = strip_files();
+    let mut on = draft.sprite.is_some();
+    if ui.checkbox(&mut on, "a sprite (a flame)").on_hover_text("An animated strip of frames, drawn full bright, turning to face you").changed() {
+        draft.sprite = on.then(|| SpriteAttach { file: strips.first().cloned().unwrap_or_default(), frame_ms: 110, anchor: Anchor::BottomCentre, at: None, offset: [0; 3], scale: 1.0 });
+    }
+    let points: Vec<String> = draft.shape.as_ref().map(|shape| shape.points.iter().map(|(name, _)| name.clone()).collect()).unwrap_or_default();
+    let Some(sprite) = draft.sprite.as_mut() else {
+        ui.add_enabled(false, egui::Label::new("(strips are PNGs in assets/textures/sprites)"));
+        return;
+    };
+    ui.horizontal(|ui| {
+        ui.label("strip:");
+        egui::ComboBox::from_id_salt("object sprite strip").selected_text(&sprite.file).show_ui(ui, |ui| {
+            for strip in &strips {
+                ui.selectable_value(&mut sprite.file, strip.clone(), strip);
+            }
+        });
+    })
+    .response
+    .on_hover_text("PNGs in assets/textures/sprites. Frames side by side, a dot of one colour at each frame's bottom-left corner (the strip's bottom-left pixel's colour); with none, square frames");
+    // The strip read, for what it holds and its preview.
+    if preview.as_ref().is_none_or(|preview| preview.file != sprite.file) {
+        *preview = std::fs::read(sprites_folder().join(&sprite.file)).ok().and_then(|bytes| read_strip(&bytes).ok()).map(|strip| {
+            let image = egui::ColorImage::from_rgba_unmultiplied([strip.width as usize, strip.height as usize], &strip.rgba);
+            let texture = ui.ctx().load_texture(format!("strip {}", sprite.file), image, egui::TextureOptions::NEAREST);
+            Preview { file: sprite.file.clone(), texture: Some(texture), width: strip.width, height: strip.height, frames: strip.frames }
+        });
+        if preview.is_none() {
+            *preview = Some(Preview { file: sprite.file.clone(), texture: None, width: 0, height: 0, frames: Vec::new() });
+        }
+    }
+    let Some(strip) = preview.as_ref() else { return };
+    let frame_size = strip.frames.first().map_or((0, 0), |&(_, across)| (across, strip.height));
+    if strip.texture.is_none() {
+        ui.colored_label(egui::Color32::from_rgb(230, 160, 60), "That strip couldn't be read.");
+    } else {
+        ui.label(format!("{} frames, {} × {} pixels", strip.frames.len(), frame_size.0, frame_size.1));
+    }
+    let mut ms = sprite.frame_ms as i32;
+    let per_second = 1000.0 / ms.max(1) as f32;
+    ui.add(crate::debug::Slider::new(&mut ms, 20..=1000).text(format!("ms a frame ({per_second:.1} a second)")));
+    sprite.frame_ms = ms.max(1) as u32;
+    ui.horizontal(|ui| {
+        ui.label("the frame's");
+        egui::ComboBox::from_id_salt("object sprite anchor")
+            .selected_text(anchor_name(sprite.anchor))
+            .show_ui(ui, |ui| {
+                for anchor in [Anchor::BottomCentre, Anchor::Centre, Anchor::TopCentre] {
+                    ui.selectable_value(&mut sprite.anchor, anchor, anchor_name(anchor));
+                }
+            });
+        ui.label("on");
+        let shown = sprite.at.clone().unwrap_or_else(|| "on top of the model".to_string());
+        egui::ComboBox::from_id_salt("object sprite at").selected_text(shown).show_ui(ui, |ui| {
+            ui.selectable_value(&mut sprite.at, None, "on top of the model");
+            for point in &points {
+                ui.selectable_value(&mut sprite.at, Some(point.clone()), point);
+            }
+        });
+    })
+    .response
+    .on_hover_text("Named points are the model's Blockbench locators (and groups): add a locator named, say, \"flame\" where it should go");
+    for (axis, name) in ["across", "along", "up"].iter().enumerate() {
+        ui.add(crate::debug::Slider::new(&mut sprite.offset[axis], -32..=32).text(format!("moved {name} (pixels)")));
+    }
+    ui.horizontal(|ui| {
+        ui.add(crate::debug::Slider::new(&mut sprite.scale, 0.05..=8.0).text("size (1: a strip pixel to a block pixel)"));
+        if ui.button("½").on_hover_text("Half the size").clicked() {
+            sprite.scale = (sprite.scale / 2.0).max(0.05);
+        }
+        if ui.button("2×").on_hover_text("Twice the size").clicked() {
+            sprite.scale = (sprite.scale * 2.0).min(8.0);
+        }
+    });
+    ui.small(format!("In the world: {:.2} × {:.2} blocks", frame_size.0 as f32 * sprite.scale / 16.0, frame_size.1 as f32 * sprite.scale / 16.0));
+    // The strip playing, with the point of the frame that goes on the spot.
+    if let (Some(texture), false) = (&strip.texture, strip.frames.is_empty()) {
+        let now = (ui.input(|input| input.time) * 1000.0) as u64;
+        let frame = strip.frames[(now / sprite.frame_ms as u64 % strip.frames.len() as u64) as usize];
+        let uv = egui::Rect::from_min_max(egui::pos2(frame.0 as f32 / strip.width as f32, 0.0), egui::pos2((frame.0 + frame.1) as f32 / strip.width as f32, 1.0));
+        let size = egui::vec2(frame.1 as f32, strip.height as f32) * PREVIEW_ZOOM;
+        let shown = ui.add(egui::Image::new((texture.id(), size)).uv(uv).bg_fill(egui::Color32::from_gray(24)));
+        let rect = shown.rect;
+        let dot = match sprite.anchor {
+            Anchor::BottomCentre => rect.center_bottom(),
+            Anchor::Centre => rect.center(),
+            Anchor::TopCentre => rect.center_top(),
+        };
+        ui.painter().circle_filled(dot, 3.0, egui::Color32::from_rgb(255, 0, 255));
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(sprite.frame_ms as u64));
+    }
+}
+
+fn anchor_name(anchor: Anchor) -> &'static str {
+    match anchor {
+        Anchor::BottomCentre => "bottom centre",
+        Anchor::Centre => "centre",
+        Anchor::TopCentre => "top centre",
+    }
+}
+
+/// The light it gives: its colour, how far, how bright. For now a glow that passes through walls.
+fn light_settings(ui: &mut egui::Ui, draft: &mut ObjectDef) {
+    let mut on = draft.light.is_some();
+    if ui.checkbox(&mut on, "gives light").on_hover_text("From its sprite's spot (or its middle)").changed() {
+        draft.light = on.then(|| LightAttach { colour: [255, 160, 60], reach: 8.0, brightness: 1.0 });
+    }
+    let mut light = draft.light.clone().unwrap_or(LightAttach { colour: [255, 160, 60], reach: 8.0, brightness: 1.0 });
+    ui.add_enabled_ui(on, |ui| {
+        ui.horizontal(|ui| {
+            ui.label("colour:");
+            egui::color_picker::color_edit_button_srgb(ui, &mut light.colour);
+        });
+        ui.add(crate::debug::Slider::new(&mut light.reach, 1.0..=32.0).text("how far it reaches (blocks)"));
+        ui.add(crate::debug::Slider::new(&mut light.brightness, 0.0..=1.0).text("how bright, at its middle"));
+        ui.small("For now a glow that fades with distance and passes through walls; light spreading through the air comes with stop 3.");
+    });
+    if on {
+        draft.light = Some(light);
+    }
+}
+
+/// The sprite strips in `assets/textures/sprites/`.
+fn strip_files() -> Vec<String> {
+    let mut found: Vec<String> = std::fs::read_dir(sprites_folder())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|extension| extension.eq_ignore_ascii_case("png")))
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    found.sort();
+    found
+}
+
 /// Bringing a model in: pick a glTF from Art/, name it, register it.
 fn loading(ui: &mut egui::Ui, tab: &mut ObjectsTab) {
     let Some(loading) = tab.loading.as_mut() else { return };
@@ -221,7 +374,7 @@ fn loading(ui: &mut egui::Ui, tab: &mut ObjectsTab) {
     if register {
         let model = format!("{name}.gltf");
         let height = (!loading.as_made).then_some(loading.height);
-        let def = ObjectDef { name: format!("incus:{name}"), display_name: name.replace('_', " "), model: model.clone(), height, stick_over: 2, solid: false, sits: Sits::Floor, tags: Vec::new(), shape: None };
+        let def = ObjectDef { name: format!("incus:{name}"), display_name: name.replace('_', " "), model: model.clone(), height, stick_over: 2, solid: false, sits: Sits::Floor, tags: Vec::new(), shape: None, sprite: None, light: None };
         let header = format!("# {}: from {}.\n# See docs/objects.md for every setting.\n\n", def.display_name, picked.file_name().map_or(String::new(), |name| name.to_string_lossy().into_owned()));
         let result = std::fs::create_dir_all(models_folder())
             .and_then(|()| std::fs::copy(&picked, models_folder().join(&model)).map(|_| ()))

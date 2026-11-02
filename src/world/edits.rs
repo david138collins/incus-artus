@@ -461,8 +461,8 @@ mod tests {
     fn test_objects() -> ObjectRegistry {
         let object = |name: &str, size: IVec3| {
             let half = size.as_vec3() / 32.0;
-            let shape = crate::data::Shape { scale: 1.0, feet: Vec3::ZERO, size, boxes: vec![(Vec3::new(-half.x, -half.y, 0.0), Vec3::new(half.x, half.y, size.z as f32 / 16.0))] };
-            crate::data::ObjectDef { name: format!("incus:{name}"), display_name: name.into(), model: format!("{name}.gltf"), height: None, stick_over: 2, solid: true, sits: crate::data::Sits::Floor, tags: Vec::new(), shape: Some(shape) }
+            let shape = crate::data::Shape { scale: 1.0, feet: Vec3::ZERO, size, boxes: vec![(Vec3::new(-half.x, -half.y, 0.0), Vec3::new(half.x, half.y, size.z as f32 / 16.0))], points: Vec::new() };
+            crate::data::ObjectDef { name: format!("incus:{name}"), display_name: name.into(), model: format!("{name}.gltf"), height: None, stick_over: 2, solid: true, sits: crate::data::Sits::Floor, tags: Vec::new(), shape: Some(shape), sprite: None, light: None }
         };
         ObjectRegistry::with(vec![object("braziere", IVec3::new(12, 12, 24)), object("cup", IVec3::new(6, 6, 7))])
     }

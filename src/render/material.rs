@@ -84,6 +84,10 @@ pub struct TerrainShaderSettings {
     /// Underground (`sky_light.rs`): x daylight on (else everything fully lit), y the test lantern's
     /// reach (blocks; 0 off), z its brightness at its middle.
     pub underground: Vec4,
+    /// The objects' glows, the nearest 8 (`objects.rs`, `Glows`): each one's place (xyz, Bevy's axes)
+    /// and reach (w, blocks; 0 none), and its colour times its brightness (rgb).
+    pub glow_at: [Vec4; 8],
+    pub glow_colour: [Vec4; 8],
 }
 
 impl Material for TerrainMaterial {

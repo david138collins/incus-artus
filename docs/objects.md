@@ -271,7 +271,7 @@ collision still needs to be from the models geometry, not its volume".
   - collision with boxes (stopped flush, walking past, stepping up onto a low one);
   - cups on two octants of one cell, and a block refused from an octant a cup holds.
 
-## 10. Stop 2, the flame: what's settled before it's built (David, 2026-11-01)
+## 10. Stop 2, the flame (David, 2026-11-01) [BUILT, with a stand-in glow]
 
 David's flame: `assets/new/green_flame_animation.png`, 112 × 24, 7 frames of 16 × 24, with transparency.
 - **The strip marks its own frames** (David: "i put a magenta dot at the corner of each 16 pixel cell,
@@ -298,6 +298,41 @@ David's flame: `assets/new/green_flame_animation.png`, 112 × 24, 7 frames of 16
 top of them. they place and move correctly." Seen: the first brazier placed takes a second to appear
 (its model loads only when it's first needed). Loading every object's model when the game starts
 would answer it.
+
+### Stop 2, built
+
+David: "go ahead, i'd love to see a glowing braziere in a cave before bed".
+
+- **The object file** has `[sprite]` (`file`, `frame_ms`, `anchor`, `at`, `offset`, `scale`) and
+  `[light]` (`colour`, `reach`, `brightness`). Strips live in `assets/textures/sprites/`, and are
+  read again when they change.
+- **The flame** (`render/objects.rs`):
+  - It's drawn on its spot: the named point, or on top of the model in the middle, moved by its
+    offset, turned as the object faces.
+  - It's full bright and cut out, and turns about the upright to face you.
+  - It plays its frames at its milliseconds. Each one starts on a frame of its own (from its place),
+    so a row of braziers doesn't flicker in step.
+- **The glow (a stand-in for stop 3):**
+  - The nearest 8 glows to the camera go to the terrain shader. Each is in its colour and fades with
+    distance (squared) up to its reach, added to the daylight.
+  - **It passes through walls.** Light that spreads through the air and stops at them is stop 3,
+    which this makes way for.
+  - Objects are lit by the glows round them too, their own included, in 16 steps of each colour.
+- **The model's named points** (Blockbench's locators, and its groups) are read with its shape and
+  listed for the sprite's spot.
+- **Every object's model is loaded when the game starts.** The first brazier placed shows at once.
+- **The Objects tab's attachments section:**
+  - **the sprite:** the strip and what was found in it ("7 frames, 16 × 24 pixels"), the
+    milliseconds (and frames a second), the anchor and the spot, the offset, and the size with ½
+    and 2×;
+  - **the preview:** the strip playing, 4 times its size, with the anchor point as a magenta dot;
+  - **the light:** its colour, reach and brightness.
+- **David's brazier is set up to try** (his files, uncommitted):
+  - the flame is copied to `assets/textures/sprites/`;
+  - in `braziere.toml`: the flame at half size, 3 pixels down into the cup, at 110 ms;
+  - a green light, `[80, 255, 60]`, reaching 8 blocks.
+- **Tests:** the strip's dots found and taken out (even and uneven frames, none), and the sprite and
+  light read and written back with the sprite's spot.
 
 ## 11. Later: overlays, random sets, alt textures (David, through Counsel, 2026-11-01) [NOT BUILT]
 

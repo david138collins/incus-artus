@@ -26,6 +26,10 @@ struct TerrainShaderSettings {
     // Underground (src/render/sky_light.rs): x daylight on, y the test lantern's reach (blocks; 0 off),
     // z its brightness
     underground: vec4<f32>,
+    // The objects' glows (src/render/objects.rs, the nearest 8): each one's place (xyz, Bevy's axes) and
+    // reach (w, blocks; 0 none), and its colour times its brightness (rgb)
+    glow_at: array<vec4<f32>, 8>,
+    glow_colour: array<vec4<f32>, 8>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var block_textures: texture_2d_array<f32>;
@@ -268,9 +272,10 @@ fn bar_uv(face: u32, p: vec3<f32>, tag: u32) -> vec2<f32> {
 
 // How lit a face is underground (src/render/sky_light.rs; docs/caves.md, stop 3): its daylight, eased
 // (squared, so it falls away quickly into the dark), or the test lantern round the camera, whichever
-// is brighter. Pitch black where neither reaches [David: "pitch black unless something is making
-// light down there"].
-fn underground_light(daylight: f32, world_position: vec3<f32>) -> f32 {
+// is brighter; and the objects' glows on top, each in its colour (docs/objects.md, stop 2: a stand-in
+// that passes through walls, until light spreads through the air in stop 3). Pitch black where none
+// reaches [David: "pitch black unless something is making light down there"].
+fn underground_light(daylight: f32, world_position: vec3<f32>) -> vec3<f32> {
     var lit = 1.0;
     if settings.underground.x > 0.5 {
         lit = daylight * daylight;
@@ -280,7 +285,15 @@ fn underground_light(daylight: f32, world_position: vec3<f32>) -> f32 {
         let near = 1.0 - clamp(length(world_position - view.world_position) / reach, 0.0, 1.0);
         lit = max(lit, settings.underground.z * near * near);
     }
-    return lit;
+    var light = vec3<f32>(lit);
+    for (var i = 0u; i < 8u; i = i + 1u) {
+        let glow = settings.glow_at[i];
+        if glow.w > 0.0 {
+            let near = 1.0 - clamp(length(world_position - glow.xyz) / glow.w, 0.0, 1.0);
+            light = light + settings.glow_colour[i].rgb * near * near;
+        }
+    }
+    return min(light, vec3<f32>(1.0));
 }
 
 @fragment

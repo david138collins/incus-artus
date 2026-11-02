@@ -156,8 +156,8 @@ mod tests {
     fn sized(x: i32, y: i32, z: i32) -> ObjectDef {
         let size = IVec3::new(x, y, z);
         let half = size.as_vec3() / 32.0;
-        let shape = Shape { scale: 1.0, feet: Vec3::ZERO, size, boxes: vec![(Vec3::new(-half.x, -half.y, 0.0), Vec3::new(half.x, half.y, z as f32 / 16.0))] };
-        ObjectDef { name: "incus:thing".into(), display_name: "thing".into(), model: "thing.gltf".into(), height: None, stick_over: 2, solid: true, sits: Sits::Floor, tags: Vec::new(), shape: Some(shape) }
+        let shape = Shape { scale: 1.0, feet: Vec3::ZERO, size, boxes: vec![(Vec3::new(-half.x, -half.y, 0.0), Vec3::new(half.x, half.y, z as f32 / 16.0))], points: Vec::new() };
+        ObjectDef { name: "incus:thing".into(), display_name: "thing".into(), model: "thing.gltf".into(), height: None, stick_over: 2, solid: true, sits: Sits::Floor, tags: Vec::new(), shape: Some(shape), sprite: None, light: None }
     }
 
     fn placed(at: IVec3, facing: u8) -> PlacedObject {
