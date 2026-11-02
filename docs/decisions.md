@@ -260,6 +260,48 @@ Reference: `Art/quartile minecraft illustration.png`
     - David's built quarry or mine fits all of this: digging is physical and finite, while a built
       mine is a workplace producing at a rate from its deposit (the Intermediator sim's way of mining,
       made into a building).
+- **[IDEA, David 2026-11-01] Minerals are rock, and three ways to get ore.** From David's Obsidian
+  notes (`lists/minerals.md`, `lists/MATERIALS - ore.md` in his Incus Artis vault, which stay his) and
+  chat.
+  - **Minerals are called rock:** "hematite is a rock, you can make blocks with it, and it may drop
+    iron ore, along with rocks and boulders, or a whole block if quarried or player mines it." So an
+    ore rock is a building stone as well as an ore, mined by the staged mining above.
+  - **Inclusions too:** "you can find iron inclusions like in minecraft overlaid. and oerhaps those are
+    where mines can go." Native ores are an overlay, like moss (`docs/objects.md` section 11).
+  - **Tiers:** "common minerals, like rocks, that may have inclusion ores. there are less common
+    minerals, like chromite, that may have inclusions, and also drop an ore. there are more useful
+    metals, and metals that are mostly economic or decorative, or related to the magical/alchemical
+    system."
+  - **Colour first:** "the common minerals are important to get the colors right on so the mountains
+    look good and so the normal stone building materials look good."
+  - **The ladder of getting ore:** "with small chance of ore from inclusion rocks, and also other
+    scatters of iron ore here and there, you could get a bit by mining minecraft style, huge amounts
+    with big mines and many workers, reasonable amount quicker if its just strip mined like gems."
+    1. **A bit, Minecraft style:** a lone player tunnelling gets ore now and then from inclusions and
+       small scattered pockets.
+    2. **A reasonable amount, quicker:** strip mining a seam near the surface, like gems.
+    3. **Huge amounts:** a big mine with many workers on an ore body (the built mine above).
+  - *Counsel* [PROPOSED]:
+    - **Three sizes, left to right in Mineralogy:**
+      1. **Rock layers** (granite, basalt, gabbro, limestone, sandstone, gneiss, slate, marble), the
+         big layers that colour whole mountains;
+      2. **ore rock bodies** inside them (hematite, magnetite, malachite, galena, garnierite, bauxite,
+         chromite): pods, veins and beds; seams near the surface are strip-mined, and deep bodies are
+         the mine sites;
+      3. **inclusions** overlaid on ordinary rock around and above the bodies.
+    - **Inclusions are the clue that leads to a mine**, as real prospectors read green malachite
+      staining over copper ("malachite - weathered oxidized" in David's list). This fits prospecting
+      as a skill (above).
+    - **It joins the two games:** iron is never out of reach for a lone player, but it's plentiful only
+      for those who build something. A big mine needs timber for supports (felling feeds mining), carts,
+      haulers and smelters. A strip mine leaves a scar you can read from the sky.
+    - **Small gaps in the lists:**
+      - chromite is in the notes but not in the list;
+      - cassiterite (tin) and sphalerite (zinc) are in the ore list but not the minerals list;
+      - peridot is olivine's gem;
+      - onyx is a decorative stone;
+      - granite, basalt and marble aren't listed yet, though the mountains likely need them for colour.
+    - **How often each rung gives ore** is a set of numbers for David to tune.
 - **[DECIDED]** Random face variants (e.g. some logs with knots) are feasible. The variant is picked from
   the block's position, so it needs no storage.
 - **[DECIDED]** "Constructed" is a yes/no bit, plus optional richer ownership (pillagers, quest tags) for the few blocks that need it.
