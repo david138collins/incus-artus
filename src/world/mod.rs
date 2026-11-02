@@ -30,6 +30,7 @@ mod interpreter;
 mod mineralogy;
 pub mod placer;
 mod terrain;
+mod test_sites;
 
 pub use block::BlockId;
 pub use caves::{CavePlan, Caves, TestCaveSettings};
@@ -293,6 +294,13 @@ impl VoxelWorld {
     /// A changed chunk that was put away, taken back out to be loaded again.
     pub fn take_put_away(&mut self, pos: ChunkPos) -> Option<Chunk> {
         self.put_away.remove(&pos)
+    }
+
+    /// A chunk changed while it isn't loaded (the far test sites), kept as a changed chunk put away:
+    /// saved with the world, and loaded as it is when you come near.
+    pub fn keep_changed(&mut self, chunk: Chunk) {
+        self.changed.insert(chunk.pos());
+        self.put_away.insert(chunk.pos(), chunk);
     }
 
     /// A changed chunk, loaded or put away (for saving).
@@ -714,6 +722,25 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
         fill = ui.add_enabled(compiled, egui::Button::new("Fill the ground round me with test caves")).on_hover_text("Dead ends like the test cave, each wholly underground (8 to 100 blocks down), heading every which way, with the settings above").on_disabled_hover_text("Needs a compiled world").clicked();
     });
     ui.small(crate::render::drawing_line(world));
+    // Far away (stop 4): sites to look at from afar.
+    ui.add_space(4.0);
+    ui.label("Far away:");
+    let mut sites = false;
+    ui.horizontal_wrapped(|ui| {
+        sites = ui
+            .add_enabled(compiled, egui::Button::new("Place the far test sites"))
+            .on_hover_text(
+                "In a line the way you're facing, at 600 blocks, on the edge of the real chunks, at 1,500 and at 3,000: a cave mouth in a cliff,\n\
+                 one on a chunk's edge, a pillar in a gorge, a thin wall beside a pillar, and a pit. For checking the far view with\n\
+                 \"who drew this\" (Render page). Save the world to keep them.",
+            )
+            .on_disabled_hover_text("Needs a compiled world")
+            .clicked();
+    });
+    if sites {
+        let note = test_sites::place_far_test_sites(world);
+        world.resource_mut::<WorldDebugState>().cave_note = note;
+    }
     if reset {
         *world.resource_mut::<TestCaveSettings>() = TestCaveSettings::default();
     }

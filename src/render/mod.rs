@@ -180,6 +180,9 @@ pub enum DebugView {
     Quads,
     /// Each face direction a different colour.
     Faces,
+    /// Each pixel coloured by what drew it (`docs/caves.md` 13.7): the real chunks blue, the far
+    /// sheet yellow in its finest ring toward red further out, the lighting kept.
+    WhoDrew,
 }
 
 impl Default for RenderSettings {
@@ -244,6 +247,7 @@ impl RenderSettings {
                     DebugView::Normal => 0.0,
                     DebugView::Quads => 1.0,
                     DebugView::Faces => 2.0,
+                    DebugView::WhoDrew => 3.0,
                 },
             ),
             // x: random rotation on (always on now; it's switched per block on the Blocks page), y:
@@ -544,6 +548,11 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             ui.selectable_value(&mut settings.debug_view, DebugView::Normal, "normal");
             ui.selectable_value(&mut settings.debug_view, DebugView::Quads, "rectangles");
             ui.selectable_value(&mut settings.debug_view, DebugView::Faces, "face directions");
+            ui.selectable_value(&mut settings.debug_view, DebugView::WhoDrew, "who drew this").on_hover_text(
+                "Colours every pixel by what drew it, the lighting kept: blue the real blocks, yellow the far surface in its\n\
+                 finest ring, toward red in the rings further out. Something wrongly hidden shows at a glance: a cave mouth\n\
+                 painted yellow, or yellow showing over the blocks. (Objects keep their own colours.)",
+            );
         });
         ui.horizontal(|ui| {
             ui.checkbox(&mut settings.seam_probe, "seam probe").on_hover_text(

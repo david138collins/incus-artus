@@ -638,6 +638,14 @@ with the lighting kept so shapes still read:
 Wrong hiding shows at a glance: a mouth painted in the sheet's colour, or a copy with sheet showing
 over its edge. With same-spot respawns, it gives before-and-after screenshots. About 80 lines.
 
+**[BUILT 2026-11-02, build 2]** for the two drawers that exist so far. It's the fourth choice of
+the Render page's "View" row ("who drew this"):
+- the real chunks are blue, with a little of the texture's light and dark kept, then all the lighting;
+- the sheet is yellow in its finest ring, turning red toward the sixth. The shader tells a corner's
+  ring from where its easing starts, so the tiles carry nothing new;
+- objects keep their own colours;
+- copies and skirts get their colours in step 3.
+
 ### 13.8 Objects (the brazier, later furniture and statues)
 
 - **Through the same path, as blocks.** Objects are saved in their chunks, so a chunk with objects is
@@ -665,6 +673,24 @@ saved with the world, so a same-spot respawn sees them again. The sites:
   line (found by hand), where the sheet may bridge the gorge;
 - **a thin wall:** a 1-block-thick wall, 20 long and 10 high, beside a 1×1 pillar;
 - **a pit:** a 6 × 6 hole dug 20 deep, seen from above (the darker-cell case).
+
+**[BUILT 2026-11-02, build 2]** "Place the far test sites" on the World page, under the test caves
+(`world/test_sites.rs`):
+- **Where:** the distances are counted as the render distance counts them, the larger of north-south
+  and east-west. "The edge" is the middle of the line's stretch through the last ring of real
+  chunks, worked out from the render distance when the button is pressed.
+- **The two mouths:** the steepest land within 96 blocks, the test cave heading uphill into it. The
+  second is a block from a chunk's side, at least 40 blocks from the first.
+- **The gorge is found, not picked by hand:** the deepest narrow valley within 256 blocks, at least 6
+  blocks below the ground 16 blocks either side of it, across any of four directions. The pillar goes
+  up through any water, to 20 above its surface.
+- **The wall and the pit:** the wall is 48 blocks to one side of the line, side on to you, with the
+  pillar 4 blocks past its end. The pit is 48 blocks to the other side, on land only.
+- **What it says:** the button lists what went where at each distance, and where you stood (stand
+  there again to see them as placed). Its caves join the cave plan. Its blocks are set in loaded
+  chunks, or in chunks made for them and kept as changed chunks, so saving the world keeps them all.
+- **Tests:** the edge site is in the last ring whichever way you face; on a slope, both mouths head
+  uphill, the second on a chunk's edge, and the wall, pillar and pit set 220 blocks and dig 720.
 
 **The fast flight:** the soak test's flight, along the line of sites at top speed, watching for sky
 showing through or a mouth covered as copies come in and change size.

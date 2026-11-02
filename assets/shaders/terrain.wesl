@@ -17,7 +17,7 @@ struct TerrainShaderSettings {
     // x top, y bottom, z north/south, w east/west
     face_shade: vec4<f32>,
     fog_color: vec4<f32>,
-    // x fog start, y fog end, z fog on, w debug view
+    // x fog start, y fog end, z fog on, w debug view (1 rectangles, 2 face directions, 3 who drew this)
     fog_and_debug: vec4<f32>,
     // x random texture rotation on, y light only (plain grey)
     options: vec4<f32>,
@@ -354,6 +354,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         colour = debug_colour(in.quad + 1u);
     } else if debug_view == 2u {
         colour = debug_colour(in.face + 100u);
+    } else if debug_view == 3u {
+        // Who drew this (`docs/caves.md` 13.7): the real chunks blue, the texture's light and dark
+        // kept faintly and all the lighting after, so shapes still read.
+        colour = vec3<f32>(0.25, 0.45, 1.0) * (0.6 + 0.4 * dot(colour, vec3<f32>(0.3, 0.59, 0.11)));
     }
 
     // Classic block shading: brightness by which way the face points.

@@ -42,6 +42,9 @@ struct DistantShaderSettings {
     // steps, four to a vec4): all round, and from the sun's side
     foot: array<vec4<f32>, 9>,
     step: array<vec4<f32>, 9>,
+    // x the "who drew this" view on (`docs/caves.md` 13.7), y where a ring's easing starts, in its
+    // own tiles (so a corner's ring can be told from its easing)
+    view: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> settings: DistantShaderSettings;
@@ -70,6 +73,8 @@ struct VertexOutput {
     @location(1) colour: vec4<f32>,
     @location(2) side: vec3<f32>,
     @location(3) slope: vec2<f32>,
+    // Which ring (0 the finest), for the "who drew this" view.
+    @location(4) @interpolate(flat) ring: f32,
 }
 
 @vertex
@@ -86,6 +91,9 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.colour = in.colour;
     out.side = in.side.rgb;
     out.slope = in.slope.xy;
+    // A ring's easing starts `view.y` of its tiles out, and its tiles are 16 cells of the finest
+    // cell doubled once a ring.
+    out.ring = clamp(round(log2(max(in.ease.y / max(settings.view.y * settings.hill.y * 16.0, 1.0), 1.0))), 0.0, 15.0);
     return out;
 }
 
@@ -144,8 +152,14 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
     // Light only (the seam probe): every colour plain grey, the lighting kept.
     let grey = settings.shade.z > 0.5;
-    let top_colour = select(in.colour.rgb, vec3<f32>(0.5), grey);
-    let side_colour = select(in.side, vec3<f32>(0.5), grey);
+    var top_colour = select(in.colour.rgb, vec3<f32>(0.5), grey);
+    var side_colour = select(in.side, vec3<f32>(0.5), grey);
+    // Who drew this (`docs/caves.md` 13.7): the sheet yellow in its finest ring, toward red further
+    // out, its lighting kept.
+    if settings.view.x > 0.5 {
+        top_colour = mix(vec3<f32>(1.0, 0.85, 0.2), vec3<f32>(0.75, 0.15, 0.1), min(in.ring / 6.0, 1.0));
+        side_colour = top_colour;
+    }
     // The sea stays flat; between a sea corner and a land one, a blend of the two.
     let sea = top_colour * settings.faces.x;
     var colour = mix(sea, land(top_colour, side_colour, in.slope, in.world_position), clamp(in.colour.a, 0.0, 1.0));
