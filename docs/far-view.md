@@ -50,3 +50,32 @@ David: "with everything on and caves, gpu time stays under 4ms."
 - **For the march:** the card has plenty of room. A 980 Ti is several times slower than this card,
   and that still leaves room.
 - The log line didn't say whether the far land was on; from build 13 it does.
+
+## The march over the far land (build 13, step 1 part 3)
+
+Render page, Distant terrain: **"drawn by the march (new)"** flips the far land between the sheet
+and the march, to compare. Its three sliders (greyed while it's off): "march: step" (0.4, a step's
+share of the height above the land), "march: shortest step" (0.002 of the distance) and "march: most
+steps" (300). "Who drew this" shows the march blue, toward purple further out (the sheet is yellow
+toward red). Code: `src/render/march.rs`, `assets/shaders/march.wesl`.
+
+- **The same land.** As each sheet tile is made, its corners (height, the coarser ring's height for
+  easing, slope, colours) are also copied into one list on the graphics card: a slot for each of a
+  ring's 16 × 16 tiles, the tile at (x, y) in slot (x, y) counted round 16, and a second list of which
+  tile each slot holds, so a ray never reads a tile that isn't in yet (it reads the ring outside).
+  Between corners the land is the sheet's two triangles a cell, eased into the next ring out the
+  same way; a test checks the march's land against the sheet's triangles, at corners and between.
+- **Each pixel:** one triangle covers the screen. The ray starts where it leaves the square of
+  chunks round you wholly drawn near; steps on by a share of its height above the land; where it
+  goes under the land outside what the real chunks and far copies draw (the sheet's `shown`
+  texture), narrows in on the spot over 8 halvings; lights it with the sheet's own sums and settings;
+  and writes its depth, so the near world, water and far copies draw in front where they're nearer.
+  A ray that goes more than 16 blocks (or 2 cells) under the land has gone into the near world's
+  ground, and stops. Rays that miss show the sky.
+- **Still the sheet's way, for now:** caves and changes are the far copies' (part 5); the whole list
+  goes to the card again when tiles come in, at most ten times a second (about 25 MB with 7 rings;
+  only while the march is on); its time is part of "solid things" on the Performance page.
+- The frame-rate log line now says whether the far land was off, the sheet or the march.
+- **To check on a ridge** (Counsel, from David): the line where the real chunks end is a wiggly ring
+  on the land about 1,000 blocks out; the snowy ridge's jitter is this line today. Compare the two
+  drawers there.

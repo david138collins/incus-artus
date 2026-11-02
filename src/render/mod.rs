@@ -15,6 +15,7 @@ mod deep_shot;
 mod far_copies;
 pub(crate) mod distant;
 mod frame_cap;
+mod march;
 pub(crate) mod light;
 mod material;
 mod mesher;
@@ -75,6 +76,17 @@ impl Plugin for RenderPlugin {
             .init_resource::<deep_shot::DeepShot>()
             .init_resource::<deep_shot::DeepShotSettings>()
             .add_systems(Update, deep_shot::run_deep_shot.after(distant::update_distant))
+            // The far land drawn by the march, behind a switch (`march.rs`).
+            .add_plugins(MaterialPlugin::<march::MarchMaterial>::default())
+            .init_resource::<march::MarchState>()
+            .add_systems(Startup, march::setup_march)
+            .add_systems(
+                Update,
+                (
+                    march::update_march.after(distant::update_distant).after(distant::update_distant_material).after(distant::update_shown_chunks),
+                    march::show_one_drawer.after(deep_shot::run_deep_shot),
+                ),
+            )
             .add_systems(bevy_egui::EguiPrimaryContextPass, deep_shot::draw_deep_shot_bar)
             .add_systems(PostUpdate, deep_shot::leave_out_panels.after(bevy_egui::EguiPostUpdateSet::ProcessOutput).before(bevy_egui::EguiPostUpdateSet::PostProcessOutput))
             .init_resource::<light::LightSettings>()
@@ -626,6 +638,24 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     {
         let mut settings = world.resource_mut::<distant::DistantSettings>();
         ui.checkbox(&mut settings.enabled, "show distant terrain");
+        ui.add_enabled_ui(settings.enabled, |ui| {
+            ui.checkbox(&mut settings.march, "drawn by the march (new)").on_hover_text(
+                "The same far land, found by a ray from every pixel instead of drawn as triangles: the far view's new way\n\
+                 (docs/far-view.md). Flip it to compare. Who drew this shows the march blue, toward purple further out.",
+            );
+            ui.add_enabled_ui(settings.march, |ui| {
+                ui.add(crate::debug::Slider::new(&mut settings.march_step, 0.1..=1.0).text("march: step")).on_hover_text(
+                    "How far a ray steps, as a share of its height above the land. Lower is safer over steep land (a thin ridge\n\
+                     isn't stepped over) and slower.",
+                );
+                ui.add(crate::debug::Slider::new(&mut settings.march_shortest, 0.0005..=0.02).logarithmic(true).text("march: shortest step")).on_hover_text(
+                    "The shortest step, as a share of the distance. Lower is more exact along the land's edge against the sky, and slower.",
+                );
+                ui.add(crate::debug::Slider::new(&mut settings.march_most, 32..=2000).logarithmic(true).text("march: most steps")).on_hover_text(
+                    "The most steps a pixel takes. Too few and the furthest land, or land seen at a low angle, goes missing (sky shows).",
+                );
+            });
+        });
         ui.add(crate::debug::Slider::new(&mut settings.rings, 1..=10).text("rings")).on_hover_text("Each ring out has cells twice the size: more rings, further you see.");
         ui.add(crate::debug::Slider::new(&mut settings.finest_cell, 4..=64).text("finest cell (blocks)"));
         ui.add(crate::debug::Slider::new(&mut settings.hill_shading, 0.0..=0.6).text("hill shading")).on_hover_text(

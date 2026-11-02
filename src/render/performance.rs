@@ -308,7 +308,9 @@ pub fn drawing_line(world: &mut World) -> String {
             quads_in_view += mesh.quads as u64;
         }
     }
-    format!("In view: {in_view} of {sections} sections, {quads_in_view} of {quads} rectangles. {fps}; {}", card_line(world))
+    let distant = world.resource::<super::distant::DistantSettings>();
+    let far_land = if !distant.enabled { "off" } else if distant.march { "the march" } else { "the sheet" };
+    format!("In view: {in_view} of {sections} sections, {quads_in_view} of {quads} rectangles. Far land: {far_land}. {fps}; {}", card_line(world))
 }
 
 pub fn soak_line(world: &mut World) -> String {

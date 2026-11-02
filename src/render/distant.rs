@@ -53,7 +53,7 @@ use std::sync::Arc;
 /// Cells along a tile's side.
 pub const CELLS: i32 = 16;
 /// Tiles along a ring's side.
-const RING_TILES: i32 = 16;
+pub(super) const RING_TILES: i32 = 16;
 /// The side of the texture marking the chunks on screen, in chunks (centred on the camera's chunk:
 /// 128 each way, far past where real chunks ever reach).
 pub(super) const SHOWN_SIZE: i32 = 256;
@@ -85,11 +85,33 @@ pub struct DistantSettings {
     /// feet's shade and their sides), so the two match where they meet (1 = as worked out, 0 = not at
     /// all: smooth slopes, brighter). [2026-10-28]
     pub slope_match: f32,
+    /// Drawn by the march instead of the sheet (`march.rs`, `docs/far-view.md`): each pixel's ray finds
+    /// the same land the sheet is made of. [David, 2026-11-02]
+    pub march: bool,
+    /// The march's steps: how far a step goes, as a share of the height above the land (lower is
+    /// safer over steep land, and slower); the shortest step, as a share of the distance; and the
+    /// most steps a pixel takes.
+    pub march_step: f32,
+    pub march_shortest: f32,
+    pub march_most: u32,
 }
 
 impl Default for DistantSettings {
     fn default() -> Self {
-        Self { enabled: true, finest_cell: 16, rings: 7, most_at_once: 0, hill_shading: 0.3, shading_fade: 2.0, height_tint: 0.15, slope_match: 1.0 }
+        Self {
+            enabled: true,
+            finest_cell: 16,
+            rings: 7,
+            most_at_once: 0,
+            hill_shading: 0.3,
+            shading_fade: 2.0,
+            height_tint: 0.15,
+            slope_match: 1.0,
+            march: false,
+            march_step: 0.4,
+            march_shortest: 0.002,
+            march_most: 300,
+        }
     }
 }
 
@@ -181,6 +203,9 @@ pub struct TileMesh {
     pub indices: Vec<u32>,
     /// The tile's north-west-bottom corner... the corner it's placed at (game axes).
     pub corner: Vec3,
+    /// Each corner's place in the lists above: corner `i` cells north and `j` east of the tile's
+    /// corner at `grid[j * (CELLS + 1) + i]`; `u32::MAX` past the map. The march reads them by it.
+    pub grid: Vec<u32>,
 }
 
 /// How the far terrain is lit, from the same settings as the near ground (handed to its shader:
@@ -369,7 +394,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
         return None;
     }
     let corners = (CELLS + 1) as usize;
-    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), sides: Vec::new(), slopes: Vec::new(), morph: Vec::new(), indices: Vec::new(), corner };
+    let mut mesh = TileMesh { positions: Vec::new(), colours: Vec::new(), sides: Vec::new(), slopes: Vec::new(), morph: Vec::new(), indices: Vec::new(), corner, grid: Vec::new() };
     let slope = slope_cell as f32;
     let (ease_from, ease_to) = if eases { (EASE_FROM * size, EASE_TO * size) } else { (f32::MAX, f32::MAX) };
     // Each corner's place in the list (`u32::MAX` past the map).
@@ -477,6 +502,7 @@ pub fn tile_mesh_measured(map: &CompiledMap, blocks: &TerrainBlocks, palette: &P
             }
         }
     }
+    mesh.grid = index;
     Some(mesh)
 }
 
@@ -584,6 +610,12 @@ pub struct DistantState {
     shown_for: Option<(IVec2, i32, u64)>,
     /// What the hand-off was last looked over for (see `update_shown_chunks`).
     looked_over: Option<(u64, u64, usize, IVec2, i32, u64)>,
+    /// How many times every tile was thrown away (the march throws its copy away too).
+    pub(super) cleared: u64,
+    /// The square of chunks round the camera's chunk wholly marked in `shown`: its centre chunk and
+    /// how many chunks it reaches each way (`None` if not even the camera's chunk is). No far land
+    /// can show inside it, so the march's rays start where they leave it.
+    pub(super) inner: Option<(IVec2, i32)>,
     // ── For the Performance page ──
     pub quads: u64,
 }
@@ -615,6 +647,7 @@ impl DistantState {
         self.making.clear();
         self.wanted_for = None;
         self.quads = 0;
+        self.cleared += 1;
     }
 }
 
@@ -643,6 +676,7 @@ pub fn update_distant(
     mut state: ResMut<DistantState>,
     mut meshes: ResMut<Assets<Mesh>>,
     tiles: Query<&DistantTile>,
+    mut march: ResMut<super::march::MarchState>,
 ) {
     let _timed = crate::render::Timed::new("distant tiles");
     let map = match terrain.compiled() {
@@ -704,7 +738,10 @@ pub fn update_distant(
         None => true,
     });
     let material = state.material.clone();
+    march.follow(state.cleared, settings.rings);
     for (key, mesh) in done {
+        // The march reads the same land (`march.rs`).
+        march.store(key, mesh.as_ref());
         let Some(tile) = mesh else {
             state.tiles.insert(key, None);
             continue;
@@ -718,8 +755,10 @@ pub fn update_distant(
         bevy_mesh.insert_attribute(ATTRIBUTE_SLOPE, tile.slopes);
         bevy_mesh.insert_indices(Indices::U32(tile.indices));
         let Some(material) = material.clone() else { continue };
+        // Hidden while the march draws the far land (`march::show_one_drawer`).
+        let visibility = if settings.march { Visibility::Hidden } else { Visibility::Inherited };
         let entity = commands
-            .spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), DistantTile { quads }))
+            .spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), visibility, DistantTile { quads }))
             .id();
         state.quads += quads as u64;
         state.tiles.insert(key, Some(entity));
@@ -867,6 +906,13 @@ pub fn update_shown_chunks(
             pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
         }
     }
+    // The square round the camera's chunk wholly marked: the march starts its rays at its edge.
+    let marked = |offset: IVec2| offset.x.abs() < half && offset.y.abs() < half && pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] > 0;
+    let mut reach = -1;
+    while reach < half - 2 && (-(reach + 1)..=reach + 1).all(|a| [IVec2::new(a, reach + 1), IVec2::new(a, -(reach + 1)), IVec2::new(reach + 1, a), IVec2::new(-(reach + 1), a)].into_iter().all(marked)) {
+        reach += 1;
+    }
+    state.inner = (reach >= 0).then_some((centre, reach));
     if let Some(mut image) = images.get_mut(&texture) {
         image.data = Some(pixels);
     }
