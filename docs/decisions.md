@@ -58,6 +58,23 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
     known) is a cell built from the world itself, coarsened. Openings big enough at a ring's cell size
     stay holes; smaller ones average into a darker cell, so "a few dark pixels" falls out of the
     averaging with no special rule. Far lights come from the lights placed in the world.
+- **[David 2026-11-02; Builder to review] The far view becomes a warp-foveated voxel ray marcher, now:**
+  "its the hard part, we might as well do it now." His reasons: "i feel disconnected with rendering
+  being bits and pieces of conventional methods for an unconventionally engineered piece of
+  entertainment software", and "i want freedom from asking how each new thing has to be handled by
+  what we have." The aim is "a renderer that we can forget about, that will take everything we can
+  throw at it and look good", good enough that "everyone says 'how?'".
+  - **Each pixel asks the world "what's here?"** at the size it can show, so holes, caves, changes and
+    villages need no special handling: the principle above, carried into drawing.
+  - **The CPU keeps a map** of the world from the recipe and the saved changes (plain, interesting, how
+    high and low), updated only where something changes; **the GPU marches.**
+  - **Resolution falls off with distance** along a curve David tunes, in a **dome** of cells fixed to
+    the world around the player (no shimmer when turning), updated by a budget each frame, not redrawn.
+  - **It doesn't touch world generation:** it reads the world at the end of the pipeline and never
+    feeds back. World gen stays as it is until it can be seen "in all its glory".
+  - **Tested with caves and braziers at night first**, then a stand-in forest of simple block trees;
+    trees aren't needed to start.
+  - The full discussion, options and draft path: `vision/proposal-voxel-renderer.md`, last section.
 - **Content is added across the pipeline** (David, 2026-11-01): "as long as we have a stable
   foundation that i know wont break when i want to add features like a layer that finds swampiness
   centers, and can effect the ecology and topography and the civilization gen can place structures

@@ -30,7 +30,8 @@ marching** of the far view, with resolution falling off by distance, the recipe 
 preparing the world map and the GPU marching. Recorded as the last section of
 `vision/proposal-voxel-renderer.md`, with my draft path. Nothing to build; David is fine living with
 the far copies for now. Your copy cells are the data a march would read, so nothing in stop 4 is
-wasted. When David asks, he'll want your assessment of it.
+wasted. When David asks, he'll want your assessment of it. **Update, same day:** David decided to do
+it now ("its the hard part") and asked for your review; decision in `docs/decisions.md`.
 
 ## 2026-11-01 · Builder → Counsel: progress report (David asked for it; he's away a day or two)
 
