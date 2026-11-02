@@ -40,7 +40,7 @@ use super::sky_light::{Daylight, FULL, sky_heights};
 use super::{RenderSettings, TerrainAssets};
 use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::data::{BlockRegistry, ObjectRegistry};
-use crate::world::{BlockId, CHUNK_SIZE, CavePlan, Caves, Chunk, ChunkPos, CompiledMap, StreamSettings, Terrain, TerrainBlocks, VoxelWorld, WORLD_BOTTOM, real_chunk, shape_boxes};
+use crate::world::{BlockId, CHUNK_SIZE, CavePlan, Caves, Chunk, ChunkPos, CompiledMap, StreamSettings, Streaming, Terrain, TerrainBlocks, VoxelWorld, WORLD_BOTTOM, real_chunk, shape_boxes};
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::primitives::Aabb;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -593,6 +593,7 @@ pub fn update_far_copies(
     settings: Res<FarCopySettings>,
     render: Res<RenderSettings>,
     streaming: Res<StreamSettings>,
+    streamed: Res<Streaming>,
     terrain: Res<Terrain>,
     caves: Res<Caves>,
     world: Res<VoxelWorld>,
@@ -764,9 +765,13 @@ pub fn update_far_copies(
         state.tiles.insert(key, Tile::Drawn { entities, faces, bytes });
     }
 
-    // Tiles no longer wanted stay until every wanted tile over them is in.
+    // Tiles no longer wanted stay until every wanted tile over them is in, and the real chunks over
+    // them are drawn (coming close, the cave vanished for a second while they were made: David,
+    // build 5).
     let mut retired = false;
     if !state.retiring.is_empty() {
+        let drawn = streamed.drawn();
+        let unready = |key: &TileKey| key.chunks().any(|pos| real_chunk(IVec2::new(pos.x - home.x, pos.y - home.y), edge, radius) && !drawn.contains(&pos));
         let area = |key: &TileKey| {
             let width = CHUNK_SIZE * key.scale;
             (key.x * width, key.y * width, width)
@@ -775,7 +780,7 @@ pub fn update_far_copies(
         let waiting: Vec<(i32, i32, i32)> = state.wanted.keys().filter(|key| !state.tiles.contains_key(key)).map(area).collect();
         let mut done_with = Vec::new();
         state.retiring.retain(|(key, entities)| {
-            let still = waiting.iter().any(|&w| overlap(area(key), w));
+            let still = waiting.iter().any(|&w| overlap(area(key), w)) || unready(key);
             if !still {
                 done_with.extend(entities.iter().copied());
             }

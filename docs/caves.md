@@ -844,3 +844,17 @@ blue to yellow; it never turned green.
 - Chunks streaming keeps a little past its circle (3 chunks, so wandering back and forth doesn't
   load them again) are hidden where a copy covers them, so the two never draw over each other.
 - The far test sites' "edge" site goes in the last real chunk by the same rule.
+
+### 13.16 What build 5 showed (David, 2026-11-02)
+
+- **Copies appear:** "there's a green patch around the cave i made now". 62 made in the session, at 1
+  block a cell in about 27 ms each, 2 in 40 ms, 4 in 97 ms and 8 in 292 ms (the slowest 321 ms),
+  all in the background.
+- **"when i get close it vanishes for a second and comes back":** coming in, the cave's chunk enters
+  the streaming circle and its copy went at once, while its real chunk, at the very edge of the
+  circle, was still being made: for a moment only the far sheet. Now a copy no longer wanted stays
+  until the real chunks over it are drawn, as it already did for copies of another size (for build 6).
+- **"the patch that became green in the distance, has different shading than the surrounding
+  areas":** the copy is blocks, lit as the real chunks are, set in the smooth far sheet, so the
+  difference between the two, which along the real chunks' edge is one long line far off, shows as a
+  square. Waiting for David's choice.
