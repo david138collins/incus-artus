@@ -75,6 +75,83 @@ fn steepest(map: &CompiledMap, at: Vec2, allowed: impl Fn(i32, i32) -> bool) -> 
     best.filter(|(steep, ..)| *steep > 0.3).map(|(_, spot, uphill)| (spot, uphill))
 }
 
+/// A test cave worming uphill into the slope at `spot`, its mouth just above the ground.
+fn mouth_at(map: &CompiledMap, spot: IVec2, uphill: Vec2, settings: &TestCaveSettings, seed: u32) -> super::caves::Tunnel {
+    let ground = map.column(spot.x, spot.y).map_or(0, |(z, _)| z) as f32;
+    let middle = Vec3::new(spot.x as f32 + 0.5 - uphill.x, spot.y as f32 + 0.5 - uphill.y, ground + 1.0 + settings.height * 0.6);
+    settings.tunnel(middle, uphill, seed)
+}
+
+/// Adds caves to the plan: the chunks they come near are made again with them, and changed chunks
+/// put away there are carved too. Returns those chunks.
+fn add_caves(world: &mut World, map: &CompiledMap, tunnels: Vec<super::caves::Tunnel>, blocks: &TerrainBlocks) -> HashSet<ChunkPos> {
+    let old = world.resource::<Caves>().0.clone();
+    let places: HashSet<ChunkPos> = tunnels.iter().flat_map(CavePlan::chunks_near).collect();
+    let plan = std::sync::Arc::new(CavePlan::new(old.tunnels.iter().cloned().chain(tunnels).collect()));
+    world.insert_resource(Caves(plan.clone()));
+    super::remake_chunks(world, map, &places, &plan, None);
+    let mut voxel = world.resource_mut::<VoxelWorld>();
+    for &pos in &places {
+        if let Some(mut chunk) = voxel.take_put_away(pos) {
+            super::caves::carve_chunk(&mut chunk, &plan, blocks.water);
+            voxel.keep_changed(chunk);
+        }
+    }
+    places
+}
+
+/// Cave mouths in hillsides round you, for measuring what the far copies cost [`docs/caves.md`
+/// 13.9; David, 2026-11-02: "thats a good idea"]: `mouths` of them, each the test cave into the
+/// steepest slope near a spot picked at random within `mouths_reach` (evenly over the area), at least
+/// 64 blocks apart. The same from the same spot.
+pub(super) fn place_hillside_mouths(world: &mut World) -> String {
+    let Some(map) = world.resource::<Terrain>().compiled().cloned() else { return "Needs a compiled world.".to_string() };
+    let Some(from) = world.query::<&crate::camera::FlyCamera>().iter(world).next().map(|camera| camera.position.truncate()) else { return String::new() };
+    let settings = world.resource::<TestCaveSettings>().clone();
+    let blocks = TerrainBlocks::from_registry(world.resource::<BlockRegistry>());
+    let mut random = (from.x as i32).wrapping_mul(73_856_093) as u32 ^ (from.y as i32).wrapping_mul(19_349_663) as u32 | 1;
+    let mut next = move || {
+        random ^= random << 13;
+        random ^= random >> 17;
+        random ^= random << 5;
+        random as f32 / u32::MAX as f32
+    };
+    let started = std::time::Instant::now();
+    let (mut spots, mut tunnels): (Vec<IVec2>, Vec<_>) = (Vec::new(), Vec::new());
+    for k in 0..settings.mouths.max(0) * 4 {
+        if tunnels.len() >= settings.mouths.max(0) as usize {
+            break;
+        }
+        let (angle, distance) = (next() * std::f32::consts::TAU, next().sqrt() * settings.mouths_reach);
+        let at = from + Vec2::new(angle.cos(), angle.sin()) * distance;
+        if let Some((spot, uphill)) = steepest(&map, at, |x, y| spots.iter().all(|&other| (IVec2::new(x, y) - other).length_squared() > 64 * 64)) {
+            tunnels.push(mouth_at(&map, spot, uphill, &settings, random_seed(k)));
+            spots.push(spot);
+        }
+    }
+    let count = tunnels.len();
+    let mut places = add_caves(world, &map, tunnels, &blocks);
+    places.extend(spots.iter().map(|spot| ChunkPos::of_block(spot.extend(0))));
+    world.resource_mut::<Streaming>().forget(&places);
+    // How many are where the far copies draw them (past the real chunks), for the measurement.
+    let radius = world.resource::<super::StreamSettings>().radius * CHUNK_SIZE;
+    let far = spots.iter().filter(|spot| spot.as_vec2().distance(from) > radius as f32).count();
+    let note = format!(
+        "{count} cave mouths in hillsides within {:.0} blocks of ({:.0}, {:.0}), {far} of them past the real chunks (the far copies draw those); found in {:.0} ms. Save the world to keep them.",
+        settings.mouths_reach,
+        from.x,
+        from.y,
+        started.elapsed().as_secs_f64() * 1000.0
+    );
+    info!("{note}");
+    note
+}
+
+/// A tunnel's seed from its number.
+fn random_seed(k: i32) -> u32 {
+    (k as u32).wrapping_mul(2_654_435_761) ^ 0x9e37_79b9
+}
+
 /// The bottom of the deepest narrow valley within `GORGE_SEARCH` of `at` (every 4 blocks): the
 /// column most below the ground 16 blocks either side of it, across any of four directions.
 fn gorge(map: &CompiledMap, at: Vec2) -> Option<IVec2> {
@@ -111,11 +188,7 @@ pub(super) fn sites_at(map: &CompiledMap, at: Vec2, dir: Vec2, settings: &TestCa
     let side = Vec2::new(-dir.y, dir.x);
     let place = |spot: IVec2| format!("({}, {}, {})", spot.x, spot.y, map.column(spot.x, spot.y).map_or(0, |(z, _)| z));
     // A mouth in a cliff, and one a block from a chunk's side (away from the first).
-    let mouth = |spot: IVec2, uphill: Vec2, seed: u32| {
-        let ground = map.column(spot.x, spot.y).map_or(0, |(z, _)| z) as f32;
-        let middle = Vec3::new(spot.x as f32 + 0.5 - uphill.x, spot.y as f32 + 0.5 - uphill.y, ground + 1.0 + settings.height * 0.6);
-        settings.tunnel(middle, uphill, seed)
-    };
+    let mouth = |spot: IVec2, uphill: Vec2, seed: u32| mouth_at(map, spot, uphill, settings, seed);
     let cliff = steepest(map, at, |_, _| true);
     if let Some((spot, uphill)) = cliff {
         sites.caves.push(mouth(spot, uphill, seed));
@@ -199,19 +272,9 @@ pub(super) fn place_far_test_sites(world: &mut World) -> String {
     }
 
     // The caves first, so chunks made for the blocks are carved by them too.
-    let old = world.resource::<Caves>().0.clone();
-    let mut places: HashSet<ChunkPos> = tunnels.iter().flat_map(CavePlan::chunks_near).collect();
-    let plan = std::sync::Arc::new(CavePlan::new(old.tunnels.iter().cloned().chain(tunnels).collect()));
-    world.insert_resource(Caves(plan.clone()));
-    super::remake_chunks(world, &map, &places, &plan, None);
-    // Changed chunks put away (not loaded) near the new caves are carved too.
+    let mut places = add_caves(world, &map, tunnels, &blocks);
+    let plan = world.resource::<Caves>().0.clone();
     let mut voxel = world.resource_mut::<VoxelWorld>();
-    for &pos in &places {
-        if let Some(mut chunk) = voxel.take_put_away(pos) {
-            super::caves::carve_chunk(&mut chunk, &plan, blocks.water);
-            voxel.keep_changed(chunk);
-        }
-    }
 
     // The blocks: set in loaded chunks; otherwise in the chunk as it's kept (or made), kept changed.
     let mut by_chunk: HashMap<ChunkPos, Vec<(IVec3, bool)>> = HashMap::new();

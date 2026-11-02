@@ -253,11 +253,15 @@ pub struct TestCaveSettings {
     /// and how far round (blocks).
     pub fill: i32,
     pub fill_reach: f32,
+    /// Cave mouths in hillsides round you, to measure what the far copies cost (stop 4): how many,
+    /// and how far round (blocks).
+    pub mouths: i32,
+    pub mouths_reach: f32,
 }
 
 impl Default for TestCaveSettings {
     fn default() -> Self {
-        Self { length: 30.0, width: 2.5, height: 2.0, wander: 20.0, rise_and_fall: 6.0, dip: 4.0, end_size: 0.5, rough: 0.8, lump: 3, floor: 0.6, fill: 200, fill_reach: 400.0 }
+        Self { length: 30.0, width: 2.5, height: 2.0, wander: 20.0, rise_and_fall: 6.0, dip: 4.0, end_size: 0.5, rough: 0.8, lump: 3, floor: 0.6, fill: 200, fill_reach: 400.0, mouths: 50, mouths_reach: 2_500.0 }
     }
 }
 

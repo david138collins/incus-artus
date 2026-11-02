@@ -737,8 +737,30 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
             .on_disabled_hover_text("Needs a compiled world")
             .clicked();
     });
+    // What the far copies cost (stop 4): many mouths round you, some past the real chunks.
+    {
+        let mut settings = world.resource_mut::<TestCaveSettings>();
+        ui.add(crate::debug::Slider::new(&mut settings.mouths, 1..=500).logarithmic(true).text("cave mouths: how many"));
+        ui.add(crate::debug::Slider::new(&mut settings.mouths_reach, 256.0..=4_000.0).text("cave mouths: how far round you (blocks)"));
+    }
+    let mut mouths = false;
+    ui.horizontal_wrapped(|ui| {
+        mouths = ui
+            .add_enabled(compiled, egui::Button::new("Place cave mouths on hillsides round me"))
+            .on_hover_text(
+                "The test cave into the steepest slope near spots picked at random round you, at least 64 blocks apart,\n\
+                 with the settings above. For measuring what the far copies cost: those past the real chunks are drawn\n\
+                 by them. Takes a moment. Save the world to keep them.",
+            )
+            .on_disabled_hover_text("Needs a compiled world")
+            .clicked();
+    });
     if sites {
         let note = test_sites::place_far_test_sites(world);
+        world.resource_mut::<WorldDebugState>().cave_note = note;
+    }
+    if mouths {
+        let note = test_sites::place_hillside_mouths(world);
         world.resource_mut::<WorldDebugState>().cave_note = note;
     }
     if reset {

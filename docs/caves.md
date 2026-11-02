@@ -962,3 +962,15 @@ Build 8's copies took about 40 ms (1 block a cell), 58 (2), 138 (4) and 380 (8).
   cell-by-cell detail against the far terrain's averaged colour.
 - **Next in stop 4:** the measurements (frame rate with copies on and off at sharpness 1, 2 and 4;
   the fast flight).
+
+### 13.23 Build 11: cave mouths for the measurements
+
+David: "will it matter if there are no caves" (yes: copies are only made where the land differs),
+then "thats a good idea" to a button for many mouths at once.
+- **World page, under "Far away":** "Place cave mouths on hillsides round me", with "cave mouths:
+  how many" (50) and "how far round you" (2,500 blocks). Each is the test cave into the steepest
+  slope within 96 blocks of a spot picked at random round you (evenly over the area), at least 64
+  blocks from the others; the same from the same spot. It says how many are past the real chunks.
+- **The measurement then:** press it once; stand still and turn slowly through a full circle with
+  copies off, then on at sharpness 1, 2 and 4; then one fast flight across the area. The frame rate,
+  1% low and worst frame are read from the log.
