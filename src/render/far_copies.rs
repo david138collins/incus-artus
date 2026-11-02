@@ -928,7 +928,7 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                 "How crisp the copies are: a copy's cell is about 4 ÷ this pixels on screen (1: 4 pixels, soft and cheap; 4: a pixel\n\
                  a cell, crisp and dearer). Finer than a pixel only shimmers, so it stops there.",
             );
-            ui.add(crate::debug::Slider::new(&mut settings.solid_share, 0.125..=0.5).text("how much must be solid")).on_hover_text(
+            ui.add(crate::debug::Slider::new(&mut settings.solid_share, 0.125..=0.875).text("how much must be solid")).on_hover_text(
                 "How much of a copy's cell must be solid for it to be drawn solid. Lower keeps thin walls and pillars; higher keeps\n\
                  small holes (cave mouths) open. Changing it makes every copy again.",
             );
@@ -941,6 +941,13 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
         }
     }
     ui.small(world.resource::<FarCopies>().summary());
+    // Stop 4's measurement (`docs/caves.md` 13.23): one line in the log for each setting tried.
+    if ui.button("Write the frame rate to the log").on_hover_text("The frame rate over the last few seconds, with these settings and the copies drawn: one line in the log for each setting tried. Turn slowly through a full circle first.").clicked() {
+        let settings = world.resource::<FarCopySettings>().clone();
+        let copies = if settings.on { format!("on, sharpness {:.1}, must be solid {:.2}, reach {:.0}", settings.sharpness, settings.solid_share, settings.reach) } else { "off".to_string() };
+        let line = format!("Far copies measured ({copies}): {}. {}", super::drawing_line(world), world.resource::<FarCopies>().summary());
+        info!("{line}");
+    }
 }
 
 #[cfg(test)]

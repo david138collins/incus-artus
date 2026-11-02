@@ -974,3 +974,9 @@ then "thats a good idea" to a button for many mouths at once.
 - **The measurement then:** press it once; stand still and turn slowly through a full circle with
   copies off, then on at sharpness 1, 2 and 4; then one fast flight across the area. The frame rate,
   1% low and worst frame are read from the log.
+- **Render page, Far copies:** "Write the frame rate to the log": the frame rate, 1% low and worst
+  frame over the last five seconds or so (the frames kept), with the copy settings and what's drawn,
+  one line in the log. Turn through a full circle in about five seconds, then press it, for each
+  setting tried.
+- "how much must be solid" now goes up to 0.875 (it stopped at 0.5, too low to keep small mouths
+  open further off, which needs it higher).
