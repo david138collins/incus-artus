@@ -320,7 +320,10 @@ struct Tally {
     light: u32,
     water: u32,
     water_block: BlockId,
+    /// Its highest solid block, and its highest block of the surface (a column's top, open to the
+    /// sky): with both, a cell is the surface's.
     top: Option<(i32, BlockId)>,
+    surface: Option<(i32, BlockId)>,
     objects: f32,
 }
 
@@ -441,6 +444,9 @@ fn make_copy(mut job: CopyJob) -> Made {
                     if tally.top.is_none_or(|(at, _)| z > at) {
                         tally.top = Some((z, id));
                     }
+                    if z == height && tally.surface.is_none_or(|(at, _)| z > at) {
+                        tally.surface = Some((z, id));
+                    }
                 } else if is_see_through(id) {
                     tally.water += 1;
                     tally.water_block = id;
@@ -480,9 +486,12 @@ fn make_copy(mut job: CopyJob) -> Made {
         .map(|(k, tally)| {
             let solid = whole - tally.air as f32 - tally.water as f32 + tally.objects;
             if solid >= job.share * whole - 1e-3 {
-                // The highest solid block in it, or the one below it, or stone.
+                // Its highest block of the surface, or its highest solid block, or the one below's,
+                // or stone. (Its highest solid block alone, on a steep slope, was often the rock
+                // under an uphill column's surface, so coarse copies came out darker and blotchy:
+                // David, build 8, "the texture breaks out" backing away.)
                 let below = (k as i32 - CELLS * CELLS).max(0) as usize;
-                tally.top.or(tallies[below].top).map_or(job.blocks.stone, |(_, id)| id)
+                tally.surface.or(tally.top).or(tallies[below].surface).or(tallies[below].top).map_or(job.blocks.stone, |(_, id)| id)
             } else if tally.water > 0 && tally.water >= tally.air {
                 tally.water_block
             } else {
@@ -536,9 +545,18 @@ fn make_copy(mut job: CopyJob) -> Made {
     };
 
     // 4. Meshed, a section of cells at a time, from the bottom.
+    // The plain ground beside the tile: the lowest of a cell's corners and middle, and of the cell
+    // inside beside it, so on a steep slope its skirt reaches down past the coarser or finer copy or
+    // the far terrain next to it (from its middle alone, sky showed through the seam between two
+    // copies: David, build 8).
     let ground_beside = |x: i32, y: i32| {
-        let at = corner + IVec2::new(x, y) * s + IVec2::splat(s / 2);
-        job.map.column(at.x, at.y).map_or(i32::MIN, |(z, _)| z)
+        let inside = IVec2::new(x.clamp(0, CELLS - 1), y.clamp(0, CELLS - 1));
+        [IVec2::new(x, y), inside]
+            .iter()
+            .flat_map(|&c| [(0, 0), (s - 1, 0), (0, s - 1), (s - 1, s - 1), (s / 2, s / 2)].map(|(dx, dy)| corner + c * s + IVec2::new(dx, dy)))
+            .filter_map(|at| job.map.column(at.x, at.y).map(|(z, _)| z))
+            .min()
+            .unwrap_or(i32::MIN)
     };
     let mut sections = Vec::new();
     for first in (0..tall).step_by(CELLS as usize) {

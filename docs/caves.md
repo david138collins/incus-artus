@@ -913,3 +913,25 @@ So only the mouth's rim keeps the blocks' look round a cave.
 
 **Not yet looked at:** the flicker where the smooth snowy far terrain meets the blocks along a ridge
 (David's "jitter"); the same seam as 2, along the skyline.
+
+### 13.20 Build 9: what build 8 showed, and two changes
+
+**David (build 8):** "it's looking better though, when i fly on the way in. its just farther out now
+there's some seams and discoloration, and i have to turn off fog to see it."
+- **"color pattern on patch":** close in, the copy blended; backing away a little it was remade
+  coarser and came out darker and blotchy ("the texture breaks out"). A coarse cell took the look of
+  its highest solid block, which on a steep slope was often the rock under an uphill column's
+  surface (stone, gabbro), not the dry grass on top.
+- **"some sky showing through":** along the seam between two copies of different sizes (the magenta
+  line in who drew this). A copy's skirt reached down from the ground at the middle of the cell beside
+  it only, too little on a steep slope.
+- **Still to see:** a copy shows the real blocks' pattern cell by cell where the far terrain round it
+  is the average (13.19), so with the fog off a copy can still show as finer detail.
+
+**Build 9:**
+1. A cell takes the look of its highest surface block (a column's top, open to the sky), and only
+   if none of the surface passes through it, of its highest solid block.
+2. A copy's skirt reaches down from the lowest of the corners and middles of the cell beside it and
+   the cell inside next to it.
+
+Build 8's copies took about 40 ms (1 block a cell), 58 (2), 138 (4) and 380 (8).
