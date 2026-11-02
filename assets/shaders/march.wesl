@@ -225,9 +225,14 @@ fn fragment(in: VertexOutput) -> Output {
         (in.clip_position.x - view.viewport.x) / view.viewport.z * 2.0 - 1.0,
         1.0 - (in.clip_position.y - view.viewport.y) / view.viewport.w * 2.0,
     );
-    let near = view.world_from_clip * vec4<f32>(ndc, 1.0, 1.0);
+    // Worked out from the camera, then turned to the world: never from two points in the world. A
+    // point on the near plane is a tenth of a block from the camera, and thousands of blocks out the
+    // world's positions are kept only to a few thousandths of a block, so the difference pointed
+    // every ray a little wrong, differently each frame [David, build 13: "its jiggly"].
+    let on_near = view.view_from_clip * vec4<f32>(ndc, 1.0, 1.0);
+    let toward = normalize(on_near.xyz / on_near.w);
     let origin = to_game(view.world_position);
-    let ray = normalize(to_game(near.xyz / near.w) - origin);
+    let ray = normalize(to_game((view.world_from_view * vec4<f32>(toward, 0.0)).xyz));
 
     // Start where the ray leaves the square of real chunks (if you're in it).
     var t = 0.5;

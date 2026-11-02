@@ -29,8 +29,11 @@ use bevy::mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology};
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderType, SpecializedMeshPipelineError};
-use bevy::render::storage::ShaderBuffer;
+use bevy::render::render_asset::RenderAssets;
+use bevy::render::renderer::RenderQueue;
+use bevy::render::storage::{GpuShaderBuffer, ShaderBuffer};
 use bevy::shader::ShaderRef;
+use std::sync::{Arc, Mutex};
 
 /// Corners along a tile's side.
 const SIDE: usize = (CELLS + 1) as usize;
@@ -41,9 +44,25 @@ const SLOTS: usize = (RING_TILES * RING_TILES) as usize;
 const CORNER: usize = 12;
 /// A corner past the map: no land there.
 const MISSING: f32 = -1.0e30;
-/// How often, at most, the lists go to the graphics card again while tiles come in (seconds): each
-/// time the whole of it goes (about 25 MB with 7 rings).
-const UPLOAD_EVERY: f32 = 0.1;
+
+/// Parts of the lists to write on the graphics card, handed from the game to Bevy's drawing side
+/// (`write_march`), which writes each straight into the list already there. Only the tiles that came
+/// in go, a few kilobytes each. [Build 13 sent both lists whole, about 25 MB, ten times a second
+/// while tiles came in, and each time took 8 to 12 ms of the frame.]
+#[derive(Resource, Clone, Default)]
+pub struct MarchWrites(Arc<Mutex<Vec<Write>>>);
+
+struct Write {
+    buffer: AssetId<ShaderBuffer>,
+    /// Where in the list (bytes) and what goes there.
+    offset: u64,
+    bytes: Vec<u8>,
+}
+
+/// Numbers as the graphics card reads them.
+fn bytes_of<T: Copy>(values: &[T], to_bytes: impl Fn(T) -> [u8; 4]) -> Vec<u8> {
+    values.iter().flat_map(|&v| to_bytes(v)).collect()
+}
 
 /// The march's copy of the far land, and what it's drawn with.
 #[derive(Resource, Default)]
@@ -52,6 +71,7 @@ pub struct MarchState {
     screen: Option<Entity>,
     corners_buffer: Option<Handle<ShaderBuffer>>,
     slots_buffer: Option<Handle<ShaderBuffer>>,
+    writes: MarchWrites,
     /// Every ring's slots' corners, `CORNER` numbers each.
     corners: Vec<f32>,
     /// Every ring's slots: the tile's x and y, then 0 nothing yet, 1 land, 2 wholly past the map; and a 0.
@@ -61,8 +81,8 @@ pub struct MarchState {
     cleared: u64,
     /// The highest land in it (a ray going up past it has missed).
     highest: f32,
-    changed: bool,
-    uploaded_at: f32,
+    /// Started again: the lists go to the graphics card whole, once (made again if their size changed).
+    whole: bool,
 }
 
 impl MarchState {
@@ -76,7 +96,13 @@ impl MarchState {
         self.corners = vec![MISSING; rings as usize * SLOTS * SIDE * SIDE * CORNER];
         self.slots = vec![0; rings as usize * SLOTS * 4];
         self.highest = f32::MIN;
-        self.changed = true;
+        self.whole = true;
+    }
+
+    fn queue(&self, buffer: &Option<Handle<ShaderBuffer>>, offset: usize, bytes: Vec<u8>) {
+        if let (Some(buffer), Ok(mut writes)) = (buffer, self.writes.0.lock()) {
+            writes.push(Write { buffer: buffer.id(), offset: offset as u64, bytes });
+        }
     }
 
     /// Where a tile goes: its ring's slot at (x, y) counted round the ring's width.
@@ -90,23 +116,27 @@ impl MarchState {
             return;
         }
         let slot = Self::slot(key);
-        self.slots[slot * 4..slot * 4 + 4].copy_from_slice(&[key.x, key.y, if tile.is_some() { 1 } else { 2 }, 0]);
-        self.changed = true;
-        let Some(tile) = tile else { return };
-        let base = slot * SIDE * SIDE * CORNER;
-        for (k, &index) in tile.grid.iter().enumerate() {
-            let at = base + k * CORNER;
-            if index == u32::MAX {
-                self.corners[at] = MISSING;
-                continue;
+        if let Some(tile) = tile {
+            let base = slot * SIDE * SIDE * CORNER;
+            for (k, &index) in tile.grid.iter().enumerate() {
+                let at = base + k * CORNER;
+                if index == u32::MAX {
+                    self.corners[at] = MISSING;
+                    continue;
+                }
+                let i = index as usize;
+                // Bevy's up is the game's height; the tile's corner sits at height 0.
+                let (height, target) = (tile.positions[i][1] + tile.corner.z, tile.morph[i][0]);
+                let (slope, top, side) = (tile.slopes[i], tile.colours[i], tile.sides[i]);
+                self.corners[at..at + CORNER].copy_from_slice(&[height, target, slope[0], slope[1], top[0], top[1], top[2], top[3], side[0], side[1], side[2], 0.0]);
+                self.highest = self.highest.max(height).max(target);
             }
-            let i = index as usize;
-            // Bevy's up is the game's height; the tile's corner sits at height 0.
-            let (height, target) = (tile.positions[i][1] + tile.corner.z, tile.morph[i][0]);
-            let (slope, top, side) = (tile.slopes[i], tile.colours[i], tile.sides[i]);
-            self.corners[at..at + CORNER].copy_from_slice(&[height, target, slope[0], slope[1], top[0], top[1], top[2], top[3], side[0], side[1], side[2], 0.0]);
-            self.highest = self.highest.max(height).max(target);
+            let span = base..base + SIDE * SIDE * CORNER;
+            self.queue(&self.corners_buffer, span.start * 4, bytes_of(&self.corners[span], f32::to_le_bytes));
         }
+        // The slot after its corners, so a ray never reads it before they're there.
+        self.slots[slot * 4..slot * 4 + 4].copy_from_slice(&[key.x, key.y, if tile.is_some() { 1 } else { 2 }, 0]);
+        self.queue(&self.slots_buffer, slot * 16, bytes_of(&self.slots[slot * 4..slot * 4 + 4], i32::to_le_bytes));
     }
 
     /// The land's height where a ray at `at` (game axes) would find it, with the camera at `camera`:
@@ -221,7 +251,9 @@ pub fn setup_march(
     mut materials: ResMut<Assets<MarchMaterial>>,
     mut buffers: ResMut<Assets<ShaderBuffer>>,
     mut images: ResMut<Assets<Image>>,
+    writes: Res<MarchWrites>,
 ) {
+    state.writes = writes.clone();
     // Bound before any tile is in, so each list needs something in it.
     let corners = buffers.add(ShaderBuffer::new(vec![MISSING; CORNER], RenderAssetUsages::RENDER_WORLD));
     let slots = buffers.add(ShaderBuffer::new(vec![0i32; 4], RenderAssetUsages::RENDER_WORLD));
@@ -243,14 +275,13 @@ pub fn setup_march(
     state.slots_buffer = Some(slots);
 }
 
-/// Sends the lists to the graphics card when they've changed (at most every `UPLOAD_EVERY`), and
-/// keeps the material's settings in step with the sheet's and the march's own.
-#[allow(clippy::too_many_arguments)]
+/// After starting again, makes the lists on the graphics card the right size and sends them whole
+/// (tiles coming in go a piece at a time, `MarchState::store`); and keeps the material's settings in
+/// step with the sheet's and the march's own.
 pub fn update_march(
     mut state: ResMut<MarchState>,
     distant: Res<DistantState>,
     settings: Res<DistantSettings>,
-    time: Res<Time<Real>>,
     mut changed_sheet: MessageReader<AssetEvent<DistantMaterial>>,
     sheets: Res<Assets<DistantMaterial>>,
     mut materials: ResMut<Assets<MarchMaterial>>,
@@ -258,16 +289,18 @@ pub fn update_march(
 ) {
     let _timed = crate::render::Timed::new("march");
     let Some(handle) = state.material.clone() else { return };
-    let now = time.elapsed_secs();
-    if state.changed && settings.march && now - state.uploaded_at >= UPLOAD_EVERY && !state.slots.is_empty() {
+    if state.whole && !state.slots.is_empty() {
+        state.whole = false;
+        if let Ok(mut writes) = state.writes.0.lock() {
+            writes.clear();
+        }
+        // Both lists whole, at their size (once: tiles coming in after go a piece at a time).
         if let Some(buffer) = &state.corners_buffer {
             let _ = buffers.insert(buffer, ShaderBuffer::new(state.corners.clone(), RenderAssetUsages::RENDER_WORLD));
         }
         if let Some(buffer) = &state.slots_buffer {
             let _ = buffers.insert(buffer, ShaderBuffer::new(state.slots.clone(), RenderAssetUsages::RENDER_WORLD));
         }
-        state.changed = false;
-        state.uploaded_at = now;
     }
     let sheet_changed = changed_sheet.read().any(|event| matches!(event, AssetEvent::Modified { .. }));
     let inner = distant.inner.map_or(Vec4::ZERO, |(centre, reach)| {
@@ -292,6 +325,21 @@ pub fn update_march(
             material.light = sheet.light;
         }
     }
+}
+
+/// On Bevy's drawing side, once the lists are on the graphics card: writes the pieces the game
+/// handed over into them. A piece for a list not there yet, or not yet made again at its new size,
+/// waits (the game throws away what's waiting whenever it starts again).
+pub fn write_march(writes: Res<MarchWrites>, gpu_buffers: Res<RenderAssets<GpuShaderBuffer>>, queue: Res<RenderQueue>) {
+    let Ok(mut pending) = writes.0.lock() else { return };
+    let mut waiting = Vec::new();
+    for write in pending.drain(..) {
+        match gpu_buffers.get(write.buffer) {
+            Some(gpu) if write.offset + write.bytes.len() as u64 <= gpu.buffer.size() => queue.write_buffer(&gpu.buffer, write.offset, &write.bytes),
+            _ => waiting.push(write),
+        }
+    }
+    *pending = waiting;
 }
 
 /// One of the two draws the far land: the march's triangle or the sheet's tiles, by the switch

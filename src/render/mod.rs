@@ -79,6 +79,7 @@ impl Plugin for RenderPlugin {
             // The far land drawn by the march, behind a switch (`march.rs`).
             .add_plugins(MaterialPlugin::<march::MarchMaterial>::default())
             .init_resource::<march::MarchState>()
+            .init_resource::<march::MarchWrites>()
             .add_systems(Startup, march::setup_march)
             .add_systems(
                 Update,
@@ -129,6 +130,11 @@ impl Plugin for RenderPlugin {
             .add_page_preset("render", &["render", "distant", "far_copies", "light"])
             .add_debug_page("Performance", performance::performance_debug_page)
             .add_settings::<RenderSettings>("render");
+        // The march's pieces of the far land, written on Bevy's drawing side (`march::write_march`).
+        let writes = app.world().resource::<march::MarchWrites>().clone();
+        if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
+            render_app.insert_resource(writes).add_systems(bevy::render::Render, march::write_march.in_set(bevy::render::RenderSystems::PrepareResources));
+        }
         // A developer tool, as F12's screenshot is.
         #[cfg(feature = "dev")]
         app.add_systems(Update, deep_shot::deep_shot_key);

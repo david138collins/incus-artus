@@ -79,3 +79,17 @@ toward red). Code: `src/render/march.rs`, `assets/shaders/march.wesl`.
 - **To check on a ridge** (Counsel, from David): the line where the real chunks end is a wiggly ring
   on the land about 1,000 blocks out; the snowy ridge's jitter is this line today. Compare the two
   drawers there.
+
+### Build 13 seen, and build 14 (David, 2026-11-02)
+David: "ha, it works, and it does not look bad, but its jiggly, its bouncing back and forth real
+fast... almost like the vibrating blocks"; it shakes standing still too, and "march: step" changes
+nothing.
+- **The shaking:** each ray's direction came from the difference between the camera and a point on
+  the near plane, a tenth of a block away. Out at (-3441, 17980) the world's positions are kept only
+  to a few thousandths of a block, so every ray pointed a little wrong, differently with every hair
+  the camera moved. Build 14 works the direction out from the camera's own view and turns it to the
+  world, so the big positions never enter it.
+- **Hitches while tiles came in:** build 13 sent both lists whole (about 25 MB) ten times a second,
+  8 to 12 ms of the frame each time. Build 14 sends only each tile that comes in (about 14 KB),
+  written straight into the list on the graphics card on Bevy's drawing side (`write_march`); the
+  lists go whole only when the far land starts again (a new world, other rings).
