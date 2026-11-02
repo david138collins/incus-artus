@@ -40,7 +40,7 @@ use super::sky_light::{Daylight, FULL, sky_heights};
 use super::{RenderSettings, TerrainAssets};
 use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::data::{BlockRegistry, ObjectRegistry};
-use crate::world::{BlockId, CHUNK_SIZE, CavePlan, Caves, Chunk, ChunkPos, CompiledMap, Terrain, TerrainBlocks, VoxelWorld, WORLD_BOTTOM, shape_boxes};
+use crate::world::{BlockId, CHUNK_SIZE, CavePlan, Caves, Chunk, ChunkPos, CompiledMap, StreamSettings, Terrain, TerrainBlocks, VoxelWorld, WORLD_BOTTOM, real_chunk, shape_boxes};
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::primitives::Aabb;
 use bevy::mesh::{Indices, PrimitiveTopology};
@@ -114,8 +114,9 @@ impl TileKey {
         Vec2::new((self.x as f32 + 0.5) * width, (self.y as f32 + 0.5) * width)
     }
 
-    /// Its chunks' range, the larger of north-south and east-west from `home`: nearest and furthest.
-    fn chunk_range(self, home: IVec2) -> (i32, i32) {
+    /// Its chunks' range from `home`: its nearest chunk's offset north-south and east-west (each
+    /// the nearest along that way), and its furthest, the larger of north-south and east-west.
+    fn chunk_range(self, home: IVec2) -> (IVec2, i32) {
         let s = self.scale;
         let span = |low: i32, at: i32| {
             let (a, b) = (low * s - at, low * s + s - 1 - at);
@@ -123,7 +124,7 @@ impl TileKey {
         };
         let (near_x, far_x) = span(self.x, home.x);
         let (near_y, far_y) = span(self.y, home.y);
-        (near_x.max(near_y), far_x.max(far_y))
+        (IVec2::new(near_x, near_y), far_x.max(far_y))
     }
 }
 
@@ -145,6 +146,10 @@ enum Tile {
 #[derive(Component)]
 pub struct FarCopy;
 
+/// What the wanted tiles were worked out for: your chunk, the render distance, the streaming radius,
+/// the sharpness and reach, how many chunks are changed and show, and the view.
+type WantedFor = (IVec2, i32, i32, [u32; 2], usize, usize, u32);
+
 #[derive(Resource, Default)]
 pub struct FarCopies {
     /// The terrain material, marked as a copy's (the shader colours copies in the who-drew view).
@@ -165,7 +170,7 @@ pub struct FarCopies {
     /// still to start, nearest last.
     wanted: HashMap<TileKey, bool>,
     queue: Vec<TileKey>,
-    wanted_for: Option<(IVec2, i32, [u32; 2], usize, usize, u32)>,
+    wanted_for: Option<WantedFor>,
     retiring: Vec<(TileKey, Vec<Entity>)>,
     /// The chunks drawn by copies (cut out of the sheet), and a count of its changes.
     covered: HashSet<ChunkPos>,
@@ -587,6 +592,7 @@ pub fn update_far_copies(
     mut commands: Commands,
     settings: Res<FarCopySettings>,
     render: Res<RenderSettings>,
+    streaming: Res<StreamSettings>,
     terrain: Res<Terrain>,
     caves: Res<Caves>,
     world: Res<VoxelWorld>,
@@ -659,15 +665,15 @@ pub fn update_far_copies(
     };
     let height = window.iter().next().map_or(1080.0, |window| window.resolution.height());
     let home = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
-    let edge = render.render_distance_chunks;
+    let (edge, radius) = (render.render_distance_chunks, streaming.radius);
     let limit = MASK_REACH.min((settings.reach / CHUNK_SIZE as f32).ceil() as i32);
 
     // Which tiles are wanted: worked out again when you move into another chunk, or what's known
     // changes.
-    let now = (home, edge, [settings.sharpness.to_bits(), settings.reach.to_bits()], world.changed_chunks().len(), state.hot.len(), (fov * 1000.0) as u32 ^ (height as u32) << 16);
+    let now = (home, edge, radius, [settings.sharpness.to_bits(), settings.reach.to_bits()], world.changed_chunks().len(), state.hot.len(), (fov * 1000.0) as u32 ^ (height as u32) << 16);
     if state.wanted_for != Some(now) {
         state.wanted_for = Some(now);
-        let offset = |pos: ChunkPos| (pos.x - home.x).abs().max((pos.y - home.y).abs());
+        let offset = |pos: ChunkPos| IVec2::new(pos.x - home.x, pos.y - home.y);
         let mut candidates: HashMap<ChunkPos, bool> = HashMap::new();
         for &pos in world.changed_chunks().iter().chain(state.near_ground.iter()) {
             candidates.insert(pos, false);
@@ -680,7 +686,7 @@ pub fn update_far_copies(
         let mut wanted: HashMap<TileKey, bool> = HashMap::new();
         for (pos, force) in candidates {
             let reach = offset(pos);
-            if reach <= edge || reach > limit {
+            if real_chunk(reach, edge, radius) || reach.x.abs().max(reach.y.abs()) > limit {
                 continue;
             }
             // The coarsest tile that fits wholly outside the real chunks, inside the mask, and is
@@ -688,7 +694,7 @@ pub fn update_far_copies(
             for scale in [8, 4, 2, 1] {
                 let key = TileKey::of(pos, scale);
                 let (nearest, furthest) = key.chunk_range(home);
-                if nearest <= edge || furthest > limit {
+                if real_chunk(nearest, edge, radius) || furthest > limit {
                     continue;
                 }
                 // Drawn or being made: kept until well past the line, so moving doesn't throw it away.
@@ -951,7 +957,10 @@ mod tests {
         assert_eq!(at(10.0, 2.0), 1);
         assert_eq!(at(1_000_000.0, 2.0), COARSEST);
         // A tile's chunks, nearest and furthest, the larger of north-south and east-west.
-        assert_eq!(TileKey { scale: 4, x: 2, y: -1 }.chunk_range(IVec2::ZERO), (8, 11));
-        assert_eq!(TileKey { scale: 4, x: 0, y: 0 }.chunk_range(IVec2::new(1, 1)), (0, 2));
+        assert_eq!(TileKey { scale: 4, x: 2, y: -1 }.chunk_range(IVec2::ZERO), (IVec2::new(8, 1), 11));
+        assert_eq!(TileKey { scale: 4, x: 0, y: 0 }.chunk_range(IVec2::new(1, 1)), (IVec2::ZERO, 2));
+        // Real chunks reach the streaming circle, inside the render distance's square.
+        assert!(real_chunk(IVec2::new(30, 10), 64, 32) && !real_chunk(IVec2::new(30, 12), 64, 32));
+        assert!(real_chunk(IVec2::new(20, 20), 64, 32) && !real_chunk(IVec2::new(20, 20), 19, 32));
     }
 }

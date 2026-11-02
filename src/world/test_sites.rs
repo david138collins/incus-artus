@@ -31,19 +31,18 @@ const CLIFF_SEARCH: i32 = 96;
 const GORGE_SEARCH: i32 = 256;
 const BESIDE: f32 = 48.0;
 
-/// How far along `dir` (a direction on the ground) the line from `from` first reaches the last ring
-/// of chunks the render distance (`chunks`) draws, and how far it stays in it: the middle of that.
-pub(super) fn edge_distance(from: Vec2, dir: Vec2, chunks: i32) -> f32 {
+/// The middle of the last real chunk along `dir` (a direction on the ground) from `from`: the
+/// furthest the line stays in the chunks the render distance (`chunks`) and the streaming circle
+/// (`radius`) leave real (`streaming::real_chunk`).
+pub(super) fn edge_distance(from: Vec2, dir: Vec2, chunks: i32, radius: i32) -> f32 {
     let home = (from / CHUNK_SIZE as f32).floor().as_ivec2();
-    let ring = |t: f32| {
-        let at = ((from + dir * t) / CHUNK_SIZE as f32).floor().as_ivec2() - home;
-        at.x.abs().max(at.y.abs())
+    let chunk = |t: f32| ((from + dir * t) / CHUNK_SIZE as f32).floor().as_ivec2() - home;
+    let steps = (chunks.min(radius) + 2) * CHUNK_SIZE * 2;
+    let Some(last) = (0..steps).rev().map(|t| t as f32).find(|&t| super::real_chunk(chunk(t), chunks, radius)) else {
+        return (chunks.min(radius) * CHUNK_SIZE) as f32;
     };
-    let inside: Vec<f32> = (0..(chunks + 2) * CHUNK_SIZE * 2).map(|t| t as f32).filter(|&t| ring(t) == chunks).collect();
-    match (inside.first(), inside.last()) {
-        (Some(first), Some(last)) => (first + last) / 2.0,
-        _ => (chunks * CHUNK_SIZE) as f32,
-    }
+    let first = (0..steps).map(|t| t as f32).find(|&t| chunk(t) == chunk(last)).unwrap_or(last);
+    (first + last) / 2.0
 }
 
 /// The ground's top block at a column, if it's land (not under the sea or a river).
@@ -174,7 +173,7 @@ pub(super) fn place_far_test_sites(world: &mut World) -> String {
     let Some((from, looking)) = world.query::<&crate::camera::FlyCamera>().iter(world).next().map(|camera| (camera.position, camera.looking())) else { return String::new() };
     let dir = looking.truncate().normalize_or(Vec2::X);
     let chunks = world.resource::<crate::render::RenderSettings>().render_distance_chunks;
-    let edge = edge_distance(from.truncate(), dir, chunks);
+    let edge = edge_distance(from.truncate(), dir, chunks, world.resource::<super::StreamSettings>().radius);
     // Counted the larger of north-south and east-west, as the render distance is.
     let along = |d: f32| d / dir.x.abs().max(dir.y.abs());
     let settings = world.resource::<TestCaveSettings>().clone();
@@ -247,9 +246,15 @@ mod tests {
     #[test]
     fn the_edge_site_is_in_the_last_ring_of_real_chunks_whichever_way_you_face() {
         for (from, dir) in [(Vec2::new(5.0, 7.0), Vec2::X), (Vec2::new(-40.0, 1_000.0), Vec2::new(0.6, -0.8)), (Vec2::new(31.0, -1.0), Vec2::new(-1.0, 1.0).normalize())] {
-            let t = edge_distance(from, dir, 32);
+            let t = edge_distance(from, dir, 32, 64);
             let ring = ((from + dir * t) / 32.0).floor().as_ivec2() - (from / 32.0).floor().as_ivec2();
             assert_eq!(ring.x.abs().max(ring.y.abs()), 32, "{from} {dir}: {t}");
+        }
+        // With the streaming circle inside the render distance, the circle's edge.
+        for (from, dir) in [(Vec2::new(5.0, 7.0), Vec2::X), (Vec2::new(31.0, -1.0), Vec2::new(-1.0, 1.0).normalize())] {
+            let t = edge_distance(from, dir, 64, 32);
+            let chunk = |t: f32| ((from + dir * t) / 32.0).floor().as_ivec2() - (from / 32.0).floor().as_ivec2();
+            assert!(super::super::real_chunk(chunk(t), 64, 32) && !super::super::real_chunk(chunk(t + 64.0), 64, 32), "{from} {dir}: {t}");
         }
     }
 

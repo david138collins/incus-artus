@@ -409,9 +409,11 @@ fn follow_block_rotations(
     state.waiting.extend(keys);
 }
 
-/// Hide sections beyond the render distance (measured horizontally, in chunks).
+/// Hide sections beyond the render distance (measured horizontally, in chunks), and those a far copy
+/// draws instead (chunks still kept just past the streaming circle, `far_copies.rs`).
 fn apply_render_distance(
     settings: Res<RenderSettings>,
+    copies: Res<far_copies::FarCopies>,
     camera: Query<&Transform, With<Camera3d>>,
     mut sections: Query<(&SectionMesh, &mut Visibility)>,
 ) {
@@ -428,7 +430,7 @@ fn apply_render_distance(
     for (section, mut visibility) in &mut sections {
         let offset = IVec2::new(section.key.chunk.x, section.key.chunk.y) - camera_chunk;
         // The seam probe hides them all, leaving the far surface on the same ground.
-        let wanted = if offset.x.abs().max(offset.y.abs()) <= limit && !settings.seam_probe {
+        let wanted = if offset.x.abs().max(offset.y.abs()) <= limit && !settings.seam_probe && !copies.covered().contains(&section.key.chunk) {
             Visibility::Inherited
         } else {
             Visibility::Hidden

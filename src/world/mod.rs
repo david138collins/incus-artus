@@ -50,7 +50,7 @@ pub use position::{
     WORLD_BOTTOM, WORLD_HEIGHT, z_in_world,
 };
 pub use section::Section;
-pub use streaming::{StreamSettings, Streaming};
+pub use streaming::{StreamSettings, Streaming, real_chunk};
 pub use interpreter::{CompiledMap, HIGHEST, InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Maps, Mutes, Peaks, Spline, coast_distance, point_distance};
 pub use carving::{Banks, Carving, FadeWay, Lake, Lakes, Point as RiverPoint, RIVER_FROM, Reach, STREAM_FROM, Shores, Sizes, depth_across, fullness};
 pub use mineralogy::{Layers, MOST_UNDER, Mineralogy, MineralogySettings, Why, starting_distributors};

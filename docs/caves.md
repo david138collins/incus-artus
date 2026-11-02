@@ -823,3 +823,24 @@ timing test:
   daylight it has nothing to add (David: "the brazieres light doesn't work outside").
 - **Later:** the real night, with the day and the moons (`docs/decisions.md`, "Light is precious"),
   takes its place.
+
+### 13.15 Build 5: the real chunks stop at the streaming circle, and the copies start there (2026-11-02)
+
+**What build 4's log showed:** no copy was made, and none was ever wanted. David flew round a test
+cave with a brazier in it, then looked out over a mountain with the narrow view. The cave went from
+blue to yellow; it never turned green.
+
+**Why:** two settings disagree on where the real chunks end.
+- **Streaming** (World page, "radius") makes chunks within a circle, 32 chunks (1,024 blocks) unless
+  moved. No preset keeps it, so it's 32 each start.
+- **The render distance** (Render page) is a square, 64 chunks in David's preset.
+- Build 3's copies started past the square. Between the circle and the square (1,024 to 2,048 blocks)
+  only the far sheet drew: the yellow.
+
+**Build 5:**
+- One rule says which chunks are real: within the streaming circle and the render distance's square
+  (`world/streaming.rs`, `real_chunk`). The copies start wherever that stops, so they now begin at
+  1,024 blocks with David's settings, and follow the radius if it's moved.
+- Chunks streaming keeps a little past its circle (3 chunks, so wandering back and forth doesn't
+  load them again) are hidden where a copy covers them, so the two never draw over each other.
+- The far test sites' "edge" site goes in the last real chunk by the same rule.

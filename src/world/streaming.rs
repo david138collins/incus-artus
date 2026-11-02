@@ -56,6 +56,13 @@ impl Default for StreamSettings {
 /// How far past the radius chunks are kept before being dropped.
 const KEEP_MARGIN: i32 = 3;
 
+/// Is a chunk this far from you (chunks, north and east) one of the real chunks? Those are made
+/// within the streaming circle (`radius`) and drawn within the render distance's square
+/// (`render_distance`); past them the far copies and the distant sheet take over.
+pub fn real_chunk(offset: IVec2, render_distance: i32, radius: i32) -> bool {
+    offset.x.abs().max(offset.y.abs()) <= render_distance && offset.x * offset.x + offset.y * offset.y <= radius * radius
+}
+
 #[derive(Resource, Default)]
 pub struct Streaming {
     /// The map these chunks were made from (a new world means starting over).
