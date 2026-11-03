@@ -258,3 +258,15 @@ redraw, a piece dissapears, until the far view march is just white"; sharpness 4
   it (`land_through`), or goes on as through air where the cell stands above it; only cells that
   aren't plain (a mouth's rim, what's built or dug) are drawn as boxes. So the copy's plain ground
   is the far land's, and meets it round the copy with no step.
+
+### Build 22 seen, and build 23 (David, 2026-11-02)
+No slabs; "the two different views side by side are unsigthly" (the real blocks' textures, speckled
+that far off, against the march's averaged colours, at the real chunks' edge: the line-matching
+work, with the slider for where the march starts), "but, sky also comes through the shallow cave"
+(fog off throughout).
+- **Why:** build 22 let a ray through a copy's plain cell wherever the smooth land runs below it;
+  on a sharp peak it runs below the blocks, so rays went through the cells round a shallow cave,
+  through the cave and out to the sky.
+- **Build 23:** a plain cell standing above the land is passed through only if the ray comes out of
+  it into open air (a box sticking up out of the ground); into a cave's air or more ground, it's the
+  cell's face (`opens_out`).

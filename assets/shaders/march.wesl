@@ -442,6 +442,24 @@ fn land_through(origin: vec3<f32>, ray: vec3<f32>, t: f32, until: f32) -> f32 {
     return select(-1.0, nearest, nearest < 1.0e9);
 }
 
+// Whether a ray leaving copy cell `c` the way `axis` says (0 north-south, 1 east-west, 2 up-down)
+// comes out into open air (full daylight, never covered), or out of the copy's sides or top.
+fn opens_out(record: u32, c: vec3<i32>, axis: f32, rate: vec3<f32>) -> bool {
+    var next = c;
+    if axis < 0.5 {
+        next.x = next.x + select(-1, 1, rate.x > 0.0);
+    } else if axis < 1.5 {
+        next.y = next.y + select(-1, 1, rate.y > 0.0);
+    } else {
+        next.z = next.z + select(-1, 1, rate.z > 0.0);
+    }
+    if next.x < 0 || next.x > 31 || next.y < 0 || next.y > 31 {
+        return true;
+    }
+    let value = copy_cell(record, next);
+    return ((value >> 12u) & 3u) == 0u && ((value >> 16u) & 15u) == 15u;
+}
+
 // How long ago (along the ray) it came in through a cell's face this way, `into` across the cell.
 fn since_entering(into: f32, rate: f32) -> f32 {
     if abs(rate) < 1e-9 {
@@ -580,11 +598,17 @@ fn fragment(in: VertexOutput) -> Output {
                 var at = t;
                 if (value & PLAIN) != 0u && ((value >> 12u) & 3u) == 1u {
                     at = land_through(origin, ray, t, out.x);
-                    if at < 0.0 {
+                    // Standing above the land: passed through only if the ray comes out of it into
+                    // open air, as from a box sticking up out of the ground. Into a cave's air, or
+                    // more ground, it's the cell's face after all. [On a sharp peak the smooth land
+                    // runs below the blocks, and rays went through the cells round a shallow cave,
+                    // through the cave and out to the sky: David, build 22.]
+                    if at < 0.0 && opens_out(u32(record), c, out.y, rate) {
                         last_light = 15u;
                         t = out.x + nudge;
                         continue;
                     }
+                    at = max(at, t);
                 }
                 // Solid, or water: met, coming from the air.
                 hit = true;
