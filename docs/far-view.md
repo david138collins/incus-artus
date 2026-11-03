@@ -520,3 +520,7 @@ pawn still (speed 0, on the ground), yet the camera moved up to 0.00138 blocks e
   itself, differently each frame, even when the two are the same.
 - **Build 33:** a place that hasn't changed is shown as it is; otherwise the last tick's place plus
   the share of the way to this one's (`SimPosition::display`).
+
+### Build 33 seen (David, 2026-11-02)
+"i think you got it, all zeros": standing, the camera's movement readout reads nothing. R1 done
+enough to go on.
