@@ -407,7 +407,7 @@ fn land_through(origin: vec3<f32>, ray: vec3<f32>, t: f32, until: f32) -> f32 {
         return t;
     }
     let cell = place.size / CELLS;
-    let local = (p.xy - place.origin) / cell;
+    let local = ((origin.xy - place.origin) + ray.xy * t) / cell;
     let ij = clamp(floor(local), vec2<f32>(0.0), vec2<f32>(CELLS - 1.0));
     let i = u32(ij.x);
     let j = u32(ij.y);
@@ -574,7 +574,11 @@ fn fragment(in: VertexOutput) -> Output {
             let corner = vec3<f32>(f32(bitcast<i32>(copy_records[base])), f32(bitcast<i32>(copy_records[base + 1u])), f32(bitcast<i32>(copy_records[base + 2u])));
             let scale = f32(copy_records[base + 3u]);
             let tall = f32(copy_records[base + 4u]);
-            let local = (p - corner) / scale;
+            // From the copy's corner, not the world's middle: thousands of blocks out a position is kept
+            // only to a few thousandths of a block, coarser than the nudge into the next cell, so a
+            // ray could round back into the cell it left and step there till it ran out (sky specks in a
+            // far cave, at (-4343, 17800): David, build 23).
+            let local = ((origin - corner) + ray * t) / scale;
             let rate = ray / scale;
             let nudge = scale * 1e-3;
             let c = vec3<i32>(clamp(floor(local), vec3<f32>(0.0, 0.0, -1.0), vec3<f32>(31.0, 31.0, tall)));
@@ -635,7 +639,8 @@ fn fragment(in: VertexOutput) -> Output {
             continue;
         }
         let cell = place.size / CELLS;
-        let local = (p.xy - place.origin) / cell;
+        // From the tile's corner, as in a copy (above): never the world's big numbers.
+        let local = ((origin.xy - place.origin) + ray.xy * t) / cell;
         let rate = ray.xy / cell;
         let nudge = cell * 1e-3;
         // Past the tile, if the ray is above all of it until it leaves.

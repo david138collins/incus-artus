@@ -1008,6 +1008,14 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
     }
 }
 
+/// A copy's cells made from `map` and `plan`, for the march's tests (`march.rs`).
+#[cfg(test)]
+pub(super) fn cells_for_tests(key: TileKey, map: CompiledMap, plan: CavePlan) -> Option<Arc<CopyCells>> {
+    let mut job = tests::job(key, map, plan, HashMap::new(), 0.5);
+    job.force = true;
+    make_copy(job).cells
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1015,7 +1023,7 @@ mod tests {
     use crate::world::TestCaveSettings;
 
     /// A job for the tile `key` over `map` with `plan`, its changed chunks given.
-    fn job(key: TileKey, map: CompiledMap, plan: CavePlan, changed: HashMap<ChunkPos, Chunk>, share: f32) -> CopyJob {
+    pub(super) fn job(key: TileKey, map: CompiledMap, plan: CavePlan, changed: HashMap<ChunkPos, Chunk>, share: f32) -> CopyJob {
         let registry = BlockRegistry::default();
         let blocks = TerrainBlocks::from_registry(&registry);
         let count = registry.defs().len().max(64);

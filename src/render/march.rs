@@ -87,6 +87,8 @@ struct Copies {
     map_buffer: Option<Handle<ShaderBuffer>>,
     colours_buffer: Option<Handle<ShaderBuffer>>,
     drawn: HashMap<CopyKey, MarchedCopy>,
+    /// The copies drawn, in the order the map gives them their chunks (the first wins).
+    order: Vec<CopyKey>,
     free_pages: Vec<u32>,
     free_records: Vec<u32>,
     /// Whether the map needs making again.
@@ -325,6 +327,7 @@ impl MarchState {
             }
         }
         self.copies.top = self.copies.drawn.values().map(|copy| copy.footprint.2).fold(f32::MIN, f32::max);
+        self.copies.order = wanted.iter().map(|(key, _)| *key).filter(|key| self.copies.drawn.contains_key(key)).collect();
         // The map: which copy draws each chunk (one drawn now wins over one retiring). It's laid out
         // by the world, each chunk at its place counted round the map's width, not round you: one laid
         // out round you was made again at every chunk you crossed, and for a frame the graphics card
@@ -425,8 +428,43 @@ impl MarchState {
         let mut was_above = false;
         for _ in 0..most {
             let p = origin + ray * t;
-            if ray.z >= 0.0 && p.z > self.highest {
+            if ray.z >= 0.0 && p.z > self.highest.max(self.copies.top) {
                 return None;
+            }
+            // In a far copy: through its cells, one at a time (the shader's copy branch).
+            if let Some(copy) = self.copy_at(p.truncate()) {
+                let cells = &copy.cells;
+                let (scale, tall) = (cells.scale as f32, cells.tall as f32);
+                let local = ((origin - cells.corner.as_vec3()) + ray * t) / scale;
+                let rate = ray / scale;
+                let nudge = scale * 1e-3;
+                let c = local.floor().clamp(Vec3::new(0.0, 0.0, -1.0), Vec3::new(31.0, 31.0, tall)).as_ivec3();
+                if c.z as f32 >= tall {
+                    let (exit, _) = leave_box(t, local, rate, Vec3::new(0.0, 0.0, tall), Vec3::new(32.0, 32.0, 1.0e9));
+                    was_above = true;
+                    t = exit + nudge;
+                    continue;
+                }
+                let value = copy_cell(cells, c);
+                let (exit, axis) = leave_box(t, local, rate, c.as_vec3(), c.as_vec3() + 1.0);
+                if (value >> 12) & 3 != 0 {
+                    if !was_above || drawn_near(p.truncate()) {
+                        return None;
+                    }
+                    let mut at = t;
+                    if value & super::far_copies::CELL_PLAIN != 0 && (value >> 12) & 3 == 1 {
+                        at = self.land_through(finest, origin, ray, t, exit);
+                        if at < 0.0 && opens_out(cells, c, axis, rate) {
+                            t = exit + nudge;
+                            continue;
+                        }
+                        at = at.max(t);
+                    }
+                    return Some(at);
+                }
+                was_above = true;
+                t = exit + nudge;
+                continue;
             }
             let place = match self.locate(finest, camera, p.truncate()) {
                 Located::Beyond => return None,
@@ -507,6 +545,88 @@ impl MarchState {
         }
         None
     }
+}
+
+/// The shader's copy steps' helpers, in Rust for the tests (`march.wesl`: `copy_cell`, `leave_box`,
+/// `opens_out`, `land_through`).
+#[cfg(test)]
+impl MarchState {
+    /// The far copy drawing the chunk a spot is in (the shader reads its map; this asks each).
+    fn copy_at(&self, at: Vec2) -> Option<&MarchedCopy> {
+        self.copies.order.iter().filter_map(|key| self.copies.drawn.get(key)).find(|copy| {
+            let (low, high, _) = copy.footprint;
+            at.cmpge(low.as_vec2()).all() && at.cmplt(high.as_vec2()).all()
+        })
+    }
+
+    /// Where a ray at `t` meets the land before `until`: `t` if it's under it already, where it comes
+    /// down onto it, or -1.
+    fn land_through(&self, finest: f32, origin: Vec3, ray: Vec3, t: f32, until: f32) -> f32 {
+        let p = origin + ray * t;
+        let camera = origin.truncate();
+        let Located::Land(place) = self.locate(finest, camera, p.truncate()) else { return t };
+        let cell = place.size / CELLS as f32;
+        let local = (p.truncate() - place.origin) / cell;
+        let ij = local.floor().clamp(Vec2::ZERO, Vec2::splat((CELLS - 1) as f32));
+        let (i, j) = (ij.x as usize, ij.y as usize);
+        let heights = [(0, 0), (1, 0), (1, 1), (0, 1)].map(|(di, dj)| self.eased(place, i + di, j + dj, camera));
+        let [Some(a), Some(b), Some(c), Some(d)] = heights else { return t };
+        let uv = local - ij;
+        let (u, v) = (uv.x.clamp(0.0, 1.0), uv.y.clamp(0.0, 1.0));
+        let under = if u >= v { a * (1.0 - u) + b * (u - v) + c * v } else { a * (1.0 - v) + c * u + d * (v - u) };
+        if p.z <= under {
+            return t;
+        }
+        let rate = ray.truncate() / cell;
+        let mut nearest = f32::MAX;
+        for (gu, gv, first_half) in [(b - a, c - b, true), (c - d, d - a, false)] {
+            let gap = p.z - (a + gu * uv.x + gv * uv.y);
+            let closing = ray.z - gu * rate.x - gv * rate.y;
+            if gap >= 0.0 && closing < 0.0 {
+                let at = t + gap / -closing;
+                let across = (uv.x + rate.x * (at - t)) - (uv.y + rate.y * (at - t));
+                if at <= until && if first_half { across >= -1e-3 } else { across <= 1e-3 } {
+                    nearest = nearest.min(at);
+                }
+            }
+        }
+        if nearest < f32::MAX { nearest } else { -1.0 }
+    }
+}
+
+#[cfg(test)]
+fn copy_cell(cells: &CopyCells, c: IVec3) -> u32 {
+    if c.z < 0 {
+        return super::far_copies::CELL_SOLID;
+    }
+    if c.z >= cells.tall {
+        return 15 << 16;
+    }
+    cells.cells[(c.z * 1024 + c.y * 32 + c.x) as usize]
+}
+
+#[cfg(test)]
+fn leave_box(t: f32, local: Vec3, rate: Vec3, low: Vec3, high: Vec3) -> (f32, usize) {
+    let axis = |at: f32, rate: f32, low: f32, high: f32| if rate > 1e-9 { (high - at) / rate } else if rate < -1e-9 { (low - at) / rate } else { 1.0e9 };
+    let out = [axis(local.x, rate.x, low.x, high.x), axis(local.y, rate.y, low.y, high.y), axis(local.z, rate.z, low.z, high.z)];
+    let mut way = 0;
+    for k in 1..3 {
+        if out[k] < out[way] {
+            way = k;
+        }
+    }
+    (t + out[way].max(0.0), way)
+}
+
+#[cfg(test)]
+fn opens_out(cells: &CopyCells, c: IVec3, axis: usize, rate: Vec3) -> bool {
+    let mut next = c;
+    next[axis] += if rate[axis] > 0.0 { 1 } else { -1 };
+    if next.x < 0 || next.x > 31 || next.y < 0 || next.y > 31 {
+        return true;
+    }
+    let value = copy_cell(cells, next);
+    (value >> 12) & 3 == 0 && (value >> 16) & 15 == 15
 }
 
 /// Where a spot's land is kept: its tile's slot, the tile's corner (game axes) and its size.
@@ -990,6 +1110,85 @@ mod tests {
         state.follow_copies(Vec::new(), false);
         assert!(state.copies.drawn.is_empty());
         assert_eq!(state.copies.free_pages.len(), PAGES);
+    }
+
+    #[test]
+    fn no_ray_goes_through_the_rock_round_a_copied_cave() {
+        // The far copies' own test: ground rising steeply one way, a test cave worming uphill into it
+        // from (20, 20). Copied at 1, 2 and 4 blocks a cell, the land round it in two rings; a grid of
+        // rays at the mouth from 250 blocks downhill. A ray the long steps let through to the sky,
+        // or past a spot a slow search finds it in rock (a cell that isn't plain ground, or one under
+        // the land), went through the rock. [David, build 23: "pitch black" inside, light in the march.]
+        use crate::world::{CavePlan, TestCaveSettings};
+        let width = 64;
+        let heights: Vec<f32> = (0..width * width).map(|k| (230.0 + ((k / width) as f32 - 32.0) * 3.0 + ((k % width) as f32 - 32.0) * 12.0).clamp(140.0, 330.0)).collect();
+        let map = CompiledMap::of_heights(width, 32.0, &heights);
+        let ground = |x: i32, y: i32| map.column(x, y).unwrap().0 as f32;
+        let uphill = Vec2::new(ground(23, 20) - ground(17, 20), ground(20, 23) - ground(20, 17)).normalize();
+        let mouth = Vec3::new(20.5 - uphill.x, 20.5 - uphill.y, ground(20, 20) + 1.0 + 2.0 * 0.6);
+        let tunnel = TestCaveSettings::default().tunnel(mouth, uphill, 3);
+        let registry = crate::data::BlockRegistry::default();
+        let blocks = TerrainBlocks::from_registry(&registry);
+        let palette = super::super::distant::Palette::from_textures(&registry, &blocks);
+        let back = (mouth.truncate() - uphill * 250.0).as_ivec2();
+        // From above the mouth, and from below it looking up (as David was: the camera at 945, the
+        // peak at 988).
+        let below = mouth.z - 15.0;
+        assert!(below > ground(back.x, back.y) + 2.0, "the camera below the mouth is still above the ground");
+        let cameras = [ground(back.x, back.y).max(mouth.z) + 40.0, below].map(|z| Vec3::new(back.x as f32, back.y as f32, z));
+        let cells_of = |key: CopyKey| super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![tunnel.clone()])).expect("the cave shows");
+        let (one, two, four) = (CopyKey { scale: 1, x: 0, y: 0 }, CopyKey { scale: 2, x: 0, y: 0 }, CopyKey { scale: 4, x: 0, y: 0 });
+        // Each size alone, and a fine and a coarse one over the same chunk, either first (as the
+        // game's log had them round David's cave).
+        let layouts = [vec![one], vec![two], vec![four], vec![two, one], vec![one, two]];
+        let mut slipped = Vec::new();
+        for camera in cameras {
+            for layout in &layouts {
+            let scale = layout[0].scale;
+            let mut state = MarchState::default();
+            state.follow(1, 2, 16);
+            for ring_key in super::super::distant::wanted_tiles(camera, 16, 2) {
+                state.store(ring_key, super::super::distant::tile_mesh(&map, &blocks, &palette, ring_key, 16).as_ref());
+            }
+            state.follow_copies(layout.iter().map(|&key| (key, cells_of(key))).collect(), true);
+            let toward = (mouth - camera).normalize();
+            let right = toward.cross(Vec3::Z).normalize();
+            let up = right.cross(toward);
+            // Where a slow search first finds the ray in rock.
+            let in_rock = |ray: Vec3| {
+                let mut t = 0.0f32;
+                while t < 700.0 {
+                    let p = camera + ray * t;
+                    let land = state.height_at(16.0, camera.truncate(), p.truncate());
+                    let rock = match state.copy_at(p.truncate()) {
+                        Some(copy) => {
+                            let local = ((p - copy.cells.corner.as_vec3()) / copy.cells.scale as f32).floor().as_ivec3();
+                            let value = copy_cell(&copy.cells, local.clamp(IVec3::new(0, 0, -1), IVec3::new(31, 31, copy.cells.tall)));
+                            (value >> 12) & 3 == 1 && (value & super::super::far_copies::CELL_PLAIN == 0 || land.is_some_and(|h| p.z < h - 0.5))
+                        }
+                        None => land.is_some_and(|h| p.z < h - 0.5),
+                    };
+                    if rock {
+                        return Some(t);
+                    }
+                    t += 0.05;
+                }
+                None
+            };
+            for a in -12..=12 {
+                for b in -12..=12 {
+                    let ray = (toward + right * a as f32 * 0.004 + up * b as f32 * 0.004).normalize();
+                    let fast = state.march_ray(16.0, camera, ray, 0.0, 4000, |_| false);
+                    if let Some(rock) = in_rock(ray)
+                        && fast.is_none_or(|hit| hit > rock + 1.0)
+                    {
+                        slipped.push((camera.z, layout.len(), scale, a, b, rock, fast));
+                    }
+                }
+            }
+        }
+        }
+        assert!(slipped.is_empty(), "{} rays through the rock (camera height, copies, first one's scale, across, up, rock at, met at): {:?}", slipped.len(), &slipped[..slipped.len().min(8)]);
     }
 
     #[test]

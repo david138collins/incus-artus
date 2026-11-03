@@ -270,3 +270,18 @@ work, with the slider for where the march starts), "but, sky also comes through 
 - **Build 23:** a plain cell standing above the land is passed through only if the ray comes out of
   it into open air (a box sticking up out of the ground); into a cave's air or more ground, it's the
   cell's face (`opens_out`).
+
+### Build 23 seen, and build 24 (David, 2026-11-02)
+The light through the shallow cave was smaller, but still there in the march, while the real cave
+is "pitch black". Not the far land's smoothing ("finest cell" 4 kept it).
+- **A test first:** `no_ray_goes_through_the_rock_round_a_copied_cave` makes the far copies' own
+  test cave in a steep hillside, copied at 1, 2 and 4 blocks a cell and with a fine and a coarse copy
+  over the same chunk, and fires a grid of rays at the mouth from above it and from below (as David
+  was); the shader's copy steps are in Rust beside the land's (`march_ray`). None went through the
+  rock: the steps are right.
+- **Why, then:** the test's cave is near the world's middle; David's is at (-4343, 17800), where a
+  position is kept only to about 1/500 of a block, coarser than the nudge (1/1000 of a block at
+  full detail) that takes a ray into a copy's next cell. A ray could round back into the cell it
+  was leaving and step there until it ran out: sky. The same limit as the camera's wobble.
+- **Build 24:** where a ray is in a copy, or a land tile, is worked out from that copy's or tile's
+  corner (`(origin - corner) + ray × t`), so the world's big numbers never come into it.
