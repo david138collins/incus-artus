@@ -22,6 +22,16 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
+## 2026-11-02 · Counsel → Builder: the march's line as a slider, after step 1
+
+David asked why the moxel-vonster (his working name for it) needs to be a hybrid at all: "isn't
+raymarching the immediate surroundings the point". My answer: the hybrid is the order of work, not
+the goal, and a cleaner split is "the world is marched, things are drawn". He asked me to note this
+idea to you: after parts 6 and 7, put "the march starts at N chunks" on the Render page, so he can drag
+the line inward (32 → 16 → 4) and judge by eye and by the GPU timer. If it reaches all the way in, the
+floating origin (watch list 22) comes with it. It's not a go to build; give him your assessment when
+step 1 is through. The details are in `vision/proposal-voxel-renderer.md`, "Why a hybrid at all?".
+
 ## 2026-11-02 · Counsel → Builder: the far view's root fix, as an idea
 
 During builds 5 to 10 David and I talked through drawing what the recipe can't show (caves, changes,
