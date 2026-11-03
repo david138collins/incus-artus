@@ -524,3 +524,19 @@ pawn still (speed 0, on the ground), yet the camera moved up to 0.00138 blocks e
 ### Build 33 seen (David, 2026-11-02)
 "i think you got it, all zeros": standing, the camera's movement readout reads nothing. R1 done
 enough to go on.
+
+## The test world (build 34)
+David: "proceed with the plan, i think your test world makes sense." World page, under "Far away":
+**"Build the test world here"**, and **"Go to:"** forest, village, water, glass wall, half-block
+stairs, caves, and "all, from afar" (`world/test_world.rs`).
+- **The places,** on a ring round where it's built, 170 to 200 blocks off by the compass: a forest
+  of about 900 stand-in trees over 180 × 180 (north); a village of 12 houses on levelled footings,
+  with doors, windows and stepped roofs (north-east); a lake 32 across and 4 deep with a river 80
+  long from it (south-east); a glass wall 24 × 10 of the outline block (south); a staircase of half
+  blocks, 4 wide and 24 half steps up (south-west); three tunnels dug into the steepest slope near
+  there, each with a room and two braziers (north-west).
+- **Built of** the game's blocks, David's where they're there (dirt trunks, malachite leaves, stone
+  brick walls, gravel roofs), else gabbro, grass and stone.
+- **Edits like any others,** in loaded chunks or the chunk as kept, so saving the world keeps them.
+  Where it was built is kept (`TestPlaces`, saved in presets) for the "Go to" viewpoints: back
+  toward the middle and up, facing the place (the forest higher), flying.

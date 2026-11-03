@@ -31,6 +31,7 @@ mod mineralogy;
 pub mod placer;
 mod terrain;
 mod test_sites;
+mod test_world;
 
 pub use block::BlockId;
 pub use caves::{CavePlan, Caves, TestCaveSettings};
@@ -416,6 +417,8 @@ impl Plugin for WorldPlugin {
             .init_resource::<Caves>()
             .init_resource::<TestCaveSettings>()
             .add_settings::<TestCaveSettings>("test_cave")
+            .init_resource::<test_world::TestPlaces>()
+            .add_settings::<test_world::TestPlaces>("test_places")
             .add_systems(Update, streaming::stream_chunks)
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
@@ -755,6 +758,48 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
             .on_disabled_hover_text("Needs a compiled world")
             .clicked();
     });
+    // The test world (`test_world.rs`): fixed places to judge the renderer's changes at, each with
+    // a viewpoint to go to.
+    let mut build = false;
+    let mut go: Option<usize> = None;
+    ui.horizontal_wrapped(|ui| {
+        build = ui
+            .add_enabled(compiled, egui::Button::new("Build the test world here"))
+            .on_hover_text(
+                "Round where you stand, about 180 blocks off: a forest of stand-in trees (north), a village (north-east), a lake and\n\
+                 a river (south-east), a glass wall (south), a staircase of half blocks (south-west), and caves dug into a slope\n\
+                 with braziers (north-west). Then \"Go to\" puts the camera at the same spot each time. Save the world to keep it.",
+            )
+            .on_disabled_hover_text("Needs a compiled world")
+            .clicked();
+    });
+    let built = world.resource::<test_world::TestPlaces>().centre;
+    ui.add_enabled_ui(built.is_some() && compiled, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Go to:");
+            for (k, (name, ..)) in test_world::PLACES.iter().enumerate() {
+                if ui.button(*name).clicked() {
+                    go = Some(k);
+                }
+            }
+            if ui.button("all, from afar").on_hover_text("1,200 blocks south of where it was built, 250 up, facing north.").clicked() {
+                go = Some(test_world::PLACES.len());
+            }
+        });
+    })
+    .response
+    .on_disabled_hover_text("Build the test world first (or load the presets it was saved in)");
+    if build {
+        let note = test_world::build_test_world(world);
+        world.resource_mut::<WorldDebugState>().cave_note = note;
+    }
+    if let (Some(place), Some(centre), Some(map)) = (go, built, world.resource::<Terrain>().compiled().cloned()) {
+        let centre = Vec2::from_array(centre);
+        let view = if place < test_world::PLACES.len() { test_world::viewpoint(&map, centre, place) } else { test_world::far_viewpoint(&map, centre) };
+        if let Some(view) = view {
+            test_world::go_to(world, view);
+        }
+    }
     if sites {
         let note = test_sites::place_far_test_sites(world);
         world.resource_mut::<WorldDebugState>().cave_note = note;
