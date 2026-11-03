@@ -26,7 +26,6 @@ use super::meshing::MeshingState;
 use super::placed_light::{LightFrom, MOST_REACH, PlacedLights};
 use super::sky_light::{FULL, sky_heights};
 use crate::camera::FlyCamera;
-use crate::coords::game_to_bevy;
 use crate::data::{Anchor, ObjectRegistry, read_strip, sprites_folder};
 use crate::world::{BlockChanged, BlockId, CHUNK_SIZE, ChunkPos, PlacedObject, VoxelWorld, WORLD_HEIGHT, turned};
 use bevy::asset::{LoadState, RenderAssetUsages};
@@ -152,7 +151,7 @@ pub fn draw_objects(
     (mut materials, mut images): (ResMut<Assets<StandardMaterial>>, ResMut<Assets<Image>>),
     (terrain, settings): (Option<Res<TerrainAssets>>, Res<RenderSettings>),
     (mut meshing, mut placed, mut edits): (ResMut<MeshingState>, ResMut<PlacedLights>, MessageReader<BlockChanged>),
-    mut drawn: ResMut<ObjectsDrawn>,
+    (mut drawn, origin): (ResMut<ObjectsDrawn>, Res<crate::coords::RenderOrigin>),
 ) {
     let _timed = crate::render::Timed::new("draw objects");
     let Some(terrain) = terrain else { return };
@@ -252,7 +251,7 @@ pub fn draw_objects(
                 None => (def.height.map_or(1.0, |height| height / (high.y - low.y).max(0.001)), Vec3::new((low.x + high.x) / 2.0, low.y, (low.z + high.z) / 2.0)),
             };
             let turn = Quat::from_rotation_y(-((object.facing % 4) as f32) * std::f32::consts::FRAC_PI_2);
-            let placing = Mat4::from_scale_rotation_translation(Vec3::splat(scale), turn, game_to_bevy(feet)) * Mat4::from_translation(-model_feet);
+            let placing = Mat4::from_scale_rotation_translation(Vec3::splat(scale), turn, origin.to_bevy(feet)) * Mat4::from_translation(-model_feet);
             // Lit by its cell's daylight and the placed light at its middle (its own among it), eased
             // as the terrain shader eases them, in 16 steps of each colour.
             let level = if settings.sky_light { daylight_at(&world, &terrain.opaque, &mut meshing.sky, object.cell(), settings.sky_reach) } else { FULL };
@@ -301,7 +300,7 @@ pub fn draw_objects(
             let phase = (object.at.x.wrapping_mul(73_856_093) ^ object.at.y.wrapping_mul(19_349_663) ^ object.at.z.wrapping_mul(83_492_791)).unsigned_abs();
             let playing = Playing { frames: strip.frames.clone(), frame_ms: sprite.frame_ms.max(1), phase };
             let first = strip.frames.first().cloned().unwrap_or_default();
-            entities.push(commands.spawn((Mesh3d(quad), MeshMaterial3d(first), Transform::from_translation(game_to_bevy(spot)), playing)).id());
+            entities.push(commands.spawn((Mesh3d(quad), MeshMaterial3d(first), Transform::from_translation(origin.to_bevy(spot)), playing)).id());
         }
         if !entities.is_empty() {
             drawn.drawn.insert(pos, entities);
@@ -349,9 +348,9 @@ fn spots_of(objects: &ObjectRegistry, placed: &[PlacedObject]) -> Vec<(Vec3, Vec
 
 /// Sprites play: each shows the frame for the time (from its own frame), and turns about the upright
 /// to face the camera.
-pub fn play_sprites(time: Res<Time>, cameras: Query<&FlyCamera>, mut sprites: Query<(&Playing, &mut MeshMaterial3d<StandardMaterial>, &mut Transform)>) {
+pub fn play_sprites(time: Res<Time>, cameras: Query<&FlyCamera>, origin: Res<crate::coords::RenderOrigin>, mut sprites: Query<(&Playing, &mut MeshMaterial3d<StandardMaterial>, &mut Transform)>) {
     let Some(camera) = cameras.iter().next() else { return };
-    let eye = game_to_bevy(camera.position);
+    let eye = origin.to_bevy(camera.position);
     let now = (time.elapsed_secs_f64() * 1000.0) as u64;
     for (playing, mut material, mut transform) in &mut sprites {
         if !playing.frames.is_empty() {

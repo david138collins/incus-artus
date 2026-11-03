@@ -14,7 +14,7 @@ use super::RenderSettings;
 use super::distant::{self, DistantState, DistantTile, Palette, TileKey, TileMesh};
 use super::meshing::MeshingState;
 use crate::camera::CameraHold;
-use crate::coords::{bevy_to_game, game_to_bevy};
+use crate::coords::bevy_to_game;
 use crate::data::BlockRegistry;
 use crate::screen::Screen;
 use crate::world::{CHUNK_SIZE, ChunkPos, CompiledMap, Streaming, Terrain, TerrainBlocks, VoxelWorld};
@@ -153,6 +153,7 @@ pub fn run_deep_shot(
     (render, settings): (Res<RenderSettings>, Res<DeepShotSettings>),
     (meshing, world, streaming, distant_state): (Res<MeshingState>, Res<VoxelWorld>, Res<Streaming>, Res<DistantState>),
     camera: Query<(&Transform, &Projection), With<Camera3d>>,
+    render_origin: Res<crate::coords::RenderOrigin>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut normal: Query<&mut Visibility, With<DistantTile>>,
     mut shot: ResMut<DeepShot>,
@@ -186,7 +187,7 @@ pub fn run_deep_shot(
         let across = rings_across(pixel, settings.detail);
         // Left to right, half the view (with a little to spare for the Panini projection's edges).
         let half_across = ((fov / 2.0).tan() * aspect).atan() * 1.15;
-        let at = bevy_to_game(transform.translation);
+        let at = render_origin.to_game(transform.translation);
         let looking = bevy_to_game(*transform.forward());
         let half_world = map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0;
         let reach = [(-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)].iter().map(|&(sx, sy)| Vec2::new(at.x - sx * half_world, at.y - sy * half_world).length()).fold(0.0, f32::max);
@@ -250,7 +251,7 @@ pub fn run_deep_shot(
                 bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_SIDE, tile.sides);
                 bevy_mesh.insert_attribute(super::distant::ATTRIBUTE_SLOPE, tile.slopes);
                 bevy_mesh.insert_indices(Indices::U32(tile.indices));
-                let entity = commands.spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), DeepTile)).id();
+                let entity = commands.spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(render_origin.to_bevy(tile.corner)), DeepTile)).id();
                 shot.tiles.push(entity);
             }
             let most = std::thread::available_parallelism().map_or(4, |n| n.get());

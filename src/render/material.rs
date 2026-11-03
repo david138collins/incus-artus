@@ -72,6 +72,9 @@ pub struct TerrainLight {
     pub far: Vec4,
     pub foot: [Vec4; super::distant::TABLE_VEC4S],
     pub step: [Vec4; super::distant::TABLE_VEC4S],
+    /// The floating origin (`coords.rs`): x north, y east (blocks), what drawn positions are
+    /// measured from, so the shader finds the world's places (the light map, the window).
+    pub origin: Vec4,
 }
 
 /// Values the shader reads every frame. Kept to `Vec4`s, which the GPU handles most simply.

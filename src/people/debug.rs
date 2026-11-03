@@ -179,6 +179,7 @@ pub(super) fn draw_labels(
     sim: Res<SimWorld>,
     terrain: Res<TestWorldSettings>,
     cameras: Query<(&Camera, &GlobalTransform, &FlyCamera)>,
+    origin: Res<crate::coords::RenderOrigin>,
 ) -> Result {
     if !settings.show_labels {
         return Ok(());
@@ -194,7 +195,7 @@ pub(super) fn draw_labels(
         if at.distance(fly.position) > 70.0 {
             return;
         }
-        if let Ok(spot) = camera.world_to_viewport(transform, crate::coords::game_to_bevy(at)) {
+        if let Ok(spot) = camera.world_to_viewport(transform, origin.to_bevy(at)) {
             painter.text(egui::pos2(spot.x, spot.y), egui::Align2::CENTER_BOTTOM, text, egui::FontId::proportional(size), colour);
         }
     };

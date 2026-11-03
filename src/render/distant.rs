@@ -33,7 +33,7 @@
 
 use super::RenderSettings;
 use super::light::LightSettings;
-use crate::coords::{bevy_to_game, game_to_bevy};
+use crate::coords::game_to_bevy;
 use crate::data::{BlockRegistry, FACE_NAMES};
 use super::meshing::MeshingState;
 use crate::world::{BlockId, CHUNK_SIZE, ChunkPos, CompiledMap, Streaming, Terrain, TerrainBlocks, VoxelWorld, under_sea};
@@ -547,6 +547,9 @@ pub struct DistantShaderSettings {
     /// own tiles (`EASE_FROM`: the shader tells a corner's ring by it), z how bright the sky is (the
     /// near terrain's stand-in for night: `RenderSettings::sky_brightness`).
     pub view: Vec4,
+    /// The floating origin (`coords.rs`): x north, y east (blocks), what drawn positions are measured
+    /// from, so the shaders find the world's places.
+    pub origin: Vec4,
 }
 
 impl Material for DistantMaterial {
@@ -674,7 +677,7 @@ pub fn update_distant(
     terrain: Res<Terrain>,
     settings: Res<DistantSettings>,
     registry: Res<BlockRegistry>,
-    camera: Query<&Transform, With<Camera3d>>,
+    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
     mut state: ResMut<DistantState>,
     mut meshes: ResMut<Assets<Mesh>>,
     tiles: Query<&DistantTile>,
@@ -697,7 +700,7 @@ pub fn update_distant(
         state.palette = Some(Arc::new(Palette::from_textures(&registry, &blocks)));
     }
     let Some(camera) = camera.iter().next() else { return };
-    let at = bevy_to_game(camera.translation);
+    let at = origin.to_game(camera.translation);
 
     // Which tiles are wanted: worked out again when you move into another finest tile (or the
     // rings change). The light is the shader's alone now, so changing it makes no tile again.
@@ -760,7 +763,7 @@ pub fn update_distant(
         // Hidden while the march draws the far land (`march::show_one_drawer`).
         let visibility = if settings.march { Visibility::Hidden } else { Visibility::Inherited };
         let entity = commands
-            .spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(game_to_bevy(tile.corner)), visibility, DistantTile { quads }))
+            .spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(origin.to_bevy(tile.corner)), visibility, DistantTile { quads }))
             .id();
         state.quads += quads as u64;
         state.tiles.insert(key, Some(entity));
@@ -814,11 +817,11 @@ pub fn update_distant_material(
     distant: Res<DistantSettings>,
     light: Res<LightSettings>,
     clear: Res<ClearColor>,
-    state: Res<DistantState>,
+    (state, origin): (Res<DistantState>, Res<crate::coords::RenderOrigin>),
     mut materials: ResMut<Assets<DistantMaterial>>,
 ) {
     let Some(handle) = &state.material else { return };
-    if !render.is_changed() && !distant.is_changed() && !light.is_changed() && !clear.is_changed() {
+    if !render.is_changed() && !distant.is_changed() && !light.is_changed() && !clear.is_changed() && !origin.is_changed() {
         return;
     }
     if let Some(mut material) = materials.get_mut(handle) {
@@ -826,6 +829,7 @@ pub fn update_distant_material(
         material.settings.fog_color = Vec4::new(fog.red, fog.green, fog.blue, 1.0);
         material.settings.fog = Vec4::new(render.fog_start, render.fog_end, if render.fog_enabled { 1.0 } else { 0.0 }, if render.seam_probe { 1.0 } else { 0.0 });
         material.settings.survey = render.survey_for_shader();
+        material.settings.origin = Vec4::new(origin.0.x as f32, origin.0.y as f32, 0.0, 0.0);
         material.settings.view = Vec4::new(if render.debug_view == super::DebugView::WhoDrew { 1.0 } else { 0.0 }, EASE_FROM, render.sky_brightness.clamp(0.0, 1.0), 0.0);
         // The lighting, from the same settings as the near ground's (lit in the shader).
         Shade::new(&render, &distant, &light).uniforms(&mut material.settings, distant.finest_cell as f32);
@@ -842,7 +846,7 @@ pub fn update_shown_chunks(
     meshing: Res<MeshingState>,
     render: Res<RenderSettings>,
     copies: Res<super::far_copies::FarCopies>,
-    camera: Query<&Transform, With<Camera3d>>,
+    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
     mut state: ResMut<DistantState>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<DistantMaterial>>,
@@ -850,7 +854,7 @@ pub fn update_shown_chunks(
     let _timed = crate::render::Timed::new("mark chunks shown");
     let (Some(material), Some(texture)) = (state.material.clone(), state.shown_texture.clone()) else { return };
     let Some(camera) = camera.iter().next() else { return };
-    let at = bevy_to_game(camera.translation);
+    let at = origin.to_game(camera.translation);
     let centre = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
     // Nothing to look over again unless the meshing, the chunks handed over, or the view moved on.
     let looked = (meshing.changes, streaming.drawn_changes(), streaming.drawn().len(), centre, render.render_distance_chunks * 1000 + render.march_from, copies.changes);
@@ -933,6 +937,7 @@ pub fn update_shown_chunks(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::coords::bevy_to_game;
 
     #[test]
     fn rings_fit_inside_each_other_with_no_gaps_or_overlaps() {

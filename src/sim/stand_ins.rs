@@ -76,6 +76,7 @@ fn keep_stand_ins_in_step(
     terrain: Res<TestWorldSettings>,
     assets: Option<Res<StandInAssets>>,
     mut existing: Query<(Entity, &StandIn, &mut SimPosition)>,
+    origin: Res<crate::coords::RenderOrigin>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -100,7 +101,7 @@ fn keep_stand_ins_in_step(
         commands.spawn((
             Mesh3d(mesh),
             MeshMaterial3d(material),
-            Transform::from_translation(crate::coords::game_to_bevy(at)),
+            Transform::from_translation(origin.to_bevy(at)),
             SimPosition::new(at),
             StandIn { of, number },
         ));

@@ -26,7 +26,7 @@ mod objects;
 mod sky_light;
 pub(crate) mod textures;
 
-use crate::coords::bevy_to_game;
+use crate::coords::{RenderOrigin, game_to_bevy};
 use crate::data::{BlockRegistry, FACE_NAMES, TextureRotation};
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::world::{CHUNK_SIZE, SectionKey, VoxelWorld};
@@ -108,6 +108,10 @@ impl Plugin for RenderPlugin {
             .add_systems(Last, performance::collect_steps)
             .add_systems(Update, performance::record_frame_time)
             .add_systems(Last, frame_cap::cap_frames)
+            // The floating origin (`coords.rs`): first in the frame, so everything after places
+            // from where it is now.
+            .init_resource::<RenderOrigin>()
+            .add_systems(PreUpdate, follow_origin)
             .insert_resource(ClearColor(SKY_COLOUR))
             .add_systems(Update, dim_sky.before(update_shader_settings))
             .add_systems(Startup, setup_terrain)
@@ -445,17 +449,33 @@ fn follow_block_rotations(
 
 /// Hide sections beyond the render distance (measured horizontally, in chunks), and those a far copy
 /// draws instead (chunks still kept just past the streaming circle, `far_copies.rs`).
+/// The floating origin (`coords.rs`): moved to the grid's place nearest the camera when it's gone
+/// further than the grid's spacing, and everything drawn that isn't inside something else (the
+/// camera too) shifted by the same, so nothing moves on screen. First in the frame.
+fn follow_origin(mut origin: ResMut<RenderOrigin>, cameras: Query<&crate::camera::FlyCamera>, mut placed: Query<&mut Transform, Without<ChildOf>>) {
+    let Some(camera) = cameras.iter().next() else { return };
+    let wanted = origin.for_camera(camera.position);
+    if wanted == *origin {
+        return;
+    }
+    let shift = game_to_bevy((wanted.0 - origin.0).as_vec3());
+    for mut transform in &mut placed {
+        transform.translation -= shift;
+    }
+    *origin = wanted;
+}
+
 fn apply_render_distance(
     settings: Res<RenderSettings>,
     copies: Res<far_copies::FarCopies>,
-    camera: Query<&Transform, With<Camera3d>>,
+    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
     mut sections: Query<(&SectionMesh, &mut Visibility)>,
 ) {
     let _timed = crate::render::Timed::new("render distance");
     let Some(camera) = camera.iter().next() else {
         return;
     };
-    let position = bevy_to_game(camera.translation);
+    let position = origin.to_game(camera.translation);
     let camera_chunk = IVec2::new(
         (position.x / CHUNK_SIZE as f32).floor() as i32,
         (position.y / CHUNK_SIZE as f32).floor() as i32,

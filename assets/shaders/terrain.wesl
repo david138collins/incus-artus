@@ -60,6 +60,9 @@ struct TerrainLight {
     far: vec4<f32>,
     foot: array<vec4<f32>, 9>,
     step: array<vec4<f32>, 9>,
+    // The floating origin (src/coords.rs): x north, y east (blocks), what drawn positions are
+    // measured from
+    origin: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var light_map: texture_2d<f32>;
@@ -126,7 +129,9 @@ fn vertex(in: Vertex) -> VertexOutput {
     out.face = face;
     out.quad = b >> 16u;
     out.random_rotation = (a >> 24u) & 1u;
-    out.section_origin = vec3<i32>(round(vec3<f32>(-origin.z, origin.x, origin.y)));
+    // In the world's blocks: measured from the floating origin, plus it (src/coords.rs), so a block's
+    // random turn is the same wherever the origin is.
+    out.section_origin = vec3<i32>(round(vec3<f32>(-origin.z, origin.x, origin.y))) + vec3<i32>(i32(lighting.origin.x), i32(lighting.origin.y), 0);
     out.daylight = f32((a >> 28u) & 15u) / 15.0;
     let c = in.packed.z;
     out.placed = vec3<f32>(f32(c & 15u), f32((c >> 4u) & 15u), f32((c >> 8u) & 15u)) / 15.0;
@@ -202,8 +207,8 @@ fn cones_at(uv: vec2<f32>) -> vec2<f32> {
 //   - the feet of the steps, from the cone map, on tops.
 // Faces well below the ground (caves, overhangs) keep their plain light, for now.
 fn ground_light(world_position: vec3<f32>, face: u32) -> f32 {
-    let north = -world_position.z;
-    let east = world_position.x;
+    let north = -world_position.z + lighting.origin.x;
+    let east = world_position.x + lighting.origin.y;
     let up = world_position.y;
     var light = 1.0;
 
@@ -260,8 +265,8 @@ fn far_table_at(steps: bool, rise: f32) -> f32 {
 // by the far terrain's sums (lighting.wesl, `land`) with the slope from the window round you, and
 // the light map. Every face of the cell the same, as the far terrain's smooth surface has no steps.
 fn far_ground(top_colour: vec3<f32>, side_colour: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
-    let north = -world_position.z;
-    let east = world_position.x;
+    let north = -world_position.z + lighting.origin.x;
+    let east = world_position.x + lighting.origin.y;
     var light = 1.0;
     if lighting.light.x > 0.5 {
         let uv = vec2<f32>(east + lighting.light_area.x, lighting.light_area.x - north) / max(lighting.light_area.y, 1.0);

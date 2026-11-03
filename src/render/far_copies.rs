@@ -38,7 +38,6 @@ use super::material::{ATTRIBUTE_PACKED_VOXEL, TerrainMaterial};
 use super::mesher::{MeshInput, MeshOutput, face_index, mesh_section_lit, plane_axes};
 use super::sky_light::{Daylight, FULL, sky_heights};
 use super::{RenderSettings, TerrainAssets};
-use crate::coords::{bevy_to_game, game_to_bevy};
 use crate::data::{BlockRegistry, ObjectRegistry};
 use crate::world::{BlockId, CHUNK_SIZE, CavePlan, Caves, Chunk, ChunkPos, CompiledMap, StreamSettings, Terrain, TerrainBlocks, VoxelWorld, WORLD_BOTTOM, real_chunk, shape_boxes};
 use bevy::asset::RenderAssetUsages;
@@ -184,6 +183,9 @@ pub struct FarCopy;
 /// What the wanted tiles were worked out for: your chunk, the render distance, the streaming radius,
 /// the sharpness and reach, how many chunks are changed and show, and the view.
 type WantedFor = (IVec2, i32, i32, [u32; 2], usize, usize, u32);
+
+/// The camera's place and lens.
+type CameraLens<'w, 's> = Query<'w, 's, (&'static Transform, &'static Projection), With<Camera3d>>;
 
 #[derive(Resource, Default)]
 pub struct FarCopies {
@@ -790,7 +792,7 @@ pub fn update_far_copies(
     assets: Option<Res<TerrainAssets>>,
     objects: Res<ObjectRegistry>,
     registry: Res<BlockRegistry>,
-    camera: Query<(&Transform, &Projection), With<Camera3d>>,
+    (camera, render_origin): (CameraLens, Res<crate::coords::RenderOrigin>),
     window: Query<&Window, With<PrimaryWindow>>,
     mut state: ResMut<FarCopies>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -852,7 +854,7 @@ pub fn update_far_copies(
     let Some(material) = state.material.clone() else { return };
 
     let Some((transform, projection)) = camera.iter().next() else { return };
-    let at = bevy_to_game(transform.translation);
+    let at = render_origin.to_game(transform.translation);
     let fov = match projection {
         Projection::Perspective(perspective) => perspective.fov,
         _ => 1.2,
@@ -984,7 +986,7 @@ pub fn update_far_copies(
                     .spawn((
                         Mesh3d(meshes.add(mesh)),
                         MeshMaterial3d::<TerrainMaterial>(material.clone()),
-                        Transform::from_translation(game_to_bevy(origin.as_vec3())).with_scale(Vec3::splat(key.scale as f32)),
+                        Transform::from_translation(render_origin.to_bevy(origin.as_vec3())).with_scale(Vec3::splat(key.scale as f32)),
                         Aabb::from_min_max(Vec3::new(0.0, 0.0, -size), Vec3::new(size, size, 0.0)),
                         FarCopy,
                     ))

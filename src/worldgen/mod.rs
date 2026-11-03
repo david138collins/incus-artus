@@ -470,9 +470,9 @@ fn world_gen_debug_page(ui: &mut egui::Ui, world: &mut World) {
 
 /// Opening the suite: where you were in the world, and which way you faced, for the Terrain
 /// Compiler's map.
-fn note_where_you_were(camera: Query<&Transform, With<Camera3d>>, mut suite: ResMut<Suite>) {
+fn note_where_you_were(camera: Query<&Transform, With<Camera3d>>, origin: Res<crate::coords::RenderOrigin>, mut suite: ResMut<Suite>) {
     let Some(transform) = camera.iter().next() else { return };
-    let at = crate::coords::bevy_to_game(transform.translation);
+    let at = origin.to_game(transform.translation);
     let ahead = crate::coords::bevy_to_game(*transform.forward());
     // A compass bearing: 0 north, 90 east.
     let facing = ahead.y.atan2(ahead.x).to_degrees().rem_euclid(360.0);

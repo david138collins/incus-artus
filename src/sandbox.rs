@@ -7,7 +7,6 @@
 //!
 //! (The slider "viewer camera" that used to live here was replaced by the fly camera in step 4.)
 
-use crate::coords::game_to_bevy;
 use crate::debug::DebugAppExt;
 use crate::time::SimPosition;
 use bevy::prelude::*;
@@ -55,6 +54,7 @@ fn spawn_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    origin: Res<crate::coords::RenderOrigin>,
 ) {
     let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
     let solid = |color: Color| StandardMaterial {
@@ -67,12 +67,12 @@ fn spawn_scene(
     commands.spawn((
         Mesh3d(cube.clone()),
         MeshMaterial3d(materials.add(solid(Color::srgb(0.1, 0.3, 1.0)))),
-        Transform::from_translation(game_to_bevy(Vec3::new(5.0, 0.0, GROUND + 0.5))),
+        Transform::from_translation(origin.to_bevy(Vec3::new(5.0, 0.0, GROUND + 0.5))),
     ));
     commands.spawn((
         Mesh3d(cube.clone()),
         MeshMaterial3d(materials.add(solid(Color::srgb(1.0, 0.15, 0.1)))),
-        Transform::from_translation(game_to_bevy(Vec3::new(0.0, 5.0, GROUND + 0.5))),
+        Transform::from_translation(origin.to_bevy(Vec3::new(0.0, 5.0, GROUND + 0.5))),
     ));
 
     // The orbiting cube (magenta = placeholder colour).
@@ -80,7 +80,7 @@ fn spawn_scene(
     commands.spawn((
         Mesh3d(cube),
         MeshMaterial3d(materials.add(solid(Color::srgb(1.0, 0.0, 1.0)))),
-        Transform::from_translation(game_to_bevy(start)),
+        Transform::from_translation(origin.to_bevy(start)),
         SimPosition::new(start),
         Orbiter { angle_turns: 0.0 },
     ));

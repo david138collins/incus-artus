@@ -1001,7 +1001,14 @@ fn move_pawn(
 
         let falling_speed = -pawn.velocity.z;
         let (feet, blocked) = move_body_stepping(position.current, body, motion, pawn.on_ground, &boxes, solid);
-        position.current = feet;
+        // Standing (on the ground before and after, moved less than a thousandth of a block): held
+        // exactly where it was. Pulled down a hair by gravity and pushed back up each tick, far from
+        // the world's middle it came to rest a rounding step off, differently each time, and the
+        // camera quivered [`docs/far-view.md`, R1; David: "the jitter is very very subtle"].
+        let standing = pawn.on_ground && blocked.down && (feet - position.current).abs().max_element() < 1e-3;
+        if !standing {
+            position.current = feet;
+        }
         if blocked.x {
             pawn.velocity.x = 0.0;
         }

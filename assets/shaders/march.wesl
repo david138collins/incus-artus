@@ -31,6 +31,8 @@ struct DistantShaderSettings {
     foot: array<vec4<f32>, 9>,
     step: array<vec4<f32>, 9>,
     view: vec4<f32>,
+    // The floating origin (src/coords.rs): x north, y east (blocks), what drawn positions are measured from
+    origin: vec4<f32>,
 }
 
 struct MarchSettings {
@@ -103,6 +105,22 @@ fn to_bevy(game: vec3<f32>) -> vec3<f32> {
     return vec3<f32>(game.y, game.z, -game.x);
 }
 
+// The floating origin (src/coords.rs): what drawn positions are measured from, in the world (game
+// axes, blocks; whole numbers, so exact).
+fn world_origin() -> vec3<f32> {
+    return vec3<f32>(settings.origin.xy, 0.0);
+}
+
+// The camera in the world's blocks (to a few thousandths far out: for finding tiles and copies).
+fn camera_game() -> vec3<f32> {
+    return to_game(view.world_position) + world_origin();
+}
+
+// A place in the world, as drawn: measured from the floating origin.
+fn drawn_at(game: vec3<f32>) -> vec3<f32> {
+    return to_bevy(game - world_origin());
+}
+
 // Where a spot's land is kept: its tile's slot, the tile's corner and size.
 struct Place {
     found: bool,
@@ -120,7 +138,7 @@ fn locate(at: vec2<f32>) -> Place {
     var place: Place;
     place.found = false;
     place.beyond = true;
-    let camera = to_game(view.world_position).xy;
+    let camera = camera_game().xy;
     let rings = u32(march.grid.x);
     for (var r = 0u; r < rings; r++) {
         let size = march.grid.y * CELLS * exp2(f32(r));
@@ -162,7 +180,7 @@ fn eased_height(place: Place, i: u32, j: u32) -> f32 {
         return MISSING * 2.0;
     }
     let spot = place.origin + vec2<f32>(f32(i), f32(j)) * (place.size / CELLS);
-    let camera = to_game(view.world_position).xy;
+    let camera = camera_game().xy;
     let away = max(abs(spot.x - camera.x), abs(spot.y - camera.y));
     let eased = clamp((away - settings.view.y * place.size) / max(place.size, 1.0), 0.0, 1.0);
     return mix(c.ground.x, c.ground.y, eased);
@@ -341,7 +359,7 @@ fn land_colour(place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) ->
     var side_colour = ca.side.rgb * w.x + cb.side.rgb * w.y + cc.side.rgb * w.z;
     let land_share = ca.top.a * w.x + cb.top.a * w.y + cc.top.a * w.z;
     let slope = ca.ground.zw * w.x + cb.ground.zw * w.y + cc.ground.zw * w.z;
-    let world_position = to_bevy(spot);
+    let world_position = drawn_at(spot);
     let grey = settings.shade.z > 0.5;
     top_colour = select(top_colour, vec3<f32>(0.5), grey);
     side_colour = select(side_colour, vec3<f32>(0.5), grey);
@@ -365,7 +383,7 @@ fn land_slope(place: Place, cell: vec2<u32>, uv: vec2<f32>) -> vec2<f32> {
 
 // Colours lit as the far land is lit at a spot with that slope (lighting.wesl, `land`).
 fn lit_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, spot: vec3<f32>) -> vec3<f32> {
-    let world_position = to_bevy(spot);
+    let world_position = drawn_at(spot);
     let rise = length(slope);
     return land(
         top_colour,
@@ -422,7 +440,7 @@ fn land_through(origin: vec3<f32>, ray: vec3<f32>, t: f32, until: f32) -> f32 {
         return t;
     }
     let cell = place.size / CELLS;
-    let local = ((origin.xy - place.origin) + ray.xy * t) / cell;
+    let local = ((to_game(view.world_position).xy + (world_origin().xy - place.origin)) + ray.xy * t) / cell;
     let ij = clamp(floor(local), vec2<f32>(0.0), vec2<f32>(CELLS - 1.0));
     let i = u32(ij.x);
     let j = u32(ij.y);
@@ -598,7 +616,10 @@ fn fragment(in: VertexOutput) -> Output {
     );
     let on_near = view.view_from_clip * vec4<f32>(ndc, 1.0, 1.0);
     let toward = normalize(on_near.xyz / on_near.w);
-    let origin = to_game(view.world_position);
+    // The camera in the world, and from the floating origin (small, so exact: what positions that
+    // must be exact are measured from).
+    let origin = camera_game();
+    let eye = to_game(view.world_position);
     let ray = normalize(to_game((view.world_from_view * vec4<f32>(toward, 0.0)).xyz));
 
     // Start where the ray leaves the square of real chunks (if you're in it).
@@ -657,7 +678,7 @@ fn fragment(in: VertexOutput) -> Output {
             // only to a few thousandths of a block, coarser than the nudge into the next cell, so a
             // ray could round back into the cell it left and step there till it ran out (sky specks in a
             // far cave, at (-4343, 17800): David, build 23).
-            let local = ((origin - corner) + ray * t) / scale;
+            let local = ((eye + (world_origin() - corner)) + ray * t) / scale;
             let rate = ray / scale;
             let nudge = scale * 1e-3;
             let c = vec3<i32>(clamp(floor(local), vec3<f32>(0.0, 0.0, -1.0), vec3<f32>(31.0, 31.0, tall)));
@@ -746,7 +767,7 @@ fn fragment(in: VertexOutput) -> Output {
         }
         let cell = place.size / CELLS;
         // From the tile's corner, as in a copy (above): never the world's big numbers.
-        let local = ((origin.xy - place.origin) + ray.xy * t) / cell;
+        let local = ((eye.xy + (world_origin().xy - place.origin)) + ray.xy * t) / cell;
         let rate = ray.xy / cell;
         let nudge = cell * 1e-3;
         // Past the tile, if the ray is above all of it until it leaves.
@@ -836,7 +857,8 @@ fn fragment(in: VertexOutput) -> Output {
         discard;
     }
     let spot = origin + ray * t;
-    let world_position = to_bevy(spot);
+    // As drawn: from the floating origin, from the camera's place there (exact, not the world's big numbers).
+    let world_position = to_bevy(eye + ray * t);
     var colour = vec3<f32>(0.0);
     if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u {
         // Copied whole (the near-march experiment): the block's own texture on the face the ray

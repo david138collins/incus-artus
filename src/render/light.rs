@@ -32,7 +32,6 @@
 use super::distant::{DistantMaterial, DistantSettings, DistantState};
 use super::material::{TerrainLight, TerrainMaterial};
 use super::{RenderSettings, TerrainAssets};
-use crate::coords::bevy_to_game;
 use crate::world::{CHUNK_SIZE, CompiledMap, SEA_LEVEL, Terrain};
 use crate::worldgen::runner::every_pixel;
 use bevy::asset::RenderAssetUsages;
@@ -442,7 +441,7 @@ pub fn update_near_light(
     distant: Res<DistantSettings>,
     render: Res<RenderSettings>,
     near: Option<Res<TerrainAssets>>,
-    camera: Query<&Transform, With<Camera3d>>,
+    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
     mut state: ResMut<NearLightState>,
     mut upload: ResMut<NearLightUpload>,
     mut images: ResMut<Assets<Image>>,
@@ -469,7 +468,7 @@ pub fn update_near_light(
         // Wide enough for the render distance (and a chunk more), pixels permitting.
         let side = ((render.render_distance_chunks * 2 + 2) * CHUNK_SIZE) as f32;
         let detail = settings.near_detail.max(side / NEAR_MOST).max(0.5);
-        let at = bevy_to_game(camera.translation).truncate();
+        let at = origin.to_game(camera.translation).truncate();
         // Toward the sun in the window's pixels (columns run east, rows south), to a hundredth, so the
         // sun-side cones are made again only when the sun really moves.
         let from = settings.sun_from.to_radians();
@@ -526,15 +525,17 @@ pub fn update_near_light(
             wanted.near_area = Vec4::new(key.corner.x, key.corner.y, key.side, 1.0);
         }
     }
+    wanted.origin = Vec4::new(origin.0.x as f32, origin.0.y as f32, 0.0, 0.0);
     let Some(material) = materials.get(&handle) else { return };
     let now = material.light;
-    if (now.sun, now.hill, now.shade, now.sides, now.near_area) != (wanted.sun, wanted.hill, wanted.shade, wanted.sides, wanted.near_area) {
+    if (now.sun, now.hill, now.shade, now.sides, now.near_area, now.origin) != (wanted.sun, wanted.hill, wanted.shade, wanted.sides, wanted.near_area, wanted.origin) {
         if let Some(mut material) = materials.get_mut(&handle) {
             material.light.sun = wanted.sun;
             material.light.hill = wanted.hill;
             material.light.shade = wanted.shade;
             material.light.sides = wanted.sides;
             material.light.near_area = wanted.near_area;
+            material.light.origin = wanted.origin;
         }
     }
 }

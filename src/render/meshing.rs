@@ -20,7 +20,7 @@ use super::placed_light::PlacedLights;
 use super::mesher::{MeshInput, MeshOutput, face_index, mesh_section, plane_axes};
 use super::sky_light::{LightRegion, MOST_REACH, sky_heights};
 use super::{RenderSettings, TerrainAssets};
-use crate::coords::{bevy_to_game, game_to_bevy};
+
 use crate::world::{
     BlockId, CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTION_VOLUME, Section, SectionKey, VoxelWorld, WORLD_HEIGHT,
 };
@@ -116,7 +116,7 @@ pub fn start_jobs(
     terrain: Res<TerrainAssets>,
     (settings, time, placed): (Res<RenderSettings>, Res<Time<Real>>, Res<PlacedLights>),
     mut state: ResMut<MeshingState>,
-    camera: Query<&Transform, With<Camera3d>>,
+    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
 ) {
     let _timed = crate::render::Timed::new("start meshing");
     if state.waiting.is_empty() {
@@ -129,7 +129,7 @@ pub fn start_jobs(
     let camera_position = camera
         .iter()
         .next()
-        .map_or(Vec3::ZERO, |t| bevy_to_game(t.translation));
+        .map_or(Vec3::ZERO, |t| origin.to_game(t.translation));
     let distance = |key: &SectionKey| {
         let centre = section_origin(*key).as_vec3() + Vec3::splat(SECTION_SIZE as f32 / 2.0);
         centre.distance_squared(camera_position) as i64
@@ -183,7 +183,7 @@ pub fn finish_jobs(
     mut state: ResMut<MeshingState>,
     mut meshes: ResMut<Assets<Mesh>>,
     terrain: Res<TerrainAssets>,
-    settings: Res<RenderSettings>,
+    (settings, origin): (Res<RenderSettings>, Res<crate::coords::RenderOrigin>),
     mut existing: Query<(&mut Mesh3d, &mut SectionMesh)>,
 ) {
     let _timed = crate::render::Timed::new("finish meshing");
@@ -247,7 +247,7 @@ pub fn finish_jobs(
             .spawn((
                 Mesh3d(handle),
                 MeshMaterial3d::<TerrainMaterial>(terrain.material.clone()),
-                Transform::from_translation(game_to_bevy(section_origin(key).as_vec3())),
+                Transform::from_translation(origin.to_bevy(section_origin(key).as_vec3())),
                 Aabb::from_min_max(Vec3::new(0.0, 0.0, -size), Vec3::new(size, size, 0.0)),
                 SectionMesh {
                     key,

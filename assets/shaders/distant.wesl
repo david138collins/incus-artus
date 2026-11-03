@@ -45,6 +45,8 @@ struct DistantShaderSettings {
     // x the "who drew this" view on (`docs/caves.md` 13.7), y where a ring's easing starts, in its
     // own tiles (so a corner's ring can be told from its easing), z how bright the sky is (0 to 1)
     view: vec4<f32>,
+    // The floating origin (src/coords.rs): x north, y east (blocks), what drawn positions are measured from
+    origin: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> settings: DistantShaderSettings;
@@ -132,13 +134,13 @@ fn far_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, wor
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The light map here: columns run east, rows south, from the map's north-west corner. Read
     // first, before anything is cut out, as the graphics card needs for smooth sampling.
-    let north = -in.world_position.z;
-    let east = in.world_position.x;
+    let north = -in.world_position.z + settings.origin.x;
+    let east = in.world_position.x + settings.origin.y;
     let light_uv = vec2<f32>(east + settings.light_area.x, settings.light_area.x - north) / max(settings.light_area.y, 1.0);
     let light_pixel = textureSample(light_map, light_sampler, light_uv);
 
     // Which chunk this is in (game x = -Bevy z, game y = Bevy x), and so which pixel of `shown`.
-    let block = vec2<f32>(-in.world_position.z, in.world_position.x);
+    let block = vec2<f32>(-in.world_position.z, in.world_position.x) + settings.origin.xy;
     let size = vec2<i32>(textureDimensions(shown));
     let pixel = vec2<i32>(floor(block / 32.0)) - vec2<i32>(settings.shown_centre.xy) + size / 2;
     if settings.fog.w < 0.5 && all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > 0.5 {

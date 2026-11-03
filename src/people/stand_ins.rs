@@ -98,6 +98,7 @@ fn keep_in_step(
     assets: Option<Res<PeopleAssets>>,
     mut cubes: Query<(Entity, &PersonCube, &mut SimPosition, &mut MeshMaterial3d<StandardMaterial>)>,
     markers: Query<(Entity, &PlaceMarker)>,
+    origin: Res<crate::coords::RenderOrigin>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -128,7 +129,7 @@ fn keep_in_step(
         commands.spawn((
             Mesh3d(assets.body.clone()),
             MeshMaterial3d(assets.looks[&look].clone()),
-            Transform::from_translation(crate::coords::game_to_bevy(at)),
+            Transform::from_translation(origin.to_bevy(at)),
             SimPosition::new(at),
             PersonCube(id),
         ));
@@ -150,7 +151,7 @@ fn keep_in_step(
         commands.spawn((
             Mesh3d(assets.marker.clone()),
             MeshMaterial3d(assets.places[&place_code(kind)].clone()),
-            Transform::from_translation(crate::coords::game_to_bevy(at)),
+            Transform::from_translation(origin.to_bevy(at)),
             PlaceMarker(id),
         ));
     }

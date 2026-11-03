@@ -9,7 +9,6 @@
 //! Simulation systems change `SimPosition::current` on ticks; this module sets the
 //! `Transform` every frame. Simulation code never touches `Transform`.
 
-use crate::coords::game_to_bevy;
 use bevy::prelude::*;
 use bevy::transform::TransformSystems;
 use serde::{Deserialize, Serialize};
@@ -90,8 +89,9 @@ fn draw_interpolated_positions(
     fixed_time: Res<Time<Fixed>>,
     settings: Res<InterpolationSettings>,
     mut query: Query<(&SimPosition, &mut Transform)>,
+    origin: Res<crate::coords::RenderOrigin>,
 ) {
     for (position, mut transform) in &mut query {
-        transform.translation = game_to_bevy(position.display(&fixed_time, &settings));
+        transform.translation = origin.to_bevy(position.display(&fixed_time, &settings));
     }
 }

@@ -488,3 +488,25 @@ floor; a friend's machine may be another. Picking it needs no code: Bevy reads `
 (the low-power adapter) or `WGPU_ADAPTER_NAME` (part of its name) at start, and the session log's
 first lines name the adapter used. Windows' per-app graphics setting works too. A choice inside the
 game would have to be made before the window opens (a settings file, not the debug panel).
+
+## R1, the floating origin (build 32)
+David (by Counsel): "lets do it", for the path R1, the test world, R2 and on; and "im not attached to
+the near look".
+- **What's drawn is placed from a point near you** (`coords::RenderOrigin`), on a 1,024-block
+  grid, moved to the grid's place nearest the camera when it's gone further than that, first thing
+  in the frame (`render::follow_origin`); everything drawn that isn't inside something else (the
+  camera too) is shifted by the same, so nothing moves on screen. Game positions stay the world's;
+  `RenderOrigin::to_bevy` and `to_game` turn one into the other, and every place that made or read a
+  drawn position goes through them (the camera and its helpers, sections, far tiles and copies,
+  objects and sprites, stand-ins, the sandbox, streaming, the light window, the deep shot).
+- **The shaders get the origin** (the near ground's light settings, the far land's settings, which
+  the march shares) where they turn a drawn position back into the world's: the light map, the
+  near light window, the hand-off mask, a block's random turn (so it doesn't change when the origin
+  moves), the far land's and copies' lookups. The march measures what must be exact (its place in a
+  tile or a copy, its hits' depth) from the camera's place from the origin, never the world's big
+  numbers.
+- **A standing pawn holds exactly still:** on the ground before and after a tick and moved less
+  than a thousandth of a block, it isn't moved (gravity pulled it down a hair and the ground pushed
+  it back each tick, coming to rest a rounding step off far from the world's middle).
+- Still 32-bit: the camera's own place far out (so a moving camera steps by about 1/500 of a block
+  there, everything together, not block against block); the physics and the world's own positions.

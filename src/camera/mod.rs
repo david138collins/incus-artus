@@ -20,7 +20,7 @@
 
 mod panini;
 
-use crate::coords::game_to_bevy;
+use crate::coords::{RenderOrigin, game_to_bevy};
 use crate::data::{BlockRegistry, FACE_NAMES};
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::player::{ControlMode, PlayerSettings};
@@ -295,9 +295,9 @@ fn fly(
 }
 
 /// Turn the game-terms camera state into Bevy's transform.
-pub fn place_camera(mut cameras: Query<(&FlyCamera, &mut Transform)>) {
+pub fn place_camera(origin: Res<RenderOrigin>, mut cameras: Query<(&FlyCamera, &mut Transform)>) {
     for (camera, mut transform) in &mut cameras {
-        *transform = Transform::from_translation(game_to_bevy(camera.position))
+        *transform = Transform::from_translation(origin.to_bevy(camera.position))
             .looking_to(game_to_bevy(camera.looking()), Vec3::Y);
     }
 }
@@ -389,7 +389,7 @@ fn find_look_target(
 }
 
 /// Outline the targeted block (white) and the face being pointed at (magenta, with a cross).
-fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut gizmos: Gizmos) {
+fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, origin: Res<RenderOrigin>, mut gizmos: Gizmos) {
     let Some(hit) = target.hit.filter(|_| settings.show_target_outline) else {
         return;
     };
@@ -405,13 +405,13 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     }
     // An object being placed: the way it would face, an arrow out of its front.
     if let Some((from, to)) = target.arrow {
-        gizmos.arrow(game_to_bevy(from), game_to_bevy(to), magenta);
+        gizmos.arrow(origin.to_bevy(from), origin.to_bevy(to), magenta);
     }
     // A box outlined (its two corners, blocks), a hair bigger than it.
     let mut outline = |(low, high): (Vec3, Vec3), colour: Color| {
         let size = high - low + Vec3::splat(2.0 * grow);
         // (A cube scaled to the box; `game_to_bevy` swaps the axes, so the size is swapped too.)
-        gizmos.cube(Transform::from_translation(game_to_bevy((low + high) / 2.0)).with_scale(game_to_bevy(size).abs()), colour);
+        gizmos.cube(Transform::from_translation(origin.to_bevy((low + high) / 2.0)).with_scale(game_to_bevy(size).abs()), colour);
     };
     // A bar being placed: the octants it would fill (magenta). The piece aimed at, if it's in a cell
     // of pieces (white): instead of the whole block.
@@ -426,7 +426,7 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     }
     let centre = hit.block.as_vec3() + Vec3::splat(0.5);
     gizmos.cube(
-        Transform::from_translation(game_to_bevy(centre)).with_scale(Vec3::splat(1.0 + 2.0 * grow)),
+        Transform::from_translation(origin.to_bevy(centre)).with_scale(Vec3::splat(1.0 + 2.0 * grow)),
         white,
     );
 
@@ -442,7 +442,7 @@ fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, mut 
     let mut v = Vec3::ZERO;
     u[(axis + 1) % 3] = 0.5;
     v[(axis + 2) % 3] = 0.5;
-    let corners = [-u - v, u - v, u + v, -u + v].map(|offset| game_to_bevy(face_centre + offset));
+    let corners = [-u - v, u - v, u + v, -u + v].map(|offset| origin.to_bevy(face_centre + offset));
     gizmos.lineloop(corners, magenta);
     gizmos.line(corners[0], corners[2], magenta);
     gizmos.line(corners[1], corners[3], magenta);

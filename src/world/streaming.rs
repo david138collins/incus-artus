@@ -148,10 +148,10 @@ impl Streaming {
 
 /// The camera's spot (game axes) and which way it faces across the ground (a unit vector, or zero
 /// looking straight up or down).
-fn focus(camera: &Query<&Transform, With<Camera3d>>) -> Option<(Vec3, Vec2)> {
+fn focus(camera: &Query<&Transform, With<Camera3d>>, origin: &crate::coords::RenderOrigin) -> Option<(Vec3, Vec2)> {
     let transform = camera.iter().next()?;
-    let position = bevy_to_game(transform.translation);
-    let ahead = bevy_to_game(transform.translation + *transform.forward()) - position;
+    let position = origin.to_game(transform.translation);
+    let ahead = bevy_to_game(*transform.forward());
     let flat = Vec2::new(ahead.x, ahead.y);
     Some((position, flat.normalize_or_zero()))
 }
@@ -186,7 +186,7 @@ pub fn stream_chunks(
     caves: Res<super::Caves>,
     settings: Res<StreamSettings>,
     registry: Res<BlockRegistry>,
-    camera: Query<&Transform, With<Camera3d>>,
+    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
     mut world: ResMut<VoxelWorld>,
     mut streaming: ResMut<Streaming>,
 ) {
@@ -202,7 +202,7 @@ pub fn stream_chunks(
     if streaming.map.as_ref().is_none_or(|old| !Arc::ptr_eq(old, map)) {
         *streaming = Streaming::start_over(map.clone(), &mut world);
     }
-    let Some((position, facing)) = focus(&camera) else { return };
+    let Some((position, facing)) = focus(&camera, &origin) else { return };
     let centre = ChunkPos::of_block(position.floor().as_ivec3());
 
     // Finished chunks come in, within the time budget.
