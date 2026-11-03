@@ -404,3 +404,69 @@ Z 1025 as at Z 630.
   column, in one step. The record grows to 568 numbers (about 2 MB for 1,024 copies).
 - **Tested:** the cave test now runs at the game's 200 steps and over whole copies too; none
   through the rock. (The braziers' glow on open ground right under a long step isn't kept yet.)
+
+### Build 31 seen (David, 2026-11-02)
+"the gaps are... 99% gone": a thin straight line now and then while moving (likely a frame where
+a copy is swapped for its replacement), and "some seams but they're just lighting": the whole
+copies show as darker squares against the land (their blocks lit by face alone, the land by its
+hill shading).
+
+## Assessment after step 1 and the near-march experiment (Builder, for David and Counsel)
+David: "i lean towards finishing the custom renderer ... having that done, and a graphics solution
+set up that we can rest on, would be the best thing going forward."
+
+**Built (builds 12 to 31):** the far view is a ray march. The far land in rings, long steps over
+it by its highest, exact meeting of its triangles; the far copies as cells (daylight, the braziers'
+glow, plain ground as the land's surface), no longer meshed; all of it worked out from nearby
+corners, not the world's middle; a timer for the graphics card; "the march starts at" to move the
+line; and, pulled in, a band of whole copies drawn with the blocks' textures. Fixed on the way: the
+near light window's stalls, rays slipping through edges, the copies' map racing the camera, the
+mask leaving chunks to nobody, rays running out of steps.
+
+**Measured (David's RTX 5070 Ti laptop; the target is a 980 Ti, several times slower):**
+- The graphics card: 1.4 ms a frame with the march drawing nearly everything where the view is
+  short, 2.5 ms with the real chunks; 3.2 to 4 ms either way over a big view.
+- The frame: about 8 ms, held on the processor's side (the real chunks made and meshed, Bevy).
+- After a fast flight: worst frame 31 ms (117 before), 1% low 47 (29); a copy in 12 ms (95).
+
+**What's open:**
+1. **One look near and far:** the march's blocks and the land lit by different sums (the darker
+   squares); the real blocks' textures against the far averages at the line; the flicker.
+2. **What the meshes do that the march doesn't yet:** pieces (quarter blocks), bars, see-through
+   blocks (water above all), random texture turning.
+3. **The processor's time:** the march draws close in only from copies, made on top of the real
+   chunks, which are still meshed underneath. No saving yet.
+4. **The floating origin** (watch list 22): the meshes still place everything from the world's
+   middle.
+5. Small: the thin line while moving; the glow under long steps on open ground; the copies' cells
+   needing a ring cell at least as big (finest cell 8 or more); 128 MB of copy pages at most.
+
+**To finish the renderer (each part to David before the next; S small, M medium, L large):**
+- **R1, the floating origin (M):** everything drawn placed from a point near the camera; a standing
+  pawn holding still. First, since everything after relies on it.
+- **R2, the near world straight from the chunks (M-L):** the real chunks' blocks, daylight and
+  placed light sent to the graphics card as cells (the copies' format, a block a cell), as they come
+  in or change, instead of copies; behind the line, their meshing stops. Measured: this is where the
+  processor's time comes back (experiment C).
+- **R3, one lighting (M):** the near ground's sums (face shade, hill shading, step shadows, daylight,
+  placed light with its flicker) in one place both use, and random texture turning; the line
+  disappears in light as well as shape.
+- **R4, see-through blocks (L):** water and glass marched through, not stopped at: the ray keeps
+  going and blends. Water is everywhere, so early.
+- **R5, pieces and bars (M-L):** quarter blocks and bars as finer cells inside a block.
+- **R6, sizes by distance (M):** full detail near, coarser cells further (the copies' sizes), by a
+  memory budget, sent a piece at a time.
+- **R7, the line all the way in (S-M):** the near meshes retired (kept behind a switch as the
+  reference); models, sprites and the panel still drawn as now.
+- **Then:** the resolution curve (A, B, C, the snap filter), and reuse of last frame if the 980 Ti
+  needs it.
+
+**Risks:** the 980 Ti (R2's measurement answers it early, on David's card scaled); see-through
+marching is the hardest piece; DirectX's shader compiler (no loops indexing by count; long shaders
+compile slowly); bugs that only show far from the world's middle (the rule: always measure from
+nearby). Kept against them: the Rust twin of every step, tested against slow searches, and the
+switches back to the old way.
+
+**Decisions for David:** the order (R1 and R2 first is Builder's advice; R4 early for water);
+whether the near look should match today's exactly or may change where the march makes it
+easier; and what test content to build along the way (a stand-in forest for sheer amount).
