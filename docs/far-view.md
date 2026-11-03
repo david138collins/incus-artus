@@ -470,3 +470,15 @@ switches back to the old way.
 **Decisions for David:** the order (R1 and R2 first is Builder's advice; R4 early for water);
 whether the near look should match today's exactly or may change where the march makes it
 easier; and what test content to build along the way (a stand-in forest for sheer amount).
+
+**Counsel's advice, and Builder's answer (2026-11-02):** R1 then R2 first; measure on weak hardware
+at R2, with a checkpoint before R3; the near look needn't match today's exactly (David's call); a
+saved test world with fixed viewpoints (stand-in forest and village, a lake and river, a glass wall,
+a quarter-block staircase, caves with braziers); the old way behind the switch at every step. And:
+is see-through marching (R4) needed at all? **Builder: no, not now.** The march writes depth, so
+water and glass can stay drawn surfaces blended over the marched world: the march treats them as
+air where it draws close in (marching the riverbed), and the mesher builds only the see-through
+blocks of those chunks. Far water stays the march's plane and river cells. It folds into R2 (small
+to medium, not large). Lost: nothing today's water has; depth-tinted or refracting water would bring
+it back. The path: R1, the test world, R2 (see-through still drawn), the weak-hardware checkpoint,
+R3, R5, R6, R7. Waiting on David's word.
