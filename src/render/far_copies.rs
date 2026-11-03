@@ -154,7 +154,8 @@ struct Made {
 /// is (blocks), its cell size, how many cells tall it is, and each cell (`CELLS` × `CELLS` a level,
 /// row by row east, north first, from the bottom), packed: its look's block number in the low 12
 /// bits; 1 solid or 2 water in the 2 above; 1 << 14 if plain ground; an air cell's daylight (0 to
-/// `FULL`) in bits 16 to 19. Below its bottom is solid ground; above its top, open air.
+/// `FULL`) in bits 16 to 19, and its placed light (a brazier's: red, green, blue, 0 to 15 each, as
+/// `placed_light::pack` packs it) in bits 20 to 31. Below its bottom is solid ground; above its top, open air.
 pub struct CopyCells {
     pub corner: IVec3,
     pub scale: i32,
@@ -342,6 +343,8 @@ struct CopyJob {
     /// Its changed chunks, as they are, and its objects' shapes (blocks, in the world).
     changed: HashMap<ChunkPos, Chunk>,
     objects: Vec<(Vec3, Vec3)>,
+    /// The lights its changed chunks' objects give (a brazier's), flooded through its cells for the march.
+    lights: Vec<super::placed_light::LightFrom>,
     opaque: Arc<Vec<bool>>,
     see_through: Arc<Vec<bool>>,
     inner_faces: Arc<Vec<bool>>,
@@ -585,6 +588,45 @@ fn make_copy(mut job: CopyJob) -> Made {
         }
         light.checked_div(air).map_or(FULL, |level| level as u8)
     };
+    // Placed light (a brazier's: step 1 part 6), flooded through the tile's own blocks as
+    // `placed_light.rs` floods it through the near world's (a step dimmer each block, stopped by
+    // walls), each cell keeping the brightest that reaches its air.
+    let mut glow = vec![0u16; (CELLS * CELLS * tall) as usize];
+    let in_tile = |p: IVec3| (0..width).contains(&p.x) && (0..width).contains(&p.y) && (low_cell * s..(high_cell + 1) * s).contains(&p.z);
+    for light in &job.lights {
+        let reach = light.reach.clamp(1, super::placed_light::MOST_REACH);
+        let start = light.cell - IVec3::new(corner.x, corner.y, 0);
+        if !in_tile(start) {
+            continue;
+        }
+        let mut queue = VecDeque::from([(start, 0)]);
+        let mut seen = HashSet::from([start]);
+        while let Some((at, steps)) = queue.pop_front() {
+            let level = light.colour.map(|full| full * (reach - steps) as u32 / reach as u32);
+            if level == [0; 3] {
+                continue;
+            }
+            let k = index(at.x / s, at.y / s, at.z.div_euclid(s) - low_cell);
+            glow[k] = super::placed_light::brighter(glow[k], super::placed_light::pack(level));
+            for side in sides {
+                let next = at + side;
+                if steps + 1 < reach && in_tile(next) && !is_opaque(block_at(next.x, next.y, next.z)) && seen.insert(next) {
+                    queue.push_back((next, steps + 1));
+                }
+            }
+        }
+    }
+    // An air cell's glow: its own air's, and that hidden in the solid cells beside it (as its daylight).
+    let glow_of = |x: i32, y: i32, z: i32| -> u16 {
+        let mut light = glow[index(x, y, z)];
+        for side in around {
+            let p = IVec3::new(x, y, z) + side;
+            if (0..CELLS).contains(&p.x) && (0..CELLS).contains(&p.y) && (0..tall).contains(&p.z) && is_opaque(cell(p.x, p.y, p.z)) {
+                light = super::placed_light::brighter(light, glow[index(p.x, p.y, p.z)]);
+            }
+        }
+        light
+    };
     // The cells as the march reads them (`CopyCells`).
     let packed: Vec<u32> = (0..CELLS * CELLS * tall)
         .map(|k| {
@@ -595,7 +637,7 @@ fn make_copy(mut job: CopyJob) -> Made {
             } else if id != BlockId::AIR {
                 id.0 as u32 & 0xFFF | CELL_WATER
             } else {
-                (light_of(x, y, z) as u32) << 16
+                (light_of(x, y, z) as u32) << 16 | (glow_of(x, y, z) as u32) << 20
             }
         })
         .collect();
@@ -937,7 +979,7 @@ pub fn update_far_copies(
             continue;
         }
         let mut changed = HashMap::new();
-        let mut shapes = Vec::new();
+        let (mut shapes, mut lights) = (Vec::new(), Vec::new());
         for pos in key.chunks() {
             if world.changed_chunks().contains(&pos)
                 && let Some(chunk) = world.changed_chunk(pos)
@@ -947,6 +989,7 @@ pub fn update_far_copies(
                         shapes.extend(shape_boxes(object, def));
                     }
                 }
+                lights.extend(super::objects::lights_here(&objects, chunk.objects()));
                 changed.insert(pos, chunk.clone());
             }
         }
@@ -957,6 +1000,7 @@ pub fn update_far_copies(
             blocks: TerrainBlocks::from_registry(&registry),
             changed,
             objects: shapes,
+            lights,
             opaque: assets.opaque.clone(),
             see_through: assets.see_through.clone(),
             inner_faces: assets.inner_faces.clone(),
@@ -1036,6 +1080,7 @@ mod tests {
             blocks,
             changed,
             objects: Vec::new(),
+            lights: Vec::new(),
             opaque: Arc::new(opaque),
             see_through: Arc::new(see_through),
             inner_faces: Arc::new(vec![false; count]),
@@ -1094,6 +1139,15 @@ mod tests {
         assert!(cells.cells.iter().any(|&c| c & CELL_SOLID != 0 && c & CELL_PLAIN != 0));
         assert!(cells.cells.iter().any(|&c| c & CELL_SOLID != 0 && c & CELL_PLAIN == 0));
         assert!(cells.cells.iter().any(|&c| (c >> 12) & 3 == 0 && (c >> 16) & 15 < 15));
+        assert!(cells.cells.iter().all(|&c| (c >> 12) & 3 != 0 || c >> 20 == 0), "no glow without a light");
+        // A green light just inside the mouth: the cave's air round it glows green, fading, and none red.
+        let mut lit = job(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![TestCaveSettings::default().tunnel(mouth, uphill, 3)]), HashMap::new(), 0.5);
+        let inside = (mouth + uphill.extend(0.0) * 2.0).floor().as_ivec3();
+        lit.lights = vec![super::super::placed_light::LightFrom { object: inside * 16, cell: inside, colour: [0, 15, 0], reach: 6 }];
+        let glows: Vec<u32> = make_copy(lit).cells.expect("cells").cells.iter().filter(|&&c| (c >> 12) & 3 == 0).map(|&c| c >> 20).filter(|&g| g != 0).collect();
+        assert!(!glows.is_empty(), "the air round the light glows");
+        assert!(glows.iter().all(|&g| g & 15 == 0 && (g >> 4) & 15 > 0), "green only: {glows:?}");
+        assert!(glows.iter().any(|&g| (g >> 4) & 15 < 15), "fading: {glows:?}");
         // In a changed chunk nothing is plain ground.
         let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
         let changed = CompiledMap::of_heights(width, 32.0, &heights).chunk(ChunkPos::new(0, 0), &blocks, &CavePlan::default()).unwrap();

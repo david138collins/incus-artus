@@ -285,3 +285,19 @@ is "pitch black". Not the far land's smoothing ("finest cell" 4 kept it).
   was leaving and step there until it ran out: sky. The same limit as the camera's wobble.
 - **Build 24:** where a ray is in a copy, or a land tile, is worked out from that copy's or tile's
   corner (`(origin - corner) + ray × t`), so the world's big numbers never come into it.
+
+### Build 24 seen; part 6, the braziers' light far off (build 25)
+David: the march and the old copies now look the same ("drawn by the march doesn't make a
+difference"); the copy's mouth is smaller than the real one (its coarsening) and keeps a speck of
+daylight near the opening. "go ahead" to part 6.
+- **The light in the cells:** each far copy floods its chunks' objects' lights (a brazier's, from
+  `objects::lights_of`, as the near world's) through its own full-detail blocks, as
+  `placed_light.rs` floods them through the near world's: a step dimmer each block, stopped by walls.
+  Each air cell keeps the brightest that reaches its air, and that hidden in the solid cells beside
+  it (as its daylight), packed in bits 20 to 31.
+- **In the march:** a ray in a copy remembers the daylight and the glow of the air it came through;
+  where it meets the copy, the daylight (eased, squared) is dimmed by the light map's shadows and
+  the sky's brightness, and the glow (eased the same) isn't, so a brazier lights its cave at night
+  as up close. The near ground's flicker isn't there yet.
+- **Tested:** a green light just inside the test cave's mouth makes the air round it glow green,
+  fading, and nothing else; with no light nothing glows.

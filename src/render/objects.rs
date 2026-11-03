@@ -208,15 +208,7 @@ pub fn draw_objects(
     for &pos in &again {
         let here: Vec<PlacedObject> = world.chunk(pos).map(|chunk| chunk.objects().to_vec()).unwrap_or_default();
         let chunk_spots = spots_of(&objects, &here);
-        let lights: Vec<LightFrom> = here
-            .iter()
-            .zip(&chunk_spots)
-            .filter_map(|(object, &(_, spot))| {
-                let light = objects.by_name(&object.name)?.light.as_ref()?;
-                let colour = light.colour.map(|channel| (channel as f32 / 255.0 * light.brightness.clamp(0.0, 1.0) * 15.0).round() as u32);
-                Some(LightFrom { object: object.at, cell: spot.floor().as_ivec3(), colour, reach: (light.reach.round() as i32).clamp(1, MOST_REACH) })
-            })
-            .collect();
+        let lights = lights_of(&objects, &here, &chunk_spots);
         relit.extend(placed.set_chunk(&world, &is_opaque, pos, &lights));
         spots.insert(pos, chunk_spots);
     }
@@ -319,6 +311,25 @@ pub fn draw_objects(
 
 /// Each object's feet and its sprite's spot (the game's axes, blocks): where its light comes from
 /// too (or its middle, without a sprite).
+/// The lights objects give (`placed_light.rs`), from their spots (`spots_of`): the far copies light
+/// their cells with them too (`far_copies.rs`).
+pub(super) fn lights_of(objects: &ObjectRegistry, placed: &[PlacedObject], spots: &[(Vec3, Vec3)]) -> Vec<LightFrom> {
+    placed
+        .iter()
+        .zip(spots)
+        .filter_map(|(object, &(_, spot))| {
+            let light = objects.by_name(&object.name)?.light.as_ref()?;
+            let colour = light.colour.map(|channel| (channel as f32 / 255.0 * light.brightness.clamp(0.0, 1.0) * 15.0).round() as u32);
+            Some(LightFrom { object: object.at, cell: spot.floor().as_ivec3(), colour, reach: (light.reach.round() as i32).clamp(1, MOST_REACH) })
+        })
+        .collect()
+}
+
+/// The lights the objects in `placed` give, worked out from scratch (for the far copies).
+pub(super) fn lights_here(objects: &ObjectRegistry, placed: &[PlacedObject]) -> Vec<LightFrom> {
+    lights_of(objects, placed, &spots_of(objects, placed))
+}
+
 fn spots_of(objects: &ObjectRegistry, placed: &[PlacedObject]) -> Vec<(Vec3, Vec3)> {
     placed
         .iter()

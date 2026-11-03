@@ -370,10 +370,10 @@ fn lit_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, spo
 
 // A far copy's solid cell that isn't plain ground (a mouth's rim, anything built or dug) where a ray
 // met it, over the far land's tile at `place` (cell `cell`, `uv` across it): its block's own colours,
-// lit as the land there is lit (its slope, the sun, the hill shading), then darkened by the
-// daylight of the air the ray came through. [Build 21 lit them by their faces alone, so a snowy rim
+// lit as the land there is lit (its slope, the sun, the hill shading); its daylight and glow are the
+// caller's (`copy_light`). [Build 21 lit them by their faces alone, so a snowy rim
 // came out flat white against the shaded land: David, "the far view march is just white".]
-fn copy_lit(value: u32, place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>, light: u32) -> vec3<f32> {
+fn copy_lit(value: u32, place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) -> vec3<f32> {
     let block = value & 0xFFFu;
     var top_colour = block_colours[block * 2u].rgb;
     var side_colour = block_colours[block * 2u + 1u].rgb;
@@ -386,12 +386,11 @@ fn copy_lit(value: u32, place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3
         top_colour = vec3<f32>(0.3, 0.85, 0.4);
         side_colour = top_colour;
     }
-    let daylight = f32(light) / 15.0;
     // Water: flat, as the sea is.
     if ((value >> 12u) & 3u) == 2u {
-        return top_colour * settings.faces.x * daylight * daylight;
+        return top_colour * settings.faces.x;
     }
-    return lit_land(top_colour, side_colour, land_slope(place, cell, uv), spot) * daylight * daylight;
+    return lit_land(top_colour, side_colour, land_slope(place, cell, uv), spot);
 }
 
 // Where a ray from `origin` along `ray`, at `t`, meets the far land before `until` (both distances
@@ -469,11 +468,10 @@ fn since_entering(into: f32, rate: f32) -> f32 {
 }
 
 // A far copy's cell where a ray met it (`value` packed as above; `local` where the ray was, in its
-// cells, and `rate` how fast that changes), lit by the daylight `light` (0 to 15) of the air cell it
-// came through: its block's colour, top or side by the face it came in through, shaded by which way
-// that faces, and the daylight eased (squared) as the near ground's is underground, so a cave's
-// inside is dark.
-fn copy_colour(value: u32, local: vec3<f32>, rate: vec3<f32>, light: u32) -> vec3<f32> {
+// cells, and `rate` how fast that changes), where it's not over a land tile: its block's colour, top
+// or side by the face it came in through, shaded by which way that faces (its daylight and glow are
+// the caller's, `copy_light`).
+fn copy_colour(value: u32, local: vec3<f32>, rate: vec3<f32>) -> vec3<f32> {
     // The face it came in through: the one it crossed last.
     let into = local - floor(local);
     let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
@@ -499,8 +497,7 @@ fn copy_colour(value: u32, local: vec3<f32>, rate: vec3<f32>, light: u32) -> vec
     } else if axis == 1 {
         shade = settings.faces.z;
     }
-    let daylight = f32(light) / 15.0;
-    return colour * shade * daylight * daylight;
+    return colour * shade;
 }
 
 struct Output {
@@ -559,6 +556,7 @@ fn fragment(in: VertexOutput) -> Output {
     var hit_local = vec3<f32>(0.0);
     var hit_rate = vec3<f32>(0.0);
     var last_light = 15u;
+    var last_glow = 0u;
     for (var k = 0u; k < most; k++) {
         if t > furthest {
             break;
@@ -587,6 +585,7 @@ fn fragment(in: VertexOutput) -> Output {
                 let out = leave_box(t, local, rate, vec3<f32>(0.0, 0.0, tall), vec3<f32>(32.0, 32.0, 1.0e9));
                 was_above = true;
                 last_light = 15u;
+                last_glow = 0u;
                 t = out.x + nudge;
                 continue;
             }
@@ -609,6 +608,7 @@ fn fragment(in: VertexOutput) -> Output {
                     // through the cave and out to the sky: David, build 22.]
                     if at < 0.0 && opens_out(u32(record), c, out.y, rate) {
                         last_light = 15u;
+                        last_glow = 0u;
                         t = out.x + nudge;
                         continue;
                     }
@@ -625,9 +625,13 @@ fn fragment(in: VertexOutput) -> Output {
             }
             was_above = true;
             last_light = (value >> 16u) & 15u;
+            last_glow = (value >> 20u) & 0xFFFu;
             t = out.x + nudge;
             continue;
         }
+        // Out on the land: open daylight, no glow.
+        last_light = 15u;
+        last_glow = 0u;
         let place = locate(p.xy);
         if !place.found {
             if place.beyond {
@@ -736,10 +740,10 @@ fn fragment(in: VertexOutput) -> Output {
             if (hit_value & PLAIN) != 0u {
                 colour = land_colour(place, vec2<u32>(ij), uv, spot);
             } else {
-                colour = copy_lit(hit_value, place, vec2<u32>(ij), uv, spot, last_light);
+                colour = copy_lit(hit_value, place, vec2<u32>(ij), uv, spot);
             }
         } else {
-            colour = copy_colour(hit_value, hit_local, hit_rate, last_light);
+            colour = copy_colour(hit_value, hit_local, hit_rate);
         }
     } else {
         colour = land_colour(hit_place, hit_cell, hit_uv, spot);
@@ -748,9 +752,22 @@ fn fragment(in: VertexOutput) -> Output {
     // From here on, as the sheet's fragment part.
     let light_uv = vec2<f32>(spot.y + settings.light_area.x, settings.light_area.x - spot.x) / max(settings.light_area.y, 1.0);
     let light_pixel = textureSampleLevel(light_map, light_sampler, light_uv, 0.0);
+    // Daylight (dimmed by the light map's shadows and the sky's brightness: the stand-in for night)
+    // and, in a far copy, placed light (a brazier's, step 1 part 6), which neither dims. A copy's cell
+    // takes both from the air the ray came through, eased (squared) as the near ground's are
+    // underground (terrain.wesl, `underground_light`); the land is in the open.
+    var day = settings.view.z;
     if settings.light.x > 0.5 {
-        colour = colour * light_from_map(light_pixel, settings.light);
+        day = day * light_from_map(light_pixel, settings.light);
     }
+    var glow = vec3<f32>(0.0);
+    if hit_copy {
+        let daylight = f32(last_light) / 15.0;
+        day = day * daylight * daylight;
+        glow = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
+        glow = glow * glow;
+    }
+    colour = colour * min(vec3<f32>(day) + glow, vec3<f32>(1.0));
     if settings.survey.x > 0.5 {
         let z = i32(floor(world_position.y - 0.01));
         let every = max(i32(settings.survey.y), 1);
@@ -759,7 +776,6 @@ fn fragment(in: VertexOutput) -> Output {
             colour = colour * (1.0 - settings.survey.z);
         }
     }
-    colour = colour * settings.view.z;
     if settings.fog.z > 0.5 {
         let distance = length(world_position - view.world_position);
         colour = mix(colour, settings.fog_color.rgb, smoothstep(settings.fog.x, settings.fog.y, distance));
