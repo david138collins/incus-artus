@@ -312,3 +312,13 @@ it later" (the green glow shows in the far mouth).
 - **Flipping "drawn by the march (new)"** (or the far land's) makes every copy again, with or
   without its blocks, so the old way stays there to compare.
 - Tested: made for the march alone, a copy has the same cells and no blocks.
+
+### Build 26 measured (David, 2026-11-02)
+50 mouths, a fast flight, then settled: 109 fps, 1% low 47, worst 31 ms, the card 2.0 ms a frame
+(baseline, build 11, settled after a flight: 126 fps, 1% low 29, worst 117 ms; the views differ).
+- **Copies:** 121 made, 12 ms the middle one, 152 ms the slowest (baseline: 95 ms average, 200 to
+  320 ms at 8 blocks a cell).
+- **Slow frames left** come from the near world's meshing as chunks stream in after the flight
+  ("start meshing" up to 56 ms in one 174 ms frame), not from the far view.
+- David: "it seems smooth", the Performance page near 110 to 119 fps (likely the frame cap at half
+  the 240 refresh rate, 120, rather than the game).
