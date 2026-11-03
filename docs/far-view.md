@@ -301,3 +301,14 @@ daylight near the opening. "go ahead" to part 6.
   as up close. The near ground's flicker isn't there yet.
 - **Tested:** a green light just inside the test cave's mouth makes the air round it glow green,
   fading, and nothing else; with no light nothing glows.
+
+### Build 25 seen; part 7, the copies' blocks retired (build 26)
+David, at night with braziers in a far cave: "it is as you said ... could be finer, but we'll tweak
+it later" (the green glow shows in the far mouth).
+- **While the march draws the copies,** a copy is made without meshing its blocks
+  (`CopyJob::mesh`): its cells are all the march needs, and meshing was most of a copy's making
+  (200 to 320 ms at 8 blocks a cell), which hitched the frames after a flight (`docs/caves.md`
+  13.24). A copy with cells and no blocks counts as drawn.
+- **Flipping "drawn by the march (new)"** (or the far land's) makes every copy again, with or
+  without its blocks, so the old way stays there to compare.
+- Tested: made for the march alone, a copy has the same cells and no blocks.

@@ -190,6 +190,8 @@ pub struct FarCopies {
     plan: Option<Arc<CavePlan>>,
     revision: u64,
     share: f32,
+    /// Whether the tiles were meshed (drawn as their own blocks), or made for the march alone.
+    meshed: Option<bool>,
     /// Chunk columns where a cave comes near the ground.
     near_ground: HashSet<ChunkPos>,
     /// Each cave's chunks: once any of them shows, all are copied, so the cave is closed wherever it
@@ -356,6 +358,8 @@ struct CopyJob {
     reach: i32,
     share: f32,
     force: bool,
+    /// Whether it's meshed: only when the copies are drawn as their own blocks, not by the march.
+    mesh: bool,
 }
 
 /// What's added up in each cell while coarsening.
@@ -642,6 +646,13 @@ fn make_copy(mut job: CopyJob) -> Made {
         })
         .collect();
     let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, cells: packed });
+    // Drawn by the march, the cells are all a copy needs (step 1 part 7): meshing it was most of the
+    // time a copy took (200 to 320 ms at 8 blocks a cell), and frames hitched while copies were made
+    // after a flight (`docs/caves.md` 13.24).
+    if !job.mesh {
+        let shows = !hot.is_empty() || job.force;
+        return Made { sections: Vec::new(), cells: shows.then_some(copy_cells), hot: hot.into_iter().collect(), ms: started.elapsed().as_secs_f32() * 1000.0 };
+    }
 
     // 4. Meshed, a section of cells at a time, from the bottom.
     // The plain ground beside the tile: the lowest of a cell's corners and middle, and of the cell
@@ -759,7 +770,7 @@ fn make_copy(mut job: CopyJob) -> Made {
 #[allow(clippy::too_many_arguments)]
 pub fn update_far_copies(
     mut commands: Commands,
-    settings: Res<FarCopySettings>,
+    (settings, distant_settings): (Res<FarCopySettings>, Res<super::distant::DistantSettings>),
     render: Res<RenderSettings>,
     streaming: Res<StreamSettings>,
     distant: Res<super::distant::DistantState>,
@@ -788,7 +799,8 @@ pub fn update_far_copies(
     let same = state.map.as_ref().is_some_and(|old| Arc::ptr_eq(old, &map))
         && state.plan.as_ref().is_some_and(|old| Arc::ptr_eq(old, &plan))
         && state.revision == assets.revision
-        && state.share == settings.solid_share;
+        && state.share == settings.solid_share
+        && state.meshed == Some(!settings.marched(&distant_settings));
     if !same {
         state.clear(&mut commands);
         state.near_ground = near_ground(&plan, &map);
@@ -797,6 +809,7 @@ pub fn update_far_copies(
         state.plan = Some(plan.clone());
         state.revision = assets.revision;
         state.share = settings.solid_share;
+        state.meshed = Some(!settings.marched(&distant_settings));
         state.known_changed = world.changed_chunks().clone();
     }
     // Chunks changed since: the tiles holding them are made again.
@@ -914,7 +927,7 @@ pub fn update_far_copies(
         }
         info!("Far copy {} blocks a cell at ({}, {}): {:.0} ms, {} sections, {} chunks showing", key.scale, key.x * key.scale * CHUNK_SIZE, key.y * key.scale * CHUNK_SIZE, made.ms, made.sections.len(), made.hot.len());
         state.hot.extend(made.hot);
-        if made.sections.is_empty() {
+        if made.sections.is_empty() && made.cells.is_none() {
             state.tiles.insert(key, Tile::Empty);
             continue;
         }
@@ -1010,6 +1023,7 @@ pub fn update_far_copies(
             reach: render.sky_reach,
             share: settings.solid_share,
             force: state.wanted[&key],
+            mesh: !settings.marched(&distant_settings),
         };
         state.making.insert(key, pool.spawn(async move { make_copy(job) }));
     }
@@ -1024,7 +1038,8 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
         ui.add_enabled_ui(on, |ui| {
             ui.checkbox(&mut settings.march, "drawn by the march (new)").on_hover_text(
                 "The copies' cells drawn by the march, with the far land, instead of as blocks of their own (docs/far-view.md).\n\
-                 Only while the far land is drawn by the march too. Flip it to compare.",
+                 Only while the far land is drawn by the march too. Then they're made without their blocks, which is much\n\
+                 quicker; flipping it makes them all again (to compare).",
             );
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(
                 "How crisp the copies are: a copy's cell is about 4 ÷ this pixels on screen (1: 4 pixels, soft and cheap; 4: a pixel\n\
@@ -1090,6 +1105,7 @@ mod tests {
             reach: 8,
             share,
             force: false,
+            mesh: true,
         }
     }
 
@@ -1140,6 +1156,12 @@ mod tests {
         assert!(cells.cells.iter().any(|&c| c & CELL_SOLID != 0 && c & CELL_PLAIN == 0));
         assert!(cells.cells.iter().any(|&c| (c >> 12) & 3 == 0 && (c >> 16) & 15 < 15));
         assert!(cells.cells.iter().all(|&c| (c >> 12) & 3 != 0 || c >> 20 == 0), "no glow without a light");
+        // Made for the march alone: the same cells, and no blocks.
+        let mut for_march = job(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![TestCaveSettings::default().tunnel(mouth, uphill, 3)]), HashMap::new(), 0.5);
+        for_march.mesh = false;
+        let marched = make_copy(for_march);
+        assert!(marched.sections.is_empty());
+        assert_eq!(marched.cells.expect("cells for the march").cells, cells.cells);
         // A green light just inside the mouth: the cave's air round it glows green, fading, and none red.
         let mut lit = job(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![TestCaveSettings::default().tunnel(mouth, uphill, 3)]), HashMap::new(), 0.5);
         let inside = (mouth + uphill.extend(0.0) * 2.0).floor().as_ivec3();
