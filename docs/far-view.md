@@ -482,3 +482,9 @@ blocks of those chunks. Far water stays the march's plane and river cells. It fo
 to medium, not large). Lost: nothing today's water has; depth-tinted or refracting water would bring
 it back. The path: R1, the test world, R2 (see-through still drawn), the weak-hardware checkpoint,
 R3, R5, R6, R7. Waiting on David's word.
+
+**The weak-hardware checkpoint (after R2):** David's laptop has integrated graphics, the pessimistic
+floor; a friend's machine may be another. Picking it needs no code: Bevy reads `WGPU_POWER_PREF=low`
+(the low-power adapter) or `WGPU_ADAPTER_NAME` (part of its name) at start, and the session log's
+first lines name the adapter used. Windows' per-app graphics setting works too. A choice inside the
+game would have to be made before the window opens (a settings file, not the debug panel).
