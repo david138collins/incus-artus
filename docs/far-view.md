@@ -370,3 +370,16 @@ David: "ok. lets do it." To see block detail drawn by the march close in, and wh
 - Past the band, the land and the copies of what differs as before, untextured.
 - Not there: random texture turning, pieces, bars, the near ground's hill and step shading, the
   flicker; and the real chunks are still made and meshed underneath.
+
+### Build 28 seen, and build 29 (David, 2026-11-02)
+- **The cost:** "with 'the march starts at 2', the graphics card is much faster when i'm somewhere
+  i can't see anything, its at 1.42 in 8.25. at 64 in the same spot, its 2.5 in all. while floating
+  over lots of distant land, its about 3.2-4 for both." The card has room; the frame (8.25 ms) is
+  held on the processor's side, where the real chunks are still made and meshed underneath.
+- **The look:** the band of whole copies reads as blocks, textured: "there's a mismatch but they
+  both read fine" (the march's blocks brighter and flatter: no hill shading or step shadows yet).
+- **A seam:** sky between the real chunks and the band ("Who drew this": neither). A ray over the
+  real chunks was judged against the smooth land, which can run a block or two above their blocks,
+  so one in the air over them was taken for one in the ground and turned away by the band's first
+  solid cell. Build 29: over the real chunks a ray always counts as in the air (the near world draws
+  whatever's solid there).

@@ -544,7 +544,7 @@ impl MarchState {
                 return None;
             }
             let leaving = ((local + rate * (out_of_cell - t)) - ij).clamp(Vec2::ZERO, Vec2::ONE);
-            was_above = origin.z + ray.z * out_of_cell >= surface(leaving.x, leaving.y);
+            was_above = drawn_near(p.truncate()) || origin.z + ray.z * out_of_cell >= surface(leaving.x, leaving.y);
             t = out_of_cell + nudge;
         }
         None

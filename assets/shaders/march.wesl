@@ -791,7 +791,11 @@ fn fragment(in: VertexOutput) -> Output {
             break;
         }
         let leaving = clamp(local + rate * (out_of_cell - t) - ij, vec2<f32>(0.0), vec2<f32>(1.0));
-        was_above = origin.z + ray.z * out_of_cell >= surface(a, b, c, d, leaving);
+        // Over the real chunks, in the air: the near world draws whatever's solid there, and the
+        // smooth land can run a block or two above its blocks, so a ray over them but under it was
+        // taken for one in the ground, and turned away by a far copy next door [David, build 28: sky
+        // between the real chunks and the band of whole copies].
+        was_above = drawn_near(p.xy) || origin.z + ray.z * out_of_cell >= surface(a, b, c, d, leaving);
         t = out_of_cell + nudge;
     }
     if !hit {
