@@ -787,7 +787,10 @@ fn fragment(in: VertexOutput) -> Output {
         }
         // Deep under the land: gone in under the near world, whose ground draws in front of
         // anything further along.
-        if p.z < under - max(16.0, 2.0 * cell) {
+        // Over the real chunks, only far deeper: there the near world says what's solid, and the smooth
+        // land can stand far above its blocks (over a cliff's drop), so a ray going on down past a ledge
+        // was given up and showed sky [David, build 29: "gaps still present, looking down a ledge"].
+        if p.z < under - select(max(16.0, 2.0 * cell), max(64.0, 4.0 * cell), drawn_near(p.xy)) {
             break;
         }
         let leaving = clamp(local + rate * (out_of_cell - t) - ij, vec2<f32>(0.0), vec2<f32>(1.0));

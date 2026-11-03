@@ -383,3 +383,12 @@ David: "ok. lets do it." To see block detail drawn by the march close in, and wh
   so one in the air over them was taken for one in the ground and turned away by the band's first
   solid cell. Build 29: over the real chunks a ray always counts as in the air (the near world draws
   whatever's solid there).
+
+### Build 29 seen, and build 30 (David, 2026-11-02)
+"gaps still present, looking down a ledge": sky between a ledge's real blocks and the band below.
+- **Why:** a ray going on down past a ledge's edge, over the real chunks, fell more than 16 blocks
+  under the smooth land (a gentle slope over the cliff's drop) and was given up as gone into the
+  ground.
+- **Build 30:** over the real chunks a ray is given up only far deeper (64 blocks, or 4 cells),
+  past what the smoothing can be off by over a cliff; elsewhere 16 (or 2 cells) as before. (Never
+  giving up there would march every ray under the near ground to the real chunks' edge.)

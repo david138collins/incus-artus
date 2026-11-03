@@ -540,7 +540,8 @@ impl MarchState {
                 return Some(hit);
             }
             // Deep under the land: gone in under the near world.
-            if p.z < under - (2.0 * cell).max(16.0) {
+            let deep = if drawn_near(p.truncate()) { (4.0 * cell).max(64.0) } else { (2.0 * cell).max(16.0) };
+            if p.z < under - deep {
                 return None;
             }
             let leaving = ((local + rate * (out_of_cell - t)) - ij).clamp(Vec2::ZERO, Vec2::ONE);
