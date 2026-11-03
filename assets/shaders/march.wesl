@@ -236,7 +236,11 @@ fn drawn_near(at: vec2<f32>) -> bool {
 }
 
 const MAP: i32 = 256;
-const COPY_RECORD: u32 = 24u;
+// A copy's record: 8 numbers, its 16 pages, its columns' highest (512, two a number) and its 4 x 4
+// groups' (32): march.rs, `COPY_RECORD`.
+const COPY_RECORD: u32 = 568u;
+const COLUMNS_AT: u32 = 24u;
+const GROUPS_AT: u32 = 536u;
 const PAGE: u32 = 32768u;
 const SOLID: u32 = 1u;
 const PLAIN: u32 = 16384u;
@@ -276,6 +280,13 @@ fn copy_cell(record: u32, c: vec3<i32>) -> u32 {
     }
     let page = copy_records[base + 8u + u32(c.z) / 32u];
     return copy_cells[page * PAGE + (u32(c.z) % 32u) * 1024u + u32(c.y) * 32u + u32(c.x)];
+}
+
+// One of a copy's columns' or groups' highest (the cell over its highest solid or water one, 0 if
+// none), `at` (`COLUMNS_AT` or `GROUPS_AT`) the start of its list, `k` which: two to a number.
+fn copy_top(record: u32, at: u32, k: u32) -> f32 {
+    let pair = copy_records[record * COPY_RECORD + at + k / 2u];
+    return f32((pair >> ((k % 2u) * 16u)) & 0xFFFFu);
 }
 
 // Where a ray leaves the box from `low` to `high` (cells), from `t` where it's at `local`, changing
@@ -697,6 +708,26 @@ fn fragment(in: VertexOutput) -> Output {
             was_above = true;
             last_light = (value >> 16u) & 15u;
             last_glow = (value >> 20u) & 0xFFFu;
+            // Above every block in its group of 4 x 4 columns, or in its column: past them in one
+            // step (open air, full daylight). [Build 30: a ray down past a mountain stepped a cell at a
+            // time through the band of whole copies, ran out of steps and showed sky.]
+            let group = c.xy / 4;
+            let group_top = copy_top(u32(record), GROUPS_AT, u32(group.y * 8 + group.x));
+            if f32(c.z) >= group_top {
+                let past = leave_box(t, local, rate, vec3<f32>(vec2<f32>(group * 4), group_top), vec3<f32>(vec2<f32>(group * 4 + 4), 1.0e9));
+                last_light = 15u;
+                last_glow = 0u;
+                t = past.x + nudge;
+                continue;
+            }
+            let column_top = copy_top(u32(record), COLUMNS_AT, u32(c.y * 32 + c.x));
+            if f32(c.z) >= column_top {
+                let past = leave_box(t, local, rate, vec3<f32>(vec2<f32>(c.xy), column_top), vec3<f32>(vec2<f32>(c.xy + 1), 1.0e9));
+                last_light = 15u;
+                last_glow = 0u;
+                t = past.x + nudge;
+                continue;
+            }
             t = out.x + nudge;
             continue;
         }

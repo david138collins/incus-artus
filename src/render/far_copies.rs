@@ -1110,9 +1110,9 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
 
 /// A copy's cells made from `map` and `plan`, for the march's tests (`march.rs`).
 #[cfg(test)]
-pub(super) fn cells_for_tests(key: TileKey, map: CompiledMap, plan: CavePlan) -> Option<Arc<CopyCells>> {
+pub(super) fn cells_for_tests(key: TileKey, map: CompiledMap, plan: CavePlan, full: bool) -> Option<Arc<CopyCells>> {
     let mut job = tests::job(key, map, plan, HashMap::new(), 0.5);
-    job.force = true;
+    (job.force, job.full) = (true, full);
     make_copy(job).cells
 }
 

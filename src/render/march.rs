@@ -75,8 +75,12 @@ const MOST_COPIES: usize = 1024;
 const COPY_PAGES: usize = 16;
 /// Numbers kept for each copy: its first cell's corner (x, y, z, blocks) and its cell size; how many
 /// cells tall it is and how many pages it has; 1 if it was copied whole (the near-march experiment);
-/// 1 spare; then its pages.
-const COPY_RECORD: usize = 8 + COPY_PAGES;
+/// 1 spare; then its pages; then the highest of each of its 32 × 32 columns (`COLUMNS_AT`) and of each
+/// group of 4 × 4 of them (`GROUPS_AT`), each the cell over its highest solid or water one (0 if none),
+/// two to a number (the first in its low 16 bits): above them a ray goes on in one step.
+const COPY_RECORD: usize = GROUPS_AT + 32;
+const COLUMNS_AT: usize = 8 + COPY_PAGES;
+const GROUPS_AT: usize = COLUMNS_AT + 512;
 /// The copies' map of chunks (which copy, if any, draws each), as wide as the sheet's `shown` texture.
 const MAP: i32 = super::distant::SHOWN_SIZE;
 
@@ -111,6 +115,9 @@ struct MarchedCopy {
     pages: Vec<u32>,
     /// Its least and greatest corner (blocks, north and east) and its top.
     footprint: (IVec2, IVec2, f32),
+    /// Its columns' and groups' highest (`column_tops`), as sent: the tests' twin of the shader reads them.
+    #[cfg_attr(not(test), allow(dead_code))]
+    tops: (Vec<u32>, Vec<u32>),
 }
 
 /// Parts of the lists to write on the graphics card, handed from the game to Bevy's drawing side
@@ -125,6 +132,27 @@ struct Write {
     /// Where in the list (bytes) and what goes there.
     offset: u64,
     bytes: Vec<u8>,
+}
+
+/// A copy's columns' highest (the cell over the highest solid or water one, 0 if none: 32 × 32, row by
+/// row east, north first), and each group of 4 × 4 columns' (8 × 8). [Build 30: a ray down past a
+/// mountain stepped a cell at a time through the band of whole copies' air, a block a cell, ran out
+/// of steps and showed sky, as far below David wherever he flew.]
+fn column_tops(cells: &CopyCells) -> (Vec<u32>, Vec<u32>) {
+    let side = COPY_CELLS as usize;
+    let mut columns = vec![0u32; side * side];
+    for (k, &value) in cells.cells.iter().enumerate() {
+        if (value >> 12) & 3 != 0 {
+            let (column, z) = (k % (side * side), (k / (side * side)) as u32);
+            columns[column] = columns[column].max(z + 1);
+        }
+    }
+    let mut groups = vec![0u32; 64];
+    for (k, &top) in columns.iter().enumerate() {
+        let group = (k / side / 4) * 8 + (k % side) / 4;
+        groups[group] = groups[group].max(top);
+    }
+    (columns, groups)
 }
 
 /// Numbers as the graphics card reads them.
@@ -313,10 +341,17 @@ impl MarchState {
             let mut numbers = [0u32; COPY_RECORD];
             numbers[..7].copy_from_slice(&[cells.corner.x as u32, cells.corner.y as u32, cells.corner.z as u32, cells.scale as u32, cells.tall as u32, pages as u32, cells.full as u32]);
             numbers[8..8 + pages].copy_from_slice(&taken);
+            let (columns, groups) = column_tops(cells);
+            for (k, pair) in columns.chunks(2).enumerate() {
+                numbers[COLUMNS_AT + k] = pair[0] | pair[1] << 16;
+            }
+            for (k, pair) in groups.chunks(2).enumerate() {
+                numbers[GROUPS_AT + k] = pair[0] | pair[1] << 16;
+            }
             self.queue(&self.copies.records_buffer, record as usize * COPY_RECORD * 4, bytes_of(&numbers, u32::to_le_bytes));
             let width = COPY_CELLS * cells.scale;
             let footprint = (cells.corner.truncate(), cells.corner.truncate() + IVec2::splat(width), (cells.corner.z + cells.tall * cells.scale) as f32);
-            self.copies.drawn.insert(*key, MarchedCopy { cells: cells.clone(), record, pages: taken, footprint });
+            self.copies.drawn.insert(*key, MarchedCopy { cells: cells.clone(), record, pages: taken, footprint, tops: (columns, groups) });
             self.copies.map_stale = true;
             // The ring tiles under it: their highest land raised over it.
             for slot in 0..self.slots.len() / 4 {
@@ -467,6 +502,20 @@ impl MarchState {
                     return Some(at);
                 }
                 was_above = true;
+                // Above every block in its group of 4 × 4 columns, or in its column: past them in one step.
+                let (columns, groups) = &copy.tops;
+                let group = IVec2::new(c.x, c.y) / 4;
+                let (group_top, column_top) = (groups[(group.y * 8 + group.x) as usize] as f32, columns[(c.y * 32 + c.x) as usize] as f32);
+                if c.z as f32 >= group_top {
+                    let (past, _) = leave_box(t, local, rate, (group * 4).as_vec2().extend(group_top), (group * 4 + 4).as_vec2().extend(1.0e9));
+                    t = past + nudge;
+                    continue;
+                }
+                if c.z as f32 >= column_top {
+                    let (past, _) = leave_box(t, local, rate, IVec2::new(c.x, c.y).as_vec2().extend(column_top), IVec2::new(c.x + 1, c.y + 1).as_vec2().extend(1.0e9));
+                    t = past + nudge;
+                    continue;
+                }
                 t = exit + nudge;
                 continue;
             }
@@ -1165,21 +1214,23 @@ mod tests {
         let below = mouth.z - 15.0;
         assert!(below > ground(back.x, back.y) + 2.0, "the camera below the mouth is still above the ground");
         let cameras = [ground(back.x, back.y).max(mouth.z) + 40.0, below].map(|z| Vec3::new(back.x as f32, back.y as f32, z));
-        let cells_of = |key: CopyKey| super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![tunnel.clone()])).expect("the cave shows");
+        let cells_of = |key: CopyKey, full: bool| super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![tunnel.clone()]), full).expect("the cave shows");
         let (one, two, four) = (CopyKey { scale: 1, x: 0, y: 0 }, CopyKey { scale: 2, x: 0, y: 0 }, CopyKey { scale: 4, x: 0, y: 0 });
         // Each size alone, and a fine and a coarse one over the same chunk, either first (as the
         // game's log had them round David's cave).
+        // And copied whole (the near-march experiment: every block a cell, nothing plain).
         let layouts = [vec![one], vec![two], vec![four], vec![two, one], vec![one, two]];
+        let whole = [false, true];
         let mut slipped = Vec::new();
         for camera in cameras {
-            for layout in &layouts {
+            for (layout, full) in layouts.iter().flat_map(|layout| whole.map(|full| (layout, full))) {
             let scale = layout[0].scale;
             let mut state = MarchState::default();
             state.follow(1, 2, 16);
             for ring_key in super::super::distant::wanted_tiles(camera, 16, 2) {
                 state.store(ring_key, super::super::distant::tile_mesh(&map, &blocks, &palette, ring_key, 16).as_ref());
             }
-            state.follow_copies(layout.iter().map(|&key| (key, cells_of(key))).collect(), true);
+            state.follow_copies(layout.iter().map(|&key| (key, cells_of(key, full))).collect(), true);
             let toward = (mouth - camera).normalize();
             let right = toward.cross(Vec3::Z).normalize();
             let up = right.cross(toward);
@@ -1207,17 +1258,18 @@ mod tests {
             for a in -12..=12 {
                 for b in -12..=12 {
                     let ray = (toward + right * a as f32 * 0.004 + up * b as f32 * 0.004).normalize();
-                    let fast = state.march_ray(16.0, camera, ray, 0.0, 4000, |_| false);
+                    // As many steps as the game gives a pixel (`DistantSettings::march_most`).
+                    let fast = state.march_ray(16.0, camera, ray, 0.0, 200, |_| false);
                     if let Some(rock) = in_rock(ray)
                         && fast.is_none_or(|hit| hit > rock + 1.0)
                     {
-                        slipped.push((camera.z, layout.len(), scale, a, b, rock, fast));
+                        slipped.push((camera.z, layout.len(), full, scale, a, b, rock, fast));
                     }
                 }
             }
         }
         }
-        assert!(slipped.is_empty(), "{} rays through the rock (camera height, copies, first one's scale, across, up, rock at, met at): {:?}", slipped.len(), &slipped[..slipped.len().min(8)]);
+        assert!(slipped.is_empty(), "{} rays through the rock (camera height, copies, whole, first one's scale, across, up, rock at, met at): {:?}", slipped.len(), &slipped[..slipped.len().min(8)]);
     }
 
     #[test]

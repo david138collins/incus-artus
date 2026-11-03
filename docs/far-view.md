@@ -392,3 +392,15 @@ David: "ok. lets do it." To see block detail drawn by the march close in, and wh
 - **Build 30:** over the real chunks a ray is given up only far deeper (64 blocks, or 4 cells),
   past what the smoothing can be off by over a cliff; elsewhere 16 (or 2 cells) as before. (Never
   giving up there would march every ray under the near ground to the real chunks' edge.)
+
+### Build 30 seen, and build 31 (David, 2026-11-02)
+The gaps moved further down, but stayed: "around the base of the mountain", as far below him at
+Z 1025 as at Z 630.
+- **Why:** as far below wherever he was, so the rays' length, not the land: a ray down past a
+  mountain went through the band of whole copies a cell (a block) at a time, through the air over
+  its slopes, and ran out of its 200 steps.
+- **Build 31:** each copy's record now holds its columns' highest and its 4 × 4 groups' (the cell
+  over the highest solid or water one); in the air above them a ray goes past the group, or the
+  column, in one step. The record grows to 568 numbers (about 2 MB for 1,024 copies).
+- **Tested:** the cave test now runs at the game's 200 steps and over whole copies too; none
+  through the rock. (The braziers' glow on open ground right under a long step isn't kept yet.)
