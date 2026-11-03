@@ -445,6 +445,18 @@ Reference: `Art/quartile minecraft illustration.png`
     pick the right tile (watch list item 15c).
   - **Water works like Minecraft's snow layers, but it spreads, and possibly evaporates** (David, later
     the same day). So water levels are layers in a block, and water you disturb spreads to even out.
+  - **Mopping and drying** (David, 2026-11-02): "water [should] spread out to 1/8 layers of water
+    wherever they spill to if you dump a bucket, and to be able to soak it up with a mop, or it
+    evaporates, at 1/8. dumping the bucket in a 1x2 block hole would result in two blocks with 4/8
+    water in them." The water is kept count of in eighths: a bucket is 8, spread is shared out, a mop
+    takes it back, drying takes it an eighth at a time.
+  - **How water looks is open** (David, 2026-11-02): "that would need to be transparent, i think, im
+    not totally sure ... its possible i leave flowing water opaque and have transparent still water?
+    i really don't know. as long as we have options, when details like waters appearance really
+    matter." *Counsel:* the renderer keeps them open. Water is drawn as a surface over the march at any
+    level of eighths, see-through or not per kind of water; deep-water darkening, reflections and
+    refraction can be added to the surface later without touching the march; opaque water could even
+    be a solid cell in the march. Decide by looking, once the test world has a lake.
   - **Water has practical uses:** diverting a river or stream to drive a **water wheel** may be required.
     So dug channels must fill from the river, and the water in them needs a direction and speed.
   - Counsel's notes [PROPOSED]:
