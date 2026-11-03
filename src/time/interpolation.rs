@@ -38,7 +38,15 @@ impl SimPosition {
 
     /// Where to draw it this frame (part-way between the last two ticks).
     pub fn display(&self, fixed_time: &Time<Fixed>, settings: &InterpolationSettings) -> Vec3 {
-        self.previous.lerp(self.current, blend_fraction(fixed_time, settings))
+        // From the last tick's place by the share of the way to this one's: glam's `lerp` sums
+        // `previous × (1 − f) + current × f`, which far from the world's middle rounds a step off the
+        // place itself, differently each frame, even when the two are the same, and a standing
+        // pawn's camera quivered by that step (0.001 blocks at 9,300 out) [David, build 32:
+        // "unfortunately, it is jittering. i can see it in the gabbro blocks"].
+        if self.previous == self.current {
+            return self.current;
+        }
+        self.previous + (self.current - self.previous) * blend_fraction(fixed_time, settings)
     }
 }
 

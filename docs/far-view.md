@@ -510,3 +510,13 @@ the near look".
   it back each tick, coming to rest a rounding step off far from the world's middle).
 - Still 32-bit: the camera's own place far out (so a moving camera steps by about 1/500 of a block
   there, everything together, not block against block); the physics and the world's own positions.
+
+### Build 32 seen, and build 33 (David, 2026-11-02)
+"unfortunately, it is jittering. i can see it in the gabbro blocks": standing, walking mode, the
+pawn still (speed 0, on the ground), yet the camera moved up to 0.00138 blocks every frame at
+(-9305, 7165): one rounding step there (0.00098), north and east at once.
+- **Why:** the camera follows the pawn's place smoothed between ticks, `previous.lerp(current, f)`,
+  and glam sums that as `previous × (1 − f) + current × f`, which rounds a step off the place
+  itself, differently each frame, even when the two are the same.
+- **Build 33:** a place that hasn't changed is shown as it is; otherwise the last tick's place plus
+  the share of the way to this one's (`SimPosition::display`).
