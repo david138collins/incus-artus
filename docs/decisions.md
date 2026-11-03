@@ -75,6 +75,12 @@ parts have barcodes on their noise that lets us run it forwards and backwards at
   - **Tested with caves and braziers at night first**, then a stand-in forest of simple block trees;
     trees aren't needed to start.
   - The full discussion, options and draft path: `vision/proposal-voxel-renderer.md`, last section.
+  - **After step 1 (builds 11 to 31), David chose to finish it** ("lets do it"): the floating origin,
+    a test world button, the near world marched straight from the chunks, a check on weak hardware,
+    one lighting near and far, quarter blocks and bars, sizes by distance, then the line all the way
+    in (Builder's path, `docs/far-view.md`, last section). **The world is marched, things are drawn:**
+    models, sprites, creatures, and see-through surfaces (water, glass) are drawn over the march.
+    David: "im not attached to the near look", so the march may change it.
 - **Content is added across the pipeline** (David, 2026-11-01): "as long as we have a stable
   foundation that i know wont break when i want to add features like a layer that finds swampiness
   centers, and can effect the ecology and topography and the civilization gen can place structures
