@@ -335,8 +335,23 @@ fn land_colour(place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) ->
         side_colour = top_colour;
     }
     let sea = top_colour * settings.faces.x;
+    return mix(sea, lit_land(top_colour, side_colour, slope, spot), clamp(land_share, 0.0, 1.0));
+}
+
+// The slope of the far land at a spot of a ring's tile (blocks up per block across, north and east).
+fn land_slope(place: Place, cell: vec2<u32>, uv: vec2<f32>) -> vec2<f32> {
+    let tri = triangle(uv);
+    let w = tri.w;
+    return corner_at(place, cell.x + tri.a.x, cell.y + tri.a.y).ground.zw * w.x
+        + corner_at(place, cell.x + tri.b.x, cell.y + tri.b.y).ground.zw * w.y
+        + corner_at(place, cell.x + tri.c.x, cell.y + tri.c.y).ground.zw * w.z;
+}
+
+// Colours lit as the far land is lit at a spot with that slope (lighting.wesl, `land`).
+fn lit_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, spot: vec3<f32>) -> vec3<f32> {
+    let world_position = to_bevy(spot);
     let rise = length(slope);
-    let lit = land(
+    return land(
         top_colour,
         side_colour,
         slope,
@@ -351,7 +366,80 @@ fn land_colour(place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) ->
         table_at(false, rise),
         table_at(true, rise),
     );
-    return mix(sea, lit, clamp(land_share, 0.0, 1.0));
+}
+
+// A far copy's solid cell that isn't plain ground (a mouth's rim, anything built or dug) where a ray
+// met it, over the far land's tile at `place` (cell `cell`, `uv` across it): its block's own colours,
+// lit as the land there is lit (its slope, the sun, the hill shading), then darkened by the
+// daylight of the air the ray came through. [Build 21 lit them by their faces alone, so a snowy rim
+// came out flat white against the shaded land: David, "the far view march is just white".]
+fn copy_lit(value: u32, place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>, light: u32) -> vec3<f32> {
+    let block = value & 0xFFFu;
+    var top_colour = block_colours[block * 2u].rgb;
+    var side_colour = block_colours[block * 2u + 1u].rgb;
+    if settings.shade.z > 0.5 {
+        top_colour = vec3<f32>(0.5);
+        side_colour = vec3<f32>(0.5);
+    }
+    // Who drew this: the march's far copies green.
+    if settings.view.x > 0.5 {
+        top_colour = vec3<f32>(0.3, 0.85, 0.4);
+        side_colour = top_colour;
+    }
+    let daylight = f32(light) / 15.0;
+    // Water: flat, as the sea is.
+    if ((value >> 12u) & 3u) == 2u {
+        return top_colour * settings.faces.x * daylight * daylight;
+    }
+    return lit_land(top_colour, side_colour, land_slope(place, cell, uv), spot) * daylight * daylight;
+}
+
+// Where a ray from `origin` along `ray`, at `t`, meets the far land before `until` (both distances
+// along it): `t` itself if it's under the land already, else where it comes down onto either of the
+// land's triangles there, or -1 if it doesn't. For a far copy's plain cells, which then draw the
+// land's own smooth surface through them, not their box [David, build 21: slabs sticking out where
+// a coarse copy's peak fell away, by the real chunks' edge]. A copy's cell (8 blocks at most) lies
+// within one cell of the land's, so its triangles are all there is.
+fn land_through(origin: vec3<f32>, ray: vec3<f32>, t: f32, until: f32) -> f32 {
+    let p = origin + ray * t;
+    let place = locate(p.xy);
+    if !place.found {
+        return t;
+    }
+    let cell = place.size / CELLS;
+    let local = (p.xy - place.origin) / cell;
+    let ij = clamp(floor(local), vec2<f32>(0.0), vec2<f32>(CELLS - 1.0));
+    let i = u32(ij.x);
+    let j = u32(ij.y);
+    let a = eased_height(place, i, j);
+    let b = eased_height(place, i + 1u, j);
+    let c = eased_height(place, i + 1u, j + 1u);
+    let d = eased_height(place, i, j + 1u);
+    if min(min(a, b), min(c, d)) <= MISSING {
+        return t;
+    }
+    let uv = local - ij;
+    if p.z <= surface(a, b, c, d, clamp(uv, vec2<f32>(0.0), vec2<f32>(1.0))) {
+        return t;
+    }
+    let rate = ray.xy / cell;
+    var nearest = 1.0e9;
+    for (var half = 0; half < 2; half++) {
+        let first_half = half == 0;
+        let gu = select(c - d, b - a, first_half);
+        let gv = select(d - a, c - b, first_half);
+        let gap = p.z - (a + gu * uv.x + gv * uv.y);
+        let closing = ray.z - gu * rate.x - gv * rate.y;
+        if gap >= 0.0 && closing < 0.0 {
+            let at = t + gap / -closing;
+            let there = uv + rate * (at - t);
+            let across = there.x - there.y;
+            if at <= until && select(across <= 1e-3, across >= -1e-3, first_half) {
+                nearest = min(nearest, at);
+            }
+        }
+    }
+    return select(-1.0, nearest, nearest < 1.0e9);
 }
 
 // How long ago (along the ray) it came in through a cell's face this way, `into` across the cell.
@@ -481,21 +569,34 @@ fn fragment(in: VertexOutput) -> Output {
                 continue;
             }
             let value = copy_cell(u32(record), c);
+            let out = leave_box(t, local, rate, vec3<f32>(c), vec3<f32>(c) + 1.0);
             if ((value >> 12u) & 3u) != 0u {
-                // Solid, or water: met, coming from the air.
-                if was_above && !drawn_near(p.xy) {
-                    hit = true;
-                    hit_copy = true;
-                    hit_value = value;
-                    hit_local = local;
-                    hit_rate = rate;
+                // In the ground: gone in under the near world.
+                if !was_above || drawn_near(p.xy) {
+                    break;
                 }
-                // Else in the ground: gone in under the near world.
+                // Plain ground: the land's own surface through the cell, if it passes through it;
+                // where it doesn't (the cell stands above it), on as through air.
+                var at = t;
+                if (value & PLAIN) != 0u && ((value >> 12u) & 3u) == 1u {
+                    at = land_through(origin, ray, t, out.x);
+                    if at < 0.0 {
+                        last_light = 15u;
+                        t = out.x + nudge;
+                        continue;
+                    }
+                }
+                // Solid, or water: met, coming from the air.
+                hit = true;
+                hit_copy = true;
+                hit_value = value;
+                hit_local = local;
+                hit_rate = rate;
+                t = at;
                 break;
             }
             was_above = true;
             last_light = (value >> 16u) & 15u;
-            let out = leave_box(t, local, rate, vec3<f32>(c), vec3<f32>(c) + 1.0);
             t = out.x + nudge;
             continue;
         }
@@ -596,12 +697,18 @@ fn fragment(in: VertexOutput) -> Output {
     let world_position = to_bevy(spot);
     var colour = vec3<f32>(0.0);
     if hit_copy {
-        // Plain ground in a copy takes the far land's look there, so the copy doesn't show as a patch.
+        // Plain ground in a copy takes the far land's look there, so the copy doesn't show as a patch;
+        // the rest keep their blocks' colours, lit as the land there is.
         let place = locate(spot.xy);
-        if (hit_value & PLAIN) != 0u && place.found {
+        if place.found {
             let local = (spot.xy - place.origin) / (place.size / CELLS);
             let ij = clamp(floor(local), vec2<f32>(0.0), vec2<f32>(CELLS - 1.0));
-            colour = land_colour(place, vec2<u32>(ij), clamp(local - ij, vec2<f32>(0.0), vec2<f32>(1.0)), spot);
+            let uv = clamp(local - ij, vec2<f32>(0.0), vec2<f32>(1.0));
+            if (hit_value & PLAIN) != 0u {
+                colour = land_colour(place, vec2<u32>(ij), uv, spot);
+            } else {
+                colour = copy_lit(hit_value, place, vec2<u32>(ij), uv, spot, last_light);
+            }
         } else {
             colour = copy_colour(hit_value, hit_local, hit_rate, last_light);
         }

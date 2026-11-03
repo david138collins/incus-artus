@@ -243,3 +243,18 @@ world's ceiling (the peak is 988).
   (`apply_render_distance`), but the hand-off mask kept a chunk still in marked as real (255, the
   larger of the two marks), so the march left it to the near world, which wasn't drawing it.
 - **Build 21:** a chunk a copy covers is always marked as the copy's.
+
+### Build 21 seen, and build 22 (David, 2026-11-02)
+The peak kept its top. Left: at the real chunks' edge, slabs of a coarse copy sticking out where the
+peak fell away, with a sliver of sky; backing away, "the caves dissapear, and with each subsequent
+redraw, a piece dissapears, until the far view march is just white"; sharpness 4 brings them back,
+"but there always seems to be a square in the middle of them".
+- **The caves fading out with distance** is the copies' coarsening (a mouth smaller than half a
+  cell is filled), and the square is the mouth at its cell's size: as meant; sharpness keeps them.
+- **"Just white":** a copy's cells that aren't plain ground were lit by their faces alone, so a
+  snowy rim was flat white against the shaded land. Build 22 lights them as the land is lit there
+  (its slope, the sun, the hill shading), in their own blocks' colours, then by their daylight.
+- **The slabs:** a ray meeting a copy's plain cell now meets the land's own smooth surface through
+  it (`land_through`), or goes on as through air where the cell stands above it; only cells that
+  aren't plain (a mouth's rim, what's built or dug) are drawn as boxes. So the copy's plain ground
+  is the far land's, and meets it round the copy with no step.
