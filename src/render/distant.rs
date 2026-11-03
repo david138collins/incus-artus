@@ -853,7 +853,7 @@ pub fn update_shown_chunks(
     let at = bevy_to_game(camera.translation);
     let centre = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
     // Nothing to look over again unless the meshing, the chunks handed over, or the view moved on.
-    let looked = (meshing.changes, streaming.drawn_changes(), streaming.drawn().len(), centre, render.render_distance_chunks, copies.changes);
+    let looked = (meshing.changes, streaming.drawn_changes(), streaming.drawn().len(), centre, render.render_distance_chunks * 1000 + render.march_from, copies.changes);
     if state.looked_over == Some(looked) {
         return;
     }
@@ -871,7 +871,7 @@ pub fn update_shown_chunks(
             changed = true;
         }
     }
-    let now = (centre, render.render_distance_chunks, copies.changes);
+    let now = (centre, render.render_distance_chunks * 1000 + render.march_from, copies.changes);
     if !changed && state.shown_for == Some(now) {
         return;
     }
@@ -884,8 +884,8 @@ pub fn update_shown_chunks(
     let limit = render.render_distance_chunks.min(half - 2);
     let on_screen = |pos: ChunkPos| {
         let offset = IVec2::new(pos.x, pos.y) - centre;
-        // The same square the render distance hides sections outside of.
-        offset.x.abs().max(offset.y.abs()) <= limit && state.shown.contains(&pos)
+        // Where the near world draws its sections (`apply_render_distance`).
+        offset.x.abs().max(offset.y.abs()) <= limit && render.drawn_near(offset) && state.shown.contains(&pos)
     };
     // But not under a chunk holding what the distant terrain can't show (a cave mouth, anything
     // changed): its smooth ground would cover the mouth, or fill the dip of a cave just under the

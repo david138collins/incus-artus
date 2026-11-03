@@ -849,7 +849,9 @@ pub fn update_far_copies(
     };
     let height = window.iter().next().map_or(1080.0, |window| window.resolution.height());
     let home = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
-    let (edge, radius) = (render.render_distance_chunks, streaming.radius);
+    // Where the real chunks end: the render distance, the streaming circle, and where the far view
+    // starts (`RenderSettings::march_from`), whichever is nearest.
+    let (edge, radius) = (render.render_distance_chunks, streaming.radius.min(render.march_from));
     let limit = MASK_REACH.min((settings.reach / CHUNK_SIZE as f32).ceil() as i32);
 
     // Which tiles are wanted: worked out again when you move into another chunk, or what's known

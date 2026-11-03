@@ -165,6 +165,11 @@ fn dim_sky(settings: Res<RenderSettings>, mut clear: ResMut<ClearColor>) {
 pub struct RenderSettings {
     /// How far away sections are drawn, in chunks (1 chunk = 32 blocks).
     pub render_distance_chunks: i32,
+    /// Where the far view (the march) starts, in chunks from yours: the real chunks are drawn only
+    /// within a circle this wide, past it the far view draws everything (`docs/far-view.md`). To drag
+    /// the line in and judge by eye and the graphics card's time [David, 2026-11-02, by Counsel]. 64:
+    /// wherever the real chunks end anyway.
+    pub march_from: i32,
     /// Far away, textures keep their painted colours: each shrunk pixel is the nearest colour the
     /// texture already has, and there's no blending between the shrunk sizes. Off: averaged, and
     /// blended (new colours, the old way). [Watch-list item 15d, 2026-10-28]
@@ -233,6 +238,7 @@ impl Default for RenderSettings {
     fn default() -> Self {
         Self {
             render_distance_chunks: 32,
+            march_from: 64,
             painted_mips: false,
             max_jobs_per_frame: 64,
             meshes_per_frame: 48,
@@ -264,6 +270,12 @@ impl Default for RenderSettings {
 }
 
 impl RenderSettings {
+    /// Whether a chunk this far from yours (chunks, north and east) is drawn as real blocks: within
+    /// the render distance's square and the circle where the far view starts (`march_from`).
+    pub fn drawn_near(&self, offset: IVec2) -> bool {
+        offset.x.abs().max(offset.y.abs()) <= self.render_distance_chunks && offset.x * offset.x + offset.y * offset.y <= self.march_from * self.march_from
+    }
+
     /// The survey view for both shaders: x on, y every how many levels, z darkness, w sea level.
     pub fn survey_for_shader(&self) -> Vec4 {
         Vec4::new(
@@ -448,11 +460,10 @@ fn apply_render_distance(
         (position.x / CHUNK_SIZE as f32).floor() as i32,
         (position.y / CHUNK_SIZE as f32).floor() as i32,
     );
-    let limit = settings.render_distance_chunks;
     for (section, mut visibility) in &mut sections {
         let offset = IVec2::new(section.key.chunk.x, section.key.chunk.y) - camera_chunk;
         // The seam probe hides them all, leaving the far surface on the same ground.
-        let wanted = if offset.x.abs().max(offset.y.abs()) <= limit && !settings.seam_probe && !copies.covered().contains(&section.key.chunk) {
+        let wanted = if settings.drawn_near(offset) && !settings.seam_probe && !copies.covered().contains(&section.key.chunk) {
             Visibility::Inherited
         } else {
             Visibility::Hidden
@@ -582,6 +593,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             "Frames a second, as a share of the screen's {refresh:.0} refreshes a second: each frame shows for the same number of refreshes, so motion stays even. Fewer frames = less heat and power."
         ));
         ui.add(crate::debug::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"));
+        ui.add(crate::debug::Slider::new(&mut settings.march_from, 2..=64).text("the march starts at (chunks)")).on_hover_text(
+            "The real chunks are drawn only within a circle this many chunks round you; past it the far view draws everything:\n\
+             the land, and what differs from it (caves, digging, building) as far copies. Drag it in to see how the far view\n\
+             holds up close, by eye and by the graphics card's time (Performance page). 64: wherever the real chunks end anyway.\n\
+             (The real chunks are still made and kept round you; only their drawing is left to the far view.)",
+        );
         ui.add(crate::debug::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / 240th of a second"))
             .on_hover_text("Per 240th of a second, not per frame: at 60 FPS each frame starts four times as many, so terrain fills in as fast on a slower machine.");
         ui.add(crate::debug::Slider::new(&mut settings.meshes_per_frame, 1..=512).text("new meshes shown per frame")).on_hover_text(

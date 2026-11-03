@@ -322,3 +322,17 @@ it later" (the green glow shows in the far mouth).
   ("start meshing" up to 56 ms in one 174 ms frame), not from the far view.
 - David: "it seems smooth", the Performance page near 110 to 119 fps (likely the frame cap at half
   the 240 refresh rate, 120, rather than the game).
+
+## The line, movable (build 27)
+David (by Counsel): after parts 6 and 7, "the march starts at N chunks" on the Render page, to drag
+the line inward (32, 16, 4) and judge by eye and by the graphics card's time; then Builder's
+assessment of marching the near world too. David: "proceed."
+- **Render page, under the render distance:** "the march starts at (chunks)", 2 to 64 (64: wherever
+  the real chunks end anyway). The real chunks are drawn only within a circle that wide
+  (`RenderSettings::drawn_near`, which hides the rest, `apply_render_distance`); past it the far
+  view draws everything, the far copies taking over what differs (they're made past the nearer of
+  the streaming circle and this line). The hand-off mask and the far test sites follow it.
+- The real chunks are still made and kept (and meshed) round you: only their drawing moves. So the
+  CPU's work doesn't drop yet; the graphics card's time and the look are what it shows.
+- Close in, the far copies' cells are a block each but drawn in their blocks' average colours, with
+  no textures: how the far view looks up close, as it stands.
