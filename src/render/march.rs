@@ -67,13 +67,15 @@ const BLOCK: i32 = 4;
 const COPY_CELLS: i32 = 32;
 /// A page of the copies' cells on the graphics card: 32 levels of one copy (128 KB).
 const PAGE: usize = (COPY_CELLS * COPY_CELLS * COPY_CELLS) as usize;
-/// How many pages there are (64 MB), how many copies at once, and the most pages one copy takes
+/// How many pages there are (128 MB, the most one list may hold by default; 64 MB until the
+/// near-march experiment's whole copies), how many copies at once, and the most pages one copy takes
 /// (512 cells tall). A copy that doesn't fit is left to the land.
-const PAGES: usize = 512;
+const PAGES: usize = 1024;
 const MOST_COPIES: usize = 1024;
 const COPY_PAGES: usize = 16;
 /// Numbers kept for each copy: its first cell's corner (x, y, z, blocks) and its cell size; how many
-/// cells tall it is and how many pages it has; 2 spare; then its pages.
+/// cells tall it is and how many pages it has; 1 if it was copied whole (the near-march experiment);
+/// 1 spare; then its pages.
 const COPY_RECORD: usize = 8 + COPY_PAGES;
 /// The copies' map of chunks (which copy, if any, draws each), as wide as the sheet's `shown` texture.
 const MAP: i32 = super::distant::SHOWN_SIZE;
@@ -93,8 +95,10 @@ struct Copies {
     free_records: Vec<u32>,
     /// Whether the map needs making again.
     map_stale: bool,
-    /// The colours the cells are drawn in were sent for this palette.
+    /// The colours the cells are drawn in, and their faces' textures, were sent for this palette and
+    /// these blocks (`TerrainAssets::revision`).
     palette: Option<Arc<Palette>>,
+    blocks_revision: u64,
     /// The highest any copy reaches (blocks).
     top: f32,
     /// Copies that didn't fit (for the log, once each).
@@ -307,7 +311,7 @@ impl MarchState {
                 self.queue(&self.copies.cells_buffer, page as usize * PAGE * 4, bytes_of(&cells.cells[span], u32::to_le_bytes));
             }
             let mut numbers = [0u32; COPY_RECORD];
-            numbers[..6].copy_from_slice(&[cells.corner.x as u32, cells.corner.y as u32, cells.corner.z as u32, cells.scale as u32, cells.tall as u32, pages as u32]);
+            numbers[..7].copy_from_slice(&[cells.corner.x as u32, cells.corner.y as u32, cells.corner.z as u32, cells.scale as u32, cells.tall as u32, pages as u32, cells.full as u32]);
             numbers[8..8 + pages].copy_from_slice(&taken);
             self.queue(&self.copies.records_buffer, record as usize * COPY_RECORD * 4, bytes_of(&numbers, u32::to_le_bytes));
             let width = COPY_CELLS * cells.scale;
@@ -677,6 +681,10 @@ pub struct MarchMaterial {
     pub copy_map: Handle<ShaderBuffer>,
     #[storage(11, read_only)]
     pub block_colours: Handle<ShaderBuffer>,
+    /// The near world's block textures, for the near-march experiment's whole copies.
+    #[texture(12, dimension = "2d_array")]
+    #[sampler(13)]
+    pub block_textures: Handle<Image>,
 }
 
 #[derive(ShaderType, Clone, Copy, Debug, Default, PartialEq)]
@@ -754,6 +762,7 @@ pub fn setup_march(
         copy_records: copy_records.clone(),
         copy_map: copy_map.clone(),
         block_colours: block_colours.clone(),
+        block_textures: images.add(super::textures::placeholder_array()),
     });
     state.copies.cells_buffer = Some(copy_cells);
     state.copies.records_buffer = Some(copy_records);
@@ -778,6 +787,7 @@ pub fn update_march(
     mut state: ResMut<MarchState>,
     (distant, settings): (Res<DistantState>, Res<DistantSettings>),
     (far, far_settings): (Res<FarCopies>, Res<FarCopySettings>),
+    (terrain, terrain_materials): (Option<Res<super::TerrainAssets>>, Res<Assets<super::material::TerrainMaterial>>),
     mut changed_sheet: MessageReader<AssetEvent<DistantMaterial>>,
     sheets: Res<Assets<DistantMaterial>>,
     mut materials: ResMut<Assets<MarchMaterial>>,
@@ -806,17 +816,32 @@ pub fn update_march(
     // The far copies, if the march draws them, and the colours their cells are drawn in.
     let marched = far_settings.marched(&settings);
     state.follow_copies(if marched { far.march_tiles() } else { Vec::new() }, marched);
+    // Each block's far colours (top, side) and its faces' texture layers (north, south, east, west,
+    // top, bottom; as numbers), four sets of four a block.
+    let revision = terrain.as_ref().map_or(0, |terrain| terrain.revision);
     if let Some(palette) = distant.palette().cloned()
-        && state.copies.palette.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &palette))
+        && (state.copies.palette.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &palette)) || state.copies.blocks_revision != revision)
     {
-        let colours: Vec<f32> = palette.blocks.iter().flat_map(|(top, side)| [top[0], top[1], top[2], 1.0, side[0], side[1], side[2], 1.0]).collect();
+        let faces = terrain.as_ref().map(|terrain| terrain.face_layers.clone());
+        let colours: Vec<f32> = palette
+            .blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(id, (top, side))| {
+                let layers = faces.as_ref().and_then(|faces| faces.get(id).copied()).unwrap_or([0; 6]).map(|layer| layer as f32);
+                [top[0], top[1], top[2], 1.0, side[0], side[1], side[2], 1.0, layers[0], layers[1], layers[2], layers[3], layers[4], layers[5], 0.0, 0.0]
+            })
+            .collect();
         if let Some(buffer) = &state.copies.colours_buffer
             && !colours.is_empty()
         {
             let _ = buffers.insert(buffer, ShaderBuffer::new(colours, RenderAssetUsages::RENDER_WORLD));
         }
         state.copies.palette = Some(palette);
+        state.copies.blocks_revision = revision;
     }
+    // The block textures, the near world's own.
+    let textures = terrain.as_ref().and_then(|terrain| terrain_materials.get(&terrain.material)).map(|material| material.textures.clone());
     let sheet_changed = changed_sheet.read().any(|event| matches!(event, AssetEvent::Modified { .. }));
     let inner = distant.inner.map_or(Vec4::ZERO, |(centre, reach)| {
         let size = crate::world::CHUNK_SIZE as f32;
@@ -827,13 +852,16 @@ pub fn update_march(
         copies: Vec4::new(if marched { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0),
         inner,
     };
-    let unchanged = materials.get(&handle).is_some_and(|material| material.march == march);
+    let unchanged = materials.get(&handle).is_some_and(|material| material.march == march && textures.as_ref().is_none_or(|textures| material.block_textures == *textures));
     if unchanged && !sheet_changed {
         return;
     }
     let sheet = distant.material.as_ref().and_then(|sheet| sheets.get(sheet)).cloned();
     if let Some(mut material) = materials.get_mut(&handle) {
         material.march = march;
+        if let Some(textures) = textures {
+            material.block_textures = textures;
+        }
         if let Some(sheet) = sheet {
             material.settings = sheet.settings;
             material.shown = sheet.shown;
@@ -1089,7 +1117,7 @@ mod tests {
         let slot = MarchState::slot(TileKey { ring: 0, x: 0, y: 0 });
         assert_eq!(state.tops[slot * TOPS + TILE_TOP], 50.0);
         // A copy of one chunk at (64, 64), 40 cells of a block from 40 high: its top is 80.
-        let cells = Arc::new(CopyCells { corner: IVec3::new(64, 64, 40), scale: 1, tall: 40, cells: vec![0; 32 * 32 * 40] });
+        let cells = Arc::new(CopyCells { corner: IVec3::new(64, 64, 40), scale: 1, tall: 40, full: false, cells: vec![0; 32 * 32 * 40] });
         let key = CopyKey { scale: 1, x: 2, y: 2 };
         state.follow_copies(vec![(key, cells.clone())], true);
         assert_eq!(state.copies.drawn.len(), 1);
@@ -1103,7 +1131,7 @@ mod tests {
         state.store(TileKey { ring: 0, x: 0, y: 0 }, Some(&tile));
         assert_eq!(state.tops[slot * TOPS + 4 + 1], 80.0);
         // One far too tall is left to the land.
-        let tall = Arc::new(CopyCells { corner: IVec3::ZERO, scale: 1, tall: 600, cells: vec![0; 32 * 32 * 600] });
+        let tall = Arc::new(CopyCells { corner: IVec3::ZERO, scale: 1, tall: 600, full: false, cells: vec![0; 32 * 32 * 600] });
         state.follow_copies(vec![(key, cells), (CopyKey { scale: 1, x: 0, y: 0 }, tall)], true);
         assert_eq!(state.copies.drawn.len(), 1);
         // Off: all let go, and their pages free again.

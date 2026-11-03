@@ -238,6 +238,12 @@ fn keep_painted(level: &[u8], original: &[u8]) -> Vec<u8> {
     out
 }
 
+/// A grey array of one layer, standing in until the block textures are loaded (the march's
+/// material, `march.rs`, is made before them).
+pub fn placeholder_array() -> Image {
+    build_array_image(&[vec![128; (TEXTURE_SIZE * TEXTURE_SIZE * 4) as usize]], false)
+}
+
 /// Stack the layers (each with its mipmaps) into one array image.
 fn build_array_image(layers: &[Vec<u8>], painted: bool) -> Image {
     let mut data = Vec::new();

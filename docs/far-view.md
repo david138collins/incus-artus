@@ -352,3 +352,21 @@ show actual regular detail like i thought it would." Up to 26 ms of chunk meshin
   full detail (not only where the world differs) and the copies drawn with their blocks' textures,
   to see block detail drawn by the march and its cost on the card. If it holds up, plan the whole
   change; if not, keep the line at 64 and spend the effort on the near world's meshing.
+
+## The near-march experiment (build 28)
+David: "ok. lets do it." To see block detail drawn by the march close in, and what it costs.
+- **Whole copies:** with "the march starts at" pulled in past where the real chunks would end
+  (below the streaming circle), every chunk in a band `FULL_BAND` (6) chunks wide just past the
+  line is copied whole: forced, with no plain ground (`CopyJob::full`), so all its blocks are cells.
+  Their sizes follow the distance as the copies' always do (1 block a cell close in). A tile
+  becoming whole, or no longer, is made again.
+- **Textured:** the march draws a whole copy's cells with the near world's block textures (bound to
+  its material): the texture of the face the ray came in through, where on it the ray met it, at
+  the size a block is on screen there (the smaller versions further off), shaded by the face's way.
+  Its daylight and braziers' light as the other copies'. Who drew this: a paler green.
+- **Room:** the copies' pages doubled to 1,024 (128 MB, the most one list may hold by default);
+  the blocks' colour list now also carries each block's six face layers (four sets of four a block),
+  so no list is added.
+- Past the band, the land and the copies of what differs as before, untextured.
+- Not there: random texture turning, pieces, bars, the near ground's hill and step shading, the
+  flicker; and the real chunks are still made and meshed underneath.

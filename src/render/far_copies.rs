@@ -71,6 +71,8 @@ const PLAIN: u32 = 0x8000;
 /// How far past the line between two sizes a tile has to be before it changes size (a share of the
 /// distance), so going back and forth on the line doesn't flip it.
 const SWITCH_PAST: f32 = 1.25;
+/// How wide the band of whole copies is past the far view's line, when it's pulled in (chunks).
+const FULL_BAND: i32 = 6;
 
 /// Tunables (the Render page, "Far copies"; saved in "everything" presets).
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -160,6 +162,8 @@ pub struct CopyCells {
     pub corner: IVec3,
     pub scale: i32,
     pub tall: i32,
+    /// Copied whole (the near-march experiment): the march draws its blocks with their textures.
+    pub full: bool,
     pub cells: Vec<u32>,
 }
 
@@ -190,6 +194,8 @@ pub struct FarCopies {
     plan: Option<Arc<CavePlan>>,
     revision: u64,
     share: f32,
+    /// The tiles copied whole (the near-march experiment: their plain ground as blocks too).
+    full: HashSet<TileKey>,
     /// Whether the tiles were meshed (drawn as their own blocks), or made for the march alone.
     meshed: Option<bool>,
     /// Chunk columns where a cave comes near the ground.
@@ -360,6 +366,8 @@ struct CopyJob {
     force: bool,
     /// Whether it's meshed: only when the copies are drawn as their own blocks, not by the march.
     mesh: bool,
+    /// Copied whole (the near-march experiment): nothing in it is plain ground.
+    full: bool,
 }
 
 /// What's added up in each cell while coarsening.
@@ -565,7 +573,9 @@ fn make_copy(mut job: CopyJob) -> Made {
         (0..CELLS).contains(&p.x) && (0..CELLS).contains(&p.y) && (0..tall).contains(&p.z) && !is_opaque(cell(p.x, p.y, p.z)) && p.z < roof[(p.x + p.y * CELLS) as usize]
     };
     let plain_ground = |x: i32, y: i32, z: i32| {
-        tallies[index(x, y, z)].objects <= 0.0
+        // Copied whole (the near-march experiment): no plain ground, every block drawn as one.
+        !job.full
+            && tallies[index(x, y, z)].objects <= 0.0
             && !was_changed.contains(&ChunkPos::of_block(IVec3::new(corner.x + x * s, corner.y + y * s, 0)))
             && !sides.iter().any(|&side| covered_air(IVec3::new(x, y, z) + side))
     };
@@ -645,7 +655,7 @@ fn make_copy(mut job: CopyJob) -> Made {
             }
         })
         .collect();
-    let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, cells: packed });
+    let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, full: job.full, cells: packed });
     // Drawn by the march, the cells are all a copy needs (step 1 part 7): meshing it was most of the
     // time a copy took (200 to 320 ms at 8 blocks a cell), and frames hitched while copies were made
     // after a flight (`docs/caves.md` 13.24).
@@ -875,7 +885,25 @@ pub fn update_far_copies(
                 candidates.insert(pos, true);
             }
         }
+        // The near-march experiment (`docs/far-view.md`): with the far view's line pulled in past where
+        // the real chunks would end, every chunk in a band `FULL_BAND` chunks wide just past it is
+        // copied whole, its plain ground as blocks too, so the march draws the blocks there.
+        let mut full_chunks = HashSet::new();
+        if settings.marched(&distant_settings) && render.march_from < streaming.radius {
+            let out = render.march_from + FULL_BAND;
+            for y in -out..=out {
+                for x in -out..=out {
+                    let reach = IVec2::new(x, y);
+                    if reach.length_squared() <= out * out && !real_chunk(reach, edge, radius) && real_chunk(reach, edge, streaming.radius) {
+                        let pos = ChunkPos::new(home.x + x, home.y + y);
+                        candidates.insert(pos, true);
+                        full_chunks.insert(pos);
+                    }
+                }
+            }
+        }
         let mut wanted: HashMap<TileKey, bool> = HashMap::new();
+        let mut full = HashSet::new();
         for (pos, force) in candidates {
             let reach = offset(pos);
             if real_chunk(reach, edge, radius) || reach.x.abs().max(reach.y.abs()) > limit {
@@ -894,6 +922,9 @@ pub fn update_far_copies(
                 let distance = key.middle().distance(at.truncate()) * if drawn { SWITCH_PAST } else { 1.0 / SWITCH_PAST };
                 if scale == 1 || scale <= scale_for(distance, settings.sharpness, fov, height) {
                     *wanted.entry(key).or_insert(false) |= force;
+                    if full_chunks.contains(&pos) {
+                        full.insert(key);
+                    }
                     break;
                 }
             }
@@ -907,6 +938,13 @@ pub fn update_far_copies(
         if wanted.len() != state.wanted.len() {
             info!("Far copies: {} tiles wanted, {} to make", wanted.len(), queue.len());
         }
+        // A tile becoming whole, or no longer, is made again.
+        let switched: Vec<TileKey> = full.symmetric_difference(&state.full).copied().filter(|key| state.tiles.contains_key(key)).collect();
+        for key in switched {
+            state.retire(key);
+            queue.push(key);
+        }
+        state.full = full;
         state.queue = queue;
         state.wanted = wanted;
         state.update_covered();
@@ -1026,6 +1064,7 @@ pub fn update_far_copies(
             share: settings.solid_share,
             force: state.wanted[&key],
             mesh: !settings.marched(&distant_settings),
+            full: state.full.contains(&key),
         };
         state.making.insert(key, pool.spawn(async move { make_copy(job) }));
     }
@@ -1108,6 +1147,7 @@ mod tests {
             share,
             force: false,
             mesh: true,
+            full: false,
         }
     }
 
@@ -1164,6 +1204,12 @@ mod tests {
         let marched = make_copy(for_march);
         assert!(marched.sections.is_empty());
         assert_eq!(marched.cells.expect("cells for the march").cells, cells.cells);
+        // Copied whole (the near-march experiment): the same solid cells, none plain ground.
+        let mut whole = job(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![TestCaveSettings::default().tunnel(mouth, uphill, 3)]), HashMap::new(), 0.5);
+        (whole.mesh, whole.full) = (false, true);
+        let whole = make_copy(whole).cells.expect("cells");
+        assert!(whole.full && whole.cells.iter().all(|&c| c & CELL_PLAIN == 0));
+        assert_eq!(whole.cells.iter().filter(|&&c| c & CELL_SOLID != 0).count(), cells.cells.iter().filter(|&&c| c & CELL_SOLID != 0).count());
         // A green light just inside the mouth: the cave's air round it glows green, fading, and none red.
         let mut lit = job(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![TestCaveSettings::default().tunnel(mouth, uphill, 3)]), HashMap::new(), 0.5);
         let inside = (mouth + uphill.extend(0.0) * 2.0).floor().as_ivec3();

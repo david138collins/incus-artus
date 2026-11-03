@@ -71,7 +71,12 @@ struct Corner {
 @group(constants::MATERIAL_BIND_GROUP) @binding(8) var<storage, read> copy_cells: array<u32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(9) var<storage, read> copy_records: array<u32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage, read> copy_map: array<u32>;
+// Each block: its top's far colour, its side's, then its faces' texture layers (north, south, east,
+// west; top, bottom, and 2 spare), four sets of four a block.
 @group(constants::MATERIAL_BIND_GROUP) @binding(11) var<storage, read> block_colours: array<vec4<f32>>;
+// The near world's block textures (the near-march experiment's whole copies).
+@group(constants::MATERIAL_BIND_GROUP) @binding(12) var block_textures: texture_2d_array<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(13) var block_sampler: sampler;
 
 const CELLS: f32 = 16.0;
 const TILES: i32 = 16;
@@ -375,8 +380,8 @@ fn lit_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, spo
 // came out flat white against the shaded land: David, "the far view march is just white".]
 fn copy_lit(value: u32, place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) -> vec3<f32> {
     let block = value & 0xFFFu;
-    var top_colour = block_colours[block * 2u].rgb;
-    var side_colour = block_colours[block * 2u + 1u].rgb;
+    var top_colour = block_colours[block * 4u].rgb;
+    var side_colour = block_colours[block * 4u + 1u].rgb;
     if settings.shade.z > 0.5 {
         top_colour = vec3<f32>(0.5);
         side_colour = vec3<f32>(0.5);
@@ -459,6 +464,70 @@ fn opens_out(record: u32, c: vec3<i32>, axis: f32, rate: vec3<f32>) -> bool {
     return ((value >> 12u) & 3u) == 0u && ((value >> 16u) & 15u) == 15u;
 }
 
+// The face of a whole copy's cell a ray met (`value` packed as above; `local`, `rate` as for
+// `copy_colour`), at `spot`, `distance` along the ray: its block's texture for that face, at the
+// size a block is on screen there (the textures' smaller versions further off), where on the face
+// the ray met it, shaded by which way the face points. [The near-march experiment, `docs/far-view.md`:
+// David, "lets do it".]
+fn copy_textured(value: u32, local: vec3<f32>, rate: vec3<f32>, spot: vec3<f32>, distance: f32) -> vec3<f32> {
+    let into = local - floor(local);
+    let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
+    var axis = 2u;
+    var forward = rate.z > 0.0;
+    if since.x < since.y && since.x < since.z {
+        axis = 0u;
+        forward = rate.x > 0.0;
+    } else if since.y < since.z {
+        axis = 1u;
+        forward = rate.y > 0.0;
+    }
+    // Which face: the side the ray came from (north 0, south 1, east 2, west 3, top 4, bottom 5).
+    let face = axis * 2u + select(0u, 1u, forward);
+    let block = value & 0xFFFu;
+    let first = block_colours[block * 4u + 2u];
+    let last = block_colours[block * 4u + 3u];
+    var layer = last.x;
+    if face == 0u {
+        layer = first.x;
+    } else if face == 1u {
+        layer = first.y;
+    } else if face == 2u {
+        layer = first.z;
+    } else if face == 3u {
+        layer = first.w;
+    } else if face == 5u {
+        layer = last.y;
+    }
+    let f = spot - floor(spot);
+    var uv = vec2<f32>(f.x, f.y);
+    if axis == 0u {
+        uv = vec2<f32>(f.y, 1.0 - f.z);
+    } else if axis == 1u {
+        uv = vec2<f32>(f.x, 1.0 - f.z);
+    }
+    // A block's size on screen (pixels), and so which of the texture's sizes to read.
+    let across = f32(textureDimensions(block_textures).x);
+    let pixels = view.viewport.w * 0.5 * view.clip_from_view[1][1] / max(distance, 1.0);
+    let level = clamp(log2(max(across / max(pixels, 1e-3), 1.0)), 0.0, f32(textureNumLevels(block_textures) - 1u));
+    var colour = textureSampleLevel(block_textures, block_sampler, uv, i32(layer), level).rgb;
+    if settings.shade.z > 0.5 {
+        colour = vec3<f32>(0.5);
+    }
+    // Who drew this: the march's whole copies a paler green.
+    if settings.view.x > 0.5 {
+        colour = vec3<f32>(0.55, 0.95, 0.6);
+    }
+    var shade = settings.faces.x;
+    if axis == 0u {
+        shade = settings.faces.y;
+    } else if axis == 1u {
+        shade = settings.faces.z;
+    } else if face == 5u {
+        shade = settings.faces.x * 0.5;
+    }
+    return colour * shade;
+}
+
 // How long ago (along the ray) it came in through a cell's face this way, `into` across the cell.
 fn since_entering(into: f32, rate: f32) -> f32 {
     if abs(rate) < 1e-9 {
@@ -483,7 +552,7 @@ fn copy_colour(value: u32, local: vec3<f32>, rate: vec3<f32>) -> vec3<f32> {
     }
     let block = value & 0xFFFu;
     let up = axis == 2 && rate.z < 0.0;
-    var colour = select(block_colours[block * 2u + 1u].rgb, block_colours[block * 2u].rgb, up);
+    var colour = select(block_colours[block * 4u + 1u].rgb, block_colours[block * 4u].rgb, up);
     if settings.shade.z > 0.5 {
         colour = vec3<f32>(0.5);
     }
@@ -555,6 +624,7 @@ fn fragment(in: VertexOutput) -> Output {
     var hit_value = 0u;
     var hit_local = vec3<f32>(0.0);
     var hit_rate = vec3<f32>(0.0);
+    var hit_record = 0u;
     var last_light = 15u;
     var last_glow = 0u;
     for (var k = 0u; k < most; k++) {
@@ -620,6 +690,7 @@ fn fragment(in: VertexOutput) -> Output {
                 hit_value = value;
                 hit_local = local;
                 hit_rate = rate;
+                hit_record = u32(record);
                 t = at;
                 break;
             }
@@ -729,7 +800,11 @@ fn fragment(in: VertexOutput) -> Output {
     let spot = origin + ray * t;
     let world_position = to_bevy(spot);
     var colour = vec3<f32>(0.0);
-    if hit_copy {
+    if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u {
+        // Copied whole (the near-march experiment): the block's own texture on the face the ray
+        // came in through, as the near world draws it.
+        colour = copy_textured(hit_value, hit_local, hit_rate, spot, t);
+    } else if hit_copy {
         // Plain ground in a copy takes the far land's look there, so the copy doesn't show as a patch;
         // the rest keep their blocks' colours, lit as the land there is.
         let place = locate(spot.xy);
