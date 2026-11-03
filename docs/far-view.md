@@ -336,3 +336,19 @@ assessment of marching the near world too. David: "proceed."
   CPU's work doesn't drop yet; the graphics card's time and the look are what it shows.
 - Close in, the far copies' cells are a block each but drawn in their blocks' average colours, with
   no textures: how the far view looks up close, as it stands.
+
+### Build 27 seen (David, 2026-11-02)
+"i don't think we've ever had the border *more* seamless ... it looks nice at 64. quote hard to see
+the seam, the lighting is very even. i get what you mean, pulling the march distance in did not
+show actual regular detail like i thought it would." Up to 26 ms of chunk meshing flying fast.
+- **Builder's assessment of marching the near world** (given to David, for Counsel's record): inside
+  the line the march has only the smoothed land and the copies where the world differs, not the
+  blocks. Marching near would need every near chunk's blocks on the graphics card (about 300 MB at
+  full detail to 32 chunks, so coarser with distance, as the copies are), their textures, daylight
+  and placed light per block, and the near world's pieces, bars and water; a few ms a frame on
+  David's card, perhaps 5 to 15 on a 980 Ti, against 1 to 2 for the near meshes now; it would end
+  the CPU's meshing (26 ms spikes) but send blocks instead; large, and the floating origin first.
+- **Recommended:** an experiment first: with the line pulled in, every chunk inside it copied at
+  full detail (not only where the world differs) and the copies drawn with their blocks' textures,
+  to see block detail drawn by the march and its cost on the card. If it holds up, plan the whole
+  change; if not, keep the line at 64 and spend the effort on the near world's meshing.
