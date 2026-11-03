@@ -116,6 +116,9 @@ pub struct MeshInput {
     /// The placed light of the cells round the section (`placed_light.rs`), by their place relative to
     /// it (−1 to 32), packed red, green, blue; cells with none left out.
     pub placed: HashMap<[i32; 3], u16>,
+    /// Only the see-through blocks and the pieces, not the solid blocks' faces: past the line, where
+    /// the march draws those (`meshing::follow_the_line`).
+    pub only_see_through: bool,
 }
 
 #[derive(Default)]
@@ -158,7 +161,9 @@ pub fn mesh_section_lit(input: &MeshInput, daylight: Daylight) -> MeshOutput {
 
     // Opaque blocks: faces where they meet anything not opaque.
     let opaque = build_columns(&input.blocks, is_opaque, &input.outside);
-    emit_faces(&mut out, input, &daylight, &opaque, [&opaque, &opaque], false);
+    if !input.only_see_through {
+        emit_faces(&mut out, input, &daylight, &opaque, [&opaque, &opaque], false);
+    }
     emit_pieces(&mut out, input, &daylight, &is_opaque);
 
     if !input.blocks.iter().any(|&id| is_see_through(id)) {
@@ -476,6 +481,7 @@ mod tests {
             light: None,
             reach: 8,
             placed: HashMap::new(),
+            only_see_through: false,
         }
     }
 
@@ -515,7 +521,11 @@ mod tests {
         blocks[0] = STONE;
         blocks[1] = GRID;
         // Stone: all 6 faces (the grid doesn't hide it). Grid: 5 (the side against the stone is hidden).
-        assert_eq!(mesh_section(&input(blocks)).quads, 11);
+        assert_eq!(mesh_section(&input(blocks.clone())).quads, 11);
+        // Past the line the march draws the stone: only the grid's 5.
+        let mut past = input(blocks);
+        past.only_see_through = true;
+        assert_eq!(mesh_section(&past).quads, 5);
     }
 
     fn empty() -> Vec<BlockId> {

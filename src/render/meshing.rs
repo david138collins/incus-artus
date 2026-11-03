@@ -38,6 +38,8 @@ pub struct SectionMesh {
     pub key: SectionKey,
     pub quads: u32,
     pub vertices: u32,
+    /// Meshed past the line: only what the march can't draw yet (`follow_the_line`).
+    pub past: bool,
 }
 
 /// Bookkeeping for all section meshes and jobs.
@@ -64,11 +66,83 @@ pub struct MeshingState {
     pub sky: HashMap<ChunkPos, Vec<i32>>,
     /// Chunks whose light may have changed since the objects were drawn (`objects.rs`).
     pub relight: HashSet<ChunkPos>,
+    /// Chunks whose blocks changed, came or went since the far copies last looked (a copy made from
+    /// the real chunks is made again: `far_copies.rs`).
+    pub touched: HashSet<ChunkPos>,
+    /// Whether each chunk's sections were last meshed past the line (true: only what the march can't
+    /// draw yet) or whole; and the line they were meshed for (`follow_the_line`).
+    pub meshed_past: HashMap<ChunkPos, bool>,
+    pub line: Option<Line>,
+    /// Chunks come inside the line, being meshed whole again: not counted as drawn until they are
+    /// (`distant::update_shown_chunks` takes them), so the copy there stays till then.
+    pub unshown: HashSet<ChunkPos>,
+}
+
+/// Where the line is that the march starts at, for the meshing (`follow_the_line`): your chunk, the
+/// render distance and the line (chunks), and whether the march draws the real chunks past it.
+#[derive(Clone, Copy, PartialEq)]
+pub struct Line {
+    home: IVec2,
+    render_distance: i32,
+    march_from: i32,
+    on: bool,
+}
+
+impl Line {
+    /// Is this chunk past the line, so meshed only for what the march can't draw yet?
+    fn past(&self, pos: ChunkPos) -> bool {
+        self.on && !super::drawn_near(IVec2::new(pos.x, pos.y) - self.home, self.render_distance, self.march_from)
+    }
+}
+
+impl MeshingState {
+    fn past_line(&self, pos: ChunkPos) -> bool {
+        self.line.is_some_and(|line| line.past(pos))
+    }
 }
 
 pub struct JobResult {
     output: MeshOutput,
     micros: u64,
+    /// Meshed past the line (only what the march can't draw yet).
+    past: bool,
+}
+
+/// Past the line where the march starts (`RenderSettings::march_from`), while the march draws the
+/// real chunks there (`far_copies.rs`, R2 in `docs/far-view.md`), a chunk's sections are meshed only
+/// for what the march can't draw yet: see-through blocks and pieces. This keeps each chunk meshed the
+/// way its place asks as you move, or the line does: one come inside is meshed whole again, one gone
+/// past is meshed again without its blocks.
+pub fn follow_the_line(
+    world: Res<VoxelWorld>,
+    (render, streaming): (Res<RenderSettings>, Res<crate::world::StreamSettings>),
+    (copy_settings, distant_settings): (Res<super::far_copies::FarCopySettings>, Res<super::distant::DistantSettings>),
+    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
+    mut state: ResMut<MeshingState>,
+) {
+    let Some(camera) = camera.iter().next() else { return };
+    let at = origin.to_game(camera.translation);
+    let home = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
+    let on = super::far_copies::marches_real(&copy_settings, &distant_settings, &render, &streaming);
+    let line = Line { home, render_distance: render.render_distance_chunks, march_from: render.march_from, on };
+    if state.line == Some(line) {
+        return;
+    }
+    state.line = Some(line);
+    let again: Vec<(ChunkPos, bool)> = state.meshed_past.iter().filter(|&(&pos, &past)| past != line.past(pos)).map(|(&pos, &past)| (pos, past)).collect();
+    for (pos, was_past) in again {
+        if let Some(chunk) = world.chunk(pos) {
+            for (level, section) in chunk.sections().iter().enumerate() {
+                if !matches!(section, Section::Uniform(id) if id.is_air()) {
+                    state.waiting.insert(SectionKey { chunk: pos, level: level as u8 });
+                }
+            }
+        }
+        if was_past {
+            state.unshown.insert(pos);
+        }
+    }
+    state.changes += 1;
 }
 
 pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWorld>, mut state: ResMut<MeshingState>) {
@@ -82,12 +156,14 @@ pub fn collect_dirty_sections(mut commands: Commands, mut world: ResMut<VoxelWor
     for key in dirty {
         state.sky.remove(&key.chunk);
         state.relight.insert(key.chunk);
+        state.touched.insert(key.chunk);
         let section = world.chunk(key.chunk).map(|chunk| &chunk.sections()[key.level as usize]);
         match section {
             // A chunk that's gone (dropped behind you): just remove its meshes.
             None => {
                 state.waiting.remove(&key);
                 state.running.remove(&key);
+                state.meshed_past.remove(&key.chunk);
                 gone.insert(key);
                 if let Some(entity) = state.entities.remove(&key) {
                     commands.entity(entity).despawn();
@@ -154,7 +230,11 @@ pub fn start_jobs(
     let pool = AsyncComputeTaskPool::get();
     for key in keys {
         state.waiting.remove(&key);
-        match gather_input(&world, key, &terrain, &settings, &mut state.sky, &placed) {
+        let past = state.past_line(key.chunk);
+        if world.chunk(key.chunk).is_some() {
+            state.meshed_past.insert(key.chunk, past);
+        }
+        match gather_input(&world, key, &terrain, &settings, &mut state.sky, &placed, past) {
             Some(input) => {
                 let task = pool.spawn(async move {
                     let started = Instant::now();
@@ -162,6 +242,7 @@ pub fn start_jobs(
                     JobResult {
                         output,
                         micros: started.elapsed().as_micros() as u64,
+                        past,
                     }
                 });
                 // Replacing a running job drops (and so cancels) the old one.
@@ -224,7 +305,7 @@ pub fn finish_jobs(
             continue;
         }
 
-        let quads = output.quads;
+        let (quads, past) = (output.quads, result.past);
         let vertex_count = output.vertices.len() as u32;
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
         mesh.insert_attribute(ATTRIBUTE_PACKED_VOXEL, output.vertices);
@@ -237,6 +318,7 @@ pub fn finish_jobs(
                 mesh3d.0 = handle;
                 info.quads = quads;
                 info.vertices = vertex_count;
+                info.past = past;
                 continue;
             }
         }
@@ -253,6 +335,7 @@ pub fn finish_jobs(
                     key,
                     quads,
                     vertices: vertex_count,
+                    past,
                 },
             ))
             .id();
@@ -311,12 +394,17 @@ fn index_of(local: IVec3) -> usize {
 }
 
 /// Copy everything the mesher needs out of the world. `None` = nothing to draw.
-fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets, settings: &RenderSettings, sky: &mut HashMap<ChunkPos, Vec<i32>>, placed: &PlacedLights) -> Option<MeshInput> {
+/// `past`: past the line, only what the march can't draw yet (`follow_the_line`).
+fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets, settings: &RenderSettings, sky: &mut HashMap<ChunkPos, Vec<i32>>, placed: &PlacedLights, past: bool) -> Option<MeshInput> {
     let chunk = world.chunk(key.chunk)?;
     let section = &chunk.sections()[key.level as usize];
     let is_opaque = |id: BlockId| id != BlockId::PIECES && terrain.opaque.get(id.0 as usize).copied().unwrap_or(true);
     let is_see_through = |id: BlockId| terrain.see_through.get(id.0 as usize).copied().unwrap_or(false);
     let is_grid = |id: BlockId| is_see_through(id) && terrain.inner_faces.get(id.0 as usize).copied().unwrap_or(false);
+    // Past the line, a section with no see-through blocks or pieces has nothing the march leaves.
+    if past && !section.may_hold(|id| id == BlockId::PIECES || is_see_through(id)) {
+        return None;
+    }
     if let Section::Uniform(id) = section {
         if !is_opaque(*id) && !is_see_through(*id) {
             return None;
@@ -426,6 +514,7 @@ fn gather_input(world: &VoxelWorld, key: SectionKey, terrain: &TerrainAssets, se
         reach,
         // Placed light (`placed_light.rs`): only the cells some light reaches.
         placed: placed.around_section(section_origin(key)),
+        only_see_through: past,
     })
 }
 

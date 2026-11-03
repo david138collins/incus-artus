@@ -88,11 +88,15 @@ pub struct FarCopySettings {
     /// Drawn by the march from their cells, not as meshes (while the march draws the far land:
     /// `march.rs`, `docs/far-view.md` step 1 part 5).
     pub march: bool,
+    /// With the line pulled in (`RenderSettings::march_from`), the real chunks past it copied straight
+    /// from themselves and drawn by the march, no longer meshed (R2 in `docs/far-view.md`). Off: a
+    /// band of whole copies made from the recipe, the real chunks meshed underneath (build 28's way).
+    pub real: bool,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true }
     }
 }
 
@@ -101,6 +105,12 @@ impl FarCopySettings {
     pub fn marched(&self, distant: &super::distant::DistantSettings) -> bool {
         self.on && self.march && distant.march && distant.enabled
     }
+}
+
+/// Whether the march draws the real chunks past the line (`FarCopySettings::real`): only while it
+/// draws the copies, with the line inside where the real chunks end.
+pub fn marches_real(settings: &FarCopySettings, distant: &super::distant::DistantSettings, render: &RenderSettings, streaming: &StreamSettings) -> bool {
+    settings.real && settings.marched(distant) && render.march_from < streaming.radius
 }
 
 /// One tile: its cell size (blocks) and where it is in the grid of tiles that size.
@@ -198,6 +208,9 @@ pub struct FarCopies {
     share: f32,
     /// The tiles copied whole (the near-march experiment: their plain ground as blocks too).
     full: HashSet<TileKey>,
+    /// Whether the real chunks past the line are copied from themselves (`marches_real`): then the
+    /// whole tiles are theirs.
+    real: bool,
     /// Whether the tiles were meshed (drawn as their own blocks), or made for the march alone.
     meshed: Option<bool>,
     /// Chunk columns where a cave comes near the ground.
@@ -299,8 +312,9 @@ impl FarCopies {
             let (low, high) = self.times.iter().fold((f32::MAX, 0.0f32), |(low, high), &t| (low.min(t), high.max(t)));
             format!("making one {low:.0} / {:.0} / {high:.0} ms (least / average / most)", self.times.iter().sum::<f32>() / self.times.len() as f32)
         };
+        let real = if self.real { format!(" {} from the real chunks past the line.", self.full.iter().filter(|key| self.tiles.contains_key(key)).count()) } else { String::new() };
         format!(
-            "Copies drawn: {} at full detail, {} at 2, {} at 4, {} at 8 blocks a cell; {empty} with nothing to show; {} being made.\n{faces} faces, {:.1} MB; {times}.",
+            "Copies drawn: {} at full detail, {} at 2, {} at 4, {} at 8 blocks a cell; {empty} with nothing to show; {} being made.{real}\n{faces} faces, {:.1} MB; {times}.",
             by_size[0],
             by_size[1],
             by_size[2],
@@ -370,6 +384,11 @@ struct CopyJob {
     mesh: bool,
     /// Copied whole (the near-march experiment): nothing in it is plain ground.
     full: bool,
+    /// Made from the real chunks past the line (R2): its chunks are in `changed`, as they are; its
+    /// see-through blocks and pieces left to the near meshes (air here), its objects to their
+    /// models; its placed light as the near world's (`glows`, each lit block's), not flooded again.
+    real: bool,
+    glows: Vec<(IVec3, u16)>,
 }
 
 /// What's added up in each cell while coarsening.
@@ -418,9 +437,11 @@ fn make_copy(mut job: CopyJob) -> Made {
     let (Some(&lowest), Some(&highest)) = (present.iter().min(), present.iter().max()) else {
         return Made { sections: Vec::new(), cells: None, hot: Vec::new(), ms: 0.0 };
     };
-    let (bottom, top) = ((lowest - BELOW).max(WORLD_BOTTOM), highest + 1);
-    let sky_at = |x: i32, y: i32| if (0..width).contains(&x) && (0..width).contains(&y) { sky[(x + y * width) as usize] } else { i32::MIN };
     let reach = job.reach.clamp(1, super::sky_light::MOST_REACH);
+    // Made from the real chunks, it's copied only as deep as daylight reaches under the lowest ground
+    // (below that it's looked into nowhere, so solid either way): less room on the graphics card.
+    let (bottom, top) = ((lowest - if job.real { reach + 1 } else { BELOW }).max(WORLD_BOTTOM), highest + 1);
+    let sky_at = |x: i32, y: i32| if (0..width).contains(&x) && (0..width).contains(&y) { sky[(x + y * width) as usize] } else { i32::MIN };
     // Each column is only looked into down to daylight's reach below the lowest open air beside it:
     // deeper than that nothing is lit, and from outside it's solid ground. (Looking through every
     // block from the lowest ground up made a mountain tile take seconds.)
@@ -506,7 +527,7 @@ fn make_copy(mut job: CopyJob) -> Made {
                     if z == height && tally.surface.is_none_or(|(at, _)| z > at) {
                         tally.surface = Some((z, id));
                     }
-                } else if is_see_through(id) {
+                } else if is_see_through(id) && !job.real {
                     tally.water += 1;
                     tally.water_block = id;
                 } else {
@@ -609,6 +630,15 @@ fn make_copy(mut job: CopyJob) -> Made {
     // walls), each cell keeping the brightest that reaches its air.
     let mut glow = vec![0u16; (CELLS * CELLS * tall) as usize];
     let in_tile = |p: IVec3| (0..width).contains(&p.x) && (0..width).contains(&p.y) && (low_cell * s..(high_cell + 1) * s).contains(&p.z);
+    // Made from the real chunks: their light as the near world has it, lights beyond the tile's
+    // edge too.
+    for &(at, light) in &job.glows {
+        let at = at - IVec3::new(corner.x, corner.y, 0);
+        if in_tile(at) {
+            let k = index(at.x / s, at.y / s, at.z.div_euclid(s) - low_cell);
+            glow[k] = super::placed_light::brighter(glow[k], light);
+        }
+    }
     for light in &job.lights {
         let reach = light.reach.clamp(1, super::placed_light::MOST_REACH);
         let start = light.cell - IVec3::new(corner.x, corner.y, 0);
@@ -663,6 +693,11 @@ fn make_copy(mut job: CopyJob) -> Made {
     // after a flight (`docs/caves.md` 13.24).
     if !job.mesh {
         let shows = !hot.is_empty() || job.force;
+        // Made from the real chunks, it's there for being past the line, not for differing from the
+        // land: none of its chunks is counted as showing (kept, they'd pile up as you flew).
+        if job.real {
+            hot.clear();
+        }
         return Made { sections: Vec::new(), cells: shows.then_some(copy_cells), hot: hot.into_iter().collect(), ms: started.elapsed().as_secs_f32() * 1000.0 };
     }
 
@@ -764,6 +799,7 @@ fn make_copy(mut job: CopyJob) -> Made {
             light: None,
             reach,
             placed: HashMap::new(),
+            only_see_through: false,
         };
         let output = mesh_section_lit(&input, Daylight(Some(levels)));
         if !output.indices.is_empty() {
@@ -784,7 +820,7 @@ pub fn update_far_copies(
     mut commands: Commands,
     (settings, distant_settings): (Res<FarCopySettings>, Res<super::distant::DistantSettings>),
     render: Res<RenderSettings>,
-    streaming: Res<StreamSettings>,
+    (streaming, placed, mut meshing): (Res<StreamSettings>, Res<super::placed_light::PlacedLights>, ResMut<super::meshing::MeshingState>),
     distant: Res<super::distant::DistantState>,
     terrain: Res<Terrain>,
     caves: Res<Caves>,
@@ -807,12 +843,15 @@ pub fn update_far_copies(
         return;
     }
     let plan = caves.0.clone();
-    // Made from another map, plan, set of blocks or share: every tile again.
+    let real = marches_real(&settings, &distant_settings, &render, &streaming);
+    // Made from another map, plan, set of blocks or share, or the real chunks past the line taken
+    // up or let go: every tile again.
     let same = state.map.as_ref().is_some_and(|old| Arc::ptr_eq(old, &map))
         && state.plan.as_ref().is_some_and(|old| Arc::ptr_eq(old, &plan))
         && state.revision == assets.revision
         && state.share == settings.solid_share
-        && state.meshed == Some(!settings.marched(&distant_settings));
+        && state.meshed == Some(!settings.marched(&distant_settings))
+        && state.real == real;
     if !same {
         state.clear(&mut commands);
         state.near_ground = near_ground(&plan, &map);
@@ -822,7 +861,17 @@ pub fn update_far_copies(
         state.revision = assets.revision;
         state.share = settings.solid_share;
         state.meshed = Some(!settings.marched(&distant_settings));
+        state.real = real;
         state.known_changed = world.changed_chunks().clone();
+    }
+    // Real chunks whose blocks changed, came or went: the tiles made from them are made again.
+    let touched = std::mem::take(&mut meshing.touched);
+    if real {
+        let again: Vec<TileKey> = state.full.iter().copied().filter(|key| (state.tiles.contains_key(key) || state.making.contains_key(key)) && key.chunks().any(|pos| touched.contains(&pos))).collect();
+        for key in again {
+            state.retire(key);
+            state.queue.push(key);
+        }
     }
     // Chunks changed since: the tiles holding them are made again.
     let fresh: Vec<ChunkPos> = world.changed_chunks().difference(&state.known_changed).copied().collect();
@@ -889,10 +938,12 @@ pub fn update_far_copies(
         }
         // The near-march experiment (`docs/far-view.md`): with the far view's line pulled in past where
         // the real chunks would end, every chunk in a band `FULL_BAND` chunks wide just past it is
-        // copied whole, its plain ground as blocks too, so the march draws the blocks there.
+        // copied whole, its plain ground as blocks too, so the march draws the blocks there. With the
+        // real chunks drawn by the march (R2), the band reaches where they end, and they're copied
+        // from themselves.
         let mut full_chunks = HashSet::new();
         if settings.marched(&distant_settings) && render.march_from < streaming.radius {
-            let out = render.march_from + FULL_BAND;
+            let out = if real { streaming.radius } else { render.march_from + FULL_BAND };
             for y in -out..=out {
                 for x in -out..=out {
                     let reach = IVec2::new(x, y);
@@ -1028,14 +1079,36 @@ pub fn update_far_copies(
 
     // Start more, nearest first.
     let pool = AsyncComputeTaskPool::get();
-    while state.making.len() < MOST_AT_ONCE {
+    let mut not_yet = Vec::new();
+    // Twice as many while the real chunks past the line are copied: their meshing, no longer done,
+    // left the processor that time.
+    let most = if real { MOST_AT_ONCE * 2 } else { MOST_AT_ONCE };
+    while state.making.len() < most {
         let Some(key) = state.queue.pop() else { break };
         if state.tiles.contains_key(&key) || state.making.contains_key(&key) || !state.wanted.contains_key(&key) {
             continue;
         }
+        // Made from the real chunks (R2): each as it is, once streaming has brought it in (one past
+        // where the real chunks end, at the edge of a coarser tile, from the recipe as before).
+        let from_real = real && state.full.contains(&key);
+        let streamed = |pos: ChunkPos| real_chunk(IVec2::new(pos.x - home.x, pos.y - home.y), edge, streaming.radius);
+        if from_real && key.chunks().any(|pos| streamed(pos) && world.chunk(pos).is_none()) {
+            not_yet.push(key);
+            continue;
+        }
         let mut changed = HashMap::new();
-        let (mut shapes, mut lights) = (Vec::new(), Vec::new());
-        for pos in key.chunks() {
+        let (mut shapes, mut lights, mut glows) = (Vec::new(), Vec::new(), Vec::new());
+        if from_real {
+            for pos in key.chunks() {
+                if let Some(chunk) = world.chunk(pos) {
+                    changed.insert(pos, chunk.clone());
+                }
+            }
+            let width = CHUNK_SIZE * key.scale;
+            let low = IVec3::new(key.x * width, key.y * width, WORLD_BOTTOM);
+            glows = placed.lit_in(low, low + IVec3::new(width - 1, width - 1, crate::world::WORLD_HEIGHT));
+        }
+        for pos in key.chunks().filter(|_| !from_real) {
             if world.changed_chunks().contains(&pos)
                 && let Some(chunk) = world.changed_chunk(pos)
             {
@@ -1067,9 +1140,13 @@ pub fn update_far_copies(
             force: state.wanted[&key],
             mesh: !settings.marched(&distant_settings),
             full: state.full.contains(&key),
+            real: from_real,
+            glows,
         };
         state.making.insert(key, pool.spawn(async move { make_copy(job) }));
     }
+    // Those waiting on streaming go back, nearest last as before.
+    state.queue.extend(not_yet.into_iter().rev());
 }
 
 /// The Render page's "Far copies" controls (greyed while copies are off), and what's drawn.
@@ -1084,6 +1161,14 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                  Only while the far land is drawn by the march too. Then they're made without their blocks, which is much\n\
                  quicker; flipping it makes them all again (to compare).",
             );
+            let marched = settings.march;
+            ui.add_enabled_ui(marched, |ui| {
+                ui.checkbox(&mut settings.real, "the real chunks past the line too (new)").on_hover_text(
+                    "With \"the march starts at\" pulled in, the real chunks past it are copied straight from themselves and drawn by the\n\
+                     march, no longer meshed: only their see-through blocks and half blocks still are (docs/far-view.md, R2).\n\
+                     Off: as build 34, a band of copies made from the recipe, the real chunks meshed underneath (to compare).",
+                );
+            });
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(
                 "How crisp the copies are: a copy's cell is about 4 ÷ this pixels on screen (1: 4 pixels, soft and cheap; 4: a pixel\n\
                  a cell, crisp and dearer). Finer than a pixel only shimmers, so it stops there.",
@@ -1101,6 +1186,7 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
         }
     }
     ui.small(world.resource::<FarCopies>().summary());
+    ui.small(world.resource::<super::march::MarchState>().summary());
     // Stop 4's measurement (`docs/caves.md` 13.23): one line in the log for each setting tried.
     if ui.button("Write the frame rate to the log").on_hover_text("The frame rate over the last few seconds, with these settings and the copies drawn: one line in the log for each setting tried. Turn slowly through a full circle first.").clicked() {
         let settings = world.resource::<FarCopySettings>().clone();
@@ -1150,6 +1236,8 @@ mod tests {
             force: false,
             mesh: true,
             full: false,
+            real: false,
+            glows: Vec::new(),
         }
     }
 
@@ -1230,6 +1318,36 @@ mod tests {
             x < 16 && y < 16
         }).map(|vertex| vertex[1] & PLAIN != 0).collect();
         assert!(!ground_of_changed.is_empty() && ground_of_changed.iter().all(|&p| !p));
+    }
+
+    #[test]
+    fn a_copy_of_the_real_chunks_leaves_see_through_blocks_to_the_meshes_and_takes_their_light() {
+        let width = 16;
+        let map = || CompiledMap::of_heights(width, 32.0, &vec![200.0; width * width]);
+        let ground = map().column(10, 10).unwrap().0;
+        let blocks = TerrainBlocks::from_registry(&BlockRegistry::default());
+        // A see-through block (the test's water) on the ground under a roof (open to the sky, a
+        // copy counts it as air either way), and a lit cell beside it.
+        let mut chunk = map().chunk(ChunkPos::new(0, 0), &blocks, &CavePlan::default()).unwrap();
+        let glass = IVec3::new(10, 10, ground + 1);
+        chunk.set(glass, blocks.water);
+        chunk.set(glass + IVec3::Z * 2, blocks.stone);
+        let key = TileKey { scale: 1, x: 0, y: 0 };
+        let made = |real: bool| {
+            let mut job = job(key, map(), CavePlan::default(), HashMap::from([(ChunkPos::new(0, 0), chunk.clone())]), 0.5);
+            (job.mesh, job.full, job.force, job.real) = (false, true, true, real);
+            job.glows = if real { vec![(glass + IVec3::X, 12 << 4)] } else { Vec::new() };
+            make_copy(job).cells.expect("cells")
+        };
+        let (recipe, real) = (made(false), made(true));
+        let at = |cells: &CopyCells, p: IVec3| cells.cells[(p.x + p.y * CELLS + (p.z - cells.corner.z) * CELLS * CELLS) as usize];
+        // From the recipe it's a see-through cell; from the real chunks, air (the near meshes draw it).
+        assert_eq!(at(&recipe, glass) & CELL_WATER, CELL_WATER);
+        assert_eq!((at(&real, glass) >> 12) & 3, 0);
+        // The light beside it as the near world has it.
+        assert_eq!(at(&real, glass + IVec3::X) >> 20, 12 << 4);
+        // Copied less deep: only as far as daylight reaches under the ground.
+        assert!(real.corner.z > recipe.corner.z, "{} over {}", real.corner.z, recipe.corner.z);
     }
 
     #[test]

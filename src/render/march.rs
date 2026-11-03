@@ -67,11 +67,12 @@ const BLOCK: i32 = 4;
 const COPY_CELLS: i32 = 32;
 /// A page of the copies' cells on the graphics card: 32 levels of one copy (128 KB).
 const PAGE: usize = (COPY_CELLS * COPY_CELLS * COPY_CELLS) as usize;
-/// How many pages there are (128 MB, the most one list may hold by default; 64 MB until the
-/// near-march experiment's whole copies), how many copies at once, and the most pages one copy takes
+/// How many pages there are at most (512 MB: the real chunks past the line, R2, a block a cell; 128
+/// MB before, thought the most one list could hold, though the graphics card's own limit is asked
+/// for and is far more on DirectX 12), how many copies at once, and the most pages one copy takes
 /// (512 cells tall). A copy that doesn't fit is left to the land.
-const PAGES: usize = 1024;
-const MOST_COPIES: usize = 1024;
+const PAGES: usize = 4096;
+const MOST_COPIES: usize = 4096;
 const COPY_PAGES: usize = 16;
 /// Numbers kept for each copy: its first cell's corner (x, y, z, blocks) and its cell size; how many
 /// cells tall it is and how many pages it has; 1 if it was copied whole (the near-march experiment);
@@ -97,6 +98,8 @@ struct Copies {
     order: Vec<CopyKey>,
     free_pages: Vec<u32>,
     free_records: Vec<u32>,
+    /// How many pages the list holds (`PAGES`, or fewer if the graphics card's limit is less).
+    pages: usize,
     /// Whether the map needs making again.
     map_stale: bool,
     /// The colours the cells are drawn in, and their faces' textures, were sent for this palette and
@@ -105,8 +108,10 @@ struct Copies {
     blocks_revision: u64,
     /// The highest any copy reaches (blocks).
     top: f32,
-    /// Copies that didn't fit (for the log, once each).
+    /// Copies that didn't fit, counted each time one was tried (for the log), and how many didn't the
+    /// last time.
     left_out: usize,
+    short: usize,
 }
 
 struct MarchedCopy {
@@ -205,6 +210,20 @@ impl MarchState {
         self.whole = true;
     }
 
+    /// One line for the Render page: the copies drawn, the room their cells take on the graphics card,
+    /// and how many were left out for want of it.
+    pub fn summary(&self) -> String {
+        let used = self.copies.pages - self.copies.free_pages.len().min(self.copies.pages);
+        format!(
+            "The march draws {} copies; their cells take {used} of {} pages ({} of {} MB); {} left out for want of room.",
+            self.copies.drawn.len(),
+            self.copies.pages,
+            used * PAGE * 4 / 1_048_576,
+            self.copies.pages * PAGE * 4 / 1_048_576,
+            self.copies.short
+        )
+    }
+
     fn queue(&self, buffer: &Option<Handle<ShaderBuffer>>, offset: usize, bytes: Vec<u8>) {
         if let (Some(buffer), Ok(mut writes)) = (buffer, self.writes.0.lock()) {
             writes.push(Write { buffer: buffer.id(), offset: offset as u64, bytes });
@@ -297,7 +316,8 @@ impl MarchState {
     /// with their map; none while `on` is false.
     fn follow_copies(&mut self, tiles: Vec<(CopyKey, Arc<CopyCells>)>, on: bool) {
         if self.copies.free_pages.is_empty() && self.copies.drawn.is_empty() {
-            self.copies.free_pages = (0..PAGES as u32).rev().collect();
+            self.copies.pages = if self.copies.pages == 0 { PAGES } else { self.copies.pages };
+            self.copies.free_pages = (0..self.copies.pages as u32).rev().collect();
             self.copies.free_records = (0..MOST_COPIES as u32).rev().collect();
             self.copies.map_stale = true;
         }
@@ -320,12 +340,14 @@ impl MarchState {
             }
         }
         // New: into pages, with a record.
+        self.copies.short = 0;
         for (key, cells) in &wanted {
             if self.copies.drawn.contains_key(key) {
                 continue;
             }
             let pages = (cells.tall as usize).div_ceil(COPY_CELLS as usize);
             if pages > COPY_PAGES || pages > self.copies.free_pages.len() || self.copies.free_records.is_empty() {
+                self.copies.short += 1;
                 self.copies.left_out += 1;
                 if self.copies.left_out.is_power_of_two() {
                     info!("March: a far copy at ({}, {}) didn't fit ({} pages; {} free); {} left out so far", cells.corner.x, cells.corner.y, pages, self.copies.free_pages.len(), self.copies.left_out);
@@ -788,15 +810,20 @@ pub fn setup_march(
     mut materials: ResMut<Assets<MarchMaterial>>,
     mut buffers: ResMut<Assets<ShaderBuffer>>,
     mut images: ResMut<Assets<Image>>,
-    writes: Res<MarchWrites>,
+    (writes, device): (Res<MarchWrites>, Option<Res<bevy::render::renderer::RenderDevice>>),
 ) {
     state.writes = writes.clone();
     // Bound before any tile is in, so each list needs something in it.
     let corners = buffers.add(ShaderBuffer::new(vec![MISSING; CORNER], RenderAssetUsages::RENDER_WORLD));
     let slots = buffers.add(ShaderBuffer::new(vec![0i32; 4], RenderAssetUsages::RENDER_WORLD));
     let tops = buffers.add(ShaderBuffer::new(vec![MISSING; TOPS], RenderAssetUsages::RENDER_WORLD));
-    // The copies' lists at their full size from the start (written into a piece at a time).
-    let copy_cells = buffers.add(ShaderBuffer::new(vec![0u32; PAGES * PAGE], RenderAssetUsages::RENDER_WORLD));
+    // The copies' lists at their full size from the start (written into a piece at a time); the cells'
+    // as big as the graphics card lets one list be, up to `PAGES`, and left empty (not 512 MB of
+    // zeros made here and sent).
+    let most = device.map_or(PAGE * PAGES * 4, |device| device.limits().max_storage_buffer_binding_size.min(device.limits().max_buffer_size) as usize);
+    state.copies.pages = (most / (PAGE * 4)).clamp(1, PAGES);
+    info!("March: room for {} pages of copies' cells ({} MB)", state.copies.pages, state.copies.pages * PAGE * 4 / 1_048_576);
+    let copy_cells = buffers.add(ShaderBuffer::with_size((state.copies.pages * PAGE * 4) as u64, RenderAssetUsages::RENDER_WORLD));
     let copy_records = buffers.add(ShaderBuffer::new(vec![0u32; MOST_COPIES * COPY_RECORD], RenderAssetUsages::RENDER_WORLD));
     let copy_map = buffers.add(ShaderBuffer::new(vec![0u32; (MAP * MAP) as usize], RenderAssetUsages::RENDER_WORLD));
     let block_colours = buffers.add(ShaderBuffer::new(vec![0.5f32; 8], RenderAssetUsages::RENDER_WORLD));

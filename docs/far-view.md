@@ -540,3 +540,40 @@ stairs, caves, and "all, from afar" (`world/test_world.rs`).
 - **Edits like any others,** in loaded chunks or the chunk as kept, so saving the world keeps them.
   Where it was built is kept (`TestPlaces`, saved in presets) for the "Go to" viewpoints: back
   toward the middle and up, facing the place (the forest higher), flying.
+
+### Build 34 seen (David, 2026-11-02)
+"ok, trees, village, water, wall, very nice. tried the views", and the caves and stairs "looked pretty
+much like you'd expect". He'd first pressed the older "Regenerate the test world" (the people
+simulation's flat test ground, `regenerate_test_world`), which cut a hole into the real land: two
+buttons named alike, a rename left for David to choose.
+
+## R2, the real chunks past the line drawn by the march (build 35)
+David: "proceed, brave builder". With "the march starts at" pulled in, the real chunks past the line
+are no longer meshed; the march draws them, from copies made of the chunks themselves.
+- **The band reaches where the real chunks end:** every real chunk past the line is in a whole copy
+  (`far_copies.rs`, the near-march experiment's band, no longer 6 chunks wide), sized by distance as
+  the copies always are (a block a cell close in).
+- **Copied from themselves,** as streaming brought them in (a tile waits for its chunks; one past the
+  streaming circle at the edge of a coarser tile still comes from the recipe): no second making from
+  the recipe. Their see-through blocks and pieces are air in the copy (the near meshes draw them),
+  their objects left to their models, and their placed light taken as the near world has it
+  (`PlacedLights::lit_in`), lights beyond the tile's edge too. Copied only as deep as daylight
+  reaches under the lowest ground (the recipe's copies go 24 down).
+- **Made again** when a chunk in one changes, comes or goes (`MeshingState::touched`, from the
+  dirty sections). Four made at once instead of two, the meshing they replace having left that time.
+- **Meshing stops past the line** (`meshing::follow_the_line`): there a section is meshed only if it
+  may hold see-through blocks or pieces (its palette says), and then only those
+  (`MeshInput::only_see_through`); most give nothing at all. Drawn wherever the render distance
+  reaches. As you move or the line does, a chunk come inside is meshed whole again (and counted as
+  drawn only once it is, so the copy there stays till then: `MeshingState::unshown`), and one gone
+  past is meshed again without its blocks.
+- **Room:** the copies' cells are no longer held to 128 MB. That was taken for the most one list may
+  hold; Bevy asks for the graphics card's own limits, and DirectX 12's is 2 GB. Now 512 MB (4,096
+  pages; fewer if a card allows less), made empty on the card, not as 512 MB of zeros sent; 4,096
+  copies at once. The Render page shows the pages used and any copies left out for want of room.
+- **The switch:** Render page, Far copies, "the real chunks past the line too (new)", on. Off: build
+  34's way (a 6-chunk band made from the recipe, the real chunks meshed underneath), to compare. With
+  the line at 64 (wherever the real chunks end anyway) nothing changes either way.
+- Not yet: glass and water marched through (they stay meshes; the near water is an opaque block, so
+  the march draws it); pieces as cells (R5); one lighting near and far (R3); sizes by a memory budget
+  (R6). The real chunks are still made and kept round you for the game; only their drawing moved.

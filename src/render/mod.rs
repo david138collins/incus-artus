@@ -121,6 +121,7 @@ impl Plugin for RenderPlugin {
                     rebuild_terrain_after_reload,
                     follow_block_rotations,
                     meshing::collect_dirty_sections,
+                    meshing::follow_the_line,
                     meshing::start_jobs,
                     meshing::finish_jobs,
                     far_copies::update_far_copies,
@@ -273,11 +274,16 @@ impl Default for RenderSettings {
     }
 }
 
+/// `RenderSettings::drawn_near`, from the render distance and the line (chunks).
+pub fn drawn_near(offset: IVec2, render_distance: i32, march_from: i32) -> bool {
+    offset.x.abs().max(offset.y.abs()) <= render_distance && offset.x * offset.x + offset.y * offset.y <= march_from * march_from
+}
+
 impl RenderSettings {
     /// Whether a chunk this far from yours (chunks, north and east) is drawn as real blocks: within
     /// the render distance's square and the circle where the far view starts (`march_from`).
     pub fn drawn_near(&self, offset: IVec2) -> bool {
-        offset.x.abs().max(offset.y.abs()) <= self.render_distance_chunks && offset.x * offset.x + offset.y * offset.y <= self.march_from * self.march_from
+        drawn_near(offset, self.render_distance_chunks, self.march_from)
     }
 
     /// The survey view for both shaders: x on, y every how many levels, z darkness, w sea level.
@@ -482,8 +488,11 @@ fn apply_render_distance(
     );
     for (section, mut visibility) in &mut sections {
         let offset = IVec2::new(section.key.chunk.x, section.key.chunk.y) - camera_chunk;
+        // Past the line, what the march leaves (`meshing::follow_the_line`) is drawn wherever the
+        // render distance reaches.
+        let shown = if section.past { offset.x.abs().max(offset.y.abs()) <= settings.render_distance_chunks } else { settings.drawn_near(offset) && !copies.covered().contains(&section.key.chunk) };
         // The seam probe hides them all, leaving the far surface on the same ground.
-        let wanted = if settings.drawn_near(offset) && !settings.seam_probe && !copies.covered().contains(&section.key.chunk) {
+        let wanted = if shown && !settings.seam_probe {
             Visibility::Inherited
         } else {
             Visibility::Hidden

@@ -166,6 +166,23 @@ impl PlacedLights {
         found
     }
 
+    /// Every lit cell from `low` to `high` (blocks, both included), with its light (packed).
+    pub fn lit_in(&self, low: IVec3, high: IVec3) -> Vec<(IVec3, u16)> {
+        let mut found: HashMap<IVec3, u16> = HashMap::new();
+        for source in self.sources.values() {
+            let reach = IVec3::splat(source.reach);
+            if (source.cell - reach).cmpgt(high).any() || (source.cell + reach).cmplt(low).any() {
+                continue;
+            }
+            for (&cell, &light) in &source.cells {
+                if cell.cmpge(low).all() && cell.cmple(high).all() {
+                    found.entry(cell).and_modify(|was| *was = brighter(*was, light)).or_insert(light);
+                }
+            }
+        }
+        found.into_iter().collect()
+    }
+
     /// The chunks whose objects give light.
     pub fn chunks(&self) -> impl Iterator<Item = ChunkPos> + '_ {
         self.by_chunk.keys().copied()

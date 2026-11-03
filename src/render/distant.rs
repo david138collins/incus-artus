@@ -843,7 +843,7 @@ pub fn update_distant_material(
 pub fn update_shown_chunks(
     streaming: Res<Streaming>,
     world: Res<VoxelWorld>,
-    meshing: Res<MeshingState>,
+    mut meshing: ResMut<MeshingState>,
     render: Res<RenderSettings>,
     copies: Res<super::far_copies::FarCopies>,
     (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
@@ -852,6 +852,13 @@ pub fn update_shown_chunks(
     mut materials: ResMut<Assets<DistantMaterial>>,
 ) {
     let _timed = crate::render::Timed::new("mark chunks shown");
+    // Chunks come inside the line, meshed whole again: not drawn until they are, so the copy over
+    // them stays (`meshing::follow_the_line`).
+    if !meshing.unshown.is_empty() {
+        let unshown = std::mem::take(&mut meshing.unshown);
+        state.shown.retain(|pos| !unshown.contains(pos));
+        (state.looked_over, state.shown_for) = (None, None);
+    }
     let (Some(material), Some(texture)) = (state.material.clone(), state.shown_texture.clone()) else { return };
     let Some(camera) = camera.iter().next() else { return };
     let at = origin.to_game(camera.translation);
