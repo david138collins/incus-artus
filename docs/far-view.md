@@ -577,3 +577,15 @@ are no longer meshed; the march draws them, from copies made of the chunks thems
 - Not yet: glass and water marched through (they stay meshes; the near water is an opaque block, so
   the march draws it); pieces as cells (R5); one lighting near and far (R3); sizes by a memory budget
   (R6). The real chunks are still made and kept round you for the game; only their drawing moved.
+
+### R2's pass criteria (David, by Counsel, 2026-11-02: "i think those are reasonable criteria")
+Measured on the test world from the same spots, the line at 64 against the line at 8, the switch on
+and off:
+1. the processor's frame clearly below today's ~8 ms (the meshing gone past the line);
+2. the graphics card no more than a few ms over the big view on the 5070 Ti;
+3. a steady 60 frames a second at the default view on the weak machine (the laptop's built-in
+   graphics, `WGPU_POWER_PREF=low`; a friend's PC if it's slower still);
+4. the worst frame after a fast flight no worse than build 26's 31 ms;
+5. David says it looks right.
+
+If one fails, re-plan before R3.

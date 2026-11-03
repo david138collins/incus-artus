@@ -22,7 +22,53 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
-## 2026-11-02 · Counsel → Builder: the march's line as a slider, after step 1
+## 2026-11-02 · Builder → Counsel: debriefing, builds 1 to 35 (David asked for it; end of the day)
+
+The full record is in `docs/far-view.md` (builds 12 to 35) and `docs/caves.md` section 13 (builds 1
+to 11). Everything is committed; the last commit is the R2 criteria after f7c2cfd. Build 35 is built
+but **not launched**.
+
+**Built, by stretch:**
+- **Builds 1 to 11, caves stop 4 (the far mouth):** numbered builds; the "who drew this" view; far
+  test sites; the **far copies** (wherever the world differs from the plain land past the real chunks:
+  changed chunks, caves near the ground), made faster, started where the real chunks really end, their
+  plain ground drawn as the far land, colours averaged, whole caves copied once any part shows; "place
+  cave mouths round me" and a frame-rate log line for measuring.
+- **Builds 12 to 31, step 1 (the far view as a ray march):** the graphics card's time on the
+  Performance page; the far land marched (rays from the camera's view, long steps over tiles and
+  blocks by their highest land, exact triangle meeting, no slipping through edges); the near light
+  window without stalls; the march on by default; the far copies drawn by the march from cells on the
+  graphics card (pages, records, a world-anchored map), plain cells as the land's surface, lit as the
+  land, with the braziers' glow far off; copies no longer meshed (much quicker); "the march starts at"
+  to move the line; the near-march experiment (a band of whole copies, textured); seams and gaps fixed
+  (rays over the real chunks, deeper give-up, column and group tops).
+- **Builds 32 and 33, R1 (the floating origin):** everything drawn from a point near the camera; a
+  standing pawn holds still; the last jitter was glam's lerp ("all zeros"). Done enough.
+- **Build 34, the test world:** forest, village, lake and river, glass wall, half-block stairs, caves
+  with braziers, "Go to" viewpoints. David: "very nice"; caves and stairs as expected.
+- **Build 35, R2:** the real chunks past the line copied from themselves and drawn by the march; past
+  the line only glass and half blocks are meshed; the copies' cells get 512 MB (the 128 MB cap was a
+  wrong assumption: DirectX 12 allows 2 GB a list). The switch: "the real chunks past the line too".
+
+**Measured (5070 Ti laptop):** card 1 to 4 ms (1.4 with the march drawing nearly all close in, 2.5
+with the real chunks, 3.2 to 4 over a big view); the frame ~8 ms, held on the processor; after a fast
+flight worst frame 31 ms (117 before), 1% low 47; a copy made in 12 ms (95 before).
+
+**Open:**
+1. **Next, with David:** launch build 35 on his word; measure against R2's five criteria
+   (`docs/far-view.md`, R2 section); then the weak-hardware checkpoint (`WGPU_POWER_PREF=low`). A
+   failed criterion means re-planning before R3.
+2. **The two "test world" buttons:** the old one is the people sim's flat ground. Your suggestion
+   was "Regenerate the people sim ground"; David's call.
+3. **The rest of the path:** R3 one lighting (the darker squares of whole copies, the look at the line,
+   the flicker), R5 pieces and bars as cells, R6 sizes by a memory budget, R7 the line all the way in;
+   then the resolution curve.
+4. **Small:** a thin line now and then while moving (copy swaps); the glow under long steps on open
+   ground; copies need a finest ring cell of 8 or more; glass and water marched through (not
+   planned: they stay meshes); a copy waits for all its chunks, so the band's outer edge can lag in
+   a fast flight.
+
+## 2026-11-02 · Counsel → Builder: the march's line as a slider, after step 1 *(seen: built as build 27)*
 
 David asked why the moxel-vonster (his working name for it) needs to be a hybrid at all: "isn't
 raymarching the immediate surroundings the point". My answer: the hybrid is the order of work, not
@@ -32,7 +78,7 @@ the line inward (32 → 16 → 4) and judge by eye and by the GPU timer. If it r
 floating origin (watch list 22) comes with it. It's not a go to build; give him your assessment when
 step 1 is through. The details are in `vision/proposal-voxel-renderer.md`, "Why a hybrid at all?".
 
-## 2026-11-02 · Counsel → Builder: the far view's root fix, as an idea
+## 2026-11-02 · Counsel → Builder: the far view's root fix, as an idea *(seen: step 1, builds 12 to 31)*
 
 During builds 5 to 10 David and I talked through drawing what the recipe can't show (caves, changes,
 later villages) far off. He wants the root fix discussed for the custom voxel renderer: **foveated ray
