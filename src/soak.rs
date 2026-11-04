@@ -1,7 +1,8 @@
 //! The soak test — does the game run worse the longer it runs? For automatic testing only.
 //!
 //! Start the game with `INCUS_SOAK=<seconds>` (and if wanted `INCUS_SOAK_SPEED=<blocks a second>`,
-//! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_NEAR=0` for no near light window),
+//! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_NEAR=0` for no near light window,
+//! `INCUS_SOAK_LAND=0` for no far land as cells),
 //! together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
 //! 1. renders the newest bake with the World Compiler's recipe as it starts (the defaults), and
@@ -73,6 +74,7 @@ fn fly_round(
     mut cameras: Query<&mut FlyCamera>,
     mut render: ResMut<crate::render::RenderSettings>,
     mut light: ResMut<crate::render::LightSettings>,
+    mut far: ResMut<crate::render::FarCopySettings>,
 ) {
     let Some(map) = terrain.compiled() else { return };
     let now = time.elapsed_secs();
@@ -90,6 +92,10 @@ fn fly_round(
     // `INCUS_SOAK_NEAR=0`: without the near chunks' light window (to measure what it costs).
     if std::env::var("INCUS_SOAK_NEAR").is_ok_and(|v| v == "0") && light.near {
         light.near = false;
+    }
+    // `INCUS_SOAK_LAND=0`: without the far land as cells (to measure what it costs).
+    if std::env::var("INCUS_SOAK_LAND").is_ok_and(|v| v == "0") && far.land {
+        far.land = false;
     }
     // Round the circle (north of the middle to start with), facing the way it's going.
     let (radius, speed) = (radius(), speed());

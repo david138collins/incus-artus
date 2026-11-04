@@ -13,6 +13,7 @@
 
 mod deep_shot;
 mod far_copies;
+pub use far_copies::FarCopySettings;
 pub(crate) mod distant;
 mod frame_cap;
 mod march;
