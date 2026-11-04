@@ -929,6 +929,22 @@ Reference: `Art/quartile minecraft illustration.png`
 
 ---
 
+## The renderer: perfect first, faster after
+
+**[DECIDED 2026-11-03]** David, after R2 measured at 348 FPS (`docs/far-view.md`): "my gut feeling
+is that we're exceeding our end specs at this point, and i'd almost rather make it perfect at any
+cost and then work backwards at the end to make it faster. we don't need to do that, because we're
+building it the right way. i think we can defer the weak hardware test for now. the best test will be
+having a pre-alpha build fun enough that 10 people can play and send us the report file back on their
+hardware and all its performance across several machines, so the sooner we get to that point the
+better."
+
+- The look comes first on the renderer path; speed is won back at the end.
+- **[LATER]** The weak-hardware checkpoint is put off (David travelling this week). The real test of
+  hardware is a pre-alpha build: about 10 players on their own machines, each sending back a report
+  file with how it ran (the session log already holds most of it).
+- **[OPEN]** What the report file holds and how players send it.
+
 ## Performance Plan (for reference)
 
 Techniques modern voxel engines use, roughly in the order we'd adopt them:
