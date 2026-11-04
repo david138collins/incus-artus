@@ -1069,3 +1069,13 @@ go on.
   light" under 1 (David's preset 0.75), the sides darken less than the tops there, so a shaded slope's
   sides come out nearly as bright as its tops (the faint lines in "light only"). A setting, for
   regular lighting; to try by eye: 1.00.
+
+### Build 47 seen (David, 2026-11-04)
+Normal view, over the mountain and hills: "just loading in normally, this looks good. you can tell that
+the grey blocks on the mountainside are not 'even', but the color and shading is all consistent, and
+the unevenness does not read as 'wrong' ... i think i'd stop seeing it after a while." The reference
+from the same spot: "reference mode makes it outright better for sure." What's left between the two
+is the one ray a pixel: the speckle and slivers of steps a fraction of a pixel, hit or missed whole,
+which the reference's 16 rays average out. So the far land's look now waits on smoothing the pixel,
+not on its recipe (a cheaper way than 16 rays everywhere: more rays only where a pixel's ray meets a
+step's edge, or a few spread over frames). On file, for after the split work.
