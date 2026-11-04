@@ -64,6 +64,13 @@ const SKIRT: i32 = 2;
 const BELOW: i32 = 24;
 /// The most tiles being made at once (the processor runs hot; streaming comes first).
 const MOST_AT_ONCE: usize = 2;
+/// How often the chunks the copies cover may be worked out again while copies come and go (and so the
+/// hand-off map made again): a quarter of a second.
+const COVERED_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
+/// The most of the far land's copies made at once (`land_copy`).
+const LAND_AT_ONCE: usize = 2;
+/// How much further than a coarser tile would do a finer one of the far land's is kept (step 3).
+const KEEP_FINER: f32 = 2.0;
 /// Marks a face of plain ground in its texture layer, which then carries its block's top layer (the
 /// low 7 bits) and side layer (the 7 above): terrain.wesl draws it as the far terrain draws the land.
 const PLAIN: u32 = 0x8000;
@@ -403,8 +410,6 @@ pub struct FarCopies {
     /// them changed and no cave near their ground, made straight from the recipe's columns
     /// (`land_copy`).
     land: HashSet<TileKey>,
-    /// When the next of the far land's copies may start: as long after the last was made as it took.
-    land_rest_until: Option<Instant>,
     /// Tiles queued to be made, by why, since last logged: on new ground; where a tile of another size
     /// was drawn (remade at its new size as the distance changes); made again for their real chunks
     /// (streamed in, dropped or changed). [David's 40-second flight at 20 blocks a second made some
@@ -415,6 +420,10 @@ pub struct FarCopies {
     /// it took all told (ms): for measuring.
     covered_made: usize,
     covered_ms: f32,
+    /// Copies finished or let go since the cover was last worked out, and when that was: worked out at
+    /// most `COVERED_EVERY` (`update_covered`).
+    covered_stale: bool,
+    covered_at: Option<Instant>,
     /// Whether the real chunks past the line are copied from themselves (`marches_real`): then the
     /// whole tiles are theirs.
     real: bool,
@@ -492,13 +501,21 @@ impl FarCopies {
         self.making.remove(&key);
     }
 
+    /// The chunks the copies cover worked out again; the change counted (which the hand-off map and the
+    /// march follow) only if they're not as they were: a copy put in for one of the same chunks changes
+    /// nothing [worked out, and the hand-off map made again, near every frame as copies finished, 65 to
+    /// 75 times a second: David, "yes" to working the root out].
     fn update_covered(&mut self) {
         let started = Instant::now();
         let drawn = self.tiles.iter().filter(|(_, tile)| matches!(tile, Tile::Drawn { .. })).map(|(key, _)| *key);
-        self.covered = drawn.chain(self.retiring.iter().map(|(key, ..)| *key)).flat_map(TileKey::chunks).collect();
-        self.changes += 1;
+        let covered: HashSet<ChunkPos> = drawn.chain(self.retiring.iter().map(|(key, ..)| *key)).flat_map(TileKey::chunks).collect();
+        if covered != self.covered {
+            self.covered = covered;
+            self.changes += 1;
+        }
         self.covered_made += 1;
         self.covered_ms += started.elapsed().as_secs_f32() * 1000.0;
+        (self.covered_stale, self.covered_at) = (false, Some(Instant::now()));
     }
 
     /// One line for the Render page: tiles drawn by size, being made, faces, memory, and how long
@@ -1366,6 +1383,16 @@ pub fn update_far_copies(
                 if land_chunks.contains(&pos) && scale * 2 < asked {
                     break;
                 }
+                // The far land's: a finer tile drawn here kept till twice as far as a coarser one would
+                // do (the march's own levels size it per pixel meanwhile), so flying on doesn't make it
+                // again at each size it passes; finer, so nothing shows coarser [tiles made again at
+                // another size, 60 to 180 every 5 s of flight: step 3, David: "Yes, go ahead"].
+                if land_chunks.contains(&pos) && !drawn {
+                    let finer_drawn = [1, 2, 4].into_iter().filter(|&finer| finer < scale).any(|finer| state.tiles.contains_key(&TileKey::of(pos, finer)));
+                    if finer_drawn && scale > scale_for(key.middle().distance(at.truncate()) / KEEP_FINER, settings.sharpness, fov, height) {
+                        continue;
+                    }
+                }
                 if scale == 1 || scale <= asked {
                     *wanted.entry(key).or_insert(false) |= force;
                     if full_chunks.contains(&pos) {
@@ -1431,10 +1458,6 @@ pub fn update_far_copies(
     });
     let finished = !done.is_empty();
     for (key, made) in done {
-        // A far land's copy made: as long again before the next, so that work takes half a core at most.
-        if state.land.contains(&key) {
-            state.land_rest_until = Some(Instant::now() + std::time::Duration::from_secs_f32(made.ms / 1000.0));
-        }
         state.times.push_back(made.ms);
         if state.times.len() > 64 {
             state.times.pop_front();
@@ -1475,15 +1498,13 @@ pub fn update_far_copies(
     if !state.retiring.is_empty() {
         let drawn = distant.shown();
         let unready = |key: &TileKey| key.chunks().any(|pos| real_chunk(IVec2::new(pos.x - home.x, pos.y - home.y), edge, radius) && !drawn.contains(&pos));
-        let area = |key: &TileKey| {
-            let width = CHUNK_SIZE * key.scale;
-            (key.x * width, key.y * width, width)
-        };
-        let overlap = |a: (i32, i32, i32), b: (i32, i32, i32)| a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.2 && b.1 < a.1 + a.2;
-        let waiting: Vec<(i32, i32, i32)> = state.wanted.keys().filter(|key| !state.tiles.contains_key(key)).map(area).collect();
+        // The chunks of the tiles still to be drawn: a tile overlaps one if they share a chunk (tiles are
+        // whole chunks). Looked up, not each against each [hundreds of each in flight, every frame, as
+        // the far land's copies fell behind: David, "yes" to working the root out].
+        let waiting: HashSet<ChunkPos> = state.wanted.keys().filter(|key| !state.tiles.contains_key(key)).flat_map(|key| key.chunks()).collect();
         let mut done_with = Vec::new();
         state.retiring.retain(|(key, entities, _)| {
-            let still = waiting.iter().any(|&w| overlap(area(key), w)) || unready(key);
+            let still = key.chunks().any(|pos| waiting.contains(&pos)) || unready(key);
             if !still {
                 done_with.extend(entities.iter().copied());
             }
@@ -1494,7 +1515,9 @@ pub fn update_far_copies(
             commands.entity(entity).despawn();
         }
     }
-    if finished || retired {
+    // The cover worked out again at most every `COVERED_EVERY` while copies come and go.
+    state.covered_stale |= finished || retired;
+    if state.covered_stale && state.covered_at.is_none_or(|at| at.elapsed() >= COVERED_EVERY) {
         state.update_covered();
     }
 
@@ -1504,16 +1527,17 @@ pub fn update_far_copies(
     // Twice as many while the real chunks past the line are copied: their meshing, no longer done,
     // left the processor that time.
     let most = if real { MOST_AT_ONCE * 2 } else { MOST_AT_ONCE };
-    // The far land's, one at a time: a few seconds to fill in rather than every core at once [some 2,600
-    // made in two minutes on four, the processor at 103 °C: David, build 50, "it was obviously roasting
-    // the chip"].
+    // The far land's, `LAND_AT_ONCE` at a time, no more: each some 1.5 ms (build 52's), so they keep up
+    // with a flight without every core at once [one at a time with a rest between, they fell behind
+    // the 60 to 110 a second a flight asks, the queue and the tiles waiting to retire growing, and the
+    // work over them with it: David, "yes" to working the root out].
     let mut making_land = state.making.keys().filter(|key| state.land.contains(key)).count();
     while state.making.len() < most {
         let Some(key) = state.queue.pop() else { break };
         if state.tiles.contains_key(&key) || state.making.contains_key(&key) || !state.wanted.contains_key(&key) {
             continue;
         }
-        if state.land.contains(&key) && (making_land >= 1 || state.land_rest_until.is_some_and(|until| Instant::now() < until)) {
+        if state.land.contains(&key) && making_land >= LAND_AT_ONCE {
             not_yet.push(key);
             continue;
         }
