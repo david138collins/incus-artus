@@ -379,6 +379,16 @@ since roads would be a like a special structure that follows a path you mark and
 - **A path** is the marked line: a route in the network, with no blocks of its own.
 - **A road** is a special structure: a path plus a road type. Ordering a road makes its path too.
 
+**A path can go anywhere, and the routes can be seen** (David): "the line could also just be used by
+talented players to just make paths to wherever they wanted, adding an invisible string for his minions
+to follow. it could be used creatively that way. something like a 'routes' overlay in the orthographic
+manager view, and, it could also show the lines that are generated automatically between village
+structures".
+- **A path is an invisible string,** with nothing on the ground needed: a way for players to direct
+  their people, used however they think of.
+- **A "routes" overlay in the orthographic manager view** shows the player's lines and the ones generated
+  automatically between village structures. (The orthographic camera: `vision/watch-list.md`, item 8.)
+
 **Open, for David:**
 - *Counsel's addition, not asked for:* could routes NPCs wear in on their own, walked often and never
   marked, show up as suggestions for the player's line?
