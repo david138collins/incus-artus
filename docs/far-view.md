@@ -924,3 +924,16 @@ them to all look the same."
 - **To see, across the real chunks' edge** (Counsel): the bands going on past it into the far land
   alike; the middle band's heavy stripes gone; no flicker in the bands moving. Not to tune the shades
   (regular lighting moves them). Who drew this: the copies' banded cells keep their sizes' colours.
+
+### Build 43 seen (David, 2026-11-04)
+- The red-brown stripes in the middle distance gone: smooth, with thin lines.
+- "the grey is still there": patches of grey ground, ending on the real chunks' edge, which stayed
+  ahead of him as he came closer (so not the ground's own gravel or stone). Builder's reading, not
+  checked: a copy's cell of 2 or 4 blocks is solid with at least half of it so, and looks like its own
+  surface block or its highest solid one; where the ground's top falls in the lower part of a cell,
+  that cell is air, so the surface (grass) is in no solid cell, and the cell under it shows the stone
+  or dirt below: terraced patches by the ground's height within a cell, at the copies' sizes'
+  distances. Fix proposed, not built: the column's top solid cell looks like the surface in the cell
+  over it, when there is one (`make_copy`).
+- Also seen: brownish see-through "fins" standing along a river's banks near the edge. Not known
+  what draws them; "who drew this" to tell.
