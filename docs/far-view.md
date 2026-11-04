@@ -1079,3 +1079,5 @@ is the one ray a pixel: the speckle and slivers of steps a fraction of a pixel, 
 which the reference's 16 rays average out. So the far land's look now waits on smoothing the pixel,
 not on its recipe (a cheaper way than 16 rays everywhere: more rays only where a pixel's ray meets a
 step's edge, or a few spread over frames). On file, for after the split work.
+"Sides take the slope's light" (David): "turning [it] down to 0 made it noticeably worse, but from
+.75 to 1, the improvement was negligable". Left at 0.75.
