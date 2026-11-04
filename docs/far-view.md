@@ -752,3 +752,20 @@ faintly noisier" if you look very closely (the meshes' textures against the coar
 colours: round 2's, the land's look), "walking around, this is almost unable to be seen". From up
 high "some of the shading behind hills seems a bit heavy. its not in the wrong spot, it just needs to
 be tuned, i think. this is an improvement".
+
+### Build 40: the water past the line, and David's light as the default (David: "go ahead to both")
+- **Squares in the water** (build 39, "the border chunks, and not the ones closer or farther, make
+  squares in the water appear"; "who drew this": all the water the near world's). Past the line the
+  near world still meshes see-through blocks (`meshing::follow_the_line`), so its water lay over the
+  march's own water, not the bed, each copy size a shade of its own: a block a cell (the band just past
+  the line) textured, the coarser flat. Now a copy over a real chunk meshed past the line, inside the
+  render distance, is marked 200 in the `shown` texture (`distant.rs`, `MESHED_WATER_MARK`; the
+  copies' own 160, the real chunks 255), and there the march goes on through water as through air to
+  the bed (`water_drawn_near`), the near world's water drawn over it as inside the line. Past the real
+  chunks the march draws its own water as before. Later, when the march draws see-through water
+  itself, the near world can stop meshing it past the line.
+- **The light's defaults** are David's "ray shading" preset: step shadows 0.10, foot shading 0.22,
+  shade reach 0.5, sides take the slope's light 0.75, step shade reaches at most 17, softness 0, sky
+  1.1 (`light.rs`), and `presets/render/default.toml` is that preset (the old one kept as
+  `default-before-rayshading`). The rest of the code's own defaults (render distance 32, the line at
+  64, fog on) are as they were; the default preset sets 64, 8 and fog off.

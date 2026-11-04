@@ -102,9 +102,10 @@ impl Default for LightSettings {
             on: true,
             sun_from: 315.0,
             sun_height: 40.0,
-            softness: 3.0,
+            // David's "ray shading" preset (2026-11-04, build 39: "looks better ... a bit smoother").
+            softness: 0.0,
             shadows: 0.45,
-            sky: 2.0,
+            sky: 1.1,
             sky_reach: 3_000.0,
             relief: 0.5,
             relief_reach: 2_000.0,
@@ -112,11 +113,11 @@ impl Default for LightSettings {
             near: true,
             near_detail: 2.0,
             broad_reach: 32.0,
-            foot_shading: 0.2,
-            step_shadows: 0.45,
-            shade_reach: 4.0,
-            side_shading: 0.5,
-            step_reach: 16.0,
+            foot_shading: 0.22,
+            step_shadows: 0.1,
+            shade_reach: 0.5,
+            side_shading: 0.75,
+            step_reach: 17.0,
         }
     }
 }

@@ -261,6 +261,18 @@ fn drawn_near(at: vec2<f32>) -> bool {
     return all(pixel >= vec2<i32>(0)) && all(pixel < size) && textureLoad(shown, pixel, 0).r > least;
 }
 
+// Whether the near world draws this spot's water (a real chunk past the line, its see-through blocks
+// meshed: marked 200, distant.rs `MESHED_WATER_MARK`): the march goes on through it to the bed.
+fn water_drawn_near(at: vec2<f32>) -> bool {
+    let size = vec2<i32>(textureDimensions(shown));
+    let pixel = vec2<i32>(floor(at / 32.0)) - vec2<i32>(settings.shown_centre.xy) + size / 2;
+    if !(all(pixel >= vec2<i32>(0)) && all(pixel < size)) {
+        return false;
+    }
+    let mark = textureLoad(shown, pixel, 0).r;
+    return mark > 0.7 && mark < 0.9;
+}
+
 const MAP: i32 = 256;
 // A copy's record: 8 numbers, its 16 pages, its columns' highest (512, two a number) and its 4 x 4
 // groups' (32): march.rs, `COPY_RECORD`.
@@ -998,6 +1010,14 @@ fn fragment(in: VertexOutput) -> Output {
                 value = level_cell(u32(record), level, at_level);
             }
             let out = leave_box(t, local, rate, vec3<f32>(at_level) * size, (vec3<f32>(at_level) + 1.0) * size);
+            // Water the near world draws itself (see-through, past the line): on through it as
+            // through air, the air's light kept, to the bed, which the water's drawn over as inside
+            // the line. [Drawn as the march's own water under it, each copy size a shade of its own:
+            // David, build 39, "the border chunks ... make squares in the water appear".]
+            if ((value >> 12u) & 3u) == 2u && water_drawn_near(p.xy) {
+                t = out.x + nudge;
+                continue;
+            }
             if ((value >> 12u) & 3u) != 0u {
                 // In the ground: gone in under the near world.
                 if !was_above || drawn_near(p.xy) {

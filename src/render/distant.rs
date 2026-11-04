@@ -60,6 +60,10 @@ pub(super) const SHOWN_SIZE: i32 = 256;
 /// How a chunk the far copies draw is marked in that texture (a real chunk is 255; both are more
 /// than half, which is all the sheet asks).
 const COPY_MARK: u8 = 160;
+/// A far copy's chunk that's a real chunk past the line, its see-through blocks meshed
+/// (`meshing::follow_the_line`): the march goes through its water to the bed, the near world's water
+/// drawn over it, as inside the line [David, build 39: squares in the water, the line's chunks only].
+const MESHED_WATER_MARK: u8 = 200;
 
 /// Tunables (on the "Render" debug page, saved in "everything" presets).
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -922,7 +926,10 @@ pub fn update_shown_chunks(
     for pos in copies.covered() {
         let offset = IVec2::new(pos.x, pos.y) - centre;
         if offset.x.abs() < half && offset.y.abs() < half {
-            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = COPY_MARK;
+            // Where the near world draws its water (`apply_render_distance`: a chunk meshed past the
+            // line, inside the render distance).
+            let water = meshing.meshed_past.get(pos) == Some(&true) && offset.x.abs().max(offset.y.abs()) <= render.render_distance_chunks;
+            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = if water { MESHED_WATER_MARK } else { COPY_MARK };
         }
     }
     // The square round the camera's chunk wholly marked as real: the march starts its rays at its edge.
