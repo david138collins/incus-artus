@@ -1159,3 +1159,20 @@ doing something now. but it's subtle." The sand's dark dots gone. Left, seen in 
 peak's coarser copies still dark-specked on white (on file: likely the sides, which keep their one
 block's texture, on ground steep enough that sides are much of what's seen; their average is the
 next to try if it's wanted). The smoothing's cost to measure next.
+
+### Build 49: the snowy peak close, and the smoothing's cost (David, 2026-11-04)
+- **The peak**: close in, the real blocks are "pretty rocky, with like some 4 block stacks of stone
+  exposed. so i think the right hand side, where it's detailed, is pretty accurate, it's just the seam
+  to smooth that bothers": the specks are true; the seam is the real chunks' edge into the far land's
+  smooth surface (round 2's, then the far land sized per pixel).
+- **Cost, uncapped, floating over mountains**: smoothing on, 105 frames a second, the graphics card
+  9.06 ms of a 9.51 ms frame ("the CPU is very cool but the framerate is low ... it also took longer
+  than i expected to stabilize"); off, 200 a second, 4.97 ms of 5.00. So the 4 extra rays about double
+  the card's time for a subtle change: too dear as built. Why: they're whole rays from the camera, and
+  "a cell under about 3 pixels" sends most of the middle distance their way.
+- **Cheaper, proposed**: the extra rays start a little short of where the pixel's own ray met the
+  ground (a few cells back, so a step in front isn't missed), not from the camera; and only on pixels
+  truly near an edge (drop the "under 3 pixels" rule, or make it 1.5). Option 2 (spread over frames)
+  still open. Measure again the same way.
+- In a capped flight it "stayed cool, until it didn't": the processor warming in flight (copies made
+  as you go), as before.
