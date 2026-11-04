@@ -702,11 +702,12 @@ fn cones_at(uv: vec2<f32>) -> vec2<f32> {
 
 // How lit a spot on the ground is, as the meshes light it (terrain.wesl's `ground_light`, the sums
 // lighting.wesl's `ground_lit`): the light map, the window of the ground round you and its cone map,
-// read here. `world_position` as drawn (Bevy's axes, from the floating origin). `steps`: whether the
-// feet of steps are shaded (not on a coarser copy's cells: a 2- or 4-block cell's top can stand a block
-// or more off the ground's own, and the cone map is block-accurate, so whole tops came out dark:
-// David, build 36, "i think you're right").
-fn near_ground_light(world_position: vec3<f32>, face: u32, steps: bool) -> f32 {
+// read here. `world_position` as drawn (Bevy's axes, from the floating origin). `size`: the cell's, in
+// blocks. A coarser cell's top can stand up to its size less a block off the ground's own, and the cone
+// map is block-accurate, so a top less than that below the cones isn't darkened (build 36's dark tops:
+// David, "i think you're right"), the deeper kept: a hill's shadow carries on past the line (build 38,
+// David: with the step shadows and foot shading at 0, "pretty much seamless").
+fn near_ground_light(world_position: vec3<f32>, face: u32, size: f32) -> f32 {
     let north = -world_position.z + lighting.origin.x;
     let east = world_position.x + lighting.origin.y;
     let up = world_position.y;
@@ -723,13 +724,9 @@ fn near_ground_light(world_position: vec3<f32>, face: u32, steps: bool) -> f32 {
         if !(all(uv >= vec2<f32>(0.0)) && all(uv <= vec2<f32>(1.0))) {
             near.a = 0.0;
         }
-        if near.a > 0.5 && face == 4u && steps {
-            cones = cones_at(uv);
+        if near.a > 0.5 && face == 4u {
+            cones = cones_at(uv) - (size - 1.0);
         }
-    }
-    // Without the cone map, no top is below it: no shade at the feet of steps.
-    if !steps {
-        cones = vec2<f32>(-1.0e9);
     }
     return ground_lit(map_light, near, cones, face, up, lighting.sun, lighting.hill, lighting.shade, lighting.sides);
 }
@@ -810,16 +807,16 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: 
     if settings.view.x > 0.5 {
         colour = vec3<f32>(0.55, 0.95, 0.6);
     }
-    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, scale == 1u);
+    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, f32(scale));
     return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
 }
 
 // A whole copy's coarser cell a ray met (sizes per ray: `level` 1 to 3; `value`, `local`, `rate` in
 // that level's cells), shaded as the meshes shade a block but in its block's flat colours (the top's
 // on its top, the side's on the rest: the textures' averages, as the far land's), by the face shade,
-// the ground light (no shade at the feet of steps: its top stands off the ground's own) and the light
-// underground. "Who drew this" shows its size: yellow, orange, red.
-fn copy_flat(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, world_position: vec3<f32>, daylight: f32, glow: vec3<f32>) -> vec3<f32> {
+// the ground light (the feet of steps less its `size` in blocks: its top stands off the ground's own)
+// and the light underground. "Who drew this" shows its size: yellow, orange, red.
+fn copy_flat(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, size: f32, world_position: vec3<f32>, daylight: f32, glow: vec3<f32>) -> vec3<f32> {
     let into = local - floor(local);
     let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
     var axis = 2u;
@@ -840,7 +837,7 @@ fn copy_flat(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, world_po
     if settings.view.x > 0.5 {
         colour = select(select(vec3<f32>(1.0, 0.35, 0.3), vec3<f32>(1.0, 0.65, 0.3), level == 2u), vec3<f32>(0.95, 0.9, 0.4), level == 1u);
     }
-    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, false);
+    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, size);
     return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
 }
 
@@ -1192,7 +1189,8 @@ fn fragment(in: VertexOutput) -> Output {
     let glows = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
     if hit_copy && hit_level > 0u && march.copies.y > 0.5 {
         // A coarser cell (sizes per ray), in its block's flat colours, shaded by the one recipe.
-        colour = copy_flat(hit_value, hit_local, hit_rate, hit_level, world_position, f32(last_light) / 15.0, glows);
+        let size = f32(copy_records[hit_record * COPY_RECORD + 3u] << hit_level);
+        colour = copy_flat(hit_value, hit_local, hit_rate, hit_level, size, world_position, f32(last_light) / 15.0, glows);
         lit = true;
     } else if hit_copy && hit_level > 0u {
         // A coarser cell, as build 35's march coloured a copy's blocks (lit below).

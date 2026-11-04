@@ -737,3 +737,11 @@ colours; round 2 the land's look toward a pixel a block.
 - **Proposed fix, not built**: both shadings back on the coarser cells, leaving out any darkening less
   than the cell's own size (how far its top can stand off the true ground: build 37's dark tops),
   keeping the deeper (a hill's shadow), so the shadow carries on past the line.
+
+### Build 39: the shadows carry on past the line (David: "go ahead")
+Both shadings back on every march cell: a top is darkened only by how far it's below the cones less
+its cell's size less a block (`near_ground_light`'s `size`: 1 a block a cell, the copy's size times
+2, 4 or 8 for the coarser), so a block a cell is shaded exactly as the meshes, and a coarser cell
+keeps a hill's shadow but not the block or so its top can stand off the ground. To see: the step
+shadows and foot shading back up, the patches behind hills going on past the line without the
+sawtooth, and no dark tops on the far cells (build 36's).
