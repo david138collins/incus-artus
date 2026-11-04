@@ -125,6 +125,9 @@ struct MarchedCopy {
     /// Its columns' and groups' highest (`column_tops`), as sent: the tests' twin of the shader reads them.
     #[cfg_attr(not(test), allow(dead_code))]
     tops: (Vec<u32>, Vec<u32>),
+    /// Its coarser levels went with it (sizes per ray).
+    #[cfg_attr(not(test), allow(dead_code))]
+    levels: bool,
 }
 
 /// Parts of the lists to write on the graphics card, handed from the game to Bevy's drawing side
@@ -347,7 +350,11 @@ impl MarchState {
             if self.copies.drawn.contains_key(key) {
                 continue;
             }
-            let pages = (cells.tall as usize).div_ceil(COPY_CELLS as usize);
+            // Its cells, then its coarser levels (sizes per ray) straight after them, if they fit in its
+            // pages too (a copy too tall for them is drawn at its own size).
+            let own = cells.cells.len();
+            let levels = !cells.levels.is_empty() && (own + cells.levels.len()).div_ceil(PAGE) <= COPY_PAGES;
+            let pages = if levels { (own + cells.levels.len()).div_ceil(PAGE) } else { (cells.tall as usize).div_ceil(COPY_CELLS as usize) };
             if pages > COPY_PAGES || pages > self.copies.free_pages.len() || self.copies.free_records.is_empty() {
                 self.copies.short += 1;
                 self.copies.left_out += 1;
@@ -359,11 +366,16 @@ impl MarchState {
             let taken: Vec<u32> = (0..pages).filter_map(|_| self.copies.free_pages.pop()).collect();
             let record = self.copies.free_records.pop().unwrap_or(0);
             for (k, &page) in taken.iter().enumerate() {
-                let span = k * PAGE..((k + 1) * PAGE).min(cells.cells.len());
-                self.queue(&self.copies.cells_buffer, page as usize * PAGE * 4, bytes_of(&cells.cells[span], u32::to_le_bytes));
+                let span = k * PAGE..(k + 1) * PAGE;
+                let numbers: Vec<u32> = if levels {
+                    cells.cells.iter().chain(cells.levels.iter()).skip(span.start).take(PAGE).copied().collect()
+                } else {
+                    cells.cells[span.start.min(own)..span.end.min(own)].to_vec()
+                };
+                self.queue(&self.copies.cells_buffer, page as usize * PAGE * 4, bytes_of(&numbers, u32::to_le_bytes));
             }
             let mut numbers = [0u32; COPY_RECORD];
-            numbers[..7].copy_from_slice(&[cells.corner.x as u32, cells.corner.y as u32, cells.corner.z as u32, cells.scale as u32, cells.tall as u32, pages as u32, cells.full as u32]);
+            numbers[..8].copy_from_slice(&[cells.corner.x as u32, cells.corner.y as u32, cells.corner.z as u32, cells.scale as u32, cells.tall as u32, pages as u32, cells.full as u32, levels as u32]);
             numbers[8..8 + pages].copy_from_slice(&taken);
             let (columns, groups) = column_tops(cells);
             for (k, pair) in columns.chunks(2).enumerate() {
@@ -375,7 +387,7 @@ impl MarchState {
             self.queue(&self.copies.records_buffer, record as usize * COPY_RECORD * 4, bytes_of(&numbers, u32::to_le_bytes));
             let width = COPY_CELLS * cells.scale;
             let footprint = (cells.corner.truncate(), cells.corner.truncate() + IVec2::splat(width), (cells.corner.z + cells.tall * cells.scale) as f32);
-            self.copies.drawn.insert(*key, MarchedCopy { cells: cells.clone(), record, pages: taken, footprint, tops: (columns, groups) });
+            self.copies.drawn.insert(*key, MarchedCopy { cells: cells.clone(), record, pages: taken, footprint, tops: (columns, groups), levels });
             self.copies.map_stale = true;
             // The ring tiles under it: their highest land raised over it.
             for slot in 0..self.slots.len() / 4 {
@@ -484,6 +496,14 @@ impl MarchState {
     /// met it there, between them.
     #[cfg(test)]
     fn march_ray(&self, finest: f32, origin: Vec3, ray: Vec3, start: f32, most: u32, drawn_near: impl Fn(Vec2) -> bool) -> Option<f32> {
+        self.march_ray_sized(finest, origin, ray, start, most, drawn_near, None).map(|(t, _)| t)
+    }
+
+    /// `march_ray`, with sizes per ray (`sizing`; `None` off), and the far copy's cell it met, if it
+    /// met one.
+    #[cfg(test)]
+    #[allow(clippy::too_many_arguments)]
+    fn march_ray_sized(&self, finest: f32, origin: Vec3, ray: Vec3, start: f32, most: u32, drawn_near: impl Fn(Vec2) -> bool, sizing: Option<Sizing>) -> Option<(f32, Option<CopyHit>)> {
         let camera = origin.truncate();
         let mut t = start;
         // Whether the ray was above the land where the last step left it (not known at the start:
@@ -508,8 +528,13 @@ impl MarchState {
                     t = exit + nudge;
                     continue;
                 }
-                let value = copy_cell(cells, c);
-                let (exit, axis) = leave_box(t, local, rate, c.as_vec3(), c.as_vec3() + 1.0);
+                // The cell at the size wanted there (sizes per ray), and where the ray leaves it.
+                let level = sized_level(copy, sizing, origin, c, t);
+                let size = (1 << level) as f32;
+                let at_level = c >> level as i32;
+                let value = if level == 0 { copy_cell(cells, c) } else { level_cell(cells, level, at_level) };
+                let (low, high) = (at_level.as_vec3() * size, (at_level.as_vec3() + 1.0) * size);
+                let (exit, axis) = leave_box(t, local, rate, low, high);
                 if (value >> 12) & 3 != 0 {
                     if !was_above || drawn_near(p.truncate()) {
                         return None;
@@ -523,9 +548,25 @@ impl MarchState {
                         }
                         at = at.max(t);
                     }
-                    return Some(at);
+                    return Some((at, Some(CopyHit { level, local: local / size, rate: rate / size, low: low / size })));
                 }
                 was_above = true;
+                // Where it might draw coarser cells: past everything solid in its square of 8 × 8
+                // columns, rounded up to a coarsest cell, in one step (the shader's `coarse_top`).
+                if may_be_coarse(copy, sizing, origin) {
+                    let square = IVec2::new(c.x, c.y) / 8;
+                    let groups = &copy.tops.1;
+                    let g = square * 2;
+                    let top = [(0, 0), (1, 0), (0, 1), (1, 1)].iter().map(|&(dx, dy)| groups[((g.y + dy) * 8 + g.x + dx) as usize]).max().unwrap_or(0);
+                    let square_top = (top as f32 / 8.0).ceil() * 8.0;
+                    if c.z as f32 >= square_top {
+                        let (past, _) = leave_box(t, local, rate, (square * 8).as_vec2().extend(square_top), (square * 8 + 8).as_vec2().extend(1.0e9));
+                        t = past + nudge;
+                        continue;
+                    }
+                    t = exit + nudge;
+                    continue;
+                }
                 // Above every block in its group of 4 × 4 columns, or in its column: past them in one step.
                 let (columns, groups) = &copy.tops;
                 let group = IVec2::new(c.x, c.y) / 4;
@@ -592,7 +633,7 @@ impl MarchState {
             let under = surface(u, v);
             // Above the land leaving the last step and under it here: it met the land in between.
             if was_above && p.z < under && !drawn_near(p.truncate()) {
-                return Some(t);
+                return Some((t, None));
             }
             // Each triangle's plane: height = h0 + gu u + gv v; and which half of the cell it covers
             // (with a hair either side, where the two planes are the same height anyway).
@@ -610,7 +651,7 @@ impl MarchState {
                 }
             }
             if hit < f32::MAX && !drawn_near((origin + ray * hit).truncate()) {
-                return Some(hit);
+                return Some((hit, None));
             }
             // Deep under the land: gone in under the near world.
             let deep = if drawn_near(p.truncate()) { (4.0 * cell).max(64.0) } else { (2.0 * cell).max(16.0) };
@@ -669,6 +710,115 @@ impl MarchState {
             }
         }
         if nearest < f32::MAX { nearest } else { -1.0 }
+    }
+}
+
+/// Sizes per ray, for the twin (the shader's `march.copies.z` and `pixel_width`): about how many
+/// pixels across a far cell is drawn, and how wide a pixel is one block from the camera.
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+struct Sizing {
+    pixels: f32,
+    pixel: f32,
+}
+
+/// The far copy's cell a ray met: its level (0 its own size), and where the ray was in that level's
+/// cells, how fast that changes, and the cell's least corner (in them).
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+struct CopyHit {
+    level: u32,
+    local: Vec3,
+    rate: Vec3,
+    low: Vec3,
+}
+
+/// The shader's `level_cell`: a whole copy's cell at a coarser `level`, `c` in that level's cells.
+#[cfg(test)]
+fn level_cell(cells: &CopyCells, level: u32, c: IVec3) -> u32 {
+    let tall1 = (cells.tall + 1) / 2;
+    let tall2 = (tall1 + 1) / 2;
+    let tall3 = (tall2 + 1) / 2;
+    let (high, side, start) = match level {
+        1 => (tall1, 16, 0),
+        2 => (tall2, 8, 256 * tall1),
+        _ => (tall3, 4, 256 * tall1 + 64 * tall2),
+    };
+    if c.z < 0 {
+        return super::far_copies::CELL_SOLID;
+    }
+    if c.z >= high {
+        return 15 << 16;
+    }
+    cells.levels[(start + (c.z * side + c.y) * side + c.x) as usize]
+}
+
+/// lighting.wesl's `block_hash`.
+#[cfg(test)]
+fn block_hash(p: IVec3, face: u32) -> u32 {
+    let mut h = (p.x as u32).wrapping_mul(73856093) ^ (p.y as u32).wrapping_mul(19349663) ^ (p.z as u32).wrapping_mul(83492791) ^ face.wrapping_mul(2654435761);
+    h ^= h >> 16;
+    h = h.wrapping_mul(0x7feb352d);
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x846ca68b);
+    h ^= h >> 16;
+    h
+}
+
+/// The shader's `sized_level`: the level a copy's cell `c` is drawn at, the camera at `origin`, the ray
+/// `t` from it.
+#[cfg(test)]
+fn sized_level(copy: &MarchedCopy, sizing: Option<Sizing>, origin: Vec3, c: IVec3, t: f32) -> u32 {
+    let Some(Sizing { pixels, pixel }) = sizing else { return 0 };
+    if !copy.levels || c.z < 0 {
+        return 0;
+    }
+    let scale = copy.cells.scale as f32;
+    if (pixels * pixel * (t + 7.0 * scale) / scale).log2() < 0.0 {
+        return 0;
+    }
+    let from_eye = copy.cells.corner.as_vec3() - origin;
+    for level in [3u32, 2, 1] {
+        let at = c >> level as i32;
+        let size = (1 << level) as f32 * scale;
+        let middle = from_eye + (at.as_vec3() + 0.5) * size;
+        let wanted = (pixels * pixel * middle.length() / scale).log2();
+        let here = copy.cells.corner + at * size as i32;
+        let chance = (block_hash(here, level) >> 8) as f32 / 16_777_216.0;
+        if wanted >= level as f32 - 1.0 + chance {
+            return level;
+        }
+    }
+    0
+}
+
+/// The shader's `may_be_coarse`: whether any of a copy might be drawn coarser than its own cells.
+#[cfg(test)]
+fn may_be_coarse(copy: &MarchedCopy, sizing: Option<Sizing>, origin: Vec3) -> bool {
+    let Some(Sizing { pixels, pixel }) = sizing else { return false };
+    if !copy.levels {
+        return false;
+    }
+    let scale = copy.cells.scale as f32;
+    let low = copy.cells.corner.as_vec3() - origin;
+    let high = low + Vec3::new(32.0, 32.0, copy.cells.tall as f32) * scale;
+    (pixels * pixel * low.abs().max(high.abs()).length() / scale).log2() >= 0.0
+}
+
+/// The shader's choice of the face a ray met a cell by (`copy_shaded`, `copy_flat`): the one it
+/// crossed last (0 north-south, 1 east-west, 2 up-down), from where it is in the cell and how fast
+/// that changes.
+#[cfg(test)]
+fn entered_axis(local: Vec3, rate: Vec3) -> usize {
+    let since = |into: f32, rate: f32| if rate.abs() < 1e-9 { 1.0e9 } else if rate > 0.0 { into / rate.abs() } else { (1.0 - into) / rate.abs() };
+    let into = local - local.floor();
+    let s = [since(into.x, rate.x), since(into.y, rate.y), since(into.z, rate.z)];
+    if s[0] < s[1] && s[0] < s[2] {
+        0
+    } else if s[1] < s[2] {
+        1
+    } else {
+        2
     }
 }
 
@@ -778,7 +928,8 @@ pub struct MarchShaderSettings {
     /// x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes.
     pub grid: Vec4,
     /// The far copies: x 1 if the march draws them, y 1 if its whole copies are shaded as the meshes
-    /// are (`FarCopySettings::shaded`).
+    /// are (`FarCopySettings::shaded`), z how many pixels a far cell is drawn across before a coarser level
+    /// is (`FarCopySettings::pixels`; 0: sizes per ray off).
     pub copies: Vec4,
     /// The square of real chunks the rays start at the edge of (game axes, blocks): its least x and
     /// y, its greatest x and y; all 0 if there's none.
@@ -954,7 +1105,7 @@ pub fn update_march(
     });
     let march = MarchShaderSettings {
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
-        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, 0.0, 0.0),
+        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, 0.0),
         inner,
     };
     let unchanged = materials.get(&handle).is_some_and(|material| {
@@ -1237,7 +1388,7 @@ mod tests {
         let slot = MarchState::slot(TileKey { ring: 0, x: 0, y: 0 });
         assert_eq!(state.tops[slot * TOPS + TILE_TOP], 50.0);
         // A copy of one chunk at (64, 64), 40 cells of a block from 40 high: its top is 80.
-        let cells = Arc::new(CopyCells { corner: IVec3::new(64, 64, 40), scale: 1, tall: 40, full: false, cells: vec![0; 32 * 32 * 40] });
+        let cells = Arc::new(CopyCells { corner: IVec3::new(64, 64, 40), scale: 1, tall: 40, full: false, cells: vec![0; 32 * 32 * 40], levels: Vec::new() });
         let key = CopyKey { scale: 1, x: 2, y: 2 };
         state.follow_copies(vec![(key, cells.clone())], true);
         assert_eq!(state.copies.drawn.len(), 1);
@@ -1251,7 +1402,7 @@ mod tests {
         state.store(TileKey { ring: 0, x: 0, y: 0 }, Some(&tile));
         assert_eq!(state.tops[slot * TOPS + 4 + 1], 80.0);
         // One far too tall is left to the land.
-        let tall = Arc::new(CopyCells { corner: IVec3::ZERO, scale: 1, tall: 600, full: false, cells: vec![0; 32 * 32 * 600] });
+        let tall = Arc::new(CopyCells { corner: IVec3::ZERO, scale: 1, tall: 600, full: false, cells: vec![0; 32 * 32 * 600], levels: Vec::new() });
         state.follow_copies(vec![(key, cells), (CopyKey { scale: 1, x: 0, y: 0 }, tall)], true);
         assert_eq!(state.copies.drawn.len(), 1);
         // Off: all let go, and their pages free again.
@@ -1403,5 +1554,134 @@ mod one_recipe {
                 assert_eq!(normals[face][axis], -going, "a ray going {going} along axis {axis} meets face {face}");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod sizes_per_ray {
+    use super::*;
+    use crate::world::{CavePlan, CompiledMap, TerrainBlocks};
+    use super::super::far_copies::{CELL_SOLID, copy_levels};
+    use super::super::placed_light::pack;
+
+    #[test]
+    fn a_coarser_cell_is_the_eight_it_covers() {
+        // 32 × 32 × 4 cells of open air in full daylight, but for the first two coarse cells' eight.
+        let tall = 4;
+        let mut cells = vec![15u32 << 16; 32 * 32 * tall];
+        let at = |x: usize, y: usize, z: usize| x + y * 32 + z * 1024;
+        // The first: half of it solid (at the share, 0.5), its highest solid one a different block.
+        for &(x, y) in &[(0, 0), (1, 0), (0, 1)] {
+            cells[at(x, y, 0)] = 7 | CELL_SOLID;
+        }
+        cells[at(1, 1, 1)] = 9 | CELL_SOLID;
+        // The second: three of eight solid, so air; of its air two lit and three dark, with two
+        // braziers' light in it.
+        for &(x, y, z) in &[(2, 0, 0), (3, 0, 0), (2, 1, 0)] {
+            cells[at(x, y, z)] = 7 | CELL_SOLID;
+        }
+        cells[at(3, 1, 0)] = 15 << 16 | (pack([3, 0, 7]) as u32) << 20;
+        cells[at(2, 0, 1)] = 15 << 16 | (pack([5, 1, 0]) as u32) << 20;
+        cells[at(3, 0, 1)] = 0;
+        cells[at(2, 1, 1)] = 0;
+        cells[at(3, 1, 1)] = 0;
+        let levels = copy_levels(&cells, tall as i32, 0.5);
+        // Level 1 is 16 × 16 × 2, level 2 8 × 8 × 1, level 3 4 × 4 × 1.
+        assert_eq!(levels.len(), 16 * 16 * 2 + 8 * 8 + 4 * 4);
+        assert_eq!(levels[0], 9 | CELL_SOLID, "half solid is solid, the block of its highest");
+        // As bright on average as its air: two of five lit, eased, then back.
+        let daylight = ((2.0f32 / 5.0).sqrt() * 15.0).round() as u32;
+        assert_eq!(levels[1], daylight << 16 | (pack([5, 1, 7]) as u32) << 20, "air, its daylight averaged and its braziers' brightest");
+        // Open air stays open.
+        assert_eq!(levels[2], 15 << 16);
+    }
+
+    #[test]
+    fn with_sizes_per_ray_no_ray_goes_through_the_rock_and_each_meets_the_face_it_came_in_through() {
+        // The copied cave's ground (`no_ray_goes_through_the_rock_round_a_copied_cave`), copied whole
+        // at 1 and 2 blocks a cell, drawn at sizes from a block a cell to 8 or 16 (as far off, or with
+        // the pixelization turned up): a grid of rays skimming the slope at the mouth from 250 blocks
+        // downhill, where the sizes change from one cell to the next. A ray the long steps let
+        // through, or past a spot a slow search finds it in a solid cell of the size drawn there,
+        // went through the rock; a ray that met a cell must be on the face it chose (no specks).
+        use crate::world::TestCaveSettings;
+        let width = 64;
+        let heights: Vec<f32> = (0..width * width).map(|k| (230.0 + ((k / width) as f32 - 32.0) * 3.0 + ((k % width) as f32 - 32.0) * 12.0).clamp(140.0, 330.0)).collect();
+        let map = CompiledMap::of_heights(width, 32.0, &heights);
+        let ground = |x: i32, y: i32| map.column(x, y).unwrap().0 as f32;
+        let uphill = Vec2::new(ground(23, 20) - ground(17, 20), ground(20, 23) - ground(20, 17)).normalize();
+        let mouth = Vec3::new(20.5 - uphill.x, 20.5 - uphill.y, ground(20, 20) + 1.0 + 2.0 * 0.6);
+        let tunnel = TestCaveSettings::default().tunnel(mouth, uphill, 3);
+        let registry = crate::data::BlockRegistry::default();
+        let blocks = TerrainBlocks::from_registry(&registry);
+        let palette = super::super::distant::Palette::from_textures(&registry, &blocks);
+        let back = (mouth.truncate() - uphill * 250.0).as_ivec2();
+        let camera = Vec3::new(back.x as f32, back.y as f32, ground(back.x, back.y).max(mouth.z) + 40.0);
+        let cells_of = |key: CopyKey| super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![tunnel.clone()]), true).expect("the cave shows");
+        let (one, two) = (CopyKey { scale: 1, x: 0, y: 0 }, CopyKey { scale: 2, x: 0, y: 0 });
+        let mut slipped = Vec::new();
+        let mut off_face = Vec::new();
+        let mut levels_met = [0usize; 4];
+        for layout in [vec![one], vec![two], vec![two, one]] {
+            for pixel in [0.002f32, 0.006, 0.02, 0.06] {
+                let sizing = Some(Sizing { pixels: 2.0, pixel });
+                let mut state = MarchState::default();
+                state.follow(1, 2, 16);
+                for ring_key in super::super::distant::wanted_tiles(camera, 16, 2) {
+                    state.store(ring_key, super::super::distant::tile_mesh(&map, &blocks, &palette, ring_key, 16).as_ref());
+                }
+                state.follow_copies(layout.iter().map(|&key| (key, cells_of(key))).collect(), true);
+                assert!(state.copies.drawn.values().all(|copy| copy.levels), "whole copies keep their levels");
+                let toward = (mouth - camera).normalize();
+                let right = toward.cross(Vec3::Z).normalize();
+                let up = right.cross(toward);
+                // Where a slow search first finds the ray in a solid cell of the size drawn there.
+                let in_rock = |ray: Vec3| {
+                    let mut t = 0.0f32;
+                    while t < 700.0 {
+                        let p = camera + ray * t;
+                        let land = state.height_at(16.0, camera.truncate(), p.truncate());
+                        let rock = match state.copy_at(p.truncate()) {
+                            Some(copy) => {
+                                let c = ((p - copy.cells.corner.as_vec3()) / copy.cells.scale as f32).floor().as_ivec3().clamp(IVec3::new(0, 0, -1), IVec3::new(31, 31, copy.cells.tall));
+                                let level = if c.z >= copy.cells.tall { 0 } else { sized_level(copy, sizing, camera, c, t) };
+                                let value = if level == 0 { copy_cell(&copy.cells, c) } else { level_cell(&copy.cells, level, c >> level as i32) };
+                                (value >> 12) & 3 == 1
+                            }
+                            None => land.is_some_and(|h| p.z < h - 0.5),
+                        };
+                        if rock {
+                            return Some(t);
+                        }
+                        t += 0.05;
+                    }
+                    None
+                };
+                for a in -12..=12 {
+                    for b in -12..=12 {
+                        let ray = (toward + right * a as f32 * 0.004 + up * b as f32 * 0.004).normalize();
+                        let fast = state.march_ray_sized(16.0, camera, ray, 0.0, 200, |_| false, sizing);
+                        if let Some(rock) = in_rock(ray)
+                            && fast.is_none_or(|(hit, _)| hit > rock + 1.0)
+                        {
+                            slipped.push((layout.len(), layout[0].scale, pixel, a, b, rock, fast.map(|(t, _)| t)));
+                        }
+                        if let Some((_, Some(hit))) = fast {
+                            levels_met[hit.level as usize] += 1;
+                            let axis = entered_axis(hit.local, hit.rate);
+                            let face = if hit.rate[axis] > 0.0 { hit.low[axis] } else { hit.low[axis] + 1.0 };
+                            // (A hair past it is the nudge into the next step: the land's, coming into
+                            // a copy from beside it, is a thousandth of its 16-block cell.)
+                            if (hit.local[axis] - face).abs() > 0.02 {
+                                off_face.push((layout[0].scale, pixel, a, b, hit.level, axis, hit.local, hit.low));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(slipped.is_empty(), "{} rays through the rock (copies, first one's scale, pixel, across, up, rock at, met at): {:?}", slipped.len(), &slipped[..slipped.len().min(8)]);
+        assert!(off_face.is_empty(), "{} rays met a cell off the face chosen (scale, pixel, across, up, level, axis, where, cell): {:?}", off_face.len(), &off_face[..off_face.len().min(8)]);
+        assert!(levels_met.iter().all(|&n| n > 0), "every size was drawn somewhere: {levels_met:?}");
     }
 }

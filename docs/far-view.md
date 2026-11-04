@@ -684,3 +684,39 @@ window of the ground round you takes its slope and height from the recipe, not t
 land that's been dug or built on, the meshes' and the march's ground light (the lie of the land, the
 height tint, the feet of steps) would follow the ground as it was made, not as it is. Not acted on
 until David sees it; sizes per ray should take its slope from the copy's own column tops instead.
+
+## Sizes per ray, round 1 (build 38)
+David (by Counsel, 2026-11-04): "i like sizes by ray idea ... sizing rays fits our philosophy. yes,
+choosing when cheap is always a good idea. a slider for the pixelization rate of terrain as it
+becomes more distant is a good idea too", and "go ahead with round one". Counsel's seven points
+taken in (`vision/proposal-voxel-renderer.md`). Round 1 is the sizes and their picking, in flat
+colours; round 2 the land's look toward a pixel a block.
+- **The levels** (`far_copies.rs`, `copy_levels`): each whole copy keeps its cells 2, 4 and 8 to a
+  side as one, each made from the eight finer below it: solid if at least the share of them is (the
+  block of its highest: the surface), else water if as much is water as air, else air, its daylight
+  as bright as its air's on average (averaged eased, so squaring it again doesn't darken it) and the
+  brightest placed light in it (a far brazier isn't averaged away). About a seventh more room, in the
+  copy's own pages after its cells (a copy too tall for 16 pages is drawn at its own size). A whole
+  copy's bottom is a whole number of its coarsest cells up, so its coarser cells line up with its
+  neighbours'.
+- **The picking** (`march.wesl`, `sized_level`): each spot in a whole copy is drawn at the level whose
+  cells are about "pixelization" pixels across there. A level's cell is used if the level wanted at
+  its middle is past the one below by more than its own "random" number (from where it is): the
+  change from one size to the next goes a cell at a time, the same for every ray, each cell changing
+  once as you come near; fixed by the world, so a ray comes into a cell only through one of its faces.
+  Never finer than the copy keeps. Where a copy might be drawn coarser, rays go past open air a square
+  of 8 × 8 columns at a time, over everything solid in it rounded up to a coarsest cell (a coarser
+  cell can stand above its own columns' highest, so the columns' own steps could pass through it).
+- **The look**: a block a cell as build 37 (textured, the one recipe); coarser cells in their block's
+  flat colours (the top's on the top, the side's on the rest), by the same recipe without the feet of
+  steps (`copy_flat`). "Who drew this": green a block a cell, then yellow, orange, red.
+- **Controls** (Render page, under "the march shaded as the meshes"): "far cells sized per pixel
+  (new)", off for build 37's way; "pixelization (pixels a far cell)", 1 to 8, default 2 (higher is
+  blockier further off, and quicker). Names and places David's to change.
+- **Tests**: a coarser cell from its eight (the share, the highest block, the averaged daylight, the
+  brightest glow); the copied cave's slope from 250 blocks, copied whole at 1 and 2 blocks a cell, at
+  sizes from a block to 16: no ray through the rock of the size drawn, every ray on the face it chose
+  (a hair past it only by the nudge into the next step), every size drawn somewhere.
+- **To see**: the squares where one copy size met the next gone? Faster further off? The thin
+  red-brown lines on the far steps' sides should mostly go once cells are coarser than a pixel's
+  worth of steps; what's left is round 2's. Play capped; uncapped only to measure (the laptop's heat).

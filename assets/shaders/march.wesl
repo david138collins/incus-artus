@@ -15,7 +15,7 @@
 // `MarchState::march_ray` (src/render/march.rs), which the tests check against small steps.
 
 import bevy_pbr::render::mesh_view_bindings::{globals, view};
-import super::lighting::{face_normal, face_shade, face_uv, ground_lit, land, light_from_map, to_game, turned, underground_lit, TerrainLight, TerrainShaderSettings};
+import super::lighting::{block_hash, face_normal, face_shade, face_uv, ground_lit, land, light_from_map, to_game, turned, underground_lit, TerrainLight, TerrainShaderSettings};
 
 struct DistantShaderSettings {
     fog_color: vec4<f32>,
@@ -306,6 +306,125 @@ fn copy_cell(record: u32, c: vec3<i32>) -> u32 {
     }
     let page = copy_records[base + 8u + u32(c.z) / 32u];
     return copy_cells[page * PAGE + (u32(c.z) % 32u) * 1024u + u32(c.y) * 32u + u32(c.x)];
+}
+
+// ── Sizes per ray (src/render/march.rs, `FarCopySettings::sized`; docs/far-view.md) ──
+// A whole copy keeps its cells 2, 4 and 8 to a side as one too (its levels 1 to 3: far_copies.rs,
+// `copy_levels`), straight after its own in its pages. Each spot in it is drawn at the level whose
+// cells are about `march.copies.z` pixels across there: a level's cell is used if the level wanted
+// at its middle is past the one below it by more than a number of its own (its "random" number, from
+// where it is), so the change from one size to the next goes a cell at a time, the same for every
+// ray, and each cell changes once as you come near. Fixed by the world, so a ray only ever comes into
+// a cell through one of its faces.
+
+// How wide a pixel is, one block from the camera (blocks).
+fn pixel_width() -> f32 {
+    return 2.0 / (view.clip_from_view[1][1] * view.viewport.w);
+}
+
+// A whole copy's cell at a coarser `level` (1 to 3), `c` counted in that level's cells, packed as
+// `copy_cell`'s: solid below its bottom, open air in full daylight above its top.
+fn level_cell(record: u32, level: u32, c: vec3<i32>) -> u32 {
+    let base = record * COPY_RECORD;
+    let tall = i32(copy_records[base + 4u]);
+    let tall1 = (tall + 1) / 2;
+    let tall2 = (tall1 + 1) / 2;
+    let tall3 = (tall2 + 1) / 2;
+    var high = tall1;
+    var side = 16;
+    var start = tall * 1024;
+    if level == 2u {
+        high = tall2;
+        side = 8;
+        start = start + 256 * tall1;
+    } else if level == 3u {
+        high = tall3;
+        side = 4;
+        start = start + 256 * tall1 + 64 * tall2;
+    }
+    if c.z < 0 {
+        return SOLID << 12u;
+    }
+    if c.z >= high {
+        return 15u << 16u;
+    }
+    let k = u32(start + (c.z * side + c.y) * side + c.x);
+    let page = copy_records[base + 8u + k / PAGE];
+    return copy_cells[page * PAGE + k % PAGE];
+}
+
+// A copy's corner from the camera, as drawn (small numbers: the corner and the floating origin are
+// whole numbers, so exact).
+fn corner_from_eye(record: u32) -> vec3<f32> {
+    let base = record * COPY_RECORD;
+    let corner = vec3<f32>(f32(bitcast<i32>(copy_records[base])), f32(bitcast<i32>(copy_records[base + 1u])), f32(bitcast<i32>(copy_records[base + 2u])));
+    return (corner - world_origin()) - to_game(view.world_position);
+}
+
+// Whether a copy's cell at `level` wants drawing at that size (`c` the copy's own cell the spot is in).
+fn wants_level(record: u32, level: u32, c: vec3<i32>, from_eye: vec3<f32>, scale: f32, pixels: f32, pixel: f32) -> bool {
+    let base = record * COPY_RECORD;
+    let corner = vec3<i32>(bitcast<i32>(copy_records[base]), bitcast<i32>(copy_records[base + 1u]), bitcast<i32>(copy_records[base + 2u]));
+    let at = c >> vec3<u32>(level);
+    let size = f32(1u << level) * scale;
+    let middle = from_eye + (vec3<f32>(at) + 0.5) * size;
+    let wanted = log2(pixels * pixel * length(middle) / scale);
+    let here = corner + at * i32(size);
+    let chance = f32(block_hash(here, level) >> 8u) / 16777216.0;
+    return wanted >= f32(level) - 1.0 + chance;
+}
+
+// The level a copy's cell `c` is drawn at, the ray `t` from the camera there: 0 (its own size) unless
+// sizes per ray are on and it keeps levels.
+fn sized_level(record: u32, c: vec3<i32>, t: f32) -> u32 {
+    let base = record * COPY_RECORD;
+    let pixels = march.copies.z;
+    if pixels <= 0.0 || copy_records[base + 7u] != 1u || c.z < 0 {
+        return 0u;
+    }
+    let scale = f32(copy_records[base + 3u]);
+    let pixel = pixel_width();
+    // No coarser cell's middle within reach wants it (most of what's near): its own size.
+    if log2(pixels * pixel * (t + 7.0 * scale) / scale) < 0.0 {
+        return 0u;
+    }
+    let from_eye = corner_from_eye(record);
+    if wants_level(record, 3u, c, from_eye, scale, pixels, pixel) {
+        return 3u;
+    }
+    if wants_level(record, 2u, c, from_eye, scale, pixels, pixel) {
+        return 2u;
+    }
+    if wants_level(record, 1u, c, from_eye, scale, pixels, pixel) {
+        return 1u;
+    }
+    return 0u;
+}
+
+// Whether any of a copy might be drawn coarser than its own cells (its far corner wants it), the ray
+// `t` along.
+fn may_be_coarse(record: u32, t: f32) -> bool {
+    let base = record * COPY_RECORD;
+    let pixels = march.copies.z;
+    if pixels <= 0.0 || copy_records[base + 7u] != 1u {
+        return false;
+    }
+    let scale = f32(copy_records[base + 3u]);
+    let low = corner_from_eye(record);
+    let high = low + vec3<f32>(32.0, 32.0, f32(copy_records[base + 4u])) * scale;
+    let far = length(max(abs(low), abs(high)));
+    return log2(pixels * pixel_width() * far / scale) >= 0.0;
+}
+
+// The highest of a copy's square of 8 x 8 columns (four of its groups), rounded up to a whole
+// coarsest cell: nothing solid at any level is above it there.
+fn coarse_top(record: u32, square: vec2<i32>) -> f32 {
+    let g = square * 2;
+    let a = copy_top(record, GROUPS_AT, u32(g.y * 8 + g.x));
+    let b = copy_top(record, GROUPS_AT, u32(g.y * 8 + g.x + 1));
+    let d = copy_top(record, GROUPS_AT, u32((g.y + 1) * 8 + g.x));
+    let e = copy_top(record, GROUPS_AT, u32((g.y + 1) * 8 + g.x + 1));
+    return ceil(max(max(a, b), max(d, e)) / 8.0) * 8.0;
 }
 
 // One of a copy's columns' or groups' highest (the cell over its highest solid or water one, 0 if
@@ -695,6 +814,36 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: 
     return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
 }
 
+// A whole copy's coarser cell a ray met (sizes per ray: `level` 1 to 3; `value`, `local`, `rate` in
+// that level's cells), shaded as the meshes shade a block but in its block's flat colours (the top's
+// on its top, the side's on the rest: the textures' averages, as the far land's), by the face shade,
+// the ground light (no shade at the feet of steps: its top stands off the ground's own) and the light
+// underground. "Who drew this" shows its size: yellow, orange, red.
+fn copy_flat(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, world_position: vec3<f32>, daylight: f32, glow: vec3<f32>) -> vec3<f32> {
+    let into = local - floor(local);
+    let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
+    var axis = 2u;
+    var forward = rate.z > 0.0;
+    if since.x < since.y && since.x < since.z {
+        axis = 0u;
+        forward = rate.x > 0.0;
+    } else if since.y < since.z {
+        axis = 1u;
+        forward = rate.y > 0.0;
+    }
+    let face = axis * 2u + select(0u, 1u, forward);
+    let block = value & 0xFFFu;
+    var colour = select(block_colours[block * 4u + 1u].rgb, block_colours[block * 4u].rgb, face == 4u);
+    if near_settings.options.y > 0.5 {
+        colour = vec3<f32>(0.5);
+    }
+    if settings.view.x > 0.5 {
+        colour = select(select(vec3<f32>(1.0, 0.35, 0.3), vec3<f32>(1.0, 0.65, 0.3), level == 2u), vec3<f32>(0.95, 0.9, 0.4), level == 1u);
+    }
+    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, false);
+    return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
+}
+
 // This pixel's ray (`ndc`: where it is on the screen, -1 to 1 each way), in game axes: worked out
 // from the camera, then turned to the world; never from two points in the world.
 fn pixel_ray(ndc: vec2<f32>) -> vec3<f32> {
@@ -803,6 +952,8 @@ fn fragment(in: VertexOutput) -> Output {
     var hit_local = vec3<f32>(0.0);
     var hit_rate = vec3<f32>(0.0);
     var hit_record = 0u;
+    // The size of the cell met (sizes per ray): 0 the copy's own, 1 to 3 its coarser levels.
+    var hit_level = 0u;
     var last_light = 15u;
     var last_glow = 0u;
     for (var k = 0u; k < most; k++) {
@@ -837,8 +988,19 @@ fn fragment(in: VertexOutput) -> Output {
                 t = out.x + nudge;
                 continue;
             }
-            let value = copy_cell(u32(record), c);
-            let out = leave_box(t, local, rate, vec3<f32>(c), vec3<f32>(c) + 1.0);
+            // The cell the ray is in, at the size wanted there (sizes per ray: `sized_level`), and
+            // where the ray leaves it. Each spot's size is fixed by the world, so a ray only ever comes
+            // into a cell through one of its faces.
+            let level = sized_level(u32(record), c, t);
+            let size = f32(1u << level);
+            let at_level = c >> vec3<u32>(level);
+            var value = 0u;
+            if level == 0u {
+                value = copy_cell(u32(record), c);
+            } else {
+                value = level_cell(u32(record), level, at_level);
+            }
+            let out = leave_box(t, local, rate, vec3<f32>(at_level) * size, (vec3<f32>(at_level) + 1.0) * size);
             if ((value >> 12u) & 3u) != 0u {
                 // In the ground: gone in under the near world.
                 if !was_above || drawn_near(p.xy) {
@@ -866,15 +1028,34 @@ fn fragment(in: VertexOutput) -> Output {
                 hit = true;
                 hit_copy = true;
                 hit_value = value;
-                hit_local = local;
-                hit_rate = rate;
+                // In the cells of its size, for which face it came in through.
+                hit_local = local / size;
+                hit_rate = rate / size;
                 hit_record = u32(record);
+                hit_level = level;
                 t = at;
                 break;
             }
             was_above = true;
             last_light = (value >> 16u) & 15u;
             last_glow = (value >> 20u) & 0xFFFu;
+            // Where it might draw coarser cells: past everything solid in its square of 8 x 8
+            // columns (four groups), rounded up to a coarsest cell, in one step. A coarser cell can
+            // stand above its own columns' highest (it's solid for the columns round it), so the
+            // groups' and columns' own steps below could pass through it.
+            if may_be_coarse(u32(record), t) {
+                let square = c.xy / 8;
+                let square_top = coarse_top(u32(record), square);
+                if f32(c.z) >= square_top {
+                    let past = leave_box(t, local, rate, vec3<f32>(vec2<f32>(square * 8), square_top), vec3<f32>(vec2<f32>(square * 8 + 8), 1.0e9));
+                    last_light = 15u;
+                    last_glow = 0u;
+                    t = past.x + nudge;
+                    continue;
+                }
+                t = out.x + nudge;
+                continue;
+            }
             // Above every block in its group of 4 x 4 columns, or in its column: past them in one
             // step (open air, full daylight). [Build 30: a ray down past a mountain stepped a cell at a
             // time through the band of whole copies, ran out of steps and showed sky.]
@@ -1009,7 +1190,14 @@ fn fragment(in: VertexOutput) -> Output {
     // Lit already (a whole copy shaded as the meshes are, light and all): none of the light below.
     var lit = false;
     let glows = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
-    if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u && march.copies.y > 0.5 {
+    if hit_copy && hit_level > 0u && march.copies.y > 0.5 {
+        // A coarser cell (sizes per ray), in its block's flat colours, shaded by the one recipe.
+        colour = copy_flat(hit_value, hit_local, hit_rate, hit_level, world_position, f32(last_light) / 15.0, glows);
+        lit = true;
+    } else if hit_copy && hit_level > 0u {
+        // A coarser cell, as build 35's march coloured a copy's blocks (lit below).
+        colour = copy_colour(hit_value, hit_local, hit_rate);
+    } else if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u && march.copies.y > 0.5 {
         // Copied whole, shaded as the meshes shade the same block (one shading recipe): the next
         // pixels' rays, right and down, for the texture's size.
         let ray_x = pixel_ray(ndc + vec2<f32>(2.0 / view.viewport.z, 0.0));

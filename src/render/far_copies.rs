@@ -96,11 +96,20 @@ pub struct FarCopySettings {
     /// ground light and underground light (one shading recipe, `assets/shaders/lighting.wesl`), and
     /// the texture's size by what each pixel covers. Off: build 35's own shading, to compare.
     pub shaded: bool,
+    /// Sizes per ray: each pixel of the march's whole copies drawn from the level of the copy's cells
+    /// (`copy_levels`) about `pixels` pixels across where it is, the change from one level to the next
+    /// spread over the cells it passes (David: "sizing rays fits our philosophy"). Off: every cell
+    /// at the copy's own size, as build 37.
+    pub sized: bool,
+    /// About how many pixels across a far cell is drawn, before the next coarser level is (David's
+    /// "pixelization rate of terrain as it becomes more distant"): higher is blockier further off.
+    /// Never finer than the copy keeps (a cell about 4 ÷ `sharpness` pixels).
+    pub pixels: f32,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0 }
     }
 }
 
@@ -178,11 +187,80 @@ pub struct CopyCells {
     /// Copied whole (the near-march experiment): the march draws its blocks with their textures.
     pub full: bool,
     pub cells: Vec<u32>,
+    /// A whole copy's coarser levels (`copy_levels`): its cells 2, 4 and 8 to a side made one, for
+    /// the march to draw a cell about as big as a few pixels wherever it is (sizes per ray,
+    /// `docs/far-view.md`). Empty for the rest.
+    pub levels: Vec<u32>,
 }
 
 pub const CELL_SOLID: u32 = 1 << 12;
 pub const CELL_WATER: u32 = 2 << 12;
 pub const CELL_PLAIN: u32 = 1 << 14;
+
+/// How many coarser levels a whole copy keeps (`copy_levels`): 2, 4 and 8 of its cells to a side.
+pub const LEVELS: u32 = 3;
+
+/// A copy's coarser levels, each made from the one finer (`cells`, 32 × 32 × `tall`, packed as
+/// `CopyCells`), one after another: level 1 is 16 × 16 × `tall`/2 (rounded up), level 2 8 × 8 ×
+/// `tall`/4 and level 3 4 × 4 × `tall`/8, each row by row east, north first, then up. Each cell is
+/// one of the eight it covers:
+/// - solid if at least `share` of them are (as a copy's cells are made from blocks), the block of
+///   its highest solid one (the surface, as the far land shows it);
+/// - else water if as much is water as air;
+/// - else air: its daylight as bright as its air's on average (the average of the eased light, so
+///   squaring it again on the graphics card doesn't darken it), and the brightest placed light of
+///   any of it, each colour (a far brazier doesn't go out by being averaged away: Counsel).
+///
+/// Above the top it's open air in full daylight.
+pub fn copy_levels(cells: &[u32], tall: i32, share: f32) -> Vec<u32> {
+    let mut levels = Vec::new();
+    let (mut finer, mut side, mut high) = (cells.to_vec(), 32i32, tall);
+    for _ in 0..LEVELS {
+        let (coarse_side, coarse_high) = (side / 2, (high + 1) / 2);
+        let at = |x: i32, y: i32, z: i32| if z < high { finer[(x + y * side + z * side * side) as usize] } else { 15 << 16 };
+        let mut coarse = Vec::with_capacity((coarse_side * coarse_side * coarse_high) as usize);
+        for z in 0..coarse_high {
+            for y in 0..coarse_side {
+                for x in 0..coarse_side {
+                    let (mut solid, mut water, mut air) = (0u32, 0u32, 0u32);
+                    let (mut top, mut water_block, mut light, mut glow) = (None, 0u32, 0.0f32, 0u16);
+                    for (dx, dy, dz) in (0..8).map(|k| (k & 1, (k >> 1) & 1, k >> 2)) {
+                        let (cz, value) = (z * 2 + dz, at(x * 2 + dx, y * 2 + dy, z * 2 + dz));
+                        match (value >> 12) & 3 {
+                            1 => {
+                                solid += 1;
+                                if top.is_none_or(|(at, _)| cz > at) {
+                                    top = Some((cz, value & 0xFFF));
+                                }
+                            }
+                            2 => {
+                                water += 1;
+                                water_block = value & 0xFFF;
+                            }
+                            _ => {
+                                air += 1;
+                                let level = ((value >> 16) & 15) as f32 / 15.0;
+                                light += level * level;
+                                glow = super::placed_light::brighter(glow, (value >> 20) as u16);
+                            }
+                        }
+                    }
+                    coarse.push(if solid as f32 >= share * 8.0 - 1e-3 {
+                        top.map_or(0, |(_, block)| block) | CELL_SOLID
+                    } else if water > 0 && water >= air {
+                        water_block | CELL_WATER
+                    } else {
+                        let daylight = ((light / air.max(1) as f32).sqrt() * 15.0).round() as u32;
+                        daylight.min(15) << 16 | (glow as u32) << 20
+                    });
+                }
+            }
+        }
+        levels.extend_from_slice(&coarse);
+        (finer, side, high) = (coarse, coarse_side, coarse_high);
+    }
+    levels
+}
 
 enum Tile {
     Drawn { entities: Vec<Entity>, faces: u32, bytes: usize, cells: Option<Arc<CopyCells>> },
@@ -508,7 +586,10 @@ fn make_copy(mut job: CopyJob) -> Made {
     }
 
     // 3. Coarsened.
-    let (low_cell, high_cell) = (bottom.div_euclid(s), top.div_euclid(s));
+    // A whole copy starts on a whole number of its coarsest level's cells up (`copy_levels`), so its
+    // coarser cells line up with its neighbours' (the cells below where it was looked into are solid).
+    let low_cell = if job.full { bottom.div_euclid(s).div_euclid(1 << LEVELS) << LEVELS } else { bottom.div_euclid(s) };
+    let high_cell = top.div_euclid(s);
     let tall = high_cell - low_cell + 1;
     let index = |x: i32, y: i32, z: i32| (x + y * CELLS + z * CELLS * CELLS) as usize;
     let mut tallies = vec![Tally::default(); (CELLS * CELLS * tall) as usize];
@@ -691,7 +772,8 @@ fn make_copy(mut job: CopyJob) -> Made {
             }
         })
         .collect();
-    let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, full: job.full, cells: packed });
+    let levels = if job.full { copy_levels(&packed, tall, job.share) } else { Vec::new() };
+    let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, full: job.full, cells: packed, levels });
     // Drawn by the march, the cells are all a copy needs (step 1 part 7): meshing it was most of the
     // time a copy took (200 to 320 ms at 8 blocks a cell), and frames hitched while copies were made
     // after a flight (`docs/caves.md` 13.24).
@@ -1177,6 +1259,17 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                      round, the same random turn, the ground light (the lie of the land, the height tint, the feet of steps) and the\n\
                      light underground, from one recipe both share. Off: as build 35, the march's own shading (to compare).",
                 );
+                ui.checkbox(&mut settings.sized, "far cells sized per pixel (new)").on_hover_text(
+                    "The blocks the march draws, drawn at the size each pixel can show: further off, 2, 4 or 8 to a side as one cell\n\
+                     (in its block's flat colours), changing a cell at a time, so no squares where one size meets the next.\n\
+                     \"Who drew this\" shows the sizes: green a block a cell, then yellow, orange and red. Off: as build 37.",
+                );
+                ui.add_enabled_ui(settings.sized, |ui| {
+                    ui.add(crate::debug::Slider::new(&mut settings.pixels, 1.0..=8.0).text("pixelization (pixels a far cell)")).on_hover_text(
+                        "About how many pixels across a far cell grows before the next coarser size takes over: higher is blockier\n\
+                         further off (and quicker to draw). It never gets finer than the copies keep (\"sharpness\").",
+                    );
+                });
             });
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(
                 "How crisp the copies are: a copy's cell is about 4 ÷ this pixels on screen (1: 4 pixels, soft and cheap; 4: a pixel\n\
