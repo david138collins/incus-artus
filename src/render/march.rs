@@ -81,6 +81,18 @@ const COPY_PAGES: usize = 16;
 /// two to a number (the first in its low 16 bits): above them a ray goes on in one step.
 const COPY_RECORD: usize = GROUPS_AT + 32;
 const COLUMNS_AT: usize = 8 + COPY_PAGES;
+/// How far ahead (blocks), each way the ray goes, the shader looks up the copy a ray is in: far out the
+/// world's numbers keep only a few thousandths, and a ray almost along a copy's side, leaving it, moved
+/// across by less, found in the copy it left till it ran out of steps [David, build 41: lines of sky].
+#[cfg(test)]
+const LOOKUP_AHEAD: f32 = 0.03125;
+
+/// Where to look up the copy a ray `ray` is in, from where it is (as WGSL's `sign`: 0 for 0).
+#[cfg(test)]
+fn looked_ahead(ray: Vec3) -> Vec2 {
+    let way = |a: f32| if a > 0.0 { 1.0 } else if a < 0.0 { -1.0 } else { 0.0 };
+    Vec2::new(way(ray.x), way(ray.y)) * LOOKUP_AHEAD
+}
 const GROUPS_AT: usize = COLUMNS_AT + 512;
 /// The copies' map of chunks (which copy, if any, draws each), as wide as the sheet's `shown` texture.
 const MAP: i32 = super::distant::SHOWN_SIZE;
@@ -515,7 +527,7 @@ impl MarchState {
                 return None;
             }
             // In a far copy: through its cells, one at a time (the shader's copy branch).
-            if let Some(copy) = self.copy_at(p.truncate()) {
+            if let Some(copy) = self.copy_at(p.truncate() + looked_ahead(ray)) {
                 let cells = &copy.cells;
                 let (scale, tall) = (cells.scale as f32, cells.tall as f32);
                 let local = ((origin - cells.corner.as_vec3()) + ray * t) / scale;

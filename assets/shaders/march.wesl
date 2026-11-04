@@ -283,6 +283,9 @@ const PAGE: u32 = 32768u;
 const SOLID: u32 = 1u;
 const PLAIN: u32 = 16384u;
 
+// How far ahead a ray looks up the copy it's in (blocks; `march.rs`, `LOOKUP_AHEAD`).
+const LOOKUP_AHEAD: f32 = 0.03125;
+
 // Which far copy draws the chunk a spot is in: its record's number, or -1.
 fn copy_at(at: vec2<f32>) -> i32 {
     if march.copies.x < 0.5 {
@@ -951,7 +954,11 @@ fn fragment(in: VertexOutput) -> Output {
             break;
         }
         // In a chunk a far copy draws: through its cells, one at a time (step 1 part 5).
-        let record = copy_at(p.xy);
+        // Looked up a 32nd of a block on the way it's going: a ray almost along a copy's side, leaving
+        // it, moves across by less than the world's numbers keep far out (a few thousandths), so
+        // found in the copy it left, again and again, it ran out of steps [lines of sky straight up the
+        // screen, moved only by moving sideways: David, build 41].
+        let record = copy_at(p.xy + sign(ray.xy) * LOOKUP_AHEAD);
         if record >= 0 {
             let base = u32(record) * COPY_RECORD;
             let corner = vec3<f32>(f32(bitcast<i32>(copy_records[base])), f32(bitcast<i32>(copy_records[base + 1u])), f32(bitcast<i32>(copy_records[base + 2u])));

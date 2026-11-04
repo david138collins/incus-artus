@@ -795,3 +795,17 @@ be tuned, i think. this is an improvement".
   land's look).
 - **Pixelization**: "seems to effect the near terrain, but not the far": as built, only the copies are
   sized per pixel, not the far land; at 8 the copies go coarse close in.
+
+### Build 42: the lines of sky (David: "go ahead", the fixes from his build 41 test)
+- **Why** (read from the shader, not reproduced in the Rust twin, which has no floating origin): the
+  copy a ray is in was looked up from where it is in the world's numbers, kept far out only to a few
+  thousandths of a block, while its place in the copy is measured from nearby, exactly. A ray almost
+  along a copy's side (the ray nearly due north-south or east-west), leaving it, moves across by less
+  than that a step, so it was found in the copy it left, again and again, till its steps ran out:
+  sky, in a straight line up the screen (rays due one way), only where it crosses a copy's side (so
+  moved by moving sideways, never up or down).
+- **Build 42**: the copy is looked up a 32nd of a block ahead each way the ray goes (`LOOKUP_AHEAD`,
+  shader and twin), so a ray leaving a copy is found in the next.
+- **On file, not seen**: where a copy might be drawn coarser (build 38), a ray below its square's top
+  goes a cell at a time, without the groups' and columns' long steps: more steps used, so more rays
+  that could run out. Only if gaps are still seen.
