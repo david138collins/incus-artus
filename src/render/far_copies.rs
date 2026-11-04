@@ -384,6 +384,8 @@ pub struct FarCopies {
     /// them changed and no cave near their ground, made straight from the recipe's columns
     /// (`land_copy`).
     land: HashSet<TileKey>,
+    /// When the next of the far land's copies may start: as long after the last was made as it took.
+    land_rest_until: Option<Instant>,
     /// Whether the real chunks past the line are copied from themselves (`marches_real`): then the
     /// whole tiles are theirs.
     real: bool,
@@ -586,37 +588,48 @@ struct Tally {
     objects: f32,
 }
 
-/// Makes a tile of the far land straight from the recipe's columns (`FarCopies::land`): nothing
-/// changed in it and no cave near its ground, so no chunks are made, only each block column's ground
-/// and water (`CompiledMap::column`, as the chunks have them). A cell is solid if at least the share
-/// of it is, water if as much of it is water as air, else open air in full daylight. A column of
-/// cells is made of the layers at its middle (mineralogy, as the chunks have it): its top cell the
-/// surface block, the cells under it the layers there; and its top, of more than a block, looks like
-/// the average of the tops at four spots across it (`CELL_AVERAGED`). Copied whole, with its coarser
-/// levels, as the real chunks' copies are, so the march draws it the same way.
+/// Spots a side of a cell the far land's copy asks the recipe at (`land_copy`): each spot stands for
+/// the columns round it. Every column, as the chunks have it, cost some 150 ms a tile of 8 blocks a
+/// cell in David's world, one after another, the processor at 103 °C (build 51); at 2 a side, a cell
+/// of 8 asks 4 spots, not 64 columns.
+const LAND_SPOTS: i32 = 2;
+
+/// Makes a tile of the far land straight from the recipe (`FarCopies::land`): nothing changed in it
+/// and no cave near its ground, so no chunks are made. The recipe is asked at `LAND_SPOTS` × that
+/// spots in each column of cells (every column, for cells that small): each spot's ground and water
+/// (`CompiledMap::column`, as the chunks have them) standing for the columns round it. A cell is solid
+/// if at least the share of it is, water if as much of it is water as air, else open air in full
+/// daylight. A column of cells is made of the layers at its first spot (mineralogy, as the chunks
+/// have it): its top cell the surface block, the cells under it the layers there; and its top, of more
+/// than a block, looks like the average of the spots' tops (`CELL_AVERAGED`). Copied whole, with its
+/// coarser levels, as the real chunks' copies are, so the march draws it the same way.
 fn land_copy(job: &CopyJob) -> Made {
     let started = Instant::now();
     let s = job.key.scale;
     let width = CHUNK_SIZE * s;
     let corner = IVec2::new(job.key.x, job.key.y) * width;
-    // Each block column's ground (`i32::MIN` past the map), its river's or lake's top (0: none), and
-    // the water's top over it, the sea's at least (the blocks under it are water above the ground).
-    let mut ground = vec![i32::MIN; (width * width) as usize];
-    let mut river = vec![0i32; (width * width) as usize];
-    for y in 0..width {
-        for x in 0..width {
-            if let Some((z, over)) = job.map.column(corner.x + x, corner.y + y) {
-                ground[(x + y * width) as usize] = z;
-                river[(x + y * width) as usize] = over.unwrap_or(0);
+    // The spots: `k` a side of a cell, each standing for `stands` columns.
+    let k = s.min(LAND_SPOTS);
+    let (across, stands) = (CELLS * k, (s / k) * (s / k));
+    let spot = |i: i32| i * s / k + s / k / 2;
+    // Each spot's ground (`i32::MIN` past the map), its river's or lake's top (0: none), and the water's
+    // top over it, the sea's at least (the blocks under it are water above the ground).
+    let mut ground = vec![i32::MIN; (across * across) as usize];
+    let mut river = vec![0i32; (across * across) as usize];
+    for j in 0..across {
+        for i in 0..across {
+            if let Some((z, over)) = job.map.column(corner.x + spot(i), corner.y + spot(j)) {
+                ground[(i + j * across) as usize] = z;
+                river[(i + j * across) as usize] = over.unwrap_or(0);
             }
         }
     }
-    let water_top = |k: usize| river[k].max(crate::world::SEA_LEVEL);
+    let water_top = |n: usize| river[n].max(crate::world::SEA_LEVEL);
     let present: Vec<i32> = ground.iter().copied().filter(|&z| z != i32::MIN).collect();
     let (Some(&lowest), Some(&highest)) = (present.iter().min(), present.iter().max()) else {
         return Made { sections: Vec::new(), cells: None, hot: Vec::new(), ms: 0.0 };
     };
-    let wettest = (0..(width * width) as usize).filter(|&k| ground[k] != i32::MIN).map(water_top).max().unwrap_or(0);
+    let wettest = (0..(across * across) as usize).filter(|&n| ground[n] != i32::MIN).map(water_top).max().unwrap_or(0);
     // Two cells under the lowest ground (a step's side shows), up to over the highest ground or water;
     // its bottom a whole number of its coarsest cells up (`copy_levels`).
     let (bottom, top) = ((lowest - 2 * s).max(WORLD_BOTTOM), highest.max(wettest - 1) + 1);
@@ -624,66 +637,64 @@ fn land_copy(job: &CopyJob) -> Made {
     let high_cell = top.div_euclid(s);
     let tall = high_cell - low_cell + 1;
     let mineralogy = job.map.mineralogy(&job.blocks);
-    // What the recipe puts down in a column (`x`, `y` in the tile): its layers, its ground, its river.
-    let layers_at = |x: i32, y: i32| {
-        let k = (x + y * width) as usize;
-        let z = ground[k];
+    // What the recipe puts down at a spot (`i`, `j` of `across`): its layers, its ground, its river.
+    let layers_at = |i: i32, j: i32| {
+        let n = (i + j * across) as usize;
+        let z = ground[n];
         (z != i32::MIN).then(|| {
-            let (north, east) = ((corner.x + x) as f32 + 0.5, (corner.y + y) as f32 + 0.5);
-            let slope = if mineralogy.reads_slope { job.map.slope(corner.x + x, corner.y + y, z) } else { 0.0 };
-            let over = Some(river[k]).filter(|&top| top > 0);
+            let (x, y) = (corner.x + spot(i), corner.y + spot(j));
+            let (north, east) = (x as f32 + 0.5, y as f32 + 0.5);
+            let slope = if mineralogy.reads_slope { job.map.slope(x, y, z) } else { 0.0 };
+            let over = Some(river[n]).filter(|&top| top > 0);
             let column = crate::world::placer::Column { north, east, ground: z as f32, slope, climate: job.map.climate(north, east, z as f32), water: over };
-            (mineralogy.layers(&job.map, column), z, river[k])
+            (mineralogy.layers(&job.map, column), z, river[n])
         })
     };
     let whole = s * s * s;
     let mut cells = vec![(FULL as u32) << 16; (CELLS * CELLS * tall) as usize];
-    let spots = if s > 1 { [s / 4, s * 3 / 4] } else { [0, 0] };
     for cy in 0..CELLS {
         for cx in 0..CELLS {
-            let Some((layers, middle, middle_river)) = layers_at(cx * s + s / 2, cy * s + s / 2) else { continue };
+            // The spots' layers: the first's for the cells, all of them for the top's colour.
+            let found: Vec<_> = (0..k * k).filter_map(|n| layers_at(cx * k + n % k, cy * k + n / k)).collect();
+            let Some((layers, middle, middle_river)) = found.first().cloned() else { continue };
             let mut roof = None;
             for level in 0..tall {
                 let low = (low_cell + level) * s;
-                // Its blocks solid (each column's ground and under) and water (over the ground, under the water's top).
+                // Its blocks solid (each spot's ground and under) and water (over the ground, under the
+                // water's top), each spot for the columns it stands for.
                 let (mut solid, mut wet) = (0, 0);
-                for y in cy * s..(cy + 1) * s {
-                    for x in cx * s..(cx + 1) * s {
-                        let k = (x + y * width) as usize;
-                        if ground[k] == i32::MIN {
+                for j in cy * k..(cy + 1) * k {
+                    for i in cx * k..(cx + 1) * k {
+                        let n = (i + j * across) as usize;
+                        if ground[n] == i32::MIN {
                             continue;
                         }
-                        solid += (ground[k] + 1 - low).clamp(0, s);
-                        wet += (water_top(k).min(low + s) - (ground[k] + 1).max(low)).max(0);
+                        solid += (ground[n] + 1 - low).clamp(0, s) * stands;
+                        wet += (water_top(n).min(low + s) - (ground[n] + 1).max(low)).max(0) * stands;
                     }
                 }
-                let k = (cx + cy * CELLS + level * CELLS * CELLS) as usize;
+                let cell = (cx + cy * CELLS + level * CELLS * CELLS) as usize;
                 if solid as f32 >= job.share * whole as f32 - 1e-3 {
-                    // Its block: the layer at its top in the middle column (no higher than its ground).
+                    // Its block: the layer at its top at the first spot (no higher than its ground).
                     let z = (low + s - 1).min(middle);
-                    cells[k] = layers.block_at(z, middle, middle_river, &job.blocks).0 as u32 & 0xFFF | CELL_SOLID;
-                    roof = Some(k);
+                    cells[cell] = layers.block_at(z, middle, middle_river, &job.blocks).0 as u32 & 0xFFF | CELL_SOLID;
+                    roof = Some(cell);
                 } else if wet > 0 && wet >= whole - solid - wet {
-                    cells[k] = job.blocks.water.0 as u32 & 0xFFF | CELL_WATER;
+                    cells[cell] = job.blocks.water.0 as u32 & 0xFFF | CELL_WATER;
                 }
             }
-            // Its top cell: the surface, its top the average of the tops across it.
-            if let Some(k) = roof {
-                cells[k] = (cells[k] & !0xFFF) | (layers.top.0 as u32 & 0xFFF);
-                if s > 1 && let Some(palette) = &job.palette {
-                    let (mut sum, mut count) = ([0.0f32; 3], 0.0f32);
-                    for b in spots {
-                        for a in spots {
-                            if let Some((here, _, _)) = layers_at(cx * s + a, cy * s + b) {
-                                let top = palette.top(here.top);
-                                sum = [sum[0] + top[0], sum[1] + top[1], sum[2] + top[2]];
-                                count += 1.0;
-                            }
-                        }
+            // Its top cell: the surface, its top the average of the spots' tops.
+            if let Some(cell) = roof {
+                cells[cell] = (cells[cell] & !0xFFF) | (layers.top.0 as u32 & 0xFFF);
+                if s > 1
+                    && let Some(palette) = &job.palette
+                {
+                    let mut sum = [0.0f32; 3];
+                    for (here, _, _) in &found {
+                        let top = palette.top(here.top);
+                        sum = [sum[0] + top[0], sum[1] + top[1], sum[2] + top[2]];
                     }
-                    if count > 0.0 {
-                        cells[k] |= averaged_top(sum.map(|v| v / count));
-                    }
+                    cells[cell] |= averaged_top(sum.map(|v| v / found.len() as f32));
                 }
             }
         }
@@ -1369,6 +1380,10 @@ pub fn update_far_copies(
     });
     let finished = !done.is_empty();
     for (key, made) in done {
+        // A far land's copy made: as long again before the next, so that work takes half a core at most.
+        if state.land.contains(&key) {
+            state.land_rest_until = Some(Instant::now() + std::time::Duration::from_secs_f32(made.ms / 1000.0));
+        }
         state.times.push_back(made.ms);
         if state.times.len() > 64 {
             state.times.pop_front();
@@ -1447,7 +1462,7 @@ pub fn update_far_copies(
         if state.tiles.contains_key(&key) || state.making.contains_key(&key) || !state.wanted.contains_key(&key) {
             continue;
         }
-        if state.land.contains(&key) && making_land >= 1 {
+        if state.land.contains(&key) && (making_land >= 1 || state.land_rest_until.is_some_and(|until| Instant::now() < until)) {
             not_yet.push(key);
             continue;
         }
@@ -1789,9 +1804,11 @@ mod tests {
     #[test]
     fn the_far_lands_copy_from_the_recipes_columns_is_its_chunks_copy() {
         // Rolling ground with a slope and a sea on one side, at 2, 4 and 8 blocks a cell: copied from
-        // the recipe's columns alone (`land_copy`), each cell is what copying its chunks whole makes
-        // (`make_copy`): solid, water or air, and a column's top cell the same block. Then no seam
-        // where the copies of the real chunks give way to the far land's. And its tops averaged.
+        // the recipe alone at a few spots a cell (`land_copy`), all but a hundredth of its cells are
+        // what copying its chunks whole makes (`make_copy`): solid, water or air (at 4 and 8, 54 and 47
+        // of some 23,000 differ, where a spot stands for columns a block higher or lower), and every
+        // column's top cell the same block. Then no seam where the copies of the real chunks give way
+        // to the far land's. And its tops averaged. `--nocapture` prints how long each takes.
         let width = 64;
         let heights: Vec<f32> = (0..width * width).map(|k| (150.0 + ((k % width) as f32 - 30.0) * 9.0 + (((k / width) as f32) * 0.7).sin() * 14.0).clamp(100.0, 320.0)).collect();
         let registry = crate::data::BlockRegistry::default();

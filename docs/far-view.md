@@ -1226,3 +1226,16 @@ out pretty sharply". Build 51, four fixes:
    (two recipes) may show again: for regular lighting.
 To see: the heat while the land fills in; the pages; the frame rate capped; the far grass's lines
 fading with distance; the patches where coarse cells meet the copies' own (if any).
+
+### Build 51 seen, and build 52 (David, 2026-11-04: "yes")
+Seen in 51: 1,196 copies, 2,136 of 4,096 pages (267 MB): the reach's edge fixed. But the processor
+at 103 °C still: some 700 copies of the real chunks made in the first 20 seconds, four at a time
+(as before this step), then the far land's one after another, about 6 a second at some 150 ms each in
+David's world (14 ms in the test's), a core busy throughout, and tiles made again as they change size
+with distance while flying.
+- **Cheaper** (`land_copy`, `LAND_SPOTS`): the recipe asked at 2 × 2 spots a cell (every column for
+  cells of 2), each standing for the columns round it, its materials at those spots only: a tile of 8
+  blocks a cell 1.8 ms in the test, against 14 and 117 (its chunks). 54 and 47 of some 23,000 cells
+  differ from its chunks' copy at 4 and 8 blocks a cell; every top the same block.
+- **Paced**: after each far land's copy, as long again before the next: half a core at most.
+To see: the heat while the land fills in and while flying; how long the far land takes to fill.
