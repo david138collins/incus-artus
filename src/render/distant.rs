@@ -907,10 +907,14 @@ pub fn update_shown_chunks(
     // surface [David, build 7: the mouth "stops appearing ... a visible solid color amongst the
     // other blocks"].
     let differs = |pos: ChunkPos| world.changed_chunks().contains(&pos) || copies.differs(pos);
+    // Beside a far copy there's no seam to hide (the same blocks, its edge hidden either way), so no
+    // distant terrain under a real chunk for its sake [David, build 40: a lighter strip in the water
+    // along the line, the distant terrain's ground under the near world's water].
+    let beside = |pos: ChunkPos| on_screen(pos) || copies.covered().contains(&pos);
     let mut pixels = vec![0u8; (SHOWN_SIZE * SHOWN_SIZE) as usize];
     for &pos in &state.shown {
         let around = (-1..=1).flat_map(|x| (-1..=1).map(move |y| ChunkPos::new(pos.x + x, pos.y + y)));
-        if (on_screen(pos) && differs(pos)) || around.into_iter().all(on_screen) {
+        if (on_screen(pos) && differs(pos)) || (on_screen(pos) && around.into_iter().all(beside)) {
             let offset = IVec2::new(pos.x, pos.y) - centre;
             pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
         }

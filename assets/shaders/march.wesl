@@ -765,8 +765,12 @@ fn across_pixel(normal: vec3<f32>, ray: vec3<f32>, other: vec3<f32>, t: f32) -> 
 // placed and turned as the meshes place and turn it, at the size the meshes would read (from how far
 // it moves to the next pixel's ray, `ray_x` and `ray_y`); lit by the face shade, the ground light and
 // the underground light (`daylight` and `glow`, 0 to 1, from the air the ray came through, as a mesh
-// takes them from the air in front of its face). `world_position` as drawn.
-fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: vec3<f32>, ray_x: vec3<f32>, ray_y: vec3<f32>, t: f32, world_position: vec3<f32>, daylight: f32, glow: vec3<f32>) -> vec3<f32> {
+// takes them from the air in front of its face). `world_position` as drawn. A coarser cell (sizes per
+// ray: `level` 1 to 3, `local` and `rate` in that level's cells) the same, as a copy's own cells of its
+// size are, so a cell of a size looks alike in either [flat colours there, build 40, against the next
+// copies' textured cells of the same size: David, "against the side of mountains, there's still a
+// mismatch"]; "who drew this" shows its size: yellow, orange, red.
+fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, record: u32, ray: vec3<f32>, ray_x: vec3<f32>, ray_y: vec3<f32>, t: f32, world_position: vec3<f32>, daylight: f32, glow: vec3<f32>) -> vec3<f32> {
     let into = local - floor(local);
     let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
     var axis = 2u;
@@ -785,7 +789,7 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: 
     // it is exact), and the block the face is on: half a block in from it, as the meshes find it.
     let base = record * COPY_RECORD;
     let corner = vec3<i32>(bitcast<i32>(copy_records[base]), bitcast<i32>(copy_records[base + 1u]), bitcast<i32>(copy_records[base + 2u]));
-    let scale = copy_records[base + 3u];
+    let scale = copy_records[base + 3u] << level;
     let p = local * f32(scale);
     let at_block = corner + vec3<i32>(floor(p - normal * 0.5));
     let block = value & 0xFFFu;
@@ -815,41 +819,14 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: 
     if near_settings.options.y > 0.5 {
         colour = vec3<f32>(0.5);
     }
-    // Who drew this: the march's whole copies a paler green.
+    // Who drew this: the march's whole copies a paler green, their coarser cells by size.
     if settings.view.x > 0.5 {
         colour = vec3<f32>(0.55, 0.95, 0.6);
+        if level > 0u {
+            colour = select(select(vec3<f32>(1.0, 0.35, 0.3), vec3<f32>(1.0, 0.65, 0.3), level == 2u), vec3<f32>(0.95, 0.9, 0.4), level == 1u);
+        }
     }
     let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, f32(scale));
-    return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
-}
-
-// A whole copy's coarser cell a ray met (sizes per ray: `level` 1 to 3; `value`, `local`, `rate` in
-// that level's cells), shaded as the meshes shade a block but in its block's flat colours (the top's
-// on its top, the side's on the rest: the textures' averages, as the far land's), by the face shade,
-// the ground light (the feet of steps less its `size` in blocks: its top stands off the ground's own)
-// and the light underground. "Who drew this" shows its size: yellow, orange, red.
-fn copy_flat(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, size: f32, world_position: vec3<f32>, daylight: f32, glow: vec3<f32>) -> vec3<f32> {
-    let into = local - floor(local);
-    let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
-    var axis = 2u;
-    var forward = rate.z > 0.0;
-    if since.x < since.y && since.x < since.z {
-        axis = 0u;
-        forward = rate.x > 0.0;
-    } else if since.y < since.z {
-        axis = 1u;
-        forward = rate.y > 0.0;
-    }
-    let face = axis * 2u + select(0u, 1u, forward);
-    let block = value & 0xFFFu;
-    var colour = select(block_colours[block * 4u + 1u].rgb, block_colours[block * 4u].rgb, face == 4u);
-    if near_settings.options.y > 0.5 {
-        colour = vec3<f32>(0.5);
-    }
-    if settings.view.x > 0.5 {
-        colour = select(select(vec3<f32>(1.0, 0.35, 0.3), vec3<f32>(1.0, 0.65, 0.3), level == 2u), vec3<f32>(0.95, 0.9, 0.4), level == 1u);
-    }
-    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, size);
     return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
 }
 
@@ -1207,21 +1184,16 @@ fn fragment(in: VertexOutput) -> Output {
     // Lit already (a whole copy shaded as the meshes are, light and all): none of the light below.
     var lit = false;
     let glows = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
-    if hit_copy && hit_level > 0u && march.copies.y > 0.5 {
-        // A coarser cell (sizes per ray), in its block's flat colours, shaded by the one recipe.
-        let size = f32(copy_records[hit_record * COPY_RECORD + 3u] << hit_level);
-        colour = copy_flat(hit_value, hit_local, hit_rate, hit_level, size, world_position, f32(last_light) / 15.0, glows);
+    if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u && march.copies.y > 0.5 {
+        // Copied whole, shaded as the meshes shade the same block (one shading recipe), its coarser
+        // cells too (sizes per ray): the next pixels' rays, right and down, for the texture's size.
+        let ray_x = pixel_ray(ndc + vec2<f32>(2.0 / view.viewport.z, 0.0));
+        let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 / view.viewport.w));
+        colour = copy_shaded(hit_value, hit_local, hit_rate, hit_level, hit_record, ray, ray_x, ray_y, t, world_position, f32(last_light) / 15.0, glows);
         lit = true;
     } else if hit_copy && hit_level > 0u {
         // A coarser cell, as build 35's march coloured a copy's blocks (lit below).
         colour = copy_colour(hit_value, hit_local, hit_rate);
-    } else if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u && march.copies.y > 0.5 {
-        // Copied whole, shaded as the meshes shade the same block (one shading recipe): the next
-        // pixels' rays, right and down, for the texture's size.
-        let ray_x = pixel_ray(ndc + vec2<f32>(2.0 / view.viewport.z, 0.0));
-        let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 / view.viewport.w));
-        colour = copy_shaded(hit_value, hit_local, hit_rate, hit_record, ray, ray_x, ray_y, t, world_position, f32(last_light) / 15.0, glows);
-        lit = true;
     } else if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u {
         // Copied whole (the near-march experiment): the block's own texture on the face the ray
         // came in through, as the near world draws it.

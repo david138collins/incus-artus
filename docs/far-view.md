@@ -769,3 +769,16 @@ be tuned, i think. this is an improvement".
   1.1 (`light.rs`), and `presets/render/default.toml` is that preset (the old one kept as
   `default-before-rayshading`). The rest of the code's own defaults (render distance 32, the line at
   64, fog on) are as they were; the default preset sets 64, 8 and fog off.
+
+### Build 40 seen, and build 41 (David, 2026-11-04: "go ahead")
+- **The mountain sides**: "against the side of mountains, there's still a mismatch, both at the
+  border, and on the border apparently". "Who drew this": just past the line a band of the block a
+  cell copies' coarser cells (yellow, flat colours), then the next copies, 2 blocks a cell of their
+  own (pale green, textured): the same size drawn two ways, the flat colours showing the stone's grey
+  as specks. Build 41: the coarser cells are textured as a copy's own cells of their size are
+  (`copy_shaded`, its `level`); `copy_flat` gone (round 2 may bring a flat look back to compare).
+- **The water**: the band of squares gone, a narrower lighter strip left along the line. "Who drew
+  this": the distant terrain's ground (yellow) under the near world's water in the last ring of real
+  chunks, drawn under that ring so no sky shows at its seam. Build 41: beside a far copy there's no
+  seam to hide (the same blocks), so a real chunk with copies or real chunks all round is marked
+  real (255) and has no distant terrain under it (`distant.rs`, `beside`).

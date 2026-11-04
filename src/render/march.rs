@@ -805,7 +805,7 @@ fn may_be_coarse(copy: &MarchedCopy, sizing: Option<Sizing>, origin: Vec3) -> bo
     (pixels * pixel * low.abs().max(high.abs()).length() / scale).log2() >= 0.0
 }
 
-/// The shader's choice of the face a ray met a cell by (`copy_shaded`, `copy_flat`): the one it
+/// The shader's choice of the face a ray met a cell by (`copy_shaded`): the one it
 /// crossed last (0 north-south, 1 east-west, 2 up-down), from where it is in the cell and how fast
 /// that changes.
 #[cfg(test)]
