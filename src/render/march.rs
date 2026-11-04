@@ -208,6 +208,13 @@ pub struct MarchState {
     whole: bool,
     /// The far copies the march draws (step 1 part 5).
     copies: Copies,
+    /// For the tests: where the twin's world would be (blocks): the copy a ray is in looked up in the
+    /// world's numbers that far out, rounded as the shader's are, its cells still measured exactly.
+    #[cfg(test)]
+    far_out: Vec2,
+    /// For the tests: the copy looked up where the ray is, not ahead (build 41's way).
+    #[cfg(test)]
+    no_look_ahead: bool,
 }
 
 impl MarchState {
@@ -527,7 +534,8 @@ impl MarchState {
                 return None;
             }
             // In a far copy: through its cells, one at a time (the shader's copy branch).
-            if let Some(copy) = self.copy_at(p.truncate() + looked_ahead(ray)) {
+            let at = ((origin.truncate() + self.far_out) + ray.truncate() * t) - self.far_out;
+            if let Some(copy) = self.copy_at(at + if self.no_look_ahead { Vec2::ZERO } else { looked_ahead(ray) }) {
                 let cells = &copy.cells;
                 let (scale, tall) = (cells.scale as f32, cells.tall as f32);
                 let local = ((origin - cells.corner.as_vec3()) + ray * t) / scale;
@@ -1695,5 +1703,73 @@ mod sizes_per_ray {
         assert!(slipped.is_empty(), "{} rays through the rock (copies, first one's scale, pixel, across, up, rock at, met at): {:?}", slipped.len(), &slipped[..slipped.len().min(8)]);
         assert!(off_face.is_empty(), "{} rays met a cell off the face chosen (scale, pixel, across, up, level, axis, where, cell): {:?}", off_face.len(), &off_face[..off_face.len().min(8)]);
         assert!(levels_met.iter().all(|&n| n > 0), "every size was drawn somewhere: {levels_met:?}");
+    }
+
+    #[test]
+    fn far_out_a_ray_almost_along_a_copys_side_goes_on_into_the_next() {
+        // Four whole copies a block a cell, their world looked up as if 20,000 blocks out (the copy a
+        // ray is in found in numbers rounded as the shader's are there; its cells measured exactly),
+        // and rays almost due east or due north, crossing the copies' sides at a slant of a hundredth
+        // or less. Looked up where the ray is (build 41), some ran out of steps found in the copy they'd
+        // left (David's lines of sky); looked up a 32nd of a block ahead, none.
+        let width = 64;
+        let heights: Vec<f32> = (0..width * width).map(|k| (230.0 + ((k / width) as f32 - 32.0) * 0.5 + ((k % width) as f32 - 32.0) * 0.7).clamp(140.0, 330.0)).collect();
+        let map = CompiledMap::of_heights(width, 32.0, &heights);
+        let registry = crate::data::BlockRegistry::default();
+        let blocks = TerrainBlocks::from_registry(&registry);
+        let palette = super::super::distant::Palette::from_textures(&registry, &blocks);
+        let keys = [(0, 0), (1, 0), (0, 1), (1, 1)].map(|(x, y)| CopyKey { scale: 1, x, y });
+        let mut slipped = [0usize; 2];
+        let mut rays = 0;
+        // Each way across the copies' side at 32 (into the higher copy, and back into the lower, which
+        // is the way the rounding holds a ray: a spot just past the side rounds onto it, the higher's).
+        for (look, no_look_ahead) in [(0, true), (1, false)] {
+            for (east, slant) in [true, false].into_iter().flat_map(|east| [0.01f32, 0.003, 0.001, 0.0003, -0.01, -0.003, -0.001, -0.0003].map(move |slant| (east, slant))) {
+                // Crossing the side about 90 blocks out, inside the copies (from 60 blocks before them).
+                let across = 32.0 - slant * 90.0;
+                let camera = if east { Vec3::new(-60.37, across, 300.3) } else { Vec3::new(across, -60.37, 300.3) };
+                let mut state = MarchState { far_out: Vec2::splat(20_000.0), no_look_ahead, ..Default::default() };
+                state.follow(1, 2, 16);
+                for ring_key in super::super::distant::wanted_tiles(camera, 16, 2) {
+                    state.store(ring_key, super::super::distant::tile_mesh(&map, &blocks, &palette, ring_key, 16).as_ref());
+                }
+                state.follow_copies(keys.iter().map(|&key| (key, super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![]), true).expect("the land shows"))).collect(), true);
+                for k in 0..40 {
+                    {
+                        let down = -0.3 - k as f32 * 0.02;
+                        let ray = if east { Vec3::new(1.0, slant, down) } else { Vec3::new(slant, 1.0, down) }.normalize();
+                        // Where a slow search finds it in the ground: the copies' cells, exactly.
+                        let mut rock = None;
+                        let mut t = 0.0f32;
+                        while t < 400.0 {
+                            let p = camera + ray * t;
+                            let solid = match state.copy_at(p.truncate()) {
+                                Some(copy) => {
+                                    let c = (p - copy.cells.corner.as_vec3()).floor().as_ivec3().clamp(IVec3::new(0, 0, -1), IVec3::new(31, 31, copy.cells.tall));
+                                    (copy_cell(&copy.cells, c) >> 12) & 3 == 1
+                                }
+                                None => false,
+                            };
+                            if solid {
+                                rock = Some(t);
+                                break;
+                            }
+                            t += 0.02;
+                        }
+                        let Some(rock) = rock else { continue };
+                        if look == 0 {
+                            rays += 1;
+                        }
+                        let fast = state.march_ray(16.0, camera, ray, 0.0, 200, |_| false);
+                        if fast.is_none_or(|hit| hit > rock + 1.0) {
+                            slipped[look] += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(rays > 100, "enough rays meet the copies: {rays}");
+        assert!(slipped[0] > 0, "looked up where the ray is, far out, some rays slip (the lines of sky): none of {rays}");
+        assert_eq!(slipped[1], 0, "looked up ahead, no ray slips: {} of {rays}", slipped[1]);
     }
 }

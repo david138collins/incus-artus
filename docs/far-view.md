@@ -890,9 +890,13 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
 fog on) differ from David's preset (64, 8, fog off), and `presets/` isn't committed, so players would
 get the code's defaults.
 
-**A gap in the tests:** the Rust twin has no floating origin and works near the world's middle, so no
-test can catch a precision bug like the lines of sky. A twin test with far-out numbers would (Builder:
-about half an hour, rays slipping through without the look-ahead and none with it).
+**A gap in the tests, closed:** the Rust twin had no floating origin and worked near the world's
+middle, so no test could catch a precision bug like the lines of sky. Now the twin can look its copies
+up as if 20,000 blocks out (`MarchState::far_out`, test-only), and
+`far_out_a_ray_almost_along_a_copys_side_goes_on_into_the_next` sends rays almost due east and north
+across a copy's side each way: looked up where the ray is (build 41), 62 of 424 slipped through (all
+going back across into the lower copy: a spot just past the side rounds onto it, the higher copy's);
+with build 42's look-ahead, none. The diagnosis is reproduced, and it's caught if it comes back.
 
 **Closed, overtaken (Builder confirmed):** the meshes' floating origin (R1, builds 32 and 33: "all
 zeros"; what's left is the copy lookup above), and chunks still meshed under the copies (build 35: past
