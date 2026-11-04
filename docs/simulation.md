@@ -373,9 +373,13 @@ nearby, and so that the hustle and bustle can more obviously conform to the play
 - **The linear pipeline holds:** generated roads are made in their stage; the player's lines are
   play-time edits and never feed back into generation.
 
+**Marking a path and making a road are separate things** (David): "marking paths and making roads
+should be seperate things, although if you tell them to make a road, it should make a path with it,
+since roads would be a like a special structure that follows a path you mark and a road type".
+- **A path** is the marked line: a route in the network, with no blocks of its own.
+- **A road** is a special structure: a path plus a road type. Ordering a road makes its path too.
+
 **Open, for David:**
-- Does the player's line only mark a route over what's already built, or also order workers to build
-  the road or stairs along it? (Counsel: marking first; the same line can later become an order.)
 - *Counsel's addition, not asked for:* could routes NPCs wear in on their own, walked often and never
   marked, show up as suggestions for the player's line?
 
