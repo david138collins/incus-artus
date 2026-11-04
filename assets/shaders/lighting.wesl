@@ -110,3 +110,189 @@ fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, up: f32
 fn to_game(bevy: vec3<f32>) -> vec3<f32> {
     return vec3<f32>(-bevy.z, bevy.x, bevy.y);
 }
+
+// ── The near world's blocks, as the meshes (terrain.wesl) and the march's whole copies (march.wesl)
+// both draw them [one shading recipe, 2026-11-03: the march had its own, and showed where the two
+// met: David, "which should i be using right now"]. Each shader gathers its own inputs (a mesh's
+// from its corners, the march's from the cell its ray met) and draws them here.
+
+struct TerrainShaderSettings {
+    // x top, y bottom, z north/south, w east/west
+    face_shade: vec4<f32>,
+    fog_color: vec4<f32>,
+    // x fog start, y fog end, z fog on, w debug view (1 rectangles, 2 face directions, 3 who drew this)
+    fog_and_debug: vec4<f32>,
+    // x random texture rotation on, y light only (plain grey), z a far copy's material (far_copies.rs)
+    options: vec4<f32>,
+    // Survey view: x on, y every how many levels, z darkness, w sea level
+    survey: vec4<f32>,
+    // Underground (src/render/sky_light.rs): x daylight on, y the test lantern's reach (blocks; 0 off),
+    // z its brightness, w how bright the sky is (0 to 1: a stand-in for night)
+    underground: vec4<f32>,
+    // Placed light (src/render/placed_light.rs, in the vertex): x on, y how much it flickers, z how fast
+    placed: vec4<f32>,
+}
+
+// How the ground is lit (src/render/light.rs).
+struct TerrainLight {
+    // The world light map: x on, y shadows, z sky, w relief (strengths)
+    light: vec4<f32>,
+    // x the map's half width, y the light map's width (blocks)
+    light_area: vec4<f32>,
+    // xyz toward the sun (game axes), w hill shading strength
+    sun: vec4<f32>,
+    // The window of the ground around you: x north and y east of its north-west corner, z its side
+    // (blocks), w on
+    near_area: vec4<f32>,
+    // x height tint, y the distance slopes are measured over (blocks), z sea level, w the highest a
+    // height can be
+    hill: vec4<f32>,
+    // x how hill shading fades toward its limits (see distant.rs, `soft_limit`), y foot shading, z
+    // step shadows (strengths), w the height the height tint counts up to (as the distant tiles)
+    shade: vec4<f32>,
+    // x how much of the lie of the land's sun and shade the steps' sides take (0 to 1)
+    sides: vec4<f32>,
+    // For the far copies' plain ground, lit as the far terrain is (`far_ground`): x how much the far
+    // slopes take on the steps' shade, y the steepest slope the tables reach; and the steps' feet's
+    // shade by steepness (from flat to `far.y` in 32 steps, four to a vec4), all round and from the
+    // sun's side (the far terrain's own tables).
+    far: vec4<f32>,
+    foot: array<vec4<f32>, 9>,
+    step: array<vec4<f32>, 9>,
+    // The floating origin (src/coords.rs): x north, y east (blocks), what drawn positions are
+    // measured from
+    origin: vec4<f32>,
+}
+
+// Texture coordinates come straight from the position, so textures tile once per block.
+// Side faces: image top = up (+Z). Top/bottom faces: image top = north (+X).
+// "Right" on the image is chosen so nothing appears mirrored when seen from outside.
+fn face_uv(face: u32, p: vec3<f32>) -> vec2<f32> {
+    switch face {
+        case 0u: { return vec2<f32>(-p.y, -p.z); }  // north face: seen from the north, east is on the left
+        case 1u: { return vec2<f32>(p.y, -p.z); }   // south face
+        case 2u: { return vec2<f32>(p.x, -p.z); }   // east face
+        case 3u: { return vec2<f32>(-p.x, -p.z); }  // west face
+        case 4u: { return vec2<f32>(p.y, -p.x); }   // top
+        default: { return vec2<f32>(-p.y, -p.x); }  // bottom
+    }
+}
+
+// Which way each face points (game axes).
+fn face_normal(face: u32) -> vec3<f32> {
+    switch face {
+        case 0u: { return vec3<f32>(1.0, 0.0, 0.0); }
+        case 1u: { return vec3<f32>(-1.0, 0.0, 0.0); }
+        case 2u: { return vec3<f32>(0.0, 1.0, 0.0); }
+        case 3u: { return vec3<f32>(0.0, -1.0, 0.0); }
+        case 4u: { return vec3<f32>(0.0, 0.0, 1.0); }
+        default: { return vec3<f32>(0.0, 0.0, -1.0); }
+    }
+}
+
+// Scramble a block position into a "random" number. The same block always gives the same number.
+fn block_hash(p: vec3<i32>, face: u32) -> u32 {
+    var h = (bitcast<u32>(p.x) * 73856093u) ^ (bitcast<u32>(p.y) * 19349663u)
+        ^ (bitcast<u32>(p.z) * 83492791u) ^ (face * 2654435761u);
+    h = h ^ (h >> 16u);
+    h = h * 0x7feb352du;
+    h = h ^ (h >> 15u);
+    h = h * 0x846ca68bu;
+    h = h ^ (h >> 16u);
+    return h;
+}
+
+// A block's face turned in quarter turns round the block's centre, by its random number
+// (`block_hash`), the same for a block wherever it's drawn.
+fn turned(uv: vec2<f32>, block: vec3<i32>, face: u32) -> vec2<f32> {
+    let turns = (block_hash(block, face) >> 8u) & 3u;
+    let cell = floor(uv);
+    var f = uv - cell;
+    switch turns {
+        case 1u: { f = vec2<f32>(1.0 - f.y, f.x); }
+        case 2u: { f = vec2<f32>(1.0 - f.x, 1.0 - f.y); }
+        case 3u: { f = vec2<f32>(f.y, 1.0 - f.x); }
+        default: {}
+    }
+    return cell + f;
+}
+
+// Classic block shading: brightness by which way the face points (`shades`: x top, y bottom, z
+// north/south, w east/west).
+fn face_shade(face: u32, shades: vec4<f32>) -> f32 {
+    var shade = shades.x;
+    if face == 5u {
+        shade = shades.y;
+    } else if face <= 1u {
+        shade = shades.z;
+    } else if face <= 3u {
+        shade = shades.w;
+    }
+    return shade;
+}
+
+// How lit a spot on the ground is (1 = as painted), from what the shader read for it:
+//   - `map_light`, the world light map there (shadows, valley darkening, relief; `light_from_map`),
+//     on every face;
+//   - `near`, the window of the ground round you there (its alpha 0 if it's off, or the spot is off
+//     it): the lie of the land's sun and shade, from the slope of the ground under them (a block
+//     world's tops are all flat, so which way a face points says nothing about it), and the height
+//     tint: on tops, and as much as set on the steps' sides;
+//   - `cones`, the cone map there (`cones_at`, read for tops only): the feet of the steps, on tops.
+// Faces well below the ground (caves, overhangs) keep their plain light, for now. `up` is the spot's
+// height; `sun`, `hill`, `shade` and `sides` are `TerrainLight`'s.
+fn ground_lit(map_light: f32, near: vec4<f32>, cones: vec2<f32>, face: u32, up: f32, sun: vec4<f32>, hill: vec4<f32>, shade: vec4<f32>, sides: vec4<f32>) -> f32 {
+    var light = map_light;
+    if near.a > 0.5 {
+        let sea = hill.z;
+        let surface = sea + near.b * (hill.w - sea);
+        if face != 5u {
+            // The rise across one distant cell, as the distant terrain measures it.
+            let rise = vec2<f32>(unroot(near.r), unroot(near.g)) * 4.0 * hill.y;
+            let lie = hill_light(rise, sun.w, sun.xyz, shade.x) * height_tint(up, sea, shade.w, hill.x);
+            var lit = side_lie(lie, sides.x);
+            if face == 4u {
+                // The feet of steps: how far this top is below the cones of the ground round it
+                // (0 on a top, a rim or open ground), eased like the hill shading.
+                let fade = shade.x;
+                let feet = (1.0 - shade.y * eased(cones.x - up, fade)) * (1.0 - shade.z * eased(cones.y - up, fade));
+                lit = lie * feet;
+            }
+            // The sea's surface stays flat, as on the distant terrain.
+            let water = surface <= sea + 0.5 && up <= sea + 0.5;
+            light = light * select(lit, 1.0, water);
+        }
+        // Well below the ground: plain light.
+        light = mix(1.0, light, smoothstep(surface - 24.0, surface - 12.0, up));
+    }
+    return light;
+}
+
+// How lit a face is underground (src/render/sky_light.rs; docs/caves.md, stop 3): its daylight, eased
+// (squared, so it falls away quickly into the dark), or the test lantern round the camera
+// (`distance` from it), whichever is brighter; and the placed light on top, in its colour
+// (src/render/placed_light.rs; docs/objects.md, stop 3), eased the same way and wavering a little with
+// `time`, as a fire's does. Pitch black where none reaches [David: "pitch black unless something is
+// making light down there"]. `underground` and `placed_light` are `TerrainShaderSettings`'.
+fn underground_lit(daylight: f32, placed: vec3<f32>, distance: f32, underground: vec4<f32>, placed_light: vec4<f32>, time: f32) -> vec3<f32> {
+    var lit = 1.0;
+    if underground.x > 0.5 {
+        lit = daylight * daylight;
+    }
+    // How bright the sky is: all daylight dimmed by it (a stand-in for night, David 2026-11-02).
+    lit = lit * underground.w;
+    let reach = underground.y;
+    if reach > 0.0 {
+        let near = 1.0 - clamp(distance / reach, 0.0, 1.0);
+        lit = max(lit, underground.z * near * near);
+    }
+    var light = vec3<f32>(lit);
+    if placed_light.x > 0.5 {
+        // The flicker: two slow waves and a quicker one, so it never quite repeats.
+        let t = time * placed_light.z;
+        let waver = 0.5 + 0.25 * sin(t * 6.1) + 0.15 * sin(t * 13.7 + 1.3) + 0.1 * sin(t * 29.3 + 2.9);
+        let flicker = 1.0 - placed_light.y * waver;
+        light = light + placed * placed * flicker;
+    }
+    return min(light, vec3<f32>(1.0));
+}
