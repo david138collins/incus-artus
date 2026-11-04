@@ -1178,3 +1178,26 @@ next to try if it's wanted). The smoothing's cost to measure next.
   as you go), as before.
 - **David**: "i mean i could not tell you which screenshot had smoothin on or off. lets leave it off
   and proceed". Off by default (the switch kept); the cheaper version and option 2 on file, not built.
+
+## The far land as cells (build 50; the far land sized per pixel, step 1; David: "yes maam")
+The seam David kept seeing ("it's just the seam to smooth that bothers") is where the copies' blocks
+meet the far land's smooth surface: however good its colours, cells beside a smooth skin show. So past
+the real chunks, out to the copies' reach ("how far copies reach", 4,000 blocks), the far land is
+cells too, and the march draws it as it draws the copies: sized per pixel, the tops averaged. The
+smooth surface is left only past the copies' reach, where a cell is about a pixel or less.
+- **Which** (`update_far_copies`, "the far land as cells (new)", on; name and place David's to
+  change): every chunk past the real chunks within the reach is copied, whole, and shown, at the size
+  its distance asks (8 blocks a cell at most, then the coarser levels, to 64).
+- **How, the cheap way** (`land_copy`): a tile wholly past where chunks stream, with nothing changed in
+  it and no cave near its ground, is made from the recipe's columns alone: each block column's ground
+  and water (`CompiledMap::column`), a cell solid with the share of it so, water if as much is water as
+  air; a column of cells made of the layers at its middle (mineralogy), its top the surface block, its
+  top's colour the average of four spots across it. No chunks made. Anything else (changed, a cave's
+  mouth, the real chunks) is made as before, whole.
+- **Test**: `the_far_lands_copy_from_the_recipes_columns_is_its_chunks_copy`: at 2, 4 and 8 blocks a
+  cell, rolling ground with a sea, cell for cell the same as copying its chunks (0 of 35,840, 22,528
+  and 24,576 cells differ; every column's top the same block), and 4 to 6 times quicker to make (2, 4
+  and 14 ms against 7, 25 and 90).
+- **To see**: the seam where the real chunks end gone, the land out to the copies' reach in blocks;
+  copies being made after a jump or a fast flight (more of them now: the Render page counts them, and
+  their pages); the card's and the frame's time; the processor's heat while they're made.

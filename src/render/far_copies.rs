@@ -122,11 +122,16 @@ pub struct FarCopySettings {
     /// fraction of a pixel is a fraction of it, not hit or missed whole (David, build 47: the reference
     /// "outright better"). Off: one ray a pixel, as build 47.
     pub smooth: bool,
+    /// The far land as cells (the far land sized per pixel): past the real chunks, out to the copies'
+    /// reach, every chunk copied whole, the march drawing it at the size each pixel can show as it
+    /// draws the copies, so the real chunks' edge no longer meets a smooth surface (David, build 49:
+    /// "it's just the seam to smooth that bothers"). Off: the smooth far land past the real chunks.
+    pub land: bool,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: false, reference: false, smooth: false }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: false, reference: false, smooth: false, land: true }
     }
 }
 
@@ -352,8 +357,8 @@ enum Tile {
 pub struct FarCopy;
 
 /// What the wanted tiles were worked out for: your chunk, the render distance, the streaming radius,
-/// the sharpness and reach, how many chunks are changed and show, and the view.
-type WantedFor = (IVec2, i32, i32, [u32; 2], usize, usize, u32);
+/// the sharpness, reach and whether the far land is cells, how many chunks are changed and show, and the view.
+type WantedFor = (IVec2, i32, i32, [u32; 3], usize, usize, u32);
 
 /// The camera's place and lens.
 type CameraLens<'w, 's> = Query<'w, 's, (&'static Transform, &'static Projection), With<Camera3d>>;
@@ -369,6 +374,10 @@ pub struct FarCopies {
     share: f32,
     /// The tiles copied whole (the near-march experiment: their plain ground as blocks too).
     full: HashSet<TileKey>,
+    /// Of those, the far land's (`FarCopySettings::land`): wholly past where chunks stream, nothing in
+    /// them changed and no cave near their ground, made straight from the recipe's columns
+    /// (`land_copy`).
+    land: HashSet<TileKey>,
     /// Whether the real chunks past the line are copied from themselves (`marches_real`): then the
     /// whole tiles are theirs.
     real: bool,
@@ -550,6 +559,8 @@ struct CopyJob {
     /// models; its placed light as the near world's (`glows`, each lit block's), not flooded again.
     real: bool,
     glows: Vec<(IVec3, u16)>,
+    /// The far land's (`FarCopies::land`): made straight from the recipe's columns.
+    land: bool,
     /// The blocks' far colours (the far land's palette), for coarse cells' averaged tops (none: their one
     /// block's look).
     palette: Option<Arc<super::distant::Palette>>,
@@ -569,8 +580,119 @@ struct Tally {
     objects: f32,
 }
 
+/// Makes a tile of the far land straight from the recipe's columns (`FarCopies::land`): nothing
+/// changed in it and no cave near its ground, so no chunks are made, only each block column's ground
+/// and water (`CompiledMap::column`, as the chunks have them). A cell is solid if at least the share
+/// of it is, water if as much of it is water as air, else open air in full daylight. A column of
+/// cells is made of the layers at its middle (mineralogy, as the chunks have it): its top cell the
+/// surface block, the cells under it the layers there; and its top, of more than a block, looks like
+/// the average of the tops at four spots across it (`CELL_AVERAGED`). Copied whole, with its coarser
+/// levels, as the real chunks' copies are, so the march draws it the same way.
+fn land_copy(job: &CopyJob) -> Made {
+    let started = Instant::now();
+    let s = job.key.scale;
+    let width = CHUNK_SIZE * s;
+    let corner = IVec2::new(job.key.x, job.key.y) * width;
+    // Each block column's ground (`i32::MIN` past the map), its river's or lake's top (0: none), and
+    // the water's top over it, the sea's at least (the blocks under it are water above the ground).
+    let mut ground = vec![i32::MIN; (width * width) as usize];
+    let mut river = vec![0i32; (width * width) as usize];
+    for y in 0..width {
+        for x in 0..width {
+            if let Some((z, over)) = job.map.column(corner.x + x, corner.y + y) {
+                ground[(x + y * width) as usize] = z;
+                river[(x + y * width) as usize] = over.unwrap_or(0);
+            }
+        }
+    }
+    let water_top = |k: usize| river[k].max(crate::world::SEA_LEVEL);
+    let present: Vec<i32> = ground.iter().copied().filter(|&z| z != i32::MIN).collect();
+    let (Some(&lowest), Some(&highest)) = (present.iter().min(), present.iter().max()) else {
+        return Made { sections: Vec::new(), cells: None, hot: Vec::new(), ms: 0.0 };
+    };
+    let wettest = (0..(width * width) as usize).filter(|&k| ground[k] != i32::MIN).map(water_top).max().unwrap_or(0);
+    // Two cells under the lowest ground (a step's side shows), up to over the highest ground or water;
+    // its bottom a whole number of its coarsest cells up (`copy_levels`).
+    let (bottom, top) = ((lowest - 2 * s).max(WORLD_BOTTOM), highest.max(wettest - 1) + 1);
+    let low_cell = bottom.div_euclid(s).div_euclid(1 << LEVELS) << LEVELS;
+    let high_cell = top.div_euclid(s);
+    let tall = high_cell - low_cell + 1;
+    let mineralogy = job.map.mineralogy(&job.blocks);
+    // What the recipe puts down in a column (`x`, `y` in the tile): its layers, its ground, its river.
+    let layers_at = |x: i32, y: i32| {
+        let k = (x + y * width) as usize;
+        let z = ground[k];
+        (z != i32::MIN).then(|| {
+            let (north, east) = ((corner.x + x) as f32 + 0.5, (corner.y + y) as f32 + 0.5);
+            let slope = if mineralogy.reads_slope { job.map.slope(corner.x + x, corner.y + y, z) } else { 0.0 };
+            let over = Some(river[k]).filter(|&top| top > 0);
+            let column = crate::world::placer::Column { north, east, ground: z as f32, slope, climate: job.map.climate(north, east, z as f32), water: over };
+            (mineralogy.layers(&job.map, column), z, river[k])
+        })
+    };
+    let whole = s * s * s;
+    let mut cells = vec![(FULL as u32) << 16; (CELLS * CELLS * tall) as usize];
+    let spots = if s > 1 { [s / 4, s * 3 / 4] } else { [0, 0] };
+    for cy in 0..CELLS {
+        for cx in 0..CELLS {
+            let Some((layers, middle, middle_river)) = layers_at(cx * s + s / 2, cy * s + s / 2) else { continue };
+            let mut roof = None;
+            for level in 0..tall {
+                let low = (low_cell + level) * s;
+                // Its blocks solid (each column's ground and under) and water (over the ground, under the water's top).
+                let (mut solid, mut wet) = (0, 0);
+                for y in cy * s..(cy + 1) * s {
+                    for x in cx * s..(cx + 1) * s {
+                        let k = (x + y * width) as usize;
+                        if ground[k] == i32::MIN {
+                            continue;
+                        }
+                        solid += (ground[k] + 1 - low).clamp(0, s);
+                        wet += (water_top(k).min(low + s) - (ground[k] + 1).max(low)).max(0);
+                    }
+                }
+                let k = (cx + cy * CELLS + level * CELLS * CELLS) as usize;
+                if solid as f32 >= job.share * whole as f32 - 1e-3 {
+                    // Its block: the layer at its top in the middle column (no higher than its ground).
+                    let z = (low + s - 1).min(middle);
+                    cells[k] = layers.block_at(z, middle, middle_river, &job.blocks).0 as u32 & 0xFFF | CELL_SOLID;
+                    roof = Some(k);
+                } else if wet > 0 && wet >= whole - solid - wet {
+                    cells[k] = job.blocks.water.0 as u32 & 0xFFF | CELL_WATER;
+                }
+            }
+            // Its top cell: the surface, its top the average of the tops across it.
+            if let Some(k) = roof {
+                cells[k] = (cells[k] & !0xFFF) | (layers.top.0 as u32 & 0xFFF);
+                if s > 1 && let Some(palette) = &job.palette {
+                    let (mut sum, mut count) = ([0.0f32; 3], 0.0f32);
+                    for b in spots {
+                        for a in spots {
+                            if let Some((here, _, _)) = layers_at(cx * s + a, cy * s + b) {
+                                let top = palette.top(here.top);
+                                sum = [sum[0] + top[0], sum[1] + top[1], sum[2] + top[2]];
+                                count += 1.0;
+                            }
+                        }
+                    }
+                    if count > 0.0 {
+                        cells[k] |= averaged_top(sum.map(|v| v / count));
+                    }
+                }
+            }
+        }
+    }
+    let tops: Vec<[f32; 3]> = job.palette.as_ref().map_or(Vec::new(), |palette| palette.blocks.iter().map(|&(top, _)| top).collect());
+    let levels = copy_levels(&cells, tall, job.share, &tops);
+    let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, full: true, cells, levels });
+    Made { sections: Vec::new(), cells: Some(copy_cells), hot: Vec::new(), ms: started.elapsed().as_secs_f32() * 1000.0 }
+}
+
 /// Makes a tile (see the module notes).
 fn make_copy(mut job: CopyJob) -> Made {
+    if job.land {
+        return land_copy(&job);
+    }
     let started = Instant::now();
     let s = job.key.scale;
     let width = CHUNK_SIZE * s;
@@ -1104,7 +1226,7 @@ pub fn update_far_copies(
 
     // Which tiles are wanted: worked out again when you move into another chunk, or what's known
     // changes.
-    let now = (home, edge, radius, [settings.sharpness.to_bits(), settings.reach.to_bits()], world.changed_chunks().len(), state.hot.len(), (fov * 1000.0) as u32 ^ (height as u32) << 16);
+    let now = (home, edge, radius, [settings.sharpness.to_bits(), settings.reach.to_bits(), settings.land as u32], world.changed_chunks().len(), state.hot.len(), (fov * 1000.0) as u32 ^ (height as u32) << 16);
     if state.wanted_for != Some(now) {
         state.wanted_for = Some(now);
         let offset = |pos: ChunkPos| IVec2::new(pos.x - home.x, pos.y - home.y);
@@ -1138,6 +1260,29 @@ pub fn update_far_copies(
                         let pos = ChunkPos::new(home.x + x, home.y + y);
                         candidates.insert(pos, true);
                         full_chunks.insert(pos);
+                    }
+                }
+            }
+        }
+        // The far land as cells (the far land sized per pixel): past the real chunks, out to the
+        // copies' reach, every chunk copied whole and shown, so the march draws the far land as it
+        // draws the copies, sized per pixel, and the real chunks' edge meets cells, not a smooth
+        // surface [David, build 49: "it's just the seam to smooth that bothers"].
+        let mut land_chunks = HashSet::new();
+        if settings.land && settings.marched(&distant_settings) {
+            for y in -limit..=limit {
+                for x in -limit..=limit {
+                    let reach = IVec2::new(x, y);
+                    if real_chunk(reach, edge, radius) {
+                        continue;
+                    }
+                    let pos = ChunkPos::new(home.x + x, home.y + y);
+                    candidates.insert(pos, true);
+                    full_chunks.insert(pos);
+                    // Past where chunks stream, nothing changed and no cave near the ground: made from
+                    // the recipe's columns alone.
+                    if !real_chunk(reach, edge, streaming.radius) && !world.changed_chunks().contains(&pos) && !state.near_ground.contains(&pos) {
+                        land_chunks.insert(pos);
                     }
                 }
             }
@@ -1184,6 +1329,15 @@ pub fn update_far_copies(
             state.retire(key);
             queue.push(key);
         }
+        // The far land's tiles: every chunk in them made from the recipe's columns alone. A tile going
+        // from one way of making to the other is made again.
+        let land: HashSet<TileKey> = full.iter().copied().filter(|key| key.chunks().all(|pos| land_chunks.contains(&pos))).collect();
+        let remade: Vec<TileKey> = land.symmetric_difference(&state.land).copied().filter(|key| state.tiles.contains_key(key)).collect();
+        for key in remade {
+            state.retire(key);
+            queue.push(key);
+        }
+        state.land = land;
         state.full = full;
         state.queue = queue;
         state.wanted = wanted;
@@ -1277,7 +1431,7 @@ pub fn update_far_copies(
         }
         // Made from the real chunks (R2): each as it is, once streaming has brought it in (one past
         // where the real chunks end, at the edge of a coarser tile, from the recipe as before).
-        let from_real = real && state.full.contains(&key);
+        let from_real = real && state.full.contains(&key) && !state.land.contains(&key);
         let streamed = |pos: ChunkPos| real_chunk(IVec2::new(pos.x - home.x, pos.y - home.y), edge, streaming.radius);
         if from_real && key.chunks().any(|pos| streamed(pos) && world.chunk(pos).is_none()) {
             not_yet.push(key);
@@ -1329,6 +1483,7 @@ pub fn update_far_copies(
             full: state.full.contains(&key),
             real: from_real,
             glows,
+            land: state.land.contains(&key),
             palette: distant.palette().cloned(),
         };
         state.making.insert(key, pool.spawn(async move { make_copy(job) }));
@@ -1386,6 +1541,12 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                     "Where a pixel of the march falls on the edge of a block smaller than a few pixels, 4 rays across it, averaged,\n\
                      so far steps are as much of the pixel as they cover instead of hit or missed whole (the reference's look,\n\
                      where it's needed). Off: one ray a pixel, as build 47.",
+                );
+                ui.checkbox(&mut settings.land, "the far land as cells (new)").on_hover_text(
+                    "Past the real chunks, out to \"how far copies reach\", the far land copied too (straight from the world's recipe\n\
+                     where nothing's changed), so the march draws it in blocks sized to the pixel, as it draws the copies: no seam\n\
+                     where the real chunks end and a smooth surface began. Past the copies' reach, the smooth far land as before.\n\
+                     Off: the smooth far land past the real chunks.",
                 );
             });
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(
@@ -1457,6 +1618,7 @@ mod tests {
             full: false,
             real: false,
             glows: Vec::new(),
+            land: false,
             palette: None,
         }
     }
@@ -1589,6 +1751,67 @@ mod tests {
         let (top_eighth, _) = highest_and_darkest(&eighth, 2);
         assert!(top_half <= ground as f32 + 2.0, "half: {top_half} over ground {ground}");
         assert!(top_eighth >= ground as f32 + 19.0, "an eighth: {top_eighth} over ground {ground}");
+    }
+
+    #[test]
+    fn the_far_lands_copy_from_the_recipes_columns_is_its_chunks_copy() {
+        // Rolling ground with a slope and a sea on one side, at 2, 4 and 8 blocks a cell: copied from
+        // the recipe's columns alone (`land_copy`), each cell is what copying its chunks whole makes
+        // (`make_copy`): solid, water or air, and a column's top cell the same block. Then no seam
+        // where the copies of the real chunks give way to the far land's. And its tops averaged.
+        let width = 64;
+        let heights: Vec<f32> = (0..width * width).map(|k| (150.0 + ((k % width) as f32 - 30.0) * 9.0 + (((k / width) as f32) * 0.7).sin() * 14.0).clamp(100.0, 320.0)).collect();
+        let registry = crate::data::BlockRegistry::default();
+        let blocks = TerrainBlocks::from_registry(&registry);
+        let palette = Arc::new(super::super::distant::Palette::from_textures(&registry, &blocks));
+        for scale in [2, 4, 8] {
+            let key = TileKey { scale, x: 0, y: 0 };
+            let made = |land: bool| {
+                let mut job = job(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![]), HashMap::new(), 0.5);
+                (job.full, job.force, job.land, job.palette) = (true, true, land, Some(palette.clone()));
+                let made = make_copy(job);
+                eprintln!("{scale} blocks a cell, {}: {:.1} ms", if land { "from the columns" } else { "from its chunks" }, made.ms);
+                made.cells.expect("the ground shows")
+            };
+            let (chunks, land) = (made(false), made(true));
+            // A cell's kind at `z` cells up from the world's bottom: solid below a copy's bottom, air
+            // over its top.
+            let kind = |cells: &CopyCells, x: i32, y: i32, z: i32| {
+                let k = z - cells.corner.z / scale;
+                if k < 0 {
+                    1
+                } else if k >= cells.tall {
+                    0
+                } else {
+                    (cells.cells[(x + y * CELLS + k * CELLS * CELLS) as usize] >> 12) & 3
+                }
+            };
+            let (mut cells, mut differ, mut tops, mut tops_differ) = (0, 0, 0, 0);
+            let lowest = chunks.corner.z.min(land.corner.z) / scale;
+            let highest = (chunks.corner.z / scale + chunks.tall).max(land.corner.z / scale + land.tall);
+            for y in 0..CELLS {
+                for x in 0..CELLS {
+                    for z in lowest..highest {
+                        cells += 1;
+                        if kind(&chunks, x, y, z) != kind(&land, x, y, z) {
+                            differ += 1;
+                        }
+                    }
+                    // The column's top cell, the same block.
+                    let roof = |cells: &CopyCells| (0..cells.tall).rev().map(|z| cells.cells[(x + y * CELLS + z * CELLS * CELLS) as usize]).find(|&v| (v >> 12) & 3 == 1);
+                    if let (Some(a), Some(b)) = (roof(&chunks), roof(&land)) {
+                        tops += 1;
+                        if a & 0xFFF != b & 0xFFF {
+                            tops_differ += 1;
+                        }
+                        assert!(top_averaged(b).is_some(), "the far land's top averaged");
+                    }
+                }
+            }
+            eprintln!("{scale} blocks a cell: {differ} of {cells} cells differ; {tops_differ} of {tops} tops");
+            assert!(differ * 100 <= cells, "{scale} blocks a cell: {differ} of {cells} cells differ from the chunks' copy");
+            assert!(tops_differ * 20 <= tops, "{scale} blocks a cell: {tops_differ} of {tops} tops another block");
+        }
     }
 
     #[test]
