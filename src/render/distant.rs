@@ -814,7 +814,10 @@ pub fn update_distant(
         }
         let map = map.clone();
         let (palette, blocks) = (palette.clone(), blocks.clone());
-        let task = pool.spawn(async move { tile_mesh(&map, &blocks, &palette, key, finest) });
+        let task = pool.spawn(async move {
+            let _timed = crate::render::Background::new("far land's sheet");
+            tile_mesh(&map, &blocks, &palette, key, finest)
+        });
         state.making.insert(key, task);
     }
 }

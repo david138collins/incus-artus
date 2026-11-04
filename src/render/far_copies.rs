@@ -1589,7 +1589,13 @@ pub fn update_far_copies(
         if state.land.contains(&key) {
             making_land += 1;
         }
-        state.making.insert(key, pool.spawn(async move { make_copy(job) }));
+        state.making.insert(
+            key,
+            pool.spawn(async move {
+                let _timed = crate::render::Background::new("far copies");
+                make_copy(job)
+            }),
+        );
     }
     // Those waiting on streaming go back, nearest last as before.
     state.queue.extend(not_yet.into_iter().rev());

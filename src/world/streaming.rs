@@ -305,7 +305,10 @@ pub fn stream_chunks(
             continue;
         }
         let (map, blocks, caves) = (map.clone(), blocks.clone(), caves.0.clone());
-        let task = pool.spawn(async move { map.chunk(pos, &blocks, &caves) });
+        let task = pool.spawn(async move {
+            let _timed = crate::render::Background::new("chunks made");
+            map.chunk(pos, &blocks, &caves)
+        });
         streaming.making.insert(pos, task);
         streaming.made += 1;
     }

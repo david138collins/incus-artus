@@ -1340,3 +1340,38 @@ the ground copied whole as before.
 - **Proposed** (none changes the look; to Counsel and David): the cover and hand-off map at most about 4
   times a second and only when what's covered changes; retiring tiles checked against the waiting
   tiles' chunks, not each pair; the far land's copies a few a frame within about 3 ms; and step 3.
+
+### Builds 57 and 58: the backlog's fixes, and step 3 taken out (David: "yes")
+- **Build 57**: the cover worked out at most 4 times a second (`COVERED_EVERY`), and a change counted
+  only if it is one; retiring tiles checked by chunk; the far land's copies two at a time with no rest
+  (`LAND_AT_ONCE`); step 3 (a finer far land's tile kept till twice as far). The cover and hand-off map
+  from 65 to 75 a second to about 4.
+- **Build 58**: step 3 taken out. Chosen chunk by chunk, it left tiles of two sizes overlapping and
+  swapping, so more were remade at another size, not fewer (88 to 149 every 5 s against 60 to 90). If it
+  comes back, it's decided per tile.
+- Measured (release, 20 blocks a second): 118 fps, 1% low 40 to 45, worst about 35 ms. **But see build
+  59: in these runs the march wasn't drawing yet.**
+
+### Build 59: the march's shader took 50 s to compile, every start (found 2026-11-04)
+- **Found by**: one worker thread ("Async Compute Task Pool (3)") at about 97% of a core for the whole
+  flight, while the frame's own work was light (main thread about 3.8 ms a frame, render thread 3.6, the
+  game's background jobs 1.3 to 2.4 s of work in 10 s). New counters showed one drawing pipeline never
+  finished: `march.wesl`, still compiling. Over a 5-minute run it finished about 50 s in.
+- **Why**: on DirectX 12, Bevy compiles shaders with the old compiler (FXC) unless `dxcompiler.dll`
+  is beside the game. FXC is slow on long loops like the march's. So at every start a core ran flat
+  out for some 50 s and the march wasn't drawn till then. **Every 45-second soak since the shader grew
+  measured the game without the march**: the frame rates hold for the processor's side, but the heat
+  doesn't (70 to 74 °C in flight without it; 86 to 92 °C with it drawing).
+- **The fix**: the game uses DXC from the Windows SDK when it's installed
+  (`C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64`, with `dxil.dll`), and FXC otherwise.
+  `WGPU_DX12_COMPILER=fxc` (or `dxc`) still chooses. The march is now ready within 10 s. **For a
+  shipped game**: Bevy's `statically-linked-dxc` feature (DXC built into the game), or `dxcompiler.dll`
+  shipped beside it; to be decided when we package a build.
+- **With the march drawing** (DXC, 20 blocks a second): 118 to 119 fps, 1% low 41 to 44, worst about
+  34 ms; the graphics card about 1.9 ms a frame (the solid pass 1.8); 86 to 99 °C.
+- **New in the log**: every 10 s, each kind of background job's worker time ("Background work in the
+  last 10 s"); any drawing pipelines still compiling, and when they're all made; the soak line ends
+  with the graphics card's time.
+- **Still open**: the slow frames (about 30 to 35 ms, every second or so at 20 blocks a second; the
+  game's own steps 1 to 3 ms of them, so the rest is elsewhere: drawing, the card, Bevy or Windows),
+  and the freeze seen in about 2 of 11 runs (the log stops; no freeze report, so frames kept coming).

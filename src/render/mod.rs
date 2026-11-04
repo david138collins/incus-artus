@@ -37,7 +37,7 @@ use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
 use meshing::{MeshingState, SectionMesh};
 pub(crate) use light::LightSettings;
-pub(crate) use performance::{Timed, drawing_line, soak_line};
+pub(crate) use performance::{Background, Timed, drawing_line, soak_line};
 pub use deep_shot::deep_shot_section;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -115,7 +115,7 @@ impl Plugin for RenderPlugin {
             // The graphics card's time for each drawing pass (the Performance page).
             .add_plugins(bevy::render::diagnostic::RenderDiagnosticsPlugin)
             .add_systems(Last, performance::collect_steps)
-            .add_systems(Update, performance::record_frame_time)
+            .add_systems(Update, (performance::record_frame_time, performance::log_background))
             .add_systems(Last, frame_cap::cap_frames)
             // The floating origin (`coords.rs`): first in the frame, so everything after places
             // from where it is now.
@@ -150,7 +150,7 @@ impl Plugin for RenderPlugin {
         // The march's pieces of the far land, written on Bevy's drawing side (`march::write_march`).
         let writes = app.world().resource::<march::MarchWrites>().clone();
         if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
-            render_app.insert_resource(writes).add_systems(bevy::render::Render, (march::write_march, light::write_near_light).in_set(bevy::render::RenderSystems::PrepareResources));
+            render_app.insert_resource(writes).add_systems(bevy::render::Render, (march::write_march, light::write_near_light, performance::log_pipelines).in_set(bevy::render::RenderSystems::PrepareResources));
         }
         // A developer tool, as F12's screenshot is.
         #[cfg(feature = "dev")]

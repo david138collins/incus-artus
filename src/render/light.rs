@@ -256,7 +256,10 @@ pub fn update_light(
         if state.ground_job.is_none() {
             let stop = Arc::new(AtomicBool::new(false));
             let (key, flag) = (wanted.clone(), stop.clone());
-            let task = pool.spawn(async move { make_ground(&key.map, key.detail, key.sky_reach, key.relief_reach, &flag) });
+            let task = pool.spawn(async move {
+                let _timed = crate::render::Background::new("light map's ground");
+                make_ground(&key.map, key.detail, key.sky_reach, key.relief_reach, &flag)
+            });
             state.ground_job = Some((wanted.clone(), stop, task, Instant::now()));
             state.status = "Light map: measuring the ground…".into();
         }
@@ -298,7 +301,10 @@ pub fn update_light(
     }
     if state.shown != Some(sun) && state.sun_job.is_none() {
         let (on, made) = (ground.clone(), settings.clone());
-        let task = pool.spawn(async move { make_picture(&on, &made) });
+        let task = pool.spawn(async move {
+            let _timed = crate::render::Background::new("light map's shadows");
+            make_picture(&on, &made)
+        });
         state.sun_job = Some((sun, ground.clone(), task, Instant::now()));
     }
 
@@ -489,6 +495,7 @@ pub fn update_near_light(
             let flag = stop.clone();
             let previous = state.heights.clone();
             let task = AsyncComputeTaskPool::get().spawn(async move {
+                let _timed = crate::render::Background::new("near light");
                 make_near(&made, previous, &flag).map(|(picture, cones, heights)| NearReady { width: picture.width, picture: Arc::new(picture.data), cones: Arc::new(cones_bytes(&cones)), heights })
             });
             state.job = Some((key, stop, task));

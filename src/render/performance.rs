@@ -54,6 +54,89 @@ impl Drop for Timed {
     }
 }
 
+/// The background jobs' time (off the main thread), by kind: milliseconds and how many, since the
+/// last count. Tells which job keeps the worker threads busy, which the frame's steps can't.
+static BACKGROUND: Mutex<Vec<(&'static str, f32, u32)>> = Mutex::new(Vec::new());
+
+/// Times a background job from here to the end of the block it's made in, inside the job:
+/// `let _timed = Background::new("name");`.
+pub struct Background {
+    name: &'static str,
+    started: Instant,
+}
+
+impl Background {
+    pub fn new(name: &'static str) -> Self {
+        Self { name, started: Instant::now() }
+    }
+}
+
+impl Drop for Background {
+    fn drop(&mut self) {
+        let ms = self.started.elapsed().as_secs_f32() * 1000.0;
+        if let Ok(mut jobs) = BACKGROUND.lock() {
+            match jobs.iter_mut().find(|(n, ..)| *n == self.name) {
+                Some(job) => {
+                    job.1 += ms;
+                    job.2 += 1;
+                }
+                None => jobs.push((self.name, ms, 1)),
+            }
+        }
+    }
+}
+
+/// How often the background jobs' time is logged.
+const BACKGROUND_EVERY: f32 = 10.0;
+
+/// Every `BACKGROUND_EVERY` seconds, the log says what the background jobs took, busiest first.
+pub fn log_background(time: Res<Time<Real>>, mut last: Local<f32>) {
+    let now = time.elapsed_secs();
+    if now - *last < BACKGROUND_EVERY {
+        return;
+    }
+    let seconds = now - *last;
+    *last = now;
+    let Ok(mut jobs) = BACKGROUND.lock() else { return };
+    let mut taken = std::mem::take(&mut *jobs);
+    drop(jobs);
+    if taken.is_empty() {
+        return;
+    }
+    taken.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let listed: Vec<String> = taken.iter().map(|(name, ms, count)| format!("{name} {:.2} s ({count})", ms / 1000.0)).collect();
+    info!("Background work in the last {seconds:.0} s, worker time (how many): {}", listed.join(", "));
+}
+
+/// Every `BACKGROUND_EVERY` seconds (in the render world), while Bevy is still making drawing
+/// pipelines (compiling shaders, on a worker): which, and since when. The far view's march took some
+/// 50 s with the old compiler, a core flat out and nothing drawn by it till then [found 2026-11-04].
+pub fn log_pipelines(cache: Res<bevy::render::render_resource::PipelineCache>, mut last: Local<Option<Instant>>, mut since: Local<Option<Instant>>) {
+    use bevy::render::render_resource::PipelineDescriptor;
+    if last.is_some_and(|at| at.elapsed().as_secs_f32() < BACKGROUND_EVERY) {
+        return;
+    }
+    *last = Some(Instant::now());
+    let all: Vec<_> = cache.pipelines().collect();
+    let waiting: Vec<String> = cache
+        .waiting_pipelines()
+        .filter_map(|id| all.get(id))
+        .map(|pipeline| match &pipeline.descriptor {
+            PipelineDescriptor::RenderPipelineDescriptor(d) => d.vertex.shader.path().map_or_else(|| d.label.as_deref().unwrap_or("no name").to_string(), |path| path.to_string()),
+            PipelineDescriptor::ComputePipelineDescriptor(d) => d.label.as_deref().unwrap_or("no name").to_string(),
+            PipelineDescriptor::MeshPipelineDescriptor(d) => d.label.as_deref().unwrap_or("no name").to_string(),
+        })
+        .collect();
+    if waiting.is_empty() {
+        if let Some(at) = since.take() {
+            info!("Drawing pipelines all made ({}), the last some {:.0} s after the first was waited on", all.len(), at.elapsed().as_secs_f32());
+        }
+        return;
+    }
+    let at = *since.get_or_insert_with(Instant::now);
+    info!("Drawing pipelines still being made: {} of {} ({}), {:.0} s on", waiting.len(), all.len(), waiting.join(", "), at.elapsed().as_secs_f32());
+}
+
 /// A frame slower than this is logged with its breakdown (ms).
 const HITCH_MS: f32 = 25.0;
 
@@ -327,7 +410,8 @@ pub fn soak_line(world: &mut World) -> String {
     let images = world.resource::<Assets<Image>>().len();
     let materials = world.resource::<Assets<super::material::TerrainMaterial>>().len() + world.resource::<Assets<super::distant::DistantMaterial>>().len();
     format!(
-        "{fps} | chunks {chunks} (queued {queued}, making {making}, made {made}, dropped {dropped}) | sections drawn {section_entities}, waiting {waiting}, meshing {meshing_now} | distant tiles {tiles} (making {tiles_making}) | entities {entities}, meshes {meshes}, images {images}, materials {materials}"
+        "{fps} | chunks {chunks} (queued {queued}, making {making}, made {made}, dropped {dropped}) | sections drawn {section_entities}, waiting {waiting}, meshing {meshing_now} | distant tiles {tiles} (making {tiles_making}) | entities {entities}, meshes {meshes}, images {images}, materials {materials} | {}",
+        card_line(world)
     )
 }
 

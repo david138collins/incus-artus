@@ -237,6 +237,7 @@ pub fn start_jobs(
         match gather_input(&world, key, &terrain, &settings, &mut state.sky, &placed, past) {
             Some(input) => {
                 let task = pool.spawn(async move {
+                    let _timed = crate::render::Background::new("near meshes");
                     let started = Instant::now();
                     let output = mesh_section(&input);
                     JobResult {

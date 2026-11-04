@@ -60,12 +60,31 @@ use bevy_egui::EguiPlugin;
 /// handing each finished frame to the screen stalls, and the game drops to about 6 frames a second
 /// while DirectX 12 runs at 240, back to back. Setting `WGPU_BACKEND` (for example to `vulkan`)
 /// still chooses, for testing.
+///
+/// Its shaders are compiled with **DXC** where it can be found: the old compiler (FXC), Bevy's
+/// choice without `dxcompiler.dll` beside the game, took some 50 s over the far view's march at every
+/// start, a core flat out and the march not drawn till then; DXC takes under 10 s [found 2026-11-04].
+/// `WGPU_DX12_COMPILER` (`fxc`, `dxc`) still chooses, for testing.
 fn graphics_settings() -> bevy::render::settings::WgpuSettings {
     let mut settings = bevy::render::settings::WgpuSettings::default();
     if cfg!(windows) && std::env::var("WGPU_BACKEND").is_err() {
         settings.backends = Some(bevy::render::settings::Backends::DX12);
     }
+    if cfg!(windows)
+        && std::env::var("WGPU_DX12_COMPILER").is_err()
+        && matches!(settings.dx12_shader_compiler, bevy::render::settings::Dx12Compiler::Fxc)
+        && let Some(dxc) = windows_sdk_dxc()
+    {
+        settings.dx12_shader_compiler = bevy::render::settings::Dx12Compiler::DynamicDxc { dxc_path: dxc };
+    }
     settings
+}
+
+/// The Windows SDK's `dxcompiler.dll`, if it is installed (with the `dxil.dll` beside it).
+fn windows_sdk_dxc() -> Option<String> {
+    let folder = std::path::Path::new(r"C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64");
+    let dxc = folder.join("dxcompiler.dll");
+    (dxc.is_file() && folder.join("dxil.dll").is_file()).then(|| dxc.to_string_lossy().into_owned())
 }
 
 fn main() {
