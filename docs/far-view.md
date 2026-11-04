@@ -1003,3 +1003,14 @@ The far land's look stalled on having nothing true to match, so the reference.
   are only as true as their cells.
 - **To use**: from one spot, the reference against the normal view (bands on, then off). Slow (16
   rays a pixel): look, then turn it off; capped, for the heat.
+
+### The reference seen (David, 2026-11-04, build 46)
+At sharpness 2 (most of the middle distance copies 2 blocks a cell): the reference green with thin
+red-brown lines where the bands drew whole slopes brown. At sharpness 4 (839 copies a block a cell),
+from a mountain's foot: "reference looks good ... it's almost like it just evens out the color choices";
+the normal view there close to it (most of it textured blocks a block a cell). So the copies' textured
+blocks are near the truth, and the far land's recipe (the plain mix, and the bands that keep it) shows
+far too much of the steps' sides' brown. Not found yet why: on paper its slope, its tops' and sides'
+colours (the textures' smallest mips, as the meshes' far mips) and how much of each the camera sees
+all hold. Next, to tell light from colour: "light only" with the bands on and off where the brown
+showed.
