@@ -929,7 +929,7 @@ Reference: `Art/quartile minecraft illustration.png`
 
 ---
 
-## The renderer: perfect first, faster after
+## The renderer: right and fast together, erring on the side of right
 
 **[DECIDED 2026-11-03]** David, after R2 measured at 348 FPS (`docs/far-view.md`): "my gut feeling
 is that we're exceeding our end specs at this point, and i'd almost rather make it perfect at any
@@ -939,7 +939,13 @@ having a pre-alpha build fun enough that 10 people can play and send us the repo
 hardware and all its performance across several machines, so the sooner we get to that point the
 better."
 
-- The look comes first on the renderer path; speed is won back at the end.
+David, the same day: "we *can* get it looking perfect *and* being fast at the same time. we're
+already doing it, its just a 2 steps forward 1 step back process. don't say that 'the look comes
+first and speed is won back at the end', because we are perfectly capable of achieving both
+simultaniously, i'm just saying i'd err on the side of getting it right."
+
+- Looking right and running fast are both aims at every step, together. When a step has to choose,
+  err on the side of getting it right.
 - **[LATER]** The weak-hardware checkpoint is put off (David travelling this week). The real test of
   hardware is a pre-alpha build: about 10 players on their own machines, each sending back a report
   file with how it ran (the session log already holds most of it).

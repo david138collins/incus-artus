@@ -488,9 +488,9 @@ floor; a friend's machine may be another. Picking it needs no code: Bevy reads `
 (the low-power adapter) or `WGPU_ADAPTER_NAME` (part of its name) at start, and the session log's
 first lines name the adapter used. Windows' per-app graphics setting works too. A choice inside the
 game would have to be made before the window opens (a settings file, not the debug panel).
-**Put off (David, 2026-11-03):** the look first, speed won back at the end; the hardware test becomes
-a pre-alpha played by about 10 people on their own machines (`docs/decisions.md`, "The renderer:
-perfect first, faster after").
+**Put off (David, 2026-11-03):** the hardware test becomes a pre-alpha played by about 10 people on
+their own machines; right and fast together, erring on the side of right (`docs/decisions.md`, "The
+renderer: right and fast together, erring on the side of right").
 
 ## R1, the floating origin (build 32)
 David (by Counsel): "lets do it", for the path R1, the test world, R2 and on; and "im not attached to
