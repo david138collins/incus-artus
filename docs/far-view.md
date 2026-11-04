@@ -950,3 +950,7 @@ On the fins: "they might just be rough edges on our ridges" (left for now).
   over a coarse cell of dirt: grass).
 - **To see**: the grey (and brown) patches at the copies' distances gone; the real grey of stone and
   gravel still where it is.
+
+### Build 44 seen (David, 2026-11-04)
+The grey patches gone; "more brown than grey now", and the brown is the real ground: close in, "looks
+like the banks of this river are sand" (sand and dry grass, as the far land shows them). Done enough.
