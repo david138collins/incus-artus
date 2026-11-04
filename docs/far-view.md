@@ -1321,3 +1321,22 @@ the ground copied whole as before.
   every column asked). The soak's 70 to 77 °C against David's 103 to 104 isn't a fair before and after
   (release against dev, the soak against him flying): to confirm by his own flight. If the water seam or
   the models bother him, `REAL_PAST_THE_LINE` widens the band, at some of the cost back.
+
+### Build 56: step 2, and the root found (release, the soak at 20 blocks a second)
+- **Baseline, build 55**: the far land as cells off: 120 frames a second, 1% low 68 to 70, worst 15
+  ms, 68 to 78 °C (once 88), 9 slow frames; on: 118 to 119, 1% low 45 to 48, worst 28 to 31 ms, 66 to
+  75 °C in flight after a 96 °C start, 33 slow frames. One "on" run froze 4 s into the flight (no log,
+  no freeze report, the processor busy 45 s till stopped); its repeat ran clean, memory flat (1.9 GB
+  working, 3 GB private). Seen once.
+- **Step 2, build 56**: the far land's tiles not made again when real chunks stream in or out (they
+  come from the recipe): remakes for real chunks about 100 to 46 every 5 s (the rest the real band's
+  own, which need it). Frames as before; 65 to 80 °C early, 92 to 99 °C by the end of the flight.
+- **The root, from new counters**: the hand-off map (`update_shown_chunks`) made again 65 to 75 times a
+  second, and the chunks the copies cover (`update_covered`) worked out as often, its cost growing
+  through the flight (5 ms every 5 s at first, 940 by the end): a backlog. Build 52's pacing starts a
+  far land's copy about every other frame (40 to 60 a second), the flight asks 60 to 110, so the queue
+  grows; tiles being replaced are kept till their replacements are drawn, so those grow; each frame
+  every one is checked against every waiting tile, and the cover worked out with them all.
+- **Proposed** (none changes the look; to Counsel and David): the cover and hand-off map at most about 4
+  times a second and only when what's covered changes; retiring tiles checked against the waiting
+  tiles' chunks, not each pair; the far land's copies a few a frame within about 3 ms; and step 3.
