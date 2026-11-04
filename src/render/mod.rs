@@ -84,7 +84,15 @@ impl Plugin for RenderPlugin {
             .add_systems(
                 Update,
                 (
-                    march::update_march.after(distant::update_distant).after(distant::update_distant_material).after(distant::update_shown_chunks),
+                    // After the meshes' settings and light are set, so the march shades with this
+                    // frame's (one shading recipe: no hop at the line when the window or origin moves).
+                    march::update_march
+                        .after(distant::update_distant)
+                        .after(distant::update_distant_material)
+                        .after(distant::update_shown_chunks)
+                        .after(update_shader_settings)
+                        .after(light::update_light)
+                        .after(light::update_near_light),
                     march::show_one_drawer.after(deep_shot::run_deep_shot),
                 ),
             )

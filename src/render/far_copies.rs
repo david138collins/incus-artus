@@ -92,11 +92,15 @@ pub struct FarCopySettings {
     /// from themselves and drawn by the march, no longer meshed (R2 in `docs/far-view.md`). Off: a
     /// band of whole copies made from the recipe, the real chunks meshed underneath (build 28's way).
     pub real: bool,
+    /// The march's whole copies shaded as the meshes are: the same face placement, random turn,
+    /// ground light and underground light (one shading recipe, `assets/shaders/lighting.wesl`), and
+    /// the texture's size by what each pixel covers. Off: build 35's own shading, to compare.
+    pub shaded: bool,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true }
     }
 }
 
@@ -1167,6 +1171,11 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                     "With \"the march starts at\" pulled in, the real chunks past it are copied straight from themselves and drawn by the\n\
                      march, no longer meshed: only their see-through blocks and half blocks still are (docs/far-view.md, R2).\n\
                      Off: as build 34, a band of copies made from the recipe, the real chunks meshed underneath (to compare).",
+                );
+                ui.checkbox(&mut settings.shaded, "the march shaded as the meshes (new)").on_hover_text(
+                    "The blocks the march draws (past the line) lit and textured as the meshes are: the same textures the same way\n\
+                     round, the same random turn, the ground light (the lie of the land, the height tint, the feet of steps) and the\n\
+                     light underground, from one recipe both share. Off: as build 35, the march's own shading (to compare).",
                 );
             });
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(

@@ -636,3 +636,31 @@ ray (dithered), edge smoothing last.
 
 Against the criteria: 1 passes (2.9 ms, but see above); 2 passes (0.34 ms for the real chunks); 3 is the
 weak-hardware checkpoint, still to do; 4 is close (one 37 ms frame); 5 is David's look.
+
+## One shading recipe (build 36)
+David: "sounds good, proceed" (the plan sent to Counsel, with Counsel's seven points taken in).
+- **The recipe, once** (`assets/shaders/lighting.wesl`): the near world's settings and light, a
+  face's texture placement (`face_uv`), its random turn (`block_hash`, `turned`), the face shade,
+  the ground light's sums (`ground_lit`: the light map, the lie of the land, the height tint, the
+  feet of steps) and the light underground (`underground_lit`: daylight, the test lantern, placed
+  light and its flicker). Each shader only reads its own inputs and draws with these. The meshes
+  (`terrain.wesl`) draw exactly as before (a commit of its own, the move alone).
+- **The march's whole copies** (the real chunks past the line, and build 34's band) drawn with it
+  (`copy_shaded`): the block a face is on found in whole blocks from the copy's corner; its texture
+  placed and turned as the meshes do (it had the tops a quarter turn off and the north faces
+  mirrored); the texture's size from where the next pixels' rays meet the face's plane, measured
+  from the eye (as the graphics card measures it for the meshes; no sharper at a slant than theirs:
+  the block textures have no anisotropic filtering); lit by the face shade, the ground light (the
+  window of the ground round you reaches the render distance, so it covers them) and the light
+  underground, from the air the ray came through as a mesh's from the air in front of its face. Not
+  lit a second time by the march's own light.
+- The march gets the meshes' settings, light, window and cone map every frame, after they're set
+  (`update_march` runs after `update_shader_settings` and the light's), so the shade doesn't hop
+  at the line when the window or origin moves; and each block's faces' random-turn flags.
+- The switch: "the march shaded as the meshes (new)", on the Render page under "the real chunks past
+  the line too" (David's place and name). Off: build 35's own shading.
+- Tests: neither shader keeps its own placement, turn or light, and both draw with lighting.wesl's;
+  the march numbers the face a ray meets as the meshes number it.
+- **Expected:** the blotches and the shading jump at the line gone near in. Further out the copies'
+  2- and 4-block cells may show faint bands (the shading is block-accurate; the cells aren't): that's
+  the next step, sizes per ray. Judge this one on the near range.

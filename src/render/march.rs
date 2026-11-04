@@ -106,6 +106,8 @@ struct Copies {
     /// these blocks (`TerrainAssets::revision`).
     palette: Option<Arc<Palette>>,
     blocks_revision: u64,
+    /// And for these faces' random turns (`TerrainAssets::face_random_rotation`).
+    rotations: Option<Arc<Vec<[bool; 6]>>>,
     /// The highest any copy reaches (blocks).
     top: f32,
     /// Copies that didn't fit, counted each time one was tried (for the log), and how many didn't the
@@ -757,13 +759,26 @@ pub struct MarchMaterial {
     #[texture(12, dimension = "2d_array")]
     #[sampler(13)]
     pub block_textures: Handle<Image>,
+    /// The near world's settings and light, its window of the ground round you and that window's
+    /// cone map, as the meshes have them: the whole copies shaded as the meshes are (one shading
+    /// recipe, `assets/shaders/lighting.wesl`). Kept in step with the meshes' own each frame.
+    #[uniform(14)]
+    pub near: super::material::TerrainShaderSettings,
+    #[uniform(15)]
+    pub lighting: super::material::TerrainLight,
+    #[texture(16)]
+    #[sampler(17)]
+    pub near_map: Handle<Image>,
+    #[texture(18, sample_type = "float", filterable = false)]
+    pub near_cones: Handle<Image>,
 }
 
 #[derive(ShaderType, Clone, Copy, Debug, Default, PartialEq)]
 pub struct MarchShaderSettings {
     /// x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes.
     pub grid: Vec4,
-    /// The far copies: x 1 if the march draws them.
+    /// The far copies: x 1 if the march draws them, y 1 if its whole copies are shaded as the meshes
+    /// are (`FarCopySettings::shaded`).
     pub copies: Vec4,
     /// The square of real chunks the rays start at the edge of (game axes, blocks): its least x and
     /// y, its greatest x and y; all 0 if there's none.
@@ -840,6 +855,10 @@ pub fn setup_march(
         copy_map: copy_map.clone(),
         block_colours: block_colours.clone(),
         block_textures: images.add(super::textures::placeholder_array()),
+        near: Default::default(),
+        lighting: Default::default(),
+        near_map: images.add(super::light::placeholder()),
+        near_cones: images.add(super::light::cones_placeholder()),
     });
     state.copies.cells_buffer = Some(copy_cells);
     state.copies.records_buffer = Some(copy_records);
@@ -893,11 +912,17 @@ pub fn update_march(
     // The far copies, if the march draws them, and the colours their cells are drawn in.
     let marched = far_settings.marched(&settings);
     state.follow_copies(if marched { far.march_tiles() } else { Vec::new() }, marched);
-    // Each block's far colours (top, side) and its faces' texture layers (north, south, east, west,
-    // top, bottom; as numbers), four sets of four a block.
+    // Each block's far colours (top, side), its faces' texture layers (north, south, east, west,
+    // top, bottom; as numbers) and which of its faces take the random turn (`turns`), four sets of
+    // four a block.
     let revision = terrain.as_ref().map_or(0, |terrain| terrain.revision);
+    let rotations = terrain.as_ref().map(|terrain| terrain.face_random_rotation.clone());
+    let rotations_changed = match (&state.copies.rotations, &rotations) {
+        (Some(old), Some(new)) => !Arc::ptr_eq(old, new),
+        (old, new) => old.is_some() != new.is_some(),
+    };
     if let Some(palette) = distant.palette().cloned()
-        && (state.copies.palette.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &palette)) || state.copies.blocks_revision != revision)
+        && (state.copies.palette.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &palette)) || state.copies.blocks_revision != revision || rotations_changed)
     {
         let faces = terrain.as_ref().map(|terrain| terrain.face_layers.clone());
         let colours: Vec<f32> = palette
@@ -906,7 +931,8 @@ pub fn update_march(
             .enumerate()
             .flat_map(|(id, (top, side))| {
                 let layers = faces.as_ref().and_then(|faces| faces.get(id).copied()).unwrap_or([0; 6]).map(|layer| layer as f32);
-                [top[0], top[1], top[2], 1.0, side[0], side[1], side[2], 1.0, layers[0], layers[1], layers[2], layers[3], layers[4], layers[5], 0.0, 0.0]
+                let turning = rotations.as_ref().and_then(|rotations| rotations.get(id).copied()).unwrap_or([false; 6]);
+                [top[0], top[1], top[2], 1.0, side[0], side[1], side[2], 1.0, layers[0], layers[1], layers[2], layers[3], layers[4], layers[5], turns(turning), 0.0]
             })
             .collect();
         if let Some(buffer) = &state.copies.colours_buffer
@@ -916,9 +942,11 @@ pub fn update_march(
         }
         state.copies.palette = Some(palette);
         state.copies.blocks_revision = revision;
+        state.copies.rotations = rotations;
     }
-    // The block textures, the near world's own.
-    let textures = terrain.as_ref().and_then(|terrain| terrain_materials.get(&terrain.material)).map(|material| material.textures.clone());
+    // The block textures, and the settings, light and window of the ground the meshes are shaded
+    // with: the near world's own.
+    let near = terrain.as_ref().and_then(|terrain| terrain_materials.get(&terrain.material)).map(|material| (material.textures.clone(), material.settings, material.light, material.near_map.clone(), material.near_cones.clone()));
     let sheet_changed = changed_sheet.read().any(|event| matches!(event, AssetEvent::Modified { .. }));
     let inner = distant.inner.map_or(Vec4::ZERO, |(centre, reach)| {
         let size = crate::world::CHUNK_SIZE as f32;
@@ -926,18 +954,27 @@ pub fn update_march(
     });
     let march = MarchShaderSettings {
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
-        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0),
+        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, 0.0, 0.0),
         inner,
     };
-    let unchanged = materials.get(&handle).is_some_and(|material| material.march == march && textures.as_ref().is_none_or(|textures| material.block_textures == *textures));
+    let unchanged = materials.get(&handle).is_some_and(|material| {
+        material.march == march
+            && near.as_ref().is_none_or(|(textures, settings, light, map, cones)| {
+                material.block_textures == *textures && material.near == *settings && material.lighting == *light && material.near_map == *map && material.near_cones == *cones
+            })
+    });
     if unchanged && !sheet_changed {
         return;
     }
     let sheet = distant.material.as_ref().and_then(|sheet| sheets.get(sheet)).cloned();
     if let Some(mut material) = materials.get_mut(&handle) {
         material.march = march;
-        if let Some(textures) = textures {
+        if let Some((textures, settings, light, map, cones)) = near {
             material.block_textures = textures;
+            material.near = settings;
+            material.lighting = light;
+            material.near_map = map;
+            material.near_cones = cones;
         }
         if let Some(sheet) = sheet {
             material.settings = sheet.settings;
@@ -945,6 +982,12 @@ pub fn update_march(
             material.light = sheet.light;
         }
     }
+}
+
+/// Which of a block's faces take the random turn (north, south, east, west, top, bottom), as the
+/// march reads them: one bit a face, as a number.
+fn turns(faces: [bool; 6]) -> f32 {
+    faces.iter().enumerate().map(|(face, &on)| if on { 1 << face } else { 0 }).sum::<u32>() as f32
 }
 
 /// On Bevy's drawing side, once the lists are on the graphics card: writes the pieces the game
@@ -1316,5 +1359,49 @@ mod tests {
         tile.morph[0][0] = 80.0;
         state.store(TileKey { ring: 0, x: 19, y: -2 }, Some(&tile));
         assert_eq!(state.height_at(16.0, moved, Vec2::new(19.5, -1.5) * size), Some(80.0));
+    }
+}
+
+#[cfg(test)]
+mod one_recipe {
+    /// A shader's text, from the assets.
+    fn shader(name: &str) -> String {
+        std::fs::read_to_string(format!("{}/assets/shaders/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+    }
+
+    #[test]
+    fn the_meshes_and_the_march_place_turn_and_light_a_block_from_one_recipe() {
+        // The march's whole copies had their own texture placement (the tops a quarter turn off, the
+        // north faces mirrored) and their own light, so a block looked different each side of the line
+        // (2026-11-03). Both shaders now draw a block with lighting.wesl's pieces, and neither keeps
+        // its own.
+        let shared = shader("lighting.wesl");
+        for piece in ["fn face_uv(", "fn face_normal(", "fn block_hash(", "fn turned(", "fn face_shade(", "fn ground_lit(", "fn underground_lit(", "struct TerrainLight", "struct TerrainShaderSettings"] {
+            assert!(shared.contains(piece), "lighting.wesl should have {piece}");
+        }
+        for name in ["terrain.wesl", "march.wesl"] {
+            let text = shader(name);
+            for own in ["fn face_uv(", "fn face_normal(", "fn block_hash(", "fn turned(", "fn face_shade(", "fn ground_lit(", "fn underground_lit(", "struct TerrainLight", "struct TerrainShaderSettings"] {
+                assert!(!text.contains(own), "{name} should use lighting.wesl's {own}, not its own");
+            }
+            for used in ["face_uv(", "turned(", "face_shade(", "ground_lit(", "underground_lit("] {
+                assert!(text.contains(used), "{name} should draw with lighting.wesl's {used}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_march_finds_the_face_a_ray_meets_as_the_meshes_number_it() {
+        // The march numbers the face a ray came in through by the axis it crossed and which way it was
+        // going; the meshes by which way the face points (north 0, south 1, east 2, west 3, top 4,
+        // bottom 5: lighting.wesl's `face_normal`). A ray meets the face pointing back at it.
+        let normals = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+        for axis in 0..3 {
+            for forward in [false, true] {
+                let face = axis * 2 + usize::from(forward);
+                let going = if forward { 1 } else { -1 };
+                assert_eq!(normals[face][axis], -going, "a ray going {going} along axis {axis} meets face {face}");
+            }
+        }
     }
 }

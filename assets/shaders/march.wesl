@@ -14,8 +14,8 @@
 // ring out toward a ring's edge, so the march and the sheet are the same shape. Each step follows
 // `MarchState::march_ray` (src/render/march.rs), which the tests check against small steps.
 
-import bevy_pbr::render::mesh_view_bindings::view;
-import super::lighting::{land, light_from_map, to_game};
+import bevy_pbr::render::mesh_view_bindings::{globals, view};
+import super::lighting::{face_normal, face_shade, face_uv, ground_lit, land, light_from_map, to_game, turned, underground_lit, TerrainLight, TerrainShaderSettings};
 
 struct DistantShaderSettings {
     fog_color: vec4<f32>,
@@ -79,6 +79,14 @@ struct Corner {
 // The near world's block textures (the near-march experiment's whole copies).
 @group(constants::MATERIAL_BIND_GROUP) @binding(12) var block_textures: texture_2d_array<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(13) var block_sampler: sampler;
+// The near world's settings and light, its window of the ground round you and that window's cone
+// map, as the meshes have them (src/render/march.rs, `MarchMaterial::near`): the whole copies shaded
+// as the meshes are (`copy_shaded`).
+@group(constants::MATERIAL_BIND_GROUP) @binding(14) var<uniform> near_settings: TerrainShaderSettings;
+@group(constants::MATERIAL_BIND_GROUP) @binding(15) var<uniform> lighting: TerrainLight;
+@group(constants::MATERIAL_BIND_GROUP) @binding(16) var near_map: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(17) var near_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(18) var near_cones: texture_2d<f32>;
 
 const CELLS: f32 = 16.0;
 const TILES: i32 = 16;
@@ -557,6 +565,136 @@ fn copy_textured(value: u32, local: vec3<f32>, rate: vec3<f32>, spot: vec3<f32>,
     return colour * shade;
 }
 
+// The near window's cone map at `uv` (0 to 1 across the window), blended between its four nearest
+// pixels (as terrain.wesl's `cones_at`).
+fn cones_at(uv: vec2<f32>) -> vec2<f32> {
+    let size = vec2<i32>(textureDimensions(near_cones));
+    let p = uv * vec2<f32>(size) - 0.5;
+    let base = floor(p);
+    let t = p - base;
+    let low = clamp(vec2<i32>(base), vec2<i32>(0), size - 1);
+    let high = clamp(vec2<i32>(base) + 1, vec2<i32>(0), size - 1);
+    let a = textureLoad(near_cones, vec2<i32>(low.x, low.y), 0).xy;
+    let b = textureLoad(near_cones, vec2<i32>(high.x, low.y), 0).xy;
+    let c = textureLoad(near_cones, vec2<i32>(low.x, high.y), 0).xy;
+    let d = textureLoad(near_cones, vec2<i32>(high.x, high.y), 0).xy;
+    return mix(mix(a, b, t.x), mix(c, d, t.x), t.y);
+}
+
+// How lit a spot on the ground is, as the meshes light it (terrain.wesl's `ground_light`, the sums
+// lighting.wesl's `ground_lit`): the light map, the window of the ground round you and its cone map,
+// read here. `world_position` as drawn (Bevy's axes, from the floating origin).
+fn near_ground_light(world_position: vec3<f32>, face: u32) -> f32 {
+    let north = -world_position.z + lighting.origin.x;
+    let east = world_position.x + lighting.origin.y;
+    let up = world_position.y;
+    var map_light = 1.0;
+    if lighting.light.x > 0.5 {
+        let uv = vec2<f32>(east + lighting.light_area.x, lighting.light_area.x - north) / max(lighting.light_area.y, 1.0);
+        map_light = light_from_map(textureSampleLevel(light_map, light_sampler, uv, 0.0), lighting.light);
+    }
+    var near = vec4<f32>(0.0);
+    var cones = vec2<f32>(0.0);
+    if lighting.near_area.w > 0.5 {
+        let uv = vec2<f32>(east - lighting.near_area.y, lighting.near_area.x - north) / lighting.near_area.z;
+        near = textureSampleLevel(near_map, near_sampler, uv, 0.0);
+        if !(all(uv >= vec2<f32>(0.0)) && all(uv <= vec2<f32>(1.0))) {
+            near.a = 0.0;
+        }
+        if near.a > 0.5 && face == 4u {
+            cones = cones_at(uv);
+        }
+    }
+    return ground_lit(map_light, near, cones, face, up, lighting.sun, lighting.hill, lighting.shade, lighting.sides);
+}
+
+// How far the spot where the next pixel's ray (`other`) meets a face's plane is from where this
+// pixel's (`ray`, `t` along it) met it, in the plane: what a block's texture changes by from one pixel
+// to the next, as the graphics card measures it for the meshes. From the eye, so small numbers, never
+// two places in the world taken apart [build 13's jiggle]. At a grazing angle, where the next ray
+// nearly runs along the plane, it's taken no further than 8 times as far.
+fn across_pixel(normal: vec3<f32>, ray: vec3<f32>, other: vec3<f32>, t: f32) -> vec3<f32> {
+    let facing = dot(normal, ray);
+    let next = dot(normal, other);
+    var s = 8.0 * t;
+    if facing * next > 0.0 {
+        s = min(t * facing / next, 8.0 * t);
+    }
+    let d = other * s - ray * t;
+    return d - normal * dot(normal, d);
+}
+
+// A whole copy's cell a ray met, shaded as the meshes shade a block (one shading recipe,
+// lighting.wesl): the face the ray came in through (`value`, `local`, `rate` as for `copy_colour`)
+// on the block it belongs to, found from the copy's corner (`record`) in whole blocks; its texture
+// placed and turned as the meshes place and turn it, at the size the meshes would read (from how far
+// it moves to the next pixel's ray, `ray_x` and `ray_y`); lit by the face shade, the ground light and
+// the underground light (`daylight` and `glow`, 0 to 1, from the air the ray came through, as a mesh
+// takes them from the air in front of its face). `world_position` as drawn.
+fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: vec3<f32>, ray_x: vec3<f32>, ray_y: vec3<f32>, t: f32, world_position: vec3<f32>, daylight: f32, glow: vec3<f32>) -> vec3<f32> {
+    let into = local - floor(local);
+    let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
+    var axis = 2u;
+    var forward = rate.z > 0.0;
+    if since.x < since.y && since.x < since.z {
+        axis = 0u;
+        forward = rate.x > 0.0;
+    } else if since.y < since.z {
+        axis = 1u;
+        forward = rate.y > 0.0;
+    }
+    // Which face: the side the ray came from (north 0, south 1, east 2, west 3, top 4, bottom 5).
+    let face = axis * 2u + select(0u, 1u, forward);
+    let normal = face_normal(face);
+    // Where it met the face, in blocks from the copy's corner (whole numbers, so a block's place in
+    // it is exact), and the block the face is on: half a block in from it, as the meshes find it.
+    let base = record * COPY_RECORD;
+    let corner = vec3<i32>(bitcast<i32>(copy_records[base]), bitcast<i32>(copy_records[base + 1u]), bitcast<i32>(copy_records[base + 2u]));
+    let p = local * f32(copy_records[base + 3u]);
+    let at_block = corner + vec3<i32>(floor(p - normal * 0.5));
+    let block = value & 0xFFFu;
+    let first = block_colours[block * 4u + 2u];
+    let last = block_colours[block * 4u + 3u];
+    var layer = last.x;
+    if face == 0u {
+        layer = first.x;
+    } else if face == 1u {
+        layer = first.y;
+    } else if face == 2u {
+        layer = first.z;
+    } else if face == 3u {
+        layer = first.w;
+    } else if face == 5u {
+        layer = last.y;
+    }
+    // Placed as the meshes place it (the corner is whole, so only whole blocks apart from the mesh's
+    // own numbers: the same picture), its size from the unturned place, as theirs.
+    var uv = face_uv(face, p);
+    let uv_dx = face_uv(face, across_pixel(normal, ray, ray_x, t));
+    let uv_dy = face_uv(face, across_pixel(normal, ray, ray_y, t));
+    if ((u32(last.z) >> face) & 1u) == 1u && near_settings.options.x > 0.5 {
+        uv = turned(uv, at_block, face);
+    }
+    var colour = textureSampleGrad(block_textures, block_sampler, uv, i32(layer), uv_dx, uv_dy).rgb;
+    if near_settings.options.y > 0.5 {
+        colour = vec3<f32>(0.5);
+    }
+    // Who drew this: the march's whole copies a paler green.
+    if settings.view.x > 0.5 {
+        colour = vec3<f32>(0.55, 0.95, 0.6);
+    }
+    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face);
+    return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
+}
+
+// This pixel's ray (`ndc`: where it is on the screen, -1 to 1 each way), in game axes: worked out
+// from the camera, then turned to the world; never from two points in the world.
+fn pixel_ray(ndc: vec2<f32>) -> vec3<f32> {
+    let on_near = view.view_from_clip * vec4<f32>(ndc, 1.0, 1.0);
+    let toward = normalize(on_near.xyz / on_near.w);
+    return normalize(to_game((view.world_from_view * vec4<f32>(toward, 0.0)).xyz));
+}
+
 // How long ago (along the ray) it came in through a cell's face this way, `into` across the cell.
 fn since_entering(into: f32, rate: f32) -> f32 {
     if abs(rate) < 1e-9 {
@@ -860,7 +998,17 @@ fn fragment(in: VertexOutput) -> Output {
     // As drawn: from the floating origin, from the camera's place there (exact, not the world's big numbers).
     let world_position = to_bevy(eye + ray * t);
     var colour = vec3<f32>(0.0);
-    if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u {
+    // Lit already (a whole copy shaded as the meshes are, light and all): none of the light below.
+    var lit = false;
+    let glows = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
+    if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u && march.copies.y > 0.5 {
+        // Copied whole, shaded as the meshes shade the same block (one shading recipe): the next
+        // pixels' rays, right and down, for the texture's size.
+        let ray_x = pixel_ray(ndc + vec2<f32>(2.0 / view.viewport.z, 0.0));
+        let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 / view.viewport.w));
+        colour = copy_shaded(hit_value, hit_local, hit_rate, hit_record, ray, ray_x, ray_y, t, world_position, f32(last_light) / 15.0, glows);
+        lit = true;
+    } else if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u {
         // Copied whole (the near-march experiment): the block's own texture on the face the ray
         // came in through, as the near world draws it.
         colour = copy_textured(hit_value, hit_local, hit_rate, spot, t);
@@ -899,10 +1047,11 @@ fn fragment(in: VertexOutput) -> Output {
     if hit_copy {
         let daylight = f32(last_light) / 15.0;
         day = day * daylight * daylight;
-        glow = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
-        glow = glow * glow;
+        glow = glows * glows;
     }
-    colour = colour * min(vec3<f32>(day) + glow, vec3<f32>(1.0));
+    if !lit {
+        colour = colour * min(vec3<f32>(day) + glow, vec3<f32>(1.0));
+    }
     if settings.survey.x > 0.5 {
         let z = i32(floor(world_position.y - 0.01));
         let every = max(i32(settings.survey.y), 1);
