@@ -1152,3 +1152,10 @@ pixel next) needs a coarse cell to look like the average of what it covers, as a
   level further the average of those).
 - **To see**: the dark dots on the sand gone into a slightly darker sand, as the reference shows it;
   then the pixel smoothing off and on again (its worth shows once the dots are gone).
+
+### Build 49 seen (David, 2026-11-04)
+"normal settings in game. looks pretty consistent, for the most part. i can see 'smooth the far pixels'
+doing something now. but it's subtle." The sand's dark dots gone. Left, seen in his picture: a snowy
+peak's coarser copies still dark-specked on white (on file: likely the sides, which keep their one
+block's texture, on ground steep enough that sides are much of what's seen; their average is the
+next to try if it's wanted). The smoothing's cost to measure next.
