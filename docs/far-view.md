@@ -809,3 +809,52 @@ be tuned, i think. this is an improvement".
 - **On file, not seen**: where a copy might be drawn coarser (build 38), a ray below its square's top
   goes a cell at a time, without the groups' and columns' long steps: more steps used, so more rays
   that could run out. Only if gaps are still seen.
+
+## Open concerns, sorted (2026-11-04)
+David: "walking the line between chasing small things that can wait and, not letting anything get
+through. i dont want to be fixing things early that could be fixed faster a step or two from now".
+Builder's list, with Counsel's checks against this file. The order of the steps is David's to confirm.
+
+**The rule used:** fix now only what puts holes in the picture or misleads other tests. Anything else
+waits for a named step, and that step looks at its items again before David is told it's ready. Written
+here and with a way to catch it, or it doesn't wait.
+
+**Now (build 42, on David's go):**
+- Lines of sky: a hole in the picture, and already built. If gaps remain, the likeliest cause is the
+  coarser cells' one-cell-at-a-time rays (build 38, using up steps): look there first.
+- Checked in the same test, as they're built but not confirmed: the mountain sides ("who drew this",
+  yellow beside pale green), and the water strip at line 8 (a river crossing the line).
+
+**Round 2, the land's look:**
+- Bands ending suddenly where the real chunks end. Judge round 2 across that edge, or this stays open.
+- Thin red-brown slivers on far step sides.
+- The faint extra noise inside the line.
+- Build the look and compare it by eye; no fine tuning of its shades, as regular lighting moves them.
+
+**Far land sized per pixel** (rewrites the march's loop):
+- Pixelization reaching only the copies, not the far land.
+- The coarser cells' one-cell-at-a-time rays.
+
+**Regular lighting** (replaces build 39's shading on coarser cells, so no more tuning of that):
+- The shading behind hills a bit heavy from up high.
+- The near window's slope taken from the recipe, not dug or built ground (not seen).
+- The braziers' glow under long steps on open ground (not seen).
+- Coarse light levels, after this (David).
+
+**On file, each with what brings it back:**
+- Outrunning the chunks above about 2,000 mph: accepted by David; back if a player's speed reaches it.
+- Copy pages capped at 512 MB (146 MB in use at line 2): back if the Render page shows copies left out.
+- Slow frames in fast flight, 25 to 37 ms: back when timing matters. It needs a named step.
+- The copy lookup still uses the world's numbers, against the "measure from nearby" rule (watch list
+  22). Build 42's 32nd of a block is eight times the numbers' 1/250 at the world's edge, so it holds.
+
+**For the pre-alpha (watch list 23):** the code's own render defaults (render distance 32, line at 64,
+fog on) differ from David's preset (64, 8, fog off), and `presets/` isn't committed, so players would
+get the code's defaults.
+
+**A gap in the tests:** the Rust twin has no floating origin and works near the world's middle, so no
+test can catch a precision bug like the lines of sky. A twin test with far-out numbers would.
+
+**Looks overtaken (Builder to confirm):** the meshes' floating origin (R1, builds 32 and 33: "all
+zeros"), and chunks still meshed under the copies (build 35: past the line only see-through blocks and
+pieces are).
