@@ -813,7 +813,10 @@ be tuned, i think. this is an improvement".
 ## Open concerns, sorted (2026-11-04)
 David: "walking the line between chasing small things that can wait and, not letting anything get
 through. i dont want to be fixing things early that could be fixed faster a step or two from now".
-Builder's list, with Counsel's checks against this file. The order of the steps is David's to confirm.
+Builder's list, with Counsel's checks against this file. The order below, Builder and Counsel agreed:
+round 2, then far land sized per pixel, then regular lighting (shading rays walk the same loop and read
+the same sizes, and the far land's half of that loop is what the second step rewrites). David's to confirm
+when round 2 is behind us.
 
 **The rule used:** fix now only what puts holes in the picture or misleads other tests. Anything else
 waits for a named step, and that step looks at its items again before David is told it's ready. Written
@@ -848,7 +851,11 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
 **On file, each with what brings it back:**
 - Outrunning the chunks above about 2,000 mph: accepted by David; back if a player's speed reaches it.
 - Copy pages capped at 512 MB (146 MB in use at line 2): back if the Render page shows copies left out.
-- Slow frames in fast flight, 25 to 37 ms: back when timing matters. It needs a named step.
+- Slow frames in fast flight, 25 to 37 ms, from two sources. The 37 ms frame was the near meshes
+  inside the line: goes with R7. Making and dropping about 110 copies a second: Builder's "R2b", the real
+  chunks written straight into the march's cells as they load and change, no copy made (R2's first
+  plan; not urgent, as it's 25 to 29 ms only above 2,000 mph).
+- One 97 ms frame with none of the game's own steps in it: read the log if it's seen again.
 - The copy lookup still uses the world's numbers, against the "measure from nearby" rule (watch list
   22). Build 42's 32nd of a block is eight times the numbers' 1/250 at the world's edge, so it holds.
 
@@ -857,8 +864,10 @@ fog on) differ from David's preset (64, 8, fog off), and `presets/` isn't commit
 get the code's defaults.
 
 **A gap in the tests:** the Rust twin has no floating origin and works near the world's middle, so no
-test can catch a precision bug like the lines of sky. A twin test with far-out numbers would.
+test can catch a precision bug like the lines of sky. A twin test with far-out numbers would (Builder:
+about half an hour, rays slipping through without the look-ahead and none with it).
 
-**Looks overtaken (Builder to confirm):** the meshes' floating origin (R1, builds 32 and 33: "all
-zeros"), and chunks still meshed under the copies (build 35: past the line only see-through blocks and
-pieces are).
+**Closed, overtaken (Builder confirmed):** the meshes' floating origin (R1, builds 32 and 33: "all
+zeros"; what's left is the copy lookup above), and chunks still meshed under the copies (build 35: past
+the line only see-through blocks and pieces are; the processor's share now is making the copies, about
+12 ms a copy on average and 64 ms at most, off the frame).
