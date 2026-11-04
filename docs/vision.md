@@ -569,10 +569,17 @@ bread and a blank diary. Birds sing and flit about.
 - **Oregon Trail mechanics, perhaps** (David): "fun 'oregon trail' mechanics to the voyage", though
   "recreating the mayflower with all the sick people and dying farm animals might be too far". How hard it
   gets is open.
+- **Seasickness is welcome** (David): "making players seasick on a boat that isn't moving would make me
+  happy, and i think they'd be happy about it too, looking back. thats half the reason Descent became such
+  a classic. people were out there talking about how they fell out of their chair trying to play it."
+- **Difficulty levels: don't assume one** (David): "adding a difficulty level would be much, much harder
+  than it sounds at first, and only possible with basically a completed game. it is implemented so badly on
+  nearly like, all games. it'd require extremely deep thought."
 - *Counsel, to assess:*
   - The ship stays still, so people and routes on it work as in any structure, and the voyage asks nothing
     of marching moving things.
-  - Rocking the screen may need a way to turn it down, for players it makes queasy.
+  - Rocking the screen: seasickness is part of the appeal (David, below). Whether it can be turned down
+    at all, for players who couldn't otherwise play, is his call when it's tuned.
   - Arriving needs a good place on the new world's shore for the ship to stand.
   - Voyage events could come from the Goddess of Fate and the Dungeonmaster's pacing, so how a crossing
     goes depends on what you loaded and who you brought.
