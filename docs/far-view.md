@@ -1285,3 +1285,20 @@ a tile marked dirty remakes the whole tile, up to 8 × 8 chunks). Nothing drawn 
 - **Heat** (the CPU-area zone, `typeperf`, every 2 s): starting up reached 102 °C within seconds, while
   the world loaded and streamed its first chunks, before the flight and whatever the far land does; the
   run was stopped there at 100 °C. Not yet compared with the far land as cells off.
+
+### Build 55: the real chunks made only near (David: "yes, lets do it")
+The root, step 1 of 3: while the march draws the far land from the recipe, the real chunks are made
+only 4 chunks past the line (`StreamSettings::cap`, set by `far_copies::cap_streaming`; the radius
+setting itself kept), everything past them from the recipe, the save's changed chunks and caves near
+the ground copied whole as before.
+- **Measured, release, the soak at 20 blocks a second, 45 s**: 492 chunks to make as it starts, not
+  3,372; after the first fill, 119 frames a second, 1% low 46 to 49, worst 28 ms (31 to 37 before).
+  Copies queued every 5 s: 50 to 310 on new ground, 60 to 90 at another size, about 100 again for their
+  real chunks (155 before).
+- **Heat** (the CPU-area zone, read every 2 s): starting up still jumps to about 100 °C within a couple
+  of seconds (once 89 to 95, once 100, when the run was stopped), as compiling the game does (102 to
+  103 °C): a burst on every core reads that high on this laptop. In the flight after it, 70 to 77 °C
+  (David's own flights read 103 to 104 in the dev builds before).
+- **Next, steps 2 and 3**: the real chunks written one chunk at a time (no tile made again when one of
+  its chunks streams in or out), and no tile made again for a new size where the march's own levels
+  already size it. And, if wanted, a gentler start (fewer chunks made at once than one a core).
