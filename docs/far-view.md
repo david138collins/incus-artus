@@ -1270,3 +1270,18 @@ flown, too many for the view moving on. Every 5 seconds while tiles are queued, 
 on new ground, where a tile of another size was drawn (remade at a new size as the distance changes),
 or made again for their real chunks (streamed in, dropped or changed: any section of a real chunk in
 a tile marked dirty remakes the whole tile, up to 8 × 8 chunks). Nothing drawn changes.
+
+### Measured in release (2026-11-04, David away: "she can run her own tests")
+- **Making copies, release against dev** (the test): the far land's at 8 blocks a cell 1.5 ms against
+  1.8; the real chunks' at 8 blocks a cell 86 against 117 (at 4, 24 against 30). Release is only 1.2 to
+  1.4 times quicker at this: most of the work is in libraries built at full speed either way.
+- **A soak flight, release, 20 blocks a second, the far land as cells on, 45 s, capped at 120**: after
+  the first fill (1,955 tiles; 112 a second, 1% low 16, worst 176 ms at 10 s), 118 to 119 frames a
+  second, 1% low 44 to 49, worst 30 to 37 ms: a slow frame every second or two, as a chunk is crossed
+  and the wanted tiles worked out again (the far copies' own step 2 to 5 ms of it).
+- **Copies queued by why, every 5 s of steady flight**: 50 to 190 on new ground, 60 to 210 at another
+  size, about 155 again for their real chunks: 60 to 110 copies a second at 20 blocks a second, most
+  of them remade, not new.
+- **Heat** (the CPU-area zone, `typeperf`, every 2 s): starting up reached 102 °C within seconds, while
+  the world loaded and streamed its first chunks, before the flight and whatever the far land does; the
+  run was stopped there at 100 °C. Not yet compared with the far land as cells off.
