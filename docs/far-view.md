@@ -954,3 +954,13 @@ On the fins: "they might just be rough edges on our ridges" (left for now).
 ### Build 44 seen (David, 2026-11-04)
 The grey patches gone; "more brown than grey now", and the brown is the real ground: close in, "looks
 like the banks of this river are sand" (sand and dry grass, as the far land shows them). Done enough.
+
+### Round 2 compared (David, 2026-11-04, build 44, the contour bands off and on from one spot)
+`screenshots/screenshot-1793806270.png` (on), and two of his (off, on). Builder's reading:
+- On: the red-brown stripes gone; but lighter patches with hard edges in the copies, where their
+  banded cells (lit as the far land is) meet their block-a-cell cells (lit as the meshes are): two
+  lighting recipes side by side. A shading flaw: written down for regular lighting, not tuned.
+- The real chunks' edge into the far land still shows, either way, as colour and brightness more than
+  bands (the far land's averaged colours and its own light): for far land sized per pixel and regular
+  lighting.
+- The far land's own bands are faint from this far (filtered, as meant).
