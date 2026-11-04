@@ -1014,3 +1014,15 @@ far too much of the steps' sides' brown. Not found yet why: on paper its slope, 
 colours (the textures' smallest mips, as the meshes' far mips) and how much of each the camera sees
 all hold. Next, to tell light from colour: "light only" with the bands on and off where the brown
 showed.
+
+### "Light only", bands on and off (David, 2026-11-04, build 46)
+"with the contour bands off, it looks more orderly." In grey: with the bands off, the copies' steps
+are clean darker lines everywhere; with them on, the banded cells go smooth and a little lighter, the
+lines faint, with patches where they meet the block-a-cell cells. In colour the same places go olive
+and brown with the bands on. So it's light as well as colour: the recipe's sides come out lighter,
+against its tops, than the blocks' do. A lead, not checked: past the near light window a copy's
+blocks take only the light map (no lie of the land, no feet of the steps, the face shade alone),
+while the recipe darkens the tops by the lie of the land more than the sides; so the reference is a
+truth of shape and colour, not yet of light. Builder's next step proposed: measure the recipe against
+the blocks off the game (a Rust test: a staircase of real blocks seen from a camera, supersampled,
+against the recipe's mix at the same spot), find where they part, then make the far land match.
