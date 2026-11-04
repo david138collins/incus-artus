@@ -79,9 +79,24 @@ fn as_seen(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: v
 // the bands, the lines lighter than the ground, the steps' shading turned inside out [David, build 44:
 // "it's almost like it just inverts the shading between side and top"].
 fn as_seen_banded(top: vec3<f32>, open: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: vec2<f32>, toward: vec3<f32>, height: f32, width: f32) -> vec3<f32> {
-    let top_seen = max(toward.z, 0.0);
-    let north_seen = abs(rise.x) * max(-sign(rise.x) * toward.x, 0.0);
-    let east_seen = abs(rise.y) * max(-sign(rise.y) * toward.y, 0.0);
+    var top_seen = max(toward.z, 0.0);
+    var north_seen = abs(rise.x) * max(-sign(rise.x) * toward.x, 0.0);
+    var east_seen = abs(rise.y) * max(-sign(rise.y) * toward.y, 0.0);
+    // Less what the blocks hide of each other: as much as the slope faces away from the camera (its
+    // sides facing away), taken mostly from the sides facing it, the more so the lower the camera and
+    // the more even the slope both ways; the rest from the tops. Measured against real steps
+    // (march.rs, `the_far_lands_share_of_steps_sides_is_what_real_steps_show`, its `sides_share` kept
+    // the same as this): counting every side facing the camera showed up to 2.7 times the sides on
+    // diagonal slopes seen aslant [David, build 46: far slopes brown where the blocks are green].
+    let back = abs(rise.x) * max(sign(rise.x) * toward.x, 0.0) + abs(rise.y) * max(sign(rise.y) * toward.y, 0.0);
+    let front = north_seen + east_seen;
+    if front > 1e-5 {
+        let even = sqrt(min(abs(rise.x), abs(rise.y)) / max(abs(rise.x), abs(rise.y)));
+        let lost = (1.0 - 0.8 * top_seen) * min(back / front, 1.0) * even;
+        north_seen = north_seen * (1.0 - lost);
+        east_seen = east_seen * (1.0 - lost);
+        top_seen = max(top_seen - max(back - front * lost, 0.0), 0.0);
+    }
     let sides_seen = north_seen + east_seen;
     let seen = top_seen + sides_seen;
     if seen <= 1e-5 || sides_seen <= 1e-5 {

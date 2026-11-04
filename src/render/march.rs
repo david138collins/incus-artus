@@ -1798,21 +1798,45 @@ mod sizes_per_ray {
         assert_eq!(slipped[1], 0, "looked up ahead, no ray slips: {} of {rays}", slipped[1]);
     }
 
-    /// Measuring, not checking (run with `--nocapture`): on a slope of real blocks copied a block a
-    /// cell, the share of rays round one spot that meet a step's side, against the far land's recipe's
-    /// share there (`as_seen` in lighting.wesl: the sides' share by how much the camera sees of them),
-    /// for slopes, heights of the camera and ways it looks. [David, build 46: the recipe brown where the
-    /// blocks are green with thin lines.]
+
+    /// The far land's recipe's sides' share of what's seen (`as_seen_banded` in lighting.wesl, kept the
+    /// same): the tops and the steps' sides facing the camera, less what the blocks hide of each other.
+    /// `rise`: blocks up per block across, north and east; `toward`: the way to the camera.
+    fn sides_share(rise: Vec2, toward: Vec3, hidden: bool) -> f32 {
+        let top_seen = toward.z.max(0.0);
+        let north_seen = rise.x.abs() * (-rise.x.signum() * toward.x).max(0.0);
+        let east_seen = rise.y.abs() * (-rise.y.signum() * toward.y).max(0.0);
+        let back = rise.x.abs() * (rise.x.signum() * toward.x).max(0.0) + rise.y.abs() * (rise.y.signum() * toward.y).max(0.0);
+        let front = north_seen + east_seen;
+        let (mut tops, mut sides) = (top_seen, front);
+        if hidden && front > 1e-5 {
+            let steepest = rise.x.abs().max(rise.y.abs());
+            let even = (rise.x.abs().min(rise.y.abs()) / steepest).sqrt();
+            let lost = (1.0 - 0.8 * top_seen) * (back / front).min(1.0) * even;
+            sides = front * (1.0 - lost);
+            tops = (top_seen - (back - front * lost).max(0.0)).max(0.0);
+        }
+        if tops + sides <= 1e-5 { 0.0 } else { sides / (tops + sides) }
+    }
+
     #[test]
-    #[ignore]
-    fn measure_the_sides_share_against_real_steps() {
+    fn the_far_lands_share_of_steps_sides_is_what_real_steps_show() {
+        // Real blocks on a slope, copied a block a cell, a camera 200 blocks off, 41 × 41 rays round
+        // one spot: the share meeting a step's side, against the recipe's there, for slopes along the
+        // grid, diagonal and between, the camera 10° to 60° up, looking up the slope and round to
+        // across and a little down it. Counting only the sides facing the camera, the recipe showed up
+        // to 2.7 times the sides on diagonal slopes seen aslant, where the blocks hide each other
+        // [David, build 46: far slopes brown where the blocks are green with thin lines]; with what's
+        // hidden taken off, it's within 0.02 of the blocks on average, and never more than 0.2 out.
+        // (Rays that pass the spot, over the horizon, are left out.) `--nocapture` prints each.
         let width = 64;
         let registry = crate::data::BlockRegistry::default();
         let blocks = TerrainBlocks::from_registry(&registry);
         let palette = super::super::distant::Palette::from_textures(&registry, &blocks);
         let keys: Vec<CopyKey> = (0..2).flat_map(|y| (0..2).map(move |x| CopyKey { scale: 1, x, y })).collect();
-        eprintln!("slope (n, e) | camera up | looking (deg) | rays | sides met | recipe's sides");
-        for slope in [Vec2::new(0.25, 0.0), Vec2::new(0.5, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.35, 0.35)] {
+        let (mut views, mut off_before, mut off_now, mut worst_before, mut worst_now) = (0, 0.0f32, 0.0f32, 0.0f32, 0.0f32);
+        eprintln!("slope (n, e) | camera up | looking | sides met | the recipe's, counting all | less what's hidden");
+        for slope in [Vec2::new(0.5, 0.0), Vec2::new(0.18, 0.18), Vec2::new(0.35, 0.35), Vec2::new(0.7, 0.7), Vec2::new(0.45, 0.2), Vec2::new(0.2, 0.45), Vec2::new(0.6, 0.15), Vec2::new(0.15, 0.6)] {
             // The map a pixel every 32 blocks, its middle pixel at the world's middle, rising `slope`
             // blocks a block, about 230 at the copies (blocks 0 to 64).
             let heights: Vec<f32> = (0..width * width).map(|k| (230.0 + ((k % width) as f32 - 32.0) * 32.0 * slope.x + ((k / width) as f32 - 32.0) * 32.0 * slope.y).clamp(140.0, 330.0)).collect();
@@ -1820,11 +1844,11 @@ mod sizes_per_ray {
             let ground = |x: i32, y: i32| map.column(x, y).unwrap().0 as f32;
             let target = Vec3::new(32.5, 32.5, ground(32, 32) + 1.0);
             // The slope as the blocks have it, across the spread round the spot.
-            let slope = Vec2::new((ground(40, 32) - ground(24, 32)) / 16.0, (ground(32, 40) - ground(32, 24)) / 16.0);
-            for elevation in [15.0f32, 30.0, 45.0] {
-                // Looking up the slope (its steps' sides toward the camera), across it, and down it.
+            let rise = Vec2::new((ground(40, 32) - ground(24, 32)) / 16.0, (ground(32, 40) - ground(32, 24)) / 16.0);
+            let cells: Vec<_> = keys.iter().map(|&key| (key, super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![]), true).expect("the land shows"))).collect();
+            for elevation in [10.0f32, 15.0, 22.0, 30.0, 45.0, 60.0] {
                 for heading in [0.0f32, 30.0, 60.0, 90.0, 120.0] {
-                    let uphill = if slope.length() > 0.0 { slope.normalize() } else { Vec2::X };
+                    let uphill = rise.normalize();
                     let (s, c) = heading.to_radians().sin_cos();
                     let flat = Vec2::new(uphill.x * c - uphill.y * s, uphill.x * s + uphill.y * c);
                     let (eu, ec) = elevation.to_radians().sin_cos();
@@ -1835,7 +1859,7 @@ mod sizes_per_ray {
                     for ring_key in super::super::distant::wanted_tiles(camera, 16, 2) {
                         state.store(ring_key, super::super::distant::tile_mesh(&map, &blocks, &palette, ring_key, 16).as_ref());
                     }
-                    state.follow_copies(keys.iter().map(|&key| (key, super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![]), true).expect("the land shows"))).collect(), true);
+                    state.follow_copies(cells.clone(), true);
                     let right = look.cross(Vec3::Z).normalize();
                     let up = right.cross(look);
                     let (mut rays, mut sides) = (0, 0);
@@ -1851,15 +1875,24 @@ mod sizes_per_ray {
                             }
                         }
                     }
-                    // The recipe's share at the spot (as `as_seen`): `toward` the way to the camera.
-                    let toward = -look;
-                    let top_seen = toward.z.max(0.0);
-                    let north_seen = slope.x.abs() * (-slope.x.signum() * toward.x).max(0.0);
-                    let east_seen = slope.y.abs() * (-slope.y.signum() * toward.y).max(0.0);
-                    let recipe = (north_seen + east_seen) / (top_seen + north_seen + east_seen);
-                    eprintln!("({:.2}, {:.2}) | {elevation:.0} | {heading:.0} | {rays} | {:.3} | {recipe:.3}", slope.x, slope.y, sides as f32 / rays.max(1) as f32);
+                    if rays < 1600 {
+                        continue;
+                    }
+                    let met = sides as f32 / rays as f32;
+                    let (before, now) = (sides_share(rise, -look, false), sides_share(rise, -look, true));
+                    eprintln!("({:.2}, {:.2}) | {elevation:.0} | {heading:.0} | {met:.3} | {before:.3} | {now:.3}", rise.x, rise.y);
+                    views += 1;
+                    off_before += (before - met).abs();
+                    off_now += (now - met).abs();
+                    worst_before = worst_before.max((before - met).abs());
+                    worst_now = worst_now.max((now - met).abs());
                 }
             }
         }
+        let (off_before, off_now) = (off_before / views as f32, off_now / views as f32);
+        eprintln!("{views} views: counting all, {off_before:.3} out on average, {worst_before:.3} at worst; less what's hidden, {off_now:.3} and {worst_now:.3}");
+        assert!(views > 150, "enough views met the spot: {views}");
+        assert!(off_now < 0.02 && worst_now < 0.2, "the recipe's share of sides near the blocks': {off_now:.3} out on average, {worst_now:.3} at worst");
+        assert!(off_now < off_before * 0.7, "taking off what's hidden comes nearer: {off_before:.3} to {off_now:.3}");
     }
 }

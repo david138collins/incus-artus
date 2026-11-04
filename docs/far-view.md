@@ -1045,3 +1045,18 @@ round from that.
 So the recipe's shape is right but for diagonal slopes seen aslant, where it shows up to 2.7 times
 the sides; a share of the brown David saw. Next: a correction for the hidden part, checked against
 this measurement (then a test asserting it), and the light measured likewise.
+
+### Build 47: the far land's recipe less what the blocks hide (measured)
+`the_far_lands_share_of_steps_sides_is_what_real_steps_show` (march.rs; replaces the measuring run):
+220 views of real steps (8 slopes, the camera 10° to 60° up, 5 ways of looking). The recipe counted
+every side facing the camera: 0.032 out on average, 0.41 at worst (diagonal slopes seen across). Now
+(`as_seen_banded`, its twin `sides_share` in the test): the slope's part facing away from the camera
+is what's hidden, taken from the sides facing it by (1 − 0.8 × how far up the camera looks) times
+that part over the sides' (at most all), times the square root of how even the slope is both ways,
+the rest from the tops: 0.017 on average, 0.184 at worst (uneven slopes seen low and aslant). The
+test holds it there. A fit to the measurements, not worked out from first principles; good enough to
+go on.
+- **The light** on tops and sides (the "light only" lead) not measured yet: next, likewise.
+- Contour bands off by default (David: "i think so yes").
+- **To see**: far slopes, diagonal ones seen across especially, less brown; the far land against the
+  copies (bands off) and against the reference.
