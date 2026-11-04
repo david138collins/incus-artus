@@ -547,6 +547,20 @@ bread and a blank diary. Birds sing and flit about.
   and cargo with you. The journey takes about 10 minutes, the same as world generation.
 - **You can sail back.** The lite simulation runs everything forward by the time you were away, so
   settlements need to be set up to sustain themselves.
+- **[David 2026-11-04] The fuller picture:** you construct or purchase and man the largest type of
+  vessel, sail to the edge of the world, and enter an ocean-world map that you sail across "for a bit, not
+  too long because it could get boring but you can roleplay if you want as captain". You arrive at a whole
+  new generated continent or world, "with whatever and whoever you brought with you". You can return, and
+  history runs what transpired in your absence.
+- **Expansion packs** (David): "drastically different continents, like a more deserty and tropical one",
+  to visit "once you're done with one world, or just have an itch to explore again".
+- *Counsel, to assess:*
+  - The crossing could cover the new world's generation (about 10 minutes above), so the wait is play.
+  - A drastically different continent may be mostly world-generation settings and new blocks, data
+    rather than new systems, if the World Compiler can reach that far.
+  - A big ship is a moving structure with people walking on it, so it bears on two open items: marching
+    moving things in their own grids (`vision/proposal-voxel-renderer.md`), and routes and flow maps on
+    something that moves (`docs/simulation.md`, section 14).
 
 ## Build order after the foundation  [DECIDED with Grok, 2026-10-22]
 
