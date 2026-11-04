@@ -664,3 +664,17 @@ David: "sounds good, proceed" (the plan sent to Counsel, with Counsel's seven po
 - **Expected:** the blotches and the shading jump at the line gone near in. Further out the copies'
   2- and 4-block cells may show faint bands (the shading is block-accurate; the cells aren't): that's
   the next step, sizes per ray. Judge this one on the near range.
+
+### Build 36 seen, and build 37 (David, 2026-11-03)
+- "its improving": the blotches and the shading jump at the line are gone near in.
+- Whole tops came out dark further off. Tests from one spot: the old shading (the switch off) had
+  none, nor did the meshes at line 64; "foot shading" and "step shadows" at 0 took them away, step
+  shadows at 1 made them stronger, sharpness 4 pushed them out to the far edge. So it's the coarse
+  cells: a 2- or 4-block cell's top can stand a block or more off the ground's own, and the cone map
+  is block-accurate (Counsel's point 7). Build 37: no shade at the feet of steps on cells coarser than
+  a block (the lie of the land and the height tint stay). Sizes per ray replaces this.
+- Still there: dark lines on the steps' sides in the middle distance, ending where the copies end
+  and the smooth far land starts. Up close the march's steps look like the meshes'. A step's side a
+  fraction of a pixel tall is hit or missed whole by one ray a pixel, where the meshes' edge
+  smoothing (4 samples a pixel) blends it to a faint line: the next step's work (sizes per ray, then
+  edge smoothing if it's still needed).

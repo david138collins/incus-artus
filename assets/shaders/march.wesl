@@ -583,8 +583,11 @@ fn cones_at(uv: vec2<f32>) -> vec2<f32> {
 
 // How lit a spot on the ground is, as the meshes light it (terrain.wesl's `ground_light`, the sums
 // lighting.wesl's `ground_lit`): the light map, the window of the ground round you and its cone map,
-// read here. `world_position` as drawn (Bevy's axes, from the floating origin).
-fn near_ground_light(world_position: vec3<f32>, face: u32) -> f32 {
+// read here. `world_position` as drawn (Bevy's axes, from the floating origin). `steps`: whether the
+// feet of steps are shaded (not on a coarser copy's cells: a 2- or 4-block cell's top can stand a block
+// or more off the ground's own, and the cone map is block-accurate, so whole tops came out dark:
+// David, build 36, "i think you're right").
+fn near_ground_light(world_position: vec3<f32>, face: u32, steps: bool) -> f32 {
     let north = -world_position.z + lighting.origin.x;
     let east = world_position.x + lighting.origin.y;
     let up = world_position.y;
@@ -601,9 +604,13 @@ fn near_ground_light(world_position: vec3<f32>, face: u32) -> f32 {
         if !(all(uv >= vec2<f32>(0.0)) && all(uv <= vec2<f32>(1.0))) {
             near.a = 0.0;
         }
-        if near.a > 0.5 && face == 4u {
+        if near.a > 0.5 && face == 4u && steps {
             cones = cones_at(uv);
         }
+    }
+    // Without the cone map, no top is below it: no shade at the feet of steps.
+    if !steps {
+        cones = vec2<f32>(-1.0e9);
     }
     return ground_lit(map_light, near, cones, face, up, lighting.sun, lighting.hill, lighting.shade, lighting.sides);
 }
@@ -650,7 +657,8 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: 
     // it is exact), and the block the face is on: half a block in from it, as the meshes find it.
     let base = record * COPY_RECORD;
     let corner = vec3<i32>(bitcast<i32>(copy_records[base]), bitcast<i32>(copy_records[base + 1u]), bitcast<i32>(copy_records[base + 2u]));
-    let p = local * f32(copy_records[base + 3u]);
+    let scale = copy_records[base + 3u];
+    let p = local * f32(scale);
     let at_block = corner + vec3<i32>(floor(p - normal * 0.5));
     let block = value & 0xFFFu;
     let first = block_colours[block * 4u + 2u];
@@ -683,7 +691,7 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, record: u32, ray: 
     if settings.view.x > 0.5 {
         colour = vec3<f32>(0.55, 0.95, 0.6);
     }
-    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face);
+    let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, scale == 1u);
     return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
 }
 
