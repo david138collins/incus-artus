@@ -796,7 +796,7 @@ be tuned, i think. this is an improvement".
 - **Pixelization**: "seems to effect the near terrain, but not the far": as built, only the copies are
   sized per pixel, not the far land; at 8 the copies go coarse close in.
 
-### Build 42: the lines of sky (David: "go ahead", the fixes from his build 41 test)
+### Build 42: the lines of sky (built after his build 41 test, before his word: to launch on his go)
 - **Why** (read from the shader, not reproduced in the Rust twin, which has no floating origin): the
   copy a ray is in was looked up from where it is in the world's numbers, kept far out only to a few
   thousandths of a block, while its place in the copy is measured from nearby, exactly. A ray almost
