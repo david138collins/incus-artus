@@ -831,11 +831,18 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
   coarser cells' one-cell-at-a-time rays (build 38, using up steps): look there first.
 - Checked in the same test, as they're built but not confirmed: the mountain sides ("who drew this",
   yellow beside pale green), and the water strip at line 8 (a river crossing the line).
+- **Build 42 seen** (David, 2026-11-04): "i am not detecting any straight-line gaps in the picture
+  anymore."
 
 **Round 2, the land's look:**
 - Bands ending suddenly where the real chunks end. Judge round 2 across that edge, or this stays open.
 - Thin red-brown slivers on far step sides.
 - The faint extra noise inside the line.
+- Heavy bands in a middle band of the view (David, build 42: "the bad banding in a middle-band of the
+  rendering so we don't neglect it"): over grassland, the coarser cells' step sides as wide grey and
+  red-brown stripes and blobs (the blocks under the grass showing on 2- and 4-block sides and where a
+  coarse cell's top takes a lower block), far heavier than the near steps' thin lines, then smooth past
+  the real chunks. The contour bands "all look the same" is round 2's aim; check this view with it.
 - Build the look and compare it by eye; no fine tuning of its shades, as regular lighting moves them.
 
 **Far land sized per pixel** (rewrites the march's loop):
