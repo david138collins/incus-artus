@@ -387,7 +387,7 @@ structures".
 - **A path is an invisible string,** with nothing on the ground needed: a way for players to direct
   their people, used however they think of.
 - **A "routes" overlay in the orthographic manager view** shows the player's lines and the ones generated
-  automatically between village structures. (The orthographic camera: `vision/watch-list.md`, item 8.)
+  automatically between village structures. (The camera: `docs/decisions.md`, Isometric View.)
 
 **Open, for David:**
 - *Counsel's addition, not asked for:* could routes NPCs wear in on their own, walked often and never
