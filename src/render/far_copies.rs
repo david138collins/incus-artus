@@ -69,8 +69,6 @@ const MOST_AT_ONCE: usize = 2;
 const COVERED_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
 /// The most of the far land's copies made at once (`land_copy`).
 const LAND_AT_ONCE: usize = 2;
-/// How much further than a coarser tile would do a finer one of the far land's is kept (step 3).
-const KEEP_FINER: f32 = 2.0;
 /// Marks a face of plain ground in its texture layer, which then carries its block's top layer (the
 /// low 7 bits) and side layer (the 7 above): terrain.wesl draws it as the far terrain draws the land.
 const PLAIN: u32 = 0x8000;
@@ -1382,16 +1380,6 @@ pub fn update_far_copies(
                 // room filled (4,091 of 4,096 pages) and the processor at 103 °C: David, build 50].
                 if land_chunks.contains(&pos) && scale * 2 < asked {
                     break;
-                }
-                // The far land's: a finer tile drawn here kept till twice as far as a coarser one would
-                // do (the march's own levels size it per pixel meanwhile), so flying on doesn't make it
-                // again at each size it passes; finer, so nothing shows coarser [tiles made again at
-                // another size, 60 to 180 every 5 s of flight: step 3, David: "Yes, go ahead"].
-                if land_chunks.contains(&pos) && !drawn {
-                    let finer_drawn = [1, 2, 4].into_iter().filter(|&finer| finer < scale).any(|finer| state.tiles.contains_key(&TileKey::of(pos, finer)));
-                    if finer_drawn && scale > scale_for(key.middle().distance(at.truncate()) / KEEP_FINER, settings.sharpness, fov, height) {
-                        continue;
-                    }
                 }
                 if scale == 1 || scale <= asked {
                     *wanted.entry(key).or_insert(false) |= force;
