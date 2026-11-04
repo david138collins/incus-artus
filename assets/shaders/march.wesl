@@ -288,6 +288,15 @@ const GROUPS_AT: u32 = 536u;
 const PAGE: u32 = 32768u;
 const SOLID: u32 = 1u;
 const PLAIN: u32 = 16384u;
+// A solid cell of more than a block, a column's top, its top the average of the tops it covers, in bits
+// 16 to 31 (far_copies.rs, `CELL_AVERAGED`, `averaged_top`).
+const AVERAGED: u32 = 32768u;
+
+// The colour a coarser cell's top is the average of (`AVERAGED`): square-rooted, 5 bits red, 6 green, 5 blue.
+fn averaged_top(value: u32) -> vec3<f32> {
+    let colour = vec3<f32>(f32((value >> 27u) & 31u) / 31.0, f32((value >> 21u) & 63u) / 63.0, f32((value >> 16u) & 31u) / 31.0);
+    return colour * colour;
+}
 
 // How far ahead a ray looks up the copy it's in (blocks; `march.rs`, `LOOKUP_AHEAD`).
 const LOOKUP_AHEAD: f32 = 0.03125;
@@ -584,6 +593,9 @@ fn lit_land_at(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, 
 fn copy_lit(value: u32, place: Place, cell: vec2<u32>, uv: vec2<f32>, spot: vec3<f32>) -> vec3<f32> {
     let block = value & 0xFFFu;
     var top_colour = block_colours[block * 4u].rgb;
+    if (value & AVERAGED) != 0u {
+        top_colour = averaged_top(value);
+    }
     var side_colour = block_colours[block * 4u + 1u].rgb;
     if settings.shade.z > 0.5 {
         top_colour = vec3<f32>(0.5);
@@ -851,6 +863,10 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, record
         uv = turned(uv, at_block, face);
     }
     var colour = textureSampleGrad(block_textures, block_sampler, uv, i32(layer), uv_dx, uv_dy).rgb;
+    // A coarser cell's top: the average of the tops it covers, not its one block's.
+    if face == 4u && (value & AVERAGED) != 0u {
+        colour = averaged_top(value);
+    }
     if near_settings.options.y > 0.5 {
         colour = vec3<f32>(0.5);
     }
@@ -909,6 +925,9 @@ fn copy_banded(value: u32, record: u32, level: u32, spot: vec3<f32>) -> vec4<f32
     let uv = clamp(local - ij, vec2<f32>(0.0), vec2<f32>(1.0));
     let block = value & 0xFFFu;
     var top_colour = block_colours[block * 4u].rgb;
+    if (value & AVERAGED) != 0u {
+        top_colour = averaged_top(value);
+    }
     var side_colour = block_colours[block * 4u + 1u].rgb;
     if settings.shade.z > 0.5 {
         top_colour = vec3<f32>(0.5);

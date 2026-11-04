@@ -213,6 +213,26 @@ pub struct CopyCells {
 pub const CELL_SOLID: u32 = 1 << 12;
 pub const CELL_WATER: u32 = 2 << 12;
 pub const CELL_PLAIN: u32 = 1 << 14;
+/// A solid cell of more than a block, a column's top: its top looks like the average of the tops it
+/// covers (as a texture's mipmaps), its colour in bits 16 to 31 (`averaged_top`), not its one block's
+/// [one block's for several, scattered gravel in sand made whole dark cells two pixels across: David,
+/// build 48, "far cells sized per pixel off, is almost the same thing as reference on"].
+pub const CELL_AVERAGED: u32 = 1 << 15;
+
+/// A colour (linear, 0 to 1) packed for `CELL_AVERAGED`: square-rooted (finer where it's dark, as the
+/// eye is), 5 bits red in bits 27 to 31, 6 green in 21 to 26, 5 blue in 16 to 20, with the flag.
+pub fn averaged_top(colour: [f32; 3]) -> u32 {
+    let part = |v: f32, most: f32| (v.clamp(0.0, 1.0).sqrt() * most).round() as u32;
+    part(colour[0], 31.0) << 27 | part(colour[1], 63.0) << 21 | part(colour[2], 31.0) << 16 | CELL_AVERAGED
+}
+
+/// The colour `averaged_top` packed, if the cell has one.
+pub fn top_averaged(cell: u32) -> Option<[f32; 3]> {
+    (cell & CELL_AVERAGED != 0).then(|| {
+        let part = |v: u32, most: f32| (v as f32 / most).powi(2);
+        [part(cell >> 27 & 31, 31.0), part(cell >> 21 & 63, 63.0), part(cell >> 16 & 31, 31.0)]
+    })
+}
 
 /// How many coarser levels a whole copy keeps (`copy_levels`): 2, 4 and 8 of its cells to a side.
 pub const LEVELS: u32 = 3;
@@ -229,10 +249,18 @@ pub const LEVELS: u32 = 3;
 ///   any of it, each colour (a far brazier doesn't go out by being averaged away: Counsel).
 ///
 /// Above the top it's open air in full daylight.
-pub fn copy_levels(cells: &[u32], tall: i32, share: f32) -> Vec<u32> {
+///
+/// Each column's top solid cell also looks like the average of the tops of the four columns it
+/// covers (`CELL_AVERAGED`), each its own top cell's averaged colour, or its block's top colour in
+/// `block_tops` (by block number; empty: none averaged).
+pub fn copy_levels(cells: &[u32], tall: i32, share: f32, block_tops: &[[f32; 3]]) -> Vec<u32> {
     let mut levels = Vec::new();
     let (mut finer, mut side, mut high) = (cells.to_vec(), 32i32, tall);
     for _ in 0..LEVELS {
+        // Each finer column's top as seen: its top solid cell's averaged colour, or its block's.
+        let seen = |x: i32, y: i32| {
+            (0..high).rev().map(|z| finer[(x + y * side + z * side * side) as usize]).find(|&value| (value >> 12) & 3 == 1).and_then(|value| top_averaged(value).or_else(|| block_tops.get((value & 0xFFF) as usize).copied()))
+        };
         let (coarse_side, coarse_high) = (side / 2, (high + 1) / 2);
         let at = |x: i32, y: i32, z: i32| if z < high { finer[(x + y * side + z * side * side) as usize] } else { 15 << 16 };
         let mut coarse = Vec::with_capacity((coarse_side * coarse_side * coarse_high) as usize);
@@ -286,6 +314,25 @@ pub fn copy_levels(cells: &[u32], tall: i32, share: f32) -> Vec<u32> {
                 && let Some(block) = tops[k + layer]
             {
                 coarse[k] = (coarse[k] & !0xFFF) | block;
+            }
+        }
+        // Each column's top solid cell: the average of the tops of the four finer columns it covers.
+        if !block_tops.is_empty() {
+            for y in 0..coarse_side {
+                for x in 0..coarse_side {
+                    let Some(z) = (0..coarse_high).rev().find(|&z| (coarse[(x + y * coarse_side + z * coarse_side * coarse_side) as usize] >> 12) & 3 == 1) else { continue };
+                    let (mut sum, mut count) = ([0.0f32; 3], 0.0f32);
+                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                        if let Some(top) = seen(x * 2 + dx, y * 2 + dy) {
+                            sum = [sum[0] + top[0], sum[1] + top[1], sum[2] + top[2]];
+                            count += 1.0;
+                        }
+                    }
+                    if count > 0.0 {
+                        let k = (x + y * coarse_side + z * coarse_side * coarse_side) as usize;
+                        coarse[k] = (coarse[k] & 0x7FFF) | averaged_top(sum.map(|v| v / count));
+                    }
+                }
             }
         }
         levels.extend_from_slice(&coarse);
@@ -503,6 +550,9 @@ struct CopyJob {
     /// models; its placed light as the near world's (`glows`, each lit block's), not flooded again.
     real: bool,
     glows: Vec<(IVec3, u16)>,
+    /// The blocks' far colours (the far land's palette), for coarse cells' averaged tops (none: their one
+    /// block's look).
+    palette: Option<Arc<super::distant::Palette>>,
 }
 
 /// What's added up in each cell while coarsening.
@@ -625,6 +675,9 @@ fn make_copy(mut job: CopyJob) -> Made {
     let tall = high_cell - low_cell + 1;
     let index = |x: i32, y: i32, z: i32| (x + y * CELLS + z * CELLS * CELLS) as usize;
     let mut tallies = vec![Tally::default(); (CELLS * CELLS * tall) as usize];
+    // Each column of cells' surface tops' colours added up (and how many), for a coarse cell's top to
+    // look like the average of the tops it covers (`CELL_AVERAGED`).
+    let mut tops_seen = vec![([0.0f32; 3], 0u32); (CELLS * CELLS) as usize];
     for y in 0..width {
         for x in 0..width {
             let height = sky_at(x, y);
@@ -643,6 +696,14 @@ fn make_copy(mut job: CopyJob) -> Made {
                     }
                     if z == height && tally.surface.is_none_or(|(at, _)| z > at) {
                         tally.surface = Some((z, id));
+                    }
+                    if z == height
+                        && let Some(palette) = &job.palette
+                    {
+                        let (sum, count) = &mut tops_seen[(x / s + y / s * CELLS) as usize];
+                        let top = palette.top(id);
+                        *sum = [sum[0] + top[0], sum[1] + top[1], sum[2] + top[2]];
+                        *count += 1;
                     }
                 } else if is_see_through(id) && !job.real {
                     tally.water += 1;
@@ -800,7 +861,10 @@ fn make_copy(mut job: CopyJob) -> Made {
             let (x, y, z) = (k % CELLS, (k / CELLS) % CELLS, k / (CELLS * CELLS));
             let id = cell(x, y, z);
             if is_opaque(id) {
-                id.0 as u32 & 0xFFF | CELL_SOLID | if plain_ground(x, y, z) { CELL_PLAIN } else { 0 }
+                // A column's top cell of more than a block: the average of the tops it covers.
+                let (sum, count) = tops_seen[(x + y * CELLS) as usize];
+                let averaged = if s > 1 && count > 0 && z == roof[(x + y * CELLS) as usize] { averaged_top(sum.map(|v| v / count as f32)) } else { 0 };
+                id.0 as u32 & 0xFFF | CELL_SOLID | if plain_ground(x, y, z) { CELL_PLAIN } else { 0 } | averaged
             } else if id != BlockId::AIR {
                 id.0 as u32 & 0xFFF | CELL_WATER
             } else {
@@ -808,7 +872,8 @@ fn make_copy(mut job: CopyJob) -> Made {
             }
         })
         .collect();
-    let levels = if job.full { copy_levels(&packed, tall, job.share) } else { Vec::new() };
+    let tops: Vec<[f32; 3]> = job.palette.as_ref().map_or(Vec::new(), |palette| palette.blocks.iter().map(|&(top, _)| top).collect());
+    let levels = if job.full { copy_levels(&packed, tall, job.share, &tops) } else { Vec::new() };
     let copy_cells = Arc::new(CopyCells { corner: IVec3::new(corner.x, corner.y, low_cell * s), scale: s, tall, full: job.full, cells: packed, levels });
     // Drawn by the march, the cells are all a copy needs (step 1 part 7): meshing it was most of the
     // time a copy took (200 to 320 ms at 8 blocks a cell), and frames hitched while copies were made
@@ -1264,6 +1329,7 @@ pub fn update_far_copies(
             full: state.full.contains(&key),
             real: from_real,
             glows,
+            palette: distant.palette().cloned(),
         };
         state.making.insert(key, pool.spawn(async move { make_copy(job) }));
     }
@@ -1391,6 +1457,7 @@ mod tests {
             full: false,
             real: false,
             glows: Vec::new(),
+            palette: None,
         }
     }
 

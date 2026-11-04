@@ -1136,3 +1136,19 @@ bigger than a pixel. Proposed, not built: a coarser cell's top in the average of
 (as a texture's mipmaps), kept in the solid cell's unused bits, in the coarser levels and in the copies
 2 and 4 blocks a cell. The smoothing's worth to be seen once that's in. The seam on the mountain's
 top: the real chunks' edge (round 2's, as before).
+
+### Build 49: a coarser cell's top the average of the tops it covers (David: "yes, proceed with averaged colors, if that brings us closer to step 2")
+It does: any coarser way of drawing ground (the copies' coarser cells now, the far land sized per
+pixel next) needs a coarse cell to look like the average of what it covers, as a texture's mipmaps.
+- **The copies 2 and 4 blocks a cell** (`make_copy`): each column of cells' surface tops' far colours
+  (the far land's palette) added up as the blocks are counted; its top solid cell carries the average.
+- **The coarser levels** (`copy_levels`, now given the blocks' top colours): each column's top solid
+  cell the average of the four finer columns' tops (their own averages, or their blocks' colours).
+- **Kept** in the solid cell's unused bits (`CELL_AVERAGED`, bit 15; the colour square-rooted, 5, 6
+  and 5 bits for red, green, blue in bits 16 to 31): no more room. Sides keep their block's texture.
+- **Drawn** on the tops of those cells in place of the texture (`copy_shaded`), and in `copy_lit` and
+  `copy_banded`.
+- **Test**: `a_coarser_cells_top_is_the_average_of_the_tops_it_covers` (three sand to one gravel, and a
+  level further the average of those).
+- **To see**: the dark dots on the sand gone into a slightly darker sand, as the reference shows it;
+  then the pixel smoothing off and on again (its worth shows once the dots are gone).

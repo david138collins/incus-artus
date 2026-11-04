@@ -1586,7 +1586,7 @@ mod one_recipe {
 mod sizes_per_ray {
     use super::*;
     use crate::world::{CavePlan, CompiledMap, TerrainBlocks};
-    use super::super::far_copies::{CELL_SOLID, copy_levels};
+    use super::super::far_copies::{CELL_SOLID, copy_levels, top_averaged};
     use super::super::placed_light::pack;
 
     #[test]
@@ -1610,7 +1610,7 @@ mod sizes_per_ray {
         cells[at(3, 0, 1)] = 0;
         cells[at(2, 1, 1)] = 0;
         cells[at(3, 1, 1)] = 0;
-        let levels = copy_levels(&cells, tall as i32, 0.5);
+        let levels = copy_levels(&cells, tall as i32, 0.5, &[]);
         // Level 1 is 16 × 16 × 2, level 2 8 × 8 × 1, level 3 4 × 4 × 1.
         assert_eq!(levels.len(), 16 * 16 * 2 + 8 * 8 + 4 * 4);
         assert_eq!(levels[0], 9 | CELL_SOLID, "half solid is solid, the block of its highest");
@@ -1619,6 +1619,33 @@ mod sizes_per_ray {
         assert_eq!(levels[1], daylight << 16 | (pack([5, 1, 7]) as u32) << 20, "air, its daylight averaged and its braziers' brightest");
         // Open air stays open.
         assert_eq!(levels[2], 15 << 16);
+    }
+
+    #[test]
+    fn a_coarser_cells_top_is_the_average_of_the_tops_it_covers() {
+        // Sand (block 3) a cell deep, one column of it gravel (block 4): the first coarse cell's top
+        // is three parts sand to one gravel, the next all sand, and a level further the average of
+        // those, so scattered gravel is a darker sand, not a dark cell [David, build 48: a cell 2
+        // pixels across in one block's colour, "far cells sized per pixel off, is almost the same
+        // thing as reference on"]. Without the blocks' colours, none is averaged.
+        let tall = 2;
+        let (sand, gravel) = ([0.8f32, 0.7, 0.5], [0.3f32, 0.3, 0.3]);
+        let colours = [[0.0; 3], [0.0; 3], [0.0; 3], sand, gravel];
+        let mut cells = vec![15u32 << 16; 32 * 32 * tall];
+        for k in 0..32 * 32 {
+            cells[k] = 3 | CELL_SOLID;
+        }
+        cells[0] = 4 | CELL_SOLID;
+        let levels = copy_levels(&cells, tall as i32, 0.5, &colours);
+        let near = |got: Option<[f32; 3]>, want: [f32; 3]| got.is_some_and(|got| (0..3).all(|k| (got[k] - want[k]).abs() < 0.03));
+        let mixed = [0, 1, 2].map(|k| (sand[k] * 3.0 + gravel[k]) / 4.0);
+        assert!(near(top_averaged(levels[0]), mixed), "three parts sand to one gravel: {:?}", top_averaged(levels[0]));
+        assert!(near(top_averaged(levels[1]), sand), "all sand: {:?}", top_averaged(levels[1]));
+        // Level 2 starts after level 1's 16 × 16 × 1.
+        let level2 = levels[16 * 16];
+        let quarter = [0, 1, 2].map(|k| (mixed[k] + sand[k] * 3.0) / 4.0);
+        assert!(near(top_averaged(level2), quarter), "a level further, the average of those: {:?}", top_averaged(level2));
+        assert!(top_averaged(copy_levels(&cells, tall as i32, 0.5, &[])[0]).is_none(), "without the blocks' colours, none averaged");
     }
 
     #[test]
@@ -1636,7 +1663,7 @@ mod sizes_per_ray {
             }
         }
         cells[at(0, 0, 2)] = 5 | CELL_SOLID;
-        let levels = copy_levels(&cells, tall as i32, 0.5);
+        let levels = copy_levels(&cells, tall as i32, 0.5, &[]);
         assert_eq!(levels[0], 5 | CELL_SOLID, "under some of the top: looks like it");
         assert_eq!(levels[1], 8 | CELL_SOLID, "with nothing over it but air: its own");
         assert_eq!((levels[16 * 16] >> 12) & 3, 0, "one of eight solid over it: air");
