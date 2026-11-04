@@ -345,6 +345,40 @@ Counsel's notes [PROPOSED]:
   Each level picks from a few options by simple checks against data. The World and Intermediator sims
   stop at goals and tasks; only the Local sim plays out actions. That's what keeps it cheap.
 
+## 14. One network of routes, and the player's line tool  [IDEA, David 2026-11-04]
+
+Builds on the baked paths in `docs/decisions.md` ("Baked paths in structures and villages"), and on the
+travel map in section 11. Nothing built.
+
+**David:** generated roads are known to the world as lines or tracks, which NPCs follow "for various
+things, and for checking some game stuff". Generated villages and buildings can rebuild their own flow
+maps, "so that the majority of pathfinding is pre-solved". And, in settlement mode, "a simple line tool
+so they could add their own roads, paths, stairs to the same flow map that structures and settlements
+make, so that there's a solved route available to another place for npc's trying to find something
+nearby, and so that the hustle and bustle can more obviously conform to the players creations".
+
+**Counsel, how it could fit (to assess):**
+- **One network, three sources.** Lines joined at junctions and doors, whoever made them: world
+  generation (the Civilization stage), a structure's bake, or the player's line. Nothing that uses a
+  route asks who drew it.
+- **A route is a cheaper way, not a rail.** NPCs prefer it because it costs less, leave it for the last
+  stretch to where they're going, and go back to ordinary pathfinding where there's no line. That's what
+  would make the bustle follow what the player made without marching in single file.
+- **All three sims see it.** The Local sim follows the line. The Intermediator and World sims read
+  travel times, so a player's road would shorten journeys and could change where caravans go.
+- **The tool checks the line by the NPCs' own walking rules:** the same ones the bake and the live
+  pathfinder share. A stretch nobody could walk (too steep, no headroom, a gap) shows as broken as you draw.
+- **The blocks stay the truth,** as with the bake: a change on a line marks that stretch stale, NPCs walk
+  it by ordinary pathfinding, and it's checked again once it stops changing.
+- **The linear pipeline holds:** generated roads are made in their stage; the player's lines are
+  play-time edits and never feed back into generation.
+
+**Open, for David:**
+- Does the player's line only mark a route over what's already built, or also order workers to build
+  the road or stairs along it? (Counsel: marking first; the same line can later become an order.)
+- *Counsel's addition, not asked for:* could routes NPCs wear in on their own, walked often and never
+  marked, show up as suggestions for the player's line?
+
 ## Open questions
 
 1. Default timings: Intermediator every in-game hour, World every in-game day? (Both are sliders.)
