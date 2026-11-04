@@ -614,6 +614,10 @@ pub struct DistantState {
     shown_for: Option<(IVec2, i32, u64)>,
     /// What the hand-off was last looked over for (see `update_shown_chunks`).
     looked_over: Option<(u64, u64, usize, IVec2, i32, u64)>,
+    /// How many times the hand-off map was made again since last logged, and when that was (for
+    /// measuring: with the far land as cells, a copy finishing near every frame remade it).
+    shown_made: usize,
+    shown_logged: Option<std::time::Instant>,
     /// How many times every tile was thrown away (the march throws its copy away too).
     pub(super) cleared: u64,
     /// The square of chunks round the camera's chunk wholly marked in `shown`: its centre chunk and
@@ -891,6 +895,12 @@ pub fn update_shown_chunks(
         return;
     }
     state.shown_for = Some(now);
+    state.shown_made += 1;
+    if state.shown_logged.is_none_or(|at| at.elapsed().as_secs_f32() >= 5.0) {
+        info!("The hand-off map made again {} times since the last count", state.shown_made);
+        state.shown_made = 0;
+        state.shown_logged = Some(std::time::Instant::now());
+    }
 
     // A chunk is marked if it and all 8 chunks around it are on screen. So along the edge of the
     // real chunks, distant terrain is drawn under them too, one chunk deep: where the real ground

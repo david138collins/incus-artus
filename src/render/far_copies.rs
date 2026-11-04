@@ -411,6 +411,10 @@ pub struct FarCopies {
     /// 2,300 copies, about three a block flown: which, Counsel asked.] And when last logged.
     queued_by_why: [usize; 3],
     queued_logged: Option<Instant>,
+    /// How many times the chunks the copies cover were worked out again since last logged, and how long
+    /// it took all told (ms): for measuring.
+    covered_made: usize,
+    covered_ms: f32,
     /// Whether the real chunks past the line are copied from themselves (`marches_real`): then the
     /// whole tiles are theirs.
     real: bool,
@@ -489,9 +493,12 @@ impl FarCopies {
     }
 
     fn update_covered(&mut self) {
+        let started = Instant::now();
         let drawn = self.tiles.iter().filter(|(_, tile)| matches!(tile, Tile::Drawn { .. })).map(|(key, _)| *key);
         self.covered = drawn.chain(self.retiring.iter().map(|(key, ..)| *key)).flat_map(TileKey::chunks).collect();
         self.changes += 1;
+        self.covered_made += 1;
+        self.covered_ms += started.elapsed().as_secs_f32() * 1000.0;
     }
 
     /// One line for the Render page: tiles drawn by size, being made, faces, memory, and how long
@@ -1218,7 +1225,10 @@ pub fn update_far_copies(
     // Real chunks whose blocks changed, came or went: the tiles made from them are made again.
     let touched = std::mem::take(&mut meshing.touched);
     if real {
-        let again: Vec<TileKey> = state.full.iter().copied().filter(|key| (state.tiles.contains_key(key) || state.making.contains_key(key)) && key.chunks().any(|pos| touched.contains(&pos))).collect();
+        // Not the far land's: made from the recipe, nothing in them comes from a real chunk, so a chunk
+        // streamed in or dropped there changes nothing [a third of the copies made in flight were these:
+        // David, "Yes, go ahead" on step 2].
+        let again: Vec<TileKey> = state.full.iter().copied().filter(|key| !state.land.contains(key) && (state.tiles.contains_key(key) || state.making.contains_key(key)) && key.chunks().any(|pos| touched.contains(&pos))).collect();
         state.queued_by_why[2] += again.len();
         for key in again {
             state.retire(key);
@@ -1404,7 +1414,8 @@ pub fn update_far_copies(
     // Why tiles were queued, every 5 seconds while any are (`queued_by_why`).
     if state.queued_by_why.iter().sum::<usize>() > 0 && state.queued_logged.is_none_or(|at| at.elapsed().as_secs_f32() >= 5.0) {
         let [new, resized, again] = state.queued_by_why;
-        info!("Far copies queued since the last count: {new} on new ground, {resized} where another size was drawn, {again} again for their real chunks (streamed in, dropped or changed)");
+        info!("Far copies queued since the last count: {new} on new ground, {resized} where another size was drawn, {again} again for their real chunks (streamed in, dropped or changed); what they cover worked out again {} times, {:.0} ms in all", state.covered_made, state.covered_ms);
+        (state.covered_made, state.covered_ms) = (0, 0.0);
         state.queued_by_why = [0; 3];
         state.queued_logged = Some(Instant::now());
     }
