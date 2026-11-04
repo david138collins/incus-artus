@@ -151,7 +151,26 @@ impl FarCopySettings {
 /// Whether the march draws the real chunks past the line (`FarCopySettings::real`): only while it
 /// draws the copies, with the line inside where the real chunks end.
 pub fn marches_real(settings: &FarCopySettings, distant: &super::distant::DistantSettings, render: &RenderSettings, streaming: &StreamSettings) -> bool {
-    settings.real && settings.marched(distant) && render.march_from < streaming.radius
+    settings.real && settings.marched(distant) && render.march_from < streaming.reach()
+}
+
+/// How many chunks past the line the real chunks are still made while the march draws the far land
+/// from the recipe (`cap_streaming`): a band of the real chunks' own copies there, for what's near
+/// enough to have been dug or built since the save, and for the meshes' see-through blocks.
+const REAL_PAST_THE_LINE: i32 = 4;
+
+/// While the march draws the real chunks past the line and the far land as cells, the real chunks
+/// are made only out to `REAL_PAST_THE_LINE` past the line (`StreamSettings::cap`); further, the far
+/// land's copies come from the recipe (`land_copy`), and changed chunks and caves near the ground from
+/// the save and the recipe, as they did past the real chunks before. [Made out to 32 chunks just to be
+/// copied into coarse cells: some 3,400 as the game started, on every core, 102 °C before a step was
+/// flown, and a third of the copies made in flight were their tiles made again as they streamed in and
+/// out: David, "we need to address this problem at the root".]
+pub fn cap_streaming(settings: Res<FarCopySettings>, distant: Res<super::distant::DistantSettings>, render: Res<RenderSettings>, mut streaming: ResMut<StreamSettings>) {
+    let cap = if settings.land && settings.real && settings.marched(&distant) { render.march_from + REAL_PAST_THE_LINE } else { i32::MAX };
+    if streaming.cap != cap {
+        streaming.cap = cap;
+    }
 }
 
 /// One tile: its cell size (blocks) and where it is in the grid of tiles that size.
@@ -1245,7 +1264,7 @@ pub fn update_far_copies(
     let home = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
     // Where the real chunks end: the render distance, the streaming circle, and where the far view
     // starts (`RenderSettings::march_from`), whichever is nearest.
-    let (edge, radius) = (render.render_distance_chunks, streaming.radius.min(render.march_from));
+    let (edge, radius) = (render.render_distance_chunks, streaming.reach().min(render.march_from));
     let limit = MASK_REACH.min((settings.reach / CHUNK_SIZE as f32).ceil() as i32);
 
     // Which tiles are wanted: worked out again when you move into another chunk, or what's known
@@ -1275,12 +1294,12 @@ pub fn update_far_copies(
         // real chunks drawn by the march (R2), the band reaches where they end, and they're copied
         // from themselves.
         let mut full_chunks = HashSet::new();
-        if settings.marched(&distant_settings) && render.march_from < streaming.radius {
-            let out = if real { streaming.radius } else { render.march_from + FULL_BAND };
+        if settings.marched(&distant_settings) && render.march_from < streaming.reach() {
+            let out = if real { streaming.reach() } else { render.march_from + FULL_BAND };
             for y in -out..=out {
                 for x in -out..=out {
                     let reach = IVec2::new(x, y);
-                    if reach.length_squared() <= out * out && !real_chunk(reach, edge, radius) && real_chunk(reach, edge, streaming.radius) {
+                    if reach.length_squared() <= out * out && !real_chunk(reach, edge, radius) && real_chunk(reach, edge, streaming.reach()) {
                         let pos = ChunkPos::new(home.x + x, home.y + y);
                         candidates.insert(pos, true);
                         full_chunks.insert(pos);
@@ -1305,7 +1324,7 @@ pub fn update_far_copies(
                     full_chunks.insert(pos);
                     // Past where chunks stream, nothing changed and no cave near the ground: made from
                     // the recipe's columns alone.
-                    if !real_chunk(reach, edge, streaming.radius) && !world.changed_chunks().contains(&pos) && !state.near_ground.contains(&pos) {
+                    if !real_chunk(reach, edge, streaming.reach()) && !world.changed_chunks().contains(&pos) && !state.near_ground.contains(&pos) {
                         land_chunks.insert(pos);
                     }
                 }
@@ -1490,7 +1509,7 @@ pub fn update_far_copies(
         // Made from the real chunks (R2): each as it is, once streaming has brought it in (one past
         // where the real chunks end, at the edge of a coarser tile, from the recipe as before).
         let from_real = real && state.full.contains(&key) && !state.land.contains(&key);
-        let streamed = |pos: ChunkPos| real_chunk(IVec2::new(pos.x - home.x, pos.y - home.y), edge, streaming.radius);
+        let streamed = |pos: ChunkPos| real_chunk(IVec2::new(pos.x - home.x, pos.y - home.y), edge, streaming.reach());
         if from_real && key.chunks().any(|pos| streamed(pos) && world.chunk(pos).is_none()) {
             not_yet.push(key);
             continue;

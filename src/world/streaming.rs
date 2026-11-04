@@ -33,7 +33,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Tunables (on the "World" debug page, saved in "everything" presets).
-#[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Resource, Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StreamSettings {
     /// How far around you chunks are made and drawn, in chunks (1 chunk = 32 blocks).
@@ -45,11 +45,36 @@ pub struct StreamSettings {
     pub most_at_once: usize,
     /// The most time per frame spent putting finished chunks into the world, in milliseconds.
     pub insert_budget_ms: f32,
+    /// How far the real chunks reach at most, whatever `radius` says (chunks): set by the far copies
+    /// while the march draws the far land from the recipe (`far_copies::cap_streaming`), so the real
+    /// chunks are made only near you [made out to 32 chunks just to be copied into coarse cells, some
+    /// 3,400 of them on every core as the game started, it read 102 °C before a step was flown:
+    /// David, "we need to address this problem at the root"]. Not saved; no cap by default.
+    #[serde(skip, default = "no_cap")]
+    pub cap: i32,
+}
+
+fn no_cap() -> i32 {
+    i32::MAX
+}
+
+/// Alike if they're set alike: the cap isn't a setting (a preset's "default" light ignores it).
+impl PartialEq for StreamSettings {
+    fn eq(&self, other: &Self) -> bool {
+        self.radius == other.radius && self.ahead == other.ahead && self.most_at_once == other.most_at_once && self.insert_budget_ms == other.insert_budget_ms
+    }
+}
+
+impl StreamSettings {
+    /// How far the real chunks are made (chunks): the radius, or the cap if that's nearer.
+    pub fn reach(&self) -> i32 {
+        self.radius.min(self.cap)
+    }
 }
 
 impl Default for StreamSettings {
     fn default() -> Self {
-        Self { radius: 32, ahead: 0.5, most_at_once: 0, insert_budget_ms: 1.0 }
+        Self { radius: 32, ahead: 0.5, most_at_once: 0, insert_budget_ms: 1.0, cap: no_cap() }
     }
 }
 
@@ -159,7 +184,7 @@ fn focus(camera: &Query<&Transform, With<Camera3d>>, origin: &crate::coords::Ren
 /// The chunks wanted around `centre`, best first: within `radius + 1`, not in the world, not being
 /// made, not past the map. Returned with the best one last (so it can be popped).
 fn wanted(streaming: &Streaming, world: &VoxelWorld, centre: ChunkPos, facing: Vec2, settings: &StreamSettings) -> Vec<ChunkPos> {
-    let reach = settings.radius + 1;
+    let reach = settings.reach() + 1;
     let mut wanted: Vec<(f32, ChunkPos)> = Vec::new();
     for x in -reach..=reach {
         for y in -reach..=reach {
@@ -241,7 +266,7 @@ pub fn stream_chunks(
         streaming.queued_at = Some(centre);
         streaming.queued_when = Some(Instant::now());
         // Drop chunks well behind (changed ones are put away).
-        let keep = settings.radius + KEEP_MARGIN;
+        let keep = settings.reach() + KEEP_MARGIN;
         let far: Vec<ChunkPos> = world
             .chunk_positions()
             .filter(|pos| {

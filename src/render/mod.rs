@@ -133,6 +133,7 @@ impl Plugin for RenderPlugin {
                     meshing::follow_the_line,
                     meshing::start_jobs,
                     meshing::finish_jobs,
+                    far_copies::cap_streaming,
                     far_copies::update_far_copies,
                     distant::update_shown_chunks,
                     apply_render_distance,
