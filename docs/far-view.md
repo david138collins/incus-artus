@@ -618,5 +618,18 @@ near world; the case is that its cost follows the screen, not how much is in the
 content-heavy comparison (line 64 against line 8 among tens of thousands of trees) would test
 (Counsel, 2026-11-03).
 
+**Why line 8 looks wrong (David's tests on build 35, 2026-11-03, no new code):**
+- "light only" at line 8: the dark blotches go, so they're the textures (the march has no random
+  turn, and picks the texture's size by distance alone). The contour lines stay, thin and faint: the
+  steps are real; their thick red look was the dirt sides' colour.
+- sharpness 2 → 4: the far lines get finer (the copies' 2-block cells further off were part of
+  it); the saw-tooth edge doesn't move.
+- "who drew this": the saw-tooth is the line itself, the real chunks' meshes (blue) against the
+  march's copies (green), shaded differently (the march has no `ground_light`: no lie, height tint or
+  feet of steps).
+So the look gap is shading and cell size: one shading recipe for both (with the random turn), then
+sizes per ray. Counsel's order: these tests, the weak-hardware check, one shading function, sizes per
+ray (dithered), edge smoothing last.
+
 Against the criteria: 1 passes (2.9 ms, but see above); 2 passes (0.34 ms for the real chunks); 3 is the
 weak-hardware checkpoint, still to do; 4 is close (one 37 ms frame); 5 is David's look.
