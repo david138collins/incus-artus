@@ -1252,3 +1252,14 @@ page, often several), and most slow frames had none of the game's own steps slow
   95 °C with frames to spare. To weigh, not yet decided (with David and Counsel): how much the far land
   as cells is worth at this cost; fewer tiles made again while flying (they change size with
   distance); smaller copies (pages); and the burst of the real chunks' copies.
+
+### Correction: builds 36 to 53 ran the dev build (Counsel found it, 2026-11-04)
+They were launched with `cargo run -j 4`: the dev profile (the game's own code at opt-level 1, debug
+assertions and overflow checks on), not release as the launch rule says. The release game on disk is
+build 35's (the R2 measurements, 348 frames a second, and the 92 to 95 °C in flight, were release).
+So every heat and frame number from build 36 on, and the copy-making times in the game, are a dev
+build's: several times slower on the processor than a player's would be, by how much not yet known.
+From now on: `cargo run --release -j 4`. Counsel's plan, agreed: no new fixes; build 53 run in release;
+then the far land as cells judged standing still at "how far copies reach" 1,024, 2,000 and 4,000; a
+profiler only if it's still hot. (53's limit only trims bursts: sustained, copies come about half a
+copy a frame, far under its 32 pages.)
