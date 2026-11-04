@@ -64,7 +64,7 @@ fn side_lie(lie: f32, share: f32) -> f32 {
 // camera sees a face as much as it faces the camera, so a slope facing you shows mostly sides and
 // one facing away only tops. `toward`: the way to the camera, game axes (x north, y east, z up).
 fn as_seen(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: vec2<f32>, toward: vec3<f32>) -> vec3<f32> {
-    return as_seen_banded(top, north_south, east_west, rise, toward, 0.0, -1.0);
+    return as_seen_banded(top, top, north_south, east_west, rise, toward, 0.0, -1.0);
 }
 
 // The same, the steps' sides drawn where they are, in bands at each whole block of `height` (contour
@@ -73,7 +73,12 @@ fn as_seen(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: v
 // sees, so a pixel `width` (blocks of height across it) that spans several steps comes to the plain
 // mix, and a band thinner than a pixel is a faint line, never hit or missed whole. `width` below 0: the
 // plain mix (as before).
-fn as_seen_banded(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: vec2<f32>, toward: vec3<f32>, height: f32, width: f32) -> vec3<f32> {
+// `top` is the tops with the shade at the steps' feet spread over them, as the plain mix has it, and
+// `open` without it. In bands that shade goes in the bands, at the steps, where the meshes show it, the
+// tops between them as `open` (the same mix on average): spread over the tops, it left them darker than
+// the bands, the lines lighter than the ground, the steps' shading turned inside out [David, build 44:
+// "it's almost like it just inverts the shading between side and top"].
+fn as_seen_banded(top: vec3<f32>, open: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: vec2<f32>, toward: vec3<f32>, height: f32, width: f32) -> vec3<f32> {
     let top_seen = max(toward.z, 0.0);
     let north_seen = abs(rise.x) * max(-sign(rise.x) * toward.x, 0.0);
     let east_seen = abs(rise.y) * max(-sign(rise.y) * toward.y, 0.0);
@@ -86,7 +91,13 @@ fn as_seen_banded(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, 
         return (top * top_seen + north_south * north_seen + east_west * east_seen) / seen;
     }
     let sides = (north_south * north_seen + east_west * east_seen) / sides_seen;
-    return mix(top, sides, bands_at(height, width, sides_seen / seen));
+    let share = sides_seen / seen;
+    // The plain mix, kept: the tops' share of the feet's shade moved into the bands, as much of it as
+    // leaves a band a quarter of the sides' own at the darkest; any left stays on the tops.
+    let plain = mix(top, sides, share);
+    let band = max(sides - (open - top) * (1.0 - share) / share, sides * 0.25);
+    let between = select(open, (plain - band * share) / (1.0 - share), share < 0.999);
+    return mix(between, band, bands_at(height, width, share));
 }
 
 // How much of a pixel the bands cover: bands `share` of a block tall, one centred on each whole block
@@ -130,6 +141,7 @@ fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, up: f32
     let sides = side_lie(lie, faces.w);
     return as_seen_banded(
         top * mix(1.0, feet, min(matched, 1.0)),
+        top,
         side_colour * faces.y * sides,
         side_colour * faces.z * sides,
         slope * matched,

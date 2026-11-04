@@ -964,3 +964,13 @@ like the banks of this river are sand" (sand and dry grass, as the far land show
   bands (the far land's averaged colours and its own light): for far land sized per pixel and regular
   lighting.
 - The far land's own bands are faint from this far (filtered, as meant).
+
+### Bands off and on again, and build 45 (David, 2026-11-04: "go ahead")
+"i think the contour bands on one looks worse, it's almost like it just inverts the shading between
+side and top": the lines lighter than the ground with bands on, dark with them off. Why: the far land's
+recipe spreads the shade at the steps' feet over every top (one colour had to carry it), and the bands
+kept that, so the tops came out darker and the bands (the sides, without it) lighter. Build 45
+(`as_seen_banded`): in bands the feet's shade goes into the bands, the tops between at their own
+brightness, the plain mix kept exactly (as much moved as leaves a band a quarter of the sides' own at
+the darkest; any left stays on the tops). Far off, where the bands blend, nothing changes. To see: the
+lines dark, as the steps' are with the bands off.
