@@ -974,3 +974,14 @@ kept that, so the tops came out darker and the bands (the sides, without it) lig
 brightness, the plain mix kept exactly (as much moved as leaves a band a quarter of the sides' own at
 the darkest; any left stays on the tops). Far off, where the bands blend, nothing changes. To see: the
 lines dark, as the steps' are with the bands off.
+
+### Build 45 seen (David, 2026-11-04): "neither are good"
+Bands on and off from one spot over green hills. On: slopes facing the camera in the middle distance
+wholly brown, as the far land past the copies shows them (with the bands off too). Off: the coarser
+copies' textured blocks show those slopes green with dotted red-brown lines. So the far land's recipe
+(the plain mix: the sides' share by how much the camera sees of them, in the grass block's side
+colour, mostly dirt) and the copies' textured blocks disagree on what a far grassy slope looks like,
+and the bands, which keep the plain mix, show the recipe's answer where the copies are too. Not
+decided which is right; neither looks good to David. Builder's proposal: a reference view (several
+rays a pixel through the copies' cells a block a cell, slow, for looking only: Counsel's idea) to see
+what the blocks really come to from far off, and match both looks to it.
