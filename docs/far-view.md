@@ -678,3 +678,9 @@ David: "sounds good, proceed" (the plan sent to Counsel, with Counsel's seven po
   fraction of a pixel tall is hit or missed whole by one ray a pixel, where the meshes' edge
   smoothing (4 samples a pixel) blends it to a faint line: the next step's work (sizes per ray, then
   edge smoothing if it's still needed).
+
+**On file, not seen (Counsel, 2026-11-03; checked: `light.rs`, `make_near` reads `map.height`):** the
+window of the ground round you takes its slope and height from the recipe, not the real chunks. Over
+land that's been dug or built on, the meshes' and the march's ground light (the lie of the land, the
+height tint, the feet of steps) would follow the ground as it was made, not as it is. Not acted on
+until David sees it; sizes per ray should take its slope from the copy's own column tops instead.
