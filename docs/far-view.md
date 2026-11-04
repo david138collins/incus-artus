@@ -877,6 +877,12 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
 
 **On file, each with what brings it back:**
 - Outrunning the chunks above about 2,000 mph: accepted by David; back if a player's speed reaches it.
+- **Built things seen from afar, closer in since build 55** (Builder, from the code; David hasn't seen
+  it): past the real chunks, now about 380 blocks at line 8 against about 1,000 before, a settlement loses
+  its pieces and bars, its glass is opaque, and its object models vanish (their cells and glow stay). The
+  mesh water's change to the march's water lands there too. Pieces and bars go with R5; models with the
+  decision on moving things. Back sooner if it bothers David; widening the band (`REAL_PAST_THE_LINE`)
+  gives some of the cost back. Matters for "towns seen in the distance".
 - Copy pages capped at 512 MB (146 MB in use at line 2): back if the Render page shows copies left out.
 - The orthographic manager view: its rays and height slice aren't checked in the march (Counsel). Back
   when that camera is worked on, or before the line goes all the way in (R7), whichever comes first.
