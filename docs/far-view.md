@@ -1125,3 +1125,14 @@ step's edge, or a few spread over frames). On file, for after the split work.
   frame; smears in fast flight unless the picture's movement is followed).
 - **To see**: the speckle on the grey mountainside and the dotted step lines evened out, as the
   reference has them; nothing else changed.
+
+### Build 48 seen (David, 2026-11-04)
+"its not bad, although you can see where the detail changes on the top of the mountain. but toggling
+the 'smooth the far pixels' seemingly does nothing ... reference pic now does less than before". Then
+"far cells sized per pixel off, is almost the same thing as reference on", and on, the dark dots back.
+So the speckle left is the coarser cells' colour, not the one ray a pixel: a cell 2 blocks a side about
+2 pixels across looks like one block (its highest), so scattered gravel in sand makes whole dark cells,
+bigger than a pixel. Proposed, not built: a coarser cell's top in the average of the tops it covers
+(as a texture's mipmaps), kept in the solid cell's unused bits, in the coarser levels and in the copies
+2 and 4 blocks a cell. The smoothing's worth to be seen once that's in. The seam on the mountain's
+top: the real chunks' edge (round 2's, as before).
