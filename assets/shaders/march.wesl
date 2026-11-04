@@ -43,7 +43,12 @@ struct MarchSettings {
     copies: vec4<f32>,
     // The square of real chunks round you (game axes, blocks): least x, y, greatest x, y; all 0: none
     inner: vec4<f32>,
+    // x 1 for the reference view: 16 rays a pixel, the copies' cells at their own size, no bands
+    reference: vec4<f32>,
 }
+
+// Drawing the reference view (set by the fragment): every copy's cells at their own size, no bands.
+var<private> referencing: bool = false;
 
 // One corner of a tile: x its height, y the coarser ring's height there, zw the slope north and
 // east; the top's colour (a: 1 on land, 0 on the sea); the side's colour.
@@ -395,7 +400,7 @@ fn wants_level(record: u32, level: u32, c: vec3<i32>, from_eye: vec3<f32>, scale
 fn sized_level(record: u32, c: vec3<i32>, t: f32) -> u32 {
     let base = record * COPY_RECORD;
     let pixels = march.copies.z;
-    if pixels <= 0.0 || copy_records[base + 7u] != 1u || c.z < 0 {
+    if pixels <= 0.0 || referencing || copy_records[base + 7u] != 1u || c.z < 0 {
         return 0u;
     }
     let scale = f32(copy_records[base + 3u]);
@@ -422,7 +427,7 @@ fn sized_level(record: u32, c: vec3<i32>, t: f32) -> u32 {
 fn may_be_coarse(record: u32, t: f32) -> bool {
     let base = record * COPY_RECORD;
     let pixels = march.copies.z;
-    if pixels <= 0.0 || copy_records[base + 7u] != 1u {
+    if pixels <= 0.0 || referencing || copy_records[base + 7u] != 1u {
         return false;
     }
     let scale = f32(copy_records[base + 3u]);
@@ -868,7 +873,7 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, record
 // in the middle distance, David: "the bad banding in a middle-band of the rendering"]. Under the
 // ground's top (an overhang, a cave's mouth) its blocks stay: w 0, as for no bands.
 fn copy_banded(value: u32, record: u32, level: u32, spot: vec3<f32>) -> vec4<f32> {
-    if march.copies.w < 0.5 || ((value >> 12u) & 3u) != 1u {
+    if march.copies.w < 0.5 || referencing || ((value >> 12u) & 3u) != 1u {
         return vec4<f32>(0.0);
     }
     let base = record * COPY_RECORD;
@@ -974,17 +979,64 @@ struct Output {
     @builtin(frag_depth) depth: f32,
 }
 
+// What one ray drew: its colour and depth, if it met anything.
+struct Pixel {
+    colour: vec3<f32>,
+    depth: f32,
+    hit: bool,
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> Output {
+    let ndc = vec2<f32>(
+        (in.clip_position.x - view.viewport.x) / view.viewport.z * 2.0 - 1.0,
+        1.0 - (in.clip_position.y - view.viewport.y) / view.viewport.w * 2.0,
+    );
+    var out: Output;
+    if march.reference.x < 0.5 {
+        let pixel = march_pixel(ndc, 1.0);
+        if !pixel.hit {
+            discard;
+        }
+        out.colour = vec4<f32>(pixel.colour, 1.0);
+        out.depth = pixel.depth;
+        return out;
+    }
+    // The reference view: 4 x 4 rays across the pixel, each as fine as it can be drawn (the copies'
+    // cells at their own size, a texture's size by a quarter of a pixel, no bands), averaged: what the
+    // blocks come to from here, for the far land's look to match. The nearest depth of those that met
+    // anything; the colour of those.
+    referencing = true;
+    let across = vec2<f32>(2.0 / view.viewport.z, -2.0 / view.viewport.w);
+    var sum = vec3<f32>(0.0);
+    var met = 0.0;
+    var depth = 0.0;
+    for (var k = 0u; k < 16u; k++) {
+        let offset = (vec2<f32>(f32(k % 4u), f32(k / 4u)) + 0.5) / 4.0 - 0.5;
+        let pixel = march_pixel(ndc + offset * across, 0.25);
+        if pixel.hit {
+            sum = sum + pixel.colour;
+            met = met + 1.0;
+            depth = max(depth, pixel.depth);
+        }
+    }
+    if met < 0.5 {
+        discard;
+    }
+    out.colour = vec4<f32>(sum / met, 1.0);
+    out.depth = depth;
+    return out;
+}
+
+// One ray, from `ndc` (where it is on the screen, -1 to 1 each way), through the far land and the
+// copies: what it drew. `spread`: how far apart (in pixels) the rays are that a texture's size and the
+// contour bands' width are measured to (1: the pixels'; a quarter in the reference view).
+fn march_pixel(ndc: vec2<f32>, spread: f32) -> Pixel {
     // The pixel's ray, in game axes: worked out from the camera, then turned to the world; never
     // from two points in the world. A point on the near plane is a tenth of a block from the camera,
     // and thousands of blocks out the world's positions are kept only to a few thousandths of a
     // block, so the difference pointed every ray a little wrong, differently each frame [David,
     // build 13: "its jiggly"].
-    let ndc = vec2<f32>(
-        (in.clip_position.x - view.viewport.x) / view.viewport.z * 2.0 - 1.0,
-        1.0 - (in.clip_position.y - view.viewport.y) / view.viewport.w * 2.0,
-    );
     let on_near = view.view_from_clip * vec4<f32>(ndc, 1.0, 1.0);
     let toward = normalize(on_near.xyz / on_near.w);
     // The camera in the world, and from the floating origin (small, so exact: what positions that
@@ -1269,7 +1321,7 @@ fn fragment(in: VertexOutput) -> Output {
         t = out_of_cell + nudge;
     }
     if !hit {
-        discard;
+        return Pixel(vec3<f32>(0.0), 0.0, false);
     }
     let spot = origin + ray * t;
     // As drawn: from the floating origin, from the camera's place there (exact, not the world's big numbers).
@@ -1279,9 +1331,9 @@ fn fragment(in: VertexOutput) -> Output {
     var lit = false;
     let glows = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
     // The next pixels' rays, right and down: for a texture's size, and the contour bands' width.
-    let ray_x = pixel_ray(ndc + vec2<f32>(2.0 / view.viewport.z, 0.0));
-    let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 / view.viewport.w));
-    if march.copies.w > 0.5 {
+    let ray_x = pixel_ray(ndc + vec2<f32>(2.0 * spread / view.viewport.z, 0.0));
+    let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 * spread / view.viewport.w));
+    if march.copies.w > 0.5 && !referencing {
         band_ray = ray;
         band_ray_x = ray_x;
         band_ray_y = ray_y;
@@ -1359,9 +1411,6 @@ fn fragment(in: VertexOutput) -> Output {
         let distance = length(world_position - view.world_position);
         colour = mix(colour, settings.fog_color.rgb, smoothstep(settings.fog.x, settings.fog.y, distance));
     }
-    var out: Output;
-    out.colour = vec4<f32>(colour, 1.0);
     let clip = view.clip_from_world * vec4<f32>(world_position, 1.0);
-    out.depth = clip.z / clip.w;
-    return out;
+    return Pixel(colour, clip.z / clip.w, true);
 }

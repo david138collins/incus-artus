@@ -112,11 +112,16 @@ pub struct FarCopySettings {
     /// them to all look the same"). Off: build 42's look, the far land in its plain mix and the
     /// coarser cells as blocks.
     pub bands: bool,
+    /// The reference view (for looking, not playing: slow): 16 rays a pixel through the copies' cells
+    /// at their own size, textured as the meshes, no bands, so a pixel shows what the blocks come to
+    /// from where you are: what the far land's look is to match. Not saved on.
+    #[serde(skip)]
+    pub reference: bool,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: true }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: true, reference: false }
     }
 }
 
@@ -1300,6 +1305,11 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                     "The far land, and the march's cells of 2 blocks or more on the open ground, drawn with the steps' sides in bands at\n\
                      each whole block of height (the copies' from their own blocks), so the steps look alike near and far: a band\n\
                      thinner than a pixel a faint line, several steps to a pixel their plain mix. Off: as build 42.",
+                );
+                ui.checkbox(&mut settings.reference, "reference (slow, for looking)").on_hover_text(
+                    "For looking, not playing: 16 rays a pixel through the copies' blocks at their own size (no coarser cells,\n\
+                     no bands), so each pixel shows what the blocks really come to from here. What the far land's look should\n\
+                     match. Slow: play with it off. \"sharpness\" at 4 copies more of it a block a cell. Not saved on.",
                 );
             });
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(

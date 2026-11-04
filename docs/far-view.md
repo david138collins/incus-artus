@@ -985,3 +985,21 @@ and the bands, which keep the plain mix, show the recipe's answer where the copi
 decided which is right; neither looks good to David. Builder's proposal: a reference view (several
 rays a pixel through the copies' cells a block a cell, slow, for looking only: Counsel's idea) to see
 what the blocks really come to from far off, and match both looks to it.
+
+### Build 46: the reference view (David: "go ahead")
+David: "im finding it hard to tell right now if we're making progress towards the completion of
+unified raymarching theory". Builder's answer: built enough are the far land, the copies and the real
+chunks past the line drawn by one march, the marched blocks shaded by the near world's recipe, sizes
+per ray, and the holes found (lines of sky, water squares, grey patches); to go are the line all the
+way in (R7), see-through water and glass, pieces and bars, one lighting, the far land sized per pixel.
+The far land's look stalled on having nothing true to match, so the reference.
+- **The reference view** ("reference (slow, for looking)", Render page under "contour bands"; not
+  saved on): the fragment's ray is now `march_pixel`, and with the reference on the fragment draws 16
+  of them across the pixel (4 × 4) and averages those that met anything (the nearest depth of them):
+  every copy's cells at their own size (no coarser levels: `referencing`), textures sized to a quarter
+  of a pixel, no bands, the far land in its plain mix. So a pixel over the copies shows what their
+  blocks come to from there. Within the copies a block a cell (the band past the line; "sharpness" at 4
+  makes more of them a block a cell) it's the blocks' own answer; the copies 2 and 4 blocks a cell
+  are only as true as their cells.
+- **To use**: from one spot, the reference against the normal view (bands on, then off). Slow (16
+  rays a pixel): look, then turn it off; capped, for the heat.

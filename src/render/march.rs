@@ -954,6 +954,9 @@ pub struct MarchShaderSettings {
     /// The square of real chunks the rays start at the edge of (game axes, blocks): its least x and
     /// y, its greatest x and y; all 0 if there's none.
     pub inner: Vec4,
+    /// x 1 for the reference view (`FarCopySettings::reference`): 16 rays a pixel, the copies' cells at
+    /// their own size, no bands.
+    pub reference: Vec4,
 }
 
 impl Material for MarchMaterial {
@@ -1127,6 +1130,7 @@ pub fn update_march(
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
         copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, if far_settings.bands { 1.0 } else { 0.0 }),
         inner,
+        reference: Vec4::new(if far_settings.reference { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0),
     };
     let unchanged = materials.get(&handle).is_some_and(|material| {
         material.march == march
