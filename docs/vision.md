@@ -558,9 +558,24 @@ bread and a blank diary. Birds sing and flit about.
   - The crossing could cover the new world's generation (about 10 minutes above), so the wait is play.
   - A drastically different continent may be mostly world-generation settings and new blocks, data
     rather than new systems, if the World Compiler can reach that far.
-  - A big ship is a moving structure with people walking on it, so it bears on two open items: marching
-    moving things in their own grids (`vision/proposal-voxel-renderer.md`), and routes and flow maps on
-    something that moves (`docs/simulation.md`, section 14).
+- **How the voyage works** (David): "the ocean isn't real, the ship isn't moving". You're inside a very,
+  very small world that is the vessel, and the ocean only looks like big waves and swells, and can move the
+  screen "so that you're standing sideways when the ship 'rocks'". "almost a cutscene you can walk around in
+  and do captainy things." When it's been long enough, you press a button and see your ship sail into the
+  shore, drop anchor and lower a skiff. There the ship is just a motionless structure, and you row ashore
+  on a regular small or medium boat.
+- **Which land** (David): he can rebalance the world engine to make unique types of land, "and you could
+  pick one and set sail". "an easy way to add content once a generation of players starts getting bored."
+- **Oregon Trail mechanics, perhaps** (David): "fun 'oregon trail' mechanics to the voyage", though
+  "recreating the mayflower with all the sick people and dying farm animals might be too far". How hard it
+  gets is open.
+- *Counsel, to assess:*
+  - The ship stays still, so people and routes on it work as in any structure, and the voyage asks nothing
+    of marching moving things.
+  - Rocking the screen may need a way to turn it down, for players it makes queasy.
+  - Arriving needs a good place on the new world's shore for the ship to stand.
+  - Voyage events could come from the Goddess of Fate and the Dungeonmaster's pacing, so how a crossing
+    goes depends on what you loaded and who you brought.
 
 ## Build order after the foundation  [DECIDED with Grok, 2026-10-22]
 
