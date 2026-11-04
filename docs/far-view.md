@@ -1302,3 +1302,13 @@ the ground copied whole as before.
 - **Next, steps 2 and 3**: the real chunks written one chunk at a time (no tile made again when one of
   its chunks streams in or out), and no tile made again for a new size where the march's own levels
   already size it. And, if wanted, a gentler start (fewer chunks made at once than one a core).
+- **What moves in with it** (Counsel asked; read from the code): past about 380 blocks the water is
+  the march's own (it was past about 1,000), so a lake or river crossing there may show the change;
+  object models are drawn only from loaded chunks, so the braziers' and test village's models end at
+  about 380 blocks (their cells and glow go on in the copies); glass in saved changes is a water cell in
+  glass's colour and pieces are air in copies, as past the real chunks before. The near light window,
+  the sim and people, collision, aiming and spawning don't reach that far. The recipe copies' few
+  differences are only at 4 and 8 blocks a cell, far out: none at the hand-off (1 and 2 blocks a cell,
+  every column asked). The soak's 70 to 77 °C against David's 103 to 104 isn't a fair before and after
+  (release against dev, the soak against him flying): to confirm by his own flight. If the water seam or
+  the models bother him, `REAL_PAST_THE_LINE` widens the band, at some of the cost back.
