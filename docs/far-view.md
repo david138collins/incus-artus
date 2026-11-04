@@ -937,3 +937,14 @@ them to all look the same."
   over it, when there is one (`make_copy`).
 - Also seen: brownish see-through "fins" standing along a river's banks near the edge. Not known
   what draws them; "who drew this" to tell.
+
+### Build 44: the coarser cells' tops (David: "go ahead with your work")
+On the fins: "they might just be rough edges on our ridges" (left for now).
+- **The copies of 2 or 4 blocks a cell** (`make_copy`): a solid cell under one that isn't, which holds
+  the surface of some of its columns, looks like that surface (what shows on top), before its own.
+- **The coarser levels** (`copy_levels`): the same, a level at a time: a solid cell under one that
+  isn't solid but has some solid in it looks like that one's highest solid block.
+- **Test**: `a_coarser_cell_under_the_grounds_top_looks_like_the_top` (grass a cell up in one column
+  over a coarse cell of dirt: grass).
+- **To see**: the grey (and brown) patches at the copies' distances gone; the real grey of stone and
+  gravel still where it is.

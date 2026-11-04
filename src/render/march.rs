@@ -1617,6 +1617,27 @@ mod sizes_per_ray {
     }
 
     #[test]
+    fn a_coarser_cell_under_the_grounds_top_looks_like_the_top() {
+        // The ground two cells deep of dirt (8), its top of grass (5) a cell up in one column of the
+        // first coarse cell's four: the coarse cell over it is one of eight solid, so air, and the
+        // coarse cell under, all dirt, is what shows on top: grass, as the top seen there, not dirt.
+        let tall = 4;
+        let mut cells = vec![15u32 << 16; 32 * 32 * tall];
+        let at = |x: usize, y: usize, z: usize| x + y * 32 + z * 1024;
+        for y in 0..32 {
+            for x in 0..32 {
+                cells[at(x, y, 0)] = 8 | CELL_SOLID;
+                cells[at(x, y, 1)] = 8 | CELL_SOLID;
+            }
+        }
+        cells[at(0, 0, 2)] = 5 | CELL_SOLID;
+        let levels = copy_levels(&cells, tall as i32, 0.5);
+        assert_eq!(levels[0], 5 | CELL_SOLID, "under some of the top: looks like it");
+        assert_eq!(levels[1], 8 | CELL_SOLID, "with nothing over it but air: its own");
+        assert_eq!((levels[16 * 16] >> 12) & 3, 0, "one of eight solid over it: air");
+    }
+
+    #[test]
     fn with_sizes_per_ray_no_ray_goes_through_the_rock_and_each_meets_the_face_it_came_in_through() {
         // The copied cave's ground (`no_ray_goes_through_the_rock_round_a_copied_cave`), copied whole
         // at 1 and 2 blocks a cell, drawn at sizes from a block a cell to 8 or 16 (as far off, or with

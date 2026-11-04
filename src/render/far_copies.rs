@@ -226,6 +226,8 @@ pub fn copy_levels(cells: &[u32], tall: i32, share: f32) -> Vec<u32> {
         let (coarse_side, coarse_high) = (side / 2, (high + 1) / 2);
         let at = |x: i32, y: i32, z: i32| if z < high { finer[(x + y * side + z * side * side) as usize] } else { 15 << 16 };
         let mut coarse = Vec::with_capacity((coarse_side * coarse_side * coarse_high) as usize);
+        // Each cell's highest solid block of the eight, solid or not (for the cell under it).
+        let mut tops = Vec::with_capacity(coarse.capacity());
         for z in 0..coarse_high {
             for y in 0..coarse_side {
                 for x in 0..coarse_side {
@@ -252,6 +254,7 @@ pub fn copy_levels(cells: &[u32], tall: i32, share: f32) -> Vec<u32> {
                             }
                         }
                     }
+                    tops.push(top.map(|(_, block)| block));
                     coarse.push(if solid as f32 >= share * 8.0 - 1e-3 {
                         top.map_or(0, |(_, block)| block) | CELL_SOLID
                     } else if water > 0 && water >= air {
@@ -261,6 +264,18 @@ pub fn copy_levels(cells: &[u32], tall: i32, share: f32) -> Vec<u32> {
                         daylight.min(15) << 16 | (glow as u32) << 20
                     });
                 }
+            }
+        }
+        // A solid cell under one that isn't, but holds some of the ground's top: it's that top that
+        // shows, so it looks like it (the surface, not the stone or dirt under it). [Grey and brown
+        // patches by the ground's height within a cell, at the coarser cells' distances: David,
+        // build 43, "the grey is still there".]
+        let layer = (coarse_side * coarse_side) as usize;
+        for k in 0..coarse.len().saturating_sub(layer) {
+            if (coarse[k] >> 12) & 3 == 1 && (coarse[k + layer] >> 12) & 3 != 1
+                && let Some(block) = tops[k + layer]
+            {
+                coarse[k] = (coarse[k] & !0xFFF) | block;
             }
         }
         levels.extend_from_slice(&coarse);
@@ -652,18 +667,22 @@ fn make_copy(mut job: CopyJob) -> Made {
         }
     }
     let whole = (s * s * s) as f32;
+    let solid_enough = |tally: &Tally| whole - tally.air as f32 - tally.water as f32 + tally.objects >= job.share * whole - 1e-3;
     let cells: Vec<BlockId> = tallies
         .iter()
         .enumerate()
         .map(|(k, tally)| {
-            let solid = whole - tally.air as f32 - tally.water as f32 + tally.objects;
-            if solid >= job.share * whole - 1e-3 {
-                // Its highest block of the surface, or its highest solid block, or the one below's,
-                // or stone. (Its highest solid block alone, on a steep slope, was often the rock
-                // under an uphill column's surface, so coarse copies came out darker and blotchy:
-                // David, build 8, "the texture breaks out" backing away.)
+            if solid_enough(tally) {
+                // The surface in the cell over it, if that cell isn't solid: it's what shows on top
+                // [where the ground's top fell low in a cell, that cell was air and the one under it
+                // showed the stone or dirt below: grey and brown patches, David, build 43, "the grey
+                // is still there"]. Else its highest block of the surface, or its highest solid block,
+                // or the one below's, or stone. (Its highest solid block alone, on a steep slope, was
+                // often the rock under an uphill column's surface, so coarse copies came out darker
+                // and blotchy: David, build 8, "the texture breaks out" backing away.)
                 let below = (k as i32 - CELLS * CELLS).max(0) as usize;
-                tally.surface.or(tally.top).or(tallies[below].surface).or(tallies[below].top).map_or(job.blocks.stone, |(_, id)| id)
+                let over = tallies.get(k + (CELLS * CELLS) as usize).filter(|over| !solid_enough(over)).and_then(|over| over.surface);
+                over.or(tally.surface).or(tally.top).or(tallies[below].surface).or(tallies[below].top).map_or(job.blocks.stone, |(_, id)| id)
             } else if tally.water > 0 && tally.water >= tally.air {
                 tally.water_block
             } else {
