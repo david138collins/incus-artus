@@ -121,7 +121,7 @@ pub struct FarCopySettings {
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: true, reference: false }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: false, reference: false }
     }
 }
 

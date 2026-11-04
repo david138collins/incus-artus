@@ -1797,4 +1797,69 @@ mod sizes_per_ray {
         assert!(slipped[0] > 0, "looked up where the ray is, far out, some rays slip (the lines of sky): none of {rays}");
         assert_eq!(slipped[1], 0, "looked up ahead, no ray slips: {} of {rays}", slipped[1]);
     }
+
+    /// Measuring, not checking (run with `--nocapture`): on a slope of real blocks copied a block a
+    /// cell, the share of rays round one spot that meet a step's side, against the far land's recipe's
+    /// share there (`as_seen` in lighting.wesl: the sides' share by how much the camera sees of them),
+    /// for slopes, heights of the camera and ways it looks. [David, build 46: the recipe brown where the
+    /// blocks are green with thin lines.]
+    #[test]
+    #[ignore]
+    fn measure_the_sides_share_against_real_steps() {
+        let width = 64;
+        let registry = crate::data::BlockRegistry::default();
+        let blocks = TerrainBlocks::from_registry(&registry);
+        let palette = super::super::distant::Palette::from_textures(&registry, &blocks);
+        let keys: Vec<CopyKey> = (0..2).flat_map(|y| (0..2).map(move |x| CopyKey { scale: 1, x, y })).collect();
+        eprintln!("slope (n, e) | camera up | looking (deg) | rays | sides met | recipe's sides");
+        for slope in [Vec2::new(0.25, 0.0), Vec2::new(0.5, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.35, 0.35)] {
+            // The map a pixel every 32 blocks, its middle pixel at the world's middle, rising `slope`
+            // blocks a block, about 230 at the copies (blocks 0 to 64).
+            let heights: Vec<f32> = (0..width * width).map(|k| (230.0 + ((k % width) as f32 - 32.0) * 32.0 * slope.x + ((k / width) as f32 - 32.0) * 32.0 * slope.y).clamp(140.0, 330.0)).collect();
+            let map = CompiledMap::of_heights(width, 32.0, &heights);
+            let ground = |x: i32, y: i32| map.column(x, y).unwrap().0 as f32;
+            let target = Vec3::new(32.5, 32.5, ground(32, 32) + 1.0);
+            // The slope as the blocks have it, across the spread round the spot.
+            let slope = Vec2::new((ground(40, 32) - ground(24, 32)) / 16.0, (ground(32, 40) - ground(32, 24)) / 16.0);
+            for elevation in [15.0f32, 30.0, 45.0] {
+                // Looking up the slope (its steps' sides toward the camera), across it, and down it.
+                for heading in [0.0f32, 30.0, 60.0, 90.0, 120.0] {
+                    let uphill = if slope.length() > 0.0 { slope.normalize() } else { Vec2::X };
+                    let (s, c) = heading.to_radians().sin_cos();
+                    let flat = Vec2::new(uphill.x * c - uphill.y * s, uphill.x * s + uphill.y * c);
+                    let (eu, ec) = elevation.to_radians().sin_cos();
+                    let look = Vec3::new(flat.x * ec, flat.y * ec, -eu);
+                    let camera = target - look * 200.0;
+                    let mut state = MarchState::default();
+                    state.follow(1, 2, 16);
+                    for ring_key in super::super::distant::wanted_tiles(camera, 16, 2) {
+                        state.store(ring_key, super::super::distant::tile_mesh(&map, &blocks, &palette, ring_key, 16).as_ref());
+                    }
+                    state.follow_copies(keys.iter().map(|&key| (key, super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![]), true).expect("the land shows"))).collect(), true);
+                    let right = look.cross(Vec3::Z).normalize();
+                    let up = right.cross(look);
+                    let (mut rays, mut sides) = (0, 0);
+                    // A spread of about 8 blocks across at the spot.
+                    for a in -20..=20 {
+                        for b in -20..=20 {
+                            let ray = (look + right * a as f32 * 0.001 + up * b as f32 * 0.001).normalize();
+                            if let Some((_, Some(hit))) = state.march_ray_sized(16.0, camera, ray, 0.0, 400, |_| false, None) {
+                                rays += 1;
+                                if entered_axis(hit.local, hit.rate) != 2 {
+                                    sides += 1;
+                                }
+                            }
+                        }
+                    }
+                    // The recipe's share at the spot (as `as_seen`): `toward` the way to the camera.
+                    let toward = -look;
+                    let top_seen = toward.z.max(0.0);
+                    let north_seen = slope.x.abs() * (-slope.x.signum() * toward.x).max(0.0);
+                    let east_seen = slope.y.abs() * (-slope.y.signum() * toward.y).max(0.0);
+                    let recipe = (north_seen + east_seen) / (top_seen + north_seen + east_seen);
+                    eprintln!("({:.2}, {:.2}) | {elevation:.0} | {heading:.0} | {rays} | {:.3} | {recipe:.3}", slope.x, slope.y, sides as f32 / rays.max(1) as f32);
+                }
+            }
+        }
+    }
 }

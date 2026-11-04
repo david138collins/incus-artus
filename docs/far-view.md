@@ -1026,3 +1026,22 @@ while the recipe darkens the tops by the lie of the land more than the sides; so
 truth of shape and colour, not yet of light. Builder's next step proposed: measure the recipe against
 the blocks off the game (a Rust test: a staircase of real blocks seen from a camera, supersampled,
 against the recipe's mix at the same spot), find where they part, then make the far land match.
+
+### Measured: the sides' share, the recipe against real steps (2026-11-04, off the game)
+`measure_the_sides_share_against_real_steps` (march.rs, ignored: run with `--ignored --nocapture`):
+real blocks copied a block a cell on a slope, a camera 200 blocks off, 41 × 41 rays round one spot,
+the share meeting a step's side, against the recipe's (`as_seen`). Slopes 0.25, 0.5, 1 along the grid
+and 0.54 on the diagonal; the camera 15°, 30°, 45° up; looking up the slope, and 30°, 60°, 90°, 120°
+round from that.
+- **Slopes along the grid, any way of looking, and any slope looked up**: the recipe within a few
+  hundredths of the blocks (0.488 against 0.483; 0.659 against 0.651; 0.512 against 0.500).
+- **Diagonal slopes looked at aslant**: the recipe too much side, more the further round: 60° 0.575
+  against 0.518; 90° (across the slope) 0.497 against 0.183 at 15° up, 0.315 against 0.175 at 30°, 0.210
+  against 0.153 at 45°. There the blocks hide each other (the ground rising toward the camera's side
+  covers the steps' sides), which the recipe doesn't count: it adds every side that faces the camera.
+  How much is hidden is the back-facing part of the slope (the recipe's sum less the smooth slope's
+  own face toward the camera), taken mostly from the sides, more so the lower the camera.
+- **Not measured yet**: the light on tops and sides in each (the "light only" lead).
+So the recipe's shape is right but for diagonal slopes seen aslant, where it shows up to 2.7 times
+the sides; a share of the brown David saw. Next: a correction for the hidden part, checked against
+this measurement (then a test asserting it), and the light measured likewise.
