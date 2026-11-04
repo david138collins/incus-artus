@@ -611,5 +611,12 @@ mph outruns the chunks coming in: the copies past the line are made and let go a
 A first run with the fans turned down read slower (91 frames a second; the processor at 103 °C):
 measure with the fans on full.
 
-Against the criteria: 1 passes (2.9 ms); 2 passes (0.34 ms for the real chunks); 3 is the
+Criterion 1 was written on a wrong number: the ~8 ms "held on the processor" was the frame cap
+(and, that night, the fans), not the game's work. Uncapped, line 64 is already 3.22 ms, the card
+2.90 of it, so standing still R2 gains about 0.35 ms. Speed is not yet the case for marching the
+near world; the case is that its cost follows the screen, not how much is in the world, which a
+content-heavy comparison (line 64 against line 8 among tens of thousands of trees) would test
+(Counsel, 2026-11-03).
+
+Against the criteria: 1 passes (2.9 ms, but see above); 2 passes (0.34 ms for the real chunks); 3 is the
 weak-hardware checkpoint, still to do; 4 is close (one 37 ms frame); 5 is David's look.
