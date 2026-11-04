@@ -819,6 +819,10 @@ Builder's list, with Counsel's checks against this file. The order of the steps 
 waits for a named step, and that step looks at its items again before David is told it's ready. Written
 here and with a way to catch it, or it doesn't wait.
 
+David, on this list: "the gap lines need immediate attention i agree. but shading and setting flaws
+just need to be identified and remembered, i think since a lot will change". So a shading or settings
+flaw seen in a test gets written down here, under its step, and isn't fixed or tuned for now.
+
 **Now (build 42, on David's go):**
 - Lines of sky: a hole in the picture, and already built. If gaps remain, the likeliest cause is the
   coarser cells' one-cell-at-a-time rays (build 38, using up steps): look there first.
