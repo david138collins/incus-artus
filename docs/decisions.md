@@ -939,6 +939,18 @@ Reference: `Art/quartile minecraft illustration.png`
 
 ---
 
+## The renderer: the bar for moving on to content
+
+**[David 2026-11-04]** Counsel's bar, David: "i think you are right with that bar." Done enough to build on:
+1. It runs smoothly and stays cool, confirmed by David's own flight.
+2. The land looks like one land: far land cells and the seam judged, a reach picked.
+3. Built things hold up at a distance: pieces and bars as cells, and an answer for models past the real chunks.
+4. Heavy content doesn't change the answer: a stand-in forest confirms the cost follows the screen.
+
+And David's goal past it: "ill feel much better once we have vrr+vlr built and performant so we can move on
+and the remaining graphics work is taste and FX". VLR is assessed and planned again before it starts
+(`vision/proposal-voxel-renderer.md`); whether it comes before trees or alongside them is decided then.
+
 ## The renderer: right and fast together, erring on the side of right
 
 **[DECIDED 2026-11-03]** David, after R2 measured at 348 FPS (`docs/far-view.md`): "my gut feeling
