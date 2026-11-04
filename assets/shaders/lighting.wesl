@@ -64,14 +64,44 @@ fn side_lie(lie: f32, share: f32) -> f32 {
 // camera sees a face as much as it faces the camera, so a slope facing you shows mostly sides and
 // one facing away only tops. `toward`: the way to the camera, game axes (x north, y east, z up).
 fn as_seen(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: vec2<f32>, toward: vec3<f32>) -> vec3<f32> {
+    return as_seen_banded(top, north_south, east_west, rise, toward, 0.0, -1.0);
+}
+
+// The same, the steps' sides drawn where they are, in bands at each whole block of `height` (contour
+// bands, round 2: David, "contour bands are how we see shape and depth in land, we just need them to
+// all look the same"): each band's share of a block of height is the sides' share of what the camera
+// sees, so a pixel `width` (blocks of height across it) that spans several steps comes to the plain
+// mix, and a band thinner than a pixel is a faint line, never hit or missed whole. `width` below 0: the
+// plain mix (as before).
+fn as_seen_banded(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: vec2<f32>, toward: vec3<f32>, height: f32, width: f32) -> vec3<f32> {
     let top_seen = max(toward.z, 0.0);
     let north_seen = abs(rise.x) * max(-sign(rise.x) * toward.x, 0.0);
     let east_seen = abs(rise.y) * max(-sign(rise.y) * toward.y, 0.0);
-    let seen = top_seen + north_seen + east_seen;
-    if seen <= 1e-5 {
+    let sides_seen = north_seen + east_seen;
+    let seen = top_seen + sides_seen;
+    if seen <= 1e-5 || sides_seen <= 1e-5 {
         return top;
     }
-    return (top * top_seen + north_south * north_seen + east_west * east_seen) / seen;
+    if width < 0.0 {
+        return (top * top_seen + north_south * north_seen + east_west * east_seen) / seen;
+    }
+    let sides = (north_south * north_seen + east_west * east_seen) / sides_seen;
+    return mix(top, sides, bands_at(height, width, sides_seen / seen));
+}
+
+// How much of a pixel the bands cover: bands `share` of a block tall, one centred on each whole block
+// of `height`, box-filtered over the pixel's `width` (blocks of height).
+fn bands_at(height: f32, width: f32, share: f32) -> f32 {
+    let x = height + share * 0.5;
+    if width < 1e-4 {
+        return select(0.0, 1.0, fract(x) < share);
+    }
+    return (band_sum(x + width * 0.5, share) - band_sum(x - width * 0.5, share)) / width;
+}
+
+// How much of the height up to `x` the bands cover (`share` of each block, at its bottom).
+fn band_sum(x: f32, share: f32) -> f32 {
+    return floor(x) * share + min(fract(x), share);
 }
 
 // The land as the far terrain draws it: its colour as the near ground's blocks show it on average,
@@ -85,8 +115,9 @@ fn as_seen(top: vec3<f32>, north_south: vec3<f32>, east_west: vec3<f32>, rise: v
 //   light is measured over; `fade`: hill shading's fade; `faces`: x tops, y north/south sides, z
 //   east/west sides, w how much of the slope's light the sides take; `matched`: how much the far
 //   slopes take on the steps' shade; `foot`, `step`: the steps' feet's shade at this steepness, all
-//   round and from the sun's side.
-fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, up: f32, toward: vec3<f32>, sun: vec4<f32>, tint: vec3<f32>, finest: f32, fade: f32, faces: vec4<f32>, matched: f32, foot: f32, step: f32) -> vec3<f32> {
+//   round and from the sun's side; `bands`: x the height the contour bands go by, y the pixel's width
+//   in it (below 0: no bands, the plain mix; `as_seen_banded`).
+fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, up: f32, toward: vec3<f32>, sun: vec4<f32>, tint: vec3<f32>, finest: f32, fade: f32, faces: vec4<f32>, matched: f32, foot: f32, step: f32, bands: vec2<f32>) -> vec3<f32> {
     let lie = hill_light(slope * finest, sun.w, sun.xyz, fade) * height_tint(up, tint.y, tint.z, tint.x);
     let top = top_colour * faces.x * lie;
     let rise = length(slope);
@@ -97,12 +128,14 @@ fn land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, up: f32
     let toward_sun = select(0.0, clamp(dot(slope / rise, normalize(sun.xy)), 0.0, 1.0), length(sun.xy) > 1e-5);
     let feet = foot * mix(1.0, step, toward_sun);
     let sides = side_lie(lie, faces.w);
-    return as_seen(
+    return as_seen_banded(
         top * mix(1.0, feet, min(matched, 1.0)),
         side_colour * faces.y * sides,
         side_colour * faces.z * sides,
         slope * matched,
         toward,
+        bands.x,
+        bands.y,
     );
 }
 

@@ -105,11 +105,18 @@ pub struct FarCopySettings {
     /// "pixelization rate of terrain as it becomes more distant"): higher is blockier further off.
     /// Never finer than the copy keeps (a cell about 4 ÷ `sharpness` pixels).
     pub pixels: f32,
+    /// Contour bands (round 2): the far land, and the march's cells of 2 blocks or more on the open
+    /// ground, drawn with the steps' sides in bands at each whole block of height, the copies' from
+    /// their own columns' tops, a band thinner than a pixel a faint line, several steps to a pixel
+    /// their plain mix (David: "contour bands are how we see shape and depth in land, we just need
+    /// them to all look the same"). Off: build 42's look, the far land in its plain mix and the
+    /// coarser cells as blocks.
+    pub bands: bool,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0 }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: true }
     }
 }
 
@@ -1261,7 +1268,7 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                 );
                 ui.checkbox(&mut settings.sized, "far cells sized per pixel (new)").on_hover_text(
                     "The blocks the march draws, drawn at the size each pixel can show: further off, 2, 4 or 8 to a side as one cell\n\
-                     (in its block's flat colours), changing a cell at a time, so no squares where one size meets the next.\n\
+                     (textured as a copy's own cells of that size), changing a cell at a time, so no squares where one size meets the next.\n\
                      \"Who drew this\" shows the sizes: green a block a cell, then yellow, orange and red. Off: as build 37.",
                 );
                 ui.add_enabled_ui(settings.sized, |ui| {
@@ -1270,6 +1277,11 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                          further off (and quicker to draw). It never gets finer than the copies keep (\"sharpness\").",
                     );
                 });
+                ui.checkbox(&mut settings.bands, "contour bands (new)").on_hover_text(
+                    "The far land, and the march's cells of 2 blocks or more on the open ground, drawn with the steps' sides in bands at\n\
+                     each whole block of height (the copies' from their own blocks), so the steps look alike near and far: a band\n\
+                     thinner than a pixel a faint line, several steps to a pixel their plain mix. Off: as build 42.",
+                );
             });
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(
                 "How crisp the copies are: a copy's cell is about 4 ÷ this pixels on screen (1: 4 pixels, soft and cheap; 4: a pixel\n\

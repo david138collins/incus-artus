@@ -949,7 +949,7 @@ pub struct MarchShaderSettings {
     pub grid: Vec4,
     /// The far copies: x 1 if the march draws them, y 1 if its whole copies are shaded as the meshes
     /// are (`FarCopySettings::shaded`), z how many pixels a far cell is drawn across before a coarser level
-    /// is (`FarCopySettings::pixels`; 0: sizes per ray off).
+    /// is (`FarCopySettings::pixels`; 0: sizes per ray off), w 1 for contour bands (`FarCopySettings::bands`).
     pub copies: Vec4,
     /// The square of real chunks the rays start at the edge of (game axes, blocks): its least x and
     /// y, its greatest x and y; all 0 if there's none.
@@ -1125,7 +1125,7 @@ pub fn update_march(
     });
     let march = MarchShaderSettings {
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
-        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, 0.0),
+        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, if far_settings.bands { 1.0 } else { 0.0 }),
         inner,
     };
     let unchanged = materials.get(&handle).is_some_and(|material| {

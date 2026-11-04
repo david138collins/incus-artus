@@ -127,6 +127,7 @@ fn far_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, wor
         settings.shade.y,
         table_at(false, rise),
         table_at(true, rise),
+        vec2<f32>(0.0, -1.0),
     );
 }
 

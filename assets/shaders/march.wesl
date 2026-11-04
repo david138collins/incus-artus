@@ -38,7 +38,8 @@ struct DistantShaderSettings {
 struct MarchSettings {
     // x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes
     grid: vec4<f32>,
-    // The far copies: x 1 if the march draws them
+    // The far copies: x 1 if the march draws them, y 1 if shaded as the meshes, z the pixels a far cell
+    // (0: sizes per ray off), w 1 for contour bands
     copies: vec4<f32>,
     // The square of real chunks round you (game axes, blocks): least x, y, greatest x, y; all 0: none
     inner: vec4<f32>,
@@ -523,8 +524,33 @@ fn land_slope(place: Place, cell: vec2<u32>, uv: vec2<f32>) -> vec2<f32> {
         + corner_at(place, cell.x + tri.c.x, cell.y + tri.c.y).ground.zw * w.z;
 }
 
-// Colours lit as the far land is lit at a spot with that slope (lighting.wesl, `land`).
+// This pixel's ray, its neighbours' (right and down) and how far it went, for the contour bands'
+// width; `band_t` below 0: no bands (set by the fragment, read by `band_width`).
+var<private> band_ray: vec3<f32>;
+var<private> band_ray_x: vec3<f32>;
+var<private> band_ray_y: vec3<f32>;
+var<private> band_t: f32 = -1.0;
+
+// How many blocks of height this pixel spans on ground with that slope (blocks up per block across,
+// north and east): from where the next pixels' rays meet its plane. Below 0: no bands.
+fn band_width(slope: vec2<f32>) -> f32 {
+    if band_t < 0.0 {
+        return -1.0;
+    }
+    let normal = normalize(vec3<f32>(-slope.x, -slope.y, 1.0));
+    let right = across_pixel(normal, band_ray, band_ray_x, band_t);
+    let down = across_pixel(normal, band_ray, band_ray_y, band_t);
+    return max(abs(right.z), abs(down.z));
+}
+
+// Colours lit as the far land is lit at a spot with that slope (lighting.wesl, `land`), its contour
+// bands by the spot's height.
 fn lit_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, spot: vec3<f32>) -> vec3<f32> {
+    return lit_land_at(top_colour, side_colour, slope, spot, drawn_at(spot).y);
+}
+
+// The same, the contour bands by `height` (a far copy's own ground's, for one).
+fn lit_land_at(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, spot: vec3<f32>, height: f32) -> vec3<f32> {
     let world_position = drawn_at(spot);
     let rise = length(slope);
     return land(
@@ -541,6 +567,7 @@ fn lit_land(top_colour: vec3<f32>, side_colour: vec3<f32>, slope: vec2<f32>, spo
         settings.shade.y,
         table_at(false, rise),
         table_at(true, rise),
+        vec2<f32>(height, band_width(slope)),
     );
 }
 
@@ -831,6 +858,66 @@ fn copy_shaded(value: u32, local: vec3<f32>, rate: vec3<f32>, level: u32, record
     }
     let lit = face_shade(face, near_settings.face_shade) * near_ground_light(world_position, face, f32(scale));
     return colour * lit * underground_lit(daylight, glow, length(world_position - view.world_position), near_settings.underground, near_settings.placed, globals.time);
+}
+
+// A whole copy's solid cell of 2 blocks or more (its own, or a coarser level's: `level`) on the open
+// ground, where a ray met it at `spot`, drawn as the far land draws its ground (`lit_land_at`: the
+// land's slope and light), in its block's colours, its contour bands by the copy's own ground: its
+// columns' tops eased between their middles, so each band falls where a step of real blocks is
+// [round 2: a 2- or 4-block cell's steps showed 2 or 4 blocks tall, wide grey and red-brown stripes
+// in the middle distance, David: "the bad banding in a middle-band of the rendering"]. Under the
+// ground's top (an overhang, a cave's mouth) its blocks stay: w 0, as for no bands.
+fn copy_banded(value: u32, record: u32, level: u32, spot: vec3<f32>) -> vec4<f32> {
+    if march.copies.w < 0.5 || ((value >> 12u) & 3u) != 1u {
+        return vec4<f32>(0.0);
+    }
+    let base = record * COPY_RECORD;
+    let scale = f32(copy_records[base + 3u]);
+    let size = scale * f32(1u << level);
+    if size < 1.5 {
+        return vec4<f32>(0.0);
+    }
+    let corner = vec3<f32>(f32(bitcast<i32>(copy_records[base])), f32(bitcast<i32>(copy_records[base + 1u])), f32(bitcast<i32>(copy_records[base + 2u])));
+    let at = (spot.xy - corner.xy) / scale;
+    let own = clamp(floor(at), vec2<f32>(0.0), vec2<f32>(31.0));
+    let column = corner.z + scale * copy_top(record, COLUMNS_AT, u32(own.y * 32.0 + own.x));
+    if spot.z < column - 1.5 * size {
+        return vec4<f32>(0.0);
+    }
+    let place = locate(spot.xy);
+    if !place.found {
+        return vec4<f32>(0.0);
+    }
+    // The ground's height here: the four columns' tops round the spot, eased between their middles
+    // (a step's middle, where its side is, half a block below the higher top).
+    let q = at - 0.5;
+    let low = clamp(floor(q), vec2<f32>(0.0), vec2<f32>(31.0));
+    let high = min(low + 1.0, vec2<f32>(31.0));
+    let f = clamp(q - low, vec2<f32>(0.0), vec2<f32>(1.0));
+    let a = copy_top(record, COLUMNS_AT, u32(low.y * 32.0 + low.x));
+    let b = copy_top(record, COLUMNS_AT, u32(low.y * 32.0 + high.x));
+    let c = copy_top(record, COLUMNS_AT, u32(high.y * 32.0 + low.x));
+    let d = copy_top(record, COLUMNS_AT, u32(high.y * 32.0 + high.x));
+    let ground = corner.z + scale * mix(mix(a, b, f.x), mix(c, d, f.x), f.y) - 0.5 * scale;
+    let local = (spot.xy - place.origin) / (place.size / CELLS);
+    let ij = clamp(floor(local), vec2<f32>(0.0), vec2<f32>(CELLS - 1.0));
+    let uv = clamp(local - ij, vec2<f32>(0.0), vec2<f32>(1.0));
+    let block = value & 0xFFFu;
+    var top_colour = block_colours[block * 4u].rgb;
+    var side_colour = block_colours[block * 4u + 1u].rgb;
+    if settings.shade.z > 0.5 {
+        top_colour = vec3<f32>(0.5);
+        side_colour = vec3<f32>(0.5);
+    }
+    // Who drew this: as the copy's cells of its size (pale green its own, then yellow, orange, red).
+    if settings.view.x > 0.5 {
+        top_colour = vec3<f32>(0.55, 0.95, 0.6);
+        if level > 0u {
+            top_colour = select(select(vec3<f32>(1.0, 0.35, 0.3), vec3<f32>(1.0, 0.65, 0.3), level == 2u), vec3<f32>(0.95, 0.9, 0.4), level == 1u);
+        }
+        side_colour = top_colour;
+    }
+    return vec4<f32>(lit_land_at(top_colour, side_colour, land_slope(place, vec2<u32>(ij), uv), spot, ground), 1.0);
 }
 
 // This pixel's ray (`ndc`: where it is on the screen, -1 to 1 each way), in game axes: worked out
@@ -1191,11 +1278,26 @@ fn fragment(in: VertexOutput) -> Output {
     // Lit already (a whole copy shaded as the meshes are, light and all): none of the light below.
     var lit = false;
     let glows = vec3<f32>(f32(last_glow & 15u), f32((last_glow >> 4u) & 15u), f32((last_glow >> 8u) & 15u)) / 15.0;
+    // The next pixels' rays, right and down: for a texture's size, and the contour bands' width.
+    let ray_x = pixel_ray(ndc + vec2<f32>(2.0 / view.viewport.z, 0.0));
+    let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 / view.viewport.w));
+    if march.copies.w > 0.5 {
+        band_ray = ray;
+        band_ray_x = ray_x;
+        band_ray_y = ray_y;
+        band_t = t;
+    }
+    var banded = vec4<f32>(0.0);
     if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u && march.copies.y > 0.5 {
+        banded = copy_banded(hit_value, hit_record, hit_level, spot);
+    }
+    if banded.w > 0.5 {
+        // A copy's cell of 2 blocks or more on the open ground: the far land's look, in contour
+        // bands by the copy's own ground (lit below, as the land is).
+        colour = banded.rgb;
+    } else if hit_copy && copy_records[hit_record * COPY_RECORD + 6u] == 1u && march.copies.y > 0.5 {
         // Copied whole, shaded as the meshes shade the same block (one shading recipe), its coarser
-        // cells too (sizes per ray): the next pixels' rays, right and down, for the texture's size.
-        let ray_x = pixel_ray(ndc + vec2<f32>(2.0 / view.viewport.z, 0.0));
-        let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 / view.viewport.w));
+        // cells too (sizes per ray).
         colour = copy_shaded(hit_value, hit_local, hit_rate, hit_level, hit_record, ray, ray_x, ray_y, t, world_position, f32(last_light) / 15.0, glows);
         lit = true;
     } else if hit_copy && hit_level > 0u {

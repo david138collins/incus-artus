@@ -902,3 +902,25 @@ with build 42's look-ahead, none. The diagnosis is reproduced, and it's caught i
 zeros"; what's left is the copy lookup above), and chunks still meshed under the copies (build 35: past
 the line only see-through blocks and pieces are; the processor's share now is making the copies, about
 12 ms a copy on average and 64 ms at most, off the frame).
+
+## Round 2, contour bands (build 43; David: "go ahead")
+David (by Counsel, 2026-11-04): "contour bands are how we see shape and depth in land, we just need
+them to all look the same."
+- **The bands** (`lighting.wesl`, `as_seen_banded`, `bands_at`): where the far land mixed its tops and
+  the steps' sides by how much the camera sees of each (`as_seen`), it can now draw the sides where they
+  are: a band at each whole block of height, its share of a block of height the sides' share of what's
+  seen, box-filtered over how many blocks of height the pixel spans (from where the next pixels' rays
+  meet the ground's plane, `band_width`). So a band thinner than a pixel is a faint line, never hit or
+  missed whole, and a pixel over several steps comes to the plain mix as before. `land()` takes the
+  bands' height and width; the sheet drawn as triangles and the near meshes' far ground pass none.
+- **The far land** (the march's `lit_land`): banded by its own height.
+- **The copies' cells of 2 blocks or more on the open ground** (`copy_banded`): drawn as the far land
+  draws its ground (its slope and light) in their block's colours, banded by the copy's own ground (its
+  columns' tops eased between their middles, half a block down: a band where a step of real blocks
+  is), so 2- and 4-block cells no longer show 2- and 4-block steps. Under the ground's top (an
+  overhang, a mouth) the blocks stay. A copy's own block-a-cell cells stay textured blocks.
+- **Control** (Render page, under "pixelization"): "contour bands (new)", on; off for build 42's look.
+  Name and place David's to change.
+- **To see, across the real chunks' edge** (Counsel): the bands going on past it into the far land
+  alike; the middle band's heavy stripes gone; no flicker in the bands moving. Not to tune the shades
+  (regular lighting moves them). Who drew this: the copies' banded cells keep their sizes' colours.

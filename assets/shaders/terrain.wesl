@@ -191,6 +191,7 @@ fn far_ground(top_colour: vec3<f32>, side_colour: vec3<f32>, world_position: vec
         lighting.far.x,
         far_table_at(false, rise),
         far_table_at(true, rise),
+        vec2<f32>(0.0, -1.0),
     );
 }
 
