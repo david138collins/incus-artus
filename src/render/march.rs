@@ -345,17 +345,23 @@ impl MarchState {
             self.copies.free_records = (0..MOST_COPIES as u32).rev().collect();
             self.copies.map_stale = true;
         }
-        let mut wanted: Vec<(CopyKey, Arc<CopyCells>)> = Vec::new();
+        // Each once (a tile drawn, before the one it's taking over from), looked up by its key: every
+        // frame, so not each against all [with the far land as cells, 2,600 copies made that some 7
+        // million comparisons a frame, twice: 98 frames a second and 47 at the 1% low under a cap of
+        // 120, the card idle at half the frame: David, build 50].
+        // In order too: where two overlap, the first takes the chunk (`map_stale` below).
+        let mut wanted: HashMap<CopyKey, Arc<CopyCells>> = HashMap::new();
+        let mut order: Vec<(CopyKey, Arc<CopyCells>)> = Vec::new();
         if on {
             for (key, cells) in tiles {
-                if !wanted.iter().any(|(k, _)| *k == key) {
-                    wanted.push((key, cells));
+                if let std::collections::hash_map::Entry::Vacant(slot) = wanted.entry(key) {
+                    slot.insert(cells.clone());
+                    order.push((key, cells));
                 }
             }
         }
         // Gone, or made again: let go.
-        let gone: Vec<CopyKey> =
-            self.copies.drawn.iter().filter(|(key, copy)| !wanted.iter().any(|(k, cells)| k == *key && Arc::ptr_eq(cells, &copy.cells))).map(|(key, _)| *key).collect();
+        let gone: Vec<CopyKey> = self.copies.drawn.iter().filter(|(key, copy)| wanted.get(*key).is_none_or(|cells| !Arc::ptr_eq(cells, &copy.cells))).map(|(key, _)| *key).collect();
         for key in gone {
             if let Some(copy) = self.copies.drawn.remove(&key) {
                 self.copies.free_pages.extend(copy.pages);
@@ -365,7 +371,7 @@ impl MarchState {
         }
         // New: into pages, with a record.
         self.copies.short = 0;
-        for (key, cells) in &wanted {
+        for (key, cells) in &order {
             if self.copies.drawn.contains_key(key) {
                 continue;
             }
@@ -421,7 +427,7 @@ impl MarchState {
             }
         }
         self.copies.top = self.copies.drawn.values().map(|copy| copy.footprint.2).fold(f32::MIN, f32::max);
-        self.copies.order = wanted.iter().map(|(key, _)| *key).filter(|key| self.copies.drawn.contains_key(key)).collect();
+        self.copies.order = order.iter().map(|(key, _)| *key).filter(|key| self.copies.drawn.contains_key(key)).collect();
         // The map: which copy draws each chunk (one drawn now wins over one retiring). It's laid out
         // by the world, each chunk at its place counted round the map's width, not round you: one laid
         // out round you was made again at every chunk you crossed, and for a frame the graphics card
@@ -432,7 +438,7 @@ impl MarchState {
         if self.copies.map_stale {
             self.copies.map_stale = false;
             let mut map = vec![0u32; (MAP * MAP) as usize];
-            for (key, _) in &wanted {
+            for (key, _) in &order {
                 let Some(copy) = self.copies.drawn.get(key) else { continue };
                 let (low, high, _) = copy.footprint;
                 let chunk = crate::world::CHUNK_SIZE;
@@ -949,7 +955,7 @@ pub struct MarchShaderSettings {
     pub grid: Vec4,
     /// The far copies: x 1 if the march draws them, y 1 if its whole copies are shaded as the meshes
     /// are (`FarCopySettings::shaded`), z how many pixels a far cell is drawn across before a coarser level
-    /// is (`FarCopySettings::pixels`; 0: sizes per ray off), w 1 for contour bands (`FarCopySettings::bands`).
+    /// is (`FarCopySettings::pixels`; 0: sizes per ray off), w 2 for contour bands (`FarCopySettings::bands`), 1 for the coarser cells in the land's mix without them (`FarCopySettings::mixed`).
     pub copies: Vec4,
     /// The square of real chunks the rays start at the edge of (game axes, blocks): its least x and
     /// y, its greatest x and y; all 0 if there's none.
@@ -1129,7 +1135,7 @@ pub fn update_march(
     });
     let march = MarchShaderSettings {
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
-        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, if far_settings.bands { 1.0 } else { 0.0 }),
+        copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, if far_settings.bands { 2.0 } else if far_settings.mixed { 1.0 } else { 0.0 }),
         inner,
         reference: Vec4::new(if far_settings.reference { 1.0 } else { 0.0 }, if far_settings.smooth { 1.0 } else { 0.0 }, 0.0, 0.0),
     };

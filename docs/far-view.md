@@ -1201,3 +1201,28 @@ smooth surface is left only past the copies' reach, where a cell is about a pixe
 - **To see**: the seam where the real chunks end gone, the land out to the copies' reach in blocks;
   copies being made after a jump or a fast flight (more of them now: the Render page counts them, and
   their pages); the card's and the frame's time; the processor's heat while they're made.
+
+### Build 50 seen, and build 51 (David, 2026-11-04: "yes maam")
+Seen in 50: the land in blocks out to the reach; the card at 5.56 ms; but the processor at 103 °C
+while some 2,600 copies were made in two minutes ("i didn't want to stick around sightseeing too
+long since it was obviously roasting the chip"), the copies' room full (4,091 of 4,096 pages), 98
+frames a second and 47 at the 1% low under the cap of 120; and "the size of the pixels that show the
+edges of grass don't shrink into the distance, they're the same size no matter how far away, and stand
+out pretty sharply". Build 51, four fixes:
+1. **The reach's edge**: the far land's tiles never finer than half what their distance asks; where a
+   coarse enough one won't fit inside the reach, the smooth far land is left. (All 791 copies a block a
+   cell in 50 sat beyond 3,500 blocks out: the coarse ones there crossed the reach, so finer ones were
+   tried down to a block a cell, the dearest to make and the biggest in room.)
+2. **The frame**: the march took up its copies every frame by checking each against all (some 7
+   million comparisons at 2,600 copies, twice); now looked up by key, in order where order counts (the
+   first of two overlapping takes the chunk, and the tests' twin follows the same order: a test failed
+   now and then while it didn't).
+3. **The burst**: the far land's copies made one at a time.
+4. **The lines**: "far cells in the land's mix (new)" (on; greyed while contour bands are on, which
+   mix them anyway): the cells of 2 blocks or more on the open ground coloured by the far land's
+   recipe (build 47's: as much of the sides and tops as the camera sees on that slope), not their own
+   faces, so a coarse cell's side, standing for several steps, isn't a line as thick at any distance.
+   Their shape and outline stay the cells'. The lighting join between these and the block-a-cell cells
+   (two recipes) may show again: for regular lighting.
+To see: the heat while the land fills in; the pages; the frame rate capped; the far grass's lines
+fading with distance; the patches where coarse cells meet the copies' own (if any).

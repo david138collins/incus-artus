@@ -39,7 +39,7 @@ struct MarchSettings {
     // x rings, y the finest cell (blocks), z the highest land (or far copy), w the most steps a pixel takes
     grid: vec4<f32>,
     // The far copies: x 1 if the march draws them, y 1 if shaded as the meshes, z the pixels a far cell
-    // (0: sizes per ray off), w 1 for contour bands
+    // (0: sizes per ray off), w 2 for contour bands, 1 for the coarser cells in the land's mix without them
     copies: vec4<f32>,
     // The square of real chunks round you (game axes, blocks): least x, y, greatest x, y; all 0: none
     inner: vec4<f32>,
@@ -1377,7 +1377,7 @@ fn march_pixel(ndc: vec2<f32>, spread: f32) -> Pixel {
     // The next pixels' rays, right and down: for a texture's size, and the contour bands' width.
     let ray_x = pixel_ray(ndc + vec2<f32>(2.0 * spread / view.viewport.z, 0.0));
     let ray_y = pixel_ray(ndc - vec2<f32>(0.0, 2.0 * spread / view.viewport.w));
-    if march.copies.w > 0.5 && !referencing {
+    if march.copies.w > 1.5 && !referencing {
         band_ray = ray;
         band_ray_x = ray_x;
         band_ray_y = ray_y;

@@ -112,6 +112,12 @@ pub struct FarCopySettings {
     /// them to all look the same"). Off: build 42's look, the far land in its plain mix and the
     /// coarser cells as blocks.
     pub bands: bool,
+    /// The march's cells of 2 blocks or more on the open ground in the land's mix (the far land's
+    /// recipe: as much of the steps' sides and tops as the camera sees on that slope), without the
+    /// bands: a coarse cell's side stands for several steps, so drawn as one in the side's colour it
+    /// was a line as thick at any distance [David, build 50: "the size of the pixels that show the
+    /// edges of grass don't shrink into the distance"]. Off: their own faces, as build 49.
+    pub mixed: bool,
     /// The reference view (for looking, not playing: slow): 16 rays a pixel through the copies' cells
     /// at their own size, textured as the meshes, no bands, so a pixel shows what the blocks come to
     /// from where you are: what the far land's look is to match. Not saved on.
@@ -131,7 +137,7 @@ pub struct FarCopySettings {
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: false, reference: false, smooth: false, land: true }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: false, mixed: true, reference: false, smooth: false, land: true }
     }
 }
 
@@ -1305,7 +1311,15 @@ pub fn update_far_copies(
                 // Drawn or being made: kept until well past the line, so moving doesn't throw it away.
                 let drawn = state.tiles.contains_key(&key) || state.making.contains_key(&key);
                 let distance = key.middle().distance(at.truncate()) * if drawn { SWITCH_PAST } else { 1.0 / SWITCH_PAST };
-                if scale == 1 || scale <= scale_for(distance, settings.sharpness, fov, height) {
+                let asked = scale_for(distance, settings.sharpness, fov, height);
+                // The far land's, never finer than half its distance asks: where a coarse enough tile
+                // won't fit inside the reach, its edge, the smooth far land is left [falling back to
+                // finer tiles there, it made some 800 a block a cell 4,000 blocks off, the copies'
+                // room filled (4,091 of 4,096 pages) and the processor at 103 °C: David, build 50].
+                if land_chunks.contains(&pos) && scale * 2 < asked {
+                    break;
+                }
+                if scale == 1 || scale <= asked {
                     *wanted.entry(key).or_insert(false) |= force;
                     if full_chunks.contains(&pos) {
                         full.insert(key);
@@ -1424,9 +1438,17 @@ pub fn update_far_copies(
     // Twice as many while the real chunks past the line are copied: their meshing, no longer done,
     // left the processor that time.
     let most = if real { MOST_AT_ONCE * 2 } else { MOST_AT_ONCE };
+    // The far land's, one at a time: a few seconds to fill in rather than every core at once [some 2,600
+    // made in two minutes on four, the processor at 103 °C: David, build 50, "it was obviously roasting
+    // the chip"].
+    let mut making_land = state.making.keys().filter(|key| state.land.contains(key)).count();
     while state.making.len() < most {
         let Some(key) = state.queue.pop() else { break };
         if state.tiles.contains_key(&key) || state.making.contains_key(&key) || !state.wanted.contains_key(&key) {
+            continue;
+        }
+        if state.land.contains(&key) && making_land >= 1 {
+            not_yet.push(key);
             continue;
         }
         // Made from the real chunks (R2): each as it is, once streaming has brought it in (one past
@@ -1486,6 +1508,9 @@ pub fn update_far_copies(
             land: state.land.contains(&key),
             palette: distant.palette().cloned(),
         };
+        if state.land.contains(&key) {
+            making_land += 1;
+        }
         state.making.insert(key, pool.spawn(async move { make_copy(job) }));
     }
     // Those waiting on streaming go back, nearest last as before.
@@ -1532,6 +1557,14 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                      each whole block of height (the copies' from their own blocks), so the steps look alike near and far: a band\n\
                      thinner than a pixel a faint line, several steps to a pixel their plain mix. Off: as build 42.",
                 );
+                ui.add_enabled_ui(!settings.bands, |ui| {
+                    ui.checkbox(&mut settings.mixed, "far cells in the land's mix (new)").on_hover_text(
+                        "The march's cells of 2 blocks or more on the open ground coloured as the far land is: as much of the steps' sides\n\
+                         and tops as you'd see on that slope, so far steps fade into the mix as the real ones do, instead of each coarse\n\
+                         cell's side a line as thick at any distance. Their shape stays the cells'. Off: their own faces, as build 49.\n\
+                         (With contour bands on, they're in the mix anyway.)",
+                    );
+                });
                 ui.checkbox(&mut settings.reference, "reference (slow, for looking)").on_hover_text(
                     "For looking, not playing: 16 rays a pixel through the copies' blocks at their own size (no coarser cells,\n\
                      no bands), so each pixel shows what the blocks really come to from here. What the far land's look should\n\
