@@ -1239,3 +1239,16 @@ with distance while flying.
   differ from its chunks' copy at 4 and 8 blocks a cell; every top the same block.
 - **Paced**: after each far land's copy, as long again before the next: half a core at most.
 To see: the heat while the land fills in and while flying; how long the far land takes to fill.
+
+### Build 52 seen, and build 53 (David, 2026-11-04: "go ahead with the per frame limit")
+Seen in 52: the processor at 104 °C ("it hit 104 this time"); "a short choppy flight": 104 frames a
+second, 26 at the 1% low, worst 42 ms (one of 700 ms). Some 2,300 copies made in 40 seconds of
+flight, 8 ms each on average: cheap to make now, but each sent to the graphics card whole (128 KB a
+page, often several), and most slow frames had none of the game's own steps slow: the sending.
+- **Build 53** (`SENT_A_FRAME`, 32 pages a frame, one copy at least): the rest wait a frame; the Render
+  page counts those waiting.
+- **The heat, read**: with the frame under the cap, the cap gives the processor no rest, so it runs
+  flat out; anything that slows the frame heats it. Before the far land as cells, flying read 92 to
+  95 °C with frames to spare. To weigh, not yet decided (with David and Counsel): how much the far land
+  as cells is worth at this cost; fewer tiles made again while flying (they change size with
+  distance); smaller copies (pages); and the burst of the real chunks' copies.

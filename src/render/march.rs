@@ -74,6 +74,10 @@ const PAGE: usize = (COPY_CELLS * COPY_CELLS * COPY_CELLS) as usize;
 const PAGES: usize = 4096;
 const MOST_COPIES: usize = 4096;
 const COPY_PAGES: usize = 16;
+/// The most of the copies' pages sent to the graphics card a frame (128 KB each): some 2,300 copies made in
+/// 40 seconds of flight, sent as they came, made frames of 30 to 700 ms with none of the game's own steps
+/// slow, 26 frames a second at the 1% low [David, build 52: "a short choppy flight"]. The rest wait a frame.
+const SENT_A_FRAME: usize = 32;
 /// Numbers kept for each copy: its first cell's corner (x, y, z, blocks) and its cell size; how many
 /// cells tall it is and how many pages it has; 1 if it was copied whole (the near-march experiment);
 /// 1 spare; then its pages; then the highest of each of its 32 × 32 columns (`COLUMNS_AT`) and of each
@@ -126,6 +130,8 @@ struct Copies {
     /// last time.
     left_out: usize,
     short: usize,
+    /// Copies waiting their turn to be sent to the graphics card this frame (`SENT_A_FRAME`).
+    waiting: usize,
 }
 
 struct MarchedCopy {
@@ -235,16 +241,17 @@ impl MarchState {
     }
 
     /// One line for the Render page: the copies drawn, the room their cells take on the graphics card,
-    /// and how many were left out for want of it.
+    /// and how many were left out for want of it, or are waiting to be sent (`SENT_A_FRAME`).
     pub fn summary(&self) -> String {
         let used = self.copies.pages - self.copies.free_pages.len().min(self.copies.pages);
         format!(
-            "The march draws {} copies; their cells take {used} of {} pages ({} of {} MB); {} left out for want of room.",
+            "The march draws {} copies; their cells take {used} of {} pages ({} of {} MB); {} left out for want of room; {} waiting to be sent.",
             self.copies.drawn.len(),
             self.copies.pages,
             used * PAGE * 4 / 1_048_576,
             self.copies.pages * PAGE * 4 / 1_048_576,
-            self.copies.short
+            self.copies.short,
+            self.copies.waiting
         )
     }
 
@@ -371,6 +378,8 @@ impl MarchState {
         }
         // New: into pages, with a record.
         self.copies.short = 0;
+        self.copies.waiting = 0;
+        let mut sent = 0;
         for (key, cells) in &order {
             if self.copies.drawn.contains_key(key) {
                 continue;
@@ -388,6 +397,12 @@ impl MarchState {
                 }
                 continue;
             }
+            // At most `SENT_A_FRAME` pages a frame to the graphics card (one copy at least): the rest wait.
+            if sent > 0 && sent + pages > SENT_A_FRAME {
+                self.copies.waiting += 1;
+                continue;
+            }
+            sent += pages;
             let taken: Vec<u32> = (0..pages).filter_map(|_| self.copies.free_pages.pop()).collect();
             let record = self.copies.free_records.pop().unwrap_or(0);
             for (k, &page) in taken.iter().enumerate() {
