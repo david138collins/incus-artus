@@ -1263,3 +1263,10 @@ From now on: `cargo run --release -j 4`. Counsel's plan, agreed: no new fixes; b
 then the far land as cells judged standing still at "how far copies reach" 1,024, 2,000 and 4,000; a
 profiler only if it's still hot. (53's limit only trims bursts: sustained, copies come about half a
 copy a frame, far under its 32 pages.)
+
+### Build 54: copies counted by why (Counsel asked; logs only)
+David's choppy flight was at 20 blocks a second: some 2,300 copies in 40 seconds is about three a block
+flown, too many for the view moving on. Every 5 seconds while tiles are queued, the log now says why:
+on new ground, where a tile of another size was drawn (remade at a new size as the distance changes),
+or made again for their real chunks (streamed in, dropped or changed: any section of a real chunk in
+a tile marked dirty remakes the whole tile, up to 8 × 8 chunks). Nothing drawn changes.
