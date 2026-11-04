@@ -850,6 +850,13 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
   blocks its flat patches cut across them. A pointer for round 2: the land's plain average reads
   well where the ground is gentle, and the blocks have to show where it's steep (the filtered bands
   fading to the average only where a pixel spans several steps). Not a setting to fix.
+- Build 42, line 8 (David): "the border between smooth and noisy is obvious from this perspective,
+  and the dark bands are pretty obvious on the dry grass ... i don't think the shading causes the
+  difference between smooth and noise though. its just a level of detail disparity." The copies'
+  blocks against the far land's smooth surface where the real chunks end (the item above), seen
+  from a mountain. Also: a lighter square patch on far water at the copies' edge (a look, under
+  this step). The mountain sides' coarser cells (build 41) no longer show as their own shade: done
+  enough.
 - Build the look and compare it by eye; no fine tuning of its shades, as regular lighting moves them.
 
 **Far land sized per pixel** (rewrites the march's loop):
