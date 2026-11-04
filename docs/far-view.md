@@ -878,6 +878,8 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
 **On file, each with what brings it back:**
 - Outrunning the chunks above about 2,000 mph: accepted by David; back if a player's speed reaches it.
 - Copy pages capped at 512 MB (146 MB in use at line 2): back if the Render page shows copies left out.
+- The orthographic manager view: its rays and height slice aren't checked in the march (Counsel). Back
+  when that camera is worked on, or before the line goes all the way in (R7), whichever comes first.
 - Slow frames in fast flight, 25 to 37 ms, from two sources. The 37 ms frame was the near meshes
   inside the line: goes with R7. Making and dropping about 110 copies a second: Builder's "R2b", the real
   chunks written straight into the march's cells as they load and change, no copy made (R2's first
