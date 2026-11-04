@@ -1100,3 +1100,12 @@ step's edge, or a few spread over frames). On file, for after the split work.
   since it depends only on the slope and the way to the camera, a table worked out once at the start
   (the slope's two parts, the way it's seen, how far up) and read in the shader, as cheap as the fit.
   Builder's advice: the table. David's to say.
+- **David's call**: smoothing the pixel next, the walk kept ready to go in after it with an A/B
+  switch: "keep the walk ready to go though; when i see error reduced 66% but i can't see anything,
+  that seems really important." Why it can matter later though not seen now: with the pixel smoothed
+  the speckle no longer hides a slope a little too brown, and with one lighting tops and sides may part
+  further in brightness, so the same error shows more. Ready means: the walk and its measurement in
+  march.rs's tests (`walked_lines`, `walked_line`, held by
+  `the_far_lands_share_of_steps_sides_is_what_real_steps_show`); to go in, a table of it made once at
+  the start (the slope's two parts, the way it's seen, how far up), read by `as_seen_banded` in place of
+  the fitted numbers, behind a switch.
