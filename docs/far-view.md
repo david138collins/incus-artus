@@ -857,6 +857,12 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
   from a mountain. Also: a lighter square patch on far water at the copies' edge (a look, under
   this step). The mountain sides' coarser cells (build 41) no longer show as their own shade: done
   enough.
+- Build 42, a river across the real chunks' edge at line 8 (David: "the flat top shading problem is
+  pretty obvious in the dry grass here, and you can see where the border intersects the river"): the
+  far land's dry grass flat and smooth against the copies' grass; a grey patch (the real blocks'
+  gravel or stone, which the far land's coarser colours don't show) ending in a zigzag on the chunks'
+  edge; the river narrower in the copies, the far land's ribbon wider, a darker strip at its banks
+  where they meet. Looks only, no hole: round 2 (and the water's look with it).
 - Build the look and compare it by eye; no fine tuning of its shades, as regular lighting moves them.
 
 **Far land sized per pixel** (rewrites the march's loop):
