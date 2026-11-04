@@ -745,3 +745,10 @@ its cell's size less a block (`near_ground_light`'s `size`: 1 a block a cell, th
 keeps a hill's shadow but not the block or so its top can stand off the ground. To see: the step
 shadows and foot shading back up, the patches behind hills going on past the line without the
 sawtooth, and no dark tops on the far cells (build 36's).
+
+### Build 39 seen (David, 2026-11-04)
+"under normal settings, march, 8, the border is almost unfindable", the area inside it "faintly
+faintly noisier" if you look very closely (the meshes' textures against the coarser cells' flat
+colours: round 2's, the land's look), "walking around, this is almost unable to be seen". From up
+high "some of the shading behind hills seems a bit heavy. its not in the wrong spot, it just needs to
+be tuned, i think. this is an improvement".
