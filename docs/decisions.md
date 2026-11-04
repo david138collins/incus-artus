@@ -358,6 +358,13 @@ Reference: `Art/quartile minecraft illustration.png`
 
 ## Isometric View
 
+- **[David 2026-11-04] Two views, not one; the names aren't final** ("i don't really know for sure"):
+  - **The manager:** the full-screen window of lists, sheets and settlement info, for broad overviews.
+    (`docs/vision.md`, "Full-screen manager".)
+  - **The orthographic view, or orthographic manager:** "more like an RTS or strategy game mode", for
+    directing his settlement and soldiers. Like Dwarf Fortress, it uses overlays for planning and control
+    in specifics: blueprints, zones, routes (`docs/simulation.md`, section 14). The same view as "the
+    foreman view" elsewhere in these docs.
 - **[LATER]** The camera is far away, so distant-style simplification applies (no face detail needed),
   but people must stay easy to locate.
 - **[LATER]** Height-slice scrolling to see inside buildings (needs cut caps, see the rendering notes).
