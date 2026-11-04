@@ -365,6 +365,9 @@ Reference: `Art/quartile minecraft illustration.png`
     directing his settlement and soldiers. Like Dwarf Fortress, it uses overlays for planning and control
     in specifics: blueprints, zones, routes (`docs/simulation.md`, section 14). The same view as "the
     foreman view" elsewhere in these docs.
+  - **Away from a settlement it's still there** (David): travelling, with no settlement to direct, the
+    orthographic view stays available for looking around, mostly without controls. "maybe later there
+    could be more".
 - **[LATER]** The camera is far away, so distant-style simplification applies (no face detail needed),
   but people must stay easy to locate.
 - **[LATER]** Height-slice scrolling to see inside buildings (needs cut caps, see the rendering notes).
