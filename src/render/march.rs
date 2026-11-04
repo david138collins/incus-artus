@@ -955,7 +955,8 @@ pub struct MarchShaderSettings {
     /// y, its greatest x and y; all 0 if there's none.
     pub inner: Vec4,
     /// x 1 for the reference view (`FarCopySettings::reference`): 16 rays a pixel, the copies' cells at
-    /// their own size, no bands.
+    /// their own size, no bands; y 1 for smoothing the pixels at the copies' cells' edges
+    /// (`FarCopySettings::smooth`).
     pub reference: Vec4,
 }
 
@@ -1130,7 +1131,7 @@ pub fn update_march(
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
         copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, if far_settings.bands { 1.0 } else { 0.0 }),
         inner,
-        reference: Vec4::new(if far_settings.reference { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0),
+        reference: Vec4::new(if far_settings.reference { 1.0 } else { 0.0 }, if far_settings.smooth { 1.0 } else { 0.0 }, 0.0, 0.0),
     };
     let unchanged = materials.get(&handle).is_some_and(|material| {
         material.march == march

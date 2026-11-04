@@ -117,11 +117,16 @@ pub struct FarCopySettings {
     /// from where you are: what the far land's look is to match. Not saved on.
     #[serde(skip)]
     pub reference: bool,
+    /// Smoothing the march's pixels: where a pixel's ray meets a copy's cell within about a pixel of
+    /// its edge (or a cell smaller than a pixel), 4 rays across the pixel, averaged, so a step's side a
+    /// fraction of a pixel is a fraction of it, not hit or missed whole (David, build 47: the reference
+    /// "outright better"). Off: one ray a pixel, as build 47.
+    pub smooth: bool,
 }
 
 impl Default for FarCopySettings {
     fn default() -> Self {
-        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: false, reference: false }
+        Self { on: true, sharpness: 2.0, solid_share: 0.5, reach: 4_000.0, march: true, real: true, shaded: true, sized: true, pixels: 2.0, bands: false, reference: false, smooth: true }
     }
 }
 
@@ -1310,6 +1315,11 @@ pub fn controls(ui: &mut bevy_egui::egui::Ui, world: &mut World) {
                     "For looking, not playing: 16 rays a pixel through the copies' blocks at their own size (no coarser cells,\n\
                      no bands), so each pixel shows what the blocks really come to from here. What the far land's look should\n\
                      match. Slow: play with it off. \"sharpness\" at 4 copies more of it a block a cell. Not saved on.",
+                );
+                ui.checkbox(&mut settings.smooth, "smooth the far pixels (new)").on_hover_text(
+                    "Where a pixel of the march falls on the edge of a block smaller than a few pixels, 4 rays across it, averaged,\n\
+                     so far steps are as much of the pixel as they cover instead of hit or missed whole (the reference's look,\n\
+                     where it's needed). Off: one ray a pixel, as build 47.",
                 );
             });
             ui.add(crate::debug::Slider::new(&mut settings.sharpness, 1.0..=4.0).text("sharpness")).on_hover_text(

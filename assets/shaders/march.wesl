@@ -979,11 +979,13 @@ struct Output {
     @builtin(frag_depth) depth: f32,
 }
 
-// What one ray drew: its colour and depth, if it met anything.
+// What one ray drew: its colour and depth, if it met anything, and whether near a cell's edge (for
+// smoothing the pixel).
 struct Pixel {
     colour: vec3<f32>,
     depth: f32,
     hit: bool,
+    edge: bool,
 }
 
 @fragment
@@ -993,6 +995,7 @@ fn fragment(in: VertexOutput) -> Output {
         1.0 - (in.clip_position.y - view.viewport.y) / view.viewport.w * 2.0,
     );
     var out: Output;
+    let across = vec2<f32>(2.0 / view.viewport.z, -2.0 / view.viewport.w);
     if march.reference.x < 0.5 {
         let pixel = march_pixel(ndc, 1.0);
         if !pixel.hit {
@@ -1000,6 +1003,29 @@ fn fragment(in: VertexOutput) -> Output {
         }
         out.colour = vec4<f32>(pixel.colour, 1.0);
         out.depth = pixel.depth;
+        // Smoothed where its ray met a cell near its edge (or a cell of a few pixels): 4 rays across
+        // the pixel on a turned grid, averaged, those that met anything (the nearest depth of them),
+        // so a step's side a fraction of the pixel is that fraction of its colour [one ray a pixel hit
+        // or missed it whole: the speckle the reference evens out, David, build 47: "reference mode
+        // makes it outright better for sure"]. Their textures and bands sized to half a pixel.
+        if march.reference.y > 0.5 && pixel.edge {
+            var sum = vec3<f32>(0.0);
+            var met = 0.0;
+            var depth = 0.0;
+            for (var k = 0u; k < 4u; k++) {
+                let offset = select(select(select(vec2<f32>(-0.375, 0.125), vec2<f32>(-0.125, -0.375), k == 2u), vec2<f32>(0.375, -0.125), k == 1u), vec2<f32>(0.125, 0.375), k == 0u);
+                let ray = march_pixel(ndc + offset * across, 0.5);
+                if ray.hit {
+                    sum = sum + ray.colour;
+                    met = met + 1.0;
+                    depth = max(depth, ray.depth);
+                }
+            }
+            if met > 0.5 {
+                out.colour = vec4<f32>(sum / met, 1.0);
+                out.depth = depth;
+            }
+        }
         return out;
     }
     // The reference view: 4 x 4 rays across the pixel, each as fine as it can be drawn (the copies'
@@ -1007,7 +1033,6 @@ fn fragment(in: VertexOutput) -> Output {
     // blocks come to from here, for the far land's look to match. The nearest depth of those that met
     // anything; the colour of those.
     referencing = true;
-    let across = vec2<f32>(2.0 / view.viewport.z, -2.0 / view.viewport.w);
     var sum = vec3<f32>(0.0);
     var met = 0.0;
     var depth = 0.0;
@@ -1321,7 +1346,7 @@ fn march_pixel(ndc: vec2<f32>, spread: f32) -> Pixel {
         t = out_of_cell + nudge;
     }
     if !hit {
-        return Pixel(vec3<f32>(0.0), 0.0, false);
+        return Pixel(vec3<f32>(0.0), 0.0, false, false);
     }
     let spot = origin + ray * t;
     // As drawn: from the floating origin, from the camera's place there (exact, not the world's big numbers).
@@ -1412,5 +1437,30 @@ fn march_pixel(ndc: vec2<f32>, spread: f32) -> Pixel {
         colour = mix(colour, settings.fog_color.rgb, smoothstep(settings.fog.x, settings.fog.y, distance));
     }
     let clip = view.clip_from_world * vec4<f32>(world_position, 1.0);
-    return Pixel(colour, clip.z / clip.w, true);
+    return Pixel(colour, clip.z / clip.w, true, hit_copy && near_an_edge(hit_local, hit_rate, hit_level, hit_record, ray, t));
+}
+
+// Whether a ray met a copy's cell (`local`, `rate` in the cells of its size, `level`) within about a
+// pixel of the edge of the face it came in through, or a cell less than a few pixels across: where
+// one ray a pixel hits or misses a step's side whole, so the pixel is smoothed (`fragment`).
+fn near_an_edge(local: vec3<f32>, rate: vec3<f32>, level: u32, record: u32, ray: vec3<f32>, t: f32) -> bool {
+    let size = f32(copy_records[record * COPY_RECORD + 3u] << level);
+    // The pixel's width there, in cells, the more across a face seen aslant.
+    let into = local - floor(local);
+    let since = vec3<f32>(since_entering(into.x, rate.x), since_entering(into.y, rate.y), since_entering(into.z, rate.z));
+    var axis = 2u;
+    if since.x < since.y && since.x < since.z {
+        axis = 0u;
+    } else if since.y < since.z {
+        axis = 1u;
+    }
+    let normal = select(select(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 1.0, 0.0), axis == 1u), vec3<f32>(1.0, 0.0, 0.0), axis == 0u);
+    let across = pixel_width() * t / size / max(abs(dot(normal, ray)), 0.2);
+    if across > 0.34 {
+        return true;
+    }
+    // How near the face's edges, the two ways along it.
+    let edge = min(into, 1.0 - into);
+    let along = select(select(min(edge.x, edge.y), min(edge.x, edge.z), axis == 1u), min(edge.y, edge.z), axis == 0u);
+    return along < across;
 }

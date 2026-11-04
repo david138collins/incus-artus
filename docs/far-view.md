@@ -1109,3 +1109,19 @@ step's edge, or a few spread over frames). On file, for after the split work.
   `the_far_lands_share_of_steps_sides_is_what_real_steps_show`); to go in, a table of it made once at
   the start (the slope's two parts, the way it's seen, how far up), read by `as_seen_banded` in place of
   the fitted numbers, behind a switch.
+
+### Build 48: smoothing the far pixels (David: "yes, i agree. keep the rayblending idea open though")
+- **Option 1, built** ("smooth the far pixels (new)", Render page under "reference", on; name and
+  place David's to change): each pixel's ray as before; where it met a copy's cell within about a
+  pixel's width of the edge of the face it came in through, or a cell under about 3 pixels across
+  (`near_an_edge`: the pixel's width there in cells, the more across a face seen aslant), 4 more rays
+  across the pixel on a turned grid, their textures and bands sized to half a pixel, averaged over
+  those that met anything (their nearest depth). The far land's smooth surface isn't smoothed (its
+  outline against the sky needs another way: on file).
+- **Cost**: as much as there's fine detail; past full detail most coarser cells are about 2 pixels
+  across (pixelization 2), so much of the middle distance takes the 4 rays. To measure: the card's
+  time with it off and on, uncapped, briefly.
+- **Option 2, open** (David): a few rays a pixel spread over frames, blended with the last (cheaper a
+  frame; smears in fast flight unless the picture's movement is followed).
+- **To see**: the speckle on the grey mountainside and the dotted step lines evened out, as the
+  reference has them; nothing else changed.
