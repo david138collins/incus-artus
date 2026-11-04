@@ -1060,3 +1060,12 @@ go on.
 - Contour bands off by default (David: "i think so yes").
 - **To see**: far slopes, diagonal ones seen across especially, less brown; the far land against the
   copies (bands off) and against the reference.
+- **The light, read (not measured)**: the lead above was wrong. The near light window is as wide as
+  the render distance (`update_near_light`: (2 × 64 + 2) chunks a side at 64), so the copies of the
+  real chunks are all inside it and take the lie of the land as the meshes do. The blocks' light
+  (`ground_lit`: tops the lie times the feet of the steps, sides the lie shared by "sides take the
+  slope's light", times the face shade) and the far land's (`land`: the same, the feet averaged) are
+  the same sums. One thing that does part them on shaded slopes, in both: with "sides take the slope's
+  light" under 1 (David's preset 0.75), the sides darken less than the tops there, so a shaded slope's
+  sides come out nearly as bright as its tops (the faint lines in "light only"). A setting, for
+  regular lighting; to try by eye: 1.00.
