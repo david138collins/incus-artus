@@ -1081,3 +1081,22 @@ not on its recipe (a cheaper way than 16 rays everywhere: more rays only where a
 step's edge, or a few spread over frames). On file, for after the split work.
 "Sides take the slope's light" (David): "turning [it] down to 0 made it noticeably worse, but from
 .75 to 1, the improvement was negligable". Left at 0.75.
+
+### The tops' and sides' split worked out, not fitted (2026-11-04; David: "i think its worth taking a look at")
+- **Not the rough-surface models**: V-cavity and Smith masking take a surface's bumps as unrelated
+  to each other; a staircase's steps are on a grid, and how they line up is what hides what.
+- **The walk** (`walked_lines` in march.rs's tests): a pixel's rays meet the ground along a line in
+  one upright slice, so in that slice the blocks are a staircase in one line, a step wherever it
+  crosses a block's edge either way. Walking it, a top or a side is seen as much as it rises above
+  everything before it toward the camera (the sight lines falling as the camera looks down). Over 16
+  lines side by side (the height a line starts at and where it starts across a block spread evenly,
+  each its own: one number for both left them in step), 8 edges each after 8 to settle.
+- **Against the real steps** (221 views, the test now given the slope the blocks are made with, not
+  the ground's heights rounded to a sixteenth): counting every side facing the camera 0.031 out on
+  average, 0.39 at worst; the fit (build 47's shader) 0.017 and 0.22; the walk 0.012 and 0.08 (at 32
+  lines, 0.010 and 0.06). The fit's worst are uneven slopes seen across; the walk's, exact diagonals
+  seen across, the one case its lines can't fully spread over. The test holds both.
+- **Not in the shader yet.** It's 256 short steps a pixel of far land, worked out each frame; or,
+  since it depends only on the slope and the way to the camera, a table worked out once at the start
+  (the slope's two parts, the way it's seen, how far up) and read in the shader, as cheap as the fit.
+  Builder's advice: the table. David's to say.

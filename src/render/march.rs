@@ -1798,10 +1798,75 @@ mod sizes_per_ray {
         assert_eq!(slipped[1], 0, "looked up ahead, no ray slips: {} of {rays}", slipped[1]);
     }
 
+    /// The sides' share of what's seen, worked out from the blocks, nothing fitted: the pixel's rays
+    /// meet the ground along lines (`walked_line`), `lines` of them side by side, each its own way
+    /// through the steps (the height it starts at, and where across a block, spread evenly), the tops
+    /// and sides seen added up. `rise`: blocks up per block across, north and east; `toward`: the way
+    /// to the camera.
+    fn walked_lines(rise: Vec2, toward: Vec3, crossings: u32, lines: u32) -> f32 {
+        let (mut tops, mut sides) = (0.0f32, 0.0f32);
+        for line in 0..lines {
+            // Spread evenly and independently: the height the line starts at, and where it starts across a block.
+            let k = line as f32;
+            let (t, s) = walked_line(rise, toward, crossings, (k + 0.5) / lines as f32, Vec2::new((0.5 + k * 0.754_877_7).fract(), (0.5 + k * 0.569_840_3).fract()));
+            tops += t;
+            sides += s;
+        }
+        if tops + sides <= 1e-6 { 0.0 } else { sides / (tops + sides) }
+    }
+
+    /// One line the rays run along over the ground, the way they go, from `start` (across a block):
+    /// columns `rise` apart in height a block across (their heights whole blocks, `phase` the
+    /// fraction they're counted from), a step at each block's edge crossed; each top and each side
+    /// seen as much as it rises above everything before it toward the camera, the sight lines falling
+    /// `c` a block. `crossings` edges walked after as many to settle: the tops and sides seen.
+    fn walked_line(rise: Vec2, toward: Vec3, crossings: u32, phase: f32, start: Vec2) -> (f32, f32) {
+        let flat = Vec2::new(-toward.x, -toward.y);
+        let across = flat.length();
+        if across < 1e-5 || toward.z <= 0.0 {
+            return (1.0, 0.0);
+        }
+        let way = flat / across;
+        let c = toward.z / across;
+        let height = |i: f32, j: f32| (rise.x * i + rise.y * j + phase).floor();
+        let (mut x, mut y, mut s) = (start.x, start.y, 0.0f32);
+        let (mut i, mut j) = (x.floor(), y.floor());
+        let mut h = height(i, j);
+        let mut most = h;
+        let (mut tops, mut sides) = (0.0f32, 0.0f32);
+        let next = |at: f32, w: f32| if w > 1e-6 { ((at.floor() + 1.0) - at) / w } else if w < -1e-6 { (at - (at.ceil() - 1.0)) / -w } else { f32::INFINITY };
+        for k in 0..2 * crossings {
+            let (to_x, to_y) = (next(x, way.x), next(y, way.y));
+            let step = to_x.min(to_y).max(1e-4);
+            // Along the top: what rises above everything before it.
+            let (from, to) = (h + c * s, h + c * (s + step));
+            let seen_top = (to - most.max(from)).max(0.0);
+            most = most.max(to);
+            s += step;
+            x += way.x * step;
+            y += way.y * step;
+            if to_x <= to_y {
+                i += way.x.signum();
+                x = if way.x > 0.0 { i } else { i + 1.0 - 1e-4 };
+            } else {
+                j += way.y.signum();
+                y = if way.y > 0.0 { j } else { j + 1.0 - 1e-4 };
+            }
+            let higher = height(i, j);
+            let seen_side = if higher > h { (higher + c * s - most).max(0.0) } else { 0.0 };
+            most = most.max(higher + c * s);
+            h = higher;
+            if k >= crossings {
+                tops += seen_top;
+                sides += seen_side;
+            }
+        }
+        (tops, sides)
+    }
 
     /// The far land's recipe's sides' share of what's seen (`as_seen_banded` in lighting.wesl, kept the
-    /// same): the tops and the steps' sides facing the camera, less what the blocks hide of each other.
-    /// `rise`: blocks up per block across, north and east; `toward`: the way to the camera.
+    /// same): the tops and the steps' sides facing the camera, less what the blocks hide of each other
+    /// as fitted (`hidden`; without it, counting every side facing the camera, as before build 47).
     fn sides_share(rise: Vec2, toward: Vec3, hidden: bool) -> f32 {
         let top_seen = toward.z.max(0.0);
         let north_seen = rise.x.abs() * (-rise.x.signum() * toward.x).max(0.0);
@@ -1826,16 +1891,20 @@ mod sizes_per_ray {
         // grid, diagonal and between, the camera 10° to 60° up, looking up the slope and round to
         // across and a little down it. Counting only the sides facing the camera, the recipe showed up
         // to 2.7 times the sides on diagonal slopes seen aslant, where the blocks hide each other
-        // [David, build 46: far slopes brown where the blocks are green with thin lines]; with what's
-        // hidden taken off, it's within 0.02 of the blocks on average, and never more than 0.2 out.
-        // (Rays that pass the spot, over the horizon, are left out.) `--nocapture` prints each.
+        // [David, build 46: far slopes brown where the blocks are green with thin lines]. With what's
+        // hidden taken off as fitted (`sides_share`, the shader's since build 47) it's 0.017 out on
+        // average, 0.22 at worst; walked (`walked_lines`: 16 lines side by side, 8 blocks' edges each,
+        // nothing fitted) 0.012 and 0.08. (Rays that pass the spot, over the horizon, are left out.)
+        // `--nocapture` prints each view.
         let width = 64;
         let registry = crate::data::BlockRegistry::default();
         let blocks = TerrainBlocks::from_registry(&registry);
         let palette = super::super::distant::Palette::from_textures(&registry, &blocks);
         let keys: Vec<CopyKey> = (0..2).flat_map(|y| (0..2).map(move |x| CopyKey { scale: 1, x, y })).collect();
-        let (mut views, mut off_before, mut off_now, mut worst_before, mut worst_now) = (0, 0.0f32, 0.0f32, 0.0f32, 0.0f32);
-        eprintln!("slope (n, e) | camera up | looking | sides met | the recipe's, counting all | less what's hidden");
+        let mut views = 0;
+        // Out on average and at worst: counting all the sides facing the camera, fitted, walked.
+        let (mut off, mut worst) = ([0.0f32; 3], [0.0f32; 3]);
+        eprintln!("slope (n, e) | camera up | looking | sides met | counting all | fitted | walked");
         for slope in [Vec2::new(0.5, 0.0), Vec2::new(0.18, 0.18), Vec2::new(0.35, 0.35), Vec2::new(0.7, 0.7), Vec2::new(0.45, 0.2), Vec2::new(0.2, 0.45), Vec2::new(0.6, 0.15), Vec2::new(0.15, 0.6)] {
             // The map a pixel every 32 blocks, its middle pixel at the world's middle, rising `slope`
             // blocks a block, about 230 at the copies (blocks 0 to 64).
@@ -1843,8 +1912,11 @@ mod sizes_per_ray {
             let map = CompiledMap::of_heights(width, 32.0, &heights);
             let ground = |x: i32, y: i32| map.column(x, y).unwrap().0 as f32;
             let target = Vec3::new(32.5, 32.5, ground(32, 32) + 1.0);
-            // The slope as the blocks have it, across the spread round the spot.
-            let rise = Vec2::new((ground(40, 32) - ground(24, 32)) / 16.0, (ground(32, 40) - ground(32, 24)) / 16.0);
+            // The slope the blocks are made with, in the copies' axes (north the way the map's columns
+            // count, east its rows): the ground's own heights, whole blocks, give it only to a sixteenth.
+            let rise = Vec2::new(-slope.y, slope.x);
+            let measured = Vec2::new((ground(40, 32) - ground(24, 32)) / 16.0, (ground(32, 40) - ground(32, 24)) / 16.0);
+            assert!((measured - rise).length() < 0.1, "the slope as made, {rise}, is the blocks', {measured}");
             let cells: Vec<_> = keys.iter().map(|&key| (key, super::super::far_copies::cells_for_tests(key, CompiledMap::of_heights(width, 32.0, &heights), CavePlan::new(vec![]), true).expect("the land shows"))).collect();
             for elevation in [10.0f32, 15.0, 22.0, 30.0, 45.0, 60.0] {
                 for heading in [0.0f32, 30.0, 60.0, 90.0, 120.0] {
@@ -1879,20 +1951,21 @@ mod sizes_per_ray {
                         continue;
                     }
                     let met = sides as f32 / rays as f32;
-                    let (before, now) = (sides_share(rise, -look, false), sides_share(rise, -look, true));
-                    eprintln!("({:.2}, {:.2}) | {elevation:.0} | {heading:.0} | {met:.3} | {before:.3} | {now:.3}", rise.x, rise.y);
+                    let shares = [sides_share(rise, -look, false), sides_share(rise, -look, true), walked_lines(rise, -look, 8, 16)];
+                    eprintln!("({:.2}, {:.2}) | {elevation:.0} | {heading:.0} | {met:.3} | {:.3} | {:.3} | {:.3}", rise.x, rise.y, shares[0], shares[1], shares[2]);
                     views += 1;
-                    off_before += (before - met).abs();
-                    off_now += (now - met).abs();
-                    worst_before = worst_before.max((before - met).abs());
-                    worst_now = worst_now.max((now - met).abs());
+                    for (k, share) in shares.into_iter().enumerate() {
+                        off[k] += (share - met).abs();
+                        worst[k] = worst[k].max((share - met).abs());
+                    }
                 }
             }
         }
-        let (off_before, off_now) = (off_before / views as f32, off_now / views as f32);
-        eprintln!("{views} views: counting all, {off_before:.3} out on average, {worst_before:.3} at worst; less what's hidden, {off_now:.3} and {worst_now:.3}");
+        let off = off.map(|o| o / views as f32);
+        eprintln!("{views} views, out on average and at worst: counting all {:.3}, {:.3}; fitted {:.3}, {:.3}; walked {:.3}, {:.3}", off[0], worst[0], off[1], worst[1], off[2], worst[2]);
         assert!(views > 150, "enough views met the spot: {views}");
-        assert!(off_now < 0.02 && worst_now < 0.2, "the recipe's share of sides near the blocks': {off_now:.3} out on average, {worst_now:.3} at worst");
-        assert!(off_now < off_before * 0.7, "taking off what's hidden comes nearer: {off_before:.3} to {off_now:.3}");
+        assert!(off[1] < 0.02 && worst[1] < 0.25, "fitted, near the blocks: {:.3} out on average, {:.3} at worst", off[1], worst[1]);
+        assert!(off[1] < off[0] * 0.7, "taking off what's hidden comes nearer: {:.3} to {:.3}", off[0], off[1]);
+        assert!(off[2] < 0.015 && worst[2] < 0.1, "walked, nearer still: {:.3} out on average, {:.3} at worst", off[2], worst[2]);
     }
 }
