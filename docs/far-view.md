@@ -782,3 +782,16 @@ be tuned, i think. this is an improvement".
   chunks, drawn under that ring so no sky shows at its seam. Build 41: beside a far copy there's no
   seam to hide (the same blocks), so a real chunk with copies or real chunks all round is marked
   real (255) and has no distant terrain under it (`distant.rs`, `beside`).
+
+### Build 41 seen (David, 2026-11-04)
+- **Water**: with the line at 2, "over the water, the water is seamless".
+- **Straight-line gaps**: thin dotted lines of sky, straight across everything (land, copies, the far
+  land, water), "gotten worse recently". "moving up or down with the keys while the camera is locked
+  does not make the gap line move at all. it is only lateral motion that moves between the line gaps."
+  Not found yet: a vertical line in the world (seen from a level camera, its place on the screen
+  changes only with moving sideways) or a plane through the camera (the ray due one way). To see.
+- **Bands ending**: far off, the bands end suddenly at a border into smooth mountains: where the real
+  chunks (and so their copies) end and the far land's smooth surface takes over. Round 2's (the
+  land's look).
+- **Pixelization**: "seems to effect the near terrain, but not the far": as built, only the copies are
+  sized per pixel, not the far land; at 8 the copies go coarse close in.
