@@ -1176,3 +1176,5 @@ next to try if it's wanted). The smoothing's cost to measure next.
   still open. Measure again the same way.
 - In a capped flight it "stayed cool, until it didn't": the processor warming in flight (copies made
   as you go), as before.
+- **David**: "i mean i could not tell you which screenshot had smoothin on or off. lets leave it off
+  and proceed". Off by default (the switch kept); the cheaper version and option 2 on file, not built.
