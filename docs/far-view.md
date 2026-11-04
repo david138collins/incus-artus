@@ -843,6 +843,13 @@ flaw seen in a test gets written down here, under its step, and isn't fixed or t
   red-brown stripes and blobs (the blocks under the grass showing on 2- and 4-block sides and where a
   coarse cell's top takes a lower block), far heavier than the near steps' thin lines, then smooth past
   the real chunks. The contour bands "all look the same" is round 2's aim; check this view with it.
+- Render distance 1 (David, build 42: "if i set the regular render distance to 1, it looks great ...
+  the only problem is areas that are more vertical than flat"): the far land's smooth surface from a
+  chunk away, gentle land looking good without bands (`screenshots/screenshot-1793803610.png`); on
+  steep ground it's a smooth skin over the cliff (`-1793803644.png`), and where it meets the real
+  blocks its flat patches cut across them. A pointer for round 2: the land's plain average reads
+  well where the ground is gentle, and the blocks have to show where it's steep (the filtered bands
+  fading to the average only where a pixel spans several steps). Not a setting to fix.
 - Build the look and compare it by eye; no fine tuning of its shades, as regular lighting moves them.
 
 **Far land sized per pixel** (rewrites the march's loop):
