@@ -720,3 +720,20 @@ colours; round 2 the land's look toward a pixel a block.
 - **To see**: the squares where one copy size met the next gone? Faster further off? The thin
   red-brown lines on the far steps' sides should mostly go once cells are coarser than a pixel's
   worth of steps; what's left is round 2's. Play capped; uncapped only to measure (the laptop's heat).
+
+### Build 38 seen (David, 2026-11-04, a partner test)
+- **The levels**: green, yellow and orange, changing a cell at a time ("who drew this", line at 8);
+  the look sharp ("overall it looks sharp"). The switch off and on from one spot: no change seen
+  (the coarser cells cost nothing in the look).
+- **The flaw: dark patches behind hills, inside the line** ("darkening more than usual within the
+  8"), ending in a sawtooth along the line's chunk edges. Not build 38's: the meshes and a block a
+  cell copies darken a top below the ground between it and the sun (step shadows) and a step's foot
+  (foot shading), both by the cone map; build 37 turned both off on cells 2 and 4 blocks a cell, and
+  most copies past the line are those (238 at 2, 146 at 4 in his view), so the switch can't change it.
+  Step shadows at 1.00: big dark patches stopping dead at the line; at 0, "better, but not perfect";
+  foot shading at 0 too: "makes the entire world pretty much seamless ... the bands fade almost
+  imperceptibly through the march border ... the bands get coarser without changing shade. this
+  looks good right now".
+- **Proposed fix, not built**: both shadings back on the coarser cells, leaving out any darkening less
+  than the cell's own size (how far its top can stand off the true ground: build 37's dark tops),
+  keeping the deeper (a hill's shadow), so the shadow carries on past the line.
