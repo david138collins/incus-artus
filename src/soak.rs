@@ -72,9 +72,7 @@ fn fly_round(
     time: Res<Time<Real>>,
     mut mode: ResMut<ControlMode>,
     mut cameras: Query<&mut FlyCamera>,
-    mut render: ResMut<crate::render::RenderSettings>,
-    mut light: ResMut<crate::render::LightSettings>,
-    mut far: ResMut<crate::render::FarCopySettings>,
+    (mut render, mut light, mut far): (ResMut<crate::render::RenderSettings>, ResMut<crate::render::LightSettings>, ResMut<crate::render::FarCopySettings>),
 ) {
     let Some(map) = terrain.compiled() else { return };
     let now = time.elapsed_secs();
