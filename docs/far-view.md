@@ -589,3 +589,27 @@ and off:
 5. David says it looks right.
 
 If one fails, re-plan before R3.
+
+### R2 measured (build 35, 2026-11-03, 5070 Ti laptop, fans on full)
+In "nice25" (the big mountains, a harder view than the test world), standing still, the frame cap
+off (`uncapped`: with the default cap of 1/2 the game shows 120 and the card's time counts its
+waiting, 8 to 14 ms, so those readings don't measure it):
+
+| | line 64 | line 8, the switch off | line 8, the switch on (R2) |
+|---|---|---|---|
+| frames a second, average | 310 | 344 | 348 |
+| 1% low | 232 | 224 | 232 |
+| worst frame | 4.8 ms | 5.1 ms | 6.4 ms |
+| graphics card | 2.90 ms | 1.42 ms | 1.76 ms |
+| frame | 3.22 ms | 2.91 ms | 2.87 ms |
+
+Capped at 120: line 64 gave a 1% low of 70 and a worst frame of 23 to 27 ms; line 8 gave 90 and
+15 ms. A fast flight at line 8 with the switch on: slow frames mostly 25 to 29 ms, one of 37 ms
+(the near meshing), one of 97 ms just after it (none of the game's own steps). Flying over 2,000
+mph outruns the chunks coming in: the copies past the line are made and let go as you pass (about
+110 a second), and catch up within a second or so of stopping (David: "i can't fault it for that").
+A first run with the fans turned down read slower (91 frames a second; the processor at 103 °C):
+measure with the fans on full.
+
+Against the criteria: 1 passes (2.9 ms); 2 passes (0.34 ms for the real chunks); 3 is the
+weak-hardware checkpoint, still to do; 4 is close (one 37 ms frame); 5 is David's look.
