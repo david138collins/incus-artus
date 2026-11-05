@@ -221,8 +221,14 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   500-person capital is "gigantic", after three months of building it. "the scale of population should be enough
   to be complex but never lose sight of the party scale. rich npcs, not mobs." Soloing a haunted cemetery with 20
   enemies "thats a lot, not a little." "i see hundred man armies as sort of cozy and epic of gilgamesh, the iliad,
-  way." *Counsel:* few rows and many columns suit the rules model. Open: how many rich people the whole world
-  holds, and how much of a person survives while they're out of sight at the coarser levels (section 1).
+  way." *Counsel:* few rows and many columns suit the rules model.
+  How many, David: "the world could never hold more full-fat npcs than you could get within simulation radius,
+  everyone else is in a sort of general time passing check that updates them on a daily or weekly basis while
+  the intermediator prepares the transition from lite sim to full fat. i think a max case would be like 800 npcs
+  doing stuff on screen for some epic battle some dedicated player got to through extremes. not trying to make
+  Total Annihilation". So the full-fat count follows the radius, not the world's population. *Counsel:* this
+  fits section 1's levels and rules given "how much time has passed". Open: how much of a person the lite record
+  keeps, so they come back the same person, and how one rule serves both the per-tick and the weekly check.
 
 Counsel's suggestions **[PROPOSED]**:
 - **It runs the game's own rules**, the same Intermediator/World code and Fate (section 1). A lab with its own

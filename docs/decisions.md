@@ -1022,8 +1022,10 @@ the numbers together with how this arrangement of the work would be built in it,
 
 **The size of a huge battle [David 2026-11-05]:** "attacking with 100 soldiers against a city of 400 people and
 100 soldiers would be the 'huge battle' end of the scale. and that would be a great effort from the player,
-after hes good and has been playing for a while." About 600 figures at the top of the scale. It's what the
-figures pass and the battle's simulation are sized against.
+after hes good and has been playing for a while." About 600 figures. The ceiling, from a later message: "i think
+a max case would be like 800 npcs doing stuff on screen for some epic battle some dedicated player got to
+through extremes. not trying to make Total Annihilation". The figures pass and the battle's simulation are sized
+against 800.
 
 ## The renderer: the processor stays at the floor; everything drawn is the card's
 
