@@ -999,6 +999,19 @@ below disagree with this one, this one stands.
     and finding a way that is fast, accurate, and pretty."
   - Trees: "trees i don't think are a problem because you can make them with dirt and malachite blocks for now.
     the way they fall is kinematics, not graphics."
+- **What stays of Bevy, and its ejection seat:** phase 0 found our modules built on Bevy's ECS throughout, so it
+  cuts Bevy's renderer, window, assets and the rest, and keeps the ECS core for now. David: "we're not having any
+  mercy on bevy. anything we keep either has to be because its the best way of doing it, or replacing it is
+  impossible for claude and david. if we keep anything in place in the meantime - we need to build explosive
+  fastener ejection seats for it. so we can use the ECS, and later, modify/improve it for our purpose, or copy
+  what is good in it; we just have to make sure it is ready for rapid disconnect." So: one doorway module for
+  everything Bevy that's kept; new code never touches Bevy; a test counts Bevy's footprint outside the doorway
+  and fails if it grows; a disconnect list kept current. It comes out when the column store arrives, or sooner
+  if the phase-0 floor shows it costing more than about 0.5 ms or 30 wake-ups a frame at 120 over no Bevy.
+- **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
+  mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
+  *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
+  field of view, a 40-block mouth is about 24 pixels tall at 1,000 blocks and still about one at 24,000.
 
 ## The renderer: the old engine dropped now, not last
 
