@@ -826,6 +826,16 @@ David, on this list: "the gap lines need immediate attention i agree. but shadin
 just need to be identified and remembered, i think since a lot will change". So a shading or settings
 flaw seen in a test gets written down here, under its step, and isn't fixed or tuned for now.
 
+**Heat, measured in watts first (David, 2026-11-04):** "part of the point of the entire graphics pass we
+chose to undertake was to offload most everything from the cpu to the gpu. we need to identify why its
+getting hot." Every heat figure in this file is one motherboard zone (`_TZ.TZ01`), which can't say where
+the heat comes from. The laptop offers watt meters with no admin: `\Energy Meter(RAPL_Package0_PKG)\Power`
+for the processor, `nvidia-smi` power.draw for the card. So, in order: a ledger of watts, one system
+changed at a time (rest, menu, standing, flying; far land cells, march, frame cap, window size, the
+temperature reader itself); then the slow frames and the freeze; then the recipe on the card costed, in
+watts as well as ms (one cooler is shared, so moving work only helps heat if the card does it for fewer
+watts). No more heat fixes before the ledger.
+
 **Now (build 42, on David's go):**
 - Lines of sky: a hole in the picture, and already built. If gaps remain, the likeliest cause is the
   coarser cells' one-cell-at-a-time rays (build 38, using up steps): look there first.
