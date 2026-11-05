@@ -970,6 +970,19 @@ below disagree with this one, this one stands.
 - **Two bands** (his "powerglide"): blocks out to where a block is smaller than a pixel, then one far band done
   another way, so there's only one transition to tune, and it's far away. Builder: the world as blocks made on
   the card in pixel-sized cells to about 1,500 to 2,000 blocks, then the backdrop.
+- **Graphics first; the simulation's scheduler when there's something to simulate:** "i dont think graphics and
+  scheduler should impinge on one another and, to be frank i have high confidence in her ability to do it right
+  when its time. right now we have nothing to simulate... its small enough that it wont make a difference being
+  unoptimized in the meantime." And: "getting the vision in the gpu *the right way* is our mortal threat and the
+  most fundamental issue we have... graphics are spooky and hard." So step 0 gives the simulation its own lane
+  running the toy rules as they are; the column store and scheduler wait for the simulation stage.
+- **Start small, check as we go:** "my instinct is to just start small and keep checking performance as we
+  assemble vision." On the stutter: "we need to isolate the offender and not repeat it". Step 0's test window
+  logs what ran in each slow frame, so the new floor is shown to be free of it.
+- **The editor isn't shipped for now:** "the editor is for me until the best use of our time is serving eager
+  modders. thats a ways off. anyone who has it in the meantime is someone im talking to and showing them it
+  personally." Maybe later as a paid release or bundle ("not super important right now"). So the shipped build
+  leaves the editor out; ours keeps it.
 
 ## The renderer: the old engine dropped now, not last
 
