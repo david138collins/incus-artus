@@ -967,6 +967,13 @@ then the cheapest ray that shows the block in front of you and the farthest moun
 the space a thing takes on screen; then everything else added back one at a time, each with its price in ms
 and watts. Existing march code is reused where it earns its place, not assumed.
 
+**Bevy, and flight [David 2026-11-04]:** "we need to carefully assess how much bevy does for us and how much
+it could impInge on us. i do not expect the computer to keep up with the super fast flight but i dont see
+what difference it *must* make... it should be doing almost nothing with nothing on the screen." So Builder
+measures the floor (a bare Bevy app, DefaultPlugins, our game with nothing on screen) and lists what Bevy
+does for us against what it costs; what follows from that is his call. And the rule on flight: flying fast
+may delay when detail arrives, but the frame doesn't wait on the world.
+
 ## The renderer: the bar for moving on to content
 
 **[David 2026-11-04]** Counsel's bar, David: "i think you are right with that bar." Done enough to build on:
