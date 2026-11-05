@@ -128,9 +128,15 @@ points where a measurement or David's look decides the next move.
 **In every phase:** nothing on the processor per frame that the shipped game wouldn't do; every feature gets its
 price (card ms, processor ms) when it goes in, written down; the slow-frame log is on in every test window.
 
-**When David sees land again:**
-- **rough land to the horizon, with its water:** the end of phase 1, about 3 to 4 hours of work after the stage is done;
-- **blocks:** the end of phase 3.
+**Nothing visible is temporary** [David 2026-11-05: "lets just make sure we're not building 'tools for seeing the
+world again'. we're now building what the player will see, and nothing is temporary"]. The old phase 1 (a height
+field to see the land early) is withdrawn; sight starts from the far view, done right, after the recipe is on the
+card ("installing the hologram onto the gpu comes before cracking the eyelids"). Every visible step is talked
+through with him before it's built, and measured on its own.
+
+**The order:** phase 0 (the stage, with lane 0.2), phase 2 (the recipe on the card), phase 3 (sight: the twin
+layers), then phase 6. **When David sees land again:** phase 3's first step, the coarse layer alone: the whole world
+to the horizon, squinted.
 
 ### Phase 0: the stage (dark)  [planned in detail]
 
@@ -247,88 +253,140 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
   then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.
   Until then the simulation's only rule is Bevy's, the same for all: a stall over a quarter-second is a pause.
 
-### Phase 1: first sight, rough land to the horizon  [planned in detail]
+### Phase 1: [WITHDRAWN 2026-11-05]
 
-| # | Builder does | Hours |
-|---|---|---|
-| 1.1 | At world load, once: the compiled maps (heights at 32-block pixels, colours from climate and palette) go up as two textures, with a min-max pyramid for skipping. Not per frame. | about 1 |
-| 1.2 | A full-screen height-field march (one ray a pixel, stepping down the pyramid), the fly camera back, the sky colour. Its own module, one shader and two textures, so it's thrown away cleanly or kept. | 1 to 2 |
-| 1.3 | Water as a flat stand-in colour from the start: the sea at its level, and the rivers and lakes from a water map made once at load (their surfaces drawn into a finer texture, about 4 blocks a pixel, so rivers narrower than 32 blocks still show). The real water look stays in phase 6. | about 1 |
-
-- **David:** 1 look. The whole world to the horizon: smooth hills and coasts at 32 blocks a pixel, with the sea, lakes and rivers in a flat water colour, no blocks yet. Flying only, since walking needs chunks (phase 2).
-- **Measured:** its price, folded into the next test window. Expected well under 1 ms.
-- **Fork B:** it's a tool for seeing the land again early, not the backdrop. One height per column can't show a cave mouth or a hall in a mountainside, which the backdrop must (phase 4). It's a backdrop candidate only if it's grown to carry holes; otherwise it goes when the first band arrives.
+It was a height field to see the land early, "thrown away cleanly or kept": a tool for seeing, which David has ruled
+out. Its one piece on the real path, the compiled maps going up to the card once at load, is now 2.0: they're the
+recipe's inputs.
 
 ### Phase 2: the recipe as one exact source, on the card  [planned in detail]
 
+**Why it comes before sight:** the compiled maps are the recipe's input, not its output. Peaks, crags, ridges,
+the torn coast, the detail, the river and lake carving and the caves are all added on top of them. A true average
+of what a patch of world holds (phase 3) means running the recipe finer than the patch and averaging what comes
+out, which the card does fast and exactly.
+
 | # | Builder does | Hours |
 |---|---|---|
+| 2.0 | At world load, once: the compiled maps (heights, colours from climate and palette, the water map) go up to the card as textures, the recipe's inputs. Not per frame. Measured only; nothing to see. | about 1 |
 | 2.1 | A small fixed-point kit (angles, powers, square roots in whole numbers), with tests. | 1 to 2 |
 | 2.2 | The 12 to 15 calls that run in play converted to it. A before-and-after comparison over the whole map: how many columns change, and by how much. | 1 to 2 |
 | 2.3 | The recipe ported to the card (WGSL compute): the map blend, land and sea curves, mountains and ridges, peaks and crags, torn coast, detail, the river and lake carving (their lookup lists flattened into buffers), mineralogy's layers and the placer's fields they read (two passes, for the slope), and the cave carve (already whole numbers; the cave plan flattened into buffers as its section boxes). The twin test: about a million columns, card against processor, exactly, plus the cave carve block by block. | 4 to 6 |
 | 2.4 | Reading back, on the loading lane: the card works out a chunk's columns, they come back through a ring of staging buffers without waiting, and the real chunks near the player are filled from them, caves taken out as today (whole numbers, the same answer). Walking and collision return. | about 2 |
 
-- **David:** 1 look after 2.2: the same spot before and after (Render World and Spawn at the exact same place). 1 look after 2.4: walking.
+- **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.
 - **Measured:** the readback's cost, in the slow-frame log.
 - **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.
 - **Fork D:** if one piece can't be made exact on the card, it stays on the processor (worked out once and uploaded), or its maths is simplified, with his look.
 
-### Phase 3: the first band, the world as blocks, made on the card  [planned, looser]
+### Phase 3: sight, the twin layers  [planned; each step talked through with David before it's built]
+
+**What David asked for** [2026-11-05]: start from the far view, "blurry up close, but, equally and *correctly* blurry
+at a distance"; "a beautiful world, squinted... high fidelity and low resolution"; and not LOD rings: "i would really
+like to think of the low-res hi-fi layer and the hi-res high-detail (not exactly hi-fi) layer as two versions of the
+same thing; or even as conjoined twins. they should agree from the start like two particles of a decay that are in
+a state of quantum entanglement... they're just aimed differently"; "like the cellographs disney studios would use...
+the screen pixels are in a grid where each cell is 2x2 or 4x4, and the coarse view paints those cells as pixels, and
+the fine view paints the hi-res in the smaller grid"; the fine share "should stay about the same volume of the screen
+as the game is built out".
+
+**The design:**
+- **One function, two aims.** One shader function answers "what does this patch of world look like, seen at footprint
+  s": its solid share, its surfaces' average colour (the blocks' far colours, weighted by how much of each face
+  shows), their average facing and how spread out the facings are, its water, and how much it varies (colour and
+  depth spread). Both layers call it; the only difference is the pixel's footprint. No separate far code, no
+  copies, nothing that switches by distance. Every look setting lives in the one function, so tuning one twin tunes
+  both.
+- **The cache.** For speed, the function's answers are kept round the camera at a few footprints (cells of 1, 2, 4
+  ... blocks, coarser with distance because the footprint is). It's a store of the one function's answers and
+  nothing else: **each level exactly the average of the level below** (a standing test). Only the strips the camera
+  uncovers are filled, so the cost follows movement. Caves, halls and overhangs are in it from the start, because
+  it averages the recipe's real output.
+- **Nested layers, like cels.** The coarse layer covers the whole screen at an exact fraction of it (2560 × 1600: 640
+  × 400 at a quarter), several rays a coarse pixel, so every coarse pixel holds exactly its 4 × 4 fine pixels. The
+  fine layer paints only the cells that need it, at full resolution, each ray starting at its coarse cell's depth.
+- **Each cell knows what it needs** (instead of a fixed distance): the coarse pass flags cells by their depth range
+  (a near rock against far sky), their spread (a fence, a lone tree, finer than a coarse pixel), and moving things
+  (people, models flag their own cells). **The twins' disagreement is the flag.**
+- **The fine layer has a budget, with priority** (lane 0.2's flags): the cells that most need it first (nearest,
+  most contrast, important, the screen's middle). When the budget runs out the rest stay coarse that frame: honest
+  blur under load, never a stutter. Under pressure the coarse layer is what gives way first (redrawn every other
+  frame, nudged for the turn): "the farthest and lightest give way first", applied to sight.
+- **Switching without a pop.** A coarse pixel is the average of its fine ones, so a cell going sharp changes
+  sharpness, not colour. Hysteresis (once fine, stay fine a while) and a short fade stop it flickering.
 
 | # | Builder does | Hours |
 |---|---|---|
-| 3.1 | Rings of cells round the camera on the card, 1, 2, 4, 8 ... blocks a cell, filled by the recipe on the card. They're solid cells, not heights, so a coarse cell holds what's really there, overhangs and caves included. Only the strips newly uncovered as the camera moves are filled, so the cost follows movement. Each ring keeps coarse "anything here?" bits for skipping empty air. | 3 to 4 |
-| 3.2 | The march: one ray a pixel, from the finest ring outwards, the cell size following the pixel's size, out to where a block is smaller than a pixel (at the game's 100° view, a block is one pixel at about 600 blocks in the middle of the screen; the band's edge is priced between about 600 and 1,000 blocks). Block colours and textures from the block files. Pieces of `march.wesl` come back where they earn their place. Phase 1's rough land shows past it meanwhile. | 3 to 4 |
-| 3.3 | Edits: the real chunks' changed blocks override the card's cells, a small upload when they change. | about 1 |
-| 3.4 | Water in the band: each column's water top from the recipe, in the flat stand-in colour, the same as phase 1's, so the land and its rivers are judged together from the first look. | about 1 |
-| 3.5 | Caves at every ring, by the same carve as the near blocks, so far and near agree: a coarse cell is open where most of it is cave (several points in it tested). A 40-block mouth is about 24 pixels tall at 1,000 blocks and still about a pixel at 24,000 [Counsel's sums, 100° view], so it reads at any distance the band reaches [David 2026-11-05: "if a hall in the mountain or a cave is big enough to be seen at a distance, it should be seen at a distance"; `worldgen.md`, `caves.md`: mouths lit and seen from far away]. **Price:** the cave plan's section boxes answer "nothing here" for almost every cell, so the extra cost follows how much cave there is, not how much land; it's paid when strips are filled (as the camera moves), not every frame. Measured in the test window; expected a few per cent of the filling. | 1 to 2 |
-| 3.6 | The stand-in forest, for the bar's fourth point (heavy content doesn't change the answer): simple block trees placed on the card by a whole-number spaced hash over a placer field (the "points" kind the placer has on file), stamped into the cells. In the far rings a tree is a few coarse cells; past the band, a forest is a colour and a roughness in the backdrop. Real trees come later through the placer and blueprints, placed and stamped the same way. | 2 to 3 |
+| 3.1 | The one function and the cache: the averaged levels filled from the recipe on the card by strips, with the colour and depth spread kept. **Test:** each level exactly the average of the one below. Nothing to see. | 3 to 4 |
+| 3.2 | **The first sight: the coarse layer alone**, over the whole screen at a quarter resolution, several rays a coarse pixel, coarse cache levels only (about 16 to 32 blocks), the sky colour, the fly camera back. The upscale behind a switch (crisp squares, smooth, or smooth within a surface but sharp at a skyline), his call by eye. **Kept for good: it is the final picture's bottom cel.** He sees the whole world to the horizon, squinted, equally soft at every distance, with blobs about 16 blocks wide at his feet. Flying only. | 2 to 3 |
+| 3.3 | Finer cache levels, one a build: 8, 4, 2, 1 blocks. Each one a look and a measurement. | about 1 each |
+| 3.4 | Light through the cache: sun on each cell's average facing, softened by its spread (a rough far hillside shades as the average of its faces); then sun shadows and sky light by wide rays through the same cache; then fog. One structure for sight and light. One a build, each a look. | 2 to 4 |
+| 3.5 | The fine layer: the flags, the list of flagged cells (an indirect dispatch), the budget and priority, hysteresis and the fade. **Test, the entanglement test:** both layers drawn over the whole screen, each coarse pixel against the average of its fine pixels, at fixed spots and along a flight, within a tolerance set with David by eye (say a mean colour difference under 1%, and the 99th in 100 under a few per cent). | 3 to 4 |
+| 3.6 | Block textures in the fine layer where a block is bigger than a pixel; edits override the cache (a small upload when they change); water as a second medium in the cells, a flat colour until phase 6's real look. Walking is back with phase 2.4. | 2 to 3 |
 
-- **David:** 2 looks, the land near and then far (with water, caves and the stand-in forest).
-- **Measured:** 1 test window. Its price by distance, as today's tally. The aim, on his laptop: the first band at 2 ms or less of card time a frame, standing and flying, with no slow frames at 120.
-- **Fork E: if it's too slow,** try these in order, each measured and kept only with its number:
-  1. the coarse pass first: one ray per 8 × 8 pixels, so each pixel's ray starts close to what it'll hit (usually the biggest win);
-  2. bring the band's edge nearer and let the backdrop take more;
-  3. cells a little coarser than the pixel in the middle distance, judged by his eye;
-  4. the band past about 500 blocks marched at half resolution and scaled up, keeping edges.
-- **Fork F: if it looks wrong** (shimmer where cell sizes change, swimming as the camera moves): blend the sizes over a short distance, or hold each screen tile to one cell size.
+- **David:** a look at every step from 3.2 on; 3.2 is his first sight of the land.
+- **Measured:** every step, by the card's own timestamps, with the ballast topping up to the same total so the frame
+  loop is tested under a constant load while the real work replaces it (the sandbags come out as the cargo goes
+  in). My guess for the whole of phase 3: half to two thirds of one full-resolution march of everything, plus a
+  small flagging and sorting pass.
+- **The entanglement tolerance can't be exact everywhere,** and that's expected: an average can't say which of two
+  things in a cell is in front; light on an average facing isn't the average of the light unless the spread is
+  modelled (it will be, approximately); several coarse rays sample differently from sixteen fine ones. Where the
+  test reports disagreement is where the method is weakest, and the same cells the flags should send to the fine
+  layer.
+- **The flagging cautions:** edges inside a coarse cell (caught by the coarse rays' depth range); small things that
+  average out faint (caught by the cache's spread); sharpness flickering at the budget's edge (hysteresis and the
+  fade); the budget's sort each frame (routine on the card, but it's code).
+- **The honest hard part:** averaging how solid a cell is behaves like haze: right for how much of a pixel is covered,
+  wrong for a thin wall seen edge-on or a cell full on its bottom half. Known fixes (solidity per direction, the
+  surface's height inside the cell) are exactly what the clean stage lets us try side by side, behind a switch, at
+  the same spot and along the same flight.
+- **Where an elegant method could still come from** (David hasn't given up on "a truly elegant bespoke solution"):
+  the recipe answering at a footprint directly. Detail is octaves of noise; at a cell's scale the octaves finer than
+  the cell average out, and how much they would have shaken things is known exactly, so the coarse levels could ask
+  the recipe for the averaged answer instead of averaging fine samples. "Correctly blurry" straight from the form: the
+  projection principle, each footprint a projection of the one recipe. It has to agree with the fine levels, and the
+  cache test says whether it does.
+- **Fork E, if it's too slow:** the coarse layer every other frame, a smaller fine budget, fewer rays a coarse pixel,
+  a coarser coarse layer (a fifth or a sixth); each measured and kept only with its number.
+- **Fork F, if it looks wrong** (an edge of sharpness that shows, swimming as the camera moves): a longer fade,
+  blending across neighbouring cells, or more rays a coarse pixel.
 
-### Phase 4: the second band, the backdrop  [loose]
+### Phase 4: [FOLDED INTO PHASE 3, 2026-11-05]
 
-Past the first band, the far view that pixelates naturally. **It must show what's really there, blending seamlessly with the near** [David: "we need to *accurately* represent far terrain in a way that blends seamlessly with the near"]: a cave mouth or a hall in a mountainside included. Candidates:
-- a dome (a panorama painted by the march now and then and shifted as you move, `vision/proposal-voxel-renderer.md`): it shows whatever the march sees, mouths included;
-- coarse cells, as the first band's further rings;
-- phase 1's height field only if it's grown to carry holes (one height per column can't show a mouth).
+The second band (the backdrop) and its transition are gone: the coarse layer covers the whole screen at every
+distance, so there's no band to join. Important things still show from their first pixel through a list drawn on
+top, lights at cave mouths at night among them (the firm rule).
 
-His look picks. Important things show from their first pixel through a list drawn on top, lights at cave mouths at night among them (the firm rule). One transition to tune, far away. Aim: about 0.5 ms.
-- **Builder:** 1 to 2 sessions. **David:** 2 looks. 1 test window.
+### Phase 5: lights and the day  [loose]
 
-### Phase 5: light, coarse by nature  [loose]
-
-Sky light from the card's cells (how much sky each cell sees), placed lights in coarse cells, day and night.
+Sun, shadows and sky light come with phase 3.4, through the cache. Left here: placed lights in the cells (torches,
+lamps, lights at cave mouths), and day and night.
 - **Builder:** 1 to 2 sessions. **David:** 1 to 2 looks. 1 test window.
 
 ### Phase 6: everything else, each with its price  [loose]
 
-The real look of water (the flat stand-in colour has been there since phase 1) and glass, pieces and bars, models (drawn as meshes into the same picture: the hybrid), people and figures (drawn, one instanced pass), and the 800-figure stand-in battle if David puts it in the bar. Sized when we get there.
+The real look of water (a flat colour since phase 3.6) and glass, pieces and bars, models (drawn as meshes into the same picture: the hybrid), people and figures (drawn, one instanced pass), and the 800-figure stand-in battle if David puts it in the bar. Sized when we get there.
 
 ### The whole path, roughly
 
 | Phases | Builder | David's looks | Test windows |
 |---|---|---|---|
-| 0 to 3 | about 30 to 40 hours | about 6 | 3 |
-| 4 to 5 | about 2 to 4 sessions | 3 to 4 | 2 |
+| 0 and 2 | about 15 to 20 hours | 2 | 2 |
+| 3 | about 15 to 25 hours | about 8 to 10 (one a step from 3.2) | 3 |
+| 5 | about 1 to 2 sessions | 1 to 2 | 1 |
 
-Fork E could add 2 to 4 hours.
+Fork E could add 2 to 4 hours. (Rewritten 2026-11-05 for the twin layers; the old table counted phase 1's height field
+and the backdrop band.)
 
 Then **the bar** (`decisions.md`): runs smoothly and cool on his own flight, the land reads as one land, built things hold up at a distance, heavy content doesn't change the answer. After that: the blueprint factory, then the simulation, which starts with **its column store and scheduler** ("tables that don't know what they hold"; rules that name what they read and write, run side by side when they don't clash; `simulation.md`, rules as algebra), the toy rules rewritten on it as the first test. *Builder:* 1 to 2 sessions; *David:* 1 look.
 
 ## Risks, and what David would feel
 
 - **Phase 0 touches 75 files.** The tests and the soak test check most of it. What they can't check is feel: mouse look, keys, the panel's grip on the mouse, the clock's pause and speed. That's his first look.
-- **The first band's price** is the big unknown. The card measured 3.7 ms for build 60's whole scene with no tricks; the first band has to come in well under that, to leave room for light and everything else. Fork E is the answer if it doesn't.
+- **Phase 3's price** is the big unknown. The card measured 3.7 ms for build 60's whole scene with no tricks; the twin layers have to come in well under that, to leave room for light and everything else. Fork E is the answer if they don't. The ballast lets the frame loop be tested at that load before the real picture exists.
 - **The recipe on the card** is the biggest single piece of work (2.3). The twin test makes it safe: the card is never trusted until it agrees with the processor exactly.
-- **A dark stretch:** only phase 0, plus 3 to 4 hours. After phase 1 there's always land on screen.
+- **A longer dark stretch:** with phase 1 withdrawn, there's no land on screen until phase 3.2: lane 0.2, all of phase 2 and 3.1 first (about 20 hours of Builder's). What comes up then is kept for good. David chose this: "installing the hologram onto the gpu comes before cracking the eyelids".
 
 ## Open, for David
 
