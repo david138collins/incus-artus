@@ -32,7 +32,7 @@ use bevy::log::tracing::{Event, Level, Subscriber};
 use bevy::log::tracing_subscriber::Layer;
 use bevy::log::tracing_subscriber::layer::Context;
 use bevy::prelude::*;
-use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::path::{Path, PathBuf};

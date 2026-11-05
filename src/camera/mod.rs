@@ -16,11 +16,10 @@
 //! outlined in the world, and its details are shown on the "Camera" debug page. Step 5
 //! uses the same ray to break and place blocks.
 //!
-//! Optionally, the Panini projection (`panini.rs`) re-maps the image for wide fields of view.
+//! (The Panini projection, which re-mapped the picture for wide fields of view, went with the old
+//! renderer in the regroup; its preset values are kept, `look.rs`.)
 
-mod panini;
 
-use crate::coords::{RenderOrigin, game_to_bevy};
 use crate::data::{BlockRegistry, FACE_NAMES};
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::player::{ControlMode, PlayerSettings};
@@ -28,10 +27,9 @@ use crate::screen::Screen;
 use crate::world::{ChunkPos, RayHit, VoxelWorld, cast_ray_halves};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
-use bevy::render::view::{DebandDither, Tonemapping};
-use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
-use bevy_egui::input::EguiWantsInput;
-use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use crate::runner::WindowState;
+use crate::ui::EguiWantsInput;
+use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use serde::{Deserialize, Serialize};
 
 pub struct CameraPlugin;
@@ -39,12 +37,12 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraSettings>()
+            .init_resource::<CameraView>()
             .init_resource::<MouseCapture>()
             .init_resource::<LookTarget>()
             .init_resource::<FieldOfViewBoost>()
             .init_resource::<CameraHold>()
             .init_resource::<Wobble>()
-            .add_plugins(panini::PaniniPlugin)
             .add_systems(Startup, spawn_camera)
             .add_systems(
                 Update,
@@ -53,10 +51,8 @@ impl Plugin for CameraPlugin {
                     look_around.run_if(not_held),
                     fly.run_if(not_held),
                     place_camera,
-                    apply_field_of_view,
                     watch_for_wobble,
                     find_look_target,
-                    draw_look_target,
                 )
                     .chain()
                     .run_if(in_state(Screen::Play)),
@@ -178,47 +174,20 @@ pub struct LookTarget {
     pub arrow: Option<(Vec3, Vec3)>,
 }
 
-fn spawn_camera(mut commands: Commands, settings: Res<CameraSettings>) {
-    commands.spawn((
-        Camera3d::default(),
-        // Show colours exactly as painted: no film-style colour grading, no dithering noise.
-        Tonemapping::None,
-        DebandDither::Disabled,
-        Projection::Perspective(PerspectiveProjection {
-            fov: settings.field_of_view.to_radians(),
-            // Far enough to see the whole world (72,000 blocks across) from its edge, distant
-            // terrain included.
-            far: 200_000.0,
-            ..default()
-        }),
-        Transform::default(),
-        FlyCamera::at_start(),
-    ));
+fn spawn_camera(mut commands: Commands) {
+    commands.spawn(FlyCamera::at_start());
 }
 
 /// Tab captures / releases the mouse. Losing window focus (e.g. Alt-Tab) also releases it.
-fn toggle_mouse_capture(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut capture: ResMut<MouseCapture>,
-    mut windows: Query<(&Window, &mut CursorOptions), With<PrimaryWindow>>,
-) {
-    let Ok((window, mut cursor)) = windows.single_mut() else {
-        return;
-    };
+fn toggle_mouse_capture(keys: Res<ButtonInput<KeyCode>>, mut capture: ResMut<MouseCapture>, mut window: ResMut<WindowState>) {
     if keys.just_pressed(KeyCode::Tab) {
         capture.captured = !capture.captured;
     }
     if !window.focused {
         capture.captured = false;
     }
-    let (grab_mode, visible) = if capture.captured {
-        (CursorGrabMode::Locked, false)
-    } else {
-        (CursorGrabMode::None, true)
-    };
-    if cursor.grab_mode != grab_mode || cursor.visible != visible {
-        cursor.grab_mode = grab_mode;
-        cursor.visible = visible;
+    if window.capture_mouse != capture.captured {
+        window.capture_mouse = capture.captured;
     }
 }
 
@@ -294,11 +263,58 @@ fn fly(
     }
 }
 
-/// Turn the game-terms camera state into Bevy's transform.
-pub fn place_camera(origin: Res<RenderOrigin>, mut cameras: Query<(&FlyCamera, &mut Transform)>) {
-    for (camera, mut transform) in &mut cameras {
-        *transform = Transform::from_translation(origin.to_bevy(camera.position))
-            .looking_to(game_to_bevy(camera.looking()), Vec3::Y);
+/// What the picture is drawn from: the eye (game axes), the way it looks, and the field of view
+/// (degrees, up and down; the setting plus any boost). Set once a frame from the fly camera, for
+/// whatever draws (the card's work, from phase 1 of the regroup).
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct CameraView {
+    pub position: Vec3,
+    pub heading: f32,
+    pub pitch: f32,
+    pub looking: Vec3,
+    pub field_of_view: f32,
+}
+
+impl Default for CameraView {
+    fn default() -> Self {
+        let camera = FlyCamera::at_start();
+        Self { position: camera.position, heading: camera.heading, pitch: camera.pitch, looking: camera.looking(), field_of_view: CameraSettings::default().field_of_view }
+    }
+}
+
+impl CameraView {
+    /// Where a spot in the world (game axes) is on the window, in egui's points from its top left, or
+    /// `None` behind the eye.
+    pub fn to_screen(&self, window: &WindowState, at: Vec3) -> Option<Vec2> {
+        let forward = self.looking.normalize_or_zero();
+        // Game axes: X north, Y east, Z up; looking north, east is to the right.
+        let right = Vec3::Z.cross(forward).normalize_or_zero();
+        let up = forward.cross(right);
+        let d = at - self.position;
+        let ahead = d.dot(forward);
+        if ahead <= 1e-3 || right == Vec3::ZERO {
+            return None;
+        }
+        let (width, height) = (window.size.0 as f32 / window.scale, window.size.1 as f32 / window.scale);
+        let tan_half = (self.field_of_view.to_radians() / 2.0).tan();
+        let x = d.dot(right) / ahead / (tan_half * width / height.max(1.0));
+        let y = d.dot(up) / ahead / tan_half;
+        Some(Vec2::new((x + 1.0) / 2.0 * width, (1.0 - y) / 2.0 * height))
+    }
+}
+
+/// The fly camera's state, and the field of view with its boost, into `CameraView`.
+pub fn place_camera(settings: Res<CameraSettings>, boost: Res<FieldOfViewBoost>, cameras: Query<&FlyCamera>, mut view: ResMut<CameraView>) {
+    let Ok(camera) = cameras.single() else { return };
+    let placed = CameraView {
+        position: camera.position,
+        heading: camera.heading,
+        pitch: camera.pitch,
+        looking: camera.looking(),
+        field_of_view: (settings.field_of_view + boost.0).clamp(10.0, 170.0),
+    };
+    if *view != placed {
+        *view = placed;
     }
 }
 
@@ -307,7 +323,7 @@ pub fn place_camera(origin: Res<RenderOrigin>, mut cameras: Query<(&FlyCamera, &
 /// field of view from one frame to the next, the largest of each in the last second.
 #[derive(Resource, Default)]
 pub struct Wobble {
-    last: Option<(Vec3, Quat, f32)>,
+    last: Option<(Vec3, Vec3, f32)>,
     this_second: (f32, f32, f32, u32),
     second_started: f32,
     /// Moved (blocks), turned (degrees), field of view (degrees), and in how many frames anything
@@ -315,15 +331,10 @@ pub struct Wobble {
     pub last_second: (f32, f32, f32, u32),
 }
 
-fn watch_for_wobble(time: Res<Time<Real>>, mut wobble: ResMut<Wobble>, cameras: Query<(&Transform, &Projection), With<FlyCamera>>) {
-    let Ok((transform, projection)) = cameras.single() else { return };
-    let fov = match projection {
-        Projection::Perspective(p) => p.fov.to_degrees(),
-        _ => 0.0,
-    };
-    let now = (transform.translation, transform.rotation, fov);
-    if let Some((position, rotation, last_fov)) = wobble.last {
-        let (moved, turned, widened) = (now.0.distance(position), now.1.angle_between(rotation).to_degrees(), (now.2 - last_fov).abs());
+fn watch_for_wobble(time: Res<Time<Real>>, mut wobble: ResMut<Wobble>, view: Res<CameraView>) {
+    let now = (view.position, view.looking, view.field_of_view);
+    if let Some((position, looking, last_fov)) = wobble.last {
+        let (moved, turned, widened) = (now.0.distance(position), now.1.angle_between(looking).to_degrees(), (now.2 - last_fov).abs());
         let second = &mut wobble.this_second;
         second.0 = second.0.max(moved);
         second.1 = second.1.max(turned);
@@ -344,22 +355,6 @@ fn watch_for_wobble(time: Res<Time<Real>>, mut wobble: ResMut<Wobble>, cameras: 
 /// (the sprint's FOV boost). Each frame's value replaces the last.
 #[derive(Resource, Default, PartialEq)]
 pub struct FieldOfViewBoost(pub f32);
-
-fn apply_field_of_view(
-    settings: Res<CameraSettings>,
-    boost: Res<FieldOfViewBoost>,
-    mut projections: Query<&mut Projection, With<FlyCamera>>,
-) {
-    if !settings.is_changed() && !boost.is_changed() {
-        return;
-    }
-    let degrees = (settings.field_of_view + boost.0).clamp(10.0, 170.0);
-    for mut projection in &mut projections {
-        if let Projection::Perspective(perspective) = projection.as_mut() {
-            perspective.fov = degrees.to_radians();
-        }
-    }
-}
 
 /// While walking the ray only reaches as far as your arm; while flying, the debug ray length.
 fn find_look_target(
@@ -388,65 +383,8 @@ fn find_look_target(
     target.point = found.map(|(_, _, point)| point);
 }
 
-/// Outline the targeted block (white) and the face being pointed at (magenta, with a cross).
-fn draw_look_target(settings: Res<CameraSettings>, target: Res<LookTarget>, origin: Res<RenderOrigin>, mut gizmos: Gizmos) {
-    let Some(hit) = target.hit.filter(|_| settings.show_target_outline) else {
-        return;
-    };
-    // Slightly bigger than the block, so the lines sit just outside its faces instead of
-    // flickering in and out of them.
-    let grow = 0.004;
-    // Dimmed as the helpers are set: toward black, and see-through.
-    let dim = settings.helper_brightness.clamp(0.0, 1.0);
-    let shade = |red: f32, green: f32, blue: f32| Color::srgba(red * dim, green * dim, blue * dim, dim);
-    let (magenta, white) = (shade(1.0, 0.0, 1.0), shade(1.0, 1.0, 1.0));
-    if dim <= 0.0 {
-        return;
-    }
-    // An object being placed: the way it would face, an arrow out of its front.
-    if let Some((from, to)) = target.arrow {
-        gizmos.arrow(origin.to_bevy(from), origin.to_bevy(to), magenta);
-    }
-    // A box outlined (its two corners, blocks), a hair bigger than it.
-    let mut outline = |(low, high): (Vec3, Vec3), colour: Color| {
-        let size = high - low + Vec3::splat(2.0 * grow);
-        // (A cube scaled to the box; `game_to_bevy` swaps the axes, so the size is swapped too.)
-        gizmos.cube(Transform::from_translation(origin.to_bevy((low + high) / 2.0)).with_scale(game_to_bevy(size).abs()), colour);
-    };
-    // A bar being placed: the octants it would fill (magenta). The piece aimed at, if it's in a cell
-    // of pieces (white): instead of the whole block.
-    for &octant in &target.ghost {
-        outline(octant, magenta);
-    }
-    for &octant in &target.piece {
-        outline(octant, white);
-    }
-    if !target.ghost.is_empty() || !target.piece.is_empty() {
-        return;
-    }
-    let centre = hit.block.as_vec3() + Vec3::splat(0.5);
-    gizmos.cube(
-        Transform::from_translation(origin.to_bevy(centre)).with_scale(Vec3::splat(1.0 + 2.0 * grow)),
-        white,
-    );
-
-    if hit.normal == IVec3::ZERO {
-        return;
-    }
-    // The face's four corners: start at the face centre, then go ± half a block along the
-    // face's two in-plane axes.
-    let normal = hit.normal.as_vec3();
-    let face_centre = centre + normal * (0.5 + grow);
-    let axis = hit.normal.abs().max_position();
-    let mut u = Vec3::ZERO;
-    let mut v = Vec3::ZERO;
-    u[(axis + 1) % 3] = 0.5;
-    v[(axis + 2) % 3] = 0.5;
-    let corners = [-u - v, u - v, u + v, -u + v].map(|offset| origin.to_bevy(face_centre + offset));
-    gizmos.lineloop(corners, magenta);
-    gizmos.line(corners[0], corners[2], magenta);
-    gizmos.line(corners[1], corners[3], magenta);
-}
+// (The targeted block's outline, the face's cross and a placing object's arrow were drawn by Bevy's
+// gizmos; they come back with the new renderer, from `LookTarget`.)
 
 /// A small crosshair at the screen centre while flying; a hint while the mouse is free.
 /// Placeholder look: magenta lines, pink text.
@@ -592,7 +530,6 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
     }
 
     ui.separator();
-    panini::panini_debug_section(ui, world);
 
 }
 

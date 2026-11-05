@@ -13,7 +13,7 @@
 
 use crate::data::{Anchor, LightAttach, ObjectDef, ObjectRegistry, Sits, SpriteAttach, data_folder, header_of, models_folder, object_file_text, read_strip, sprites_folder};
 use bevy::math::IVec3;
-use bevy_egui::egui;
+
 use std::path::{Path, PathBuf};
 
 /// The Objects tab's own state.

@@ -1,7 +1,7 @@
 //! The camera over a field: fit it to the screen, drag to pan, scroll to zoom, double-click to fit
 //! again. Shared by the Graphics Kit and World Gen.
 
-use bevy_egui::egui::{self, Pos2, Rect, Vec2};
+use egui::{Pos2, Rect, Vec2};
 
 pub struct Camera {
     /// Field position (in pixels) at the middle of the screen, and screen points per pixel.

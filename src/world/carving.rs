@@ -925,6 +925,8 @@ impl Carving {
 
     /// How far a spot is from the nearest river's line, and that river's width there (for the far
     /// terrain, to blend in the water of creeks narrower than its cells).
+    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
+    #[allow(dead_code)]
     pub fn nearest(&self, north: f32, east: f32) -> Option<(f32, f32)> {
         self.nearest_river(north, east).map(|(distance, _, point, _)| (distance, point.width))
     }

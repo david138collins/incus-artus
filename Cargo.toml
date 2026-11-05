@@ -17,10 +17,22 @@ default = ["dev"]
 dev = []
 
 [dependencies]
-# The game engine: window, input, rendering, ECS, asset loading, threads.
-bevy = "=0.20.0"
-# Immediate-mode GUI used for the developer debug panel (not the game's real UI).
-bevy_egui = "=0.43.1"
+# Bevy's core only: the ECS (the World, its resources and messages, the scheduler that runs
+# systems side by side), states, time, input types and logging. Its window, renderer, assets and the
+# rest are left out (the regroup, docs/regroup.md): the window is winit's, the card is wgpu's, and
+# drawing is ours.
+bevy = { version = "=0.20.0", default-features = false, features = ["std", "multi_threaded", "async_executor", "bevy_log", "bevy_state", "bevy_color", "serialize", "keyboard", "mouse"] }
+# The window and its input.
+winit = "=0.30.13"
+# The graphics card (DirectX 12 on Windows).
+wgpu = "=30.0.1"
+# Immediate-mode GUI used for the developer debug panel (not the game's real UI), drawn on the card
+# by egui-wgpu, its input from winit by egui-winit.
+egui = "=0.36.2"
+egui-wgpu = { version = "=0.36.2", default-features = false }
+egui-winit = { version = "=0.36.2", default-features = false, features = ["clipboard", "links"] }
+# Waits on the card's set-up calls (a few at start).
+pollster = "=0.4.0"
 # Turns our settings into text and back ("serialising"), for presets and data files.
 serde = { version = "=1.0.229", features = ["derive"] }
 # The TOML text format (readable, allows comments) used for presets and data files.

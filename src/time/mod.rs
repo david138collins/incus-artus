@@ -26,7 +26,7 @@ use crate::save::WorldStateAppExt;
 use crate::screen::Screen;
 use bevy::prelude::*;
 use bevy::time::TimeSystems;
-use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use serde::{Deserialize, Serialize};
 
 /// Default simulation rate (ticks per second). See docs/decisions.md.

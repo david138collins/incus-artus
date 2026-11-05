@@ -22,7 +22,7 @@
 
 use super::rivers::Flow;
 use crate::world::SEA_LEVEL;
-use bevy_egui::egui::Color32;
+use egui::Color32;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};

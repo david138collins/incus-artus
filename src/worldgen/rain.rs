@@ -20,7 +20,7 @@ use super::runner::every_pixel;
 use super::temperature::Temperature;
 use super::wind::Wind;
 use crate::world::{SEA_LEVEL, Spline};
-use bevy_egui::egui::Color32;
+use egui::Color32;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::AtomicBool;
 

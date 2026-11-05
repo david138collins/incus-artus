@@ -23,7 +23,6 @@ use super::position::ChunkPos;
 use super::interpreter::CompiledMap;
 use super::terrain::{Terrain, TerrainBlocks};
 use super::{Chunk, VoxelWorld};
-use crate::coords::bevy_to_game;
 use crate::data::BlockRegistry;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task, futures::check_ready};
@@ -167,12 +166,9 @@ impl Streaming {
 
 /// The camera's spot (game axes) and which way it faces across the ground (a unit vector, or zero
 /// looking straight up or down).
-fn focus(camera: &Query<&Transform, With<Camera3d>>, origin: &crate::coords::RenderOrigin) -> Option<(Vec3, Vec2)> {
-    let transform = camera.iter().next()?;
-    let position = origin.to_game(transform.translation);
-    let ahead = bevy_to_game(*transform.forward());
-    let flat = Vec2::new(ahead.x, ahead.y);
-    Some((position, flat.normalize_or_zero()))
+fn focus(view: &crate::camera::CameraView) -> Option<(Vec3, Vec2)> {
+    let flat = Vec2::new(view.looking.x, view.looking.y);
+    Some((view.position, flat.normalize_or_zero()))
 }
 
 /// The chunks wanted around `centre`, best first: within `radius + 1`, not in the world, not being
@@ -205,11 +201,11 @@ pub fn stream_chunks(
     caves: Res<super::Caves>,
     settings: Res<StreamSettings>,
     registry: Res<BlockRegistry>,
-    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
+    view: Res<crate::camera::CameraView>,
     mut world: ResMut<VoxelWorld>,
     mut streaming: ResMut<Streaming>,
 ) {
-    let _timed = crate::render::Timed::new("stream chunks");
+    let _timed = crate::perf::Timed::new("stream chunks");
     let Some(map) = terrain.compiled() else {
         if streaming.map.is_some() {
             *streaming = Streaming::default();
@@ -221,7 +217,7 @@ pub fn stream_chunks(
     if streaming.map.as_ref().is_none_or(|old| !Arc::ptr_eq(old, map)) {
         *streaming = Streaming::start_over(map.clone(), &mut world);
     }
-    let Some((position, facing)) = focus(&camera, &origin) else { return };
+    let Some((position, facing)) = focus(&view) else { return };
     let centre = ChunkPos::of_block(position.floor().as_ivec3());
 
     // Finished chunks come in, within the time budget.
@@ -299,7 +295,7 @@ pub fn stream_chunks(
         }
         let (map, blocks, caves) = (map.clone(), blocks.clone(), caves.0.clone());
         let task = pool.spawn(async move {
-            let _timed = crate::render::Background::new("chunks made");
+            let _timed = crate::perf::Background::new("chunks made");
             map.chunk(pos, &blocks, &caves)
         });
         streaming.making.insert(pos, task);

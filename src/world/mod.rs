@@ -33,6 +33,8 @@ mod terrain;
 mod test_sites;
 mod test_world;
 
+#[cfg(test)]
+pub use section::Section;
 pub use block::BlockId;
 pub use caves::{CavePlan, Caves, TestCaveSettings};
 pub use objects::{held, is_small, object_box, room, shape_boxes, solid_boxes, spot, turned};
@@ -50,7 +52,6 @@ pub use position::{
     CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTION_VOLUME, SECTIONS_PER_CHUNK, SectionKey,
     WORLD_BOTTOM, WORLD_HEIGHT, z_in_world,
 };
-pub use section::Section;
 pub use streaming::{StreamSettings, Streaming, real_chunk};
 pub use interpreter::{CompiledMap, HIGHEST, InterpreterSettings, Lift, LiftFrom, Mask, MaskSource, Maps, Mutes, Peaks, Spline, coast_distance, point_distance};
 pub use carving::{Banks, Carving, FadeWay, Lake, Lakes, Point as RiverPoint, RIVER_FROM, Reach, STREAM_FROM, Shores, Sizes, depth_across, fullness};
@@ -65,7 +66,7 @@ use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::events::EventLogAppExt;
 use crate::save::WorldStateAppExt;
 use bevy::prelude::*;
-use bevy_egui::egui;
+
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;
 
@@ -112,6 +113,8 @@ impl VoxelWorld {
     }
 
     /// The chunks whose objects have changed since last asked, and forgets them.
+    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
+    #[allow(dead_code)]
     pub fn take_objects_changed(&mut self) -> HashSet<ChunkPos> {
         std::mem::take(&mut self.objects_changed)
     }
@@ -337,6 +340,8 @@ impl VoxelWorld {
 
     /// Hand over the list of changed sections and start a fresh one (used by the far copies, which
     /// make again the copies of the chunks they're in).
+    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
+    #[allow(dead_code)]
     pub fn take_dirty(&mut self) -> HashSet<SectionKey> {
         std::mem::take(&mut self.dirty)
     }
@@ -429,14 +434,14 @@ impl Plugin for WorldPlugin {
             // The terrain is made when a world starts (see the save module), and saved as "terrain".
             .add_world_state_with("terrain", storage::save_terrain, storage::load_terrain, storage::fresh_terrain)
             .add_systems(FixedUpdate, edits::apply_block_edits.in_set(WorldEdits))
-            .add_systems(bevy_egui::EguiPrimaryContextPass, show_left_out.run_if(in_state(crate::screen::Screen::Play)))
+            .add_systems(crate::ui::EguiPrimaryContextPass, show_left_out.run_if(in_state(crate::screen::Screen::Play)))
             .add_debug_page("World", world_debug_page);
     }
 }
 
 /// Along the top of the screen, while a world spawned with some of the recipe switched off is
 /// showing: what's left out, so a stripped world is never mistaken for the real one.
-fn show_left_out(mut contexts: bevy_egui::EguiContexts, terrain: Res<Terrain>) {
+fn show_left_out(mut contexts: crate::ui::EguiContexts, terrain: Res<Terrain>) {
     let Some(left_out) = terrain.compiled().map(|map| map.mutes.left_out()).filter(|names| !names.is_empty()) else { return };
     let Ok(ctx) = contexts.ctx_mut() else { return };
     egui::Area::new(egui::Id::new("recipe left out")).anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 8.0)).order(egui::Order::Foreground).interactable(false).show(ctx, |ui| {
@@ -720,7 +725,7 @@ fn world_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.horizontal_wrapped(|ui| {
         fill = ui.add_enabled(compiled, egui::Button::new("Fill the ground round me with test caves")).on_hover_text("Dead ends like the test cave, each wholly underground (8 to 100 blocks down), heading every which way, with the settings above").on_disabled_hover_text("Needs a compiled world").clicked();
     });
-    ui.small(crate::render::drawing_line(world));
+    ui.small(crate::perf::fps_line(world));
     // Far away (stop 4): sites to look at from afar.
     ui.add_space(4.0);
     ui.label("Far away:");

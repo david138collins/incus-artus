@@ -10,7 +10,7 @@
 //! graph draws it at a fixed width.
 
 use super::envelope::{Envelope, EnvelopeState, Stage, shape};
-use bevy_egui::egui;
+
 
 const PINK: egui::Color32 = egui::Color32::from_rgb(255, 140, 220);
 const MAGENTA: egui::Color32 = egui::Color32::from_rgb(255, 0, 255);

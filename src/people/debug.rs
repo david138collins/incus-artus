@@ -5,13 +5,12 @@ use super::behaviour::{self, is_night};
 use super::meetings::start_a_wave;
 use super::records::{Doing, Person, Place, Urge};
 use super::{MoodWave, People, PeopleSettings};
-use crate::camera::FlyCamera;
 use crate::fate::Fate;
 use crate::sim::{SimLevel, SimWorld};
 use crate::time::{HOUR_SECONDS, TimeControl, WorldClock, describe_moment, describe_span};
 use crate::world::TestWorldSettings;
 use bevy::prelude::*;
-use bevy_egui::{EguiContexts, egui};
+use crate::ui::EguiContexts;
 
 const PINK: egui::Color32 = egui::Color32::from_rgb(255, 140, 220);
 const MAGENTA: egui::Color32 = egui::Color32::from_rgb(255, 0, 255);
@@ -178,24 +177,20 @@ pub(super) fn draw_labels(
     settings: Res<PeopleSettings>,
     sim: Res<SimWorld>,
     terrain: Res<TestWorldSettings>,
-    cameras: Query<(&Camera, &GlobalTransform, &FlyCamera)>,
-    origin: Res<crate::coords::RenderOrigin>,
+    (view, window): (Res<crate::camera::CameraView>, Res<crate::runner::WindowState>),
 ) -> Result {
     if !settings.show_labels {
         return Ok(());
     }
-    let Ok((camera, transform, fly)) = cameras.single() else {
-        return Ok(());
-    };
     let local = |site| sim.sites.iter().any(|s| s.id == site && s.level == SimLevel::Local);
     let ground = terrain.grass_z as f32 + 1.0;
     let ctx = contexts.ctx_mut()?;
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("people_labels")));
     let label = |at: Vec3, text: String, colour: egui::Color32, size: f32| {
-        if at.distance(fly.position) > 70.0 {
+        if at.distance(view.position) > 70.0 {
             return;
         }
-        if let Ok(spot) = camera.world_to_viewport(transform, origin.to_bevy(at)) {
+        if let Some(spot) = view.to_screen(&window, at) {
             painter.text(egui::pos2(spot.x, spot.y), egui::Align2::CENTER_BOTTOM, text, egui::FontId::proportional(size), colour);
         }
     };

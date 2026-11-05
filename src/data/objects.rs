@@ -164,6 +164,15 @@ pub struct Strip {
 /// to the edge). The markers are taken out. With no marker (the bottom-left pixel clear), the frames
 /// are square, as tall as the strip.
 pub fn read_strip(bytes: &[u8]) -> Result<Strip, String> {
+    let (width, height, rgba) = png_rgba(bytes)?;
+    if width == 0 || height == 0 {
+        return Err("it's empty".to_string());
+    }
+    strip_frames(width, height, rgba)
+}
+
+/// A PNG's size and pixels as RGBA, 8 bits a channel, from its bytes.
+pub fn png_rgba(bytes: &[u8]) -> Result<(u32, u32, Vec<u8>), String> {
     let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     decoder.set_transformations(png::Transformations::normalize_to_color8());
     let mut reader = decoder.read_info().map_err(|error| error.to_string())?;
@@ -188,9 +197,11 @@ pub fn read_strip(bytes: &[u8]) -> Result<Strip, String> {
             });
         }
     }
-    if width == 0 || height == 0 {
-        return Err("it's empty".to_string());
-    }
+    Ok((width, height, rgba))
+}
+
+/// The strip's frames, found by its markers (see `read_strip`), the markers taken out.
+fn strip_frames(width: u32, height: u32, mut rgba: Vec<u8>) -> Result<Strip, String> {
     let at = |x: u32| ((height - 1) * width + x) as usize * 4;
     let marker: [u8; 4] = rgba[at(0)..at(0) + 4].try_into().unwrap_or_default();
     let mut starts = Vec::new();
@@ -241,6 +252,8 @@ impl Shape {
 
     /// Where a sprite goes (blocks, from the feet, unturned): its named point, or on top in the
     /// middle; then moved by its offset (pixels).
+    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
+    #[allow(dead_code)]
     pub fn spot(&self, sprite: &SpriteAttach) -> Vec3 {
         let point = sprite.at.as_ref().and_then(|name| self.points.iter().find(|(point, _)| point == name)).map(|(_, at)| *at);
         point.unwrap_or(Vec3::new(0.0, 0.0, self.size.z as f32 / 16.0)) + IVec3::from_array(sprite.offset).as_vec3() / 16.0
@@ -557,6 +570,8 @@ impl ObjectRegistry {
         self.sources.get(name).map(PathBuf::as_path)
     }
 
+    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
+    #[allow(dead_code)]
     pub fn revision(&self) -> u64 {
         self.revision
     }

@@ -87,8 +87,8 @@ mod worley;
 use crate::debug::DebugAppExt;
 use crate::screen::Screen;
 use bevy::prelude::*;
-use bevy::window::FileDragAndDrop;
-use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use crate::runner::FileDropped;
+use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use layers::{Layer, LayerKind};
 use palette::Colouring;
 use std::path::Path;
@@ -365,9 +365,9 @@ fn run_suite(mut suite: ResMut<Suite>, mut soak_pressed: Local<bool>) {
 
 /// PNG files dragged onto the window become image layers, or, with the Registrar open, a new asset
 /// to register.
-fn take_dropped_files(mut drops: MessageReader<FileDragAndDrop>, mut suite: ResMut<Suite>) {
-    for drop in drops.read() {
-        if let FileDragAndDrop::DroppedFile { path_buf, .. } = drop {
+fn take_dropped_files(mut drops: MessageReader<FileDropped>, mut suite: ResMut<Suite>) {
+    for FileDropped(path_buf) in drops.read() {
+        {
             if suite.kit == Kit::Registrar {
                 suite.registrar.receive(path_buf);
                 continue;
@@ -388,7 +388,7 @@ fn draw_suite(
     mut next_terrain: ResMut<crate::world::NextTerrain>,
     mut requests: MessageWriter<crate::save::WorldFileRequest>,
     (registry, objects): (Res<crate::data::BlockRegistry>, Res<crate::data::ObjectRegistry>),
-    (render, distant, light): (Res<crate::render::RenderSettings>, Res<crate::render::distant::DistantSettings>, Res<crate::render::light::LightSettings>),
+    kept: Res<crate::look::KeptSettings>,
 ) -> Result {
     // Which tab, for crash and freeze reports.
     crate::diagnostics::place("tab", match suite.kit {
@@ -399,7 +399,7 @@ fn draw_suite(
     });
     let ctx = contexts.ctx_mut()?.clone();
     // The game's blocks and lighting, so the World Compiler's close-up shows the world as it will be.
-    let look = compiler_view::Look { registry: &registry, objects: &objects, shade: crate::render::distant::Shade::new(&render, &distant, &light), finest_cell: distant.finest_cell as f32 };
+    let look = compiler_view::Look { registry: &registry, objects: &objects, shade: crate::look::Shade::new(&kept), finest_cell: kept.finest_cell() };
     if view::draw(&ctx, &mut suite, &look) {
         next.set(Screen::Play);
     }
@@ -470,11 +470,8 @@ fn world_gen_debug_page(ui: &mut egui::Ui, world: &mut World) {
 
 /// Opening the suite: where you were in the world, and which way you faced, for the Terrain
 /// Compiler's map.
-fn note_where_you_were(camera: Query<&Transform, With<Camera3d>>, origin: Res<crate::coords::RenderOrigin>, mut suite: ResMut<Suite>) {
-    let Some(transform) = camera.iter().next() else { return };
-    let at = origin.to_game(transform.translation);
-    let ahead = crate::coords::bevy_to_game(*transform.forward());
+fn note_where_you_were(view: Res<crate::camera::CameraView>, mut suite: ResMut<Suite>) {
     // A compass bearing: 0 north, 90 east.
-    let facing = ahead.y.atan2(ahead.x).to_degrees().rem_euclid(360.0);
-    suite.compiler.came_from = Some((at.x, at.y, facing));
+    let facing = view.looking.y.atan2(view.looking.x).to_degrees().rem_euclid(360.0);
+    suite.compiler.came_from = Some((view.position.x, view.position.y, facing));
 }

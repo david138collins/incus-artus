@@ -31,10 +31,8 @@ pub use presets::{default_light, default_preset, preset_bar, save_shortcut};
 pub use slider::Slider;
 pub use settings::{SettingsAppExt, page_default, page_presets};
 
-use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy::render::view::screenshot::{Screenshot, save_to_disk};
-use bevy_egui::{EguiContext, EguiPrimaryContextPass, PrimaryEguiContext, egui};
+use crate::ui::EguiPrimaryContextPass;
 use std::path::PathBuf;
 
 /// What a debug page is: a function that draws into the panel.
@@ -82,8 +80,7 @@ pub struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(FrameTimeDiagnosticsPlugin::default())
-            .init_resource::<DebugPanel>()
+        app.init_resource::<DebugPanel>()
             .init_resource::<settings::SettingsGroups>()
             .init_resource::<SelfTest>()
             // Pages with a "default" preset start with it.
@@ -117,7 +114,7 @@ fn screenshot_folder() -> PathBuf {
     project_folder().join("screenshots")
 }
 
-fn take_screenshot(commands: &mut Commands, file_name: &str) {
+fn take_screenshot(screenshot: &mut crate::runner::ScreenshotRequest, file_name: &str) {
     let folder = screenshot_folder();
     if let Err(error) = std::fs::create_dir_all(&folder) {
         warn!("Couldn't create {}: {error}", folder.display());
@@ -125,18 +122,16 @@ fn take_screenshot(commands: &mut Commands, file_name: &str) {
     }
     let path = folder.join(file_name);
     info!("Saving screenshot to {}", path.display());
-    commands
-        .spawn(Screenshot::primary_window())
-        .observe(save_to_disk(path));
+    screenshot.0 = Some(path);
 }
 
-fn screenshot_key(mut commands: Commands, keys: Res<ButtonInput<KeyCode>>) {
+fn screenshot_key(mut screenshot: ResMut<crate::runner::ScreenshotRequest>, keys: Res<ButtonInput<KeyCode>>) {
     // Shift + F12 is the deep screenshot (Camera page).
     if keys.just_pressed(KeyCode::F12) && !keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
         let seconds = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs());
-        take_screenshot(&mut commands, &format!("screenshot-{seconds}.png"));
+        take_screenshot(&mut screenshot, &format!("screenshot-{seconds}.png"));
     }
 }
 
@@ -162,31 +157,29 @@ impl Default for SelfTest {
 }
 
 fn run_self_test(
-    mut commands: Commands,
+    mut screenshot: ResMut<crate::runner::ScreenshotRequest>,
     mut test: ResMut<SelfTest>,
     time: Res<Time<Real>>,
     mut exit: MessageWriter<AppExit>,
-    mut windows: Query<&mut Window>,
+    mut window: ResMut<crate::runner::WindowState>,
 ) {
     let Some(after) = test.screenshot_after else {
         return;
     };
     let elapsed = time.elapsed_secs();
-    if test.minimize
-        && let Ok(mut window) = windows.single_mut()
-    {
+    if test.minimize {
         let previous = elapsed - time.delta_secs();
         if previous < after - 8.0 && elapsed >= after - 8.0 {
             info!("Self-test: minimizing the window");
-            window.set_minimized(true);
+            window.minimize = Some(true);
         }
         if previous < after - 7.0 && elapsed >= after - 7.0 {
             info!("Self-test: restoring the window");
-            window.set_minimized(false);
+            window.minimize = Some(false);
         }
     }
     if !test.screenshot_taken && elapsed >= after {
-        take_screenshot(&mut commands, "selftest.png");
+        take_screenshot(&mut screenshot, "selftest.png");
         test.screenshot_taken = true;
     }
     if elapsed >= after + 2.0 {
@@ -211,13 +204,7 @@ fn draw_panel(world: &mut World) {
     }
 
     // Grab a handle to egui's drawing context. It's cheap to copy and doesn't keep the World borrowed.
-    let ctx = {
-        let mut query = world.query_filtered::<&mut EguiContext, With<PrimaryEguiContext>>();
-        match query.single_mut(world) {
-            Ok(mut context) => context.get_mut().clone(),
-            Err(_) => return, // no camera yet, so nothing to draw on
-        }
-    };
+    let ctx = world.resource::<crate::ui::EguiCtx>().0.clone();
 
     // Temporarily take the panel out of the World so pages can use the World freely.
     world.resource_scope(|world, mut panel: Mut<DebugPanel>| {
@@ -252,27 +239,9 @@ fn overview_page(ui: &mut egui::Ui, world: &mut World) {
     crate::diagnostics::overview(ui);
     ui.separator();
 
-    let diagnostics = world.resource::<DiagnosticsStore>();
-    let fps = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|d| d.smoothed())
-        .unwrap_or(0.0);
-    let frame_ms = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        .and_then(|d| d.smoothed())
-        .unwrap_or(0.0);
-
-    ui.label(format!("FPS: {fps:.0}"));
-    ui.label(format!("Frame time: {frame_ms:.2} ms"));
-
-    let window_size = world
-        .query::<&Window>()
-        .iter(world)
-        .next()
-        .map(|w| format!("{} × {}", w.width() as u32, w.height() as u32));
-    if let Some(size) = window_size {
-        ui.label(format!("Window: {size}"));
-    }
+    ui.label(crate::perf::fps_line(world));
+    let (width, height) = world.resource::<crate::runner::WindowState>().size;
+    ui.label(format!("Window: {width} × {height}"));
 
     ui.separator();
     ui.small("F3 hides this panel.");

@@ -1,11 +1,8 @@
 //! The soak test — does the game run worse the longer it runs? For automatic testing only.
 //!
 //! Start the game with `INCUS_SOAK=<seconds>` (and if wanted `INCUS_SOAK_SPEED=<blocks a second>`,
-//! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_NEAR=0` for no near light window,
-//! `INCUS_SOAK_LAND=0` for no far land as cells, `INCUS_SOAK_BLACK=1` for nothing drawn (the sky's colour only),
-//! `INCUS_SOAK_CAP=<n>` for the frame cap, `INCUS_SOAK_WINDOW=<width>x<height>` for the window,
-//! `INCUS_SOAK_FURTHEST=<blocks>` for where rays stop, `INCUS_SOAK_CONTINUOUS=1` to draw flat out
-//! without the focus),
+//! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_CAP=<n>` for the frame cap,
+//! `INCUS_SOAK_WINDOW=<width>x<height>` for the window),
 //! together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
 //! 1. renders the newest bake with the World Compiler's recipe as it starts (the defaults), and
@@ -14,7 +11,7 @@
 //!    and distant tiles are made and dropped all the way round, and the same ground comes round
 //!    again each lap;
 //! 3. writes a line to the log every 10 seconds: the frame rate, and how many chunks, meshes,
-//!    pictures and so on the game is holding (`render::soak_line`);
+//!    pictures and so on the game is holding (`perf::soak_line`);
 //! 4. quits when the time is up.
 //!
 //! Healthy: after the first lap the counts level off and the frame rate holds. A count that keeps
@@ -55,12 +52,8 @@ pub struct SoakPlugin;
 impl Plugin for SoakPlugin {
     fn build(&self, app: &mut App) {
         let Some(seconds) = std::env::var("INCUS_SOAK").ok().and_then(|v| v.parse().ok()) else { return };
-        // `INCUS_SOAK_CONTINUOUS=1`: drawn as fast as allowed even when Windows says the window hasn't
-        // the focus (Bevy's default holds an unfocused window to about 60 frames a second, which
-        // spoiled measurements: the test window often never gets the focus).
-        if std::env::var("INCUS_SOAK_CONTINUOUS").is_ok_and(|v| v == "1") {
-            app.insert_resource(bevy::winit::WinitSettings::continuous());
-        }
+        // (Since the regroup the game draws flat out with or without the focus: the old switch for it,
+        // `INCUS_SOAK_CONTINUOUS`, isn't needed. The old renderer's switches went with it.)
         app.insert_resource(Soak { seconds, started: None, next_line: 0.0, frames: 0, focused: 0 })
             .add_systems(Update, fly_round.before(crate::camera::place_camera).run_if(in_state(Screen::Play)))
             .add_systems(Last, report);
@@ -84,8 +77,9 @@ fn fly_round(
     time: Res<Time<Real>>,
     mut mode: ResMut<ControlMode>,
     mut cameras: Query<&mut FlyCamera>,
-    (mut render, mut light, mut far, mut distant): (ResMut<crate::render::RenderSettings>, ResMut<crate::render::LightSettings>, ResMut<crate::render::FarCopySettings>, ResMut<crate::render::distant::DistantSettings>),
-    mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
+    mut kept: ResMut<crate::look::KeptSettings>,
+    mut window: ResMut<crate::runner::WindowState>,
+    mut resized: Local<bool>,
 ) {
     let Some(map) = terrain.compiled() else { return };
     let now = time.elapsed_secs();
@@ -96,43 +90,22 @@ fn fly_round(
     *mode = ControlMode::Fly;
     // `INCUS_SOAK_DISTANCE`: the render distance (chunks) to fly at, instead of the preset's.
     if let Some(distance) = std::env::var("INCUS_SOAK_DISTANCE").ok().and_then(|v| v.parse::<i32>().ok())
-        && render.render_distance_chunks != distance
+        && kept.render_distance_chunks() != distance
     {
-        render.render_distance_chunks = distance;
-    }
-    // `INCUS_SOAK_NEAR=0`: without the near chunks' light window (to measure what it costs).
-    if std::env::var("INCUS_SOAK_NEAR").is_ok_and(|v| v == "0") && light.near {
-        light.near = false;
-    }
-    // `INCUS_SOAK_LAND=0`: without the far land as cells (to measure what it costs).
-    if std::env::var("INCUS_SOAK_LAND").is_ok_and(|v| v == "0") && far.land {
-        far.land = false;
-    }
-    // `INCUS_SOAK_BLACK=1`: nothing drawn, no copies or far tiles made (the chassis alone, to measure
-    // what the game costs before it draws anything).
-    if std::env::var("INCUS_SOAK_BLACK").is_ok_and(|v| v == "1") && distant.enabled {
-        distant.enabled = false;
+        kept.render.set_number("render_distance_chunks", distance as f32);
     }
     // `INCUS_SOAK_CAP=<n>`: the frame cap (a frame every n of the screen's refreshes; 0 = none).
     if let Some(cap) = std::env::var("INCUS_SOAK_CAP").ok().and_then(|v| v.parse().ok())
-        && render.frame_cap != cap
+        && kept.frame_cap() != cap
     {
-        render.frame_cap = cap;
+        kept.set_frame_cap(cap);
     }
     // `INCUS_SOAK_WINDOW=<width>x<height>`: the window's size (does the card's work follow the pixels?).
-    if let Some((width, height)) = std::env::var("INCUS_SOAK_WINDOW").ok().and_then(|v| v.split_once('x').and_then(|(w, h)| Some((w.parse::<u32>().ok()?, h.parse::<u32>().ok()?))))
-        && let Ok(mut window) = windows.single_mut()
-        && (window.resolution.physical_width() != width || window.resolution.physical_height() != height)
+    if !*resized
+        && let Some((width, height)) = std::env::var("INCUS_SOAK_WINDOW").ok().and_then(|v| v.split_once('x').and_then(|(w, h)| Some((w.parse::<u32>().ok()?, h.parse::<u32>().ok()?))))
     {
-        window.resolution.set_physical_resolution(width, height);
-    }
-    // `INCUS_SOAK_FURTHEST=<blocks>`: rays stop there (the fog's end), to price the march by distance.
-    if let Some(furthest) = std::env::var("INCUS_SOAK_FURTHEST").ok().and_then(|v| v.parse::<f32>().ok())
-        && (render.fog_end != furthest || !render.fog_enabled)
-    {
-        render.fog_enabled = true;
-        render.fog_end = furthest;
-        render.fog_start = render.fog_start.min(furthest - 1.0);
+        window.resize_to = Some((width, height));
+        *resized = true;
     }
     // Round the circle (north of the middle to start with), facing the way it's going.
     let (radius, speed) = (radius(), speed());
@@ -154,14 +127,14 @@ fn report(world: &mut World) {
     let soak = world.resource::<Soak>();
     let Some(started) = soak.started else { return };
     let (flown, seconds, next_line) = (now - started, soak.seconds, soak.next_line);
-    let focused = world.query_filtered::<&Window, With<bevy::window::PrimaryWindow>>().iter(world).next().is_some_and(|window| window.focused);
+    let focused = world.resource::<crate::runner::WindowState>().focused;
     let mut soak = world.resource_mut::<Soak>();
     soak.frames += 1;
     soak.focused += focused as u32;
     if flown >= next_line {
         let share = 100 * soak.focused / soak.frames.max(1);
         (soak.frames, soak.focused) = (0, 0);
-        let line = crate::render::soak_line(world);
+        let line = crate::perf::soak_line(world);
         info!("Soak {flown:>5.0} s: {line} | focused {share}%");
         world.resource_mut::<Soak>().next_line = next_line + EVERY;
     }

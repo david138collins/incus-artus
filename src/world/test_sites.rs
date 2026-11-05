@@ -246,7 +246,7 @@ pub(super) fn place_far_test_sites(world: &mut World) -> String {
     let Some(map) = world.resource::<Terrain>().compiled().cloned() else { return "The far test sites need a compiled world.".to_string() };
     let Some((from, looking)) = world.query::<&crate::camera::FlyCamera>().iter(world).next().map(|camera| (camera.position, camera.looking())) else { return String::new() };
     let dir = looking.truncate().normalize_or(Vec2::X);
-    let chunks = world.resource::<crate::render::RenderSettings>().render_distance_chunks;
+    let chunks = world.resource::<crate::look::KeptSettings>().render_distance_chunks();
     let edge = edge_distance(from.truncate(), dir, chunks, world.resource::<super::StreamSettings>().reach());
     // Counted the larger of north-south and east-west, as the render distance is.
     let along = |d: f32| d / dir.x.abs().max(dir.y.abs());

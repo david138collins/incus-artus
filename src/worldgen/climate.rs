@@ -35,7 +35,7 @@ use super::carving::CarvingSettings;
 use super::network::{Network, NetworkSettings};
 use super::rivers::{Flow, RiverSettings};
 use crate::world::{CompiledMap, Mutes, SEA_LEVEL};
-use bevy_egui::egui::Color32;
+use egui::Color32;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;

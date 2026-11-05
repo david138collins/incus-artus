@@ -10,7 +10,6 @@
 //! `Transform` every frame. Simulation code never touches `Transform`.
 
 use bevy::prelude::*;
-use bevy::transform::TransformSystems;
 use serde::{Deserialize, Serialize};
 
 /// A position owned by the simulation, in game coordinates (X north, Y east, Z up).
@@ -77,11 +76,7 @@ pub(super) struct InterpolationPlugin;
 
 impl Plugin for InterpolationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedFirst, remember_previous_positions)
-            .add_systems(
-                PostUpdate,
-                draw_interpolated_positions.before(TransformSystems::Propagate),
-            );
+        app.add_systems(FixedFirst, remember_previous_positions);
     }
 }
 
@@ -92,14 +87,6 @@ fn remember_previous_positions(mut query: Query<&mut SimPosition>) {
     }
 }
 
-/// Every frame, place the visual between the previous and current tick positions.
-fn draw_interpolated_positions(
-    fixed_time: Res<Time<Fixed>>,
-    settings: Res<InterpolationSettings>,
-    mut query: Query<(&SimPosition, &mut Transform)>,
-    origin: Res<crate::coords::RenderOrigin>,
-) {
-    for (position, mut transform) in &mut query {
-        transform.translation = origin.to_bevy(position.display(&fixed_time, &settings));
-    }
-}
+// (Each frame, Bevy's transform of whatever drew a `SimPosition` was placed between the previous
+// and current tick positions; that went with the old renderer in the regroup. The new one reads
+// `SimPosition::display` itself.)

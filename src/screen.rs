@@ -15,7 +15,6 @@ use crate::camera::MouseCapture;
 use crate::debug::DebugPanel;
 use crate::time::TimeControl;
 use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 #[derive(States, Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Screen {
@@ -66,16 +65,13 @@ fn switch_world_off(
     mut before: ResMut<BeforeSuite>,
     mut panel: ResMut<DebugPanel>,
     mut capture: ResMut<MouseCapture>,
-    mut cursors: Query<&mut CursorOptions, With<PrimaryWindow>>,
+    mut window: ResMut<crate::runner::WindowState>,
 ) {
     *before = BeforeSuite { paused: control.paused, debug_panel: panel.visible };
     control.paused = true;
     panel.visible = false;
     capture.captured = false;
-    for mut cursor in &mut cursors {
-        cursor.grab_mode = CursorGrabMode::None;
-        cursor.visible = true;
-    }
+    window.capture_mouse = false;
 }
 
 fn switch_world_on(mut control: ResMut<TimeControl>, mut panel: ResMut<DebugPanel>, before: Res<BeforeSuite>) {

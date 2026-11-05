@@ -14,7 +14,7 @@
 
 use super::preset_bar;
 use bevy::prelude::*;
-use bevy_egui::egui;
+
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 

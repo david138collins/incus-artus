@@ -16,7 +16,7 @@
 //! data loading (build step 7).
 
 use super::project_folder;
-use bevy_egui::egui;
+
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::path::{Path, PathBuf};

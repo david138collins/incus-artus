@@ -12,7 +12,8 @@
 //! the same. Only a few places are updated per tick, so the work is spread out.
 //!
 //! Every level change is announced (`SimLevelChanged`), which is the hook for anything that needs
-//! to expand a place into real things or collapse it back (see `stand_ins.rs`).
+//! to expand a place into real things or collapse it back (its stand-in cubes went with the old
+//! renderer in the regroup; people come back as figures on the card).
 //!
 //! The places in the world now are TEST stand-ins with toy rules (`toy.rs`), until world
 //! generation makes real ones.
@@ -21,7 +22,6 @@ mod debug;
 mod fight;
 mod journey;
 mod records;
-mod stand_ins;
 mod toy;
 
 #[allow(unused_imports)] // for systems that don't exist yet
@@ -36,7 +36,7 @@ use crate::screen::Screen;
 use crate::time::{DAY_SECONDS, HOUR_SECONDS, TimeControl, WorldClock};
 use crate::world::WorldEdits;
 use bevy::prelude::*;
-use bevy_egui::EguiPrimaryContextPass;
+use crate::ui::EguiPrimaryContextPass;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -301,7 +301,6 @@ impl Plugin for SimPlugin {
             .log_event::<RaidReachedLocal>()
             .log_event::<JourneyArrived>()
             .add_systems(FixedUpdate, run_world_sim.in_set(WorldSimSet).after(WorldEdits))
-            .add_plugins(stand_ins::StandInPlugin)
             .init_resource::<debug::SimPageState>()
             .add_systems(EguiPrimaryContextPass, debug::draw_local_notice.run_if(in_state(Screen::Play)))
             .add_debug_page("Sim", debug::sim_debug_page);

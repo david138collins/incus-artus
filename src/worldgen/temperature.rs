@@ -23,7 +23,7 @@
 use super::climate::Ground;
 use super::noise::{Fade, perlin};
 use crate::world::{CompiledMap, SEA_LEVEL, Spline};
-use bevy_egui::egui::Color32;
+use egui::Color32;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 

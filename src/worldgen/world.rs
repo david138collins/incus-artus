@@ -33,7 +33,7 @@ use super::rags::{RagSettings, Rock, Sim, Spot};
 use super::tectonics::{self, Boundary, Contact, Drift, Motion, MotionSettings};
 use super::view::{MAGENTA, PINK, compass, fold_section, seed_row};
 use crate::debug::{default_light, default_preset, preset_bar, save_shortcut};
-use bevy_egui::egui::{self, Color32, Pos2, Vec2};
+use egui::{Color32, Pos2, Vec2};
 use serde::{Deserialize, Serialize};
 
 /// Ocean inside the world (deep), shallow water, and the dark past its edge.

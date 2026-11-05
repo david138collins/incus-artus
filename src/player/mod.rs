@@ -44,8 +44,8 @@ use crate::world::{
     RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, block_halves, block_placement, half_box, held, object_box, piece_start, PlacedObject, shape_boxes, solid_boxes, spot, turned,
 };
 use bevy::prelude::*;
-use bevy_egui::input::EguiWantsInput;
-use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use crate::ui::EguiWantsInput;
+use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use collision::{BodySize, body_bounds, has_support_halves, move_body_stepping, overlaps_solid_halves};
 use serde::{Deserialize, Serialize};
 

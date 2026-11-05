@@ -35,7 +35,7 @@ use super::view::fold_section;
 use crate::data::BlockRegistry;
 use crate::world::placer::{Candidate, Chooser, Column, Curve, Distributor, FIELDS, Field, Layer, MadeField, Mode, Program, Puts, Reading, Source, Stage, Traced, Under, Upto, Wander};
 use crate::world::{BlockId, CompiledMap, Layers, Mineralogy, MineralogySettings, SEA_LEVEL, Spline, TerrainBlocks, WORLD_BOTTOM, WORLD_HEIGHT, Why, under_sea, whole_column};
-use bevy_egui::egui::{self, Color32, RichText};
+use egui::{Color32, RichText};
 
 /// The climate at a spot (temperature and rain at north, east and a Z), or none.
 pub type ClimateAt<'a> = dyn Fn(f32, f32, f32) -> Option<(f32, f32)> + Sync + 'a;

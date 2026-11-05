@@ -26,7 +26,7 @@ use crate::debug::DebugAppExt;
 use crate::save::{WorldFolder, WorldStateAppExt};
 use crate::time::{WorldClock, describe_moment};
 use bevy::prelude::*;
-use bevy_egui::egui;
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, VecDeque};
 

@@ -3,7 +3,7 @@
 //! typed, to `notes/section notes.toml` (next to `presets/`), where Claude can read them too: a
 //! table for each panel, a note for each section.
 
-use bevy_egui::egui;
+
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;

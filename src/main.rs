@@ -1,8 +1,9 @@
 //! Incus Artus — program entry point.
 //!
-//! Bevy games are assembled from *plugins*. A plugin is a self-contained module
-//! that adds its own data (resources, components) and behaviour (systems) to the app.
-//! `main` lists the plugins and starts the loop; it contains no game logic itself.
+//! The game is assembled from *plugins*: each module adds its own data (resources, components) and
+//! behaviour (systems). Since the regroup (docs/regroup.md) only Bevy's core is used (the ECS, the
+//! scheduler, states, time, input types, logging); the window, the card and the frame loop are ours
+//! (`runner`). `main` lists the plugins and starts the loop; it contains no game logic itself.
 //!
 //! Modules (one folder or file each):
 //! - `debug`   — the developer debug panel; other modules add pages to it
@@ -13,7 +14,10 @@
 //! - `kinematics` — the shapes of motion (ADSR envelopes) and their editor
 //! - `save`    — worlds as folders: save, load, new world (each module saves its own part)
 //! - `world`   — chunks, sections, block storage and queries
-//! - `render`  — meshing, textures, the block shader, culling
+//! - `runner`  — the frame lane: the window, the card, the frame loop and the frame cap
+//! - `ui`      — the debug panel's egui, as the game's systems see it
+//! - `look`    — the World Compiler's block colours and shading, and the old renderer's kept settings
+//! - `perf`    — the frame rate, the steps' times and the slow-frame log
 //! - `fate`    — the Goddess of Fate: one probability engine for every random roll
 //! - `sim`     — the world simulation: local / rich / thin levels, places, journeys, hooks
 //! - `people`  — named people: urges that charge up, pressures that lower the line, meetings
@@ -21,12 +25,11 @@
 //! - `player`  — the walking body, fly/walk switching, breaking and placing blocks
 //! - `screen`  — which screen is showing: the world, or the World Gen suite (F2)
 //! - `worldgen` — the World Gen suite: the workbench the world generator is built in, one tool at a time
-//! - `sandbox` — TEMPORARY test helpers (compass markers, orbiting cube)
 //! - `soak` — the soak test (does the game run worse over time?); `temperatures` — CPU / GPU readout
 //! - `diagnostics` — the session log, crash and freeze reports, and whether the last session ended
 //!   normally (all in `logs/`)
 //!
-//! The developer tools (the debug panel, the World Gen suite, sandbox, soak test, temperatures)
+//! The developer tools (the debug panel, the World Gen suite, soak test, temperatures)
 //! are switched on by the `dev` feature (Cargo.toml), on by default. Built without it, the game is
 //! a player's copy: their code is still compiled, just never switched on, so it's left unused.
 #![cfg_attr(not(feature = "dev"), allow(dead_code, unused_imports))]
@@ -39,64 +42,34 @@ mod diagnostics;
 mod events;
 mod fate;
 mod kinematics;
+mod look;
 mod people;
+mod perf;
 mod player;
-mod render;
-mod sandbox;
+mod runner;
 mod save;
 mod screen;
 mod sim;
 mod soak;
 mod temperatures;
 mod time;
+mod ui;
 mod world;
 mod worldgen;
 
 use bevy::prelude::*;
-use bevy_egui::EguiPlugin;
 
-/// How the game talks to the graphics card. On Windows: **DirectX 12**. On 2026-10-24 we found
-/// that the other choice, Vulkan, sometimes gets stuck on this kind of machine (an NVIDIA laptop):
-/// handing each finished frame to the screen stalls, and the game drops to about 6 frames a second
-/// while DirectX 12 runs at 240, back to back. Setting `WGPU_BACKEND` (for example to `vulkan`)
-/// still chooses, for testing.
-///
-/// Its shaders are compiled with **DXC** where it can be found: the old compiler (FXC), Bevy's
-/// choice without `dxcompiler.dll` beside the game, took some 50 s over the far view's march at every
-/// start, a core flat out and the march not drawn till then; DXC takes under 10 s [found 2026-11-04].
-/// `WGPU_DX12_COMPILER` (`fxc`, `dxc`) still chooses, for testing.
-fn graphics_settings() -> bevy::render::settings::WgpuSettings {
-    let mut settings = bevy::render::settings::WgpuSettings::default();
-    if cfg!(windows) && std::env::var("WGPU_BACKEND").is_err() {
-        settings.backends = Some(bevy::render::settings::Backends::DX12);
-    }
-    if cfg!(windows)
-        && std::env::var("WGPU_DX12_COMPILER").is_err()
-        && matches!(settings.dx12_shader_compiler, bevy::render::settings::Dx12Compiler::Fxc)
-        && let Some(dxc) = windows_sdk_dxc()
-    {
-        settings.dx12_shader_compiler = bevy::render::settings::Dx12Compiler::DynamicDxc { dxc_path: dxc };
-    }
-    settings
-}
-
-/// Bevy's worker threads: its own choice (one for each of the processor's cores, less the other
-/// pools'), unless `INCUS_COMPUTE_THREADS=<n>` sets how many run the game's systems side by side
-/// (for measuring what waking them every frame costs).
+/// Bevy's worker threads [2026-11-05: its default woke 16 workers every frame, about 47,000 wake-ups a
+/// second at the menu]: the game's systems run on one thread (each schedule single-threaded, `main`),
+/// so the compute pool keeps one; the async pool (the loading lane's jobs: chunks, the World Compiler)
+/// keeps Bevy's own size and sleeps when there's nothing to do. `INCUS_COMPUTE_THREADS=<n>` still sets
+/// the compute pool (for measuring).
 fn task_pools() -> TaskPoolOptions {
     let mut options = TaskPoolOptions::default();
-    if let Some(threads) = std::env::var("INCUS_COMPUTE_THREADS").ok().and_then(|v| v.parse::<usize>().ok()) {
-        options.compute.min_threads = threads.max(1);
-        options.compute.max_threads = threads.max(1);
-    }
+    let threads = std::env::var("INCUS_COMPUTE_THREADS").ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(1).max(1);
+    options.compute.min_threads = threads;
+    options.compute.max_threads = threads;
     options
-}
-
-/// The Windows SDK's `dxcompiler.dll`, if it is installed (with the `dxil.dll` beside it).
-fn windows_sdk_dxc() -> Option<String> {
-    let folder = std::path::Path::new(r"C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64");
-    let dxc = folder.join("dxcompiler.dll");
-    (dxc.is_file() && folder.join("dxil.dll").is_file()).then(|| dxc.to_string_lossy().into_owned())
 }
 
 fn main() {
@@ -104,24 +77,18 @@ fn main() {
     diagnostics::start();
     let mut app = App::new();
     app
-        // Bevy's standard set: window, input, rendering, assets, audio, etc.
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "Incus Artus".into(),
-                        resolution: (1280, 960).into(),
-                        ..default()
-                    }),
-                    ..default()
-                })
-                .set(bevy::render::RenderPlugin { render_creation: graphics_settings().into(), ..default() })
-                .set(TaskPoolPlugin { task_pool_options: task_pools() })
-                // Everything logged also goes to the session log (see `diagnostics`).
-                .set(bevy::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() }),
-        )
-        // egui draws the debug panel.
-        .add_plugins(EguiPlugin::default())
+        // Bevy's core only (the regroup): threads, the frame counter, time, input types, states,
+        // and logging (which also goes to the session log, see `diagnostics`).
+        .add_plugins((
+            TaskPoolPlugin { task_pool_options: task_pools() },
+            bevy::diagnostic::FrameCountPlugin,
+            bevy::time::TimePlugin,
+            bevy::input::InputPlugin,
+            bevy::state::app::StatesPlugin,
+            bevy::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() },
+        ))
+        // The debug panel's egui (drawn by the runner).
+        .add_plugins((ui::UiPlugin, look::LookPlugin, perf::PerfPlugin))
         // Our modules. Debug goes first so its "Overview" page is the first tab.
         // The order also decides the order parts of a world are saved and loaded in
         // (clock, terrain, fate, sim, people, player): terrain must be back before the player
@@ -134,27 +101,27 @@ fn main() {
             data::DataPlugin,
             save::SavePlugin,
             world::WorldPlugin,
-            render::RenderPlugin,
             fate::FatePlugin,
             sim::SimPlugin,
             people::PeoplePlugin,
             camera::CameraPlugin,
             player::PlayerPlugin,
             screen::ScreenPlugin,
-        ))
-        .add_systems(Startup, fill_the_screen);
+        ));
     // The developer tools: everything a player's copy of the game leaves out (see `dev` in
     // Cargo.toml). Their code is still built either way; only switching them on is skipped.
     #[cfg(feature = "dev")]
-    app.add_plugins((worldgen::WorldGenPlugin, sandbox::SandboxPlugin, soak::SoakPlugin, temperatures::TemperaturesPlugin));
-    app.run();
+    app.add_plugins((worldgen::WorldGenPlugin, soak::SoakPlugin, temperatures::TemperaturesPlugin));
+    // Every schedule on one thread: the game's systems are small, and waking workers to share them
+    // out cost more than it saved [chain 7, 2026-11-05].
+    single_threaded(&mut app);
+    runner::run(app);
     diagnostics::ended_normally();
 }
 
-/// Starts the window maximised, so it fills the screen above the taskbar (1280 × 960 is only
-/// its size when un-maximised).
-fn fill_the_screen(mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>) {
-    for mut window in &mut windows {
-        window.set_maximized(true);
+/// Sets every schedule the app has to run its systems on one thread.
+fn single_threaded(app: &mut App) {
+    for (_, schedule) in app.world_mut().resource_mut::<Schedules>().iter_mut() {
+        schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
     }
 }

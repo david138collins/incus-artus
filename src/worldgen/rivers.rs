@@ -22,7 +22,7 @@
 //! only, for now: every basin fills and spills (salt lakes, which stand lower, come later).
 
 use crate::world::SEA_LEVEL;
-use bevy_egui::egui::Color32;
+use egui::Color32;
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering as Order, Reverse};
 use std::collections::BinaryHeap;

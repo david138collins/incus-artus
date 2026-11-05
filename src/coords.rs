@@ -1,5 +1,9 @@
 //! Coordinates — the ONE place where game axes meet Bevy's axes.
 //!
+//! [The regroup, docs/regroup.md: Bevy's renderer was cut, so nothing reads this for now. The new
+//! renderer (phase 1) chooses its own axes and keeps the floating origin below; this file is
+//! rewritten or goes then.]
+//!
 //! Game axes (used by every game system):
 //!   +X = north   −X = south
 //!   +Y = east    −Y = west
@@ -21,6 +25,8 @@
 //! instead, a point on a 1,024-block grid near the camera, moved (and everything drawn shifted with
 //! it) when the camera has gone further than that. Game positions stay the world's; only Bevy's are
 //! measured from the origin: `RenderOrigin::to_bevy` and `to_game` turn one into the other.
+
+#![allow(dead_code)]
 
 use bevy::math::{IVec3, Vec3};
 use bevy::prelude::Resource;

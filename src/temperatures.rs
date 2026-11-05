@@ -11,7 +11,7 @@
 
 use crate::screen::Screen;
 use bevy::prelude::*;
-use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

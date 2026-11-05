@@ -13,7 +13,7 @@
 use crate::data::master_palette::{self, MasterPalette, Rgb};
 use super::palette::Spread;
 use crate::data::{BarLook, BlockDef, BlockRegistry, bar_texture_folder, block_texture_folder};
-use bevy_egui::egui::{self, Color32, Stroke};
+use egui::{Color32, Stroke};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -176,7 +176,7 @@ impl Registrar {
                 if self.textures.contains_key(name) {
                     continue;
                 }
-                let texture = match crate::render::textures::load_texture(&folder.join(format!("{name}.png"))) {
+                let texture = match crate::look::load_texture(&folder.join(format!("{name}.png"))) {
                     Ok(pixels) => Texture { colours: master_palette::colours_in(&pixels), image: None, preview: None, pixels, problem: None },
                     Err(problem) => Texture { colours: Vec::new(), image: None, preview: None, pixels: Vec::new(), problem: Some(problem) },
                 };
@@ -557,7 +557,7 @@ fn texture_id(ctx: &egui::Context, registrar: &mut Registrar, name: &str, transf
     if let Some(problem) = &texture.problem {
         return Err(problem.clone());
     }
-    let side = crate::render::textures::TEXTURE_SIZE as usize;
+    let side = crate::look::TEXTURE_SIZE as usize;
     // As the transform would make it: each pixel's colour mapped (made again whenever the
     // transform changes).
     let mapping = &registrar.mapping;
@@ -1048,7 +1048,7 @@ fn bar_pngs() -> Vec<PathBuf> {
 
 /// A bar picture's pixels, if it's the size wanted.
 fn bar_picture(path: &Path, (wide, tall): (u32, u32)) -> Result<Vec<u8>, String> {
-    let (width, height, pixels) = crate::render::textures::read_png(path)?;
+    let (width, height, pixels) = crate::look::read_png(path)?;
     if (width, height) == (wide, tall) { Ok(pixels) } else { Err(format!("is {width}×{height}, must be {wide}×{tall}")) }
 }
 
@@ -1056,7 +1056,7 @@ impl IncomingBar {
     /// Takes a picture as the side or the end, by its size (16 × 32 or 16 × 16), or as the one being
     /// picked if it's neither; names the block after it if it has no name yet.
     fn take(&mut self, path: &Path) {
-        let size = crate::render::textures::read_png(path).map(|(width, height, _)| (width, height)).ok();
+        let size = crate::look::read_png(path).map(|(width, height, _)| (width, height)).ok();
         let side = match size {
             Some(BAR_SIDE) => true,
             Some(BAR_END) => false,
@@ -1123,7 +1123,7 @@ impl Registrar {
         }
         self.incoming = Some(Incoming {
             from: path.to_path_buf(),
-            pixels: crate::render::textures::load_texture(path),
+            pixels: crate::look::load_texture(path),
             name: asset_name(path),
             make_block: true,
             image: None,
@@ -1315,7 +1315,7 @@ fn incoming_dock(ui: &mut egui::Ui, registrar: &mut Registrar) {
             return;
         }
     };
-    let side = crate::render::textures::TEXTURE_SIZE as usize;
+    let side = crate::look::TEXTURE_SIZE as usize;
     let image = incoming.image.get_or_insert_with(|| ui.ctx().load_texture("registrar incoming", egui::ColorImage::from_rgba_unmultiplied([side, side], &pixels), egui::TextureOptions::NEAREST));
     let (rect, _) = ui.allocate_exact_size(egui::vec2(128.0, 128.0), egui::Sense::hover());
     ui.painter().image(image.id(), rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)), Color32::WHITE);
@@ -2417,7 +2417,7 @@ fn undo_last(folder: &Path) -> Result<String, String> {
 
 /// Write 32 x 32 RGBA pixels as a PNG.
 fn write_png(path: &Path, pixels: &[u8]) -> Result<(), String> {
-    let side = crate::render::textures::TEXTURE_SIZE;
+    let side = crate::look::TEXTURE_SIZE;
     let file = std::fs::File::create(path).map_err(|error| error.to_string())?;
     let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), side, side);
     encoder.set_color(png::ColorType::Rgba);

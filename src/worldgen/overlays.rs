@@ -13,7 +13,7 @@ use super::additives::{Grain, grain};
 use super::compiler::{Bake, blur};
 use super::runner::{Job, Poll, every_pixel};
 use crate::world::{CompiledMap, Spline};
-use bevy_egui::egui::Color32;
+use egui::Color32;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 

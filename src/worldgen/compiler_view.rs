@@ -29,7 +29,7 @@ use super::view::{MAGENTA, PINK, compass, fold_section, switched_section};
 use super::world::defaults_row;
 use crate::debug::{default_light, default_preset, preset_bar, save_shortcut};
 use bevy::math::IVec2;
-use bevy_egui::egui::{self, Color32, Vec2};
+use egui::{Color32, Vec2};
 use std::sync::Arc;
 
 /// Past the edge of the world.
@@ -91,7 +91,7 @@ pub struct Compiler {
     pub lab_sizes: bool,
     /// The placer's field view (the Mineralogy panel's Fields section).
     pub fields: super::placer_view::FieldView,
-    lab_palette: Option<(u64, Arc<crate::render::distant::Palette>)>,
+    lab_palette: Option<(u64, Arc<crate::look::Palette>)>,
     /// The noise maths' timings, once asked for (the World Interpreter panel).
     noise_timing: Option<String>,
     /// The view's map with the rivers carved in, and what it was made from (the recipe's map and the
@@ -2339,7 +2339,7 @@ fn lab_readouts(ui: &mut egui::Ui, compiler: &mut Compiler) {
 pub struct Look<'a> {
     pub registry: &'a crate::data::BlockRegistry,
     pub objects: &'a crate::data::ObjectRegistry,
-    pub shade: crate::render::distant::Shade,
+    pub shade: crate::look::Shade,
     /// The distance the hill shading's slope is measured over (the distant terrain's finest cell).
     pub finest_cell: f32,
 }
@@ -2403,7 +2403,7 @@ struct PaintKey {
     shores: bool,
     sizes: bool,
     blocks: u64,
-    shade: crate::render::distant::Shade,
+    shade: crate::look::Shade,
     /// What the map shows, and the field view's or the depth sweep's look, when it shows one
     /// (`placer_view.rs`).
     field: Option<(super::placer_view::Shows, super::placer_view::FieldLook)>,
@@ -2434,7 +2434,7 @@ fn water_tint(across: f32) -> [u8; 3] {
     [0, 1, 2].map(|c| (a[c] + (b[c] - a[c]) * f) as u8)
 }
 
-fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: Option<&LiveClimate>, look: &Look, palette: &crate::render::distant::Palette, wanted: &PaintKey) -> Vec<Color32> {
+fn block_picture(frame: &lab::Frame, map: &crate::world::CompiledMap, climate: Option<&LiveClimate>, look: &Look, palette: &crate::look::Palette, wanted: &PaintKey) -> Vec<Color32> {
     let (lit, shores, sizes) = (wanted.lit, wanted.shores, wanted.sizes);
     let request = &frame.request;
     let (cols, rows, step) = (request.cols, request.rows, request.step);
@@ -2586,7 +2586,7 @@ fn canvas(ui: &mut egui::Ui, compiler: &mut Compiler, look: &Look) {
             let revision = look.registry.revision();
             if compiler.lab_palette.as_ref().is_none_or(|(made_for, _)| *made_for != revision) {
                 let blocks = crate::world::TerrainBlocks::from_registry(look.registry);
-                compiler.lab_palette = Some((revision, Arc::new(crate::render::distant::Palette::from_textures(look.registry, &blocks))));
+                compiler.lab_palette = Some((revision, Arc::new(crate::look::Palette::from_textures(look.registry, &blocks))));
             }
             let s = &map.settings;
             let wanted = PaintKey {

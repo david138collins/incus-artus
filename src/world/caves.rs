@@ -122,6 +122,8 @@ impl CavePlan {
 
     /// Every section-sized box any cave comes near: its chunk, and its level (the far copies look
     /// for those near the ground, `render/far_copies.rs`).
+    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
+    #[allow(dead_code)]
     pub fn boxes(&self) -> impl Iterator<Item = (ChunkPos, i32)> + '_ {
         self.index.keys().map(|&(x, y, level)| (ChunkPos::new(x, y), level))
     }

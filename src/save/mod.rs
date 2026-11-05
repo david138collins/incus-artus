@@ -29,7 +29,7 @@ use crate::debug::{DebugAppExt, project_folder};
 use crate::events::{EventLogAppExt, LoggedEvent};
 use crate::time::TimeControl;
 use bevy::prelude::*;
-use bevy_egui::egui;
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

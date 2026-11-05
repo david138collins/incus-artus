@@ -28,7 +28,7 @@ use super::warp::{WarpMode, WarpSettings};
 use super::worley::{Distance, Feature, WorleySettings};
 use super::palette::{self, Channel, Colouring, Spread};
 use crate::debug::preset_bar;
-use bevy_egui::egui::{self, Color32, Pos2, Rect, Vec2};
+use egui::{Color32, Pos2, Rect, Vec2};
 
 pub const PINK: Color32 = Color32::from_rgb(255, 140, 220);
 pub const MAGENTA: Color32 = Color32::from_rgb(255, 0, 255);

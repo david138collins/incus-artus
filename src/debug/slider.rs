@@ -10,7 +10,7 @@
 //!
 //! Hold **Shift** for finer steps (a tenth as far; whole numbers still move by one).
 
-use bevy_egui::egui::{self, Response, Ui, Vec2, Widget, WidgetText, emath::Numeric};
+use egui::{Response, Ui, Vec2, Widget, WidgetText, emath::Numeric};
 use std::ops::RangeInclusive;
 
 pub struct Slider<'a, N: Numeric> {

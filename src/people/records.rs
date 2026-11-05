@@ -93,6 +93,8 @@ pub enum Doing {
 
 impl Doing {
     /// The urge being worked on, if any.
+    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
+    #[allow(dead_code)]
     pub fn urge(&self) -> Option<Urge> {
         match self {
             Doing::Going { urge, .. } | Doing::Satisfying { urge, .. } => Some(*urge),
