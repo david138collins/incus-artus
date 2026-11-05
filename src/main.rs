@@ -89,7 +89,7 @@ fn main() {
             crate::ecs::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() },
         ))
         // The debug panel's egui (drawn by the runner).
-        .add_plugins((ui::UiPlugin, look::LookPlugin, perf::PerfPlugin))
+        .add_plugins(ui::UiPlugin)
         // Our modules. Debug goes first so its "Overview" page is the first tab.
         // The order also decides the order parts of a world are saved and loaded in
         // (clock, terrain, fate, sim, people, player): terrain must be back before the player
@@ -102,6 +102,8 @@ fn main() {
             data::DataPlugin,
             save::SavePlugin,
             world::WorldPlugin,
+            look::LookPlugin,
+            perf::PerfPlugin,
             fate::FatePlugin,
             sim::SimPlugin,
             people::PeoplePlugin,
