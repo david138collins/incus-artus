@@ -981,6 +981,15 @@ workload then rendered as screen resolution through a mask using the same warpin
 views". That is option B in `vision/proposal-voxel-renderer.md`, the resolution curve, not built yet: as far
 as Counsel can read, every pixel still gets a ray. Builder to assess it after the floor.
 
+**Far land as a backdrop, and importance [David 2026-11-05]:** "if 4.2 wavers during the boss fight in the
+first play through of the game ever while directing two generals of spearmen, im not gonna complain. if the
+terrain in the distance looks good but its a Strife or Hexen backdrop, thats enough. as long as he can see
+something important from the moment its a pixel to two pixels and it can all be painted right." So the
+heaviest moments may dip below 240 (taken as: 120 still holds), and distant terrain only has to look good. The
+firm rule: an important thing shows correctly from its first pixel, never dropped or averaged away. Which
+things count is his call. Builder to assess a backdrop (the dome in `vision/proposal-voxel-renderer.md`),
+how important things survive averaged cells, and many moving figures on the card.
+
 **The low end [David 2026-11-05]:** "980ti should be the price of admission at standard looks". Taken as a
 smooth 60 at 1080p on a clean machine ("i am not trying to account for people downloading bonzai buddy"). He
 named a 2011 desktop first, then took it back: "oh i didnt know 2011 was the 680 days im sorry no". So there's
