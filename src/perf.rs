@@ -4,7 +4,7 @@
 //!
 //! - **Steps time themselves:** the frame's parts (the runner's: the game's update, the panel,
 //!   getting the next picture, drawing the panel for the card, handing the card its work, showing
-//!   it, waiting for the screen) and the game's own heavy steps (`Timed`), so a slow
+//!   it, waiting for the beat) and the game's own heavy steps (`Timed`), so a slow
 //!   frame says where its time went. Background jobs on the loading lane time themselves too
 //!   (`Background`), logged every 10 s.
 //! - **Every slow frame is logged** with what ran in it: uncapped, any frame over `SLOW_MS` (8.3 ms:
@@ -145,6 +145,37 @@ fn log_cores(seconds: f32) {
     info!("The frame's thread in the last {seconds:.0} s: {:.1}% of frames on the efficient cores; by core: {}", share(on_efficient), listed.join(", "));
 }
 
+/// How late the frame's alarm woke after each beat since the last count (ms; `runner::pace`).
+static WAKES: Mutex<Vec<f32>> = Mutex::new(Vec::new());
+
+/// The frame's alarm woke this late after its beat (the runner, under a steady limit, in dev builds):
+/// the time it takes to get the hardware's attention [Counsel's bolt 5 and 6, David 2026-11-05: "zero
+/// latency from having to get its attention"].
+pub fn woke(late_ms: f32) {
+    if let Ok(mut wakes) = WAKES.lock() {
+        wakes.push(late_ms);
+    }
+}
+
+/// How late the alarm woke in the last `seconds`, in the log: in a soak test or test window, or
+/// whenever a wake-up was over a millisecond late.
+fn log_wakes(seconds: f32) {
+    let Ok(mut wakes) = WAKES.lock() else { return };
+    let mut taken = std::mem::take(&mut *wakes);
+    drop(wakes);
+    if taken.is_empty() {
+        return;
+    }
+    taken.sort_by(f32::total_cmp);
+    let at = |share: f32| taken[((taken.len() - 1) as f32 * share) as usize];
+    let worst = taken[taken.len() - 1];
+    if worst <= 1.0 && !crate::soak::measuring() {
+        return;
+    }
+    let over = taken.iter().filter(|&&late| late > 1.0).count();
+    info!("The frame's alarm in the last {seconds:.0} s ({} wake-ups): late by {:.3} ms in the middle, {:.3} at the 99th in 100, {:.3} at worst; {over} over 1 ms", taken.len(), at(0.5), at(0.99), worst);
+}
+
 /// Every `BACKGROUND_EVERY` seconds, the log says what the background jobs took, busiest first.
 pub fn log_background(time: Res<Time<Real>>, mut last: Local<f32>) {
     let now = time.elapsed_secs();
@@ -154,6 +185,7 @@ pub fn log_background(time: Res<Time<Real>>, mut last: Local<f32>) {
     let seconds = now - *last;
     *last = now;
     log_cores(seconds);
+    log_wakes(seconds);
     let Ok(mut jobs) = BACKGROUND.lock() else { return };
     let mut taken = std::mem::take(&mut *jobs);
     drop(jobs);

@@ -1,44 +1,81 @@
-//! What the hardware says through Windows directly: the screen's refreshes (`ScreenClock`, the frame
-//! cap's clock) and which processor core the frame is on (`current_core`, `core_classes`). Off Windows
-//! there's no screen clock (the frame cap falls back to the timer) and no core.
+//! What the frame asks of the hardware through Windows directly:
+//! - **the alarm** (`Alarm`): wakes the frame on its beat, by Windows' high-resolution timer;
+//! - **the game's claim on the PC's attention** (`Attention`), held while it's in front and given back
+//!   when it isn't [David 2026-11-05: "relaxed but ready to act instantly without any distraction";
+//!   "a full screen only thing that tyrannizes the PC, as long as people can at least tab back to
+//!   discord quickly"];
+//! - **which processor core the frame is on** (`current_core`, `core_classes`).
+//!
+//! Off Windows the alarm is the plain sleep, there's no claim, and no core.
+//!
+//! (Build 62 paced the cap by the screen's own refreshes instead. On David's laptop the screen has a
+//! variable refresh rate: in a game it waits for each frame, so its refreshes followed the game and
+//! made a poor clock [docs/regroup.md, build 62's test window]. Taken out in build 63.)
+
+use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 mod windows_only {
-    use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1, IDXGIOutput};
+    use std::time::Duration;
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows::Win32::Media::{timeBeginPeriod, timeEndPeriod};
+    use windows::Win32::System::Threading::{
+        CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, CreateWaitableTimerExW, GetCurrentProcess, GetCurrentThread, INFINITE, PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE,
+        ProcessPowerThrottling, SetProcessInformation, SetThreadPriority, SetWaitableTimer, THREAD_PRIORITY_HIGHEST, THREAD_PRIORITY_NORMAL, TIMER_ALL_ACCESS, WaitForSingleObject,
+    };
 
-    /// The screen's own clock: waits for its next refresh (its vertical blank).
-    pub struct ScreenClock {
-        output: IDXGIOutput,
-        monitor: isize,
+    /// Windows' high-resolution waitable timer (Windows 10 from 2018 on): wakes within a fraction of
+    /// a millisecond, without speeding up the system's tick.
+    pub struct Timer(HANDLE);
+
+    impl Timer {
+        pub fn new() -> Option<Self> {
+            unsafe { CreateWaitableTimerExW(None, windows::core::PCWSTR::null(), CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS.0) }.ok().map(Timer)
+        }
+
+        /// Sleeps for `wait`. False if the timer couldn't be set.
+        pub fn sleep(&self, wait: Duration) -> bool {
+            // In hundreds of nanoseconds, negative for "from now".
+            let due = -((wait.as_nanos() / 100).max(1) as i64);
+            if unsafe { SetWaitableTimer(self.0, &due, 0, None, None, false) }.is_err() {
+                return false;
+            }
+            unsafe { WaitForSingleObject(self.0, INFINITE) };
+            true
+        }
     }
 
-    impl ScreenClock {
-        /// The clock of the screen `monitor` (winit's handle for it), from whichever graphics adapter
-        /// drives it: on a laptop that may not be the card that draws.
-        pub fn for_monitor(monitor: isize) -> Option<Self> {
-            let factory: IDXGIFactory1 = unsafe { CreateDXGIFactory1() }.ok()?;
-            for a in 0.. {
-                let Ok(adapter) = (unsafe { factory.EnumAdapters1(a) }) else { break };
-                for o in 0.. {
-                    let Ok(output) = (unsafe { adapter.EnumOutputs(o) }) else { break };
-                    if let Ok(desc) = unsafe { output.GetDesc() }
-                        && desc.Monitor.0 as isize == monitor
-                    {
-                        return Some(Self { output, monitor });
-                    }
-                }
-            }
-            None
+    impl Drop for Timer {
+        fn drop(&mut self) {
+            let _ = unsafe { CloseHandle(self.0) };
         }
+    }
 
-        pub fn monitor(&self) -> isize {
-            self.monitor
+    /// Takes the PC's attention for the game (on the frame's thread): Windows' tick at 1 ms (since
+    /// 2020 it applies to this program alone, and Windows 11 drops it while the window is hidden), the
+    /// frame's thread first in line, and Windows told not to slow the game down to save power (which
+    /// would also move it to the efficient cores).
+    pub fn take_attention() {
+        unsafe {
+            timeBeginPeriod(1);
+            let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
         }
+        power_throttling(false);
+    }
 
-        /// Sleeps until the screen's next refresh begins. False if the screen couldn't say.
-        pub fn wait_for_refresh(&self) -> bool {
-            unsafe { self.output.WaitForVBlank() }.is_ok()
+    /// Gives it all back, so the PC is everyone else's.
+    pub fn give_back_attention() {
+        unsafe {
+            timeEndPeriod(1);
+            let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
         }
+        power_throttling(true);
+    }
+
+    /// Whether Windows may slow the game down to save power (true: it decides, as for any program).
+    fn power_throttling(allowed: bool) {
+        let state = PROCESS_POWER_THROTTLING_STATE { Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION, ControlMask: if allowed { 0 } else { PROCESS_POWER_THROTTLING_EXECUTION_SPEED }, StateMask: 0 };
+        let _ = unsafe { SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &state as *const _ as *const core::ffi::c_void, std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32) };
     }
 
     /// The processor core this thread is running on now.
@@ -86,21 +123,23 @@ mod windows_only {
 
 #[cfg(not(windows))]
 mod windows_only {
-    pub struct ScreenClock;
+    use std::time::Duration;
 
-    impl ScreenClock {
-        pub fn for_monitor(_monitor: isize) -> Option<Self> {
+    pub struct Timer;
+
+    impl Timer {
+        pub fn new() -> Option<Self> {
             None
         }
 
-        pub fn monitor(&self) -> isize {
-            0
-        }
-
-        pub fn wait_for_refresh(&self) -> bool {
+        pub fn sleep(&self, _wait: Duration) -> bool {
             false
         }
     }
+
+    pub fn take_attention() {}
+
+    pub fn give_back_attention() {}
 
     pub fn current_core() -> u32 {
         0
@@ -111,18 +150,61 @@ mod windows_only {
     }
 }
 
-pub use windows_only::*;
+pub use windows_only::{core_classes, current_core};
 
-/// winit's handle for the screen the window is on (Windows' `HMONITOR`).
-pub fn monitor_of(window: &winit::window::Window) -> Option<isize> {
-    #[cfg(windows)]
-    {
-        use winit::platform::windows::MonitorHandleExtWindows;
-        window.current_monitor().map(|monitor| monitor.hmonitor())
+/// Wakes the frame at a moment: Windows' high-resolution timer where there is one, else the plain
+/// sleep.
+pub struct Alarm {
+    timer: Option<windows_only::Timer>,
+}
+
+impl Alarm {
+    pub fn new() -> Self {
+        Self { timer: windows_only::Timer::new() }
     }
-    #[cfg(not(windows))]
-    {
-        let _ = window;
-        None
+
+    /// Whether it's Windows' high-resolution timer.
+    pub fn precise(&self) -> bool {
+        self.timer.is_some()
+    }
+
+    /// Sleeps until `when` (straight back if it's gone by).
+    pub fn sleep_until(&self, when: Instant) {
+        let now = Instant::now();
+        if when <= now {
+            return;
+        }
+        let wait: Duration = when - now;
+        if !self.timer.as_ref().is_some_and(|timer| timer.sleep(wait)) {
+            std::thread::sleep(wait);
+        }
+    }
+}
+
+/// The game's claim on the PC's attention: taken while it's in front, given back when it isn't.
+#[derive(Default)]
+pub struct Attention {
+    held: bool,
+}
+
+impl Attention {
+    pub fn take(&mut self) {
+        if !self.held {
+            windows_only::take_attention();
+            self.held = true;
+        }
+    }
+
+    pub fn give_back(&mut self) {
+        if self.held {
+            windows_only::give_back_attention();
+            self.held = false;
+        }
+    }
+}
+
+impl Drop for Attention {
+    fn drop(&mut self) {
+        self.give_back();
     }
 }

@@ -1,7 +1,8 @@
 //! The soak test — does the game run worse the longer it runs? For automatic testing only.
 //!
 //! Start the game with `INCUS_SOAK=<seconds>` (and if wanted `INCUS_SOAK_SPEED=<blocks a second>`,
-//! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_CAP=<n>` for the frame cap,
+//! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_CAP=<frames a second, or uncapped>`
+//! for the frame limit,
 //! `INCUS_SOAK_WINDOW=<width>x<height>` for the window),
 //! together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
@@ -58,7 +59,8 @@ pub fn measuring() -> bool {
 // loop, the same runs at the screen, with their numbers written down. Started with
 // `INCUS_TEST_WINDOW=<seconds>` (120 if no number), the game runs them itself, so nobody has to watch
 // for a cue: the panel closed, `WARM_UP` seconds to settle, then that long uncapped, `SETTLE` seconds,
-// then that long at half the screen's refresh rate (120 on a 240 screen), then it quits. Each run's
+// then that long just under the screen's top rate (237 on a 240 screen), then it quits. It runs on
+// whether it's in front or not (it never freezes). Each run's
 // start and end go in the log with the time (seconds since 1970), so PresentMon's record, started
 // beside it, can be cut into the runs. The settings' frame cap is left as it was.
 
@@ -78,9 +80,11 @@ struct TestWindow {
     phase: usize,
 }
 
-/// The test window's phases: the frame cap, the run's name (none for the gaps), and how long.
-fn phases(seconds: f32) -> [(u32, Option<&'static str>, f32); 4] {
-    [(0, None, WARM_UP), (0, Some("uncapped"), seconds), (2, None, SETTLE), (2, Some("at half the refresh rate"), seconds)]
+/// The test window's phases: the frame limit's name (`look.rs`), the run's name (none for the gaps),
+/// and how long.
+fn phases(seconds: f32) -> [(&'static str, Option<&'static str>, f32); 4] {
+    use crate::look::{UNCAPPED, UNDER_THE_TOP};
+    [(UNCAPPED, None, WARM_UP), (UNCAPPED, Some("uncapped"), seconds), (UNDER_THE_TOP, None, SETTLE), (UNDER_THE_TOP, Some("just under the screen's top rate"), seconds)]
 }
 
 fn run_test_window(world: &mut World) {
@@ -109,7 +113,8 @@ fn run_test_window(world: &mut World) {
             }
         }
     }
-    world.resource_mut::<crate::runner::TestCap>().0 = phases.get(phase).map(|&(cap, ..)| cap);
+    let refresh = world.resource::<crate::runner::WindowState>().refresh;
+    world.resource_mut::<crate::runner::TestCap>().0 = phases.get(phase).map(|&(limit, ..)| crate::look::frame_limit(limit, refresh));
     world.resource_mut::<crate::debug::DebugPanel>().visible = false;
 }
 
@@ -163,11 +168,11 @@ fn fly_round(
     {
         kept.render.set_number("render_distance_chunks", distance as f32);
     }
-    // `INCUS_SOAK_CAP=<n>`: the frame cap (a frame every n of the screen's refreshes; 0 = none).
-    if let Some(cap) = std::env::var("INCUS_SOAK_CAP").ok().and_then(|v| v.parse().ok())
-        && kept.frame_cap() != cap
+    // `INCUS_SOAK_CAP=<frames a second, or "uncapped">`: the frame limit.
+    if let Ok(name) = std::env::var("INCUS_SOAK_CAP")
+        && kept.frame_limit_name() != name
     {
-        kept.set_frame_cap(cap);
+        kept.set_frame_limit_name(name);
     }
     // `INCUS_SOAK_WINDOW=<width>x<height>`: the window's size (does the card's work follow the pixels?).
     if !*resized

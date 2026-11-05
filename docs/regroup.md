@@ -197,6 +197,28 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
     (0.3 ms at full clock). Relaxed, but slow to answer: bolt 5 is real, and it matters more as the picture grows.
   - **Response time: not measured.** PresentMon without administrator rights didn't see the presses (every
     input-to-photon value is empty). It needs an elevated run, or a timing of our own.
+- **Build 63, the metronome and the attention** (David 2026-11-05, not yet measured):
+  - **The beat is ours:** the processor's own counter, each beat the last plus a frame's length, so it can't
+    drift; the alarm is Windows' high-resolution timer, and how late it wakes after every beat is measured and
+    logged (`perf::woke`): the "time to get its attention" figure. No holding still before the beat unless
+    the figure calls for it (David: "sounds like a catastrophe waiting to happen"; it's what RivaTuner does,
+    but only if needed). The screen's-refresh pacing of build 62 is taken out.
+  - **Attention while in front** (David: "a full screen only thing that tyrannizes the PC, as long as people
+    can at least tab back to discord quickly"): Windows' tick at 1 ms (for this program only, since 2020),
+    the frame's thread at the highest priority, Windows told not to slow the game down to save power. All of
+    it given back when the game isn't in front.
+  - **Freeze when not in front** (David: "i'd rather have the game just freeze (deliberately) and stay
+    there"; "i can't think of why someone would want it running blindly"): one last frame under a grey veil
+    with "Paused", then nothing drawn, the world stopped, the event loop asleep; a click brings it back, and
+    the time away is left out of the world's clock. A setting on the Render page; never while the game
+    measures itself.
+  - **Borderless fullscreen** by default (David: "yeah, borderless fullscreen is probably the best"); F11
+    makes it a window and back.
+  - **The frame limit** (the Render page's `frame_limit`): just under the screen's top rate by default (3
+    under: 237 on a 240 screen), the screen's rate by vsync (for screens without a variable refresh rate),
+    120, or uncapped. David: "if it ever starts failing to keep up at 237 or 240 or w/e, we stop and assess."
+    The old `frame_cap` (a frame every so many refreshes) is left in old presets and not read.
+  - **The torque spec's runs are now uncapped and just under the top** (the test window).
 - **For lane 0.2 (David 2026-11-05):** priorities on every job (this frame / soon / whenever), the workers below the
   frame thread; and in the simulation, under pressure the farthest and lightest give way first (the World sim,
   then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.

@@ -204,13 +204,17 @@ fn draw_time_notice(mut contexts: EguiContexts, control: Res<TimeControl>) -> Re
     Ok(())
 }
 
-/// Copies TimeControl into Bevy's clocks.
+/// Copies TimeControl into Bevy's clocks. The world also stops while the game is frozen because it
+/// isn't in front, and for the first frame back, so the time away is left out, not caught up on
+/// (`runner`) [David 2026-11-05: "i can't think of why someone would want it running blindly"].
 fn apply_time_control(
     control: Res<TimeControl>,
+    window: Option<Res<crate::runner::WindowState>>,
     mut virtual_time: ResMut<Time<Virtual>>,
     mut fixed_time: ResMut<Time<Fixed>>,
 ) {
-    if control.is_running() {
+    let away = window.is_some_and(|window| window.away() || window.resumed);
+    if control.is_running() && !away {
         virtual_time.unpause();
         virtual_time.set_relative_speed_f64(control.speed);
     } else {

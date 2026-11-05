@@ -38,26 +38,63 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     crate::debug::page_presets(ui, world, "render");
     ui.separator();
     ui.small("Nothing is drawn but the sky for now (the regroup: the old renderer was cut, the new one starts on the card). These presets still hold every value tuned for the old one.");
-    ui.strong("Frame cap");
+    ui.strong("Frame limit");
     let refresh = world.resource::<crate::runner::WindowState>().refresh;
     let mut kept = world.resource_mut::<KeptSettings>();
-    let mut cap = kept.frame_cap();
-    ui.horizontal_wrapped(|ui| {
-        for (value, label) in [(0, "uncapped".to_string()), (1, format!("{refresh:.0}")), (2, format!("{:.0}", refresh / 2.0)), (4, format!("{:.0}", refresh / 4.0))] {
-            ui.radio_value(&mut cap, value, label);
+    let mut chosen = kept.frame_limit_name();
+    ui.vertical(|ui| {
+        for (name, label) in [
+            (UNDER_THE_TOP, format!("just under the screen's top rate ({:.0}): for a screen with G-SYNC or FreeSync", under_the_top(refresh))),
+            (SCREEN_RATE, format!("the screen's rate ({refresh:.0}), by vsync: for a screen without them")),
+            ("120", "120".to_string()),
+            (UNCAPPED, "uncapped: as fast as it can, for measuring the room left".to_string()),
+        ] {
+            ui.radio_value(&mut chosen, name.to_string(), label);
         }
     });
-    if cap != kept.frame_cap() {
-        kept.set_frame_cap(cap);
+    if chosen != kept.frame_limit_name() {
+        kept.set_frame_limit_name(chosen);
     }
-    ui.small("Frames a second: a share of the screen's refresh rate, so each frame is shown for the same number of refreshes. Uncapped turns vsync off (for measuring; it can tear).");
+    let mut freeze = kept.freeze_when_away();
+    if ui.checkbox(&mut freeze, "Freeze when the game isn't in front").changed() {
+        kept.render.table.insert("freeze_when_away".to_string(), toml::Value::Boolean(freeze));
+    }
+    ui.small("Frozen, the game stays on the screen under a grey veil, the world stops and nothing is drawn till it's clicked again. F11: fullscreen or a window.");
 }
 
-/// The frame cap from the `render` group, for the runner.
-fn hand_over_the_frame_cap(kept: Res<KeptSettings>, mut cap: ResMut<crate::runner::FrameCap>) {
-    let wanted = kept.frame_cap();
+/// The frame limits' names in the settings.
+pub const UNDER_THE_TOP: &str = "just under the top";
+pub const SCREEN_RATE: &str = "the screen's rate";
+pub const UNCAPPED: &str = "uncapped";
+
+/// Just under the screen's top rate: 3 frames a second under it, so a screen with a variable refresh
+/// rate shows every frame the moment it's ready and never makes one wait [David 2026-11-05: "setting
+/// our frames at 237 or 240 if its a 250hz"].
+pub fn under_the_top(refresh: f32) -> f32 {
+    (refresh - 3.0).max(30.0)
+}
+
+/// The frame limit a setting's name stands for, on a screen of this refresh rate (a number is so many
+/// frames a second).
+pub fn frame_limit(name: &str, refresh: f32) -> crate::runner::FrameLimit {
+    use crate::runner::FrameLimit;
+    match name {
+        UNCAPPED => FrameLimit::Uncapped,
+        SCREEN_RATE => FrameLimit::ScreenRate,
+        _ => name.parse::<f32>().ok().filter(|fps| *fps >= 10.0).map_or(FrameLimit::Steady(under_the_top(refresh)), FrameLimit::Steady),
+    }
+}
+
+/// The frame limit and the freeze from the `render` group, for the runner. While the game measures
+/// itself (a soak test or test window) it never freezes.
+fn hand_over_the_frame_cap(kept: Res<KeptSettings>, mut cap: ResMut<crate::runner::FrameCap>, mut window: ResMut<crate::runner::WindowState>) {
+    let wanted = frame_limit(&kept.frame_limit_name(), window.refresh);
     if cap.0 != wanted {
         cap.0 = wanted;
+    }
+    let freeze = kept.freeze_when_away() && !crate::soak::measuring();
+    if window.freeze_when_away != freeze {
+        window.freeze_when_away = freeze;
     }
 }
 
@@ -113,13 +150,23 @@ impl KeptSettings {
         self.render.number("render_distance_chunks", 32.0) as i32
     }
 
-    /// The frame cap: a frame every this many of the screen's refreshes (0 = as fast as possible).
-    pub fn frame_cap(&self) -> u32 {
-        self.render.number("frame_cap", 2.0).max(0.0) as u32
+    /// The frame limit's name (`frame_limit`): just under the screen's top rate unless chosen. (The
+    /// old `frame_cap`, a frame every so many refreshes, is left in old presets and not read.)
+    pub fn frame_limit_name(&self) -> String {
+        match self.render.table.get("frame_limit") {
+            Some(toml::Value::String(name)) => name.clone(),
+            Some(toml::Value::Integer(fps)) => fps.to_string(),
+            _ => UNDER_THE_TOP.to_string(),
+        }
     }
 
-    pub fn set_frame_cap(&mut self, cap: u32) {
-        self.render.table.insert("frame_cap".to_string(), toml::Value::Integer(cap as i64));
+    pub fn set_frame_limit_name(&mut self, name: String) {
+        self.render.table.insert("frame_limit".to_string(), toml::Value::String(name));
+    }
+
+    /// Whether the game freezes when it isn't in front (`freeze_when_away`, on unless chosen).
+    pub fn freeze_when_away(&self) -> bool {
+        self.render.flag("freeze_when_away", true)
     }
 
     /// The finest ring's cell size the old far view used (blocks): the distance the World Compiler's
