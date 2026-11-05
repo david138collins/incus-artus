@@ -3,7 +3,9 @@
 //! Start the game with `INCUS_SOAK=<seconds>` (and if wanted `INCUS_SOAK_SPEED=<blocks a second>`,
 //! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_NEAR=0` for no near light window,
 //! `INCUS_SOAK_LAND=0` for no far land as cells, `INCUS_SOAK_BLACK=1` for nothing drawn (the sky's colour only),
-//! `INCUS_SOAK_CAP=<n>` for the frame cap, `INCUS_SOAK_WINDOW=<width>x<height>` for the window),
+//! `INCUS_SOAK_CAP=<n>` for the frame cap, `INCUS_SOAK_WINDOW=<width>x<height>` for the window,
+//! `INCUS_SOAK_FURTHEST=<blocks>` for where rays stop, `INCUS_SOAK_CONTINUOUS=1` to draw flat out
+//! without the focus),
 //! together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
 //! 1. renders the newest bake with the World Compiler's recipe as it starts (the defaults), and
@@ -53,7 +55,13 @@ pub struct SoakPlugin;
 impl Plugin for SoakPlugin {
     fn build(&self, app: &mut App) {
         let Some(seconds) = std::env::var("INCUS_SOAK").ok().and_then(|v| v.parse().ok()) else { return };
-        app.insert_resource(Soak { seconds, started: None, next_line: 0.0 })
+        // `INCUS_SOAK_CONTINUOUS=1`: drawn as fast as allowed even when Windows says the window hasn't
+        // the focus (Bevy's default holds an unfocused window to about 60 frames a second, which
+        // spoiled measurements: the test window often never gets the focus).
+        if std::env::var("INCUS_SOAK_CONTINUOUS").is_ok_and(|v| v == "1") {
+            app.insert_resource(bevy::winit::WinitSettings::continuous());
+        }
+        app.insert_resource(Soak { seconds, started: None, next_line: 0.0, frames: 0, focused: 0 })
             .add_systems(Update, fly_round.before(crate::camera::place_camera).run_if(in_state(Screen::Play)))
             .add_systems(Last, report);
     }
@@ -65,6 +73,9 @@ struct Soak {
     /// When the flight began (real seconds since the game started), once there's a world.
     started: Option<f32>,
     next_line: f32,
+    /// Frames since the last line, and how many of them the window had the focus (as Bevy sees it).
+    frames: u32,
+    focused: u32,
 }
 
 fn fly_round(
@@ -115,6 +126,14 @@ fn fly_round(
     {
         window.resolution.set_physical_resolution(width, height);
     }
+    // `INCUS_SOAK_FURTHEST=<blocks>`: rays stop there (the fog's end), to price the march by distance.
+    if let Some(furthest) = std::env::var("INCUS_SOAK_FURTHEST").ok().and_then(|v| v.parse::<f32>().ok())
+        && (render.fog_end != furthest || !render.fog_enabled)
+    {
+        render.fog_enabled = true;
+        render.fog_end = furthest;
+        render.fog_start = render.fog_start.min(furthest - 1.0);
+    }
     // Round the circle (north of the middle to start with), facing the way it's going.
     let (radius, speed) = (radius(), speed());
     let angle = (now - started) * speed / radius;
@@ -135,9 +154,15 @@ fn report(world: &mut World) {
     let soak = world.resource::<Soak>();
     let Some(started) = soak.started else { return };
     let (flown, seconds, next_line) = (now - started, soak.seconds, soak.next_line);
+    let focused = world.query_filtered::<&Window, With<bevy::window::PrimaryWindow>>().iter(world).next().is_some_and(|window| window.focused);
+    let mut soak = world.resource_mut::<Soak>();
+    soak.frames += 1;
+    soak.focused += focused as u32;
     if flown >= next_line {
+        let share = 100 * soak.focused / soak.frames.max(1);
+        (soak.frames, soak.focused) = (0, 0);
         let line = crate::render::soak_line(world);
-        info!("Soak {flown:>5.0} s: {line}");
+        info!("Soak {flown:>5.0} s: {line} | focused {share}%");
         world.resource_mut::<Soak>().next_line = next_line + EVERY;
     }
     if flown >= seconds {
