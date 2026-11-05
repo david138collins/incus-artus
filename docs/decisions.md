@@ -1063,6 +1063,22 @@ below disagree with this one, this one stands.
   *Counsel:* the record backs him. Build 60's card time was within reach (3.7 ms standing); its stutter was the
   processor's, and its costliest band was the far copies marched cell by cell. The unified method wasn't shown
   wrong; the program around it was.
+- **The recipe on the card before the first sight** [David 2026-11-05]: "yes, installing the hologram onto the gpu
+  comes before cracking the eyelids, agreed... i am as interested in getting this engine tuned on the dyno as i
+  am in the content for the time being. this is a Koenigsegg style game." So: lanes, then the recipe on the card
+  (phase 2), then the first sight.
+- **A beautiful world, squinted** [IDEA, David 2026-11-05]: "imagine if we had a slick AAA engine doing all the
+  tricks in a world like this at 4k and it was really polished: now imagine that we set the resolution to
+  640x480. or maybe a bit higher. i believe *that* would be the correct look for the distant terrain; a beautiful
+  world, squinted... can we render a complete view of the world, that is high fidelity and low resolution?...
+  could we draw the screen normally at a very low resolution, showing everything, and then just draw everything
+  bigger than a pixel with some other method over top of it?" *Counsel:* two passes of the same march, split at
+  a distance: the far pass at low resolution with its cells sized to its own pixel, the near pass at full
+  resolution stopping where the far one starts. At quarter resolution each far pixel costs about a sixteenth, so
+  the far view can afford far more care per pixel. It's his "resolution curve warped by the distance" in its
+  simplest form. At 2560×1600 and 100°, a block fills one far pixel at about 335 blocks at half resolution and
+  about 168 at a quarter. Builder to assess: the seam on the ground, crawl in motion, and crisp or smoothed
+  pixels.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
