@@ -4,7 +4,7 @@
 //! Everything here is plain data, saved with the world as readable text (`sim.toml`).
 
 use crate::events::PlayerId;
-use bevy::math::Vec2;
+use crate::ecs::math::Vec2;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

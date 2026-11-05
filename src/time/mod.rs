@@ -24,8 +24,8 @@ pub use interpolation::{InterpolationSettings, SimPosition, blend_fraction};
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::save::WorldStateAppExt;
 use crate::screen::Screen;
-use bevy::prelude::*;
-use bevy::time::TimeSystems;
+use crate::ecs::prelude::*;
+use crate::ecs::time::TimeSystems;
 use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use serde::{Deserialize, Serialize};
 

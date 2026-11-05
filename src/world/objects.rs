@@ -21,7 +21,7 @@
 
 use super::{CHUNK_SIZE, ChunkPos, PlacedObject, VoxelWorld};
 use crate::data::{ObjectDef, ObjectRegistry};
-use bevy::math::{IVec3, Vec3};
+use crate::ecs::math::{IVec3, Vec3};
 
 /// A point (blocks, from an object's feet) turned as the object faces: a quarter turn each,
 /// anticlockwise seen from above (x to y), as it's drawn (`render/objects.rs`).

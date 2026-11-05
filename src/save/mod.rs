@@ -28,7 +28,7 @@ use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, project_folder};
 use crate::events::{EventLogAppExt, LoggedEvent};
 use crate::time::TimeControl;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

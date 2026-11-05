@@ -25,7 +25,7 @@ pub use dice::{Dice, derive_seed, planet_hash};
 use crate::debug::DebugAppExt;
 use crate::save::{WorldFolder, WorldStateAppExt};
 use crate::time::{WorldClock, describe_moment};
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, VecDeque};

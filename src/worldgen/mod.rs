@@ -86,7 +86,7 @@ mod worley;
 
 use crate::debug::DebugAppExt;
 use crate::screen::Screen;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use crate::runner::FileDropped;
 use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use layers::{Layer, LayerKind};

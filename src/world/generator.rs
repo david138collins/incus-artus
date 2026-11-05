@@ -13,7 +13,7 @@ use super::position::{
 use super::section::Section;
 use super::VoxelWorld;
 use crate::data::BlockRegistry;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Tunables for the test world (shown on the "World" debug page, and saved with each world).

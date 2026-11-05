@@ -14,7 +14,7 @@ use crate::data::{BlockRegistry, FACE_NAMES, block_texture_folder};
 use crate::debug::DebugAppExt;
 use crate::debug::SettingsAppExt;
 use crate::world::{BlockId, TerrainBlocks};
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 pub struct LookPlugin;
 

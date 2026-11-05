@@ -13,7 +13,7 @@ use super::People;
 use super::records::{Doing, Person, PersonId, Place, PlaceId, PlaceKind, Urge};
 use crate::fate::Fate;
 use crate::sim::{SiteId, Spot};
-use bevy::math::Vec2;
+use crate::ecs::math::Vec2;
 
 pub fn test_town(site: SiteId, centre: Vec2, fate: &mut Fate) -> People {
     let mut town = People::default();

@@ -19,7 +19,7 @@ use super::records::{Doing, Person, Place, PlaceKind, Pressure, Urge};
 use crate::fate::Fate;
 use crate::sim::Spot;
 use crate::time::{DAY_SECONDS, HOUR_SECONDS};
-use bevy::math::Vec2;
+use crate::ecs::math::Vec2;
 
 /// The longest step people are advanced by at once, in world seconds.
 pub const STEP: f64 = 30.0;

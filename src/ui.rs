@@ -3,9 +3,9 @@
 //! change when bevy_egui went (the regroup, docs/regroup.md). The runner (`runner/`) starts egui's
 //! frame before the game's update, runs `EguiPrimaryContextPass` after it, and draws what it made.
 
-use bevy::ecs::schedule::ScheduleLabel;
-use bevy::ecs::system::SystemParam;
-use bevy::prelude::*;
+use crate::ecs::ecs::schedule::ScheduleLabel;
+use crate::ecs::ecs::system::SystemParam;
+use crate::ecs::prelude::*;
 
 /// egui's context (cheap to clone: it's shared).
 #[derive(Resource, Clone, Default)]
@@ -46,6 +46,6 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EguiCtx>().init_resource::<EguiWantsInput>().init_schedule(EguiPrimaryContextPass);
         let schedule = app.get_schedule_mut(EguiPrimaryContextPass).expect("just made");
-        schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+        schedule.set_executor(crate::ecs::ecs::schedule::SingleThreadedExecutor::new());
     }
 }

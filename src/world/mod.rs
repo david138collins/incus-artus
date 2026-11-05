@@ -65,7 +65,7 @@ use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::events::EventLogAppExt;
 use crate::save::WorldStateAppExt;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;

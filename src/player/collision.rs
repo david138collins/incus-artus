@@ -15,7 +15,7 @@
 //! model's own parts, pixel by pixel: `world/objects.rs`), and a body stops flush against those too
 //! (David, 2026-11-01: "the collision still needs to be from the models geometry, not its volume").
 
-use bevy::math::{IVec3, Vec3};
+use crate::ecs::math::{IVec3, Vec3};
 
 /// Tiny gap used so a box resting exactly on a block boundary counts as touching it, not
 /// overlapping it: at least this, and more far from the world's middle (`margin`).

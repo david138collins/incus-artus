@@ -31,7 +31,7 @@ pub use presets::{default_light, default_preset, preset_bar, save_shortcut};
 pub use slider::Slider;
 pub use settings::{SettingsAppExt, page_default, page_presets};
 
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use crate::ui::EguiPrimaryContextPass;
 use std::path::PathBuf;
 

@@ -29,7 +29,7 @@ use super::section::Section;
 use super::{CavePlan, Caves, CompiledMap, PlacedObject, InterpreterSettings, Maps, NextTerrain, Terrain, TestBlocks, TestWorldSettings, VoxelWorld, generate_test_world};
 use crate::data::BlockRegistry;
 use crate::save::{WorldFolder, write_file};
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;

@@ -9,7 +9,7 @@
 //! Simulation systems change `SimPosition::current` on ticks; this module sets the
 //! `Transform` every frame. Simulation code never touches `Transform`.
 
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// A position owned by the simulation, in game coordinates (X north, Y east, Z up).

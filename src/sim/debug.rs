@@ -4,7 +4,7 @@
 use super::records::{HookKind, SimLevel};
 use super::{Presence, SimSettings, SimWorld, SiteHookRequest, journey, skip_ahead};
 use crate::time::{DAY_SECONDS, HOUR_SECONDS, WorldClock, describe_moment, describe_span};
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use crate::ui::EguiContexts;
 
 const PINK: egui::Color32 = egui::Color32::from_rgb(255, 140, 220);

@@ -23,7 +23,7 @@
 //!   a place counted in half blocks (`half`) is in the cell `half / 2`, its octant `half % 2`.
 
 use super::block::BlockId;
-use bevy::math::{IVec3, Vec3};
+use crate::ecs::math::{IVec3, Vec3};
 
 /// What an octant of material is part of, in one byte: its bar's axis (2 bits: 0 none, a lone
 /// octant; 1 north–south, 2 east–west, 3 upright), which end of the bar it is (1 bit: 0 the low end,

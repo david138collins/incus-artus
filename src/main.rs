@@ -39,6 +39,7 @@ mod coords;
 mod data;
 mod debug;
 mod diagnostics;
+mod ecs;
 mod events;
 mod fate;
 mod kinematics;
@@ -57,7 +58,7 @@ mod ui;
 mod world;
 mod worldgen;
 
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 /// Bevy's worker threads [2026-11-05: its default woke 16 workers every frame, about 47,000 wake-ups a
 /// second at the menu]: the game's systems run on one thread (each schedule single-threaded, `main`),
@@ -81,11 +82,11 @@ fn main() {
         // and logging (which also goes to the session log, see `diagnostics`).
         .add_plugins((
             TaskPoolPlugin { task_pool_options: task_pools() },
-            bevy::diagnostic::FrameCountPlugin,
-            bevy::time::TimePlugin,
-            bevy::input::InputPlugin,
-            bevy::state::app::StatesPlugin,
-            bevy::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() },
+            crate::ecs::diagnostic::FrameCountPlugin,
+            crate::ecs::time::TimePlugin,
+            crate::ecs::input::InputPlugin,
+            crate::ecs::state::app::StatesPlugin,
+            crate::ecs::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() },
         ))
         // The debug panel's egui (drawn by the runner).
         .add_plugins((ui::UiPlugin, look::LookPlugin, perf::PerfPlugin))
@@ -122,6 +123,6 @@ fn main() {
 /// Sets every schedule the app has to run its systems on one thread.
 fn single_threaded(app: &mut App) {
     for (_, schedule) in app.world_mut().resource_mut::<Schedules>().iter_mut() {
-        schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+        schedule.set_executor(crate::ecs::ecs::schedule::SingleThreadedExecutor::new());
     }
 }

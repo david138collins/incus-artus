@@ -23,7 +23,7 @@ use super::VoxelWorld;
 use super::caves::CavePlan;
 use crate::data::BlockRegistry;
 use super::interpreter::CompiledMap;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 

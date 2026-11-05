@@ -1,7 +1,7 @@
 //! winit's physical keys as Bevy's key codes, so the game's input stays as it was (taken from
 //! bevy_winit 0.20's converters, MIT or Apache-2.0, as Bevy is).
 
-use bevy::input::keyboard::{KeyCode, NativeKeyCode};
+use crate::ecs::input::keyboard::{KeyCode, NativeKeyCode};
 
 pub fn convert_physical_native_key_code(
     native_key_code: winit::keyboard::NativeKeyCode,

@@ -28,8 +28,8 @@
 
 #![allow(dead_code)]
 
-use bevy::math::{IVec3, Vec3};
-use bevy::prelude::Resource;
+use crate::ecs::math::{IVec3, Vec3};
+use crate::ecs::prelude::Resource;
 
 /// Game position → Bevy position (for placing things on screen).
 pub fn game_to_bevy(game: Vec3) -> Vec3 {

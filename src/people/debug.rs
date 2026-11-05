@@ -9,7 +9,7 @@ use crate::fate::Fate;
 use crate::sim::{SimLevel, SimWorld};
 use crate::time::{HOUR_SECONDS, TimeControl, WorldClock, describe_moment, describe_span};
 use crate::world::TestWorldSettings;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use crate::ui::EguiContexts;
 
 const PINK: egui::Color32 = egui::Color32::from_rgb(255, 140, 220);

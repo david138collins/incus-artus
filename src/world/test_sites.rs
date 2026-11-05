@@ -23,7 +23,7 @@ use super::position::{CHUNK_SIZE, ChunkPos};
 use super::terrain::TerrainBlocks;
 use super::{Caves, CompiledMap, Streaming, Terrain, TestCaveSettings, VoxelWorld, under_sea};
 use crate::data::BlockRegistry;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 /// How far from the line each site is looked for, and how far apart they're put (blocks).

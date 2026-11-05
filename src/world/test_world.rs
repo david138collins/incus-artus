@@ -25,7 +25,7 @@ use super::position::ChunkPos;
 use super::terrain::TerrainBlocks;
 use super::{BlockId, Caves, CompiledMap, Part, Pieces, PlacedObject, Streaming, Terrain, VoxelWorld};
 use crate::data::BlockRegistry;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 

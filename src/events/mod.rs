@@ -22,7 +22,7 @@
 use crate::data::BlockRegistry;
 use crate::debug::{DebugAppExt, SettingsAppExt, project_folder};
 use crate::time::TimeControl;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};

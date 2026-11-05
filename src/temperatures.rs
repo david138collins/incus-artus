@@ -10,7 +10,7 @@
 //! Either is left out if the computer doesn't offer it. Switched on and off on the Performance page.
 
 use crate::screen::Screen;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use std::process::Command;
 use std::sync::{Arc, Mutex};

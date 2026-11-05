@@ -26,7 +26,7 @@
 
 use super::data_folder;
 use super::loading::find_files;
-use bevy::math::{IVec3, Mat4, Vec3};
+use crate::ecs::math::{IVec3, Mat4, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -462,7 +462,7 @@ pub fn object_file_text(def: &ObjectDef, header: &str) -> String {
 }
 
 /// Every object, from the data folder.
-#[derive(bevy::prelude::Resource, Default)]
+#[derive(crate::ecs::prelude::Resource, Default)]
 pub struct ObjectRegistry {
     defs: Vec<ObjectDef>,
     ids: HashMap<String, ObjectId>,

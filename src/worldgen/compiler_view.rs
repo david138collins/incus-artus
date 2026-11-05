@@ -28,7 +28,7 @@ use super::lab::{self, Lab};
 use super::view::{MAGENTA, PINK, compass, fold_section, switched_section};
 use super::world::defaults_row;
 use crate::debug::{default_light, default_preset, preset_bar, save_shortcut};
-use bevy::math::IVec2;
+use crate::ecs::math::IVec2;
 use egui::{Color32, Vec2};
 use std::sync::Arc;
 

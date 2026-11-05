@@ -17,7 +17,7 @@
 //! is open or a frame was slow.
 
 use crate::world::{Streaming, VoxelWorld};
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Instant;

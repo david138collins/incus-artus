@@ -230,7 +230,7 @@ pub fn journey_arrived(sim: &mut SimWorld, journey: usize, site: SiteId, out: &m
 mod tests {
     use super::*;
     use crate::sim::{SimSettings, advance_world};
-    use bevy::math::Vec2;
+    use crate::ecs::math::Vec2;
 
     #[test]
     fn a_year_in_the_background_runs_and_stays_sane() {

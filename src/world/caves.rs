@@ -28,7 +28,7 @@ use super::block::BlockId;
 use super::chunk::Chunk;
 use super::position::{CHUNK_SIZE, ChunkPos, SECTION_SIZE, SECTIONS_PER_CHUNK, z_in_world};
 use crate::worldgen::noise::whole_value3;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

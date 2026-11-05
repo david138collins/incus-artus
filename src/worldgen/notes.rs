@@ -32,7 +32,7 @@ fn file() -> PathBuf {
 fn load() -> Pages {
     let Ok(text) = std::fs::read_to_string(file()) else { return Pages::new() };
     toml::from_str(&text).unwrap_or_else(|error| {
-        bevy::log::warn!("Couldn't read the section notes ({error}); starting with none (the file is left as it is until a note is written).");
+        crate::ecs::log::warn!("Couldn't read the section notes ({error}); starting with none (the file is left as it is until a note is written).");
         Pages::new()
     })
 }
@@ -44,7 +44,7 @@ fn save(pages: &Pages) {
         std::fs::write(&path, text)
     });
     if let Err(error) = written {
-        bevy::log::warn!("Couldn't save the section notes to {}: {error}", path.display());
+        crate::ecs::log::warn!("Couldn't save the section notes to {}: {error}", path.display());
     }
 }
 

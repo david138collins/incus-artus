@@ -6,7 +6,7 @@
 //! Each chunk is split vertically into 32 **sections** of 32 × 32 × 32. [Was 400 tall (13 sections)
 //! until 2026-10-27: raised for mountains that tower over the land (David).]
 
-use bevy::math::IVec3;
+use crate::ecs::math::IVec3;
 
 /// Width of a chunk along X and Y, in blocks.
 pub const CHUNK_SIZE: i32 = 32;

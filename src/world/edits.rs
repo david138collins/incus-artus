@@ -16,7 +16,7 @@ use super::{BlockId, Part, Pieces, PlacedObject, VoxelWorld, bar_halves, block_h
 use crate::data::{BlockRegistry, ObjectId, ObjectRegistry};
 use crate::events::{LoggedEvent, PlayerId};
 use crate::time::TimeControl;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -451,7 +451,7 @@ fn place_object(world: &mut VoxelWorld, registry: &BlockRegistry, objects: &Obje
 mod tests {
     use super::*;
     use crate::world::{TestBlocks, TestWorldSettings, generate_test_world};
-    use bevy::ecs::system::RunSystemOnce;
+    use crate::ecs::ecs::system::RunSystemOnce;
 
     const PLAYER: EditSource = EditSource::Player(PlayerId(0));
 

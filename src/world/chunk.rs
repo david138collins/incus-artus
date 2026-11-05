@@ -17,7 +17,7 @@ use super::position::{
 };
 use super::pieces::Pieces;
 use super::section::Section;
-use bevy::math::IVec3;
+use crate::ecs::math::IVec3;
 use std::collections::HashMap;
 
 /// Bulky per-block state. Each future system adds its own kind here

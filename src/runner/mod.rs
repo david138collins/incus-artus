@@ -17,12 +17,12 @@
 mod keys;
 
 use crate::perf::Timed;
-use bevy::app::AppExit;
-use bevy::input::ButtonState;
-use bevy::input::keyboard::{Key, KeyboardInput, NativeKey};
-use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel};
-use bevy::input::touch::TouchPhase;
-use bevy::prelude::*;
+use crate::ecs::app::AppExit;
+use crate::ecs::input::ButtonState;
+use crate::ecs::input::keyboard::{Key, KeyboardInput, NativeKey};
+use crate::ecs::input::mouse::{MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel};
+use crate::ecs::input::touch::TouchPhase;
+use crate::ecs::prelude::*;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use winit::application::ApplicationHandler;
@@ -80,8 +80,8 @@ const SKY: wgpu::Color = wgpu::Color { r: 0.25, g: 0.34, b: 0.52, a: 1.0 };
 pub fn run(mut app: App) {
     app.init_resource::<WindowState>().init_resource::<FrameCap>().init_resource::<ScreenshotRequest>().add_message::<FileDropped>();
     // Plugins finish their set-up (Bevy's `App::run` did this).
-    while app.plugins_state() == bevy::app::PluginsState::Adding {
-        bevy::tasks::tick_global_task_pools_on_main_thread();
+    while app.plugins_state() == crate::ecs::app::PluginsState::Adding {
+        crate::ecs::tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
     app.cleanup();

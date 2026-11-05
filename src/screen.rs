@@ -14,7 +14,7 @@
 use crate::camera::MouseCapture;
 use crate::debug::DebugPanel;
 use crate::time::TimeControl;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 #[derive(States, Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Screen {

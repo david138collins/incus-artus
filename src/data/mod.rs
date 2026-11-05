@@ -16,7 +16,7 @@ pub mod objects;
 
 use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::world::BlockId;
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 use loading::find_block_files;
 pub use loading::{block_file_text, header_of, parse_block};

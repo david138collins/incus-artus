@@ -70,7 +70,46 @@ Measured at the screen with PresentMon (installed 2026-11-05), not inside the ga
 | Player collision, camera maths, kinematics, crash and freeze reports (`diagnostics.rs`) | 3,900 | **Kept**, rewired to winit's input. |
 | The 395 tests | | **Kept**, the check on everything carried over. |
 | The renderer (`render/`): march, far copies, distant tiles, light maps, materials | 8,100 | **Cut.** Kept at the tag `before-regroup` for reference; the march's knowledge and shader pieces come back only where they earn their place. |
-| Bevy (window, input, app, schedule, renderer, assets) | | **Cut.** winit (window, input), wgpu (the card), egui, the `gltf` crate (models, already used), rayon (workers), and our own small scheduler. Audio (kira) and gamepads (gilrs) when they're needed. |
+| Bevy (window, input, app, schedule, renderer, assets) | | **Cut, but for its core** (the World, schedules, states, time, input types, logging), kept for now behind one doorway with an ejection seat (below). winit (window, input), wgpu (the card), egui, the `gltf` crate (models, already used). Audio (kira) and gamepads (gilrs) when they're needed. |
+
+## The ejection seat: Bevy's core, kept for now, ready to pull out
+
+**[DECIDED 2026-11-05]** David: "we're not having any mercy on bevy. anything we keep either has to be because
+its the best way of doing it, or replacing it is impossible for claude and david. if we keep anything in place in
+the meantime - we need to build explosive fastener ejection seats for it. so we can use the ECS, and later,
+modify/improve it for our purpose, or copy what is good in it; we just have to make sure it is ready for rapid
+disconnect."
+
+Phase 0 kept only Bevy's core: the World with its resources and messages, the schedules, states, time, input
+types and logging. Its window, renderer, assets, UI and the rest were cut. It stays **only because replacing it
+right now isn't worth the risk**, not because it's best.
+
+- **One doorway.** Everything Bevy is reached through `src/ecs.rs` (`crate::ecs::prelude::*` and so on). No other
+  file names `bevy::`.
+- **New code is Bevy-free** unless it has to talk to the World: the runner's card and window side, the card work
+  to come, and later the column store and the simulation's scheduler, which are ours from the start.
+- **The gauge** (a test in `src/ecs.rs`): it fails if any file but the doorway names `bevy::`, or if the files and
+  lines that use the doorway go up. **The reach on 2026-11-05: 51 files, 84 lines.** It may only go down.
+- **When it comes out:** when the column store arrives at the simulation stage; or sooner, if phase 0's floor
+  shows the core costing more than about 0.5 ms or 30 wake-ups a frame at 120 over no Bevy (0.6 ms and 13 at 120).
+- **Anything else from Bevy that stays** gets the same rule: say why it's the best way, or why it can't be
+  replaced, and give it the same seat. (Its maths types are glam's, which we'd use directly: not a Bevy matter.)
+
+**The disconnect list** (what pulling the core out would take; Builder's hours):
+
+| What | Where it's used | Replaced by | Hours |
+|---|---|---|---|
+| The World and its resources | 74 resources, 14 components, queries in about 14 files | our own store of each lane's state | 3 to 5 |
+| Systems and schedules | 63 registrations, their order (`after`, `chain`, sets) and run conditions | ordered lists per lane; the simulation's rules scheduler comes with the column store | 2 to 4 |
+| Messages | about 20 kinds | our own queues, read once a frame | about 1 |
+| States | the Play / World Gen screen, its enter and exit steps | an enum with its own enter and exit | about 1 |
+| Time | real time, the fixed ticks (`FixedUpdate`) | the clock's own loop (`src/time/` already holds its logic) | 1 to 2 |
+| Input types | keys, mouse buttons, mouse motion | our own, from winit (the key table is already ours, `src/runner/keys.rs`) | about 1 |
+| Logging | `info!` and the rest, with the session log's layer | `tracing` directly (what Bevy's logging wraps) | under 1 |
+| Worker threads | the loading lane's jobs | `rayon`, or a small pool of our own | about 1 |
+| Tests that build an app | 4 files | the same tests on our own store | about 1 |
+
+In all, about 12 to 18 hours of Builder's, plus 1 look (the controls and the clock) and 1 test window.
 
 ## The action plan: from black to the whole world on screen
 
@@ -95,7 +134,7 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 | 0.1 | Cut `render/` and Bevy. The new core: a winit window, wgpu on DirectX 12 (DXC, as now), the frame cap ported from `frame_cap.rs`, a sky-coloured clear. Our own input state (keys, mouse, mouse capture). | 2 to 3 |
 | 0.2 | The three lanes. The **frame** lane on the main thread. The **simulation** lane on its own thread, driven by the clock (`time/`, 30 ticks a second), running the toy rules as they are, handing the frame a finished snapshot. The **loading** lane: worker threads with a job queue and a budget, results arriving when ready. | 1 to 2 |
 | 0.3 | The panel on egui-winit and egui-wgpu. Every page rewired: the World Gen suite, debug pages, presets. Its pictures (`load_texture`) work as before. | 1 to 2 |
-| 0.4 | Bevy's resources become plain structs owned by their lane, and its systems plain calls. Saving and loading, events, the crash and freeze reports. The 395 tests pass. | 1 to 2 |
+| 0.4 | The game's own systems run as before in Bevy's core, each schedule on one thread, every Bevy name through one doorway (`src/ecs.rs`, the ejection seat below). Saving and loading, events, the crash and freeze reports. The tests pass. **[BUILT 2026-11-05, aa49270 and the doorway after it: 353 tests pass; the old renderer's 43 went with it.]** | 1 to 2 |
 | 0.5 | The slow-frame log: every step on every lane timed. A frame over 8.3 ms (or well over the usual) is written out with what ran in it. Costs nothing in the shipped build. A PresentMon script for test windows. | about 1 |
 
 - **David:** 1 look. The editor, World Gen suite and save/load all work, on a plain sky-coloured window.

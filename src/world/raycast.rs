@@ -10,7 +10,7 @@
 //!
 //! Block (x, y, z) fills the space from x to x+1, y to y+1, z to z+1.
 
-use bevy::math::{IVec3, Vec3};
+use crate::ecs::math::{IVec3, Vec3};
 
 /// What a ray hit.
 #[derive(Clone, Copy, Debug, PartialEq)]

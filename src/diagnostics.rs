@@ -23,15 +23,15 @@
 //! is caught), `log_layer` hands Bevy's logging a copy for the session log, and `ended_normally`
 //! is called when the game's loop returns. To check the reports: `INCUS_TEST_FAULT=crash` or `=freeze`.
 
-use bevy::input::ButtonState;
-use bevy::input::keyboard::KeyboardInput;
-use bevy::input::mouse::MouseButtonInput;
-use bevy::log::BoxedLayer;
-use bevy::log::tracing::field::{Field, Visit};
-use bevy::log::tracing::{Event, Level, Subscriber};
-use bevy::log::tracing_subscriber::Layer;
-use bevy::log::tracing_subscriber::layer::Context;
-use bevy::prelude::*;
+use crate::ecs::input::ButtonState;
+use crate::ecs::input::keyboard::KeyboardInput;
+use crate::ecs::input::mouse::MouseButtonInput;
+use crate::ecs::log::BoxedLayer;
+use crate::ecs::log::tracing::field::{Field, Visit};
+use crate::ecs::log::tracing::{Event, Level, Subscriber};
+use crate::ecs::log::tracing_subscriber::Layer;
+use crate::ecs::log::tracing_subscriber::layer::Context;
+use crate::ecs::prelude::*;
 use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use std::collections::VecDeque;
 use std::io::Write;

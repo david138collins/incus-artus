@@ -43,7 +43,7 @@ use crate::world::{
     BlockEditRefused, BlockEditRequest, BlockId, CHUNK_SIZE, ChunkPos, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason, Turn, VoxelWorld, WORLD_HEIGHT, WorldEdits, bar_halves, bar_placement, block_halves, block_placement, half_box, held, object_box, piece_start, PlacedObject, shape_boxes, solid_boxes, spot, turned,
 };
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 use crate::ui::EguiWantsInput;
 use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use collision::{BodySize, body_bounds, has_support_halves, move_body_stepping, overlaps_solid_halves};
@@ -1503,7 +1503,7 @@ mod tests {
     /// Sprint north on the test world for a few seconds, let go of everything, and measure how
     /// far the body carries on before it stops.
     fn slide_after_sprinting(slide_distance: f32) -> f32 {
-        use bevy::ecs::system::RunSystemOnce;
+        use crate::ecs::ecs::system::RunSystemOnce;
         use crate::world::{TestBlocks, TestWorldSettings, generate_test_world};
 
         let mut world = World::new();

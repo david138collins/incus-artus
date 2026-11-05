@@ -21,7 +21,7 @@ use crate::camera::FlyCamera;
 use crate::player::ControlMode;
 use crate::screen::Screen;
 use crate::world::{SEA_LEVEL, Terrain};
-use bevy::prelude::*;
+use crate::ecs::prelude::*;
 
 /// The circle's radius, and how fast it's flown (blocks a second): a lap takes about four minutes.
 /// `INCUS_SOAK_SPEED` flies it faster (David flies at 2,000 [2026-10-28]); the circle then widens, so

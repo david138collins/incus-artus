@@ -7,7 +7,7 @@
 //! Roads come later; for now each leg is a straight line between two stops.
 
 use super::records::{Journey, Site, SiteId};
-use bevy::math::Vec2;
+use crate::ecs::math::Vec2;
 
 /// Where a stop is (`None` if the site has gone).
 fn stop_position(sites: &[Site], id: SiteId) -> Option<Vec2> {
