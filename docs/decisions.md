@@ -939,6 +939,38 @@ Reference: `Art/quartile minecraft illustration.png`
 
 ---
 
+## The regroup: leave Bevy, start the graphics again on the card
+
+**[DECIDED 2026-11-05]** From David's talk with Builder after chain 7's measurements. Builder's plan, its
+steps and what's kept are in `docs/regroup.md` (PROPOSED until David reads it). Where the renderer sections
+below disagree with this one, this one stands.
+
+- **Regroup:** "it sounds like we should do a ruthless cut pass, get it working again, without graphics at all,
+  and start inside the gpu. just don't do work that makes the cpu do things it won't be doing in the commercial
+  steam build."
+- **Kept:** "our editor, world gen, simulation, and the setup you've done to make it easier to work on, these
+  are good." And: "as long as we don't lose anything that we are happy with".
+- **Bevy goes, with our own scheduler:** "im leaning towards just taking anything good from bevy (like the
+  tetris core scheduling...) and starting over." Then: "as long as you know what you're doing and feel good
+  about having our own scheduler for the simulation multiplexing, i'm into it."
+- **Build 60 stops:** "its stuttering and thats a dealbreaker." The measurements: Bevy's DefaultPlugins cost
+  about 6 ms of processor a frame before anything is drawn (12 W more at 120, 27 W at 240); the stutter is in
+  our own code, not Bevy's, so leaving Bevy alone doesn't fix it.
+- **Hybrid allowed:** "i am very attached to the idea of marching everything simultaniously but it may require
+  maths i just can't access. getting the game done is more important. we should be able to make it look right
+  with a hybrid setup. i do still believe in a somewhat exotic far distance rendering solution, that naturally
+  pixelizes, and light that naturall is coarse - but i have an open mind. as long as its beautiful to look at,
+  fast, and reads perfectly to the player."
+- **The spec, restated** (replaces "unbreakable 120 or smooth 240"): "if this laptop can't always hold 250,
+  thats ok, as long as it holds it enough that i don't really feel the need to set it to 120, but if i do set
+  it to 120, i don't want to ever see it stutter once. someone with a smaller resolution and a 980ti should be
+  able to get the full experience, 60fps that are smooth are enough for anyone. someone with a stronger PC than
+  mine, with better cooling and not a laptop, shouldn't even be a question at 250fps+." Measured at the screen
+  with PresentMon, not inside the game.
+- **Two bands** (his "powerglide"): blocks out to where a block is smaller than a pixel, then one far band done
+  another way, so there's only one transition to tune, and it's far away. Builder: the world as blocks made on
+  the card in pixel-sized cells to about 1,500 to 2,000 blocks, then the backdrop.
+
 ## The renderer: the old engine dropped now, not last
 
 **[DECIDED 2026-11-04]** David: "i feel as a mechanic the bilateral engine transfer we are doing would
