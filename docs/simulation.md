@@ -199,6 +199,16 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   normal needs naming and counting (below) before it's balanced. And "the rate of change of change" gives
   the lab something to graph per run: not only how many people, but how sharply that number is turning.
 
+- **Rules as algebra over any fields** [IDEA, David 2026-11-05]: "i think rules should be applied between any
+  arbitrary data entries, so you are just taking the existence of data fields for every entities components
+  and calling those vars into dnd algebra." So a rule applies to whatever has the fields it names, and is a
+  formula over them. Tables don't know what they hold ("hardcoding types of tables is a bad idea", see
+  `decisions.md`). Today's `Person`, `Urge` and the toy rules are fixed in code, so this would replace them.
+  *Counsel:* a rule is a query plus a formula, and because it names what it reads and writes, the scheduler
+  could work out what runs side by side from the rules alone. To fit what's already decided, a rule takes the
+  time passed (section 1) and rolls from Fate's streams (section 8). Open: how a rule finds the second party in
+  a rule between two entities, without testing everyone against everyone. Builder to assess.
+
 Counsel's suggestions **[PROPOSED]**:
 - **It runs the game's own rules**, the same Intermediator/World code and Fate (section 1). A lab with its own
   copy of the rules would tune a different game. Same principle as the terrain lab: same code for the
