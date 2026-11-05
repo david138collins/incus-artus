@@ -59,7 +59,9 @@ pub fn measuring() -> bool {
 // loop, the same runs at the screen, with their numbers written down. Started with
 // `INCUS_TEST_WINDOW=<seconds>` (120 if no number), the game runs them itself, so nobody has to watch
 // for a cue: the panel closed, `WARM_UP` seconds to settle, then that long uncapped, `SETTLE` seconds,
-// then that long just under the screen's top rate (237 on a 240 screen), then it quits. It runs on
+// then that long just under the screen's top rate (237 on a 240 screen), then it quits. With
+// `INCUS_TEST_BALLAST`, the run under the top is repeated with each of `BALLAST_RUNS` of made-up work
+// on the card (`runner/ballast.rs`; the warm-up, uncapped, calibrates it). It runs on
 // whether it's in front or not (it never freezes). Each run's
 // start and end go in the log with the time (seconds since 1970), so PresentMon's record, started
 // beside it, can be cut into the runs. The settings' frame cap is left as it was.
@@ -80,11 +82,32 @@ struct TestWindow {
     phase: usize,
 }
 
-/// The test window's phases: the frame limit's name (`look.rs`), the run's name (none for the gaps),
-/// and how long.
-fn phases(seconds: f32) -> [(&'static str, Option<&'static str>, f32); 4] {
+/// The ballast runs' sizes (ms at full clock), with `INCUS_TEST_BALLAST` [David 2026-11-05: "good
+/// deal, install ballast"]: none, then up to build 60's whole scene standing (3.7 ms).
+const BALLAST_RUNS: [f32; 4] = [0.0, 1.0, 2.0, 3.7];
+
+/// One phase of the test window: the frame limit's name (`look.rs`), the run's name (none for the
+/// gaps between runs), how long, and the ballast (ms at full clock).
+struct Phase {
+    limit: &'static str,
+    name: Option<String>,
+    seconds: f32,
+    ballast: f32,
+}
+
+/// The test window's phases: settling, uncapped, then just under the screen's top rate; with
+/// `INCUS_TEST_BALLAST`, that last once for each ballast.
+fn phases(seconds: f32) -> Vec<Phase> {
     use crate::look::{UNCAPPED, UNDER_THE_TOP};
-    [(UNCAPPED, None, WARM_UP), (UNCAPPED, Some("uncapped"), seconds), (UNDER_THE_TOP, None, SETTLE), (UNDER_THE_TOP, Some("just under the screen's top rate"), seconds)]
+    let phase = |limit, name: Option<String>, seconds, ballast| Phase { limit, name, seconds, ballast };
+    let mut phases = vec![phase(UNCAPPED, None, WARM_UP, 0.0), phase(UNCAPPED, Some("uncapped".into()), seconds, 0.0)];
+    let ballasts: &[f32] = if std::env::var("INCUS_TEST_BALLAST").is_ok() { &BALLAST_RUNS } else { &[0.0] };
+    for &ballast in ballasts {
+        let name = if ballast > 0.0 { format!("just under the screen's top rate, with {ballast} ms of ballast") } else { "just under the screen's top rate".to_string() };
+        phases.push(phase(UNDER_THE_TOP, None, SETTLE, ballast));
+        phases.push(phase(UNDER_THE_TOP, Some(name), seconds, ballast));
+    }
+    phases
 }
 
 fn run_test_window(world: &mut World) {
@@ -92,19 +115,19 @@ fn run_test_window(world: &mut World) {
     let mut test = world.resource_mut::<TestWindow>();
     let phases = phases(test.seconds);
     let mut end = 0.0;
-    let phase = phases.iter().position(|&(_, _, length)| {
-        end += length;
+    let phase = phases.iter().position(|phase| {
+        end += phase.seconds;
         now < end
     });
     let phase = phase.unwrap_or(phases.len());
     let previous = std::mem::replace(&mut test.phase, phase);
     if phase != previous {
         let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
-        if let Some(&(_, Some(name), _)) = phases.get(previous) {
+        if let Some(Phase { name: Some(name), .. }) = phases.get(previous) {
             info!("Test window: the run {name} ended at {at:.3} (seconds since 1970)");
         }
         match phases.get(phase) {
-            Some(&(_, Some(name), length)) => info!("Test window: the run {name} began at {at:.3} (seconds since 1970), for {length:.0} s"),
+            Some(Phase { name: Some(name), seconds, .. }) => info!("Test window: the run {name} began at {at:.3} (seconds since 1970), for {seconds:.0} s"),
             Some(_) if previous == usize::MAX => info!("Test window: {WARM_UP:.0} s to settle, then the runs"),
             Some(_) => {}
             None => {
@@ -114,7 +137,10 @@ fn run_test_window(world: &mut World) {
         }
     }
     let refresh = world.resource::<crate::runner::WindowState>().refresh;
-    world.resource_mut::<crate::runner::TestCap>().0 = phases.get(phase).map(|&(limit, ..)| crate::look::frame_limit(limit, refresh));
+    world.resource_mut::<crate::runner::TestCap>().0 = phases.get(phase).map(|phase| crate::look::frame_limit(phase.limit, refresh));
+    if let Some(phase) = phases.get(phase) {
+        world.resource_mut::<crate::runner::BallastTarget>().0 = phase.ballast;
+    }
     world.resource_mut::<crate::debug::DebugPanel>().visible = false;
 }
 

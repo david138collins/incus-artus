@@ -176,6 +176,42 @@ fn log_wakes(seconds: f32) {
     info!("The frame's alarm in the last {seconds:.0} s ({} wake-ups): late by {:.3} ms in the middle, {:.3} at the 99th in 100, {:.3} at worst; {over} over 1 ms", taken.len(), at(0.5), at(0.99), worst);
 }
 
+/// The ballast's frames since the last count (`runner/ballast.rs`, developer builds): its target (ms at
+/// full clock), its units, what the card took for it and for the real work (ms), and how much slower
+/// than full clock the card was running.
+static BALLAST: Mutex<Vec<(f32, u32, f32, f32, f32)>> = Mutex::new(Vec::new());
+
+pub fn ballast_frame(target: f32, units: u32, ballast_ms: f32, real_ms: f32, slowdown: f32) {
+    if let Ok(mut frames) = BALLAST.lock() {
+        frames.push((target, units, ballast_ms, real_ms, slowdown));
+    }
+}
+
+/// The ballast's calibration, in the log.
+pub fn ballast_calibrated(per_unit_ms: f32, slowest: f32) {
+    info!("Ballast: a unit takes {per_unit_ms:.5} ms at full clock ({:.0} units make 1 ms); the slowest seen while calibrating was {slowest:.1} times that", 1.0 / per_unit_ms);
+}
+
+/// What the ballast did in the last `seconds`, in the log.
+fn log_ballast(seconds: f32) {
+    let Ok(mut frames) = BALLAST.lock() else { return };
+    let taken = std::mem::take(&mut *frames);
+    drop(frames);
+    if taken.is_empty() {
+        return;
+    }
+    let middle = |mut values: Vec<f32>| {
+        values.sort_by(f32::total_cmp);
+        (values[values.len() / 2], values[(values.len() - 1) * 99 / 100], values[values.len() - 1])
+    };
+    let target = taken[taken.len() - 1].0;
+    let units = taken.iter().map(|frame| frame.1 as f32).sum::<f32>() / taken.len() as f32;
+    let (ballast, ballast_99, ballast_worst) = middle(taken.iter().map(|frame| frame.2).collect());
+    let (real, real_99, _) = middle(taken.iter().map(|frame| frame.3).collect());
+    let (slowdown, slowdown_99, _) = middle(taken.iter().map(|frame| frame.4).collect());
+    info!("Ballast in the last {seconds:.0} s ({} frames timed): {target:.1} ms at full clock wanted, {units:.0} units a frame; the card took {ballast:.2} ms for it in the middle, {ballast_99:.2} at the 99th in 100, {ballast_worst:.2} at worst; the real work {real:.2} ms ({real_99:.2}); running {slowdown:.2} times slower than full clock ({slowdown_99:.2})", taken.len());
+}
+
 /// Every `BACKGROUND_EVERY` seconds, the log says what the background jobs took, busiest first.
 pub fn log_background(time: Res<Time<Real>>, mut last: Local<f32>) {
     let now = time.elapsed_secs();
@@ -186,6 +222,7 @@ pub fn log_background(time: Res<Time<Real>>, mut last: Local<f32>) {
     *last = now;
     log_cores(seconds);
     log_wakes(seconds);
+    log_ballast(seconds);
     let Ok(mut jobs) = BACKGROUND.lock() else { return };
     let mut taken = std::mem::take(&mut *jobs);
     drop(jobs);

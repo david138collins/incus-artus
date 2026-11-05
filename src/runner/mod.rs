@@ -20,6 +20,8 @@
 //! The window's state the game reads (its size, whether it has the focus) is the `WindowState`
 //! resource; what the game asks of the window (the mouse captured, a size) it sets there too.
 
+#[cfg(feature = "dev")]
+mod ballast;
 pub mod hardware;
 mod keys;
 
@@ -100,6 +102,11 @@ impl Default for FrameCap {
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct TestCap(pub Option<FrameLimit>);
 
+/// The ballast wanted on the card each frame, in milliseconds at full clock (developer builds only:
+/// `runner/ballast.rs`; `INCUS_BALLAST`, or the test window). 0: none.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct BallastTarget(pub f32);
+
 /// A file dropped on the window (the World Gen suite takes pictures and block textures this way).
 #[derive(Message, Clone, Debug)]
 pub struct FileDropped(pub std::path::PathBuf);
@@ -113,7 +120,9 @@ const SKY: wgpu::Color = wgpu::Color { r: 0.25, g: 0.34, b: 0.52, a: 1.0 };
 
 /// Runs the game until it asks to quit or the window is closed.
 pub fn run(mut app: App) {
-    app.init_resource::<WindowState>().init_resource::<FrameCap>().init_resource::<TestCap>().init_resource::<ScreenshotRequest>().add_message::<FileDropped>();
+    app.init_resource::<WindowState>().init_resource::<FrameCap>().init_resource::<TestCap>().init_resource::<BallastTarget>().init_resource::<ScreenshotRequest>().add_message::<FileDropped>();
+    #[cfg(feature = "dev")]
+    app.insert_resource(BallastTarget(ballast::from_start()));
     // Plugins finish their set-up (Bevy's `App::run` did this).
     while app.plugins_state() == crate::ecs::app::PluginsState::Adding {
         crate::ecs::tasks::tick_global_task_pools_on_main_thread();
@@ -140,6 +149,9 @@ struct Gpu {
     egui_renderer: egui_wgpu::Renderer,
     /// Whether the mouse is captured now (so it's only changed when the game asks for a change).
     captured: bool,
+    /// Made-up work for the card (developer builds, when asked for).
+    #[cfg(feature = "dev")]
+    ballast: Option<ballast::Ballast>,
 }
 
 struct Runner {
@@ -155,6 +167,14 @@ struct Runner {
     attention: hardware::Attention,
     /// Frozen because the game isn't in front: nothing is drawn till it's clicked again.
     frozen: bool,
+}
+
+/// Whether the ballast was asked for (developer builds only).
+fn wanted_ballast() -> bool {
+    #[cfg(feature = "dev")]
+    return ballast::wanted();
+    #[cfg(not(feature = "dev"))]
+    false
 }
 
 /// The screen's refresh rate (refreshes a second), 60 if it can't be had.
@@ -195,7 +215,10 @@ impl Runner {
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, compatible_surface: Some(&surface), ..Default::default() })).expect("a graphics card");
         let info = adapter.get_info();
         info!("Graphics card: {} ({:?}, driver {} {})", info.name, info.backend, info.driver, info.driver_info);
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), ..Default::default() })).expect("the card's device");
+        // The card's own timestamps, for the ballast (developer builds, when it's asked for).
+        let timed = cfg!(feature = "dev") && wanted_ballast();
+        let required_features = if timed { adapter.features() & wgpu::Features::TIMESTAMP_QUERY } else { wgpu::Features::empty() };
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, ..Default::default() })).expect("the card's device");
         let size = window.inner_size();
         let mut config = surface.get_default_config(&adapter, size.width.max(1), size.height.max(1)).expect("the card can draw to this window");
         // The panel's colours are worked out as sRGB; a plain (non-sRGB) surface shows them as made.
@@ -215,7 +238,28 @@ impl Runner {
             state.size = (config.width, config.height);
             state.scale = window.scale_factor() as f32;
         }
-        self.gpu = Some(Gpu { window, surface, device, queue, config, egui_state, egui_renderer, captured: false });
+        #[cfg(feature = "dev")]
+        let ballast = if timed {
+            let made = ballast::Ballast::new(&device, &queue);
+            if made.is_none() {
+                warn!("Ballast: the card can't time its own work, so there's none");
+            }
+            made
+        } else {
+            None
+        };
+        self.gpu = Some(Gpu {
+            window,
+            surface,
+            device,
+            queue,
+            config,
+            egui_state,
+            egui_renderer,
+            captured: false,
+            #[cfg(feature = "dev")]
+            ballast,
+        });
         self.watch_screen();
     }
 
@@ -306,6 +350,8 @@ impl Runner {
         *self.app.world_mut().resource_mut::<crate::ui::EguiWantsInput>() = crate::ui::EguiWantsInput { keyboard: ctx.egui_wants_keyboard_input() };
 
         // What the game asks of the window.
+        #[cfg(feature = "dev")]
+        let ballast_target = self.app.world().resource::<BallastTarget>().0;
         let (capture, resize_to, minimize, limit, screenshot) = {
             let world = self.app.world_mut();
             let limit = world.resource::<TestCap>().0.unwrap_or(world.resource::<FrameCap>().0);
@@ -361,18 +407,34 @@ impl Runner {
                 }
             }
             let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the frame") });
+            #[cfg(feature = "dev")]
+            if let Some(ballast) = &mut gpu.ballast {
+                ballast.encode(&gpu.queue, &mut encoder, ballast_target);
+            }
             let mut commands = gpu.egui_renderer.update_buffers(&gpu.device, &gpu.queue, &mut encoder, &jobs, &screen);
             {
                 let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(SKY), store: wgpu::StoreOp::Store } };
-                let pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("the panel"), color_attachments: &[Some(attachment)], ..Default::default() });
+                #[cfg(feature = "dev")]
+                let timestamp_writes = gpu.ballast.as_ref().and_then(|ballast| ballast.panel_timestamps());
+                #[cfg(not(feature = "dev"))]
+                let timestamp_writes = None;
+                let pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("the panel"), color_attachments: &[Some(attachment)], timestamp_writes, ..Default::default() });
                 gpu.egui_renderer.render(&mut pass.forget_lifetime(), &jobs, &screen);
             }
             let shot = screenshot.filter(|_| gpu.config.usage.contains(wgpu::TextureUsages::COPY_SRC)).map(|path| (path, copy_out(&gpu.device, &mut encoder, &texture.texture)));
+            #[cfg(feature = "dev")]
+            if let Some(ballast) = &gpu.ballast {
+                ballast.resolve(&mut encoder);
+            }
             commands.push(encoder.finish());
             drop(drawing);
             {
                 let _timed = Timed::new("handing the card its work");
                 gpu.queue.submit(commands);
+            }
+            #[cfg(feature = "dev")]
+            if let Some(ballast) = &mut gpu.ballast {
+                ballast.after_submit(&gpu.device);
             }
             if let Some((path, (buffer, padded))) = shot {
                 // (F12 and the self-test only: the frame waits for the copy.)

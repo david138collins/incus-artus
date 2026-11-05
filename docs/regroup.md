@@ -231,6 +231,17 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
     the game's own log didn't see; at almost 2,000 frames a second the record may still drop events.
   - **Response time: still not measured.** PresentMon ignores keys pressed by a script (966 F24 presses, no
     input-to-photon values even as administrator). It needs real hands on the mouse or keys during a run.
+- **Build 64, the ballast** (David 2026-11-05: "give it crayons and paper along with a blank screen, just until it has
+  enough load that it becomes linear all the way to full use in a steam release"; "good deal, install ballast"; not
+  yet measured): made-up work for the card each frame, like sandbags on a test flight (`runner/ballast.rs`).
+  **Developer builds only:** the file isn't compiled into a player's copy (checked: the player's build compiles
+  without it). **Sized in work, not time:** a unit is timed at full clock in the first moments (best while uncapped),
+  then each frame gets that many milliseconds' worth at full clock, less the real work, so a dozing card shows as
+  taking longer over the same work instead of the ballast chasing its clock. It reads and writes 256 MB at random
+  as well as doing sums, so the card's memory works too. The card's own timestamps measure it and the real work.
+  `INCUS_BALLAST=<ms>`, or the test window with `INCUS_TEST_BALLAST`: the run under the top repeated with 0, 1, 2
+  and 3.7 ms (3.7: build 60's whole scene standing). As the real picture grows it shrinks, and it's gone once
+  real work passes it.
 - **For lane 0.2 (David 2026-11-05):** priorities on every job (this frame / soon / whenever), the workers below the
   frame thread; and in the simulation, under pressure the farthest and lightest give way first (the World sim,
   then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.
