@@ -1079,6 +1079,20 @@ below disagree with this one, this one stands.
   simplest form. At 2560×1600 and 100°, a block fills one far pixel at about 335 blocks at half resolution and
   about 168 at a quarter. Builder to assess: the seam on the ground, crawl in motion, and crisp or smoothed
   pixels.
+- **Twin layers, not LOD rings** [David 2026-11-05]: "when we talk about far pass and near pass, i get scared we're
+  talking about LOD rings again, which i've come to have a distaste for. i would really like to think of the
+  low-res hi-fi layer and the hi-res high-detail (not exactly hi-fi) layer as two versions of the same thing; or
+  even as conjoined twins. they should agree from the start like two particles of a decay that are in a state of
+  quantum entanglement - no matter the distance, the twin engines will always do the same thing; they're just
+  aimed differently." The grids nest "like the cellographs disney studios would use", each coarse cell exactly
+  2×2 or 4×4 fine pixels, and "as long as each cell knows what it needs to be at all times... the far being
+  cheap, and the near being dynamically allocated - past a certain point though, it should stay about the same
+  volume of the screen as the game is built out." So:
+  - one function answers what a patch of world looks like at a pixel's footprint, and both layers call it;
+  - the coarse layer is an exact fraction of the screen;
+  - a standing test proves that each coarse pixel equals the average of its fine pixels;
+  - each coarse cell is flagged for fine pixels by what it holds, not by a fixed distance;
+  - the fine layer has a budget with priority, and what doesn't fit stays coarse for that frame.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
