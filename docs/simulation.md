@@ -189,6 +189,16 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   held still, so divergence runs change only the history seed. It needs saved worlds to come out the
   same after the recipe changes (`vision/watch-list.md`, item 20).
 
+- **The order of work** [IDEA, David 2026-11-05]: "making a world of villages with people is not hard. making
+  them have behaviors and jobs they can do is not hard. introducing time to them snd the. balancing their rate
+  of change of change over time to act normal, mostly like minecraft villagers really! then sophisticate it
+  cheaply, and unbalance it to suit the degree of chaos that always comes up interestkng, like we succed with
+  in the hardest parts of world gen". So: villages and people; jobs; time; balance how fast change itself
+  changes, until they act normal; sophisticate cheaply; then unbalance on purpose, to taste. *Counsel:* the
+  lab is what makes it the same method as world gen, as being able to see it fast is what worked there, so
+  normal needs naming and counting (below) before it's balanced. And "the rate of change of change" gives
+  the lab something to graph per run: not only how many people, but how sharply that number is turning.
+
 Counsel's suggestions **[PROPOSED]**:
 - **It runs the game's own rules**, the same Intermediator/World code and Fate (section 1). A lab with its own
   copy of the rules would tune a different game. Same principle as the terrain lab: same code for the
