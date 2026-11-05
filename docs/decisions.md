@@ -1008,6 +1008,18 @@ below disagree with this one, this one stands.
   everything Bevy that's kept; new code never touches Bevy; a test counts Bevy's footprint outside the doorway
   and fails if it grows; a disconnect list kept current. It comes out when the column store arrives, or sooner
   if the phase-0 floor shows it costing more than about 0.5 ms or 30 wake-ups a frame at 120 over no Bevy.
+- **Timing, priority and the hardware's attention** [David 2026-11-06]: "timing and sequencing is absolutely
+  critical for ongoing stability. perhaps the monitors hardware refresh clock is a better universal reference for
+  the rendering to time itself by, rather than a windows process meant for mspaint and edge, as long as it doesnt
+  impinge on our simulation clock at all. the sim clock seems to be working very well. we should probably a
+  criticality flag system almost like df has job priority so that the most important things get done first, even
+  if thats invisible i think it could spare us some grief later. first order of business is finding a way to keep
+  the hardware at full attention." So:
+  - the frame is paced by the screen's refresh, and the simulation's clock stays its own, from real time;
+  - every job carries a priority, and each lane does the most important first within its budget, so the least
+    important arrives late;
+  - the hardware is kept steady, with no clock drops or core moves that cause stalls, measured first, without
+    giving up running cool.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
