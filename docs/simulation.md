@@ -208,6 +208,11 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   could work out what runs side by side from the rules alone. To fit what's already decided, a rule takes the
   time passed (section 1) and rolls from Fate's streams (section 8). Open: how a rule finds the second party in
   a rule between two entities, without testing everyone against everyone. Builder to assess.
+  On tangling, David: "rules will tangle at the point its ready to ship. the final adjustments will be mixing
+  things up until it goes crazy just often enough but never in a game breaking way, just a what on earth are
+  they doing kind of way. half of everything in life is mostly luck and coincidence". So tangling is the last
+  tuning step, on purpose. *Counsel:* the lab counts it over many histories, against a named list of what
+  counts as game-breaking, which is his call.
 
 Counsel's suggestions **[PROPOSED]**:
 - **It runs the game's own rules**, the same Intermediator/World code and Fate (section 1). A lab with its own
