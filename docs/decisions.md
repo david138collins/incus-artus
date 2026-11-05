@@ -995,6 +995,17 @@ smooth 60 at 1080p on a clean machine ("i am not trying to account for people do
 named a 2011 desktop first, then took it back: "oh i didnt know 2011 was the 680 days im sorry no". So there's
 a standard look every card from there up gets, and anything past it is extra; what's in it is his call.
 
+**If we part from Bevy, what must survive [David 2026-11-05]:** "it may just be time to go our separate ways
+if its doing stuff we dont understand or appreciate". Not decided; the floor runs come first. Three things
+he wants whichever way it goes:
+- Parallel work: "smart fast parallelization of behaviors is good. if bevy does that *well* we may keep, or
+  copy that." Whether it does it well for us is to be assessed.
+- Tables that don't know what they hold: "i think hardcoding types of tables is a bad idea, it should be
+  completely agnostic so that we can add new stuff without modifications". Whether "new stuff" stops at new
+  columns or reaches new rules written in data, without a rebuild, is open.
+- The clock: "the timeclock we have works good. we dont want to lose that." That's `src/time/`: fixed ticks,
+  pause and speed, and the saved world clock. Its tick loop currently runs on Bevy's `Time` and `FixedUpdate`.
+
 ## The renderer: the processor stays at the floor; everything drawn is the card's
 
 **[DECIDED 2026-11-04]** David, after the watt ledger (the processor's cost was mostly per-frame
