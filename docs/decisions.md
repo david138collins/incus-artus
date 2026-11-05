@@ -983,6 +983,12 @@ below disagree with this one, this one stands.
   modders. thats a ways off. anyone who has it in the meantime is someone im talking to and showing them it
   personally." Maybe later as a paid release or bundle ("not super important right now"). So the shipped build
   leaves the editor out; ours keeps it.
+- **Light on our feet:** "we dont really know whats going to happen, we will be shooting from the hip again with
+  graphics. we have to stay light on our feet for this path from black to fast full visuals. i dont regret our
+  process and i dont see it as wasting time. we needed to see the world to tune it and now its tuned in close
+  enough that i know perfect is within our adjustment range. i know it will be there when we have eyes again.
+  that gives us latitude." So the plan from black to the whole world is detailed near and loose far, with
+  forks where a measurement or his look decides the next move.
 
 ## The renderer: the old engine dropped now, not last
 
