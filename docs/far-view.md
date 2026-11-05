@@ -1385,3 +1385,43 @@ the ground copied whole as before.
 - **Still open**: the slow frames (about 30 to 35 ms, every second or so at 20 blocks a second; the
   game's own steps 1 to 3 ms of them, so the rest is elsewhere: drawing, the card, Bevy or Windows),
   and the freeze seen in about 2 of 11 runs (the log stops; no freeze report, so frames kept coming).
+
+### The watt ledger, before the drop (2026-11-04; David: "find why it's getting hot")
+Measured from outside the game once a second (the processor package's and cores' watts from Windows'
+energy meter, the card's from `nvidia-smi`), the last 60 s of each run. Turbo, max fans (David's
+normal). Rest: package 19 to 20 W, card 11 W.
+- **The menu, no world:** about 40 W, the game 1.2 to 1.3 cores, nothing else on the computer
+  changing (the temperature reader costs nothing measurable). About 6 W of it is Bevy waking all 16
+  of its worker threads many times a frame (`INCUS_COMPUTE_THREADS`: 4 threads 35 W, 2 threads 33 W).
+- **Standing still in the world:** at 120 / 60 / 30 fps the package 46 / 33 / 29 W, the card 57 / 35 /
+  24 W, the card's time 2.8 ms a frame at each. Almost all of it follows the frame rate: the processor
+  spends about 10 ms of core time a frame on Bevy's per-frame bookkeeping (preparing and handing the
+  card what to draw, some 200 systems), the card its 2.8 ms.
+- **Flying at 20 blocks a second (the baseline, old engine):** package 63 W, card 49 W, 117 fps, 1% low
+  33, card 2.1 ms a frame, 91 °C on average in the CPU area.
+
+## R7: the old engine dropped (build 60, 2026-11-04)
+David: "lets just drop the old engine and see what happens. go from there", and earlier, "we got
+rivers working by ripping them out first". Tagged `before-r7` (the last commit before).
+- **The march draws everything**, from the camera out: the real chunks' copies near you (all of them,
+  from your own chunk), the far land's copies past them, and the far land's sheet of corners past
+  those. Its rays start at the camera (no square of real chunks to start past).
+- **Gone:** the near chunks' meshes and their meshing (`mesher.rs`, `meshing.rs`), the far sheet's
+  drawing (its 1,060 tiles were still spawned as hidden mesh entities that Bevy kept books on every
+  frame), the far copies' meshed path, the dev "deep shot", the mesher's daylight walk, and the line
+  (`march_from`) with the mesh-job settings. The far sheet's tiles are still made: the march reads them.
+- **Not drawn for now** (as rivers were once): water and glass near you as water (the real chunks'
+  copies leave see-through blocks as air; the recipe's water cells show, flat), pieces (octblocks) and
+  bars, see-through faces. Models still draw on their own.
+- **Kept:** world gen, the real chunks for the game (streaming capped at 4 chunks round you while the
+  far land is cells, `REAL_REACH`), David's default preset (old presets' dropped keys are ignored).
+- **Edits** reach the copies through the world's changed sections (`VoxelWorld::take_dirty`), which the
+  near meshing used to take; a placed light marks its chunks changed. A copy holding an edit is made
+  again in the background, so an edit shows a few frames later.
+- **New switch:** `INCUS_SOAK_BLACK=1`, nothing drawn and no copies or far tiles made, for measuring the
+  game before it draws anything.
+- **First flight** (20 blocks a second, capped at 120): 119 fps, 1% low 49 to 53 (33 to 44 before),
+  worst 23 to 30 ms (about 35), entities 566 (about 1,830), meshes 20 (about 1,290), real chunks held
+  about 109 (about 607), the card 2.7 to 2.9 ms a frame (about 2: the march covers the near ground too).
+- **Seen in a screenshot:** the land whole, near and far; water a flat lavender, unshaded; a dark grey
+  band across a far mountain at the horizon's height (not looked into).

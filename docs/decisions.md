@@ -974,6 +974,32 @@ measures the floor (a bare Bevy app, DefaultPlugins, our game with nothing on sc
 does for us against what it costs; what follows from that is his call. And the rule on flight: flying fast
 may delay when detail arrives, but the frame doesn't wait on the world.
 
+## The renderer: the processor stays at the floor; everything drawn is the card's
+
+**[DECIDED 2026-11-04]** David, after the watt ledger (the processor's cost was mostly per-frame
+bookkeeping, the card's rays the cheap part): "can we start at the point far enough back enough with
+visual access to the screen at all, and from there do nothing that increases the cpu's effort, and ONLY
+write code that increases the gpu's effort, as we go from the ray's i see you testing right now ... to
+an exquisitely efficient rendering engine?" And: "the processor is going to have its work cut out for it
+with the simulation ... the cpu sprinting through world gen and feeding it directly into the cards
+buffer, and then working out a way to shoot rays that show everything equally and costs the same at
+any distance in a mostly empty world would be a good baseline to A. add detail in placer blueprints and
+B. operate the game simulation every actor relies on."
+
+- **The floor:** a window, its clear colour and the frame loop, nothing drawn (measured first). The
+  processor's work per frame for drawing stays there, whatever is on screen.
+- **World gen sprints once** (about 18 s, the processor 75 to 95 °C, accepted: a transition screen
+  covers it) and hands the card the recipe once. Nothing per frame.
+- **The card makes what it draws from the recipe** (the far land, its cells sized per pixel), so a ray
+  costs about the same at any distance and the cost follows the screen, not the world.
+- **The one exception, by event, not by frame:** what exists only on the processor's side (blocks dug
+  or placed, caves) goes to the card when it changes, a small upload.
+- **Every look feature is added as card work**, each with its price in ms on the card (its own 4 ms at
+  250 fps, and its heat in the shared cooler counts too).
+- **The processor is for the simulation** (DF-deep, written and reworked by Claude across many files
+  at once: "the rules that a basically infinitely efficient claude agent can write laterally"), paced
+  on its own, not per frame. Detail then comes in through the placer's blueprints (A) on this baseline.
+
 ## The renderer: the bar for moving on to content
 
 **[David 2026-11-04]** Counsel's bar, David: "i think you are right with that bar." Done enough to build on:
