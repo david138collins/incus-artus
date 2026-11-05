@@ -109,11 +109,6 @@ impl Chunk {
         self.pieces.iter()
     }
 
-    /// Every cell built of pieces in section `level`, with its pieces.
-    pub fn pieces_in(&self, level: usize) -> impl Iterator<Item = (&IVec3, &Pieces)> {
-        self.pieces.iter().filter(move |(block, _)| section_level(block.z) == level)
-    }
-
     #[allow(dead_code)] // used by saving (step 8)
     pub fn pos(&self) -> ChunkPos {
         self.pos

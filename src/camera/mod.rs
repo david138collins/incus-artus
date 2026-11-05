@@ -594,8 +594,6 @@ fn camera_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.separator();
     panini::panini_debug_section(ui, world);
 
-    ui.separator();
-    crate::render::deep_shot_section(ui, world);
 }
 
 /// 0° → "north", 90° → "east", etc. (to the nearest of 8 directions).

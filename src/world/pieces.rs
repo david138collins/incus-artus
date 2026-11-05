@@ -107,9 +107,6 @@ pub fn octant_of(half: IVec3) -> usize {
     (o.x + 2 * o.y + 4 * o.z) as usize
 }
 
-/// Each of a cell's 8 octants: what fills it and what it's part of, if anything.
-pub type Owners = [Option<(Part, BlockId)>; 8];
-
 /// A cell's octants of material.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Pieces {
@@ -140,16 +137,6 @@ impl Pieces {
 
     pub fn is_empty(&self) -> bool {
         self.octants.iter().all(Option::is_none)
-    }
-
-    /// What fills each octant (`AIR`: nothing).
-    pub fn octants(&self) -> [BlockId; 8] {
-        self.octants.map(|octant| octant.map_or(BlockId::AIR, |(block, _)| block))
-    }
-
-    /// Each octant's part and block, for the mesher: a bar's own picture is measured from the bar.
-    pub fn owners(&self) -> Owners {
-        self.octants.map(|octant| octant.map(|(block, part)| (part, block)))
     }
 }
 
@@ -288,8 +275,7 @@ mod tests {
         assert!(pieces.set(3, oak, Part::of_bar(0, 0, true)));
         assert!(!pieces.set(3, stone, Part::LONE), "taken");
         assert!(!pieces.set(4, BlockId::AIR, Part::LONE) && !pieces.set(4, BlockId::PIECES, Part::LONE));
-        assert_eq!(pieces.octants()[3], oak);
-        assert_eq!(pieces.owners()[3], Some((Part::of_bar(0, 0, true), oak)));
+        assert_eq!(pieces.get(3), Some((oak, Part::of_bar(0, 0, true))));
         pieces.clear(3);
         assert!(pieces.is_empty());
         assert_eq!(octant_of(IVec3::new(-1, 2, 3)), 1 + 4);

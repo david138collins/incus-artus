@@ -41,7 +41,9 @@ pub struct BlockTextures {
     pub problems: Vec<String>,
     /// Per block number: the layer used by each of its six faces.
     pub face_layers: Vec<[u32; 6]>,
-    /// Per block number: its bars' own textures (a long side, an end), if it has them.
+    /// Per block number: its bars' own textures (a long side, an end), if it has them. Loaded into the
+    /// array still, but nothing reads which since the near mesher went (R7): bars aren't drawn for now.
+    #[allow(dead_code)]
     pub bar_layers: Vec<Option<[u32; 2]>>,
 }
 

@@ -1,17 +1,16 @@
 //! Render — drawing the block world.
 //!
-//! - `textures` — loads block face images into one texture array
-//! - `mesher`   — turns a section of blocks into merged rectangles (binary greedy meshing)
-//! - `meshing`  — runs the mesher on background threads and keeps meshes up to date
-//! - `material` — connects our block shader (`assets/shaders/terrain.wesl`) to Bevy
+//! **The march draws everything** (`march.rs`, `docs/far-view.md`, R7): every pixel's ray, from the
+//! camera out, through the real chunks' copies near you and the far land's past them
+//! (`far_copies.rs`), to the far land's sheet of corners at the world's edge (`distant.rs`, its tiles
+//! made for the march to read, no longer drawn). The old engine (the near chunks meshed into blocks,
+//! the far sheet drawn as triangles) was taken out on 2026-11-04 [David: "lets just drop the old
+//! engine and see what happens. go from there"]; it's in git history (tag `before-r7`).
 //!
-//! Culling (not drawing what can't be seen):
-//! - **Frustum culling** is done by Bevy: sections outside the camera's view are skipped,
-//!   using the bounding box each section mesh carries.
-//! - **Distance culling** is done here: sections beyond the render distance are hidden.
-//!   (Simulation distance is a separate setting, added when there's simulation to limit.)
+//! - `textures` — loads block face images into one texture array
+//! - `material` — the block shader's settings and textures (`assets/shaders/terrain.wesl`), which
+//!   the march reads
 
-mod deep_shot;
 mod far_copies;
 pub use far_copies::FarCopySettings;
 pub(crate) mod distant;
@@ -19,8 +18,6 @@ mod frame_cap;
 mod march;
 pub(crate) mod light;
 mod material;
-mod mesher;
-mod meshing;
 mod performance;
 mod placed_light;
 mod objects;
@@ -29,16 +26,14 @@ pub(crate) mod textures;
 
 use crate::coords::{RenderOrigin, game_to_bevy};
 use crate::data::{BlockRegistry, FACE_NAMES, TextureRotation};
+use crate::world::VoxelWorld;
 use crate::debug::{DebugAppExt, SettingsAppExt};
-use crate::world::{CHUNK_SIZE, SectionKey, VoxelWorld};
 use bevy::prelude::*;
 use bevy::render::error_handler::{ErrorType, RenderError, RenderErrorHandler, RenderErrorPolicy};
 use bevy_egui::egui;
 use material::{TerrainMaterial, TerrainShaderSettings};
-use meshing::{MeshingState, SectionMesh};
 pub(crate) use light::LightSettings;
 pub(crate) use performance::{Background, Timed, drawing_line, soak_line};
-pub use deep_shot::deep_shot_section;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -74,10 +69,7 @@ impl Plugin for RenderPlugin {
             .add_settings::<far_copies::FarCopySettings>("far_copies")
             .add_systems(Startup, distant::setup_distant)
             .add_systems(Update, (distant::update_distant, distant::update_distant_material))
-            .init_resource::<deep_shot::DeepShot>()
-            .init_resource::<deep_shot::DeepShotSettings>()
-            .add_systems(Update, deep_shot::run_deep_shot.after(distant::update_distant))
-            // The far land drawn by the march, behind a switch (`march.rs`).
+            // Everything drawn by the march (`march.rs`).
             .add_plugins(MaterialPlugin::<march::MarchMaterial>::default())
             .init_resource::<march::MarchState>()
             .init_resource::<march::MarchWrites>()
@@ -94,11 +86,9 @@ impl Plugin for RenderPlugin {
                         .after(update_shader_settings)
                         .after(light::update_light)
                         .after(light::update_near_light),
-                    march::show_one_drawer.after(deep_shot::run_deep_shot),
+                    march::show_the_march,
                 ),
             )
-            .add_systems(bevy_egui::EguiPrimaryContextPass, deep_shot::draw_deep_shot_bar)
-            .add_systems(PostUpdate, deep_shot::leave_out_panels.after(bevy_egui::EguiPostUpdateSet::ProcessOutput).before(bevy_egui::EguiPostUpdateSet::PostProcessOutput))
             .init_resource::<light::LightSettings>()
             .init_resource::<light::LightState>()
             .add_settings::<light::LightSettings>("light")
@@ -107,7 +97,6 @@ impl Plugin for RenderPlugin {
             .add_plugins(bevy::render::extract_resource::ExtractResourcePlugin::<light::NearLightUpload>::default())
             .add_systems(Update, (light::update_light, light::update_near_light))
             .init_resource::<RenderSettings>()
-            .init_resource::<MeshingState>()
             .init_resource::<objects::ObjectsDrawn>()
             .init_resource::<placed_light::PlacedLights>()
             .init_resource::<performance::FrameTimes>()
@@ -129,14 +118,9 @@ impl Plugin for RenderPlugin {
                 (
                     rebuild_terrain_after_reload,
                     follow_block_rotations,
-                    meshing::collect_dirty_sections,
-                    meshing::follow_the_line,
-                    meshing::start_jobs,
-                    meshing::finish_jobs,
                     far_copies::cap_streaming,
                     far_copies::update_far_copies,
                     distant::update_shown_chunks,
-                    apply_render_distance,
                     update_shader_settings,
                     objects::draw_objects,
                     objects::play_sprites,
@@ -152,9 +136,6 @@ impl Plugin for RenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
             render_app.insert_resource(writes).add_systems(bevy::render::Render, (march::write_march, light::write_near_light, performance::log_pipelines).in_set(bevy::render::RenderSystems::PrepareResources));
         }
-        // A developer tool, as F12's screenshot is.
-        #[cfg(feature = "dev")]
-        app.add_systems(Update, deep_shot::deep_shot_key);
     }
 }
 
@@ -178,22 +159,13 @@ fn dim_sky(settings: Res<RenderSettings>, mut clear: ResMut<ClearColor>) {
 #[derive(Resource, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RenderSettings {
-    /// How far away sections are drawn, in chunks (1 chunk = 32 blocks).
+    /// How far the real chunks are made round you, in chunks (1 chunk = 32 blocks): the streaming
+    /// circle's square (the far land as cells keeps it to a few chunks, `far_copies::cap_streaming`).
     pub render_distance_chunks: i32,
-    /// Where the far view (the march) starts, in chunks from yours: the real chunks are drawn only
-    /// within a circle this wide, past it the far view draws everything (`docs/far-view.md`). To drag
-    /// the line in and judge by eye and the graphics card's time [David, 2026-11-02, by Counsel]. 64:
-    /// wherever the real chunks end anyway.
-    pub march_from: i32,
     /// Far away, textures keep their painted colours: each shrunk pixel is the nearest colour the
     /// texture already has, and there's no blending between the shrunk sizes. Off: averaged, and
     /// blended (new colours, the old way). [Watch-list item 15d, 2026-10-28]
     pub painted_mips: bool,
-    /// How many new mesh jobs may start per 240th of a second (spreads big rebuilds over several
-    /// frames; a slower frame starts more, see `meshing.rs`).
-    pub max_jobs_per_frame: usize,
-    /// The most new section meshes handed to the graphics side each frame (the rest wait their turn).
-    pub meshes_per_frame: usize,
     /// The seam probe [2026-10-29, Counsel's plan for the near/far seam]: the near blocks hidden and the
     /// far surface drawn everywhere, to flick between them on the same ground; and light only: near
     /// and far painted plain grey, their lighting kept, to tell colour from light.
@@ -253,10 +225,7 @@ impl Default for RenderSettings {
     fn default() -> Self {
         Self {
             render_distance_chunks: 32,
-            march_from: 64,
             painted_mips: false,
-            max_jobs_per_frame: 64,
-            meshes_per_frame: 48,
             seam_probe: false,
             light_only: false,
             shade_top: 1.0,
@@ -284,18 +253,7 @@ impl Default for RenderSettings {
     }
 }
 
-/// `RenderSettings::drawn_near`, from the render distance and the line (chunks).
-pub fn drawn_near(offset: IVec2, render_distance: i32, march_from: i32) -> bool {
-    offset.x.abs().max(offset.y.abs()) <= render_distance && offset.x * offset.x + offset.y * offset.y <= march_from * march_from
-}
-
 impl RenderSettings {
-    /// Whether a chunk this far from yours (chunks, north and east) is drawn as real blocks: within
-    /// the render distance's square and the circle where the far view starts (`march_from`).
-    pub fn drawn_near(&self, offset: IVec2) -> bool {
-        drawn_near(offset, self.render_distance_chunks, self.march_from)
-    }
-
     /// The survey view for both shaders: x on, y every how many levels, z darkness, w sea level.
     pub fn survey_for_shader(&self) -> Vec4 {
         Vec4::new(
@@ -348,14 +306,10 @@ pub struct TerrainAssets {
     pub opaque: Arc<Vec<bool>>,
     /// Per block number: see-through (drawn both sides, with holes)?
     pub see_through: Arc<Vec<bool>>,
-    /// Per block number: if see-through, are faces between neighbours drawn (grid) or not (outline)?
-    pub inner_faces: Arc<Vec<bool>>,
     /// Per block number: texture layer for each face.
     pub face_layers: Arc<Vec<[u32; 6]>>,
     /// Per block number: is each face's texture randomly rotated?
     pub face_random_rotation: Arc<Vec<[bool; 6]>>,
-    /// Per block number: its bars' own textures (a long side, an end), if it has them.
-    pub bar_layers: Arc<Vec<Option<[u32; 2]>>>,
     pub layer_names: Vec<String>,
     pub texture_problems: Vec<String>,
     /// Whether the shrunk textures keep their painted colours (`RenderSettings::painted_mips`).
@@ -381,7 +335,7 @@ fn setup_terrain(
     commands.insert_resource(TerrainAssets { material, ..terrain });
 }
 
-/// Load the block textures and build the per-block tables the mesher uses.
+/// Load the block textures and build the per-block tables the march and the far copies use.
 fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>, painted_mips: bool) -> (Image, TerrainAssets) {
     let textures = textures::build_block_textures(registry, painted_mips);
     info!(
@@ -394,10 +348,8 @@ fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>, pa
         revision: registry.revision(),
         opaque: Arc::new(registry.defs().iter().map(|def| def.opaque).collect()),
         see_through: Arc::new(registry.defs().iter().map(|def| def.see_through).collect()),
-        inner_faces: Arc::new(registry.defs().iter().map(|def| def.inner_faces).collect()),
         face_layers: Arc::new(textures.face_layers),
         face_random_rotation: Arc::new(rotation_table(registry)),
-        bar_layers: Arc::new(textures.bar_layers),
         layer_names: textures.layer_names,
         texture_problems: textures.problems,
         painted_mips,
@@ -406,14 +358,14 @@ fn build_terrain(registry: &BlockRegistry, material: Handle<TerrainMaterial>, pa
 }
 
 /// Live reload: when the registry's data or textures changed (or how textures are shrunk for the
-/// distance), rebuild the texture array and tables, and redraw every section.
+/// distance), rebuild the texture array and tables (the march and the far copies follow the new
+/// revision).
 fn rebuild_terrain_after_reload(
     registry: Res<BlockRegistry>,
     settings: Res<RenderSettings>,
     terrain: Option<ResMut<TerrainAssets>>,
     mut materials: ResMut<Assets<TerrainMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    mut state: ResMut<MeshingState>,
 ) {
     let Some(mut terrain) = terrain else {
         return;
@@ -428,8 +380,6 @@ fn rebuild_terrain_after_reload(
         material.textures = images.add(image);
     }
     *terrain = rebuilt;
-    let keys: Vec<SectionKey> = state.entities.keys().copied().collect();
-    state.waiting.extend(keys);
 }
 
 /// Per block number: is each face's texture randomly rotated?
@@ -441,13 +391,8 @@ fn rotation_table(registry: &BlockRegistry) -> Vec<[bool; 6]> {
         .collect()
 }
 
-/// When a block's rotation switches change (Blocks page), rebuild every mesh, since the
-/// rotation is stored in the mesh.
-fn follow_block_rotations(
-    registry: Res<BlockRegistry>,
-    terrain: Option<ResMut<TerrainAssets>>,
-    mut state: ResMut<MeshingState>,
-) {
+/// When a block's rotation switches change (Blocks page), the table the march reads them from.
+fn follow_block_rotations(registry: Res<BlockRegistry>, terrain: Option<ResMut<TerrainAssets>>) {
     let Some(mut terrain) = terrain else {
         return;
     };
@@ -459,12 +404,8 @@ fn follow_block_rotations(
         return;
     }
     terrain.face_random_rotation = Arc::new(wanted);
-    let keys: Vec<SectionKey> = state.entities.keys().copied().collect();
-    state.waiting.extend(keys);
 }
 
-/// Hide sections beyond the render distance (measured horizontally, in chunks), and those a far copy
-/// draws instead (chunks still kept just past the streaming circle, `far_copies.rs`).
 /// The floating origin (`coords.rs`): moved to the grid's place nearest the camera when it's gone
 /// further than the grid's spacing, and everything drawn that isn't inside something else (the
 /// camera too) shifted by the same, so nothing moves on screen. First in the frame.
@@ -479,36 +420,6 @@ fn follow_origin(mut origin: ResMut<RenderOrigin>, cameras: Query<&crate::camera
         transform.translation -= shift;
     }
     *origin = wanted;
-}
-
-fn apply_render_distance(
-    settings: Res<RenderSettings>,
-    copies: Res<far_copies::FarCopies>,
-    (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
-    mut sections: Query<(&SectionMesh, &mut Visibility)>,
-) {
-    let _timed = crate::render::Timed::new("render distance");
-    let Some(camera) = camera.iter().next() else {
-        return;
-    };
-    let position = origin.to_game(camera.translation);
-    let camera_chunk = IVec2::new(
-        (position.x / CHUNK_SIZE as f32).floor() as i32,
-        (position.y / CHUNK_SIZE as f32).floor() as i32,
-    );
-    for (section, mut visibility) in &mut sections {
-        let offset = IVec2::new(section.key.chunk.x, section.key.chunk.y) - camera_chunk;
-        // Past the line, what the march leaves (`meshing::follow_the_line`) is drawn wherever the
-        // render distance reaches.
-        let shown = if section.past { offset.x.abs().max(offset.y.abs()) <= settings.render_distance_chunks } else { settings.drawn_near(offset) && !copies.covered().contains(&section.key.chunk) };
-        // The seam probe hides them all, leaving the far surface on the same ground.
-        let wanted = if shown && !settings.seam_probe {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
-        visibility.set_if_neq(wanted);
-    }
 }
 
 fn update_shader_settings(
@@ -533,58 +444,12 @@ fn update_shader_settings(
 
 fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     crate::debug::page_presets(ui, world, "render");
-    ui.separator();
-    // ── Statistics ──
-    let mut sections = 0usize;
-    let mut drawn = 0usize;
-    let mut quads = 0u64;
-    let mut vertices = 0u64;
-    let mut query = world.query::<(&SectionMesh, &ViewVisibility)>();
-    for (mesh, visibility) in query.iter(world) {
-        sections += 1;
-        quads += mesh.quads as u64;
-        vertices += mesh.vertices as u64;
-        if visibility.get() {
-            drawn += 1;
-        }
-    }
-    let gpu_bytes = vertices * 8 + quads * 6 * 4;
-    ui.strong("Meshes");
-    ui.label(format!("Section meshes: {sections}   drawn this frame: {drawn}"));
-    ui.label(format!(
-        "Rectangles: {quads}   triangles: {}   vertices: {vertices}",
-        quads * 2
-    ));
-    ui.label(format!("Mesh memory on GPU: {:.1} KB", gpu_bytes as f64 / 1024.0));
-    let state = world.resource::<MeshingState>();
-    let average = if state.jobs_finished > 0 {
-        state.total_job_micros as f64 / state.jobs_finished as f64 / 1000.0
-    } else {
-        0.0
-    };
-    ui.label(format!(
-        "Jobs: {} waiting, {} running, {} done   avg {average:.2} ms, slowest {:.2} ms",
-        state.waiting.len(),
-        state.running.len(),
-        state.jobs_finished,
-        state.slowest_job_micros as f64 / 1000.0
-    ));
-    let mut remesh = false;
-    if ui.button("Rebuild every mesh").clicked() {
-        remesh = true;
-    }
-    if remesh {
-        let keys: Vec<SectionKey> = world.resource::<MeshingState>().entities.keys().copied().collect();
-        world.resource_mut::<MeshingState>().waiting.extend(keys);
-    }
-
     // ── Underground light (docs/caves.md, stop 3) ──
     ui.separator();
     ui.strong("Light underground");
     ui.small("Pitch black wherever daylight can't reach (David: \"pitch black unless something is making light down there\"). Daylight spreads a short way in from open sky: into cave mouths, under overhangs, down holes you dig.");
-    let relight = {
+    {
         let mut settings = world.resource_mut::<RenderSettings>();
-        let was = (settings.sky_light, settings.sky_reach);
         ui.checkbox(&mut settings.sky_light, "daylight underground").on_hover_text("Off: everything fully lit, as before (to compare)");
         ui.add_enabled(settings.sky_light, crate::debug::Slider::new(&mut settings.sky_reach, 1..=sky_light::MOST_REACH).text("how far daylight reaches in (blocks)"));
         ui.add(crate::debug::Slider::new(&mut settings.lantern, 0.0..=40.0).text("test lantern: how far (blocks; 0 = off)"))
@@ -606,12 +471,6 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
                 settings.sky_brightness = 1.0;
             }
         });
-        was != (settings.sky_light, settings.sky_reach)
-    };
-    // The daylight is kept in the meshes: every one made again.
-    if relight {
-        let keys: Vec<SectionKey> = world.resource::<MeshingState>().entities.keys().copied().collect();
-        world.resource_mut::<MeshingState>().waiting.extend(keys);
     }
 
     // ── Settings ──
@@ -631,19 +490,8 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         .on_hover_text(format!(
             "Frames a second, as a share of the screen's {refresh:.0} refreshes a second: each frame shows for the same number of refreshes, so motion stays even. Fewer frames = less heat and power."
         ));
-        ui.add(crate::debug::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"));
-        ui.add(crate::debug::Slider::new(&mut settings.march_from, 2..=64).text("the march starts at (chunks)")).on_hover_text(
-            "The real chunks are drawn only within a circle this many chunks round you; past it the far view draws everything:\n\
-             the land, and what differs from it (caves, digging, building) as far copies. Drag it in to see how the far view\n\
-             holds up close, by eye and by the graphics card's time (Performance page). 64: wherever the real chunks end anyway.\n\
-             (The real chunks are still made and kept round you; only their drawing is left to the far view.)",
-        );
-        ui.add(crate::debug::Slider::new(&mut settings.max_jobs_per_frame, 1..=512).text("mesh jobs started / 240th of a second"))
-            .on_hover_text("Per 240th of a second, not per frame: at 60 FPS each frame starts four times as many, so terrain fills in as fast on a slower machine.");
-        ui.add(crate::debug::Slider::new(&mut settings.meshes_per_frame, 1..=512).text("new meshes shown per frame")).on_hover_text(
-            "The most newly made sections handed to the graphics card each frame; the rest wait their turn (the distant\n\
-             terrain shows meanwhile). Higher = the ground fills in faster; lower = smoother frames when lots arrive at once.",
-        );
+        ui.add(crate::debug::Slider::new(&mut settings.render_distance_chunks, 1..=64).text("render distance (chunks)"))
+            .on_hover_text("How far the real chunks are made round you (with the far land as cells on, only a few chunks, whatever this says).");
         ui.add(crate::debug::Slider::new(&mut settings.shade_top, 0.0..=1.5).text("shade: top"));
         ui.add(crate::debug::Slider::new(&mut settings.shade_bottom, 0.0..=1.5).text("shade: bottom"));
         ui.add(crate::debug::Slider::new(&mut settings.shade_north_south, 0.0..=1.5).text("shade: north/south"));

@@ -133,8 +133,9 @@ pub(super) fn place_hillside_mouths(world: &mut World) -> String {
     let mut places = add_caves(world, &map, tunnels, &blocks);
     places.extend(spots.iter().map(|spot| ChunkPos::of_block(spot.extend(0))));
     world.resource_mut::<Streaming>().forget(&places);
-    // How many are where the far copies draw them (past the real chunks), for the measurement.
-    let radius = world.resource::<super::StreamSettings>().reach().min(world.resource::<crate::render::RenderSettings>().march_from) * CHUNK_SIZE;
+    // How many are past the real chunks (the far copies make those from the save and the recipe), for
+    // the measurement.
+    let radius = world.resource::<super::StreamSettings>().reach() * CHUNK_SIZE;
     let far = spots.iter().filter(|spot| spot.as_vec2().distance(from) > radius as f32).count();
     let note = format!(
         "{count} cave mouths in hillsides within {:.0} blocks of ({:.0}, {:.0}), {far} of them past the real chunks (the far copies draw those); found in {:.0} ms. Save the world to keep them.",
@@ -245,8 +246,8 @@ pub(super) fn place_far_test_sites(world: &mut World) -> String {
     let Some(map) = world.resource::<Terrain>().compiled().cloned() else { return "The far test sites need a compiled world.".to_string() };
     let Some((from, looking)) = world.query::<&crate::camera::FlyCamera>().iter(world).next().map(|camera| (camera.position, camera.looking())) else { return String::new() };
     let dir = looking.truncate().normalize_or(Vec2::X);
-    let (chunks, march_from) = { let render = world.resource::<crate::render::RenderSettings>(); (render.render_distance_chunks, render.march_from) };
-    let edge = edge_distance(from.truncate(), dir, chunks, world.resource::<super::StreamSettings>().reach().min(march_from));
+    let chunks = world.resource::<crate::render::RenderSettings>().render_distance_chunks;
+    let edge = edge_distance(from.truncate(), dir, chunks, world.resource::<super::StreamSettings>().reach());
     // Counted the larger of north-south and east-west, as the render distance is.
     let along = |d: f32| d / dir.x.abs().max(dir.y.abs());
     let settings = world.resource::<TestCaveSettings>().clone();

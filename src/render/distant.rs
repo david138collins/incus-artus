@@ -7,10 +7,10 @@
 //! cells, with a hole in the middle where the next ring in sits (the finest ring has no hole: it
 //! lies under the real chunks).
 //!
-//! **The hand-off.** The shader draws no distant terrain over a real chunk that's on screen. A
-//! small texture marks those chunks, one pixel each, centred on the camera's chunk. Only chunks
-//! actually meshed are marked, so flying faster than chunks load shows distant terrain ahead of
-//! you, never a hole.
+//! **Drawn by the march only** (R7, 2026-11-04): the tiles are made for the march to read
+//! (`march.rs`), no longer drawn as triangles. **The hand-off:** a small texture marks the chunks the
+//! far copies draw, one pixel each, centred on the camera's chunk; the march meets their cells there
+//! and this sheet everywhere else.
 //!
 //! **Each ring snaps to its own grid** (twice its tile size), so its hole lines up exactly with the
 //! ring inside, and as you move only the tiles at its edges change; the rest stay put.
@@ -35,10 +35,9 @@ use super::RenderSettings;
 use super::light::LightSettings;
 use crate::coords::game_to_bevy;
 use crate::data::{BlockRegistry, FACE_NAMES};
-use super::meshing::MeshingState;
-use crate::world::{BlockId, CHUNK_SIZE, ChunkPos, CompiledMap, Streaming, Terrain, TerrainBlocks, VoxelWorld, under_sea};
+use crate::world::{BlockId, CHUNK_SIZE, CompiledMap, Terrain, TerrainBlocks, under_sea};
 use bevy::asset::RenderAssetUsages;
-use bevy::mesh::{Indices, MeshVertexAttribute, MeshVertexBufferLayoutRef, PrimitiveTopology, VertexFormat};
+use bevy::mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef, VertexFormat};
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
 use bevy::render::render_resource::{
@@ -57,13 +56,9 @@ pub(super) const RING_TILES: i32 = 16;
 /// The side of the texture marking the chunks on screen, in chunks (centred on the camera's chunk:
 /// 128 each way, far past where real chunks ever reach).
 pub(super) const SHOWN_SIZE: i32 = 256;
-/// How a chunk the far copies draw is marked in that texture (a real chunk is 255; both are more
-/// than half, which is all the sheet asks).
+/// How a chunk the far copies draw is marked in that texture (a real chunk was 255 before R7, when the
+/// near meshes drew them).
 const COPY_MARK: u8 = 160;
-/// A far copy's chunk that's a real chunk past the line, its see-through blocks meshed
-/// (`meshing::follow_the_line`): the march goes through its water to the bed, the near world's water
-/// drawn over it, as inside the line [David, build 39: squares in the water, the line's chunks only].
-const MESHED_WATER_MARK: u8 = 200;
 
 /// Tunables (on the "Render" debug page, saved in "everything" presets).
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -587,79 +582,48 @@ impl Material for DistantMaterial {
 
 // ── Keeping the tiles up to date ────────────────────────────────────────────
 
-/// A drawn tile.
-#[derive(Component)]
-pub struct DistantTile {
-    pub quads: u32,
-}
-
 #[derive(Resource, Default)]
 pub struct DistantState {
     pub(super) material: Option<Handle<DistantMaterial>>,
     /// The map the tiles were made from.
     map: Option<Arc<CompiledMap>>,
     palette: Option<Arc<Palette>>,
-    /// Tiles drawn (an entity), or known empty (`None`).
-    tiles: HashMap<TileKey, Option<Entity>>,
+    /// Tiles made for the march (`true`), or known empty.
+    tiles: HashMap<TileKey, bool>,
     making: HashMap<TileKey, Task<Option<TileMesh>>>,
-    /// Tiles no longer wanted, still drawn until the tiles taking their place are in.
-    retiring: Vec<(TileKey, Entity)>,
     /// The settings and the tile the wanted list was worked out for.
     wanted_for: Option<(i32, u32, IVec2)>,
     wanted: Vec<TileKey>,
-    /// The texture marking chunks on screen, the chunks it marks, and the centre and render
-    /// distance it was made for.
+    /// The texture marking the chunks the far copies draw, and the centre and copies' change it was
+    /// made for.
     shown_texture: Option<Handle<Image>>,
-    shown: HashSet<ChunkPos>,
-    shown_for: Option<(IVec2, i32, u64)>,
-    /// What the hand-off was last looked over for (see `update_shown_chunks`).
-    looked_over: Option<(u64, u64, usize, IVec2, i32, u64)>,
+    shown_for: Option<(IVec2, u64)>,
     /// How many times the hand-off map was made again since last logged, and when that was (for
     /// measuring: with the far land as cells, a copy finishing near every frame remade it).
     shown_made: usize,
     shown_logged: Option<std::time::Instant>,
     /// How many times every tile was thrown away (the march throws its copy away too).
     pub(super) cleared: u64,
-    /// The square of chunks round the camera's chunk wholly marked in `shown`: its centre chunk and
-    /// how many chunks it reaches each way (`None` if not even the camera's chunk is). No far land
-    /// can show inside it, so the march's rays start where they leave it.
-    pub(super) inner: Option<(IVec2, i32)>,
-    // ── For the Performance page ──
-    pub quads: u64,
 }
 
 impl DistantState {
-    /// The real chunks handed over and wholly meshed: on screen (the far copies wait for them before
-    /// going, `far_copies.rs`).
-    pub fn shown(&self) -> &HashSet<ChunkPos> {
-        &self.shown
-    }
-
     /// The blocks' far colours the tiles are made with (the march colours the far copies' cells by them).
     pub(super) fn palette(&self) -> Option<&Arc<Palette>> {
         self.palette.as_ref()
     }
 
     pub fn tiles_drawn(&self) -> usize {
-        self.tiles.values().filter(|tile| tile.is_some()).count()
+        self.tiles.values().filter(|&&made| made).count()
     }
 
     pub fn being_made(&self) -> usize {
         self.making.len()
     }
 
-    fn clear(&mut self, commands: &mut Commands) {
-        for (_, entity) in self.tiles.drain() {
-            if let Some(entity) = entity {
-                commands.entity(entity).despawn();
-            }
-        }
-        for (_, entity) in self.retiring.drain(..) {
-            commands.entity(entity).despawn();
-        }
+    fn clear(&mut self) {
+        self.tiles.clear();
         self.making.clear();
         self.wanted_for = None;
-        self.quads = 0;
         self.cleared += 1;
     }
 }
@@ -681,14 +645,11 @@ pub fn setup_distant(mut state: ResMut<DistantState>, mut materials: ResMut<Asse
 
 #[allow(clippy::too_many_arguments)]
 pub fn update_distant(
-    mut commands: Commands,
     terrain: Res<Terrain>,
     settings: Res<DistantSettings>,
     registry: Res<BlockRegistry>,
     (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
     mut state: ResMut<DistantState>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    tiles: Query<&DistantTile>,
     mut march: ResMut<super::march::MarchState>,
 ) {
     let _timed = crate::render::Timed::new("distant tiles");
@@ -696,14 +657,14 @@ pub fn update_distant(
         Some(map) if settings.enabled => map.clone(),
         _ => {
             if !state.tiles.is_empty() || !state.making.is_empty() {
-                state.clear(&mut commands);
+                state.clear();
             }
             return;
         }
     };
     let blocks = TerrainBlocks::from_registry(&registry);
     if state.map.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &map)) {
-        state.clear(&mut commands);
+        state.clear();
         state.map = Some(map.clone());
         state.palette = Some(Arc::new(Palette::from_textures(&registry, &blocks)));
     }
@@ -718,16 +679,13 @@ pub fn update_distant(
     if state.wanted_for.as_ref() != Some(&now) {
         // Cells of another size: every tile has to be made again.
         if state.wanted_for.as_ref().is_some_and(|(finest, ..)| *finest != settings.finest_cell) {
-            state.clear(&mut commands);
+            state.clear();
         }
         let wanted = wanted_tiles(at, settings.finest_cell, settings.rings);
         let keep: HashSet<TileKey> = wanted.iter().copied().collect();
-        let gone: Vec<TileKey> = state.tiles.keys().copied().filter(|key| !keep.contains(key)).collect();
-        for key in gone {
-            if let Some(Some(entity)) = state.tiles.remove(&key) {
-                state.retiring.push((key, entity));
-            }
-        }
+        // Gone ones simply forgotten: the march's slot for each is written over by the tile taking its
+        // place.
+        state.tiles.retain(|key, _| keep.contains(key));
         state.making.retain(|key, _| keep.contains(key));
         // Best last: coarsest rings first (the whole world shows quickly), then nearest.
         let mut wanted: Vec<TileKey> = wanted.into_iter().filter(|key| !state.tiles.contains_key(key)).collect();
@@ -741,7 +699,7 @@ pub fn update_distant(
         state.wanted_for = Some(now);
     }
 
-    // Finished tiles become meshes.
+    // Finished tiles go to the march.
     let mut done = Vec::new();
     state.making.retain(|&key, task| match check_ready(task) {
         Some(mesh) => {
@@ -750,56 +708,11 @@ pub fn update_distant(
         }
         None => true,
     });
-    let material = state.material.clone();
     march.follow(state.cleared, settings.rings, settings.finest_cell);
     for (key, mesh) in done {
         // The march reads the same land (`march.rs`).
         march.store(key, mesh.as_ref());
-        let Some(tile) = mesh else {
-            state.tiles.insert(key, None);
-            continue;
-        };
-        let quads = (tile.indices.len() / 6) as u32;
-        let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
-        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, tile.positions);
-        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, tile.colours);
-        bevy_mesh.insert_attribute(ATTRIBUTE_EASE, tile.morph);
-        bevy_mesh.insert_attribute(ATTRIBUTE_SIDE, tile.sides);
-        bevy_mesh.insert_attribute(ATTRIBUTE_SLOPE, tile.slopes);
-        bevy_mesh.insert_indices(Indices::U32(tile.indices));
-        let Some(material) = material.clone() else { continue };
-        // Hidden while the march draws the far land (`march::show_one_drawer`).
-        let visibility = if settings.march { Visibility::Hidden } else { Visibility::Inherited };
-        let entity = commands
-            .spawn((Mesh3d(meshes.add(bevy_mesh)), MeshMaterial3d(material), Transform::from_translation(origin.to_bevy(tile.corner)), visibility, DistantTile { quads }))
-            .id();
-        state.quads += quads as u64;
-        state.tiles.insert(key, Some(entity));
-    }
-
-    // Tiles no longer wanted stay until every tile taking their place is in, so moving never opens
-    // a hole (sky showing through for a frame or two).
-    if !state.retiring.is_empty() {
-        let area = |key: &TileKey| {
-            let size = finest_tile * 2f32.powi(key.ring as i32);
-            (key.x as f32 * size, key.y as f32 * size, size)
-        };
-        let overlap = |a: (f32, f32, f32), b: (f32, f32, f32)| a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.2 && b.1 < a.1 + a.2;
-        let waiting: Vec<(f32, f32, f32)> = state.wanted.iter().chain(state.making.keys()).map(area).collect();
-        let mut done_with = Vec::new();
-        state.retiring.retain(|(key, entity)| {
-            let still_needed = waiting.iter().any(|&w| overlap(area(key), w));
-            if !still_needed {
-                done_with.push(*entity);
-            }
-            still_needed
-        });
-        for entity in done_with {
-            if let Ok(tile) = tiles.get(entity) {
-                state.quads = state.quads.saturating_sub(tile.quads as u64);
-            }
-            commands.entity(entity).despawn();
-        }
+        state.tiles.insert(key, mesh.is_some());
     }
 
     // Start more.
@@ -847,15 +760,11 @@ pub fn update_distant_material(
     }
 }
 
-/// Marks which real chunks are on screen, for the hand-off (see the module notes): chunks handed
-/// to the renderer whose sections have all been meshed once, within the render distance. A chunk
-/// being meshed again after an edit stays marked (its old mesh is still showing).
-#[allow(clippy::too_many_arguments)]
+/// Marks which chunks the far copies draw, for the march (`shown`, see the module notes): each one
+/// the copies cover, centred on the camera's chunk. The march meets the far copies' cells there and
+/// the far land's sheet of corners everywhere else. (Before R7 the real chunks on screen were marked
+/// too, and the march left them to the near meshes.)
 pub fn update_shown_chunks(
-    streaming: Res<Streaming>,
-    world: Res<VoxelWorld>,
-    mut meshing: ResMut<MeshingState>,
-    render: Res<RenderSettings>,
     copies: Res<super::far_copies::FarCopies>,
     (camera, origin): (Query<&Transform, With<Camera3d>>, Res<crate::coords::RenderOrigin>),
     mut state: ResMut<DistantState>,
@@ -863,38 +772,13 @@ pub fn update_shown_chunks(
     mut materials: ResMut<Assets<DistantMaterial>>,
 ) {
     let _timed = crate::render::Timed::new("mark chunks shown");
-    // Chunks come inside the line, meshed whole again: not drawn until they are, so the copy over
-    // them stays (`meshing::follow_the_line`).
-    if !meshing.unshown.is_empty() {
-        let unshown = std::mem::take(&mut meshing.unshown);
-        state.shown.retain(|pos| !unshown.contains(pos));
-        (state.looked_over, state.shown_for) = (None, None);
-    }
     let (Some(material), Some(texture)) = (state.material.clone(), state.shown_texture.clone()) else { return };
     let Some(camera) = camera.iter().next() else { return };
     let at = origin.to_game(camera.translation);
     let centre = IVec2::new((at.x / CHUNK_SIZE as f32).floor() as i32, (at.y / CHUNK_SIZE as f32).floor() as i32);
-    // Nothing to look over again unless the meshing, the chunks handed over, or the view moved on.
-    let looked = (meshing.changes, streaming.drawn_changes(), streaming.drawn().len(), centre, render.render_distance_chunks * 1000 + render.march_from, copies.changes);
-    if state.looked_over == Some(looked) {
-        return;
-    }
-    state.looked_over = Some(looked);
-
-    // Chunks with sections not meshed yet.
-    let pending: HashSet<ChunkPos> =
-        world.dirty_sections().chain(meshing.waiting.iter()).chain(meshing.running.keys()).chain(meshing.ready.iter().map(|(key, _)| key)).map(|key| key.chunk).collect();
-    let drawn = streaming.drawn();
-    let before = state.shown.len();
-    state.shown.retain(|pos| drawn.contains(pos));
-    let mut changed = state.shown.len() != before;
-    for &pos in drawn {
-        if !pending.contains(&pos) && state.shown.insert(pos) {
-            changed = true;
-        }
-    }
-    let now = (centre, render.render_distance_chunks * 1000 + render.march_from, copies.changes);
-    if !changed && state.shown_for == Some(now) {
+    // Nothing to mark again unless the copies or your chunk changed.
+    let now = (centre, copies.changes);
+    if state.shown_for == Some(now) {
         return;
     }
     state.shown_for = Some(now);
@@ -904,58 +788,14 @@ pub fn update_shown_chunks(
         state.shown_made = 0;
         state.shown_logged = Some(std::time::Instant::now());
     }
-
-    // A chunk is marked if it and all 8 chunks around it are on screen. So along the edge of the
-    // real chunks, distant terrain is drawn under them too, one chunk deep: where the real ground
-    // is a little lower than the distant ground beside it, no sliver of sky shows through the seam.
     let half = SHOWN_SIZE / 2;
-    let limit = render.render_distance_chunks.min(half - 2);
-    let on_screen = |pos: ChunkPos| {
-        let offset = IVec2::new(pos.x, pos.y) - centre;
-        // Where the near world draws its sections (`apply_render_distance`).
-        offset.x.abs().max(offset.y.abs()) <= limit && render.drawn_near(offset) && state.shown.contains(&pos)
-    };
-    // But not under a chunk holding what the distant terrain can't show (a cave mouth, anything
-    // changed): its smooth ground would cover the mouth, or fill the dip of a cave just under the
-    // surface [David, build 7: the mouth "stops appearing ... a visible solid color amongst the
-    // other blocks"].
-    let differs = |pos: ChunkPos| world.changed_chunks().contains(&pos) || copies.differs(pos);
-    // Beside a far copy there's no seam to hide (the same blocks, its edge hidden either way), so no
-    // distant terrain under a real chunk for its sake [David, build 40: a lighter strip in the water
-    // along the line, the distant terrain's ground under the near world's water].
-    let beside = |pos: ChunkPos| on_screen(pos) || copies.covered().contains(&pos);
     let mut pixels = vec![0u8; (SHOWN_SIZE * SHOWN_SIZE) as usize];
-    for &pos in &state.shown {
-        let around = (-1..=1).flat_map(|x| (-1..=1).map(move |y| ChunkPos::new(pos.x + x, pos.y + y)));
-        if (on_screen(pos) && differs(pos)) || (on_screen(pos) && around.into_iter().all(beside)) {
-            let offset = IVec2::new(pos.x, pos.y) - centre;
-            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = 255;
-        }
-    }
-    // The chunks drawn by far copies (`far_copies.rs`), each on its own: a copy's skirt hides its
-    // edge, so it needs no sheet under its neighbours. Marked a little less (`COPY_MARK`): the sheet
-    // isn't drawn under them either way, but the march, drawing them itself, tells them apart from
-    // the real chunks.
-    // Always the copies' mark, even where the real chunk is still in: the near world hides its
-    // sections under a copy (`apply_render_distance`), so marked real, nobody drew it [David, build 20:
-    // the peak by a cave just past the real chunks lost its top, sky in its place, once he'd moved back
-    // across their edge].
     for pos in copies.covered() {
         let offset = IVec2::new(pos.x, pos.y) - centre;
         if offset.x.abs() < half && offset.y.abs() < half {
-            // Where the near world draws its water (`apply_render_distance`: a chunk meshed past the
-            // line, inside the render distance).
-            let water = meshing.meshed_past.get(pos) == Some(&true) && offset.x.abs().max(offset.y.abs()) <= render.render_distance_chunks;
-            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = if water { MESHED_WATER_MARK } else { COPY_MARK };
+            pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] = COPY_MARK;
         }
     }
-    // The square round the camera's chunk wholly marked as real: the march starts its rays at its edge.
-    let marked = |offset: IVec2| offset.x.abs() < half && offset.y.abs() < half && pixels[((offset.y + half) * SHOWN_SIZE + offset.x + half) as usize] == 255;
-    let mut reach = -1;
-    while reach < half - 2 && (-(reach + 1)..=reach + 1).all(|a| [IVec2::new(a, reach + 1), IVec2::new(a, -(reach + 1)), IVec2::new(reach + 1, a), IVec2::new(-(reach + 1), a)].into_iter().all(marked)) {
-        reach += 1;
-    }
-    state.inner = (reach >= 0).then_some((centre, reach));
     if let Some(mut image) = images.get_mut(&texture) {
         image.data = Some(pixels);
     }

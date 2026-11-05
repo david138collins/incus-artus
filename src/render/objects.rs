@@ -22,7 +22,6 @@
 
 use super::RenderSettings;
 use super::TerrainAssets;
-use super::meshing::MeshingState;
 use super::placed_light::{LightFrom, MOST_REACH, PlacedLights};
 use super::sky_light::{FULL, sky_heights};
 use crate::camera::FlyCamera;
@@ -150,7 +149,7 @@ pub fn draw_objects(
     mut meshes: ResMut<Assets<Mesh>>,
     (mut materials, mut images): (ResMut<Assets<StandardMaterial>>, ResMut<Assets<Image>>),
     (terrain, settings): (Option<Res<TerrainAssets>>, Res<RenderSettings>),
-    (mut meshing, mut placed, mut edits): (ResMut<MeshingState>, ResMut<PlacedLights>, MessageReader<BlockChanged>),
+    (mut placed, mut edits): (ResMut<PlacedLights>, MessageReader<BlockChanged>),
     (mut drawn, origin): (ResMut<ObjectsDrawn>, Res<crate::coords::RenderOrigin>),
 ) {
     let _timed = crate::render::Timed::new("draw objects");
@@ -161,7 +160,6 @@ pub fn draw_objects(
     // for a model; and every one, if an object's settings changed.
     let objects_changed = world.take_objects_changed();
     let mut again = objects_changed.clone();
-    again.extend(meshing.relight.drain());
     let waiting = std::mem::take(&mut drawn.waiting);
     again.extend(waiting);
     // The sky brightened or dimmed (the stand-in for night): every object lit again.
@@ -211,10 +209,11 @@ pub fn draw_objects(
         relit.extend(placed.set_chunk(&world, &is_opaque, pos, &lights));
         spots.insert(pos, chunk_spots);
     }
-    // The sections a light changed in are made again; the objects near them lit again.
+    // The chunks a light changed in are marked changed (the far copies made from them are made again);
+    // the objects near them lit again.
     for key in relit {
         if world.chunk(key.chunk).is_some() {
-            meshing.waiting.insert(key);
+            world.mark_chunk_dirty(key.chunk);
             if !again.contains(&key.chunk) {
                 drawn.waiting.insert(key.chunk);
             }
@@ -224,6 +223,8 @@ pub fn draw_objects(
         return;
     }
 
+    // Each chunk's sky heights, worked out once this time round (the near meshing kept them before R7).
+    let mut sky = HashMap::new();
     for pos in again {
         for entity in drawn.drawn.remove(&pos).unwrap_or_default() {
             commands.entity(entity).despawn();
@@ -254,7 +255,7 @@ pub fn draw_objects(
             let placing = Mat4::from_scale_rotation_translation(Vec3::splat(scale), turn, origin.to_bevy(feet)) * Mat4::from_translation(-model_feet);
             // Lit by its cell's daylight and the placed light at its middle (its own among it), eased
             // as the terrain shader eases them, in 16 steps of each colour.
-            let level = if settings.sky_light { daylight_at(&world, &terrain.opaque, &mut meshing.sky, object.cell(), settings.sky_reach) } else { FULL };
+            let level = if settings.sky_light { daylight_at(&world, &terrain.opaque, &mut sky, object.cell(), settings.sky_reach) } else { FULL };
             let daylight = (level as f32 / FULL as f32).powi(2) * settings.sky_brightness.clamp(0.0, 1.0);
             let middle = (feet + Vec3::Z * def.shape_or_block().size.z as f32 / 32.0).floor().as_ivec3();
             let lit = if settings.placed_light { placed_at(&placed, middle) } else { Vec3::ZERO };

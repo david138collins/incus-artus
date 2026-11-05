@@ -2,7 +2,7 @@
 //!
 //! Start the game with `INCUS_SOAK=<seconds>` (and if wanted `INCUS_SOAK_SPEED=<blocks a second>`,
 //! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_NEAR=0` for no near light window,
-//! `INCUS_SOAK_LAND=0` for no far land as cells, `INCUS_SOAK_MARCH=0` for the far land as the sheet,
+//! `INCUS_SOAK_LAND=0` for no far land as cells, `INCUS_SOAK_BLACK=1` for nothing drawn (the sky's colour only),
 //! `INCUS_SOAK_CAP=<n>` for the frame cap, `INCUS_SOAK_WINDOW=<width>x<height>` for the window),
 //! together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
@@ -97,9 +97,10 @@ fn fly_round(
     if std::env::var("INCUS_SOAK_LAND").is_ok_and(|v| v == "0") && far.land {
         far.land = false;
     }
-    // `INCUS_SOAK_MARCH=0`: the far land as the sheet, not marched (to measure what the march costs).
-    if std::env::var("INCUS_SOAK_MARCH").is_ok_and(|v| v == "0") && distant.march {
-        distant.march = false;
+    // `INCUS_SOAK_BLACK=1`: nothing drawn, no copies or far tiles made (the chassis alone, to measure
+    // what the game costs before it draws anything).
+    if std::env::var("INCUS_SOAK_BLACK").is_ok_and(|v| v == "1") && distant.enabled {
+        distant.enabled = false;
     }
     // `INCUS_SOAK_CAP=<n>`: the frame cap (a frame every n of the screen's refreshes; 0 = none).
     if let Some(cap) = std::env::var("INCUS_SOAK_CAP").ok().and_then(|v| v.parse().ok())

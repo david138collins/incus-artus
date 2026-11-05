@@ -104,15 +104,6 @@ impl Section {
         }
     }
 
-    /// Whether it may hold a block passing `test`, by its palette (which can still list a type no
-    /// longer there, until it's compacted): a quick "certainly not".
-    pub fn may_hold(&self, test: impl Fn(BlockId) -> bool) -> bool {
-        match self {
-            Section::Uniform(id) => test(*id),
-            Section::Packed(packed) => packed.palette.iter().any(|&id| test(id)),
-        }
-    }
-
     /// Bits per block (0 for uniform sections).
     pub fn bits_per_block(&self) -> u32 {
         match self {

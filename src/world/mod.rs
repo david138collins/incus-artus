@@ -36,7 +36,7 @@ mod test_world;
 pub use block::BlockId;
 pub use caves::{CavePlan, Caves, TestCaveSettings};
 pub use objects::{held, is_small, object_box, room, shape_boxes, solid_boxes, spot, turned};
-pub use pieces::{Owners, Part, Pieces, Turn, bar_halves, bar_placement, block_halves, block_placement, half_box, octant_of, piece_start};
+pub use pieces::{Part, Pieces, Turn, bar_halves, bar_placement, block_halves, block_placement, half_box, octant_of, piece_start};
 pub use edits::{
     BlockChanged, BlockEditRefused, BlockEditRequest, EditKind, EditRules, EditSource, RecentBlockChanges,
     RefuseReason,
@@ -335,12 +335,8 @@ impl VoxelWorld {
         self.dirty.len()
     }
 
-    /// Sections changed but not yet handed to the renderer.
-    pub fn dirty_sections(&self) -> impl Iterator<Item = &SectionKey> {
-        self.dirty.iter()
-    }
-
-    /// Hand over the list of changed sections and start a fresh one (used by the renderer).
+    /// Hand over the list of changed sections and start a fresh one (used by the far copies, which
+    /// make again the copies of the chunks they're in).
     pub fn take_dirty(&mut self) -> HashSet<SectionKey> {
         std::mem::take(&mut self.dirty)
     }

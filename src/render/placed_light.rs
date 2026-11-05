@@ -146,26 +146,6 @@ impl PlacedLights {
         changed
     }
 
-    /// The light of the cells round a section (its cells and the one block round it, from its
-    /// lowest corner `origin`), by their place relative to it; cells with none are left out.
-    pub fn around_section(&self, origin: IVec3) -> HashMap<[i32; 3], u16> {
-        let (low, high) = (origin - IVec3::ONE, origin + IVec3::splat(SECTION_SIZE));
-        let mut found: HashMap<[i32; 3], u16> = HashMap::new();
-        for source in self.sources.values() {
-            let reach = IVec3::splat(source.reach);
-            if (source.cell - reach).cmpgt(high).any() || (source.cell + reach).cmplt(low).any() {
-                continue;
-            }
-            for (cell, &light) in &source.cells {
-                if cell.cmpge(low).all() && cell.cmple(high).all() {
-                    let at = (*cell - origin).to_array();
-                    found.entry(at).and_modify(|was| *was = brighter(*was, light)).or_insert(light);
-                }
-            }
-        }
-        found
-    }
-
     /// Every lit cell from `low` to `high` (blocks, both included), with its light (packed).
     pub fn lit_in(&self, low: IVec3, high: IVec3) -> Vec<(IVec3, u16)> {
         let mut found: HashMap<IVec3, u16> = HashMap::new();
@@ -246,9 +226,6 @@ mod tests {
         let changed = lights.reflood_near(&world, &opaque, IVec3::new(2, -3, 145), IVec3::new(2, 3, 147));
         assert!(!changed.is_empty());
         assert_eq!(green(&lights, IVec3::new(3, 0, 145)), 6);
-        // The section's cells, relative to it.
-        let origin = IVec3::new(0, 0, (145 / SECTION_SIZE) * SECTION_SIZE);
-        assert_eq!(lights.around_section(origin).get(&(cell - origin).to_array()), Some(&pack([0, 15, 0])));
         // Taken away: gone, and the section changes again.
         let changed = lights.set_chunk(&world, &opaque, ChunkPos::of_block(cell), &[]);
         assert!(!changed.is_empty() && lights.at(cell) == 0);

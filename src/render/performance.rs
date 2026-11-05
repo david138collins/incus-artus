@@ -5,13 +5,13 @@
 //! - **frame rate**: the average, the **1% low** (the slowest 1 frame in 100, which is what you
 //!   feel as stutter), and the **worst frame** of the last few seconds;
 //! - a **graph** of the last few seconds of frame times, with lines at 240 and 60 frames a second;
-//! - **the work in flight**: chunks waiting and being made, sections waiting to be meshed;
-//! - **what's being drawn**: sections, rectangles ("quads") and corners ("vertices").
+//! - **the work in flight**: chunks waiting and being made;
+//! - **what's being drawn**: the far copies and the far land's tiles the march reads (R7: the march
+//!   draws everything).
 //!
 //! The budget it reads against: 240 FPS (4.2 ms a frame) on David's laptop, as a stand-in for "plays
 //! on a GTX 980 Ti at 1080p on low settings".
 
-use super::meshing::{MeshingState, SectionMesh};
 use crate::world::{Streaming, VoxelWorld};
 use bevy::prelude::*;
 use bevy_egui::egui;
@@ -351,24 +351,12 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
     let streaming = world.resource::<Streaming>();
     ui.label(format!("Chunks waiting: {}   being made: {}", streaming.queued(), streaming.being_made()));
     ui.label(format!("Chunks in the world: {}", world.resource::<VoxelWorld>().chunk_count()));
-    let meshing = world.resource::<MeshingState>();
-    let average_job = if meshing.jobs_finished > 0 { meshing.total_job_micros as f64 / meshing.jobs_finished as f64 / 1000.0 } else { 0.0 };
-    ui.label(format!("Sections waiting to mesh: {}   meshing: {}   made, waiting to be shown: {}   (a mesh takes {average_job:.2} ms on average)", meshing.waiting.len(), meshing.running.len(), meshing.ready.len()));
 
     ui.separator();
     ui.strong("Being drawn");
-    let (mut sections, mut quads, mut vertices) = (0u64, 0u64, 0u64);
-    let mut query = world.query::<(&SectionMesh, &Visibility)>();
-    for (mesh, visibility) in query.iter(world) {
-        if *visibility != Visibility::Hidden {
-            sections += 1;
-            quads += mesh.quads as u64;
-            vertices += mesh.vertices as u64;
-        }
-    }
-    ui.label(format!("Sections: {sections}   quads: {quads}   vertices: {vertices}"));
+    ui.label(world.resource::<super::far_copies::FarCopies>().summary());
     let distant = world.resource::<super::distant::DistantState>();
-    ui.label(format!("Distant terrain: {} tiles, {} quads   (being made: {})", distant.tiles_drawn(), distant.quads, distant.being_made()));
+    ui.label(format!("The far land's tiles the march reads: {}   (being made: {})", distant.tiles_drawn(), distant.being_made()));
 
     ui.separator();
     ui.strong("Temperatures");
@@ -377,23 +365,13 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
 
 /// The page's numbers on one line, plus how many of each kind of thing the engine is holding (a
 /// count that keeps climbing on a long flight is a leak): for the soak test's log.
-/// What's being drawn, in a line (the World page's test caves, `docs/caves.md` stop 2): the sections
-/// in view this frame and their rectangles, of every section meshed, and the frame rate.
+/// What's being drawn, in a line (the World page's test caves, `docs/caves.md` stop 2): the far copies
+/// the march draws, and the frame rate.
 pub fn drawing_line(world: &mut World) -> String {
     let fps = summary(&world.resource::<FrameTimes>().0).map_or("no frames".to_string(), |(average, low, worst)| format!("{average:.0} fps, 1% low {low:.0}, worst {worst:.1} ms"));
-    let (mut sections, mut quads, mut in_view, mut quads_in_view) = (0u64, 0u64, 0u64, 0u64);
-    let mut query = world.query::<(&SectionMesh, &ViewVisibility)>();
-    for (mesh, visibility) in query.iter(world) {
-        sections += 1;
-        quads += mesh.quads as u64;
-        if visibility.get() {
-            in_view += 1;
-            quads_in_view += mesh.quads as u64;
-        }
-    }
-    let distant = world.resource::<super::distant::DistantSettings>();
-    let far_land = if !distant.enabled { "off" } else if distant.march { "the march" } else { "the sheet" };
-    format!("In view: {in_view} of {sections} sections, {quads_in_view} of {quads} rectangles. Far land: {far_land}. {fps}; {}", card_line(world))
+    let copies = world.resource::<super::far_copies::FarCopies>().covered().len();
+    let far_land = if world.resource::<super::distant::DistantSettings>().enabled { "the march" } else { "off" };
+    format!("Chunks drawn by the far copies: {copies}. Everything drawn by: {far_land}. {fps}; {}", card_line(world))
 }
 
 pub fn soak_line(world: &mut World) -> String {
@@ -401,8 +379,7 @@ pub fn soak_line(world: &mut World) -> String {
     let streaming = world.resource::<Streaming>();
     let (queued, making, made, dropped) = (streaming.queued(), streaming.being_made(), streaming.made, streaming.dropped);
     let chunks = world.resource::<VoxelWorld>().chunk_count();
-    let meshing = world.resource::<MeshingState>();
-    let (waiting, meshing_now, section_entities) = (meshing.waiting.len(), meshing.running.len(), meshing.entities.len());
+    let copies = world.resource::<super::far_copies::FarCopies>().covered().len();
     let distant = world.resource::<super::distant::DistantState>();
     let (tiles, tiles_making) = (distant.tiles_drawn(), distant.being_made());
     let entities = world.query::<Entity>().iter(world).count();
@@ -410,7 +387,7 @@ pub fn soak_line(world: &mut World) -> String {
     let images = world.resource::<Assets<Image>>().len();
     let materials = world.resource::<Assets<super::material::TerrainMaterial>>().len() + world.resource::<Assets<super::distant::DistantMaterial>>().len();
     format!(
-        "{fps} | chunks {chunks} (queued {queued}, making {making}, made {made}, dropped {dropped}) | sections drawn {section_entities}, waiting {waiting}, meshing {meshing_now} | distant tiles {tiles} (making {tiles_making}) | entities {entities}, meshes {meshes}, images {images}, materials {materials} | {}",
+        "{fps} | chunks {chunks} (queued {queued}, making {making}, made {made}, dropped {dropped}) | chunks the far copies draw {copies} | distant tiles {tiles} (making {tiles_making}) | entities {entities}, meshes {meshes}, images {images}, materials {materials} | {}",
         card_line(world)
     )
 }

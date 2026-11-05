@@ -31,8 +31,8 @@
 //! **Not yet:** night light (the braziers'), its
 //! own line in "Graphics card time".
 
-use super::distant::{CELLS, DistantMaterial, DistantSettings, DistantShaderSettings, DistantState, DistantTile, Palette, RING_TILES, TileKey, TileMesh};
-use super::far_copies::{CopyCells, FarCopies, FarCopy, FarCopySettings, TileKey as CopyKey};
+use super::distant::{CELLS, DistantMaterial, DistantSettings, DistantShaderSettings, DistantState, Palette, RING_TILES, TileKey, TileMesh};
+use super::far_copies::{CopyCells, FarCopies, FarCopySettings, TileKey as CopyKey};
 use std::collections::HashMap;
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::visibility::NoFrustumCulling;
@@ -1144,10 +1144,9 @@ pub fn update_march(
     // with: the near world's own.
     let near = terrain.as_ref().and_then(|terrain| terrain_materials.get(&terrain.material)).map(|material| (material.textures.clone(), material.settings, material.light, material.near_map.clone(), material.near_cones.clone()));
     let sheet_changed = changed_sheet.read().any(|event| matches!(event, AssetEvent::Modified { .. }));
-    let inner = distant.inner.map_or(Vec4::ZERO, |(centre, reach)| {
-        let size = crate::world::CHUNK_SIZE as f32;
-        Vec4::new((centre.x - reach) as f32 * size, (centre.y - reach) as f32 * size, (centre.x + reach + 1) as f32 * size, (centre.y + reach + 1) as f32 * size)
-    });
+    // No square of real chunks round you for the rays to start past (R7: nothing else draws them):
+    // they start at the camera.
+    let inner = Vec4::ZERO;
     let march = MarchShaderSettings {
         grid: Vec4::new(state.rings as f32, settings.finest_cell as f32, state.highest.max(state.copies.top), settings.march_most as f32),
         copies: Vec4::new(if marched { 1.0 } else { 0.0 }, if far_settings.shaded { 1.0 } else { 0.0 }, if far_settings.sized { far_settings.pixels } else { 0.0 }, if far_settings.bands { 2.0 } else if far_settings.mixed { 1.0 } else { 0.0 }),
@@ -1202,38 +1201,11 @@ pub fn write_march(writes: Res<MarchWrites>, gpu_buffers: Res<RenderAssets<GpuSh
     *pending = waiting;
 }
 
-/// One of the two draws the far land: the march's triangle or the sheet's tiles, by the switch
-/// (neither while the deep screenshot is being taken: it draws its own); and the far copies' own
-/// blocks are hidden while the march draws them.
-#[allow(clippy::type_complexity)]
-pub fn show_one_drawer(
-    state: Res<MarchState>,
-    settings: Res<DistantSettings>,
-    far_settings: Res<FarCopySettings>,
-    shot: Res<super::deep_shot::DeepShot>,
-    mut screens: Query<&mut Visibility, (With<MarchScreen>, Without<DistantTile>, Without<FarCopy>)>,
-    mut tiles: Query<&mut Visibility, (With<DistantTile>, Without<MarchScreen>, Without<FarCopy>)>,
-    mut copies: Query<&mut Visibility, (With<FarCopy>, Without<MarchScreen>, Without<DistantTile>)>,
-) {
-    // New copies come in all the time: every frame.
-    let marched = far_settings.marched(&settings) && !shot.busy();
-    for mut visibility in &mut copies {
-        visibility.set_if_neq(if marched { Visibility::Hidden } else { Visibility::Inherited });
-    }
-    if shot.busy() {
-        if let Some(mut visibility) = state.screen.and_then(|screen| screens.get_mut(screen).ok()) {
-            visibility.set_if_neq(Visibility::Hidden);
-        }
-        return;
-    }
-    let march = settings.march && settings.enabled;
+/// The march's screen shown while the far land is on (since R7 it draws everything: no other drawer to
+/// switch to).
+pub fn show_the_march(state: Res<MarchState>, settings: Res<DistantSettings>, mut screens: Query<&mut Visibility, With<MarchScreen>>) {
     if let Some(mut visibility) = state.screen.and_then(|screen| screens.get_mut(screen).ok()) {
-        visibility.set_if_neq(if march { Visibility::Inherited } else { Visibility::Hidden });
-    }
-    if settings.is_changed() {
-        for mut visibility in &mut tiles {
-            visibility.set_if_neq(if march { Visibility::Hidden } else { Visibility::Inherited });
-        }
+        visibility.set_if_neq(if settings.enabled { Visibility::Inherited } else { Visibility::Hidden });
     }
 }
 

@@ -100,10 +100,9 @@ pub struct Streaming {
     /// Chunks past the edge of the map (they'll never exist, but count as "in" for their
     /// neighbours).
     empty: HashSet<ChunkPos>,
-    /// Chunks that have been handed to the renderer, and a count that goes up whenever that list
-    /// changes.
+    /// Chunks that have been handed to the renderer (the far copies: marked changed once their
+    /// neighbours are in).
     drawn: HashSet<ChunkPos>,
-    drawn_changes: u64,
     /// Where the queue was made from, and when.
     queued_at: Option<ChunkPos>,
     queued_when: Option<Instant>,
@@ -130,13 +129,9 @@ impl Streaming {
     }
 
     /// Chunks that have been handed to the renderer.
+    #[cfg(test)]
     pub fn drawn(&self) -> &HashSet<ChunkPos> {
         &self.drawn
-    }
-
-    /// Goes up whenever `drawn` changes.
-    pub fn drawn_changes(&self) -> u64 {
-        self.drawn_changes
     }
 
     /// Whether a chunk is in the world or known to be past the map.
@@ -166,7 +161,6 @@ impl Streaming {
         if neighbours.iter().all(|&n| self.settled(world, n)) {
             world.mark_chunk_dirty(pos);
             self.drawn.insert(pos);
-            self.drawn_changes += 1;
         }
     }
 }
@@ -281,7 +275,6 @@ pub fn stream_chunks(
                 world.remove_chunk(pos);
             }
             streaming.drawn.remove(&pos);
-            streaming.drawn_changes += 1;
             streaming.dropped += 1;
         }
         streaming.empty.retain(|pos| {
