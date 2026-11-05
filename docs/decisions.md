@@ -939,6 +939,21 @@ Reference: `Art/quartile minecraft illustration.png`
 
 ---
 
+## The renderer: the old engine dropped now, not last
+
+**[DECIDED 2026-11-04]** David: "i feel as a mechanic the bilateral engine transfer we are doing would
+create a real mess in my lift bay. we got rivers working by ripping them out first." Then: "we culd just
+remove out eyes entirely and build them again more carefully, the right way. meaning vrr+vlr. i dont think
+that code is wrong or should be discarded. i mean lets just drop the old engine and see what happens. go
+from there."
+
+So R7 (`docs/far-view.md`) moves from last to now, with no switch kept: the line goes all the way in, the
+near meshes and the far sheet come out, and the old engine stays in git history only. Kept: the march and
+copies, the real chunks for the game, world gen and the default preset. Water and glass up close, pieces and
+bars, models and near lighting may be missing for a while, and come back built for the march, not matched
+to the old engine. How they come back is planned after he has seen the result. He won't be near the USB
+backup for a week and chose not to wait for it.
+
 ## The renderer: the bar for moving on to content
 
 **[David 2026-11-04]** Counsel's bar, David: "i think you are right with that bar." Done enough to build on:
