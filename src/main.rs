@@ -86,7 +86,7 @@ fn main() {
             crate::ecs::time::TimePlugin,
             crate::ecs::input::InputPlugin,
             crate::ecs::state::app::StatesPlugin,
-            crate::ecs::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() },
+            crate::ecs::log::LogPlugin { custom_layer: diagnostics::log_layer, fmt_layer: diagnostics::console_layer, ..default() },
         ))
         // The debug panel's egui (drawn by the runner).
         .add_plugins(ui::UiPlugin)

@@ -40,6 +40,11 @@ Measured at the screen with PresentMon (installed 2026-11-05), not inside the ga
   modders. thats a ways off." The shipped build leaves it out; ours keeps it.
 - **Start small, keep checking.** "my instinct is to just start small and keep checking performance as we
   assemble vision." On the stutter: "we need to isolate the offender and not repeat it".
+- **Spend the headroom slowly.** After build 61 (about 1,650 FPS with nothing on screen), David said: "i can not
+  impress upon you enough how gradually i want to spend that wealth when we start constructing eyesight in the
+  gpu again. i really want to go step by step and think carefully about how it can be done. we have to be
+  clever." Every step that puts something on screen is talked through with him before it's built, then
+  measured on its own before the next one goes on.
 - **The landmark:** the local tag `before-regroup` (annotated, on ea7f242: build 60 plus the day's docs).
 - Audio, gamepads and menus: not decided yet.
 
@@ -140,6 +145,36 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 - **David:** 1 look. The editor, World Gen suite and save/load all work, on a plain sky-coloured window.
 - **Measured:** 1 test window. The floor at the screen, uncapped and at 120. Expected near today's no-Bevy floor (0.02 to 0.6 ms of processor a frame), with no slow frames at 120.
 - **Fork A:** if the floor isn't there (well over 1 ms of processor a frame, or any slow frame at 120), the log names it, and it's fixed before anything else goes on the stage.
+- **[MEASURED 2026-11-05, build 61, PresentMon at the screen, 2 minutes each, editor closed]**
+  - **Uncapped:** 1,950 FPS average, 933 FPS 1% low; processor 0.34 ms a frame, card 0.17 ms. The floor is there.
+    But 6 frames took 10 to 19 ms and one took 220 ms, all inside the hand-off to the driver (getting the next
+    picture, or presenting it), not in our work.
+  - **At 120:** 1% low 100 FPS. 336 frames stayed on screen longer than 12.5 ms (3 refreshes instead of 2). That's
+    ours: the cap is waited out on a timer of the game's own, after a vsynced present, and the timer wakes late
+    (waits of 9 to 19 ms logged for 8.3), so frames miss their refresh. **Fork A is hit:** fixed before phase 1.
+  - **A caution on the uncapped stalls:** the game's own log has only 1 of PresentMon's 6 slow frames in that run,
+    and not the 220 ms one. PresentMon without administrator rights may drop events at 2,000 FPS, which shows as
+    a gap that wasn't there. A stall counts when PresentMon and the game's log agree.
+- **The torque spec** [Counsel's, David 2026-11-05: "this device needs to be trick"]: after any change to the frame
+  loop, the same runs at the screen (`INCUS_TEST_WINDOW`, `soak.rs`: 2 minutes uncapped, 2 at 120, by itself),
+  with their numbers written here. A bolt is tight once its check passes, and again after every change.
+  Response before frame rate: input-to-photon latency is a first-class number in it.
+- **Build 62, Fork A's first bolts** (not yet measured):
+  - **Pacing by the screen's own clock** (`runner::pace`, `runner/hardware.rs`): under a cap, the frame waits for
+    the screen's refreshes (DXGI's wait for the vertical blank on the window's screen) until the cap's number
+    has gone by since the frame began, so the next frame starts just after a refresh, reads the input then, and
+    shows at the refresh after. Counted from the screen every frame, so it can't drift; a frame that ran long
+    waits one refresh only, so frames never queue. The timer stays as the fallback. The simulation's clock
+    is untouched (real time; tested: the same 10 s at 60, 120, 240 and 2,000 frames a second give the same
+    ticks, and a 1 s stall is a quarter-second of simulation and a pause, not a rush).
+  - **Input read at the last moment:** already so. winit hands over the input that came during the wait just
+    before the next frame begins.
+  - **Nothing written on the frame:** the session log and the console are written by a log writer thread
+    (`diagnostics.rs`); the frame only queues the line.
+  - **The hand-off timed step by step:** getting the next picture, drawing the panel for the card, handing the
+    card its work, showing it, waiting for the screen.
+  - **Which core the frame is on:** logged every 10 s in a test window, or whenever any frames landed on the
+    efficient cores.
 
 ### Phase 1: first sight, rough land to the horizon  [planned in detail]
 

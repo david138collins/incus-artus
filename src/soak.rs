@@ -47,10 +47,79 @@ pub fn wanted() -> bool {
     std::env::var("INCUS_SOAK").is_ok()
 }
 
+/// Whether the game is measuring itself: a soak test or a test window.
+pub fn measuring() -> bool {
+    wanted() || test_window_seconds().is_some()
+}
+
+// ── The test window ──────────────────────────────────────────────────────────
+//
+// The frame loop's torque spec [the regroup, docs/regroup.md, Fork A]: after any change to the frame
+// loop, the same runs at the screen, with their numbers written down. Started with
+// `INCUS_TEST_WINDOW=<seconds>` (120 if no number), the game runs them itself, so nobody has to watch
+// for a cue: the panel closed, `WARM_UP` seconds to settle, then that long uncapped, `SETTLE` seconds,
+// then that long at half the screen's refresh rate (120 on a 240 screen), then it quits. Each run's
+// start and end go in the log with the time (seconds since 1970), so PresentMon's record, started
+// beside it, can be cut into the runs. The settings' frame cap is left as it was.
+
+const WARM_UP: f32 = 15.0;
+const SETTLE: f32 = 5.0;
+
+/// How long each run of the test window lasts, if the game was started for one.
+pub fn test_window_seconds() -> Option<f32> {
+    let value = std::env::var("INCUS_TEST_WINDOW").ok()?;
+    Some(value.parse().unwrap_or(120.0))
+}
+
+#[derive(Resource)]
+struct TestWindow {
+    seconds: f32,
+    /// The phase now (`phases`); `usize::MAX` before the first.
+    phase: usize,
+}
+
+/// The test window's phases: the frame cap, the run's name (none for the gaps), and how long.
+fn phases(seconds: f32) -> [(u32, Option<&'static str>, f32); 4] {
+    [(0, None, WARM_UP), (0, Some("uncapped"), seconds), (2, None, SETTLE), (2, Some("at half the refresh rate"), seconds)]
+}
+
+fn run_test_window(world: &mut World) {
+    let now = world.resource::<Time<Real>>().elapsed_secs();
+    let mut test = world.resource_mut::<TestWindow>();
+    let phases = phases(test.seconds);
+    let mut end = 0.0;
+    let phase = phases.iter().position(|&(_, _, length)| {
+        end += length;
+        now < end
+    });
+    let phase = phase.unwrap_or(phases.len());
+    let previous = std::mem::replace(&mut test.phase, phase);
+    if phase != previous {
+        let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+        if let Some(&(_, Some(name), _)) = phases.get(previous) {
+            info!("Test window: the run {name} ended at {at:.3} (seconds since 1970)");
+        }
+        match phases.get(phase) {
+            Some(&(_, Some(name), length)) => info!("Test window: the run {name} began at {at:.3} (seconds since 1970), for {length:.0} s"),
+            Some(_) if previous == usize::MAX => info!("Test window: {WARM_UP:.0} s to settle, then the runs"),
+            Some(_) => {}
+            None => {
+                info!("Test window: done");
+                world.write_message(AppExit::Success);
+            }
+        }
+    }
+    world.resource_mut::<crate::runner::TestCap>().0 = phases.get(phase).map(|&(cap, ..)| cap);
+    world.resource_mut::<crate::debug::DebugPanel>().visible = false;
+}
+
 pub struct SoakPlugin;
 
 impl Plugin for SoakPlugin {
     fn build(&self, app: &mut App) {
+        if let Some(seconds) = test_window_seconds() {
+            app.insert_resource(TestWindow { seconds, phase: usize::MAX }).add_systems(Last, run_test_window);
+        }
         let Some(seconds) = std::env::var("INCUS_SOAK").ok().and_then(|v| v.parse().ok()) else { return };
         // (Since the regroup the game draws flat out with or without the focus: the old switch for it,
         // `INCUS_SOAK_CONTINUOUS`, isn't needed. The old renderer's switches went with it.)

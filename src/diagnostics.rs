@@ -26,10 +26,10 @@
 use crate::ecs::input::ButtonState;
 use crate::ecs::input::keyboard::KeyboardInput;
 use crate::ecs::input::mouse::MouseButtonInput;
-use crate::ecs::log::BoxedLayer;
+use crate::ecs::log::{BoxedFmtLayer, BoxedLayer};
 use crate::ecs::log::tracing::field::{Field, Visit};
 use crate::ecs::log::tracing::{Event, Level, Subscriber};
-use crate::ecs::log::tracing_subscriber::Layer;
+use crate::ecs::log::tracing_subscriber::{Layer, fmt};
 use crate::ecs::log::tracing_subscriber::layer::Context;
 use crate::ecs::prelude::*;
 use crate::ui::{EguiContexts, EguiPrimaryContextPass};
@@ -81,6 +81,8 @@ struct Session {
     started: u64,
     clock: Instant,
     log: Mutex<SessionLog>,
+    /// The log writer's queue (see `write_off_the_frame`).
+    writer: std::sync::mpsc::Sender<LogJob>,
     /// Milliseconds into the session at the last frame, and how many frames so far.
     beat: AtomicU64,
     frames: AtomicU64,
@@ -90,9 +92,54 @@ struct Session {
 }
 
 struct SessionLog {
-    file: Option<std::io::BufWriter<std::fs::File>>,
     path: PathBuf,
     recent: VecDeque<String>,
+}
+
+/// Work for the log writer.
+enum LogJob {
+    /// A line for the session log.
+    Line(String),
+    /// A message for the console, as formatted.
+    Console(Vec<u8>),
+    /// Everything before this written out; then a word back.
+    Flush(std::sync::mpsc::SyncSender<()>),
+}
+
+/// The log writer, on a thread of its own: the session log's file and the console are written here,
+/// never on the frame [Fork A, 2026-11-05: a write that stalls mustn't stall the frame it's logging].
+/// Each line is flushed as it's written, so a crash loses nothing that was logged before it.
+fn write_off_the_frame(mut file: Option<std::io::BufWriter<std::fs::File>>, jobs: std::sync::mpsc::Receiver<LogJob>) {
+    let mut console = std::io::stderr();
+    for job in jobs {
+        match job {
+            LogJob::Line(line) => {
+                if let Some(file) = file.as_mut() {
+                    let _ = writeln!(file, "{line}");
+                    let _ = file.flush();
+                }
+            }
+            LogJob::Console(text) => {
+                let _ = console.write_all(&text);
+            }
+            LogJob::Flush(done) => {
+                if let Some(file) = file.as_mut() {
+                    let _ = file.flush();
+                }
+                let _ = console.flush();
+                let _ = done.send(());
+            }
+        }
+    }
+}
+
+/// Waits (up to `longest`) for the log writer to have written everything sent so far.
+fn flush_log(longest: Duration) {
+    let Some(session) = SESSION.get() else { return };
+    let (done, written) = std::sync::mpsc::sync_channel(1);
+    if session.writer.send(LogJob::Flush(done)).is_ok() {
+        let _ = written.recv_timeout(longest);
+    }
 }
 
 /// Where you are, and what you last pressed.
@@ -130,11 +177,14 @@ pub fn start() {
     tidy(&folder, "freeze-", REPORTS_KEPT);
     let path = folder.join(format!("session-{started}.log"));
     let file = std::fs::File::create(&path).ok().map(std::io::BufWriter::new);
+    let (writer, jobs) = std::sync::mpsc::channel();
+    std::thread::Builder::new().name("log writer".into()).spawn(move || write_off_the_frame(file, jobs)).ok();
     let session = Session {
         folder,
         started,
         clock: Instant::now(),
-        log: Mutex::new(SessionLog { file, path, recent: VecDeque::new() }),
+        log: Mutex::new(SessionLog { path, recent: VecDeque::new() }),
+        writer,
         beat: AtomicU64::new(0),
         frames: AtomicU64::new(0),
         places: Mutex::new(Places::default()),
@@ -155,11 +205,7 @@ pub fn start() {
 pub fn ended_normally() {
     let Some(session) = SESSION.get() else { return };
     write_line("Ended normally.");
-    if let Ok(mut log) = session.log.lock()
-        && let Some(file) = log.file.as_mut()
-    {
-        let _ = file.flush();
-    }
+    flush_log(Duration::from_secs(2));
     let _ = std::fs::remove_file(session.folder.join("running.txt"));
 }
 
@@ -200,16 +246,13 @@ fn into_session() -> f32 {
     SESSION.get().map_or(0.0, |session| session.clock.elapsed().as_secs_f32())
 }
 
-/// Adds a line to the session log (and its recent lines). Never waits on the log if it's busy
-/// for long: a report written mid-crash mustn't hang on it.
+/// Adds a line to the session log (and its recent lines). The file is written by the log writer,
+/// off this thread.
 fn write_line(line: &str) {
     let Some(session) = SESSION.get() else { return };
     let line = format!("{:9.2}  {line}", into_session());
+    let _ = session.writer.send(LogJob::Line(line.clone()));
     if let Ok(mut log) = session.log.lock() {
-        if let Some(file) = log.file.as_mut() {
-            let _ = writeln!(file, "{line}");
-            let _ = file.flush();
-        }
         log.recent.push_back(line);
         while log.recent.len() > RECENT_LINES {
             log.recent.pop_front();
@@ -225,6 +268,46 @@ pub fn log_layer(_app: &mut App) -> Option<BoxedLayer> {
 }
 
 struct SessionLayer;
+
+/// Bevy's console messages, formatted as before (`main`), but written by the log writer, off the
+/// frame: a console that's slow to take them mustn't slow the game.
+pub fn console_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
+    Some(Box::new(fmt::Layer::default().with_writer(|| ConsoleLine(Vec::new()))))
+}
+
+/// One console message, gathered as it's formatted, then handed to the log writer whole.
+struct ConsoleLine(Vec<u8>);
+
+impl Write for ConsoleLine {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Drop for ConsoleLine {
+    fn drop(&mut self) {
+        let text = std::mem::take(&mut self.0);
+        if text.is_empty() {
+            return;
+        }
+        // Without the writer (before the session starts, or if it's gone), straight to the console.
+        let unsent = match SESSION.get() {
+            Some(session) => match session.writer.send(LogJob::Console(text)) {
+                Err(std::sync::mpsc::SendError(LogJob::Console(text))) => Some(text),
+                _ => None,
+            },
+            None => Some(text),
+        };
+        if let Some(text) = unsent {
+            let _ = std::io::stderr().write_all(&text);
+        }
+    }
+}
 
 /// Pulls the message (and any other fields) out of a log event.
 struct Message(String);
@@ -346,6 +429,7 @@ fn install_crash_report() {
             );
             let name = write_report(session, "crash", &body);
             write_line(&format!("CRASH: {message} at {place} (thread {thread}). Report: logs/{name}"));
+            flush_log(Duration::from_secs(1));
             WRITING.store(false, Ordering::SeqCst);
         }
         usual(info);

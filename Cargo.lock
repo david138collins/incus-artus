@@ -2969,6 +2969,7 @@ dependencies = [
  "serde",
  "toml",
  "wgpu",
+ "windows",
  "winit",
 ]
 

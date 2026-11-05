@@ -25,7 +25,7 @@ use crate::debug::{DebugAppExt, SettingsAppExt};
 use crate::save::WorldStateAppExt;
 use crate::screen::Screen;
 use crate::ecs::prelude::*;
-use crate::ecs::time::TimeSystems;
+use crate::ecs::time as clocks;
 use crate::ui::{EguiContexts, EguiPrimaryContextPass};
 use serde::{Deserialize, Serialize};
 
@@ -158,7 +158,7 @@ impl Plugin for TimeControlPlugin {
             .add_world_state::<WorldClock>("clock")
             .init_resource::<InterpolationSettings>()
             // Before Bevy updates its clocks each frame, hand it our settings.
-            .add_systems(First, apply_time_control.before(TimeSystems))
+            .add_systems(First, apply_time_control.before(clocks::TimeSystems))
             // Just before the fixed ticks run: reset the per-frame counter, queue single steps.
             .add_systems(
                 RunFixedMainLoop,
@@ -307,4 +307,62 @@ fn format_duration(seconds: f64) -> String {
     let minutes = ((seconds % 3600.0) / 60.0) as u64;
     let secs = seconds % 60.0;
     format!("{hours}:{minutes:02}:{secs:04.1}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    /// A world with only the clocks: Bevy's time, fed frames of a set length instead of the real
+    /// clock's, and ours on top, as `TimeControlPlugin` sets them up.
+    fn clocks_alone() -> App {
+        let mut app = App::new();
+        app.add_plugins(clocks::TimePlugin)
+            .init_resource::<TimeControl>()
+            .init_resource::<WorldClock>()
+            .add_systems(First, apply_time_control.before(clocks::TimeSystems))
+            .add_systems(RunFixedMainLoop, prepare_ticks.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop))
+            .add_systems(FixedFirst, count_tick);
+        app
+    }
+
+    /// Runs frames `frame_ms` long for `seconds` of real time.
+    fn run(app: &mut App, seconds: f64, frame_ms: f64) {
+        app.insert_resource(clocks::TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(frame_ms / 1000.0)));
+        for _ in 0..(seconds * 1000.0 / frame_ms).round() as u64 {
+            app.update();
+        }
+    }
+
+    /// [David 2026-11-05: the frame's pacing must not "impinge on our simulation clock at all"] The
+    /// same real time gives the same simulation time and ticks, whatever the frame rate: the
+    /// simulation counts real time, never frames or the screen's refreshes.
+    #[test]
+    fn the_simulation_keeps_real_time_whatever_the_frame_rate() {
+        let one_tick = 1.0 / DEFAULT_TICK_RATE;
+        for frame_ms in [1000.0 / 60.0, 1000.0 / 120.0, 1000.0 / 240.0, 0.5] {
+            let mut app = clocks_alone();
+            run(&mut app, 10.0, frame_ms);
+            let control = app.world().resource::<TimeControl>();
+            // (Within a tick, and the first frame, which starts Bevy's clock and carries no time.)
+            let near = one_tick + frame_ms / 1000.0;
+            assert!(control.tick().abs_diff(300) <= 1, "{} ticks in 10 s at {frame_ms:.2} ms a frame", control.tick());
+            assert!((control.sim_seconds() - 10.0).abs() <= near, "{:.4} s in 10 s at {frame_ms:.2} ms a frame", control.sim_seconds());
+        }
+    }
+
+    /// [David 2026-11-05: skipping is fine "as long as... its just a pause"] A frame stuck for a
+    /// whole second gives the simulation a quarter of a second (Bevy's virtual clock's limit): the
+    /// rest is a pause, not a rush to catch up, and the ticks go on at their rate afterwards.
+    #[test]
+    fn a_stall_is_a_pause_not_a_rush() {
+        let one_tick = 1.0 / DEFAULT_TICK_RATE;
+        let mut app = clocks_alone();
+        run(&mut app, 1.0, 1000.0 / 240.0);
+        run(&mut app, 1.0, 1000.0);
+        run(&mut app, 1.0, 1000.0 / 240.0);
+        let seconds = app.world().resource::<TimeControl>().sim_seconds();
+        assert!((seconds - 2.25).abs() <= one_tick + 0.005, "{seconds:.4} s of simulation for 3 s with a 1 s stall");
+    }
 }

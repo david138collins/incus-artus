@@ -7,13 +7,15 @@
 //! 2. **the game's update**: Bevy's schedules (its ECS core is kept for now, `docs/regroup.md`), with
 //!    the simulation's fixed ticks inside it;
 //! 3. **the panel**: egui's frame, the `EguiPrimaryContextPass` systems;
-//! 4. **the card**: clear to the sky, draw the panel, hand it over;
-//! 5. **the frame cap**: vsync and, for a cap below the refresh rate, the rest of the frame waited
-//!    out (as the old `frame_cap.rs` did; 0 = as fast as possible, vsync off).
+//! 4. **the card**: get the next picture, clear it to the sky, draw the panel, hand it over, show it;
+//! 5. **the frame cap**: vsync, and the wait for the next frame's moment, by the screen's own clock
+//!    (`pace`): the next frame starts just after a refresh, so it reads the input as late as it can
+//!    and shows at the refresh after. 0 = as fast as possible, vsync off.
 //!
 //! The window's state the game reads (its size, whether it has the focus) is the `WindowState`
 //! resource; what the game asks of the window (the mouse captured, a size) it sets there too.
 
+pub mod hardware;
 mod keys;
 
 use crate::perf::Timed;
@@ -65,6 +67,11 @@ impl Default for FrameCap {
     }
 }
 
+/// Set by the test window (`soak.rs`, `INCUS_TEST_WINDOW`): the frame cap it's measuring, over the
+/// settings' one, which is left as it was.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct TestCap(pub Option<u32>);
+
 /// A file dropped on the window (the World Gen suite takes pictures and block textures this way).
 #[derive(Message, Clone, Debug)]
 pub struct FileDropped(pub std::path::PathBuf);
@@ -78,7 +85,7 @@ const SKY: wgpu::Color = wgpu::Color { r: 0.25, g: 0.34, b: 0.52, a: 1.0 };
 
 /// Runs the game until it asks to quit or the window is closed.
 pub fn run(mut app: App) {
-    app.init_resource::<WindowState>().init_resource::<FrameCap>().init_resource::<ScreenshotRequest>().add_message::<FileDropped>();
+    app.init_resource::<WindowState>().init_resource::<FrameCap>().init_resource::<TestCap>().init_resource::<ScreenshotRequest>().add_message::<FileDropped>();
     // Plugins finish their set-up (Bevy's `App::run` did this).
     while app.plugins_state() == crate::ecs::app::PluginsState::Adding {
         crate::ecs::tasks::tick_global_task_pools_on_main_thread();
@@ -87,7 +94,7 @@ pub fn run(mut app: App) {
     app.cleanup();
     let event_loop = EventLoop::new().expect("an event loop");
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut runner = Runner { app, gpu: None, last_frame: None, due: None, cap: None };
+    let mut runner = Runner { app, gpu: None, last_frame: None, due: None, cap: None, screen: None, screen_clock: None, began: None, instant_waits: 0 };
     if let Err(error) = event_loop.run_app(&mut runner) {
         error!("The window's loop stopped: {error}");
     }
@@ -110,10 +117,24 @@ struct Runner {
     gpu: Option<Gpu>,
     /// When the last frame was shown (its length is measured from one to the next).
     last_frame: Option<Instant>,
-    /// When the frame now being made should end, under a cap (see `wait_out`).
+    /// When the frame now being made should end, under a cap, by the timer (see `wait_out`).
     due: Option<Instant>,
     /// The frame cap the surface is set up for.
     cap: Option<u32>,
+    /// The screen the window was last seen on (winit's handle), and its clock, if Windows has one
+    /// for it (see `pace`).
+    screen: Option<isize>,
+    screen_clock: Option<hardware::ScreenClock>,
+    /// When the frame now being made began: just after a refresh, under a cap.
+    began: Option<Instant>,
+    /// Frames in a row whose waits for the screen came back at once (a screen clock that doesn't
+    /// wait is dropped for the timer).
+    instant_waits: u32,
+}
+
+/// The screen's refresh rate (refreshes a second), 60 if it can't be had.
+fn refresh_of(window: &Window) -> f32 {
+    window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz()).map_or(60.0, |millihertz| millihertz as f32 / 1000.0)
 }
 
 /// The Windows SDK's `dxcompiler.dll`, if it is installed (with the `dxil.dll` beside it): DXC
@@ -158,14 +179,32 @@ impl Runner {
         let ctx = self.app.world().resource::<crate::ui::EguiCtx>().0.clone();
         let egui_state = egui_winit::State::new(ctx, egui::ViewportId::ROOT, &window, Some(window.scale_factor() as f32), None, Some(device.limits().max_texture_dimension_2d as usize));
         let egui_renderer = egui_wgpu::Renderer::new(&device, config.format, egui_wgpu::RendererOptions::default());
-        let refresh = window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz()).map_or(60.0, |millihertz| millihertz as f32 / 1000.0);
         {
             let mut state = self.app.world_mut().resource_mut::<WindowState>();
             state.size = (config.width, config.height);
             state.scale = window.scale_factor() as f32;
-            state.refresh = refresh;
         }
         self.gpu = Some(Gpu { window, surface, device, queue, config, egui_state, egui_renderer, captured: false });
+        self.watch_screen();
+    }
+
+    /// The screen the window is on (again, when it's moved: it may be on another now): its refresh
+    /// rate and its clock.
+    fn watch_screen(&mut self) {
+        let Some(gpu) = &self.gpu else { return };
+        let screen = hardware::monitor_of(&gpu.window);
+        let refresh = refresh_of(&gpu.window);
+        self.app.world_mut().resource_mut::<WindowState>().refresh = refresh;
+        if screen == self.screen {
+            return;
+        }
+        self.screen = screen;
+        self.screen_clock = screen.and_then(hardware::ScreenClock::for_monitor);
+        self.instant_waits = 0;
+        match &self.screen_clock {
+            Some(clock) => info!("The frame cap keeps to the screen's own clock (screen {:#x}, {refresh:.0} refreshes a second)", clock.monitor()),
+            None => info!("The screen's own clock isn't to be had: the frame cap keeps to a timer ({refresh:.0} refreshes a second)"),
+        }
     }
 
     fn resize(&mut self, width: u32, height: u32) {
@@ -209,7 +248,7 @@ impl Runner {
         // What the game asks of the window.
         let (capture, resize_to, minimize, cap, screenshot) = {
             let world = self.app.world_mut();
-            let cap = world.resource::<FrameCap>().0;
+            let cap = world.resource::<TestCap>().0.unwrap_or(world.resource::<FrameCap>().0);
             let screenshot = world.resource_mut::<ScreenshotRequest>().0.take();
             let mut state = world.resource_mut::<WindowState>();
             (state.capture_mouse, state.resize_to.take(), state.minimize.take(), cap, screenshot)
@@ -239,8 +278,12 @@ impl Runner {
         }
 
         {
-            let _timed = Timed::new("handing the card its work");
-            let texture = match gpu.surface.get_current_texture() {
+            // The card's steps are timed one by one, so a stall in handing over says which it was in.
+            let fetched = {
+                let _timed = Timed::new("getting the next picture");
+                gpu.surface.get_current_texture()
+            };
+            let texture = match fetched {
                 wgpu::CurrentSurfaceTexture::Success(texture) | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => texture,
                 _ => {
                     // Lost or out of date (a resize, a minimise): set up again, and try next frame.
@@ -248,6 +291,7 @@ impl Runner {
                     return;
                 }
             };
+            let drawing = Timed::new("drawing the panel for the card");
             let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
             let screen = egui_wgpu::ScreenDescriptor { size_in_pixels: [gpu.config.width, gpu.config.height], pixels_per_point: output.pixels_per_point };
             let jobs = ctx.tessellate(output.shapes, output.pixels_per_point);
@@ -265,8 +309,13 @@ impl Runner {
             }
             let shot = screenshot.filter(|_| gpu.config.usage.contains(wgpu::TextureUsages::COPY_SRC)).map(|path| (path, copy_out(&gpu.device, &mut encoder, &texture.texture)));
             commands.push(encoder.finish());
-            gpu.queue.submit(commands);
+            drop(drawing);
+            {
+                let _timed = Timed::new("handing the card its work");
+                gpu.queue.submit(commands);
+            }
             if let Some((path, (buffer, padded))) = shot {
+                // (F12 and the self-test only: the frame waits for the copy.)
                 save_screenshot(&gpu.device, buffer, padded, (gpu.config.width, gpu.config.height), gpu.config.format, path);
             }
             for id in &output.textures_delta.free {
@@ -278,12 +327,56 @@ impl Runner {
         }
 
         let refresh = self.app.world().resource::<WindowState>().refresh;
-        self.wait_out(cap, refresh);
+        self.pace(cap, refresh);
         let now = Instant::now();
         let ms = self.last_frame.map_or(0.0, |last| now.duration_since(last).as_secs_f32() * 1000.0);
         self.last_frame = Some(now);
         let capped = (cap > 0).then(|| cap as f32 * 1000.0 / refresh.max(1.0));
+        if cfg!(feature = "dev") {
+            crate::perf::frame_core(hardware::current_core());
+        }
         crate::perf::frame_done(self.app.world_mut(), ms, capped);
+    }
+
+    /// Under a cap, waits for the next frame's moment, by the screen's own clock where Windows has
+    /// one [David 2026-11-05: "perhaps the monitors hardware refresh clock is a better universal
+    /// reference for the rendering to time itself by"; build 61's timer woke late and drifted against
+    /// the screen, so frames at 120 missed their refresh]: until the cap's number of refreshes has
+    /// gone by since this frame began, counted from the screen each frame, so nothing drifts. The
+    /// next frame then starts just after a refresh, reads the input as late as it can, and shows at
+    /// the refresh after. A frame that ran long waits for one refresh only, so frames never queue up
+    /// behind the screen. Without the screen's clock, the timer (`wait_out`). The simulation's clock
+    /// is untouched by any of it: its time is real time (`time/`).
+    fn pace(&mut self, cap: u32, refresh: f32) {
+        if cap == 0 {
+            (self.began, self.due) = (None, None);
+            return;
+        }
+        let Some(clock) = &self.screen_clock else {
+            return self.wait_out(cap, refresh);
+        };
+        let period = 1.0 / refresh.max(1.0) as f64;
+        let gone_by = self.began.map_or(0, |began| (began.elapsed().as_secs_f64() / period) as u32);
+        let (mut failed, mut waited) = (false, false);
+        {
+            let _timed = Timed::new("waiting for the screen");
+            for _ in 0..cap.saturating_sub(gone_by).max(1) {
+                let asked = Instant::now();
+                if !clock.wait_for_refresh() {
+                    failed = true;
+                    break;
+                }
+                waited |= asked.elapsed() > Duration::from_micros(100);
+            }
+        }
+        self.began = Some(Instant::now());
+        // A clock that can't wait, or never really waits (a screen switched off, a remote desktop),
+        // is given up for the timer.
+        self.instant_waits = if waited { 0 } else { self.instant_waits + 1 };
+        if failed || self.instant_waits >= 30 {
+            warn!("The screen's own clock stopped answering ({}): the frame cap keeps to a timer from now on", if failed { "it gave an error" } else { "30 frames in a row without a wait" });
+            self.screen_clock = None;
+        }
     }
 
     /// Under a cap of 2 or more refreshes a frame, waits out the rest of the frame's time: exactly a
@@ -376,6 +469,7 @@ impl ApplicationHandler for Runner {
                 event_loop.exit();
             }
             WindowEvent::Resized(size) => self.resize(size.width, size.height),
+            WindowEvent::Moved(_) => self.watch_screen(),
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => self.app.world_mut().resource_mut::<WindowState>().scale = scale_factor as f32,
             WindowEvent::Focused(focused) => self.app.world_mut().resource_mut::<WindowState>().focused = focused,
             WindowEvent::KeyboardInput { event, .. } => {

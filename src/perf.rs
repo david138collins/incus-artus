@@ -3,7 +3,8 @@
 //! docs/regroup.md: "we need to isolate the offender and not repeat it"].
 //!
 //! - **Steps time themselves:** the frame's parts (the runner's: the game's update, the panel,
-//!   handing the card its work, showing it) and the game's own heavy steps (`Timed`), so a slow
+//!   getting the next picture, drawing the panel for the card, handing the card its work, showing
+//!   it, waiting for the screen) and the game's own heavy steps (`Timed`), so a slow
 //!   frame says where its time went. Background jobs on the loading lane time themselves too
 //!   (`Background`), logged every 10 s.
 //! - **Every slow frame is logged** with what ran in it: uncapped, any frame over `SLOW_MS` (8.3 ms:
@@ -19,7 +20,7 @@
 use crate::world::{Streaming, VoxelWorld};
 use crate::ecs::prelude::*;
 use std::collections::VecDeque;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
 pub struct PerfPlugin;
@@ -103,6 +104,47 @@ impl Drop for Background {
 /// How often the background jobs' time is logged.
 const BACKGROUND_EVERY: f32 = 10.0;
 
+/// How many frames ended on each processor core since the last count, by the core's number.
+static CORES: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+
+/// The frame ended on this processor core (the runner, each frame, in dev builds): does Windows keep
+/// the frame on the performance cores, or move it to the efficient ones [Fork A, 2026-11-05: "keep
+/// the hardware at full attention"]?
+pub fn frame_core(core: u32) {
+    if let Ok(mut cores) = CORES.lock() {
+        let core = core as usize;
+        if cores.len() <= core {
+            cores.resize(core + 1, 0);
+        }
+        cores[core] += 1;
+    }
+}
+
+/// Which cores the frame ended on in the last `seconds`, in the log: only if some were on the
+/// efficient cores, or in a soak test or test window.
+fn log_cores(seconds: f32) {
+    let Ok(mut cores) = CORES.lock() else { return };
+    let counted = std::mem::take(&mut *cores);
+    drop(cores);
+    let frames: u32 = counted.iter().sum();
+    if frames == 0 {
+        return;
+    }
+    static CLASSES: OnceLock<Vec<u8>> = OnceLock::new();
+    let classes = CLASSES.get_or_init(crate::runner::hardware::core_classes);
+    let top = classes.iter().copied().max().unwrap_or(0);
+    let efficient = |core: usize| classes.get(core).is_some_and(|&class| class < top);
+    let on_efficient: u32 = counted.iter().enumerate().filter(|&(core, _)| efficient(core)).map(|(_, &n)| n).sum();
+    if on_efficient == 0 && !crate::soak::measuring() {
+        return;
+    }
+    let mut busiest: Vec<(usize, u32)> = counted.iter().copied().enumerate().filter(|&(_, n)| n > 0).collect();
+    busiest.sort_by(|a, b| b.1.cmp(&a.1));
+    let share = |n: u32| 100.0 * n as f32 / frames as f32;
+    let listed: Vec<String> = busiest.iter().take(6).map(|&(core, n)| format!("{core}{} {:.0}%", if efficient(core) { " (E)" } else { "" }, share(n))).collect();
+    info!("The frame's thread in the last {seconds:.0} s: {:.1}% of frames on the efficient cores; by core: {}", share(on_efficient), listed.join(", "));
+}
+
 /// Every `BACKGROUND_EVERY` seconds, the log says what the background jobs took, busiest first.
 pub fn log_background(time: Res<Time<Real>>, mut last: Local<f32>) {
     let now = time.elapsed_secs();
@@ -111,6 +153,7 @@ pub fn log_background(time: Res<Time<Real>>, mut last: Local<f32>) {
     }
     let seconds = now - *last;
     *last = now;
+    log_cores(seconds);
     let Ok(mut jobs) = BACKGROUND.lock() else { return };
     let mut taken = std::mem::take(&mut *jobs);
     drop(jobs);
