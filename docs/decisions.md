@@ -974,6 +974,13 @@ measures the floor (a bare Bevy app, DefaultPlugins, our game with nothing on sc
 does for us against what it costs; what follows from that is his call. And the rule on flight: flying fast
 may delay when detail arrives, but the frame doesn't wait on the world.
 
+**The spec restated [David 2026-11-05]:** "i should get an unbreakable 120 or a smooth 240 on a nice gaming
+laptop", in place of 250 stable: no frame over 8.3 ms in ordinary flight, or 240 (his screen's refresh)
+judged by the 1% low. By "a resolution. curve warped by the distance. simple transform applied to the gpus
+workload then rendered as screen resolution through a mask using the same warping distance curve the player
+views". That is option B in `vision/proposal-voxel-renderer.md`, the resolution curve, not built yet: as far
+as Counsel can read, every pixel still gets a ray. Builder to assess it after the floor.
+
 **The low end [David 2026-11-04]:** "i want someone with a 1080p monitor and a 2011 american gaming desktop
 to get a smooth 60 frames". On a clean machine: "i am not trying to account for people downloading bonzai
 buddy". This replaces the 980 Ti as the low-end target and reopens the put-off hardware question. Taken for
