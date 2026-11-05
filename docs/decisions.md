@@ -1033,6 +1033,21 @@ below disagree with this one, this one stands.
     focusing on our 'response rate' instead of framerate first. it may not matter now but it can never be a
     hinderance and may save our bacon down the line. its also just orderly." So input-to-photon latency is a
     first-class number, next to frame times.
+- **Freeze when not in front; borderless fullscreen; the cap just under the top; the PC's attention while in
+  front** [David 2026-11-05, with Builder, after build 62's window found the laptop's screen is variable-refresh,
+  so it follows the game and can't be the clock]:
+  - "i'd rather have the game just freeze (deliberately) and stay there". One greyed "Paused" frame, nothing
+    drawn after it, the simulation stopped, a click to resume. "i can't think of why someone would want it
+    running blindly." *Counsel:* that's for single play; co-op, if it comes, will need its own rule.
+  - "yeah, borderless fullscreen is probably the best." The default, with F11 for a window.
+  - The cap just under the screen's top rate (237 on his 240), with uncapped as the headroom reference: "if it
+    ever starts failing to keep up at 237 or 240 or w/e, we stop and assess."
+  - "a full screen only thing that tyrannizes the PC, as long as people can at least tab back to discord
+    quickly". While in front: a 1 ms timer, the frame thread at high priority, Windows' power throttling off,
+    all given back when the game isn't in front. Holding the card's clocks up stays out unless measurements call
+    for it ("sounds like a catastrophe waiting to happen").
+  - The frame's clock: the processor's own counter, with fixed beats, a high-resolution timer, and every
+    wake's lateness measured.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
