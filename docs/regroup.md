@@ -112,7 +112,7 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 
 - **David:** 1 look. The whole world to the horizon: smooth hills and coasts at 32 blocks a pixel, with the sea, lakes and rivers in a flat water colour, no blocks yet. Flying only, since walking needs chunks (phase 2).
 - **Measured:** its price, folded into the next test window. Expected well under 1 ms.
-- **Fork B:** if it reads well far away, it's a candidate for the backdrop (phase 4); if not, it goes when the first band arrives.
+- **Fork B:** it's a tool for seeing the land again early, not the backdrop. One height per column can't show a cave mouth or a hall in a mountainside, which the backdrop must (phase 4). It's a backdrop candidate only if it's grown to carry holes; otherwise it goes when the first band arrives.
 
 ### Phase 2: the recipe as one exact source, on the card  [planned in detail]
 
@@ -132,11 +132,11 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 
 | # | Builder does | Hours |
 |---|---|---|
-| 3.1 | Rings of cells round the camera on the card, 1, 2, 4, 8 ... blocks a cell, filled by the recipe on the card. Only the strips newly uncovered as the camera moves are filled, so the cost follows movement. Each ring keeps coarse "anything here?" bits for skipping empty air. | 3 to 4 |
-| 3.2 | The march: one ray a pixel, from the finest ring outwards, the cell size following the pixel's size, out to where a block is smaller than a pixel (about 1,500 to 2,000 blocks). Block colours and textures from the block files. Pieces of `march.wesl` come back where they earn their place. Phase 1's rough land shows past it meanwhile. | 3 to 4 |
+| 3.1 | Rings of cells round the camera on the card, 1, 2, 4, 8 ... blocks a cell, filled by the recipe on the card. They're solid cells, not heights, so a coarse cell holds what's really there, overhangs and caves included. Only the strips newly uncovered as the camera moves are filled, so the cost follows movement. Each ring keeps coarse "anything here?" bits for skipping empty air. | 3 to 4 |
+| 3.2 | The march: one ray a pixel, from the finest ring outwards, the cell size following the pixel's size, out to where a block is smaller than a pixel (at the game's 100° view, a block is one pixel at about 600 blocks in the middle of the screen; the band's edge is priced between about 600 and 1,000 blocks). Block colours and textures from the block files. Pieces of `march.wesl` come back where they earn their place. Phase 1's rough land shows past it meanwhile. | 3 to 4 |
 | 3.3 | Edits: the real chunks' changed blocks override the card's cells, a small upload when they change. | about 1 |
 | 3.4 | Water in the band: each column's water top from the recipe, in the flat stand-in colour, the same as phase 1's, so the land and its rivers are judged together from the first look. | about 1 |
-| 3.5 | Caves in the band: the card's finest rings carve them, so mouths show as far as a mouth can be seen (about 1,000 blocks). Past that the far view never sees caves (`caves.md`). | about 1 |
+| 3.5 | Caves at every ring, by the same carve as the near blocks, so far and near agree: a coarse cell is open where most of it is cave (several points in it tested). A 40-block mouth is about 24 pixels tall at 1,000 blocks and still about a pixel at 24,000 [Counsel's sums, 100° view], so it reads at any distance the band reaches [David 2026-11-05: "if a hall in the mountain or a cave is big enough to be seen at a distance, it should be seen at a distance"; `worldgen.md`, `caves.md`: mouths lit and seen from far away]. **Price:** the cave plan's section boxes answer "nothing here" for almost every cell, so the extra cost follows how much cave there is, not how much land; it's paid when strips are filled (as the camera moves), not every frame. Measured in the test window; expected a few per cent of the filling. | 1 to 2 |
 | 3.6 | The stand-in forest, for the bar's fourth point (heavy content doesn't change the answer): simple block trees placed on the card by a whole-number spaced hash over a placer field (the "points" kind the placer has on file), stamped into the cells. In the far rings a tree is a few coarse cells; past the band, a forest is a colour and a roughness in the backdrop. Real trees come later through the placer and blueprints, placed and stamped the same way. | 2 to 3 |
 
 - **David:** 2 looks, the land near and then far (with water, caves and the stand-in forest).
@@ -150,12 +150,12 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 
 ### Phase 4: the second band, the backdrop  [loose]
 
-Past the first band, the far view that pixelates naturally. Candidates, cheapest first:
-- phase 1's height field grown up;
-- a dome (a panorama painted now and then and shifted as you move, `vision/proposal-voxel-renderer.md`);
-- coarse cells.
+Past the first band, the far view that pixelates naturally. **It must show what's really there, blending seamlessly with the near** [David: "we need to *accurately* represent far terrain in a way that blends seamlessly with the near"]: a cave mouth or a hall in a mountainside included. Candidates:
+- a dome (a panorama painted by the march now and then and shifted as you move, `vision/proposal-voxel-renderer.md`): it shows whatever the march sees, mouths included;
+- coarse cells, as the first band's further rings;
+- phase 1's height field only if it's grown to carry holes (one height per column can't show a mouth).
 
-His look picks. Important things show from their first pixel through a list drawn on top. One transition to tune, far away. Aim: about 0.5 ms.
+His look picks. Important things show from their first pixel through a list drawn on top, lights at cave mouths at night among them (the firm rule). One transition to tune, far away. Aim: about 0.5 ms.
 - **Builder:** 1 to 2 sessions. **David:** 2 looks. 1 test window.
 
 ### Phase 5: light, coarse by nature  [loose]
