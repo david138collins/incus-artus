@@ -197,7 +197,7 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
     (0.3 ms at full clock). Relaxed, but slow to answer: bolt 5 is real, and it matters more as the picture grows.
   - **Response time: not measured.** PresentMon without administrator rights didn't see the presses (every
     input-to-photon value is empty). It needs an elevated run, or a timing of our own.
-- **Build 63, the metronome and the attention** (David 2026-11-05, not yet measured):
+- **Build 63, the metronome and the attention** (David 2026-11-05, measured below):
   - **The beat is ours:** the processor's own counter, each beat the last plus a frame's length, so it can't
     drift; the alarm is Windows' high-resolution timer, and how late it wakes after every beat is measured and
     logged (`perf::woke`): the "time to get its attention" figure. No holding still before the beat unless
@@ -219,6 +219,18 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
     120, or uncapped. David: "if it ever starts failing to keep up at 237 or 240 or w/e, we stop and assess."
     The old `frame_cap` (a frame every so many refreshes) is left in old presets and not read.
   - **The torque spec's runs are now uncapped and just under the top** (the test window).
+- **[MEASURED 2026-11-05, build 63, the test window by itself, PresentMon as administrator, nvidia-smi]**
+  - **Our beat holds.** At 237: 28,438 frames in 120 s, exactly 237 a second; frames handed over 4.2 ms apart,
+    only 48 more than 1 ms late and 2 over 8.4 ms. **The wake-up figure** (how late the alarm woke after its
+    beat): 0.26 ms in the middle, 0.58 ms at the 99th in 100, a handful a minute over 1 ms, 8.5 ms once in
+    two minutes. The frame stayed on the performance cores throughout.
+  - **The card is now the uneven part (bolt 5).** At 237 it dozes: 555 MHz on average (337 to 1,950), 14 W, and
+    its work on a frame, 0.2 ms awake, took up to 6 to 12 ms. So frames reach the screen unevenly: 518 of them
+    stayed up longer than 8.4 ms (twice a frame) though they were handed over on the beat.
+  - **Uncapped:** 1,952 FPS, the card at full clock (2,840 MHz, 39 W). PresentMon shows 16 gaps over 12.5 ms that
+    the game's own log didn't see; at almost 2,000 frames a second the record may still drop events.
+  - **Response time: still not measured.** PresentMon ignores keys pressed by a script (966 F24 presses, no
+    input-to-photon values even as administrator). It needs real hands on the mouse or keys during a run.
 - **For lane 0.2 (David 2026-11-05):** priorities on every job (this frame / soon / whenever), the workers below the
   frame thread; and in the simulation, under pressure the farthest and lightest give way first (the World sim,
   then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.
