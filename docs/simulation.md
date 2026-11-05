@@ -229,6 +229,9 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   Total Annihilation". So the full-fat count follows the radius, not the world's population. *Counsel:* this
   fits section 1's levels and rules given "how much time has passed". Open: how much of a person the lite record
   keeps, so they come back the same person, and how one rule serves both the per-tick and the weekly check.
+  On losing people while away, David: "i think finding out one of your people died while away in some dumb
+  accident is ok. that happens". So no special protection for people the player knows; Fate's rolls apply as
+  usual.
 
 Counsel's suggestions **[PROPOSED]**:
 - **It runs the game's own rules**, the same Intermediator/World code and Fate (section 1). A lab with its own
