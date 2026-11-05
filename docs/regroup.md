@@ -85,7 +85,7 @@ points where a measurement or David's look decides the next move.
 price (card ms, processor ms) when it goes in, written down; the slow-frame log is on in every test window.
 
 **When David sees land again:**
-- **rough land to the horizon:** the end of phase 1, about 2 to 3 hours of work after the stage is done;
+- **rough land to the horizon, with its water:** the end of phase 1, about 3 to 4 hours of work after the stage is done;
 - **blocks:** the end of phase 3.
 
 ### Phase 0: the stage (dark)  [planned in detail]
@@ -108,8 +108,9 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 |---|---|---|
 | 1.1 | At world load, once: the compiled maps (heights at 32-block pixels, colours from climate and palette) go up as two textures, with a min-max pyramid for skipping. Not per frame. | about 1 |
 | 1.2 | A full-screen height-field march (one ray a pixel, stepping down the pyramid), the fly camera back, the sky colour. Its own module, one shader and two textures, so it's thrown away cleanly or kept. | 1 to 2 |
+| 1.3 | Water as a flat stand-in colour from the start: the sea at its level, and the rivers and lakes from a water map made once at load (their surfaces drawn into a finer texture, about 4 blocks a pixel, so rivers narrower than 32 blocks still show). The real water look stays in phase 6. | about 1 |
 
-- **David:** 1 look. The whole world to the horizon: smooth hills and coasts at 32 blocks a pixel, no blocks yet. Flying only, since walking needs chunks (phase 2).
+- **David:** 1 look. The whole world to the horizon: smooth hills and coasts at 32 blocks a pixel, with the sea, lakes and rivers in a flat water colour, no blocks yet. Flying only, since walking needs chunks (phase 2).
 - **Measured:** its price, folded into the next test window. Expected well under 1 ms.
 - **Fork B:** if it reads well far away, it's a candidate for the backdrop (phase 4); if not, it goes when the first band arrives.
 
@@ -119,8 +120,8 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 |---|---|---|
 | 2.1 | A small fixed-point kit (angles, powers, square roots in whole numbers), with tests. | 1 to 2 |
 | 2.2 | The 12 to 15 calls that run in play converted to it. A before-and-after comparison over the whole map: how many columns change, and by how much. | 1 to 2 |
-| 2.3 | The recipe ported to the card (WGSL compute): the map blend, land and sea curves, mountains and ridges, peaks and crags, torn coast, detail, the river and lake carving (their lookup lists flattened into buffers), mineralogy's layers (two passes, for the slope). The twin test: about a million columns, card against processor, exactly. | 3 to 5 |
-| 2.4 | Reading back, on the loading lane: the card works out a chunk's columns, they come back through a ring of staging buffers without waiting, and the real chunks near the player are filled from them. Walking and collision return. | about 2 |
+| 2.3 | The recipe ported to the card (WGSL compute): the map blend, land and sea curves, mountains and ridges, peaks and crags, torn coast, detail, the river and lake carving (their lookup lists flattened into buffers), mineralogy's layers and the placer's fields they read (two passes, for the slope), and the cave carve (already whole numbers; the cave plan flattened into buffers as its section boxes). The twin test: about a million columns, card against processor, exactly, plus the cave carve block by block. | 4 to 6 |
+| 2.4 | Reading back, on the loading lane: the card works out a chunk's columns, they come back through a ring of staging buffers without waiting, and the real chunks near the player are filled from them, caves taken out as today (whole numbers, the same answer). Walking and collision return. | about 2 |
 
 - **David:** 1 look after 2.2: the same spot before and after (Render World and Spawn at the exact same place). 1 look after 2.4: walking.
 - **Measured:** the readback's cost, in the slow-frame log.
@@ -134,8 +135,11 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
 | 3.1 | Rings of cells round the camera on the card, 1, 2, 4, 8 ... blocks a cell, filled by the recipe on the card. Only the strips newly uncovered as the camera moves are filled, so the cost follows movement. Each ring keeps coarse "anything here?" bits for skipping empty air. | 3 to 4 |
 | 3.2 | The march: one ray a pixel, from the finest ring outwards, the cell size following the pixel's size, out to where a block is smaller than a pixel (about 1,500 to 2,000 blocks). Block colours and textures from the block files. Pieces of `march.wesl` come back where they earn their place. Phase 1's rough land shows past it meanwhile. | 3 to 4 |
 | 3.3 | Edits: the real chunks' changed blocks override the card's cells, a small upload when they change. | about 1 |
+| 3.4 | Water in the band: each column's water top from the recipe, in the flat stand-in colour, the same as phase 1's, so the land and its rivers are judged together from the first look. | about 1 |
+| 3.5 | Caves in the band: the card's finest rings carve them, so mouths show as far as a mouth can be seen (about 1,000 blocks). Past that the far view never sees caves (`caves.md`). | about 1 |
+| 3.6 | The stand-in forest, for the bar's fourth point (heavy content doesn't change the answer): simple block trees placed on the card by a whole-number spaced hash over a placer field (the "points" kind the placer has on file), stamped into the cells. In the far rings a tree is a few coarse cells; past the band, a forest is a colour and a roughness in the backdrop. Real trees come later through the placer and blueprints, placed and stamped the same way. | 2 to 3 |
 
-- **David:** 2 looks, the land near and then far.
+- **David:** 2 looks, the land near and then far (with water, caves and the stand-in forest).
 - **Measured:** 1 test window. Its price by distance, as today's tally. The aim, on his laptop: the first band at 2 ms or less of card time a frame, standing and flying, with no slow frames at 120.
 - **Fork E: if it's too slow,** try these in order, each measured and kept only with its number:
   1. the coarse pass first: one ray per 8 × 8 pixels, so each pixel's ray starts close to what it'll hit (usually the biggest win);
@@ -161,13 +165,13 @@ Sky light from the card's cells (how much sky each cell sees), placed lights in 
 
 ### Phase 6: everything else, each with its price  [loose]
 
-Water and glass, pieces and bars, models (drawn as meshes into the same picture: the hybrid), people and figures (drawn, one instanced pass), and the 800-figure stand-in battle if David puts it in the bar. Sized when we get there.
+The real look of water (the flat stand-in colour has been there since phase 1) and glass, pieces and bars, models (drawn as meshes into the same picture: the hybrid), people and figures (drawn, one instanced pass), and the 800-figure stand-in battle if David puts it in the bar. Sized when we get there.
 
 ### The whole path, roughly
 
 | Phases | Builder | David's looks | Test windows |
 |---|---|---|---|
-| 0 to 3 | about 25 to 35 hours | about 6 | 3 |
+| 0 to 3 | about 30 to 40 hours | about 6 | 3 |
 | 4 to 5 | about 2 to 4 sessions | 3 to 4 | 2 |
 
 Fork E could add 2 to 4 hours.
@@ -179,7 +183,7 @@ Then **the bar** (`decisions.md`): runs smoothly and cool on his own flight, the
 - **Phase 0 touches 75 files.** The tests and the soak test check most of it. What they can't check is feel: mouse look, keys, the panel's grip on the mouse, the clock's pause and speed. That's his first look.
 - **The first band's price** is the big unknown. The card measured 3.7 ms for build 60's whole scene with no tricks; the first band has to come in well under that, to leave room for light and everything else. Fork E is the answer if it doesn't.
 - **The recipe on the card** is the biggest single piece of work (2.3). The twin test makes it safe: the card is never trusted until it agrees with the processor exactly.
-- **A dark stretch:** only phase 0, plus 2 to 3 hours. After phase 1 there's always land on screen.
+- **A dark stretch:** only phase 0, plus 3 to 4 hours. After phase 1 there's always land on screen.
 
 ## Open, for David
 
