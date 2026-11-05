@@ -72,64 +72,116 @@ Measured at the screen with PresentMon (installed 2026-11-05), not inside the ga
 | The renderer (`render/`): march, far copies, distant tiles, light maps, materials | 8,100 | **Cut.** Kept at the tag `before-regroup` for reference; the march's knowledge and shader pieces come back only where they earn their place. |
 | Bevy (window, input, app, schedule, renderer, assets) | | **Cut.** winit (window, input), wgpu (the card), egui, the `gltf` crate (models, already used), rayon (workers), and our own small scheduler. Audio (kira) and gamepads (gilrs) when they're needed. |
 
-## The steps, in order
+## The action plan: from black to the whole world on screen
 
-Each step ends with something David can see or Builder can measure, and nothing goes on until it's checked.
+**How it's held** [David 2026-11-05]: "we dont really know whats going to happen, we will be shooting from the
+hip again with graphics. we have to stay light on our feet for this path from black to fast full visuals... we
+needed to see the world to tune it and now its tuned in close enough that i know perfect is within our
+adjustment range. i know it will be there when we have eyes again. that gives us latitude." So the near phases
+are planned action by action; the far ones loosely, to be planned again when we reach them. **Forks** are the
+points where a measurement or David's look decides the next move.
 
-**Step 0: cut.** Build 60 stays at the tag `before-regroup`. Remove `render/` and Bevy.
-- *Builder:* 1 to 2 sessions (about 4 to 8 hours): a new small core (window, input, the three lanes, the clock),
-  the panel on egui-wgpu, every system rewired as a plain call on its lane. The simulation gets its own lane,
-  running the toy rules as they are (no column store or scheduler yet). The 395 tests pass.
-- *David:* 1 look: the editor, World Gen suite and save/load all work, on a plain sky-coloured window.
-- *Measured:* 1 test window: the new floor, at the screen (PresentMon), uncapped and at 120. Expected near the
-  no-Bevy floor measured today (0.02 to 0.6 ms of processor a frame). **Every slow frame is logged with what
-  ran in it** (each lane's steps, timed), so the floor is shown free of the stutter, and anything that brings
-  it back later is named the day it arrives. This is the stage he puts things on.
+**In every phase:** nothing on the processor per frame that the shipped game wouldn't do; every feature gets its
+price (card ms, processor ms) when it goes in, written down; the slow-frame log is on in every test window.
 
-**Step 1: the whole-number recipe.** The 12 to 15 calls that run in play converted to fixed point, so the
-processor and the card give the same bits (`decisions.md`, projected code is GPU-safe).
-- *Builder:* 1 session. *David:* 1 look: the same spot before and after (Render World and Spawn at the exact
-  same place). The world moves very slightly; a saved world's river may disagree with its banks by a block.
+**When David sees land again:**
+- **rough land to the horizon:** the end of phase 1, about 2 to 3 hours of work after the stage is done;
+- **blocks:** the end of phase 3.
 
-**Step 2: the first band: the world as blocks, made on the card.** The recipe on the card, with a twin test
-against the processor's copy. The card makes the land in cells sized to the pixel (finest near, coarser with
-distance, so the size changes are invisible and never tuned), out to where a block is smaller than a pixel
-(about 1,500 to 2,000 blocks on David's screen), and marches it. Real chunks only near the player, for edits.
-- *Builder:* 2 to 3 sessions. *David:* 2 looks (the land near, then far). 1 test window: its price.
+### Phase 0: the stage (dark)  [planned in detail]
 
-**Step 3: the second band: the backdrop.** Past the first band, the exotic far view David believes in: one
-that pixelates naturally (`vision/proposal-voxel-renderer.md`, the dome, and others to try). Important things
-show from their first pixel through a list drawn on top. One transition to tune, far away.
-- *Builder:* 1 to 2 sessions. *David:* 2 looks (does it read, is it beautiful). 1 test window.
+| # | Builder does | Hours |
+|---|---|---|
+| 0.1 | Cut `render/` and Bevy. The new core: a winit window, wgpu on DirectX 12 (DXC, as now), the frame cap ported from `frame_cap.rs`, a sky-coloured clear. Our own input state (keys, mouse, mouse capture). | 2 to 3 |
+| 0.2 | The three lanes. The **frame** lane on the main thread. The **simulation** lane on its own thread, driven by the clock (`time/`, 30 ticks a second), running the toy rules as they are, handing the frame a finished snapshot. The **loading** lane: worker threads with a job queue and a budget, results arriving when ready. | 1 to 2 |
+| 0.3 | The panel on egui-winit and egui-wgpu. Every page rewired: the World Gen suite, debug pages, presets. Its pictures (`load_texture`) work as before. | 1 to 2 |
+| 0.4 | Bevy's resources become plain structs owned by their lane, and its systems plain calls. Saving and loading, events, the crash and freeze reports. The 395 tests pass. | 1 to 2 |
+| 0.5 | The slow-frame log: every step on every lane timed. A frame over 8.3 ms (or well over the usual) is written out with what ran in it. Costs nothing in the shipped build. A PresentMon script for test windows. | about 1 |
 
-**Step 4: light, coarse by nature, on the card.** Sky light and placed light worked out on the card in coarse
-cells, the way the far land is.
-- *Builder:* 1 to 2 sessions. *David:* 1 to 2 looks. 1 test window.
+- **David:** 1 look. The editor, World Gen suite and save/load all work, on a plain sky-coloured window.
+- **Measured:** 1 test window. The floor at the screen, uncapped and at 120. Expected near today's no-Bevy floor (0.02 to 0.6 ms of processor a frame), with no slow frames at 120.
+- **Fork A:** if the floor isn't there (well over 1 ms of processor a frame, or any slow frame at 120), the log names it, and it's fixed before anything else goes on the stage.
 
-**Step 5: everything else, each with its price.** Water and glass, pieces and bars, models (drawn as meshes
-into the same picture: the hybrid), people and figures (drawn, one instanced pass), and the 800-figure
-stand-in battle if David puts it in the bar.
-- *Builder and David:* sized when we get there.
+### Phase 1: first sight, rough land to the horizon  [planned in detail]
 
-Then **the bar** (`decisions.md`): runs smoothly and cool on his own flight, the land reads as one land, built
-things hold up at a distance, heavy content doesn't change the answer. After that: the blueprint factory, then
-the simulation, which starts with **its column store and scheduler** ("tables that don't know what they hold";
-rules that name what they read and write, run side by side when they don't clash; `simulation.md`, rules as
-algebra), the toy rules rewritten on it as the first test. *Builder:* 1 to 2 sessions; *David:* 1 look.
+| # | Builder does | Hours |
+|---|---|---|
+| 1.1 | At world load, once: the compiled maps (heights at 32-block pixels, colours from climate and palette) go up as two textures, with a min-max pyramid for skipping. Not per frame. | about 1 |
+| 1.2 | A full-screen height-field march (one ray a pixel, stepping down the pyramid), the fly camera back, the sky colour. Its own module, one shader and two textures, so it's thrown away cleanly or kept. | 1 to 2 |
+
+- **David:** 1 look. The whole world to the horizon: smooth hills and coasts at 32 blocks a pixel, no blocks yet. Flying only, since walking needs chunks (phase 2).
+- **Measured:** its price, folded into the next test window. Expected well under 1 ms.
+- **Fork B:** if it reads well far away, it's a candidate for the backdrop (phase 4); if not, it goes when the first band arrives.
+
+### Phase 2: the recipe as one exact source, on the card  [planned in detail]
+
+| # | Builder does | Hours |
+|---|---|---|
+| 2.1 | A small fixed-point kit (angles, powers, square roots in whole numbers), with tests. | 1 to 2 |
+| 2.2 | The 12 to 15 calls that run in play converted to it. A before-and-after comparison over the whole map: how many columns change, and by how much. | 1 to 2 |
+| 2.3 | The recipe ported to the card (WGSL compute): the map blend, land and sea curves, mountains and ridges, peaks and crags, torn coast, detail, the river and lake carving (their lookup lists flattened into buffers), mineralogy's layers (two passes, for the slope). The twin test: about a million columns, card against processor, exactly. | 3 to 5 |
+| 2.4 | Reading back, on the loading lane: the card works out a chunk's columns, they come back through a ring of staging buffers without waiting, and the real chunks near the player are filled from them. Walking and collision return. | about 2 |
+
+- **David:** 1 look after 2.2: the same spot before and after (Render World and Spawn at the exact same place). 1 look after 2.4: walking.
+- **Measured:** the readback's cost, in the slow-frame log.
+- **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.
+- **Fork D:** if one piece can't be made exact on the card, it stays on the processor (worked out once and uploaded), or its maths is simplified, with his look.
+
+### Phase 3: the first band, the world as blocks, made on the card  [planned, looser]
+
+| # | Builder does | Hours |
+|---|---|---|
+| 3.1 | Rings of cells round the camera on the card, 1, 2, 4, 8 ... blocks a cell, filled by the recipe on the card. Only the strips newly uncovered as the camera moves are filled, so the cost follows movement. Each ring keeps coarse "anything here?" bits for skipping empty air. | 3 to 4 |
+| 3.2 | The march: one ray a pixel, from the finest ring outwards, the cell size following the pixel's size, out to where a block is smaller than a pixel (about 1,500 to 2,000 blocks). Block colours and textures from the block files. Pieces of `march.wesl` come back where they earn their place. Phase 1's rough land shows past it meanwhile. | 3 to 4 |
+| 3.3 | Edits: the real chunks' changed blocks override the card's cells, a small upload when they change. | about 1 |
+
+- **David:** 2 looks, the land near and then far.
+- **Measured:** 1 test window. Its price by distance, as today's tally. The aim, on his laptop: the first band at 2 ms or less of card time a frame, standing and flying, with no slow frames at 120.
+- **Fork E: if it's too slow,** try these in order, each measured and kept only with its number:
+  1. the coarse pass first: one ray per 8 × 8 pixels, so each pixel's ray starts close to what it'll hit (usually the biggest win);
+  2. bring the band's edge nearer and let the backdrop take more;
+  3. cells a little coarser than the pixel in the middle distance, judged by his eye;
+  4. the band past about 500 blocks marched at half resolution and scaled up, keeping edges.
+- **Fork F: if it looks wrong** (shimmer where cell sizes change, swimming as the camera moves): blend the sizes over a short distance, or hold each screen tile to one cell size.
+
+### Phase 4: the second band, the backdrop  [loose]
+
+Past the first band, the far view that pixelates naturally. Candidates, cheapest first:
+- phase 1's height field grown up;
+- a dome (a panorama painted now and then and shifted as you move, `vision/proposal-voxel-renderer.md`);
+- coarse cells.
+
+His look picks. Important things show from their first pixel through a list drawn on top. One transition to tune, far away. Aim: about 0.5 ms.
+- **Builder:** 1 to 2 sessions. **David:** 2 looks. 1 test window.
+
+### Phase 5: light, coarse by nature  [loose]
+
+Sky light from the card's cells (how much sky each cell sees), placed lights in coarse cells, day and night.
+- **Builder:** 1 to 2 sessions. **David:** 1 to 2 looks. 1 test window.
+
+### Phase 6: everything else, each with its price  [loose]
+
+Water and glass, pieces and bars, models (drawn as meshes into the same picture: the hybrid), people and figures (drawn, one instanced pass), and the 800-figure stand-in battle if David puts it in the bar. Sized when we get there.
+
+### The whole path, roughly
+
+| Phases | Builder | David's looks | Test windows |
+|---|---|---|---|
+| 0 to 3 | about 25 to 35 hours | about 6 | 3 |
+| 4 to 5 | about 2 to 4 sessions | 3 to 4 | 2 |
+
+Fork E could add 2 to 4 hours.
+
+Then **the bar** (`decisions.md`): runs smoothly and cool on his own flight, the land reads as one land, built things hold up at a distance, heavy content doesn't change the answer. After that: the blueprint factory, then the simulation, which starts with **its column store and scheduler** ("tables that don't know what they hold"; rules that name what they read and write, run side by side when they don't clash; `simulation.md`, rules as algebra), the toy rules rewritten on it as the first test. *Builder:* 1 to 2 sessions; *David:* 1 look.
 
 ## Risks, and what David would feel
 
-- **Step 0 touches 75 files.** The tests and the soak test check most of it; what they can't check is feel:
-  mouse look, keys, the panel's grip on the mouse, the clock's pause and speed. That's his first look.
-- **The new scheduler** is a known pattern (what each piece reads and writes decides what runs side by side),
-  tested with deliberate clashes before the simulation relies on it.
-- **The first band's price** is the big unknown: the card measured 3.7 ms for today's whole scene with no
-  tricks; the first band has to come in well under that to leave room for light and everything else. If it
-  doesn't, the coarse pass that starts each ray close to what it'll hit comes before step 3.
-- **Nothing drawn for a while.** From step 0 to step 2 the world isn't on screen; the World Gen suite still
-  shows it from above.
+- **Phase 0 touches 75 files.** The tests and the soak test check most of it. What they can't check is feel: mouse look, keys, the panel's grip on the mouse, the clock's pause and speed. That's his first look.
+- **The first band's price** is the big unknown. The card measured 3.7 ms for build 60's whole scene with no tricks; the first band has to come in well under that, to leave room for light and everything else. Fork E is the answer if it doesn't.
+- **The recipe on the card** is the biggest single piece of work (2.3). The twin test makes it safe: the card is never trusted until it agrees with the processor exactly.
+- **A dark stretch:** only phase 0, plus 2 to 3 hours. After phase 1 there's always land on screen.
 
 ## Open, for David
 
 - The audio, gamepads and the real game's menus aren't in any step yet. When does he want them?
-- Step 0 starts on his go, after he's read this.
+- Phase 0 starts on his go, after he's read this.
