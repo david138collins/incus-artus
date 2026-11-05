@@ -1048,6 +1048,21 @@ below disagree with this one, this one stands.
     for it ("sounds like a catastrophe waiting to happen").
   - The frame's clock: the processor's own counter, with fixed beats, a high-resolution timer, and every
     wake's lateness measured.
+- **Nothing temporary; start from the far view** [David 2026-11-05]: "lets just make sure we're not building
+  'tools for seeing the world again'. we're now building what the player will see, and nothing is temporary.
+  we'll have to discuss carefully what we start with, thinking about rendering and shading all over again, and
+  where to begin. i was thinking almost find an adaptive resolution method that lets us start straight from the
+  far view - we'd be blurry up close, but, equally and *correctly* blurry at a distance. rendering the near view
+  isn't a hard problem, the hard problem is the far view, and how it blends into the near view - i think once we
+  have a really clean, synced, controlled, sensorized, stage, we'll be able to experiment with some rudimentary
+  methods, and there may yet be a way to produce a truly elegant bespoke solution. i haven't given up on that
+  hope. and i think we did not invalidate it as a possible route last time, because we had so many conflicts and
+  such a messy program even in spite of our dedication to rigor, diligence, and non spaghetti code." So
+  `regroup.md`'s phase 1 (a height field to be thrown away or kept) is withdrawn. Nothing visible is built until
+  it's talked through with him. The stage's instruments (the ballast, the logs) aren't graphics and carry on.
+  *Counsel:* the record backs him. Build 60's card time was within reach (3.7 ms standing); its stutter was the
+  processor's, and its costliest band was the far copies marched cell by cell. The unified method wasn't shown
+  wrong; the program around it was.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
