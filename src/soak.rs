@@ -2,7 +2,8 @@
 //!
 //! Start the game with `INCUS_SOAK=<seconds>` (and if wanted `INCUS_SOAK_SPEED=<blocks a second>`,
 //! `INCUS_SOAK_DISTANCE=<render distance in chunks>`, `INCUS_SOAK_NEAR=0` for no near light window,
-//! `INCUS_SOAK_LAND=0` for no far land as cells),
+//! `INCUS_SOAK_LAND=0` for no far land as cells, `INCUS_SOAK_MARCH=0` for the far land as the sheet,
+//! `INCUS_SOAK_CAP=<n>` for the frame cap, `INCUS_SOAK_WINDOW=<width>x<height>` for the window),
 //! together with `INCUS_START_SCREEN=worldgen` and
 //! `INCUS_SELFTEST_SUITE=compiler`. It then:
 //! 1. renders the newest bake with the World Compiler's recipe as it starts (the defaults), and
@@ -72,7 +73,8 @@ fn fly_round(
     time: Res<Time<Real>>,
     mut mode: ResMut<ControlMode>,
     mut cameras: Query<&mut FlyCamera>,
-    (mut render, mut light, mut far): (ResMut<crate::render::RenderSettings>, ResMut<crate::render::LightSettings>, ResMut<crate::render::FarCopySettings>),
+    (mut render, mut light, mut far, mut distant): (ResMut<crate::render::RenderSettings>, ResMut<crate::render::LightSettings>, ResMut<crate::render::FarCopySettings>, ResMut<crate::render::distant::DistantSettings>),
+    mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
 ) {
     let Some(map) = terrain.compiled() else { return };
     let now = time.elapsed_secs();
@@ -94,6 +96,23 @@ fn fly_round(
     // `INCUS_SOAK_LAND=0`: without the far land as cells (to measure what it costs).
     if std::env::var("INCUS_SOAK_LAND").is_ok_and(|v| v == "0") && far.land {
         far.land = false;
+    }
+    // `INCUS_SOAK_MARCH=0`: the far land as the sheet, not marched (to measure what the march costs).
+    if std::env::var("INCUS_SOAK_MARCH").is_ok_and(|v| v == "0") && distant.march {
+        distant.march = false;
+    }
+    // `INCUS_SOAK_CAP=<n>`: the frame cap (a frame every n of the screen's refreshes; 0 = none).
+    if let Some(cap) = std::env::var("INCUS_SOAK_CAP").ok().and_then(|v| v.parse().ok())
+        && render.frame_cap != cap
+    {
+        render.frame_cap = cap;
+    }
+    // `INCUS_SOAK_WINDOW=<width>x<height>`: the window's size (does the card's work follow the pixels?).
+    if let Some((width, height)) = std::env::var("INCUS_SOAK_WINDOW").ok().and_then(|v| v.split_once('x').and_then(|(w, h)| Some((w.parse::<u32>().ok()?, h.parse::<u32>().ok()?))))
+        && let Ok(mut window) = windows.single_mut()
+        && (window.resolution.physical_width() != width || window.resolution.physical_height() != height)
+    {
+        window.resolution.set_physical_resolution(width, height);
     }
     // Round the circle (north of the middle to start with), facing the way it's going.
     let (radius, speed) = (radius(), speed());

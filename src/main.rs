@@ -80,6 +80,18 @@ fn graphics_settings() -> bevy::render::settings::WgpuSettings {
     settings
 }
 
+/// Bevy's worker threads: its own choice (one for each of the processor's cores, less the other
+/// pools'), unless `INCUS_COMPUTE_THREADS=<n>` sets how many run the game's systems side by side
+/// (for measuring what waking them every frame costs).
+fn task_pools() -> TaskPoolOptions {
+    let mut options = TaskPoolOptions::default();
+    if let Some(threads) = std::env::var("INCUS_COMPUTE_THREADS").ok().and_then(|v| v.parse::<usize>().ok()) {
+        options.compute.min_threads = threads.max(1);
+        options.compute.max_threads = threads.max(1);
+    }
+    options
+}
+
 /// The Windows SDK's `dxcompiler.dll`, if it is installed (with the `dxil.dll` beside it).
 fn windows_sdk_dxc() -> Option<String> {
     let folder = std::path::Path::new(r"C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64");
@@ -104,6 +116,7 @@ fn main() {
                     ..default()
                 })
                 .set(bevy::render::RenderPlugin { render_creation: graphics_settings().into(), ..default() })
+                .set(TaskPoolPlugin { task_pool_options: task_pools() })
                 // Everything logged also goes to the session log (see `diagnostics`).
                 .set(bevy::log::LogPlugin { custom_layer: diagnostics::log_layer, ..default() }),
         )

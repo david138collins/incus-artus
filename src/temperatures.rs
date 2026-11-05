@@ -25,18 +25,22 @@ impl Plugin for TemperaturesPlugin {
     fn build(&self, app: &mut App) {
         let readings = Readings::default();
         let shared = readings.0.clone();
-        std::thread::Builder::new()
-            .name("temperatures".into())
-            .spawn(move || {
-                loop {
-                    let now = Temperatures { cpu_area: cpu_area(), gpu: gpu() };
-                    if let Ok(mut latest) = shared.lock() {
-                        *latest = now;
+        // `INCUS_TEMPERATURES=0`: not read at all (it starts two programs every few seconds; to
+        // measure the game without its own gauge).
+        if !std::env::var("INCUS_TEMPERATURES").is_ok_and(|v| v == "0") {
+            std::thread::Builder::new()
+                .name("temperatures".into())
+                .spawn(move || {
+                    loop {
+                        let now = Temperatures { cpu_area: cpu_area(), gpu: gpu() };
+                        if let Ok(mut latest) = shared.lock() {
+                            *latest = now;
+                        }
+                        std::thread::sleep(EVERY);
                     }
-                    std::thread::sleep(EVERY);
-                }
-            })
-            .ok();
+                })
+                .ok();
+        }
         app.insert_resource(readings)
             .insert_resource(ShowTemperatures(true))
             .add_systems(EguiPrimaryContextPass, draw_temperatures.run_if(in_state(Screen::Play)));
