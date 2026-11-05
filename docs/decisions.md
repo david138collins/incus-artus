@@ -954,6 +954,19 @@ bars, models and near lighting may be missing for a while, and come back built f
 to the old engine. How they come back is planned after he has seen the result. He won't be near the USB
 backup for a week and chose not to wait for it.
 
+**The spec, and going to black [David 2026-11-04]:** "i should be able to run this at 250fps stable with my
+cpu at 90c and my gpu at 85c. thats the truth, there are very few detailed blocks that ever need to be shown
+and we know almost everything about every block ahead of time in the game. we should go to black and try to
+project the cheapest ray that lets us see a block in front of us and the farthest mounting for the cost of
+the space ot takes on the screen"
+
+So, on his laptop in Turbo with max fans: 250 frames a second, judged by the 1% low and worst frames too (a
+4 ms frame), at 90 °C and 85 °C on the game's corner readout. A lower frame cap isn't an answer to it. This
+puts numbers on the first point of the bar below. The method: from a black screen, measure the bare frame;
+then the cheapest ray that shows the block in front of you and the farthest mountain, its cost following
+the space a thing takes on screen; then everything else added back one at a time, each with its price in ms
+and watts. Existing march code is reused where it earns its place, not assumed.
+
 ## The renderer: the bar for moving on to content
 
 **[David 2026-11-04]** Counsel's bar, David: "i think you are right with that bar." Done enough to build on:
