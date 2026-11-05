@@ -981,11 +981,10 @@ workload then rendered as screen resolution through a mask using the same warpin
 views". That is option B in `vision/proposal-voxel-renderer.md`, the resolution curve, not built yet: as far
 as Counsel can read, every pixel still gets a ray. Builder to assess it after the floor.
 
-**The low end [David 2026-11-04]:** "i want someone with a 1080p monitor and a 2011 american gaming desktop
-to get a smooth 60 frames". On a clean machine: "i am not trying to account for people downloading bonzai
-buddy". This replaces the 980 Ti as the low-end target and reopens the put-off hardware question. Taken for
-now as a GTX 580 class machine (1.5 GB card, 4 cores). Open: whether that card can run the game's graphics
-path at all (wgpu forced to DirectX 12; Fermi's DX12 driver is late and weak), with Builder to assess.
+**The low end [David 2026-11-05]:** "980ti should be the price of admission at standard looks". Taken as a
+smooth 60 at 1080p on a clean machine ("i am not trying to account for people downloading bonzai buddy"). He
+named a 2011 desktop first, then took it back: "oh i didnt know 2011 was the 680 days im sorry no". So there's
+a standard look every card from there up gets, and anything past it is extra; what's in it is his call.
 
 ## The renderer: the processor stays at the floor; everything drawn is the card's
 
