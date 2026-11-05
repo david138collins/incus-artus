@@ -974,6 +974,12 @@ measures the floor (a bare Bevy app, DefaultPlugins, our game with nothing on sc
 does for us against what it costs; what follows from that is his call. And the rule on flight: flying fast
 may delay when detail arrives, but the frame doesn't wait on the world.
 
+**The low end [David 2026-11-04]:** "i want someone with a 1080p monitor and a 2011 american gaming desktop
+to get a smooth 60 frames". On a clean machine: "i am not trying to account for people downloading bonzai
+buddy". This replaces the 980 Ti as the low-end target and reopens the put-off hardware question. Taken for
+now as a GTX 580 class machine (1.5 GB card, 4 cores). Open: whether that card can run the game's graphics
+path at all (wgpu forced to DirectX 12; Fermi's DX12 driver is late and weak), with Builder to assess.
+
 ## The renderer: the processor stays at the floor; everything drawn is the card's
 
 **[DECIDED 2026-11-04]** David, after the watt ledger (the processor's cost was mostly per-frame
