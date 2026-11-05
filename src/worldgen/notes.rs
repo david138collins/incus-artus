@@ -132,14 +132,17 @@ mod tests {
         // next must still go below the contents, not over them.
         on_page(Some("test page"));
         let ctx = egui::Context::default();
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        // (The font pictures egui made are let go of: there's no card here to hand them to.)
+        ctx.run_ui(egui::RawInput::default(), |ui| {
             let heading = ui.label("heading").rect;
             ui.label("contents");
             ui.label("more contents");
             let next = ui.cursor().min.y;
             button(ui, "heading", heading);
             assert_eq!(ui.cursor().min.y, next, "the button moved the panel's layout back up");
-        });
+        })
+        .textures_delta
+        .clear();
         on_page(None);
     }
 

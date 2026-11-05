@@ -225,7 +225,8 @@ mod tests {
     /// inside a folding section (opened from the second frame on).
     fn frame(ctx: &egui::Context, events: Vec<egui::Event>, value: &mut Settings, open: bool) {
         let input = egui::RawInput { events, ..Default::default() };
-        let _ = ctx.run_ui(input, |ui| {
+        // (The font pictures egui made are let go of: there's no card here to hand them to.)
+        ctx.run_ui(input, |ui| {
             {
                 default_light(ui, CATEGORY, value);
                 save_shortcut(ui.ctx(), CATEGORY, || value.clone());
@@ -234,7 +235,9 @@ mod tests {
                 state.set_open(open);
                 state.show_header(ui, |ui| ui.label("Presets")).body(|ui| preset_bar(ui, CATEGORY, value));
             }
-        });
+        })
+        .textures_delta
+        .clear();
     }
 
     const CATEGORY: &str = "test-ctrl-s-then-open";

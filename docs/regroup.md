@@ -175,6 +175,15 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
     card its work, showing it, waiting for the screen.
   - **Which core the frame is on:** logged every 10 s in a test window, or whenever any frames landed on the
     efficient cores.
+  - **Response time:** PresentMon's input-to-photon columns need input, and the test window has none at the
+    controls, so a script beside it (not the game) presses F24, a key the game doesn't use, four times a
+    second. Its average and worst, uncapped and at 120, go in the torque spec beside the frame times.
+  - **The test suite green:** the 2 panel tests that failed in debug test runs (egui's check that font
+    pictures are handed on; the tests had no card to hand them to) now let them go. 355 pass, none fail.
+- **For lane 0.2 (David 2026-11-05):** priorities on every job (this frame / soon / whenever), the workers below the
+  frame thread; and in the simulation, under pressure the farthest and lightest give way first (the World sim,
+  then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.
+  Until then the simulation's only rule is Bevy's, the same for all: a stall over a quarter-second is a pause.
 
 ### Phase 1: first sight, rough land to the horizon  [planned in detail]
 
