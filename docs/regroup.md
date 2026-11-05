@@ -159,7 +159,7 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
   loop, the same runs at the screen (`INCUS_TEST_WINDOW`, `soak.rs`: 2 minutes uncapped, 2 at 120, by itself),
   with their numbers written here. A bolt is tight once its check passes, and again after every change.
   Response before frame rate: input-to-photon latency is a first-class number in it.
-- **Build 62, Fork A's first bolts** (not yet measured):
+- **Build 62, Fork A's first bolts** (measured below):
   - **Pacing by the screen's own clock** (`runner::pace`, `runner/hardware.rs`): under a cap, the frame waits for
     the screen's refreshes (DXGI's wait for the vertical blank on the window's screen) until the cap's number
     has gone by since the frame began, so the next frame starts just after a refresh, reads the input then, and
@@ -180,6 +180,23 @@ price (card ms, processor ms) when it goes in, written down; the slow-frame log 
     second. Its average and worst, uncapped and at 120, go in the torque spec beside the frame times.
   - **The test suite green:** the 2 panel tests that failed in debug test runs (egui's check that font
     pictures are handed on; the tests had no card to hand them to) now let them go. 355 pass, none fail.
+- **[MEASURED 2026-11-05, build 62, the test window by itself, PresentMon, nvidia-smi, F24 pressed 945 times]**
+  - **Uncapped: better.** 1,930 FPS average; 4 frames in 2 minutes held over 8.4 ms (build 61: 6, and a 220 ms one),
+    and this time PresentMon and the game's log mostly agree. The frame stayed on the performance cores (0.0% on
+    the efficient ones). The card ran at full clock (2,850 MHz, P4) and 38 W, to draw an empty sky 1,930 times a
+    second.
+  - **At 120: worse, and the reason is the screen.** 91 FPS average, frames 8 to 21 ms apart. The time between
+    frames on the screen isn't a multiple of a refresh (11.8, 12.9, 5.4, 20.9 ms...): **the laptop's screen has a
+    variable refresh rate** (G-SYNC or the like). It has no steady clock of its own in a game: it shows a frame
+    when the frame arrives. So waiting for its "refresh" waits for the screen to follow us, which it does late
+    and unevenly. The screen's clock is the wrong reference on this screen; a steady clock of our own is the
+    right one, because the screen then shows each frame the moment it's ready, with no refresh to miss.
+    Build 61's stutter at 120 was the same thing seen the other way: the timer woke late (up to 10 ms), and the
+    screen showed the lateness faithfully.
+  - **The card's clocks at 120:** dropped to P5, 300 to 825 MHz, 15 W, and its work on a frame took up to 7 ms
+    (0.3 ms at full clock). Relaxed, but slow to answer: bolt 5 is real, and it matters more as the picture grows.
+  - **Response time: not measured.** PresentMon without administrator rights didn't see the presses (every
+    input-to-photon value is empty). It needs an elevated run, or a timing of our own.
 - **For lane 0.2 (David 2026-11-05):** priorities on every job (this frame / soon / whenever), the workers below the
   frame thread; and in the simulation, under pressure the farthest and lightest give way first (the World sim,
   then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.
