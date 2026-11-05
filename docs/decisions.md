@@ -1014,7 +1014,16 @@ and using his methods. we have to dip the hot dog buns in water". *Counsel's rea
 prepare everything possible before play; give drawing, simulation and loading separate lanes that never wait
 on each other; give each lane a budget, so too much work arrives late or runs less often and the frame holds;
 make cost follow the screen, not the world; and have tests and a price on every feature do the remembering,
-so he can forget. Bevy is judged by whether it lets the work be arranged this way.
+so he can forget. "there are [limits] to the world": overload shows as things arriving late or looking simpler.
+
+**How Bevy is judged [David 2026-11-05]:** "i think the method and the results we judge bevy on have to be
+considered inseperable". So one judgement, no pass mark on the floor numbers by themselves: for each option,
+the numbers together with how this arrangement of the work would be built in it, and where it gets in the way.
+
+**The size of a huge battle [David 2026-11-05]:** "attacking with 100 soldiers against a city of 400 people and
+100 soldiers would be the 'huge battle' end of the scale. and that would be a great effort from the player,
+after hes good and has been playing for a while." About 600 figures at the top of the scale. It's what the
+figures pass and the battle's simulation are sized against.
 
 ## The renderer: the processor stays at the floor; everything drawn is the card's
 
