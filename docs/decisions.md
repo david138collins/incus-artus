@@ -1006,6 +1006,16 @@ he wants whichever way it goes:
 - The clock: "the timeclock we have works good. we dont want to lose that." That's `src/time/`: fixed ticks,
   pause and speed, and the saved world clock. Its tick loop currently runs on Bevy's `Time` and `FixedUpdate`.
 
+**A stage that takes whatever is put on it [David 2026-11-05]:** "theres no freedom in software except
+performance. i cant make a game if the pc starts choking. i need to forget performance is a thing at all and
+have a stage that takes whatever is put into it with equanimity. so the real question is, how to arrange the
+work so that any relatively modern computer just has a breezy time. like an eating contest pro doing his prep
+and using his methods. we have to dip the hot dog buns in water". *Counsel's reading, for him to correct:*
+prepare everything possible before play; give drawing, simulation and loading separate lanes that never wait
+on each other; give each lane a budget, so too much work arrives late or runs less often and the frame holds;
+make cost follow the screen, not the world; and have tests and a price on every feature do the remembering,
+so he can forget. Bevy is judged by whether it lets the work be arranged this way.
+
 ## The renderer: the processor stays at the floor; everything drawn is the card's
 
 **[DECIDED 2026-11-04]** David, after the watt ledger (the processor's cost was mostly per-frame
