@@ -989,6 +989,16 @@ below disagree with this one, this one stands.
   enough that i know perfect is within our adjustment range. i know it will be there when we have eyes again.
   that gives us latitude." So the plan from black to the whole world is detailed near and loose far, with
   forks where a measurement or his look decides the next move.
+- **The go, phase 0 started:** "if you think you understand, i believe we're ready to begin, do you?" Builder
+  said yes. The plan is `docs/regroup.md` (through 1167834). Before it, on what waits:
+  - Water: "i think we know that our river gen works, and i also am aware that there are two kinds of water in
+    the world right now. i don't think designing water into its sophisticated end state is impinged upon by the
+    graphics work". So the sea, rivers and lakes are a flat stand-in until phase 6.
+  - Caves: "caves require a solution we've hit a brick wall trying to solve the old way; i think we know how
+    we'll make them, the hard part is how do we see them, and the work there is just experimenting with the gpu
+    and finding a way that is fast, accurate, and pretty."
+  - Trees: "trees i don't think are a problem because you can make them with dirt and malachite blocks for now.
+    the way they fall is kinematics, not graphics."
 
 ## The renderer: the old engine dropped now, not last
 
