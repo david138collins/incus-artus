@@ -214,6 +214,16 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   tuning step, on purpose. *Counsel:* the lab counts it over many histories, against a named list of what
   counts as game-breaking, which is his call.
 
+- **Richer people, not more people** [IDEA, David 2026-11-05]: "i want to make the villagers *more* more than i
+  want to make *more villagers*. the balance of 20 fighters being a lot, makes things easy for everyone, and
+  lends to the individual value of a human life." A hamlet is about 20 people, where "2 guards patrolling should
+  be enough for most minor emergencies like four goblins trying to steal or a wolf pack in the early game"; a
+  500-person capital is "gigantic", after three months of building it. "the scale of population should be enough
+  to be complex but never lose sight of the party scale. rich npcs, not mobs." Soloing a haunted cemetery with 20
+  enemies "thats a lot, not a little." "i see hundred man armies as sort of cozy and epic of gilgamesh, the iliad,
+  way." *Counsel:* few rows and many columns suit the rules model. Open: how many rich people the whole world
+  holds, and how much of a person survives while they're out of sight at the coarser levels (section 1).
+
 Counsel's suggestions **[PROPOSED]**:
 - **It runs the game's own rules**, the same Intermediator/World code and Fate (section 1). A lab with its own
   copy of the rules would tune a different game. Same principle as the terrain lab: same code for the
