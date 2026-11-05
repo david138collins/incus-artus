@@ -125,7 +125,7 @@ algebra), the toy rules rewritten on it as the first test. *Builder:* 1 to 2 ses
   tested with deliberate clashes before the simulation relies on it.
 - **The first band's price** is the big unknown: the card measured 3.7 ms for today's whole scene with no
   tricks; the first band has to come in well under that to leave room for light and everything else. If it
-  doesn't, the coarse pass that starts each ray close to what it'll hit comes before step 4.
+  doesn't, the coarse pass that starts each ray close to what it'll hit comes before step 3.
 - **Nothing drawn for a while.** From step 0 to step 2 the world isn't on screen; the World Gen suite still
   shows it from above.
 
