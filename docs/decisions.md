@@ -1020,6 +1020,19 @@ below disagree with this one, this one stands.
     important arrives late;
   - the hardware is kept steady, with no clock drops or core moves that cause stalls, measured first, without
     giving up running cool.
+- **Relaxed but ready, skips as pauses, response rate first** [David 2026-11-06]:
+  - "i dont want the hardware stressed out, i just want zero latency from having to get its attention. it should
+    be relaxed but ready to act instantly without any distraction." So the measure is wake-up latency, not
+    clocks, and the cure is never busy-spinning.
+  - "skipping a step in a simulation thread is fine as long as A. it happens to the farthest, litest thread first
+    and B. its just a pause. theres nothing wrong with npcs drawing a blank, real people do that too, as long as
+    they recall what they are doing once they 'snap out of it' once the hardware has a second." So under
+    pressure the World sim gives way first, then the Intermediator, the Local sim last, and a skip never loses
+    anyone's state. This replaces the global "drop anything over 250 ms" rule inherited from Bevy.
+  - "we should definitely be sequencing with priorities as we establish our grip on the hardware, almost
+    focusing on our 'response rate' instead of framerate first. it may not matter now but it can never be a
+    hinderance and may save our bacon down the line. its also just orderly." So input-to-photon latency is a
+    first-class number, next to frame times.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
