@@ -498,7 +498,18 @@ back to.
   on a worker held the frame's own showing up whatever the pieces' size. Now 237 fps, the slowest 1% over 200, 4
   slow frames in 40 s. **On file:** the first use of sight's three pipelines at load holds one frame about 26 ms
   (once a world, with the other load costs); building a level from the one below kept for when the card is short.
-- **Telescoping:** `before-sight` is tagged once 3.1d stands. If a stage turns out wrong, its commit is undone and the
+- **Telescoping:** `before-sight` is tagged once 3.1d stands.
+- **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
+  pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
+  stone at a 45 degree angle on a mountain side?"; requirements from Counsel, for 3.2's talk]: (1) **no threshold**: a
+  cell's solid share is never rounded to solid or empty; partial cells give partial coverage, gathered front to back,
+  so a slope's edge across coarse pixels is a gradient, not three on and one off; (2) **interpolated between cells**:
+  the ray reads a smooth blend of neighbouring cells (trilinear: solid share, colour, facing), never the one box it's
+  in, which would draw cell-sized stairs; (3) **shaded by the cell's average facing** (which the cell keeps), so a 45°
+  slope is lit as a slope, not as cube faces. **Its test:** made-up slopes of 45° and 30° drawn at several distances,
+  with the staircase steps along the edge and the shading measured. If interpolated coverage still looks lumpy at cell
+  scale, the known next step is keeping where the surface sits inside the cell (a plane's offset), held till his eye
+  asks for it. If a stage turns out wrong, its commit is undone and the
   stage redone; the stages before it stand.
 
 - **David:** a look at every step from 3.2 on; 3.2 is his first sight of the land.
