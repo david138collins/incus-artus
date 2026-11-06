@@ -528,6 +528,11 @@ back to.
   (the whole world in about 4 1/2 minutes), 237 fps throughout, the slowest 1% about 208, 11 slow frames in two
   minutes; about 16 bytes a kept cell, some 100 MB at half the world. (Two loops: 65 s to the start bake; the gentle
   waits cost the bake speed, more loops get it back without the frame noticing.)
+- **The start bake's wait** [David 2026-11-06: "yes, we can just do a loading screen. but id like to see the
+  sharpening myself, realtime and raw, until we are doing finishing touches"]: the finished game shows a loading
+  screen while the start bake runs and plays with the start reach sharp; until the finishing touches our builds skip
+  the wait and spawn straight in, the bake sharpening the world live and raw (no fade, nothing hidden): an instrument
+  for seeing how the store fills, a switch in our builds only. **For 3.2:** the march reads the store as it fills.
 - **Telescoping:** `before-sight` is tagged once 3.1e stands.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
