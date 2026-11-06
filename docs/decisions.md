@@ -1103,6 +1103,15 @@ below disagree with this one, this one stands.
   think we could do good work by putting threshold and blend curves at the exact pixels which are flipping from big
   to small. almost how the more advanced multistage shocks for baja trucks increase their damping across their
   damping range with valves." So the blend is a shaped curve in a few tunable stages, not one threshold.
+- **The whole recipe in whole numbers** [David 2026-11-05], after Builder found the conversion bigger than planned:
+  plain fractions also differ between card and processor, so about 400 fraction uses, and phase 2 at 15 to 25
+  of her hours. "move to whole numbers. otherwise the hologram breaks. as long as the behavior is qualitatively
+  identical in its procession, it doesnt matter if worlds come out different, so long as the rules never changed.
+  its going to be fine tuned again anyways. i will put my faith in builders assessment on this. we arent counting
+  cost in time, only in the finished products capability." So the bar for the conversion is the same rules
+  behaving the same way, checked by his look at his default presets; worlds may differ in detail. Processor and
+  card must agree exactly. The aim, in his words: "a 1 size adaptive solution that we can stay coherent with as we
+  fill it with stuff."
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
