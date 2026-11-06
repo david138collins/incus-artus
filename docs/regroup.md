@@ -337,6 +337,9 @@ out, which the card does fast and exactly.
   (about a third of a block lower: the slope read exactly rather than across a block), the grain down to about 1.3
   times the fractions' where it was 6. The same rule, done more finely. Also in 66: the panel's text no longer
   stays selected when the window loses the focus mid-press (a screenshot taken), the mouse let go of on the way out.
+- **David's look at build 66 (2026-11-05): passed.** "looks like its supposed to now, good job. also, it had taken 15
+  seconds to compile rivers before, and its back to 10 now." (The rivers' stage reads the ground at every step of
+  every river: in build 65 the whole numbers' crags made it slower; 66 is back to the fractions' 10 seconds.)
 - **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.
 - **Measured:** the readback's cost, in the slow-frame log.
 - **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.
