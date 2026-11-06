@@ -1112,6 +1112,16 @@ below disagree with this one, this one stands.
   behaving the same way, checked by his look at his default presets; worlds may differ in detail. Processor and
   card must agree exactly. The aim, in his words: "a 1 size adaptive solution that we can stay coherent with as we
   fill it with stuff."
+- **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
+  the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
+  and can be derived by any part of the whole, in isolation, without reaching out; the entities are all
+  entangled. only the actual outcome of fate and chaos has to be communicated across the network, to those who
+  need it." *Counsel:*
+  - The recipe's twins are exact; the screen's twins agree within a tolerance.
+  - "Derived in isolation" includes the plans made once at world creation (rivers, caves, peaks), which are part
+    of the hologram's data.
+  - What crosses the network is the seed, the rules' version, edits, players' actions and Fate's outcomes, and
+    every machine must run the same rules.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
