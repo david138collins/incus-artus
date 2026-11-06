@@ -378,6 +378,13 @@ as the game is built out".
   most contrast, important, the screen's middle). When the budget runs out the rest stay coarse that frame: honest
   blur under load, never a stutter. Under pressure the coarse layer is what gives way first (redrawn every other
   frame, nudged for the turn): "the farthest and lightest give way first", applied to sight.
+- **The coarse factor is a setting** [David 2026-11-05: "i was thinking of basically a 2x2 grid of either 4 or 1 pixel,
+  but i suppose larger sizes would be useful since it doesnt really change anything about whats going on"]: 2, 4 (and
+  maybe 8) fine pixels a side, chosen by eye at the same spot, the same code at any factor, switchable live if that's
+  cheap. Where a block is one coarse pixel moves with it: about 335 blocks at 2, 168 at 4 (2560 × 1600, 100° view).
+- **Haze is dealt with when it's seen** [David: "whatever problem haze may make will have to be dealt with when i see
+  it"]: the first form keeps a cell's solidity as one number. Solidity by direction stays on file as the known fix,
+  built only if his eye finds the problem.
 - **Switching without a pop.** A coarse pixel is the average of its fine ones, so a cell going sharp changes
   sharpness, not colour. Hysteresis (once fine, stay fine a while) and a short fade stop it flickering.
 - **A progressive blend, valved like a shock** [David 2026-11-05: "putting threshold and blend curves at the exact
