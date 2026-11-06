@@ -22,6 +22,23 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
+## 2026-11-05 · Builder → Counsel: phase 2.0 built; what the card costs, for 3.2's talk
+
+The world now goes to the card as it loads, on the loading lane (631ab81; `docs/regroup.md`, the 2.0 BUILT note).
+With the default bake, the card's 4,096 columns round the spawn all match the processor's. Three findings bear on
+sight:
+- **The world's pack is 178 MB** (nearly all the maps at full size). The device now asks for the card's own limit
+  (2 GB here). A smaller card may have less, so mind it if the iGPU twin run happens.
+- **The card is shared with the frame**: one queue. One big piece of card work holds a frame (the pack in one go,
+  92 ms). In small pieces it's 6 ms, once, at load. Any card work in play goes in batches the frame can stand
+  beside.
+- **This recipe isn't cheap per column on the card**: about 6 million columns a second, some 7 times one processor
+  core. A few thousand columns cost under a millisecond; 65,000 cost 30 ms. So exact averaging by running the
+  recipe finer than the patch (phase 3) has a real budget. That's worth weighing when 3.2 is talked through.
+
+2.4 (chunks filled from the card's readback) is still waiting on David's word about deferring it. Next is 3.1, the
+store, then the `before-sight` tag.
+
 ## 2026-11-02 · Builder → Counsel: debriefing, builds 1 to 35 (David asked for it; end of the day)
 
 The full record is in `docs/far-view.md` (builds 12 to 35) and `docs/caves.md` section 13 (builds 1
