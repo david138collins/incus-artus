@@ -1171,7 +1171,17 @@ below disagree with this one, this one stands.
   - **Gliding edges, kept** [David 2026-11-06]: coarse pixels' edges move "like ps2 era antialiasing. i recall it
     from original half life on a crt." Kept as character: "i like it, its organic and like you said, the human eye
     infers detail where there is none, for that reason". Each coarse pixel's shade follows how much an edge covers
-    it, so edges glide through the fixed grid in tone, without stair-stepping. The recipe answering at a cell's size stays on file as an
+    it, so edges glide through the fixed grid in tone, without stair-stepping.
+  - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
+    obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
+    them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
+    thought, if they feel organic. theres a sense you get with software where it feels springy and it becomes
+    pleasurable just to move the mouse". So:
+    - reflections and bounce light are out;
+    - moving torches and light from effects are in;
+    - sharp shadows matter only up close;
+    - sun shafts are wanted if they feel organic;
+    - the goal for feel is software so responsive that moving the mouse is a pleasure. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
