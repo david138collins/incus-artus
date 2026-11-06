@@ -4,7 +4,8 @@
 //!   when it isn't [David 2026-11-05: "relaxed but ready to act instantly without any distraction";
 //!   "a full screen only thing that tyrannizes the PC, as long as people can at least tab back to
 //!   discord quickly"];
-//! - **which processor core the frame is on** (`current_core`, `core_classes`).
+//! - **which processor core the frame is on** (`current_core`, `core_classes`);
+//! - **background threads below the frame** (`background_thread`).
 //!
 //! Off Windows the alarm is the plain sleep, there's no claim, and no core.
 //!
@@ -21,7 +22,7 @@ mod windows_only {
     use windows::Win32::Media::{timeBeginPeriod, timeEndPeriod};
     use windows::Win32::System::Threading::{
         CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, CreateWaitableTimerExW, GetCurrentProcess, GetCurrentThread, INFINITE, PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE,
-        ProcessPowerThrottling, SetProcessInformation, SetThreadPriority, SetWaitableTimer, THREAD_PRIORITY_HIGHEST, THREAD_PRIORITY_NORMAL, TIMER_ALL_ACCESS, WaitForSingleObject,
+        ProcessPowerThrottling, SetProcessInformation, SetThreadPriority, SetWaitableTimer, THREAD_PRIORITY_BELOW_NORMAL, THREAD_PRIORITY_HIGHEST, THREAD_PRIORITY_NORMAL, TIMER_ALL_ACCESS, WaitForSingleObject,
     };
 
     /// Windows' high-resolution waitable timer (Windows 10 from 2018 on): wakes within a fraction of
@@ -70,6 +71,12 @@ mod windows_only {
             let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
         }
         power_throttling(true);
+    }
+
+    /// A background thread (the loading lane's workers, the World Compiler): below the frame's
+    /// priority, so it never takes the frame's core.
+    pub fn background_thread() {
+        let _ = unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL) };
     }
 
     /// Whether Windows may slow the game down to save power (true: it decides, as for any program).
@@ -141,6 +148,8 @@ mod windows_only {
 
     pub fn give_back_attention() {}
 
+    pub fn background_thread() {}
+
     pub fn current_core() -> u32 {
         0
     }
@@ -150,7 +159,7 @@ mod windows_only {
     }
 }
 
-pub use windows_only::{core_classes, current_core};
+pub use windows_only::{background_thread, core_classes, current_core};
 
 /// Wakes the frame at a moment: Windows' high-resolution timer where there is one, else the plain
 /// sleep.

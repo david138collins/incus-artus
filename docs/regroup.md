@@ -94,7 +94,7 @@ right now isn't worth the risk**, not because it's best.
 - **New code is Bevy-free** unless it has to talk to the World: the runner's card and window side, the card work
   to come, and later the column store and the simulation's scheduler, which are ours from the start.
 - **The gauge** (a test in `src/ecs.rs`): it fails if any file but the doorway names `bevy::`, or if the files and
-  lines that use the doorway go up. **The reach on 2026-11-05: 51 files, 84 lines.** It may only go down.
+  lines that use the doorway go up. **The reach on 2026-11-05: 51 files, 84 lines; 83 once chunk making moved to the loading lane.** It may only go down.
 - **When it comes out:** when the column store arrives at the simulation stage; or sooner, if phase 0's floor
   shows the core costing more than about 0.5 ms or 30 wake-ups a frame at 120 over no Bevy (0.6 ms and 13 at 120).
 - **Anything else from Bevy that stays** gets the same rule: say why it's the best way, or why it can't be
@@ -252,6 +252,13 @@ time?"). 3.2 is talked through with him before it's built.
   `INCUS_BALLAST=<ms>`, or the test window with `INCUS_TEST_BALLAST`: the run under the top repeated with 0, 1, 2
   and 3.7 ms (3.7: build 60's whole scene standing). As the real picture grows it shrinks, and it's gone once
   real work passes it.
+- **Lane 0.2, the loading lane [BUILT 2026-11-05]** (`src/loading.rs`): our own worker pool (all the processor's
+  threads but two), its threads below the frame's priority, jobs by tier (`Soon` before `Whenever`) and then by key
+  (nearest first), a job dropped before it runs once nobody wants it, a panic in a job caught (and in the crash
+  log) without losing the worker. Chunk making moved onto it from Bevy's task pool (the doorway's reach down to 83
+  lines). The World Compiler's own thread also stands below the frame. The frame takes results in within its
+  budget, as before. Still on the frame: a save's file writes (rare and asked for; they move when saving is
+  reworked to report back from the lane).
 - **For lane 0.2 (David 2026-11-05):** priorities on every job (this frame / soon / whenever), the workers below the
   frame thread; and in the simulation, under pressure the farthest and lightest give way first (the World sim,
   then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.

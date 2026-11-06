@@ -6,8 +6,8 @@
 //!    isn't loaded or being made. They're queued **nearest first**, and chunks **ahead** count as
 //!    nearer, so the ground in front of you fills in before the ground behind. (The queue is made
 //!    again when you cross into another chunk, and every half second as you turn.)
-//! 3. **Make them** on background threads, a few at a time (`most_at_once`), so the game never
-//!    waits and the work spreads over time instead of spiking.
+//! 3. **Make them** on the loading lane (`loading`), a few at a time (`most_at_once`), so the game
+//!    never waits and the work spreads over time instead of spiking.
 //! 4. **Put finished ones in**, within a small time budget per frame.
 //! 5. **Draw a chunk only once all four of its neighbours are in.** Its edges then come out right
 //!    the first time: no wall of faces at the edge of the loaded area to draw and then undo, so each
@@ -25,7 +25,7 @@ use super::terrain::{Terrain, TerrainBlocks};
 use super::{Chunk, VoxelWorld};
 use crate::data::BlockRegistry;
 use crate::ecs::prelude::*;
-use crate::ecs::tasks::{AsyncComputeTaskPool, Task, futures::check_ready};
+use crate::loading::{Job, Tier};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -92,7 +92,7 @@ pub struct Streaming {
     /// The map these chunks were made from (a new world means starting over).
     map: Option<Arc<CompiledMap>>,
     /// Chunks being made, and finished ones not yet put in.
-    making: HashMap<ChunkPos, Task<Option<Chunk>>>,
+    making: HashMap<ChunkPos, Job<Option<Chunk>>>,
     finished: Vec<(ChunkPos, Option<Chunk>)>,
     /// Chunks wanted, best first (the next one is at the end).
     queue: Vec<ChunkPos>,
@@ -223,12 +223,14 @@ pub fn stream_chunks(
     // Finished chunks come in, within the time budget.
     let started = Instant::now();
     let mut done = Vec::new();
-    streaming.making.retain(|&pos, task| match check_ready(task) {
-        Some(chunk) => {
+    streaming.making.retain(|&pos, job| match job.ready() {
+        Ok(Some(chunk)) => {
             done.push((pos, chunk));
             false
         }
-        None => true,
+        Ok(None) => true,
+        // It failed (the crash log says why): asked for again with the next queue.
+        Err(()) => false,
     });
     streaming.finished.extend(done);
     while let Some((pos, chunk)) = streaming.finished.pop() {
@@ -280,8 +282,7 @@ pub fn stream_chunks(
     }
 
     // Start making more, up to the limit.
-    let most = if settings.most_at_once == 0 { std::thread::available_parallelism().map_or(4, |n| n.get()) } else { settings.most_at_once };
-    let pool = AsyncComputeTaskPool::get();
+    let most = if settings.most_at_once == 0 { crate::loading::workers() } else { settings.most_at_once };
     let blocks = TerrainBlocks::from_registry(&registry);
     while streaming.making.len() < most {
         let Some(pos) = streaming.queue.pop() else { break };
@@ -294,11 +295,13 @@ pub fn stream_chunks(
             continue;
         }
         let (map, blocks, caves) = (map.clone(), blocks.clone(), caves.0.clone());
-        let task = pool.spawn(async move {
+        // On the loading lane: soon (they're round you), nearest first.
+        let (x, y) = ((pos.x - centre.x) as f32, (pos.y - centre.y) as f32);
+        let job = crate::loading::submit(Tier::Soon, (x * x + y * y).sqrt(), move || {
             let _timed = crate::perf::Background::new("chunks made");
             map.chunk(pos, &blocks, &caves)
         });
-        streaming.making.insert(pos, task);
+        streaming.making.insert(pos, job);
         streaming.made += 1;
     }
 }

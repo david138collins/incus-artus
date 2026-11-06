@@ -16,7 +16,7 @@ pub use bevy::*;
 /// The doorway's reach when the gauge was last moved: files, and lines, that use `crate::ecs`. Lower
 /// them as Bevy is pulled out; never raise them.
 #[cfg(test)]
-const GAUGE: (usize, usize) = (51, 84);
+const GAUGE: (usize, usize) = (51, 83);
 
 #[cfg(test)]
 mod tests {

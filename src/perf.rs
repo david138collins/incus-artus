@@ -369,6 +369,7 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.strong("Work in flight");
     let streaming = world.resource::<Streaming>();
     ui.label(format!("Chunks waiting: {}   being made: {}", streaming.queued(), streaming.being_made()));
+    ui.label(format!("The loading lane: {} jobs waiting for its {} workers", crate::loading::waiting(), crate::loading::workers()));
     ui.label(format!("Chunks in the world: {}", world.resource::<VoxelWorld>().chunk_count()));
 
     ui.separator();

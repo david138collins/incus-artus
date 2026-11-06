@@ -35,6 +35,8 @@ impl<T: Send + 'static> Job<T> {
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = stop.clone();
         std::thread::spawn(move || {
+            // Below the frame's priority, like the loading lane's workers.
+            crate::runner::hardware::background_thread();
             let started = Instant::now();
             if let Some(made) = work(&stop_flag) {
                 let millis = started.elapsed().as_secs_f64() * 1000.0;

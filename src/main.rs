@@ -43,6 +43,7 @@ mod ecs;
 mod events;
 mod fate;
 mod kinematics;
+mod loading;
 mod look;
 mod people;
 mod perf;
