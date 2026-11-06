@@ -33,6 +33,8 @@ mod terrain;
 mod test_sites;
 #[allow(dead_code)] // built a piece at a time; used once the recipe is all converted (phase 2.2)
 pub mod whole_recipe;
+#[allow(dead_code)] // built a piece at a time, each with its twin test (phase 2.3)
+pub mod card_recipe;
 mod test_world;
 
 #[cfg(test)]

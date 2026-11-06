@@ -14,9 +14,28 @@ pub fn source() -> String {
     [table("LOG2", &LOG2), table("EXP2", &EXP2), table("SIN", &SIN), table("ATAN", &ATAN), KIT.to_string()].concat()
 }
 
+/// A graphics card to run a twin test on, if there is one (DirectX 12 on Windows, as the game).
+#[cfg(test)]
+pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
+    let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
+    if cfg!(windows) {
+        descriptor.backends = wgpu::Backends::DX12;
+        // DXC, as the game uses (`runner::windows_sdk_dxc`): the old compiler gives up on the recipe.
+        let folder = std::path::Path::new(r"C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64");
+        let dxc = folder.join("dxcompiler.dll");
+        if dxc.is_file() && folder.join("dxil.dll").is_file() {
+            descriptor.backend_options.dx12.shader_compiler = wgpu::Dx12Compiler::DynamicDxc { dxc_path: dxc.to_string_lossy().into_owned() };
+        }
+    }
+    let instance = wgpu::Instance::new(descriptor);
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).ok()?;
+    pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("the twin test"), ..Default::default() })).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use super::card;
     use super::source;
 
     /// The steps the twin test runs, by number: the card's `twin` below does the same.
@@ -76,17 +95,6 @@ fn twin(@builtin(global_invocation_id) id: vec3<u32>) {
     results[i] = r;
 }
 "#;
-
-    /// A graphics card to run the twin test on, if there is one (DirectX 12 on Windows, as the game).
-    pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
-        let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
-        if cfg!(windows) {
-            descriptor.backends = wgpu::Backends::DX12;
-        }
-        let instance = wgpu::Instance::new(descriptor);
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).ok()?;
-        pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("the twin test"), ..Default::default() })).ok()
-    }
 
     /// Runs `cases` (op, a, b, c) on the card and gives back its answers.
     fn on_the_card(device: &wgpu::Device, queue: &wgpu::Queue, cases: &[[i32; 4]]) -> Vec<i32> {
