@@ -1145,7 +1145,13 @@ below disagree with this one, this one stands.
   - **A loading screen for players; the raw sharpening for David** [2026-11-06]: "yes, we can just do a loading
     screen. but id like to see the sharpening myself, realtime and raw, until we are doing finishing touches".
     The start bake takes about 46 s on his card, once per world. Our builds skip the wait and show the bake
-    filling live. The recipe answering at a cell's size stays on file as an
+    filling live.
+  - **The first sight, first look** [David 2026-11-06]: "8x8 actually looks good for the far distance, on this
+    screen." Then: "i think the contrast on the mountains colors is more of the reason its hard to read at 8x8,
+    but, it looks nice at 8x8, and frankly the farthest mountains may not benefit from more... the mountains at
+    that extreme will probably look better with forests on them and stuff. there's a severe ringing effect on flat
+    surfaces or water beneath me that has to be taken care of but i'm liking what i'm seeing. i think we may be
+    able to make this work". The ringing is a flaw to fix; the colours' contrast is noted for tuning. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
