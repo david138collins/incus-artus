@@ -8,6 +8,9 @@ use crate::whole::{Fix, Pos};
 use crate::world::whole_recipe::{WholeCarving, WholeCurve, WholeMap, WholeNoise};
 use crate::worldgen::noise::{ARROWS, Fade};
 
+mod on_card;
+pub use on_card::{WorldOnCard, send};
+
 const RECIPE: &str = include_str!("recipe.wgsl");
 
 /// The recipe in the shader language: the kit, the noise's arrows, then the recipe's steps.

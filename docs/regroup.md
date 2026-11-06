@@ -350,8 +350,33 @@ out, which the card does fast and exactly.
   inside WARP's own driver (parked: the iGPU is the second card to try, after phase 2). **The compile:** the whole column
   (`whole_column`: the ground, carved, and its blocks) compiles in 9.5 seconds, from 57 at first (the compiler copies a
   function into every place it's called: mineralogy's stacks are called from one place, a column's parts worked out
-  once). That's at world load, to be done on the loading lane or kept in a pipeline cache. **Left for 2.4:** the column's
-  whole-block rounding and the sea floor's rule (`terrain::whole_column`) on the card, and its twin test.
+  once). That's at world load, to be done on the loading lane or kept in a pipeline cache. ~~Left for 2.4: the column's
+  whole-block rounding and the sea floor's rule on the card~~ (built in 2.0, below).
+- **2.0 [BUILT 2026-11-05]** `world/card_recipe/on_card.rs`, with `world::send_world_to_card`: when a compiled world
+  starts (or its caves change), a loading-lane job packs it (the maps, recipe, rivers and lakes, caves and mineralogy:
+  `Pack`, not the textures first planned, as 2.3 made one list the card reads), puts it on the card, compiles the
+  column's pipeline, and checks it: the card makes the 4,096 columns round the spawn and every one is compared with the
+  processor's. The runner shares its device for it (`runner::card()`, our own, not through the doorway). **The columns
+  as chunks are filled** now round in whole numbers on the processor too when the recipe is whole
+  (`terrain::whole_block_column`: halves up; a fraction can't hold a height's 65536ths above Z 256), and the card's
+  `world_column` makes them the same: twin test on two maps, one with sea for the floor's rule, bit for bit.
+  **Measured, the default bake, David's card (soak runs):**
+  - The pack is **178 MB** (45.6 million numbers, nearly all the maps at full size): past wgpu's usual 128 MB a binding,
+    so the device now asks for the card's own limit (2,047 MB here; `whole::shader::big_buffers`, the twin test's
+    card the same). The first run hit it; the job's panic was caught on the lane and the game flew on.
+  - Packed in 243 ms, on the card in 133 ms, the pipeline compiled in **6.0 s**, first used in 15 ms; the 4,096
+    columns in 10 ms on the card (the processor 27.5 ms on one core). **All 4,096 the same.**
+  - **The card is shared with the frame** (one queue): the pack in one piece held a frame **92 ms**, the pipeline's
+    first use with 4,096 columns 26.5 ms. In pieces, each waited for before the next (a megabyte of pack at a time; a
+    first use of 64 columns; then 1,024 at a time) they're 6.3 ms and 8.9 ms, once, as the world loads. The first
+    use's 15 ms on the card is what's left (a fixed cost: on file).
+  - **What the card costs, the recipe as it is** (the test map, round trips): 64 columns 0.6 ms, 4,096 0.8 ms, 65,536
+    30 ms, about a million 169 ms (the processor, one core, 1,137 ms): about 6 million columns a second, some 7 times
+    one core. **For sight (3.2, to talk through):** a batch of a few thousand columns costs under a millisecond and
+    one of 65,000 costs 30, so the card's work goes in small batches the frame can stand beside, and this recipe is
+    not cheap per column on the card.
+  - Noticed, not chased: a compiled world's first 13 chunks took 106 ms on the frame (8.6 ms at build 60), likely the
+    maps made whole on the first column asked (`CompiledMap::whole`, once a world), at load.
 - **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.
 - **Measured:** the readback's cost, in the slow-frame log.
 - **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.

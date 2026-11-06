@@ -425,6 +425,8 @@ impl Plugin for WorldPlugin {
             .init_resource::<test_world::TestPlaces>()
             .add_settings::<test_world::TestPlaces>("test_places")
             .add_systems(Update, streaming::stream_chunks)
+            .init_resource::<CardWorld>()
+            .add_systems(Update, send_world_to_card)
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
             .add_settings::<EditRules>("edit_rules")
@@ -440,6 +442,49 @@ impl Plugin for WorldPlugin {
             .add_systems(FixedUpdate, edits::apply_block_edits.in_set(WorldEdits))
             .add_systems(crate::ui::EguiPrimaryContextPass, show_left_out.run_if(in_state(crate::screen::Screen::Play)))
             .add_debug_page("World", world_debug_page);
+    }
+}
+
+/// The world on the card (the regroup, phase 2.0), and the job putting it there.
+#[derive(Resource, Default)]
+pub struct CardWorld {
+    sending: Option<crate::loading::Job<Result<(card_recipe::WorldOnCard, String), String>>>,
+    /// Read by sight's store (phase 3.1).
+    #[allow(dead_code)]
+    pub on_card: Option<std::sync::Arc<card_recipe::WorldOnCard>>,
+}
+
+/// When a compiled world starts (or its caves change), it's packed and handed to the card on the loading
+/// lane, its pipeline compiled there too; what it took is logged when it's in.
+fn send_world_to_card(terrain: Res<Terrain>, caves: Res<Caves>, registry: Res<BlockRegistry>, voxel: Res<VoxelWorld>, mut card: ResMut<CardWorld>) {
+    if terrain.is_changed() || caves.is_changed() {
+        card.on_card = None;
+        card.sending = match (terrain.compiled(), crate::runner::card()) {
+            (Some(map), Some((device, queue))) if map.settings.recipe_maths == crate::worldgen::noise::NoiseMaths::WholeNumbers => {
+                let (map, caves, device, queue) = (map.clone(), caves.0.clone(), device.clone(), queue.clone());
+                let blocks = TerrainBlocks::from_registry(&registry);
+                let spawn = voxel.spawn();
+                Some(crate::loading::submit(crate::loading::Tier::Soon, 0.0, move || card_recipe::send(&device, &queue, &map, &caves, &blocks, (spawn.x, spawn.y))))
+            }
+            _ => None,
+        };
+    }
+    let Some(job) = &card.sending else { return };
+    match job.ready() {
+        Ok(None) => {}
+        Ok(Some(Ok((world, report)))) => {
+            info!("{report}");
+            card.on_card = Some(std::sync::Arc::new(world));
+            card.sending = None;
+        }
+        Ok(Some(Err(report))) => {
+            warn!("{report}");
+            card.sending = None;
+        }
+        Err(()) => {
+            warn!("The world couldn't be put on the card (the crash log says why)");
+            card.sending = None;
+        }
     }
 }
 

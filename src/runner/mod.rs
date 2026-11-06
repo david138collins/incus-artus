@@ -139,6 +139,15 @@ pub fn run(mut app: App) {
     }
 }
 
+/// The card's device and queue, shared with the loading lane (the world's pack and pipeline, phase 2.0):
+/// set once, as the window opens.
+static CARD: std::sync::OnceLock<(wgpu::Device, wgpu::Queue)> = std::sync::OnceLock::new();
+
+/// The card, once the window is open.
+pub fn card() -> Option<&'static (wgpu::Device, wgpu::Queue)> {
+    CARD.get()
+}
+
 struct Gpu {
     window: Arc<Window>,
     surface: wgpu::Surface<'static>,
@@ -218,7 +227,10 @@ impl Runner {
         // The card's own timestamps, for the ballast (developer builds, when it's asked for).
         let timed = cfg!(feature = "dev") && wanted_ballast();
         let required_features = if timed { adapter.features() & wgpu::Features::TIMESTAMP_QUERY } else { wgpu::Features::empty() };
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, ..Default::default() })).expect("the card's device");
+        let required_limits = crate::whole::shader::big_buffers(&adapter);
+        info!("The card's largest buffer: {} MB", required_limits.max_storage_buffer_binding_size.min(required_limits.max_buffer_size) >> 20);
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, required_limits, ..Default::default() })).expect("the card's device");
+        let _ = CARD.set((device.clone(), queue.clone()));
         let size = window.inner_size();
         let mut config = surface.get_default_config(&adapter, size.width.max(1), size.height.max(1)).expect("the card can draw to this window");
         // The panel's colours are worked out as sRGB; a plain (non-sRGB) surface shows them as made.

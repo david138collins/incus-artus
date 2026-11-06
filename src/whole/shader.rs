@@ -33,7 +33,14 @@ pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
     let software = std::env::var("INCUS_TWIN_CARD").is_ok_and(|card| card == "software");
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, force_fallback_adapter: software, ..Default::default() })).ok()?;
     eprintln!("The twin test's card: {} ({:?})", adapter.get_info().name, adapter.get_info().device_type);
-    pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("the twin test"), ..Default::default() })).ok()
+    pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("the twin test"), required_limits: big_buffers(&adapter), ..Default::default() })).ok()
+}
+
+/// wgpu's usual limits, but buffers as big as the card allows: a world's pack is larger than the usual
+/// 128 MB [2026-11-05: 182 MB, the default bake's maps at full size].
+pub fn big_buffers(adapter: &wgpu::Adapter) -> wgpu::Limits {
+    let card = adapter.limits();
+    wgpu::Limits { max_storage_buffer_binding_size: card.max_storage_buffer_binding_size, max_buffer_size: card.max_buffer_size, ..Default::default() }
 }
 
 #[cfg(test)]
