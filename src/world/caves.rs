@@ -94,6 +94,12 @@ impl CavePlan {
         self.tunnels.is_empty()
     }
 
+    /// Every section-sized box (chunk north, chunk east, level) and the pieces of tunnel near it (tunnel,
+    /// first point): for the card's copy (`card_recipe`).
+    pub fn boxes_with_pieces(&self) -> impl Iterator<Item = (&(i32, i32, i32), &Vec<(u32, u32)>)> {
+        self.index.iter()
+    }
+
     /// Sorts the pieces into boxes. A piece too long or too wide for the carve's 32 bits (only from a
     /// hand-edited `caves.toml`) is left out, so it's never carved at all.
     fn make_index(&mut self) {

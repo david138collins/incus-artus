@@ -1721,3 +1721,125 @@ fn whole_column(north: i32, east: i32, slope: i32) -> vec4<i32> {
     col.peaks = p.z;
     return vec4<i32>(column.z, column.water, choose_blocks(col), 1);
 }
+
+// ── The caves (`caves.rs`: `CavePlan::inside`, whole numbers already) ──
+
+fn hash32_3(seed: u32, x: i32, y: i32, z: i32) -> u32 {
+    var h = seed ^ 0x2545f491u;
+    for (var i = 0; i < 3; i++) {
+        var k = bitcast<u32>(x);
+        if (i == 1) {
+            k = bitcast<u32>(y);
+        } else if (i == 2) {
+            k = bitcast<u32>(z);
+        }
+        h = h ^ (rotl(k * 0xcc9e2d51u, 15u) * 0x1b873593u);
+        h = rotl(h, 13u) * 5u + 0xe6546b64u;
+    }
+    h = h ^ (h >> 16u);
+    h = h * 0x85ebca6bu;
+    h = h ^ (h >> 13u);
+    h = h * 0xc2b2ae35u;
+    return h ^ (h >> 16u);
+}
+
+fn value3(seed: u32, x: i32, y: i32, z: i32) -> i32 {
+    return i32(hash32_3(seed, x, y, z) >> 15u) - 65536;
+}
+
+fn rem_floor(a: i32, b: i32) -> i32 {
+    return a - div_floor(a, b) * b;
+}
+
+// `whole_value3`: value noise at a block, one lump every `size` blocks.
+fn whole_value3(seed: u32, bx: i32, by: i32, bz: i32, size_in: i32) -> i32 {
+    let size = max(size_in, 1);
+    let ix = div_floor(bx, size);
+    let iy = div_floor(by, size);
+    let iz = div_floor(bz, size);
+    let u = whole_fade(0, rem_floor(bx, size) * 65536 / size);
+    let v = whole_fade(0, rem_floor(by, size) * 65536 / size);
+    let w = whole_fade(0, rem_floor(bz, size) * 65536 / size);
+    var planes: array<i32, 2>;
+    for (var k = 0; k < 2; k++) {
+        let z = iz + k;
+        planes[k] = noise_mix(noise_mix(value3(seed, ix, iy, z), value3(seed, ix + 1, iy, z), u), noise_mix(value3(seed, ix, iy + 1, z), value3(seed, ix + 1, iy + 1, z), u), v);
+    }
+    return noise_mix(planes[0], planes[1], w);
+}
+
+const MOST_ACROSS: i32 = 128;
+
+// A tunnel: first point, points, rough, lump, floor, seed. A point: x, y, z (16ths), width, height.
+fn inside_piece(tunnel: u32, p: u32, bx: i32, by: i32, bz: i32) -> bool {
+    let t = hu(H_TUNNELS) + tunnel * 6u;
+    let first = u32(data[t]);
+    let rough = data[t + 2u];
+    let lump = data[t + 3u];
+    let floor_share = data[t + 4u];
+    let seed = u32(data[t + 5u]);
+    let a = hu(H_CAVE_POINTS) + (first + p) * 5u;
+    let b = a + 5u;
+    let at = vec3<i32>(bx * 16 + 8, by * 16 + 8, bz * 16 + 8);
+    let line = vec3<i32>(data[b] - data[a], data[b + 1u] - data[a + 1u], data[b + 2u] - data[a + 2u]);
+    let off_a = at - vec3<i32>(data[a], data[a + 1u], data[a + 2u]);
+    let reach = max(max(data[a + 3u], data[a + 4u]), max(data[b + 3u], data[b + 4u])) + abs(rough);
+    for (var k = 0; k < 3; k++) {
+        if (off_a[k] < min(line[k], 0) - reach || off_a[k] > max(line[k], 0) + reach) {
+            return false;
+        }
+    }
+    let length = line.x * line.x + line.y * line.y + line.z * line.z;
+    var along = 0;
+    if (length != 0) {
+        along = clamp((off_a.x * line.x + off_a.y * line.y + off_a.z * line.z) * 256 / length, 0, 256);
+    }
+    let off = off_a - line * along / 256;
+    let bump = rough * whole_value3(seed, bx, by, bz, lump) / 65536;
+    let width = clamp(data[a + 3u] + (data[b + 3u] - data[a + 3u]) * along / 256 + bump, 0, MOST_ACROSS);
+    let height = clamp(data[a + 4u] + (data[b + 4u] - data[a + 4u]) * along / 256 + bump, 0, MOST_ACROSS);
+    if (width == 0 || height == 0 || off.z < -(height * floor_share / 256)) {
+        return false;
+    }
+    let across = off.x * off.x + off.y * off.y;
+    let up = off.z * off.z;
+    let wide = width * width;
+    let tall = height * height;
+    return across <= wide && up <= tall && across * tall + up * wide <= wide * tall;
+}
+
+// The box's place in the caves' hash table (as the packer's `cave_slot`).
+fn cave_slot(cx: i32, cy: i32, level: i32) -> u32 {
+    return ((bitcast<u32>(cx) * 73856093u) ^ (bitcast<u32>(cy) * 19349663u) ^ (bitcast<u32>(level) * 83492791u)) & (hu(H_CAVE_SLOTS) - 1u);
+}
+
+// Is this block inside a cave? (`CavePlan::inside`)
+fn cave_inside(bx: i32, by: i32, bz: i32) -> bool {
+    if (h(H_CAVE_SLOTS) == 0) {
+        return false;
+    }
+    let cx = div_floor(bx, 32);
+    let cy = div_floor(by, 32);
+    let level = div_floor(bz, 32);
+    var slot = cave_slot(cx, cy, level);
+    let mask = hu(H_CAVE_SLOTS) - 1u;
+    for (var probe = 0u; probe <= mask; probe++) {
+        let at = hu(H_CAVE_TABLE) + slot * 6u;
+        if (data[at] == 0) {
+            return false;
+        }
+        if (data[at + 1u] == cx && data[at + 2u] == cy && data[at + 3u] == level) {
+            let first = u32(data[at + 4u]);
+            let count = u32(data[at + 5u]);
+            for (var e = 0u; e < count; e++) {
+                let entry = hu(H_CAVE_PIECES) + (first + e) * 2u;
+                if (inside_piece(u32(data[entry]), u32(data[entry + 1u]), bx, by, bz)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        slot = (slot + 1u) & mask;
+    }
+    return false;
+}

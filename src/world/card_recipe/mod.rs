@@ -99,11 +99,18 @@ pub const SLOTS: &[&str] = &[
     // The climate, the far index of the rivers, and mineralogy.
     "HAS_CLIMATE", "TEMPERATURE", "RAIN", "COOLING", "FAR_NORTH", "FAR_EAST", "FAR_ACROSS", "FAR_DOWN", "FAR_WIDEST_HALF", "FAR_CELLS",
     "FAR_ENTRIES", "MINERALOGY", "CRUST",
+    // The caves.
+    "TUNNELS", "CAVE_POINTS", "CAVE_SLOTS", "CAVE_TABLE", "CAVE_PIECES",
 ];
 
 /// A slot's number in the header.
 fn slot(name: &str) -> usize {
     SLOTS.iter().position(|&s| s == name).unwrap_or_else(|| panic!("no slot {name}"))
+}
+
+/// A box's place in the caves' hash table (`slots` a power of two): as `cave_slot` on the card.
+fn cave_slot(cx: i32, cy: i32, level: i32, slots: usize) -> usize {
+    (((cx as u32).wrapping_mul(73_856_093)) ^ ((cy as u32).wrapping_mul(19_349_663)) ^ ((level as u32).wrapping_mul(83_492_791))) as usize & (slots - 1)
 }
 
 /// The shader's names for the header's slots.
@@ -136,6 +143,44 @@ impl Pack {
     /// Numbers put on the end of the list, and where they start.
     pub fn list(&mut self, values: &[i32]) -> i32 {
         self.array(values.iter().copied())
+    }
+
+    /// The caves (`CavePlan`): every tunnel (first point, how many, rough, lump, floor, seed) and point (x, y,
+    /// z in 16ths, width, height), and the boxes near them in a hash table (a power of two of slots, each
+    /// used, the box, its first piece and how many; open addressing, as `cave_slot` on the card).
+    pub fn caves(&mut self, plan: &crate::world::caves::CavePlan) {
+        let (mut tunnels, mut points) = (Vec::new(), Vec::new());
+        for t in &plan.tunnels {
+            tunnels.extend([(points.len() / 5) as i32, t.points.len() as i32, t.rough, t.lump, t.floor, t.seed as i32]);
+            for p in &t.points {
+                points.extend([p.at[0], p.at[1], p.at[2], p.width, p.height]);
+            }
+        }
+        let at = self.array(tunnels);
+        self.set("TUNNELS", at);
+        let at = self.array(points);
+        self.set("CAVE_POINTS", at);
+        // Sorted, so the same plan packs the same way however its index was made.
+        let mut boxes: Vec<(&(i32, i32, i32), &Vec<(u32, u32)>)> = plan.boxes_with_pieces().collect();
+        boxes.sort_by_key(|(key, _)| **key);
+        let slots = if boxes.is_empty() { 0 } else { (boxes.len() * 2).next_power_of_two() };
+        let mut table = vec![0i32; slots * 6];
+        let mut pieces = Vec::new();
+        for (&(cx, cy, level), list) in boxes {
+            let mut slot = cave_slot(cx, cy, level, slots);
+            while table[slot * 6] != 0 {
+                slot = (slot + 1) & (slots - 1);
+            }
+            table[slot * 6..slot * 6 + 6].copy_from_slice(&[1, cx, cy, level, (pieces.len() / 2) as i32, list.len() as i32]);
+            for &(t, p) in list {
+                pieces.extend([t as i32, p as i32]);
+            }
+        }
+        self.set("CAVE_SLOTS", slots as i32);
+        let at = self.array(table);
+        self.set("CAVE_TABLE", at);
+        let at = self.array(pieces);
+        self.set("CAVE_PIECES", at);
     }
 
     /// Mineralogy, its program in whole numbers, for a world of this seed.
@@ -468,6 +513,10 @@ fn minerals(c: Case) -> i32 {
     return choose_blocks(with_maps(col));
 }
 
+fn caves(c: Case) -> i32 {
+    return select(0, 1, cave_inside(c.a, c.b, c.c));
+}
+
 fn carved(c: Case) -> i32 {
     let column = ground_and_water(c.a, c.b);
     if (!column.ok) {
@@ -617,6 +666,53 @@ fn ground(c: Case) -> i32 {
             }
             assert!(wrong.is_empty(), "{chooser:?}: the card and the processor disagree:\n{}", wrong.join("\n"));
         }
+    }
+
+    /// The caves: every block round a set of rough, winding tunnels, inside or not, the card bit for bit the
+    /// processor.
+    #[test]
+    fn the_card_carves_the_caves_as_the_processor_does() {
+        use crate::world::caves::{CavePlan, CavePoint, Tunnel};
+        let mut next = shuffle();
+        let mut tunnels = Vec::new();
+        for t in 0..6 {
+            let mut at = [(next() % 2000) * 16, (next() % 2000) * 16, (100 + (next() % 60).abs()) * 16];
+            let mut points = Vec::new();
+            for _ in 0..12 {
+                points.push(CavePoint { at, width: 24 + (next() % 60).abs(), height: 20 + (next() % 50).abs() });
+                for (k, step) in at.iter_mut().enumerate() {
+                    *step += if k == 2 { next() % 40 } else { next() % 120 };
+                }
+            }
+            tunnels.push(Tunnel { points, rough: 6 + t, lump: 3 + t, floor: 180, seed: next() as u32 });
+        }
+        let plan = CavePlan::new(tunnels.clone());
+        let mut pack = Pack::default();
+        pack.words = vec![0; SLOTS.len()];
+        pack.caves(&plan);
+        let mut cases = Vec::new();
+        for t in &tunnels {
+            for p in &t.points {
+                for _ in 0..400 {
+                    let (dx, dy, dz) = (next() % 10, next() % 10, next() % 8);
+                    cases.push([p.at[0] / 16 + dx, p.at[1] / 16 + dy, p.at[2] / 16 + dz, 0]);
+                }
+            }
+        }
+        let Some(answers) = on_the_card("caves", &pack.words, &cases) else {
+            eprintln!("No graphics card: the caves' twin test is skipped");
+            return;
+        };
+        let (mut wrong, mut inside) = (Vec::new(), 0);
+        for (c, &card) in cases.iter().zip(&answers) {
+            let processor = plan.inside(crate::ecs::math::IVec3::new(c[0], c[1], c[2])) as i32;
+            inside += processor as usize;
+            if card != processor && wrong.len() < 12 {
+                wrong.push(format!("block ({}, {}, {}): card {card}, processor {processor}", c[0], c[1], c[2]));
+            }
+        }
+        assert!(inside > 1000 && inside < cases.len() - 1000, "{inside} of {} blocks inside: the test misses the caves", cases.len());
+        assert!(wrong.is_empty(), "the card and the processor disagree:\n{}", wrong.join("\n"));
     }
 
     /// The ground (before the rivers): the card bit for bit the processor, over a whole small world, steady
