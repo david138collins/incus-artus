@@ -1181,7 +1181,10 @@ below disagree with this one, this one stands.
     - moving torches and light from effects are in;
     - sharp shadows matter only up close;
     - sun shafts are wanted if they feel organic;
-    - the goal for feel is software so responsive that moving the mouse is a pleasure. The recipe answering at a cell's size stays on file as an
+    - the goal for feel is software so responsive that moving the mouse is a pleasure.
+    - "16 light levels per block" means brightness steps, as he clarified: "i mean like the light from the
+      brazieres, where its very clear steps in brightness". So placed light falls off in clear steps from block
+      to block, about 16 of them, as in Minecraft. Far away, the averaged cells soften the steps. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
