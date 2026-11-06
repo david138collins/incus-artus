@@ -445,8 +445,8 @@ fn watchdog() {
     loop {
         std::thread::sleep(Duration::from_millis(500));
         let frames = session.frames.load(Ordering::Relaxed);
-        if frames == 0 {
-            continue; // Still starting up.
+        if frames == 0 || AWAY.load(Ordering::Relaxed) {
+            continue; // Still starting up, or frozen on purpose.
         }
         let now = session.clock.elapsed().as_millis() as u64;
         let since = now.saturating_sub(session.beat.load(Ordering::Relaxed));
@@ -507,6 +507,18 @@ fn test_fault(time: Res<Time<Real>>, mut done: Local<bool>) {
             std::thread::sleep(Duration::from_secs(8));
         }
         _ => {}
+    }
+}
+
+/// Frozen on purpose (the game isn't in front: `runner`), so no frames is no freeze.
+static AWAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The game is frozen on purpose (or not any more): the watchdog keeps quiet meanwhile, and starts its
+/// count again when it's back [2026-11-06: every alt-tab of 5 s or more wrote a freeze report].
+pub fn away(away: bool) {
+    AWAY.store(away, Ordering::Relaxed);
+    if let Some(session) = SESSION.get() {
+        session.beat.store(session.clock.elapsed().as_millis() as u64, Ordering::Relaxed);
     }
 }
 

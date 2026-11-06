@@ -316,6 +316,7 @@ impl Runner {
             return;
         }
         self.frozen = false;
+        crate::diagnostics::away(false);
         self.beat = None;
         self.app.world_mut().resource_mut::<WindowState>().resumed = true;
         event_loop.set_control_flow(ControlFlow::Poll);
@@ -481,6 +482,7 @@ impl Runner {
             // Frozen in place: the veiled frame stays on the screen, the event loop sleeps till
             // something happens, and nothing more is drawn till the game is clicked again.
             self.frozen = true;
+            crate::diagnostics::away(true);
             self.last_frame = None;
             event_loop.set_control_flow(ControlFlow::Wait);
             info!("Not in front: the game is frozen till it's clicked again");
