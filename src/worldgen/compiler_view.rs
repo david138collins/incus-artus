@@ -1625,14 +1625,33 @@ fn noise_maths_section(ui: &mut egui::Ui, compiler: &mut Compiler) {
              the world exactly as the processor does. Their barcodes are new, so the patterns are new: compare a few worlds of \
              each, and see whether you can tell them apart. Saved with the preset and the world.",
         );
-        let maths = &mut compiler.settings.interpreter.noise_maths;
+        // The whole recipe's maths [the regroup, phase 2.2, 2026-11-05]: the noise's switch only means
+        // anything while the recipe is in fractions (in whole numbers, everything is).
+        ui.strong("The whole recipe");
+        ui.small(
+            "Which maths the whole recipe is worked out in: the ground, the rivers and lakes, and mineralogy. Whole numbers are \
+             the same on the processor and the graphics card bit for bit, which the card's recipe needs; fractions are the recipe \
+             as it was, to compare at your presets. The same rules either way: columns come out the same block, or a block apart \
+             on a steep edge. Saved with the preset and the world.",
+        );
+        let recipe = &mut compiler.settings.interpreter.recipe_maths;
         ui.horizontal(|ui| {
-            ui.selectable_value(maths, NoiseMaths::Fractions, "fractions (the old way)").on_hover_text("With sines and cosines, as the noise was until 2026-11-01.");
-            ui.selectable_value(maths, NoiseMaths::WholeNumbers, "whole numbers (the default)").on_hover_text("32-bit whole numbers only: the same on every chip, CPU or GPU. The default since 2026-11-01.");
+            ui.selectable_value(recipe, NoiseMaths::Fractions, "fractions (as it was, to compare)").on_hover_text("The recipe as it was until 2026-11-05: its noise in the maths chosen below.");
+            ui.selectable_value(recipe, NoiseMaths::WholeNumbers, "whole numbers (the default)").on_hover_text("The whole recipe in 32-bit whole numbers: the same on every chip, CPU or GPU. The default since 2026-11-05.");
+        });
+        ui.add_space(4.0);
+        ui.strong("The noise, in the recipe in fractions");
+        let in_fractions = compiler.settings.interpreter.recipe_maths == NoiseMaths::Fractions;
+        let maths = &mut compiler.settings.interpreter.noise_maths;
+        ui.add_enabled_ui(in_fractions, |ui| {
+            ui.horizontal(|ui| {
+                ui.selectable_value(maths, NoiseMaths::Fractions, "fractions (the old way)").on_hover_text("With sines and cosines, as the noise was until 2026-11-01.").on_disabled_hover_text("The recipe is in whole numbers, its noise too.");
+                ui.selectable_value(maths, NoiseMaths::WholeNumbers, "whole numbers (the default)").on_hover_text("32-bit whole numbers only: the same on every chip, CPU or GPU. The default since 2026-11-01.").on_disabled_hover_text("The recipe is in whole numbers, its noise too.");
+            });
         });
         let base = compiler.result.as_ref().map(|result| result.made.map.clone());
         ui.horizontal(|ui| {
-            if ui.add_enabled(base.is_some(), egui::Button::new("Time both")).on_hover_text("Times the noise alone, and the recipe at a few thousand columns of this world, both ways (a second or so).").on_disabled_hover_text("Compile a world first.").clicked()
+            if ui.add_enabled(base.is_some(), egui::Button::new("Time both")).on_hover_text("Times the noise alone, and the whole recipe at a few thousand columns of this world, both ways (a second or so).").on_disabled_hover_text("Compile a world first.").clicked()
                 && let Some(base) = &base
             {
                 compiler.noise_timing = Some(time_noise_maths(base, &compiler.settings.interpreter, compiler.lab.mutes));
@@ -1662,8 +1681,9 @@ fn time_noise_maths(base: &crate::world::CompiledMap, settings: &InterpreterSett
         let (turn, out) = (k as f32 * 2.399_963, (k as f32 / 5_000.0).sqrt() * reach);
         (out * turn.cos(), out * turn.sin())
     }).collect();
+    // The recipe as it was (fractions, its noise in fractions) and in whole numbers.
     let recipe = |maths: NoiseMaths| {
-        let map = base.with(InterpreterSettings { noise_maths: maths, ..settings.clone() }, mutes);
+        let map = base.with(InterpreterSettings { noise_maths: maths, recipe_maths: maths, ..settings.clone() }, mutes).with_rivers(base.rivers.clone());
         let started = std::time::Instant::now();
         let sum: f32 = columns.iter().filter_map(|&(north, east)| map.height(north, east)).sum();
         black_box(sum);
@@ -1672,7 +1692,7 @@ fn time_noise_maths(base: &crate::world::CompiledMap, settings: &InterpreterSett
     let (fractions, whole) = (alone(NoiseMaths::Fractions), alone(NoiseMaths::WholeNumbers));
     let (in_fractions, in_whole) = (recipe(NoiseMaths::Fractions), recipe(NoiseMaths::WholeNumbers));
     format!(
-        "The noise alone: fractions {fractions:.1} ns a call, whole numbers {whole:.1} ns.\nThe recipe at a column (the ground's height, before the rivers' carving, which has no noise): fractions {in_fractions:.2} µs, whole numbers {in_whole:.2} µs."
+        "The noise alone: fractions {fractions:.1} ns a call, whole numbers {whole:.1} ns.\nThe recipe at a column (the ground's height, carved by the rivers and lakes): fractions {in_fractions:.2} µs, whole numbers {in_whole:.2} µs."
     )
 }
 

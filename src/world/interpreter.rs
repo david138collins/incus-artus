@@ -247,6 +247,11 @@ pub struct InterpreterSettings {
     /// The maths the recipe's noise is worked out in (an A/B switch for now, to compare worlds both ways
     /// before it's whole numbers for good) [David, 2026-11-01].
     pub noise_maths: NoiseMaths,
+    /// The maths the whole recipe is worked out in, the ground, the rivers and lakes and mineralogy
+    /// (`whole_recipe.rs`): whole numbers, the same on the card bit for bit [the regroup, phase 2.2;
+    /// David 2026-11-05: "move to whole numbers. otherwise the hologram breaks"]; fractions, as it was,
+    /// to compare (the noise follows `noise_maths` in fractions; whole numbers are whole all through).
+    pub recipe_maths: NoiseMaths,
 }
 
 impl Default for InterpreterSettings {
@@ -282,6 +287,7 @@ impl Default for InterpreterSettings {
             torn_coast: TornCoast::default(),
             mineralogy: Default::default(),
             noise_maths: NoiseMaths::WholeNumbers,
+            recipe_maths: NoiseMaths::WholeNumbers,
         }
     }
 }
@@ -879,6 +885,8 @@ pub struct CompiledMap {
     pub rivers: Arc<super::carving::Carving>,
     /// Mineralogy made ready (`CompiledMap::mineralogy`).
     pub(super) mineralogy_kept: Arc<super::mineralogy::Kept>,
+    /// The recipe in whole numbers (`whole_recipe`), made the first time it's asked for.
+    whole: std::sync::OnceLock<Arc<super::whole_recipe::WholeWorld>>,
 }
 
 /// A Perlin field (as a Graphics Kit layer makes it, output shaping and all) at a spot, about −1
@@ -938,6 +946,7 @@ impl CompiledMap {
             crag_steps: crag_steps(&settings.peaks),
             rivers: Arc::default(),
             mineralogy_kept: Arc::default(),
+            whole: std::sync::OnceLock::new(),
             peak_cells: PeakCells::new(&maps.mountain_points, maps.width as f32 * maps.blocks_per_pixel, &settings.peaks, crate::fate::derive_seed(seed, "world compiler")),
             mutes: Mutes::default(),
             maps,
@@ -1282,6 +1291,13 @@ impl CompiledMap {
     /// Compiler shows.
     pub fn at_pixel(&self, i: usize) -> f32 {
         let (x, y) = self.pixel_spot(i);
+        if let Some(whole) = self.whole() {
+            use crate::whole::Pos;
+            let half = self.maps.width as f32 / 2.0 * self.maps.blocks_per_pixel;
+            if let Some((here, wx, wy)) = whole.map.maps_at(Pos::from_f32(half - y), Pos::from_f32(x - half)) {
+                return whole.map.put_together(&here, wx, wy).to_f32();
+            }
+        }
         let here = self.pixel(i);
         self.put_together(self.parts(&here, x, y), &here, x, y)
     }
@@ -1296,6 +1312,10 @@ impl CompiledMap {
     /// temperature (−1 frozen to +1 hottest, colder the higher it stands above the sea) and rain (0 dry
     /// to 1 wettest), blended between the maps' pixels; `None` when the world has no climate.
     pub fn climate(&self, north: f32, east: f32, z: f32) -> Option<(f32, f32)> {
+        if let Some(whole) = self.whole() {
+            use crate::whole::{Fix, Pos};
+            return whole.map.climate(Pos::from_f32(north), Pos::from_f32(east), Fix::from_f32(z)).map(|(t, r)| (t.to_f32(), r.to_f32()));
+        }
         let m = &self.maps;
         let w = m.width;
         if w == 0 || m.temperature.len() != w * w || m.rain.len() != w * w {
@@ -1325,6 +1345,10 @@ impl CompiledMap {
     /// The ground's height at a spot, carved, and how high water stands over it there (a river's or
     /// a lake's: the blocks below this Z are water), if any.
     pub fn ground_and_water(&self, north: f32, east: f32) -> Option<(f32, Option<i32>)> {
+        if let Some(whole) = self.whole() {
+            use crate::whole::Pos;
+            return whole.map.ground_and_water(&whole.carving, Pos::from_f32(north), Pos::from_f32(east)).map(|(z, water)| (z.to_f32(), water));
+        }
         let ground = self.uncarved(north, east)?;
         if self.mutes.rivers || self.rivers.is_empty() {
             return Some((ground, None));
@@ -1342,7 +1366,12 @@ impl CompiledMap {
 
     /// The same map with these rivers and lakes carved in (nothing else changes).
     pub fn with_rivers(&self, rivers: Arc<super::carving::Carving>) -> Self {
-        Self { rivers, ..self.clone() }
+        Self { rivers, whole: std::sync::OnceLock::new(), ..self.clone() }
+    }
+
+    /// The recipe in whole numbers, if it's worked in them (`recipe_maths`).
+    pub fn whole(&self) -> Option<&Arc<super::whole_recipe::WholeWorld>> {
+        (self.settings.recipe_maths == NoiseMaths::WholeNumbers).then(|| self.whole.get_or_init(|| Arc::new(super::whole_recipe::WholeWorld::new(self))))
     }
 
     /// The maps' values blended to a spot `north` and `east` blocks from the middle of the world, and
@@ -1494,7 +1523,8 @@ mod tests {
     fn whole_number_noise_makes_the_same_kind_of_ground_and_keeps_through_a_preset() {
         // Hills and a torn coast, both of them noise, worked out in each maths.
         let plain = low_coast();
-        let noisy = |maths| plain.with(InterpreterSettings { detail: 12.0, torn_coast: TornCoast { amount: 10.0, inland: 120.0, out_to_sea: 120.0, patches: 1.0, ..TornCoast::default() }, noise_maths: maths, ..plain.settings.clone() }, Mutes::default());
+        // (The noise's switch is the recipe's in fractions: in whole numbers the noise is whole numbers.)
+        let noisy = |maths| plain.with(InterpreterSettings { detail: 12.0, torn_coast: TornCoast { amount: 10.0, inland: 120.0, out_to_sea: 120.0, patches: 1.0, ..TornCoast::default() }, noise_maths: maths, recipe_maths: NoiseMaths::Fractions, ..plain.settings.clone() }, Mutes::default());
         let (fractions, whole) = (noisy(NoiseMaths::Fractions), noisy(NoiseMaths::WholeNumbers));
         let (mut differ, mut count) = (0, 0);
         let (mut rough_fractions, mut rough_whole) = (0.0, 0.0);
@@ -1910,7 +1940,8 @@ mod tests {
         assert!(bumpy(Mask::default()) > 2.0, "detail everywhere shows");
         // Following height (Z 200 is 0.6 across), through a curve that's 0 there: no detail.
         let none_here = Spline::through(&[(0.0, 1.0), (0.5, 0.0), (1.0, 0.0)]);
-        assert_eq!(bumpy(Mask { source: MaskSource::Height, curve: none_here.clone(), ..Mask::default() }), 0.0);
+        // (Within a hundredth: in whole numbers the land curve's own rounding moves the ground a hair.)
+        assert!(bumpy(Mask { source: MaskSource::Height, curve: none_here.clone(), ..Mask::default() }) < 0.01);
         // Inverted, the same curve reads 0.4 across: 0.2 of the detail shows.
         let some = bumpy(Mask { source: MaskSource::Height, curve: none_here, invert: true, ..Mask::default() });
         assert!(some > 0.0 && some < bumpy(Mask::default()), "{some}");

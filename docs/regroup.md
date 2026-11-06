@@ -313,6 +313,19 @@ out, which the card does fast and exactly.
     recipe's parts (land and sea, the edge rise and lift, mountains and ridges, peaks and crags, summit crags, the
     torn coast, detail); the river and lake carving; mineralogy and the placer's fields; the cave carve. Each piece
     kept working with its tests as it goes; David's look once the whole recipe is converted.
+- **2.2 [BUILT 2026-11-05, build 65]** `world/whole_recipe.rs` (with `placer`'s `WholeProgram` and `WholeReading`, and
+  `Mineralogy::whole_layers`): the whole recipe in whole numbers, every number made whole once as a world loads
+  (`WholeWorld`: the maps and settings as `WholeMap`, the rivers and lakes as `WholeCarving`), then read with the kit
+  alone. The switch is the recipe's `recipe_maths` (whole numbers by default; the Interpreter panel, "Noise maths (for
+  now)", "The whole recipe"), saved with the preset and the world: the chunks, the World Compiler's picture, the
+  terrain lab and mineralogy all follow it. **Against the fractions** (tests): the ground on a world with every part,
+  98% of columns the same block, 0.02 of a block apart on average, under a block at worst; the rivers and lakes, 98%
+  the same block and the water the same in every column, every way of banking; mineralogy, all 10,240 columns tested
+  made of the same blocks. Two world-creation river tests stood on a knife's edge (heights on exact halves, where a
+  hundredth of a block rounds a column to the next block): their test ground was moved a quarter block, and they
+  pass in both maths. The cave carve was whole numbers already. **Not yet:** the World Compiler's readouts under the
+  mouse (the field view, "why this block") still read in fractions; the maps are held twice while both maths are
+  kept (about 180 MB more on a 72,000-block world), until the fractions go.
 - **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.
 - **Measured:** the readback's cost, in the slow-frame log.
 - **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.

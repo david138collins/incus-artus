@@ -185,6 +185,19 @@ impl WholeNoise {
     }
 }
 
+/// A world's recipe in whole numbers, made once as it loads: its map and its rivers and lakes.
+#[derive(Debug)]
+pub struct WholeWorld {
+    pub map: WholeMap,
+    pub carving: WholeCarving,
+}
+
+impl WholeWorld {
+    pub fn new(map: &crate::world::CompiledMap) -> Self {
+        Self { map: WholeMap::new(map), carving: WholeCarving::new(&map.rivers) }
+    }
+}
+
 // ── The maps and the recipe's parts (`interpreter.rs`) ──────────────────────────────────────────────
 
 /// The highest Z mountains reach, and the sea's surface, as values.
@@ -1443,7 +1456,8 @@ mod tests {
         maps.mountain_points = vec![[640.0, 700.0], [900.0, 1500.0], [1300.0, 2200.0]];
         let points: Vec<usize> = maps.mountain_points.iter().map(|p| (p[1] / 64.0) as usize * width + (p[0] / 64.0) as usize).collect();
         maps.lift_distance = point_distance(&points, width, 64.0);
-        let mut settings = InterpreterSettings { coast_rise: 20.0, coast_fall_back: 300.0, detail: 4.0, ..InterpreterSettings::default() };
+        // (In fractions: the tests compare them with whole numbers.)
+        let mut settings = InterpreterSettings { coast_rise: 20.0, coast_fall_back: 300.0, detail: 4.0, recipe_maths: crate::worldgen::noise::NoiseMaths::Fractions, ..InterpreterSettings::default() };
         settings.peaks.on = true;
         settings.peaks.summit = 20.0;
         settings.peaks.summit_from = 180.0;
@@ -1546,3 +1560,4 @@ mod tests {
         assert!(worst < 0.02 && total / 400.0 < 0.002, "the whole-number layer strays {worst} at worst, {} on average, from the fractions'", total / 400.0);
     }
 }
+

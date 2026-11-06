@@ -164,6 +164,8 @@ pub struct Mineralogy {
     owners: Vec<usize>,
     /// Whether any layer reads the slope (the near ground works it out only then).
     pub reads_slope: bool,
+    /// The program in whole numbers, made the first time it's read (for this map's seed).
+    whole_program: std::sync::OnceLock<super::placer::WholeProgram>,
 }
 
 struct Ready {
@@ -241,16 +243,31 @@ impl Mineralogy {
                     .collect(),
             })
             .collect();
-        Self { reads_slope: program.reads(Field::Slope), settings: settings.clone(), blocks: blocks.clone(), program, distributors: ready, owners }
+        Self { reads_slope: program.reads(Field::Slope), settings: settings.clone(), blocks: blocks.clone(), program, distributors: ready, owners, whole_program: std::sync::OnceLock::new() }
     }
 
     /// The crust's depth (blocks).
+    #[cfg(test)]
     pub fn crust(&self) -> f32 {
         self.settings.crust
     }
 
-    /// What the column is made of.
+    /// What the column is made of (in whole numbers if the map's recipe is worked in them).
     pub fn layers(&self, map: &CompiledMap, column: Column) -> Layers {
+        if let Some(whole) = map.whole() {
+            use crate::whole::{Fix, Pos};
+            let column = super::placer::WholeColumn {
+                north: Pos::from_f32(column.north),
+                east: Pos::from_f32(column.east),
+                ground: Fix::from_f32(column.ground),
+                slope: Fix::from_f32(column.slope),
+                climate: column.climate.map(|(t, r)| (Fix::from_f32(t), Fix::from_f32(r))),
+                water: column.water,
+            };
+            let program = self.whole_program.get_or_init(|| self.program.whole(map.seed));
+            let mut reading = super::placer::WholeReading::new(&whole.map, &whole.carving, column, Fix::from_f32(self.settings.crust));
+            return self.whole_layers(program, &mut reading);
+        }
         let mut reading = Reading::new(map, column, self.settings.crust);
         self.fill(&mut reading, self.distributors.len())
     }
@@ -467,7 +484,7 @@ mod tests {
         let (temperature, rain) = climate.map_or((Vec::new(), Vec::new()), |(t, r)| (vec![t; width * width], vec![r; width * width]));
         let maps = Maps { width, blocks_per_pixel: 32.0, temperature, rain, cooling, coast: vec![1.0; width * width], height: vec![0.0; width * width], tilt: vec![0.0; width * width], squeeze: vec![0.0; width * width], push_x: vec![0.0; width * width], push_y: vec![0.0; width * width], push_strength: vec![0.0; width * width], coast_distance: vec![100.0; width * width], lift_distance: vec![1_000.0; width * width], ..Maps::default() };
         // In fractions: the first rules, kept word for word below, wandered by fractional noise.
-        CompiledMap::new(Arc::new(maps), 1, InterpreterSettings { noise_maths: crate::worldgen::noise::NoiseMaths::Fractions, ..InterpreterSettings::default() })
+        CompiledMap::new(Arc::new(maps), 1, InterpreterSettings { noise_maths: crate::worldgen::noise::NoiseMaths::Fractions, recipe_maths: crate::worldgen::noise::NoiseMaths::Fractions, ..InterpreterSettings::default() })
     }
 
     fn map(climate: Option<(f32, f32)>) -> CompiledMap {
@@ -566,6 +583,7 @@ mod tests {
         for climate in [None, Some((-0.9, 0.5)), Some((-0.4, 0.4)), Some((0.0, 0.05)), Some((0.2, 0.2)), Some((0.3, 0.6)), Some((0.6, 0.0)), Some((0.15, 0.25))] {
             let mut map = cooled(climate, 0.1);
             map.settings.noise_maths = crate::worldgen::noise::NoiseMaths::WholeNumbers;
+            map.settings.recipe_maths = crate::worldgen::noise::NoiseMaths::Fractions;
             let map = CompiledMap::new(map.maps.clone(), map.seed, map.settings.clone());
             let ready = map.mineralogy(&blocks);
             let (whole, carving) = (WholeMap::new(&map), WholeCarving::default());

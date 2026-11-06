@@ -2153,7 +2153,9 @@ mod tests {
                 let (c, r) = (i % width, i / width);
                 let ridge = if (30..=33).contains(&c) { 20.0 } else { 0.0 };
                 let walls = if !(24..=40).contains(&r) { 60.0 } else { 0.0 };
-                150.0 + c as f32 * 0.5 + ridge + walls
+                // (A quarter of a block up: off the halves, where rounding a column to its block is a
+                // knife's edge, so a hundredth of a block either way doesn't move the ridge's lip.)
+                150.25 + c as f32 * 0.5 + ridge + walls
             })
             .collect();
         let ground = CompiledMap::of_heights(width, 8.0, &z);
@@ -2175,7 +2177,8 @@ mod tests {
         // Over the ridge, cut through no deeper than the cut (and a block for its rounding), but at the
         // lip of a waterfall down its far side (its curtain on), where the water falls.
         let ridge: Vec<&RiverPoint> = points.iter().filter(|p| (-16.0..16.0).contains(&p.east) && p.curtain.is_nan()).collect();
-        assert!(ridge.iter().all(|p| cut(p) <= s.cut_up_to + 1.0), "cut {} through the ridge", ridge.iter().map(|p| cut(p)).fold(0.0, f32::max));
+        // (And a hundredth more: the ground in whole numbers is rounded on its way too.)
+        assert!(ridge.iter().all(|p| cut(p) <= s.cut_up_to + 1.01), "cut {} through the ridge", ridge.iter().map(|p| cut(p)).fold(0.0, f32::max));
         // Behind it, the water held at one level, a pond on the ground all round.
         let behind: Vec<&RiverPoint> = points.iter().filter(|p| (40.0..120.0).contains(&p.east)).collect();
         let level = behind[0].level;
