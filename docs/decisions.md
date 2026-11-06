@@ -1093,6 +1093,16 @@ below disagree with this one, this one stands.
   - a standing test proves that each coarse pixel equals the average of its fine pixels;
   - each coarse cell is flagged for fine pixels by what it holds, not by a fixed distance;
   - the fine layer has a budget with priority, and what doesn't fit stays coarse for that frame.
+- **The go, up to the first sight; progressive blend curves** [David 2026-11-05]: "i've read builders notes, and
+  agree. i think we can get to work on the stuff we need to do before we first take a look at low-resolution
+  hi-fi bottom layer." And: "whatever time it takes us to build a *killer end-game graphics engine*, what good will
+  it do us to waste time?" So Builder works through lane 0.2, phase 2 and 3.1 in `regroup.md`, and stops before
+  3.2, the first sight, to talk it through with him. The milestone: "spawning in to the new vision system and
+  seeing it look like a dos game resolution, *but it's all there, dynamic, honest, and unflawed* would be a huge
+  milestone. after that, we just build in the other side of the twin engines." On the switch between twins: "i
+  think we could do good work by putting threshold and blend curves at the exact pixels which are flipping from big
+  to small. almost how the more advanced multistage shocks for baja trucks increase their damping across their
+  damping range with valves." So the blend is a shaped curve in a few tunable stages, not one threshold.
 - **Caves are seen at a distance** (correcting a line in the first draft of `regroup.md`): "if a hall in the
   mountain or a cave is big enough to be seen at a distance, it should be seen at a distance... we need to
   *accurately* represent far terrain in a way that blends seamlessly with the near." At the default 100°
