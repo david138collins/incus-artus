@@ -1122,7 +1122,14 @@ below disagree with this one, this one stands.
   follow the camera, filled live from the recipe. The levels from 32-block cells up are baked once per world by
   running the real recipe under every column (about 2 to 3.5 minutes for a 72,000-block world on his card), patched
   by edits, and saved with the world. The cells are 3D, holding caves and overhangs. Only mixed cells are stored, at
-  about 16 bytes each: about 300 MB for that world, more with mountains. Builder's estimates, to be measured. The recipe answering at a cell's size stays on file as an
+  about 16 bytes each: about 300 MB for that world, more with mountains. Builder's estimates, to be measured.
+  - **Refinement in sight is fine, if predictable** [David 2026-11-06]: "i don't really mind the idea of massively
+    overpixelated looks as it renders in; i think players seeing the software work in a readable way that slides
+    right towards what he sees as 'right' is the kind of thing that doesn't irritate people, as long as its very
+    temporary and predictable. if they don't know what to expect it'd become a constant annoyance. i think it can
+    be done gracefully if necessary." So a fast first pass, with one true recipe sample per 32-block cell over the
+    whole world (about 0.2 s), can be replaced by the exact bake, outward from the player: very temporary, always
+    in the same order, easing into the true average rather than snapping. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
