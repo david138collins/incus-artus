@@ -503,6 +503,13 @@ back to.
   on a worker held the frame's own showing up whatever the pieces' size. Now 237 fps, the slowest 1% over 200, 4
   slow frames in 40 s. **On file:** the first use of sight's three pipelines at load holds one frame about 26 ms
   (once a world, with the other load costs); building a level from the one below kept for when the card is short.
+  **Where it lives** [for 3.2's talk]: every cell is made on the card; only the results come back, held on the
+  processor as sums (which made the exact test possible). The workers only work out the bands from the read-back
+  grounds and sleep in the gentle wait. At 2,000 blocks a second the finest levels fall behind (each tile 2 to 30 ms of
+  round trips, about 500 tiles a second at three at once, the finest level uncovering about 1,100 a second), so
+  coarser cells show till they catch up. **For 3.2:** the store on the card, the cells pass writing straight into it,
+  many tiles a pass, the bands worked out on the card too; the processor keeps only which tiles are where, and nothing
+  is read back in play (the bake's cells once, to be saved).
 - **Telescoping:** `before-sight` is tagged once 3.1d stands.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
