@@ -31,6 +31,8 @@ mod mineralogy;
 pub mod placer;
 mod terrain;
 mod test_sites;
+#[allow(dead_code)] // built a piece at a time; used once the recipe is all converted (phase 2.2)
+pub mod whole_recipe;
 mod test_world;
 
 #[cfg(test)]

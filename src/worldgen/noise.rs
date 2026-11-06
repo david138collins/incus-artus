@@ -222,10 +222,16 @@ const ARROWS: [(i32, i32); 64] = [
     (2896, -2896), (3166, -2598), (3406, -2276), (3612, -1931), (3784, -1567), (3920, -1189), (4017, -799), (4076, -401),
 ];
 
-/// A 32-bit barcode for a grid post (murmur3's mixing): the seed, what it's for, and where.
-fn hash32(seed: u64, salt: u64, x: i32, y: i32) -> u32 {
+/// A noise's key: its seed and what it's for, folded into 32 bits (once, on the processor: the card is
+/// handed the key, since shaders have no 64-bit numbers).
+pub fn noise_key(seed: u64, salt: u64) -> u32 {
     let fold = |v: u64| (v ^ (v >> 32)) as u32;
-    let mut h = fold(seed) ^ fold(salt).wrapping_mul(0x9e37_79b9);
+    fold(seed) ^ fold(salt).wrapping_mul(0x9e37_79b9)
+}
+
+/// A grid post's 32-bit barcode (murmur3's mixing), from its noise's key and where it is.
+fn post_hash(key: u32, x: i32, y: i32) -> u32 {
+    let mut h = key;
     for k in [x as u32, y as u32] {
         h ^= k.wrapping_mul(0xcc9e_2d51).rotate_left(15).wrapping_mul(0x1b87_3593);
         h = h.rotate_left(13).wrapping_mul(5).wrapping_add(0xe654_6b64);
@@ -238,8 +244,8 @@ fn hash32(seed: u64, salt: u64, x: i32, y: i32) -> u32 {
 }
 
 /// A post's arrow.
-fn arrow(seed: u64, salt: u64, x: i32, y: i32) -> (i32, i32) {
-    ARROWS[(hash32(seed, salt, x, y) >> 26) as usize]
+fn arrow(key: u32, x: i32, y: i32) -> (i32, i32) {
+    ARROWS[(post_hash(key, x, y) >> 26) as usize]
 }
 
 /// A fade, in 65536ths, of `t` (0 to 65535). In unsigned 32 bits, each product split so it fits: a
@@ -274,8 +280,8 @@ struct Corners {
     dots: [i32; 4],
 }
 
-fn corners(seed: u64, salt: u64, (ix, fx): (i32, i32), (iy, fy): (i32, i32)) -> Corners {
-    let arrows = [arrow(seed, salt, ix, iy), arrow(seed, salt, ix + 1, iy), arrow(seed, salt, ix, iy + 1), arrow(seed, salt, ix + 1, iy + 1)];
+fn corners(key: u32, (ix, fx): (i32, i32), (iy, fy): (i32, i32)) -> Corners {
+    let arrows = [arrow(key, ix, iy), arrow(key, ix + 1, iy), arrow(key, ix, iy + 1), arrow(key, ix + 1, iy + 1)];
     let offsets = [(fx, fy), (fx - FINE, fy), (fx, fy - FINE), (fx - FINE, fy - FINE)];
     // Each at most 4096 × 65536 × 2 (2²⁹) before it's brought back to 65536ths.
     let dots = [0, 1, 2, 3].map(|k| (arrows[k].0 * offsets[k].0 + arrows[k].1 * offsets[k].1) >> 12);
@@ -297,18 +303,44 @@ fn out(value: i32, unit: i32) -> f32 {
 
 /// Perlin noise at a point, about −1 to 1, one feature per unit, in whole numbers.
 pub fn whole_perlin(seed: u64, salt: u64, fade: Fade, x: f32, y: f32) -> f32 {
-    let (px, py) = (fixed(x), fixed(y));
-    let c = corners(seed, salt, px, py);
+    out(whole_value(noise_key(seed, salt), fade, fixed(x), fixed(y)), FINE)
+}
+
+/// The noise's value in 65536ths, before it's stretched, at a post and how far past it.
+fn whole_value(key: u32, fade: Fade, px: (i32, i32), py: (i32, i32)) -> i32 {
+    let c = corners(key, px, py);
     let (u, v) = (whole_fade(fade, px.1), whole_fade(fade, py.1));
     let [a, b, cc, d] = c.dots;
-    out(mix(mix(a, b, u), mix(cc, d, u), v), FINE)
+    mix(mix(a, b, u), mix(cc, d, u), v)
+}
+
+/// Whole numbers in, whole numbers out (the recipe in play: `world/whole_recipe.rs`): the noise at a
+/// point given in its own units as a `Fix` (its grid wraps round every 65,536 units, as a `Fix`
+/// does), about −1 to 1.
+pub fn whole_perlin_at(key: u32, fade: Fade, x: crate::whole::Fix, y: crate::whole::Fix) -> crate::whole::Fix {
+    let post = |f: crate::whole::Fix| (f.0 >> 16, f.0 & (FINE - 1));
+    crate::whole::Fix((whole_value(key, fade, post(x), post(y)) * 1434) >> 10)
+}
+
+/// The same, with its slope along x and y (per unit), all `Fix`.
+pub fn whole_perlin_with_slope_at(key: u32, x: crate::whole::Fix, y: crate::whole::Fix) -> (crate::whole::Fix, crate::whole::Fix, crate::whole::Fix) {
+    let post = |f: crate::whole::Fix| (f.0 >> 16, f.0 & (FINE - 1));
+    let (value, along_x, along_y) = whole_slopes(key, post(x), post(y));
+    // The value in 65536ths; the slopes in 4096ths, brought to 65536ths (×16, exact).
+    let stretched = |v: i32| (v * 1434) >> 10;
+    (crate::whole::Fix(stretched(value)), crate::whole::Fix(stretched(along_x) << 4), crate::whole::Fix(stretched(along_y) << 4))
 }
 
 /// The same with its slope along x and y (per unit), as `perlin_with_slope` gives them, in whole
 /// numbers (the smooth fade).
 pub fn whole_perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f32, f32) {
-    let (px, py) = (fixed(x), fixed(y));
-    let c = corners(seed, salt, px, py);
+    let (value, along_x, along_y) = whole_slopes(noise_key(seed, salt), fixed(x), fixed(y));
+    (out(value, FINE), out(along_x, ONE), out(along_y, ONE))
+}
+
+/// The noise's value (in 65536ths) and its slopes (in 4096ths), before they're stretched.
+fn whole_slopes(key: u32, px: (i32, i32), py: (i32, i32)) -> (i32, i32, i32) {
+    let c = corners(key, px, py);
     let (fine_u, fine_v) = (whole_fade(Fade::Smooth, px.1), whole_fade(Fade::Smooth, py.1));
     let value = mix(mix(c.dots[0], c.dots[1], fine_u), mix(c.dots[2], c.dots[3], fine_u), fine_v);
     // The slopes in 4096ths (they're finer than the blocks need).
@@ -328,7 +360,7 @@ pub fn whole_perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f3
     };
     let along_x = along([ga.0, gb.0, gc.0, gd.0], du, (b - a) + ((v * k) >> 12));
     let along_y = along([ga.1, gb.1, gc.1, gd.1], dv, (cc - a) + ((u * k) >> 12));
-    (out(value, FINE), out(along_x, ONE), out(along_y, ONE))
+    (value, along_x, along_y)
 }
 
 // ── Whole-number noise in 3D, for cave walls ────────────────────────────────
@@ -338,7 +370,7 @@ pub fn whole_perlin_with_slope(seed: u64, salt: u64, x: f32, y: f32) -> (f32, f3
 // bits [GPU-safe: docs/caves.md, stop 1]. Lumps rather than Perlin's swirls, which is what a wall
 // pushed in and out needs.
 
-/// A 32-bit barcode for a post in 3D (murmur3's mixing, as `hash32`).
+/// A 32-bit barcode for a post in 3D (murmur3's mixing, as `post_hash`).
 fn hash32_3(seed: u32, x: i32, y: i32, z: i32) -> u32 {
     let mut h = seed ^ 0x2545_f491;
     for k in [x as u32, y as u32, z as u32] {
@@ -422,6 +454,21 @@ mod tests {
             let measured_y = (perlin(9, 3, Fade::Smooth, x, y + h) - perlin(9, 3, Fade::Smooth, x, y - h)) / (2.0 * h);
             assert!((along_x - measured_x).abs() < 0.02, "along x at {x}, {y}: {along_x} vs {measured_x}");
             assert!((along_y - measured_y).abs() < 0.02, "along y at {x}, {y}: {along_y} vs {measured_y}");
+        }
+    }
+
+    /// Given whole numbers, the noise is the very same as given the same point as a fraction.
+    #[test]
+    fn the_noise_in_whole_numbers_is_the_noise() {
+        use crate::whole::Fix;
+        for k in 0..500 {
+            // Points a fraction holds exactly (in 256ths), so both ways start from the same spot.
+            let (x, y) = ((k * 37 % 9000) as f32 / 256.0 - 17.0, (k * 91 % 7000) as f32 / 256.0 + 3.0);
+            let key = noise_key(7, 0x51);
+            let whole = whole_perlin_at(key, Fade::Smooth, Fix::from_f32(x), Fix::from_f32(y));
+            assert_eq!(whole.to_f32(), whole_perlin(7, 0x51, Fade::Smooth, x, y), "at {x}, {y}");
+            let (v, sx, sy) = whole_perlin_with_slope_at(key, Fix::from_f32(x), Fix::from_f32(y));
+            assert_eq!((v.to_f32(), sx.to_f32(), sy.to_f32()), whole_perlin_with_slope(7, 0x51, x, y), "with its slope at {x}, {y}");
         }
     }
 

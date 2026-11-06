@@ -136,6 +136,11 @@ pub struct Curve {
 }
 
 impl Curve {
+    /// The same curve read in whole numbers (`whole_recipe`).
+    pub fn whole(&self) -> super::whole_recipe::WholeCurve {
+        super::whole_recipe::WholeCurve::new(&self.dots, &self.slopes, &self.bends)
+    }
+
     pub fn at(&self, x: f32) -> f32 {
         let dots = &self.dots;
         match dots.len() {

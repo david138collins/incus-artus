@@ -62,6 +62,7 @@ mod image;
 mod lab;
 mod layers;
 mod made;
+pub use made::Shaping;
 mod notes;
 mod overlays;
 pub(crate) mod noise;
