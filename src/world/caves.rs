@@ -94,7 +94,8 @@ impl CavePlan {
         self.tunnels.is_empty()
     }
 
-    /// Is the block at (x, y, z) inside a cave? (`inside`, in plain numbers.)
+    /// Is the block at (x, y, z) inside a cave? (`inside`, in plain numbers, for the twin test.)
+    #[cfg(test)]
     pub fn inside_at(&self, x: i32, y: i32, z: i32) -> bool {
         self.inside(IVec3::new(x, y, z))
     }
