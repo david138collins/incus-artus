@@ -57,6 +57,8 @@ mod temperatures;
 mod time;
 mod ui;
 mod whole;
+#[allow(dead_code)] // built a stage at a time (phase 3.1), read by the march from 3.2
+mod sight;
 mod world;
 mod worldgen;
 
