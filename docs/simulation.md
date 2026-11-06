@@ -231,7 +231,9 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   keeps, so they come back the same person, and how one rule serves both the per-tick and the weekly check.
   The biggest place, David 2026-11-06: "i think 500 villagers should be the highest level, and after that good
   luck." And: "500 is only a couple capitals or you" (read as: only a couple of capitals reach it, or the
-  player's own). The real chunks are the simulation radius, the full-fat zone: wherever the Local sim runs, the world
+  player's own). Density: "i think people will be packed pretty tightly eventually, with larger housing buildings,
+  and i figure 3-6 people to a house including juveniles. plus bunkhouses, inns, nicer houses for administrators or
+  for happinessmaxxing". The real chunks are the simulation radius, the full-fat zone: wherever the Local sim runs, the world
   exists as real blocks. Everywhere else it's only seen, through the store. *Counsel:* a 500-person city with its
   fields might span roughly 500 to 1,000 blocks, about the size of the old 32-chunk streaming area, built ahead by
   the Intermediator as you approach.
