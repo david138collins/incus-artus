@@ -1162,7 +1162,12 @@ below disagree with this one, this one stands.
   - **No mismatch at all** [David 2026-11-06]: "im not sure the change is very obvious. 2x2 is still quite fine on
     screen, and there really is no mismatch at all, which sparks joy i think pixels pump back and forth between the
     scales will seem much more like film grain than anything like the jarring contradictions the previous engine
-    had". The recipe answering at a cell's size stays on file as an
+    had".
+  - **Fail like a lens, never like a computer** [David 2026-11-06]: "the artifacts in this view seem
+    verasimilitudinous, almost like the eye sees it as dirty glass rather than 'what am i looking at on a computer
+    screen'. an organic kind of jacked up." *Counsel's reading, as a rule for every compromise:* where something
+    must be imperfect, let it look optical (blur, grain, haze, a lens slightly off focus), never digital (steps,
+    pops, seams, holes, shimmer, contradictions). The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
