@@ -239,6 +239,8 @@ pub struct WholeMask {
 /// carve it): what the card is handed.
 #[derive(Clone, Debug)]
 pub struct WholeMap {
+    /// The world's seed (mineralogy's chooser rolls by it).
+    pub seed: u64,
     pub width: i32,
     pub blocks: Pos,
     /// Half the map's width, in blocks (the map's middle is the world's).
@@ -410,6 +412,7 @@ impl WholeMap {
         }
         let t = &s.torn_coast;
         Self {
+            seed: map.seed,
             width: m.width as i32,
             blocks: Pos::from_f32(m.blocks_per_pixel),
             half: Pos::from_f32(m.width as f32 / 2.0 * m.blocks_per_pixel),
@@ -901,6 +904,8 @@ pub struct WholeCarving {
     pub lake_across: (i32, i32),
     pub lake_corner: (Pos, Pos),
     pub lake_cells: Vec<Vec<u32>>,
+    /// The rivers on a coarse grid, for how far a spot is from one (the placer's field).
+    pub far: WholeFarIndex,
 }
 
 /// What the carving does to a column (`carving::Here`), whole.
@@ -1065,6 +1070,7 @@ impl WholeCarving {
             lake_across: (lake_parts.1.0 as i32, lake_parts.1.1 as i32),
             lake_corner: (place(lake_parts.2.0), place(lake_parts.2.1)),
             lake_cells: lake_parts.3.to_vec(),
+            far: WholeFarIndex::new(carving),
         }
     }
 

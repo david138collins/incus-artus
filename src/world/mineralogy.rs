@@ -244,6 +244,11 @@ impl Mineralogy {
         Self { reads_slope: program.reads(Field::Slope), settings: settings.clone(), blocks: blocks.clone(), program, distributors: ready, owners }
     }
 
+    /// The crust's depth (blocks).
+    pub fn crust(&self) -> f32 {
+        self.settings.crust
+    }
+
     /// What the column is made of.
     pub fn layers(&self, map: &CompiledMap, column: Column) -> Layers {
         let mut reading = Reading::new(map, column, self.settings.crust);
@@ -295,6 +300,66 @@ impl Mineralogy {
                 })
                 .or(weights.last())
                 .map(|&(c, _)| c)
+            }
+            Chooser::Unknown => None,
+        }
+    }
+
+    // ── In whole numbers (the regroup, phase 2.2) ──
+
+    /// What the column is made of, read in whole numbers (`layers`): `program` is this mineralogy's
+    /// `program().whole(seed)`.
+    pub fn whole_layers(&self, program: &super::placer::WholeProgram, reading: &mut super::placer::WholeReading) -> Layers {
+        let mut layers = Layers::rock(self.blocks.stone);
+        reading.chosen.clear();
+        for (d, distributor) in self.distributors.iter().enumerate() {
+            let chosen = if distributor.on { self.whole_choose(d, distributor, program, reading) } else { None };
+            let picked = chosen.map(|c| &distributor.candidates[c]);
+            reading.chosen.push(picked.and_then(|candidate| candidate.block).unwrap_or(BlockId::AIR));
+            if let Some(candidate) = picked {
+                layers = if candidate.top_only { layers.with_top(candidate.profile.top) } else { candidate.profile.clone() };
+            }
+        }
+        layers
+    }
+
+    fn whole_suits(&self, candidate: &Ready1, program: &super::placer::WholeProgram, reading: &mut super::placer::WholeReading) -> crate::whole::Fix {
+        if candidate.everywhere { crate::whole::Fix::ONE } else { program.value(candidate.stack, reading, reading.column.ground) }
+    }
+
+    fn whole_choose(&self, d: usize, distributor: &Ready, program: &super::placer::WholeProgram, reading: &mut super::placer::WholeReading) -> Option<usize> {
+        use crate::whole::Fix;
+        let usable = distributor.candidates.iter().enumerate().filter(|(_, candidate)| candidate.usable());
+        match distributor.chooser {
+            Chooser::FirstFit { at } => {
+                let at = Fix::from_f32(at);
+                for (c, candidate) in usable {
+                    if self.whole_suits(candidate, program, reading) >= at {
+                        return Some(c);
+                    }
+                }
+                None
+            }
+            Chooser::Best => usable
+                .map(|(c, candidate)| (c, self.whole_suits(candidate, program, reading)))
+                .filter(|&(_, s)| s > Fix::ZERO)
+                .fold(None, |best: Option<(usize, Fix)>, (c, s)| if best.is_some_and(|(_, b)| b >= s) { best } else { Some((c, s)) })
+                .map(|(c, _)| c),
+            Chooser::Chance => {
+                let weights: Vec<(usize, Fix)> = usable.map(|(c, candidate)| (c, self.whole_suits(candidate, program, reading).max(Fix::ZERO))).filter(|&(_, s)| s > Fix::ZERO).collect();
+                let total = weights.iter().fold(Fix::ZERO, |sum, &(_, s)| sum + s);
+                let (north, east) = (reading.column.north.0 >> 8, reading.column.east.0 >> 8);
+                let hash = crate::fate::planet_hash(reading.map_seed(), 0x91ac_ed15 + d as u64, north as i64, east as i64, 0);
+                let roll = Fix((((hash >> 40) as i64 * total.0 as i64) >> 24) as i32);
+                let mut sum = Fix::ZERO;
+                weights
+                    .iter()
+                    .find(|&&(_, s)| {
+                        sum = sum + s;
+                        roll < sum
+                    })
+                    .or(weights.last())
+                    .map(|&(c, _)| c)
             }
             Chooser::Unknown => None,
         }
@@ -487,6 +552,43 @@ mod tests {
         // Gabbro, stone, grass, sand, dry grass, snowy ground and gravel.
         assert_eq!(kinds.len(), 7, "every kind of surface turned up");
         assert!(checked > 20_000);
+    }
+
+    /// Mineralogy read in whole numbers chooses as it does in fractions (with the same whole-number noise):
+    /// every climate and height, river beds too.
+    #[test]
+    fn mineralogy_in_whole_numbers_chooses_the_same_blocks() {
+        use crate::whole::{Fix, Pos};
+        use crate::world::placer::{WholeColumn, WholeReading};
+        use crate::world::whole_recipe::{WholeCarving, WholeMap};
+        let blocks = all_blocks();
+        let (mut same, mut count) = (0, 0);
+        for climate in [None, Some((-0.9, 0.5)), Some((-0.4, 0.4)), Some((0.0, 0.05)), Some((0.2, 0.2)), Some((0.3, 0.6)), Some((0.6, 0.0)), Some((0.15, 0.25))] {
+            let mut map = cooled(climate, 0.1);
+            map.settings.noise_maths = crate::worldgen::noise::NoiseMaths::WholeNumbers;
+            let map = CompiledMap::new(map.maps.clone(), map.seed, map.settings.clone());
+            let ready = map.mineralogy(&blocks);
+            let (whole, carving) = (WholeMap::new(&map), WholeCarving::default());
+            let program = ready.program().whole(map.seed);
+            for z in [100, 119, 120, 121, 126, 128, 129, 130, 150, 255, 256, 300, 332, 333, 500, 900] {
+                for (x, y) in (0..40).map(|k| (k * 211 - 2_000, k * 157 - 1_500)) {
+                    for river in [false, true] {
+                        let (north, east) = (x as f32 + 0.5, y as f32 + 0.5);
+                        let water = river.then_some(z + 3);
+                        let column = Column { north, east, ground: z as f32, slope: 0.0, climate: map.climate(north, east, z as f32), water };
+                        let want = ready.layers(&map, column);
+                        let whole_column = WholeColumn { north: Pos::middle_of(x), east: Pos::middle_of(y), ground: Fix::from_int(z), slope: Fix::ZERO, climate: whole.climate(Pos::middle_of(x), Pos::middle_of(y), Fix::from_int(z)), water };
+                        let mut reading = WholeReading::new(&whole, &carving, whole_column, Fix::from_f32(ready.crust()));
+                        let got = ready.whole_layers(&program, &mut reading);
+                        same += (got == want) as usize;
+                        count += 1;
+                    }
+                }
+            }
+        }
+        eprintln!("{same} of {count} columns made of the same");
+        // (A column right on an edge of the wander can tip either way: it's the same rules.)
+        assert!(same * 100 >= count * 98, "{same} of {count} columns made of the same");
     }
 
     #[test]

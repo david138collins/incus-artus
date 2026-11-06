@@ -34,7 +34,7 @@ mod fields;
 mod share;
 
 pub use distribute::{Candidate, Chooser, Distributor, Puts, Under};
-pub use fields::{Column, FIELDS, Field, Reading, Stage};
+pub use fields::{Column, FIELDS, Field, Reading, Stage, WholeColumn, WholeReading};
 pub use share::{Shared, export_distributor, export_field, import};
 
 use super::block::BlockId;
@@ -494,6 +494,170 @@ impl Program {
                 curve.at(((x - low) / (high - low).max(1e-6)).clamp(0.0, 1.0))
             }
             Shaped::Zero => 0.0,
+        }
+    }
+}
+
+// ── In whole numbers (the regroup, phase 2.2) ──────────────────────────────────────────────────────
+
+use crate::whole::{Fix, Pos};
+use crate::world::whole_recipe::WholeCurve;
+
+/// A layer as it's read, in whole numbers.
+enum WholeInput {
+    Field(Field),
+    Noise { size: Pos, key: u32 },
+    Made(usize),
+    SoFar,
+    Number(Fix),
+    Chosen { distributor: usize, blocks: Vec<BlockId> },
+    Missing,
+}
+
+enum WholeShaped {
+    AsIs,
+    Step { at: Fix, above: bool, soft: Fix },
+    Band { middle: Fix, spread: Fix },
+    Free(WholeCurve),
+    Zero,
+}
+
+struct WholeStep {
+    on: bool,
+    input: WholeInput,
+    /// Noise added to the source: how much, its patches' size and its key.
+    wander: Option<(Fix, Pos, u32)>,
+    shaped: WholeShaped,
+    mode: Mode,
+    strength: Fix,
+    range_in: (Fix, Fix),
+}
+
+/// A `Program` in whole numbers: the same stacks, every number whole, the noise's keys found from the
+/// world's seed.
+pub struct WholeProgram {
+    made: Vec<Vec<WholeStep>>,
+}
+
+impl Mode {
+    fn mix_whole(self, so_far: Fix, value: Fix, strength: Fix) -> Fix {
+        match self {
+            Mode::Normal => so_far + (value - so_far) * strength,
+            Mode::Add => so_far + value * strength,
+            Mode::Subtract => so_far - value * strength,
+            Mode::Multiply => so_far * (Fix::ONE + (value - Fix::ONE) * strength),
+            Mode::Lower => so_far + (so_far.min(value) - so_far) * strength,
+            Mode::Higher => so_far + (so_far.max(value) - so_far) * strength,
+        }
+    }
+}
+
+impl Program {
+    /// The same program in whole numbers, for a world of this seed.
+    pub fn whole(&self, seed: u64) -> WholeProgram {
+        use crate::worldgen::noise::noise_key;
+        let (value, place) = (Fix::from_f32, Pos::from_f32);
+        let made = self
+            .made
+            .iter()
+            .map(|compiled| {
+                compiled
+                    .steps
+                    .iter()
+                    .map(|step| WholeStep {
+                        on: step.on,
+                        input: match &step.input {
+                            Input::Field(field) => WholeInput::Field(*field),
+                            Input::Noise { size, salt } => WholeInput::Noise { size: place(*size), key: noise_key(seed, *salt) },
+                            Input::Made(j) => WholeInput::Made(*j),
+                            Input::SoFar => WholeInput::SoFar,
+                            Input::Number(n) => WholeInput::Number(value(*n)),
+                            Input::Chosen { distributor, blocks } => WholeInput::Chosen { distributor: *distributor, blocks: blocks.clone() },
+                            Input::Missing => WholeInput::Missing,
+                        },
+                        wander: step.wander.map(|(amount, size, salt)| (value(amount), place(size), noise_key(seed, salt))),
+                        shaped: match &step.shaped {
+                            Shaped::AsIs => WholeShaped::AsIs,
+                            Shaped::Step { at, above, soft } => WholeShaped::Step { at: value(*at), above: *above, soft: value(*soft) },
+                            Shaped::Band { middle, spread } => WholeShaped::Band { middle: value(*middle), spread: value(*spread) },
+                            Shaped::Free(curve) => WholeShaped::Free(curve.whole()),
+                            Shaped::Zero => WholeShaped::Zero,
+                        },
+                        mode: step.mode,
+                        strength: value(step.strength),
+                        range_in: (value(step.range_in.0), value(step.range_in.1)),
+                    })
+                    .collect()
+            })
+            .collect();
+        WholeProgram { made }
+    }
+}
+
+impl WholeProgram {
+    /// Made field `k` at the block `z` high in the column being read (`Program::value`).
+    pub fn value(&self, k: usize, reading: &mut WholeReading, z: Fix) -> Fix {
+        let mut so_far = Fix::ZERO;
+        let Some(steps) = self.made.get(k) else { return Fix::ZERO };
+        for step in steps {
+            if step.on {
+                let curved = self.shape(step, self.source(step, reading, z, so_far));
+                so_far = step.mode.mix_whole(so_far, curved, step.strength);
+            }
+        }
+        so_far
+    }
+
+    fn source(&self, step: &WholeStep, reading: &mut WholeReading, z: Fix, so_far: Fix) -> Fix {
+        let value = match &step.input {
+            WholeInput::Field(field) => reading.read(*field, z),
+            WholeInput::Noise { size, key } => reading.noise(*key, *size),
+            WholeInput::Made(j) => self.value(*j, reading, z),
+            WholeInput::SoFar => so_far,
+            WholeInput::Number(value) => *value,
+            WholeInput::Chosen { distributor, blocks } => {
+                if reading.chosen.get(*distributor).is_some_and(|chosen| blocks.contains(chosen)) {
+                    Fix::ONE
+                } else {
+                    Fix::ZERO
+                }
+            }
+            WholeInput::Missing => Fix::ZERO,
+        };
+        match step.wander {
+            Some((amount, size, key)) => value + reading.noise(key, size) * amount,
+            None => value,
+        }
+    }
+
+    fn shape(&self, step: &WholeStep, x: Fix) -> Fix {
+        use crate::whole::smooth;
+        match &step.shaped {
+            WholeShaped::AsIs => x,
+            WholeShaped::Step { at, above, soft } => {
+                let t = if *soft > Fix::ZERO {
+                    smooth((x - *at + *soft) / Fix(soft.0.wrapping_mul(2)))
+                } else if x >= *at {
+                    Fix::ONE
+                } else {
+                    Fix::ZERO
+                };
+                if *above { t } else { Fix::ONE - t }
+            }
+            WholeShaped::Band { middle, spread } => {
+                if *spread > Fix::ZERO {
+                    Fix::ONE - smooth((x - *middle).abs() / *spread)
+                } else if x == *middle {
+                    Fix::ONE
+                } else {
+                    Fix::ZERO
+                }
+            }
+            WholeShaped::Free(curve) => {
+                let (low, high) = step.range_in;
+                curve.at(((x - low) / (high - low).max(Fix(1))).clamp(Fix::ZERO, Fix::ONE))
+            }
+            WholeShaped::Zero => Fix::ZERO,
         }
     }
 }

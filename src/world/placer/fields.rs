@@ -259,6 +259,133 @@ impl<'a> Reading<'a> {
     }
 }
 
+// ── In whole numbers (the regroup, phase 2.2) ──────────────────────────────────────────────────────
+
+use crate::whole::{Fix, Pos};
+use crate::world::whole_recipe::{WholeCarving, WholeHere, WholeMap};
+
+/// What the caller knows about a column (`Column`), whole.
+#[derive(Clone, Copy, Debug)]
+pub struct WholeColumn {
+    pub north: Pos,
+    pub east: Pos,
+    /// The ground's Z (whole blocks).
+    pub ground: Fix,
+    pub slope: Fix,
+    pub climate: Option<(Fix, Fix)>,
+    pub water: Option<i32>,
+}
+
+/// The fields at one column (`Reading`), in whole numbers.
+pub struct WholeReading<'a> {
+    pub map: &'a WholeMap,
+    pub carving: &'a WholeCarving,
+    pub column: WholeColumn,
+    crust: Fix,
+    maps: Option<Option<(WholeHere, Pos, Pos)>>,
+    parts: Option<(Fix, Fix)>,
+    values: [Option<Fix>; FIELDS.len()],
+    noises: [(u32, Pos, Fix); 4],
+    noises_kept: usize,
+    pub chosen: Vec<BlockId>,
+}
+
+/// A distance in blocks as a value, held within a value's reach (±32,767 blocks).
+fn held(p: Pos) -> Fix {
+    Fix(p.0.clamp(-32_767 * 256, 32_767 * 256).wrapping_shl(8))
+}
+
+impl<'a> WholeReading<'a> {
+    pub fn new(map: &'a WholeMap, carving: &'a WholeCarving, column: WholeColumn, crust: Fix) -> Self {
+        Self { map, carving, column, crust: crust.max(Fix::ONE), maps: None, parts: None, values: [None; FIELDS.len()], noises: [(0, Pos(0), Fix::ZERO); 4], noises_kept: 0, chosen: Vec::new() }
+    }
+
+    /// The world's seed (the chooser's roll).
+    pub fn map_seed(&self) -> u64 {
+        self.map.seed
+    }
+
+    /// Seeded noise here (`Reading::noise`), its pattern chosen by its key.
+    pub fn noise(&mut self, key: u32, size: Pos) -> Fix {
+        if let Some(&(_, _, value)) = self.noises[..self.noises_kept].iter().find(|(k, s, _)| *k == key && *s == size) {
+            return value;
+        }
+        let value = crate::worldgen::noise::whole_perlin_at(key, Fade::Smooth, self.column.north.per(size), self.column.east.per(size));
+        if self.noises_kept < self.noises.len() {
+            self.noises[self.noises_kept] = (key, size, value);
+            self.noises_kept += 1;
+        }
+        value
+    }
+
+    pub fn read(&mut self, field: Field, z: Fix) -> Fix {
+        let depth = self.column.ground - z;
+        match field {
+            Field::Z => z,
+            Field::Depth => depth,
+            Field::CrustShare => depth / self.crust,
+            _ => {
+                if let Some(kept) = self.values[field as usize] {
+                    return kept;
+                }
+                let value = self.column_value(field);
+                self.values[field as usize] = Some(value);
+                value
+            }
+        }
+    }
+
+    fn maps(&mut self) -> Option<(WholeHere, Pos, Pos)> {
+        let WholeColumn { north, east, .. } = self.column;
+        *self.maps.get_or_insert_with(|| self.map.maps_at(north, east))
+    }
+
+    fn column_value(&mut self, field: Field) -> Fix {
+        let WholeColumn { north, east, ground, slope, climate, water } = self.column;
+        let map = self.map;
+        let tiny = Fix(1);
+        let (temperature, rain) = climate.unwrap_or((Fix::from_f32(NO_CLIMATE.0), Fix::from_f32(NO_CLIMATE.1)));
+        let from_maps = |reading: &mut Self, value: &dyn Fn(&WholeHere) -> Fix| reading.maps().map_or(Fix::ZERO, |(here, _, _)| value(&here));
+        match field {
+            Field::BakeHeight => from_maps(self, &|here| here.height),
+            Field::Tilt => from_maps(self, &|here| here.tilt),
+            Field::Squeeze => from_maps(self, &|here| {
+                if here.squeeze >= Fix::ZERO { here.squeeze / map.most_crushed.max(tiny) } else { here.squeeze / (-map.most_stretched).max(tiny) }
+            }),
+            Field::Push => from_maps(self, &|here| here.push_strength),
+            // The push's way in degrees, 0 to 180 (a turn's 65536ths times 360 are degrees in 65536ths).
+            Field::PushWay => from_maps(self, &|here| Fix(((crate::whole::atan2(here.push_y, here.push_x) >> 1) * 360).rem_euclid(180 * crate::whole::ONE))),
+            Field::CoastDistance => from_maps(self, &|here| held(here.coast_distance)),
+            Field::MountainDistance => from_maps(self, &|here| held(here.lift_distance)),
+            Field::Mountains => from_maps(self, &|here| map.mountain_share(here)),
+            Field::Rise => from_maps(self, &|here| map.lifted(here)),
+            Field::EdgeRise => from_maps(self, &|here| map.raised_coast(here)),
+            Field::Ridgelines | Field::Peaks => {
+                let Some((here, x, y)) = self.maps() else { return Fix::ZERO };
+                let parts = *self.parts.get_or_insert_with(|| {
+                    let (_, mountains, peaks) = map.parts(&here, x, y);
+                    (mountains, peaks)
+                });
+                if field == Field::Peaks { parts.1 } else { parts.0 }
+            }
+            Field::RiverDistance => self.carving.far.distance(north, east, Fix::from_f32(RIVER_REACH)),
+            Field::WaterAcross => self.carving.water_near(north, east).map_or(Fix::ZERO, |(_, _, across)| across),
+            Field::WaterDepth => {
+                let sea_level = Fix::from_int(SEA_LEVEL);
+                let sea = if ground < sea_level { sea_level - Fix::ONE - ground } else { Fix::ZERO };
+                let river = water.map_or(Fix::ZERO, |top| Fix::from_int(top) - Fix::ONE - ground);
+                sea.max(river).max(Fix::ZERO)
+            }
+            Field::UnderWater => if water.is_some() { Fix::ONE } else { Fix::ZERO },
+            Field::Temperature => temperature,
+            Field::Rain => rain,
+            Field::Height => ground,
+            Field::Slope => slope,
+            Field::Z | Field::Depth | Field::CrustShare => unreachable!("worked out at each block"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
