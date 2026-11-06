@@ -186,6 +186,52 @@ fn isqrt(v: u128) -> u128 {
     x
 }
 
+impl Sums {
+    /// Its 15 numbers in order, for keeping (`from_numbers` reads them back).
+    pub fn to_numbers(&self) -> [u64; 15] {
+        let f = self.faces;
+        let c = self.colour;
+        [self.solid, self.water, f[0], f[1], f[2], f[3], f[4], f[5], c[0], c[1], c[2], self.light, self.light_squared, self.height, self.height_squared]
+    }
+
+    pub fn from_numbers(n: [u64; 15]) -> Self {
+        Self { solid: n[0], water: n[1], faces: [n[2], n[3], n[4], n[5], n[6], n[7]], colour: [n[8], n[9], n[10]], light: n[11], light_squared: n[12], height: n[13], height_squared: n[14] }
+    }
+}
+
+impl Cell {
+    /// Its 16 bytes, for keeping (`from_bytes` reads them back).
+    pub fn to_bytes(&self) -> [u8; 16] {
+        let mut b = [0u8; 16];
+        b[0] = self.solid;
+        b[1] = self.water;
+        b[2] = self.facing[0] as u8;
+        b[3] = self.facing[1] as u8;
+        b[4] = self.facing[2] as u8;
+        b[5] = self.facing_spread;
+        b[6] = self.light_spread;
+        b[7] = self.spare;
+        b[8..12].copy_from_slice(&self.colour.to_le_bytes());
+        b[12..14].copy_from_slice(&self.height_spread.to_le_bytes());
+        b[14..16].copy_from_slice(&self.showing.to_le_bytes());
+        b
+    }
+
+    pub fn from_bytes(b: [u8; 16]) -> Self {
+        Self {
+            solid: b[0],
+            water: b[1],
+            facing: [b[2] as i8, b[3] as i8, b[4] as i8],
+            facing_spread: b[5],
+            light_spread: b[6],
+            spare: b[7],
+            colour: u32::from_le_bytes([b[8], b[9], b[10], b[11]]),
+            height_spread: u16::from_le_bytes([b[12], b[13]]),
+            showing: u16::from_le_bytes([b[14], b[15]]),
+        }
+    }
+}
+
 /// A cell as the march reads it: 16 bytes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(C)]

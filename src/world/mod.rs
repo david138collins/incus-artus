@@ -430,6 +430,8 @@ impl Plugin for WorldPlugin {
             .add_systems(Update, send_world_to_card)
             .add_systems(Update, forget_redraws)
             .init_resource::<SightStore>()
+            .init_resource::<SightKept>()
+            .add_world_state_with("sight", save_sight, load_sight, fresh_sight)
             .add_systems(Update, keep_sight.after(send_world_to_card))
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
@@ -467,6 +469,9 @@ pub struct SightStore {
     /// The bake of the cells of 32 and up (3.1d), and its loops on the loading lane.
     pub bake: Option<Arc<crate::sight::bake::Baking>>,
     baking: Vec<crate::loading::Job<()>>,
+    /// Regions an edit reached, and when it was last edited there (patched once left alone a while).
+    edited: HashMap<(i32, i32), Instant>,
+    patching: Vec<crate::loading::Job<()>>,
     /// When the store was last reported in the log.
     reported: Option<Instant>,
 }
@@ -479,9 +484,52 @@ impl Drop for SightStore {
     }
 }
 
-/// Keeps sight's live levels round the camera, and the bake going: started when the world reaches the card,
-/// let go with it.
-fn keep_sight(card: Res<CardWorld>, caves: Res<Caves>, terrain: Res<Terrain>, voxel: Res<VoxelWorld>, view: Res<crate::camera::CameraView>, mut sight: ResMut<SightStore>) {
+/// A bake read back from the world's folder, till the world is on the card and the bake starts.
+#[derive(Resource, Default)]
+pub struct SightKept(Option<crate::sight::bake::Kept>);
+
+/// Sight's bake kept with the world (3.1e): what's been baked or patched since the last save goes on the end
+/// of its file.
+fn save_sight(world: &World, folder: &crate::save::WorldFolder) -> Result<String, String> {
+    match world.resource::<SightStore>().bake.as_ref().and_then(|bake| bake.bake.lock().ok().map(|mut bake| bake.keep(&folder.path))) {
+        Some(kept) => kept,
+        None => Ok("no bake of sight's yet".into()),
+    }
+}
+
+fn load_sight(world: &mut World, folder: &crate::save::WorldFolder) -> Result<String, String> {
+    let kept = crate::sight::bake::read(&folder.path)?;
+    let note = kept.as_ref().map_or("no bake of sight's kept".to_string(), |kept| format!("sight's bake: {} regions kept", kept.records.len()));
+    world.resource_mut::<SightKept>().0 = kept;
+    Ok(note)
+}
+
+fn fresh_sight(world: &mut World, _seed: u64) {
+    world.resource_mut::<SightKept>().0 = None;
+}
+
+/// How long a region is left alone after an edit before it's baked again.
+const EDITS_SETTLE: f32 = 2.0;
+
+/// The changed chunks as they are now, for the bake.
+fn changed_now(voxel: &VoxelWorld) -> Arc<HashMap<ChunkPos, Chunk>> {
+    Arc::new(voxel.changed_chunks().iter().filter_map(|&pos| voxel.changed_chunk(pos).map(|chunk| (pos, chunk.clone()))).collect())
+}
+
+/// Keeps sight's live levels round the camera, and the bake going (patched for edits): started when the
+/// world reaches the card, let go with it.
+#[allow(clippy::too_many_arguments)]
+fn keep_sight(
+    card: Res<CardWorld>,
+    caves: Res<Caves>,
+    terrain: Res<Terrain>,
+    voxel: Res<VoxelWorld>,
+    registry: Res<BlockRegistry>,
+    view: Res<crate::camera::CameraView>,
+    mut changes: MessageReader<BlockChanged>,
+    mut kept: ResMut<SightKept>,
+    mut sight: ResMut<SightStore>,
+) {
     let Some(world) = &card.on_card else {
         if sight.live.is_some() {
             *sight = SightStore::default();
@@ -495,12 +543,32 @@ fn keep_sight(card: Res<CardWorld>, caves: Res<Caves>, terrain: Res<Terrain>, vo
         if let Some(map) = terrain.compiled() {
             let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
             let spawn = voxel.spawn();
-            let (bake, jobs) = crate::sight::bake::start(maker.clone(), world.odd, half, (spawn.x, spawn.y));
+            let with = crate::sight::bake::Blocks { map: map.clone(), blocks: TerrainBlocks::from_registry(&registry), colours: world.colours.clone(), changed: changed_now(&voxel) };
+            let (bake, jobs) = crate::sight::bake::start(maker.clone(), with, world.odd, half, (spawn.x, spawn.y), world.stamp, kept.0.take());
             sight.bake = Some(bake);
             sight.baking = jobs;
         }
         sight.maker = Some(maker);
         sight.live = Some(crate::sight::store::LiveStore::default());
+    }
+    // Edits: their regions baked again once left alone a while.
+    let now = Instant::now();
+    for change in changes.read() {
+        for region in crate::sight::bake::regions_of(ChunkPos::new(change.position.x.div_euclid(CHUNK_SIZE), change.position.y.div_euclid(CHUNK_SIZE))) {
+            sight.edited.insert(region, now);
+        }
+    }
+    sight.patching.retain(|job| matches!(job.ready(), Ok(None)));
+    let settled: Vec<(i32, i32)> = sight.edited.iter().filter(|(_, when)| now.duration_since(**when).as_secs_f32() >= EDITS_SETTLE).map(|(region, _)| *region).collect();
+    if !settled.is_empty()
+        && let (Some(bake), Some(maker), Some(map)) = (sight.bake.clone(), sight.maker.clone(), terrain.compiled())
+    {
+        for region in &settled {
+            sight.edited.remove(region);
+        }
+        let with = crate::sight::bake::Blocks { map: map.clone(), blocks: TerrainBlocks::from_registry(&registry), colours: world.colours.clone(), changed: changed_now(&voxel) };
+        let job = crate::sight::bake::patch(bake, maker, with, world.odd, settled);
+        sight.patching.push(job);
     }
     let camera = (view.position.x, view.position.y);
     let sight = &mut *sight;

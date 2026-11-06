@@ -837,7 +837,8 @@ fn ground(c: Case) -> i32 {
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
         let odd = world.odd;
         let maker = Maker { device: device.clone(), queue: queue.clone(), world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan) };
-        let (baking, jobs) = crate::sight::bake::start(maker.clone(), odd, half, (0, 0));
+        let with = crate::sight::bake::Blocks { map: std::sync::Arc::new(map.clone()), blocks: _blocks.clone(), colours: _colours.clone(), changed: Default::default() };
+        let (baking, jobs) = crate::sight::bake::start(maker.clone(), with, odd, half, (0, 0), 1, None);
         // Waits for the loops on the loading lane to finish the map.
         let started = std::time::Instant::now();
         loop {
@@ -888,6 +889,90 @@ fn ground(c: Case) -> i32 {
         }
         eprintln!("Sight's bake: {}; {checked} cells checked against the card", bake.report());
         assert!(checked > 20);
+    }
+
+    /// Sight's bake kept (phase 3.1e): written to its file and read back the same, a bake started with it
+    /// already done; with another stamp, baked again; and an edit (a hole dug at a chunk's edge) patched: the
+    /// region's top cell exactly as many blocks lighter as were dug, the faces it bares in the column beside it,
+    /// and the columns away from it as they were.
+    #[test]
+    fn sight_s_bake_is_kept_and_patched() {
+        use crate::sight::bake::{Blocks, FIRST, bake_region, read, start};
+        use crate::sight::store::Maker;
+        use crate::world::{BlockId, ChunkPos};
+        let Some((device, queue, map, plan, blocks, colours, world)) = sight_world() else {
+            eprintln!("No graphics card: sight's kept bake test is skipped");
+            return;
+        };
+        let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
+        let odd = world.odd;
+        let map = std::sync::Arc::new(map);
+        let maker = Maker { device, queue, world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan.clone()) };
+        let with = Blocks { map: map.clone(), blocks: blocks.clone(), colours: colours.clone(), changed: Default::default() };
+        let wait = |baking: &crate::sight::bake::Baking| {
+            let started = std::time::Instant::now();
+            while baking.bake.lock().map(|b| b.all_done.is_none()).unwrap_or(false) && started.elapsed().as_secs() < 300 {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+        };
+        let (baking, jobs) = start(maker.clone(), with.clone(), odd, half, (0, 0), 77, None);
+        wait(&baking);
+        drop(jobs);
+        let folder = std::env::temp_dir().join(format!("incus-sight-bake-test-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).expect("a folder");
+        let note = baking.bake.lock().expect("the bake").keep(&folder).expect("kept");
+        eprintln!("Sight's bake kept: {note}");
+        let kept = read(&folder).expect("read").expect("a file");
+        assert_eq!(kept.stamp, 77);
+        assert_eq!(kept.records.len(), 16);
+        // Read back the same, region by region.
+        for record in &kept.records {
+            let baked = crate::sight::bake::bake_region(&maker, &with, odd, record.region);
+            assert_eq!(*record, baked, "region {:?} read back", record.region);
+        }
+        // Started with it, the bake is done before a region's baked; with another stamp, it isn't.
+        let (again, jobs) = start(maker.clone(), with.clone(), odd, half, (0, 0), 77, read(&folder).expect("read"));
+        assert_eq!(again.bake.lock().expect("the bake").regions_done, 16, "kept bake taken whole");
+        drop(jobs);
+        crate::sight::bake::stop(&again);
+        let (other, jobs) = start(maker.clone(), with.clone(), odd, half, (0, 0), 78, read(&folder).expect("read"));
+        assert!(other.bake.lock().expect("the bake").regions_done < 16, "another stamp: baked again");
+        crate::sight::bake::stop(&other);
+        drop(jobs);
+        let _ = std::fs::remove_dir_all(&folder);
+
+        // An edit: a hole 3 by 3 and 6 deep at the north edge of the chunk at (576, 288), in its ground.
+        let pos = ChunkPos::new(576 / 32, 288 / 32);
+        let mut chunk = map.chunk(pos, &blocks, &plan).expect("the chunk");
+        let (x0, y0) = (576 + 29, 288 + 10);
+        let ground = (0..crate::world::WORLD_HEIGHT).rev().find(|&z| chunk.block_at(x0, y0, z) != BlockId::AIR && chunk.block_at(x0, y0, z) != blocks.water).expect("ground");
+        let mut dug = 0u64;
+        for x in x0..x0 + 3 {
+            for y in y0..y0 + 3 {
+                for z in ground - 5..=ground {
+                    let old = chunk.block_at(x, y, z);
+                    if old != BlockId::AIR && old != blocks.water {
+                        chunk.set_block_at(x, y, z, BlockId::AIR);
+                        dug += 1;
+                    }
+                }
+            }
+        }
+        let region = (pos.x.div_euclid(32), pos.y.div_euclid(32));
+        let before = bake_region(&maker, &with, odd, region);
+        let edited = Blocks { changed: std::sync::Arc::new([(pos, chunk)].into_iter().collect()), ..with.clone() };
+        let after = bake_region(&maker, &edited, odd, region);
+        let solid = |column: &crate::sight::store::CellColumn, size: i32| (0..crate::world::WORLD_HEIGHT / size).map(|z| column.at(z, size).solid).sum::<u64>();
+        let top_size = 1 << crate::sight::bake::REGION;
+        assert_eq!(solid(&before.top, top_size) - solid(&after.top, top_size), dug, "the region's top cell {dug} blocks lighter");
+        // The cell column beside the hole (north, across the chunk's edge) shows more faces; one far off is as it was.
+        let across = 1 << (crate::sight::bake::REGION - FIRST);
+        let index = |cx: i32, cy: i32| ((cy - region.1 * across) * across + (cx - region.0 * across)) as usize;
+        let faces = |record: &crate::sight::bake::Record, cx: i32, cy: i32| record.levels[0][index(cx, cy)].1.iter().map(|c| c.showing as u64).sum::<u64>();
+        assert!(faces(&after, pos.x + 1, pos.y) > faces(&before, pos.x + 1, pos.y), "the hole bares faces in the column beside it");
+        let far = (pos.x - 8, pos.y - 8);
+        assert_eq!(before.levels[0][index(far.0, far.1)], after.levels[0][index(far.0, far.1)], "a column away from the edit as it was");
+        eprintln!("Sight's bake patched: {dug} blocks dug, the region's top cell that much lighter");
     }
 
     /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,

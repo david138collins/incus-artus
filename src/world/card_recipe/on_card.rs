@@ -24,6 +24,25 @@ pub struct WorldOnCard {
     pub cells: wgpu::ComputePipeline,
     /// A layer somewhere is air or water (sight's bands then start at the bottom).
     pub odd: bool,
+    /// The rules' stamp (`stamp_of`): a bake kept with another stamp is baked again.
+    pub stamp: u64,
+    /// The blocks' far colours (for sight's cells made from the blocks themselves, by edits).
+    pub colours: crate::sight::cell::FarColours,
+}
+
+/// The version of sight's cells and bake: one more whenever the cells' code changes what a cell holds.
+pub const SIGHT_RULES: u64 = 1;
+
+/// The rules' stamp: everything the cells are made from (the world's pack: the maps, the recipe, the rivers
+/// and lakes, the caves, mineralogy, the far colours) and the cells' own code's version, hashed (FNV-1a).
+pub fn stamp_of(words: &[i32]) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64 ^ SIGHT_RULES;
+    for word in words {
+        for byte in word.to_le_bytes() {
+            hash = (hash ^ byte as u64).wrapping_mul(0x0100_0000_01b3);
+        }
+    }
+    hash
 }
 
 const SIGHT: &str = include_str!("../../sight/cell.wgsl");
@@ -126,7 +145,7 @@ pub fn send(device: &wgpu::Device, queue: &wgpu::Queue, map: &CompiledMap, caves
     let (grounds, choices, cells) = (pipeline("sight_grounds_pass"), pipeline("sight_choices_pass"), pipeline("sight_cells_pass"));
     let sight_compiled = ms(started);
     let odd = pack.words[pack.words[super::slot("MINERALOGY")] as usize + 8] != 0;
-    let world = WorldOnCard { data, words: pack.words.len(), columns, grounds, choices, cells, odd };
+    let world = WorldOnCard { data, words: pack.words.len(), columns, grounds, choices, cells, odd, stamp: stamp_of(&pack.words), colours: colours.clone() };
 
     // The check: the card's columns round the spawn against the processor's.
     let places: Vec<(i32, i32)> = (0..CHECKED * CHECKED).map(|i| (spawn.0 - CHECKED / 2 + i % CHECKED, spawn.1 - CHECKED / 2 + i / CHECKED)).collect();

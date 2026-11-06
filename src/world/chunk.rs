@@ -132,6 +132,12 @@ impl Chunk {
         self.get(IVec3::new(x, y, z))
     }
 
+    /// The same as `set`, in plain numbers (sight's tests).
+    #[cfg(test)]
+    pub fn set_block_at(&mut self, x: i32, y: i32, z: i32, id: BlockId) -> BlockId {
+        self.set(IVec3::new(x, y, z), id)
+    }
+
     /// Replace a block. Any extra state the old block had is removed with it, and its pieces.
     /// Returns the block that was there before.
     pub fn set(&mut self, block: IVec3, id: BlockId) -> BlockId {

@@ -554,7 +554,26 @@ back to.
   screen while the start bake runs and plays with the start reach sharp; until the finishing touches our builds skip
   the wait and spawn straight in, the bake sharpening the world live and raw (no fade, nothing hidden): an instrument
   for seeing how the store fills, a switch in our builds only. **For 3.2:** the march reads the store as it fills.
-- **Telescoping:** `before-sight` is tagged once 3.1e stands.
+- **3.1e [BUILT 2026-11-06]** (`sight/bake.rs`, the world state "sight" in `world/mod.rs`): **the rules' stamp**
+  (`on_card::stamp_of`: the world's whole pack, the maps, recipe, rivers and lakes, caves, mineralogy and far colours,
+  hashed with the cells' code's version `SIGHT_RULES`); **the file** `sight-bake.bin` in the world's folder: the
+  stamp, then a record a region (its compact cell columns from 32 to 1,024 and its 1,024's exact sums), each save
+  adding the records made since the last one to the end (a new place, or a fresh start, writes it whole); read back
+  at load and taken whole if the stamp and the map's size are the same, a later record for a region over an earlier
+  one; a stale one is baked again and written afresh at the next save. **Edits:** a cell column of 32 whose chunk or
+  a chunk beside it has changed is made from the blocks themselves on the processor (`column_from_blocks`: the changed
+  chunks as they are, the rest as the recipe makes them; every cell of the column, trimmed to its band), and its
+  region's levels built up again; edited regions are patched once left alone 2 seconds, and at the bake's start every
+  region with changed chunks is made again whatever the file held (a save may catch a patch under way). **Test:** the
+  test map baked, kept, read back record for record the same; a bake started with it done before a region is baked,
+  with another stamp baked again; a hole of 54 blocks dug at a chunk's edge: the region's top cell exactly 54 blocks
+  lighter, faces bared in the column across the edge, a column away from it unchanged. **On file:** the save writes
+  on the frame (the first save of a whole world's bake about 300 MB; the later ones only what's new); the live levels
+  don't show edits yet (3.6, "edits override the cache"); a column made again leaves its old cells in place in the
+  flat arrays (a little memory per edit, to compact some day); the start's burst of slow frames, the bake's four
+  loops beginning on a dozing card ("getting the next picture", 66 to 141 frames over about 5 s, once a world: with
+  the loading screen).
+- **Telescoping:** `before-sight` is tagged on 3.1e's commit: every attempt at sight starts from there.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
   stone at a 45 degree angle on a mountain side?"; requirements from Counsel, for 3.2's talk]: (1) **no threshold**: a
