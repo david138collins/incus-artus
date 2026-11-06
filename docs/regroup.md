@@ -370,11 +370,14 @@ out, which the card does fast and exactly.
     first use with 4,096 columns 26.5 ms. In pieces, each waited for before the next (a megabyte of pack at a time; a
     first use of 64 columns; then 1,024 at a time) they're 6.3 ms and 8.9 ms, once, as the world loads. The first
     use's 15 ms on the card is what's left (a fixed cost: on file).
-  - **What the card costs, the recipe as it is** (the test map, round trips): 64 columns 0.6 ms, 4,096 0.8 ms, 65,536
-    30 ms, about a million 169 ms (the processor, one core, 1,137 ms): about 6 million columns a second, some 7 times
-    one core. **For sight (3.2, to talk through):** a batch of a few thousand columns costs under a millisecond and
-    one of 65,000 costs 30, so the card's work goes in small batches the frame can stand beside, and this recipe is
-    not cheap per column on the card.
+  - **What the card costs, the recipe as it is.** ~~About 6 million columns a second~~: that was a **dozing card**
+    [corrected 2026-11-06, 40 dispatches back to back]. Awake, a whole column (the ground, the rivers and lakes
+    carved, the water; the rich test map) takes **about 21 ns, some 47 million a second** (a plain map 12 ns, 83
+    million), about 50 times one processor core; dozing, the same work takes about 190 ns. The card wakes after
+    about a tenth of a second of steady work and dozes again when left. Mineralogy's blocks on top: about 25 million
+    a second awake (estimated; measured dozing only). The shader's tables (`var<private>` or `const`) make no
+    difference, tested both ways. **For sight:** the card's work goes in batches the frame can stand beside, and it
+    must be kept awake to get these rates (Fork A's dozing again).
   - Noticed, not chased: a compiled world's first 13 chunks took 106 ms on the frame (8.6 ms at build 60), likely the
     maps made whole on the first column asked (`CompiledMap::whole`, once a world), at load.
 - **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.

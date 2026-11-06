@@ -32,9 +32,10 @@ sight:
 - **The card is shared with the frame**: one queue. One big piece of card work holds a frame (the pack in one go,
   92 ms). In small pieces it's 6 ms, once, at load. Any card work in play goes in batches the frame can stand
   beside.
-- **This recipe isn't cheap per column on the card**: about 6 million columns a second, some 7 times one processor
-  core. A few thousand columns cost under a millisecond; 65,000 cost 30 ms. So exact averaging by running the
-  recipe finer than the patch (phase 3) has a real budget. That's worth weighing when 3.2 is talked through.
+- ~~This recipe isn't cheap per column on the card: about 6 million columns a second~~ **Corrected 2026-11-06:**
+  that was a dozing card. Awake, about 47 million whole columns a second (21 ns each), some 50 times one core;
+  about 25 million with mineralogy's blocks (estimated). The fill and march assessment went to Counsel by message
+  the same morning.
 
 2.4 (chunks filled from the card's readback) is still waiting on David's word about deferring it. Next is 3.1, the
 store, then the `before-sight` tag.
