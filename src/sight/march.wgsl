@@ -27,6 +27,10 @@ struct Camera {
     // tile side (0: no start pass, every ray from the eye); w the cone's spread (radians from a tile's middle
     // ray to its corners).
     tiles: vec4<f32>,
+    // The screen pyramid (David 2026-11-06: "1 - 2 - 4 - 8"): x the layer above's width in its pixels (0: this is
+    // the 8 × 8 base, everything marched); y 1 if a finer layer follows (this layer says where it's worth it); z
+    // the rule (0 refine everywhere, 1 only where it's earned); w how far the live level reaches (blocks).
+    layer: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -38,6 +42,10 @@ struct Camera {
 @group(0) @binding(6) var how_far: texture_storage_2d<r32float, write>;
 // Where each tile's rays start (the start pass's answers).
 @group(0) @binding(7) var<storage, read_write> starts: array<f32>;
+// The pyramid: which of the layer above's pixels said their children are worth marching, and this layer's word
+// for the layer below.
+@group(0) @binding(8) var<storage, read> worth_in: array<u32>;
+@group(0) @binding(9) var<storage, read_write> worth_out: array<u32>;
 
 const NOT_BAKED: u32 = 0xFFFF0000u;
 // Past the map: nothing at all, not even the world's floor.
@@ -526,6 +534,18 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }
+    // A refining layer marches only where the pixel above said it's worth it; elsewhere the screen shows that one.
+    if (camera.layer.x > 0.0) {
+        let above = id.xy / 2u;
+        if (worth_in[above.y * u32(camera.layer.x) + above.x] == 0u) {
+            textureStore(picture, vec2<i32>(id.xy), vec4<f32>(0.0));
+            textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
+            if (camera.layer.y > 0.5) {
+                worth_out[id.y * size.x + id.x] = 0u;
+            }
+            return;
+        }
+    }
     let rays = u32(camera.view.w);
     // Where its tile's rays start (from the start pass), or from the eye.
     var begin = 0.5;
@@ -564,4 +584,15 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))), 1.0));
     textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(near, 0.0, 0.0, 0.0));
+    // Is the layer below worth marching here? Only while its pixels would still be at least as big as the cells
+    // they'd read (finer than the cells, they only magnify the blend into smudge: David's bands, "2 looks worse
+    // than 4, up close"); never for sky.
+    if (camera.layer.y > 0.5) {
+        var worth = camera.layer.z < 0.5;
+        if (!worth && near < camera.reach.x) {
+            let cell = select(32.0, 16.0, near < camera.layer.w);
+            worth = near * camera.view.z * 0.5 >= cell;
+        }
+        worth_out[id.y * size.x + id.x] = u32(worth);
+    }
 }

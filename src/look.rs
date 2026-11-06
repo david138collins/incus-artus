@@ -61,16 +61,25 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     }
     ui.small("Frozen, the game stays on the screen under a grey veil, the world stops and nothing is drawn till it's clicked again. F11: fullscreen or a window.");
     ui.separator();
-    ui.strong("Sight (the first sight: the coarse layer alone)");
+    ui.strong("Sight (the screen pyramid: 8 × 8 everywhere, finer where it's worth it)");
     let mut grid = kept.sight_grid();
     ui.horizontal(|ui| {
-        ui.label("Grid:");
+        ui.label("Finest layer:");
         for factor in [2, 4, 8] {
             ui.radio_value(&mut grid, factor, format!("{factor} × {factor}"));
         }
     });
     if grid != kept.sight_grid() {
         kept.render.set_number("sight_grid", grid as f32);
+    }
+    let mut earned = kept.sight_earned();
+    ui.horizontal(|ui| {
+        ui.label("Finer layers:");
+        ui.radio_value(&mut earned, true, "only where they're worth it");
+        ui.radio_value(&mut earned, false, "everywhere");
+    });
+    if earned != kept.sight_earned() {
+        kept.render.table.insert("sight_earned".to_string(), toml::Value::Boolean(earned));
     }
     let mut rays = kept.sight_rays();
     ui.horizontal(|ui| {
@@ -206,6 +215,13 @@ impl KeptSettings {
             8 => 8,
             _ => 2,
         }
+    }
+
+    /// Whether the pyramid's finer layers are marched only where they're worth it (a pixel no finer than the
+    /// cells it reads), or everywhere (for comparing). Only where they're worth it unless chosen.
+    pub fn sight_earned(&self) -> bool {
+        // For measuring: `INCUS_SIGHT_EVERYWHERE` refines everywhere.
+        !std::env::var("INCUS_SIGHT_EVERYWHERE").is_ok() && self.render.flag("sight_earned", true)
     }
 
     /// Rays a coarse pixel (1 unless chosen).

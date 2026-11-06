@@ -653,7 +653,17 @@ back to.
   once baked round about, not 7.5); and uncapped, the march takes the whole card and starves the bake (1,815 of
   5,184 regions in six minutes, the start's eighth in 149 s): in play, capped, the card has room for both. 40 s
   figures, mid-bake: 2 × 2 about 125, 4 × 4 about 285, 8 × 8 about 345. A measuring test, `sight_s_steps_by_band`
-  (ignored), reads steps a ray by band of the screen. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
+  (ignored), reads steps a ray by band of the screen. **(b) and (c) BUILT, build 72** (David: "you may proceed"):
+  `draw.rs` marches a pyramid of layers, 8 × 8 everywhere, then 4 × 4 and 2 × 2 down to the finest chosen
+  (the Render page's "Finest layer"), each finer layer marching only where the pixel above said it's worth it
+  (`worth_in`/`worth_out`), each finer ray starting at its tile's start; the upscale shows each screen pixel's
+  finest layer marched there. **The first rule for "worth it"** (from his bands): only while the finer pixel would
+  still be at least as big as the cells it reads at that distance (16 in the live window, 32 past it), never for sky;
+  "everywhere" is the switch beside it, for comparing. Near the eye it stays 8 × 8; with distance it steps to 4 and
+  2. **Measured, uncapped, David's screen, mid-bake:** finest 2 × 2, only where worth it, about 210 to 250 fps
+  (everywhere about 97; the single 2 × 2 layer was about 125); finest 4 × 4, about 240 to 295 (everywhere about 200
+  to 225). Not yet: the valved blend at the layers' seams (now a hard change of pixel size), edges and importance as
+  further terms of "worth it", the 1 × 1 layer (with 3.3's finer cells). The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
   45° and 30° slope tests will use.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.

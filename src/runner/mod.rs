@@ -400,6 +400,7 @@ impl Runner {
                     grid: kept.sight_grid(),
                     rays: kept.sight_rays(),
                     upscale: kept.sight_upscale(),
+                    earned: kept.sight_earned(),
                 };
                 (store, eye)
             })
