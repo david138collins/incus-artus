@@ -135,8 +135,12 @@ card ("installing the hologram onto the gpu comes before cracking the eyelids").
 through with him before it's built, and measured on its own.
 
 **The order:** phase 0 (the stage, with lane 0.2), phase 2 (the recipe on the card), phase 3 (sight: the twin
-layers), then phase 6. **When David sees land again:** phase 3's first step, the coarse layer alone: the whole world
-to the horizon, squinted.
+layers), then phase 6. **When David sees land again:** phase 3.2, the coarse layer alone: the whole world to the
+horizon, squinted. **The milestone** [David 2026-11-05]: "spawning in to the new vision system and seeing it look like
+a dos game resolution, *but it's all there, dynamic, honest, and unflawed* would be a huge milestone. after that, we
+just build in the other side of the twin engines." **[GO 2026-11-05]** for everything before it: lane 0.2, phase 2,
+3.1 ("whatever time it takes us to build a *killer end-game graphics engine*, what good will it do us to waste
+time?"). 3.2 is talked through with him before it's built.
 
 ### Phase 0: the stage (dark)  [planned in detail]
 
@@ -314,6 +318,12 @@ as the game is built out".
   frame, nudged for the turn): "the farthest and lightest give way first", applied to sight.
 - **Switching without a pop.** A coarse pixel is the average of its fine ones, so a cell going sharp changes
   sharpness, not colour. Hysteresis (once fine, stay fine a while) and a short fade stop it flickering.
+- **A progressive blend, valved like a shock** [David 2026-11-05: "putting threshold and blend curves at the exact
+  pixels which are flipping from big to small. almost how the more advanced multistage shocks for baja trucks increase
+  their damping across their damping range with valves"]: not one threshold and one fade, but a shaped response. A
+  cell's flag strength (its twins' disagreement, its spread, its depth range) goes through a curve, soft at the bottom
+  and stiffening as it rises, to how much of the fine layer is blended in, with hysteresis. The curve is a few stages,
+  each with its own slope, and those are settings he tunes by eye at the same spot, like valving.
 
 | # | Builder does | Hours |
 |---|---|---|
@@ -321,7 +331,7 @@ as the game is built out".
 | 3.2 | **The first sight: the coarse layer alone**, over the whole screen at a quarter resolution, several rays a coarse pixel, coarse cache levels only (about 16 to 32 blocks), the sky colour, the fly camera back. The upscale behind a switch (crisp squares, smooth, or smooth within a surface but sharp at a skyline), his call by eye. **Kept for good: it is the final picture's bottom cel.** He sees the whole world to the horizon, squinted, equally soft at every distance, with blobs about 16 blocks wide at his feet. Flying only. | 2 to 3 |
 | 3.3 | Finer cache levels, one a build: 8, 4, 2, 1 blocks. Each one a look and a measurement. | about 1 each |
 | 3.4 | Light through the cache: sun on each cell's average facing, softened by its spread (a rough far hillside shades as the average of its faces); then sun shadows and sky light by wide rays through the same cache; then fog. One structure for sight and light. One a build, each a look. | 2 to 4 |
-| 3.5 | The fine layer: the flags, the list of flagged cells (an indirect dispatch), the budget and priority, hysteresis and the fade. **Test, the entanglement test:** both layers drawn over the whole screen, each coarse pixel against the average of its fine pixels, at fixed spots and along a flight, within a tolerance set with David by eye (say a mean colour difference under 1%, and the 99th in 100 under a few per cent). | 3 to 4 |
+| 3.5 | The fine layer: the flags, the list of flagged cells (an indirect dispatch), the budget and priority, the valved blend curve (its stages as settings) with hysteresis and the fade. **Test, the entanglement test:** both layers drawn over the whole screen, each coarse pixel against the average of its fine pixels, at fixed spots and along a flight, within a tolerance set with David by eye (say a mean colour difference under 1%, and the 99th in 100 under a few per cent). | 3 to 4 |
 | 3.6 | Block textures in the fine layer where a block is bigger than a pixel; edits override the cache (a small upload when they change); water as a second medium in the cells, a flat colour until phase 6's real look. Walking is back with phase 2.4. | 2 to 3 |
 
 - **David:** a look at every step from 3.2 on; 3.2 is his first sight of the land.
