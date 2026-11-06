@@ -60,6 +60,12 @@ pub fn planet_hash(seed: u64, salt: u64, x: i64, y: i64, z: i64) -> u64 {
     h
 }
 
+/// `planet_hash`'s start, its seed and salt mixed: the part of it a graphics card is handed, worked out
+/// on the processor (the card finishes it at each spot).
+pub fn roll_start(seed: u64, salt: u64) -> u64 {
+    mix(seed ^ mix(salt))
+}
+
 /// A stream for one purpose, so separate systems don't disturb each other's dice.
 pub fn derive_seed(seed: u64, purpose: &str) -> u64 {
     purpose.bytes().fold(mix(seed), |h, byte| mix(h ^ byte as u64))

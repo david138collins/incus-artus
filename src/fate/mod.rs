@@ -20,7 +20,7 @@
 mod dice;
 
 #[allow(unused_imports)] // planet_hash is first used by the world-gen suite
-pub use dice::{Dice, derive_seed, planet_hash};
+pub use dice::{Dice, derive_seed, planet_hash, roll_start};
 
 use crate::debug::DebugAppExt;
 use crate::save::{WorldFolder, WorldStateAppExt};

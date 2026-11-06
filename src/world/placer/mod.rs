@@ -595,6 +595,42 @@ impl Program {
 }
 
 impl WholeProgram {
+    /// Packed for the card (`card_recipe`): how many stacks, each stack's first step and how many, then
+    /// every step's sixteen numbers: on, the input's kind and its two numbers, the wander (has, amount,
+    /// size, key), the curve's kind and its three numbers, the mode, the strength, and the source's range.
+    /// Returns where it starts.
+    pub fn pack(&self, pack: &mut crate::world::card_recipe::Pack) -> i32 {
+        let mut steps: Vec<[i32; 16]> = Vec::new();
+        let mut stacks = Vec::new();
+        for made in &self.made {
+            stacks.extend([steps.len() as i32, made.len() as i32]);
+            for step in made {
+                let (kind, a, b) = match &step.input {
+                    WholeInput::Field(field) => (0, *field as i32, 0),
+                    WholeInput::Noise { size, key } => (1, size.0, *key as i32),
+                    WholeInput::Made(j) => (2, *j as i32, 0),
+                    WholeInput::SoFar => (3, 0, 0),
+                    WholeInput::Number(value) => (4, value.0, 0),
+                    WholeInput::Chosen { distributor, blocks } => (5, *distributor as i32, pack.list(&blocks.iter().map(|b| b.0 as i32).collect::<Vec<i32>>())),
+                    WholeInput::Missing => (6, 0, 0),
+                };
+                let (shape, s0, s1, s2) = match &step.shaped {
+                    WholeShaped::AsIs => (0, 0, 0, 0),
+                    WholeShaped::Step { at, above, soft } => (1, at.0, *above as i32, soft.0),
+                    WholeShaped::Band { middle, spread } => (2, middle.0, spread.0, 0),
+                    WholeShaped::Free(curve) => (3, pack.curve(curve) as i32, 0, 0),
+                    WholeShaped::Zero => (4, 0, 0, 0),
+                };
+                let (w_has, w_amount, w_size, w_key) = step.wander.map_or((0, 0, 0, 0), |(amount, size, key)| (1, amount.0, size.0, key as i32));
+                let mode = Mode::ALL.iter().position(|&m| m == step.mode).unwrap_or(0) as i32;
+                steps.push([step.on as i32, kind, a, b, w_has, w_amount, w_size, w_key, shape, s0, s1, s2, mode, step.strength.0, step.range_in.0.0, step.range_in.1.0]);
+            }
+        }
+        let table = pack.list(&stacks);
+        let at = pack.list(&steps.concat());
+        pack.list(&[self.made.len() as i32, table, at])
+    }
+
     /// Made field `k` at the block `z` high in the column being read (`Program::value`).
     pub fn value(&self, k: usize, reading: &mut WholeReading, z: Fix) -> Fix {
         let mut so_far = Fix::ZERO;

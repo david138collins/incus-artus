@@ -96,6 +96,9 @@ pub const SLOTS: &[&str] = &[
     "BANK_RAISED_STEEPEST", "BANK_RAISED_WIDEST", "BANK_WIDEST_EITHER", "CURTAINS", "ANTI_KITTY", "GRID_CELL", "GRID_ACROSS",
     "GRID_NORTH", "GRID_EAST", "GRID_CELLS", "GRID_ENTRIES", "LAKES", "LAKE_CELL", "LAKE_ACROSS_X", "LAKE_ACROSS_Y", "LAKE_NORTH",
     "LAKE_WEST", "LAKE_CELLS", "LAKE_ENTRIES",
+    // The climate, the far index of the rivers, and mineralogy.
+    "HAS_CLIMATE", "TEMPERATURE", "RAIN", "COOLING", "FAR_NORTH", "FAR_EAST", "FAR_ACROSS", "FAR_DOWN", "FAR_WIDEST_HALF", "FAR_CELLS",
+    "FAR_ENTRIES", "MINERALOGY", "CRUST",
 ];
 
 /// A slot's number in the header.
@@ -128,6 +131,18 @@ fn mask_number(source: crate::world::MaskSource) -> i32 {
 impl Pack {
     fn set(&mut self, name: &str, value: i32) {
         self.words[slot(name)] = value;
+    }
+
+    /// Numbers put on the end of the list, and where they start.
+    pub fn list(&mut self, values: &[i32]) -> i32 {
+        self.array(values.iter().copied())
+    }
+
+    /// Mineralogy, its program in whole numbers, for a world of this seed.
+    pub fn mineralogy(&mut self, mineralogy: &crate::world::Mineralogy, program: &crate::world::placer::WholeProgram, seed: u64, crust: Fix) {
+        let at = mineralogy.pack(program, seed, self);
+        self.set("MINERALOGY", at);
+        self.set("CRUST", crust.0);
     }
 
     fn array(&mut self, values: impl IntoIterator<Item = i32>) -> i32 {
@@ -220,6 +235,25 @@ impl Pack {
         self.set("LAKE_CELLS", at);
         let at = self.array(entries);
         self.set("LAKE_ENTRIES", at);
+        // The rivers on the coarse grid: each cell's first piece and how many; each piece its ends and half
+        // its width.
+        let far = &c.far;
+        self.set("FAR_NORTH", far.corner.0.0);
+        self.set("FAR_EAST", far.corner.1.0);
+        self.set("FAR_ACROSS", if far.cells.is_empty() { 0 } else { far.across });
+        self.set("FAR_DOWN", far.down);
+        self.set("FAR_WIDEST_HALF", far.widest_half.0);
+        let (mut cells, mut entries) = (Vec::new(), Vec::new());
+        for cell in &far.cells {
+            cells.extend([(entries.len() / 5) as i32, cell.len() as i32]);
+            for &((an, ae), (bn, be), half) in cell {
+                entries.extend([an.0, ae.0, bn.0, be.0, half.0]);
+            }
+        }
+        let at = self.array(cells);
+        self.set("FAR_CELLS", at);
+        let at = self.array(entries);
+        self.set("FAR_ENTRIES", at);
     }
 
     /// A world's map and recipe (`WholeMap`), the header first.
@@ -228,6 +262,8 @@ impl Pack {
         let fix = |v: &[Fix]| v.iter().map(|f| f.0).collect::<Vec<i32>>();
         let pos = |v: &[Pos]| v.iter().map(|f| f.0).collect::<Vec<i32>>();
         p.set("WIDTH", map.width);
+        p.set("HAS_CLIMATE", (!map.temperature.is_empty()) as i32);
+        p.set("COOLING", map.cooling.0);
         p.set("BLOCKS", map.blocks.0);
         p.set("HALF", map.half.0);
         for (name, field) in [("COAST", &map.coast), ("HEIGHT", &map.height), ("TILT", &map.tilt), ("SQUEEZE", &map.squeeze), ("PUSH_X", &map.push_x), ("PUSH_Y", &map.push_y), ("PUSH_STRENGTH", &map.push_strength)] {
@@ -301,6 +337,10 @@ impl Pack {
         ] {
             p.set(name, value);
         }
+        let at = p.array(fix(&map.temperature));
+        p.set("TEMPERATURE", at);
+        let at = p.array(fix(&map.rain));
+        p.set("RAIN", at);
         let at = p.array(fix(&map.ridge_scales));
         p.set("RIDGE_SCALES", at);
         let at = p.array(fix(&map.ridge_strengths));
@@ -411,6 +451,23 @@ fn noise_and_curves(c: Case) -> i32 {
     }
 }
 
+fn minerals(c: Case) -> i32 {
+    var col: Col;
+    col.north = c.a;
+    col.east = c.b;
+    col.ground = (c.c & 0xFFFF) << 16u;
+    col.water = c.c >> 16u;
+    col.slope = c.d;
+    let climate = climate_at(c.a, c.b, col.ground);
+    col.temperature = 13107;
+    col.rain = 39322;
+    if (climate.z != 0) {
+        col.temperature = climate.x;
+        col.rain = climate.y;
+    }
+    return choose_blocks(col);
+}
+
 fn carved(c: Case) -> i32 {
     let column = ground_and_water(c.a, c.b);
     if (!column.ok) {
@@ -501,6 +558,64 @@ fn ground(c: Case) -> i32 {
             }
             assert!(wet > 200 / thinned().min(4), "only {wet} columns of water");
             assert!(wrong.is_empty(), "{way:?}, compressor {compressor}: the card and the processor disagree:\n{}", wrong.join("\n"));
+        }
+    }
+
+    /// Mineralogy: what each distributor chooses, the card bit for bit the processor, every kind of chooser,
+    /// with a climate, a river near and the slope.
+    #[test]
+    fn the_card_chooses_the_blocks_as_the_processor_does() {
+        use crate::world::carving::{Banks, Carving, Lakes, Point, Reach};
+        use crate::world::placer::{Chooser, WholeColumn, WholeReading};
+        use crate::world::{BlockId, TerrainBlocks};
+        use std::collections::HashMap;
+        let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
+        let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
+        let point = |north: f32, east: f32| Point { north, east, width: 8.0, depth: 3.0, edge: 0.4, flat: 0.3, bowl: 1.3, level: 190.0, bend: 0.0, curtain: f32::NAN, turn: 0.0, fade: 12.0 };
+        let carving = Carving::new(vec![Reach { points: vec![point(-300.0, -400.0), point(0.0, 0.0), point(200.0, 300.0)] }], Lakes::default(), Banks::default());
+        for chooser in [None, Some(Chooser::Best), Some(Chooser::Chance)] {
+            let mut map = rich_map(true);
+            let mut maps = (*map.maps).clone();
+            let cells = maps.width * maps.width;
+            maps.temperature = (0..cells).map(|i| ((i % 48) as f32 / 24.0) - 1.0).collect();
+            maps.rain = (0..cells).map(|i| (i / 48) as f32 / 48.0).collect();
+            maps.cooling = 0.3;
+            let mut settings = map.settings.clone();
+            if let Some(chooser) = chooser {
+                for distributor in &mut settings.mineralogy.distributors {
+                    distributor.chooser = chooser;
+                }
+            }
+            map = crate::world::CompiledMap::new(std::sync::Arc::new(maps), map.seed, settings).with_rivers(std::sync::Arc::new(carving.clone()));
+            let ready = map.mineralogy(&blocks);
+            let whole = WholeMap::new(&map);
+            let carved = WholeCarving::new(&carving);
+            let program = ready.program().whole(map.seed);
+            let mut pack = Pack::world(&whole, &carved);
+            let crust = Fix::from_f32(map.settings.mineralogy.crust);
+            pack.mineralogy(&ready, &program, map.seed, crust);
+            let mut cases = Vec::new();
+            for k in 0..3000 {
+                let (north, east) = ((k * 211) % 3000 - 1500, (k * 157) % 3000 - 1500);
+                let z = [100, 126, 129, 150, 260, 340, 500][k as usize % 7];
+                let water = if k % 5 == 0 { z + 3 } else { 0 };
+                cases.push([Pos::middle_of(north).0, Pos::middle_of(east).0, z | (water << 16), (k % 9) * 20_000]);
+            }
+            let Some(answers) = on_the_card("minerals", &pack.words, &cases) else {
+                eprintln!("No graphics card: mineralogy's twin test is skipped");
+                return;
+            };
+            let mut wrong = Vec::new();
+            for (c, &card) in cases.iter().zip(&answers) {
+                let (north, east, z, water) = (Pos(c[0]), Pos(c[1]), c[2] & 0xFFFF, c[2] >> 16);
+                let column = WholeColumn { north, east, ground: Fix::from_int(z), slope: Fix(c[3]), climate: whole.climate(north, east, Fix::from_int(z)), water: (water > 0).then_some(water) };
+                let mut reading = WholeReading::new(&whole, &carved, column, crust);
+                let processor = ready.whole_chosen(&program, &mut reading).iter().enumerate().fold(0i32, |all, (d, chosen)| all | ((chosen.map_or(0, |c| c as i32 + 1)) << (8 * d)));
+                if card != processor && wrong.len() < 12 {
+                    wrong.push(format!("at ({}, {}) Z {z}: card {card:#x}, processor {processor:#x}", north.to_f32(), east.to_f32()));
+                }
+            }
+            assert!(wrong.is_empty(), "{chooser:?}: the card and the processor disagree:\n{}", wrong.join("\n"));
         }
     }
 

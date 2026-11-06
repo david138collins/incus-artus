@@ -1257,3 +1257,413 @@ fn ground_and_water(north: i32, east: i32) -> Column {
     }
     return out;
 }
+
+// ── Mineralogy (`Mineralogy::whole_layers`, the placer's `WholeProgram` and `WholeReading`) ──
+
+// 64-bit numbers as (low, high) halves, for the planet hash.
+fn u64_mul(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
+    let low = wide_mul(a.x, b.x);
+    return vec2<u32>(low.x, low.y + a.x * b.y + a.y * b.x);
+}
+
+fn u64_shr(a: vec2<u32>, n: u32) -> vec2<u32> {
+    return vec2<u32>((a.x >> n) | (a.y << (32u - n)), a.y >> n);
+}
+
+fn split_mix(z_in: vec2<u32>) -> vec2<u32> {
+    var z = u64_mul(z_in ^ u64_shr(z_in, 30u), vec2<u32>(0x1CE4E5B9u, 0xBF58476Du));
+    z = u64_mul(z ^ u64_shr(z, 27u), vec2<u32>(0x133111EBu, 0x94D049BBu));
+    return z ^ u64_shr(z, 31u);
+}
+
+// `fate::planet_hash`, from its start (the seed and salt mixed, on the processor) and a spot.
+fn planet_hash_from(start: vec2<u32>, x: i32, y: i32) -> vec2<u32> {
+    let k = vec2<u32>(0x7F4A7C15u, 0x9E3779B9u);
+    var h = start;
+    for (var i = 0; i < 3; i++) {
+        var v = 0;
+        if (i == 0) {
+            v = x;
+        } else if (i == 1) {
+            v = y;
+        }
+        var wide = vec2<u32>(bitcast<u32>(v), 0u);
+        if (v < 0) {
+            wide.y = 0xFFFFFFFFu;
+        }
+        h = split_mix(h ^ u64_mul(wide, k));
+    }
+    return h;
+}
+
+fn climate_at(north: i32, east: i32, z: i32) -> vec3<i32> {
+    if (h(H_HAS_CLIMATE) == 0) {
+        return vec3<i32>(0, 0, 0);
+    }
+    let w = h(H_WIDTH);
+    let half_pixels = w * 32768;
+    let col = pos_ratio(east, h(H_BLOCKS)) + half_pixels - 32768;
+    let row = half_pixels - pos_ratio(north, h(H_BLOCKS)) - 32768;
+    let c0 = col >> 16u;
+    let r0 = row >> 16u;
+    let tc = col & 0xFFFF;
+    let tr = row & 0xFFFF;
+    var out: array<i32, 2>;
+    for (var k = 0; k < 2; k++) {
+        var field = hu(H_TEMPERATURE);
+        if (k == 1) {
+            field = hu(H_RAIN);
+        }
+        let a = field_at(field, c0, r0);
+        let b = field_at(field, c0 + 1, r0);
+        let c = field_at(field, c0, r0 + 1);
+        let d = field_at(field, c0 + 1, r0 + 1);
+        let top = a + fix_mul(b - a, tc);
+        let bottom = c + fix_mul(d - c, tc);
+        out[k] = top + fix_mul(bottom - top, tr);
+    }
+    let above_sea = max(z - SEA_Z, 0);
+    return vec3<i32>(out[0] - fix_div(fix_mul(h(H_COOLING), above_sea), 100 << 16u), out[1], 1);
+}
+
+fn bare_point(north: i32, east: i32) -> Point {
+    var p: Point;
+    p.north = north;
+    p.east = east;
+    return p;
+}
+
+// How far a spot is from the nearest river's water (blocks), up to `most` (`WholeFarIndex::distance`).
+fn river_distance(north: i32, east: i32, most: i32) -> i32 {
+    if (h(H_FAR_ACROSS) == 0) {
+        return most;
+    }
+    let cell = 128 * 256;
+    let c = div_floor(east - h(H_FAR_EAST), cell);
+    let r = div_floor(h(H_FAR_NORTH) - north, cell);
+    var best = most;
+    let cell_fix = 128 << 16u;
+    let rings = (fix_div(most + h(H_FAR_WIDEST_HALF), cell_fix) >> 16u) + 2;
+    for (var k = 0; k <= rings; k++) {
+        if (fix_mul((k - 1) << 16u, cell_fix) - h(H_FAR_WIDEST_HALF) >= best) {
+            break;
+        }
+        for (var dr = -k; dr <= k; dr++) {
+            var step = max(2 * k, 1);
+            if (abs(dr) == k) {
+                step = 1;
+            }
+            for (var dc = -k; dc <= k; dc += step) {
+                let cc = c + dc;
+                let rr = r + dr;
+                if (cc < 0 || rr < 0 || cc >= h(H_FAR_ACROSS) || rr >= h(H_FAR_DOWN)) {
+                    continue;
+                }
+                let at = hu(H_FAR_CELLS) + u32(rr * h(H_FAR_ACROSS) + cc) * 2u;
+                let first = u32(data[at]);
+                let count = u32(data[at + 1u]);
+                for (var e = 0u; e < count; e++) {
+                    let piece = hu(H_FAR_ENTRIES) + (first + e) * 5u;
+                    let al = along(bare_point(data[piece], data[piece + 1u]), bare_point(data[piece + 2u], data[piece + 3u]), north, east);
+                    best = min(best, max(al.x - data[piece + 4u], 0));
+                }
+            }
+        }
+    }
+    return best;
+}
+
+fn water_across(p: Point) -> i32 {
+    let edge = clamp(p.edge, 0, 65536);
+    let flat = clamp(p.flat, 0, 62259);
+    let fullness = flat + fix_mul(65536 - flat, edge + fix_div(65536 - edge, max(p.bowl, 3277) + 65536));
+    return fix_mul(max(p.width, 65536), max(fix_mul(p.depth, fullness), 65536));
+}
+
+// A column, as mineralogy reads it.
+struct Col {
+    north: i32,
+    east: i32,
+    ground: i32,
+    slope: i32,
+    temperature: i32,
+    rain: i32,
+    water: i32,
+}
+
+fn held(p: i32) -> i32 {
+    return clamp(p, -32767 * 256, 32767 * 256) << 8u;
+}
+
+fn column_value(field: i32, col: Col) -> i32 {
+    if (field == 12) {
+        return river_distance(col.north, col.east, 2000 << 16u);
+    }
+    if (field == 13) {
+        let piece = nearest_piece(col.north, col.east);
+        if (piece.ok) {
+            return water_across(piece.point);
+        }
+        return 0;
+    }
+    if (field == 14) {
+        var sea = 0;
+        if (col.ground < SEA_Z) {
+            sea = SEA_Z - 65536 - col.ground;
+        }
+        var river = 0;
+        if (col.water != 0) {
+            river = (col.water << 16u) - 65536 - col.ground;
+        }
+        return max(max(sea, river), 0);
+    }
+    if (field == 15) {
+        return select(0, 65536, col.water != 0);
+    }
+    if (field == 16) {
+        return col.temperature;
+    }
+    if (field == 17) {
+        return col.rain;
+    }
+    if (field == 18) {
+        return col.ground;
+    }
+    if (field == 19) {
+        return col.slope;
+    }
+    let m = maps_at(col.north, col.east);
+    if (!m.ok) {
+        return 0;
+    }
+    let here = m.here;
+    switch field {
+        case 0: { return here.height; }
+        case 1: { return here.tilt; }
+        case 2: {
+            if (here.squeeze >= 0) {
+                return fix_div(here.squeeze, max(h(H_MOST_CRUSHED), TINY_FIX));
+            }
+            return fix_div(here.squeeze, max(-h(H_MOST_STRETCHED), TINY_FIX));
+        }
+        case 3: { return here.push_strength; }
+        case 4: {
+            let degrees = (fix_atan2(here.push_y, here.push_x) >> 1u) * 360;
+            let round = 180 * 65536;
+            return ((degrees % round) + round) % round;
+        }
+        case 5: { return held(here.coast_distance); }
+        case 6: { return held(here.lift_distance); }
+        case 7: { return mountain_share(here); }
+        case 8: { return lifted(here); }
+        case 9: { return raised_coast(here); }
+        case 10: { return parts(here, m.x, m.y).y; }
+        case 11: { return parts(here, m.x, m.y).z; }
+        default: { return 0; }
+    }
+}
+
+fn read_field(field: i32, col: Col, z: i32) -> i32 {
+    if (field == 20) {
+        return z;
+    }
+    if (field == 21) {
+        return col.ground - z;
+    }
+    if (field == 22) {
+        return fix_div(col.ground - z, max(h(H_CRUST), 65536));
+    }
+    return column_value(field, col);
+}
+
+// The made fields worked out so far, and what each distributor chose (its block; 0 nothing).
+var<private> MADE: array<i32, 64>;
+var<private> CHOSEN: array<i32, 16>;
+
+fn mix_mode(mode: i32, so_far: i32, value: i32, strength: i32) -> i32 {
+    switch mode {
+        case 0: { return so_far + fix_mul(value - so_far, strength); }
+        case 1: { return so_far + fix_mul(value, strength); }
+        case 2: { return so_far - fix_mul(value, strength); }
+        case 3: { return fix_mul(so_far, 65536 + fix_mul(value - 65536, strength)); }
+        case 4: { return so_far + fix_mul(min(so_far, value) - so_far, strength); }
+        default: { return so_far + fix_mul(max(so_far, value) - so_far, strength); }
+    }
+}
+
+fn shaped(at: u32, x: i32) -> i32 {
+    let kind = data[at + 8u];
+    if (kind == 0) {
+        return x;
+    }
+    if (kind == 1) {
+        let mark = data[at + 9u];
+        let soft = data[at + 11u];
+        var t = 0;
+        if (soft > 0) {
+            t = fix_smooth(fix_div(x - mark + soft, soft * 2));
+        } else if (x >= mark) {
+            t = 65536;
+        }
+        if (data[at + 10u] != 0) {
+            return t;
+        }
+        return 65536 - t;
+    }
+    if (kind == 2) {
+        let middle = data[at + 9u];
+        let spread = data[at + 10u];
+        if (spread > 0) {
+            return 65536 - fix_smooth(fix_div(abs(x - middle), spread));
+        }
+        return select(0, 65536, x == middle);
+    }
+    if (kind == 3) {
+        let low = data[at + 14u];
+        let high = data[at + 15u];
+        return curve_at(u32(data[at + 9u]), clamp(fix_div(x - low, max(high - low, 1)), 0, 65536));
+    }
+    return 0;
+}
+
+fn column_noise(col: Col, key: u32, size: i32) -> i32 {
+    return perlin_at(key, 0, pos_per(col.north, size), pos_per(col.east, size));
+}
+
+// A stack of the program (a made field, or a candidate's) at `z`.
+fn stack_value(program: u32, k: u32, col: Col, z: i32) -> i32 {
+    let table = u32(data[program + 1u]);
+    let steps = u32(data[program + 2u]);
+    let first = u32(data[table + k * 2u]);
+    let count = u32(data[table + k * 2u + 1u]);
+    var so_far = 0;
+    for (var n = 0u; n < count; n++) {
+        let at = steps + (first + n) * 16u;
+        if (data[at] == 0) {
+            continue;
+        }
+        let kind = data[at + 1u];
+        let a = data[at + 2u];
+        let b = data[at + 3u];
+        var value = 0;
+        if (kind == 0) {
+            value = read_field(a, col, z);
+        } else if (kind == 1) {
+            value = column_noise(col, u32(b), a);
+        } else if (kind == 2) {
+            value = MADE[a];
+        } else if (kind == 3) {
+            value = so_far;
+        } else if (kind == 4) {
+            value = a;
+        } else if (kind == 5) {
+            let list = u32(b);
+            let blocks = u32(data[list]);
+            for (var i = 0u; i < blocks; i++) {
+                if (CHOSEN[a] == data[list + 1u + i]) {
+                    value = 65536;
+                }
+            }
+        }
+        if (data[at + 4u] != 0) {
+            value = value + fix_mul(column_noise(col, u32(data[at + 7u]), data[at + 6u]), data[at + 5u]);
+        }
+        so_far = mix_mode(data[at + 12u], so_far, shaped(at, value), data[at + 13u]);
+    }
+    return so_far;
+}
+
+// What each distributor chose, as (its candidate + 1) in a byte each, the first in the lowest.
+fn choose_blocks(col: Col) -> i32 {
+    let mineralogy = hu(H_MINERALOGY);
+    let program = u32(data[mineralogy]);
+    let distributors = u32(data[mineralogy + 1u]);
+    let table = u32(data[mineralogy + 2u]);
+    let fields = u32(data[mineralogy + 4u]);
+    for (var j = 0u; j < fields; j++) {
+        MADE[j] = stack_value(program, j, col, col.ground);
+    }
+    var choices = 0;
+    for (var d = 0u; d < distributors; d++) {
+        let at = table + d * 7u;
+        var chosen = -1;
+        if (data[at] != 0) {
+            let chooser = data[at + 1u];
+            let count = u32(data[at + 3u]);
+            let candidates = u32(data[at + 4u]);
+            if (chooser == 0) {
+                for (var c = 0u; c < count; c++) {
+                    let cand = candidates + c * 4u;
+                    if (data[cand] == 0) {
+                        continue;
+                    }
+                    var suits = 65536;
+                    if (data[cand + 1u] == 0) {
+                        suits = stack_value(program, u32(data[cand + 2u]), col, col.ground);
+                    }
+                    if (suits >= data[at + 2u]) {
+                        chosen = i32(c);
+                        break;
+                    }
+                }
+            } else if (chooser == 1) {
+                var best = 0;
+                for (var c = 0u; c < count; c++) {
+                    let cand = candidates + c * 4u;
+                    if (data[cand] == 0) {
+                        continue;
+                    }
+                    var suits = 65536;
+                    if (data[cand + 1u] == 0) {
+                        suits = stack_value(program, u32(data[cand + 2u]), col, col.ground);
+                    }
+                    if (suits > 0 && (chosen < 0 || suits > best)) {
+                        chosen = i32(c);
+                        best = suits;
+                    }
+                }
+            } else if (chooser == 2) {
+                var weights: array<i32, 32>;
+                var total = 0;
+                for (var c = 0u; c < count; c++) {
+                    let cand = candidates + c * 4u;
+                    weights[c] = 0;
+                    if (data[cand] == 0) {
+                        continue;
+                    }
+                    var suits = 65536;
+                    if (data[cand + 1u] == 0) {
+                        suits = stack_value(program, u32(data[cand + 2u]), col, col.ground);
+                    }
+                    weights[c] = max(suits, 0);
+                    total = total + weights[c];
+                }
+                let hash = planet_hash_from(vec2<u32>(u32(data[at + 5u]), u32(data[at + 6u])), col.north >> 8u, col.east >> 8u);
+                let product = wide_mul(hash.y >> 8u, bitcast<u32>(total));
+                let roll = bitcast<i32>((product.x >> 24u) | (product.y << 8u));
+                var sum = 0;
+                var last = -1;
+                for (var c = 0u; c < count; c++) {
+                    if (weights[c] <= 0) {
+                        continue;
+                    }
+                    last = i32(c);
+                    sum = sum + weights[c];
+                    if (roll < sum && chosen < 0) {
+                        chosen = i32(c);
+                    }
+                }
+                if (chosen < 0) {
+                    chosen = last;
+                }
+            }
+        }
+        if (chosen >= 0) {
+            CHOSEN[d] = data[u32(data[at + 4u]) + u32(chosen) * 4u + 3u];
+        } else {
+            CHOSEN[d] = 0;
+        }
+        choices = choices | ((chosen + 1) << (8u * d));
+    }
+    return choices;
+}

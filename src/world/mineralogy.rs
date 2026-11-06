@@ -322,22 +322,54 @@ impl Mineralogy {
         }
     }
 
+    /// Packed for the card (`card_recipe`): the program, then how many distributors and, for each: on, its
+    /// chooser (0 first fit, 1 best, 2 chance, 3 unknown), the first fit's mark, how many candidates and
+    /// where they start, and its roll's start (the planet hash of the seed and its salt, as two halves);
+    /// each candidate: whether it's usable, whether it fits everywhere, its stack, its block. Returns
+    /// where it starts.
+    pub fn pack(&self, program: &super::placer::WholeProgram, seed: u64, pack: &mut super::card_recipe::Pack) -> i32 {
+        let program_at = program.pack(pack);
+        let mut table = Vec::new();
+        for (d, distributor) in self.distributors.iter().enumerate() {
+            let (chooser, at) = match distributor.chooser {
+                Chooser::FirstFit { at } => (0, crate::whole::Fix::from_f32(at).0),
+                Chooser::Best => (1, 0),
+                Chooser::Chance => (2, 0),
+                Chooser::Unknown => (3, 0),
+            };
+            let candidates: Vec<i32> = distributor.candidates.iter().flat_map(|c| [c.usable() as i32, c.everywhere as i32, c.stack as i32, c.block.map_or(0, |b| b.0 as i32)]).collect();
+            let start = crate::fate::roll_start(seed, 0x91ac_ed15 + d as u64);
+            let candidates_at = pack.list(&candidates);
+            table.extend([distributor.on as i32, chooser, at, distributor.candidates.len() as i32, candidates_at, start as u32 as i32, (start >> 32) as u32 as i32]);
+        }
+        let table_at = pack.list(&table);
+        pack.list(&[program_at, self.distributors.len() as i32, table_at, crate::whole::Fix::from_f32(self.settings.crust).0, self.settings.fields.len() as i32])
+    }
+
     // ── In whole numbers (the regroup, phase 2.2) ──
 
     /// What the column is made of, read in whole numbers (`layers`): `program` is this mineralogy's
     /// `program().whole(seed)`.
     pub fn whole_layers(&self, program: &super::placer::WholeProgram, reading: &mut super::placer::WholeReading) -> Layers {
         let mut layers = Layers::rock(self.blocks.stone);
-        reading.chosen.clear();
-        for (d, distributor) in self.distributors.iter().enumerate() {
-            let chosen = if distributor.on { self.whole_choose(d, distributor, program, reading) } else { None };
-            let picked = chosen.map(|c| &distributor.candidates[c]);
-            reading.chosen.push(picked.and_then(|candidate| candidate.block).unwrap_or(BlockId::AIR));
-            if let Some(candidate) = picked {
+        for (distributor, chosen) in self.distributors.iter().zip(self.whole_chosen(program, reading)) {
+            if let Some(candidate) = chosen.map(|c| &distributor.candidates[c]) {
                 layers = if candidate.top_only { layers.with_top(candidate.profile.top) } else { candidate.profile.clone() };
             }
         }
         layers
+    }
+
+    /// Which candidate each distributor chose (in whole numbers), in order.
+    pub fn whole_chosen(&self, program: &super::placer::WholeProgram, reading: &mut super::placer::WholeReading) -> Vec<Option<usize>> {
+        reading.chosen.clear();
+        let mut chosen_all = Vec::with_capacity(self.distributors.len());
+        for (d, distributor) in self.distributors.iter().enumerate() {
+            let chosen = if distributor.on { self.whole_choose(d, distributor, program, reading) } else { None };
+            reading.chosen.push(chosen.and_then(|c| distributor.candidates[c].block).unwrap_or(BlockId::AIR));
+            chosen_all.push(chosen);
+        }
+        chosen_all
     }
 
     fn whole_suits(&self, candidate: &Ready1, program: &super::placer::WholeProgram, reading: &mut super::placer::WholeReading) -> crate::whole::Fix {
