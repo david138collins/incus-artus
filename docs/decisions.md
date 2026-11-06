@@ -1141,7 +1141,11 @@ below disagree with this one, this one stands.
     from a high point you should see across the entire world. if it takes a second for the resolution to sharpen
     and it looks right, almost like sliding the ring on a nice lens for a camera, i don't think that's a big deal.
     i said 8 miles, or 1/8 of the world around you, to snap into when you spawn". So fog comes with the weather,
-    not as a fixed wall, and the whole world must be drawable. The recipe answering at a cell's size stays on file as an
+    not as a fixed wall, and the whole world must be drawable.
+  - **A loading screen for players; the raw sharpening for David** [2026-11-06]: "yes, we can just do a loading
+    screen. but id like to see the sharpening myself, realtime and raw, until we are doing finishing touches".
+    The start bake takes about 46 s on his card, once per world. Our builds skip the wait and show the bake
+    filling live. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
