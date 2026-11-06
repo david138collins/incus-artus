@@ -1136,7 +1136,12 @@ below disagree with this one, this one stands.
     about 55 s with colours before play, and the rest refines in the background in about 12 minutes. On slower
     cards the start reach is a setting that scales with the card. And: "go ahead and proceed. we have that
     checkpoint if we make a mistake. but think about what parts... might be good and bad and be prepared to
-    telescope back and forth between the checkpoint". The recipe answering at a cell's size stays on file as an
+    telescope back and forth between the checkpoint".
+  - **Clear days see the whole world** [David 2026-11-06]: "fog really would bring the world in, but on clear days
+    from a high point you should see across the entire world. if it takes a second for the resolution to sharpen
+    and it looks right, almost like sliding the ring on a nice lens for a camera, i don't think that's a big deal.
+    i said 8 miles, or 1/8 of the world around you, to snap into when you spawn". So fog comes with the weather,
+    not as a fixed wall, and the whole world must be drawable. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
