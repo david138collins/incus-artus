@@ -94,6 +94,11 @@ impl CavePlan {
         self.tunnels.is_empty()
     }
 
+    /// Is the block at (x, y, z) inside a cave? (`inside`, in plain numbers.)
+    pub fn inside_at(&self, x: i32, y: i32, z: i32) -> bool {
+        self.inside(IVec3::new(x, y, z))
+    }
+
     /// Every section-sized box (chunk north, chunk east, level) and the pieces of tunnel near it (tunnel,
     /// first point): for the card's copy (`card_recipe`).
     pub fn boxes_with_pieces(&self) -> impl Iterator<Item = (&(i32, i32, i32), &Vec<(u32, u32)>)> {

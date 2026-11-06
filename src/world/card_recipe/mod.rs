@@ -705,7 +705,7 @@ fn ground(c: Case) -> i32 {
         };
         let (mut wrong, mut inside) = (Vec::new(), 0);
         for (c, &card) in cases.iter().zip(&answers) {
-            let processor = plan.inside(crate::ecs::math::IVec3::new(c[0], c[1], c[2])) as i32;
+            let processor = plan.inside_at(c[0], c[1], c[2]) as i32;
             inside += processor as usize;
             if card != processor && wrong.len() < 12 {
                 wrong.push(format!("block ({}, {}, {}): card {card}, processor {processor}", c[0], c[1], c[2]));
