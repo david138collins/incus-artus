@@ -297,6 +297,22 @@ out, which the card does fast and exactly.
 | 2.3 | The recipe ported to the card (WGSL compute): the map blend, land and sea curves, mountains and ridges, peaks and crags, torn coast, detail, the river and lake carving (their lookup lists flattened into buffers), mineralogy's layers and the placer's fields they read (two passes, for the slope), and the cave carve (already whole numbers; the cave plan flattened into buffers as its section boxes). The twin test: about a million columns, card against processor, exactly, plus the cave carve block by block. | 4 to 6 |
 | 2.4 | Reading back, on the loading lane: the card works out a chunk's columns, they come back through a ring of staging buffers without waiting, and the real chunks near the player are filled from them, caves taken out as today (whole numbers, the same answer). Walking and collision return. | about 2 |
 
+- **2.2's numbers, decided before converting** (so every piece is checked against one plan):
+  - **Values** (heights in blocks, shares from 0 to 1, curves' answers, the noise's): `Fix`, 65536ths, about ±32,768.
+  - **Positions** (north, east, and the recipe's x and y): a world is 72,000 blocks across by default, past `Fix`'s
+    reach, so positions are their own kind, `Pos`: 256ths of a block, about ±8 million blocks. A column's middle is
+    exact.
+  - **The noise's own coordinates** (a position over a feature size): `Fix` units, wrapping past ±32,768 units, as the
+    noise already repeats there.
+  - **The maps' fields** (made at world creation, which may use fractions) are turned into whole numbers once as a
+    world loads, each in its own kind (heights as `Fix`, distances as `Pos`), and those same numbers go to the card.
+  - **Settings** likewise: turned into whole numbers once, on the processor, the same numbers handed to the card.
+  - **Curves**: their dots and slopes worked out once from the settings, then read in whole numbers (the bow through
+    the kit's `pow`).
+  - **The order:** `Pos` and its twin cases; the curves; the noise's entry in whole numbers; the maps' blend; the
+    recipe's parts (land and sea, the edge rise and lift, mountains and ridges, peaks and crags, summit crags, the
+    torn coast, detail); the river and lake carving; mineralogy and the placer's fields; the cave carve. Each piece
+    kept working with its tests as it goes; David's look once the whole recipe is converted.
 - **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.
 - **Measured:** the readback's cost, in the slow-frame log.
 - **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.
