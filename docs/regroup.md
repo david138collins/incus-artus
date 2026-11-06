@@ -620,6 +620,18 @@ back to.
   white specks, 50 fps). Checked from 400 blocks up looking 40° down: smooth, no rings, no specks. **Cost after the
   cure, David's screen, uncapped, flying the soak with the start bake on the card:** 2 × 2 about 120 fps (sight about
   7.5 ms), 4 × 4 about 250 (about 3.4 ms), 8 × 8 about 340 to 376 (about 2 ms).
+  **Build 69's look** [David: "the oceans still show the rings. but the rings are so fast that they seem like a
+  physical artifact of the eye... i think it's a great start. im concerned about performance however... the far view
+  is turning out to look exactly how i imagined when i said, 'what if we just use a lower resolution except up close
+  and let it be like a dos game far away'"]. **The sea's rings, measured** (`sight_over_a_flat_sea_holds_still`, a
+  test that draws a made-up sea off the screen with the real march, from places a fraction of a block apart): the
+  per-pixel shimmer was about half a level of 255 (unseen), but where the store's levels change, a step of about 2%
+  in the sea's brightness: a ring round the eye that moved with it. **The cure:** over the last stretch of each
+  level's distances the two levels blended (from 0.6 of the way to the next), never a seam; the step is now down in
+  the grain (about 1%). Each step is also gathered from both its ends now (trapezoids), which helped little here. In
+  the game the sea is one even colour to the edge of the bake. **Cost, uncapped, flying:** 2 × 2 about 112 fps, 4 × 4
+  about 255, 8 × 8 about 270 to 332. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
+  45° and 30° slope tests will use.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

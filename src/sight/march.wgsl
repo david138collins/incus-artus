@@ -19,7 +19,8 @@ struct Camera {
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
     // x: the farthest a ray goes (blocks); y: the level bias; z: 1 to show each ray's steps instead (a
-    // measuring view: dark blue few, through green and yellow, to red 256 or more).
+    // measuring view: dark blue few, through green and yellow, to red 256 or more), 2 to tint each pixel by
+    // the level its surface was read from (a measuring view: where the levels change).
     reach: vec4<f32>,
 }
 
@@ -180,6 +181,21 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
     return out;
 }
 
+// Where in a level's stretch (0 its start, 1 where the next takes over) the blend with the next begins.
+const BLEND_FROM: f32 = 0.6;
+
+// Two looks mixed: `w` of the second.
+fn mix_looks(a: Look, b: Look, w: f32) -> Look {
+    let k = clamp(w, 0.0, 1.0);
+    var out = a;
+    out.solid = mix(a.solid, b.solid, k);
+    out.water = mix(a.water, b.water, k);
+    out.colour = mix(a.colour, b.colour, k);
+    out.facing = mix(a.facing, b.facing, k);
+    out.surface = mix(a.surface, b.surface, k);
+    return out;
+}
+
 fn sky(d: vec3<f32>) -> vec3<f32> {
     let up = clamp(d.z, -0.2, 1.0);
     let horizon = vec3<f32>(0.62, 0.72, 0.86);
@@ -221,6 +237,7 @@ struct Seen {
     colour: vec3<f32>,
     distance: f32,
     steps: f32,
+    level: i32,
 }
 
 // A number from 0 to 1 for a pixel, steady from frame to frame (a hash of its place).
@@ -248,6 +265,13 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
     var walking = false;
     // Where the walk in has to reach (the place it first touched) before strides start again.
     var walk_to = 0.0;
+    var first_level = -1;
+    // The last sample, for gathering each step from both its ends (trapezoids: what's gathered then hardly
+    // depends on where the steps fall; one end alone left contours that moved as the eye rose and fell, David
+    // build 69: "the oceans still show the rings... so fast"). `chained` false after a skip or a back-up.
+    var before: Look;
+    var before_t = 0.0;
+    var chained = false;
     var steps = 0;
     let water_colour = vec3<f32>(0.05, 0.16, 0.30);
     for (var n = 0; n < 768; n++) {
@@ -275,6 +299,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
                 t = max(leave2(o.xy, d.xy, r, f32(1 << u32(REGION))), t) + 0.01;
                 last_air = t;
                 walking = false;
+                chained = false;
                 continue;
             }
         }
@@ -308,6 +333,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
                 t = next + 0.01;
                 last_air = t;
                 walking = false;
+                chained = false;
                 skipped = true;
                 break;
             }
@@ -321,6 +347,15 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
             level = level + 1;
             look = blend(level, p);
         }
+        // Over the last stretch before the next level takes over, the two blended, so the change is gradual,
+        // never a seam (seams drew rings round the eye over flat water that moved as it moved: David, build 69).
+        let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
+        if (look.known && over > BLEND_FROM && level < header[1]) {
+            let next = blend(level + 1, p);
+            if (next.known) {
+                look = mix_looks(look, next, (over - BLEND_FROM) / (1.0 - BLEND_FROM));
+            }
+        }
         let size = f32(1 << u32(level));
         let thick = select(0.0, max(look.solid, look.water), look.known);
         // The first touch of a surface after a stride through air: back to where the air was, and into the
@@ -331,6 +366,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
             walking = true;
             // No skipping while walking in (a skip from here only leapt back to where it was).
             in_air = false;
+            chained = false;
             continue;
         }
         // Air within a cell all round: two cells on (the next sample still reads everything between). By a
@@ -349,25 +385,35 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
             last_air = t;
             walking = false;
         }
-        if (look.known) {
-            let solid = 1.0 - pow(1.0 - min(look.solid, 0.999), dt / size);
-            let water = (1.0 - pow(1.0 - min(look.water, 0.999), dt / size)) * 0.85;
+        // The step from the last sample to this one, gathered from both its ends.
+        if (look.known && chained && before.known) {
+            let length = t - before_t;
+            let solid_share = 0.5 * (before.solid + look.solid);
+            let water_share = 0.5 * (before.water + look.water);
+            let solid = 1.0 - pow(1.0 - min(solid_share, 0.999), length / size);
+            let water = (1.0 - pow(1.0 - min(water_share, 0.999), length / size)) * 0.85;
             let covered = 1.0 - (1.0 - solid) * (1.0 - water);
             if (covered > 0.0) {
-                let light = camera.sun.w + (1.0 - camera.sun.w) * max(dot(look.facing, camera.sun.xyz), 0.0);
-                let ground = look.colour * light;
+                // Each end's colour as lit, weighted by how much solid it has.
+                let lit_before = before.colour * (camera.sun.w + (1.0 - camera.sun.w) * max(dot(before.facing, camera.sun.xyz), 0.0));
+                let lit_now = look.colour * (camera.sun.w + (1.0 - camera.sun.w) * max(dot(look.facing, camera.sun.xyz), 0.0));
+                let ground = (lit_before * before.solid + lit_now * look.solid) / max(before.solid + look.solid, 1e-6);
                 let here = (ground * solid + water_colour * water) / max(solid + water, 1e-6);
                 colour += through * covered * here;
                 if (through > 0.5 && through * (1.0 - covered) <= 0.5) {
                     first = t;
+                    first_level = level;
                 }
                 through *= 1.0 - covered;
             }
         }
+        before = look;
+        before_t = t;
+        chained = look.known;
         t += dt;
     }
     colour += through * sky(d);
-    return Seen(colour, first, f32(steps));
+    return Seen(colour, first, f32(steps), first_level);
 }
 
 fn to_srgb(c: vec3<f32>) -> vec3<f32> {
@@ -386,6 +432,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     var colour = vec3<f32>(0.0);
     var near = camera.reach.x;
     var steps = 0.0;
+    var level = -1;
     for (var r = 0u; r < rays; r++) {
         // One ray at the middle; four at the middles of the pixel's quarters.
         var offset = vec2<f32>(0.5, 0.5);
@@ -400,9 +447,13 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         colour += seen.colour;
         near = min(near, seen.distance);
         steps += seen.steps;
+        level = max(level, seen.level);
     }
     colour /= f32(rays);
-    if (camera.reach.z > 0.5) {
+    if (camera.reach.z > 1.5 && level >= 0) {
+        let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
+        colour = colour * 0.4 + tints[level % 6] * 0.35;
+    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
         let k = clamp(steps / f32(rays) / 256.0, 0.0, 1.0);
         colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);
         colour = colour * colour;

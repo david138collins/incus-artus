@@ -36,7 +36,8 @@ fn speed() -> f32 {
 }
 
 fn radius() -> f32 {
-    RADIUS.max(speed() * 9.5)
+    // `INCUS_SOAK_RADIUS`: another circle (out over the sea, say, for sight's checks).
+    std::env::var("INCUS_SOAK_RADIUS").ok().and_then(|v| v.parse().ok()).unwrap_or(RADIUS.max(speed() * 9.5))
 }
 /// How high above the ground (or the sea).
 const ABOVE: f32 = 120.0;

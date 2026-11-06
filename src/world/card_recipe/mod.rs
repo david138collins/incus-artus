@@ -998,6 +998,131 @@ fn ground(c: Case) -> i32 {
         eprintln!("Sight's bake patched: {dug} blocks dug, the region's top cell that much lighter; {cells_before} cells before, {cells_after} after");
     }
 
+    /// A made-up world for sight's drawing tests: a plain map of `width` × `width` pixels of 64 blocks whose
+    /// ground is exactly `height(pixel x)` (every part of the recipe muted), baked whole onto a store on the
+    /// card. The card, the store, and the map.
+    fn sight_scene(blocks_per_pixel: f32, height: impl Fn(usize) -> f32) -> Option<(wgpu::Device, wgpu::Queue, std::sync::Arc<crate::sight::card_store::CardStore>, crate::world::CompiledMap)> {
+        use crate::sight::cell::FarColours;
+        use crate::sight::store::Maker;
+        use crate::world::{BlockId, CavePlan, CompiledMap, Mutes, TerrainBlocks};
+        use std::collections::HashMap;
+        let (device, queue) = crate::whole::shader::card()?;
+        let width = 48;
+        let mut map = CompiledMap::of_heights(width, blocks_per_pixel, &(0..width * width).map(|i| height(i % width)).collect::<Vec<f32>>());
+        map.mutes = Mutes { lift: true, mountains: true, raised_coast: true, ridges: true, torn_coast: true, detail: true, peaks: true, crags: true, summit_crags: true, rivers: true, ..Mutes::default() };
+        let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
+        let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
+        // Grass a mid green, stone a grey, water a blue (1,024ths of linear light).
+        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| if k == 3 { ([90, 220, 60], [120, 130, 90]) } else if k == 4 { ([40, 120, 300], [40, 120, 300]) } else { ([300, 290, 270], [260, 250, 235]) }).collect(), water: blocks.water };
+        let plan = CavePlan::default();
+        let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).ok()?;
+        let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
+        let store = std::sync::Arc::new(crate::sight::card_store::CardStore::new(&device, &queue, half, 4, 64));
+        let odd = world.odd;
+        let maker = Maker { device: device.clone(), queue: queue.clone(), world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan), card: Some(store.clone()) };
+        let with = crate::sight::bake::Blocks { map: std::sync::Arc::new(map.clone()), blocks, colours, changed: Default::default() };
+        let (baking, jobs) = crate::sight::bake::start(maker, with, odd, half, (0, 0), 1, None);
+        let started = std::time::Instant::now();
+        while baking.bake.lock().map(|b| b.all_done.is_none()).unwrap_or(false) && started.elapsed().as_secs() < 300 {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        drop(jobs);
+        Some((device, queue, store, map))
+    }
+
+    /// The march drawn off the screen, `size` pixels, from `eye`: the picture's red, green and blue, row by row.
+    fn sight_picture(device: &wgpu::Device, queue: &wgpu::Queue, store: &std::sync::Arc<crate::sight::card_store::CardStore>, size: (u32, u32), eye: crate::sight::draw::Eye) -> Vec<[u8; 3]> {
+        let mut draw = crate::sight::draw::SightDraw::new(device, wgpu::TextureFormat::Rgba8Unorm);
+        let target = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("a test picture"),
+            size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let view = target.create_view(&Default::default());
+        let row = (size.0 * 4).div_ceil(256) * 256;
+        let readback = device.create_buffer(&wgpu::BufferDescriptor { label: None, size: (row * size.1) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let mut encoder = device.create_command_encoder(&Default::default());
+        draw.frame(device, queue, &mut encoder, &view, size, eye, store);
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo { texture: &target, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+            wgpu::TexelCopyBufferInfo { buffer: &readback, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row), rows_per_image: Some(size.1) } },
+            wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
+        );
+        queue.submit([encoder.finish()]);
+        readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
+        device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+        let bytes = readback.slice(..).get_mapped_range().expect("the picture").to_vec();
+        (0..size.1).flat_map(|y| (0..size.0).map(move |x| (x, y))).map(|(x, y)| {
+            let at = (y * row + x * 4) as usize;
+            [bytes[at], bytes[at + 1], bytes[at + 2]]
+        }).collect()
+    }
+
+    /// Sight over a flat sea doesn't shimmer (David, build 69: "the oceans still show the rings... so fast"):
+    /// the same view from places a fraction of a step apart, each pixel's change measured. Over a sea all
+    /// alike, a true picture barely changes; rings that move with the eye change it a lot.
+    #[test]
+    #[ignore]
+    fn sight_over_a_flat_sea_holds_still() {
+        // 24 km across, so the view crosses where the store's levels change (rings that move with the eye).
+        let Some((device, queue, store, _map)) = sight_scene(512.0, |_| 70.0) else {
+            eprintln!("No graphics card: sight's sea test is skipped");
+            return;
+        };
+        let size = (640, 400);
+        let pitch = -40f32.to_radians();
+        // Up by a fraction of a block at a time (the cells' layering is what a ray's steps meet).
+        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0 };
+        let pictures: Vec<Vec<[u8; 3]>> = (0..6).map(|k| sight_picture(&device, &queue, &store, size, eye(400.0 + k as f32 * 1.37))).collect();
+        // From just under the horizon (row 32 at 40° down) to the bottom: all sea.
+        let first_row = 40u32;
+        let from = (first_row * size.0) as usize;
+        let mut changes = Vec::new();
+        for pair in pictures.windows(2) {
+            let mut total = 0u64;
+            let mut most = 0u32;
+            for (a, b) in pair[0][from..].iter().zip(&pair[1][from..]) {
+                let d = (0..3).map(|c| (a[c] as i32 - b[c] as i32).unsigned_abs()).max().unwrap_or(0);
+                total += d as u64;
+                most = most.max(d);
+            }
+            changes.push((total as f64 / (pair[0].len() - from) as f64, most));
+        }
+        // Down the middle, the sea's brightness should change smoothly with distance: its turns counted (rings
+        // are wiggles).
+        let light = |p: [u8; 3]| p[0] as i32 * 2 + p[1] as i32 * 7 + p[2] as i32;
+        let column: Vec<i32> = (first_row..size.1).map(|y| light(pictures[0][(y * size.0 + size.0 / 2) as usize])).collect();
+        let mut turns = 0;
+        let mut last_sign = 0;
+        for pair in column.windows(2) {
+            let sign = (pair[1] - pair[0]).signum();
+            if sign != 0 {
+                if last_sign != 0 && sign != last_sign {
+                    turns += 1;
+                }
+                last_sign = sign;
+            }
+        }
+        // Where the biggest changes are: rows with a pixel changing by more than 4.
+        let mut rows = std::collections::BTreeMap::new();
+        for (k, (a, b)) in pictures[0].iter().zip(&pictures[1]).enumerate().skip(from) {
+            if (0..3).any(|c| (a[c] as i32 - b[c] as i32).abs() > 4) {
+                *rows.entry(k as u32 / size.0).or_insert(0) += 1;
+            }
+        }
+        // Down the middle, the biggest steps in brightness from one row to the next (a seam is a step).
+        let mut steps: Vec<(i32, u32)> = (first_row..size.1 - 1).map(|y| ((light(pictures[0][((y + 1) * size.0 + size.0 / 2) as usize]) - light(pictures[0][(y * size.0 + size.0 / 2) as usize])).abs(), y)).collect();
+        steps.sort();
+        eprintln!("Sight over the sea: the biggest steps down the middle (brightness out of 2,550, row): {:?}", &steps[steps.len().saturating_sub(8)..]);
+        eprintln!("Sight over the sea: rows with a pixel changing by more than 4 (row: how many): {rows:?}");
+        eprintln!("Sight over the sea: {turns} turns in the brightness down the middle; each rise of 1.37 blocks changes a pixel by (mean, most of 255) {:?}", changes);
+    }
+
     /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,
     /// bit for bit the sums of the very blocks the processor's chunks hold (`sight::cell::sums_of_box` over
     /// `CompiledMap::chunk`): ground, a river, a lake, mineralogy's layers, tunnels coming out of the ground

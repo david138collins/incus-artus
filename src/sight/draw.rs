@@ -132,7 +132,7 @@ impl SightDraw {
             [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],
             [size.0 as f32, size.1 as f32, pixel, eye.rays.max(1) as f32],
             [SUN[0], SUN[1], SUN[2], AMBIENT],
-            [REACH, 0.0, if std::env::var("INCUS_SIGHT_STEPS").is_ok() { 1.0 } else { 0.0 }, 0.0],
+            [REACH, 0.0, if std::env::var("INCUS_SIGHT_STEPS").is_ok() { 1.0 } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() { 2.0 } else { 0.0 }, 0.0],
         ];
         queue.write_buffer(&self.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let up_numbers: [[f32; 4]; 2] = [[screen.0 as f32, screen.1 as f32, size.0 as f32, size.1 as f32], [eye.upscale as f32, grid as f32, 0.0, 0.0]];
