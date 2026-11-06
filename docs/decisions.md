@@ -1129,7 +1129,14 @@ below disagree with this one, this one stands.
     temporary and predictable. if they don't know what to expect it'd become a constant annoyance. i think it can
     be done gracefully if necessary." So a fast first pass, with one true recipe sample per 32-block cell over the
     whole world (about 0.2 s), can be replaced by the exact bake, outward from the player: very temporary, always
-    in the same order, easing into the true average rather than snapping. The recipe answering at a cell's size stays on file as an
+    in the same order, easing into the true average rather than snapping.
+  - **The start reach, and the go on 3.1** [David 2026-11-06, to Builder]: "an eighth of the world being
+    immediately present as the rest fill in would probably be beyond visual range for most circumstances." So the
+    start bake covers about an eighth of the world round the spawn (about 25,000 blocks square). On his card that's
+    about 55 s with colours before play, and the rest refines in the background in about 12 minutes. On slower
+    cards the start reach is a setting that scales with the card. And: "go ahead and proceed. we have that
+    checkpoint if we make a mistake. but think about what parts... might be good and bad and be prepared to
+    telescope back and forth between the checkpoint". The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
