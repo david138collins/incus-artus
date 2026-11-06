@@ -169,6 +169,11 @@ time?"). 3.2 is talked through with him before it's built.
   loop, the same runs at the screen (`INCUS_TEST_WINDOW`, `soak.rs`: 2 minutes uncapped, 2 at 120, by itself),
   with their numbers written here. A bolt is tight once its check passes, and again after every change.
   Response before frame rate: input-to-photon latency is a first-class number in it.
+  - **A rule for any card work off the frame thread** [found 2026-11-06, 3.1c]: wait for the card *gently* (wgpu's
+    non-blocking poll, a moment's sleep between asks: `on_card::wait_gently`), never with a blocking wait on another
+    thread: a worker inside wgpu's blocking wait held the frame's own showing up 5 to 6 ms, whatever the work's size.
+    And hand the card its work in small pieces, each waited for before the next (a lump of several milliseconds holds
+    the frame behind it). A soak flight with the work going on is the check: the slowest 1% of frames over 200.
 - **Build 62, Fork A's first bolts** (measured below):
   - **Pacing by the screen's own clock** (`runner::pace`, `runner/hardware.rs`): under a cap, the frame waits for
     the screen's refreshes (DXGI's wait for the vertical blank on the window's screen) until the cap's number
