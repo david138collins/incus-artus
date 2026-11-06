@@ -221,6 +221,7 @@ pub fn stream_chunks(
     let centre = ChunkPos::of_block(position.floor().as_ivec3());
 
     // Finished chunks come in, within the time budget.
+    let timed_in = crate::perf::Timed::new("chunks in");
     let started = Instant::now();
     let mut done = Vec::new();
     streaming.making.retain(|&pos, job| match job.ready() {
@@ -250,10 +251,14 @@ pub fn stream_chunks(
         }
     }
 
+    drop(timed_in);
     // A new queue when you've crossed into another chunk, or every half second as you turn.
     let stale = streaming.queued_when.is_none_or(|when| when.elapsed().as_secs_f32() > 0.5);
     if streaming.queued_at != Some(centre) || stale {
+        let timed_queue = crate::perf::Timed::new("chunk wish list");
         let queue = wanted(&streaming, &world, centre, facing, &settings);
+        drop(timed_queue);
+        let _timed_drop = crate::perf::Timed::new("chunks dropped");
         streaming.queue = queue;
         streaming.queued_at = Some(centre);
         streaming.queued_when = Some(Instant::now());
@@ -282,6 +287,7 @@ pub fn stream_chunks(
     }
 
     // Start making more, up to the limit.
+    let _timed_ask = crate::perf::Timed::new("chunks asked for");
     let most = if settings.most_at_once == 0 { crate::loading::workers() } else { settings.most_at_once };
     let blocks = TerrainBlocks::from_registry(&registry);
     while streaming.making.len() < most {

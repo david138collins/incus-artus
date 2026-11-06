@@ -427,6 +427,7 @@ impl Plugin for WorldPlugin {
             .add_systems(Update, streaming::stream_chunks)
             .init_resource::<CardWorld>()
             .add_systems(Update, send_world_to_card)
+            .add_systems(Update, forget_redraws)
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
             .add_settings::<EditRules>("edit_rules")
@@ -443,6 +444,16 @@ impl Plugin for WorldPlugin {
             .add_systems(crate::ui::EguiPrimaryContextPass, show_left_out.run_if(in_state(crate::screen::Screen::Play)))
             .add_debug_page("World", world_debug_page);
     }
+}
+
+/// The sections and chunks marked for drawing again are let go each frame: nothing draws them since the
+/// regroup cut the old renderer, and kept they grew without end, a list rebuilt on the frame each time it
+/// doubled [2026-11-06: 15.6 ms dropping chunks, 8.3 ms taking them in, flying]. Sight's store takes them
+/// over in phase 3 (edits patching it). Without marking the world changed.
+fn forget_redraws(mut world: ResMut<VoxelWorld>) {
+    let world = world.bypass_change_detection();
+    world.take_dirty();
+    world.take_objects_changed();
 }
 
 /// The world on the card (the regroup, phase 2.0), and the job putting it there.
