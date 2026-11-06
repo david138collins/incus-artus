@@ -1843,3 +1843,22 @@ fn cave_inside(bx: i32, by: i32, bz: i32) -> bool {
     }
     return false;
 }
+
+// A column as the world fills it (`terrain::whole_block_column`): its ground in whole blocks (halves up,
+// at least 1, at most 1,023; the sea floor at least two under the sea's surface), and the water over it (0
+// none, at most 1,024): x ground, y water, z 1 inside the map (0 past it).
+fn world_column(north: i32, east: i32) -> vec3<i32> {
+    let column = ground_and_water(north, east);
+    if (!column.ok) {
+        return vec3<i32>(0, 0, 0);
+    }
+    var z = clamp((column.z + 32768) >> 16u, 1, 1023);
+    var water = 0;
+    if (column.water > z + 1) {
+        water = min(column.water, 1024);
+    }
+    if (z < 128) {
+        z = min(z, 126);
+    }
+    return vec3<i32>(z, water, 1);
+}

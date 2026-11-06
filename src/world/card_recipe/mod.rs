@@ -513,6 +513,14 @@ fn minerals(c: Case) -> i32 {
     return choose_blocks(with_maps(col));
 }
 
+fn columns(c: Case) -> i32 {
+    let column = world_column(c.a, c.b);
+    if (column.z == 0) {
+        return -1;
+    }
+    return column.x | (column.y << 16u);
+}
+
 fn caves(c: Case) -> i32 {
     return select(0, 1, cave_inside(c.a, c.b, c.c));
 }
@@ -666,6 +674,47 @@ fn ground(c: Case) -> i32 {
             }
             assert!(wrong.is_empty(), "{chooser:?}: the card and the processor disagree:\n{}", wrong.join("\n"));
         }
+    }
+
+    /// The world's columns as chunks are filled (whole blocks, the sea floor's rule, the water): the card bit
+    /// for bit the processor's own chunk maker (`CompiledMap::column`).
+    #[test]
+    fn the_card_makes_the_world_s_columns_as_the_processor_does() {
+        use crate::world::carving::{Banks, Carving, Lake, Lakes, Point, Reach};
+        let point = |north: f32, east: f32, width: f32, level: f32| Point { north, east, width, depth: 3.0, edge: 0.4, flat: 0.3, bowl: 1.3, level, bend: 0.0, curtain: f32::NAN, turn: 0.0, fade: 12.0 };
+        let carving = Carving::new(vec![Reach { points: vec![point(-300.5, -400.0, 6.0, 200.0), point(-60.0, 80.0, 9.0, 180.0), point(0.0, 300.0, 10.0, 175.0)] }], Lakes::new(vec![Lake::new(200.0, -200.0, 20, 20, 8.0, (0..400).map(|i| if i % 3 == 0 { 170.0 } else { f32::NAN }).collect())]), Banks::default());
+        // The rich map has no sea (its peaks and lift raise it all), so a plain one sloping from deep sea up
+        // to hills as well.
+        let width = 48;
+        let sloping = crate::world::CompiledMap::of_heights(width, 64.0, &(0..width * width).map(|i| 40.0 + (i % width) as f32 * 5.0).collect::<Vec<f32>>());
+        let (mut under, mut wet) = (0, 0);
+        for (name, map) in [("rich", rich_map(true)), ("sloping", sloping)] {
+            let map = map.with_rivers(std::sync::Arc::new(carving.clone()));
+            let whole = map.whole().expect("the recipe in whole numbers");
+            let pack = Pack::world(&whole.map, &whole.carving);
+            let mut cases = Vec::new();
+            for x in (-1600..1600).step_by(9 * thinned()) {
+                for y in (-1600..1600).step_by(13) {
+                    cases.push([Pos::middle_of(x).0, Pos::middle_of(y).0, 0, 0]);
+                }
+            }
+            let Some(answers) = on_the_card("columns", &pack.words, &cases) else {
+                eprintln!("No graphics card: the columns' twin test is skipped");
+                return;
+            };
+            let mut wrong = Vec::new();
+            for (c, &card) in cases.iter().zip(&answers) {
+                let (x, y) = (Pos(c[0]).0 >> 8, Pos(c[1]).0 >> 8);
+                let processor = map.column(x, y).map_or(-1, |(z, water)| z | (water.unwrap_or(0) << 16));
+                under += (processor >= 0 && (processor & 0xFFFF) < 128) as usize;
+                wet += (processor > 0xFFFF) as usize;
+                if card != processor && wrong.len() < 12 {
+                    wrong.push(format!("column ({x}, {y}): card {card:#x}, processor {processor:#x}"));
+                }
+            }
+            assert!(wrong.is_empty(), "{name}: the card and the processor disagree:\n{}", wrong.join("\n"));
+        }
+        assert!(under > 100 && wet > 20, "{under} under the sea, {wet} with water: the test misses them");
     }
 
     /// The caves: every block round a set of rough, winding tunnels, inside or not, the card bit for bit the

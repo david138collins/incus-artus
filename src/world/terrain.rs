@@ -73,6 +73,12 @@ impl CompiledMap {
     /// The column's ground (as `ground`), and the Z below which a river's or lake's water fills it
     /// (`carving.rs`), if any.
     pub fn column(&self, x: i32, y: i32) -> Option<(i32, Option<i32>)> {
+        if let Some(whole) = self.whole() {
+            // Whole numbers all the way to the block: a fraction can't hold a height's 65536ths above Z
+            // 256, and a height a hair under a half could round the other way from the card's.
+            use crate::whole::Pos;
+            return whole.map.ground_and_water(&whole.carving, Pos::middle_of(x), Pos::middle_of(y)).map(|(z, water)| whole_block_column(z, water));
+        }
         self.ground_and_water(x as f32 + 0.5, y as f32 + 0.5).map(|(z, water)| whole_column(z, water))
     }
 
@@ -188,6 +194,13 @@ fn slope_across(north_rise: i32, east_rise: i32) -> f32 {
     let squared = (north_rise * north_rise + east_rise * east_rise).unsigned_abs().min(u32::MAX / 256);
     let sixteenths = (squared * 256).isqrt();
     sixteenths as f32 / 16.0 / (2 * SLOPE_REACH) as f32
+}
+
+/// The same as `whole_column` from a height in whole numbers (`whole_recipe`), rounded as the card does:
+/// halves up.
+pub fn whole_block_column(height: crate::whole::Fix, water: Option<i32>) -> (i32, Option<i32>) {
+    let z = ((height.0 + crate::whole::ONE / 2) >> 16).clamp(1, WORLD_HEIGHT - 1);
+    (if z < SEA_LEVEL { z.min(SEA_LEVEL - 2) } else { z }, water.filter(|&w| w > z + 1).map(|w| w.min(WORLD_HEIGHT)))
 }
 
 /// A column's ground and its river's or lake's water as the world fills it, from the ground's height
