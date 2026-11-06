@@ -1151,7 +1151,14 @@ below disagree with this one, this one stands.
     but, it looks nice at 8x8, and frankly the farthest mountains may not benefit from more... the mountains at
     that extreme will probably look better with forests on them and stuff. there's a severe ringing effect on flat
     surfaces or water beneath me that has to be taken care of but i'm liking what i'm seeing. i think we may be
-    able to make this work". The ringing is a flaw to fix; the colours' contrast is noted for tuning. The recipe answering at a cell's size stays on file as an
+    able to make this work". The ringing is a flaw to fix; the colours' contrast is noted for tuning.
+  - **Bands where each scale looks best** [David 2026-11-06]: "i think 1 - 2 - 4 - 8 may be good. since what im
+    seeing is good, the question is, can it be fast." And: "2 looks worse than 4, up close. 4 looks worse than 8 up
+    close at a different range. so theres definitely a curve of bands at distances where each scale is
+    preferable". *Counsel:* a pixel looks best when it covers about one store cell; pixels finer than the cells
+    only magnify the blend. So the screen pyramid (8, 4, 2, 1) splits a cell only while its pixels are bigger
+    than the store's cells under it, and the finer store levels earn the near view its smaller pixels. Builder to
+    assess. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
