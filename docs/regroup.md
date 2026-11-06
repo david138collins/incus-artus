@@ -326,6 +326,17 @@ out, which the card does fast and exactly.
   pass in both maths. The cave carve was whole numbers already. **Not yet:** the World Compiler's readouts under the
   mouse (the field view, "why this block") still read in fractions; the maps are held twice while both maths are
   kept (about 180 MB more on a 72,000-block world), until the fractions go.
+- **David's first look at 2.2 (build 65, 2026-11-05):** "a noise got way coarser. rivers look ok though, so thats good."
+  The whole numbers' ground was grainy on his preset (crags 1.0, peaks 500 high), six times rougher column to column
+  than the fractions' (measured, his default preset on a test world). **The cause:** the crags are kept by how steep the
+  peak's rise is, read from the rise a block east and south. A value's 65536ths along a 500-block peak's curve make
+  the rise step by about a hundredth of a block, and with the crags that strong, the difference of two such readings
+  jittered their strength by up to a third of a block a column. **Build 66:** the rise's slope is read off its curve
+  (`WholeCurve::steepness`, the Hermite's own slope through the bow) and the distance to the peak in 65536ths of a
+  block, not as the difference of two readings: the whole numbers' row now follows the fractions' shape for shape
+  (about a third of a block lower: the slope read exactly rather than across a block), the grain down to about 1.3
+  times the fractions' where it was 6. The same rule, done more finely. Also in 66: the panel's text no longer
+  stays selected when the window loses the focus mid-press (a screenshot taken), the mouse let go of on the way out.
 - **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.
 - **Measured:** the readback's cost, in the slow-frame log.
 - **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.

@@ -281,6 +281,23 @@ impl Runner {
         gpu.window.set_fullscreen(fullscreen);
     }
 
+    /// The window has lost the focus: any mouse button the panel thinks is held is let go, since its
+    /// release goes to the other window [David 2026-11-05: pressed on the panel's text as a screenshot
+    /// took the focus, and the highlight followed the cursor from then on].
+    fn let_go_of_the_mouse(&mut self) {
+        let Some(gpu) = &mut self.gpu else { return };
+        let pos = gpu.egui_state.egui_ctx().input(|input| input.pointer.latest_pos()).unwrap_or_default();
+        let input = gpu.egui_state.egui_input_mut();
+        for button in [egui::PointerButton::Primary, egui::PointerButton::Secondary, egui::PointerButton::Middle] {
+            input.events.push(egui::Event::PointerButton { pos, button, pressed: false, modifiers: egui::Modifiers::default() });
+        }
+        input.events.push(egui::Event::PointerGone);
+        // The game's own idea of the buttons, too.
+        for button in [MouseButton::Left, MouseButton::Right, MouseButton::Middle] {
+            self.send(MouseButtonInput { button, state: ButtonState::Released, window: Entity::PLACEHOLDER });
+        }
+    }
+
     /// The game's back in front after a freeze: drawing starts again.
     fn unfreeze(&mut self, event_loop: &ActiveEventLoop) {
         if !self.frozen {
@@ -588,6 +605,8 @@ impl ApplicationHandler for Runner {
                 self.app.world_mut().resource_mut::<WindowState>().focused = focused;
                 if focused {
                     self.unfreeze(event_loop);
+                } else {
+                    self.let_go_of_the_mouse();
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {

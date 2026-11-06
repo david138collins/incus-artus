@@ -71,6 +71,29 @@ impl WholeCurve {
         let h11 = t3 - t2;
         h00 * s.y0 + h10 * s.hm0 + h01 * s.y1 + h11 * s.hm1
     }
+
+    /// How steep the curve is at `x` (up per across): its Hermite's own slope, through the bow, over the
+    /// stretch's width. (For a slope read off the curve, rather than as the difference of two readings,
+    /// which a value's 65536ths make step.)
+    pub fn steepness(&self, x: Fix) -> Fix {
+        let Some(last) = self.stretches.last() else { return Fix::ZERO };
+        let x = x.clamp(self.stretches[0].x0, last.x1);
+        let s = self.stretches.iter().find(|s| x <= s.x1).unwrap_or(last);
+        let mut t = ((x - s.x0) / s.h).clamp(Fix::ZERO, Fix::ONE);
+        // The bow: t to the power p, whose own slope is p × t^(p − 1).
+        let mut bowed_by = Fix::ONE;
+        if let Some(power) = s.power {
+            bowed_by = power * whole::pow(t, power - Fix::ONE).min(Fix::from_int(64));
+            t = whole::pow(t, power);
+        }
+        let t2 = t * t;
+        // The Hermite pieces' slopes: 6t² − 6t, 3t² − 4t + 1, 6t − 6t², 3t² − 2t.
+        let d00 = Fix(6 * t2.0 - 6 * t.0);
+        let d10 = Fix(3 * t2.0 - 4 * t.0 + whole::ONE);
+        let d01 = Fix(6 * t.0 - 6 * t2.0);
+        let d11 = Fix(3 * t2.0 - 2 * t.0);
+        (d00 * s.y0 + d10 * s.hm0 + d01 * s.y1 + d11 * s.hm1) * bowed_by / s.h
+    }
 }
 
 /// A noise layer's shaping (`Shaping::shape`: contrast, brightness, curve, invert), in whole numbers.
@@ -688,19 +711,27 @@ impl WholeMap {
                         let size = width.scaled(Fix::from_f32(0.6));
                         width = width + width.scaled(peak.wobble * whole_perlin_at(peak.key, Fade::Smooth, dx.per(size), dy.per(size)));
                     }
-                    let width = width.max(block);
-                    for (k, (dx, dy)) in [(dx, dy), (dx + block, dy), (dx, dy + block)].into_iter().enumerate() {
-                        let t = Fix::ONE - dx.hypot(dy).ratio(width);
-                        if t <= Fix::ZERO {
-                            continue;
-                        }
-                        let own = peak.height * self.rise.at(t).clamp(Fix::ZERO, Fix::ONE);
-                        rise[k] = if self.peaks_add { rise[k] + own } else { rise[k].max(own) };
-                        if k == 0 {
-                            let share = if self.foot_fade <= Fix::ZERO { Fix::ONE } else { whole::smooth(t / self.foot_fade) };
-                            room = room.max(peak.height * share);
-                        }
+                    // Measured in values (65536ths of a block), not positions (256ths): the crags read the
+                    // rise's slope from these three a block apart, and a 256th's rounding made it jitter
+                    // from column to column [David 2026-11-05: "a noise got way coarser"]. (Within the
+                    // peak's reach, well inside a value's ±32,768 blocks.)
+                    let width = width.max(block).to_fix();
+                    let here = whole::hypot(dx.to_fix(), dy.to_fix());
+                    let t = Fix::ONE - here / width;
+                    if t <= Fix::ZERO {
+                        continue;
                     }
+                    let own = peak.height * self.rise.at(t).clamp(Fix::ZERO, Fix::ONE);
+                    // A block east and a block south: the rise there from its curve's steepness here and
+                    // how much nearer or further the peak's point is, rather than read again (two
+                    // readings' difference steps by the curve's rounding, and the crags read this slope).
+                    let steepness = if self.rise.at(t) > Fix::ZERO && self.rise.at(t) < Fix::ONE { peak.height * self.rise.steepness(t) } else { Fix::ZERO };
+                    let beside = |d: (Pos, Pos)| own + steepness * ((here - whole::hypot(d.0.to_fix(), d.1.to_fix())) / width);
+                    for (k, value) in [own, beside((dx + block, dy)), beside((dx, dy + block))].into_iter().enumerate() {
+                        rise[k] = if self.peaks_add { rise[k] + value } else { rise[k].max(value) };
+                    }
+                    let share = if self.foot_fade <= Fix::ZERO { Fix::ONE } else { whole::smooth(t / self.foot_fade) };
+                    room = room.max(peak.height * share);
                 }
             }
         }
@@ -1468,7 +1499,7 @@ mod tests {
 
     /// The recipe in whole numbers makes the same ground as in fractions (the noise is whole numbers in
     /// both): the same rules, rounded differently on the way. Measured 2026-11-05: 98% of columns the same
-    /// block, 0.02 of a block apart on average, under a block at worst.
+    /// block, 0.02 of a block apart on average, about a block and a half at worst.
     #[test]
     fn the_whole_number_recipe_makes_the_same_ground() {
         for steady in [true, false] {
@@ -1490,7 +1521,9 @@ mod tests {
             }
             let mean = total / count as f32;
             eprintln!("steady {steady}: {same} of {count} the same block, {mean:.3} blocks apart on average, {worst:.2} at worst");
-            assert!(same * 100 >= count * 95 && mean < 0.05 && worst < 1.5, "steady {steady}: {same} of {count} the same block, {mean:.3} blocks apart on average, {worst:.2} at worst");
+            // (Up to two blocks at worst: the crags read the rise's slope off its curve, where the
+            // fractions measured it across a block, so a steep crag can stand a little differently.)
+            assert!(same * 100 >= count * 95 && mean < 0.05 && worst < 2.0, "steady {steady}: {same} of {count} the same block, {mean:.3} blocks apart on average, {worst:.2} at worst");
         }
     }
 
@@ -1527,6 +1560,25 @@ mod tests {
         }
     }
 
+    /// A curve's steepness in whole numbers is its slope (measured from the fractions across a step).
+    #[test]
+    fn a_curve_s_steepness_is_its_slope() {
+        let mut spline = Spline::through(&[(0.0, 0.0), (0.3, 0.6), (0.7, 0.65), (1.0, 1.0)]);
+        spline.bends = vec![0.0, 0.5, -0.4];
+        let (curve, whole) = (spline.curve(), spline.curve().whole());
+        for k in 1..100 {
+            let x = k as f32 / 100.0;
+            // (Not right at a dot: a bowed stretch can start as steep as it likes, and a slope measured
+            // across the dot straddles two stretches.)
+            if [0.3f32, 0.7].iter().any(|dot| (x - dot).abs() < 0.015) {
+                continue;
+            }
+            let measured = (curve.at(x + 0.0005) - curve.at(x - 0.0005)) / 0.001;
+            let got = whole.steepness(Fix::from_f32(x)).to_f32();
+            assert!((measured - got).abs() < 0.02 * measured.abs().max(1.0), "at {x}: {got} against {measured}");
+        }
+    }
+
     #[test]
     fn a_curve_in_whole_numbers_follows_the_curve() {
         let mut spline = Spline::through(&[(0.0, 0.0), (0.3, 0.6), (0.7, 0.65), (1.0, 1.0)]);
@@ -1560,4 +1612,5 @@ mod tests {
         assert!(worst < 0.02 && total / 400.0 < 0.002, "the whole-number layer strays {worst} at worst, {} on average, from the fractions'", total / 400.0);
     }
 }
+
 
