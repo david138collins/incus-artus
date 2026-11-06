@@ -17,6 +17,10 @@
 //! - `log2`, `exp2`, `pow`, `sin`, `cos`, `atan2` read tables (`tables`) and draw a straight line between
 //!   their entries: within about 1/10,000 of the true value.
 //! - Angles are in 65536ths of a turn.
+//! - **`Pos`** is a position (blocks north, east, or across the map) in 256ths of a block: a world is
+//!   72,000 blocks across, past `Fix`'s reach, and `Pos` holds about ±8 million. `Pos × Fix` is a `Pos`
+//!   (rounded down); `Pos ÷ Pos` is a `Fix` (`ratio`, as `Fix ÷`); `per` is a position over a size, in
+//!   `Fix` units, wrapping past ±32,768 units (as the noise's grid already repeats there).
 //!
 //! The only fractions are the way in (`Fix::from_f32`, for settings, once, on the processor) and the way
 //! out (`to_f32`, exact).
@@ -126,6 +130,90 @@ pub fn sqrt(x: Fix) -> Fix {
         return Fix::ZERO;
     }
     Fix(((x.0 as u64) << 16).isqrt() as i32)
+}
+
+/// A position, in 256ths of a block.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Pos(pub i32);
+
+/// A block, in positions.
+pub const BLOCK: i32 = 256;
+
+#[allow(dead_code)] // used as the recipe is converted (phase 2.2)
+impl Pos {
+    /// From a fraction (settings and maps, once, on the processor), rounded to the nearest 256th.
+    pub fn from_f32(x: f32) -> Pos {
+        Pos((x as f64 * BLOCK as f64).round().clamp(i32::MIN as f64, i32::MAX as f64) as i32)
+    }
+
+    /// The middle of block `n` (a column's middle, as the world is filled).
+    pub const fn middle_of(n: i32) -> Pos {
+        Pos(n.wrapping_mul(BLOCK).wrapping_add(BLOCK / 2))
+    }
+
+    pub fn to_f32(self) -> f32 {
+        self.0 as f32 / BLOCK as f32
+    }
+
+    /// As a `Fix` (exact while it's within ±32,768 blocks).
+    pub const fn to_fix(self) -> Fix {
+        Fix(self.0.wrapping_shl(8))
+    }
+
+    /// × a `Fix`, rounded down.
+    pub fn scaled(self, by: Fix) -> Pos {
+        Pos(((self.0 as i64 * by.0 as i64) >> 16) as i32)
+    }
+
+    /// This over `other`, as a `Fix` (held at the range's end).
+    pub fn ratio(self, other: Pos) -> Fix {
+        Fix(self.0) / Fix(other.0)
+    }
+
+    /// This over a size, in `Fix` units, wrapping past ±32,768 (the noise's coordinates); 0 for a size
+    /// of 0.
+    pub fn per(self, size: Pos) -> Fix {
+        if size.0 == 0 {
+            return Fix::ZERO;
+        }
+        let negative = (self.0 < 0) != (size.0 < 0);
+        let units = (((self.0.unsigned_abs() as u64) << 16) / size.0.unsigned_abs() as u64) as u32 as i32;
+        Fix(if negative { units.wrapping_neg() } else { units })
+    }
+
+    /// How far (x, y) is from (0, 0), rounded down.
+    pub fn hypot(self, other: Pos) -> Pos {
+        Pos(hypot(Fix(self.0), Fix(other.0)).0)
+    }
+}
+
+#[allow(dead_code)] // used as the recipe is converted (phase 2.2)
+impl Fix {
+    /// As a position (rounded down).
+    pub const fn to_pos(self) -> Pos {
+        Pos(self.0 >> 8)
+    }
+}
+
+impl std::ops::Add for Pos {
+    type Output = Pos;
+    fn add(self, other: Pos) -> Pos {
+        Pos(self.0.wrapping_add(other.0))
+    }
+}
+
+impl std::ops::Sub for Pos {
+    type Output = Pos;
+    fn sub(self, other: Pos) -> Pos {
+        Pos(self.0.wrapping_sub(other.0))
+    }
+}
+
+impl std::ops::Neg for Pos {
+    type Output = Pos;
+    fn neg(self) -> Pos {
+        Pos(self.0.wrapping_neg())
+    }
 }
 
 /// √(x² + y²), rounded down, held at the range's end.
@@ -267,5 +355,19 @@ mod tests {
         // (A fraction this big shows only to about 0.002.)
         close(hypot(Fix::from_f32(20_000.0), Fix::from_f32(-20_000.0)), 28_284.271, 0.004, "hypot far");
         close(smooth(Fix::from_f32(0.25)), 0.15625, 0.0001, "smooth");
+    }
+
+    #[test]
+    fn positions_reach_across_the_world_and_turn_into_the_noise_s_units() {
+        let far = Pos::from_f32(-36_000.0);
+        assert_eq!(far.to_f32(), -36_000.0);
+        assert_eq!(Pos::middle_of(-3).to_f32(), -2.5);
+        // 36,000 blocks over a 300-block feature: 120 of the noise's units.
+        close(far.per(Pos::from_f32(300.0)), -120.0, 0.0001, "per");
+        // Over a tiny size it wraps round rather than holding.
+        assert_eq!(Pos::from_f32(36_000.0).per(Pos::from_f32(1.0)).0, (36_000i64 * 65_536) as i32);
+        close(Pos::from_f32(30.0).ratio(Pos::from_f32(120.0)), 0.25, 0.0001, "ratio");
+        assert_eq!(Pos::from_f32(-1000.0).scaled(Fix::from_f32(0.5)).to_f32(), -500.0);
+        assert_eq!(Pos::from_f32(30_000.0).hypot(Pos::from_f32(40_000.0)).to_f32(), 50_000.0);
     }
 }

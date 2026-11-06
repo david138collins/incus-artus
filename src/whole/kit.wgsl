@@ -102,6 +102,20 @@ fn fix_div(a: i32, b: i32) -> i32 {
     return s;
 }
 
+// A position over a size, in Fix units, wrapping (`Pos::per`): the low 32 bits of the quotient.
+fn pos_per(a: i32, size: i32) -> i32 {
+    if (size == 0) {
+        return 0;
+    }
+    let top = abs_u(a);
+    let q = wide_div(vec2<u32>(top << 16u, top >> 16u), abs_u(size));
+    let units = bitcast<i32>(q.x);
+    if ((a < 0) != (size < 0)) {
+        return -units;
+    }
+    return units;
+}
+
 fn fix_sqrt(x: i32) -> i32 {
     if (x <= 0) {
         return 0;

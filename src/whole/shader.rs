@@ -37,6 +37,7 @@ mod tests {
             11 => atan2(a, b),
             12 => smooth(a).0,
             13 => mix(a, b, c).0,
+            14 => Pos(a.0).per(Pos(b.0)).0,
             _ => 0,
         }
     }
@@ -69,6 +70,7 @@ fn twin(@builtin(global_invocation_id) id: vec3<u32>) {
         case 11: { r = fix_atan2(c.a, c.b); }
         case 12: { r = fix_smooth(c.a); }
         case 13: { r = fix_mix(c.a, c.b, c.c); }
+        case 14: { r = pos_per(c.a, c.b); }
         default: { r = 0; }
     }
     results[i] = r;
@@ -128,7 +130,7 @@ fn twin(@builtin(global_invocation_id) id: vec3<u32>) {
         };
         let edges = [0, 1, -1, ONE, -ONE, ONE / 2, i32::MAX, i32::MIN, i32::MAX - 1, i32::MIN + 1, 1 << 20, -(1 << 20), 65_535, 65_537, 3, -3];
         let mut cases = Vec::new();
-        for op in 0..14 {
+        for op in 0..15 {
             for &a in &edges {
                 for &b in &edges {
                     cases.push([op, a, b, edges[(a as u32 % 16) as usize]]);
@@ -159,7 +161,7 @@ fn twin(@builtin(global_invocation_id) id: vec3<u32>) {
         };
         let cases = cases();
         let answers = on_the_card(&device, &queue, &cases);
-        let names = ["+", "−", "×", "÷", "sqrt", "hypot", "log2", "exp2", "pow", "sin", "cos", "atan2", "smooth", "mix"];
+        let names = ["+", "−", "×", "÷", "sqrt", "hypot", "log2", "exp2", "pow", "sin", "cos", "atan2", "smooth", "mix", "per"];
         let mut wrong = Vec::new();
         for (case, &card) in cases.iter().zip(&answers) {
             let processor = on_the_processor(case[0], case[1], case[2], case[3]);
