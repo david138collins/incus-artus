@@ -380,6 +380,14 @@ out, which the card does fast and exactly.
     must be kept awake to get these rates (Fork A's dozing again).
   - Noticed, not chased: a compiled world's first 13 chunks took 106 ms on the frame (8.6 ms at build 60), likely the
     maps made whole on the first column asked (`CompiledMap::whole`, once a world), at load.
+- **The bake measured for 3.1** [2026-11-06; `INCUS_MEASURE_BAKE=<windows>`, `on_card::measure_bake`]: 64 windows of
+  512 × 512 blocks over the default bake (72,000 blocks across, 5.18 billion columns), the card's columns counted for
+  the cells holding a surface at each size (caves not counted: the default world has none yet), 16 bytes a kept cell.
+  Baked from 256 blocks up 2 MB; 128 up 13 MB; 64 up 56 MB; **32 up 297 MB** (2.7 surface cells a cell column at 32);
+  16 up 1,784 MB (4.3 at 16). The card at full batches of 16,384 on the real world: **23.7 million columns a second**
+  (ground and water; slower than the test map's 47), so one recipe pass over the world about **3.7 minutes**, with
+  mineralogy's colours an estimated 6 to 8. Batches of 16,384 ran beside the frames without a slow frame. The
+  processor on the real world: 28 ms for 4,096 columns on one core (about 145,000 a second), so the card carries it.
 - **David:** with nothing on screen yet, his looks here are the World Gen suite's pictures: after 2.2, the World Compiler's picture of the same spot before and after (and the count of columns that changed). Walking is felt once there's sight (phase 3.2 on); 2.4's collision is checked by the tests meanwhile.
 - **Measured:** the readback's cost, in the slow-frame log.
 - **Fork C:** if a saved world's river disagrees with its banks after 2.2, either carve the rivers again on load or accept it. His look decides.

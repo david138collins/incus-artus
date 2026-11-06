@@ -100,7 +100,88 @@ pub fn send(device: &wgpu::Device, queue: &wgpu::Queue, map: &CompiledMap, caves
     if same != places.len() {
         return Err(report);
     }
+    // A measurement for the far view's bake, when asked for.
+    let report = match std::env::var("INCUS_MEASURE_BAKE").ok().map(|windows| windows.parse().unwrap_or(64)) {
+        Some(windows) => format!("{report}\n{}", measure_bake(device, queue, &world, map, windows)),
+        None => report,
+    };
     Ok((world, report))
+}
+
+/// The far view's bake measured (phase 3.1; `INCUS_MEASURE_BAKE=<windows>`, 64 if no number): the card
+/// makes the columns of that many windows of 512 × 512 blocks spread over the map, and they're counted for
+/// the cells a bake would keep at each size: those holding a surface (part solid, part air or water), from
+/// each cell column's lowest ground to its highest ground or water. Caves aren't counted (the default world
+/// has none yet). Also the card's speed at full batches, for the bake's time.
+fn measure_bake(device: &wgpu::Device, queue: &wgpu::Queue, world: &WorldOnCard, map: &CompiledMap, windows: usize) -> String {
+    const SIDE: i32 = 512;
+    const SIZES: [i32; 5] = [16, 32, 64, 128, 256];
+    let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0) as i32;
+    let across = 2 * half;
+    let sea = crate::world::SEA_LEVEL;
+    let (mut mixed, mut cell_columns) = ([0u64; 5], [0u64; 5]);
+    let (mut columns, mut on_the_map, mut card_ms) = (0u64, 0u64, 0.0);
+    let mut roll = 0x9e37_79b9_7f4a_7c15u64;
+    let mut next = |below: i32| {
+        roll = roll.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        ((roll >> 33) % below.max(1) as u64) as i32
+    };
+    for _ in 0..windows {
+        let (wx, wy) = (-half + next(across - SIDE) / 256 * 256, -half + next(across - SIDE) / 256 * 256);
+        let places: Vec<(i32, i32)> = (0..SIDE * SIDE).map(|i| (wx + i % SIDE, wy + i / SIDE)).collect();
+        let started = Instant::now();
+        let mut made = Vec::with_capacity(places.len());
+        for batch in places.chunks(16384) {
+            made.extend(world.columns_at(device, queue, batch));
+        }
+        card_ms += started.elapsed().as_secs_f64() * 1000.0;
+        columns += places.len() as u64;
+        on_the_map += made.iter().filter(|c| c[0] >= 0).count() as u64;
+        for (k, &size) in SIZES.iter().enumerate() {
+            for cy in 0..SIDE / size {
+                for cx in 0..SIDE / size {
+                    let (mut low, mut high) = (i32::MAX, i32::MIN);
+                    for y in 0..size {
+                        for x in 0..size {
+                            let [z, water] = made[((cy * size + y) * SIDE + cx * size + x) as usize];
+                            if z >= 0 {
+                                low = low.min(z);
+                                high = high.max(z.max(water).max(if z < sea { sea } else { 0 }));
+                            }
+                        }
+                    }
+                    if low <= high {
+                        mixed[k] += (high / size - low / size + 1) as u64;
+                        cell_columns[k] += 1;
+                    }
+                }
+            }
+        }
+    }
+    // Scaled from the windows to the whole map; 16 bytes a kept cell, 4 a cell column (where its cells start).
+    let scale = (across as f64 * across as f64) / columns.max(1) as f64;
+    let mut lines = vec![format!(
+        "The bake measured: {windows} windows, {columns} columns ({:.0}% on the map) in {card_ms:.0} ms on the card: {:.1} million columns a second at full batches; the map {across} blocks across, {:.2} billion columns, so a level's recipe pass about {:.0} s",
+        on_the_map as f64 * 100.0 / columns.max(1) as f64,
+        columns as f64 / card_ms.max(0.001) / 1000.0,
+        across as f64 * across as f64 / 1e9,
+        across as f64 * across as f64 / (columns as f64 / card_ms.max(0.001) * 1000.0)
+    )];
+    let mut from = 0.0;
+    for k in (0..SIZES.len()).rev() {
+        let cells = mixed[k] as f64 * scale;
+        let bytes = cells * 16.0 + cell_columns[k] as f64 * scale * 4.0;
+        from += bytes;
+        lines.push(format!(
+            "  cells of {} blocks: {:.2} surface cells a cell column, {:.1} million kept, {:.0} MB; baked from here up {:.0} MB",
+            SIZES[k],
+            mixed[k] as f64 / cell_columns[k].max(1) as f64,
+            cells / 1e6,
+            bytes / 1e6,
+            from / 1e6
+        ));
+    }
+    lines.join("\n")
 }
 
 impl WorldOnCard {
