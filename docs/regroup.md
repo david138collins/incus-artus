@@ -452,6 +452,23 @@ as the game is built out".
 | 3.5 | The fine layer: the flags, the list of flagged cells (an indirect dispatch), the budget and priority, the valved blend curve (its stages as settings) with hysteresis and the fade. **Test, the entanglement test:** both layers drawn over the whole screen, each coarse pixel against the average of its fine pixels, at fixed spots and along a flight, within a tolerance set with David by eye (say a mean colour difference under 1%, and the 99th in 100 under a few per cent). | 3 to 4 |
 | 3.6 | Block textures in the fine layer where a block is bigger than a pixel; edits override the cache (a small upload when they change); water as a second medium in the cells, a flat colour until phase 6's real look. Walking is back with phase 2.4. | 2 to 3 |
 
+**3.1 in stages** [David 2026-11-06: "go ahead and proceed. we have that checkpoint if we make a mistake. but think
+about what parts of what we're doing that might be good and bad and be prepared to telescope back and forth between the
+checkpoint as we make progress towards the next one"; the store as decided that morning with Counsel: 3D cells, live
+levels up to 16-block cells, baked from 32 up once a world, saved with it and version-stamped, edits patching it; and
+"an eighth of the world being immediately present as the rest fill in"]. Each stage is its own commit, a place to step
+back to.
+
+| Stage | What | Good if | Bad if (what would send us back) |
+|---|---|---|---|
+| 3.1a | **The cell, on the processor.** What a cell of any size holds, kept as exact whole-number sums of its blocks: solid blocks, water blocks, the solid faces showing (each a face against air or water, counted once, by its direction: up, down and the four sides), their colours (each face its block's far colour, top or side, from `look::Palette`, in 1,024ths of linear light), and for the spreads the faces' brightness and height, summed and squared. A cell's sums are its eight children's added, exactly. The compact form the march reads is worked out from the sums once (shares, colour, average facing, the spreads: about 16 bytes). **Tests:** the sums of any box are the sums of its parts; the compact form follows its rule. | sums make "each level exactly the average of the one below" true by construction, not by luck | the sums are heavy (about 70 bytes a cell): only ever held while building, never stored at baked levels |
+| 3.1b | **The one function on the card:** the sums of a cell of any size straight from the recipe (columns, mineralogy's blocks, the caves), every block inside and the faces at its edges. **Twin test:** the card against 3.1a's, bit for bit, cells of 1 to 64 blocks, on ground, river, lake, sea and a cave. | the card makes cells as fast as the columns (the column is most of the work) | mineralogy for every exposed block makes it slow: then the colours become their own pass |
+| 3.1c | **The live levels** (cells of 1, 2, 4, 8 and 16 blocks): round the camera, filled by strips on the loading lane in batches the frame stands beside, nearest and ahead first, each level built from the one below where they overlap, from the recipe where it's new. **Test:** every level's cells exactly the sums of their children. | flying at 150 costs a few per cent of the card | the 3D sparse layout (each cell column's surface band) is fiddly; the clean fallback is a fixed band per cell column |
+| 3.1d | **The bake** (cells of 32 blocks and up): an eighth of the world round the spawn before play (about 30 to 60 seconds on David's card), the rest outward in the background at the lowest priority; saved with the world as it completes, stamped with the rules' version (a mismatch bakes again); an edit makes its 32-block cell again from the recipe and its parents from their children. **Tests:** baked cells equal the same cells made live; a saved bake reads back the same. | the far world costs nothing to fly over once baked | the start-up wait or the file size grows past what's tolerable: the reach at start is a setting |
+
+- **Telescoping:** `before-sight` is tagged once 3.1d stands. If a stage turns out wrong, its commit is undone and the
+  stage redone; the stages before it stand.
+
 - **David:** a look at every step from 3.2 on; 3.2 is his first sight of the land.
 - **Measured:** every step, by the card's own timestamps, with the ballast topping up to the same total so the frame
   loop is tested under a constant load while the real work replaces it (the sandbags come out as the cargo goes
