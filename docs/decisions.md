@@ -1112,6 +1112,10 @@ below disagree with this one, this one stands.
   behaving the same way, checked by his look at his default presets; worlds may differ in detail. Processor and
   card must agree exactly. The aim, in his words: "a 1 size adaptive solution that we can stay coherent with as we
   fill it with stuff."
+  - **His look passed, build 66** [2026-11-06]: "got it fixed, whole numbers look the same now, and it went back to
+    10 seconds for rivers." Build 65 had shown a grainy roughness: the crags' strength read from a slope taken as
+    the difference of two rounded heights. Build 66 reads the slope from the curve directly. Builder's lesson:
+    wherever the recipe takes a slope, whole numbers compute it directly, never by subtracting.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
   and can be derived by any part of the whole, in isolation, without reaching out; the entities are all
