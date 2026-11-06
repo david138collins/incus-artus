@@ -194,11 +194,22 @@ pub struct Palette {
 
 impl Palette {
     pub fn from_textures(registry: &BlockRegistry, blocks: &TerrainBlocks) -> Self {
-        let average = |texture: &str| far_colour(texture).unwrap_or([0.5, 0.5, 0.5]);
+        let (faces, water) = Self::faces(registry, blocks);
+        Self::from_faces(&faces, water.as_deref())
+    }
+
+    /// The textures it reads: every block's top and side, and water's top (no files read, so it can be
+    /// taken on the frame and read elsewhere: `from_faces`).
+    pub fn faces(registry: &BlockRegistry, blocks: &TerrainBlocks) -> (Vec<(String, String)>, Option<String>) {
         let face = |name: &str| FACE_NAMES.iter().position(|&face| face == name).unwrap_or(0);
-        let colours = registry.defs().iter().map(|def| (average(&def.faces[face("top")]), average(&def.faces[face("north")]))).collect();
-        let water = registry.def(blocks.water).map_or([0.5; 3], |def| average(&def.faces[face("top")]));
-        Self { blocks: colours, water }
+        let faces = registry.defs().iter().map(|def| (def.faces[face("top")].clone(), def.faces[face("north")].clone())).collect();
+        (faces, registry.def(blocks.water).map(|def| def.faces[face("top")].clone()))
+    }
+
+    /// Made from those textures.
+    pub fn from_faces(faces: &[(String, String)], water: Option<&str>) -> Self {
+        let average = |texture: &str| far_colour(texture).unwrap_or([0.5, 0.5, 0.5]);
+        Self { blocks: faces.iter().map(|(top, side)| (average(top), average(side))).collect(), water: water.map_or([0.5; 3], average) }
     }
 
     pub fn top(&self, block: BlockId) -> [f32; 3] {

@@ -1630,7 +1630,7 @@ fn choose_blocks(col: Col) -> i32 {
         let on = data[at] != 0;
         // Each usable candidate's suitability (below 0: not usable, never chosen).
         for (var c = 0u; c < count; c++) {
-            let cand = candidates + c * 4u;
+            let cand = candidates + c * 16u;
             suits[c] = -2147483647 - 1;
             if (on && data[cand] != 0) {
                 if (data[cand + 1u] != 0) {
@@ -1682,7 +1682,7 @@ fn choose_blocks(col: Col) -> i32 {
             }
         }
         if (chosen >= 0) {
-            CHOSEN[d] = data[candidates + u32(chosen) * 4u + 3u];
+            CHOSEN[d] = data[candidates + u32(chosen) * 16u + 3u];
         } else {
             CHOSEN[d] = 0;
         }

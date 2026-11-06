@@ -104,6 +104,8 @@ pub const SLOTS: &[&str] = &[
     "FAR_ENTRIES", "MINERALOGY", "CRUST",
     // The caves.
     "TUNNELS", "CAVE_POINTS", "CAVE_SLOTS", "CAVE_TABLE", "CAVE_PIECES",
+    // Sight: the blocks' far colours.
+    "SIGHT_BLOCKS", "SIGHT_COLOURS",
 ];
 
 /// A slot's number in the header.
@@ -184,6 +186,14 @@ impl Pack {
         self.set("CAVE_TABLE", at);
         let at = self.array(pieces);
         self.set("CAVE_PIECES", at);
+    }
+
+    /// The blocks' far colours for sight (`sight::cell::FarColours`): how many blocks, then each one's top's
+    /// red, green and blue and its sides', in 1,024ths of linear light.
+    pub fn sight(&mut self, colours: &crate::sight::cell::FarColours) {
+        self.set("SIGHT_BLOCKS", colours.blocks.len() as i32);
+        let at = self.array(colours.blocks.iter().flat_map(|&(top, side)| [top[0], top[1], top[2], side[0], side[1], side[2]]).map(|v| v as i32));
+        self.set("SIGHT_COLOURS", at);
     }
 
     /// Mineralogy, its program in whole numbers, for a world of this seed.
@@ -718,6 +728,113 @@ fn ground(c: Case) -> i32 {
             assert!(wrong.is_empty(), "{name}: the card and the processor disagree:\n{}", wrong.join("\n"));
         }
         assert!(under > 100 && wet > 20, "{under} under the sea, {wet} with water: the test misses them");
+    }
+
+    /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,
+    /// bit for bit the sums of the very blocks the processor's chunks hold (`sight::cell::sums_of_box` over
+    /// `CompiledMap::chunk`): ground, a river, a lake, mineralogy's layers, tunnels coming out of the ground
+    /// (cave mouths, roofs), and the map's edge.
+    #[test]
+    fn the_card_makes_sight_s_cells_as_the_chunks_hold_them() {
+        use crate::sight::cell::{FarColours, Sums, sums_of_box};
+        use crate::world::caves::{CavePlan, CavePoint, Tunnel};
+        use crate::world::carving::{Banks, Carving, Lake, Lakes, Point, Reach};
+        use crate::world::{BlockId, ChunkPos, TerrainBlocks};
+        use std::collections::HashMap;
+        let Some((device, queue)) = crate::whole::shader::card() else {
+            eprintln!("No graphics card: sight's twin test is skipped");
+            return;
+        };
+        let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
+        let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
+        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| ([k * 97 % 1024, k * 389 % 1024, k * 211 % 1024], [k * 53 % 1024, k * 701 % 1024, k * 131 % 1024])).collect(), water: blocks.water };
+        let point = |north: f32, east: f32, width: f32, level: f32| Point { north, east, width, depth: 3.0, edge: 0.4, flat: 0.3, bowl: 1.3, level, bend: 0.0, curtain: f32::NAN, turn: 0.0, fade: 12.0 };
+        let carving = Carving::new(vec![Reach { points: vec![point(-300.5, -400.0, 6.0, 200.0), point(-60.0, 80.0, 9.0, 180.0), point(0.0, 300.0, 10.0, 175.0)] }], Lakes::new(vec![Lake::new(200.0, -200.0, 20, 20, 8.0, (0..400).map(|i| if i % 3 == 0 { 170.0 } else { f32::NAN }).collect())]), Banks::default());
+        let map = rich_map(true).with_rivers(std::sync::Arc::new(carving));
+        // Tunnels climbing out of the ground: cave mouths and their roofs.
+        let ground = |x: i32, y: i32| map.column(x, y).map_or(150, |(z, _)| z);
+        let tunnels: Vec<Tunnel> = [(600, 300), (630, 340), (-1000, -700)]
+            .iter()
+            .enumerate()
+            .map(|(t, &(x, y))| {
+                let points = (0..6).map(|k| CavePoint { at: [(x + k * 10) * 16, (y + k * 4) * 16, (ground(x + k * 10, y + k * 4) - 10 + k * 3) * 16], width: 64, height: 48 }).collect();
+                Tunnel { points, rough: 6 + t as i32, lump: 3, floor: 180, seed: 77 + t as u32 }
+            })
+            .collect();
+        let plan = CavePlan::new(tunnels);
+        let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).expect("the world on the card");
+        let (mut checked, mut wet, mut roofs, mut mixed) = (0, 0, 0, 0);
+        for (x0, y0) in [(-90i32, 40i32), (180, -230), (590, 290), (-1560, 100)] {
+            let region = [x0, y0, 64, 64];
+            // The processor's chunks round the region, read block by block.
+            let mut chunks = HashMap::new();
+            for cx in (x0 - 1).div_euclid(32)..=(x0 + 64).div_euclid(32) {
+                for cy in (y0 - 1).div_euclid(32)..=(y0 + 64).div_euclid(32) {
+                    if let Some(chunk) = map.chunk(ChunkPos::new(cx, cy), &blocks, &plan) {
+                        chunks.insert((cx, cy), chunk);
+                    }
+                }
+            }
+            let block = |[x, y, z]: [i32; 3]| {
+                if z < 0 {
+                    blocks.stone
+                } else if z >= crate::world::WORLD_HEIGHT {
+                    BlockId::AIR
+                } else {
+                    chunks.get(&(x.div_euclid(32), y.div_euclid(32))).map_or(BlockId::AIR, |chunk| chunk.block_at(x, y, z))
+                }
+            };
+            let (mut low, mut high) = (i32::MAX, i32::MIN);
+            for x in x0..x0 + 64 {
+                for y in y0..y0 + 64 {
+                    if let Some((z, water)) = map.column(x, y) {
+                        low = low.min(z);
+                        high = high.max(z).max(water.unwrap_or(0)).max(crate::world::SEA_LEVEL);
+                    }
+                }
+            }
+            if low > high {
+                (low, high) = (100, 140);
+            }
+            let mut cells = Vec::new();
+            for size in [1, 2, 4, 8, 16, 32, 64] {
+                let across = if size <= 4 { 16 } else { 64 };
+                for z in ((low - 12).div_euclid(size) * size..=high + 4).step_by(size as usize) {
+                    for cx in (0..across).step_by(size as usize) {
+                        for cy in (0..across).step_by(size as usize) {
+                            cells.push([x0 + cx, y0 + cy, z, size]);
+                        }
+                    }
+                }
+            }
+            let card = world.cells_at(&device, &queue, region, &cells);
+            assert_eq!(card.len(), cells.len(), "the card answered");
+            let mut wrong = Vec::new();
+            for (cell, c) in cells.iter().zip(&card) {
+                let processor = sums_of_box([cell[0], cell[1], cell[2]], cell[3], &block, &colours);
+                let wide = |k: usize| c[k] as u64 | (c[k + 1] as u64) << 32;
+                let on_card = Sums {
+                    solid: c[0] as u64,
+                    water: c[1] as u64,
+                    faces: std::array::from_fn(|d| c[2 + d] as u64),
+                    colour: std::array::from_fn(|k| c[8 + k] as u64),
+                    light: c[11] as u64,
+                    light_squared: wide(12),
+                    height: c[14] as u64,
+                    height_squared: wide(15),
+                };
+                checked += 1;
+                wet += (processor.water > 0) as usize;
+                roofs += (processor.faces[1] > 0) as usize;
+                mixed += (processor.solid > 0 && processor.solid < (cell[3] as u64).pow(3)) as usize;
+                if on_card != processor && wrong.len() < 6 {
+                    wrong.push(format!("cell {cell:?}:\n  card      {on_card:?}\n  processor {processor:?}"));
+                }
+            }
+            assert!(wrong.is_empty(), "region ({x0}, {y0}): the card and the chunks disagree:\n{}", wrong.join("\n"));
+        }
+        eprintln!("Sight's twin test: {checked} cells, {mixed} part solid, {wet} with water, {roofs} with faces looking down");
+        assert!(wet > 50 && roofs > 10 && mixed > 500, "the test misses something: {wet} with water, {roofs} with roofs, {mixed} part solid");
     }
 
     /// The caves: every block round a set of rough, winding tunnels, inside or not, the card bit for bit the

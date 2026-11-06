@@ -466,6 +466,21 @@ back to.
 | 3.1c | **The live levels** (cells of 1, 2, 4, 8 and 16 blocks): round the camera, filled by strips on the loading lane in batches the frame stands beside, nearest and ahead first, each level built from the one below where they overlap, from the recipe where it's new. **Test:** every level's cells exactly the sums of their children. | flying at 150 costs a few per cent of the card | the 3D sparse layout (each cell column's surface band) is fiddly; the clean fallback is a fixed band per cell column |
 | 3.1d | **The bake** (cells of 32 blocks and up, doubling till one cell covers the whole world: no far cut-off, fog is weather [David 2026-11-06: "on clear days from a high point you should see across the entire world"]; past the start bake each cell starts as one true sample and eases to its exact average, outward from the player, in view first, "like sliding the ring on a nice lens"): an eighth of the world round the spawn before play (about 30 to 60 seconds on David's card), the rest outward in the background at the lowest priority; saved with the world as it completes, stamped with the rules' version (a mismatch bakes again); an edit makes its 32-block cell again from the recipe and its parents from their children. **Tests:** baked cells equal the same cells made live; a saved bake reads back the same. | the far world costs nothing to fly over once baked | the start-up wait or the file size grows past what's tolerable: the reach at start is a setting |
 
+- **3.1a [BUILT 2026-11-06]** `sight/cell.rs`: `Sums`, `Cell` (16 bytes), `sums_of_box`, `FarColours`.
+- **3.1b [BUILT 2026-11-06]** `sight/cell.wgsl`, run by `WorldOnCard::cells_at`: three passes over a region of columns
+  (the grounds with three round them for the slope; mineralogy's choices with one round them; then the cells), each
+  column looked at block by block only where something changes (below its own and its neighbours' ground it's solid
+  all round, above its own ground only water and air), block by block wherever a cave box or a layer of air or water
+  comes near. Mineralogy's candidates now pack what they put down (`Layers`), and the pack holds the blocks' far
+  colours. **Twin test:** 67,134 cells of 1 to 64 blocks (a river, a lake, tunnels coming out of the ground, the map's
+  edge), the card bit for bit the processor's own chunks; and at every world load the cells of 32 round the spawn are
+  checked against the chunks (`check_cells`; the default bake: all the same). **Measured:** a cell first went to one
+  thread on the card, and four cells of 32 held two frames 26 and 19.5 ms; now each cell is shared by 64 threads, and
+  they take 6.6 ms. Cells of 32 through the surface, mineralogy and colours and all, at **30 million columns a
+  second** in windows of 512 × 512: the whole default world's in about **3 minutes**, an eighth of it about 20 s. The
+  three passes compile in about 9 to 11 s on the lane, on top of the column's 6 (world load ready on the card at about
+  17 s: to trim later, or keep in a pipeline cache). Glass and other see-through blocks count as solid for now (the
+  terrain has none).
 - **Telescoping:** `before-sight` is tagged once 3.1d stands. If a stage turns out wrong, its commit is undone and the
   stage redone; the stages before it stand.
 

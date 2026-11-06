@@ -127,6 +127,11 @@ impl Chunk {
         self.sections[section_level(block.z)].get(index_in_section(block))
     }
 
+    /// The same in plain numbers (for code that keeps clear of the doorway: sight's checks).
+    pub fn block_at(&self, x: i32, y: i32, z: i32) -> BlockId {
+        self.get(IVec3::new(x, y, z))
+    }
+
     /// Replace a block. Any extra state the old block had is removed with it, and its pieces.
     /// Returns the block that was there before.
     pub fn set(&mut self, block: IVec3, id: BlockId) -> BlockId {

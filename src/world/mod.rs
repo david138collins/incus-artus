@@ -474,8 +474,13 @@ fn send_world_to_card(terrain: Res<Terrain>, caves: Res<Caves>, registry: Res<Bl
             (Some(map), Some((device, queue))) if map.settings.recipe_maths == crate::worldgen::noise::NoiseMaths::WholeNumbers => {
                 let (map, caves, device, queue) = (map.clone(), caves.0.clone(), device.clone(), queue.clone());
                 let blocks = TerrainBlocks::from_registry(&registry);
+                // The far colours' textures are named here and read on the lane.
+                let (faces, water) = crate::look::Palette::faces(&registry, &blocks);
                 let spawn = voxel.spawn();
-                Some(crate::loading::submit(crate::loading::Tier::Soon, 0.0, move || card_recipe::send(&device, &queue, &map, &caves, &blocks, (spawn.x, spawn.y))))
+                Some(crate::loading::submit(crate::loading::Tier::Soon, 0.0, move || {
+                    let colours = crate::sight::cell::FarColours::new(&crate::look::Palette::from_faces(&faces, water.as_deref()), blocks.water);
+                    card_recipe::send(&device, &queue, &map, &caves, &blocks, &colours, (spawn.x, spawn.y))
+                }))
             }
             _ => None,
         };
