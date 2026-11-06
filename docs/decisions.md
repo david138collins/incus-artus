@@ -1118,10 +1118,11 @@ below disagree with this one, this one stands.
     wherever the recipe takes a slope, whole numbers compute it directly, never by subtracting.
 - **The far levels baked exactly, once per world** [David 2026-11-06]: "i think brute forcing things into cache in
   the beginning is an acceptable cost for getting fast honest good graphics." Builder measured the card awake at
-  about 47 million columns a second (25 million with blocks). So the store's near levels (cells of 1 to 8 blocks)
-  follow the camera, filled live from the recipe. The levels from 16-block cells up are baked once per world by
-  running the real recipe under every column (about 2 to 3.5 minutes for a 72,000-block world on his card, about
-  215 MB), patched by edits, and saved with the world. The recipe answering at a cell's size stays on file as an
+  about 47 million columns a second (25 million with blocks). So the store's near levels (cells of 1 to 16 blocks)
+  follow the camera, filled live from the recipe. The levels from 32-block cells up are baked once per world by
+  running the real recipe under every column (about 2 to 3.5 minutes for a 72,000-block world on his card), patched
+  by edits, and saved with the world. The cells are 3D, holding caves and overhangs. Only mixed cells are stored, at
+  about 16 bytes each: about 300 MB for that world, more with mountains. Builder's estimates, to be measured. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
