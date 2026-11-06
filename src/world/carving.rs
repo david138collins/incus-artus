@@ -232,6 +232,11 @@ impl Lake {
         (col >= 0.0 && row >= 0.0 && (col as usize) < self.cols && (row as usize) < self.rows).then(|| row as usize * self.cols + col as usize)
     }
 
+    /// Each dry cell's next-door water surface (NaN if none), for `whole_recipe`.
+    pub(super) fn beside(&self) -> &[f32] {
+        &self.beside
+    }
+
     /// Whether there's any water in it.
     pub fn is_dry(&self) -> bool {
         !self.surface.iter().any(|s| s.is_finite())
@@ -280,6 +285,12 @@ impl Lakes {
             }
         }
         made
+    }
+
+    /// The lookup grid, for the recipe in whole numbers (`whole_recipe`): its cell (blocks), cells across
+    /// and down, north-west corner, and each cell's lakes.
+    pub(super) fn grid(&self) -> (f32, (usize, usize), (f32, f32), &[Vec<u32>]) {
+        (self.cell, self.across, self.corner, &self.cells)
     }
 
     fn lookup(&self, north: f32, east: f32) -> (usize, usize) {
@@ -646,6 +657,12 @@ impl Carving {
 
     pub fn is_empty(&self) -> bool {
         !self.full
+    }
+
+    /// The lookup grid, for the recipe in whole numbers (`whole_recipe`): its cell (blocks), cells across,
+    /// north-west corner, and each cell's pieces (reach, first point).
+    pub(super) fn grid(&self) -> (f32, usize, (f32, f32), &[Vec<(u32, u32)>]) {
+        (self.cell, self.across, self.corner, &self.cells)
     }
 
     /// How far from its line a river reaches at a point: half its width, its banks' fade at its

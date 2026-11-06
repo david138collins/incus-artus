@@ -802,6 +802,471 @@ fn catmull_rom(p: [i32; 4], t: Fix) -> i32 {
     (first + second + third + fourth).0 >> 1
 }
 
+// ── The rivers and lakes (`carving.rs`) ─────────────────────────────────────────────────────────────
+
+/// One point along a river (`carving::Point`), whole.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WholePoint {
+    pub north: Pos,
+    pub east: Pos,
+    pub width: Fix,
+    pub depth: Fix,
+    pub edge: Fix,
+    pub flat: Fix,
+    pub bowl: Fix,
+    pub level: Fix,
+    pub bend: Fix,
+    /// At a waterfall's lip, the water level above the fall.
+    pub curtain: Option<Fix>,
+    pub fade: Fix,
+}
+
+/// How banks fade (`carving::Banks`), whole.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WholeBanks {
+    pub way: crate::world::carving::FadeWay,
+    pub steepest: Fix,
+    pub widest: Fix,
+    pub terrace: Fix,
+    pub compressor: bool,
+    pub raised_steepest: Fix,
+    pub raised_widest: Fix,
+    /// The most times its fade a bank may widen to, cut or raised.
+    pub widest_either: Fix,
+}
+
+/// A lake's grid (`carving::Lake`), whole: its water surface and the water beside each dry cell.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WholeLake {
+    pub north: Pos,
+    pub west: Pos,
+    pub cols: i32,
+    pub rows: i32,
+    pub cell: Pos,
+    pub surface: Vec<Option<Fix>>,
+    pub beside: Vec<Option<Fix>>,
+}
+
+/// The rivers and lakes, whole (`carving::Carving`): what the card is handed for carving.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WholeCarving {
+    pub full: bool,
+    pub reaches: Vec<Vec<WholePoint>>,
+    pub banks: Option<WholeBanks>,
+    pub curtains: bool,
+    pub anti_kitty_corner: bool,
+    /// The rivers' lookup grid: its cell, cells across, its north-west corner, each cell's pieces.
+    pub cell: Pos,
+    pub across: i32,
+    pub corner: (Pos, Pos),
+    pub cells: Vec<Vec<(u32, u32)>>,
+    pub lakes: Vec<WholeLake>,
+    /// The lakes' lookup grid, likewise (cells across and down).
+    pub lake_cell: Pos,
+    pub lake_across: (i32, i32),
+    pub lake_corner: (Pos, Pos),
+    pub lake_cells: Vec<Vec<u32>>,
+}
+
+/// What the carving does to a column (`carving::Here`), whole.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct WholeCarved {
+    pub floor: Option<Fix>,
+    pub fill: Option<Fix>,
+    pub water: Option<i32>,
+}
+
+/// A piece as seen from a spot: its distance (blocks), which side (±1), the point there, how far past
+/// the piece's start (blocks), and half its water across.
+type WholePiece = (Fix, Fix, WholePoint, Fix, Fix);
+
+/// Half a block, a block and two blocks, as values.
+const HALF: Fix = Fix(whole::ONE / 2);
+const TWO: Fix = Fix::from_int(2);
+
+/// A value rounded to the nearest whole block (halves up, as the fractions' `round` for the heights the
+/// world has, all above 0).
+fn rounded(x: Fix) -> Fix {
+    Fix((x.0 + whole::ONE / 2) & !0xFFFF)
+}
+
+fn whole_number(x: Fix) -> i32 {
+    rounded(x).floor()
+}
+
+/// Whether a height is under the sea, as the world rounds it (`terrain::under_sea`).
+fn under_the_sea(height: Fix) -> bool {
+    whole_number(height) < crate::world::SEA_LEVEL
+}
+
+/// How deep a river's water is at `across` (`carving::depth_across`): whole blocks, at least 1.
+fn depth_across(p: &WholePoint, across: Fix) -> Fix {
+    let flat = p.flat.clamp(Fix::ZERO, Fix::from_f32(0.95));
+    let u = across.abs().min(Fix::ONE);
+    let t = if u <= flat { Fix::ONE } else { (Fix::ONE - u) / (Fix::ONE - flat) };
+    let at_edge = p.edge.clamp(Fix::ZERO, Fix::ONE) * p.depth;
+    rounded(at_edge + (p.depth - at_edge) * whole::pow(t, p.bowl.max(Fix::from_f32(0.05)))).max(Fix::ONE)
+}
+
+/// Where a spot is along a piece from `a` to `b` (`carving::along`): how far from its line (blocks), which
+/// side (+1 toward the right looking downstream, as the fractions' sign), and how far along (0 to 1). In
+/// blocks as values: a piece listed in a spot's cell is within a few hundred blocks of it.
+fn along(a: &WholePoint, b: &WholePoint, north: Pos, east: Pos) -> (Fix, Fix, Fix) {
+    let (dn, de) = ((b.north - a.north).to_fix(), (b.east - a.east).to_fix());
+    let (mn, me) = ((north - a.north).to_fix(), (east - a.east).to_fix());
+    let length = whole::hypot(dn, de);
+    let t = if length <= TINY {
+        Fix::ZERO
+    } else {
+        let (un, ue) = (dn / length, de / length);
+        ((mn * un + me * ue) / length).clamp(Fix::ZERO, Fix::ONE)
+    };
+    let (pn, pe) = (dn * t, de * t);
+    let side = if length <= TINY { Fix::ZERO } else { (de / length) * mn - (dn / length) * me };
+    let distance = whole::hypot(mn - pn, me - pe);
+    (distance, if side <= Fix::ZERO { -Fix::ONE } else { Fix::ONE }, t)
+}
+
+impl WholeBanks {
+    /// A bank's ground (`carving::Banks::ground`).
+    fn ground(&self, level: Fix, fade: Fix, beyond: Fix, ground: Fix) -> Option<Fix> {
+        use crate::world::carving::FadeWay;
+        let way = self.way;
+        let shore = if way == FadeWay::LedgeThenSlope { level } else { level - Fix::ONE };
+        let rise = ground - shore;
+        let fade = fade.max(Fix::ONE);
+        let fade = if rise > Fix::ZERO { (rise / self.steepest.max(Fix::from_f32(0.05))).clamp(fade, fade * self.widest.max(Fix::ONE)) } else { fade };
+        if beyond >= fade {
+            return None;
+        }
+        let t = (beyond / fade).clamp(Fix::ZERO, Fix::ONE);
+        let smooth = whole::smooth(t);
+        let terrace = self.terrace.max(Fix::ONE);
+        Some(match way {
+            FadeWay::Smooth | FadeWay::LedgeThenSlope => shore + rise * smooth,
+            FadeWay::Slope => shore + rise * t,
+            FadeWay::Terraces if rise > Fix::ZERO => shore + Fix::from_int((rise * t / terrace).floor()) * terrace,
+            FadeWay::Terraces => shore + rise * smooth,
+        })
+    }
+
+    /// The compressor's ground (`carving::Banks::compressed`).
+    fn compressed(&self, level: Fix, fade: Fix, beyond: Fix, ground: Fix) -> Option<Fix> {
+        use crate::world::carving::FadeWay;
+        let way = self.way;
+        let shore = level - Fix::ONE;
+        let rise = ground - shore;
+        let kept = if rise > Fix::ZERO && way == FadeWay::LedgeThenSlope { Fix::ONE.min(rise) } else { Fix::ZERO };
+        let rest = rise - kept;
+        let peak = if matches!(way, FadeWay::Smooth | FadeWay::LedgeThenSlope) { Fix::from_f32(1.5) } else { Fix::ONE };
+        let fade = fade.max(Fix::ONE);
+        let least = Fix::from_f32(0.05);
+        let fade = if rest > Fix::ZERO {
+            (rest * peak / self.steepest.max(least)).clamp(fade, fade * self.widest.max(Fix::ONE))
+        } else if rise < Fix::ZERO {
+            (-rise * peak / self.raised_steepest.max(least)).clamp(fade, fade * self.raised_widest.max(Fix::ONE))
+        } else {
+            fade
+        };
+        let t = (beyond - Fix::ONE).max(Fix::ZERO) / fade;
+        if t >= Fix::ONE {
+            return None;
+        }
+        let smooth = whole::smooth(t);
+        let terrace = self.terrace.max(Fix::ONE);
+        Some(
+            shore
+                + kept
+                + match way {
+                    FadeWay::Smooth | FadeWay::LedgeThenSlope => rest * smooth,
+                    FadeWay::Slope => rest * t,
+                    FadeWay::Terraces if rest > Fix::ZERO => Fix::from_int((rest * t / terrace).floor()) * terrace,
+                    FadeWay::Terraces => rest * smooth,
+                },
+        )
+    }
+}
+
+impl WholeCarving {
+    /// The rivers and lakes made whole, once, as a world loads.
+    pub fn new(carving: &crate::world::carving::Carving) -> Self {
+        let place = Pos::from_f32;
+        let value = Fix::from_f32;
+        let b = &carving.banks;
+        let reaches = carving
+            .reaches
+            .iter()
+            .map(|reach| {
+                reach
+                    .points
+                    .iter()
+                    .map(|p| WholePoint { north: place(p.north), east: place(p.east), width: value(p.width), depth: value(p.depth), edge: value(p.edge), flat: value(p.flat), bowl: value(p.bowl), level: value(p.level), bend: value(p.bend), curtain: p.curtain.is_finite().then(|| value(p.curtain)), fade: value(p.fade) })
+                    .collect()
+            })
+            .collect();
+        let (cell, across, corner, cells) = carving.grid();
+        let lake_parts = carving.lakes.grid();
+        let lakes = carving
+            .lakes
+            .lakes
+            .iter()
+            .map(|l| {
+                let wet = |v: &[f32]| v.iter().map(|&s| s.is_finite().then(|| value(s))).collect::<Vec<_>>();
+                WholeLake { north: place(l.north), west: place(l.west), cols: l.cols as i32, rows: l.rows as i32, cell: place(l.cell), surface: wet(&l.surface), beside: wet(l.beside()) }
+            })
+            .collect();
+        Self {
+            full: !carving.is_empty(),
+            reaches,
+            banks: Some(WholeBanks { way: b.way, steepest: value(b.steepest), widest: value(b.widest), terrace: value(b.terrace), compressor: b.compressor, raised_steepest: value(b.raised_steepest), raised_widest: value(b.raised_widest), widest_either: value(if b.compressor { b.widest.max(b.raised_widest).max(1.0) } else { b.widest.max(1.0) }) }),
+            curtains: carving.curtains,
+            anti_kitty_corner: carving.anti_kitty_corner,
+            cell: place(cell),
+            across: across as i32,
+            corner: (place(corner.0), place(corner.1)),
+            cells: cells.to_vec(),
+            lakes,
+            lake_cell: place(lake_parts.0),
+            lake_across: (lake_parts.1.0 as i32, lake_parts.1.1 as i32),
+            lake_corner: (place(lake_parts.2.0), place(lake_parts.2.1)),
+            lake_cells: lake_parts.3.to_vec(),
+        }
+    }
+
+    fn row(&self, north: Pos) -> usize {
+        ((self.corner.0 - north).0.div_euclid(self.cell.0.max(1)).max(0) as usize).min((self.across as usize).saturating_sub(1))
+    }
+
+    fn col(&self, east: Pos) -> usize {
+        ((east - self.corner.1).0.div_euclid(self.cell.0.max(1)).max(0) as usize).min((self.across as usize).saturating_sub(1))
+    }
+
+    /// Half a river's water across (`carving::half_across`).
+    fn half_across(&self, a: &WholePoint, b: &WholePoint, width: Fix) -> Fix {
+        let half = Fix(width.max(Fix::ONE).0 >> 1);
+        if !self.anti_kitty_corner {
+            return half;
+        }
+        let (dn, de) = ((b.north - a.north).to_fix(), (b.east - a.east).to_fix());
+        let length = whole::hypot(dn, de).max(TINY);
+        half.max(Fix(((dn.abs() + de.abs()) / length).0 >> 1))
+    }
+
+    /// A point between two, `t` of the way (`carving::nearest_piece`'s blend): its level and curtain the
+    /// upstream point's.
+    fn blend(a: &WholePoint, b: &WholePoint, t: Fix, bend: Fix) -> WholePoint {
+        let mix = |x: Fix, y: Fix| x + (y - x) * t;
+        WholePoint { north: a.north + (b.north - a.north).scaled(t), east: a.east + (b.east - a.east).scaled(t), width: mix(a.width, b.width), depth: mix(a.depth, b.depth), edge: mix(a.edge, b.edge), flat: mix(a.flat, b.flat), bowl: mix(a.bowl, b.bowl), level: a.level, bend, curtain: a.curtain, fade: mix(a.fade, b.fade) }
+    }
+
+    /// The nearest piece, or the lowest water the spot is in (`carving::nearest_piece`).
+    fn nearest_piece(&self, north: Pos, east: Pos) -> Option<WholePiece> {
+        if self.cells.is_empty() {
+            return None;
+        }
+        let reach_blocks = Pos(self.cell.0.wrapping_mul(self.across));
+        let inside = north <= self.corner.0 && east >= self.corner.1 && north > self.corner.0 - reach_blocks && east < self.corner.1 + reach_blocks;
+        if !inside {
+            return None;
+        }
+        type Wet = ((Fix, Fix), WholePiece);
+        let mut best: Option<WholePiece> = None;
+        let mut wet: Option<Wet> = None;
+        let mut stretch: (u32, Option<Wet>) = (u32::MAX, None);
+        let lowest = |wet: &mut Option<Wet>, found: Option<Wet>| {
+            if let Some(found) = found
+                && wet.as_ref().is_none_or(|w| found.0 < w.0)
+            {
+                *wet = Some(found);
+            }
+        };
+        for &(r, k) in &self.cells[self.row(north) * self.across as usize + self.col(east)] {
+            if r != stretch.0 {
+                lowest(&mut wet, stretch.1.take());
+                stretch.0 = r;
+            }
+            let points = &self.reaches[r as usize];
+            let (a, b) = (&points[k as usize], &points[k as usize + 1]);
+            let (distance, side, t) = along(a, b, north, east);
+            let nearer = best.as_ref().is_none_or(|(d, ..)| distance < *d);
+            let width = a.width + (b.width - a.width) * t;
+            let bend = if t < HALF { a.bend } else { b.bend };
+            let shift = if whole_number(width) % 2 == 0 { bend * HALF } else { Fix::ZERO };
+            let half = self.half_across(a, b, width);
+            let offset = distance * side - shift;
+            let in_water = offset.abs() <= half && stretch.1.as_ref().is_none_or(|(_, (d, ..))| distance < *d);
+            if !nearer && !in_water {
+                continue;
+            }
+            let span = whole::hypot((b.north - a.north).to_fix(), (b.east - a.east).to_fix());
+            let point = Self::blend(a, b, t, bend);
+            let piece = (distance, side, point, t * span, half);
+            if nearer {
+                best = Some(piece);
+            }
+            if in_water {
+                let level = rounded(point.level);
+                let floor = level - Fix::ONE - depth_across(&point, offset / half);
+                stretch.1 = Some(((level, floor), piece));
+            }
+        }
+        lowest(&mut wet, stretch.1.take());
+        wet.map(|(_, piece)| piece).or(best)
+    }
+
+    /// The compressor's ground at a spot outside the nearest river's water (`carving::compressed_bank`).
+    fn compressed_bank(&self, banks: &WholeBanks, north: Pos, east: Pos, ground: Fix) -> Option<Fix> {
+        let widest = banks.widest_either;
+        let (mut bank, mut hold, mut rim) = (Fix::MAX, Fix::MIN, Fix::MIN);
+        let mut stretch: (u32, u32, Fix, Option<(Fix, Fix)>) = (u32::MAX, 0, Fix::MAX, None);
+        for &(r, k) in &self.cells[self.row(north) * self.across as usize + self.col(east)] {
+            let points = &self.reaches[r as usize];
+            let (a, c) = (&points[k as usize], &points[k as usize + 1]);
+            let (distance, side, t) = along(a, c, north, east);
+            let (width, fade) = (a.width + (c.width - a.width) * t, a.fade + (c.fade - a.fade) * t);
+            let half = self.half_across(a, c, width);
+            let bend = if t < HALF { a.bend } else { c.bend };
+            let shift = if whole_number(width) % 2 == 0 { bend * HALF } else { Fix::ZERO };
+            let beyond = (distance * side - shift).abs() - half;
+            let past = t * whole::hypot((c.north - a.north).to_fix(), (c.east - a.east).to_fix());
+            let level = match a.curtain.map(|top| rounded(top).max(rounded(a.level))) {
+                Some(top) if past < TWO => top,
+                _ => rounded(a.level),
+            };
+            if beyond > Fix::ZERO && beyond <= Fix::ONE {
+                rim = rim.max(level - Fix::ONE);
+            }
+            let say = (fade > Fix::ZERO && beyond > Fix::ZERO && beyond <= fade * widest + TWO)
+                .then(|| banks.compressed(level, fade, beyond, ground).map(|target| (target, level - Fix::ONE - (beyond - Fix::ONE).max(Fix::ZERO) * banks.steepest.max(Fix::from_f32(0.05)))));
+            if r != stretch.0 || k > stretch.1 + 2 {
+                if let Some((target, held)) = stretch.3 {
+                    (bank, hold) = (bank.min(target), hold.max(held));
+                }
+                stretch = (r, k, distance, say.flatten());
+            } else if distance < stretch.2 {
+                stretch = (r, k, distance, say.flatten());
+            } else {
+                stretch.1 = k;
+            }
+        }
+        if let Some((target, held)) = stretch.3 {
+            (bank, hold) = (bank.min(target), hold.max(held));
+        }
+        (bank < Fix::MAX).then(|| bank.max(hold.min(ground)).max(rim))
+    }
+
+    /// The lake water at a spot, and whether it's only beside it (`carving::Lakes::at`).
+    fn lake_at(&self, north: Pos, east: Pos) -> Option<(Fix, bool)> {
+        if self.lake_cells.is_empty() {
+            return None;
+        }
+        let cell = self.lake_cell.0.max(1);
+        let col = (east - self.lake_corner.1).0.div_euclid(cell).clamp(0, self.lake_across.0 - 1);
+        let row = (self.lake_corner.0 - north).0.div_euclid(cell).clamp(0, self.lake_across.1 - 1);
+        let (mut water, mut beside): (Option<Fix>, Option<Fix>) = (None, None);
+        for &k in &self.lake_cells[(row * self.lake_across.0 + col) as usize] {
+            let lake = &self.lakes[k as usize];
+            let (c, r) = ((east - lake.west).0, (lake.north - north).0);
+            if c < 0 || r < 0 {
+                continue;
+            }
+            let (c, r) = (c / lake.cell.0.max(1), r / lake.cell.0.max(1));
+            if c >= lake.cols || r >= lake.rows {
+                continue;
+            }
+            let i = (r * lake.cols + c) as usize;
+            let higher = |kept: Option<Fix>, new: Option<Fix>| match (kept, new) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (a, b) => a.or(b),
+            };
+            (water, beside) = (higher(water, lake.surface[i]), higher(beside, lake.beside[i]));
+        }
+        match water {
+            Some(surface) => Some((surface, false)),
+            None => beside.map(|surface| (surface, true)),
+        }
+    }
+
+    /// What the rivers and lakes do to the column at a spot whose uncarved ground is `ground`
+    /// (`carving::Carving::here`).
+    pub fn here(&self, north: Pos, east: Pos, ground: Fix) -> WholeCarved {
+        let mut here = WholeCarved::default();
+        if !under_the_sea(ground)
+            && let Some(banks) = &self.banks
+            && let Some((distance, side, point, past, half)) = self.nearest_piece(north, east)
+        {
+            let shift = if whole_number(point.width) % 2 == 0 { point.bend * HALF } else { Fix::ZERO };
+            let offset = distance * side - shift;
+            let fall = point.curtain.map(|top| rounded(top).max(rounded(point.level)));
+            if offset.abs() <= half {
+                let level = rounded(point.level);
+                let top = match fall {
+                    Some(top) if self.curtains && past < Fix::ONE => top,
+                    _ => level,
+                };
+                here.floor = Some(level - Fix::ONE - depth_across(&point, offset / half));
+                here.water = Some(top.floor());
+            } else if banks.compressor {
+                if let Some(bank) = self.compressed_bank(banks, north, east, ground) {
+                    if bank < ground {
+                        here.floor = Some(bank);
+                    } else {
+                        here.fill = Some(bank);
+                    }
+                }
+            } else if point.fade > Fix::ZERO {
+                let level = match fall {
+                    Some(top) if past < TWO => top,
+                    _ => rounded(point.level),
+                };
+                if let Some(bank) = banks.ground(level, point.fade, offset.abs() - half, ground) {
+                    if bank < ground {
+                        here.floor = Some(bank);
+                    } else {
+                        here.fill = Some(bank);
+                    }
+                }
+            }
+        }
+        if let Some((surface, edge)) = self.lake_at(north, east)
+            && surface > SEA
+        {
+            let top = rounded(surface);
+            let cut = here.floor.map_or(ground, |f| ground.min(f));
+            let carved = here.fill.map_or(cut, |fill| cut.max(fill));
+            if edge {
+                if (if here.water.is_none() { carved } else { ground }) < top - Fix::ONE {
+                    here.fill = Some(top - Fix::ONE);
+                }
+            } else if carved < top - HALF {
+                here.water = Some(here.water.map_or(top.floor(), |w| w.max(top.floor())));
+                here.fill = None;
+            }
+        }
+        here
+    }
+}
+
+impl WholeMap {
+    /// The ground's height at a spot, carved, and how high water stands over it there
+    /// (`interpreter::ground_and_water`).
+    pub fn ground_and_water(&self, carving: &WholeCarving, north: Pos, east: Pos) -> Option<(Fix, Option<i32>)> {
+        let ground = self.uncarved(north, east)?;
+        if self.mutes.rivers || !carving.full {
+            return Some((ground, None));
+        }
+        let here = carving.here(north, east, ground);
+        let mut z = ground;
+        if let Some(floor) = here.floor {
+            z = z.min(floor);
+        }
+        if let Some(fill) = here.fill {
+            z = z.max(fill);
+        }
+        Some((z, here.water.filter(|&water| water > whole_number(z) + 1)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -859,6 +1324,39 @@ mod tests {
             let mean = total / count as f32;
             eprintln!("steady {steady}: {same} of {count} the same block, {mean:.3} blocks apart on average, {worst:.2} at worst");
             assert!(same * 100 >= count * 95 && mean < 0.05 && worst < 1.5, "steady {steady}: {same} of {count} the same block, {mean:.3} blocks apart on average, {worst:.2} at worst");
+        }
+    }
+
+
+    /// The rivers and lakes carve the same in whole numbers as in fractions: a river with a bend, a fall
+    /// and faded banks across the rich world, and a lake beside it, each way of banking.
+    #[test]
+    fn the_whole_number_carving_carves_the_same() {
+        use crate::world::carving::{Banks, Carving, FadeWay, Lake, Lakes, Point, Reach};
+        let point = |north: f32, east: f32, width: f32, level: f32, bend: f32, curtain: f32| Point { north, east, width, depth: 3.0, edge: 0.4, flat: 0.3, bowl: 1.3, level, bend, curtain, turn: 0.0, fade: 12.0 };
+        let river = Reach { points: vec![point(-300.5, -400.0, 6.0, 200.0, 1.0, f32::NAN), point(-200.0, -250.0, 7.0, 200.0, 1.0, f32::NAN), point(-120.0, -100.0, 8.0, 190.0, -1.0, 200.0), point(-60.0, 80.0, 9.0, 180.0, 0.0, f32::NAN), point(0.0, 300.0, 10.0, 175.0, 0.0, f32::NAN)] };
+        let surface: Vec<f32> = (0..400).map(|i| if (i % 20) > 6 && (i / 20) > 5 { 170.0 } else { f32::NAN }).collect();
+        let lakes = Lakes::new(vec![Lake::new(200.0, -200.0, 20, 20, 8.0, surface)]);
+        for (way, compressor) in [(FadeWay::Smooth, false), (FadeWay::Slope, false), (FadeWay::Terraces, false), (FadeWay::LedgeThenSlope, true), (FadeWay::Smooth, true)] {
+            let carving = Carving::new(vec![river.clone()], lakes.clone(), Banks { way, compressor, ..Banks::default() });
+            let map = rich_map().with_rivers(std::sync::Arc::new(carving.clone()));
+            let (whole, carved) = (WholeMap::new(&map), WholeCarving::new(&carving));
+            let (mut same, mut count, mut water_same, mut worst, mut wet) = (0, 0, 0, 0.0f32, 0);
+            for north in (-420..260).step_by(3) {
+                for east in (-450..360).step_by(5) {
+                    let (north, east) = (north as f32 + 0.5, east as f32 + 0.5);
+                    let Some((want, want_water)) = map.ground_and_water(north, east) else { continue };
+                    let (got, got_water) = whole.ground_and_water(&carved, Pos::from_f32(north), Pos::from_f32(east)).expect("inside the map");
+                    same += (want.round() == got.to_f32().round()) as usize;
+                    water_same += (want_water == got_water) as usize;
+                    wet += want_water.is_some() as usize;
+                    count += 1;
+                    worst = worst.max((want - got.to_f32()).abs());
+                }
+            }
+            eprintln!("{way:?}, compressor {compressor}: {same} of {count} the same block, {water_same} the same water ({wet} wet), {worst:.2} at worst");
+            assert!(wet > 200, "only {wet} columns of water: the test's river and lake missed the land");
+            assert!(same * 100 >= count * 95 && water_same * 100 >= count * 97, "{way:?}, compressor {compressor}: {same} of {count} the same block, {water_same} the same water, {worst:.2} at worst");
         }
     }
 
