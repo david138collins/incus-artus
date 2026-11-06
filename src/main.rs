@@ -56,6 +56,7 @@ mod soak;
 mod temperatures;
 mod time;
 mod ui;
+mod whole;
 mod world;
 mod worldgen;
 
