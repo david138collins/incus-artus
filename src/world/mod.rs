@@ -489,12 +489,12 @@ impl Drop for SightStore {
 pub struct SightKept(Option<crate::sight::bake::Kept>);
 
 /// Sight's bake kept with the world (3.1e): what's been baked or patched since the last save goes on the end
-/// of its file.
+/// of its file, written on the loading lane (never the frame).
 fn save_sight(world: &World, folder: &crate::save::WorldFolder) -> Result<String, String> {
-    match world.resource::<SightStore>().bake.as_ref().and_then(|bake| bake.bake.lock().ok().map(|mut bake| bake.keep(&folder.path))) {
-        Some(kept) => kept,
-        None => Ok("no bake of sight's yet".into()),
-    }
+    Ok(match world.resource::<SightStore>().bake.as_ref() {
+        Some(bake) => crate::sight::bake::keep_later(bake, folder.path.clone()),
+        None => "no bake of sight's yet".into(),
+    })
 }
 
 fn load_sight(world: &mut World, folder: &crate::save::WorldFolder) -> Result<String, String> {

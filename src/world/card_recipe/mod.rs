@@ -855,10 +855,9 @@ fn ground(c: Case) -> i32 {
         let mut checked = 0;
         for level in [FIRST, FIRST + 1, FIRST + 2] {
             let size = 1 << level;
-            let baked = bake.level(level);
             for (x, y) in [(600i32, 300i32), (-60, 80), (-1500, 1400)] {
                 let (cx, cy) = (x.div_euclid(size), y.div_euclid(size));
-                let (low, cells) = baked.column(cx, cy).expect("baked");
+                let (low, cells) = bake.column(level, cx, cy).expect("baked");
                 let mut asked = Vec::new();
                 for z in (low - 1).max(0)..=low + cells.len() as i32 {
                     asked.push([cx * size, cy * size, z * size, size]);
@@ -880,10 +879,10 @@ fn ground(c: Case) -> i32 {
         }
         // Every level up to the top is complete.
         for level in FIRST..=Bake::top(half) {
-            let baked = bake.level(level);
-            for cy in baked.from.1..baked.from.1 + baked.across {
-                for cx in baked.from.0..baked.from.0 + baked.across {
-                    assert!(baked.column(cx, cy).is_some(), "level {level}, cell column ({cx}, {cy}) not baked");
+            let extent = bake.extent(level);
+            for cy in extent.from.1..extent.from.1 + extent.across {
+                for cx in extent.from.0..extent.from.0 + extent.across {
+                    assert!(bake.column(level, cx, cy).is_some(), "level {level}, cell column ({cx}, {cy}) not baked");
                 }
             }
         }
@@ -939,6 +938,20 @@ fn ground(c: Case) -> i32 {
         assert!(other.bake.lock().expect("the bake").regions_done < 16, "another stamp: baked again");
         crate::sight::bake::stop(&other);
         drop(jobs);
+        // Kept on the loading lane instead: the same file.
+        let lane = folder.join("lane");
+        std::fs::create_dir_all(&lane).expect("a folder");
+        crate::sight::bake::keep_later(&baking, lane.clone());
+        let waited = std::time::Instant::now();
+        while (baking.writing() || !lane.join(crate::sight::bake::FILE).exists()) && waited.elapsed().as_secs() < 60 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(read(&lane).expect("read").expect("a file").records, kept.records, "kept on the lane, the same");
+        // Cut short mid-record (the game closed while writing): read back as far as it's whole.
+        let bytes = std::fs::read(folder.join(crate::sight::bake::FILE)).expect("the file");
+        std::fs::write(folder.join(crate::sight::bake::FILE), &bytes[..bytes.len() - 100]).expect("cut short");
+        let cut = read(&folder).expect("read").expect("a file");
+        assert!(!cut.whole && cut.records.len() == 15 && cut.records[..] == kept.records[..15], "cut short: the whole records before the cut");
         let _ = std::fs::remove_dir_all(&folder);
 
         // An edit: a hole 3 by 3 and 6 deep at the north edge of the chunk at (576, 288), in its ground.
@@ -972,7 +985,17 @@ fn ground(c: Case) -> i32 {
         assert!(faces(&after, pos.x + 1, pos.y) > faces(&before, pos.x + 1, pos.y), "the hole bares faces in the column beside it");
         let far = (pos.x - 8, pos.y - 8);
         assert_eq!(before.levels[0][index(far.0, far.1)], after.levels[0][index(far.0, far.1)], "a column away from the edit as it was");
-        eprintln!("Sight's bake patched: {dug} blocks dug, the region's top cell that much lighter");
+        // Patched in the bake itself: its region replaced whole, nothing left behind.
+        let cells_before = baking.bake.lock().expect("the bake").cells();
+        let job = crate::sight::bake::patch(baking.clone(), maker.clone(), edited.clone(), odd, vec![region]);
+        let waited = std::time::Instant::now();
+        while matches!(job.ready(), Ok(None)) && waited.elapsed().as_secs() < 120 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let cells_after = baking.bake.lock().expect("the bake").cells();
+        let region_cells = |record: &crate::sight::bake::Record| record.levels.iter().flatten().map(|(_, c)| c.len()).sum::<usize>() as i64;
+        assert_eq!(cells_after as i64 - cells_before as i64 - (region_cells(&after) - region_cells(&before)), 0, "the patched region replaced, its old cells gone (and the levels above remade in place)");
+        eprintln!("Sight's bake patched: {dug} blocks dug, the region's top cell that much lighter; {cells_before} cells before, {cells_after} after");
     }
 
     /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,

@@ -41,54 +41,27 @@ pub const BAKERS: usize = 4;
 /// The bake's file in the world's folder.
 pub const FILE: &str = "sight-bake.bin";
 
-/// Not baked yet.
-const NOT_YET: u16 = u16::MAX;
 /// The file's first bytes, and its layout's version.
 const MAGIC: &[u8; 8] = b"INCUSBK1";
 
-/// One baked level: every cell column over the map, its band's lowest cell and its compact cells.
-pub struct Level {
+/// A baked level's bounds: its cell size, its least cell column (absolute: cell `n` runs from `n × size`), and
+/// how many across each way.
+#[derive(Clone, Copy, Debug)]
+pub struct Extent {
     pub size: i32,
-    /// The least cell column (absolute: cell `n` runs from `n × size`), and how many across each way.
     pub from: (i32, i32),
     pub across: i32,
-    lows: Vec<i16>,
-    counts: Vec<u16>,
-    starts: Vec<u32>,
-    cells: Vec<Cell>,
 }
 
-impl Level {
+impl Extent {
     fn new(level: usize, half: i32) -> Self {
         let size = 1 << level;
         let from = (-half).div_euclid(size);
-        let across = (half - 1).div_euclid(size) - from + 1;
-        let n = (across * across) as usize;
-        Self { size, from: (from, from), across, lows: vec![0; n], counts: vec![NOT_YET; n], starts: vec![0; n], cells: Vec::new() }
+        Self { size, from: (from, from), across: (half - 1).div_euclid(size) - from + 1 }
     }
 
-    fn index(&self, cx: i32, cy: i32) -> Option<usize> {
-        let (x, y) = (cx - self.from.0, cy - self.from.1);
-        ((0..self.across).contains(&x) && (0..self.across).contains(&y)).then(|| (y * self.across + x) as usize)
-    }
-
-    /// A cell column's band (its lowest cell, and its cells), if it's baked; `Some((0, []))` past the map.
-    pub fn column(&self, cx: i32, cy: i32) -> Option<(i32, &[Cell])> {
-        let Some(k) = self.index(cx, cy) else { return Some((0, &[])) };
-        (self.counts[k] != NOT_YET).then(|| (self.lows[k] as i32, &self.cells[self.starts[k] as usize..self.starts[k] as usize + self.counts[k] as usize]))
-    }
-
-    fn put(&mut self, cx: i32, cy: i32, low: i32, cells: impl ExactSizeIterator<Item = Cell>) {
-        let Some(k) = self.index(cx, cy) else { return };
-        self.lows[k] = low as i16;
-        self.counts[k] = cells.len() as u16;
-        // A column made again (an edit) goes on the end; its old cells are left where they were.
-        self.starts[k] = self.cells.len() as u32;
-        self.cells.extend(cells);
-    }
-
-    pub fn cells(&self) -> usize {
-        self.cells.len()
+    fn inside(&self, cx: i32, cy: i32) -> bool {
+        (0..self.across).contains(&(cx - self.from.0)) && (0..self.across).contains(&(cy - self.from.1))
     }
 }
 
@@ -149,9 +122,14 @@ impl Record {
 
 /// The whole bake.
 pub struct Bake {
-    /// The levels from cells of 32 up.
-    pub levels: Vec<Level>,
-    /// The exact sums from 1,024 up, by level and cell column (the levels above are made from them).
+    /// Each level's bounds, from cells of 32 up.
+    pub extents: Vec<Extent>,
+    /// Every region's record as last made (its cell columns from 32 to 1,024): kept once, shared with a save
+    /// under way; made again, replaced whole (so nothing is left behind).
+    records: HashMap<(i32, i32), Arc<Record>>,
+    /// Above 1,024: each cell column's compact cells, and the exact sums from 1,024 up (the levels above are
+    /// made from them).
+    upper: HashMap<(usize, i32, i32), (i32, Vec<Cell>)>,
     sums: HashMap<(usize, i32, i32), CellColumn>,
     pub regions: usize,
     pub start_regions: usize,
@@ -160,10 +138,9 @@ pub struct Bake {
     /// Seconds to the start bake, and to all of it.
     pub start_done: Option<f32>,
     pub all_done: Option<f32>,
-    /// Every region's record as it was last made, and the order they were made in (for the file).
-    records: HashMap<(i32, i32), Record>,
+    /// The order regions were made in (for the file), and the file it's kept in with how many of `order` are
+    /// in it already.
     order: Vec<(i32, i32)>,
-    /// The file it's kept in, and how many of `order` are in it already.
     kept_in: Option<(PathBuf, usize)>,
     pub stamp: u64,
     pub half: i32,
@@ -179,27 +156,35 @@ impl Bake {
         level
     }
 
-    pub fn level(&self, level: usize) -> &Level {
-        &self.levels[level - FIRST]
+    pub fn extent(&self, level: usize) -> Extent {
+        self.extents[level - FIRST]
     }
 
     pub fn is_baked(&self, region: (i32, i32)) -> bool {
         self.records.contains_key(&region)
     }
 
+    /// A cell column's band at `level` (its lowest cell, and its cells), if it's baked; `Some((0, []))` past
+    /// the map.
+    pub fn column(&self, level: usize, cx: i32, cy: i32) -> Option<(i32, &[Cell])> {
+        if !self.extent(level).inside(cx, cy) {
+            return Some((0, &[]));
+        }
+        if level <= REGION {
+            let per = 1 << (REGION - level);
+            let record = self.records.get(&(cx.div_euclid(per), cy.div_euclid(per)))?;
+            let (low, cells) = &record.levels[level - FIRST][(cy.rem_euclid(per) * per + cx.rem_euclid(per)) as usize];
+            return Some((*low, cells.as_slice()));
+        }
+        self.upper.get(&(level, cx, cy)).map(|(low, cells)| (*low, cells.as_slice()))
+    }
+
     /// A region's record put in (made, patched or read back); then every level above built where all its
     /// children are baked.
     fn take(&mut self, record: Record) {
         let region = record.region;
-        for (k, columns) in record.levels.iter().enumerate() {
-            let across = 1 << (REGION - FIRST - k);
-            let (from_x, from_y) = (region.0 * across, region.1 * across);
-            for (i, (low, cells)) in columns.iter().enumerate() {
-                self.levels[k].put(from_x + i as i32 % across, from_y + i as i32 / across, *low, cells.iter().copied());
-            }
-        }
         self.sums.insert((REGION, region.0, region.1), record.top.clone());
-        if self.records.insert(region, record).is_none() {
+        if self.records.insert(region, Arc::new(record)).is_none() {
             self.regions_done += 1;
         }
         self.order.push(region);
@@ -212,68 +197,34 @@ impl Bake {
         }
         // Up the levels while all four children are there.
         let (mut cx, mut cy) = region;
-        for level in REGION + 1..FIRST + self.levels.len() {
+        for level in REGION + 1..FIRST + self.extents.len() {
             let (px, py) = (cx.div_euclid(2), cy.div_euclid(2));
-            let below = &self.levels[level - 1 - FIRST];
+            let below = self.extent(level - 1);
             let mut children = Vec::with_capacity(4);
             for k in 0..4 {
                 let (x, y) = (px * 2 + k % 2, py * 2 + k / 2);
                 match self.sums.get(&(level - 1, x, y)) {
                     Some(column) => children.push(column.clone()),
-                    None if below.index(x, y).is_none() => children.push(CellColumn::default()),
+                    None if !below.inside(x, y) => children.push(CellColumn::default()),
                     None => return,
                 }
             }
             let parent = parent_of([&children[0], &children[1], &children[2], &children[3]], 1 << (level - 1));
             let size = 1 << level;
-            self.levels[level - FIRST].put(px, py, parent.low, parent.sums.iter().map(|s| s.compact(size)).collect::<Vec<_>>().into_iter());
+            self.upper.insert((level, px, py), (parent.low, parent.sums.iter().map(|s| s.compact(size)).collect()));
             self.sums.insert((level, px, py), parent);
             (cx, cy) = (px, py);
         }
     }
 
-    /// Kept in `folder`'s file: the records made since it was last written there added to its end, or the
-    /// whole of it written afresh if it's a new place. What it wrote.
-    pub fn keep(&mut self, folder: &Path) -> Result<String, String> {
-        let path = folder.join(FILE);
-        let (fresh, from) = match &self.kept_in {
-            Some((kept, done)) if *kept == path && path.exists() => (false, *done),
-            _ => (true, 0),
-        };
-        let mut bytes = Vec::new();
-        if fresh {
-            bytes.extend_from_slice(MAGIC);
-            bytes.extend_from_slice(&self.stamp.to_le_bytes());
-            bytes.extend_from_slice(&self.half.to_le_bytes());
-        }
-        // Fresh, every region once (its latest record); else the ones made since, in order.
-        let regions: Vec<(i32, i32)> = if fresh {
-            let mut seen = HashSet::new();
-            self.order.iter().rev().filter(|r| seen.insert(**r)).copied().collect::<Vec<_>>().into_iter().rev().collect()
-        } else {
-            self.order[from..].to_vec()
-        };
-        for region in &regions {
-            if let Some(record) = self.records.get(region) {
-                write_record(&mut bytes, record);
-            }
-        }
-        let written = if fresh {
-            crate::save::write_file(&path, &bytes)?;
-            bytes.len()
-        } else {
-            use std::io::Write;
-            let mut file = std::fs::OpenOptions::new().append(true).open(&path).map_err(|e| e.to_string())?;
-            file.write_all(&bytes).map_err(|e| e.to_string())?;
-            bytes.len()
-        };
-        self.kept_in = Some((path, self.order.len()));
-        Ok(format!("sight's bake: {} regions{}, {:.1} MB", regions.len(), if fresh { " (written afresh)" } else { " added" }, written as f64 / 1e6))
+    /// How many compact cells it holds.
+    pub fn cells(&self) -> usize {
+        self.records.values().map(|r| r.levels.iter().flatten().map(|(_, c)| c.len()).sum::<usize>()).sum::<usize>() + self.upper.values().map(|(_, c)| c.len()).sum::<usize>()
     }
 
     /// For the log.
     pub fn report(&self) -> String {
-        let cells: usize = self.levels.iter().map(Level::cells).sum();
+        let cells = self.cells();
         let at = |seconds: Option<f32>| seconds.map_or("not yet".to_string(), |s| format!("{s:.0} s"));
         format!(
             "Sight's bake (cells of 32 up): regions {}/{} (the start's {} in {}; all in {}), {cells} cells kept ({:.0} MB)",
@@ -285,6 +236,68 @@ impl Bake {
             cells as f64 * 16.0 / 1e6
         )
     }
+}
+
+/// What a save writes, taken from the bake in a moment (the records are shared, not copied): written later,
+/// on the loading lane.
+struct Writing {
+    path: PathBuf,
+    fresh: bool,
+    header: Vec<u8>,
+    records: Vec<Arc<Record>>,
+    /// How many of the bake's `order` the file holds once it's written.
+    then: usize,
+}
+
+impl Bake {
+    /// What keeping it in `folder` takes: the records made since it was last written there, to go on the end
+    /// of its file, or the whole of it afresh if it's a new place (or the file's gone, or was cut short).
+    fn to_write(&self, folder: &Path) -> Writing {
+        let path = folder.join(FILE);
+        let (fresh, from) = match &self.kept_in {
+            Some((kept, done)) if *kept == path && path.exists() => (false, *done),
+            _ => (true, 0),
+        };
+        let mut header = Vec::new();
+        if fresh {
+            header.extend_from_slice(MAGIC);
+            header.extend_from_slice(&self.stamp.to_le_bytes());
+            header.extend_from_slice(&self.half.to_le_bytes());
+        }
+        // Fresh, every region once (its latest record); else the ones made since, in order.
+        let regions: Vec<(i32, i32)> = if fresh {
+            let mut seen = HashSet::new();
+            self.order.iter().rev().filter(|r| seen.insert(**r)).copied().collect::<Vec<_>>().into_iter().rev().collect()
+        } else {
+            self.order[from.min(self.order.len())..].to_vec()
+        };
+        Writing { path, fresh, header, records: regions.iter().filter_map(|r| self.records.get(r).cloned()).collect(), then: self.order.len() }
+    }
+
+    /// Kept in `folder`'s file now, waiting till it's written (tests; the game keeps it on the lane:
+    /// `keep_later`).
+    pub fn keep(&mut self, folder: &Path) -> Result<String, String> {
+        let writing = self.to_write(folder);
+        let note = write(&writing)?;
+        self.kept_in = Some((writing.path, writing.then));
+        Ok(note)
+    }
+}
+
+/// Writes what a save took: on the end of the file, or the whole file afresh.
+fn write(writing: &Writing) -> Result<String, String> {
+    let mut bytes = writing.header.clone();
+    for record in &writing.records {
+        write_record(&mut bytes, record);
+    }
+    if writing.fresh {
+        crate::save::write_file(&writing.path, &bytes)?;
+    } else {
+        use std::io::Write;
+        let mut file = std::fs::OpenOptions::new().append(true).open(&writing.path).map_err(|e| e.to_string())?;
+        file.write_all(&bytes).map_err(|e| e.to_string())?;
+    }
+    Ok(format!("sight's bake: {} regions{}, {:.1} MB", writing.records.len(), if writing.fresh { " (written afresh)" } else { " added" }, bytes.len() as f64 / 1e6))
 }
 
 fn write_record(bytes: &mut Vec<u8>, record: &Record) {
@@ -323,12 +336,14 @@ impl<'a> Reader<'a> {
     }
 }
 
-/// A bake's file read back: its stamp, its map's half width, and its records in order.
+/// A bake's file read back: its stamp, its map's half width, its records in order, and whether it was whole
+/// (a record cut short, the game closed while writing, ends it there).
 pub struct Kept {
     pub stamp: u64,
     pub half: i32,
     pub records: Vec<Record>,
     pub path: PathBuf,
+    pub whole: bool,
 }
 
 /// Reads a bake's file (`None` if there's none).
@@ -347,7 +362,7 @@ pub fn read(folder: &Path) -> Result<Option<Kept>, String> {
     let stamp = u64_of(r.take(8)?);
     let half = i32_of(r.take(4)?);
     let mut records = Vec::new();
-    while r.at < bytes.len() {
+    let one = |r: &mut Reader| -> Result<Record, String> {
         let region = (i32_of(r.take(4)?), i32_of(r.take(4)?));
         let mut levels = Vec::new();
         for _ in FIRST..=REGION {
@@ -374,9 +389,19 @@ pub fn read(folder: &Path) -> Result<Option<Kept>, String> {
             }
             sums.push(Sums::from_numbers(numbers));
         }
-        records.push(Record { region, levels, top: CellColumn { low, sums } });
+        Ok(Record { region, levels, top: CellColumn { low, sums } })
+    };
+    let mut whole = true;
+    while r.at < bytes.len() {
+        match one(&mut r) {
+            Ok(record) => records.push(record),
+            Err(_) => {
+                whole = false;
+                break;
+            }
+        }
     }
-    Ok(Some(Kept { stamp, half, records, path }))
+    Ok(Some(Kept { stamp, half, records, path, whole }))
 }
 
 /// What the bake needs besides the card: the world's map, blocks and far colours (for cell columns made
@@ -456,11 +481,50 @@ pub fn regions_of(chunk: ChunkPos) -> Vec<(i32, i32)> {
     regions
 }
 
-/// A bake under way: the bake, the regions still to do (nearest first), and the switch to stop it.
+/// A bake under way: the bake, the regions still to do (nearest first), the switch to stop it, and its saves
+/// being written (one at a time, in turn).
 pub struct Baking {
     pub bake: Mutex<Bake>,
     queue: Mutex<VecDeque<(i32, i32)>>,
     pub stop: AtomicBool,
+    writing: Mutex<()>,
+    writes: Mutex<Vec<crate::loading::Job<()>>>,
+}
+
+impl Baking {
+    /// Whether a save is still being written.
+    pub fn writing(&self) -> bool {
+        self.writes.lock().map(|writes| writes.iter().any(|job| matches!(job.ready(), Ok(None)))).unwrap_or(false)
+    }
+}
+
+/// Keeps the bake in `folder` on the loading lane: what's to be written is taken in a moment (the records
+/// shared, not copied), written in turn after any save before it [Counsel 2026-11-06: a whole world's bake,
+/// some 300 MB, written on the frame would freeze it]. A save the game closes in the middle of leaves the
+/// file cut short; it's read back as far as it's whole, and written afresh at the next save.
+pub fn keep_later(baking: &Arc<Baking>, folder: PathBuf) -> String {
+    let baking_for_job = baking.clone();
+    let job = crate::loading::submit(crate::loading::Tier::Soon, 0.0, move || {
+        let Ok(_turn) = baking_for_job.writing.lock() else { return };
+        let Some(writing) = baking_for_job.bake.lock().ok().map(|bake| bake.to_write(&folder)) else { return };
+        match write(&writing) {
+            Ok(_) => {
+                if let Ok(mut bake) = baking_for_job.bake.lock() {
+                    bake.kept_in = Some((writing.path, writing.then));
+                }
+            }
+            Err(_) => {
+                if let Ok(mut bake) = baking_for_job.bake.lock() {
+                    bake.kept_in = None;
+                }
+            }
+        }
+    });
+    if let Ok(mut writes) = baking.writes.lock() {
+        writes.retain(|job| matches!(job.ready(), Ok(None)));
+        writes.push(job);
+    }
+    "sight's bake: being written on the loading lane".into()
 }
 
 /// Starts baking the map (`half` blocks either side of the middle) outward from `spawn`: what `kept` holds
@@ -481,9 +545,10 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
     let eighth = all.len().div_ceil(8);
     let start_ring = all.get(eighth.saturating_sub(1)).map_or(0, |&(ring, _)| ring);
     let start_regions = all.iter().filter(|&&(ring, _)| ring <= start_ring).count();
-    let levels = (FIRST..=Bake::top(half)).map(|level| Level::new(level, half)).collect();
+    let extents = (FIRST..=Bake::top(half)).map(|level| Extent::new(level, half)).collect();
     let mut bake = Bake {
-        levels,
+        extents,
+        upper: HashMap::new(),
         sums: HashMap::new(),
         regions: all.len(),
         start_regions,
@@ -502,15 +567,14 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
         for record in kept.records {
             bake.take(record);
         }
-        bake.kept_in = Some((kept.path, count));
-        // What was read back is in the file already.
-        bake.order.truncate(count);
+        // What was read back is in the file already (unless it was cut short: then it's written afresh).
+        bake.kept_in = kept.whole.then_some((kept.path, count));
     }
     // Regions not baked yet, and those holding changed chunks (made again from their blocks, whatever the
     // file had: a save may have caught a patch still under way).
     let touched: HashSet<(i32, i32)> = with.changed.keys().flat_map(|&chunk| regions_of(chunk)).collect();
     let queue: VecDeque<(i32, i32)> = all.into_iter().map(|(_, r)| r).filter(|r| !bake.is_baked(*r) || touched.contains(r)).collect();
-    let baking = Arc::new(Baking { bake: Mutex::new(bake), queue: Mutex::new(queue), stop: AtomicBool::new(false) });
+    let baking = Arc::new(Baking { bake: Mutex::new(bake), queue: Mutex::new(queue), stop: AtomicBool::new(false), writing: Mutex::new(()), writes: Mutex::new(Vec::new()) });
     let jobs = (0..BAKERS)
         .map(|_| {
             let (baking, maker, with) = (baking.clone(), maker.clone(), with.clone());

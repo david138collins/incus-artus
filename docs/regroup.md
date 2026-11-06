@@ -567,13 +567,21 @@ back to.
   region with changed chunks is made again whatever the file held (a save may catch a patch under way). **Test:** the
   test map baked, kept, read back record for record the same; a bake started with it done before a region is baked,
   with another stamp baked again; a hole of 54 blocks dug at a chunk's edge: the region's top cell exactly 54 blocks
-  lighter, faces bared in the column across the edge, a column away from it unchanged. **On file:** the save writes
-  on the frame (the first save of a whole world's bake about 300 MB; the later ones only what's new); the live levels
-  don't show edits yet (3.6, "edits override the cache"); a column made again leaves its old cells in place in the
-  flat arrays (a little memory per edit, to compact some day); the start's burst of slow frames, the bake's four
-  loops beginning on a dozing card ("getting the next picture", 66 to 141 frames over about 5 s, once a world: with
-  the loading screen).
-- **Telescoping:** `before-sight` is tagged on 3.1e's commit: every attempt at sight starts from there.
+  lighter, faces bared in the column across the edge, a column away from it unchanged. **Then, at Counsel's asking
+  before the first sight** (the save on the frame would freeze it, about 300 MB for a whole world's first save; and a
+  column made again left its old cells behind): **each region is kept once**, as a shared record the levels read their
+  cells from (the levels above 1,024 by cell column), so a region made again replaces its record whole, nothing left
+  behind and nothing held twice (it had also kept every region twice, the levels and the records for the file);
+  **the save is written on the loading lane** (`keep_later`: what's to be written taken in a moment, the records
+  shared not copied, written in turn after any save before it), and **a file cut short** (the game closed while
+  writing) reads back as far as it's whole and is written afresh at the next save. Tests: kept on the lane, the same
+  file; cut short, the whole records before the cut; a region patched inside the bake, its cells replaced (22,543
+  cells before, 22,536 after: just the patch's own difference). **On file:** the live levels don't show edits yet
+  (3.6, "edits override the cache"); the rest of a save (the chunks) is still written on the frame, small next to
+  this; the start's burst of slow frames, the bake's four loops beginning on a dozing card ("getting the next
+  picture", 66 to 141 frames over about 5 s, once a world: with the loading screen).
+- **Telescoping:** `before-sight` is tagged on the commit with the save on the lane (moved there from 3.1e's first
+  commit, 6312521, which it supersedes): every attempt at sight starts from there.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
   stone at a 45 degree angle on a mountain side?"; requirements from Counsel, for 3.2's talk]: (1) **no threshold**: a
