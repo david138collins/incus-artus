@@ -630,7 +630,16 @@ back to.
   level's distances the two levels blended (from 0.6 of the way to the next), never a seam; the step is now down in
   the grain (about 1%). Each step is also gathered from both its ends now (trapezoids), which helped little here. In
   the game the sea is one even colour to the edge of the bake. **Cost, uncapped, flying:** 2 × 2 about 112 fps, 4 × 4
-  about 255, 8 × 8 about 270 to 332. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
+  about 255, 8 × 8 about 270 to 332. His notes then: "there really is no mismatch at all, which sparks joy", and "the eye
+  sees it as dirty glass rather than 'what am i looking at on a computer screen'" (Counsel's rule in decisions.md: fail
+  like a lens, never like a computer). **The screen pyramid** [David: "i think 1 - 2 - 4 - 8 may be good... the question
+  is, can it be fast"; "2 looks worse than 4, up close. 4 looks worse than 8 up close at a different range. so theres
+  definitely a curve of bands at distances where each scale is preferable"]: 8 × 8 over the whole screen, each part
+  refined to 4, 2, 1 only where it's earned, each finer ray starting at its parent's nearest touch; the first term of
+  where to refine: only while a pixel is bigger than the store's cells under it (finer pixels than the cells magnify
+  the blend into smudge: his bands). In order, one a build on his word: (a) the 8 × 8 pass giving every ray of the
+  coarse layer where to start; (b) 4 × 4 refining from it; (c) where to refine; (d) 2 and 1, each with the 3.3 store
+  level that earns it. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
   45° and 30° slope tests will use.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
