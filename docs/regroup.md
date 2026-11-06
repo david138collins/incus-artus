@@ -601,6 +601,12 @@ back to.
   6 to 7 ms, over the 2 to 3 ms budget; capped at 237 it runs at about 140); 4 × 4 about 280 fps (about 3 ms). What's
   left is rays grazing ridges near the horizon, stepping at their pixel's size. **Not yet:** the 45° and 30° slope
   tests (next), the price in the torque spec by the card's own clock.
+  **David's first look** (build 68, 2026-11-06, trying the switches): "8x8 actually looks good for the far distance,
+  on this screen." At 8 × 8 a coarse pixel spans about d/84 blocks: it meets the 16-block cells at about 1,340
+  blocks and the baked 32 to 128 further out, so with today's store (coarse there anyway) 8 × 8 loses little far
+  off, at about a sixteenth of 2 × 2's rays. Its cost to be measured after his look, beside 2 × 2 (about 140 fps
+  uncapped, sight 6 to 7 ms) and 4 × 4 (about 280, about 3 ms). Counsel's thought for 3.5, not a change: the twins
+  may end up as an 8 × 8 coarse layer with the fine layer where flagged, rather than 2 × 2 everywhere.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
   stone at a 45 degree angle on a mountain side?"; requirements from Counsel, for 3.2's talk]: (1) **no threshold**: a
