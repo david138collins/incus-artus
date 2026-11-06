@@ -628,7 +628,11 @@ fn parts(here: Here, x: i32, y: i32) -> vec3<i32> {
 }
 
 fn put_together(here: Here, x: i32, y: i32) -> i32 {
-    let p = parts(here, x, y);
+    return put_together_parts(here, x, y, parts(here, x, y));
+}
+
+// The same with the parts already worked out (a column works them out once, for its ground and its blocks).
+fn put_together_parts(here: Here, x: i32, y: i32, p: vec3<i32>) -> i32 {
     let below = p.x + p.y;
     var z = min(below + p.z, h(H_CEILING));
     if (below >= SEA_Z) {
@@ -669,14 +673,23 @@ struct Height {
 }
 
 fn uncarved(north: i32, east: i32) -> Height {
-    var out: Height;
     let m = maps_at(north, east);
+    var p = vec3<i32>(0, 0, 0);
+    if (m.ok) {
+        p = parts(m.here, m.x, m.y);
+    }
+    return uncarved_from(north, east, m, p);
+}
+
+// The same from the maps and the parts already worked out.
+fn uncarved_from(north: i32, east: i32, m: MapsAt, p: vec3<i32>) -> Height {
+    var out: Height;
     if (!m.ok) {
         out.ok = false;
         return out;
     }
     out.ok = true;
-    let ground = put_together(m.here, m.x, m.y);
+    let ground = put_together_parts(m.here, m.x, m.y, p);
     if (muted(32) || h(H_DETAIL) == 0) {
         out.z = ground;
         return out;
@@ -1232,8 +1245,12 @@ struct Column {
 }
 
 fn ground_and_water(north: i32, east: i32) -> Column {
+    return carved_from(north, east, uncarved(north, east));
+}
+
+// The rivers and lakes carved into a ground already worked out.
+fn carved_from(north: i32, east: i32, u: Height) -> Column {
     var out: Column;
-    let u = uncarved(north, east);
     out.ok = u.ok;
     out.water = 0;
     if (!u.ok) {
@@ -1380,7 +1397,8 @@ fn water_across(p: Point) -> i32 {
     return fix_mul(max(p.width, 65536), max(fix_mul(p.depth, fullness), 65536));
 }
 
-// A column, as mineralogy reads it.
+// A column, as mineralogy reads it: with the maps there and the recipe's mountains and peaks, as the
+// ground found them (`with_maps`), so they're worked out once a column, not again for its blocks.
 struct Col {
     north: i32,
     east: i32,
@@ -1389,6 +1407,23 @@ struct Col {
     temperature: i32,
     rain: i32,
     water: i32,
+    inside: bool,
+    here: Here,
+    mountains: i32,
+    peaks: i32,
+}
+
+fn with_maps(col_in: Col) -> Col {
+    var col = col_in;
+    let m = maps_at(col.north, col.east);
+    col.inside = m.ok;
+    if (m.ok) {
+        col.here = m.here;
+        let p = parts(m.here, m.x, m.y);
+        col.mountains = p.y;
+        col.peaks = p.z;
+    }
+    return col;
 }
 
 fn held(p: i32) -> i32 {
@@ -1432,11 +1467,10 @@ fn column_value(field: i32, col: Col) -> i32 {
     if (field == 19) {
         return col.slope;
     }
-    let m = maps_at(col.north, col.east);
-    if (!m.ok) {
+    if (!col.inside) {
         return 0;
     }
-    let here = m.here;
+    let here = col.here;
     switch field {
         case 0: { return here.height; }
         case 1: { return here.tilt; }
@@ -1457,8 +1491,8 @@ fn column_value(field: i32, col: Col) -> i32 {
         case 7: { return mountain_share(here); }
         case 8: { return lifted(here); }
         case 9: { return raised_coast(here); }
-        case 10: { return parts(here, m.x, m.y).y; }
-        case 11: { return parts(here, m.x, m.y).z; }
+        case 10: { return col.mountains; }
+        case 11: { return col.peaks; }
         default: { return 0; }
     }
 }
@@ -1573,7 +1607,11 @@ fn stack_value(program: u32, k: u32, col: Col, z: i32) -> i32 {
     return so_far;
 }
 
-// What each distributor chose, as (its candidate + 1) in a byte each, the first in the lowest.
+// What each distributor chose, as (its candidate + 1) in a byte each, the first in the lowest. (Every
+// usable candidate's suitability is worked out once, in one place, before its distributor chooses: the
+// compiler copies a function into every place it's called, and five calls of the stacks, each with every
+// field the placer reads, made the recipe take a minute to compile. The answer is the same: the stacks
+// read nothing that changes.)
 fn choose_blocks(col: Col) -> i32 {
     let mineralogy = hu(H_MINERALOGY);
     let program = u32(data[mineralogy]);
@@ -1584,86 +1622,102 @@ fn choose_blocks(col: Col) -> i32 {
         MADE[j] = stack_value(program, j, col, col.ground);
     }
     var choices = 0;
+    var suits: array<i32, 32>;
     for (var d = 0u; d < distributors; d++) {
         let at = table + d * 7u;
-        var chosen = -1;
-        if (data[at] != 0) {
-            let chooser = data[at + 1u];
-            let count = u32(data[at + 3u]);
-            let candidates = u32(data[at + 4u]);
-            if (chooser == 0) {
-                for (var c = 0u; c < count; c++) {
-                    let cand = candidates + c * 4u;
-                    if (data[cand] == 0) {
-                        continue;
-                    }
-                    var suits = 65536;
-                    if (data[cand + 1u] == 0) {
-                        suits = stack_value(program, u32(data[cand + 2u]), col, col.ground);
-                    }
-                    if (suits >= data[at + 2u]) {
-                        chosen = i32(c);
-                        break;
-                    }
-                }
-            } else if (chooser == 1) {
-                var best = 0;
-                for (var c = 0u; c < count; c++) {
-                    let cand = candidates + c * 4u;
-                    if (data[cand] == 0) {
-                        continue;
-                    }
-                    var suits = 65536;
-                    if (data[cand + 1u] == 0) {
-                        suits = stack_value(program, u32(data[cand + 2u]), col, col.ground);
-                    }
-                    if (suits > 0 && (chosen < 0 || suits > best)) {
-                        chosen = i32(c);
-                        best = suits;
-                    }
-                }
-            } else if (chooser == 2) {
-                var weights: array<i32, 32>;
-                var total = 0;
-                for (var c = 0u; c < count; c++) {
-                    let cand = candidates + c * 4u;
-                    weights[c] = 0;
-                    if (data[cand] == 0) {
-                        continue;
-                    }
-                    var suits = 65536;
-                    if (data[cand + 1u] == 0) {
-                        suits = stack_value(program, u32(data[cand + 2u]), col, col.ground);
-                    }
-                    weights[c] = max(suits, 0);
-                    total = total + weights[c];
-                }
-                let hash = planet_hash_from(vec2<u32>(u32(data[at + 5u]), u32(data[at + 6u])), col.north >> 8u, col.east >> 8u);
-                let product = wide_mul(hash.y >> 8u, bitcast<u32>(total));
-                let roll = bitcast<i32>((product.x >> 24u) | (product.y << 8u));
-                var sum = 0;
-                var last = -1;
-                for (var c = 0u; c < count; c++) {
-                    if (weights[c] <= 0) {
-                        continue;
-                    }
-                    last = i32(c);
-                    sum = sum + weights[c];
-                    if (roll < sum && chosen < 0) {
-                        chosen = i32(c);
-                    }
-                }
-                if (chosen < 0) {
-                    chosen = last;
+        let count = min(u32(data[at + 3u]), 32u);
+        let candidates = u32(data[at + 4u]);
+        let on = data[at] != 0;
+        // Each usable candidate's suitability (below 0: not usable, never chosen).
+        for (var c = 0u; c < count; c++) {
+            let cand = candidates + c * 4u;
+            suits[c] = -2147483647 - 1;
+            if (on && data[cand] != 0) {
+                if (data[cand + 1u] != 0) {
+                    suits[c] = 65536;
+                } else {
+                    suits[c] = stack_value(program, u32(data[cand + 2u]), col, col.ground);
                 }
             }
         }
+        var chosen = -1;
+        let chooser = data[at + 1u];
+        if (on && chooser == 0) {
+            for (var c = 0u; c < count; c++) {
+                if (suits[c] != -2147483647 - 1 && suits[c] >= data[at + 2u]) {
+                    chosen = i32(c);
+                    break;
+                }
+            }
+        } else if (on && chooser == 1) {
+            var best = 0;
+            for (var c = 0u; c < count; c++) {
+                if (suits[c] > 0 && (chosen < 0 || suits[c] > best)) {
+                    chosen = i32(c);
+                    best = suits[c];
+                }
+            }
+        } else if (on && chooser == 2) {
+            var total = 0;
+            for (var c = 0u; c < count; c++) {
+                total = total + max(suits[c], 0);
+            }
+            let hash = planet_hash_from(vec2<u32>(u32(data[at + 5u]), u32(data[at + 6u])), col.north >> 8u, col.east >> 8u);
+            let product = wide_mul(hash.y >> 8u, bitcast<u32>(total));
+            let roll = bitcast<i32>((product.x >> 24u) | (product.y << 8u));
+            var sum = 0;
+            var last = -1;
+            for (var c = 0u; c < count; c++) {
+                if (suits[c] <= 0) {
+                    continue;
+                }
+                last = i32(c);
+                sum = sum + suits[c];
+                if (roll < sum && chosen < 0) {
+                    chosen = i32(c);
+                }
+            }
+            if (chosen < 0) {
+                chosen = last;
+            }
+        }
         if (chosen >= 0) {
-            CHOSEN[d] = data[u32(data[at + 4u]) + u32(chosen) * 4u + 3u];
+            CHOSEN[d] = data[candidates + u32(chosen) * 4u + 3u];
         } else {
             CHOSEN[d] = 0;
         }
         choices = choices | ((chosen + 1) << (8u * d));
     }
     return choices;
+}
+
+// ── A whole column, once (the readback's work: the ground, carved, and the blocks on it) ──
+
+// The ground, carved (x), the water over it (y, 0 none), and what each distributor chose (z); `w` 0 past
+// the map. The maps and the recipe's parts are worked out once, for both the ground and the blocks.
+fn whole_column(north: i32, east: i32, slope: i32) -> vec4<i32> {
+    let m = maps_at(north, east);
+    if (!m.ok) {
+        return vec4<i32>(0, 0, 0, 0);
+    }
+    let p = parts(m.here, m.x, m.y);
+    let column = carved_from(north, east, uncarved_from(north, east, m, p));
+    var col: Col;
+    col.north = north;
+    col.east = east;
+    col.ground = rounded(column.z);
+    col.slope = slope;
+    col.water = column.water;
+    let climate = climate_at(north, east, col.ground);
+    col.temperature = 13107;
+    col.rain = 39322;
+    if (climate.z != 0) {
+        col.temperature = climate.x;
+        col.rain = climate.y;
+    }
+    col.inside = true;
+    col.here = m.here;
+    col.mountains = p.y;
+    col.peaks = p.z;
+    return vec4<i32>(column.z, column.water, choose_blocks(col), 1);
 }

@@ -40,11 +40,24 @@ fn wide_le(a: vec2<u32>, b: vec2<u32>) -> bool {
     return a.y < b.y || (a.y == b.y && a.x <= b.x);
 }
 
-// A 64-bit number over a 32-bit one (at most 2^31), rounded down, by long division.
+// The highest bit set in a 64-bit number (-1 for 0).
+fn wide_top(n: vec2<u32>) -> i32 {
+    if (n.y != 0u) {
+        return 63 - i32(countLeadingZeros(n.y));
+    }
+    if (n.x != 0u) {
+        return 31 - i32(countLeadingZeros(n.x));
+    }
+    return -1;
+}
+
+// A 64-bit number over a 32-bit one (at most 2^31), rounded down, by long division. (From the number's
+// own highest bit: the bits above it are nothing, and a loop whose length depends on the number isn't
+// copied out 64 times over at every place it's used, which made the recipe take a minute to compile.)
 fn wide_div(n: vec2<u32>, d: u32) -> vec2<u32> {
     var q = vec2<u32>(0u, 0u);
     var r = 0u;
-    for (var i = 63i; i >= 0; i--) {
+    for (var i = wide_top(n); i >= 0; i--) {
         var bit: u32;
         if (i >= 32) {
             bit = (n.y >> u32(i - 32)) & 1u;
@@ -65,10 +78,11 @@ fn wide_div(n: vec2<u32>, d: u32) -> vec2<u32> {
     return q;
 }
 
-// The square root of a 64-bit number, rounded down, bit by bit.
+// The square root of a 64-bit number, rounded down, bit by bit (from half the number's highest bit: the
+// root has none above it).
 fn wide_sqrt(n: vec2<u32>) -> u32 {
     var r = 0u;
-    for (var bit = 31i; bit >= 0; bit--) {
+    for (var bit = wide_top(n) / 2; bit >= 0; bit--) {
         let c = r | (1u << u32(bit));
         if (wide_le(wide_mul(c, c), n)) {
             r = c;

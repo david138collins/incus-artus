@@ -465,7 +465,7 @@ fn minerals(c: Case) -> i32 {
         col.temperature = climate.x;
         col.rain = climate.y;
     }
-    return choose_blocks(col);
+    return choose_blocks(with_maps(col));
 }
 
 fn carved(c: Case) -> i32 {
@@ -714,3 +714,4 @@ fn ground(c: Case) -> i32 {
         assert!(wrong.is_empty(), "the card and the processor disagree:\n{}", wrong.join("\n"));
     }
 }
+
