@@ -479,7 +479,7 @@ fn ground(c: Case) -> i32 {
             let (whole, carved) = (WholeMap::new(&map), WholeCarving::new(&carving));
             let pack = Pack::world(&whole, &carved);
             let mut cases = Vec::new();
-            for north in (-420..260).step_by(3) {
+            for north in (-420..260).step_by(3 * thinned().min(4)) {
                 for east in (-450..360).step_by(5) {
                     for kind in [0, 1] {
                         cases.push([Pos::middle_of(north).0, Pos::middle_of(east).0, kind, 0]);
@@ -499,7 +499,7 @@ fn ground(c: Case) -> i32 {
                     wrong.push(format!("{} at ({}, {}): card {card}, processor {processor}", if c[2] == 1 { "water" } else { "ground" }, Pos(c[0]).to_f32(), Pos(c[1]).to_f32()));
                 }
             }
-            assert!(wet > 200, "only {wet} columns of water");
+            assert!(wet > 200 / thinned().min(4), "only {wet} columns of water");
             assert!(wrong.is_empty(), "{way:?}, compressor {compressor}: the card and the processor disagree:\n{}", wrong.join("\n"));
         }
     }
@@ -512,7 +512,7 @@ fn ground(c: Case) -> i32 {
             let map = WholeMap::new(&rich_map(steady));
             let pack = Pack::map(&map);
             let mut cases = Vec::new();
-            for north in (-1560..1560).step_by(7) {
+            for north in (-1560..1560).step_by(7 * thinned()) {
                 for east in (-1560..1560).step_by(11) {
                     cases.push([Pos::middle_of(north).0, Pos::middle_of(east).0, 0, 0]);
                 }
@@ -530,9 +530,15 @@ fn ground(c: Case) -> i32 {
                     wrong.push(format!("at ({}, {}): card {card}, processor {processor}", Pos(c[0]).to_f32(), Pos(c[1]).to_f32()));
                 }
             }
-            assert!(inside > 50_000, "only {inside} columns inside the map");
+            assert!(inside > 50_000 / thinned(), "only {inside} columns inside the map");
             assert!(wrong.is_empty(), "steady {steady}: the card and the processor disagree:\n{}", wrong.join("\n"));
         }
+    }
+
+    /// How much thinner a twin test's sample is on Microsoft's software card (`INCUS_TWIN_CARD=software`):
+    /// the processor drawing as a card is slow.
+    fn thinned() -> usize {
+        if std::env::var("INCUS_TWIN_CARD").is_ok_and(|card| card == "software") { 16 } else { 1 }
     }
 
     fn shuffle() -> impl FnMut() -> i32 {

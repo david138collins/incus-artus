@@ -28,7 +28,11 @@ pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
         }
     }
     let instance = wgpu::Instance::new(descriptor);
-    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).ok()?;
+    // `INCUS_TWIN_CARD=software`: Microsoft's WARP, the software DirectX 12, a different card altogether
+    // [Counsel 2026-11-05: a second card for the twin test at no cost].
+    let software = std::env::var("INCUS_TWIN_CARD").is_ok_and(|card| card == "software");
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, force_fallback_adapter: software, ..Default::default() })).ok()?;
+    eprintln!("The twin test's card: {} ({:?})", adapter.get_info().name, adapter.get_info().device_type);
     pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("the twin test"), ..Default::default() })).ok()
 }
 
