@@ -481,6 +481,23 @@ back to.
   three passes compile in about 9 to 11 s on the lane, on top of the column's 6 (world load ready on the card at about
   17 s: to trim later, or keep in a pipeline cache). Glass and other see-through blocks count as solid for now (the
   terrain has none).
+- **3.1c [BUILT 2026-11-06]** `sight/store.rs` (`LiveStore`, `fill_tile`), driven by `world::keep_sight`: five levels
+  (cells of 1, 2, 4, 8, 16 blocks), 128 cells a side each round the camera, in tiles of 16 × 16 cell columns made on
+  the loading lane, nearest first, three at a time, let go as the camera leaves them; each cell column keeps only its
+  surface band (solid all round below, empty above; reaching down where a cave box comes near, from the bottom where a
+  layer is air or water or the map ends). Kept on the processor as sums for now: how the store sits on the card for
+  the march is 3.2's talk ("the first form of the store and the march"). Every level is made from the recipe (building
+  from the level below doesn't help the leading edge, which the finer level never covers). **Test:** every cell is
+  exactly its eight children at the level below added, the cells left out of the bands included, all the way up, at
+  every level by caves and a river (10,606 cells kept), and 4,096 cells just past a band made directly and found
+  solid all round or empty. **Flying the soak (150 blocks a second):** every level kept full or a row behind, about
+  105,000 cells (13 MB as sums), about 225 tiles a second. **Found on the way** (the frame first): tiles in one go held
+  frames (215 to 226 fps, 900 slow frames in 40 s, "showing it" 4.7 ms); the columns made once instead of twice and
+  every pass in pieces (8,192 columns, 512 cells) helped (about 3 slow frames a second); what cured it was **waiting
+  gently on the loading lane** (asking the card without blocking, a moment's sleep between asks): wgpu's blocking wait
+  on a worker held the frame's own showing up whatever the pieces' size. Now 237 fps, the slowest 1% over 200, 4
+  slow frames in 40 s. **On file:** the first use of sight's three pipelines at load holds one frame about 26 ms
+  (once a world, with the other load costs); building a level from the one below kept for when the card is short.
 - **Telescoping:** `before-sight` is tagged once 3.1d stands. If a stage turns out wrong, its commit is undone and the
   stage redone; the stages before it stand.
 

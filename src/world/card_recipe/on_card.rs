@@ -22,6 +22,8 @@ pub struct WorldOnCard {
     pub grounds: wgpu::ComputePipeline,
     pub choices: wgpu::ComputePipeline,
     pub cells: wgpu::ComputePipeline,
+    /// A layer somewhere is air or water (sight's bands then start at the bottom).
+    pub odd: bool,
 }
 
 const SIGHT: &str = include_str!("../../sight/cell.wgsl");
@@ -52,6 +54,42 @@ const CHECKED: i32 = 64;
 const SLICE: usize = 1 << 20;
 /// Columns asked of the card at a time.
 const BATCH: usize = 1024;
+/// Most columns, and most cells, one piece of a sight pass takes (each piece about half a millisecond or
+/// less on the card, awake).
+const PIECE_COLUMNS: u32 = 8192;
+const PIECE_CELLS: u32 = 512;
+
+/// Waits till `flag` is set (by a card's callback: work done, or a buffer mapped) gently: asking the card
+/// without blocking and sleeping a moment between asks, so a loading-lane worker never sits inside wgpu
+/// waiting [2026-11-06: with blocking waits on the lane, the frame's own showing waited 5 to 6 ms on sight's
+/// work, whatever the size of its pieces]. False if the card is lost, or after 20 seconds.
+fn wait_gently(device: &wgpu::Device, flag: &std::sync::atomic::AtomicBool) -> bool {
+    use std::sync::atomic::Ordering;
+    let started = Instant::now();
+    while !flag.load(Ordering::Acquire) {
+        if device.poll(wgpu::PollType::Poll).is_err() || started.elapsed().as_secs() >= 20 {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_micros(200));
+    }
+    true
+}
+
+/// A flag the card sets once all the work handed to it so far is done.
+fn when_done(queue: &wgpu::Queue) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+    let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let set = flag.clone();
+    queue.on_submitted_work_done(move || set.store(true, std::sync::atomic::Ordering::Release));
+    flag
+}
+
+/// Maps `buffer` to read, waiting gently.
+fn map_gently(device: &wgpu::Device, buffer: &wgpu::Buffer) -> bool {
+    let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let set = flag.clone();
+    buffer.slice(..).map_async(wgpu::MapMode::Read, move |_| set.store(true, std::sync::atomic::Ordering::Release));
+    wait_gently(device, &flag)
+}
 
 /// Packs the world, puts it on the card and compiles its pipeline, then checks it round `spawn`. Run on
 /// the loading lane: it waits on the card. Returns the world on the card and a report of the timings.
@@ -73,7 +111,9 @@ pub fn send(device: &wgpu::Device, queue: &wgpu::Queue, map: &CompiledMap, caves
     for (k, slice) in bytes.chunks(SLICE).enumerate() {
         queue.write_buffer(&data, (k * SLICE) as u64, slice);
         queue.submit([]);
-        device.poll(wgpu::PollType::wait_indefinitely()).map_err(|error| format!("the card stopped taking the world: {error}"))?;
+        if !wait_gently(device, &when_done(queue)) {
+            return Err("the card stopped taking the world".into());
+        }
     }
     let put = ms(started);
 
@@ -85,7 +125,8 @@ pub fn send(device: &wgpu::Device, queue: &wgpu::Queue, map: &CompiledMap, caves
     let started = Instant::now();
     let (grounds, choices, cells) = (pipeline("sight_grounds_pass"), pipeline("sight_choices_pass"), pipeline("sight_cells_pass"));
     let sight_compiled = ms(started);
-    let world = WorldOnCard { data, words: pack.words.len(), columns, grounds, choices, cells };
+    let odd = pack.words[pack.words[super::slot("MINERALOGY")] as usize + 8] != 0;
+    let world = WorldOnCard { data, words: pack.words.len(), columns, grounds, choices, cells, odd };
 
     // The check: the card's columns round the spawn against the processor's.
     let places: Vec<(i32, i32)> = (0..CHECKED * CHECKED).map(|i| (spawn.0 - CHECKED / 2 + i % CHECKED, spawn.1 - CHECKED / 2 + i / CHECKED)).collect();
@@ -283,47 +324,83 @@ impl WorldOnCard {
     /// all with their columns inside `region` (least corner x and y, columns across and along). Waits for
     /// the card.
     pub fn cells_at(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], cells: &[[i32; 4]]) -> Vec<[u32; 17]> {
+        self.cells_by(device, queue, region, |_| cells.to_vec())
+    }
+
+    /// The same, the cells chosen from the region's grounds once they're made (`choose` is handed each
+    /// column's ground, −1 past the map, and water, for the region and three columns round it, x fastest):
+    /// the columns are made once, for the choosing and the cells both. Every pass goes to the card in pieces
+    /// (`PIECE_COLUMNS`, `PIECE_CELLS`), each waited for before the next, so the frame's own work slots in
+    /// between [2026-11-06: tiles of 16-block cells in one go held frames, "showing it" 4.7 ms, 900 slow
+    /// frames in 40 s of flight].
+    pub fn cells_by(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], choose: impl FnOnce(&[[i32; 2]]) -> Vec<[i32; 4]>) -> Vec<[u32; 17]> {
         use wgpu::util::DeviceExt;
-        if cells.is_empty() {
-            return Vec::new();
-        }
         let bytes = |v: &[i32]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
         let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
-        let region_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("the region"), contents: &bytes(&region), usage: wgpu::BufferUsages::STORAGE });
+        let region_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("the region"), contents: &bytes(&[region[0], region[1], region[2], region[3], 0]), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST });
         let ground_count = ((region[2] + 6) * (region[3] + 6)) as u32;
         let chosen_count = ((region[2] + 2) * (region[3] + 2)) as u32;
         let grounds = storage("grounds", ground_count as u64 * 8);
         let chosen = storage("chosen", chosen_count as u64 * 16);
-        let flat: Vec<i32> = cells.iter().flatten().copied().collect();
-        let cells_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("cells"), contents: &bytes(&flat), usage: wgpu::BufferUsages::STORAGE });
-        let size = cells.len() as u64 * 17 * 4;
-        let sums = storage("sums", size);
-        let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sums read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let bind = |pipeline: &wgpu::ComputePipeline, entries: &[(u32, &wgpu::Buffer)]| {
             let entries: Vec<wgpu::BindGroupEntry> = entries.iter().map(|&(binding, buffer)| wgpu::BindGroupEntry { binding, resource: buffer.as_entire_binding() }).collect();
             device.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout: &pipeline.get_bind_group_layout(0), entries: &entries })
         };
-        let passes = [
-            (&self.grounds, bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count),
-            (&self.choices, bind(&self.choices, &[(0, &self.data), (1, &region_buffer), (2, &grounds), (3, &chosen)]), chosen_count),
-            (&self.cells, bind(&self.cells, &[(0, &self.data), (1, &region_buffer), (3, &chosen), (4, &cells_buffer), (5, &sums)]), cells.len() as u32),
-        ];
-        let mut encoder = device.create_command_encoder(&Default::default());
-        for (k, (pipeline, group, count)) in passes.iter().enumerate() {
-            let mut pass = encoder.begin_compute_pass(&Default::default());
-            pass.set_pipeline(pipeline);
-            pass.set_bind_group(0, group, &[]);
-            // The cells pass gives each cell a group of its own (in rows of at most 65,535 groups).
-            let groups = if k == 2 { *count } else { count.div_ceil(64) };
-            pass.dispatch_workgroups(groups.min(65_535), groups.div_ceil(65_535), 1);
-        }
-        encoder.copy_buffer_to_buffer(&sums, 0, &readback, 0, size);
-        queue.submit([encoder.finish()]);
-        readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-        if device.poll(wgpu::PollType::wait_indefinitely()).is_err() {
+        // A pass in pieces: each piece's start written into the region, dispatched, and waited for.
+        let in_pieces = |pipeline: &wgpu::ComputePipeline, group: &wgpu::BindGroup, count: u32, piece: u32, groups_of: &dyn Fn(u32) -> u32| {
+            let mut first = 0;
+            while first < count {
+                let here = piece.min(count - first);
+                queue.write_buffer(&region_buffer, 16, &(first as i32).to_le_bytes());
+                let mut encoder = device.create_command_encoder(&Default::default());
+                {
+                    let mut pass = encoder.begin_compute_pass(&Default::default());
+                    pass.set_pipeline(pipeline);
+                    pass.set_bind_group(0, group, &[]);
+                    let groups = groups_of(here);
+                    pass.dispatch_workgroups(groups.min(65_535), groups.div_ceil(65_535), 1);
+                }
+                queue.submit([encoder.finish()]);
+                if !wait_gently(device, &when_done(queue)) {
+                    return false;
+                }
+                first += here;
+            }
+            true
+        };
+        let read_back = |buffer: &wgpu::Buffer, size: u64| -> Option<Vec<u8>> {
+            let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+            let mut encoder = device.create_command_encoder(&Default::default());
+            encoder.copy_buffer_to_buffer(buffer, 0, &readback, 0, size);
+            queue.submit([encoder.finish()]);
+            if !map_gently(device, &readback) {
+                return None;
+            }
+            let view = readback.slice(..).get_mapped_range().ok()?;
+            Some(view.to_vec())
+        };
+        let by_threads = |n: u32| n.div_ceil(64);
+        if !in_pieces(&self.grounds, &bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count, PIECE_COLUMNS, &by_threads) {
             return Vec::new();
         }
-        let Ok(view) = readback.slice(..).get_mapped_range() else { return Vec::new() };
+        let Some(made) = read_back(&grounds, ground_count as u64 * 8) else { return Vec::new() };
+        let made: Vec<[i32; 2]> = made.chunks_exact(8).map(|b| [i32::from_le_bytes([b[0], b[1], b[2], b[3]]), i32::from_le_bytes([b[4], b[5], b[6], b[7]])]).collect();
+        let cells = choose(&made);
+        if cells.is_empty() {
+            return Vec::new();
+        }
+        let flat: Vec<i32> = cells.iter().flatten().copied().collect();
+        let cells_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("cells"), contents: &bytes(&flat), usage: wgpu::BufferUsages::STORAGE });
+        let size = cells.len() as u64 * 17 * 4;
+        let sums = storage("sums", size);
+        if !in_pieces(&self.choices, &bind(&self.choices, &[(0, &self.data), (1, &region_buffer), (2, &grounds), (3, &chosen)]), chosen_count, PIECE_COLUMNS, &by_threads) {
+            return Vec::new();
+        }
+        // The cells pass gives each cell a group of its own.
+        if !in_pieces(&self.cells, &bind(&self.cells, &[(0, &self.data), (1, &region_buffer), (3, &chosen), (4, &cells_buffer), (5, &sums)]), cells.len() as u32, PIECE_CELLS, &|n| n) {
+            return Vec::new();
+        }
+        let Some(view) = read_back(&sums, size) else { return Vec::new() };
         view.chunks_exact(17 * 4).map(|cell| std::array::from_fn(|k| u32::from_le_bytes([cell[4 * k], cell[4 * k + 1], cell[4 * k + 2], cell[4 * k + 3]]))).collect()
     }
 
@@ -354,8 +431,7 @@ impl WorldOnCard {
         }
         encoder.copy_buffer_to_buffer(&output, 0, &readback, 0, size);
         queue.submit([encoder.finish()]);
-        readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-        if device.poll(wgpu::PollType::wait_indefinitely()).is_err() {
+        if !map_gently(device, &readback) {
             return Vec::new();
         }
         let Ok(view) = readback.slice(..).get_mapped_range() else { return Vec::new() };

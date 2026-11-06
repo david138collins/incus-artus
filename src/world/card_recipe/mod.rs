@@ -730,21 +730,16 @@ fn ground(c: Case) -> i32 {
         assert!(under > 100 && wet > 20, "{under} under the sea, {wet} with water: the test misses them");
     }
 
-    /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,
-    /// bit for bit the sums of the very blocks the processor's chunks hold (`sight::cell::sums_of_box` over
-    /// `CompiledMap::chunk`): ground, a river, a lake, mineralogy's layers, tunnels coming out of the ground
-    /// (cave mouths, roofs), and the map's edge.
-    #[test]
-    fn the_card_makes_sight_s_cells_as_the_chunks_hold_them() {
-        use crate::sight::cell::{FarColours, Sums, sums_of_box};
+    /// Sight's test world: the rich map with a river and a lake, mineralogy, tunnels climbing out of the
+    /// ground (cave mouths, roofs), and made-up far colours, on the card.
+    #[allow(clippy::type_complexity)]
+    fn sight_world() -> Option<(wgpu::Device, wgpu::Queue, crate::world::CompiledMap, crate::world::CavePlan, crate::world::TerrainBlocks, crate::sight::cell::FarColours, super::WorldOnCard)> {
+        use crate::sight::cell::FarColours;
         use crate::world::caves::{CavePlan, CavePoint, Tunnel};
         use crate::world::carving::{Banks, Carving, Lake, Lakes, Point, Reach};
-        use crate::world::{BlockId, ChunkPos, TerrainBlocks};
+        use crate::world::{BlockId, TerrainBlocks};
         use std::collections::HashMap;
-        let Some((device, queue)) = crate::whole::shader::card() else {
-            eprintln!("No graphics card: sight's twin test is skipped");
-            return;
-        };
+        let (device, queue) = crate::whole::shader::card()?;
         let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
         let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
         let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| ([k * 97 % 1024, k * 389 % 1024, k * 211 % 1024], [k * 53 % 1024, k * 701 % 1024, k * 131 % 1024])).collect(), water: blocks.water };
@@ -763,6 +758,84 @@ fn ground(c: Case) -> i32 {
             .collect();
         let plan = CavePlan::new(tunnels);
         let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).expect("the world on the card");
+        Some((device, queue, map, plan, blocks, colours, world))
+    }
+
+    /// Sight's live levels (phase 3.1c): every cell exactly its eight children at the level below added, the
+    /// cells left out of the bands included (solid below, empty above), at every level, by caves and a river;
+    /// and the cells just past each band really are solid all round, or empty, as the card makes them.
+    #[test]
+    fn sight_s_levels_are_their_children_added() {
+        use crate::sight::cell::Sums;
+        use crate::sight::store::{TILE, Tile, TileKey, fill_tile, sums_of};
+        let Some((device, queue, _map, plan, _blocks, _colours, world)) = sight_world() else {
+            eprintln!("No graphics card: sight's levels test is skipped");
+            return;
+        };
+        let (mut cells, mut lowered, mut edges) = (0, 0, 0);
+        for level in 1..5usize {
+            for (x, y) in [(600i32, 300i32), (-60, 80)] {
+                let tile_blocks = TILE << level;
+                let parent_key = TileKey { level, x: x.div_euclid(tile_blocks), y: y.div_euclid(tile_blocks) };
+                let parent = fill_tile(&device, &queue, &world, &plan, world.odd, parent_key);
+                let children: Vec<Tile> = (0..4).map(|k| fill_tile(&device, &queue, &world, &plan, world.odd, TileKey { level: level - 1, x: parent_key.x * 2 + k % 2, y: parent_key.y * 2 + k / 2 })).collect();
+                let size = 1 << level;
+                for cy in 0..TILE {
+                    for cx in 0..TILE {
+                        let column = parent.column(cx, cy);
+                        let child = |a: i32, b: i32| {
+                            let (gx, gy) = (cx * 2 + a, cy * 2 + b);
+                            children[((gy / TILE) * 2 + gx / TILE) as usize].column(gx % TILE, gy % TILE)
+                        };
+                        for z in 0..crate::world::WORLD_HEIGHT / size {
+                            let mut added = Sums::default();
+                            for k in 0..8 {
+                                added.add(&child(k & 1, k >> 1 & 1).at(z * 2 + (k >> 2), size / 2));
+                            }
+                            assert_eq!(column.at(z, size), added, "level {level}, tile {parent_key:?}, cell column ({cx}, {cy}), cell {z}");
+                        }
+                        cells += column.sums.len();
+                        lowered += (column.low > 0 && column.sums.len() > 6) as usize;
+                    }
+                }
+                // The cells just under and over each band of the parent, made directly.
+                let (x0, y0, side) = parent_key.blocks();
+                let (mut past, mut expected) = (Vec::new(), Vec::new());
+                for cy in 0..TILE {
+                    for cx in 0..TILE {
+                        let column = parent.column(cx, cy);
+                        for z in [column.low - 1, column.low + column.sums.len() as i32] {
+                            if z >= 0 && z < crate::world::WORLD_HEIGHT / size {
+                                past.push([x0 + cx * size, y0 + cy * size, z * size, size]);
+                                expected.push(column.at(z, size));
+                            }
+                        }
+                    }
+                }
+                let made = world.cells_at(&device, &queue, [x0, y0, side, side], &past);
+                for ((cell, made), expected) in past.iter().zip(&made).zip(&expected) {
+                    assert_eq!(sums_of(made), *expected, "just past a band: {cell:?}");
+                    edges += 1;
+                }
+            }
+        }
+        eprintln!("Sight's levels: {cells} cells kept checked against their children, {lowered} bands reaching well below the surface, {edges} cells just past a band checked");
+        assert!(cells > 5000 && edges > 1000, "the test misses something: {cells} cells, {edges} band edges");
+    }
+
+    /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,
+    /// bit for bit the sums of the very blocks the processor's chunks hold (`sight::cell::sums_of_box` over
+    /// `CompiledMap::chunk`): ground, a river, a lake, mineralogy's layers, tunnels coming out of the ground
+    /// (cave mouths, roofs), and the map's edge.
+    #[test]
+    fn the_card_makes_sight_s_cells_as_the_chunks_hold_them() {
+        use crate::sight::cell::{Sums, sums_of_box};
+        use crate::world::{BlockId, ChunkPos};
+        use std::collections::HashMap;
+        let Some((device, queue, map, plan, blocks, colours, world)) = sight_world() else {
+            eprintln!("No graphics card: sight's twin test is skipped");
+            return;
+        };
         let (mut checked, mut wet, mut roofs, mut mixed) = (0, 0, 0, 0);
         for (x0, y0) in [(-90i32, 40i32), (180, -230), (590, 290), (-1560, 100)] {
             let region = [x0, y0, 64, 64];

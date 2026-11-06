@@ -72,6 +72,7 @@ use crate::save::WorldStateAppExt;
 use crate::ecs::prelude::*;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
 use std::time::Instant;
 
 /// All loaded terrain.
@@ -428,6 +429,8 @@ impl Plugin for WorldPlugin {
             .init_resource::<CardWorld>()
             .add_systems(Update, send_world_to_card)
             .add_systems(Update, forget_redraws)
+            .init_resource::<SightStore>()
+            .add_systems(Update, keep_sight.after(send_world_to_card))
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
             .add_settings::<EditRules>("edit_rules")
@@ -456,13 +459,45 @@ fn forget_redraws(mut world: ResMut<VoxelWorld>) {
     world.take_objects_changed();
 }
 
+/// Sight's live levels round the camera (the regroup, phase 3.1c), once the world is on the card.
+#[derive(Resource, Default)]
+pub struct SightStore {
+    pub live: Option<crate::sight::store::LiveStore>,
+    maker: Option<crate::sight::store::Maker>,
+    /// When the store was last reported in the log.
+    reported: Option<Instant>,
+}
+
+/// Keeps sight's live levels round the camera: started when the world reaches the card, let go with it.
+fn keep_sight(card: Res<CardWorld>, caves: Res<Caves>, view: Res<crate::camera::CameraView>, mut sight: ResMut<SightStore>) {
+    let Some(world) = &card.on_card else {
+        if sight.live.is_some() {
+            *sight = SightStore::default();
+        }
+        return;
+    };
+    if sight.maker.as_ref().is_none_or(|maker| !Arc::ptr_eq(&maker.world, world) || !Arc::ptr_eq(&maker.caves, &caves.0)) {
+        let Some((device, queue)) = crate::runner::card() else { return };
+        sight.maker = Some(crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone() });
+        sight.live = Some(crate::sight::store::LiveStore::default());
+    }
+    let camera = (view.position.x, view.position.y);
+    let sight = &mut *sight;
+    let (Some(live), Some(maker)) = (&mut sight.live, &sight.maker) else { return };
+    live.update(camera, maker, world.odd);
+    if sight.reported.is_none_or(|when| when.elapsed().as_secs_f32() >= 10.0) {
+        sight.reported = Some(Instant::now());
+        info!("{}", live.report(camera));
+    }
+}
+
 /// The world on the card (the regroup, phase 2.0), and the job putting it there.
 #[derive(Resource, Default)]
 pub struct CardWorld {
     sending: Option<crate::loading::Job<Result<(card_recipe::WorldOnCard, String), String>>>,
     /// Read by sight's store (phase 3.1).
     #[allow(dead_code)]
-    pub on_card: Option<std::sync::Arc<card_recipe::WorldOnCard>>,
+    pub on_card: Option<Arc<card_recipe::WorldOnCard>>,
 }
 
 /// When a compiled world starts (or its caves change), it's packed and handed to the card on the loading
@@ -490,7 +525,7 @@ fn send_world_to_card(terrain: Res<Terrain>, caves: Res<Caves>, registry: Res<Bl
         Ok(None) => {}
         Ok(Some(Ok((world, report)))) => {
             info!("{report}");
-            card.on_card = Some(std::sync::Arc::new(world));
+            card.on_card = Some(Arc::new(world));
             card.sending = None;
         }
         Ok(Some(Err(report))) => {

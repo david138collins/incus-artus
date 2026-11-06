@@ -1,7 +1,8 @@
 // ── Sight: a cell's sums on the card (the regroup, phase 3.1b; `sight/cell.rs` is the reference) ──
 //
 // Three passes over a region of columns (`sight_region`: its least corner's x and y, how many columns across
-// and along). The grounds (the region and three columns round it, for the slope mineralogy reads), then
+// and along, and the first of this piece: each pass goes to the card in pieces, so it never holds the frame
+// up for long). The grounds (the region and three columns round it, for the slope mineralogy reads), then
 // what mineralogy chose (the region and one round it, for the faces at the cells' edges), then any cells
 // whose columns lie inside the region. Each pass's answers are the next one's inputs.
 
@@ -21,7 +22,7 @@ const SIGHT_SUMS: u32 = 17u;
 @compute @workgroup_size(64)
 fn sight_grounds_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     let across = sight_region[2] + 6;
-    let i = i32(id.x);
+    let i = i32(id.x) + sight_region[4];
     if (i >= across * (sight_region[3] + 6)) {
         return;
     }
@@ -51,7 +52,7 @@ fn sight_ground_or(x: i32, y: i32, own: i32) -> i32 {
 @compute @workgroup_size(64)
 fn sight_choices_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     let across = sight_region[2] + 2;
-    let i = i32(id.x);
+    let i = i32(id.x) + sight_region[4];
     if (i >= across * (sight_region[3] + 2)) {
         return;
     }
@@ -315,7 +316,7 @@ var<workgroup> sight_part: array<array<u32, 17>, 64>;
 // each taking every 64th of its columns.
 @compute @workgroup_size(64)
 fn sight_cells_pass(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) t: u32, @builtin(num_workgroups) groups: vec3<u32>) {
-    let i = group.x + group.y * groups.x;
+    let i = group.x + group.y * groups.x + u32(sight_region[4]);
     let count = arrayLength(&sight_cells);
     var sums: array<u32, 17>;
     if (i < count) {
