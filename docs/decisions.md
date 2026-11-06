@@ -1167,7 +1167,11 @@ below disagree with this one, this one stands.
     verasimilitudinous, almost like the eye sees it as dirty glass rather than 'what am i looking at on a computer
     screen'. an organic kind of jacked up." *Counsel's reading, as a rule for every compromise:* where something
     must be imperfect, let it look optical (blur, grain, haze, a lens slightly off focus), never digital (steps,
-    pops, seams, holes, shimmer, contradictions). The recipe answering at a cell's size stays on file as an
+    pops, seams, holes, shimmer, contradictions).
+  - **Gliding edges, kept** [David 2026-11-06]: coarse pixels' edges move "like ps2 era antialiasing. i recall it
+    from original half life on a crt." Kept as character: "i like it, its organic and like you said, the human eye
+    infers detail where there is none, for that reason". Each coarse pixel's shade follows how much an edge covers
+    it, so edges glide through the fixed grid in tone, without stair-stepping. The recipe answering at a cell's size stays on file as an
   experiment, if the bake's time on slower cards or bigger worlds asks for it.
 - **The whole, in one paragraph** [David 2026-11-05]: "the hologram is twinned between the cpu and the gpu, and
   the screen is twinned between a gross and a fine screen in real time. and the hard work is done ahead of time
