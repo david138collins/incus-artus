@@ -174,6 +174,27 @@ time?"). 3.2 is talked through with him before it's built.
     thread: a worker inside wgpu's blocking wait held the frame's own showing up 5 to 6 ms, whatever the work's size.
     And hand the card its work in small pieces, each waited for before the next (a lump of several milliseconds holds
     the frame behind it). A soak flight with the work going on is the check: the slowest 1% of frames over 200.
+  - **Build 67's test window** [2026-11-06, David at the PC; PresentMon, the card's own log beside it; the test window
+    loads no compiled world, so the frame loop alone]:
+    - **The ballast runs** (90 s each). The game hands over a frame every 4.2 ms like clockwork in every run (between
+      presents: p99 about 4.9 ms). What reaches the screen depends on how awake the card is:
+
+      | Run | Frames | Shown later than 5.2 ms | Card |
+      |---|---|---|---|
+      | uncapped | 1,873 fps | (all under 1 ms apart) | 2,840 MHz, 39 W, 51 °C |
+      | 237, no ballast | 237 | 1,525 of 21,309 (7%; p99 8.8 ms) | dozing: 760 MHz (least 345), 16 W, 45 °C |
+      | 237, 1 ms | 237 | 1,023 (5%; p99 8.4) | 1,778 MHz, 41 W, 49 °C |
+      | 237, 2 ms | 237 | 471 (2%; p99 7.5) | 2,332 MHz, 67 W, 57 °C |
+      | 237, 3.7 ms | **226** (the card's time runs out) | 39 (0.2%; p99 4.8) | 2,811 MHz, 105 W (most 119), 67 °C |
+
+      **The dozing card is what's left of the unevenness:** kept busy, the picture is even; at 3.7 ms of work it runs
+      out of time. The sweet spot is 2 to 3 ms of card work a frame, which sight's own work is to supply as it comes in
+      (the ballast was its stand-in, the sandbags out as the cargo goes in).
+    - **The response run, real hands** (60 s each, David moving the mouse; PresentMon with admin): **input to photon**
+      uncapped: mean 1.05 ms, p50 1.03, p99 1.85, worst 5.3 (7,304 frames with input); **at 237**: mean 4.65 ms, p50
+      4.41, p90 7.15, p99 11.4, worst 13.7 (7,572 frames), about one frame and a bit, the tail the dozing card's.
+    - **PresentMon without admin** works when started after the game and aimed at its process ID; started first, it
+      can't name the game (scratchpad `run67.ps1`). With admin it follows the game by name, input included.
 - **Build 62, Fork A's first bolts** (measured below):
   - **Pacing by the screen's own clock** (`runner::pace`, `runner/hardware.rs`): under a cap, the frame waits for
     the screen's refreshes (DXGI's wait for the vertical blank on the window's screen) until the cap's number
