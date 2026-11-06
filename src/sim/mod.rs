@@ -318,6 +318,7 @@ fn run_world_sim(world: &mut World) {
     let now = world.resource::<WorldClock>().seconds;
     let tick = world.resource::<TimeControl>().tick();
     let settings = world.resource::<SimSettings>().clone();
+    let giving_way = world.resource::<crate::time::SimPressure>().giving_way;
     let requests: Vec<SiteHookRequest> = world.resource_mut::<Messages<SiteHookRequest>>().drain().collect();
 
     let mut out = Outbox { tick, ..default() };
@@ -326,7 +327,7 @@ fn run_world_sim(world: &mut World) {
         for request in requests {
             apply_hook_request(&mut sim, request, now);
         }
-        let updates = advance_world(&mut sim, &mut fate, &settings, now, &presences, Some(settings.updates_per_tick), &mut out);
+        let updates = advance_world(&mut sim, &mut fate, &settings, now, &presences, Some(settings.updates_per_tick), giving_way, &mut out);
         sim.last_updates = updates;
         sim.last_millis = started.elapsed().as_secs_f64() * 1000.0;
     });
@@ -358,8 +359,16 @@ fn advance_world(
     now: f64,
     presences: &[Vec2],
     budget: Option<usize>,
+    giving_way: crate::time::GiveWay,
     out: &mut Outbox,
 ) -> usize {
+    // What waits this tick, when the ticks are over their share of the frame: thin records first, then
+    // rich ones. They're left due, and catch up on how much time has passed when they run.
+    let waits = |level: SimLevel| match level {
+        SimLevel::Thin => giving_way >= crate::time::GiveWay::World,
+        SimLevel::Rich => giving_way >= crate::time::GiveWay::Intermediator,
+        SimLevel::Local => false,
+    };
     let nearest = |at: Vec2| presences.iter().map(|p| p.distance(at)).fold(f32::INFINITY, f32::min);
 
     // ── Sites: hooks expire, levels are decided ──
@@ -466,7 +475,7 @@ fn advance_world(
     for index in 0..sim.journeys.len() {
         let journey = &sim.journeys[index];
         let local = journey.level == SimLevel::Local;
-        if local || (journey.next_update <= now && budget_left > 0) {
+        if local || (journey.next_update <= now && budget_left > 0 && !waits(journey.level)) {
             update_journey(sim, index, now, out);
             let journey = &mut sim.journeys[index];
             journey.next_update = now + settings.interval(journey.level);
@@ -481,7 +490,7 @@ fn advance_world(
             break;
         }
         let site = &sim.sites[index];
-        if site.level != SimLevel::Local && site.next_update <= now {
+        if site.level != SimLevel::Local && site.next_update <= now && !waits(site.level) {
             toy::run_site_rules(sim, index, now, fate, out);
             let site = &mut sim.sites[index];
             site.next_update = now + settings.interval(site.level);
@@ -516,7 +525,8 @@ pub(crate) fn skip_ahead(world: &mut World, seconds: f64) {
         let mut now = start;
         while now < end {
             now = (now + step).min(end);
-            advance_world(&mut sim, &mut fate, &settings, now, &presences, None, &mut out);
+            // (Asked for on purpose: nothing gives way.)
+            advance_world(&mut sim, &mut fate, &settings, now, &presences, None, crate::time::GiveWay::Nothing, &mut out);
         }
     });
     world.resource_mut::<WorldClock>().seconds = end;

@@ -69,6 +69,13 @@ impl Drop for Timed {
     }
 }
 
+/// A step of the frame timed by its own clock readings (the simulation's ticks: `time/`).
+pub fn step(name: &'static str, ms: f32) {
+    if let Ok(mut steps) = STEPS.lock() {
+        steps.push((name, ms));
+    }
+}
+
 /// The background jobs' time (off the main thread), by kind: milliseconds and how many, since the
 /// last count. Tells which job keeps the worker threads busy, which the frame's steps can't.
 static BACKGROUND: Mutex<Vec<(&'static str, f32, u32)>> = Mutex::new(Vec::new());

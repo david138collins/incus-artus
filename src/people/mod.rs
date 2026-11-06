@@ -260,7 +260,9 @@ impl Plugin for PeoplePlugin {
             .log_event::<ActivityStarted>()
             .log_event::<PeopleMet>()
             .log_event::<MoodWave>()
-            .add_systems(FixedUpdate, live.after(crate::sim::WorldSimSet))
+            // The people round you give way last of all, when the ticks are over their share of the
+            // frame: a pause, picked up where they left off (`time::GiveWay`).
+            .add_systems(FixedUpdate, live.after(crate::sim::WorldSimSet).run_if(|pressure: Res<crate::time::SimPressure>| pressure.giving_way < crate::time::GiveWay::Local))
             .add_systems(EguiPrimaryContextPass, debug::draw_labels.run_if(in_state(Screen::Play)))
             .add_debug_page("People", debug::people_debug_page);
     }

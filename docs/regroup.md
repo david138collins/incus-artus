@@ -259,6 +259,18 @@ time?"). 3.2 is talked through with him before it's built.
   lines). The World Compiler's own thread also stands below the frame. The frame takes results in within its
   budget, as before. Still on the frame: a save's file writes (rare and asked for; they move when saving is
   reworked to report back from the lane).
+- **Lane 0.2, the simulation lane [BUILT 2026-11-05, in the form that lasts till the column store]** (David: "i agree
+  with... the builders way"): the toy simulation stays on the frame's thread, with **its share of the frame** (the
+  ticks timed together each frame, 2 ms at most by default, on the Time page; "the simulation's ticks" in the
+  slow-frame log) and **the give-way order** (`time::GiveWay`, `SimPressure`): over its share two frames running, the
+  next level gives way: the World sim's thin records first, then the Intermediator's rich ones, the people round you
+  last; well under (half) for a second, they come back one at a time in the reverse order. Giving way is a pause:
+  what's due waits, then catches up on all the time that passed. The player's body and block edits never give way.
+  Tests: the order going and coming back; a thin place that waits is unchanged, then caught up to the minute. **Its
+  own thread** comes with the simulation's column store and scheduler, the ejection seat's planned moment, built on
+  its own scheduler from the start rather than on Bevy's.
+  - **An option, not a plan** (Counsel's): once the simulation has its own thread, a processor-side ballast standing in
+    for a heavy simulation, to prove a heavy sim never disturbs the frame.
 - **For lane 0.2 (David 2026-11-05):** priorities on every job (this frame / soon / whenever), the workers below the
   frame thread; and in the simulation, under pressure the farthest and lightest give way first (the World sim,
   then the Intermediator, the Local sim last), as a pause, never lost state: people pick up what they were doing.

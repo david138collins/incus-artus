@@ -102,6 +102,97 @@ impl TimeControl {
     }
 }
 
+/// Which simulation levels give way this tick, when the ticks take more than their share of the frame
+/// [the regroup, lane 0.2; David 2026-11-05: skipping is fine "as long as A. it happens to the
+/// farthest, litest thread first and B. its just a pause... as long as they recall what they are
+/// doing once they 'snap out of it'"]. In order: the World sim's thin records first, then the
+/// Intermediator's rich ones, the Local sim (the people round you) last. Giving way is a pause: what's
+/// due waits, and catches up on how much time has passed when it runs again; nothing is lost. The
+/// player's own body and block edits never give way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum GiveWay {
+    /// Everything runs.
+    #[default]
+    Nothing,
+    /// The World sim's thin records wait.
+    World,
+    /// And the Intermediator's rich ones.
+    Intermediator,
+    /// And the Local sim: the people round you pause where they are.
+    Local,
+}
+
+impl GiveWay {
+    fn up(self) -> Self {
+        match self {
+            GiveWay::Nothing => GiveWay::World,
+            GiveWay::World => GiveWay::Intermediator,
+            _ => GiveWay::Local,
+        }
+    }
+
+    fn down(self) -> Self {
+        match self {
+            GiveWay::Local => GiveWay::Intermediator,
+            GiveWay::Intermediator => GiveWay::World,
+            _ => GiveWay::Nothing,
+        }
+    }
+}
+
+/// The simulation's share of the frame: how long its ticks took, against their budget, and what gives
+/// way because of it.
+#[derive(Resource, Debug)]
+pub struct SimPressure {
+    /// The ticks' share of a frame at most (ms); past it, the next level gives way.
+    pub budget_ms: f32,
+    /// What gives way now.
+    pub giving_way: GiveWay,
+    /// The ticks' time in the last frame (ms).
+    pub last_ms: f32,
+    started: Option<std::time::Instant>,
+    /// Frames in a row over the budget, and well under it.
+    over: u32,
+    under: u32,
+}
+
+impl Default for SimPressure {
+    fn default() -> Self {
+        Self { budget_ms: 2.0, giving_way: GiveWay::Nothing, last_ms: 0.0, started: None, over: 0, under: 0 }
+    }
+}
+
+/// Frames in a row over the budget before the next level gives way, and well under it (half) before
+/// the last one to give way comes back: quick to give way, slow to come back, so it doesn't see-saw.
+const OVER_FRAMES: u32 = 2;
+const UNDER_FRAMES: u32 = 60;
+
+impl SimPressure {
+    /// A frame's ticks took `ms`: what gives way next.
+    pub fn frame(&mut self, ms: f32) {
+        self.last_ms = ms;
+        let was = self.giving_way;
+        if ms > self.budget_ms {
+            (self.over, self.under) = (self.over + 1, 0);
+            if self.over >= OVER_FRAMES {
+                self.giving_way = self.giving_way.up();
+                self.over = 0;
+            }
+        } else if ms < self.budget_ms * 0.5 {
+            (self.over, self.under) = (0, self.under + 1);
+            if self.under >= UNDER_FRAMES {
+                self.giving_way = self.giving_way.down();
+                self.under = 0;
+            }
+        } else {
+            (self.over, self.under) = (0, 0);
+        }
+        if self.giving_way != was {
+            info!("The simulation's ticks took {ms:.2} ms against {:.2}: {:?} gives way now (was {:?})", self.budget_ms, self.giving_way, was);
+        }
+    }
+}
+
 /// Simulated seconds in one in-game day (15 minutes light + 15 minutes dark).
 pub const DAY_SECONDS: f64 = 1800.0;
 pub const HOUR_SECONDS: f64 = DAY_SECONDS / 24.0;
@@ -155,6 +246,9 @@ impl Plugin for TimeControlPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TimeControl>()
             .init_resource::<WorldClock>()
+            .init_resource::<SimPressure>()
+            // The ticks timed, all of a frame's together: their share of the frame (`SimPressure`).
+            .add_systems(RunFixedMainLoop, (start_ticks.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop), end_ticks.in_set(RunFixedMainLoopSystems::AfterFixedMainLoop)))
             .add_world_state::<WorldClock>("clock")
             .init_resource::<InterpolationSettings>()
             // Before Bevy updates its clocks each frame, hand it our settings.
@@ -239,6 +333,20 @@ fn prepare_ticks(mut control: ResMut<TimeControl>, mut fixed_time: ResMut<Time<F
     }
 }
 
+fn start_ticks(mut pressure: ResMut<SimPressure>) {
+    pressure.started = Some(std::time::Instant::now());
+}
+
+fn end_ticks(mut pressure: ResMut<SimPressure>, control: Res<TimeControl>) {
+    let Some(started) = pressure.started.take() else { return };
+    let ms = started.elapsed().as_secs_f32() * 1000.0;
+    // A frame with no tick says nothing about their cost.
+    if control.ticks_this_frame > 0 {
+        crate::perf::step("the simulation's ticks", ms);
+        pressure.frame(ms);
+    }
+}
+
 fn count_tick(mut control: ResMut<TimeControl>, mut clock: ResMut<WorldClock>, time: Res<Time>) {
     // Inside a tick, `Time` is the fixed clock, so `delta` is exactly one tick long.
     control.tick += 1;
@@ -301,6 +409,12 @@ fn time_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.label(format!("Between ticks: {:.0}%", overstep * 100.0));
 
     ui.separator();
+    let mut pressure = world.resource_mut::<SimPressure>();
+    ui.add(crate::debug::Slider::new(&mut pressure.budget_ms, 0.1..=8.0).text("the ticks' share of a frame, at most (ms)"));
+    ui.label(format!("The ticks took {:.2} ms in the last frame; giving way: {:?}", pressure.last_ms, pressure.giving_way));
+    ui.small("Past the share, the World sim gives way first, then the Intermediator, the people round you last: each a pause, caught up on when it runs again.");
+
+    ui.separator();
     let mut interpolation = world.resource_mut::<InterpolationSettings>();
     ui.checkbox(&mut interpolation.enabled, "Smooth motion between ticks");
 }
@@ -354,6 +468,32 @@ mod tests {
             assert!(control.tick().abs_diff(300) <= 1, "{} ticks in 10 s at {frame_ms:.2} ms a frame", control.tick());
             assert!((control.sim_seconds() - 10.0).abs() <= near, "{:.4} s in 10 s at {frame_ms:.2} ms a frame", control.sim_seconds());
         }
+    }
+
+    /// Over its share, the simulation gives way in order, World first and the people last, quickly;
+    /// back under it (well under), it comes back in the reverse order, slowly.
+    #[test]
+    fn the_farthest_and_lightest_give_way_first_and_come_back_last() {
+        let mut pressure = SimPressure { budget_ms: 1.0, ..SimPressure::default() };
+        let mut seen = vec![pressure.giving_way];
+        for _ in 0..12 {
+            pressure.frame(5.0);
+            if seen.last() != Some(&pressure.giving_way) {
+                seen.push(pressure.giving_way);
+            }
+        }
+        assert_eq!(seen, vec![GiveWay::Nothing, GiveWay::World, GiveWay::Intermediator, GiveWay::Local]);
+        // A frame just under the budget doesn't bring anything back; well under, slowly, in reverse.
+        pressure.frame(0.9);
+        assert_eq!(pressure.giving_way, GiveWay::Local);
+        let mut back = Vec::new();
+        for _ in 0..(UNDER_FRAMES * 3) {
+            pressure.frame(0.1);
+            if back.last() != Some(&pressure.giving_way) {
+                back.push(pressure.giving_way);
+            }
+        }
+        assert_eq!(back, vec![GiveWay::Local, GiveWay::Intermediator, GiveWay::World, GiveWay::Nothing]);
     }
 
     /// [David 2026-11-05: skipping is fine "as long as... its just a pause"] A frame stuck for a

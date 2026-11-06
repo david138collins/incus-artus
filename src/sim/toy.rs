@@ -242,7 +242,7 @@ mod tests {
         let mut now = 0.0;
         for _ in 0..(28 * 24) {
             now += crate::time::HOUR_SECONDS;
-            advance_world(&mut sim, &mut fate, &settings, now, &far_away, None, &mut out);
+            advance_world(&mut sim, &mut fate, &settings, now, &far_away, None, crate::time::GiveWay::Nothing, &mut out);
         }
         for site in &sim.sites {
             let c = &site.condition;
@@ -256,6 +256,34 @@ mod tests {
         assert!(!out.arrivals.is_empty());
     }
 
+    /// [David 2026-11-05: "its just a pause... as long as they recall what they are doing once they
+    /// 'snap out of it'"] While the World sim gives way, the thin places wait (nothing of theirs runs
+    /// or changes); once it's back, they catch up on all the time that passed, as if they'd never
+    /// waited.
+    #[test]
+    fn a_place_that_gives_way_waits_and_then_catches_up() {
+        use crate::time::GiveWay;
+        let mut sim = test_world_places();
+        let mut fate = Fate::new(5);
+        let settings = SimSettings::default();
+        let mut out = Outbox::default();
+        let far_away = [Vec2::new(30_000.0, 30_000.0)];
+        advance_world(&mut sim, &mut fate, &settings, crate::time::HOUR_SECONDS, &far_away, None, GiveWay::Nothing, &mut out);
+        let thin: Vec<usize> = (0..sim.sites.len()).filter(|&k| sim.sites[k].level == SimLevel::Thin).collect();
+        assert!(!thin.is_empty());
+        let before: Vec<(f64, String)> = thin.iter().map(|&k| (sim.sites[k].last_update, format!("{:?}", sim.sites[k].condition))).collect();
+        // Two days pass while the World sim gives way: the thin places are left as they were.
+        let later = 2.0 * crate::time::DAY_SECONDS;
+        advance_world(&mut sim, &mut fate, &settings, later, &far_away, None, GiveWay::World, &mut out);
+        let waiting: Vec<(f64, String)> = thin.iter().map(|&k| (sim.sites[k].last_update, format!("{:?}", sim.sites[k].condition))).collect();
+        assert_eq!(waiting, before, "a thin place ran while the World sim gave way");
+        // Back: each runs, caught up to now.
+        advance_world(&mut sim, &mut fate, &settings, later, &far_away, None, GiveWay::Nothing, &mut out);
+        for &k in &thin {
+            assert_eq!(sim.sites[k].last_update, later, "{} didn't catch up", sim.sites[k].name);
+        }
+    }
+
     #[test]
     fn standing_in_a_village_makes_it_local_and_walking_away_lets_it_go() {
         let mut sim = test_world_places();
@@ -264,13 +292,13 @@ mod tests {
         let mut out = Outbox::default();
         let v = sim.sites.iter().position(|s| s.name == "Test Village").unwrap();
         let village = sim.sites[v].at.vec();
-        advance_world(&mut sim, &mut fate, &settings, 1.0, &[village], None, &mut out);
+        advance_world(&mut sim, &mut fate, &settings, 1.0, &[village], None, crate::time::GiveWay::Nothing, &mut out);
         assert_eq!(sim.sites[v].level, SimLevel::Local);
         // Just past the entry distance, but inside the "leave" distance: still local.
         let edge = village + Vec2::new(sim.sites[v].radius + settings.local_margin + 5.0, 0.0);
-        advance_world(&mut sim, &mut fate, &settings, 2.0, &[edge], None, &mut out);
+        advance_world(&mut sim, &mut fate, &settings, 2.0, &[edge], None, crate::time::GiveWay::Nothing, &mut out);
         assert_eq!(sim.sites[v].level, SimLevel::Local);
-        advance_world(&mut sim, &mut fate, &settings, 3.0, &[village + Vec2::new(500.0, 0.0)], None, &mut out);
+        advance_world(&mut sim, &mut fate, &settings, 3.0, &[village + Vec2::new(500.0, 0.0)], None, crate::time::GiveWay::Nothing, &mut out);
         assert_eq!(sim.sites[v].level, SimLevel::Thin);
     }
 
@@ -293,9 +321,9 @@ mod tests {
             },
             0.0,
         );
-        advance_world(&mut sim, &mut fate, &settings, 50.0, &far, None, &mut out);
+        advance_world(&mut sim, &mut fate, &settings, 50.0, &far, None, crate::time::GiveWay::Nothing, &mut out);
         assert_eq!(sim.sites[t].level, SimLevel::Rich);
-        advance_world(&mut sim, &mut fate, &settings, 150.0, &far, None, &mut out);
+        advance_world(&mut sim, &mut fate, &settings, 150.0, &far, None, crate::time::GiveWay::Nothing, &mut out);
         assert_eq!(sim.sites[t].level, SimLevel::Thin);
         assert!(sim.sites[t].hooks.is_empty());
     }
