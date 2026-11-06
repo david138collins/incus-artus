@@ -340,6 +340,13 @@ Counsel's notes [PROPOSED]:
   did, per settlement, and it can change: fines, pardons, exile. So a lawful-neutral villager driven to
   steal in a starving winter is a criminal, not evil, and can come back. The player sits on the same
   scale. An evil cult priest with a clean record is the most dangerous kind.
+- **Crossing a border** [IDEA, David 2026-11-06]: "i think that settlements should tell you when you enter their
+  border and are now an inhabitant and not a traveler in the unclaimed world, and thus subject to scrutiny or
+  proscription for destroying or stealing or pissing people off". *Counsel:* the border is the settlement's
+  footprint, its area of control (section 3). That's the same line the Local sim's area follows, so crossing it
+  is where the place unfolds, where its law applies, and where the notice shows. Inside, what you break, take
+  or do to its people goes on that settlement's record of you (the "record" note just above). Outside is the
+  unclaimed world: no law, though what's seen can still travel as news.
 - **Bandits made, not spawned:** hunger, debt, exile or a feud in the Intermediator sim turns people to
   crime, so a bandit camp has a story, and news particles carry it ("the miller's son took to the
   road").
