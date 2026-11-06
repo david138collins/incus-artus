@@ -698,3 +698,562 @@ fn uncarved(north: i32, east: i32) -> Height {
     out.z = ground + detail;
     return out;
 }
+
+// ── The rivers and lakes (`WholeCarving`) ──
+
+// A point along a river: north east width depth edge flat bowl level bend has_curtain curtain fade.
+const POINT_WORDS: u32 = 12u;
+
+struct Point {
+    north: i32,
+    east: i32,
+    width: i32,
+    depth: i32,
+    edge: i32,
+    flat: i32,
+    bowl: i32,
+    level: i32,
+    bend: i32,
+    has_curtain: bool,
+    curtain: i32,
+    fade: i32,
+}
+
+fn point_at(reach: u32, k: u32) -> Point {
+    let first = u32(data[hu(H_REACHES) + reach * 2u]);
+    let at = hu(H_POINTS) + (first + k) * POINT_WORDS;
+    var p: Point;
+    p.north = data[at];
+    p.east = data[at + 1u];
+    p.width = data[at + 2u];
+    p.depth = data[at + 3u];
+    p.edge = data[at + 4u];
+    p.flat = data[at + 5u];
+    p.bowl = data[at + 6u];
+    p.level = data[at + 7u];
+    p.bend = data[at + 8u];
+    p.has_curtain = data[at + 9u] != 0;
+    p.curtain = data[at + 10u];
+    p.fade = data[at + 11u];
+    return p;
+}
+
+fn rounded(x: i32) -> i32 {
+    return (x + 32768) & ~0xFFFF;
+}
+
+fn whole_number(x: i32) -> i32 {
+    return rounded(x) >> 16u;
+}
+
+fn under_the_sea(height: i32) -> bool {
+    return whole_number(height) < 128;
+}
+
+fn depth_across(p: Point, across: i32) -> i32 {
+    let flat = clamp(p.flat, 0, 62259);
+    let u = min(abs(across), 65536);
+    var t = 65536;
+    if (u > flat) {
+        t = fix_div(65536 - u, 65536 - flat);
+    }
+    let at_edge = fix_mul(clamp(p.edge, 0, 65536), p.depth);
+    return max(rounded(at_edge + fix_mul(p.depth - at_edge, fix_pow(t, max(p.bowl, 3277)))), 65536);
+}
+
+// Where a spot is along a piece: distance (x), side (y), how far along (z).
+fn along(a: Point, b: Point, north: i32, east: i32) -> vec3<i32> {
+    let dn = pos_to_fix(b.north - a.north);
+    let de = pos_to_fix(b.east - a.east);
+    let mn = pos_to_fix(north - a.north);
+    let me = pos_to_fix(east - a.east);
+    let length = fix_hypot(dn, de);
+    var t = 0;
+    var side = 0;
+    if (length > TINY_FIX) {
+        let un = fix_div(dn, length);
+        let ue = fix_div(de, length);
+        t = clamp(fix_div(fix_mul(mn, un) + fix_mul(me, ue), length), 0, 65536);
+        side = fix_mul(fix_div(de, length), mn) - fix_mul(fix_div(dn, length), me);
+    }
+    let pn = fix_mul(dn, t);
+    let pe = fix_mul(de, t);
+    let distance = fix_hypot(mn - pn, me - pe);
+    var which = 65536;
+    if (side <= 0) {
+        which = -65536;
+    }
+    return vec3<i32>(distance, which, t);
+}
+
+fn half_across(a: Point, b: Point, width: i32) -> i32 {
+    let half = max(width, 65536) >> 1u;
+    if (h(H_ANTI_KITTY) == 0) {
+        return half;
+    }
+    let dn = pos_to_fix(b.north - a.north);
+    let de = pos_to_fix(b.east - a.east);
+    let length = max(fix_hypot(dn, de), TINY_FIX);
+    return max(half, fix_div(abs(dn) + abs(de), length) >> 1u);
+}
+
+fn blend_point(a: Point, b: Point, t: i32, bend: i32) -> Point {
+    var p = a;
+    p.north = a.north + pos_scaled(b.north - a.north, t);
+    p.east = a.east + pos_scaled(b.east - a.east, t);
+    p.width = a.width + fix_mul(b.width - a.width, t);
+    p.depth = a.depth + fix_mul(b.depth - a.depth, t);
+    p.edge = a.edge + fix_mul(b.edge - a.edge, t);
+    p.flat = a.flat + fix_mul(b.flat - a.flat, t);
+    p.bowl = a.bowl + fix_mul(b.bowl - a.bowl, t);
+    p.bend = bend;
+    p.fade = a.fade + fix_mul(b.fade - a.fade, t);
+    return p;
+}
+
+struct Piece {
+    ok: bool,
+    distance: i32,
+    side: i32,
+    point: Point,
+    past: i32,
+    half: i32,
+}
+
+fn grid_cell(north: i32, east: i32) -> u32 {
+    let cell = max(h(H_GRID_CELL), 1);
+    let across = h(H_GRID_ACROSS);
+    let row = min(max(div_floor(h(H_GRID_NORTH) - north, cell), 0), across - 1);
+    let col = min(max(div_floor(east - h(H_GRID_EAST), cell), 0), across - 1);
+    return u32(row * across + col);
+}
+
+// Lower water, then the deeper floor, first.
+fn lower(level: i32, floor: i32, than_level: i32, than_floor: i32) -> bool {
+    return level < than_level || (level == than_level && floor < than_floor);
+}
+
+fn nearest_piece(north: i32, east: i32) -> Piece {
+    var best: Piece;
+    best.ok = false;
+    if (h(H_GRID_ACROSS) == 0) {
+        return best;
+    }
+    let reach_blocks = h(H_GRID_CELL) * h(H_GRID_ACROSS);
+    let inside = north <= h(H_GRID_NORTH) && east >= h(H_GRID_EAST) && north > h(H_GRID_NORTH) - reach_blocks && east < h(H_GRID_EAST) + reach_blocks;
+    if (!inside) {
+        return best;
+    }
+    var wet: Piece;
+    wet.ok = false;
+    var wet_level = 0;
+    var wet_floor = 0;
+    var stretch_reach = 0xFFFFFFFFu;
+    var stretch: Piece;
+    stretch.ok = false;
+    var stretch_level = 0;
+    var stretch_floor = 0;
+    let cell = grid_cell(north, east);
+    let first = u32(data[hu(H_GRID_CELLS) + cell * 2u]);
+    let count = u32(data[hu(H_GRID_CELLS) + cell * 2u + 1u]);
+    for (var e = 0u; e < count; e++) {
+        let r = u32(data[hu(H_GRID_ENTRIES) + (first + e) * 2u]);
+        let k = u32(data[hu(H_GRID_ENTRIES) + (first + e) * 2u + 1u]);
+        if (r != stretch_reach) {
+            if (stretch.ok && (!wet.ok || lower(stretch_level, stretch_floor, wet_level, wet_floor))) {
+                wet = stretch;
+                wet_level = stretch_level;
+                wet_floor = stretch_floor;
+            }
+            stretch.ok = false;
+            stretch_reach = r;
+        }
+        let a = point_at(r, k);
+        let b = point_at(r, k + 1u);
+        let al = along(a, b, north, east);
+        let distance = al.x;
+        let side = al.y;
+        let t = al.z;
+        let nearer = !best.ok || distance < best.distance;
+        let width = a.width + fix_mul(b.width - a.width, t);
+        var bend = b.bend;
+        if (t < 32768) {
+            bend = a.bend;
+        }
+        var shift = 0;
+        if (whole_number(width) % 2 == 0) {
+            shift = fix_mul(bend, 32768);
+        }
+        let half = half_across(a, b, width);
+        let offset = fix_mul(distance, side) - shift;
+        let in_water = abs(offset) <= half && (!stretch.ok || distance < stretch.distance);
+        if (!nearer && !in_water) {
+            continue;
+        }
+        let span = fix_hypot(pos_to_fix(b.north - a.north), pos_to_fix(b.east - a.east));
+        var piece: Piece;
+        piece.ok = true;
+        piece.distance = distance;
+        piece.side = side;
+        piece.point = blend_point(a, b, t, bend);
+        piece.past = fix_mul(t, span);
+        piece.half = half;
+        if (nearer) {
+            best = piece;
+        }
+        if (in_water) {
+            let level = rounded(piece.point.level);
+            stretch_level = level;
+            stretch_floor = level - 65536 - depth_across(piece.point, fix_div(offset, half));
+            stretch = piece;
+        }
+    }
+    if (stretch.ok && (!wet.ok || lower(stretch_level, stretch_floor, wet_level, wet_floor))) {
+        wet = stretch;
+    }
+    if (wet.ok) {
+        return wet;
+    }
+    return best;
+}
+
+// 0 smooth, 1 slope, 2 terraces, 3 ledge then slope.
+struct Bank {
+    ok: bool,
+    z: i32,
+}
+
+fn bank_ground(level: i32, fade_in: i32, beyond: i32, ground: i32) -> Bank {
+    var out: Bank;
+    let way = h(H_BANK_WAY);
+    var shore = level - 65536;
+    if (way == 3) {
+        shore = level;
+    }
+    let rise = ground - shore;
+    var fade = max(fade_in, 65536);
+    if (rise > 0) {
+        fade = clamp(fix_div(rise, max(h(H_BANK_STEEPEST), 3277)), fade, fix_mul(fade, max(h(H_BANK_WIDEST), 65536)));
+    }
+    if (beyond >= fade) {
+        out.ok = false;
+        return out;
+    }
+    let t = clamp(fix_div(beyond, fade), 0, 65536);
+    let eased = fix_smooth(t);
+    let terrace = max(h(H_BANK_TERRACE), 65536);
+    out.ok = true;
+    if (way == 1) {
+        out.z = shore + fix_mul(rise, t);
+    } else if (way == 2 && rise > 0) {
+        out.z = shore + fix_mul((fix_div(fix_mul(rise, t), terrace) >> 16u) << 16u, terrace);
+    } else {
+        out.z = shore + fix_mul(rise, eased);
+    }
+    return out;
+}
+
+fn bank_compressed(level: i32, fade_in: i32, beyond: i32, ground: i32) -> Bank {
+    var out: Bank;
+    let way = h(H_BANK_WAY);
+    let shore = level - 65536;
+    let rise = ground - shore;
+    var kept = 0;
+    if (rise > 0 && way == 3) {
+        kept = min(65536, rise);
+    }
+    let rest = rise - kept;
+    var peak = 65536;
+    if (way == 0 || way == 3) {
+        peak = 98304;
+    }
+    var fade = max(fade_in, 65536);
+    if (rest > 0) {
+        fade = clamp(fix_div(fix_mul(rest, peak), max(h(H_BANK_STEEPEST), 3277)), fade, fix_mul(fade, max(h(H_BANK_WIDEST), 65536)));
+    } else if (rise < 0) {
+        fade = clamp(fix_div(fix_mul(-rise, peak), max(h(H_BANK_RAISED_STEEPEST), 3277)), fade, fix_mul(fade, max(h(H_BANK_RAISED_WIDEST), 65536)));
+    }
+    let t = fix_div(max(beyond - 65536, 0), fade);
+    if (t >= 65536) {
+        out.ok = false;
+        return out;
+    }
+    let eased = fix_smooth(t);
+    let terrace = max(h(H_BANK_TERRACE), 65536);
+    var add: i32;
+    if (way == 1) {
+        add = fix_mul(rest, t);
+    } else if (way == 2 && rest > 0) {
+        add = fix_mul((fix_div(fix_mul(rest, t), terrace) >> 16u) << 16u, terrace);
+    } else {
+        add = fix_mul(rest, eased);
+    }
+    out.ok = true;
+    out.z = shore + kept + add;
+    return out;
+}
+
+fn compressed_bank(north: i32, east: i32, ground: i32) -> Bank {
+    let widest = h(H_BANK_WIDEST_EITHER);
+    var bank = 2147483647;
+    var hold = -2147483647 - 1;
+    var rim = -2147483647 - 1;
+    var s_reach = 0xFFFFFFFFu;
+    var s_k = 0u;
+    var s_distance = 2147483647;
+    var s_has = false;
+    var s_target = 0;
+    var s_held = 0;
+    let cell = grid_cell(north, east);
+    let first = u32(data[hu(H_GRID_CELLS) + cell * 2u]);
+    let count = u32(data[hu(H_GRID_CELLS) + cell * 2u + 1u]);
+    for (var e = 0u; e < count; e++) {
+        let r = u32(data[hu(H_GRID_ENTRIES) + (first + e) * 2u]);
+        let k = u32(data[hu(H_GRID_ENTRIES) + (first + e) * 2u + 1u]);
+        let a = point_at(r, k);
+        let c = point_at(r, k + 1u);
+        let al = along(a, c, north, east);
+        let distance = al.x;
+        let t = al.z;
+        let width = a.width + fix_mul(c.width - a.width, t);
+        let fade = a.fade + fix_mul(c.fade - a.fade, t);
+        let half = half_across(a, c, width);
+        var bend = c.bend;
+        if (t < 32768) {
+            bend = a.bend;
+        }
+        var shift = 0;
+        if (whole_number(width) % 2 == 0) {
+            shift = fix_mul(bend, 32768);
+        }
+        let beyond = abs(fix_mul(distance, al.y) - shift) - half;
+        let past = fix_mul(t, fix_hypot(pos_to_fix(c.north - a.north), pos_to_fix(c.east - a.east)));
+        var level = rounded(a.level);
+        if (a.has_curtain && past < 131072) {
+            level = max(rounded(a.curtain), rounded(a.level));
+        }
+        if (beyond > 0 && beyond <= 65536) {
+            rim = max(rim, level - 65536);
+        }
+        var say_has = false;
+        var say_target = 0;
+        var say_held = 0;
+        if (fade > 0 && beyond > 0 && beyond <= fix_mul(fade, widest) + 131072) {
+            let b = bank_compressed(level, fade, beyond, ground);
+            if (b.ok) {
+                say_has = true;
+                say_target = b.z;
+                say_held = level - 65536 - fix_mul(max(beyond - 65536, 0), max(h(H_BANK_STEEPEST), 3277));
+            }
+        }
+        if (r != s_reach || k > s_k + 2u) {
+            if (s_has) {
+                bank = min(bank, s_target);
+                hold = max(hold, s_held);
+            }
+            s_reach = r;
+            s_k = k;
+            s_distance = distance;
+            s_has = say_has;
+            s_target = say_target;
+            s_held = say_held;
+        } else if (distance < s_distance) {
+            s_reach = r;
+            s_k = k;
+            s_distance = distance;
+            s_has = say_has;
+            s_target = say_target;
+            s_held = say_held;
+        } else {
+            s_k = k;
+        }
+    }
+    if (s_has) {
+        bank = min(bank, s_target);
+        hold = max(hold, s_held);
+    }
+    var out: Bank;
+    out.ok = bank < 2147483647;
+    out.z = max(max(bank, min(hold, ground)), rim);
+    return out;
+}
+
+// The lake water at a spot: x the surface, y 1 if only beside it; `ok` in z (0 none).
+fn lake_at(north: i32, east: i32) -> vec3<i32> {
+    if (h(H_LAKE_ACROSS_X) == 0) {
+        return vec3<i32>(0, 0, 0);
+    }
+    let cell = max(h(H_LAKE_CELL), 1);
+    let col = clamp(div_floor(east - h(H_LAKE_WEST), cell), 0, h(H_LAKE_ACROSS_X) - 1);
+    let row = clamp(div_floor(h(H_LAKE_NORTH) - north, cell), 0, h(H_LAKE_ACROSS_Y) - 1);
+    let at = hu(H_LAKE_CELLS) + u32(row * h(H_LAKE_ACROSS_X) + col) * 2u;
+    let first = u32(data[at]);
+    let count = u32(data[at + 1u]);
+    var water_has = false;
+    var water = 0;
+    var beside_has = false;
+    var beside = 0;
+    for (var e = 0u; e < count; e++) {
+        let lake = hu(H_LAKES) + u32(data[hu(H_LAKE_ENTRIES) + first + e]) * 7u;
+        let c_raw = east - data[lake + 1u];
+        let r_raw = data[lake] - north;
+        if (c_raw < 0 || r_raw < 0) {
+            continue;
+        }
+        let lake_cell = max(data[lake + 4u], 1);
+        let c = c_raw / lake_cell;
+        let r = r_raw / lake_cell;
+        if (c >= data[lake + 2u] || r >= data[lake + 3u]) {
+            continue;
+        }
+        let i = u32(r * data[lake + 2u] + c);
+        let s = data[u32(data[lake + 5u]) + i];
+        let bs = data[u32(data[lake + 6u]) + i];
+        if (s != -2147483647 - 1) {
+            if (water_has) {
+                water = max(water, s);
+            } else {
+                water = s;
+            }
+            water_has = true;
+        }
+        if (bs != -2147483647 - 1) {
+            if (beside_has) {
+                beside = max(beside, bs);
+            } else {
+                beside = bs;
+            }
+            beside_has = true;
+        }
+    }
+    if (water_has) {
+        return vec3<i32>(water, 0, 1);
+    }
+    if (beside_has) {
+        return vec3<i32>(beside, 1, 1);
+    }
+    return vec3<i32>(0, 0, 0);
+}
+
+// What the rivers and lakes do: floor (x, has in bit 1 of w), fill (y, bit 2), water (z, bit 4).
+fn carve_here(north: i32, east: i32, ground: i32) -> vec4<i32> {
+    var floor = 0;
+    var fill = 0;
+    var water = 0;
+    var has = 0;
+    if (!under_the_sea(ground)) {
+        let piece = nearest_piece(north, east);
+        if (piece.ok) {
+            let point = piece.point;
+            var shift = 0;
+            if (whole_number(point.width) % 2 == 0) {
+                shift = fix_mul(point.bend, 32768);
+            }
+            let offset = fix_mul(piece.distance, piece.side) - shift;
+            var fall = 0;
+            if (point.has_curtain) {
+                fall = max(rounded(point.curtain), rounded(point.level));
+            }
+            if (abs(offset) <= piece.half) {
+                let level = rounded(point.level);
+                var top = level;
+                if (point.has_curtain && h(H_CURTAINS) != 0 && piece.past < 65536) {
+                    top = fall;
+                }
+                floor = level - 65536 - depth_across(point, fix_div(offset, piece.half));
+                water = top >> 16u;
+                has = has | 1 | 4;
+            } else if (h(H_BANK_COMPRESSOR) != 0) {
+                let b = compressed_bank(north, east, ground);
+                if (b.ok) {
+                    if (b.z < ground) {
+                        floor = b.z;
+                        has = has | 1;
+                    } else {
+                        fill = b.z;
+                        has = has | 2;
+                    }
+                }
+            } else if (point.fade > 0) {
+                var level = rounded(point.level);
+                if (point.has_curtain && piece.past < 131072) {
+                    level = fall;
+                }
+                let b = bank_ground(level, point.fade, abs(offset) - piece.half, ground);
+                if (b.ok) {
+                    if (b.z < ground) {
+                        floor = b.z;
+                        has = has | 1;
+                    } else {
+                        fill = b.z;
+                        has = has | 2;
+                    }
+                }
+            }
+        }
+    }
+    let lake = lake_at(north, east);
+    if (lake.z != 0 && lake.x > SEA_Z) {
+        let top = rounded(lake.x);
+        var cut = ground;
+        if ((has & 1) != 0) {
+            cut = min(ground, floor);
+        }
+        var carved = cut;
+        if ((has & 2) != 0) {
+            carved = max(cut, fill);
+        }
+        if (lake.y != 0) {
+            var against = ground;
+            if ((has & 4) == 0) {
+                against = carved;
+            }
+            if (against < top - 65536) {
+                fill = top - 65536;
+                has = has | 2;
+            }
+        } else if (carved < top - 32768) {
+            if ((has & 4) != 0) {
+                water = max(water, top >> 16u);
+            } else {
+                water = top >> 16u;
+            }
+            has = (has | 4) & ~2;
+        }
+    }
+    return vec4<i32>(floor, fill, water, has);
+}
+
+// The ground carved, and the water over it: z (x), water (y, 0 none); `ok` false past the map.
+struct Column {
+    ok: bool,
+    z: i32,
+    water: i32,
+}
+
+fn ground_and_water(north: i32, east: i32) -> Column {
+    var out: Column;
+    let u = uncarved(north, east);
+    out.ok = u.ok;
+    out.water = 0;
+    if (!u.ok) {
+        return out;
+    }
+    out.z = u.z;
+    if (muted(512) || h(H_CARVE_FULL) == 0) {
+        return out;
+    }
+    let c = carve_here(north, east, u.z);
+    var z = u.z;
+    if ((c.w & 1) != 0) {
+        z = min(z, c.x);
+    }
+    if ((c.w & 2) != 0) {
+        z = max(z, c.y);
+    }
+    out.z = z;
+    if ((c.w & 4) != 0 && c.z > whole_number(z) + 1) {
+        out.water = c.z;
+    }
+    return out;
+}
