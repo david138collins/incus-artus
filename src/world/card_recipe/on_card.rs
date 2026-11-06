@@ -324,16 +324,16 @@ impl WorldOnCard {
     /// all with their columns inside `region` (least corner x and y, columns across and along). Waits for
     /// the card.
     pub fn cells_at(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], cells: &[[i32; 4]]) -> Vec<[u32; 17]> {
-        self.cells_by(device, queue, region, |_| cells.to_vec())
+        self.cells_by(device, queue, region, |_| cells.to_vec(), (PIECE_COLUMNS, PIECE_CELLS))
     }
 
     /// The same, the cells chosen from the region's grounds once they're made (`choose` is handed each
     /// column's ground, −1 past the map, and water, for the region and three columns round it, x fastest):
     /// the columns are made once, for the choosing and the cells both. Every pass goes to the card in pieces
-    /// (`PIECE_COLUMNS`, `PIECE_CELLS`), each waited for before the next, so the frame's own work slots in
+    /// (`pieces`: columns, and cells, a piece), each waited for before the next, so the frame's own work slots in
     /// between [2026-11-06: tiles of 16-block cells in one go held frames, "showing it" 4.7 ms, 900 slow
     /// frames in 40 s of flight].
-    pub fn cells_by(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], choose: impl FnOnce(&[[i32; 2]]) -> Vec<[i32; 4]>) -> Vec<[u32; 17]> {
+    pub fn cells_by(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], choose: impl FnOnce(&[[i32; 2]]) -> Vec<[i32; 4]>, pieces: (u32, u32)) -> Vec<[u32; 17]> {
         use wgpu::util::DeviceExt;
         let bytes = |v: &[i32]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
         let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
@@ -380,7 +380,7 @@ impl WorldOnCard {
             Some(view.to_vec())
         };
         let by_threads = |n: u32| n.div_ceil(64);
-        if !in_pieces(&self.grounds, &bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count, PIECE_COLUMNS, &by_threads) {
+        if !in_pieces(&self.grounds, &bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count, pieces.0, &by_threads) {
             return Vec::new();
         }
         let Some(made) = read_back(&grounds, ground_count as u64 * 8) else { return Vec::new() };
@@ -393,11 +393,11 @@ impl WorldOnCard {
         let cells_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("cells"), contents: &bytes(&flat), usage: wgpu::BufferUsages::STORAGE });
         let size = cells.len() as u64 * 17 * 4;
         let sums = storage("sums", size);
-        if !in_pieces(&self.choices, &bind(&self.choices, &[(0, &self.data), (1, &region_buffer), (2, &grounds), (3, &chosen)]), chosen_count, PIECE_COLUMNS, &by_threads) {
+        if !in_pieces(&self.choices, &bind(&self.choices, &[(0, &self.data), (1, &region_buffer), (2, &grounds), (3, &chosen)]), chosen_count, pieces.0, &by_threads) {
             return Vec::new();
         }
         // The cells pass gives each cell a group of its own.
-        if !in_pieces(&self.cells, &bind(&self.cells, &[(0, &self.data), (1, &region_buffer), (3, &chosen), (4, &cells_buffer), (5, &sums)]), cells.len() as u32, PIECE_CELLS, &|n| n) {
+        if !in_pieces(&self.cells, &bind(&self.cells, &[(0, &self.data), (1, &region_buffer), (3, &chosen), (4, &cells_buffer), (5, &sums)]), cells.len() as u32, pieces.1, &|n| n) {
             return Vec::new();
         }
         let Some(view) = read_back(&sums, size) else { return Vec::new() };

@@ -510,7 +510,25 @@ back to.
   coarser cells show till they catch up. **For 3.2:** the store on the card, the cells pass writing straight into it,
   many tiles a pass, the bands worked out on the card too; the processor keeps only which tiles are where, and nothing
   is read back in play (the bake's cells once, to be saved).
-- **Telescoping:** `before-sight` is tagged once 3.1d stands.
+- **3.1d split in two** (2026-11-06, as it was built): **3.1d, the bake** itself, and **3.1e, keeping it**: saved with
+  the world as it's made, stamped with the rules' version (a mismatch bakes again), and patched for edits. Edited
+  chunks aren't in the recipe: a changed chunk is exactly one cell column of 32, made from its blocks instead (the
+  processor's `sums_of_box` over the chunk, its neighbours' faces too), and its parents again from their children.
+- **3.1d [BUILT 2026-11-06]** `sight/bake.rs`: cells of 32 made on the card a region at a time (1,024 blocks square,
+  the live levels' band rule), every level above built exactly from its four children (`parent_of`): within a region
+  up to 1,024, and above as soon as all four children are baked, up to the level where four cells cover the map (17
+  levels' worth for the default world: 32 to 65,536). Nearest the spawn first in square rings, so the start bake (the
+  smallest square of rings holding an eighth of the regions: 729 of 5,184 for the default world, the rounding to whole
+  rings making it about a seventh) is done before anything past it; four loops on the loading lane at its lowest
+  priority, pieces of 32,768 columns waited for gently. Kept compact (16 bytes a cell, flat arrays by level; exact
+  sums only from 1,024 up, to build the levels above). Nothing reads it yet (3.2), and nothing waits for the start
+  bake (the loading screen's question). **Test:** the whole test map baked (16 regions); its cells of 32, 64 and 128
+  the same as those cells made directly on the card, the first past each band included; every level complete to the
+  top. **The default world, flying the soak at 150:** the start bake in **46 s**, about 20 regions a second after it
+  (the whole world in about 4 1/2 minutes), 237 fps throughout, the slowest 1% about 208, 11 slow frames in two
+  minutes; about 16 bytes a kept cell, some 100 MB at half the world. (Two loops: 65 s to the start bake; the gentle
+  waits cost the bake speed, more loops get it back without the frame noticing.)
+- **Telescoping:** `before-sight` is tagged once 3.1e stands.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
   stone at a 45 degree angle on a mountain side?"; requirements from Counsel, for 3.2's talk]: (1) **no threshold**: a

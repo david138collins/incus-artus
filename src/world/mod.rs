@@ -464,12 +464,24 @@ fn forget_redraws(mut world: ResMut<VoxelWorld>) {
 pub struct SightStore {
     pub live: Option<crate::sight::store::LiveStore>,
     maker: Option<crate::sight::store::Maker>,
+    /// The bake of the cells of 32 and up (3.1d), and its loops on the loading lane.
+    pub bake: Option<Arc<crate::sight::bake::Baking>>,
+    baking: Vec<crate::loading::Job<()>>,
     /// When the store was last reported in the log.
     reported: Option<Instant>,
 }
 
-/// Keeps sight's live levels round the camera: started when the world reaches the card, let go with it.
-fn keep_sight(card: Res<CardWorld>, caves: Res<Caves>, view: Res<crate::camera::CameraView>, mut sight: ResMut<SightStore>) {
+impl Drop for SightStore {
+    fn drop(&mut self) {
+        if let Some(bake) = &self.bake {
+            crate::sight::bake::stop(bake);
+        }
+    }
+}
+
+/// Keeps sight's live levels round the camera, and the bake going: started when the world reaches the card,
+/// let go with it.
+fn keep_sight(card: Res<CardWorld>, caves: Res<Caves>, terrain: Res<Terrain>, voxel: Res<VoxelWorld>, view: Res<crate::camera::CameraView>, mut sight: ResMut<SightStore>) {
     let Some(world) = &card.on_card else {
         if sight.live.is_some() {
             *sight = SightStore::default();
@@ -478,7 +490,16 @@ fn keep_sight(card: Res<CardWorld>, caves: Res<Caves>, view: Res<crate::camera::
     };
     if sight.maker.as_ref().is_none_or(|maker| !Arc::ptr_eq(&maker.world, world) || !Arc::ptr_eq(&maker.caves, &caves.0)) {
         let Some((device, queue)) = crate::runner::card() else { return };
-        sight.maker = Some(crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone() });
+        let maker = crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone() };
+        *sight = SightStore::default();
+        if let Some(map) = terrain.compiled() {
+            let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
+            let spawn = voxel.spawn();
+            let (bake, jobs) = crate::sight::bake::start(maker.clone(), world.odd, half, (spawn.x, spawn.y));
+            sight.bake = Some(bake);
+            sight.baking = jobs;
+        }
+        sight.maker = Some(maker);
         sight.live = Some(crate::sight::store::LiveStore::default());
     }
     let camera = (view.position.x, view.position.y);
@@ -488,6 +509,9 @@ fn keep_sight(card: Res<CardWorld>, caves: Res<Caves>, view: Res<crate::camera::
     if sight.reported.is_none_or(|when| when.elapsed().as_secs_f32() >= 10.0) {
         sight.reported = Some(Instant::now());
         info!("{}", live.report(camera));
+        if let Some(bake) = sight.bake.as_ref().and_then(|bake| bake.bake.lock().ok().map(|bake| bake.report())) {
+            info!("{bake}");
+        }
     }
 }
 

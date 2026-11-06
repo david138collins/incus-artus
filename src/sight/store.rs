@@ -61,6 +61,11 @@ pub struct CellColumn {
 
 impl CellColumn {
     /// The cell `index` up, the ones left out included.
+    /// Its highest kept cell (`low − 1` if none).
+    pub fn high(&self) -> i32 {
+        self.low + self.sums.len() as i32 - 1
+    }
+
     pub fn at(&self, index: i32, size: i32) -> Sums {
         if index >= self.low && index < self.low + self.sums.len() as i32 {
             self.sums[(index - self.low) as usize]
@@ -103,21 +108,27 @@ pub fn fill_tile(device: &wgpu::Device, queue: &wgpu::Queue, world: &WorldOnCard
         // The region's grounds and three columns round them.
         let across = side + 6;
         let column = |x: i32, y: i32| grounds[((y - y0 + 3) * across + (x - x0 + 3)) as usize];
-        bands_of(column, x0, y0, size, caves, odd, &mut bands)
-    });
+        bands_of(column, x0, y0, size, TILE, caves, odd, &mut bands)
+    }, LIVE_PIECES);
     let cells_ms = started.elapsed().as_secs_f32() * 1000.0 - columns_ms;
     let mut made = made.iter().map(sums_of);
     Tile { columns: bands.into_iter().map(|(low, count)| CellColumn { low, sums: (0..count).filter_map(|_| made.next()).collect() }).collect(), took: (columns_ms, cells_ms) }
 }
 
-/// Each cell column's band (its lowest kept cell and how many), and the cells to make for them.
-fn bands_of(column: impl Fn(i32, i32) -> [i32; 2], x0: i32, y0: i32, size: i32, caves: &CavePlan, odd: bool, bands: &mut Vec<(i32, i32)>) -> Vec<[i32; 4]> {
+/// How the live levels' card work is cut into pieces: columns, and cells, a piece.
+pub const LIVE_PIECES: (u32, u32) = (8192, 512);
+
+/// Each cell column's band (its lowest kept cell and how many), for `across` × `across` cell columns of `size`
+/// from (`x0`, `y0`), and the cells to make for them. `column` gives a column's ground (−1 past the map) and
+/// water, for those columns and one round them.
+#[allow(clippy::too_many_arguments)]
+pub fn bands_of(column: impl Fn(i32, i32) -> [i32; 2], x0: i32, y0: i32, size: i32, across: i32, caves: &CavePlan, odd: bool, bands: &mut Vec<(i32, i32)>) -> Vec<[i32; 4]> {
     // The cave boxes (32 blocks a side) and their levels, for the bands they reach down into.
     let boxes: Vec<(i32, i32, i32)> = caves.boxes_with_pieces().map(|(&b, _)| b).collect();
     let sea = crate::world::SEA_LEVEL;
     let mut cells = Vec::new();
-    for cy in 0..TILE {
-        for cx in 0..TILE {
+    for cy in 0..across {
+        for cx in 0..across {
             let (bx, by) = (x0 + cx * size, y0 + cy * size);
             let (mut lowest, mut highest, mut outside) = (i32::MAX, i32::MIN, false);
             for y in by - 1..=by + size {

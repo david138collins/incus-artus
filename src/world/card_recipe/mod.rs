@@ -823,6 +823,73 @@ fn ground(c: Case) -> i32 {
         assert!(cells > 5000 && edges > 1000, "the test misses something: {cells} cells, {edges} band edges");
     }
 
+    /// Sight's bake (phase 3.1d): the whole test map baked region by region; its cells of 32, 64 and 128 the
+    /// same as those cells made directly on the card (by the cave mouths and the river, the first cell past
+    /// each band included), and every level up to the top complete.
+    #[test]
+    fn sight_s_bake_is_the_cells_made_directly() {
+        use crate::sight::bake::{Bake, FIRST};
+        use crate::sight::store::{Maker, sums_of};
+        let Some((device, queue, map, plan, _blocks, _colours, world)) = sight_world() else {
+            eprintln!("No graphics card: sight's bake test is skipped");
+            return;
+        };
+        let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
+        let odd = world.odd;
+        let maker = Maker { device: device.clone(), queue: queue.clone(), world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan) };
+        let (baking, jobs) = crate::sight::bake::start(maker.clone(), odd, half, (0, 0));
+        // Waits for the loops on the loading lane to finish the map.
+        let started = std::time::Instant::now();
+        loop {
+            let done = baking.bake.lock().map(|bake| bake.all_done.is_some()).unwrap_or(true);
+            if done || started.elapsed().as_secs() > 300 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        drop(jobs);
+        let bake = baking.bake.lock().expect("the bake");
+        assert!(bake.all_done.is_some(), "the bake finished: {}", bake.report());
+        assert_eq!(bake.regions, 16);
+        let mut checked = 0;
+        for level in [FIRST, FIRST + 1, FIRST + 2] {
+            let size = 1 << level;
+            let baked = bake.level(level);
+            for (x, y) in [(600i32, 300i32), (-60, 80), (-1500, 1400)] {
+                let (cx, cy) = (x.div_euclid(size), y.div_euclid(size));
+                let (low, cells) = baked.column(cx, cy).expect("baked");
+                let mut asked = Vec::new();
+                for z in (low - 1).max(0)..=low + cells.len() as i32 {
+                    asked.push([cx * size, cy * size, z * size, size]);
+                }
+                let made = maker.world.cells_at(&device, &queue, [cx * size, cy * size, size, size], &asked);
+                for (cell, made) in asked.iter().zip(&made) {
+                    let z = cell[2] / size;
+                    let expected = if z >= low && z < low + cells.len() as i32 {
+                        cells[(z - low) as usize]
+                    } else if z < low && low > 0 {
+                        crate::sight::cell::Sums { solid: (size as u64).pow(3), ..Default::default() }.compact(size as u32)
+                    } else {
+                        crate::sight::cell::Cell::default()
+                    };
+                    assert_eq!(sums_of(made).compact(size as u32), expected, "level {level}, cell {cell:?}");
+                    checked += 1;
+                }
+            }
+        }
+        // Every level up to the top is complete.
+        for level in FIRST..=Bake::top(half) {
+            let baked = bake.level(level);
+            for cy in baked.from.1..baked.from.1 + baked.across {
+                for cx in baked.from.0..baked.from.0 + baked.across {
+                    assert!(baked.column(cx, cy).is_some(), "level {level}, cell column ({cx}, {cy}) not baked");
+                }
+            }
+        }
+        eprintln!("Sight's bake: {}; {checked} cells checked against the card", bake.report());
+        assert!(checked > 20);
+    }
+
     /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,
     /// bit for bit the sums of the very blocks the processor's chunks hold (`sight::cell::sums_of_box` over
     /// `CompiledMap::chunk`): ground, a river, a lake, mineralogy's layers, tunnels coming out of the ground
