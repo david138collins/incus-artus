@@ -231,15 +231,23 @@ fn scatter(at: vec2<u32>) -> f32 {
     return f32(h & 0xFFFFu) / 65536.0;
 }
 
-// `start`: where along the ray the first step is, a little different for each pixel, so the steps' places
-// against the ground don't line up across the screen (lined up, they draw rings round the eye).
-fn march(o: vec3<f32>, d: vec3<f32>, start: f32) -> Seen {
+// `phase`: a pixel's own number from 0 to 1 (`scatter`), where its fine steps fall within a fine step, so
+// their places against the ground don't line up across the screen (lined up, they draw rings round the eye).
+fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
     var colour = vec3<f32>(0.0);
     var through = 1.0;
     var first = camera.reach.x;
-    var t = start;
+    var t = 0.5 + phase;
     // Whether the last step found only air (only then is skipping tried: among the ground it never pays).
     var in_air = true;
+    // The last place a step found only air, and whether the ray is walking into a surface in fine steps from
+    // there [2026-11-06, David's first look: "a severe ringing effect on flat surfaces or water beneath me":
+    // the first step to touch the ground after a stride through air landed wherever the stride fell, up to two
+    // cells deep, and what it gathered swung with that, drawing contours on a flat plane].
+    var last_air = t;
+    var walking = false;
+    // Where the walk in has to reach (the place it first touched) before strides start again.
+    var walk_to = 0.0;
     var steps = 0;
     let water_colour = vec3<f32>(0.05, 0.16, 0.30);
     for (var n = 0; n < 768; n++) {
@@ -265,6 +273,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, start: f32) -> Seen {
             let r = floor(p.xy / f32(1 << u32(REGION)));
             if (entry_at(REGION, i32(r.x), i32(r.y)).y == NOT_BAKED) {
                 t = max(leave2(o.xy, d.xy, r, f32(1 << u32(REGION))), t) + 0.01;
+                last_air = t;
+                walking = false;
                 continue;
             }
         }
@@ -275,7 +285,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, start: f32) -> Seen {
         // column two levels coarser round it, else its own, with a fine cell's room above the top.
         var skipped = false;
         let fine = f32(1 << u32(level));
-        for (var k = 0; k < 2 && in_air; k++) {
+        for (var k = 0; k < 2 && in_air && !walking; k++) {
             // Two levels coarser, then its own.
             let up = select(level, min(level + 2, header[1]), k == 0);
             let up_size = f32(1 << u32(up));
@@ -296,6 +306,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, start: f32) -> Seen {
             }
             if (next > t + 0.01) {
                 t = next + 0.01;
+                last_air = t;
+                walking = false;
                 skipped = true;
                 break;
             }
@@ -310,15 +322,32 @@ fn march(o: vec3<f32>, d: vec3<f32>, start: f32) -> Seen {
             look = blend(level, p);
         }
         let size = f32(1 << u32(level));
-        // A whole cell at a time through air; a quarter by a surface, so the coverage is gathered finely where
-        // it changes (coarse steps there leave rings).
-        // Air within a cell all round: the next sample two cells on still reads everything between.
+        let thick = select(0.0, max(look.solid, look.water), look.known);
+        // The first touch of a surface after a stride through air: back to where the air was, and into the
+        // surface from there in fine steps, so what's gathered never depends on where the stride fell.
+        if (thick > 0.0 && !walking && t - last_air > size * 0.26) {
+            walk_to = t;
+            t = last_air + phase * size * 0.25;
+            walking = true;
+            // No skipping while walking in (a skip from here only leapt back to where it was).
+            in_air = false;
+            continue;
+        }
+        // Air within a cell all round: two cells on (the next sample still reads everything between). By a
+        // surface, a quarter of a cell at a time, where the coverage changes.
         var dt = size * 2.0;
         in_air = true;
-        if (look.known && (look.solid > 0.0 || look.water > 0.0)) {
+        if (thick > 0.0) {
             in_air = false;
-            // A quarter by any real surface (half steps there brought the rings back: 2026-11-06).
-            dt = select(size, size * 0.25, max(look.solid, look.water) > 0.1);
+            walking = true;
+            dt = select(size * 0.5, size * 0.25, thick > 0.02);
+        } else if (walking && t < walk_to) {
+            // Still walking in to where it first touched: fine steps, air or not.
+            in_air = false;
+            dt = size * 0.25;
+        } else {
+            last_air = t;
+            walking = false;
         }
         if (look.known) {
             let solid = 1.0 - pow(1.0 - min(look.solid, 0.999), dt / size);
@@ -367,8 +396,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         let x = uv.x * 2.0 - 1.0;
         let y = 1.0 - uv.y * 2.0;
         let d = normalize(camera.forward.xyz + x * camera.right.xyz + y * camera.up.xyz);
-        // Staggered by up to a quarter of a live cell (the finest steps there are, by a surface).
-        let seen = march(camera.position.xyz, d, 0.5 + scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)) * 4.0);
+        let seen = march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)));
         colour += seen.colour;
         near = min(near, seen.distance);
         steps += seen.steps;

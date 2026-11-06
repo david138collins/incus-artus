@@ -607,6 +607,21 @@ back to.
   off, at about a sixteenth of 2 × 2's rays. Its cost to be measured after his look, beside 2 × 2 (about 140 fps
   uncapped, sight 6 to 7 ms) and 4 × 4 (about 280, about 3 ms). Counsel's thought for 3.5, not a change: the twins
   may end up as an 8 × 8 coarse layer with the fine layer where flagged, rather than 2 × 2 everywhere.
+  His other notes: "i think the contrast on the mountains colors is more of the reason its hard to read at 8x8, but,
+  it looks nice at 8x8, and frankly the farthest mountains may not benefit from more... the mountains at that extreme
+  will probably look better with forests on them and stuff. there's a severe ringing effect on flat surfaces or water
+  beneath me that has to be taken care of but i'm liking what i'm seeing. i think we may be able to make this work".
+  **The ringing** (a hole, fixed at once): the first step to touch a surface after a two-cell stride through air
+  landed wherever the stride fell, up to two cells deep, and what it gathered swung with that: contours on a flat
+  plane, worst looking down from up high (the first stagger, a few blocks, only covered the fine steps' phase). The
+  cure: back to the last air sample, then into the surface in fine steps staggered per pixel (a steady hash), fine
+  steps kept up till past where it first touched (two loops found and closed on the way: a skip from the backed-up
+  place leapt back to where it was; a first fine step in air started striding again; both left rays out of steps,
+  white specks, 50 fps). Checked from 400 blocks up looking 40° down: smooth, no rings, no specks. **Cost after the
+  cure, David's screen, uncapped, flying the soak with the start bake on the card:** 2 × 2 about 120 fps (sight about
+  7.5 ms), 4 × 4 about 250 (about 3.4 ms), 8 × 8 about 340 to 376 (about 2 ms).
+  **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
+  through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
   stone at a 45 degree angle on a mountain side?"; requirements from Counsel, for 3.2's talk]: (1) **no threshold**: a

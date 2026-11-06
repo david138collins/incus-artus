@@ -214,11 +214,13 @@ fn fly_round(
     let ground = map.height(north, east).unwrap_or(0.0).max(SEA_LEVEL as f32);
     for mut camera in &mut cameras {
         // Eased up and down, so a cliff doesn't jerk the view.
-        let target = ground + ABOVE;
+        // `INCUS_SOAK_ABOVE` and `INCUS_SOAK_PITCH`: higher, and looking further down (for sight's checks).
+        let above = std::env::var("INCUS_SOAK_ABOVE").ok().and_then(|v| v.parse().ok()).unwrap_or(ABOVE);
+        let target = ground + above;
         let z = camera.position.z + (target - camera.position.z) * (2.0 * time.delta_secs()).min(1.0);
         camera.position = Vec3::new(north, east, if (camera.position.z - target).abs() > 500.0 { target } else { z });
         camera.heading = (angle.to_degrees() + 90.0).rem_euclid(360.0);
-        camera.pitch = -12.0;
+        camera.pitch = std::env::var("INCUS_SOAK_PITCH").ok().and_then(|v| v.parse().ok()).unwrap_or(-12.0);
     }
 }
 
