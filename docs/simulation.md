@@ -229,6 +229,11 @@ terrain lab tunes the ground. By the time it's needed, terrain, climate and ecol
   Total Annihilation". So the full-fat count follows the radius, not the world's population. *Counsel:* this
   fits section 1's levels and rules given "how much time has passed". Open: how much of a person the lite record
   keeps, so they come back the same person, and how one rule serves both the per-tick and the weekly check.
+  The biggest place, David 2026-11-06: "i think 500 villagers should be the highest level, and after that good
+  luck." The real chunks are the simulation radius, the full-fat zone: wherever the Local sim runs, the world
+  exists as real blocks. Everywhere else it's only seen, through the store. *Counsel:* a 500-person city with its
+  fields might span roughly 500 to 1,000 blocks, about the size of the old 32-chunk streaming area, built ahead by
+  the Intermediator as you approach.
   On losing people while away, David: "i think finding out one of your people died while away in some dumb
   accident is ok. that happens". So no special protection for people the player knows; Fate's rolls apply as
   usual.
