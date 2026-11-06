@@ -35,7 +35,7 @@ use std::time::Instant;
 #[derive(Resource, Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StreamSettings {
-    /// How far around you chunks are made and drawn, in chunks (1 chunk = 32 blocks).
+    /// How far around you chunks are made, in chunks (1 chunk = 32 blocks).
     pub radius: i32,
     /// How much nearer chunks ahead count: 0 = all directions alike, 0.5 = straight ahead counts as
     /// half as far.
@@ -73,7 +73,10 @@ impl StreamSettings {
 
 impl Default for StreamSettings {
     fn default() -> Self {
-        Self { radius: 32, ahead: 0.5, most_at_once: 0, insert_budget_ms: 1.0, cap: no_cap() }
+        // Four chunks (128 blocks): what walking, collision and edits need round the player [the regroup,
+        // David 2026-11-06]. Nothing draws chunks since the regroup (sight is the card's, from the recipe);
+        // at 32 they kept some 2.4 cores busy all the time while flying.
+        Self { radius: 4, ahead: 0.5, most_at_once: 0, insert_budget_ms: 1.0, cap: no_cap() }
     }
 }
 
