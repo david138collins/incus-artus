@@ -18,10 +18,15 @@ struct Camera {
     view: vec4<f32>,
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
-    // x: the farthest a ray goes (blocks); y: the level bias; z: 1 to show each ray's steps instead (a
+    // x: the farthest a ray goes (blocks); y: the level bias; w: the highest anything stands (blocks); z: 1 to
+    // show each ray's steps instead (a
     // measuring view: dark blue few, through green and yellow, to red 256 or more), 2 to tint each pixel by
     // the level its surface was read from (a measuring view: where the levels change).
     reach: vec4<f32>,
+    // The start pass (the screen in tiles of 8 × 8 pixels): x, y the tiles across and down; z the coarse pixels a
+    // tile side (0: no start pass, every ray from the eye); w the cone's spread (radians from a tile's middle
+    // ray to its corners).
+    tiles: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -31,6 +36,8 @@ struct Camera {
 @group(0) @binding(4) var<storage, read> pool: array<vec4<u32>>;
 @group(0) @binding(5) var picture: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(6) var how_far: texture_storage_2d<r32float, write>;
+// Where each tile's rays start (the start pass's answers).
+@group(0) @binding(7) var<storage, read_write> starts: array<f32>;
 
 const NOT_BAKED: u32 = 0xFFFF0000u;
 // Past the map: nothing at all, not even the world's floor.
@@ -211,6 +218,12 @@ fn level_at(t: f32) -> i32 {
     return clamp(level, header[2], header[1]);
 }
 
+// The highest anything stands in what's on the card so far (the store keeps it as regions and tiles go up):
+// over it, a ray that isn't coming down meets nothing more.
+fn world_top() -> f32 {
+    return min(max(camera.reach.w, 0.0), WORLD_HEIGHT);
+}
+
 // How far along the ray it leaves the cell `c` of `size`.
 fn leave(o: vec3<f32>, d: vec3<f32>, c: vec3<f32>, size: f32) -> f32 {
     let next = (c + select(vec3<f32>(0.0), vec3<f32>(1.0), d > vec3<f32>(0.0))) * size;
@@ -250,11 +263,11 @@ fn scatter(at: vec2<u32>) -> f32 {
 
 // `phase`: a pixel's own number from 0 to 1 (`scatter`), where its fine steps fall within a fine step, so
 // their places against the ground don't line up across the screen (lined up, they draw rings round the eye).
-fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
+fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     var colour = vec3<f32>(0.0);
     var through = 1.0;
     var first = camera.reach.x;
-    var t = 0.5 + phase;
+    var t = max(begin, 0.5) + phase;
     // Whether the last step found only air (only then is skipping tried: among the ground it never pays).
     var in_air = true;
     // The last place a step found only air, and whether the ray is walking into a surface in fine steps from
@@ -272,6 +285,11 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
     var before: Look;
     var before_t = 0.0;
     var chained = false;
+    let ceiling = world_top() + 32.0;
+    // By a surface, steps sized to how fast the ray crosses it upward or downward: a quarter of a cell for a ray
+    // looking down at it, up to a whole cell for one skimming along it (it crosses the soft edge slowly; the
+    // steps' two ends keep the sum true).
+    let surface_step = 0.25 / clamp(abs(d.z), 0.25, 1.0);
     var steps = 0;
     let water_colour = vec3<f32>(0.05, 0.16, 0.30);
     for (var n = 0; n < 768; n++) {
@@ -280,8 +298,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
         }
         steps = n + 1;
         let p = o + d * t;
-        // Above the world going up, or under its floor going down: nothing more to meet.
-        if ((p.z > WORLD_HEIGHT && d.z >= 0.0) || (p.z < -8.0 && d.z <= 0.0)) {
+        // Over the world's highest point going up, or under its floor going down: nothing more to meet.
+        if ((p.z > ceiling && d.z >= 0.0) || (p.z < -8.0 && d.z <= 0.0)) {
             break;
         }
         var level = level_at(t);
@@ -376,11 +394,11 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
         if (thick > 0.0) {
             in_air = false;
             walking = true;
-            dt = select(size * 0.5, size * 0.25, thick > 0.02);
+            dt = select(size * 0.5, size * surface_step, thick > 0.02);
         } else if (walking && t < walk_to) {
             // Still walking in to where it first touched: fine steps, air or not.
             in_air = false;
-            dt = size * 0.25;
+            dt = size * surface_step;
         } else {
             last_air = t;
             walking = false;
@@ -416,6 +434,86 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32) -> Seen {
     return Seen(colour, first, f32(steps), first_level);
 }
 
+// ── The start pass (the screen pyramid's first step, David 2026-11-06) ──
+//
+// One ray down the middle of each 8 × 8 tile of the screen, taken as a cone that holds the whole tile: it only
+// skips (over cell columns' tops, the cone's width kept clear of them, and a margin for the blends), never
+// blends, and stops at the first place the cone could touch anything. Every ray of the tile starts there: none of
+// them can meet anything before it.
+
+// How far the cone from `o` along `d` (spreading `spread` a block of distance) goes before it could touch.
+fn cone_start(o: vec3<f32>, d: vec3<f32>, spread: f32) -> f32 {
+    var t = 0.5;
+    let margin = 32.0;
+    let across = length(d.xy);
+    let ceiling = world_top() + margin;
+    for (var n = 0; n < 96; n++) {
+        if (t >= camera.reach.x) {
+            return camera.reach.x;
+        }
+        let p = o + d * t;
+        if (p.z - t * spread > ceiling && d.z >= 0.0) {
+            return camera.reach.x;
+        }
+        let r = t * spread + 2.0;
+        // A region not baked yet: from here (the march skips it itself, and the live level may be there).
+        let rg = floor(p.xy / f32(1 << u32(REGION)));
+        if (entry_at(REGION, i32(rg.x), i32(rg.y)).y == NOT_BAKED) {
+            return t;
+        }
+        var advanced = false;
+        let first_level = clamp(i32(ceil(log2(4.0 * r))), header[0], header[1]);
+        for (var k = 0; k < 3; k++) {
+            let level = min(first_level + k, header[1]);
+            let size = f32(1 << u32(level));
+            let c = floor(p.xy / size);
+            // The cone has to sit inside the column.
+            if (any(p.xy - r < c * size) || any(p.xy + r >= (c + 1.0) * size)) {
+                continue;
+            }
+            let entry = entry_at(level, i32(c.x), i32(c.y));
+            if (entry.y == NOT_BAKED) {
+                continue;
+            }
+            var top = -1e9;
+            if (entry.y != PAST_MAP) {
+                let low = bitcast<i32>(entry.y << 16u) >> 16u;
+                let count = i32(entry.y >> 16u);
+                top = f32(low + count) * size;
+            }
+            if (p.z - r <= top + margin) {
+                break;
+            }
+            // On till the cone's edge reaches the column's side, or its bottom comes down to the top.
+            let leaving = leave2(o.xy, d.xy, c, size);
+            var next = (leaving * across - 2.0) / max(across + spread, 1e-6);
+            if (d.z - spread < 0.0) {
+                next = min(next, (top + margin + 2.0 - p.z + d.z * t) / (d.z - spread));
+            }
+            if (next > t + 1.0) {
+                t = next;
+                advanced = true;
+                break;
+            }
+        }
+        if (!advanced) {
+            return t;
+        }
+    }
+    return t;
+}
+
+@compute @workgroup_size(8, 8)
+fn start_pass(@builtin(global_invocation_id) id: vec3<u32>) {
+    let tiles = vec2<u32>(camera.tiles.xy);
+    if (id.x >= tiles.x || id.y >= tiles.y) {
+        return;
+    }
+    let uv = min((vec2<f32>(id.xy) + 0.5) * camera.tiles.z / camera.view.xy, vec2<f32>(1.0));
+    let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
+    starts[id.y * tiles.x + id.x] = cone_start(camera.position.xyz, d, camera.tiles.w);
+}
+
 fn to_srgb(c: vec3<f32>) -> vec3<f32> {
     let low = c * 12.92;
     let high = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
@@ -429,6 +527,12 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let rays = u32(camera.view.w);
+    // Where its tile's rays start (from the start pass), or from the eye.
+    var begin = 0.5;
+    if (camera.tiles.z > 0.0) {
+        let tile = vec2<u32>(vec2<f32>(id.xy) / camera.tiles.z);
+        begin = starts[tile.y * u32(camera.tiles.x) + tile.x];
+    }
     var colour = vec3<f32>(0.0);
     var near = camera.reach.x;
     var steps = 0.0;
@@ -443,7 +547,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         let x = uv.x * 2.0 - 1.0;
         let y = 1.0 - uv.y * 2.0;
         let d = normalize(camera.forward.xyz + x * camera.right.xyz + y * camera.up.xyz);
-        let seen = march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)));
+        let seen = march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)), begin);
         colour += seen.colour;
         near = min(near, seen.distance);
         steps += seen.steps;

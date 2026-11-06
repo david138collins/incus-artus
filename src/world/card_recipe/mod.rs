@@ -1123,6 +1123,31 @@ fn ground(c: Case) -> i32 {
         eprintln!("Sight over the sea: {turns} turns in the brightness down the middle; each rise of 1.37 blocks changes a pixel by (mean, most of 255) {:?}", changes);
     }
 
+    /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up
+    /// looking 12° down (the soak's view), read from the steps view's colours.
+    #[test]
+    #[ignore]
+    fn sight_s_steps_by_band() {
+        let Some((device, queue, store, _map)) = sight_scene(512.0, |_| 70.0) else { return };
+        // SAFETY: tests that read it run one at a time (`--test-threads=1` for this measuring test).
+        unsafe { std::env::set_var("INCUS_SIGHT_STEPS", "1") };
+        let size = (640u32, 400u32);
+        let pitch = -12f32.to_radians();
+        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0 };
+        let picture = sight_picture(&device, &queue, &store, size, eye);
+        unsafe { std::env::remove_var("INCUS_SIGHT_STEPS") };
+        // The steps view: k = steps / 256 shown as dark blue (0) to green (0.5) to red (1), squared.
+        let steps_of = |p: [u8; 3]| {
+            let (r, g) = ((p[0] as f32 / 255.0).sqrt(), (p[1] as f32 / 255.0).sqrt());
+            if r > 0.01 { (0.5 + r * 0.5) * 256.0 } else { g / 0.8 * 0.5 * 256.0 }
+        };
+        for band in 0..10 {
+            let rows = band * size.1 / 10..(band + 1) * size.1 / 10;
+            let mean: f32 = rows.clone().flat_map(|y| (0..size.0).map(move |x| (x, y))).map(|(x, y)| steps_of(picture[(y * size.0 + x) as usize])).sum::<f32>() / ((size.1 / 10) * size.0) as f32;
+            eprintln!("Sight's steps: rows {rows:?}: about {mean:.0} a ray");
+        }
+    }
+
     /// Sight's cells (phase 3.1b): the card's sums of cells of 1 to 64 blocks, straight from the recipe,
     /// bit for bit the sums of the very blocks the processor's chunks hold (`sight::cell::sums_of_box` over
     /// `CompiledMap::chunk`): ground, a river, a lake, mineralogy's layers, tunnels coming out of the ground

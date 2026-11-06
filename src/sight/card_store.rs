@@ -92,6 +92,9 @@ pub struct CardStore {
     /// The window's cell columns a side now (at most `most_side`, what the live index was made for).
     pub side: std::sync::atomic::AtomicI32,
     pub most_side: i32,
+    /// The highest anything stands in what's on the card so far (blocks, to a cell): over it a ray that isn't
+    /// coming down meets nothing (the march's ceiling, from the first region, not only once the bake is done).
+    pub highest: std::sync::atomic::AtomicI32,
     queue: wgpu::Queue,
     places: Mutex<(Pool, Owners)>,
 }
@@ -137,7 +140,7 @@ impl CardStore {
             use wgpu::util::DeviceExt;
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's header"), contents: &header.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
-        Self { pool, baked, live, header, extents, live_level, side: std::sync::atomic::AtomicI32::new(side), most_side: side, queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+        Self { pool, baked, live, header, extents, live_level, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
     }
 
     pub fn side(&self) -> i32 {
@@ -172,6 +175,8 @@ impl CardStore {
     /// pointed at them; the place it had before given back.
     pub fn put_region(&self, record: &Record) {
         let total: usize = record.levels.iter().flatten().map(|(_, cells)| cells.len()).sum();
+        let top = record.levels.first().map_or(0, |columns| columns.iter().filter(|(_, c)| !c.is_empty()).map(|(low, cells)| (low + cells.len() as i32) << FIRST).max().unwrap_or(0));
+        self.highest.fetch_max(top, std::sync::atomic::Ordering::Relaxed);
         let Ok(mut places) = self.places.lock() else { return };
         let (pool, owners) = &mut *places;
         if let Some((start, n)) = owners.regions.remove(&record.region) {
@@ -233,6 +238,8 @@ impl CardStore {
     /// card at tile (`tx`, `ty`) of the live level; the place a tile had there before given back.
     pub fn put_tile(&self, tx: i32, ty: i32, tile: u32, columns: &[(i32, Vec<Cell>)]) {
         let total: usize = columns.iter().map(|(_, c)| c.len()).sum();
+        let top = columns.iter().filter(|(_, c)| !c.is_empty()).map(|(low, cells)| (low + cells.len() as i32) << self.live_level).max().unwrap_or(0);
+        self.highest.fetch_max(top, std::sync::atomic::Ordering::Relaxed);
         let Ok(mut places) = self.places.lock() else { return };
         let (pool, owners) = &mut *places;
         // The slot the tile takes in the wrapping window: whatever tile was there is given back.

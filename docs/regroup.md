@@ -639,7 +639,21 @@ back to.
   where to refine: only while a pixel is bigger than the store's cells under it (finer pixels than the cells magnify
   the blend into smudge: his bands). In order, one a build on his word: (a) the 8 × 8 pass giving every ray of the
   coarse layer where to start; (b) 4 × 4 refining from it; (c) where to refine; (d) 2 and 1, each with the 3.3 store
-  level that earns it. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
+  level that earns it. **(a) BUILT, build 71:** the start pass (`march.wgsl` `start_pass`: one ray down each 8 × 8 tile
+  taken as a cone holding the whole tile, only skipping, stopping where the cone could first touch; every ray of the
+  tile starts there). **Measured honestly, it barely helped** (2 × 2 110 fps with or without it, 4 × 4 and 8 × 8 a few
+  per cent): the columns' tops had already taken most of the air. What the steps view showed instead: (1) sky rays
+  climbing to the 1,024-block ceiling, though nothing stands near that high: now the store keeps the highest thing on
+  the card so far (to a cell) and rays over it that aren't coming down stop; (2) rays skimming a surface crossing its
+  soft edge in quarter steps for a long way: now steps by a surface are sized to how fast the ray crosses it (a quarter
+  of a cell looking down, up to a whole cell skimming; both ends of each step kept the sea test clean). And (3), the
+  biggest: **the 40-second measurements were taken mid-bake, in the raw view**, where rays over unbaked land plod in
+  air strides (on the fully baked test sea, sky rays take no steps and sea rays about 50). Flying six minutes at
+  2 × 2 uncapped, as the bake filled in, the frame rate rose from about 120 to about 180 to 260 (sight about 4 to 5 ms
+  once baked round about, not 7.5); and uncapped, the march takes the whole card and starves the bake (1,815 of
+  5,184 regions in six minutes, the start's eighth in 149 s): in play, capped, the card has room for both. 40 s
+  figures, mid-bake: 2 × 2 about 125, 4 × 4 about 285, 8 × 8 about 345. A measuring test, `sight_s_steps_by_band`
+  (ignored), reads steps a ray by band of the screen. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
   45° and 30° slope tests will use.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
