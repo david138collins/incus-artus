@@ -582,6 +582,25 @@ back to.
   picture", 66 to 141 frames over about 5 s, once a world: with the loading screen).
 - **Telescoping:** `before-sight` is tagged on the commit with the save on the lane (moved there from 3.1e's first
   commit, 6312521, which it supersedes): every attempt at sight starts from there.
+- **3.2 [FIRST FORM BUILT 2026-11-06, build 68, for David's first look]** `sight/card_store.rs` (the store on the
+  card: one pool of cells with a first-fit allocator on the processor; the baked levels' index over the map; the
+  live level's wrapping window, each entry naming its column), `sight/march.wgsl` and `sight/upscale.wgsl` driven by
+  `sight/draw.rs` from the runner (sight before the panel, in Play). The live level is cells of 16, sized by the rule
+  (`store::side_for`: 1,342 ÷ the grid, whole tiles: 672 a side at 2 × 2), the baked levels from 32 up; the switches
+  on the Render page (grid 2, 4, 8; rays a coarse pixel 1 or 4; upscale crisp, smooth, or sharp at skylines; a new
+  grid sizes the live window again and it fills again, raw). **The march:** the level whose cells are its pixel's size
+  at that distance (never finer than 16), no threshold, the eight cells round it blended (each cell column's entry
+  read once), coverage gathered front to back, colour and facing weighted by each cell's surface, lit by the blend's
+  facing under a noon sun, the sky behind. **Found getting there** (by a measuring view, `INCUS_SIGHT_STEPS`: each
+  pixel coloured by its ray's steps): rays crossed regions not baked yet cell by cell (now skipped whole: the raw
+  view shows sky there); the sky over distant ridges and the sea's skimming rays took hundreds of steps (now skipped
+  by coarse cell columns' tops, the heightfield way, and two cells a step through air, safe for anything a cell
+  thick); coarse steps by a surface drew rings round the eye (quarter steps by any surface, and each pixel's first
+  step staggered, a steady hash); the world's floor past the map showed as a grey band (past the map is nothing
+  now). **Cost, David's screen (2560 × 1600), uncapped, flying the soak:** grid 2 × 2 about 140 fps (sight about
+  6 to 7 ms, over the 2 to 3 ms budget; capped at 237 it runs at about 140); 4 × 4 about 280 fps (about 3 ms). What's
+  left is rays grazing ridges near the horizon, stepping at their pixel's size. **Not yet:** the 45° and 30° slope
+  tests (next), the price in the torque spec by the card's own clock.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
   pixels aren't going to be grey when three should be grey because each one is hitting a fourth of a chunk that is 51%
   stone at a 45 degree angle on a mountain side?"; requirements from Counsel, for 3.2's talk]: (1) **no threshold**: a

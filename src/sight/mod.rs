@@ -4,7 +4,11 @@
 //!   version is `cell.wgsl` (3.1b).
 //! - `store`: the live levels round the camera, cells of 1 to 16 blocks (3.1c).
 //! - `bake`: the cells of 32 blocks and up, for the whole world, made once (3.1d).
+//! - `card_store`: the cells on the card, where the march reads them (3.2).
+//! - `draw`: the first sight, the coarse layer marched through the store and brought up to the screen (3.2).
 
 pub mod bake;
+pub mod card_store;
 pub mod cell;
+pub mod draw;
 pub mod store;

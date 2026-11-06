@@ -836,7 +836,7 @@ fn ground(c: Case) -> i32 {
         };
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
         let odd = world.odd;
-        let maker = Maker { device: device.clone(), queue: queue.clone(), world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan) };
+        let maker = Maker { device: device.clone(), queue: queue.clone(), world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan), card: None };
         let with = crate::sight::bake::Blocks { map: std::sync::Arc::new(map.clone()), blocks: _blocks.clone(), colours: _colours.clone(), changed: Default::default() };
         let (baking, jobs) = crate::sight::bake::start(maker.clone(), with, odd, half, (0, 0), 1, None);
         // Waits for the loops on the loading lane to finish the map.
@@ -906,7 +906,7 @@ fn ground(c: Case) -> i32 {
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
         let odd = world.odd;
         let map = std::sync::Arc::new(map);
-        let maker = Maker { device, queue, world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan.clone()) };
+        let maker = Maker { device, queue, world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan.clone()), card: None };
         let with = Blocks { map: map.clone(), blocks: blocks.clone(), colours: colours.clone(), changed: Default::default() };
         let wait = |baking: &crate::sight::bake::Baking| {
             let started = std::time::Instant::now();

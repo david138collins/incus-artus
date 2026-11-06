@@ -22,8 +22,6 @@ use std::sync::Arc;
 
 /// The live levels: cells of 1, 2, 4, 8 and 16 blocks.
 pub const LIVE_LEVELS: usize = 5;
-/// Cells a side at every level, round the camera.
-pub const SIDE: i32 = 128;
 /// Cell columns a side in a tile, the unit filled at once.
 pub const TILE: i32 = 16;
 /// Tiles being made at once (each waits on the card on a loading-lane worker; more at once only piles
@@ -184,36 +182,58 @@ pub fn sums_of(c: &[u32; 17]) -> Sums {
     }
 }
 
-/// What a live store needs to make tiles: the card, the world on it, and the caves.
+/// What a live store needs to make tiles: the card, the world on it, the caves, and the store on the card the
+/// tiles go to (none in tests).
 #[derive(Clone)]
 pub struct Maker {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub world: Arc<WorldOnCard>,
     pub caves: Arc<CavePlan>,
+    pub card: Option<Arc<super::card_store::CardStore>>,
 }
 
-/// The live levels round the camera.
-#[derive(Default)]
+/// The cells a side the live levels want for a coarse grid of `factor` (David 2026-11-06, the sizing rule):
+/// each level reaching out to where one of its cells is one coarse pixel, 1,342 ÷ the factor at 100° on 1,600
+/// rows, in whole tiles.
+pub fn side_for(factor: u32) -> i32 {
+    let cells = (1342.0 / factor.max(1) as f32).ceil() as i32;
+    (cells + TILE - 1) / TILE * TILE
+}
+
+/// What a tile took: its cells, and the milliseconds for its columns and its cells.
+struct Made {
+    cells: usize,
+    took: (f32, f32),
+}
+
+/// The live levels round the camera: which tiles are made (their cells are on the card), and which are being.
 pub struct LiveStore {
-    pub tiles: HashMap<TileKey, Tile>,
-    filling: HashMap<TileKey, Job<Tile>>,
+    /// The levels kept live, and their cell columns a side (a whole number of tiles).
+    pub levels: Vec<usize>,
+    pub side: i32,
+    tiles: HashMap<TileKey, usize>,
+    filling: HashMap<TileKey, Job<Made>>,
     /// Tiles made since it started (for the log), and by level what they took (columns ms, cells ms, how many).
     pub made: usize,
     took: [(f32, f32, usize); LIVE_LEVELS],
 }
 
 impl LiveStore {
-    /// The tiles each level wants round `camera` (x and y, blocks), nearest first.
-    pub fn wanted(camera: (f32, f32)) -> Vec<(f32, TileKey)> {
+    pub fn new(levels: Vec<usize>, side: i32) -> Self {
+        Self { levels, side, tiles: HashMap::new(), filling: HashMap::new(), made: 0, took: [(0.0, 0.0, 0); LIVE_LEVELS] }
+    }
+
+    /// The tiles the levels want round `camera` (x and y, blocks), nearest first: exactly `side / TILE` a
+    /// side, so in the card's wrapping window no two of them share a place.
+    pub fn wanted(&self, camera: (f32, f32)) -> Vec<(f32, TileKey)> {
+        let n = self.side / TILE;
         let mut wanted = Vec::new();
-        for level in 0..LIVE_LEVELS {
+        for &level in &self.levels {
             let tile_blocks = (TILE << level) as f32;
-            let half = (SIDE << level) as f32 / 2.0;
-            let (x_from, x_to) = (((camera.0 - half) / tile_blocks).floor() as i32, ((camera.0 + half) / tile_blocks).ceil() as i32);
-            let (y_from, y_to) = (((camera.1 - half) / tile_blocks).floor() as i32, ((camera.1 + half) / tile_blocks).ceil() as i32);
-            for x in x_from..x_to {
-                for y in y_from..y_to {
+            let (centre_x, centre_y) = ((camera.0 / tile_blocks).floor() as i32, (camera.1 / tile_blocks).floor() as i32);
+            for x in centre_x - n / 2..centre_x - n / 2 + n {
+                for y in centre_y - n / 2..centre_y - n / 2 + n {
                     let centre = ((x as f32 + 0.5) * tile_blocks, (y as f32 + 0.5) * tile_blocks);
                     let distance = ((centre.0 - camera.0).powi(2) + (centre.1 - camera.1).powi(2)).sqrt();
                     wanted.push((distance, TileKey { level, x, y }));
@@ -227,25 +247,25 @@ impl LiveStore {
     /// Keeps the levels round `camera`: tiles left behind let go (and their making dropped), made ones
     /// taken in, and more asked for, nearest first, a few at a time.
     pub fn update(&mut self, camera: (f32, f32), maker: &Maker, odd: bool) {
-        let wanted = Self::wanted(camera);
+        let wanted = self.wanted(camera);
         let keep: std::collections::HashSet<TileKey> = wanted.iter().map(|&(_, key)| key).collect();
         self.tiles.retain(|key, _| keep.contains(key));
         self.filling.retain(|key, _| keep.contains(key));
         let mut done = Vec::new();
         self.filling.retain(|&key, job| match job.ready() {
-            Ok(Some(tile)) => {
-                done.push((key, tile));
+            Ok(Some(made)) => {
+                done.push((key, made));
                 false
             }
             Ok(None) => true,
             Err(()) => false,
         });
         self.made += done.len();
-        for (key, tile) in &done {
+        for (key, made) in done {
             let took = &mut self.took[key.level];
-            *took = (took.0 + tile.took.0, took.1 + tile.took.1, took.2 + 1);
+            *took = (took.0 + made.took.0, took.1 + made.took.1, took.2 + 1);
+            self.tiles.insert(key, made.cells);
         }
-        self.tiles.extend(done);
         for (distance, key) in wanted {
             if self.filling.len() >= MOST_FILLING {
                 break;
@@ -255,30 +275,33 @@ impl LiveStore {
             }
             let maker = maker.clone();
             // Keyed in chunks' units (32 blocks), so sight and the chunks round the camera share the lane fairly.
-            let job = crate::loading::submit(Tier::Soon, distance / 32.0, move || fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key));
+            let job = crate::loading::submit(Tier::Soon, distance / 32.0, move || {
+                let tile = fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key);
+                let size = key.size() as u32;
+                let columns: Vec<(i32, Vec<super::cell::Cell>)> = tile.columns.iter().map(|c| (c.low, c.sums.iter().map(|s| s.compact(size)).collect())).collect();
+                if let Some(card) = maker.card.as_ref().filter(|card| card.live_level == key.level) {
+                    card.put_tile(key.x, key.y, TILE as u32, &columns);
+                }
+                Made { cells: tile.cells(), took: tile.took }
+            });
             self.filling.insert(key, job);
         }
     }
 
-    /// For the log: tiles made and wanted at each level, cells kept, and the sums' memory.
+    /// For the log: tiles made and wanted at each level, and the cells kept.
     pub fn report(&self, camera: (f32, f32)) -> String {
-        let wanted = Self::wanted(camera);
-        let levels: Vec<String> = (0..LIVE_LEVELS)
-            .map(|level| {
+        let wanted = self.wanted(camera);
+        let levels: Vec<String> = self
+            .levels
+            .iter()
+            .map(|&level| {
                 let want = wanted.iter().filter(|(_, k)| k.level == level).count();
                 let have = self.tiles.keys().filter(|k| k.level == level).count();
-                format!("{have}/{want}")
+                let (columns, cells, n) = self.took[level];
+                format!("cells of {}: {have}/{want} tiles, a tile {:.1}+{:.1} ms", 1 << level, columns / n.max(1) as f32, cells / n.max(1) as f32)
             })
             .collect();
-        let cells: usize = self.tiles.values().map(Tile::cells).sum();
-        let took: Vec<String> = self.took.iter().map(|&(columns, cells, n)| format!("{:.1}+{:.1}", columns / n.max(1) as f32, cells / n.max(1) as f32)).collect();
-        format!(
-            "Sight's live levels (cells of 1 to 16): tiles {}, {cells} cells kept ({:.0} MB as sums), {} filling, {} made; a tile took (ms, columns + cells, by level) {}",
-            levels.join(" "),
-            cells as f64 * std::mem::size_of::<Sums>() as f64 / 1e6,
-            self.filling.len(),
-            self.made,
-            took.join(" ")
-        )
+        let cells: usize = self.tiles.values().sum();
+        format!("Sight's live levels ({} a side): {}; {cells} cells on the card, {} filling, {} made", self.side, levels.join("; "), self.filling.len(), self.made)
     }
 }

@@ -54,7 +54,7 @@ pub struct Extent {
 }
 
 impl Extent {
-    fn new(level: usize, half: i32) -> Self {
+    pub fn of(level: usize, half: i32) -> Self {
         let size = 1 << level;
         let from = (-half).div_euclid(size);
         Self { size, from: (from, from), across: (half - 1).div_euclid(size) - from + 1 }
@@ -181,10 +181,14 @@ impl Bake {
 
     /// A region's record put in (made, patched or read back); then every level above built where all its
     /// children are baked.
-    fn take(&mut self, record: Record) {
+    fn take(&mut self, record: Record, card: Option<&super::card_store::CardStore>) {
         let region = record.region;
         self.sums.insert((REGION, region.0, region.1), record.top.clone());
-        if self.records.insert(region, Arc::new(record)).is_none() {
+        let record = Arc::new(record);
+        if let Some(card) = card {
+            card.put_region(&record);
+        }
+        if self.records.insert(region, record).is_none() {
             self.regions_done += 1;
         }
         self.order.push(region);
@@ -211,7 +215,11 @@ impl Bake {
             }
             let parent = parent_of([&children[0], &children[1], &children[2], &children[3]], 1 << (level - 1));
             let size = 1 << level;
-            self.upper.insert((level, px, py), (parent.low, parent.sums.iter().map(|s| s.compact(size)).collect()));
+            let cells: Vec<Cell> = parent.sums.iter().map(|s| s.compact(size)).collect();
+            if let Some(card) = card {
+                card.put_upper(level, px, py, parent.low, &cells);
+            }
+            self.upper.insert((level, px, py), (parent.low, cells));
             self.sums.insert((level, px, py), parent);
             (cx, cy) = (px, py);
         }
@@ -530,6 +538,7 @@ pub fn keep_later(baking: &Arc<Baking>, folder: PathBuf) -> String {
 /// Starts baking the map (`half` blocks either side of the middle) outward from `spawn`: what `kept` holds
 /// (read back, if its stamp is `stamp`) taken first, then `BAKERS` loops on the loading lane, each taking
 /// the next region not yet baked till there are none or it's told to stop.
+#[allow(clippy::too_many_arguments)]
 pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32), stamp: u64, kept: Option<Kept>) -> (Arc<Baking>, Vec<crate::loading::Job<()>>) {
     let regions_from = (-half).div_euclid(1 << REGION);
     let regions_to = (half - 1).div_euclid(1 << REGION);
@@ -545,7 +554,7 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
     let eighth = all.len().div_ceil(8);
     let start_ring = all.get(eighth.saturating_sub(1)).map_or(0, |&(ring, _)| ring);
     let start_regions = all.iter().filter(|&&(ring, _)| ring <= start_ring).count();
-    let extents = (FIRST..=Bake::top(half)).map(|level| Extent::new(level, half)).collect();
+    let extents = (FIRST..=Bake::top(half)).map(|level| Extent::of(level, half)).collect();
     let mut bake = Bake {
         extents,
         upper: HashMap::new(),
@@ -565,7 +574,7 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
     if let Some(kept) = kept.filter(|kept| kept.stamp == stamp && kept.half == half) {
         let count = kept.records.len();
         for record in kept.records {
-            bake.take(record);
+            bake.take(record, maker.card.as_deref());
         }
         // What was read back is in the file already (unless it was cut short: then it's written afresh).
         bake.kept_in = kept.whole.then_some((kept.path, count));
@@ -583,7 +592,7 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
                     let Some(region) = baking.queue.lock().ok().and_then(|mut queue| queue.pop_front()) else { break };
                     let record = bake_region(&maker, &with, odd, region);
                     let Ok(mut bake) = baking.bake.lock() else { break };
-                    bake.take(record);
+                    bake.take(record, maker.card.as_deref());
                 }
             })
         })
@@ -604,7 +613,7 @@ pub fn patch(baking: Arc<Baking>, maker: Maker, with: Blocks, odd: bool, regions
             }
             let record = bake_region(&maker, &with, odd, region);
             if let Ok(mut bake) = baking.bake.lock() {
-                bake.take(record);
+                bake.take(record, maker.card.as_deref());
             }
         }
     })

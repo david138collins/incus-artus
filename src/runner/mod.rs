@@ -161,6 +161,8 @@ struct Gpu {
     /// Made-up work for the card (developer builds, when asked for).
     #[cfg(feature = "dev")]
     ballast: Option<ballast::Ballast>,
+    /// Sight's drawing (the regroup, phase 3.2), made the first time there's a world on the card to draw.
+    sight: Option<crate::sight::draw::SightDraw>,
 }
 
 struct Runner {
@@ -271,6 +273,7 @@ impl Runner {
             captured: false,
             #[cfg(feature = "dev")]
             ballast,
+            sight: None,
         });
         self.watch_screen();
     }
@@ -382,6 +385,25 @@ impl Runner {
         // What the game asks of the window.
         #[cfg(feature = "dev")]
         let ballast_target = self.app.world().resource::<BallastTarget>().0;
+        // Sight, in Play once the world's store is on the card: the store and what the eye sees.
+        let sight = {
+            let world = self.app.world();
+            let playing = world.get_resource::<State<crate::screen::Screen>>().is_some_and(|screen| *screen.get() == crate::screen::Screen::Play);
+            let store = world.get_resource::<crate::world::SightStore>().and_then(|sight| sight.card.clone()).filter(|_| playing);
+            store.map(|store| {
+                let view = world.resource::<crate::camera::CameraView>();
+                let kept = world.resource::<crate::look::KeptSettings>();
+                let eye = crate::sight::draw::Eye {
+                    position: view.position.to_array(),
+                    looking: view.looking.to_array(),
+                    field_of_view: view.field_of_view,
+                    grid: kept.sight_grid(),
+                    rays: kept.sight_rays(),
+                    upscale: kept.sight_upscale(),
+                };
+                (store, eye)
+            })
+        };
         let (capture, resize_to, minimize, limit, screenshot) = {
             let world = self.app.world_mut();
             let limit = world.resource::<TestCap>().0.unwrap_or(world.resource::<FrameCap>().0);
@@ -442,8 +464,18 @@ impl Runner {
                 ballast.encode(&gpu.queue, &mut encoder, ballast_target);
             }
             let mut commands = gpu.egui_renderer.update_buffers(&gpu.device, &gpu.queue, &mut encoder, &jobs, &screen);
+            // Sight under the panel; without it, the sky's colour.
+            let drew_sight = if let Some((store, eye)) = &sight {
+                let _timed = Timed::new("sight");
+                let draw = gpu.sight.get_or_insert_with(|| crate::sight::draw::SightDraw::new(&gpu.device, gpu.config.format));
+                draw.frame(&gpu.device, &gpu.queue, &mut encoder, &view, (gpu.config.width, gpu.config.height), *eye, store);
+                true
+            } else {
+                false
+            };
             {
-                let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(SKY), store: wgpu::StoreOp::Store } };
+                let load = if drew_sight { wgpu::LoadOp::Load } else { wgpu::LoadOp::Clear(SKY) };
+                let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load, store: wgpu::StoreOp::Store } };
                 #[cfg(feature = "dev")]
                 let timestamp_writes = gpu.ballast.as_ref().and_then(|ballast| ballast.panel_timestamps());
                 #[cfg(not(feature = "dev"))]

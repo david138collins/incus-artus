@@ -466,6 +466,9 @@ fn forget_redraws(mut world: ResMut<VoxelWorld>) {
 pub struct SightStore {
     pub live: Option<crate::sight::store::LiveStore>,
     maker: Option<crate::sight::store::Maker>,
+    /// The cells on the card, where the march reads them (3.2), and the coarse grid the live level is sized for.
+    pub card: Option<Arc<crate::sight::card_store::CardStore>>,
+    grid: u32,
     /// The bake of the cells of 32 and up (3.1d), and its loops on the loading lane.
     pub bake: Option<Arc<crate::sight::bake::Baking>>,
     baking: Vec<crate::loading::Job<()>>,
@@ -508,6 +511,9 @@ fn fresh_sight(world: &mut World, _seed: u64) {
     world.resource_mut::<SightKept>().0 = None;
 }
 
+/// The live level the first sight reads (cells of 16 blocks; the finer ones come in 3.3, one a build).
+const LIVE_LEVEL: usize = 4;
+
 /// How long a region is left alone after an edit before it's baked again.
 const EDITS_SETTLE: f32 = 2.0;
 
@@ -528,6 +534,7 @@ fn keep_sight(
     view: Res<crate::camera::CameraView>,
     mut changes: MessageReader<BlockChanged>,
     mut kept: ResMut<SightKept>,
+    settings: Res<crate::look::KeptSettings>,
     mut sight: ResMut<SightStore>,
 ) {
     let Some(world) = &card.on_card else {
@@ -538,10 +545,17 @@ fn keep_sight(
     };
     if sight.maker.as_ref().is_none_or(|maker| !Arc::ptr_eq(&maker.world, world) || !Arc::ptr_eq(&maker.caves, &caves.0)) {
         let Some((device, queue)) = crate::runner::card() else { return };
-        let maker = crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone() };
+        let Some(map) = terrain.compiled() else { return };
+        let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
+        // The store on the card: its live window made for the finest grid, used as far as the grid asks.
+        let grid = settings.sight_grid();
+        let store = Arc::new(crate::sight::card_store::CardStore::new(device, queue, half, LIVE_LEVEL, crate::sight::store::side_for(2)));
+        store.reset_live(crate::sight::store::side_for(grid));
+        let maker = crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone(), card: Some(store.clone()) };
         *sight = SightStore::default();
-        if let Some(map) = terrain.compiled() {
-            let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
+        sight.card = Some(store);
+        sight.grid = grid;
+        {
             let spawn = voxel.spawn();
             let with = crate::sight::bake::Blocks { map: map.clone(), blocks: TerrainBlocks::from_registry(&registry), colours: world.colours.clone(), changed: changed_now(&voxel) };
             let (bake, jobs) = crate::sight::bake::start(maker.clone(), with, world.odd, half, (spawn.x, spawn.y), world.stamp, kept.0.take());
@@ -549,7 +563,17 @@ fn keep_sight(
             sight.baking = jobs;
         }
         sight.maker = Some(maker);
-        sight.live = Some(crate::sight::store::LiveStore::default());
+        sight.live = Some(crate::sight::store::LiveStore::new(vec![LIVE_LEVEL], crate::sight::store::side_for(grid)));
+    }
+    // A new grid: the live window sized for it, filled again.
+    let grid = settings.sight_grid();
+    if grid != sight.grid
+        && let Some(store) = &sight.card
+    {
+        let side = crate::sight::store::side_for(grid);
+        store.reset_live(side);
+        sight.live = Some(crate::sight::store::LiveStore::new(vec![LIVE_LEVEL], side));
+        sight.grid = grid;
     }
     // Edits: their regions baked again once left alone a while.
     let now = Instant::now();

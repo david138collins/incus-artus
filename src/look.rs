@@ -37,7 +37,7 @@ impl Plugin for LookPlugin {
 fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     crate::debug::page_presets(ui, world, "render");
     ui.separator();
-    ui.small("Nothing is drawn but the sky for now (the regroup: the old renderer was cut, the new one starts on the card). These presets still hold every value tuned for the old one.");
+    ui.small("The world is drawn by sight's first form (the regroup, 3.2): the coarse layer alone. These presets still hold every value tuned for the old renderer.");
     ui.strong("Frame limit");
     let refresh = world.resource::<crate::runner::WindowState>().refresh;
     let mut kept = world.resource_mut::<KeptSettings>();
@@ -60,6 +60,39 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         kept.render.table.insert("freeze_when_away".to_string(), toml::Value::Boolean(freeze));
     }
     ui.small("Frozen, the game stays on the screen under a grey veil, the world stops and nothing is drawn till it's clicked again. F11: fullscreen or a window.");
+    ui.separator();
+    ui.strong("Sight (the first sight: the coarse layer alone)");
+    let mut grid = kept.sight_grid();
+    ui.horizontal(|ui| {
+        ui.label("Grid:");
+        for factor in [2, 4, 8] {
+            ui.radio_value(&mut grid, factor, format!("{factor} × {factor}"));
+        }
+    });
+    if grid != kept.sight_grid() {
+        kept.render.set_number("sight_grid", grid as f32);
+    }
+    let mut rays = kept.sight_rays();
+    ui.horizontal(|ui| {
+        ui.label("Rays a coarse pixel:");
+        for n in [1, 4] {
+            ui.radio_value(&mut rays, n, n.to_string());
+        }
+    });
+    if rays != kept.sight_rays() {
+        kept.render.set_number("sight_rays", rays as f32);
+    }
+    let mut upscale = kept.sight_upscale();
+    ui.horizontal(|ui| {
+        ui.label("Upscale:");
+        for (mode, name) in [(0, "crisp"), (1, "smooth"), (2, "smooth, sharp at skylines")] {
+            ui.radio_value(&mut upscale, mode, name);
+        }
+    });
+    if upscale != kept.sight_upscale() {
+        kept.render.set_number("sight_upscale", upscale as f32);
+    }
+    ui.small("A new grid sizes the store round you again: it fills in again, raw, for some seconds. Rays and the upscale change at once.");
 }
 
 /// The frame limits' names in the settings.
@@ -162,6 +195,28 @@ impl KeptSettings {
 
     pub fn set_frame_limit_name(&mut self, name: String) {
         self.render.table.insert("frame_limit".to_string(), toml::Value::String(name));
+    }
+
+    /// Sight's coarse grid: how many screen pixels a side a coarse pixel is (2, 4 or 8; 2 unless chosen).
+    pub fn sight_grid(&self) -> u32 {
+        // For measuring: `INCUS_SIGHT_GRID` chooses it.
+        let chosen = std::env::var("INCUS_SIGHT_GRID").ok().and_then(|g| g.parse().ok()).unwrap_or(self.render.number("sight_grid", 2.0));
+        match chosen as u32 {
+            4 => 4,
+            8 => 8,
+            _ => 2,
+        }
+    }
+
+    /// Rays a coarse pixel (1 unless chosen).
+    pub fn sight_rays(&self) -> u32 {
+        if self.render.number("sight_rays", 1.0) as u32 >= 4 { 4 } else { 1 }
+    }
+
+    /// How the coarse layer is brought up to the screen: 0 crisp, 1 smooth, 2 smooth within a surface but
+    /// sharp at skylines [David 2026-11-06: "can we have a switch?"; opens on crisp].
+    pub fn sight_upscale(&self) -> u32 {
+        (self.render.number("sight_upscale", 0.0) as u32).min(2)
     }
 
     /// Whether the game freezes when it isn't in front (`freeze_when_away`, on unless chosen).
