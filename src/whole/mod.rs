@@ -25,6 +25,7 @@
 //! The only fractions are the way in (`Fix::from_f32`, for settings, once, on the processor) and the way
 //! out (`to_f32`, exact).
 
+#[allow(dead_code)] // the card's copy, read by the card's recipe (phase 2.3) and the twin test
 pub mod shader;
 mod tables;
 
@@ -125,6 +126,7 @@ impl std::ops::Div for Fix {
 }
 
 /// The square root, rounded down (0 for 0 and below).
+#[allow(dead_code)] // in the kit for the recipe's use; the twin test keeps it honest
 pub fn sqrt(x: Fix) -> Fix {
     if x.0 <= 0 {
         return Fix::ZERO;
@@ -300,6 +302,7 @@ pub fn smooth(t: Fix) -> Fix {
 }
 
 /// `a` to `b` by `t`.
+#[allow(dead_code)] // in the kit for the recipe's use; the twin test keeps it honest
 pub fn mix(a: Fix, b: Fix, t: Fix) -> Fix {
     a + (b - a) * t
 }

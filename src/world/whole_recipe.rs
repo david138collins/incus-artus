@@ -257,6 +257,10 @@ pub struct WholeMap {
     pub highest: Fix,
     pub most_crushed: Fix,
     pub most_stretched: Fix,
+    /// The climate the world was made with (empty: none), and how much colder per 100 blocks up.
+    pub temperature: Vec<Fix>,
+    pub rain: Vec<Fix>,
+    pub cooling: Fix,
     pub mutes: crate::world::Mutes,
     // The settings, whole.
     pub deepest: Fix,
@@ -423,6 +427,9 @@ impl WholeMap {
             highest: Fix::from_f32(m.highest),
             most_crushed: Fix::from_f32(m.most_crushed),
             most_stretched: Fix::from_f32(m.most_stretched),
+            temperature: if m.temperature.len() == m.width * m.width && m.rain.len() == m.width * m.width { fixes(&m.temperature) } else { Vec::new() },
+            rain: if m.temperature.len() == m.width * m.width && m.rain.len() == m.width * m.width { fixes(&m.rain) } else { Vec::new() },
+            cooling: Fix::from_f32(m.cooling),
             mutes: map.mutes,
             deepest: Fix::from_f32(s.deepest),
             highlands: Fix::from_f32(s.highlands),
@@ -542,9 +549,22 @@ impl WholeMap {
         self.mountains.at(here.squeeze / self.most_crushed.max(TINY)).clamp(Fix::ZERO, Fix::ONE)
     }
 
-    /// The ground with mountains and peaks, before the torn coast and detail (`interpreter::parts` and
-    /// `put_together`).
+    /// The ground with mountains and peaks, before detail (`interpreter::parts` and `put_together`).
     pub fn put_together(&self, here: &WholeHere, x: Pos, y: Pos) -> Fix {
+        let (ground, mountains, peaks) = self.parts(here, x, y);
+        let below = ground + mountains;
+        let mut z = (below + peaks).min(self.ceiling);
+        if below >= SEA {
+            z = z.max(SEA);
+            z = (z + self.summit_crags(here, x, y, z)).clamp(SEA, self.ceiling);
+        }
+        z = z + self.torn_coast(here, x, y);
+        z.clamp(Fix::ONE, self.ceiling.max(Fix::ONE))
+    }
+
+    /// The recipe's pieces at a spot: the ground, the mountains on it, and the peaks on both
+    /// (`interpreter::parts`).
+    pub fn parts(&self, here: &WholeHere, x: Pos, y: Pos) -> (Fix, Fix, Fix) {
         let steep = (Fix::ONE + self.grade * here.tilt).max(Fix::from_f32(0.15));
         let ground = if here.coast >= Fix::ZERO {
             let t = (here.height - self.water).max(Fix::ZERO) / (self.highest - self.water).max(TINY);
@@ -561,15 +581,7 @@ impl WholeMap {
             let carved = if self.mutes.ridges { Fix::ONE } else { (Fix::ONE - self.ridges * (Fix::ONE - crest)).max(Fix::ZERO) };
             mountains = (HIGHEST - ground).max(Fix::ZERO) * tall * carved;
         }
-        let peaks = self.peaks(here, x, y);
-        let below = ground + mountains;
-        let mut z = (below + peaks).min(self.ceiling);
-        if below >= SEA {
-            z = z.max(SEA);
-            z = (z + self.summit_crags(here, x, y, z)).clamp(SEA, self.ceiling);
-        }
-        z = z + self.torn_coast(here, x, y);
-        z.clamp(Fix::ONE, self.ceiling.max(Fix::ONE))
+        (ground, mountains, self.peaks(here, x, y))
     }
 
     /// A ridge pattern, 0 to 1 (`interpreter::ridges`), with these layers' keys.
@@ -707,7 +719,7 @@ impl WholeMap {
     }
 
     /// The lift (`interpreter::lift`).
-    fn lifted(&self, here: &WholeHere) -> Fix {
+    pub fn lifted(&self, here: &WholeHere) -> Fix {
         if self.lift_height <= Fix::ZERO || here.coast < Fix::ZERO || self.mutes.lift {
             return Fix::ZERO;
         }
@@ -717,7 +729,7 @@ impl WholeMap {
     }
 
     /// The edge rise (`interpreter::raised_coast`).
-    fn raised_coast(&self, here: &WholeHere) -> Fix {
+    pub fn raised_coast(&self, here: &WholeHere) -> Fix {
         if self.coast_rise <= Fix::ZERO || here.coast < Fix::ZERO || here.tilt <= Fix::ZERO || self.mutes.raised_coast {
             return Fix::ZERO;
         }
@@ -768,6 +780,29 @@ impl WholeMap {
         };
         let t = t.clamp(Fix::ZERO, Fix::ONE);
         mask.curve.at(if mask.invert { Fix::ONE - t } else { t }).clamp(Fix::ZERO, Fix::ONE)
+    }
+
+    /// The climate at a spot `z` high (`interpreter::climate`): its temperature, colder the higher above
+    /// the sea, and its rain, blended between the maps' pixels; `None` without a climate.
+    pub fn climate(&self, north: Pos, east: Pos, z: Fix) -> Option<(Fix, Fix)> {
+        if self.temperature.is_empty() {
+            return None;
+        }
+        let half_pixels = Fix(self.width.wrapping_mul(whole::ONE / 2));
+        let half_a_pixel = Fix(whole::ONE / 2);
+        let col = east.ratio(self.blocks) + half_pixels - half_a_pixel;
+        let row = half_pixels - north.ratio(self.blocks) - half_a_pixel;
+        let (c0, r0) = (col.floor(), row.floor());
+        let (tc, tr) = (Fix(col.0 & 0xFFFF), Fix(row.0 & 0xFFFF));
+        let w = self.width;
+        let at = |field: &[Fix], c: i32, r: i32| field[(r.clamp(0, w - 1) * w + c.clamp(0, w - 1)) as usize];
+        let blend = |field: &[Fix]| {
+            let top = at(field, c0, r0) + (at(field, c0 + 1, r0) - at(field, c0, r0)) * tc;
+            let bottom = at(field, c0, r0 + 1) + (at(field, c0 + 1, r0 + 1) - at(field, c0, r0 + 1)) * tc;
+            top + (bottom - top) * tr
+        };
+        let above_sea = (z - SEA).max(Fix::ZERO);
+        Some((blend(&self.temperature) - self.cooling * above_sea / Fix::from_int(100), blend(&self.rain)))
     }
 
     /// The ground's height (a Z, with its fraction) before the rivers carve it (`interpreter::uncarved`).
@@ -1244,6 +1279,118 @@ impl WholeCarving {
             }
         }
         here
+    }
+}
+
+/// A river's water across (`carving::water_across`): its width times its depth times how full its bowl is.
+fn water_across(p: &WholePoint) -> Fix {
+    let (edge, flat) = (p.edge.clamp(Fix::ZERO, Fix::ONE), p.flat.clamp(Fix::ZERO, Fix::from_f32(0.95)));
+    let fullness = flat + (Fix::ONE - flat) * (edge + (Fix::ONE - edge) / (p.bowl.max(Fix::from_f32(0.05)) + Fix::ONE));
+    p.width.max(Fix::ONE) * (p.depth * fullness).max(Fix::ONE)
+}
+
+/// The far index's cell (blocks), and how far apart the points along a river are thinned to for it
+/// (as `carving`).
+const FAR_CELL: i32 = 128;
+const FAR_THIN: f32 = 6.0;
+
+/// The rivers' pieces on a coarse grid (`carving::FarIndex`), whole: for how far a spot is from a river.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WholeFarIndex {
+    pub corner: (Pos, Pos),
+    pub across: i32,
+    pub down: i32,
+    pub widest_half: Fix,
+    /// Each cell's pieces: their ends and half their width.
+    pub cells: Vec<Vec<((Pos, Pos), (Pos, Pos), Fix)>>,
+}
+
+impl WholeFarIndex {
+    pub fn new(carving: &crate::world::carving::Carving) -> Self {
+        let mut pieces: Vec<((f32, f32), (f32, f32), f32)> = Vec::new();
+        for reach in &carving.reaches {
+            let Some(mut from) = reach.points.first() else { continue };
+            for (k, p) in reach.points.iter().enumerate().skip(1) {
+                // (Squared, so a processor's own square root has no say.)
+                let (dn, de) = (p.north - from.north, p.east - from.east);
+                if dn * dn + de * de >= FAR_THIN * FAR_THIN || k + 1 == reach.points.len() {
+                    pieces.push(((from.north, from.east), (p.north, p.east), from.width.max(1.0) / 2.0));
+                    from = p;
+                }
+            }
+        }
+        if pieces.is_empty() {
+            return Self::default();
+        }
+        let place = Pos::from_f32;
+        let whole_pieces: Vec<((Pos, Pos), (Pos, Pos), Fix)> = pieces.iter().map(|&((an, ae), (bn, be), half)| ((place(an), place(ae)), (place(bn), place(be)), Fix::from_f32(half))).collect();
+        let (mut low, mut high) = ((Pos(i32::MAX), Pos(i32::MAX)), (Pos(i32::MIN), Pos(i32::MIN)));
+        for &(a, b, _) in &whole_pieces {
+            for (n, e) in [a, b] {
+                (low, high) = ((low.0.min(n), low.1.min(e)), (high.0.max(n), high.1.max(e)));
+            }
+        }
+        let cell = FAR_CELL * whole::BLOCK;
+        let corner = (high.0, low.1);
+        let (across, down) = ((high.1 - low.1).0 / cell + 1, (high.0 - low.0).0 / cell + 1);
+        let mut index = Self { corner, across, down, widest_half: Fix::ZERO, cells: vec![Vec::new(); (across * down) as usize] };
+        for piece in whole_pieces {
+            let ((an, ae), (bn, be), half) = piece;
+            index.widest_half = index.widest_half.max(half);
+            let (c0, r0) = index.cell_of(an.max(bn), ae.min(be));
+            let (c1, r1) = index.cell_of(an.min(bn), ae.max(be));
+            for r in r0.max(0)..=r1.min(down - 1) {
+                for c in c0.max(0)..=c1.min(across - 1) {
+                    index.cells[(r * across + c) as usize].push(piece);
+                }
+            }
+        }
+        index
+    }
+
+    fn cell_of(&self, north: Pos, east: Pos) -> (i32, i32) {
+        let cell = FAR_CELL * whole::BLOCK;
+        ((east - self.corner.1).0.div_euclid(cell), (self.corner.0 - north).0.div_euclid(cell))
+    }
+
+    /// How far a spot is from the nearest river's water (blocks), up to `most`.
+    pub fn distance(&self, north: Pos, east: Pos, most: Fix) -> Fix {
+        if self.cells.is_empty() {
+            return most;
+        }
+        let (c, r) = self.cell_of(north, east);
+        let mut best = most;
+        let cell = Fix::from_int(FAR_CELL);
+        let rings = ((most + self.widest_half) / cell).floor() + 2;
+        for k in 0..=rings {
+            if Fix::from_int(k - 1) * cell - self.widest_half >= best {
+                break;
+            }
+            for dr in -k..=k {
+                let step = if dr.abs() == k { 1 } else { (2 * k).max(1) as usize };
+                for dc in (-k..=k).step_by(step) {
+                    let (cc, rr) = (c + dc, r + dr);
+                    if cc < 0 || rr < 0 || cc >= self.across || rr >= self.down {
+                        continue;
+                    }
+                    for &((an, ae), (bn, be), half) in &self.cells[(rr * self.across + cc) as usize] {
+                        let a = WholePoint { north: an, east: ae, width: Fix::ZERO, depth: Fix::ZERO, edge: Fix::ZERO, flat: Fix::ZERO, bowl: Fix::ZERO, level: Fix::ZERO, bend: Fix::ZERO, curtain: None, fade: Fix::ZERO };
+                        let b = WholePoint { north: bn, east: be, ..a };
+                        let (apart, _, _) = along(&a, &b, north, east);
+                        best = best.min((apart - half).max(Fix::ZERO));
+                    }
+                }
+            }
+        }
+        best
+    }
+}
+
+impl WholeCarving {
+    /// The river nearest a spot: how far its line is, its width there, and about how many blocks of water
+    /// it has across (`carving::water_near`).
+    pub fn water_near(&self, north: Pos, east: Pos) -> Option<(Fix, Fix, Fix)> {
+        self.nearest_piece(north, east).map(|(distance, _, p, _, _)| (distance, p.width, water_across(&p)))
     }
 }
 
