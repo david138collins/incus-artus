@@ -129,7 +129,10 @@ pub fn send(device: &wgpu::Device, queue: &wgpu::Queue, map: &CompiledMap, caves
     let data = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the world"), size: bytes.len().max(4) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
     for (k, slice) in bytes.chunks(SLICE).enumerate() {
         queue.write_buffer(&data, (k * SLICE) as u64, slice);
-        queue.submit([]);
+        {
+            let _gate = crate::runner::CARD_GATE.read();
+            queue.submit([]);
+        }
         if !wait_gently(device, &when_done(queue)) {
             return Err("the card stopped taking the world".into());
         }
@@ -379,7 +382,10 @@ impl WorldOnCard {
                     let groups = groups_of(here);
                     pass.dispatch_workgroups(groups.min(65_535), groups.div_ceil(65_535), 1);
                 }
-                queue.submit([encoder.finish()]);
+                {
+                    let _gate = crate::runner::CARD_GATE.read();
+                    queue.submit([encoder.finish()]);
+                }
                 if !wait_gently(device, &when_done(queue)) {
                     return false;
                 }
@@ -391,7 +397,10 @@ impl WorldOnCard {
             let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
             let mut encoder = device.create_command_encoder(&Default::default());
             encoder.copy_buffer_to_buffer(buffer, 0, &readback, 0, size);
-            queue.submit([encoder.finish()]);
+            {
+                let _gate = crate::runner::CARD_GATE.read();
+                queue.submit([encoder.finish()]);
+            }
             if !map_gently(device, &readback) {
                 return None;
             }
@@ -449,7 +458,10 @@ impl WorldOnCard {
             pass.dispatch_workgroups((places.len() as u32).div_ceil(64), 1, 1);
         }
         encoder.copy_buffer_to_buffer(&output, 0, &readback, 0, size);
-        queue.submit([encoder.finish()]);
+        {
+            let _gate = crate::runner::CARD_GATE.read();
+            queue.submit([encoder.finish()]);
+        }
         if !map_gently(device, &readback) {
             return Vec::new();
         }

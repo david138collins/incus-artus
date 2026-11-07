@@ -208,6 +208,15 @@ fn fly_round(
         window.resize_to = Some((width, height));
         *resized = true;
     }
+    // `INCUS_SOAK_RESIZE_EVERY=<seconds>`: the window made bigger and smaller in turn (the screen's picture set
+    // up again while the card is busy, as F11 does).
+    if let Some(every) = std::env::var("INCUS_SOAK_RESIZE_EVERY").ok().and_then(|v| v.parse::<f32>().ok()) {
+        let (before, after) = (((now - started - time.delta_secs()) / every).floor(), ((now - started) / every).floor());
+        if after > before {
+            window.resize_to = Some(if after as i32 % 2 == 0 { (1280, 720) } else { (1600, 900) });
+            info!("Soak: the window resized ({})", after);
+        }
+    }
     // Round the circle (north of the middle to start with), facing the way it's going.
     let (radius, speed) = (radius(), speed());
     let angle = (now - started) * speed / radius;

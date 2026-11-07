@@ -148,6 +148,27 @@ pub fn card() -> Option<&'static (wgpu::Device, wgpu::Queue)> {
     CARD.get()
 }
 
+/// The card's gate: work off the frame's thread (the bake, the live levels) holds it, shared, while it hands the
+/// card a piece; the frame holds it alone while it sets the screen's picture up again, since wgpu has to find the
+/// card's queue empty then [2026-11-06, build 72: F11 with sight's workers busy closed the game, "Failed to wait
+/// for GPU to come idle before reconfiguring the Surface"].
+pub static CARD_GATE: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
+/// The screen's picture set up again, the gate shut meanwhile; a failure kept from being fatal (it's tried again
+/// next frame). Whether it took.
+fn set_up_picture(gpu: &Gpu) -> bool {
+    let _alone = CARD_GATE.write();
+    let scope = gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
+    gpu.surface.configure(&gpu.device, &gpu.config);
+    match pollster::block_on(scope.pop()) {
+        None => true,
+        Some(error) => {
+            warn!("The screen's picture couldn't be set up again (tried again next frame): {error}");
+            false
+        }
+    }
+}
+
 struct Gpu {
     window: Arc<Window>,
     surface: wgpu::Surface<'static>,
@@ -161,6 +182,8 @@ struct Gpu {
     /// Made-up work for the card (developer builds, when asked for).
     #[cfg(feature = "dev")]
     ballast: Option<ballast::Ballast>,
+    /// The screen's picture to be set up again next frame (the last try didn't take).
+    set_up_again: bool,
     /// Sight's drawing (the regroup, phase 3.2), made the first time there's a world on the card to draw.
     sight: Option<crate::sight::draw::SightDraw>,
 }
@@ -274,6 +297,7 @@ impl Runner {
             #[cfg(feature = "dev")]
             ballast,
             sight: None,
+            set_up_again: false,
         });
         self.watch_screen();
     }
@@ -335,7 +359,7 @@ impl Runner {
             return;
         }
         (gpu.config.width, gpu.config.height) = (width, height);
-        gpu.surface.configure(&gpu.device, &gpu.config);
+        gpu.set_up_again = !set_up_picture(gpu);
         self.app.world_mut().resource_mut::<WindowState>().size = (width, height);
     }
 
@@ -433,7 +457,13 @@ impl Runner {
         if self.limit != Some(limit) {
             self.limit = Some(limit);
             gpu.config.present_mode = if limit == FrameLimit::Uncapped { wgpu::PresentMode::AutoNoVsync } else { wgpu::PresentMode::AutoVsync };
-            gpu.surface.configure(&gpu.device, &gpu.config);
+            gpu.set_up_again = !set_up_picture(gpu);
+        }
+        if gpu.set_up_again {
+            gpu.set_up_again = !set_up_picture(gpu);
+            if gpu.set_up_again {
+                return;
+            }
         }
 
         {
@@ -446,7 +476,7 @@ impl Runner {
                 wgpu::CurrentSurfaceTexture::Success(texture) | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => texture,
                 _ => {
                     // Lost or out of date (a resize, a minimise): set up again, and try next frame.
-                    gpu.surface.configure(&gpu.device, &gpu.config);
+                    gpu.set_up_again = !set_up_picture(gpu);
                     return;
                 }
             };

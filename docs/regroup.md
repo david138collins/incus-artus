@@ -663,7 +663,14 @@ back to.
   2. **Measured, uncapped, David's screen, mid-bake:** finest 2 × 2, only where worth it, about 210 to 250 fps
   (everywhere about 97; the single 2 × 2 layer was about 125); finest 4 × 4, about 240 to 295 (everywhere about 200
   to 225). Not yet: the valved blend at the layers' seams (now a hard change of pixel size), edges and importance as
-  further terms of "worth it", the 1 × 1 layer (with 3.3's finer cells). The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
+  further terms of "worth it", the 1 × 1 layer (with 3.3's finer cells). **Build 72 closed on F11** [David: "i hit f11,
+  and it closed immediately"]: the screen's picture set up again (any change of the window's size) needs wgpu to find
+  the card's queue empty, and sight's workers (the bake, the live levels) were handing it pieces from other threads
+  (wgpu: "It can only be non-empty if another thread is submitting at the same time"); the failure was fatal. Now
+  **the card's gate** (`runner::CARD_GATE`): the workers hold it shared while they hand the card a piece, the frame
+  holds it alone while it sets the picture up again; and a failed set-up is caught (an error scope) and tried again
+  next frame, never fatal. Tested: the window resized every 2 s for 80 s with the workers busy
+  (`INCUS_SOAK_RESIZE_EVERY`), 41 times, no failure. Build 73. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
   45° and 30° slope tests will use.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
