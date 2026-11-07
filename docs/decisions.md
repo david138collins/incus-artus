@@ -1172,6 +1172,9 @@ below disagree with this one, this one stands.
     from original half life on a crt." Kept as character: "i like it, its organic and like you said, the human eye
     infers detail where there is none, for that reason". Each coarse pixel's shade follows how much an edge covers
     it, so edges glide through the fixed grid in tone, without stair-stepping.
+  - **The slope test, by eye** [David 2026-11-06]: "after having seen what it actually looks like, i'm not
+    concerned about the slope test." The ziggurat worry is answered by his look. The test stays a guard, but isn't
+    something to chase.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
