@@ -690,6 +690,15 @@ back to.
   88). **Measured, uncapped, finest 2 × 2, mid-bake, flying the soak:** about 219 to 248 fps, the same as build 74.
   The level-tint view shows all the near ground read from the 8s. Next, on his word: cells of 4, then 2 and 1 (with
   the pyramid's 1 × 1 layer).
+  **On file, David's near look** [2026-11-06, by phone through Counsel: "its very strange to see the blocks up close
+  exist only as clouds. there are odd whorling effects as i fly through a mountain... when i flew up it was like a
+  white cloud"]. One hole: a cell's average is read wherever the cell is bigger than its pixel, and there it's a fog,
+  not the truth (the clouds; the white cloud with the eye inside a part-snow cell on his peak; the whorls flying
+  through partly solid cells). Cells of 4 and 2 only thin it. **The cure: the block level read as blocks, hard
+  faces** (nearest block, no blend, the ray stopping on the face), the edge softened to one pixel's width so it meets
+  the average as a block shrinks to a pixel; with it the worth rule's near term (the 1 × 1 layer worth it on block
+  faces bigger than its pixel). Proposed to land with 3.3's last step, perhaps moved ahead of 4 and 2 (his call).
+  **His call too: flying inside rock**, a wall of stone, or each ray skipping the solid it starts in (spectator-like).
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
