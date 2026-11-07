@@ -717,7 +717,12 @@ back to.
   in 40 s). **Not yet:** cells of 4 and 2 between, so past the blocks' reach the ground goes to the 8s' soft band at
   once. **Measured** (a low, slow flight, 30 above the ground at 20 a second, looking 20° down, uncapped, finest
   2 × 2, mid-bake, runs alternated): about 135 fps with the blocks, 153 without (`INCUS_SIGHT_NO_BLOCKS`, a
-  measuring switch): **the blocks cost about 1 ms.** A tile of blocks takes about 25 + 37 ms to make.
+  measuring switch): **the blocks cost about 1 ms.** A tile of blocks takes about 25 + 37 ms to make. **David's look
+  at build 76** [2026-11-06: "this honestly looks amazing. its not done, there's no textures, but, the things that
+  used to be glaring problems before are silky smooth now... its so accurate and the fade is cromulent. we are really
+  on to something"]. On file from his screenshot, not to fix unless he asks: where a slope runs out of the blocks'
+  reach, its pixels speckle between hard face and soft cell (each ray either met a face by there or didn't), like a
+  dither.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
