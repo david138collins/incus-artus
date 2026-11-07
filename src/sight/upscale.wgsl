@@ -25,19 +25,19 @@ fn whole_screen(@builtin(vertex_index) k: u32) -> @builtin(position) vec4<f32> {
     return vec4<f32>(uv * 2.0 - 1.0, 0.0, 1.0);
 }
 
-// A layer of `factor` at this screen pixel: crisp, or blended between its pixels (those not marched left out).
+// A layer of `factor` at this screen pixel: its colour and how much of it is shown (kept premultiplied: a pixel
+// not marched shows nothing), crisp, or blended between its pixels.
 fn read(layer: texture_2d<f32>, factor: f32, at: vec2<f32>, smooth_it: bool) -> vec4<f32> {
     let size = vec2<i32>(textureDimensions(layer));
     let q = at / factor;
-    let crisp = textureLoad(layer, clamp(vec2<i32>(floor(q)), vec2<i32>(0), size - 1), 0);
-    if (!smooth_it || crisp.a < 0.5) {
-        return crisp;
+    var c = textureLoad(layer, clamp(vec2<i32>(floor(q)), vec2<i32>(0), size - 1), 0);
+    if (smooth_it) {
+        c = textureSampleLevel(layer, blended, q / vec2<f32>(size), 0.0);
     }
-    let mixed = textureSampleLevel(layer, blended, q / vec2<f32>(size), 0.0);
-    if (mixed.a < 0.01) {
-        return crisp;
+    if (c.a < 0.001) {
+        return vec4<f32>(0.0);
     }
-    return vec4<f32>(mixed.rgb / mixed.a, 1.0);
+    return vec4<f32>(c.rgb / c.a, c.a);
 }
 
 @fragment
@@ -57,18 +57,16 @@ fn brought_up(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
         }
         smooth_it = !(far > near * 1.5 + 8.0);
     }
+    // The base, then each finer layer over it as much as it's worth there.
+    var colour = read(layer8, 8.0, at.xy, smooth_it).rgb;
     let finest = up.size.z;
-    if (finest <= 2.0) {
-        let c = read(layer2, 2.0, at.xy, smooth_it);
-        if (c.a > 0.5) {
-            return vec4<f32>(c.rgb, 1.0);
-        }
-    }
     if (finest <= 4.0) {
         let c = read(layer4, 4.0, at.xy, smooth_it);
-        if (c.a > 0.5) {
-            return vec4<f32>(c.rgb, 1.0);
-        }
+        colour = mix(colour, c.rgb, c.a);
     }
-    return vec4<f32>(read(layer8, 8.0, at.xy, smooth_it).rgb, 1.0);
+    if (finest <= 2.0) {
+        let c = read(layer2, 2.0, at.xy, smooth_it);
+        colour = mix(colour, c.rgb, c.a);
+    }
+    return vec4<f32>(colour, 1.0);
 }

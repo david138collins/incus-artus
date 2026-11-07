@@ -670,7 +670,14 @@ back to.
   **the card's gate** (`runner::CARD_GATE`): the workers hold it shared while they hand the card a piece, the frame
   holds it alone while it sets the picture up again; and a failed set-up is caught (an error scope) and tried again
   next frame, never fatal. Tested: the window resized every 2 s for 80 s with the workers busy
-  (`INCUS_SOAK_RESIZE_EVERY`), 41 times, no failure. Build 73. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
+  (`INCUS_SOAK_RESIZE_EVERY`), 41 times, no failure. Build 73. **The layers' seams blended, build 74:** a pixel's
+  word for the layer below is now how much it's worth, 0 to 1 (nothing while the finer pixel would be smaller than
+  the cells, rising to all of it over the next doubling of distance), the finer layer kept premultiplied by it and
+  laid over the coarser one by it on the screen: the change of pixel size fades in with distance instead of drawing a
+  ring round the eye (the sea test's worst shimmer back from 16 to 5 or 6 of 255). One smooth stage for now; the
+  valved curve's stages as settings can grow from it. Uncapped, finest 2 × 2: about 215 to 257 fps. **The 45° and 30°
+  slope tests dropped** [David 2026-11-06: "im not worried about the slope tests at all now that i see it in
+  person"]. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
   45° and 30° slope tests will use.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
