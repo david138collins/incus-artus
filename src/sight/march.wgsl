@@ -32,6 +32,9 @@ struct Camera {
     // the rule (0 refine everywhere, 1 only where it's earned); w how far the finest live level reaches (blocks;
     // each coarser one reaches twice as far for each level coarser).
     layer: vec4<f32>,
+    // x: 1 if a refining layer's rays start a little short of the nearest touch round their parent pixel (0: from
+    // the tile's start, for measuring).
+    follow: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -47,6 +50,8 @@ struct Camera {
 // shown whole), and this layer's word for the layer below.
 @group(0) @binding(8) var<storage, read> worth_in: array<u32>;
 @group(0) @binding(9) var<storage, read_write> worth_out: array<u32>;
+// The layer above's distances (the base: a placeholder never read).
+@group(0) @binding(10) var far_above: texture_2d<f32>;
 
 const NOT_BAKED: u32 = 0xFFFF0000u;
 // Past the map: nothing at all, not even the world's floor.
@@ -758,6 +763,21 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (camera.tiles.z > 0.0) {
         let tile = vec2<u32>(vec2<f32>(id.xy) / camera.tiles.z);
         begin = starts[tile.y * u32(camera.tiles.x) + tile.x];
+    }
+    // A refining layer's rays start a little short of the nearest touch among their parent and its neighbours
+    // (the parent's pixels are no wider than a block where the blocks are walked, so nothing a block big hides
+    // between them; backed off two blocks and two of the parent's pixels, for grazing rays): the 1 × 1 layer's
+    // walk then crosses a block or two, not all the air from the tile's start [2026-11-07, the
+    // low slow flight uncapped: finest 1 × 1 about 165 fps against 104, and 2 × 2 about 210 against 172].
+    if (camera.layer.x > 0.0 && camera.follow.x > 0.5) {
+        let above = vec2<i32>(id.xy / 2u);
+        let edge = vec2<i32>(textureDimensions(far_above)) - 1;
+        var nearest = camera.reach.x;
+        for (var k = 0; k < 9; k++) {
+            let at = clamp(above + vec2<i32>(k % 3 - 1, k / 3 - 1), vec2<i32>(0), edge);
+            nearest = min(nearest, textureLoad(far_above, at, 0).x);
+        }
+        begin = max(begin, nearest - 2.0 - nearest * camera.view.z * 4.0);
     }
     var colour = vec3<f32>(0.0);
     var near = camera.reach.x;

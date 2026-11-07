@@ -65,7 +65,7 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     let mut grid = kept.sight_grid();
     ui.horizontal(|ui| {
         ui.label("Finest layer:");
-        for factor in [2, 4, 8] {
+        for factor in [1, 2, 4, 8] {
             ui.radio_value(&mut grid, factor, format!("{factor} × {factor}"));
         }
     });
@@ -206,11 +206,12 @@ impl KeptSettings {
         self.render.table.insert("frame_limit".to_string(), toml::Value::String(name));
     }
 
-    /// Sight's coarse grid: how many screen pixels a side a coarse pixel is (2, 4 or 8; 2 unless chosen).
+    /// Sight's finest layer: how many screen pixels a side its pixels are (1, 2, 4 or 8; 2 unless chosen).
     pub fn sight_grid(&self) -> u32 {
         // For measuring: `INCUS_SIGHT_GRID` chooses it.
         let chosen = std::env::var("INCUS_SIGHT_GRID").ok().and_then(|g| g.parse().ok()).unwrap_or(self.render.number("sight_grid", 2.0));
         match chosen as u32 {
+            1 => 1,
             4 => 4,
             8 => 8,
             _ => 2,

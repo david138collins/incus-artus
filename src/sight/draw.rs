@@ -1,6 +1,6 @@
 //! Sight drawn (the regroup, phase 3.2, the first sight; the screen pyramid, David 2026-11-06): the world
 //! marched through the store on the card (`march.wgsl`) in a pyramid of layers, 8 × 8 screen pixels to a pixel
-//! everywhere, then 4 × 4 and 2 × 2 only where the layer above says they're worth it, each finer ray starting at
+//! everywhere, then 4 × 4, 2 × 2 and 1 × 1 only where the layer above says they're worth it, each finer ray starting at
 //! its tile's start (the start pass), then brought up to the screen (`upscale.wgsl`), each screen pixel showing
 //! the finest layer marched there. The runner calls `frame` before the panel is drawn over it.
 
@@ -14,7 +14,7 @@ pub struct Eye {
     pub looking: [f32; 3],
     /// The field of view, up and down (degrees).
     pub field_of_view: f32,
-    /// The finest layer the pyramid may go to (screen pixels a side of its pixels: 8, 4 or 2); rays a pixel;
+    /// The finest layer the pyramid may go to (screen pixels a side of its pixels: 8, 4, 2 or 1); rays a pixel;
     /// the upscale's mode; and whether the finer layers are marched only where they're worth it (else
     /// everywhere).
     pub grid: u32,
@@ -112,19 +112,21 @@ impl SightDraw {
             let starts = storage("sight's starts", tiles.0 * tiles.1);
             // The base has no layer above: its "worth it" in is a placeholder never read.
             let nothing_above = storage("sight's nothing above", 1);
+            let no_distances_above = texture("sight's no distances above", (1, 1), wgpu::TextureFormat::R32Float);
             let mut factors = vec![TILE];
-            while factors.last().is_some_and(|&f| f > finest.max(2)) {
+            while factors.last().is_some_and(|&f| f > finest.max(1)) {
                 let next = factors.last().copied().unwrap_or(TILE) / 2;
                 factors.push(next);
             }
             let mut layers: Vec<Layer> = Vec::new();
             let mut worth_above: Option<wgpu::Buffer> = None;
+            let mut far_above: Option<wgpu::TextureView> = None;
             for &factor in &factors {
                 let size = (screen.0.div_ceil(factor).max(1), screen.1.div_ceil(factor).max(1));
                 let picture = texture("sight's layer", size, wgpu::TextureFormat::Rgba8Unorm);
                 let far = texture("sight's layer's distances", size, wgpu::TextureFormat::R32Float);
                 let worth = storage("sight's worth it", size.0 * size.1);
-                let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's camera"), size: 9 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+                let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's camera"), size: 10 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
                 let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("sight's march"),
                     layout: &self.march.get_bind_group_layout(0),
@@ -139,8 +141,10 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 7, resource: buffer(&starts) },
                         wgpu::BindGroupEntry { binding: 8, resource: buffer(worth_above.as_ref().unwrap_or(&nothing_above)) },
                         wgpu::BindGroupEntry { binding: 9, resource: buffer(&worth) },
+                        wgpu::BindGroupEntry { binding: 10, resource: wgpu::BindingResource::TextureView(far_above.as_ref().unwrap_or(&no_distances_above)) },
                     ],
                 });
+                far_above = Some(far.clone());
                 layers.push(Layer { factor, size, picture, far, camera, group });
                 worth_above = Some(worth);
             }
@@ -167,6 +171,7 @@ impl SightDraw {
                     wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&layers[0].far) },
                     wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Sampler(&self.sampler) },
                     wgpu::BindGroupEntry { binding: 5, resource: buffer(&self.up) },
+                    wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::TextureView(picture_of(1)) },
                 ],
             });
             self.targets = Some(Targets { screen, finest, store: store.clone(), tiles, layers, start_group, upscale_group });
@@ -177,7 +182,8 @@ impl SightDraw {
     /// The pyramid marched and brought up onto `view` (the screen's picture, `screen` pixels).
     pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, screen: (u32, u32), eye: Eye, store: &Arc<CardStore>) {
         let finest = match eye.grid {
-            0..=2 => 2,
+            0..=1 => 1,
+            2 => 2,
             3..=4 => 4,
             _ => 8,
         };
@@ -189,6 +195,7 @@ impl SightDraw {
         let tan_half = (eye.field_of_view.to_radians() / 2.0).tan();
         let aspect = screen.0 as f32 / screen.1.max(1) as f32;
         let no_start = std::env::var("INCUS_SIGHT_NO_START").is_ok();
+        let no_follow = std::env::var("INCUS_SIGHT_NO_FOLLOW").is_ok();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -204,7 +211,7 @@ impl SightDraw {
             let pixel = 2.0 * tan_half / layer.size.1 as f32;
             let above_width = if k == 0 { 0.0 } else { targets.layers[k - 1].size.0 as f32 };
             let below = if k + 1 < targets.layers.len() { 1.0 } else { 0.0 };
-            let numbers: [[f32; 4]; 9] = [
+            let numbers: [[f32; 4]; 10] = [
                 [eye.position[0], eye.position[1], eye.position[2], 0.0],
                 [forward[0], forward[1], forward[2], 0.0],
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
@@ -216,6 +223,8 @@ impl SightDraw {
                 // this layer, and the cone's spread (a tile's half diagonal, and a screen pixel more).
                 [tiles.0 as f32, tiles.1 as f32, if no_start { 0.0 } else { (TILE / layer.factor).max(1) as f32 }, screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above_width, below, if eye.earned { 1.0 } else { 0.0 }, live_reach],
+                // Each finer ray from short of its parent's nearest touch (`INCUS_SIGHT_NO_FOLLOW` leaves it out).
+                [if no_follow { 0.0 } else { 1.0 }, 0.0, 0.0, 0.0],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }

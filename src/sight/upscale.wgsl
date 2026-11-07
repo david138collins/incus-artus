@@ -1,12 +1,12 @@
 // ── Sight's upscale (the regroup, phase 3.2; the screen pyramid, David 2026-11-06) ──
 //
-// Each screen pixel shows the finest layer of the pyramid marched there (8 × 8 everywhere; 4 × 4 and 2 × 2 where
+// Each screen pixel shows the finest layer of the pyramid marched there (8 × 8 everywhere; 4 × 4, 2 × 2 and 1 × 1 where
 // they were worth it), brought up crisp (a layer's pixel a square of screen pixels), smooth (blended between a
 // layer's pixels), or smooth within a surface but sharp at a skyline (where the base layer's pixels round it are
 // at very different distances).
 
 struct Up {
-    // x, y: the screen's size; z: the finest layer's factor (8, 4 or 2).
+    // x, y: the screen's size; z: the finest layer's factor (8, 4, 2 or 1).
     size: vec4<f32>,
     // x: the mode (0 crisp, 1 smooth, 2 sharp at skylines).
     mode: vec4<f32>,
@@ -18,6 +18,7 @@ struct Up {
 @group(0) @binding(3) var far8: texture_2d<f32>;
 @group(0) @binding(4) var blended: sampler;
 @group(0) @binding(5) var<uniform> up: Up;
+@group(0) @binding(6) var layer1: texture_2d<f32>;
 
 @vertex
 fn whole_screen(@builtin(vertex_index) k: u32) -> @builtin(position) vec4<f32> {
@@ -66,6 +67,10 @@ fn brought_up(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
     }
     if (finest <= 2.0) {
         let c = read(layer2, 2.0, at.xy, smooth_it);
+        colour = mix(colour, c.rgb, c.a);
+    }
+    if (finest <= 1.0) {
+        let c = read(layer1, 1.0, at.xy, false);
         colour = mix(colour, c.rgb, c.a);
     }
     return vec4<f32>(colour, 1.0);

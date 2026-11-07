@@ -743,7 +743,22 @@ back to.
   - **Measured:** hovering, the levels filling, about 162 to 188 fps (before the two fixes about 100 to 125; the bake
     alone holds 237); flying at 150 a second, about 205 to 225 with 8,872 tiles made in a minute (before: about 111
     and 3,986); the low slow flight about 157 at 237. Measuring switch: `INCUS_SIGHT_FILLING=<fine>,<coarse>`.
-  Next on the ladder: the pyramid's 1 × 1 layer (step d), on his word.
+  **David's look at build 77** [2026-11-07: "looking good, builder. its definitely better. chunk loading isn't super
+  important, we just want to make sure its not inefficient or anything. you may proceed"].
+  **(d)'s last step BUILT, build 78: the 1 × 1 layer.** The Render page's "Finest layer" now goes to 1 × 1: the
+  pyramid 8, 4, 2, 1, each finer layer marched only where the one above says it's worth it, by the same rule (on
+  the blocks, a finer pixel always shows more of them, out to the last quarter of the blocks' reach; on cells of 2
+  and up, only while its pixel would be no smaller than the cells). In practice the 1 × 1 layer is the blocks round
+  the eye: full screen pixels on them, out to about 336 blocks. The live windows stay sized for 2 × 2 (the 1 × 1
+  layer reads the same ones; sizing them for 1 × 1 would be four times the tiles and the card's room for every
+  level, and the blocks' walk would reach about 670). **Each finer ray now starts a little short of the nearest
+  touch round its parent** (its parent pixel and the eight round it, backed off two blocks and two of the parent's
+  pixels, for grazing rays), not back at its tile's start; the parent's pixels are no wider than a block where the
+  blocks are walked, so nothing a block big hides between them. Screenshots with and without it match.
+  **Measured** (the low slow flight, 30 up at 20 a second, 20° down, uncapped, runs alternated): finest 1 × 1 about
+  104 fps without the parent's start, **about 163 to 171 with it**; finest 2 × 2 about 168 to 177 without, **about
+  201 to 218 with it**. Measuring switch: `INCUS_SIGHT_NO_FOLLOW`.
+  Next: his look at 1 × 1, then 3.4 (light through the cache), each talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
