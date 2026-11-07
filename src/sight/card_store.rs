@@ -5,11 +5,12 @@
 //!   tile made again replaces its cells and frees the old ones.
 //! - **The baked levels' index:** for each level from 32 up, a cell column's entry over the whole map, row by
 //!   row (where its band starts in the pool, its lowest cell, and how many; `NOT_BAKED` till it's baked).
-//! - **The live levels' index:** for each live level (from the finest kept up to 16), a window of cell columns
+//! - **The live levels' index:** for each live level from the finest kept up to 16, a window of cell columns
 //!   round the camera, wrapping round (a column at `(x mod side, y mod side)`), each entry also saying which
 //!   column it is, so one left from a tile the camera has moved off is never read for the column that's taken
 //!   its place. Every live level's window is the same cell columns a side (each reaches out to where one of its
-//!   cells is one finest pixel: `store::side_for`), one after the other in the index.
+//!   cells is one finest pixel: `store::side_for`), one after the other in the index. A level between them
+//!   not kept has its window all "not there", so the march reads the next coarser one.
 //! - **The header:** the levels' numbers (`header` in `march.wgsl`).
 //!
 //! The processor writes it all in small pieces (a region's or a tile's worth), queued with the card's own
@@ -89,8 +90,9 @@ pub struct CardStore {
     pub header: wgpu::Buffer,
     /// The baked levels' bounds, and where each one's entries start in `baked`.
     pub extents: Vec<(Extent, u32)>,
-    /// The finest live level (the live levels are it up to 16, `FIRST - 1`).
+    /// The finest live level, and which levels from it up to 16 (`FIRST - 1`) are kept (a bit each).
     pub finest_live: usize,
+    pub live_kept: u32,
     /// The window's cell columns a side now (at most `most_side`, what the live index was made for).
     pub side: std::sync::atomic::AtomicI32,
     pub most_side: i32,
@@ -102,9 +104,11 @@ pub struct CardStore {
 }
 
 impl CardStore {
-    /// A store for a map `half` blocks either side of the middle, its live levels `finest_live` up to 16, each
+    /// A store for a map `half` blocks either side of the middle, its live levels `live` (each under 32), each
     /// with at most `side` cell columns a side. Its indexes start "not baked".
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, half: i32, finest_live: usize, side: i32) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, half: i32, live: &[usize], side: i32) -> Self {
+        let finest_live = live.iter().copied().min().unwrap_or(FIRST - 1);
+        let live_kept = live.iter().filter(|&&level| level < FIRST).fold(0u32, |kept, &level| kept | 1 << level);
         let mut extents = Vec::new();
         let mut entries = 0u32;
         for level in FIRST..=Bake::top(half) {
@@ -132,10 +136,10 @@ impl CardStore {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's live index"), contents: &words.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
         let pool = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's cells"), size: POOL_CELLS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        // The header: the first baked level, the top, the finest live level, the live windows' side now, and the
-        // most (each level's window starts that squared on from the last); then each baked level's from x, from
-        // y, across, and where its entries start.
-        let mut header = vec![FIRST as i32, Bake::top(half) as i32, finest_live as i32, side, side];
+        // The header: the first baked level, the top, the finest live level, the live windows' side now, the
+        // most (each level's window starts that squared on from the last), and which live levels are kept (a
+        // bit each); then each baked level's from x, from y, across, and where its entries start.
+        let mut header = vec![FIRST as i32, Bake::top(half) as i32, finest_live as i32, side, side, live_kept as i32];
         // (Each level's part of the live index is made for `side`; a smaller window uses the start of it.)
         for (extent, at) in &extents {
             header.extend([extent.from.0, extent.from.1, extent.across, *at as i32]);
@@ -144,7 +148,7 @@ impl CardStore {
             use wgpu::util::DeviceExt;
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's header"), contents: &header.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
-        Self { pool, baked, live, header, extents, finest_live, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+        Self { pool, baked, live, header, extents, finest_live, live_kept, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
     }
 
     pub fn side(&self) -> i32 {
@@ -153,7 +157,7 @@ impl CardStore {
 
     /// Whether `level` is kept live.
     pub fn is_live(&self, level: usize) -> bool {
-        (self.finest_live..FIRST).contains(&level)
+        level < FIRST && self.live_kept & 1 << level != 0
     }
 
     /// How far the live level `level` reaches from the camera (blocks: half its window).

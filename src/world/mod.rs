@@ -511,13 +511,15 @@ fn fresh_sight(world: &mut World, _seed: u64) {
     world.resource_mut::<SightKept>().0 = None;
 }
 
-/// The finest live level sight reads (3.3, a level a build: cells of 8 blocks, then 4, 2 and 1); the live levels
-/// are it up to 16.
-const FINEST_LIVE: usize = 3;
+/// The live levels kept round the camera (3.3, a level a build: cells of 8, then blocks themselves [David
+/// 2026-11-06: "i think you're right about 1's next"], then 4 and 2 between).
+const LIVE_LEVELS: [usize; 3] = [0, 3, 4];
 
-/// The live levels kept round the camera: the finest up to 16.
+/// The live levels, less the blocks themselves with `INCUS_SIGHT_NO_BLOCKS` (a measuring switch: what the blocks
+/// cost, at the same spot).
 fn live_levels() -> Vec<usize> {
-    (FINEST_LIVE..crate::sight::bake::FIRST).collect()
+    let no_blocks = std::env::var("INCUS_SIGHT_NO_BLOCKS").is_ok();
+    LIVE_LEVELS.iter().copied().filter(|&level| !(no_blocks && level == 0)).collect()
 }
 
 /// How long a region is left alone after an edit before it's baked again.
@@ -555,7 +557,7 @@ fn keep_sight(
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
         // The store on the card: its live window made for the finest grid, used as far as the grid asks.
         let grid = settings.sight_grid();
-        let store = Arc::new(crate::sight::card_store::CardStore::new(device, queue, half, FINEST_LIVE, crate::sight::store::side_for(2)));
+        let store = Arc::new(crate::sight::card_store::CardStore::new(device, queue, half, &live_levels(), crate::sight::store::side_for(2)));
         store.reset_live(crate::sight::store::side_for(grid));
         let maker = crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone(), card: Some(store.clone()) };
         *sight = SightStore::default();

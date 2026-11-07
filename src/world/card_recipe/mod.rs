@@ -1017,7 +1017,7 @@ fn ground(c: Case) -> i32 {
         let plan = CavePlan::default();
         let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).ok()?;
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
-        let store = std::sync::Arc::new(crate::sight::card_store::CardStore::new(&device, &queue, half, 4, 64));
+        let store = std::sync::Arc::new(crate::sight::card_store::CardStore::new(&device, &queue, half, &[4], 64));
         let odd = world.odd;
         let maker = Maker { device: device.clone(), queue: queue.clone(), world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan), card: Some(store.clone()) };
         let with = crate::sight::bake::Blocks { map: std::sync::Arc::new(map.clone()), blocks, colours, changed: Default::default() };

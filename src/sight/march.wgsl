@@ -30,7 +30,7 @@ struct Camera {
     // The screen pyramid (David 2026-11-06: "1 - 2 - 4 - 8"): x the layer above's width in its pixels (0: this is
     // the 8 × 8 base, everything marched); y 1 if a finer layer follows (this layer says where it's worth it); z
     // the rule (0 refine everywhere, 1 only where it's earned); w how far the finest live level reaches (blocks;
-    // each coarser one reaches twice as far).
+    // each coarser one reaches twice as far for each level coarser).
     layer: vec4<f32>,
 }
 
@@ -54,6 +54,10 @@ const PAST_MAP: u32 = 0xFFFE0000u;
 const WORLD_HEIGHT: f32 = 1024.0;
 // The bake's regions are its cell columns of 1,024 (`bake::REGION`).
 const REGION: i32 = 10;
+
+// Water's colour, and rock's where a cell shows no surface (inside).
+const WATER_COLOUR: vec3<f32> = vec3<f32>(0.05, 0.16, 0.30);
+const ROCK: vec3<f32> = vec3<f32>(0.25, 0.24, 0.22);
 
 // A cell as the march reads it.
 struct Look {
@@ -109,6 +113,20 @@ fn from_band(entry_start: u32, low_count: u32, cz: i32) -> Look {
     return cell_of(pool[entry_start + u32(cz - low)]);
 }
 
+// Whether the live level `level` is kept (`header[5]`, a bit each).
+fn is_kept(level: i32) -> bool {
+    return ((u32(header[5]) >> u32(level)) & 1u) == 1u;
+}
+
+// The level read for `level`: it, or the next coarser one kept (a live level between the kept ones isn't).
+fn kept(level: i32) -> i32 {
+    var l = level;
+    for (var k = 0; k < 8 && l < header[0] && !is_kept(l); k++) {
+        l = l + 1;
+    }
+    return l;
+}
+
 // Where the live level `level`'s column (`cx`, `cy`) is in the live index: its window (each `header[4]` squared
 // on from the last), then its place in the wrapping window.
 fn live_slot(level: i32, cx: i32, cy: i32) -> vec4<u32> {
@@ -128,7 +146,7 @@ fn cell_at(level: i32, c: vec3<i32>) -> Look {
         return from_band(slot.x, slot.y, c.z);
     }
     let k = level - header[0];
-    let base = 5 + 4 * k;
+    let base = 6 + 4 * k;
     let x = c.x - header[base];
     let y = c.y - header[base + 1];
     let across = header[base + 2];
@@ -151,7 +169,7 @@ fn entry_at(level: i32, cx: i32, cy: i32) -> vec2<u32> {
         return slot.xy;
     }
     let k = level - header[0];
-    let base = 5 + 4 * k;
+    let base = 6 + 4 * k;
     let x = cx - header[base];
     let y = cy - header[base + 1];
     let across = header[base + 2];
@@ -198,7 +216,7 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
         out.surface = weight;
     } else {
         // Inside, with no surface to show: rock's grey.
-        out.colour = vec3<f32>(0.25, 0.24, 0.22);
+        out.colour = ROCK;
     }
     return out;
 }
@@ -226,11 +244,16 @@ fn sky(d: vec3<f32>) -> vec3<f32> {
 }
 
 // The level a ray reads at distance `t`: its pixel's size there, in whole powers of two, never finer than
-// the finest level there is.
+// the finest level there is (and where that one isn't kept, the next coarser that is).
 fn level_at(t: f32) -> i32 {
     let footprint = max(t * camera.view.z, 1.0);
     let level = i32(floor(log2(footprint))) + i32(camera.reach.y);
-    return clamp(level, header[2], header[1]);
+    return kept(clamp(level, header[2], header[1]));
+}
+
+// A face lit by the sun.
+fn lit(colour: vec3<f32>, facing: vec3<f32>) -> vec3<f32> {
+    return colour * (camera.sun.w + (1.0 - camera.sun.w) * max(dot(facing, camera.sun.xyz), 0.0));
 }
 
 // The highest anything stands in what's on the card so far (the store keeps it as regions and tiles go up):
@@ -260,6 +283,147 @@ fn leave2(o: vec2<f32>, d: vec2<f32>, c: vec2<f32>, size: f32) -> f32 {
     return min(tx, ty);
 }
 
+// ── Blocks as blocks (3.3, cells of 1, David 2026-11-06: "i think you're right about 1's next") ──
+//
+// Near the eye, where a block is bigger than a pixel, a cell's average is a fog, not the truth (David's near look:
+// "the blocks up close exist only as clouds"). There the ray walks the blocks one by one (cells of 1, the live
+// level 0) and stops on the face it first meets, lit by that face's own facing: a hard edge. Past where a block is
+// a pixel, the averages are the truth again and the march reads them; at that distance a block's soft edge is a
+// pixel wide, so the two meet.
+
+// What the walk through the blocks found: whether it met a face (and where), and what it gathered on the way
+// (water's surface); not met, the march goes on from `t`.
+struct Hard {
+    met: bool,
+    t: f32,
+    first: f32,
+    colour: vec3<f32>,
+    through: f32,
+    steps: i32,
+}
+
+// Where the ray leaves block `c` across each axis's next face.
+fn faces_ahead(o: vec3<f32>, d: vec3<f32>, c: vec3<i32>) -> vec3<f32> {
+    let next = vec3<f32>(c + select(vec3<i32>(0), vec3<i32>(1), d > vec3<f32>(0.0)));
+    return select((next - o) / d, vec3<f32>(1e30), abs(d) < vec3<f32>(1e-6));
+}
+
+// The blocks from `t0` to `t1` along the ray.
+fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
+    var out: Hard;
+    out.t = t0;
+    out.first = camera.reach.x;
+    out.through = 1.0;
+    let s = select(vec3<i32>(-1), vec3<i32>(1), d > vec3<f32>(0.0));
+    let across = select(1.0 / abs(d), vec3<f32>(1e30), abs(d) < vec3<f32>(1e-6));
+    var t = t0;
+    var c = vec3<i32>(floor(o + d * t));
+    var ahead = faces_ahead(o, d, c);
+    // The face it came in by (the eye's own block: facing the eye).
+    var facing = -d;
+    var in_water = false;
+    for (var n = 0; n < 512; n++) {
+        out.steps = n + 1;
+        if (t >= t1) {
+            out.t = t1;
+            return out;
+        }
+        // Over the world's highest point going up: nothing more to meet (as in the march).
+        let p = o + d * t;
+        if (p.z > world_top() + 1.0 && d.z >= 0.0) {
+            out.t = t1;
+            return out;
+        }
+        // Air over a coarser cell column's top (the bake's 64 and 32, then the live 16 and 8) is skipped whole,
+        // as in the march.
+        var skipped = false;
+        for (var k = 0; k < 4 && !in_water; k++) {
+            let up = 6 - k;
+            let size = f32(1 << u32(up));
+            let cc = floor(p.xy / size);
+            let entry = entry_at(up, i32(cc.x), i32(cc.y));
+            if (entry.y == NOT_BAKED) {
+                continue;
+            }
+            let low = bitcast<i32>(entry.y << 16u) >> 16u;
+            let count = i32(entry.y >> 16u);
+            let top = f32(low + count) * size;
+            if (p.z <= top) {
+                continue;
+            }
+            var next = leave2(o.xy, d.xy, cc, size);
+            if (d.z < 0.0) {
+                next = min(next, t + (top - p.z) / d.z);
+            }
+            if (next >= t1) {
+                out.t = t1;
+                return out;
+            }
+            if (next > t + 0.02) {
+                // A little short of it, so the walk crosses into the next block itself (and knows by which face).
+                t = next - 0.01;
+                c = vec3<i32>(floor(o + d * t));
+                ahead = faces_ahead(o, d, c);
+                facing = -d;
+                skipped = true;
+                break;
+            }
+        }
+        if (skipped) {
+            continue;
+        }
+        let entry = entry_at(0, c.x, c.y);
+        if (entry.y == NOT_BAKED) {
+            // Not made yet: the march takes over from here.
+            out.t = t;
+            return out;
+        }
+        let look = from_band(entry.x, entry.y, c.z);
+        if (look.solid >= 0.5) {
+            out.met = true;
+            out.t = t;
+            out.colour += out.through * lit(select(look.colour, ROCK, look.surface <= 0.0), facing);
+            if (out.through > 0.5) {
+                out.first = t;
+            }
+            out.through = 0.0;
+            return out;
+        }
+        // Water's surface: mostly covered, the rest seen through it.
+        if (look.water >= 0.5) {
+            if (!in_water) {
+                out.colour += out.through * 0.85 * WATER_COLOUR;
+                if (out.through > 0.5) {
+                    out.first = t;
+                }
+                out.through *= 0.15;
+                in_water = true;
+            }
+        } else {
+            in_water = false;
+        }
+        // On to the next block, across whichever face comes first.
+        if (ahead.x < ahead.y && ahead.x < ahead.z) {
+            t = ahead.x;
+            c.x += s.x;
+            ahead.x += across.x;
+            facing = vec3<f32>(-f32(s.x), 0.0, 0.0);
+        } else if (ahead.y < ahead.z) {
+            t = ahead.y;
+            c.y += s.y;
+            ahead.y += across.y;
+            facing = vec3<f32>(0.0, -f32(s.y), 0.0);
+        } else {
+            t = ahead.z;
+            c.z += s.z;
+            ahead.z += across.z;
+            facing = vec3<f32>(0.0, 0.0, -f32(s.z));
+        }
+    }
+    out.t = t;
+    return out;
+}
+
 // One ray: its colour (linear light) and how far it went before it was half covered.
 struct Seen {
     colour: vec3<f32>,
@@ -282,7 +446,24 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     var colour = vec3<f32>(0.0);
     var through = 1.0;
     var first = camera.reach.x;
-    var t = max(begin, 0.5) + phase;
+    var steps = 0;
+    // Near the eye, out to where a block is a pixel (and inside the blocks' window), the blocks as blocks.
+    var start_at = begin;
+    if (header[2] == 0 && is_kept(0)) {
+        let blocks_end = min(1.0 / camera.view.z, camera.layer.w);
+        if (begin < blocks_end) {
+            let h = hard(o, d, max(begin, 0.0), blocks_end);
+            steps = h.steps;
+            if (h.met) {
+                return Seen(h.colour, h.first, f32(steps), 0);
+            }
+            colour = h.colour;
+            through = h.through;
+            first = h.first;
+            start_at = h.t;
+        }
+    }
+    var t = max(start_at, 0.5) + phase;
     // Whether the last step found only air (only then is skipping tried: among the ground it never pays).
     var in_air = true;
     // The last place a step found only air, and whether the ray is walking into a surface in fine steps from
@@ -305,13 +486,13 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     // looking down at it, up to a whole cell for one skimming along it (it crosses the soft edge slowly; the
     // steps' two ends keep the sum true).
     let surface_step = 0.25 / clamp(abs(d.z), 0.25, 1.0);
-    var steps = 0;
-    let water_colour = vec3<f32>(0.05, 0.16, 0.30);
+    let water_colour = WATER_COLOUR;
+    let walked = steps;
     for (var n = 0; n < 768; n++) {
         if (t > camera.reach.x || through < 0.01) {
             break;
         }
-        steps = n + 1;
+        steps = walked + n + 1;
         let p = o + d * t;
         // Over the world's highest point going up, or under its floor going down: nothing more to meet.
         if ((p.z > ceiling && d.z >= 0.0) || (p.z < -8.0 && d.z <= 0.0)) {
@@ -345,7 +526,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         let fine = f32(1 << u32(level));
         for (var k = 0; k < 2 && in_air && !walking; k++) {
             // Two levels coarser, then its own.
-            let up = select(level, min(level + 2, header[1]), k == 0);
+            let up = select(level, kept(min(level + 2, header[1])), k == 0);
             let up_size = f32(1 << u32(up));
             let cc = floor(p.xy / up_size);
             let entry = entry_at(up, i32(cc.x), i32(cc.y));
@@ -375,17 +556,17 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             continue;
         }
         var look = blend(level, p);
-        // A live level not there (past its window, or not made yet): the next coarser, down to the first baked
-        // one.
-        for (var up = 0; up < 4 && !look.known && level < header[0]; up++) {
-            level = level + 1;
+        // A live level not there (past its window, or not made yet): the next coarser kept, down to the first
+        // baked one.
+        for (var up = 0; up < 8 && !look.known && level < header[0]; up++) {
+            level = kept(level + 1);
             look = blend(level, p);
         }
         // Over the last stretch before the next level takes over, the two blended, so the change is gradual,
         // never a seam (seams drew rings round the eye over flat water that moved as it moved: David, build 69).
         let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
         if (look.known && over > BLEND_FROM && level < header[1]) {
-            let next = blend(level + 1, p);
+            let next = blend(kept(level + 1), p);
             if (next.known) {
                 look = mix_looks(look, next, (over - BLEND_FROM) / (1.0 - BLEND_FROM));
             }
@@ -429,8 +610,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             let covered = 1.0 - (1.0 - solid) * (1.0 - water);
             if (covered > 0.0) {
                 // Each end's colour as lit, weighted by how much solid it has.
-                let lit_before = before.colour * (camera.sun.w + (1.0 - camera.sun.w) * max(dot(before.facing, camera.sun.xyz), 0.0));
-                let lit_now = look.colour * (camera.sun.w + (1.0 - camera.sun.w) * max(dot(look.facing, camera.sun.xyz), 0.0));
+                let lit_before = lit(before.colour, before.facing);
+                let lit_now = lit(look.colour, look.facing);
                 let ground = (lit_before * before.solid + lit_now * look.solid) / max(before.solid + look.solid, 1e-6);
                 let here = (ground * solid + water_colour * water) / max(solid + water, 1e-6);
                 colour += through * covered * here;
@@ -604,18 +785,21 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (camera.layer.y > 0.5) {
         var worth = select(0.0, 1.0, camera.layer.z < 0.5);
         if (camera.layer.z > 0.5 && near < camera.reach.x) {
-            // The cells read there: the finest live level's inside its reach, each coarser one's in twice that,
-            // and the bake's 32 past the live levels.
-            var cell = f32(1 << u32(header[2]));
-            var reach = camera.layer.w;
-            for (var k = 0; k < 4 && near >= reach && cell < 16.0; k++) {
-                cell *= 2.0;
-                reach *= 2.0;
+            // The cells read there: the finest kept live level whose reach it's in (each level's twice the one
+            // finer's), or the bake's 32 past them all.
+            var cell = 32.0;
+            for (var l = header[0] - 1; l >= header[2]; l--) {
+                if (is_kept(l) && near < camera.layer.w * f32(1 << u32(l - header[2]))) {
+                    cell = f32(1 << u32(l));
+                }
             }
-            if (near >= reach) {
-                cell = 32.0;
+            if (cell <= 1.0) {
+                // Blocks as blocks: a finer pixel always shows more of them (their edges; later their faces),
+                // fading out over the last quarter of the blocks' reach so the change of pixel size isn't a ring.
+                worth = clamp((camera.layer.w - near) / (0.25 * camera.layer.w), 0.0, 1.0);
+            } else {
+                worth = clamp(near * camera.view.z * 0.5 / cell - 1.0, 0.0, 1.0);
             }
-            worth = clamp(near * camera.view.z * 0.5 / cell - 1.0, 0.0, 1.0);
         }
         worth_out[id.y * size.x + id.x] = u32(round(worth * 255.0));
     }

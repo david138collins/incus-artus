@@ -225,7 +225,10 @@ impl LiveStore {
     }
 
     /// The tiles the levels want round `camera` (x and y, blocks), nearest first: exactly `side / TILE` a
-    /// side, so in the card's wrapping window no two of them share a place.
+    /// side, so in the card's wrapping window no two of them share a place. Near is measured in each level's own
+    /// cells, so the levels fill side by side (by blocks, the cells of 1 round the eye always came first and the
+    /// coarser levels behind them starved [2026-11-06, building the cells of 1: 14 of 1,764 tiles of 8 made]),
+    /// and in those units the loading lane weighs them against the chunks.
     pub fn wanted(&self, camera: (f32, f32)) -> Vec<(f32, TileKey)> {
         let n = self.side / TILE;
         let mut wanted = Vec::new();
@@ -236,7 +239,7 @@ impl LiveStore {
                 for y in centre_y - n / 2..centre_y - n / 2 + n {
                     let centre = ((x as f32 + 0.5) * tile_blocks, (y as f32 + 0.5) * tile_blocks);
                     let distance = ((centre.0 - camera.0).powi(2) + (centre.1 - camera.1).powi(2)).sqrt();
-                    wanted.push((distance, TileKey { level, x, y }));
+                    wanted.push((distance / (1 << level) as f32, TileKey { level, x, y }));
                 }
             }
         }
@@ -274,7 +277,7 @@ impl LiveStore {
                 continue;
             }
             let maker = maker.clone();
-            // Keyed in chunks' units (32 blocks), so sight and the chunks round the camera share the lane fairly.
+            // Keyed in chunks' units (32 cells), so sight and the chunks round the camera share the lane fairly.
             let job = crate::loading::submit(Tier::Soon, distance / 32.0, move || {
                 let tile = fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key);
                 let size = key.size() as u32;

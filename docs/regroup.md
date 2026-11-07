@@ -699,6 +699,25 @@ back to.
   the average as a block shrinks to a pixel; with it the worth rule's near term (the 1 × 1 layer worth it on block
   faces bigger than its pixel). Proposed to land with 3.3's last step, perhaps moved ahead of 4 and 2 (his call).
   **His call too: flying inside rock**, a wall of stone, or each ray skipping the solid it starts in (spectator-like).
+  [David: "i think you're right about 1's next... don't worry about flying through the rock and the crazy
+  average-world, i was just telling council how interesting it was to be in that kind of 3d space"]
+  **3.3's second step BUILT, build 76: the blocks themselves, as blocks.** The live levels kept are now a list (cells
+  of 1, 8 and 16: `world::LIVE_LEVELS`); a level between them isn't kept (`header[5]`, a bit each; the baked entries
+  now from 6), and the march reads the next coarser kept one. **Near the eye, out to where a block is one of the
+  layer's pixels (and inside the blocks' window, 336 blocks at 2 × 2), the ray walks the blocks one by one**
+  (`march.wgsl` `hard`: block to block across whichever face comes first, skipping air over the columns' tops of 64,
+  32, 16 and 8, stopping over the world's highest point) **and stops on the first face it meets, lit by that face's
+  own facing: hard edges, real terraces.** Water's surface is met the same way (mostly covered, the rest seen
+  through). Not met by there, the march goes on with the averages, which at that distance are a pixel wide. A block
+  is drawn in its cell's colour (its shown faces' average: a grass block on an edge is a little earthy on top too;
+  each face's own colour comes with the textures, 3.6). **The worth rule:** where the cells are blocks, a finer pixel
+  always shows more of them, so the finer layers are marched all through the blocks' reach, fading out over its last
+  quarter. **The live tiles' order:** nearest first measured in each level's own cells, so the levels fill side by
+  side (by blocks, the blocks' tiles always came first and the coarser levels starved: 14 of 1,764 tiles of 8 made
+  in 40 s). **Not yet:** cells of 4 and 2 between, so past the blocks' reach the ground goes to the 8s' soft band at
+  once. **Measured** (a low, slow flight, 30 above the ground at 20 a second, looking 20° down, uncapped, finest
+  2 × 2, mid-bake, runs alternated): about 135 fps with the blocks, 153 without (`INCUS_SIGHT_NO_BLOCKS`, a
+  measuring switch): **the blocks cost about 1 ms.** A tile of blocks takes about 25 + 37 ms to make.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
