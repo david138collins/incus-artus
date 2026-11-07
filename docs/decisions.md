@@ -1175,6 +1175,14 @@ below disagree with this one, this one stands.
   - **The slope test, by eye** [David 2026-11-06]: "after having seen what it actually looks like, i'm not
     concerned about the slope test." The ziggurat worry is answered by his look. The test stays a guard, but isn't
     something to chase.
+  - **Blocks as blocks near the eye** [David 2026-11-06, build 76]: up close the averages were a fog ("the blocks
+    up close exist only as clouds"). Out to where a block is one pixel, rays now walk block by block and stop on
+    the first face, hard and lit by its own facing; past that the averages are the truth and are read as before.
+    His look: "this honestly looks amazing... the things that used to be glaring problems before are silky smooth
+    now... its so accurate and the fade is cromulent. we are really on to something". About 1 ms a frame.
+  - **Inside rock, not a concern** [David 2026-11-06]: "don't worry about flying through the rock and the crazy
+    average-world, i was just telling council how interesting it was." No rule is made for what the eye sees
+    inside solid ground.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
