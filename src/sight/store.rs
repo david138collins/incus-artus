@@ -24,9 +24,21 @@ use std::sync::Arc;
 pub const LIVE_LEVELS: usize = 5;
 /// Cell columns a side in a tile, the unit filled at once.
 pub const TILE: i32 = 16;
-/// Tiles being made at once (each waits on the card on a loading-lane worker; more at once only piles
-/// their pieces up in front of the frame).
-pub const MOST_FILLING: usize = 3;
+/// Tiles being made at once, the fine levels' (cells of 1, 2 and 4) and the coarse ones' (8 and 16) apart. Every
+/// tile is 16 × 16 cell columns, but each cell of 16 adds up 4,096 blocks to a cell of 8's 512 and a block's 1: a
+/// tile of 16s is about 8 times the card's work of a tile of 8s, and thousands of times a tile of blocks. Taken
+/// together, the coarse tiles held up the near blocks behind them [David 2026-11-07, build 76: "it takes forever
+/// to load chunks around me... hopefully we can speed it up or make it go to the closest chunk first"]; the fine
+/// ones mostly wait on the card's round trips, so more of them at once costs it little. (Measured, flying the soak
+/// at 150 a second at 237: 3 tiles at once of any level cost about 1.6 ms a frame; 8 at once, 3.5.)
+/// `INCUS_SIGHT_FILLING=<fine>,<coarse>` other numbers (measuring).
+pub const MOST_FILLING: (usize, usize) = (8, 2);
+/// The coarsest fine level.
+const FINE_UP_TO: usize = 2;
+
+fn most_filling() -> (usize, usize) {
+    std::env::var("INCUS_SIGHT_FILLING").ok().and_then(|v| v.split_once(',').and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?)))).unwrap_or(MOST_FILLING)
+}
 
 /// A tile: which level, and where (in tiles).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -248,7 +260,7 @@ impl LiveStore {
     }
 
     /// Keeps the levels round `camera`: tiles left behind let go (and their making dropped), made ones
-    /// taken in, and more asked for, nearest first, a few at a time.
+    /// taken in, and more asked for, nearest first, a few at a time (fine and coarse apart).
     pub fn update(&mut self, camera: (f32, f32), maker: &Maker, odd: bool) {
         let wanted = self.wanted(camera);
         let keep: std::collections::HashSet<TileKey> = wanted.iter().map(|&(_, key)| key).collect();
@@ -269,13 +281,18 @@ impl LiveStore {
             *took = (took.0 + made.took.0, took.1 + made.took.1, took.2 + 1);
             self.tiles.insert(key, made.cells);
         }
+        let most = most_filling();
+        let fine = |key: &TileKey| key.level <= FINE_UP_TO;
+        let mut filling = (self.filling.keys().filter(|k| fine(k)).count(), self.filling.keys().filter(|k| !fine(k)).count());
         for (distance, key) in wanted {
-            if self.filling.len() >= MOST_FILLING {
+            if filling.0 >= most.0 && filling.1 >= most.1 {
                 break;
             }
-            if self.tiles.contains_key(&key) || self.filling.contains_key(&key) {
+            let (n, cap) = if fine(&key) { (&mut filling.0, most.0) } else { (&mut filling.1, most.1) };
+            if *n >= cap || self.tiles.contains_key(&key) || self.filling.contains_key(&key) {
                 continue;
             }
+            *n += 1;
             let maker = maker.clone();
             // Keyed in chunks' units (32 cells), so sight and the chunks round the camera share the lane fairly.
             let job = crate::loading::submit(Tier::Soon, distance / 32.0, move || {

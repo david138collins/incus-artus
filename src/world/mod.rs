@@ -511,9 +511,9 @@ fn fresh_sight(world: &mut World, _seed: u64) {
     world.resource_mut::<SightKept>().0 = None;
 }
 
-/// The live levels kept round the camera (3.3, a level a build: cells of 8, then blocks themselves [David
-/// 2026-11-06: "i think you're right about 1's next"], then 4 and 2 between).
-const LIVE_LEVELS: [usize; 3] = [0, 3, 4];
+/// The live levels kept round the camera (3.3: cells of 8, then blocks themselves [David 2026-11-06: "i think
+/// you're right about 1's next"], then 4 and 2 between [David: "go ahead"]).
+const LIVE_LEVELS: [usize; 5] = [0, 1, 2, 3, 4];
 
 /// The live levels, less the blocks themselves with `INCUS_SIGHT_NO_BLOCKS` (a measuring switch: what the blocks
 /// cost, at the same spot).

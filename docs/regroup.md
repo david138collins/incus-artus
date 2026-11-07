@@ -723,6 +723,27 @@ back to.
   on to something"]. On file from his screenshot, not to fix unless he asks: where a slope runs out of the blocks'
   reach, its pixels speckle between hard face and soft cell (each ray either met a face by there or didn't), like a
   dither.
+  **3.3's last cache step BUILT, build 77: cells of 4 and 2 between** [David: "go ahead. the only irritation i have
+  is it takes forever to load chunks around me... hopefully we can speed it up or make it go to the closest chunk
+  first"]. The live levels are now 1, 2, 4, 8 and 16. Found and changed on the way, each measured (hovering 40 up at
+  237, finest 2 × 2; and flying the soak at 150 a second):
+  - **The tiles made in two lanes:** the fine levels' (1, 2, 4) up to 8 at once, the coarse ones' (8, 16) 2. A tile
+    of 16s is about 8 times a tile of 8s' card work and thousands of times a tile of blocks; together, the coarse
+    ones held the near blocks up behind them. Now every tile of 1, 2 and 4 round the eye is made in about 40 s
+    hovering (the nearest in the first few), the 8s and 16s going on behind.
+  - **What made the frames slow was drawing, not making:** with the fine levels made but no 8s and 16s, hovering
+    ran about 96 fps with nothing left to make. Two causes. (1) **The worth rule went by the levels kept, not the
+    cells read:** finer pixels were marched wherever a fine level could be, even where its tile wasn't made and the
+    ray read the bake's 32s (smudge, at the most cost); now a finer layer is worth it by the cells this pixel's
+    surface was actually read from. (2) **A sign turned since build 68:** in the march's skip over a column's top,
+    where a ray coming down meets the top came out behind it, so rays coming down never skipped to a top, only
+    strode through the air; and with the 8s and 16s not made, the fine levels' rays had no coarse tops to skip by
+    either (now the bake's 32s are tried between). The sea test is cleaner for it: the biggest step down the middle
+    335 → 59 of 2,550, the shimmer as the eye rises 0.68 → 0.18 of 255 a pixel on average.
+  - **Measured:** hovering, the levels filling, about 162 to 188 fps (before the two fixes about 100 to 125; the bake
+    alone holds 237); flying at 150 a second, about 205 to 225 with 8,872 tiles made in a minute (before: about 111
+    and 3,986); the low slow flight about 157 at 237. Measuring switch: `INCUS_SIGHT_FILLING=<fine>,<coarse>`.
+  Next on the ladder: the pyramid's 1 × 1 layer (step d), on his word.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

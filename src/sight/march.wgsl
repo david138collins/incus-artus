@@ -474,7 +474,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     var walking = false;
     // Where the walk in has to reach (the place it first touched) before strides start again.
     var walk_to = 0.0;
-    var first_level = -1;
+    // (Half covered already by water met among the blocks: read from the blocks.)
+    var first_level = select(-1, 0, first < camera.reach.x);
     // The last sample, for gathering each step from both its ends (trapezoids: what's gathered then hardly
     // depends on where the steps fall; one end alone left contours that moved as the eye rose and fell, David
     // build 69: "the oceans still show the rings... so fast"). `chained` false after a skip or a back-up.
@@ -521,12 +522,22 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         // four levels coarser.
         // Over a coarse cell column's top (its band's top: nothing above it, its finer columns' tops all under
         // it), the ray goes on to where it leaves the column or comes down to the top, whichever is sooner. The
-        // column two levels coarser round it, else its own, with a fine cell's room above the top.
+        // column two levels coarser round it, else the bake's first (always there, where a live level's tile isn't
+        // made yet [2026-11-07: the fine levels' rays walked cell by cell while the 8s and 16s were still being
+        // made]), else its own, with a fine cell's room above the top.
         var skipped = false;
         let fine = f32(1 << u32(level));
-        for (var k = 0; k < 2 && in_air && !walking; k++) {
-            // Two levels coarser, then its own.
-            let up = select(level, kept(min(level + 2, header[1])), k == 0);
+        for (var k = 0; k < 3 && in_air && !walking; k++) {
+            // Two levels coarser, then the bake's first, then its own.
+            var up = level;
+            if (k == 0) {
+                up = kept(min(level + 2, header[1]));
+            } else if (k == 1) {
+                if (level + 2 >= header[0]) {
+                    continue;
+                }
+                up = header[0];
+            }
             let up_size = f32(1 << u32(up));
             let cc = floor(p.xy / up_size);
             let entry = entry_at(up, i32(cc.x), i32(cc.y));
@@ -541,7 +552,9 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             }
             var next = leave2(o.xy, d.xy, cc, up_size);
             if (d.z < 0.0) {
-                next = min(next, t + (top - p.z) / d.z * -1.0);
+                // Where it comes down to the top (both negative: a positive way on) [2026-11-07: the sign was
+                // turned, so rays coming down never skipped to a top, only strode].
+                next = min(next, t + (top - p.z) / d.z);
             }
             if (next > t + 0.01) {
                 t = next + 0.01;
@@ -784,15 +797,11 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // than drawing a ring round the eye; never for sky.
     if (camera.layer.y > 0.5) {
         var worth = select(0.0, 1.0, camera.layer.z < 0.5);
-        if (camera.layer.z > 0.5 && near < camera.reach.x) {
-            // The cells read there: the finest kept live level whose reach it's in (each level's twice the one
-            // finer's), or the bake's 32 past them all.
-            var cell = 32.0;
-            for (var l = header[0] - 1; l >= header[2]; l--) {
-                if (is_kept(l) && near < camera.layer.w * f32(1 << u32(l - header[2]))) {
-                    cell = f32(1 << u32(l));
-                }
-            }
+        if (camera.layer.z > 0.5 && near < camera.reach.x && level >= 0) {
+            // The cells this pixel's surface was read from (not the finest that could be there: where a live
+            // level's tile isn't made yet, a finer pixel over the coarser cells read instead only smudges, and cost
+            // the most [2026-11-07: with the 8s and 16s not made, about 96 fps hovering against 125]).
+            let cell = f32(1 << u32(level));
             if (cell <= 1.0) {
                 // Blocks as blocks: a finer pixel always shows more of them (their edges; later their faces),
                 // fading out over the last quarter of the blocks' reach so the change of pixel size isn't a ring.
