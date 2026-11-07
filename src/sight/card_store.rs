@@ -5,9 +5,11 @@
 //!   tile made again replaces its cells and frees the old ones.
 //! - **The baked levels' index:** for each level from 32 up, a cell column's entry over the whole map, row by
 //!   row (where its band starts in the pool, its lowest cell, and how many; `NOT_BAKED` till it's baked).
-//! - **The live level's index:** for the live level, a window of cell columns round the camera, wrapping
-//!   round (a column at `(x mod side, y mod side)`), each entry also saying which column it is, so one left
-//!   from a tile the camera has moved off is never read for the column that's taken its place.
+//! - **The live levels' index:** for each live level (from the finest kept up to 16), a window of cell columns
+//!   round the camera, wrapping round (a column at `(x mod side, y mod side)`), each entry also saying which
+//!   column it is, so one left from a tile the camera has moved off is never read for the column that's taken
+//!   its place. Every live level's window is the same cell columns a side (each reaches out to where one of its
+//!   cells is one finest pixel: `store::side_for`), one after the other in the index.
 //! - **The header:** the levels' numbers (`header` in `march.wgsl`).
 //!
 //! The processor writes it all in small pieces (a region's or a tile's worth), queued with the card's own
@@ -76,7 +78,7 @@ impl Pool {
 struct Owners {
     regions: std::collections::HashMap<(i32, i32), (u32, u32)>,
     upper: std::collections::HashMap<(usize, i32, i32), (u32, u32)>,
-    tiles: std::collections::HashMap<(i32, i32), (u32, u32)>,
+    tiles: std::collections::HashMap<(usize, i32, i32), (u32, u32)>,
 }
 
 /// The store on the card.
@@ -87,8 +89,8 @@ pub struct CardStore {
     pub header: wgpu::Buffer,
     /// The baked levels' bounds, and where each one's entries start in `baked`.
     pub extents: Vec<(Extent, u32)>,
-    /// The live level, and its window's cell columns a side.
-    pub live_level: usize,
+    /// The finest live level (the live levels are it up to 16, `FIRST - 1`).
+    pub finest_live: usize,
     /// The window's cell columns a side now (at most `most_side`, what the live index was made for).
     pub side: std::sync::atomic::AtomicI32,
     pub most_side: i32,
@@ -100,9 +102,9 @@ pub struct CardStore {
 }
 
 impl CardStore {
-    /// A store for a map `half` blocks either side of the middle, its live level `live_level` with at most
-    /// `side` cell columns a side. Its indexes start "not baked".
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, half: i32, live_level: usize, side: i32) -> Self {
+    /// A store for a map `half` blocks either side of the middle, its live levels `finest_live` up to 16, each
+    /// with at most `side` cell columns a side. Its indexes start "not baked".
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, half: i32, finest_live: usize, side: i32) -> Self {
         let mut extents = Vec::new();
         let mut entries = 0u32;
         for level in FIRST..=Bake::top(half) {
@@ -120,19 +122,21 @@ impl CardStore {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's baked index"), contents: &words.iter().flat_map(|w: &u32| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
         // Each live entry: start, lowest cell and count, and which column it is (x, y): "none" to begin with.
+        let windows = (FIRST - finest_live) as i32;
         let live = {
-            let mut words: Vec<u32> = Vec::with_capacity((side * side * 4) as usize);
-            for _ in 0..side * side {
+            let mut words: Vec<u32> = Vec::with_capacity((windows * side * side * 4) as usize);
+            for _ in 0..windows * side * side {
                 words.extend([0, NOT_BAKED, i32::MIN as u32, i32::MIN as u32]);
             }
             use wgpu::util::DeviceExt;
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's live index"), contents: &words.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
         let pool = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's cells"), size: POOL_CELLS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        // The header: the first baked level, the top, the live level, its side; then each baked level's
-        // from x, from y, across, and where its entries start.
-        let mut header = vec![FIRST as i32, Bake::top(half) as i32, live_level as i32, side];
-        // (The live index is made for `side`; a smaller window uses the start of it.)
+        // The header: the first baked level, the top, the finest live level, the live windows' side now, and the
+        // most (each level's window starts that squared on from the last); then each baked level's from x, from
+        // y, across, and where its entries start.
+        let mut header = vec![FIRST as i32, Bake::top(half) as i32, finest_live as i32, side, side];
+        // (Each level's part of the live index is made for `side`; a smaller window uses the start of it.)
         for (extent, at) in &extents {
             header.extend([extent.from.0, extent.from.1, extent.across, *at as i32]);
         }
@@ -140,14 +144,24 @@ impl CardStore {
             use wgpu::util::DeviceExt;
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's header"), contents: &header.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
-        Self { pool, baked, live, header, extents, live_level, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+        Self { pool, baked, live, header, extents, finest_live, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
     }
 
     pub fn side(&self) -> i32 {
         self.side.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    /// The live window made `side` a side (the grid changed): its tiles given back and its entries cleared,
+    /// Whether `level` is kept live.
+    pub fn is_live(&self, level: usize) -> bool {
+        (self.finest_live..FIRST).contains(&level)
+    }
+
+    /// How far the live level `level` reaches from the camera (blocks: half its window).
+    pub fn reach(&self, level: usize) -> f32 {
+        (self.side() << level) as f32 / 2.0
+    }
+
+    /// The live windows made `side` a side (the grid changed): their tiles given back and entries cleared,
     /// so nothing left from the old window is ever read.
     pub fn reset_live(&self, side: i32) {
         let side = side.min(self.most_side);
@@ -156,7 +170,8 @@ impl CardStore {
         for (_, (start, n)) in owners.tiles.drain() {
             pool.give(start, n);
         }
-        let none: Vec<u8> = (0..self.most_side * self.most_side).flat_map(|_| [0u32, NOT_BAKED, i32::MIN as u32, i32::MIN as u32]).flat_map(|w| w.to_le_bytes()).collect();
+        let windows = (FIRST - self.finest_live) as i32;
+        let none: Vec<u8> = (0..windows * self.most_side * self.most_side).flat_map(|_| [0u32, NOT_BAKED, i32::MIN as u32, i32::MIN as u32]).flat_map(|w| w.to_le_bytes()).collect();
         self.queue.write_buffer(&self.live, 0, &none);
         self.queue.write_buffer(&self.header, 12, &side.to_le_bytes());
         self.side.store(side, std::sync::atomic::Ordering::Relaxed);
@@ -235,16 +250,19 @@ impl CardStore {
     }
 
     /// A live tile's cell columns (`TILE` × `TILE`, x fastest, each its lowest cell and its cells) put on the
-    /// card at tile (`tx`, `ty`) of the live level; the place a tile had there before given back.
-    pub fn put_tile(&self, tx: i32, ty: i32, tile: u32, columns: &[(i32, Vec<Cell>)]) {
+    /// card at tile (`tx`, `ty`) of the live level `level`; the place a tile had there before given back.
+    pub fn put_tile(&self, level: usize, tx: i32, ty: i32, tile: u32, columns: &[(i32, Vec<Cell>)]) {
+        if !self.is_live(level) {
+            return;
+        }
         let total: usize = columns.iter().map(|(_, c)| c.len()).sum();
-        let top = columns.iter().filter(|(_, c)| !c.is_empty()).map(|(low, cells)| (low + cells.len() as i32) << self.live_level).max().unwrap_or(0);
+        let top = columns.iter().filter(|(_, c)| !c.is_empty()).map(|(low, cells)| (low + cells.len() as i32) << level).max().unwrap_or(0);
         self.highest.fetch_max(top, std::sync::atomic::Ordering::Relaxed);
         let Ok(mut places) = self.places.lock() else { return };
         let (pool, owners) = &mut *places;
         // The slot the tile takes in the wrapping window: whatever tile was there is given back.
         let side = self.side();
-        let slot = (tx.rem_euclid(side / tile as i32), ty.rem_euclid(side / tile as i32));
+        let slot = (level, tx.rem_euclid(side / tile as i32), ty.rem_euclid(side / tile as i32));
         if let Some((start, n)) = owners.tiles.remove(&slot) {
             pool.give(start, n);
         }
@@ -261,9 +279,10 @@ impl CardStore {
             rows[i / tile as usize].extend([entry[0], entry[1], cx as u32, cy as u32].iter().flat_map(|w| w.to_le_bytes()));
         }
         self.queue.write_buffer(&self.pool, start as u64 * 16, &bytes);
+        let window = (level - self.finest_live) as u64 * (self.most_side * self.most_side) as u64;
         for (row, data) in rows.iter().enumerate() {
             let (x, y) = ((tx * tile as i32).rem_euclid(side), (ty * tile as i32 + row as i32).rem_euclid(side));
-            self.queue.write_buffer(&self.live, ((y * side + x) as u64) * 16, data);
+            self.queue.write_buffer(&self.live, (window + (y * side + x) as u64) * 16, data);
         }
     }
 

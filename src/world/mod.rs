@@ -511,8 +511,14 @@ fn fresh_sight(world: &mut World, _seed: u64) {
     world.resource_mut::<SightKept>().0 = None;
 }
 
-/// The live level the first sight reads (cells of 16 blocks; the finer ones come in 3.3, one a build).
-const LIVE_LEVEL: usize = 4;
+/// The finest live level sight reads (3.3, a level a build: cells of 8 blocks, then 4, 2 and 1); the live levels
+/// are it up to 16.
+const FINEST_LIVE: usize = 3;
+
+/// The live levels kept round the camera: the finest up to 16.
+fn live_levels() -> Vec<usize> {
+    (FINEST_LIVE..crate::sight::bake::FIRST).collect()
+}
 
 /// How long a region is left alone after an edit before it's baked again.
 const EDITS_SETTLE: f32 = 2.0;
@@ -549,7 +555,7 @@ fn keep_sight(
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
         // The store on the card: its live window made for the finest grid, used as far as the grid asks.
         let grid = settings.sight_grid();
-        let store = Arc::new(crate::sight::card_store::CardStore::new(device, queue, half, LIVE_LEVEL, crate::sight::store::side_for(2)));
+        let store = Arc::new(crate::sight::card_store::CardStore::new(device, queue, half, FINEST_LIVE, crate::sight::store::side_for(2)));
         store.reset_live(crate::sight::store::side_for(grid));
         let maker = crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone(), card: Some(store.clone()) };
         *sight = SightStore::default();
@@ -563,7 +569,7 @@ fn keep_sight(
             sight.baking = jobs;
         }
         sight.maker = Some(maker);
-        sight.live = Some(crate::sight::store::LiveStore::new(vec![LIVE_LEVEL], crate::sight::store::side_for(grid)));
+        sight.live = Some(crate::sight::store::LiveStore::new(live_levels(), crate::sight::store::side_for(grid)));
     }
     // A new grid: the live window sized for it, filled again.
     let grid = settings.sight_grid();
@@ -572,7 +578,7 @@ fn keep_sight(
     {
         let side = crate::sight::store::side_for(grid);
         store.reset_live(side);
-        sight.live = Some(crate::sight::store::LiveStore::new(vec![LIVE_LEVEL], side));
+        sight.live = Some(crate::sight::store::LiveStore::new(live_levels(), side));
         sight.grid = grid;
     }
     // Edits: their regions baked again once left alone a while.

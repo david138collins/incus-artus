@@ -679,6 +679,17 @@ back to.
   slope tests dropped** [David 2026-11-06: "im not worried about the slope tests at all now that i see it in
   person"]. The test that draws off the screen (`sight_scene`, `sight_picture`) is what the
   45° and 30° slope tests will use.
+  **3.3, finer cells near the eye, the first step BUILT, build 75: cells of 8.** The store on the card keeps several
+  live levels now, the finest (`world::FINEST_LIVE`, 3) up to 16, each its own wrapping window in the live index, all
+  the same cell columns a side (each reaches to where one of its cells is one finest pixel: at 2 × 2, 672 columns, so
+  cells of 8 reach 2,688 blocks and 16s 5,376). The header gained the windows' most side (`header[4]`; the baked
+  levels' entries now from 5). The march reads the level its pixel asks for and, where that one isn't there (past
+  its window, or not made yet), the next coarser, level by level down to the bake. The pyramid's "worth it" knows
+  the cell sizes by distance: 8 inside the 8s' reach, 16 inside twice that, the bake's 32 past them; so the 4 × 4
+  layer now starts at about 1,340 blocks instead of 2,680. A tile of 8s takes about 34 + 40 ms to make (16s: 88 +
+  88). **Measured, uncapped, finest 2 × 2, mid-bake, flying the soak:** about 219 to 248 fps, the same as build 74.
+  The level-tint view shows all the near ground read from the 8s. Next, on his word: cells of 4, then 2 and 1 (with
+  the pyramid's 1 × 1 layer).
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

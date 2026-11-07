@@ -197,7 +197,7 @@ impl SightDraw {
             0.0
         };
         // How far the live level reaches (blocks): half its window.
-        let live_reach = (store.side() << store.live_level) as f32 / 2.0;
+        let live_reach = store.reach(store.finest_live);
         let screen_pixel = 2.0 * tan_half / screen.1.max(1) as f32;
         let targets = self.targets.as_ref().expect("made above");
         for (k, layer) in targets.layers.iter().enumerate() {

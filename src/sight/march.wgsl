@@ -29,7 +29,8 @@ struct Camera {
     tiles: vec4<f32>,
     // The screen pyramid (David 2026-11-06: "1 - 2 - 4 - 8"): x the layer above's width in its pixels (0: this is
     // the 8 × 8 base, everything marched); y 1 if a finer layer follows (this layer says where it's worth it); z
-    // the rule (0 refine everywhere, 1 only where it's earned); w how far the live level reaches (blocks).
+    // the rule (0 refine everywhere, 1 only where it's earned); w how far the finest live level reaches (blocks;
+    // each coarser one reaches twice as far).
     layer: vec4<f32>,
 }
 
@@ -108,19 +109,26 @@ fn from_band(entry_start: u32, low_count: u32, cz: i32) -> Look {
     return cell_of(pool[entry_start + u32(cz - low)]);
 }
 
-// The cell at `c` (cell indices) of `level`: from the live window, or the baked levels; `known` false if it
+// Where the live level `level`'s column (`cx`, `cy`) is in the live index: its window (each `header[4]` squared
+// on from the last), then its place in the wrapping window.
+fn live_slot(level: i32, cx: i32, cy: i32) -> vec4<u32> {
+    let side = header[3];
+    let window = u32(level - header[2]) * u32(header[4] * header[4]);
+    return live[window + u32((((cy % side) + side) % side) * side + (((cx % side) + side) % side))];
+}
+
+// The cell at `c` (cell indices) of `level`: from the live windows, or the baked levels; `known` false if it
 // isn't there yet.
 fn cell_at(level: i32, c: vec3<i32>) -> Look {
-    if (level == header[2]) {
-        let side = header[3];
-        let slot = live[(((c.y % side) + side) % side) * side + (((c.x % side) + side) % side)];
+    if (level < header[0]) {
+        let slot = live_slot(level, c.x, c.y);
         if (bitcast<i32>(slot.z) != c.x || bitcast<i32>(slot.w) != c.y) {
             return empty_look(false);
         }
         return from_band(slot.x, slot.y, c.z);
     }
     let k = level - header[0];
-    let base = 4 + 4 * k;
+    let base = 5 + 4 * k;
     let x = c.x - header[base];
     let y = c.y - header[base + 1];
     let across = header[base + 2];
@@ -135,16 +143,15 @@ fn cell_at(level: i32, c: vec3<i32>) -> Look {
 // A cell column's entry at `level`: where its band is in the pool, and its lowest cell and count (`NOT_BAKED`
 // if it isn't there yet).
 fn entry_at(level: i32, cx: i32, cy: i32) -> vec2<u32> {
-    if (level == header[2]) {
-        let side = header[3];
-        let slot = live[(((cy % side) + side) % side) * side + (((cx % side) + side) % side)];
+    if (level < header[0]) {
+        let slot = live_slot(level, cx, cy);
         if (bitcast<i32>(slot.z) != cx || bitcast<i32>(slot.w) != cy) {
             return vec2<u32>(0u, NOT_BAKED);
         }
         return slot.xy;
     }
     let k = level - header[0];
-    let base = 4 + 4 * k;
+    let base = 5 + 4 * k;
     let x = cx - header[base];
     let y = cy - header[base + 1];
     let across = header[base + 2];
@@ -368,8 +375,9 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             continue;
         }
         var look = blend(level, p);
-        // The live level not there (past its window, or not made yet): the first baked one.
-        if (!look.known && level == header[2]) {
+        // A live level not there (past its window, or not made yet): the next coarser, down to the first baked
+        // one.
+        for (var up = 0; up < 4 && !look.known && level < header[0]; up++) {
             level = level + 1;
             look = blend(level, p);
         }
@@ -596,7 +604,17 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (camera.layer.y > 0.5) {
         var worth = select(0.0, 1.0, camera.layer.z < 0.5);
         if (camera.layer.z > 0.5 && near < camera.reach.x) {
-            let cell = select(32.0, 16.0, near < camera.layer.w);
+            // The cells read there: the finest live level's inside its reach, each coarser one's in twice that,
+            // and the bake's 32 past the live levels.
+            var cell = f32(1 << u32(header[2]));
+            var reach = camera.layer.w;
+            for (var k = 0; k < 4 && near >= reach && cell < 16.0; k++) {
+                cell *= 2.0;
+                reach *= 2.0;
+            }
+            if (near >= reach) {
+                cell = 32.0;
+            }
             worth = clamp(near * camera.view.z * 0.5 / cell - 1.0, 0.0, 1.0);
         }
         worth_out[id.y * size.x + id.x] = u32(round(worth * 255.0));

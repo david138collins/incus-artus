@@ -279,8 +279,8 @@ impl LiveStore {
                 let tile = fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key);
                 let size = key.size() as u32;
                 let columns: Vec<(i32, Vec<super::cell::Cell>)> = tile.columns.iter().map(|c| (c.low, c.sums.iter().map(|s| s.compact(size)).collect())).collect();
-                if let Some(card) = maker.card.as_ref().filter(|card| card.live_level == key.level) {
-                    card.put_tile(key.x, key.y, TILE as u32, &columns);
+                if let Some(card) = &maker.card {
+                    card.put_tile(key.level, key.x, key.y, TILE as u32, &columns);
                 }
                 Made { cells: tile.cells(), took: tile.took }
             });
