@@ -86,6 +86,25 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   - **Lacrimae Mundi**, "the Tears of the World".
   - **Malleus Verbi**, "the Hammer of the Word". *Counsel:* it pairs with the game's own name. Incus is the anvil, and
     Malleus is the hammer that strikes it.
+- **[IDEA 2026-11-08] Threads from Excalibur (1981) and Blake,** kept for later. David asked for them to be saved
+  after Counsel's review of the film. They're echoes, not decisions:
+  - **The player as an Arthur.** Uther's lust begets Arthur, who is taken away with his origins unknown. Fire's son
+    by a mortal woman wakes 18 on a road. The God of Fire is Uther seen from the other side, the father who never
+    shows up. Mordred, born of a forbidden union and coming for the king, sits close to Darkness telling you who you
+    are.
+  - **The land and the king are one.** A ruler's state shows in the land: a wounded king's realm turns to
+    wasteland, and a healed one blossoms. This is the projection principle as lore. It could be literal, with a
+    kingdom's health and the darkness layer showing in the land itself (orchards withering, rivers greying,
+    weirdness rising).
+  - **The Dragon and the word.** Merlin's Dragon is a hidden power everywhere at once, the metaphysical world, and
+    the Charm of Making is the spoken word that wakes it. Those are echoes for *Malleus Verbi* (a hammer of the word)
+    and *Lacrimae Mundi* (the world grieving around a wounded king).
+  - **Magic passes as the age turns.** Merlin knows the old powers are giving way. Morgana takes the charm from
+    him: knowledge of the word passes on whether the teacher wants it to or not. This fits the Age of Strife.
+  - **Blake's forge.** Los, the blacksmith-prophet of imagination, forges the world's forms with hammer and anvil
+    (*Malleus* and *Incus*). Blake also wrote that Arthur's acts are those of Albion, the giant who is Britain.
+  - **Colour that means.** Boorman lit his forest an unnatural green and used gold and grey for meaning, not
+    realism: chosen colours, as in the graphics goal.
 
 ## Pacing: the Dungeonmaster  [IDEA]
 
