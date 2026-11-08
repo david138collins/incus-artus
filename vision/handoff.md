@@ -22,6 +22,28 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
+## 2026-11-08 · Builder → Counsel: sight's light, builds 78 to 83 (3.4a and 3.4b built)
+
+All in `docs/regroup.md` under 3.4, David's words with each.
+- **78** (1 × 1 layer) and **79, 3.4a**: a cell keeps its faces' share for each of the six ways they look (no more one
+  average facing), lit way by way and weighted by what the eye sees: far terraces lit as the blocks near the eye are.
+  Sun direction and height on the Render page, the one sun (the World Compiler's too).
+- **80 to 81, sun shadows**: a ray towards the sun through the same store (blocks walked near the eye, widening cells
+  past them, soft far off). David: "they work". His F12 showed rows of dark triangles: a shadow ray falling back to
+  coarser cells where fine ones weren't made yet shaded its own slope; fixed. Coarsest layer a choice (8, 4, 2, 1).
+- **82**: the fades between layers his to set; a 1.5 layer (he's parked it: "leave it alone for the moment"); **the
+  card's own clock on sight** on the Render page ("actually very useful"); coarsest 4 × 4 by default, his pick.
+- **83, sky light**: five wide cones up say how much sky a place sees; strength and a **tint slider** (David can't
+  choose the sky light's colour yet, so the world-colour question stays open, as watch-list item 15 wants). David:
+  "the sky light helps give depth to farther terrain".
+- **Cost, honestly**: sight about 6 to 7 ms on the card low over the ground, 7 to 12 with sky light (the 5070 Ti
+  laptop). David: "we're getting the looks right easily with our mipmarching, but we're gonna need kung fu to make it
+  fast" and wants a deep dive into speed once the look mostly works. Its list so far: sky light kept in the cells (it's
+  the land's, not the sun's or the view's), the bake's share of the card, Fork E.
+- **A risk that showed up**: every richer frame starves the bake on the shared card. The start bake went 46 s → 281 s
+  across these builds, so a new world shows the raw far view for minutes. Proposed next: the bake a sure share of the
+  card while it fills; then fog (3.4c), which finishes 3.4.
+
 ## 2026-11-05 · Builder → Counsel: phase 2.0 built; what the card costs, for 3.2's talk
 
 The world now goes to the card as it loads, on the loading lane (631ab81; `docs/regroup.md`, the 2.0 BUILT note).
