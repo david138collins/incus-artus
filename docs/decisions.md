@@ -1183,6 +1183,27 @@ below disagree with this one, this one stands.
   - **Inside rock, not a concern** [David 2026-11-06]: "don't worry about flying through the rock and the crazy
     average-world, i was just telling council how interesting it was." No rule is made for what the eye sees
     inside solid ground.
+  - **Look first, then the dyno** [David 2026-11-08, after build 83]: "we are still installing the crankshaft on
+    the holographics engine. i want to get it looking rightish and as fleshed out as possible before we put it on
+    the engine dyno and begin to, in a scientific way, first thoroughly inspect our renderer and how it uses the
+    gpu - look for ways to sort rays by length and match them to warps of similar length to avoid workers waiting
+    for example - and then begin adding power through forced induction until we hit our goal and it doesnt blow a
+    headgasket. things like taa i think can be applied artfully to great and even mission critical advantage". So
+    the speed deep dive has three parts, in order:
+    1. **The look**, as fleshed out as it can get first.
+    2. **Inspection**, done scientifically: how the renderer uses the card, measured before anything changes.
+       This covers warps waiting on their slowest ray (divergence) and on memory, Nvidia's Nsight Graphics, and
+       a view of each tile's slowest ray against its average. One idea to try is sorting rays by length so a warp
+       holds rays of similar length.
+    3. **Adding power**, one measured step at a time, until the goal is reached without breaking anything.
+       Temporal reuse (TAA/TRAA) is a main candidate: last frame's colours, and rays starting just short of where
+       last frame's rays hit. David's rules for it:
+       - Anything that moves fast or unpredictably (animals, monsters, people, effects) never takes from history:
+         "for everything else it would look fine or good".
+       - Pixels with no history are known before any ray is shot, and get rays first from a fixed budget each
+         frame: coarse at first, sharpened over the next frames ("fast is slow, smooth is fast").
+       - History is dropped wherever a block is edited or the light on a place changes.
+       - The hard block faces near the eye stay crisp.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
