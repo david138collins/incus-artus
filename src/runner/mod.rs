@@ -434,6 +434,9 @@ impl Runner {
                     earned: kept.sight_earned(),
                     sun: kept.sun().to_array(),
                     shadows: kept.sight_shadows(),
+                    sky: kept.sight_sky(),
+                    sky_strength: kept.sight_sky_strength(),
+                    sky_tint: kept.sight_sky_tint(),
                 };
                 (store, eye)
             })

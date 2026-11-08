@@ -44,6 +44,9 @@ struct Camera {
     // Past the blocks, the one below's fade in: x where it starts (its pixel so many times its cells), y over how
     // many doublings of distance.
     fade: vec4<f32>,
+    // Sky light (3.4b): x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1
+    // a sky blue), w how wide its cones are (blocks across a block of distance).
+    sky: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -56,7 +59,8 @@ struct Camera {
 // Where each tile's rays start (the start pass's answers).
 @group(0) @binding(7) var<storage, read_write> starts: array<f32>;
 // The pyramid: how much each of the layer above's pixels says its children are worth (255ths: 0 not marched, 255
-// shown whole), and this layer's word for the layer below.
+// shown whole) in its low 8 bits, its sky light handed down over them (`sky_word`, 3.4b; in the same word, as a
+// shader may have only 8 storage buffers), and this layer's word for the layer below.
 @group(0) @binding(8) var<storage, read> worth_in: array<u32>;
 @group(0) @binding(9) var<storage, read_write> worth_out: array<u32>;
 // The layer above's distances (the base: a placeholder never read).
@@ -504,18 +508,73 @@ struct Seen {
     wide: f32,
     facing: vec3<f32>,
     on_block: bool,
+    // The sky's part of `colour` (the light that isn't the sun's, on the surfaces gathered: what sky light scales).
+    skyish: vec3<f32>,
     // Where it first touched anything (a finer layer's rays start short of it: before the soft edge of what it
     // read, not inside it).
     touched: f32,
 }
 
-// A ray's colour with its shadow.
-fn shaded(seen: Seen) -> vec3<f32> {
+// A ray's colour with its shadow and its sky light (`open`: how much of the sky it sees, 0 to 1).
+fn shaded(seen: Seen, open: f32) -> vec3<f32> {
     if (seen.wide <= 0.0) {
         return seen.colour;
     }
-    let sun = sunlight(seen.at, seen.wide, seen.facing, seen.on_block);
-    return seen.colour - seen.sunny * (1.0 - sun);
+    var colour = seen.colour;
+    if (camera.follow.y > 0.5) {
+        colour -= seen.sunny * (1.0 - sunlight(seen.at, seen.wide, seen.facing, seen.on_block));
+    }
+    // The sky's part: as much as the place sees of the sky (David's strength), tinted (his tint, white to a sky blue).
+    let sky = select(1.0, mix(1.0, open, camera.sky.y), camera.sky.x > 0.5);
+    let tint = mix(vec3<f32>(1.0), SKY_TINT, camera.sky.z);
+    return colour + seen.skyish * (sky * tint - 1.0);
+}
+
+// What kind of surface a ray's sky light was for: 0 the cells, 1 to 6 a block's face by its facing (a finer pixel
+// takes its parent's sky only for the same kind).
+fn surface_kind(seen: Seen) -> u32 {
+    if (!seen.on_block) {
+        return 0u;
+    }
+    let f = seen.facing;
+    if (abs(f.x) > 0.5) {
+        return select(2u, 1u, f.x > 0.0);
+    }
+    if (abs(f.y) > 0.5) {
+        return select(4u, 3u, f.y > 0.0);
+    }
+    return select(6u, 5u, f.z > 0.0);
+}
+
+// A pixel's sky light as handed down: its kind (3 bits) over its sky seen in 65,535ths; `NO_SKY` none.
+const NO_SKY: u32 = 0x70000u;
+
+fn sky_word(kind: u32, open: f32) -> u32 {
+    return (kind << 16u) | u32(round(clamp(open, 0.0, 1.0) * 65535.0));
+}
+
+// ── Sky light (3.4b's second half, David 2026-11-08: "tint slider is fine") ──
+//
+// The light from the sky isn't the same everywhere: a ridge sees all of it, a valley floor less, the foot of a cliff
+// half, an overhang's underside none. Five wide cones up through the store, one straight up and four leaning 50°
+// out (north, east, south, west), each weighted by how high it looks (the sky overhead lights a flat surface most),
+// say how much of the sky a place sees. Wide (`camera.sky.w` a block of distance), so they take few steps and see
+// the land round about softly, as sky light is.
+
+// The tint at its fullest: a sky blue as bright as white (its brightness 1), so a tinted shade is cooler, not darker.
+const SKY_TINT: vec3<f32> = vec3<f32>(0.84, 1.01, 1.40);
+// The most steps a sky cone takes.
+const SKY_STEPS: i32 = 40;
+
+fn sky_seen(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> f32 {
+    let lean = sin(radians(50.0));
+    let rise = cos(radians(50.0));
+    var seen = cone(p, footprint, facing, on_block, vec3<f32>(0.0, 0.0, 1.0), camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(lean, 0.0, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(-lean, 0.0, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(0.0, lean, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(0.0, -lean, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    return seen / (1.0 + 4.0 * rise);
 }
 
 // A number from 0 to 1 for a pixel, steady from frame to frame (a hash of its place).
@@ -545,7 +604,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             steps = h.steps;
             if (h.met) {
                 // The face met: its shadow from the blocks themselves first.
-                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, min(h.first, h.t));
+                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, h.colour - h.sunny, min(h.first, h.t));
             }
             colour = h.colour;
             sunny = h.sunny;
@@ -739,6 +798,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         chained = look.known;
         t += dt;
     }
+    // What the surfaces gave (the sky behind them added after).
+    let gathered = colour;
     colour += through * sky(d);
     // The shadow where the ray was half covered (the surface it shows), on everything it gathered; the shadow ray
     // as wide as the cells the surface was read from (or the eye's pixel there, if wider). None: nothing met.
@@ -747,7 +808,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
         wide = max(first * camera.view.z, read);
     }
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, touched);
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched);
 }
 
 // ── Sun shadows (3.4b, David 2026-11-08: "proceed") ──
@@ -764,23 +825,26 @@ const SHADOW_STEPS: i32 = 160;
 // How far the blocks are walked towards the sun from a face, at most (blocks).
 const SHADOW_BLOCKS: f32 = 128.0;
 
-// `p` the place; `footprint` the eye's pixel there (blocks); `facing` the face's (on a block, `on_block`).
+// How much of the sun reaches `p` (`footprint` the eye's pixel there, blocks; `facing` the face's, on a block).
 fn sunlight(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> f32 {
-    let s = camera.sun.xyz;
-    if (camera.follow.y < 0.5) {
-        return 1.0;
-    }
+    // A face turned from the sun has no sun to lose.
+    return cone(p, footprint, facing, on_block, camera.sun.xyz, camera.follow.z, SHADOW_BLOCKS, 1.0, SHADOW_STEPS);
+}
+
+// How open the way `s` is from `p`, 0 to 1: a ray widening `spread` a block of distance, reading the store as wide
+// as it is. On a block's face, the blocks walked first out to `blocks` (0: none), and `away` if the face looks away
+// from `s`. The sun's shadow ray and the sky's cones (3.4b) are both this.
+fn cone(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool, s: vec3<f32>, spread: f32, blocks: f32, away: f32, most: i32) -> f32 {
     var o = p;
     var t = 0.0;
     if (on_block) {
-        // A face turned from the sun has no sun to lose.
         if (dot(facing, s) <= 0.0) {
-            return 1.0;
+            return away;
         }
-        // Off the face a hair, then the blocks walked towards the sun.
+        // Off the face a hair, then (for the sun) the blocks walked.
         o = p + facing * 0.01;
-        if (header[2] == 0 && is_kept(0)) {
-            let h = hard(o, s, 0.0, min(camera.layer.w, SHADOW_BLOCKS));
+        if (blocks > 0.0 && header[2] == 0 && is_kept(0)) {
+            let h = hard(o, s, 0.0, min(camera.layer.w, blocks));
             if (h.met) {
                 return 0.0;
             }
@@ -797,12 +861,12 @@ fn sunlight(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> 
     }
     var light = 1.0;
     let top = world_top() + 1.0;
-    for (var n = 0; n < SHADOW_STEPS; n++) {
+    for (var n = 0; n < most; n++) {
         let q = o + s * t;
         if (q.z > top || t > camera.reach.x) {
             break;
         }
-        let wide = max(footprint, t * camera.follow.z);
+        let wide = max(footprint, t * spread);
         var level = kept(clamp(i32(floor(log2(max(wide, 1.0)))), header[2], header[1]));
         // Over a column's top: on to where it leaves that column, the biggest it's over the top of, tried from the
         // coarsest level down to two coarser than it reads [2026-11-08: two coarser alone, a sunlit place's ray
@@ -948,6 +1012,39 @@ fn to_srgb(c: vec3<f32>) -> vec3<f32> {
     return select(high, low, c <= vec3<f32>(0.0031308));
 }
 
+// How much the layer below is worth where this layer's surface is `near` off, read from cells of `level` (0 to 1;
+// 1: it's laid over this whole). Nothing while its pixels would be smaller than the cells they'd read (finer than
+// the cells, they only magnify the blend into smudge: David's bands, "2 looks worse than 4, up close"); rising to all
+// of it as they grow bigger, so the change of pixel size fades in rather than drawing a ring round the eye; never
+// for sky; nothing if there's no layer below.
+fn worth_of(near: f32, level: i32) -> f32 {
+    if (camera.layer.y < 0.5) {
+        return 0.0;
+    }
+    if (camera.layer.z < 0.5) {
+        return 1.0;
+    }
+    if (near >= camera.reach.x || level < 0) {
+        return 0.0;
+    }
+    // The cells this pixel's surface was read from (not the finest that could be there: where a live level's tile
+    // isn't made yet, a finer pixel over the coarser cells read instead only smudges, and cost the most
+    // [2026-11-07: with the 8s and 16s not made, about 96 fps hovering against 125]).
+    let cell = f32(1 << u32(level));
+    if (cell <= 1.0) {
+        // Blocks as blocks: a finer pixel always shows more of them (their edges; later their faces), fading out
+        // towards the edge of the blocks' reach so the change of pixel size isn't a ring (by default over its last
+        // quarter; where is David's to set, each layer its own).
+        let begins = camera.pyramid.z * camera.layer.w;
+        let ends = camera.pyramid.w * camera.layer.w;
+        return clamp((ends - near) / max(ends - begins, 1e-3), 0.0, 1.0);
+    }
+    // Past them: in as the finer pixel grows bigger than the cells (by default from as big as them, over one
+    // doubling of distance; where and how long are David's to set).
+    let ratio = near * camera.view.z * camera.pyramid.y / cell;
+    return clamp((ratio / camera.fade.x - 1.0) / max(exp2(camera.fade.y) - 1.0, 1e-3), 0.0, 1.0);
+}
+
 @compute @workgroup_size(8, 8)
 fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = vec2<u32>(camera.view.xy);
@@ -961,13 +1058,13 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     let parent = min(vec2<u32>((vec2<f32>(id.xy) + 0.5) * camera.pyramid.x), vec2<u32>(u32(max(camera.layer.x, 1.0)) - 1u, 65535u));
     if (camera.layer.x > 0.0) {
         let above = parent;
-        let worth = worth_in[above.y * u32(camera.layer.x) + above.x];
+        let worth = worth_in[above.y * u32(camera.layer.x) + above.x] & 0xFFu;
         shown = f32(worth) / 255.0;
         if (worth == 0u) {
             textureStore(picture, vec2<i32>(id.xy), vec4<f32>(0.0));
             textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
             if (camera.layer.y > 0.5) {
-                worth_out[id.y * size.x + id.x] = 0u;
+                worth_out[id.y * size.x + id.x] = NO_SKY << 8u;
             }
             return;
         }
@@ -998,7 +1095,8 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     var touch = camera.reach.x;
     var steps = 0.0;
     var level = -1;
-    var seens: array<Seen, 4>;
+    var colour = vec3<f32>(0.0);
+    var handed = NO_SKY;
     for (var r = 0u; r < rays; r++) {
         // One ray at the middle; four at the middles of the pixel's quarters.
         var offset = vec2<f32>(0.5, 0.5);
@@ -1010,7 +1108,38 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         let y = 1.0 - uv.y * 2.0;
         let d = normalize(camera.forward.xyz + x * camera.right.xyz + y * camera.up.xyz);
         let seen = march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)), begin);
-        seens[r] = seen;
+        // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it), by its own
+        // worth [2026-11-08: the rays kept till the pixel's worth was known made each pixel's work heavy on the
+        // card, about 2 to 3 ms with the sky's part added].
+        let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
+        // Its sky light, where it shows or the layer below may take it: its parent's, if that was for the same kind
+        // of surface about as far off (sky light changes slowly: most finer pixels take it, and only edges and
+        // silhouettes look for themselves) [2026-11-08: every pixel looking for itself, the blocks near the eye at
+        // 2 × 2 cost about 7 ms low over the ground; the far cells about 1].
+        var open = 1.0;
+        if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
+            let kind = surface_kind(seen);
+            var have = false;
+            if (camera.layer.x > 0.0) {
+                let above = worth_in[parent.y * u32(camera.layer.x) + parent.x] >> 8u;
+                let parent_touch = textureLoad(far_above, vec2<i32>(parent), 0).x;
+                if (above != NO_SKY && (above >> 16u) == kind && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
+                    open = f32(above & 0xFFFFu) / 65535.0;
+                    have = true;
+                }
+            }
+            if (!have) {
+                open = sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+            }
+            if (r == 0u) {
+                handed = sky_word(kind, open);
+            }
+        }
+        if (hidden) {
+            colour += seen.colour;
+        } else {
+            colour += shaded(seen, open);
+        }
         near = min(near, seen.distance);
         touch = min(touch, seen.touched);
         steps += seen.steps;
@@ -1020,39 +1149,8 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // (finer than the cells, they only magnify the blend into smudge: David's bands, "2 looks worse than 4, up
     // close"); rising to all of it over the next doubling of distance, so the change of pixel size fades in rather
     // than drawing a ring round the eye; never for sky.
-    var worth = 0.0;
     if (camera.layer.y > 0.5) {
-        worth = select(0.0, 1.0, camera.layer.z < 0.5);
-        if (camera.layer.z > 0.5 && near < camera.reach.x && level >= 0) {
-            // The cells this pixel's surface was read from (not the finest that could be there: where a live
-            // level's tile isn't made yet, a finer pixel over the coarser cells read instead only smudges, and cost
-            // the most [2026-11-07: with the 8s and 16s not made, about 96 fps hovering against 125]).
-            let cell = f32(1 << u32(level));
-            if (cell <= 1.0) {
-                // Blocks as blocks: a finer pixel always shows more of them (their edges; later their faces),
-                // fading out towards the edge of the blocks' reach so the change of pixel size isn't a ring (by
-                // default over its last quarter; where is David's to set, each layer its own).
-                let begins = camera.pyramid.z * camera.layer.w;
-                let ends = camera.pyramid.w * camera.layer.w;
-                worth = clamp((ends - near) / max(ends - begins, 1e-3), 0.0, 1.0);
-            } else {
-                // Past them: in as the finer pixel grows bigger than the cells (by default from as big as them,
-                // over one doubling of distance; where and how long are David's to set).
-                let ratio = near * camera.view.z * camera.pyramid.y / cell;
-                worth = clamp((ratio / camera.fade.x - 1.0) / max(exp2(camera.fade.y) - 1.0, 1e-3), 0.0, 1.0);
-            }
-        }
-        worth_out[id.y * size.x + id.x] = u32(round(worth * 255.0));
-    }
-    // The shadows, only where this pixel shows (a finer layer laid over it whole hides it).
-    var colour = vec3<f32>(0.0);
-    let hidden = round(worth * 255.0) >= 255.0;
-    for (var r = 0u; r < rays; r++) {
-        if (hidden) {
-            colour += seens[r].colour;
-        } else {
-            colour += shaded(seens[r]);
-        }
+        worth_out[id.y * size.x + id.x] = u32(round(worth_of(near, level) * 255.0)) | (handed << 8u);
     }
     colour /= f32(rays);
     if (camera.reach.z > 1.5 && level >= 0) {

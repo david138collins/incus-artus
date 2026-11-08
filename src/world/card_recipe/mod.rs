@@ -1077,7 +1077,7 @@ fn ground(c: Case) -> i32 {
         let size = (640, 400);
         let pitch = -40f32.to_radians();
         // Up by a fraction of a block at a time (the cells' layering is what a ray's steps meet).
-        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, ..Default::default() };
+        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, sky: false, ..Default::default() };
         let pictures: Vec<Vec<[u8; 3]>> = (0..6).map(|k| sight_picture(&device, &queue, &store, size, eye(400.0 + k as f32 * 1.37))).collect();
         // From just under the horizon (row 32 at 40° down) to the bottom: all sea.
         let first_row = 40u32;
@@ -1143,7 +1143,7 @@ fn ground(c: Case) -> i32 {
         let behind = [0.0, -low.cos(), low.sin()];
         let middle = |height: f32, pitch: f32, sun: [f32; 3], shadows: bool| {
             let pitch = pitch.to_radians();
-            let eye = crate::sight::draw::Eye { position: [0.0, 0.0, height], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 60.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun, shadows, ..Default::default() };
+            let eye = crate::sight::draw::Eye { position: [0.0, 0.0, height], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 60.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun, shadows, sky: false, ..Default::default() };
             let picture = sight_picture(&device, &queue, &store, size, eye);
             let p = picture[(size.1 / 2 * size.0 + size.0 / 2) as usize];
             p[0] as f32 * 0.2 + p[1] as f32 * 0.7 + p[2] as f32 * 0.1
@@ -1160,6 +1160,49 @@ fn ground(c: Case) -> i32 {
         }
     }
 
+    /// Sight's sky light (3.4b): the plain at the foot of a ridge sees less of the sky than the open plain, and
+    /// is darker for it; the open plain hardly changes; and the tint makes the sky's part bluer, not darker.
+    #[test]
+    #[ignore]
+    fn sight_s_sky_light_darkens_the_foot_of_a_ridge() {
+        // The ridge test's scene: the plain at 150, a ridge at 320 from 384 to 640 east.
+        let Some((device, queue, store, _map)) = sight_scene(64.0, |x| if (30..34).contains(&x) { 320.0 } else { 150.0 }) else {
+            eprintln!("No graphics card: sight's sky light test is skipped");
+            return;
+        };
+        let size = (320, 200);
+        let pitch = -60f32.to_radians();
+        // The middle pixel from 100 over the plain at `east`, looking north 60° down (the ground 58 north of it).
+        let middle = |east: f32, sky: bool, tint: f32| {
+            let eye = crate::sight::draw::Eye {
+                position: [0.0, east, 250.0],
+                looking: [pitch.cos(), 0.0, pitch.sin()],
+                field_of_view: 60.0,
+                grid: 2.0,
+                coarsest: 8,
+                shadows: false,
+                sky,
+                sky_strength: 1.0,
+                sky_tint: tint,
+                ..Default::default()
+            };
+            let picture = sight_picture(&device, &queue, &store, size, eye);
+            picture[(size.1 / 2 * size.0 + size.0 / 2) as usize].map(|c| c as f32)
+        };
+        let light = |p: [f32; 3]| p[0] * 0.2 + p[1] * 0.7 + p[2] * 0.1;
+        // Out on the plain, nearly 1,000 from the ridge; at its foot, 54 from its face (it fills the sky's east).
+        let (open_off, open_on) = (light(middle(-600.0, false, 0.0)), light(middle(-600.0, true, 0.0)));
+        let (foot_off, foot_on) = (light(middle(330.0, false, 0.0)), light(middle(330.0, true, 0.0)));
+        eprintln!("Sight's sky light: the open plain {open_off:.1} → {open_on:.1}; the ridge's foot {foot_off:.1} → {foot_on:.1}");
+        assert!(open_on > open_off * 0.95, "the open plain sees nearly all the sky ({open_off:.1} → {open_on:.1})");
+        assert!(foot_on / foot_off < open_on / open_off - 0.03, "the ridge's foot sees less of it ({foot_off:.1} → {foot_on:.1})");
+        // The tint: the sky's part bluer, the brightness much the same.
+        let (white, blue) = (middle(330.0, true, 0.0), middle(330.0, true, 1.0));
+        eprintln!("Sight's sky light: white {white:?}, tinted {blue:?}");
+        assert!(blue[2] / blue[1] > white[2] / white[1], "tinted, the shade is bluer");
+        assert!((light(blue) - light(white)).abs() < light(white) * 0.1, "tinted, not much darker or brighter");
+    }
+
     /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up
     /// looking 12° down (the soak's view), read from the steps view's colours.
     #[test]
@@ -1170,7 +1213,7 @@ fn ground(c: Case) -> i32 {
         unsafe { std::env::set_var("INCUS_SIGHT_STEPS", "1") };
         let size = (640u32, 400u32);
         let pitch = -12f32.to_radians();
-        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, ..Default::default() };
+        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, sky: false, ..Default::default() };
         let picture = sight_picture(&device, &queue, &store, size, eye);
         unsafe { std::env::remove_var("INCUS_SIGHT_STEPS") };
         // The steps view: k = steps / 256 shown as dark blue (0) to green (0.5) to red (1), squared.

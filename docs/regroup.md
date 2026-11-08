@@ -848,6 +848,30 @@ back to.
   for the moment i guess. the speed readout is actually very useful"]. 1.5 stays as built, untouched till he asks;
   the fades are his to tune. Start bake 151 s that run (the coarser default's share of the card).
   Next: sky light (3.4b's second half), talked through first.
+  **3.4b's second half BUILT, build 83: sky light** [talked through 2026-11-08; David on its colour: "tint slider is
+  fine, i can't decide what color the light should be at this stage anyways"]. The light that isn't the sun's (the
+  sky's part, `camera.sun.w` of a face's colour) is now scaled by how much of the sky a place sees: five wide cones up
+  through the store (one straight up, four leaning 50° out to the compass points, each weighted by how high it looks),
+  widening 0.6 a block, at most 40 steps each. The shadow ray is now the same machinery (`cone`: a direction, a
+  spread, blocks walked first or not, what a face looking away gets). Ridges see it all, a valley floor less, the foot
+  of a cliff about half, an overhang's underside none. **The Render page, under Sun**: "Sky light" (on unless chosen),
+  its strength (how dark a place seeing no sky goes: 0.8 unless chosen) and **the sky's tint** (0 white, 1 a sky blue
+  as bright as white, so a tinted shade is cooler, not darker; 0.3 unless chosen). `INCUS_SIGHT_NO_SKY` for measuring.
+  **Handed down the pyramid**: each pixel passes its sky seen, and the kind of surface it was for (the cells, or a
+  block's face by its facing), to the layer below in the same word as its worth (a shader may have only 8 storage
+  buffers); a finer pixel takes it for the same kind about as far off, and looks for itself only at edges and
+  silhouettes. **Test** (`sight_s_sky_light_darkens_the_foot_of_a_ridge`, card, ignored): the open plain unchanged
+  (109.3 either way), the ridge's foot 54 from its face about 3.5% darker under a noon sun, the tint bluer and not
+  darker; the same with finer layers everywhere at 1 × 1 (handed down through every layer).
+  **Found on the way, fixed** (cost since build 80): each pixel kept a record of each of its up to four rays till it
+  knew its worth, and that weighed on the card (about 2 to 3 ms once the sky's part was added). Each ray now judges its
+  own worth and is shaded at once. **Measured** (the low slow flight, uncapped, defaults 4 × 4 to 2 × 2, a fresh test
+  world baking): sky light off about 104 to 119 fps, sight on the card about 5.8 to 7.3 ms (build 82: 90 to 104, 7 to
+  8); on about 75 to 102 fps, sight 7.2 to 12.2 ms (every pixel looking for itself: up to 15.6). What's left is mostly
+  the blocks' side faces near the eye, unlike the tops round them.
+  **For the speed dive**: sky light is the land's, not the sun's or the view's: kept in the cells (a byte each, worked
+  out as they're baked and made, an edit patching its neighbourhood) it would cost almost nothing a frame.
+  Next: his look at 83 (sky light's strength and tint by eye, low over valleys and among blocks).
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

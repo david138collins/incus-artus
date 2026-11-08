@@ -193,7 +193,23 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.checkbox(&mut shadows, "Shadows").changed() {
         kept.render.table.insert("sight_shadows".to_string(), toml::Value::Boolean(shadows));
     }
-    ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun (not its shadows).");
+    // Sky light (3.4b): how much of the sky a place sees [David 2026-11-08: "tint slider is fine, i can't decide what
+    // color the light should be at this stage anyways"].
+    let mut sky = kept.sight_sky();
+    if ui.checkbox(&mut sky, "Sky light (valleys and hollows see less of the sky)").changed() {
+        kept.render.table.insert("sight_sky".to_string(), toml::Value::Boolean(sky));
+    }
+    let mut strength = kept.sight_sky_strength();
+    ui.add_enabled_ui(sky, |ui| {
+        if ui.add(egui::Slider::new(&mut strength, 0.0..=1.0).step_by(0.01).text("its strength (how dark a place seeing no sky goes)")).changed() {
+            kept.render.set_number("sight_sky_strength", strength);
+        }
+    });
+    let mut tint = kept.sight_sky_tint();
+    if ui.add(egui::Slider::new(&mut tint, 0.0..=1.0).step_by(0.01).text("the sky's tint (0 white, 1 sky blue)")).changed() {
+        kept.render.set_number("sight_sky_tint", tint);
+    }
+    ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun (not its shadows or sky light).");
 }
 
 /// The frame limits' names in the settings.
@@ -358,6 +374,20 @@ impl KeptSettings {
     /// Whether the sun casts shadows in sight (3.4b; on unless chosen).
     pub fn sight_shadows(&self) -> bool {
         self.render.flag("sight_shadows", true)
+    }
+
+    /// Sky light (3.4b): on unless chosen; its strength and tint (`draw::SKY_STRENGTH`, `draw::SKY_TINT` unless
+    /// chosen).
+    pub fn sight_sky(&self) -> bool {
+        self.render.flag("sight_sky", true)
+    }
+
+    pub fn sight_sky_strength(&self) -> f32 {
+        self.render.number("sight_sky_strength", crate::sight::draw::SKY_STRENGTH)
+    }
+
+    pub fn sight_sky_tint(&self) -> f32 {
+        self.render.number("sight_sky_tint", crate::sight::draw::SKY_TINT)
     }
 
     /// Whether the game freezes when it isn't in front (`freeze_when_away`, on unless chosen).

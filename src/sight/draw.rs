@@ -37,6 +37,12 @@ pub struct Eye {
     pub sun: [f32; 3],
     /// Sun shadows (3.4b; the Render page's switch).
     pub shadows: bool,
+    /// Sky light (3.4b): on or off, its strength (0 to 1: how dark a place seeing no sky goes), and its tint (0
+    /// white, 1 a sky blue) [David 2026-11-08: "tint slider is fine, i can't decide what color the light should be
+    /// at this stage anyways"].
+    pub sky: bool,
+    pub sky_strength: f32,
+    pub sky_tint: f32,
 }
 
 impl Default for Eye {
@@ -56,6 +62,9 @@ impl Default for Eye {
             earned: true,
             sun: NOON,
             shadows: true,
+            sky: true,
+            sky_strength: SKY_STRENGTH,
+            sky_tint: SKY_TINT,
         }
     }
 }
@@ -64,6 +73,13 @@ impl Default for Eye {
 /// from where its pixel is as big as its cells, over one doubling (what builds 74 to 81 did).
 pub const BLOCKS_FADE: [f32; 2] = [0.75, 1.0];
 pub const CELLS_FADE: [f32; 2] = [1.0, 1.0];
+
+/// Sky light's defaults: a place seeing no sky keeps a fifth of the sky's light; the tint a little towards blue.
+pub const SKY_STRENGTH: f32 = 0.8;
+pub const SKY_TINT: f32 = 0.3;
+/// How fast a sky cone widens (blocks across a block of distance): wide, so it takes few steps and sees the land
+/// round about softly.
+const SKY_SPREAD: f32 = 0.6;
 
 /// How fast a shadow ray widens (blocks across a block of distance, 3.4b): wider than the sun itself (about
 /// 0.01), so a shadow ray's steps grow with the distance and a far ridge's shadow comes soft.
@@ -239,6 +255,7 @@ impl SightDraw {
         let no_start = std::env::var("INCUS_SIGHT_NO_START").is_ok();
         let no_follow = std::env::var("INCUS_SIGHT_NO_FOLLOW").is_ok();
         let no_shadows = std::env::var("INCUS_SIGHT_NO_SHADOWS").is_ok();
+        let no_sky = std::env::var("INCUS_SIGHT_NO_SKY").is_ok();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -289,6 +306,8 @@ impl SightDraw {
                 [to_above, to_child, fade[0].min(fade[1]), fade[1]],
                 // Past the blocks, the one below's fade in: where it starts and over how many doublings.
                 [eye.cells_fade[0].max(0.1), eye.cells_fade[1].max(0.05), 0.0, 0.0],
+                // Sky light (`INCUS_SIGHT_NO_SKY` leaves it out, for measuring): on, strength, tint, its cones' width.
+                [if eye.sky && !no_sky { 1.0 } else { 0.0 }, eye.sky_strength.clamp(0.0, 1.0), eye.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -371,7 +390,7 @@ pub fn factors(eye: Eye) -> Vec<f32> {
 }
 
 /// The camera numbers' rows (`Camera` in `march.wgsl`).
-const CAMERA_ROWS: usize = 12;
+const CAMERA_ROWS: usize = 13;
 
 /// What the card took on sight's last frames (milliseconds, smoothed), if it can time itself: the Render page's.
 static CARD_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
