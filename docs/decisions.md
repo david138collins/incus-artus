@@ -1229,6 +1229,37 @@ below disagree with this one, this one stands.
          hologram they dont need"): sky only, far only (baked levels only), near (block walk), water, seam. Each
          type gets its own lean shader. That frees registers, so more warps fit on the card, and rays on different
          paths no longer share a warp.
+
+       Builder reviewed the list on 2026-11-08 (after build 86) and found every idea fits. Some exist already in
+       spatial form: the pyramid starting finer rays from their parent's touch, the per-tile cone start, and
+       column-top skipping. Nothing temporal, sorted or analytic is built yet. Her catches:
+       - Compaction writes a lot of ray state between passes.
+       - We're at wgpu's default of 8 storage buffers a stage.
+       - Subgroups need one adapter check; our DXC path supports them.
+       - Temporal starts need a back-off and a minimum over neighbours, because of disocclusion.
+       - Horizon maps are 2.5D, so caves and overhangs keep their cone rays near the eye.
+
+       Added by Builder:
+       - Rays end where fog is total: 99% by about 5,000 blocks at sea level, against a reach of 150,000.
+       - Relaxed cone stepping: each column keeps the widest empty cone over its top, for grazing rays over flat
+         land.
+       - An empty-space distance per cell, for caves.
+       - The sea as an analytic plane: the worst case left is 610 steps at the horizon.
+       - A two-level start pass (64 × 64, then 8 × 8).
+       - f16 accumulators.
+       - Workgroup shape and order (8 × 8 against 16 × 4, Morton order).
+       - Fork E's remnant: a checkerboarded coarse layer with temporal fill.
+
+       Added by Counsel:
+       - Light the hologram, not the screen: sun and sky light kept in the cells, re-lit gradually as the sun
+         moves, so rays read lit colour and shading is shared across pixels and frames.
+       - Timewarp, as VR does it: the last picture re-aimed at the newest mouse position just before it's shown,
+         so turning feels immediate whatever the frame rate (David's "pleasurable just to move the mouse").
+       - The store's layout: smaller cells and cells ordered so neighbours sit together in memory, for fewer
+         memory waits.
+       - Blue-noise jitter for the temporal phases.
+       - Ray-tracing cores as an empty-space skipper (boxes around surface bricks), if wgpu's ray queries ever
+         allow it.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
