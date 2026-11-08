@@ -760,6 +760,25 @@ back to.
   201 to 218 with it**. Measuring switch: `INCUS_SIGHT_NO_FOLLOW`.
   **David's look at build 78** [2026-11-08: "obviously no textures but its looking good"].
   Next: 3.4 (light through the cache), talked through first.
+  **3.4a BUILT, build 79: a cell lit as its faces are** [talked through 2026-11-08, David: "that sounds right, sun
+  sliders are a good idea"]. A block's faces only ever look six ways, so a cell now keeps each way's share of its
+  faces (255ths, five kept and west's what's left, rounded as running totals so the six add to 255 exactly) in place
+  of the one average facing and its spread (an average loses faces that cancel: a terraced hillside's tops and sides
+  lit as one tilted plane, a smooth slope and a flight of steps lit the same). The march lights each way by the sun
+  as itself and weighs it by how much of that way the eye sees (a face looking north shows as much as the eye looks
+  south), so a far hillside shows the tops and sides it really shows, as bright as they really are: the same rule
+  the blocks near the eye are lit by, one face at a time, so the two agree where they meet. Still 16 bytes a cell;
+  the bake's file is version 2 (an older one is baked again, not refused). **The sun on the Render page**: from
+  (compass) and height, the `light` group's `sun_from` and `sun_height` (the one sun: the World Compiler's pictures
+  take it too; the Render presets hold 315°, 40°, a sun from the north-west, in place of the first sight's fixed
+  noon). Cost: a few more sums a sample (unmeasured; the sea test's shimmer 0.12 of 255 a pixel against 0.14 lit the
+  old way, same view).
+  **On file, not chased** (unseen in play): the sea test's biggest step down the middle is now about 610 of 2,550,
+  where build 77's note says 59; it's the horizon (sky to sea, inside one 8 × 8 tile at row 56), the same lit
+  either way, and the same without build 78's parent start. The test's own note (the horizon at row 32) is off too.
+  **The one colour a cell** stays: from above, a grassy hill's cells mix grass tops and dirt sides as a side view would.
+  A colour for the tops apart from the sides needs room in the cell; held till David's eye asks for it.
+  Next: his look at 79 (the sun sliders, a low sun on the mountains), then 3.4b (sun shadows and sky light).
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

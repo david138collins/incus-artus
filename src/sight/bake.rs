@@ -41,8 +41,10 @@ pub const BAKERS: usize = 4;
 /// The bake's file in the world's folder.
 pub const FILE: &str = "sight-bake.bin";
 
-/// The file's first bytes, and its layout's version.
-const MAGIC: &[u8; 8] = b"INCUSBK1";
+/// The file's first bytes, and its layout's version (2: the cells keep six ways' shares of their faces, 3.4a).
+const MAGIC: &[u8; 8] = b"INCUSBK2";
+/// Every version's first seven bytes: a file of an older layout is baked again, not refused.
+const KIND: &[u8; 7] = b"INCUSBK";
 
 /// A baked level's bounds: its cell size, its least cell column (absolute: cell `n` runs from `n × size`), and
 /// how many across each way.
@@ -359,7 +361,12 @@ pub fn read(folder: &Path) -> Result<Option<Kept>, String> {
     let path = folder.join(FILE);
     let Ok(bytes) = std::fs::read(&path) else { return Ok(None) };
     let mut r = Reader { bytes: &bytes, at: 0 };
-    if r.take(8)? != MAGIC {
+    let first = r.take(8)?;
+    if first != MAGIC {
+        if first.starts_with(KIND) {
+            // An older layout: baked again (the new bake writes its file afresh).
+            return Ok(None);
+        }
         return Err("the bake's file is of another kind".into());
     }
     let u16_of = |b: &[u8]| u16::from_le_bytes(b.try_into().unwrap_or_default());

@@ -1077,7 +1077,7 @@ fn ground(c: Case) -> i32 {
         let size = (640, 400);
         let pitch = -40f32.to_radians();
         // Up by a fraction of a block at a time (the cells' layering is what a ray's steps meet).
-        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0, earned: true };
+        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON };
         let pictures: Vec<Vec<[u8; 3]>> = (0..6).map(|k| sight_picture(&device, &queue, &store, size, eye(400.0 + k as f32 * 1.37))).collect();
         // From just under the horizon (row 32 at 40° down) to the bottom: all sea.
         let first_row = 40u32;
@@ -1133,7 +1133,7 @@ fn ground(c: Case) -> i32 {
         unsafe { std::env::set_var("INCUS_SIGHT_STEPS", "1") };
         let size = (640u32, 400u32);
         let pitch = -12f32.to_radians();
-        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0, earned: true };
+        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON };
         let picture = sight_picture(&device, &queue, &store, size, eye);
         unsafe { std::env::remove_var("INCUS_SIGHT_STEPS") };
         // The steps view: k = steps / 256 shown as dark blue (0) to green (0.5) to red (1), squared.

@@ -8,8 +8,13 @@
 //! below by construction, not by care.
 //!
 //! **What the march reads is the compact form** (`Cell`, 16 bytes), worked out from the sums by one rule
-//! (`Sums::compact`): the shares, the average colour and facing, and the spreads. The sums are only held
-//! while building; the compact form is what's kept.
+//! (`Sums::compact`): the shares, the average colour, how its faces look (a share for each of the six ways), and
+//! the spreads. The sums are only held while building; the compact form is what's kept.
+//!
+//! **Why six shares, not one average facing** (3.4a, David 2026-11-08: "that sounds right"): a block's faces only
+//! ever look six ways, so a cell's light is exactly its faces' light added, each way lit as itself. An average
+//! facing loses that: a terraced hillside's tops and sides partly cancel and it lights as one tilted plane, and
+//! two cells with the same average (a smooth slope, a flight of steps) light the same though they don't.
 
 use crate::world::BlockId;
 
@@ -139,13 +144,16 @@ impl Sums {
         }
         let colour = self.colour.map(|c| share(c, showing, 1));
         cell.colour = (colour[0] << 20 | colour[1] << 10 | colour[2]) as u32;
-        // The average facing: each face's way, added, over how many (127 a whole way).
-        let way = |plus: usize, minus: usize| self.faces[plus] as i64 - self.faces[minus] as i64;
-        let facing = [way(2, 3), way(4, 5), way(0, 1)];
-        cell.facing = facing.map(|f| signed_share(f, showing, 127) as i8);
-        // How spread the facings are: none when they all look one way, all when they cancel out.
-        let length = isqrt((facing[0] * facing[0] + facing[1] * facing[1] + facing[2] * facing[2]) as u128) as u64;
-        cell.facing_spread = (255 - share(length, showing, 255)) as u8;
+        // Each way's share of the faces, in 255ths, rounded as running totals so the six add to 255 exactly
+        // (none more than half a 255th off); the first five kept, the sixth what's left.
+        let mut before = 0;
+        let mut running = 0;
+        for (d, &n) in self.faces.iter().enumerate().take(5) {
+            running += n;
+            let to = share(running, showing, 255);
+            cell.faces[d] = (to - before) as u8;
+            before = to;
+        }
         cell.light_spread = spread(self.light, self.light_squared, showing).min(255) as u8;
         // The heights' spread in 16ths of a block.
         cell.height_spread = (spread(self.height * 16, self.height_squared * 256, showing)).min(u16::MAX as u64) as u16;
@@ -157,12 +165,6 @@ impl Sums {
 /// `part` of `whole` in `unit`s, rounded (halves up).
 fn share(part: u64, whole: u64, unit: u64) -> u64 {
     ((part as u128 * unit as u128 * 2 + whole as u128) / (2 * whole as u128)) as u64
-}
-
-/// The same for a signed part, rounded away from zero at halves.
-fn signed_share(part: i64, whole: u64, unit: u64) -> i64 {
-    let size = share(part.unsigned_abs(), whole, unit) as i64;
-    if part < 0 { -size } else { size }
 }
 
 /// The standard deviation of `n` values from their sum and their squares' sum, rounded down.
@@ -205,12 +207,8 @@ impl Cell {
         let mut b = [0u8; 16];
         b[0] = self.solid;
         b[1] = self.water;
-        b[2] = self.facing[0] as u8;
-        b[3] = self.facing[1] as u8;
-        b[4] = self.facing[2] as u8;
-        b[5] = self.facing_spread;
-        b[6] = self.light_spread;
-        b[7] = self.spare;
+        b[2..7].copy_from_slice(&self.faces);
+        b[7] = self.light_spread;
         b[8..12].copy_from_slice(&self.colour.to_le_bytes());
         b[12..14].copy_from_slice(&self.height_spread.to_le_bytes());
         b[14..16].copy_from_slice(&self.showing.to_le_bytes());
@@ -221,14 +219,21 @@ impl Cell {
         Self {
             solid: b[0],
             water: b[1],
-            facing: [b[2] as i8, b[3] as i8, b[4] as i8],
-            facing_spread: b[5],
-            light_spread: b[6],
-            spare: b[7],
+            faces: [b[2], b[3], b[4], b[5], b[6]],
+            light_spread: b[7],
             colour: u32::from_le_bytes([b[8], b[9], b[10], b[11]]),
             height_spread: u16::from_le_bytes([b[12], b[13]]),
             showing: u16::from_le_bytes([b[14], b[15]]),
         }
+    }
+
+    /// All six ways' shares (255ths, `DIRECTIONS`' order), west's from the other five; all none where no
+    /// surface shows.
+    pub fn all_faces(&self) -> [u8; 6] {
+        let f = self.faces;
+        let kept: u32 = f.iter().map(|&n| n as u32).sum();
+        let west = if self.showing == 0 { 0 } else { 255u32.saturating_sub(kept) as u8 };
+        [f[0], f[1], f[2], f[3], f[4], west]
     }
 }
 
@@ -239,13 +244,11 @@ pub struct Cell {
     /// The share of its blocks that are solid, and water, in 255ths.
     pub solid: u8,
     pub water: u8,
-    /// The faces' average facing (x north, y east, z up), 127 a whole way.
-    pub facing: [i8; 3],
-    /// How much the facings disagree (255ths: 0 all one way).
-    pub facing_spread: u8,
+    /// Each way's share of its faces (255ths), in `DIRECTIONS`' order, the first five: up, down, north, south,
+    /// east. West's is what's left (`Cell::all_faces`).
+    pub faces: [u8; 5],
     /// How much the faces' brightness spreads (its standard deviation, 1,024ths of linear light, at most 255).
     pub light_spread: u8,
-    pub spare: u8,
     /// The faces' average colour, 1,024ths of linear light, red, green and blue in ten bits each.
     pub colour: u32,
     /// How much the faces' heights spread (standard deviation, 16ths of a block).
@@ -337,17 +340,25 @@ mod tests {
         let cell = sums.compact(2);
         assert_eq!(cell.solid, 128, "4 of 8 is 127.5, halves up");
         assert_eq!(cell.water, 0);
-        assert_eq!(cell.facing, [0, 0, 127]);
-        assert_eq!(cell.facing_spread, 0);
+        assert_eq!(cell.all_faces(), [255, 0, 0, 0, 0, 0], "all looking up");
         assert_eq!(cell.colour, 90 << 20 | 400 << 10 | 60);
         assert_eq!(cell.light_spread, 0);
         assert_eq!(cell.height_spread, 0);
         assert_eq!(cell.showing, 256, "a whole floor's worth of surface");
-        // Facings that cancel spread fully; heights spread by their standard deviation.
+        // Facings that cancel are both kept (an average facing would have lost them); heights spread by their
+        // standard deviation.
         let sums = Sums { faces: [1, 1, 0, 0, 0, 0], colour: [200, 200, 200], height: 10, height_squared: 4 * 4 + 6 * 6, ..Sums::default() };
         let cell = sums.compact(8);
-        assert_eq!((cell.facing, cell.facing_spread), ([0, 0, 0], 255));
+        assert_eq!(cell.all_faces(), [128, 127, 0, 0, 0, 0], "half up, half down: 127.5 rounds up, the rest the other");
         assert_eq!(cell.height_spread, 16, "heights 4 and 6: one block either side");
+        // The six always add to 255, west's too, however the thirds fall.
+        let sums = Sums { faces: [1, 0, 1, 0, 0, 1], colour: [300, 300, 300], ..Sums::default() };
+        let cell = sums.compact(4);
+        assert_eq!(cell.all_faces(), [85, 0, 85, 0, 0, 85]);
+        let sums = Sums { faces: [3, 1, 1, 1, 0, 1], colour: [700, 700, 700], ..Sums::default() };
+        let faces = sums.compact(4).all_faces();
+        assert_eq!(faces.iter().map(|&n| n as u32).sum::<u32>(), 255, "{faces:?}");
+        assert_eq!(faces, [109, 37, 36, 37, 0, 36], "3/7, then 1/7 each, the running totals rounded");
         assert_eq!(Sums::default().compact(4), Cell::default(), "an empty cell");
     }
 

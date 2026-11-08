@@ -5,7 +5,8 @@
 // finer than the live level, which is the finest there is in 3.2), skips space a coarser cell says is empty,
 // and elsewhere takes half a cell at a time, reading a smooth blend of the eight cells round it (no threshold:
 // a part-solid cell covers part of the pixel, gathered front to back; colour and facing weighted by how much
-// surface each cell shows), lit by the blend's average facing under a noon sun. The sky behind.
+// surface each cell shows), lit as its faces are (3.4a: each of the six ways a block's faces look, lit by the sun
+// as itself, weighted by how much of that way the eye sees). The sky behind.
 
 struct Camera {
     // The eye (game axes: x north, y east, z up).
@@ -70,8 +71,11 @@ struct Look {
     solid: f32,
     water: f32,
     colour: vec3<f32>,
-    facing: vec3<f32>,
-    // How much surface it shows (the weight of its colour and facing).
+    // Its faces' shares by the way they look (0 to 1, adding to 1): `plus` looking north, east and up, `minus`
+    // south, west and down.
+    plus: vec3<f32>,
+    minus: vec3<f32>,
+    // How much surface it shows (the weight of its colour and faces).
     surface: f32,
 }
 
@@ -93,7 +97,15 @@ fn cell_of(w: vec4<u32>) -> Look {
     look.known = true;
     look.solid = f32(w.x & 0xFFu) / 255.0;
     look.water = f32((w.x >> 8u) & 0xFFu) / 255.0;
-    look.facing = vec3<f32>(f32(bitcast<i32>(w.x << 8u) >> 24u), f32(bitcast<i32>(w.x) >> 24u), f32(bitcast<i32>(w.y << 24u) >> 24u)) / 127.0;
+    // The six ways' shares (`Cell::faces`, bytes 2 to 6: up, down, north, south, east; west what's left).
+    let up = f32((w.x >> 16u) & 0xFFu);
+    let down = f32(w.x >> 24u);
+    let north = f32(w.y & 0xFFu);
+    let south = f32((w.y >> 8u) & 0xFFu);
+    let east = f32((w.y >> 16u) & 0xFFu);
+    let west = max(255.0 - up - down - north - south - east, 0.0);
+    look.plus = vec3<f32>(north, east, up) / 255.0;
+    look.minus = vec3<f32>(south, west, down) / 255.0;
     look.colour = vec3<f32>(f32((w.z >> 20u) & 1023u), f32((w.z >> 10u) & 1023u), f32(w.z & 1023u)) / 1023.0;
     look.surface = min(f32(w.w >> 16u) / 256.0, 4.0);
     return look;
@@ -211,13 +223,15 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
             out.water += w * look.water;
             let shown = w * look.surface;
             out.colour += shown * look.colour;
-            out.facing += shown * look.facing;
+            out.plus += shown * look.plus;
+            out.minus += shown * look.minus;
             weight += shown;
         }
     }
     if (weight > 0.0) {
         out.colour /= weight;
-        out.facing /= weight;
+        out.plus /= weight;
+        out.minus /= weight;
         out.surface = weight;
     } else {
         // Inside, with no surface to show: rock's grey.
@@ -236,7 +250,8 @@ fn mix_looks(a: Look, b: Look, w: f32) -> Look {
     out.solid = mix(a.solid, b.solid, k);
     out.water = mix(a.water, b.water, k);
     out.colour = mix(a.colour, b.colour, k);
-    out.facing = mix(a.facing, b.facing, k);
+    out.plus = mix(a.plus, b.plus, k);
+    out.minus = mix(a.minus, b.minus, k);
     out.surface = mix(a.surface, b.surface, k);
     return out;
 }
@@ -259,6 +274,27 @@ fn level_at(t: f32) -> i32 {
 // A face lit by the sun.
 fn lit(colour: vec3<f32>, facing: vec3<f32>) -> vec3<f32> {
     return colour * (camera.sun.w + (1.0 - camera.sun.w) * max(dot(facing, camera.sun.xyz), 0.0));
+}
+
+// A cell's faces lit by the sun, seen along `d` (3.4a): each way's faces lit as themselves (the sun on a face
+// looking north is the sun's northward part, or none), and weighted by how much of that way the eye sees (a face
+// looking north shows as much as the eye looks south), so a far terraced hillside shows the tops and sides it
+// really shows, each as bright as it really is. A cell whose faces all look away (the eye inside it) is lit by
+// all of them.
+fn lit_faces(colour: vec3<f32>, look: Look, d: vec3<f32>) -> vec3<f32> {
+    let sun = camera.sun.xyz;
+    let seen_plus = look.plus * max(-d, vec3<f32>(0.0));
+    let seen_minus = look.minus * max(d, vec3<f32>(0.0));
+    let seen = dot(seen_plus + seen_minus, vec3<f32>(1.0));
+    let sunny_plus = max(sun, vec3<f32>(0.0));
+    let sunny_minus = max(-sun, vec3<f32>(0.0));
+    var light = 0.0;
+    if (seen > 1e-4) {
+        light = (dot(seen_plus, sunny_plus) + dot(seen_minus, sunny_minus)) / seen;
+    } else {
+        light = dot(look.plus, sunny_plus) + dot(look.minus, sunny_minus);
+    }
+    return colour * (camera.sun.w + (1.0 - camera.sun.w) * light);
 }
 
 // The highest anything stands in what's on the card so far (the store keeps it as regions and tiles go up):
@@ -628,8 +664,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             let covered = 1.0 - (1.0 - solid) * (1.0 - water);
             if (covered > 0.0) {
                 // Each end's colour as lit, weighted by how much solid it has.
-                let lit_before = lit(before.colour, before.facing);
-                let lit_now = lit(look.colour, look.facing);
+                let lit_before = lit_faces(before.colour, before, d);
+                let lit_now = lit_faces(look.colour, look, d);
                 let ground = (lit_before * before.solid + lit_now * look.solid) / max(before.solid + look.solid, 1e-6);
                 let here = (ground * solid + water_colour * water) / max(solid + water, 1e-6);
                 colour += through * covered * here;

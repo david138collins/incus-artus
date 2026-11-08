@@ -425,6 +425,7 @@ impl Runner {
                     rays: kept.sight_rays(),
                     upscale: kept.sight_upscale(),
                     earned: kept.sight_earned(),
+                    sun: kept.sun().to_array(),
                 };
                 (store, eye)
             })

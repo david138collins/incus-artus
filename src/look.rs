@@ -102,6 +102,19 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         kept.render.set_number("sight_upscale", upscale as f32);
     }
     ui.small("A new grid sizes the store round you again: it fills in again, raw, for some seconds. Rays and the upscale change at once.");
+    ui.separator();
+    // The one sun (3.4a, David 2026-11-08: "sun sliders are a good idea"): the world's light, and the World
+    // Compiler's pictures' too (the `light` group's `sun_from` and `sun_height`, kept in the Render presets).
+    ui.strong("Sun");
+    let mut from = kept.light.number("sun_from", 315.0).rem_euclid(360.0);
+    if ui.add(egui::Slider::new(&mut from, 0.0..=360.0).step_by(1.0).suffix("°").text("from (0 north, 90 east, 180 south, 270 west)")).changed() {
+        kept.light.set_number("sun_from", from);
+    }
+    let mut height = kept.light.number("sun_height", 40.0).clamp(5.0, 90.0);
+    if ui.add(egui::Slider::new(&mut height, 5.0..=90.0).step_by(1.0).suffix("°").text("height over the horizon")).changed() {
+        kept.light.set_number("sun_height", height);
+    }
+    ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun.");
 }
 
 /// The frame limits' names in the settings.

@@ -21,10 +21,13 @@ pub struct Eye {
     pub rays: u32,
     pub upscale: u32,
     pub earned: bool,
+    /// Towards the sun (game axes, a whole way long): the Render page's sun, the one the World Compiler's
+    /// pictures are lit by too (`KeptSettings::sun`).
+    pub sun: [f32; 3],
 }
 
-/// The noon sun: high in the south, a little east [the first sight's default: "a fixed noon sun"].
-const SUN: [f32; 3] = [-0.35, 0.2, 0.91];
+/// The first sight's noon sun, high in the south, a little east ("a fixed noon sun"): the tests' sun.
+pub const NOON: [f32; 3] = [-0.35, 0.2, 0.91];
 const AMBIENT: f32 = 0.35;
 /// The start pass's tile, and the pyramid's base: screen pixels a side.
 const TILE: u32 = 8;
@@ -217,7 +220,10 @@ impl SightDraw {
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
                 [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],
                 [layer.size.0 as f32, layer.size.1 as f32, pixel, eye.rays.max(1) as f32],
-                [SUN[0], SUN[1], SUN[2], AMBIENT],
+                {
+                    let sun = normalise(eye.sun);
+                    [sun[0], sun[1], sun[2], AMBIENT]
+                },
                 [REACH, 0.0, measuring, store.highest.load(std::sync::atomic::Ordering::Relaxed) as f32],
                 // The start pass (`INCUS_SIGHT_NO_START` leaves it out, for measuring): tiles, a tile's pixels in
                 // this layer, and the cone's spread (a tile's half diagonal, and a screen pixel more).
