@@ -1260,6 +1260,12 @@ below disagree with this one, this one stands.
        - Blue-noise jitter for the temporal phases.
        - Ray-tracing cores as an empty-space skipper (boxes around surface bricks), if wgpu's ray queries ever
          allow it.
+
+       **No per-card tricks** [David 2026-11-08: "im not interested in implementing all the different tricks
+       individual modern cards can use, id have to own 20 gpus"]. Speed comes from the method, in portable
+       software that runs on any card wgpu supports (the 980 Ti, AMD, the Steam Deck). One maker's hardware
+       features (ray-tracing cores, DLSS, SER, variable-rate shading) are not pursued. Optional wgpu features
+       that most cards share, such as subgroups, are fine as long as there's a path that works without them.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
