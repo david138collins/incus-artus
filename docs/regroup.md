@@ -778,7 +778,13 @@ back to.
   either way, and the same without build 78's parent start. The test's own note (the horizon at row 32) is off too.
   **The one colour a cell** stays: from above, a grassy hill's cells mix grass tops and dirt sides as a side view would.
   A colour for the tops apart from the sides needs room in the cell; held till David's eye asks for it.
-  Next: his look at 79 (the sun sliders, a low sun on the mountains), then 3.4b (sun shadows and sky light).
+  **David's look at build 79** [2026-11-08: "sun looks good. updates instantly"]. He tried "finer layers
+  everywhere" a while: "it looks nice but is slow. at least the choppiness we have is very even, its not as
+  offensive as irregular lag/chops" (the slow frames in that run's log, 6 to 8 ms, were that).
+  **A deep dive into speed, later** [David: "once we've got the graphics engine mostly working we should do an
+  marianas trench dive into ways to accelerate and optimize"]: once the look is mostly working, a pass given over to
+  making it faster, every idea measured (Fork E's list is a start; "finer layers everywhere" is what to win back).
+  Next: 3.4b (sun shadows and sky light), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
