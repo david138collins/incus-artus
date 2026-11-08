@@ -498,7 +498,7 @@ impl Runner {
                     coarsest: kept.sight_coarsest(),
                     between: kept.sight_between(),
                     blocks_fades: kept.sight_blocks_fades(),
-                    cells_fade: kept.sight_cells_fade(),
+                    cells_fades: kept.sight_cells_fades(),
                     rays: kept.sight_rays(),
                     upscale: kept.sight_upscale(),
                     earned: kept.sight_earned(),

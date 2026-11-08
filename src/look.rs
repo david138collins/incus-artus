@@ -16,6 +16,11 @@ use crate::debug::SettingsAppExt;
 use crate::world::{BlockId, TerrainBlocks};
 use crate::ecs::prelude::*;
 
+mod crossover;
+
+/// The seams' names in the settings, by their finer layer (`draw::SEAMS`).
+const SEAM_NAMES: [&str; 4] = ["4", "2", "1_5", "1"];
+
 pub struct LookPlugin;
 
 impl Plugin for LookPlugin {
@@ -105,43 +110,37 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         }
     });
     // Where each change between layers falls [David 2026-11-08: "do you believe we'll be able to tune the ways
-    // that it pumps between scales?"].
-    egui::CollapsingHeader::new("Fades between layers").default_open(false).show(ui, |ui| {
-        ui.small("Among the blocks near you, where each finer layer fades out, as shares of the blocks' reach (about 336 blocks): from where it starts fading to where it's gone.");
-        let fades = kept.sight_blocks_fades();
-        let has_between = grid > 1.25 && grid < 1.75 || (grid < 1.25 && between && coarsest >= 2);
-        for (k, (name, label, used)) in [("2", "2 × 2 (and coarser)", coarsest >= 4 && grid < 3.0), ("1_5", "1.5", has_between), ("1", "1 × 1", grid < 1.25 && coarsest >= 2)].into_iter().enumerate() {
-            ui.add_enabled_ui(used, |ui| {
-                ui.horizontal(|ui| {
-                    let [mut from, mut to] = fades[k];
-                    ui.label(format!("{label}:"));
-                    let a = ui.add(egui::Slider::new(&mut from, 0.0..=1.0).step_by(0.01).text("from"));
-                    let b = ui.add(egui::Slider::new(&mut to, 0.0..=1.0).step_by(0.01).text("to"));
-                    if a.changed() || b.changed() {
-                        // Never ending before it starts.
-                        if a.changed() {
-                            to = to.max(from);
-                        } else {
-                            from = from.min(to);
-                        }
-                        kept.render.set_number(&format!("sight_fade_{name}_from"), from);
-                        kept.render.set_number(&format!("sight_fade_{name}_to"), to);
-                    }
-                });
-            });
+    // that it pumps between scales?"], on a crossover [David: "a slider for each intersection between layers, and
+    // bars that come from the side as i drag the slider for each intersection up and down, the band gets wider.
+    // sort of like a multiband compressor"; "oh yeah, a crossover! exactly"].
+    egui::CollapsingHeader::new("Fades between layers (the crossover)").default_open(true).show(ui, |ui| {
+        use crate::sight::draw::{BLOCKS_FADE, CELLS_FADE, SEAMS};
+        let layers = crate::sight::draw::factors(crate::sight::draw::Eye { grid, coarsest, between, ..Default::default() });
+        // Each seam by its finer layer: in use when that layer is in the pyramid under another.
+        let coarser = |finer: f32| layers.iter().position(|&f| (f - finer).abs() < 0.01).filter(|&k| k > 0).map(|k| layers[k - 1]);
+        let seams = |fades: [[f32; 2]; 4], default: [f32; 2]| -> Vec<crossover::Seam> {
+            SEAMS.iter().zip(fades).map(|(&finer, fade)| crossover::Seam { finer, coarser: coarser(finer), fade, default }).collect()
+        };
+        ui.small("Drag a seam left or right to move it, up or down to widen its blend; double-click it for its default.");
+        ui.label("Near you, among the blocks (by distance):");
+        let mut near = seams(kept.sight_blocks_fades(), BLOCKS_FADE);
+        for k in crossover::track(ui, egui::Id::new("crossover_blocks"), crossover::Track::Blocks, &layers, &mut near) {
+            let [from, to] = near[k].fade;
+            kept.render.set_number(&format!("sight_fade_{}_from", SEAM_NAMES[k]), from);
+            kept.render.set_number(&format!("sight_fade_{}_to", SEAM_NAMES[k]), to);
         }
-        ui.small("Past the blocks, a finer layer fades in where its pixels grow bigger than the cells they'd read: from where its pixel is so many times its cells, over so many doublings of distance.");
-        let [mut start, mut doublings] = kept.sight_cells_fade();
-        if ui.add(egui::Slider::new(&mut start, 0.25..=4.0).logarithmic(true).text("starts at (pixel / cell)")).changed() {
-            kept.render.set_number("sight_fade_cells_start", start);
-        }
-        if ui.add(egui::Slider::new(&mut doublings, 0.1..=4.0).text("over (doublings)")).changed() {
-            kept.render.set_number("sight_fade_cells_doublings", doublings);
+        ui.label("Past them, among the cells (by a cell's size on the screen):");
+        let mut far = seams(kept.sight_cells_fades(), CELLS_FADE);
+        for k in crossover::track(ui, egui::Id::new("crossover_cells"), crossover::Track::Cells, &layers, &mut far) {
+            let [start, doublings] = far[k].fade;
+            kept.render.set_number(&format!("sight_fade_{}_cells_start", SEAM_NAMES[k]), start);
+            kept.render.set_number(&format!("sight_fade_{}_cells_doublings", SEAM_NAMES[k]), doublings);
         }
         if ui.button("Fades back to as they were").clicked() {
-            for name in ["2", "1_5", "1"] {
-                kept.render.table.remove(&format!("sight_fade_{name}_from"));
-                kept.render.table.remove(&format!("sight_fade_{name}_to"));
+            for name in SEAM_NAMES {
+                for part in ["from", "to", "cells_start", "cells_doublings"] {
+                    kept.render.table.remove(&format!("sight_fade_{name}_{part}"));
+                }
             }
             kept.render.table.remove("sight_fade_cells_start");
             kept.render.table.remove("sight_fade_cells_doublings");
@@ -333,18 +332,25 @@ impl KeptSettings {
         self.render.flag("sight_between", false)
     }
 
-    /// Among the blocks, where each finer layer fades out (shares of their reach, from and to): 2 × 2 and
-    /// coarser, 1.5, 1 × 1 (`draw::BLOCKS_FADE` unless chosen).
-    pub fn sight_blocks_fades(&self) -> [[f32; 2]; 3] {
+    /// Each seam's fade among the blocks, by its finer layer (`draw::SEAMS`; shares of their reach, from and to;
+    /// `draw::BLOCKS_FADE` unless chosen). Till build 85 the 4 × 4 seam took the 2 × 2's: a preset from then
+    /// keeps its look.
+    pub fn sight_blocks_fades(&self) -> [[f32; 2]; 4] {
         let d = crate::sight::draw::BLOCKS_FADE;
-        ["2", "1_5", "1"].map(|name| [self.render.number(&format!("sight_fade_{name}_from"), d[0]), self.render.number(&format!("sight_fade_{name}_to"), d[1])])
+        let two = [self.render.number("sight_fade_2_from", d[0]), self.render.number("sight_fade_2_to", d[1])];
+        SEAM_NAMES.map(|name| {
+            let d = if name == "4" { two } else { d };
+            [self.render.number(&format!("sight_fade_{name}_from"), d[0]), self.render.number(&format!("sight_fade_{name}_to"), d[1])]
+        })
     }
 
-    /// Past the blocks, a finer layer's fade in: where it starts (its pixel so many times its cells) and over
-    /// how many doublings (`draw::CELLS_FADE` unless chosen).
-    pub fn sight_cells_fade(&self) -> [f32; 2] {
+    /// Each seam's fade in past the blocks, by its finer layer: where it starts (its pixel so many times its
+    /// cells) and over how many doublings (`draw::CELLS_FADE` unless chosen). Till build 85 one for all: a
+    /// preset from then gives each seam that one.
+    pub fn sight_cells_fades(&self) -> [[f32; 2]; 4] {
         let d = crate::sight::draw::CELLS_FADE;
-        [self.render.number("sight_fade_cells_start", d[0]), self.render.number("sight_fade_cells_doublings", d[1])]
+        let all = [self.render.number("sight_fade_cells_start", d[0]), self.render.number("sight_fade_cells_doublings", d[1])];
+        SEAM_NAMES.map(|name| [self.render.number(&format!("sight_fade_{name}_cells_start"), all[0]), self.render.number(&format!("sight_fade_{name}_cells_doublings"), all[1])])
     }
 
     /// Sight's coarsest layer, where the pyramid starts (1, 2, 4 or 8; 4 unless chosen [David 2026-11-08: "i

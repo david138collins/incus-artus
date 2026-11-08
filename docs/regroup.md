@@ -900,7 +900,20 @@ back to.
   **His preset** (presets/render/test.toml, his, not committed) ["the fade seems to work well, i can feather the edges
   together cleanly"]: coarsest 8 × 8, finest 4 × 4 (two layers only), the blocks' fade 0.33 to 0.52 of their reach
   (default 0.75 to 1), past the blocks the finer layer in from 0.68 over 0.32 doublings (default 1 over 1): earlier
-  and tighter. Sky light on, shadows off.
+  and tighter. Sky light on, shadows off ["i turned them off for speed"]. [David: "i'd like to get at least 2x2 to
+  8x8 working to where i can 'valve' them together. there doesn't seem to be any trouble with the feathering between
+  scales like there was with geometry-space LOD filtering. crunchy 2x2 may actually be a good look, since it'll still
+  be like a dozen pixels per texel pixel on screen."]
+  **Build 85: the crossover** [David: "a track, with a slider for each intersection between layers, and bars that
+  come from the side as i drag the slider for each intersection up and down, the band gets wider. sort of like a
+  multiband compressor"; "oh yeah, a crossover! exactly"]. Each seam (by its finer layer: 4 × 4, 2 × 2, 1.5, 1 × 1;
+  `draw::SEAMS`) has its own fades now, both kinds (till 84 the 4 × 4 and 2 × 2 seams shared one among the blocks, and
+  every seam one past them; the old keys still read, so a preset keeps its look). On the Render page, "Fades between
+  layers (the crossover)" (`look/crossover.rs`): two tracks, near among the blocks (by distance, shares of their
+  reach) and past them (by a cell's size on the screen, in doublings); each layer a coloured zone, finest left, the
+  bands mixed as the shader mixes them; each seam on its own lane, a handle dragged left or right moving it, up or
+  down widening its band (bars at its edges), double-clicked back to its default; the handles never pass each
+  other; seams not in use named, greyed. No shader change: the look moves only with the handles.
   Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.

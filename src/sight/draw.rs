@@ -24,11 +24,12 @@ pub struct Eye {
     /// With the finest at 1 × 1, a layer of 1.5 between it and 2 × 2 [David 2026-11-08: "perhaps to help blend
     /// the 1x1 to 2x2, which is a little obvious sometimes when you can look up a big slope"].
     pub between: bool,
-    /// Where each finer layer fades out among the blocks near the eye (shares of the blocks' reach, from and to):
-    /// for 2 × 2 and coarser, 1.5 and 1 × 1. Past the blocks, a finer layer's fade in: where it starts (its
-    /// pixel this many times its cells) and over how many doublings of distance.
-    pub blocks_fades: [[f32; 2]; 3],
-    pub cells_fade: [f32; 2],
+    /// Each seam's fades, by its finer layer (`SEAMS`: 4 × 4, 2 × 2, 1.5, 1 × 1) [David 2026-11-08: "i'd like to get
+    /// at least 2x2 to 8x8 working to where i can 'valve' them together"]: among the blocks near the eye, where
+    /// the finer layer fades out (shares of the blocks' reach, from and to); past the blocks, its fade in (where it
+    /// starts, its pixel this many times its cells, and over how many doublings of distance).
+    pub blocks_fades: [[f32; 2]; 4],
+    pub cells_fades: [[f32; 2]; 4],
     pub rays: u32,
     pub upscale: u32,
     pub earned: bool,
@@ -55,8 +56,8 @@ impl Default for Eye {
             grid: 2.0,
             coarsest: 4,
             between: false,
-            blocks_fades: [BLOCKS_FADE; 3],
-            cells_fade: CELLS_FADE,
+            blocks_fades: [BLOCKS_FADE; 4],
+            cells_fades: [CELLS_FADE; 4],
             rays: 1,
             upscale: 0,
             earned: true,
@@ -73,6 +74,22 @@ impl Default for Eye {
 /// from where its pixel is as big as its cells, over one doubling (what builds 74 to 81 did).
 pub const BLOCKS_FADE: [f32; 2] = [0.75, 1.0];
 pub const CELLS_FADE: [f32; 2] = [1.0, 1.0];
+
+/// The seams between layers, each by its finer layer: 4 × 4 (into 8 × 8), 2 × 2, 1.5 and 1 × 1.
+pub const SEAMS: [f32; 4] = [4.0, 2.0, 1.5, 1.0];
+
+/// Which seam a finer layer of this factor makes with the one above it (its place in `SEAMS`).
+pub fn seam(finer: f32) -> usize {
+    if finer >= 3.0 {
+        0
+    } else if finer >= 1.9 {
+        1
+    } else if finer >= 1.4 {
+        2
+    } else {
+        3
+    }
+}
 
 /// Sky light's defaults: a place seeing no sky keeps a fifth of the sky's light; the tint a little towards blue.
 pub const SKY_STRENGTH: f32 = 0.8;
@@ -275,14 +292,9 @@ impl SightDraw {
             let to_above = if k == 0 { 0.0 } else { layer.factor / targets.layers[k - 1].factor };
             let child = targets.layers.get(k + 1).map_or(0.0, |below| below.factor);
             let to_child = child / layer.factor;
-            // Among the blocks, where the next finer layer fades out: by its factor.
-            let fade = if child >= 1.9 {
-                eye.blocks_fades[0]
-            } else if child >= 1.4 {
-                eye.blocks_fades[1]
-            } else {
-                eye.blocks_fades[2]
-            };
+            // The seam with the next finer layer: its fades, by that layer's factor.
+            let fade = eye.blocks_fades[seam(child)];
+            let cells_fade = eye.cells_fades[seam(child)];
             let numbers: [[f32; 4]; CAMERA_ROWS] = [
                 [eye.position[0], eye.position[1], eye.position[2], 0.0],
                 [forward[0], forward[1], forward[2], 0.0],
@@ -305,7 +317,7 @@ impl SightDraw {
                 // fades out among the blocks (shares of their reach).
                 [to_above, to_child, fade[0].min(fade[1]), fade[1]],
                 // Past the blocks, the one below's fade in: where it starts and over how many doublings.
-                [eye.cells_fade[0].max(0.1), eye.cells_fade[1].max(0.05), 0.0, 0.0],
+                [cells_fade[0].max(0.1), cells_fade[1].max(0.05), 0.0, 0.0],
                 // Sky light (`INCUS_SIGHT_NO_SKY` leaves it out, for measuring): on, strength, tint, its cones' width.
                 [if eye.sky && !no_sky { 1.0 } else { 0.0 }, eye.sky_strength.clamp(0.0, 1.0), eye.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
             ];
@@ -479,6 +491,11 @@ mod tests {
 
     /// The pyramid's layers follow the choices: halving from the coarsest, never coarser than it, 1.5 at the end
     /// or between 2 × 2 and 1 × 1.
+    #[test]
+    fn each_seam_has_its_own_fades() {
+        assert_eq!(SEAMS.map(seam), [0, 1, 2, 3]);
+    }
+
     #[test]
     fn the_layers_follow_the_choices() {
         let layers = |coarsest: u32, grid: f32, between: bool| factors(Eye { coarsest, grid, between, ..Eye::default() });
