@@ -114,7 +114,11 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.add(egui::Slider::new(&mut height, 5.0..=90.0).step_by(1.0).suffix("°").text("height over the horizon")).changed() {
         kept.light.set_number("sun_height", height);
     }
-    ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun.");
+    let mut shadows = kept.sight_shadows();
+    if ui.checkbox(&mut shadows, "Shadows").changed() {
+        kept.render.table.insert("sight_shadows".to_string(), toml::Value::Boolean(shadows));
+    }
+    ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun (not its shadows).");
 }
 
 /// The frame limits' names in the settings.
@@ -247,6 +251,11 @@ impl KeptSettings {
     /// sharp at skylines [David 2026-11-06: "can we have a switch?"; opens on crisp].
     pub fn sight_upscale(&self) -> u32 {
         (self.render.number("sight_upscale", 0.0) as u32).min(2)
+    }
+
+    /// Whether the sun casts shadows in sight (3.4b; on unless chosen).
+    pub fn sight_shadows(&self) -> bool {
+        self.render.flag("sight_shadows", true)
     }
 
     /// Whether the game freezes when it isn't in front (`freeze_when_away`, on unless chosen).

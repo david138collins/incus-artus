@@ -71,7 +71,9 @@ impl WindowState {
 
 impl Default for WindowState {
     fn default() -> Self {
-        Self { size: (1280, 960), scale: 1.0, focused: true, capture_mouse: false, resize_to: None, minimize: None, refresh: 60.0, freeze_when_away: true, resumed: false }
+        // Never freezing from the first frame while the game measures itself [2026-11-08: a soak run's window
+        // came up behind another, froze before the setting reached it, and waited for a click].
+        Self { size: (1280, 960), scale: 1.0, focused: true, capture_mouse: false, resize_to: None, minimize: None, refresh: 60.0, freeze_when_away: !crate::soak::measuring(), resumed: false }
     }
 }
 
@@ -426,6 +428,7 @@ impl Runner {
                     upscale: kept.sight_upscale(),
                     earned: kept.sight_earned(),
                     sun: kept.sun().to_array(),
+                    shadows: kept.sight_shadows(),
                 };
                 (store, eye)
             })

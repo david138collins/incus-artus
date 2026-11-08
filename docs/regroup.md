@@ -785,6 +785,25 @@ back to.
   marianas trench dive into ways to accelerate and optimize"]: once the look is mostly working, a pass given over to
   making it faster, every idea measured (Fork E's list is a start; "finer layers everywhere" is what to win back).
   Next: 3.4b (sun shadows and sky light), talked through first.
+  **3.4b's first half BUILT, build 80: sun shadows** [talked through 2026-11-08, sky light the next build, each
+  measured alone; David: "proceed"]. The light is kept in two parts, the sky's (always there) and the sun's, which
+  a shadow takes away; each ray gathers the sun's part beside its colour, and where it was half covered a second ray
+  goes towards the sun through the same store. From a block's face near the eye it walks the blocks themselves first
+  (up to 128), so a block's shadow is a block's; past them, or from a far surface, it reads the averaged cells,
+  widening 0.04 a block (wider than the sun's own 0.01: fewer steps, and a far ridge's shadow comes soft), each step
+  as long as it is wide, dimmed by how solid the cells are. Air over the biggest column top it's over is skipped
+  (tried from the coarsest level down), a region not baked yet is passed whole, and over the highest anything
+  stands it's done. Only pixels shown are shaded (one a finer layer covers whole isn't). Water is shaded as a face
+  in full sun. The Render page's Sun has a "Shadows" switch (on unless chosen); `INCUS_SIGHT_NO_SHADOWS` for
+  measuring. **Test** (`sight_s_shadows_fall_where_they_should`, card, ignored like the sea test): a ridge on a
+  plain with a 15° sun beyond it darkens the plain about 16%, near and far; the sun on this side changes nothing.
+  Its first run caught a surface shading itself (the shadow ray stepped clear by a block where the cells read were
+  32: now by the cells read). **Measured** (the soak's low slow flight, 30 up at 20 a second, 20° down, uncapped,
+  a fresh test world baking as it flies): shadows off about 140 to 160 fps, on about 105 to 120, roughly 2 to 3 ms.
+  The first try was 38: in land not baked yet each shadow step read up to eight levels and found none.
+  Also: a soak or test window never freezes from its first frame (one came up behind another window, froze before
+  its setting arrived, and waited for a click).
+  Next: his look at 80 (a low sun across mountains: long shadows, soft far off), then sky light.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

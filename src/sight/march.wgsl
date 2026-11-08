@@ -34,7 +34,8 @@ struct Camera {
     // each coarser one reaches twice as far for each level coarser).
     layer: vec4<f32>,
     // x: 1 if a refining layer's rays start a little short of the nearest touch round their parent pixel (0: from
-    // the tile's start, for measuring).
+    // the tile's start, for measuring). y: 1 for sun shadows (3.4b). z: how fast a shadow ray widens (blocks
+    // across a block of distance).
     follow: vec4<f32>,
 }
 
@@ -271,17 +272,27 @@ fn level_at(t: f32) -> i32 {
     return kept(clamp(level, header[2], header[1]));
 }
 
-// A face lit by the sun.
-fn lit(colour: vec3<f32>, facing: vec3<f32>) -> vec3<f32> {
-    return colour * (camera.sun.w + (1.0 - camera.sun.w) * max(dot(facing, camera.sun.xyz), 0.0));
+// The light is kept in two parts (3.4b): the sky's, always there (`camera.sun.w` of a face's colour), and the
+// sun's, which a shadow takes away. `lit` is both; `sunlit` the sun's alone.
+fn lit(colour: vec3<f32>, light: f32) -> vec3<f32> {
+    return colour * (camera.sun.w + (1.0 - camera.sun.w) * light);
 }
 
-// A cell's faces lit by the sun, seen along `d` (3.4a): each way's faces lit as themselves (the sun on a face
+fn sunlit(colour: vec3<f32>, light: f32) -> vec3<f32> {
+    return colour * (1.0 - camera.sun.w) * light;
+}
+
+// How much sun a face gets by its facing.
+fn face_light(facing: vec3<f32>) -> f32 {
+    return max(dot(facing, camera.sun.xyz), 0.0);
+}
+
+// How much sun a cell's faces get, seen along `d` (3.4a): each way's faces lit as themselves (the sun on a face
 // looking north is the sun's northward part, or none), and weighted by how much of that way the eye sees (a face
 // looking north shows as much as the eye looks south), so a far terraced hillside shows the tops and sides it
 // really shows, each as bright as it really is. A cell whose faces all look away (the eye inside it) is lit by
 // all of them.
-fn lit_faces(colour: vec3<f32>, look: Look, d: vec3<f32>) -> vec3<f32> {
+fn faces_light(look: Look, d: vec3<f32>) -> f32 {
     let sun = camera.sun.xyz;
     let seen_plus = look.plus * max(-d, vec3<f32>(0.0));
     let seen_minus = look.minus * max(d, vec3<f32>(0.0));
@@ -294,7 +305,7 @@ fn lit_faces(colour: vec3<f32>, look: Look, d: vec3<f32>) -> vec3<f32> {
     } else {
         light = dot(look.plus, sunny_plus) + dot(look.minus, sunny_minus);
     }
-    return colour * (camera.sun.w + (1.0 - camera.sun.w) * light);
+    return light;
 }
 
 // The highest anything stands in what's on the card so far (the store keeps it as regions and tiles go up):
@@ -339,6 +350,9 @@ struct Hard {
     t: f32,
     first: f32,
     colour: vec3<f32>,
+    // The sun's part of `colour` (what a shadow takes away), and the face met's facing.
+    sunny: vec3<f32>,
+    facing: vec3<f32>,
     through: f32,
     steps: i32,
 }
@@ -423,7 +437,11 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
         if (look.solid >= 0.5) {
             out.met = true;
             out.t = t;
-            out.colour += out.through * lit(select(look.colour, ROCK, look.surface <= 0.0), facing);
+            let colour = select(look.colour, ROCK, look.surface <= 0.0);
+            let light = face_light(facing);
+            out.colour += out.through * lit(colour, light);
+            out.sunny += out.through * sunlit(colour, light);
+            out.facing = facing;
             if (out.through > 0.5) {
                 out.first = t;
             }
@@ -434,6 +452,7 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
         if (look.water >= 0.5) {
             if (!in_water) {
                 out.colour += out.through * 0.85 * WATER_COLOUR;
+                out.sunny += out.through * 0.85 * sunlit(WATER_COLOUR, 1.0);
                 if (out.through > 0.5) {
                     out.first = t;
                 }
@@ -471,6 +490,22 @@ struct Seen {
     distance: f32,
     steps: f32,
     level: i32,
+    // For its shadow (3.4b), looked up only where the pixel is shown: the sun's part of `colour`, the place, how
+    // wide the shadow ray starts, and the face's facing if it's a block's (`on_block`).
+    sunny: vec3<f32>,
+    at: vec3<f32>,
+    wide: f32,
+    facing: vec3<f32>,
+    on_block: bool,
+}
+
+// A ray's colour with its shadow.
+fn shaded(seen: Seen) -> vec3<f32> {
+    if (seen.wide <= 0.0) {
+        return seen.colour;
+    }
+    let sun = sunlight(seen.at, seen.wide, seen.facing, seen.on_block);
+    return seen.colour - seen.sunny * (1.0 - sun);
 }
 
 // A number from 0 to 1 for a pixel, steady from frame to frame (a hash of its place).
@@ -485,6 +520,8 @@ fn scatter(at: vec2<u32>) -> f32 {
 // their places against the ground don't line up across the screen (lined up, they draw rings round the eye).
 fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     var colour = vec3<f32>(0.0);
+    // The sun's part of it (3.4b: what the shadow at the surface takes away).
+    var sunny = vec3<f32>(0.0);
     var through = 1.0;
     var first = camera.reach.x;
     var steps = 0;
@@ -496,9 +533,11 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             let h = hard(o, d, max(begin, 0.0), blocks_end);
             steps = h.steps;
             if (h.met) {
-                return Seen(h.colour, h.first, f32(steps), 0);
+                // The face met: its shadow from the blocks themselves first.
+                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true);
             }
             colour = h.colour;
+            sunny = h.sunny;
             through = h.through;
             first = h.first;
             start_at = h.t;
@@ -664,11 +703,16 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             let covered = 1.0 - (1.0 - solid) * (1.0 - water);
             if (covered > 0.0) {
                 // Each end's colour as lit, weighted by how much solid it has.
-                let lit_before = lit_faces(before.colour, before, d);
-                let lit_now = lit_faces(look.colour, look, d);
-                let ground = (lit_before * before.solid + lit_now * look.solid) / max(before.solid + look.solid, 1e-6);
-                let here = (ground * solid + water_colour * water) / max(solid + water, 1e-6);
+                let light_before = faces_light(before, d);
+                let light_now = faces_light(look, d);
+                let solids = max(before.solid + look.solid, 1e-6);
+                let ground = (lit(before.colour, light_before) * before.solid + lit(look.colour, light_now) * look.solid) / solids;
+                let ground_sun = (sunlit(before.colour, light_before) * before.solid + sunlit(look.colour, light_now) * look.solid) / solids;
+                let both = max(solid + water, 1e-6);
+                let here = (ground * solid + water_colour * water) / both;
+                let here_sun = (ground_sun * solid + sunlit(water_colour, 1.0) * water) / both;
                 colour += through * covered * here;
+                sunny += through * covered * here_sun;
                 if (through > 0.5 && through * (1.0 - covered) <= 0.5) {
                     first = t;
                     first_level = level;
@@ -682,7 +726,121 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         t += dt;
     }
     colour += through * sky(d);
-    return Seen(colour, first, f32(steps), first_level);
+    // The shadow where the ray was half covered (the surface it shows), on everything it gathered; the shadow ray
+    // as wide as the cells the surface was read from (or the eye's pixel there, if wider). None: nothing met.
+    var wide = 0.0;
+    if (first < camera.reach.x) {
+        let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
+        wide = max(first * camera.view.z, read);
+    }
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false);
+}
+
+// ── Sun shadows (3.4b, David 2026-11-08: "proceed") ──
+//
+// How much of the sun reaches a place: a ray towards the sun through the same store the eye's rays read. By a
+// block's face (near the eye) it walks the blocks themselves first, so a block's shadow is a block's, sharp. Past
+// them, or from a far surface, it reads the averaged cells, widening as it goes (`camera.follow.z` across a block of
+// distance) and reading the level as wide as it is: a far ridge's shadow comes soft-edged, as the sun's own width
+// and the haze make it, and the steps grow with the distance. Air over a cell column's top is skipped whole (the
+// ray only climbs), and once it's over the highest anything stands, nothing more can shade it.
+
+// The most steps a shadow ray takes (past them it's taken as sunlit).
+const SHADOW_STEPS: i32 = 160;
+// How far the blocks are walked towards the sun from a face, at most (blocks).
+const SHADOW_BLOCKS: f32 = 128.0;
+
+// `p` the place; `footprint` the eye's pixel there (blocks); `facing` the face's (on a block, `on_block`).
+fn sunlight(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> f32 {
+    let s = camera.sun.xyz;
+    if (camera.follow.y < 0.5) {
+        return 1.0;
+    }
+    var o = p;
+    var t = 0.0;
+    if (on_block) {
+        // A face turned from the sun has no sun to lose.
+        if (dot(facing, s) <= 0.0) {
+            return 1.0;
+        }
+        // Off the face a hair, then the blocks walked towards the sun.
+        o = p + facing * 0.01;
+        if (header[2] == 0 && is_kept(0)) {
+            let h = hard(o, s, 0.0, min(camera.layer.w, SHADOW_BLOCKS));
+            if (h.met) {
+                return 0.0;
+            }
+            t = h.t;
+        }
+    } else {
+        // Clear of the surface's own soft edge first (the blend reaches half a cell either side of it): up half a
+        // cell, and along the sun till a cell higher. The cell: as wide as `footprint`, or the level read there
+        // if that's coarser (a live level not made yet reads the next one kept).
+        let wanted = clamp(i32(floor(log2(max(footprint, 1.0)))), header[2], header[1]);
+        let size = max(exp2(floor(log2(max(footprint, 1.0)))), f32(1 << u32(kept(wanted))));
+        o = p + vec3<f32>(0.0, 0.0, size * 0.5);
+        t = size / max(s.z, 0.1);
+    }
+    var light = 1.0;
+    let top = world_top() + 1.0;
+    for (var n = 0; n < SHADOW_STEPS; n++) {
+        let q = o + s * t;
+        if (q.z > top || t > camera.reach.x) {
+            break;
+        }
+        let wide = max(footprint, t * camera.follow.z);
+        var level = kept(clamp(i32(floor(log2(max(wide, 1.0)))), header[2], header[1]));
+        // Over a column's top: on to where it leaves that column, the biggest it's over the top of, tried from the
+        // coarsest level down to two coarser than it reads [2026-11-08: two coarser alone, a sunlit place's ray
+        // climbed to the world's top in small hops, about 40 fps against 140 without shadows].
+        var skipped = false;
+        for (var up = header[1]; up >= level + 2; up -= 2) {
+            let at = kept(up);
+            let up_size = f32(1 << u32(at));
+            let cc = floor(q.xy / up_size);
+            let entry = entry_at(at, i32(cc.x), i32(cc.y));
+            if (entry.y == PAST_MAP) {
+                return light;
+            }
+            if (entry.y == NOT_BAKED) {
+                continue;
+            }
+            let low = bitcast<i32>(entry.y << 16u) >> 16u;
+            let count = i32(entry.y >> 16u);
+            if (q.z > f32(low + count) * up_size + f32(1 << u32(level))) {
+                t = max(leave2(o.xy, s.xy, cc, up_size), t) + 0.01;
+                skipped = true;
+                break;
+            }
+        }
+        if (skipped) {
+            continue;
+        }
+        // A region not baked yet holds nothing known to shade with: on past it whole, as the march does
+        // [2026-11-08: tried level by level there, each step read up to eight levels and found none].
+        let r = floor(q.xy / f32(1 << u32(REGION)));
+        if (entry_at(REGION, i32(r.x), i32(r.y)).y == NOT_BAKED) {
+            t = max(leave2(o.xy, s.xy, r, f32(1 << u32(REGION))), t) + 0.01;
+            continue;
+        }
+        var look = blend(level, q);
+        // A live level not made here yet: the bake's first, there wherever its region is.
+        if (!look.known && level < header[0]) {
+            level = header[0];
+            look = blend(level, q);
+        }
+        let size = f32(1 << u32(level));
+        // A step as long as the ray is wide (never under its cell): what it crosses dims it by how solid it is.
+        let step = max(size, wide);
+        if (look.known) {
+            light *= pow(1.0 - min(look.solid, 0.999), step / size);
+            if (light < 0.02) {
+                return 0.0;
+            }
+        }
+        t += step;
+    }
+    return light;
 }
 
 // ── The start pass (the screen pyramid's first step, David 2026-11-06) ──
@@ -815,10 +973,10 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         begin = max(begin, nearest - 2.0 - nearest * camera.view.z * 4.0);
     }
-    var colour = vec3<f32>(0.0);
     var near = camera.reach.x;
     var steps = 0.0;
     var level = -1;
+    var seens: array<Seen, 4>;
     for (var r = 0u; r < rays; r++) {
         // One ray at the middle; four at the middles of the pixel's quarters.
         var offset = vec2<f32>(0.5, 0.5);
@@ -830,29 +988,18 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         let y = 1.0 - uv.y * 2.0;
         let d = normalize(camera.forward.xyz + x * camera.right.xyz + y * camera.up.xyz);
         let seen = march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)), begin);
-        colour += seen.colour;
+        seens[r] = seen;
         near = min(near, seen.distance);
         steps += seen.steps;
         level = max(level, seen.level);
     }
-    colour /= f32(rays);
-    if (camera.reach.z > 1.5 && level >= 0) {
-        let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
-        colour = colour * 0.4 + tints[level % 6] * 0.35;
-    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
-        let k = clamp(steps / f32(rays) / 256.0, 0.0, 1.0);
-        colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);
-        colour = colour * colour;
-    }
-    // Kept with its alpha (premultiplied), so the screen can blend it over the layer above.
-    textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
-    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(near, 0.0, 0.0, 0.0));
     // How much is the layer below worth here? Nothing while its pixels would be smaller than the cells they'd read
     // (finer than the cells, they only magnify the blend into smudge: David's bands, "2 looks worse than 4, up
     // close"); rising to all of it over the next doubling of distance, so the change of pixel size fades in rather
     // than drawing a ring round the eye; never for sky.
+    var worth = 0.0;
     if (camera.layer.y > 0.5) {
-        var worth = select(0.0, 1.0, camera.layer.z < 0.5);
+        worth = select(0.0, 1.0, camera.layer.z < 0.5);
         if (camera.layer.z > 0.5 && near < camera.reach.x && level >= 0) {
             // The cells this pixel's surface was read from (not the finest that could be there: where a live
             // level's tile isn't made yet, a finer pixel over the coarser cells read instead only smudges, and cost
@@ -868,4 +1015,26 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         worth_out[id.y * size.x + id.x] = u32(round(worth * 255.0));
     }
+    // The shadows, only where this pixel shows (a finer layer laid over it whole hides it).
+    var colour = vec3<f32>(0.0);
+    let hidden = round(worth * 255.0) >= 255.0;
+    for (var r = 0u; r < rays; r++) {
+        if (hidden) {
+            colour += seens[r].colour;
+        } else {
+            colour += shaded(seens[r]);
+        }
+    }
+    colour /= f32(rays);
+    if (camera.reach.z > 1.5 && level >= 0) {
+        let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
+        colour = colour * 0.4 + tints[level % 6] * 0.35;
+    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
+        let k = clamp(steps / f32(rays) / 256.0, 0.0, 1.0);
+        colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);
+        colour = colour * colour;
+    }
+    // Kept with its alpha (premultiplied), so the screen can blend it over the layer above.
+    textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
+    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(near, 0.0, 0.0, 0.0));
 }

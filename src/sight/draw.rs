@@ -24,7 +24,13 @@ pub struct Eye {
     /// Towards the sun (game axes, a whole way long): the Render page's sun, the one the World Compiler's
     /// pictures are lit by too (`KeptSettings::sun`).
     pub sun: [f32; 3],
+    /// Sun shadows (3.4b; the Render page's switch).
+    pub shadows: bool,
 }
+
+/// How fast a shadow ray widens (blocks across a block of distance, 3.4b): wider than the sun itself (about
+/// 0.01), so a shadow ray's steps grow with the distance and a far ridge's shadow comes soft.
+const SHADOW_SPREAD: f32 = 0.04;
 
 /// The first sight's noon sun, high in the south, a little east ("a fixed noon sun"): the tests' sun.
 pub const NOON: [f32; 3] = [-0.35, 0.2, 0.91];
@@ -199,6 +205,7 @@ impl SightDraw {
         let aspect = screen.0 as f32 / screen.1.max(1) as f32;
         let no_start = std::env::var("INCUS_SIGHT_NO_START").is_ok();
         let no_follow = std::env::var("INCUS_SIGHT_NO_FOLLOW").is_ok();
+        let no_shadows = std::env::var("INCUS_SIGHT_NO_SHADOWS").is_ok();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -229,8 +236,9 @@ impl SightDraw {
                 // this layer, and the cone's spread (a tile's half diagonal, and a screen pixel more).
                 [tiles.0 as f32, tiles.1 as f32, if no_start { 0.0 } else { (TILE / layer.factor).max(1) as f32 }, screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above_width, below, if eye.earned { 1.0 } else { 0.0 }, live_reach],
-                // Each finer ray from short of its parent's nearest touch (`INCUS_SIGHT_NO_FOLLOW` leaves it out).
-                [if no_follow { 0.0 } else { 1.0 }, 0.0, 0.0, 0.0],
+                // Each finer ray from short of its parent's nearest touch (`INCUS_SIGHT_NO_FOLLOW` leaves it out);
+                // sun shadows (`INCUS_SIGHT_NO_SHADOWS` leaves them out, for measuring), and their widening.
+                [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
