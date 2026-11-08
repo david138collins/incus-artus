@@ -9,7 +9,8 @@ struct Up {
     // x, y: the screen's size; z: the finest layer's factor (8, 4, 2 or 1); w: the coarsest's, the base (David
     // 2026-11-08: a choice; a layer coarser than it isn't made, and its binding stands in for it).
     size: vec4<f32>,
-    // x: the mode (0 crisp, 1 smooth, 2 sharp at skylines).
+    // x: the mode (0 crisp, 1 smooth, 2 sharp at skylines); y: 1 if there's a layer of 1.5 (between 2 × 2 and
+    // 1 × 1, or the finest).
     mode: vec4<f32>,
 }
 
@@ -20,6 +21,7 @@ struct Up {
 @group(0) @binding(4) var blended: sampler;
 @group(0) @binding(5) var<uniform> up: Up;
 @group(0) @binding(6) var layer1: texture_2d<f32>;
+@group(0) @binding(7) var layer15: texture_2d<f32>;
 
 @vertex
 fn whole_screen(@builtin(vertex_index) k: u32) -> @builtin(position) vec4<f32> {
@@ -73,6 +75,12 @@ fn brought_up(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
     }
     if (finest <= 2.0 && coarsest >= 2.0) {
         let c = read(layer2, 2.0, at.xy, smooth_it);
+        colour = mix(colour, c.rgb, c.a);
+    }
+    // A layer of 1.5: its pixels don't line up with the screen's (crisp, one and two screen pixels wide by turns;
+    // smooth, a little soft).
+    if (up.mode.y > 0.5) {
+        let c = read(layer15, 1.5, at.xy, smooth_it);
         colour = mix(colour, c.rgb, c.a);
     }
     if (finest <= 1.0) {

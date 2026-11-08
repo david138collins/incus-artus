@@ -821,7 +821,30 @@ back to.
   not by halves (the worth rule, the parent's start), and the upscale to take a layer whose pixels don't line up
   with the screen's (crisp, they'd come one and two screen pixels wide by turns; smooth, a little soft, as games'
   render scales are). Cost about 0.44 of 1 × 1 where it's shown. Not built: his word first.
-  Next: his look at 81 (the triangles gone while tiles fill; the coarsest choices), then sky light.
+  **David's look at build 81** [2026-11-08: "i liked the looks of 2x finest, 4x coarsest. it's worth adding more
+  render settings to check out what different combos look like and how quick they are"; on 1.5: "perhaps to help
+  blend the 1x1 to 2x2, which is a little obvious sometimes when you can look up a big slope. do you believe we'll be
+  able to tune the ways that it pumps between scales?"]. The start bake took 221 s that run (92 in 80, 46 before
+  shadows): his 1 × 1 coarsest left the card the least room; on file for the speed dive (the bake's share of the card).
+  **Build 82**: **1.5** a finest choice, or a layer between 2 × 2 and 1 × 1 ("with a 1.5 layer between", only with the
+  finest at 1 × 1); a layer's parent found by scale (0.75 for 1.5 under 2), the upscale taking a layer whose pixels
+  don't line up with the screen's (crisp: one and two screen pixels wide by turns; smooth: a little soft). **The
+  fades his to set** (the Render page, "Fades between layers", folded): among the blocks, where each finer layer
+  fades out (2 × 2 and coarser, 1.5, 1 × 1 each its own from and to, shares of the blocks' reach; 75% to 100% unless
+  chosen, as before); past them, where a finer layer starts fading in (its pixel so many times its cells, 1 unless
+  chosen) and over how many doublings (1): the defaults draw what 81 drew. **How quick, on the page**: the frames and
+  **the card's own clock on sight** (its timestamps, now asked for wherever the card has them; smoothed over about
+  twenty frames; also in the soak's lines). **Coarsest 4 × 4 unless chosen** (his pick); `INCUS_SIGHT_COARSEST` for
+  measuring.
+  **A hole found on the way, fixed**: with finer layers everywhere, the 1.5 and 1 × 1 layers shaded their own sunlit
+  ground (2 to 6% in the ridge test). Build 78's rule starts a finer ray a little short of its parent's half-covered
+  distance; over cells far bigger than that margin (32s, everywhere) it began inside their soft edge, gathered too
+  little, and its surface (and so its shadow ray) sat too deep. A layer now keeps where its ray *first touched*
+  anything for the layer below to start from. Every combination now passes the ridge test, everywhere or where worth
+  it. **Measured** (the low slow flight, uncapped, a fresh test world baking): coarsest 8 about 103 to 118 fps, sight
+  on the card about 5.4 to 6.8 ms (as 80: the first-touch rule costs nothing to see); coarsest 4 (the default now)
+  about 90 to 104 fps, sight about 7 to 8.3 ms.
+  Next: his look at 82 (1.5 between on a big slope; the fades; the clock on combos), then sky light.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

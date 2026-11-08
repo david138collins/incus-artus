@@ -557,7 +557,7 @@ fn keep_sight(
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
         // The store on the card: its live window made for the finest grid, used as far as the grid asks (sized
         // for 2 × 2 at the finest: the 1 × 1 layer reads the same windows, its blocks out to the same reach).
-        let grid = settings.sight_grid();
+        let grid = settings.sight_grid().max(2.0) as u32;
         let store = Arc::new(crate::sight::card_store::CardStore::new(device, queue, half, &live_levels(), crate::sight::store::side_for(2)));
         store.reset_live(crate::sight::store::side_for(grid.max(2)));
         let maker = crate::sight::store::Maker { device: device.clone(), queue: queue.clone(), world: world.clone(), caves: caves.0.clone(), card: Some(store.clone()) };
@@ -575,7 +575,7 @@ fn keep_sight(
         sight.live = Some(crate::sight::store::LiveStore::new(live_levels(), crate::sight::store::side_for(grid.max(2))));
     }
     // A new grid: the live window sized for it, filled again.
-    let grid = settings.sight_grid();
+    let grid = settings.sight_grid().max(2.0) as u32;
     if grid != sight.grid
         && let Some(store) = &sight.card
     {

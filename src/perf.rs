@@ -387,7 +387,10 @@ pub fn performance_debug_page(ui: &mut egui::Ui, world: &mut World) {
 /// The frame rate and how many of each kind of thing the game is holding (a count that keeps
 /// climbing on a long flight is a leak), in a line: for the soak test's log.
 pub fn soak_line(world: &mut World) -> String {
-    let fps = fps_line(world);
+    let fps = match crate::sight::draw::card_ms() {
+        Some(ms) => format!("{}, sight on the card {ms:.2} ms", fps_line(world)),
+        None => fps_line(world),
+    };
     let streaming = world.resource::<Streaming>();
     let (queued, making, made, dropped) = (streaming.queued(), streaming.being_made(), streaming.made, streaming.dropped);
     let chunks = world.resource::<VoxelWorld>().chunk_count();

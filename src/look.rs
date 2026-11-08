@@ -40,6 +40,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.small("The world is drawn by sight's first form (the regroup, 3.2): the coarse layer alone. These presets still hold every value tuned for the old renderer.");
     ui.strong("Frame limit");
     let refresh = world.resource::<crate::runner::WindowState>().refresh;
+    // How quick sight is (shown with its settings below): the frames, and the card's clock on sight alone.
+    let speed = format!(
+        "{} | sight on the card: {}",
+        crate::perf::fps_line(world),
+        crate::sight::draw::card_ms().map_or("(the card can't time itself)".to_string(), |ms| format!("{ms:.2} ms"))
+    );
     let mut kept = world.resource_mut::<KeptSettings>();
     let mut chosen = kept.frame_limit_name();
     ui.vertical(|ui| {
@@ -61,7 +67,10 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     }
     ui.small("Frozen, the game stays on the screen under a grey veil, the world stops and nothing is drawn till it's clicked again. F11: fullscreen or a window.");
     ui.separator();
-    ui.strong("Sight (the screen pyramid: 8 × 8 everywhere, finer where it's worth it)");
+    ui.strong("Sight (the screen pyramid: the coarsest layer everywhere, finer where it's worth it)");
+    // How quick it is [David 2026-11-08: "worth adding more render settings to check out what different combos
+    // look like and how quick they are"]: the frames, and the card's own clock on sight's work.
+    ui.label(egui::RichText::new(speed).monospace());
     // Where the pyramid starts [David 2026-11-08: "a set of selections for coarsest rays, so i can experiment with
     // nixing the 8x8 layer"]: everything is marched there.
     let mut coarsest = kept.sight_coarsest();
@@ -77,16 +86,67 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     let mut grid = kept.sight_grid();
     ui.horizontal(|ui| {
         ui.label("Finest layer:");
-        for factor in [1, 2, 4, 8] {
+        for factor in [1.0f32, 1.5, 2.0, 4.0, 8.0] {
             // Coarser than the coarsest: greyed (the finest is never coarser than where it starts).
-            ui.add_enabled_ui(factor <= coarsest, |ui| {
+            ui.add_enabled_ui(factor <= coarsest as f32, |ui| {
                 ui.radio_value(&mut grid, factor, format!("{factor} × {factor}"));
             });
         }
     });
     if grid != kept.sight_grid() {
-        kept.render.set_number("sight_grid", grid as f32);
+        kept.render.set_number("sight_grid", grid);
     }
+    // 1.5 between 2 × 2 and 1 × 1 [David 2026-11-08: "perhaps to help blend the 1x1 to 2x2"]: only with the
+    // finest at 1 × 1 and the coarsest at 2 × 2 or more.
+    let mut between = kept.sight_between();
+    ui.add_enabled_ui(grid < 1.25 && coarsest >= 2, |ui| {
+        if ui.checkbox(&mut between, "with a 1.5 layer between 2 × 2 and 1 × 1").changed() {
+            kept.render.table.insert("sight_between".to_string(), toml::Value::Boolean(between));
+        }
+    });
+    // Where each change between layers falls [David 2026-11-08: "do you believe we'll be able to tune the ways
+    // that it pumps between scales?"].
+    egui::CollapsingHeader::new("Fades between layers").default_open(false).show(ui, |ui| {
+        ui.small("Among the blocks near you, where each finer layer fades out, as shares of the blocks' reach (about 336 blocks): from where it starts fading to where it's gone.");
+        let fades = kept.sight_blocks_fades();
+        let has_between = grid > 1.25 && grid < 1.75 || (grid < 1.25 && between && coarsest >= 2);
+        for (k, (name, label, used)) in [("2", "2 × 2 (and coarser)", coarsest >= 4 && grid < 3.0), ("1_5", "1.5", has_between), ("1", "1 × 1", grid < 1.25 && coarsest >= 2)].into_iter().enumerate() {
+            ui.add_enabled_ui(used, |ui| {
+                ui.horizontal(|ui| {
+                    let [mut from, mut to] = fades[k];
+                    ui.label(format!("{label}:"));
+                    let a = ui.add(egui::Slider::new(&mut from, 0.0..=1.0).step_by(0.01).text("from"));
+                    let b = ui.add(egui::Slider::new(&mut to, 0.0..=1.0).step_by(0.01).text("to"));
+                    if a.changed() || b.changed() {
+                        // Never ending before it starts.
+                        if a.changed() {
+                            to = to.max(from);
+                        } else {
+                            from = from.min(to);
+                        }
+                        kept.render.set_number(&format!("sight_fade_{name}_from"), from);
+                        kept.render.set_number(&format!("sight_fade_{name}_to"), to);
+                    }
+                });
+            });
+        }
+        ui.small("Past the blocks, a finer layer fades in where its pixels grow bigger than the cells they'd read: from where its pixel is so many times its cells, over so many doublings of distance.");
+        let [mut start, mut doublings] = kept.sight_cells_fade();
+        if ui.add(egui::Slider::new(&mut start, 0.25..=4.0).logarithmic(true).text("starts at (pixel / cell)")).changed() {
+            kept.render.set_number("sight_fade_cells_start", start);
+        }
+        if ui.add(egui::Slider::new(&mut doublings, 0.1..=4.0).text("over (doublings)")).changed() {
+            kept.render.set_number("sight_fade_cells_doublings", doublings);
+        }
+        if ui.button("Fades back to as they were").clicked() {
+            for name in ["2", "1_5", "1"] {
+                kept.render.table.remove(&format!("sight_fade_{name}_from"));
+                kept.render.table.remove(&format!("sight_fade_{name}_to"));
+            }
+            kept.render.table.remove("sight_fade_cells_start");
+            kept.render.table.remove("sight_fade_cells_doublings");
+        }
+    });
     let mut earned = kept.sight_earned();
     ui.horizontal(|ui| {
         ui.label("Finer layers:");
@@ -238,25 +298,42 @@ impl KeptSettings {
         self.render.table.insert("frame_limit".to_string(), toml::Value::String(name));
     }
 
-    /// Sight's finest layer: how many screen pixels a side its pixels are (1, 2, 4 or 8; 2 unless chosen).
-    pub fn sight_grid(&self) -> u32 {
+    /// Sight's finest layer: how many screen pixels a side its pixels are (1, 1.5, 2, 4 or 8; 2 unless chosen).
+    pub fn sight_grid(&self) -> f32 {
         // For measuring: `INCUS_SIGHT_GRID` chooses it.
-        let chosen = std::env::var("INCUS_SIGHT_GRID").ok().and_then(|g| g.parse().ok()).unwrap_or(self.render.number("sight_grid", 2.0));
-        match chosen as u32 {
-            1 => 1,
-            4 => 4,
-            8 => 8,
-            _ => 2,
-        }
+        let chosen: f32 = std::env::var("INCUS_SIGHT_GRID").ok().and_then(|g| g.parse().ok()).unwrap_or(self.render.number("sight_grid", 2.0));
+        [1.0, 1.5, 2.0, 4.0, 8.0].into_iter().find(|&f| (f - chosen).abs() < 0.01).unwrap_or(2.0)
     }
 
-    /// Sight's coarsest layer, where the pyramid starts (1, 2, 4 or 8; 8 unless chosen).
+    /// With the finest at 1 × 1, a layer of 1.5 between it and 2 × 2 (off unless chosen).
+    pub fn sight_between(&self) -> bool {
+        self.render.flag("sight_between", false)
+    }
+
+    /// Among the blocks, where each finer layer fades out (shares of their reach, from and to): 2 × 2 and
+    /// coarser, 1.5, 1 × 1 (`draw::BLOCKS_FADE` unless chosen).
+    pub fn sight_blocks_fades(&self) -> [[f32; 2]; 3] {
+        let d = crate::sight::draw::BLOCKS_FADE;
+        ["2", "1_5", "1"].map(|name| [self.render.number(&format!("sight_fade_{name}_from"), d[0]), self.render.number(&format!("sight_fade_{name}_to"), d[1])])
+    }
+
+    /// Past the blocks, a finer layer's fade in: where it starts (its pixel so many times its cells) and over
+    /// how many doublings (`draw::CELLS_FADE` unless chosen).
+    pub fn sight_cells_fade(&self) -> [f32; 2] {
+        let d = crate::sight::draw::CELLS_FADE;
+        [self.render.number("sight_fade_cells_start", d[0]), self.render.number("sight_fade_cells_doublings", d[1])]
+    }
+
+    /// Sight's coarsest layer, where the pyramid starts (1, 2, 4 or 8; 4 unless chosen [David 2026-11-08: "i
+    /// liked the looks of 2x finest, 4x coarsest"]).
     pub fn sight_coarsest(&self) -> u32 {
-        match self.render.number("sight_coarsest", 8.0) as u32 {
+        // For measuring: `INCUS_SIGHT_COARSEST` chooses it.
+        let chosen = std::env::var("INCUS_SIGHT_COARSEST").ok().and_then(|g| g.parse().ok()).unwrap_or(self.render.number("sight_coarsest", 4.0));
+        match chosen as u32 {
             1 => 1,
             2 => 2,
-            4 => 4,
-            _ => 8,
+            8 => 8,
+            _ => 4,
         }
     }
 

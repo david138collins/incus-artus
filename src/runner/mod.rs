@@ -251,9 +251,10 @@ impl Runner {
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, compatible_surface: Some(&surface), ..Default::default() })).expect("a graphics card");
         let info = adapter.get_info();
         info!("Graphics card: {} ({:?}, driver {} {})", info.name, info.backend, info.driver, info.driver_info);
-        // The card's own timestamps, for the ballast (developer builds, when it's asked for).
+        // The card's own timestamps, where it has them: sight's clock on the Render page, and the ballast
+        // (developer builds, when it's asked for).
         let timed = cfg!(feature = "dev") && wanted_ballast();
-        let required_features = if timed { adapter.features() & wgpu::Features::TIMESTAMP_QUERY } else { wgpu::Features::empty() };
+        let required_features = adapter.features() & wgpu::Features::TIMESTAMP_QUERY;
         let required_limits = crate::whole::shader::big_buffers(&adapter);
         info!("The card's largest buffer: {} MB", required_limits.max_storage_buffer_binding_size.min(required_limits.max_buffer_size) >> 20);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, required_limits, ..Default::default() })).expect("the card's device");
@@ -425,6 +426,9 @@ impl Runner {
                     field_of_view: view.field_of_view,
                     grid: kept.sight_grid(),
                     coarsest: kept.sight_coarsest(),
+                    between: kept.sight_between(),
+                    blocks_fades: kept.sight_blocks_fades(),
+                    cells_fade: kept.sight_cells_fade(),
                     rays: kept.sight_rays(),
                     upscale: kept.sight_upscale(),
                     earned: kept.sight_earned(),
@@ -503,7 +507,7 @@ impl Runner {
             // Sight under the panel; without it, the sky's colour.
             let drew_sight = if let Some((store, eye)) = &sight {
                 let _timed = Timed::new("sight");
-                let draw = gpu.sight.get_or_insert_with(|| crate::sight::draw::SightDraw::new(&gpu.device, gpu.config.format));
+                let draw = gpu.sight.get_or_insert_with(|| crate::sight::draw::SightDraw::new(&gpu.device, &gpu.queue, gpu.config.format));
                 draw.frame(&gpu.device, &gpu.queue, &mut encoder, &view, (gpu.config.width, gpu.config.height), *eye, store);
                 true
             } else {
@@ -529,6 +533,9 @@ impl Runner {
             {
                 let _timed = Timed::new("handing the card its work");
                 gpu.queue.submit(commands);
+            }
+            if let Some(sight) = &mut gpu.sight {
+                sight.after_submit(&gpu.device);
             }
             #[cfg(feature = "dev")]
             if let Some(ballast) = &mut gpu.ballast {

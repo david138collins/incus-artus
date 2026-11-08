@@ -37,6 +37,13 @@ struct Camera {
     // the tile's start, for measuring). y: 1 for sun shadows (3.4b). z: how fast a shadow ray widens (blocks
     // across a block of distance).
     follow: vec4<f32>,
+    // The pyramid's steps (David 2026-11-08, 1.5 between 2 and 1, and the fades his to tune): x this layer's factor
+    // over the one above's (0.5 halving, 0.75 for 1.5 under 2; 0 the base); y the one below's over this one's; z,
+    // w where the one below fades out among the blocks (shares of their reach, from and to).
+    pyramid: vec4<f32>,
+    // Past the blocks, the one below's fade in: x where it starts (its pixel so many times its cells), y over how
+    // many doublings of distance.
+    fade: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -497,6 +504,9 @@ struct Seen {
     wide: f32,
     facing: vec3<f32>,
     on_block: bool,
+    // Where it first touched anything (a finer layer's rays start short of it: before the soft edge of what it
+    // read, not inside it).
+    touched: f32,
 }
 
 // A ray's colour with its shadow.
@@ -524,6 +534,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     var sunny = vec3<f32>(0.0);
     var through = 1.0;
     var first = camera.reach.x;
+    var touched = camera.reach.x;
     var steps = 0;
     // Near the eye, out to where a block is a pixel (and inside the blocks' window), the blocks as blocks.
     var start_at = begin;
@@ -534,12 +545,13 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             steps = h.steps;
             if (h.met) {
                 // The face met: its shadow from the blocks themselves first.
-                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true);
+                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, min(h.first, h.t));
             }
             colour = h.colour;
             sunny = h.sunny;
             through = h.through;
             first = h.first;
+            touched = h.first;
             start_at = h.t;
         }
     }
@@ -702,6 +714,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             let water = (1.0 - pow(1.0 - min(water_share, 0.999), length / size)) * 0.85;
             let covered = 1.0 - (1.0 - solid) * (1.0 - water);
             if (covered > 0.0) {
+                // The first touch: where this step began.
+                touched = min(touched, before_t);
                 // Each end's colour as lit, weighted by how much solid it has.
                 let light_before = faces_light(before, d);
                 let light_now = faces_light(look, d);
@@ -733,7 +747,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
         wide = max(first * camera.view.z, read);
     }
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false);
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, touched);
 }
 
 // ── Sun shadows (3.4b, David 2026-11-08: "proceed") ──
@@ -943,8 +957,10 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // A refining layer marches only where the pixel above said it's worth something; elsewhere the screen shows
     // that one. How much it's worth is how much of it the screen shows over the layer above (its alpha).
     var shown = 1.0;
+    // Its pixel in the layer above: by scale (halving, or 1.5's three to the 2 × 2's two).
+    let parent = min(vec2<u32>((vec2<f32>(id.xy) + 0.5) * camera.pyramid.x), vec2<u32>(u32(max(camera.layer.x, 1.0)) - 1u, 65535u));
     if (camera.layer.x > 0.0) {
-        let above = id.xy / 2u;
+        let above = parent;
         let worth = worth_in[above.y * u32(camera.layer.x) + above.x];
         shown = f32(worth) / 255.0;
         if (worth == 0u) {
@@ -969,7 +985,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // walk then crosses a block or two, not all the air from the tile's start [2026-11-07, the
     // low slow flight uncapped: finest 1 × 1 about 165 fps against 104, and 2 × 2 about 210 against 172].
     if (camera.layer.x > 0.0 && camera.follow.x > 0.5) {
-        let above = vec2<i32>(id.xy / 2u);
+        let above = vec2<i32>(parent);
         let edge = vec2<i32>(textureDimensions(far_above)) - 1;
         var nearest = camera.reach.x;
         for (var k = 0; k < 9; k++) {
@@ -979,6 +995,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         begin = max(begin, nearest - 2.0 - nearest * camera.view.z * 4.0);
     }
     var near = camera.reach.x;
+    var touch = camera.reach.x;
     var steps = 0.0;
     var level = -1;
     var seens: array<Seen, 4>;
@@ -995,6 +1012,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         let seen = march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)), begin);
         seens[r] = seen;
         near = min(near, seen.distance);
+        touch = min(touch, seen.touched);
         steps += seen.steps;
         level = max(level, seen.level);
     }
@@ -1012,10 +1030,16 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
             let cell = f32(1 << u32(level));
             if (cell <= 1.0) {
                 // Blocks as blocks: a finer pixel always shows more of them (their edges; later their faces),
-                // fading out over the last quarter of the blocks' reach so the change of pixel size isn't a ring.
-                worth = clamp((camera.layer.w - near) / (0.25 * camera.layer.w), 0.0, 1.0);
+                // fading out towards the edge of the blocks' reach so the change of pixel size isn't a ring (by
+                // default over its last quarter; where is David's to set, each layer its own).
+                let begins = camera.pyramid.z * camera.layer.w;
+                let ends = camera.pyramid.w * camera.layer.w;
+                worth = clamp((ends - near) / max(ends - begins, 1e-3), 0.0, 1.0);
             } else {
-                worth = clamp(near * camera.view.z * 0.5 / cell - 1.0, 0.0, 1.0);
+                // Past them: in as the finer pixel grows bigger than the cells (by default from as big as them,
+                // over one doubling of distance; where and how long are David's to set).
+                let ratio = near * camera.view.z * camera.pyramid.y / cell;
+                worth = clamp((ratio / camera.fade.x - 1.0) / max(exp2(camera.fade.y) - 1.0, 1e-3), 0.0, 1.0);
             }
         }
         worth_out[id.y * size.x + id.x] = u32(round(worth * 255.0));
@@ -1041,5 +1065,8 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     // Kept with its alpha (premultiplied), so the screen can blend it over the layer above.
     textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
-    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(near, 0.0, 0.0, 0.0));
+    // Kept for the layer below to start its rays from, and the skyline's test: where it first touched anything
+    // [2026-11-08: the half-covered distance was kept, and a finer layer marched everywhere over cells of 32 began
+    // inside their soft edge, gathered too little of it, and its shadow rays shaded their own ground].
+    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(touch, 0.0, 0.0, 0.0));
 }

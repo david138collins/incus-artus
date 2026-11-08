@@ -14,13 +14,21 @@ pub struct Eye {
     pub looking: [f32; 3],
     /// The field of view, up and down (degrees).
     pub field_of_view: f32,
-    /// The finest layer the pyramid may go to (screen pixels a side of its pixels: 8, 4, 2 or 1); rays a pixel;
-    /// the upscale's mode; and whether the finer layers are marched only where they're worth it (else
+    /// The finest layer the pyramid may go to (screen pixels a side of its pixels: 8, 4, 2, 1.5 or 1); rays a
+    /// pixel; the upscale's mode; and whether the finer layers are marched only where they're worth it (else
     /// everywhere).
-    pub grid: u32,
+    pub grid: f32,
     /// The coarsest layer, where the pyramid starts (8, 4, 2 or 1; everything is marched there) [David
     /// 2026-11-08: "a set of selections for coarsest rays, so i can experiment with nixing the 8x8 layer"].
     pub coarsest: u32,
+    /// With the finest at 1 × 1, a layer of 1.5 between it and 2 × 2 [David 2026-11-08: "perhaps to help blend
+    /// the 1x1 to 2x2, which is a little obvious sometimes when you can look up a big slope"].
+    pub between: bool,
+    /// Where each finer layer fades out among the blocks near the eye (shares of the blocks' reach, from and to):
+    /// for 2 × 2 and coarser, 1.5 and 1 × 1. Past the blocks, a finer layer's fade in: where it starts (its
+    /// pixel this many times its cells) and over how many doublings of distance.
+    pub blocks_fades: [[f32; 2]; 3],
+    pub cells_fade: [f32; 2],
     pub rays: u32,
     pub upscale: u32,
     pub earned: bool,
@@ -30,6 +38,32 @@ pub struct Eye {
     /// Sun shadows (3.4b; the Render page's switch).
     pub shadows: bool,
 }
+
+impl Default for Eye {
+    /// The settings' defaults, looking north from over the middle (the tests start from it).
+    fn default() -> Self {
+        Self {
+            position: [0.0, 0.0, 200.0],
+            looking: [1.0, 0.0, 0.0],
+            field_of_view: 70.0,
+            grid: 2.0,
+            coarsest: 4,
+            between: false,
+            blocks_fades: [BLOCKS_FADE; 3],
+            cells_fade: CELLS_FADE,
+            rays: 1,
+            upscale: 0,
+            earned: true,
+            sun: NOON,
+            shadows: true,
+        }
+    }
+}
+
+/// The fades' defaults: among the blocks, a finer layer out over the last quarter of their reach; past them, in
+/// from where its pixel is as big as its cells, over one doubling (what builds 74 to 81 did).
+pub const BLOCKS_FADE: [f32; 2] = [0.75, 1.0];
+pub const CELLS_FADE: [f32; 2] = [1.0, 1.0];
 
 /// How fast a shadow ray widens (blocks across a block of distance, 3.4b): wider than the sun itself (about
 /// 0.01), so a shadow ray's steps grow with the distance and a far ridge's shadow comes soft.
@@ -50,12 +84,14 @@ pub struct SightDraw {
     up: wgpu::Buffer,
     sampler: wgpu::Sampler,
     targets: Option<Targets>,
+    /// The card's clock on sight's work (none if the card can't time itself).
+    timer: Option<CardTimer>,
 }
 
 /// One layer of the pyramid: its factor (screen pixels a side of a pixel), its size, its picture and distances,
 /// its camera numbers, and its bindings.
 struct Layer {
-    factor: u32,
+    factor: f32,
     size: (u32, u32),
     picture: wgpu::TextureView,
     far: wgpu::TextureView,
@@ -65,8 +101,8 @@ struct Layer {
 
 struct Targets {
     screen: (u32, u32),
-    finest: u32,
-    coarsest: u32,
+    /// The layers' factors, coarsest first.
+    factors: Vec<f32>,
     store: Arc<CardStore>,
     /// The start pass's tiles across and down.
     tiles: (u32, u32),
@@ -80,7 +116,7 @@ fn buffer(b: &wgpu::Buffer) -> wgpu::BindingResource<'_> {
 }
 
 impl SightDraw {
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
         let march_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's march"), source: wgpu::ShaderSource::Wgsl(include_str!("march.wgsl").into()) });
         let march = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march"), layout: None, module: &march_module, entry_point: Some("march_pass"), compilation_options: Default::default(), cache: None });
         let start = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's start pass"), layout: None, module: &march_module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None });
@@ -98,13 +134,13 @@ impl SightDraw {
         });
         let up = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's upscale numbers"), size: 2 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("sight's blend"), mag_filter: wgpu::FilterMode::Linear, min_filter: wgpu::FilterMode::Linear, address_mode_u: wgpu::AddressMode::ClampToEdge, address_mode_v: wgpu::AddressMode::ClampToEdge, ..Default::default() });
-        Self { march, start, upscale, up, sampler, targets: None }
+        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue) }
     }
 
-    /// The pyramid's layers for a screen of `screen`, from `coarsest` down to `finest`, and their bindings to
+    /// The pyramid's layers for a screen of `screen`, one a factor (coarsest first), and their bindings to
     /// `store`, made again when any of them changes (a moment's work: the store is the world's, not the screen's).
-    fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32), finest: u32, coarsest: u32, store: &Arc<CardStore>) -> &Targets {
-        let stale = self.targets.as_ref().is_none_or(|t| t.screen != screen || t.finest != finest || t.coarsest != coarsest || !Arc::ptr_eq(&t.store, store));
+    fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32), factors: &[f32], store: &Arc<CardStore>) -> &Targets {
+        let stale = self.targets.as_ref().is_none_or(|t| t.screen != screen || t.factors != factors || !Arc::ptr_eq(&t.store, store));
         if stale {
             let texture = |label: &str, size: (u32, u32), format: wgpu::TextureFormat| {
                 device
@@ -126,20 +162,15 @@ impl SightDraw {
             // The base has no layer above: its "worth it" in is a placeholder never read.
             let nothing_above = storage("sight's nothing above", 1);
             let no_distances_above = texture("sight's no distances above", (1, 1), wgpu::TextureFormat::R32Float);
-            let mut factors = vec![coarsest];
-            while factors.last().is_some_and(|&f| f > finest.max(1)) {
-                let next = factors.last().copied().unwrap_or(coarsest) / 2;
-                factors.push(next);
-            }
             let mut layers: Vec<Layer> = Vec::new();
             let mut worth_above: Option<wgpu::Buffer> = None;
             let mut far_above: Option<wgpu::TextureView> = None;
-            for &factor in &factors {
-                let size = (screen.0.div_ceil(factor).max(1), screen.1.div_ceil(factor).max(1));
+            for &factor in factors {
+                let size = ((screen.0 as f32 / factor).ceil().max(1.0) as u32, (screen.1 as f32 / factor).ceil().max(1.0) as u32);
                 let picture = texture("sight's layer", size, wgpu::TextureFormat::Rgba8Unorm);
                 let far = texture("sight's layer's distances", size, wgpu::TextureFormat::R32Float);
                 let worth = storage("sight's worth it", size.0 * size.1);
-                let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's camera"), size: 10 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+                let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's camera"), size: CAMERA_ROWS as u64 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
                 let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("sight's march"),
                     layout: &self.march.get_bind_group_layout(0),
@@ -173,37 +204,32 @@ impl SightDraw {
                 ],
             });
             // A layer the pyramid doesn't go to is never read; the base stands in for it.
-            let picture_of = |factor: u32| &layers.iter().find(|l| l.factor == factor).unwrap_or(&layers[0]).picture;
+            let picture_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).picture;
             let upscale_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("sight's upscale"),
                 layout: &self.upscale.get_bind_group_layout(0),
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(picture_of(8)) },
-                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(picture_of(4)) },
-                    wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(picture_of(2)) },
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(picture_of(8.0)) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(picture_of(4.0)) },
+                    wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(picture_of(2.0)) },
                     wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&layers[0].far) },
                     wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Sampler(&self.sampler) },
                     wgpu::BindGroupEntry { binding: 5, resource: buffer(&self.up) },
-                    wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::TextureView(picture_of(1)) },
+                    wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::TextureView(picture_of(1.0)) },
+                    wgpu::BindGroupEntry { binding: 7, resource: wgpu::BindingResource::TextureView(picture_of(1.5)) },
                 ],
             });
-            self.targets = Some(Targets { screen, finest, coarsest, store: store.clone(), tiles, layers, start_group, upscale_group });
+            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), tiles, layers, start_group, upscale_group });
         }
         self.targets.as_ref().expect("made just now")
     }
 
     /// The pyramid marched and brought up onto `view` (the screen's picture, `screen` pixels).
     pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, screen: (u32, u32), eye: Eye, store: &Arc<CardStore>) {
-        let factor = |n: u32| match n {
-            0..=1 => 1,
-            2 => 2,
-            3..=4 => 4,
-            _ => 8,
-        };
-        let coarsest = factor(eye.coarsest);
-        // Never coarser than the coarsest.
-        let finest = factor(eye.grid).min(coarsest);
-        let tiles = self.targets(device, screen, finest, coarsest, store).tiles;
+        let factors = factors(eye);
+        let (coarsest, finest) = (factors[0], factors[factors.len() - 1]);
+        let has_between = factors.iter().any(|&f| (f - 1.5).abs() < 0.01);
+        let tiles = self.targets(device, screen, &factors, store).tiles;
         // The camera: the eye, and the directions of the screen's edges (game axes: looking north, east is right).
         let forward = normalise(eye.looking);
         let right = normalise(cross([0.0, 0.0, 1.0], forward));
@@ -228,7 +254,19 @@ impl SightDraw {
             let pixel = 2.0 * tan_half / layer.size.1 as f32;
             let above_width = if k == 0 { 0.0 } else { targets.layers[k - 1].size.0 as f32 };
             let below = if k + 1 < targets.layers.len() { 1.0 } else { 0.0 };
-            let numbers: [[f32; 4]; 10] = [
+            // The layer above's factor and the one below's, as shares of this one's (0: none).
+            let to_above = if k == 0 { 0.0 } else { layer.factor / targets.layers[k - 1].factor };
+            let child = targets.layers.get(k + 1).map_or(0.0, |below| below.factor);
+            let to_child = child / layer.factor;
+            // Among the blocks, where the next finer layer fades out: by its factor.
+            let fade = if child >= 1.9 {
+                eye.blocks_fades[0]
+            } else if child >= 1.4 {
+                eye.blocks_fades[1]
+            } else {
+                eye.blocks_fades[2]
+            };
+            let numbers: [[f32; 4]; CAMERA_ROWS] = [
                 [eye.position[0], eye.position[1], eye.position[2], 0.0],
                 [forward[0], forward[1], forward[2], 0.0],
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
@@ -241,33 +279,169 @@ impl SightDraw {
                 [REACH, 0.0, measuring, store.highest.load(std::sync::atomic::Ordering::Relaxed) as f32],
                 // The start pass (`INCUS_SIGHT_NO_START` leaves it out, for measuring): tiles, a tile's pixels in
                 // this layer, and the cone's spread (a tile's half diagonal, and a screen pixel more).
-                [tiles.0 as f32, tiles.1 as f32, if no_start { 0.0 } else { (TILE / layer.factor).max(1) as f32 }, screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
+                [tiles.0 as f32, tiles.1 as f32, if no_start { 0.0 } else { (TILE as f32 / layer.factor).max(1.0) }, screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above_width, below, if eye.earned { 1.0 } else { 0.0 }, live_reach],
                 // Each finer ray from short of its parent's nearest touch (`INCUS_SIGHT_NO_FOLLOW` leaves it out);
                 // sun shadows (`INCUS_SIGHT_NO_SHADOWS` leaves them out, for measuring), and their widening.
                 [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
+                // The pyramid's steps: this layer to the one above, the one below to this, and where the one below
+                // fades out among the blocks (shares of their reach).
+                [to_above, to_child, fade[0].min(fade[1]), fade[1]],
+                // Past the blocks, the one below's fade in: where it starts and over how many doublings.
+                [eye.cells_fade[0].max(0.1), eye.cells_fade[1].max(0.05), 0.0, 0.0],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
-        let up_numbers: [[f32; 4]; 2] = [[screen.0 as f32, screen.1 as f32, finest as f32, coarsest as f32], [eye.upscale as f32, 0.0, 0.0, 0.0]];
+        let up_numbers: [[f32; 4]; 2] = [[screen.0 as f32, screen.1 as f32, finest, coarsest], [eye.upscale as f32, if has_between { 1.0 } else { 0.0 }, 0.0, 0.0]];
         queue.write_buffer(&self.up, 0, &up_numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+        // The card's own clock on sight's work, from its first pass's start to the upscale's end, when it can.
+        let timed = self.timer.as_mut().and_then(|timer| timer.begin());
+        let queries = self.timer.as_ref().map(|timer| &timer.queries);
+        let mut first = timed.and(queries);
         if !no_start {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's start pass"), timestamp_writes: None });
+            let timestamp_writes = first.take().map(|query_set| wgpu::ComputePassTimestampWrites { query_set, beginning_of_pass_write_index: Some(0), end_of_pass_write_index: None });
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's start pass"), timestamp_writes });
             pass.set_pipeline(&self.start);
             pass.set_bind_group(0, &targets.start_group, &[]);
             pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
         }
         for layer in &targets.layers {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes: None });
+            let timestamp_writes = first.take().map(|query_set| wgpu::ComputePassTimestampWrites { query_set, beginning_of_pass_write_index: Some(0), end_of_pass_write_index: None });
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes });
             pass.set_pipeline(&self.march);
             pass.set_bind_group(0, &layer.group, &[]);
             pass.dispatch_workgroups(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8), 1);
         }
         let attachment = wgpu::RenderPassColorAttachment { view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store } };
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("sight's upscale"), color_attachments: &[Some(attachment)], ..Default::default() });
+        let timestamp_writes = timed.and(queries).map(|query_set| wgpu::RenderPassTimestampWrites { query_set, beginning_of_pass_write_index: None, end_of_pass_write_index: Some(1) });
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("sight's upscale"), color_attachments: &[Some(attachment)], timestamp_writes, ..Default::default() });
         pass.set_pipeline(&self.upscale);
         pass.set_bind_group(0, &targets.upscale_group, &[]);
         pass.draw(0..3, 0..1);
+        drop(pass);
+        if let (Some(k), Some(timer)) = (timed, &self.timer) {
+            timer.resolve(encoder, k);
+        }
+    }
+
+    /// After the frame's work is handed to the card: this frame's clock asked for, and any come back read
+    /// (never waiting).
+    pub fn after_submit(&mut self, device: &wgpu::Device) {
+        if let Some(timer) = &mut self.timer {
+            timer.after_submit(device);
+        }
+    }
+}
+
+/// The pyramid's layers for `eye`, coarsest first: halving from the coarsest to the finest (never coarser than
+/// the coarsest), with a layer of 1.5 at the end if the finest is 1.5, or between 2 × 2 and 1 × 1 if asked.
+pub fn factors(eye: Eye) -> Vec<f32> {
+    let coarsest = match eye.coarsest {
+        0..=1 => 1.0,
+        2 => 2.0,
+        3..=4 => 4.0,
+        _ => 8.0,
+    };
+    let finest = if eye.grid < 1.25 {
+        1.0
+    } else if eye.grid < 1.75 {
+        1.5
+    } else if eye.grid < 3.0 {
+        2.0
+    } else if eye.grid < 6.0 {
+        4.0
+    } else {
+        8.0
+    };
+    let finest = if finest > coarsest { coarsest } else { finest };
+    let mut factors = vec![coarsest];
+    let mut f = coarsest;
+    while f > finest + 0.01 {
+        if f == 2.0 && finest < 1.9 && (finest > 1.25 || eye.between) {
+            factors.push(1.5);
+            if finest < 1.25 {
+                factors.push(1.0);
+            }
+            break;
+        }
+        f /= 2.0;
+        factors.push(f);
+    }
+    factors
+}
+
+/// The camera numbers' rows (`Camera` in `march.wgsl`).
+const CAMERA_ROWS: usize = 12;
+
+/// What the card took on sight's last frames (milliseconds, smoothed), if it can time itself: the Render page's.
+static CARD_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+pub fn card_ms() -> Option<f32> {
+    let ms = f32::from_bits(CARD_MS.load(std::sync::atomic::Ordering::Relaxed));
+    (ms > 0.0).then_some(ms)
+}
+
+/// The card's clock on sight's work: two timestamps a frame, copied out to one of a few readbacks taken in
+/// turn, read when they come back (a frame or two late), never waited for.
+struct CardTimer {
+    queries: wgpu::QuerySet,
+    resolved: wgpu::Buffer,
+    readbacks: Vec<(wgpu::Buffer, Arc<std::sync::atomic::AtomicU8>)>,
+    pending: Option<usize>,
+    period_ns: f32,
+}
+
+const FREE: u8 = 0;
+const MAPPING: u8 = 1;
+const READY: u8 = 2;
+
+impl CardTimer {
+    fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Option<Self> {
+        if !device.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
+            return None;
+        }
+        let queries = device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("sight's clock"), ty: wgpu::QueryType::Timestamp, count: 2 });
+        let resolved = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock"), size: 16, usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
+        let readbacks = (0..4).map(|_| (device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock read"), size: 16, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }), Arc::new(std::sync::atomic::AtomicU8::new(FREE)))).collect();
+        Some(Self { queries, resolved, readbacks, pending: None, period_ns: queue.get_timestamp_period() })
+    }
+
+    /// A free readback for this frame (none free: this frame isn't timed).
+    fn begin(&mut self) -> Option<usize> {
+        self.pending = self.readbacks.iter().position(|(_, state)| state.load(std::sync::atomic::Ordering::Acquire) == FREE);
+        self.pending
+    }
+
+    fn resolve(&self, encoder: &mut wgpu::CommandEncoder, k: usize) {
+        encoder.resolve_query_set(&self.queries, 0..2, &self.resolved, 0);
+        encoder.copy_buffer_to_buffer(&self.resolved, 0, &self.readbacks[k].0, 0, 16);
+    }
+
+    fn after_submit(&mut self, device: &wgpu::Device) {
+        use std::sync::atomic::Ordering;
+        if let Some(k) = self.pending.take() {
+            let state = self.readbacks[k].1.clone();
+            state.store(MAPPING, Ordering::Release);
+            self.readbacks[k].0.slice(..).map_async(wgpu::MapMode::Read, move |result| state.store(if result.is_ok() { READY } else { FREE }, Ordering::Release));
+        }
+        let _ = device.poll(wgpu::PollType::Poll);
+        for (buffer, state) in &self.readbacks {
+            if state.load(Ordering::Acquire) != READY {
+                continue;
+            }
+            let stamps = buffer.slice(..).get_mapped_range().ok().map(|bytes| {
+                let at = |i: usize| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap_or_default());
+                (at(0), at(1))
+            });
+            buffer.unmap();
+            state.store(FREE, Ordering::Release);
+            if let Some((from, to)) = stamps.filter(|(from, to)| to > from) {
+                let ms = (to - from) as f32 * self.period_ns / 1e6;
+                // Smoothed over about the last twenty frames.
+                let before = card_ms().unwrap_or(ms);
+                CARD_MS.store((before + (ms - before) * 0.05).to_bits(), Ordering::Relaxed);
+            }
+        }
     }
 }
 
@@ -278,4 +452,25 @@ fn normalise(v: [f32; 3]) -> [f32; 3] {
 
 fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The pyramid's layers follow the choices: halving from the coarsest, never coarser than it, 1.5 at the end
+    /// or between 2 × 2 and 1 × 1.
+    #[test]
+    fn the_layers_follow_the_choices() {
+        let layers = |coarsest: u32, grid: f32, between: bool| factors(Eye { coarsest, grid, between, ..Eye::default() });
+        assert_eq!(layers(8, 2.0, false), vec![8.0, 4.0, 2.0]);
+        assert_eq!(layers(4, 2.0, false), vec![4.0, 2.0], "David's choice");
+        assert_eq!(layers(4, 1.0, false), vec![4.0, 2.0, 1.0]);
+        assert_eq!(layers(4, 1.5, false), vec![4.0, 2.0, 1.5]);
+        assert_eq!(layers(4, 1.0, true), vec![4.0, 2.0, 1.5, 1.0]);
+        assert_eq!(layers(2, 1.0, true), vec![2.0, 1.5, 1.0]);
+        assert_eq!(layers(1, 1.0, true), vec![1.0], "1 × 1 everywhere: nothing between");
+        assert_eq!(layers(2, 8.0, false), vec![2.0], "the finest never coarser than the coarsest");
+        assert_eq!(layers(8, 1.5, true), vec![8.0, 4.0, 2.0, 1.5], "between only means anything with 1 × 1");
+    }
 }
