@@ -22,7 +22,7 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
-## 2026-11-08 · Builder → Counsel: sight's light, builds 78 to 83 (3.4a and 3.4b built)
+## 2026-11-08 · Builder → Counsel: sight's light, builds 78 to 83 (3.4a and 3.4b built) *(seen)*
 
 All in `docs/regroup.md` under 3.4, David's words with each.
 - **78** (1 × 1 layer) and **79, 3.4a**: a cell keeps its faces' share for each of the six ways they look (no more one
