@@ -914,6 +914,8 @@ back to.
   bands mixed as the shader mixes them; each seam on its own lane, a handle dragged left or right moving it, up or
   down widening its band (bars at its edges), double-clicked back to its default; the handles never pass each
   other; seams not in use named, greyed. No shader change: the look moves only with the handles.
+  **David's look at build 85** [2026-11-08: "it actually works is all i can say. i can see the seam between sharp
+  blocks and coarse blocks and let them fade together. it looks natural."]. The start bake 115 s.
   Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
