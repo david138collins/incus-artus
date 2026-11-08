@@ -342,10 +342,11 @@ fn measure_bake(device: &wgpu::Device, queue: &wgpu::Queue, world: &WorldOnCard,
 }
 
 impl WorldOnCard {
-    /// Sight's cells (`sight::cell::Sums`, as 17 numbers: see `cell.wgsl`), each a least corner and a size,
+    /// Sight's cells (`sight::cell::Sums`, as 17 numbers, then the solid blocks' numbers added: see `cell.wgsl`),
+    /// each a least corner and a size,
     /// all with their columns inside `region` (least corner x and y, columns across and along). Waits for
     /// the card.
-    pub fn cells_at(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], cells: &[[i32; 4]]) -> Vec<[u32; 17]> {
+    pub fn cells_at(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], cells: &[[i32; 4]]) -> Vec<[u32; crate::sight::cell::CARD_NUMBERS]> {
         self.cells_by(device, queue, region, |_| cells.to_vec(), (PIECE_COLUMNS, PIECE_CELLS))
     }
 
@@ -355,7 +356,7 @@ impl WorldOnCard {
     /// (`pieces`: columns, and cells, a piece), each waited for before the next, so the frame's own work slots in
     /// between [2026-11-06: tiles of 16-block cells in one go held frames, "showing it" 4.7 ms, 900 slow
     /// frames in 40 s of flight].
-    pub fn cells_by(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], choose: impl FnOnce(&[[i32; 2]]) -> Vec<[i32; 4]>, pieces: (u32, u32)) -> Vec<[u32; 17]> {
+    pub fn cells_by(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], choose: impl FnOnce(&[[i32; 2]]) -> Vec<[i32; 4]>, pieces: (u32, u32)) -> Vec<[u32; crate::sight::cell::CARD_NUMBERS]> {
         use wgpu::util::DeviceExt;
         let bytes = |v: &[i32]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
         let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
@@ -421,7 +422,7 @@ impl WorldOnCard {
         }
         let flat: Vec<i32> = cells.iter().flatten().copied().collect();
         let cells_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("cells"), contents: &bytes(&flat), usage: wgpu::BufferUsages::STORAGE });
-        let size = cells.len() as u64 * 17 * 4;
+        let size = cells.len() as u64 * crate::sight::cell::CARD_NUMBERS as u64 * 4;
         let sums = storage("sums", size);
         if !in_pieces(&self.choices, &bind(&self.choices, &[(0, &self.data), (1, &region_buffer), (2, &grounds), (3, &chosen)]), chosen_count, pieces.0, &by_threads) {
             return Vec::new();
@@ -431,7 +432,7 @@ impl WorldOnCard {
             return Vec::new();
         }
         let Some(view) = read_back(&sums, size) else { return Vec::new() };
-        view.chunks_exact(17 * 4).map(|cell| std::array::from_fn(|k| u32::from_le_bytes([cell[4 * k], cell[4 * k + 1], cell[4 * k + 2], cell[4 * k + 3]]))).collect()
+        view.chunks_exact(crate::sight::cell::CARD_NUMBERS * 4).map(|cell| std::array::from_fn(|k| u32::from_le_bytes([cell[4 * k], cell[4 * k + 1], cell[4 * k + 2], cell[4 * k + 3]]))).collect()
     }
 
     /// The columns at `places` (x and y, whole blocks): each one's ground and water (0 none), [−1, 0] past

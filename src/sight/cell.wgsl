@@ -13,11 +13,12 @@
 @group(0) @binding(3) var<storage, read_write> sight_chosen: array<vec4<i32>>;
 // The cells asked for: least corner x, y, z, and size.
 @group(0) @binding(4) var<storage, read> sight_cells: array<vec4<i32>>;
-// Their sums (`Sums`, 17 numbers each): solid, water, the faces by direction (6), colour (3), light,
-// light squared (two halves), height, height squared (two halves).
+// Their sums (`Sums`, 17 numbers each: solid, water, the faces by direction (6), colour (3), light, light
+// squared (two halves), height, height squared (two halves)), then the solid blocks' numbers added (for a cell of
+// one block, which block it is: 3.6, the textures).
 @group(0) @binding(5) var<storage, read_write> sight_sums: array<u32>;
 
-const SIGHT_SUMS: u32 = 17u;
+const SIGHT_SUMS: u32 = 18u;
 
 @compute @workgroup_size(64)
 fn sight_grounds_pass(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -221,7 +222,7 @@ fn sight_colour(block: i32, up: bool, c: u32) -> u32 {
 }
 
 // A wide sum (two halves) with `value` added.
-fn sight_wide(sums: ptr<function, array<u32, 17>>, at: u32, value: u32) {
+fn sight_wide(sums: ptr<function, array<u32, 18>>, at: u32, value: u32) {
     let lo = (*sums)[at] + value;
     if (lo < value) {
         (*sums)[at + 1u] = (*sums)[at + 1u] + 1u;
@@ -230,7 +231,7 @@ fn sight_wide(sums: ptr<function, array<u32, 17>>, at: u32, value: u32) {
 }
 
 // One column's blocks inside a cell, added to `sums`.
-fn sight_column_sums(sums: ptr<function, array<u32, 17>>, x: i32, y: i32, cell: vec4<i32>, caves: bool, odd: bool) {
+fn sight_column_sums(sums: ptr<function, array<u32, 18>>, x: i32, y: i32, cell: vec4<i32>, caves: bool, odd: bool) {
     let column = sight_column(x, y);
     if (column.x < 0 && !caves) {
         return;
@@ -279,6 +280,7 @@ fn sight_column_sums(sums: ptr<function, array<u32, 17>>, x: i32, y: i32, cell: 
             continue;
         }
         (*sums)[0] = (*sums)[0] + 1u;
+        (*sums)[17] = (*sums)[17] + u32(block);
         for (var d = 0; d < 6; d++) {
             var next = 0;
             if (d == 0) {
@@ -310,7 +312,7 @@ fn sight_column_sums(sums: ptr<function, array<u32, 17>>, x: i32, y: i32, cell: 
 }
 
 // Each thread's sums, added together at the end.
-var<workgroup> sight_part: array<array<u32, 17>, 64>;
+var<workgroup> sight_part: array<array<u32, 18>, 64>;
 
 // One cell to a group of 64 threads (so a big cell's work is shared, never one long thread holding the card),
 // each taking every 64th of its columns.
@@ -318,7 +320,7 @@ var<workgroup> sight_part: array<array<u32, 17>, 64>;
 fn sight_cells_pass(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) t: u32, @builtin(num_workgroups) groups: vec3<u32>) {
     let i = group.x + group.y * groups.x + u32(sight_region[4]);
     let count = arrayLength(&sight_cells);
-    var sums: array<u32, 17>;
+    var sums: array<u32, 18>;
     if (i < count) {
         let cell = sight_cells[i];
         let size = cell.w;
@@ -334,7 +336,7 @@ fn sight_cells_pass(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invo
         if (t < stride) {
             var mine = sight_part[t];
             let other = sight_part[t + stride];
-            for (var k = 0u; k < 17u; k++) {
+            for (var k = 0u; k < SIGHT_SUMS; k++) {
                 if (k == 12u || k == 15u) {
                     sight_wide(&mine, k, other[k]);
                     mine[k + 1u] = mine[k + 1u] + other[k + 1u];

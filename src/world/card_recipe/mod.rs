@@ -1002,6 +1002,12 @@ fn ground(c: Case) -> i32 {
     /// ground is exactly `height(pixel x)` (every part of the recipe muted), baked whole onto a store on the
     /// card. The card, the store, and the map.
     fn sight_scene(blocks_per_pixel: f32, height: impl Fn(usize) -> f32) -> Option<(wgpu::Device, wgpu::Queue, std::sync::Arc<crate::sight::card_store::CardStore>, crate::world::CompiledMap)> {
+        sight_scene_with(blocks_per_pixel, height, None)
+    }
+
+    /// The same, and with `near` (a place, x and y) the blocks themselves round it as well: the live level of
+    /// single blocks, 128 a side, made there (as the game makes it round the eye).
+    fn sight_scene_with(blocks_per_pixel: f32, height: impl Fn(usize) -> f32, near: Option<(i32, i32)>) -> Option<(wgpu::Device, wgpu::Queue, std::sync::Arc<crate::sight::card_store::CardStore>, crate::world::CompiledMap)> {
         use crate::sight::cell::FarColours;
         use crate::sight::store::Maker;
         use crate::world::{BlockId, CavePlan, CompiledMap, Mutes, TerrainBlocks};
@@ -1017,8 +1023,21 @@ fn ground(c: Case) -> i32 {
         let plan = CavePlan::default();
         let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).ok()?;
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
-        let store = std::sync::Arc::new(crate::sight::card_store::CardStore::new(&device, &queue, half, &[4], 64));
+        let live: &[usize] = if near.is_some() { &[0, 4] } else { &[4] };
+        let store = std::sync::Arc::new(crate::sight::card_store::CardStore::new(&device, &queue, half, live, if near.is_some() { 128 } else { 64 }));
         let odd = world.odd;
+        if let Some((x, y)) = near {
+            use crate::sight::store::{TILE, TileKey, compact_tile, fill_tile};
+            let (tx, ty) = (x.div_euclid(TILE), y.div_euclid(TILE));
+            let reach = 64 / TILE;
+            for kx in tx - reach..tx + reach {
+                for ky in ty - reach..ty + reach {
+                    let key = TileKey { level: 0, x: kx, y: ky };
+                    let tile = fill_tile(&device, &queue, &world, &plan, odd, key);
+                    store.put_tile(0, kx, ky, TILE as u32, &compact_tile(&tile, 1));
+                }
+            }
+        }
         let maker = Maker { device: device.clone(), queue: queue.clone(), world: std::sync::Arc::new(world), caves: std::sync::Arc::new(plan), card: Some(store.clone()) };
         let with = crate::sight::bake::Blocks { map: std::sync::Arc::new(map.clone()), blocks, colours, changed: Default::default() };
         let (baking, jobs) = crate::sight::bake::start(maker, with, odd, half, (0, 0), 1, None);
@@ -1032,7 +1051,15 @@ fn ground(c: Case) -> i32 {
 
     /// The march drawn off the screen, `size` pixels, from `eye`: the picture's red, green and blue, row by row.
     fn sight_picture(device: &wgpu::Device, queue: &wgpu::Queue, store: &std::sync::Arc<crate::sight::card_store::CardStore>, size: (u32, u32), eye: crate::sight::draw::Eye) -> Vec<[u8; 3]> {
+        sight_picture_with(device, queue, store, size, eye, None)
+    }
+
+    /// The same, with block textures.
+    fn sight_picture_with(device: &wgpu::Device, queue: &wgpu::Queue, store: &std::sync::Arc<crate::sight::card_store::CardStore>, size: (u32, u32), eye: crate::sight::draw::Eye, textures: Option<&crate::sight::textures::BlockTextures>) -> Vec<[u8; 3]> {
         let mut draw = crate::sight::draw::SightDraw::new(device, queue, wgpu::TextureFormat::Rgba8Unorm);
+        if let Some(textures) = textures {
+            draw.set_textures(device, queue, textures, 1);
+        }
         let target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("a test picture"),
             size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
@@ -1202,6 +1229,66 @@ fn ground(c: Case) -> i32 {
         eprintln!("Sight's sky light: white {white:?}, tinted {blue:?}");
         assert!(blue[2] / blue[1] > white[2] / white[1], "tinted, the shade is bluer");
         assert!((light(blue) - light(white)).abs() < light(white) * 0.1, "tinted, not much darker or brighter");
+    }
+
+    /// Sight's block textures (3.6): up close the near faces wear their texture (here a checker of red and blue
+    /// squares, four texels a side), and as a face shrinks towards a pixel it takes the texture's shrunk versions,
+    /// so a face far off is the texture shrunk to one texel: the colour the cells past it are made of (a flat
+    /// texture of that colour, up close, as the measure).
+    #[test]
+    #[ignore]
+    fn sight_s_blocks_wear_their_textures() {
+        use crate::sight::textures::{BlockTextures, NONE, mips};
+        let Some((device, queue, store, _map)) = sight_scene_with(64.0, |_| 150.0, Some((0, 0))) else {
+            eprintln!("No graphics card: sight's textures test is skipped");
+            return;
+        };
+        let side = crate::look::TEXTURE_SIZE;
+        let checker: Vec<u8> = (0..side * side).flat_map(|i| if (i % side / 4 + i / side / 4) % 2 == 0 { [200, 60, 60, 255] } else { [60, 60, 200, 255] }).collect();
+        let textures = BlockTextures { layers: vec![mips(checker)], blocks: (0..16).map(|k| if k == 0 { ([NONE; 6], 0) } else { ([0; 6], 0) }).collect(), problems: Vec::new() };
+        let size = (320, 200);
+        // From 4 over the ground, looking north `down` degrees down.
+        let picture = |down: f32, on: bool, textures: &BlockTextures| {
+            let pitch = -down.to_radians();
+            let eye = crate::sight::draw::Eye {
+                position: [0.5, 0.5, 155.0],
+                looking: [pitch.cos(), 0.0, pitch.sin()],
+                field_of_view: 60.0,
+                grid: 2.0,
+                coarsest: 8,
+                shadows: false,
+                sky: false,
+                fog: false,
+                textures: on,
+                ..Default::default()
+            };
+            sight_picture_with(&device, &queue, &store, size, eye, Some(textures))
+        };
+        let linear = |c: u8| {
+            let c = c as f32 / 255.0;
+            if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+        };
+        // The middle 32 × 32 pixels, in linear light.
+        let patch = |p: &[[u8; 3]]| -> Vec<[f32; 3]> { (84..116).flat_map(|y| (144..176).map(move |x| (x, y))).map(|(x, y)| p[(y * size.0 + x) as usize].map(linear)).collect() };
+        let reddish = |px: &[[f32; 3]]| px.iter().filter(|c| c[0] > c[2] * 1.5).count() as f32 / px.len() as f32;
+        let bluish = |px: &[[f32; 3]]| px.iter().filter(|c| c[2] > c[0] * 1.5).count() as f32 / px.len() as f32;
+        // Up close, looking 70° down: the checker shows (red squares and blue), and not without textures.
+        let (near_on, near_off) = (patch(&picture(70.0, true, &textures)), patch(&picture(70.0, false, &textures)));
+        eprintln!("Sight's textures up close: red {:.2}, blue {:.2}; without them red {:.2}, blue {:.2}", reddish(&near_on), bluish(&near_on), reddish(&near_off), bluish(&near_off));
+        assert!(reddish(&near_on) > 0.2 && bluish(&near_on) > 0.2, "up close the checker shows");
+        assert!(bluish(&near_off) < 0.01, "without textures, no blue squares");
+        // About 40 off (6° down), a face is the texture shrunk to one texel: as a flat texture of that colour is
+        // up close.
+        let one = textures.layers[0].last().expect("its one texel").clone();
+        let flat_texture = BlockTextures { layers: vec![mips((0..side * side).flat_map(|_| one.clone()).collect())], ..textures.clone() };
+        let flat = patch(&picture(70.0, true, &flat_texture));
+        let average = flat.iter().fold([0.0f32; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]]).map(|v| v / flat.len() as f32);
+        let far = picture((4.0f32 / 40.0).atan().to_degrees(), true, &textures)[(size.1 / 2 * size.0 + size.0 / 2) as usize].map(linear);
+        let close_up = near_on.iter().fold([0.0f32; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]]).map(|v| v / near_on.len() as f32);
+        eprintln!("Sight's textures: a face 40 off {far:?}; its one texel up close {average:?} (the checker up close, as light, {close_up:?})");
+        for c in [0, 2] {
+            assert!((far[c] - average[c]).abs() < average[c] * 0.08, "far off, the texture shrunk to one texel ({far:?} against {average:?})");
+        }
     }
 
     /// Sight's fog (3.4c): near land hardly fogged, far land well on its way to the horizon's colour, and the same

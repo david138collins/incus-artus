@@ -91,6 +91,8 @@ impl CellColumn {
 #[derive(Clone, Debug, Default)]
 pub struct Tile {
     pub columns: Vec<CellColumn>,
+    /// Each cell's block, in the columns' order (only a cell of one block's means anything: `block_of`).
+    pub blocks: Vec<u16>,
     pub took: (f32, f32),
 }
 
@@ -121,8 +123,26 @@ pub fn fill_tile(device: &wgpu::Device, queue: &wgpu::Queue, world: &WorldOnCard
         bands_of(column, x0, y0, size, TILE, caves, odd, &mut bands)
     }, LIVE_PIECES);
     let cells_ms = started.elapsed().as_secs_f32() * 1000.0 - columns_ms;
+    let blocks = made.iter().map(block_of).collect();
     let mut made = made.iter().map(sums_of);
-    Tile { columns: bands.into_iter().map(|(low, count)| CellColumn { low, sums: (0..count).filter_map(|_| made.next()).collect() }).collect(), took: (columns_ms, cells_ms) }
+    Tile { columns: bands.into_iter().map(|(low, count)| CellColumn { low, sums: (0..count).filter_map(|_| made.next()).collect() }).collect(), blocks, took: (columns_ms, cells_ms) }
+}
+
+/// A tile's cell columns in the form the card keeps (each its lowest cell and its cells), a cell of one block
+/// with its block (3.6).
+pub fn compact_tile(tile: &Tile, size: u32) -> Vec<(i32, Vec<super::cell::Cell>)> {
+    let mut blocks = tile.blocks.iter();
+    tile.columns
+        .iter()
+        .map(|c| {
+            let cells = c.sums.iter().map(|s| {
+                let block = blocks.next().copied().unwrap_or(0);
+                let cell = s.compact(size);
+                if size == 1 { cell.with_block(block) } else { cell }
+            });
+            (c.low, cells.collect())
+        })
+        .collect()
 }
 
 /// How the live levels' card work is cut into pieces: columns, and cells, a piece.
@@ -180,7 +200,12 @@ pub fn bands_of(column: impl Fn(i32, i32) -> [i32; 2], x0: i32, y0: i32, size: i
 }
 
 /// The card's 17 numbers as `Sums`.
-pub fn sums_of(c: &[u32; 17]) -> Sums {
+/// Which block a cell of one block is (the card's sum of its solid blocks' numbers; 0 for none).
+pub fn block_of(c: &[u32; super::cell::CARD_NUMBERS]) -> u16 {
+    c[17].min(u16::MAX as u32) as u16
+}
+
+pub fn sums_of(c: &[u32; super::cell::CARD_NUMBERS]) -> Sums {
     let wide = |k: usize| c[k] as u64 | (c[k + 1] as u64) << 32;
     Sums {
         solid: c[0] as u64,
@@ -298,7 +323,7 @@ impl LiveStore {
             let job = crate::loading::submit(Tier::Soon, distance / 32.0, move || {
                 let tile = fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key);
                 let size = key.size() as u32;
-                let columns: Vec<(i32, Vec<super::cell::Cell>)> = tile.columns.iter().map(|c| (c.low, c.sums.iter().map(|s| s.compact(size)).collect())).collect();
+                let columns = compact_tile(&tile, size);
                 if let Some(card) = &maker.card {
                     card.put_tile(key.level, key.x, key.y, TILE as u32, &columns);
                 }

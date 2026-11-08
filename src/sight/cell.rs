@@ -237,6 +237,21 @@ impl Cell {
     }
 }
 
+/// How many numbers the card hands back for a cell: its `Sums`' 17 (the wide ones in two halves), then its solid
+/// blocks' numbers added (a single block's own: `Cell::with_block`).
+pub const CARD_NUMBERS: usize = 18;
+
+impl Cell {
+    /// A cell of one block, with which block it is (3.6: the near walk textures its faces by it). Kept where the
+    /// heights' spread is, which for a single block is always nothing.
+    pub fn with_block(mut self, block: u16) -> Self {
+        if self.solid > 0 {
+            self.height_spread = block;
+        }
+        self
+    }
+}
+
 /// A cell as the march reads it: 16 bytes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(C)]

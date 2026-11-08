@@ -933,6 +933,29 @@ back to.
   the sky or something far beyond); 300 does. A test-scene matter as far as seen; real mountains draw above it.
   **David's look at build 86** [2026-11-08: "fog looked sick."]. The start bake 119 s. The mountains' contrast at a
   distance stays his to tune with the fog, by eye.
+  **3.6, the first step: block textures, build 87** [talked through 2026-11-08; David: "so the blocks are mipmapped,
+  right? go ahead"]. Where the near walk meets a block's face, the face wears its texture: each block's six faces'
+  textures from its data file, grass tops turned at random (by the block's place, never changing). Up close a texel
+  is a square as painted (no smoothing); shrinking, the texture steps down through its shrunk versions (32 to 1, made
+  as the far colours are made, blended between so far faces don't shimmer), and where a block is a pixel it's one
+  texel, the block's far colour, which the cells past it are made of: the hand-off is seamless by construction
+  (`sight/textures.rs`; the card's stack read as light). The finest cells (single blocks) now know which block they
+  are (the card's cell sums carry the solid blocks' numbers added, kept in a single block's cell where a bigger cell
+  keeps its heights' spread). A texture changed on disk shows at once (the data watch bumps the registry's revision;
+  sight gathers the textures again). The Render page, under Sight: Block textures, and their sharpness (a shift in
+  the shrunk versions taken). `INCUS_SIGHT_NO_TEXTURES` for measuring. A card test (`sight_s_blocks_wear_their_textures`,
+  the test scene now able to make the blocks round the eye): up close a red and blue checker shows (each a third of
+  the pixels; none without textures); 40 off, a face is the checker shrunk to one texel, to four figures.
+  **Measured** (the low slow flight, A/B twice): textures on and off alike, sight 11.1 to 14.2 ms against build 86's
+  10.5 to 12.9 (the code being there costs about 0.6 to 1 ms). Read inside the walk, the texture first cost about
+  5 ms on every ray (the walk held more at once on the card, every step heavier); now it's put on after the march,
+  once a ray: the walk notes how much of the ray the face took, and the texture's difference from the flat colour is
+  lit and added (its sun's and sky's parts with it). **For the speed dive**: the remaining ~1 ms.
+  **For David's eye** (a rule from 2026-10-29, kept): the far colours, and so the shrunk versions, average a texture's
+  stored values, not its light; a strongly contrasting texture shrinks a little darker than its light up close (the
+  test's red and blue checker 28%, gabbro's speckle about 18% then). Averaging as light instead would change every
+  far colour, and the bake with them. **On file**: a block's underside wears its bottom texture up close, while the
+  cells count a bottom face as its sides' colour (seen only under overhangs).
   Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.

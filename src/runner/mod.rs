@@ -511,8 +511,21 @@ impl Runner {
                     fog_reach: kept.sight_fog_reach(),
                     fog_height: kept.sight_fog_height(),
                     fog_warmth: kept.sight_fog_warmth(),
+                    textures: kept.sight_textures(),
+                    texture_sharpness: kept.sight_texture_sharpness(),
                 };
-                (store, eye)
+                // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
+                // disk, a block's data): once at the start, then seldom.
+                let registry = world.resource::<crate::data::BlockRegistry>();
+                let have = gpu.sight.as_ref().and_then(|sight| sight.textures_revision());
+                let textures = (have != Some(registry.revision())).then(|| {
+                    let textures = crate::sight::textures::BlockTextures::gather(registry);
+                    for problem in &textures.problems {
+                        warn!("Sight's block textures: {problem}");
+                    }
+                    (registry.revision(), textures)
+                });
+                (store, eye, textures)
             })
         };
         let (capture, resize_to, minimize, limit, screenshot, fill_share) = {
@@ -583,9 +596,12 @@ impl Runner {
             }
             let mut commands = gpu.egui_renderer.update_buffers(&gpu.device, &gpu.queue, &mut encoder, &jobs, &screen);
             // Sight under the panel; without it, the sky's colour.
-            let drew_sight = if let Some((store, eye)) = &sight {
+            let drew_sight = if let Some((store, eye, textures)) = &sight {
                 let _timed = Timed::new("sight");
                 let draw = gpu.sight.get_or_insert_with(|| crate::sight::draw::SightDraw::new(&gpu.device, &gpu.queue, gpu.config.format));
+                if let Some((revision, textures)) = textures {
+                    draw.set_textures(&gpu.device, &gpu.queue, textures, *revision);
+                }
                 draw.frame(&gpu.device, &gpu.queue, &mut encoder, &view, (gpu.config.width, gpu.config.height), *eye, store);
                 true
             } else {

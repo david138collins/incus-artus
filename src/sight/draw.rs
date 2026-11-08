@@ -50,6 +50,10 @@ pub struct Eye {
     pub fog_reach: f32,
     pub fog_height: f32,
     pub fog_warmth: f32,
+    /// Block textures on the near faces (3.6), and how sharp: a shift in the shrunk versions taken (above 0
+    /// crisper, below smoother).
+    pub textures: bool,
+    pub texture_sharpness: f32,
 }
 
 impl Default for Eye {
@@ -76,6 +80,8 @@ impl Default for Eye {
             fog_reach: FOG_REACH,
             fog_height: FOG_HEIGHT,
             fog_warmth: FOG_WARMTH,
+            textures: true,
+            texture_sharpness: 0.0,
         }
     }
 }
@@ -136,6 +142,14 @@ pub struct SightDraw {
     targets: Option<Targets>,
     /// The card's clock on sight's work (none if the card can't time itself).
     timer: Option<CardTimer>,
+    /// The block textures on the card (3.6): the stack, how it's read, the table of each block's faces, the
+    /// registry's revision they were made from, and how many times they've been made (the layers' bindings are
+    /// made again when it changes).
+    textures: wgpu::TextureView,
+    texture_sampler: wgpu::Sampler,
+    texture_table: wgpu::Buffer,
+    textures_revision: Option<u64>,
+    textures_made: u64,
 }
 
 /// One layer of the pyramid: its factor (screen pixels a side of a pixel), its size, its picture and distances,
@@ -154,6 +168,8 @@ struct Targets {
     /// The layers' factors, coarsest first.
     factors: Vec<f32>,
     store: Arc<CardStore>,
+    /// The textures they were bound with (`SightDraw::textures_made`).
+    textures_made: u64,
     /// The start pass's tiles across and down.
     tiles: (u32, u32),
     layers: Vec<Layer>,
@@ -184,13 +200,74 @@ impl SightDraw {
         });
         let up = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's upscale numbers"), size: 2 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("sight's blend"), mag_filter: wgpu::FilterMode::Linear, min_filter: wgpu::FilterMode::Linear, address_mode_u: wgpu::AddressMode::ClampToEdge, address_mode_v: wgpu::AddressMode::ClampToEdge, ..Default::default() });
-        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue) }
+        // Until the registry's textures come: one texture of one texel, and a table with none.
+        let textures = Self::texture_stack(device, queue, &crate::sight::textures::BlockTextures::default());
+        let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("sight's block textures"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            // Up close a texel is a square, as painted; shrinking, the versions blend so far faces don't shimmer.
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+        let texture_table = {
+            use wgpu::util::DeviceExt;
+            let table = crate::sight::textures::BlockTextures::default().table();
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's block textures' table"), contents: &table.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
+        };
+        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0 }
+    }
+
+    /// The registry revision the block textures on the card were made from (none yet).
+    pub fn textures_revision(&self) -> Option<u64> {
+        self.textures_revision
+    }
+
+    /// The block textures put on the card, made from the registry's `revision`.
+    pub fn set_textures(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, textures: &crate::sight::textures::BlockTextures, revision: u64) {
+        self.textures = Self::texture_stack(device, queue, textures);
+        let table = textures.table();
+        queue.write_buffer(&self.texture_table, 0, &table.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>());
+        self.textures_revision = Some(revision);
+        self.textures_made += 1;
+    }
+
+    /// The textures as one stack on the card, each with its shrunk versions (stored as painted, read as light).
+    fn texture_stack(device: &wgpu::Device, queue: &wgpu::Queue, textures: &crate::sight::textures::BlockTextures) -> wgpu::TextureView {
+        use crate::sight::textures::MIPS;
+        let (side, mips, layers) = if textures.layers.is_empty() { (1, 1, 1) } else { (crate::look::TEXTURE_SIZE, MIPS, textures.layers.len() as u32) };
+        let stack = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("sight's block textures"),
+            size: wgpu::Extent3d { width: side, height: side, depth_or_array_layers: layers },
+            mip_level_count: mips,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let empty = vec![vec![vec![255u8, 0, 255, 255]]];
+        let all = if textures.layers.is_empty() { &empty } else { &textures.layers };
+        for (layer, versions) in all.iter().enumerate() {
+            for (mip, pixels) in versions.iter().enumerate().take(mips as usize) {
+                let size = (side >> mip).max(1);
+                queue.write_texture(
+                    wgpu::TexelCopyTextureInfo { texture: &stack, mip_level: mip as u32, origin: wgpu::Origin3d { x: 0, y: 0, z: layer as u32 }, aspect: wgpu::TextureAspect::All },
+                    pixels,
+                    wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(size * 4), rows_per_image: Some(size) },
+                    wgpu::Extent3d { width: size, height: size, depth_or_array_layers: 1 },
+                );
+            }
+        }
+        stack.create_view(&wgpu::TextureViewDescriptor { dimension: Some(wgpu::TextureViewDimension::D2Array), ..Default::default() })
     }
 
     /// The pyramid's layers for a screen of `screen`, one a factor (coarsest first), and their bindings to
     /// `store`, made again when any of them changes (a moment's work: the store is the world's, not the screen's).
     fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32), factors: &[f32], store: &Arc<CardStore>) -> &Targets {
-        let stale = self.targets.as_ref().is_none_or(|t| t.screen != screen || t.factors != factors || !Arc::ptr_eq(&t.store, store));
+        let stale = self.targets.as_ref().is_none_or(|t| t.screen != screen || t.factors != factors || !Arc::ptr_eq(&t.store, store) || t.textures_made != self.textures_made);
         if stale {
             let texture = |label: &str, size: (u32, u32), format: wgpu::TextureFormat| {
                 device
@@ -236,6 +313,9 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 8, resource: buffer(worth_above.as_ref().unwrap_or(&nothing_above)) },
                         wgpu::BindGroupEntry { binding: 9, resource: buffer(&worth) },
                         wgpu::BindGroupEntry { binding: 10, resource: wgpu::BindingResource::TextureView(far_above.as_ref().unwrap_or(&no_distances_above)) },
+                        wgpu::BindGroupEntry { binding: 11, resource: wgpu::BindingResource::TextureView(&self.textures) },
+                        wgpu::BindGroupEntry { binding: 12, resource: wgpu::BindingResource::Sampler(&self.texture_sampler) },
+                        wgpu::BindGroupEntry { binding: 13, resource: buffer(&self.texture_table) },
                     ],
                 });
                 far_above = Some(far.clone());
@@ -269,7 +349,7 @@ impl SightDraw {
                     wgpu::BindGroupEntry { binding: 7, resource: wgpu::BindingResource::TextureView(picture_of(1.5)) },
                 ],
             });
-            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), tiles, layers, start_group, upscale_group });
+            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, upscale_group });
         }
         self.targets.as_ref().expect("made just now")
     }
@@ -291,6 +371,7 @@ impl SightDraw {
         let no_shadows = std::env::var("INCUS_SIGHT_NO_SHADOWS").is_ok();
         let no_sky = std::env::var("INCUS_SIGHT_NO_SKY").is_ok();
         let no_fog = std::env::var("INCUS_SIGHT_NO_FOG").is_ok();
+        let no_textures = std::env::var("INCUS_SIGHT_NO_TEXTURES").is_ok();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -347,6 +428,8 @@ impl SightDraw {
                     crate::world::SEA_LEVEL as f32,
                     eye.fog_warmth.clamp(0.0, 1.0),
                 ],
+                // Block textures (3.6; `INCUS_SIGHT_NO_TEXTURES` leaves them out, for measuring): on, and how sharp.
+                [if eye.textures && !no_textures { 1.0 } else { 0.0 }, eye.texture_sharpness.clamp(-4.0, 4.0), 0.0, 0.0],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -429,7 +512,7 @@ pub fn factors(eye: Eye) -> Vec<f32> {
 }
 
 /// The camera numbers' rows (`Camera` in `march.wgsl`).
-const CAMERA_ROWS: usize = 14;
+const CAMERA_ROWS: usize = 15;
 
 /// What the card took on sight's last frames (milliseconds, smoothed), if it can time itself: the Render page's.
 static CARD_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);

@@ -50,6 +50,8 @@ struct Camera {
     // Fog (3.4c): x its thickness at sea level (a block's worth; 0 none), y how fast it thins going up (a block's
     // worth), z sea level (blocks), w how much warmer it is towards the sun.
     fog: vec4<f32>,
+    // Block textures (3.6): x 1 for them on, y how sharp (a shift in the shrunk versions taken).
+    textures: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -68,6 +70,11 @@ struct Camera {
 @group(0) @binding(9) var<storage, read_write> worth_out: array<u32>;
 // The layer above's distances (the base: a placeholder never read).
 @group(0) @binding(10) var far_above: texture_2d<f32>;
+// The block textures (3.6: each with its shrunk versions, stored as painted, read as light), and each block's faces'
+// textures: two rows a block (north, south, east, west; top, bottom, which turn at random, 0).
+@group(0) @binding(11) var block_textures: texture_2d_array<f32>;
+@group(0) @binding(12) var block_sampler: sampler;
+@group(0) @binding(13) var<uniform> block_table: array<vec4<u32>, 512>;
 
 const NOT_BAKED: u32 = 0xFFFF0000u;
 // Past the map: nothing at all, not even the world's floor.
@@ -124,6 +131,17 @@ fn cell_of(w: vec4<u32>) -> Look {
     look.colour = vec3<f32>(f32((w.z >> 20u) & 1023u), f32((w.z >> 10u) & 1023u), f32(w.z & 1023u)) / 1023.0;
     look.surface = min(f32(w.w >> 16u) / 256.0, 4.0);
     return look;
+}
+
+// Which block a cell of one block is (3.6: `Cell::with_block`, kept where a bigger cell keeps its heights' spread);
+// 0 outside the band. Read once a ray, after the march (`wear_texture`), not carried in `Look`.
+fn block_in_band(entry_start: u32, low_count: u32, cz: i32) -> u32 {
+    let low = bitcast<i32>(low_count << 16u) >> 16u;
+    let count = i32(low_count >> 16u);
+    if (low_count == NOT_BAKED || low_count == PAST_MAP || cz < low || cz >= low + count) {
+        return 0u;
+    }
+    return pool[entry_start + u32(cz - low)].w & 0xFFFFu;
 }
 
 // A band's entry read: its cell `cz` up, or solid below the band, or empty above it.
@@ -385,6 +403,103 @@ fn leave2(o: vec2<f32>, d: vec2<f32>, c: vec2<f32>, size: f32) -> f32 {
 // a pixel, the averages are the truth again and the march reads them; at that distance a block's soft edge is a
 // pixel wide, so the two meet.
 
+// ── Block textures (3.6, David 2026-11-08: "so the blocks are mipmapped, right? go ahead") ──
+//
+// Where the walk meets a face, the face's texture where it met it, at the size the pixel takes there: up close a
+// texel is a square as painted, shrinking it steps down through the texture's shrunk versions, and where a block
+// is a pixel it's one texel, the block's far colour, which the cells past it are made of.
+
+const NO_TEXTURE: u32 = 0xFFFFu;
+
+// Which of a block's faces looks along `facing` (`data::FACE_NAMES`' order: north, south, east, west, top, bottom).
+fn face_of(facing: vec3<f32>) -> u32 {
+    let a = abs(facing);
+    if (a.z >= a.x && a.z >= a.y) {
+        return select(5u, 4u, facing.z > 0.0);
+    }
+    if (a.x >= a.y) {
+        return select(1u, 0u, facing.x > 0.0);
+    }
+    return select(3u, 2u, facing.y > 0.0);
+}
+
+// Where on its face a place on block `c` is: across from the left, down from the top, as seen from outside (the
+// sides upright, the top with north up).
+fn face_uv(p: vec3<f32>, c: vec3<i32>, face: u32) -> vec2<f32> {
+    let q = clamp(p - vec3<f32>(c), vec3<f32>(0.0), vec3<f32>(1.0));
+    switch face {
+        case 0u: {
+            return vec2<f32>(1.0 - q.y, 1.0 - q.z);
+        }
+        case 1u: {
+            return vec2<f32>(q.y, 1.0 - q.z);
+        }
+        case 2u: {
+            return vec2<f32>(q.x, 1.0 - q.z);
+        }
+        case 3u: {
+            return vec2<f32>(1.0 - q.x, 1.0 - q.z);
+        }
+        case 4u: {
+            return vec2<f32>(q.y, 1.0 - q.x);
+        }
+        default: {
+            return vec2<f32>(q.y, q.x);
+        }
+    }
+}
+
+// The colour of block `block`'s face looking along `facing`, met at `p` on block `c`, `t` off: its texture's, or
+// `flat` if it has none.
+fn textured(flat: vec3<f32>, block: u32, p: vec3<f32>, c: vec3<i32>, facing: vec3<f32>, t: f32) -> vec3<f32> {
+    if (camera.textures.x < 0.5 || block == 0u || block >= 256u) {
+        return flat;
+    }
+    let face = face_of(facing);
+    let layer = block_table[block * 2u + face / 4u][face % 4u];
+    if (layer == NO_TEXTURE) {
+        return flat;
+    }
+    var uv = face_uv(p, c, face);
+    // A face that turns at random: a quarter turn or more, by the block's place (never changing).
+    if (((block_table[block * 2u + 1u].z >> face) & 1u) != 0u) {
+        let h = (bitcast<u32>(c.x) * 73856093u) ^ (bitcast<u32>(c.y) * 19349663u) ^ (bitcast<u32>(c.z) * 83492791u);
+        let turns = (h >> 7u) & 3u;
+        for (var k = 0u; k < turns; k++) {
+            uv = vec2<f32>(1.0 - uv.y, uv.x);
+        }
+    }
+    // Texels across the pixel there: which shrunk version (32 texels a block).
+    let texels = 32.0 * t * camera.view.z;
+    let lod = log2(max(texels, 1e-4)) - camera.textures.y;
+    return textureSampleLevel(block_textures, block_sampler, uv, i32(layer), lod).rgb;
+}
+
+// The texture put on a block's face the near walk met, after the march: the face's flat colour in what the ray
+// gathered swapped for the texture's, lit the same (its sun's part and sky's part with it). Done here, once a ray,
+// not in the walk: there it made every step of every ray heavier on the card, about 5 ms a frame [2026-11-08].
+fn wear_texture(seen: Seen) -> Seen {
+    if (seen.face_share <= 0.0 || camera.textures.x < 0.5) {
+        return seen;
+    }
+    // The block behind the face (the face looks back out of it).
+    let c = vec3<i32>(floor(seen.at - seen.facing * 0.5));
+    let entry = entry_at(0, c.x, c.y);
+    let look = from_band(entry.x, entry.y, c.z);
+    if (!look.known || look.surface <= 0.0) {
+        return seen;
+    }
+    let block = block_in_band(entry.x, entry.y, c.z);
+    let t = length(seen.at - camera.position.xyz);
+    let change = (textured(look.colour, block, seen.at, c, seen.facing, t) - look.colour) * seen.face_share;
+    let light = face_light(seen.facing);
+    var out = seen;
+    out.colour += lit(change, light);
+    out.sunny += sunlit(change, light);
+    out.skyish += lit(change, light) - sunlit(change, light);
+    return out;
+}
+
 // What the walk through the blocks found: whether it met a face (and where), and what it gathered on the way
 // (water's surface); not met, the march goes on from `t`.
 struct Hard {
@@ -397,6 +512,9 @@ struct Hard {
     facing: vec3<f32>,
     through: f32,
     steps: i32,
+    // How much of the ray the face met took (what was left of it after any water on the way): its texture is
+    // put on after the march, by that much (`wear_texture`).
+    face_share: f32,
 }
 
 // Where the ray leaves block `c` across each axis's next face.
@@ -487,6 +605,7 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
             if (out.through > 0.5) {
                 out.first = t;
             }
+            out.face_share = out.through;
             out.through = 0.0;
             return out;
         }
@@ -544,6 +663,8 @@ struct Seen {
     // Where it first touched anything (a finer layer's rays start short of it: before the soft edge of what it
     // read, not inside it).
     touched: f32,
+    // How much of it a block's face met by the near walk took (0: none): its texture goes on after (`wear_texture`).
+    face_share: f32,
 }
 
 // A ray's colour with its shadow and its sky light (`open`: how much of the sky it sees, 0 to 1).
@@ -635,7 +756,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             steps = h.steps;
             if (h.met) {
                 // The face met: its shadow from the blocks themselves first.
-                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, h.colour - h.sunny, min(h.first, h.t));
+                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, h.colour - h.sunny, min(h.first, h.t), h.face_share);
             }
             colour = h.colour;
             sunny = h.sunny;
@@ -839,7 +960,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
         wide = max(first * camera.view.z, read);
     }
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched);
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched, 0.0);
 }
 
 // ── Sun shadows (3.4b, David 2026-11-08: "proceed") ──
@@ -1138,7 +1259,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         let x = uv.x * 2.0 - 1.0;
         let y = 1.0 - uv.y * 2.0;
         let d = normalize(camera.forward.xyz + x * camera.right.xyz + y * camera.up.xyz);
-        let seen = march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)), begin);
+        let seen = wear_texture(march(camera.position.xyz, d, scatter(id.xy * 2u + vec2<u32>(r & 1u, r >> 1u)), begin));
         // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it), by its own
         // worth [2026-11-08: the rays kept till the pixel's worth was known made each pixel's work heavy on the
         // card, about 2 to 3 ms with the sky's part added].

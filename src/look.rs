@@ -155,6 +155,18 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if earned != kept.sight_earned() {
         kept.render.table.insert("sight_earned".to_string(), toml::Value::Boolean(earned));
     }
+    // Block textures (3.6) [David 2026-11-08: "so the blocks are mipmapped, right? go ahead"]: on the blocks near
+    // the eye; a texture changed on disk shows at once (the data watch).
+    let mut textures = kept.sight_textures();
+    if ui.checkbox(&mut textures, "Block textures (on the blocks near you; a texture changed on disk shows at once)").changed() {
+        kept.render.table.insert("sight_textures".to_string(), toml::Value::Boolean(textures));
+    }
+    ui.add_enabled_ui(textures, |ui| {
+        let mut sharpness = kept.sight_texture_sharpness();
+        if ui.add(egui::Slider::new(&mut sharpness, -2.0..=2.0).step_by(0.1).text("texture sharpness (higher crisper, lower smoother as faces shrink)")).changed() {
+            kept.render.set_number("sight_texture_sharpness", sharpness);
+        }
+    });
     // The bake's share of the card [the start bake 46 s before shadows, 281 s with sky light: richer frames left it no
     // room].
     let mut share = kept.sight_fill_share();
@@ -431,6 +443,16 @@ impl KeptSettings {
         self.render.number("sight_sky_tint", crate::sight::draw::SKY_TINT)
     }
 
+    /// Block textures on the near faces (3.6): on unless chosen; how sharp (a shift in the shrunk versions taken:
+    /// above 0 crisper, below smoother; 0 unless chosen).
+    pub fn sight_textures(&self) -> bool {
+        self.render.flag("sight_textures", true)
+    }
+
+    pub fn sight_texture_sharpness(&self) -> f32 {
+        self.render.number("sight_texture_sharpness", 0.0)
+    }
+
     /// Fog (3.4c): on unless chosen; how far one sees, how high the air thins, its warmth towards the sun
     /// (`draw::FOG_REACH`, `FOG_HEIGHT`, `FOG_WARMTH` unless chosen). Sight's own: the old renderer's `fog_*`
     /// stay as they were.
@@ -629,7 +651,7 @@ pub fn load_texture(path: &std::path::Path) -> Result<Vec<u8>, String> {
 /// Halve an RGBA image by averaging each 2 × 2 block of pixels, colours weighted by opacity (so a
 /// see-through texture's clear pixels don't darken its coloured ones), opacity the most opaque of the
 /// four (as the old mipmaps were made).
-fn shrink(pixels: &[u8], size: u32) -> Vec<u8> {
+pub fn shrink(pixels: &[u8], size: u32) -> Vec<u8> {
     let half = size / 2;
     let mut out = Vec::with_capacity((half * half * 4) as usize);
     for y in 0..half {
