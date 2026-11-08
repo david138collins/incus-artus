@@ -1206,6 +1206,29 @@ below disagree with this one, this one stands.
          frame: coarse at first, sharpened over the next frames ("fast is slow, smooth is fast").
        - History is dropped wherever a block is edited or the light on a place changes.
        - The hard block faces near the eye stay crisp.
+
+       More for the list, scouted with David the same day ("we are not holding anything back"). Each is measured
+       before it is kept:
+       - **Far pixels refreshed only when they've moved** (David: "distant terrain moves incredibly slowly and i
+         believe we can mathematically induce how often it actually needs to be checked"). A surface slides about
+         movement ÷ distance across the screen, so a far pixel is re-marched only once its last ray would be off
+         by half a pixel.
+         - Turning is pure reprojection with no parallax, for example a slowly refreshed panorama of the far field.
+         - Far changes come from the simulation, which tells the renderer which places to refresh.
+         - Each pixel keeps where it hit and its facing, so a light change re-shades it without re-marching:
+           marching decoupled from shading.
+       - **Warps kept alike.** Sorting rays by an estimated length (from last frame's depth or the coarse layer),
+         or compaction: march a fixed number of steps, pack the rays still going into a dense list, repeat.
+       - **Warp intrinsics** (WGSL subgroups, an optional wgpu feature): a warp votes to take a big stride
+         together, shares a fetched cell, or takes its nearest start in one instruction.
+       - **Jumps solved, not marched.** A ray drops straight to the height of the tallest column below it; it
+         meets the sea's flat level in one sum. **Horizon maps** store each column's horizon angle in a few
+         directions, once, which turns far sun shadows into a lookup and nearly gives sky light too. That could
+         replace the shadow march and the sky cones over far terrain.
+       - **Tiles sorted by type** (David: "classify screen tiles into different types that dont access parts of the
+         hologram they dont need"): sky only, far only (baked levels only), near (block walk), water, seam. Each
+         type gets its own lean shader. That frees registers, so more warps fit on the card, and rays on different
+         paths no longer share a warp.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously

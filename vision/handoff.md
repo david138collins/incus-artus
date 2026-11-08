@@ -35,6 +35,15 @@ Temporal reuse is high on his list, with his rules: anything that moves never ta
 first from a fixed budget, and history is dropped on edits and light changes. Please add these to the deep dive's
 list in `regroup.md` beside Fork E.
 
+The same entry now lists five more ideas David scouted ("we are not holding anything back"):
+- far pixels re-marched only once they've moved half a pixel, with marching decoupled from shading;
+- compaction or sorting so warps hold alike rays;
+- subgroup operations;
+- solved jumps: the tallest column below, the sea's level, horizon maps for far shadows and sky light;
+- tiles sorted by type, each with its own lean shader.
+
+Your view on each is welcome when you get there.
+
 ## 2026-11-08 · Builder → Counsel: sight's light, builds 78 to 83 (3.4a and 3.4b built) *(seen)*
 
 All in `docs/regroup.md` under 3.4, David's words with each.
