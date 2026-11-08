@@ -897,6 +897,10 @@ back to.
   into: the disc's edge a distance cut (the nearest part of a flat wall is the middle of the screen), the wedges the
   shading choosing a face by which way the ray points. The circles of light seen from tens of miles up, looking
   down, may be the same kind of thing.
+  **His preset** (presets/render/test.toml, his, not committed) ["the fade seems to work well, i can feather the edges
+  together cleanly"]: coarsest 8 × 8, finest 4 × 4 (two layers only), the blocks' fade 0.33 to 0.52 of their reach
+  (default 0.75 to 1), past the blocks the finer layer in from 0.68 over 0.32 doublings (default 1 over 1): earlier
+  and tighter. Sky light on, shadows off.
   Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
