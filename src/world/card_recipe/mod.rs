@@ -1077,7 +1077,7 @@ fn ground(c: Case) -> i32 {
         let size = (640, 400);
         let pitch = -40f32.to_radians();
         // Up by a fraction of a block at a time (the cells' layering is what a ray's steps meet).
-        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false };
+        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false };
         let pictures: Vec<Vec<[u8; 3]>> = (0..6).map(|k| sight_picture(&device, &queue, &store, size, eye(400.0 + k as f32 * 1.37))).collect();
         // From just under the horizon (row 32 at 40° down) to the bottom: all sea.
         let first_row = 40u32;
@@ -1143,7 +1143,7 @@ fn ground(c: Case) -> i32 {
         let behind = [0.0, -low.cos(), low.sin()];
         let middle = |height: f32, pitch: f32, sun: [f32; 3], shadows: bool| {
             let pitch = pitch.to_radians();
-            let eye = crate::sight::draw::Eye { position: [0.0, 0.0, height], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 60.0, grid: 2, rays: 1, upscale: 0, earned: true, sun, shadows };
+            let eye = crate::sight::draw::Eye { position: [0.0, 0.0, height], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 60.0, grid: 2, coarsest: 8, rays: 1, upscale: 0, earned: true, sun, shadows };
             let picture = sight_picture(&device, &queue, &store, size, eye);
             let p = picture[(size.1 / 2 * size.0 + size.0 / 2) as usize];
             p[0] as f32 * 0.2 + p[1] as f32 * 0.7 + p[2] as f32 * 0.1
@@ -1155,7 +1155,7 @@ fn ground(c: Case) -> i32 {
             let (lit, shaded) = (middle(height, pitch, beyond, false), middle(height, pitch, beyond, true));
             let (lit_behind, shaded_behind) = (middle(height, pitch, behind, false), middle(height, pitch, behind, true));
             eprintln!("Sight's shadows, {name}: sun beyond the ridge {lit:.1} → {shaded:.1}; on this side {lit_behind:.1} → {shaded_behind:.1}");
-            assert!(shaded < lit * 0.85, "{name}: the ridge's shadow should darken the plain ({lit:.1} → {shaded:.1})");
+            assert!(shaded < lit * 0.9, "{name}: the ridge's shadow should darken the plain ({lit:.1} → {shaded:.1})");
             assert!((shaded_behind - lit_behind).abs() <= 1.0, "{name}: with the sun on this side nothing shades the plain ({lit_behind:.1} → {shaded_behind:.1})");
         }
     }
@@ -1170,7 +1170,7 @@ fn ground(c: Case) -> i32 {
         unsafe { std::env::set_var("INCUS_SIGHT_STEPS", "1") };
         let size = (640u32, 400u32);
         let pitch = -12f32.to_radians();
-        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false };
+        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false };
         let picture = sight_picture(&device, &queue, &store, size, eye);
         unsafe { std::env::remove_var("INCUS_SIGHT_STEPS") };
         // The steps view: k = steps / 256 shown as dark blue (0) to green (0.5) to red (1), squared.

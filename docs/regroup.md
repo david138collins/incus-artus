@@ -803,7 +803,25 @@ back to.
   The first try was 38: in land not baked yet each shadow step read up to eight levels and found none.
   Also: a soak or test window never freezes from its first frame (one came up behind another window, froze before
   its setting arrived, and waited for a click).
-  Next: his look at 80 (a low sun across mountains: long shadows, soft far off), then sky light.
+  **David's look at build 80** [2026-11-08: "the shadows appear to be cast correctly, they work. seems like we are
+  getting the looks right easily with our mipmarching, but we're gonna need kung fu to make it fast"]. His F12 (a
+  mountainside at a 30° view, still filling in): flat smears (cells of 32 read where the finer live tiles weren't
+  made yet, gone as they were) and rows of dark triangles down a sunlit slope, also gone once the tiles were in.
+  The triangles were the shadows: a shadow ray stepped clear of its surface by the cells read there, then crossed
+  into a tile not made yet, fell back to the bake's 32s, whose soft edge reached above where it started, and shaded
+  the slope itself. Textures wouldn't have cured it.
+  **Build 81**: a shadow ray trusts a cell only once it has climbed a whole cell of it over where it started (the
+  normal reads always have; only those fallbacks didn't). **The coarsest layer a choice** [David: "a set of
+  selections for coarsest rays, so i can experiment with nixing the 8x8 layer and only using 1, 2, 4, etc."]: the
+  Render page's "Coarsest layer" (8, 4, 2 or 1 × 1; 8 unless chosen), the pyramid starting there, everything marched
+  in it; finest choices coarser than it greyed. Checked on the card: the ridge scene's middle pixel the same, within a
+  point, from each coarsest (the test's bar now 10% darker, not 15: at 4 × 4 the shadow darkened 14.6%).
+  **1.5 × pixels** [David: "is 1.5x pixels conceptually possible in this system?"]: yes. A layer is only a grid of
+  rays; the store and the march don't care how big it is. What a non-halving layer needs: its parent found by scale,
+  not by halves (the worth rule, the parent's start), and the upscale to take a layer whose pixels don't line up
+  with the screen's (crisp, they'd come one and two screen pixels wide by turns; smooth, a little soft, as games'
+  render scales are). Cost about 0.44 of 1 × 1 where it's shown. Not built: his word first.
+  Next: his look at 81 (the triangles gone while tiles fill; the coarsest choices), then sky light.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

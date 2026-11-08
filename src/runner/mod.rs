@@ -424,6 +424,7 @@ impl Runner {
                     looking: view.looking.to_array(),
                     field_of_view: view.field_of_view,
                     grid: kept.sight_grid(),
+                    coarsest: kept.sight_coarsest(),
                     rays: kept.sight_rays(),
                     upscale: kept.sight_upscale(),
                     earned: kept.sight_earned(),

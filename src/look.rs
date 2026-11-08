@@ -62,11 +62,26 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     ui.small("Frozen, the game stays on the screen under a grey veil, the world stops and nothing is drawn till it's clicked again. F11: fullscreen or a window.");
     ui.separator();
     ui.strong("Sight (the screen pyramid: 8 × 8 everywhere, finer where it's worth it)");
+    // Where the pyramid starts [David 2026-11-08: "a set of selections for coarsest rays, so i can experiment with
+    // nixing the 8x8 layer"]: everything is marched there.
+    let mut coarsest = kept.sight_coarsest();
+    ui.horizontal(|ui| {
+        ui.label("Coarsest layer:");
+        for factor in [1, 2, 4, 8] {
+            ui.radio_value(&mut coarsest, factor, format!("{factor} × {factor}"));
+        }
+    });
+    if coarsest != kept.sight_coarsest() {
+        kept.render.set_number("sight_coarsest", coarsest as f32);
+    }
     let mut grid = kept.sight_grid();
     ui.horizontal(|ui| {
         ui.label("Finest layer:");
         for factor in [1, 2, 4, 8] {
-            ui.radio_value(&mut grid, factor, format!("{factor} × {factor}"));
+            // Coarser than the coarsest: greyed (the finest is never coarser than where it starts).
+            ui.add_enabled_ui(factor <= coarsest, |ui| {
+                ui.radio_value(&mut grid, factor, format!("{factor} × {factor}"));
+            });
         }
     });
     if grid != kept.sight_grid() {
@@ -232,6 +247,16 @@ impl KeptSettings {
             4 => 4,
             8 => 8,
             _ => 2,
+        }
+    }
+
+    /// Sight's coarsest layer, where the pyramid starts (1, 2, 4 or 8; 8 unless chosen).
+    pub fn sight_coarsest(&self) -> u32 {
+        match self.render.number("sight_coarsest", 8.0) as u32 {
+            1 => 1,
+            2 => 2,
+            4 => 4,
+            _ => 8,
         }
     }
 

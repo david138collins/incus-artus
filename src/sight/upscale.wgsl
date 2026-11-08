@@ -6,7 +6,8 @@
 // at very different distances).
 
 struct Up {
-    // x, y: the screen's size; z: the finest layer's factor (8, 4, 2 or 1).
+    // x, y: the screen's size; z: the finest layer's factor (8, 4, 2 or 1); w: the coarsest's, the base (David
+    // 2026-11-08: a choice; a layer coarser than it isn't made, and its binding stands in for it).
     size: vec4<f32>,
     // x: the mode (0 crisp, 1 smooth, 2 sharp at skylines).
     mode: vec4<f32>,
@@ -45,10 +46,13 @@ fn read(layer: texture_2d<f32>, factor: f32, at: vec2<f32>, smooth_it: bool) -> 
 fn brought_up(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
     let mode = u32(up.mode.x);
     var smooth_it = mode != 0u;
+    let finest = up.size.z;
+    let coarsest = up.size.w;
     if (mode == 2u) {
-        // Sharp at a skyline: the base layer's four pixels round here far apart in distance.
+        // Sharp at a skyline: the base layer's four pixels round here far apart in distance (`far8` is the base's,
+        // whichever layer that is).
         let size = vec2<i32>(textureDimensions(far8));
-        let b = vec2<i32>(floor(at.xy / 8.0 - 0.5));
+        let b = vec2<i32>(floor(at.xy / coarsest - 0.5));
         var near = 1e30;
         var far = 0.0;
         for (var k = 0; k < 4; k++) {
@@ -58,14 +62,16 @@ fn brought_up(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
         }
         smooth_it = !(far > near * 1.5 + 8.0);
     }
-    // The base, then each finer layer over it as much as it's worth there.
-    var colour = read(layer8, 8.0, at.xy, smooth_it).rgb;
-    let finest = up.size.z;
-    if (finest <= 4.0) {
+    // The base, then each finer layer over it as much as it's worth there (the base is shown whole: its alpha 1).
+    var colour = vec3<f32>(0.0);
+    if (coarsest >= 8.0) {
+        colour = read(layer8, 8.0, at.xy, smooth_it).rgb;
+    }
+    if (finest <= 4.0 && coarsest >= 4.0) {
         let c = read(layer4, 4.0, at.xy, smooth_it);
         colour = mix(colour, c.rgb, c.a);
     }
-    if (finest <= 2.0) {
+    if (finest <= 2.0 && coarsest >= 2.0) {
         let c = read(layer2, 2.0, at.xy, smooth_it);
         colour = mix(colour, c.rgb, c.a);
     }

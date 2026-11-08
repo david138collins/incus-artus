@@ -832,7 +832,12 @@ fn sunlight(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> 
         let size = f32(1 << u32(level));
         // A step as long as the ray is wide (never under its cell): what it crosses dims it by how solid it is.
         let step = max(size, wide);
-        if (look.known) {
+        // Only once it's climbed a whole cell of what it reads over where it started: a coarser level read where a
+        // finer one isn't made yet has a soft edge reaching higher than the ray started over its own surface, and
+        // shaded the surface itself [David's F12 of build 80: rows of dark triangles down a sunlit mountainside
+        // while its tiles filled in, gone once they had].
+        let climbed = q.z - p.z;
+        if (look.known && climbed >= size) {
             light *= pow(1.0 - min(look.solid, 0.999), step / size);
             if (light < 0.02) {
                 return 0.0;

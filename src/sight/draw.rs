@@ -18,6 +18,9 @@ pub struct Eye {
     /// the upscale's mode; and whether the finer layers are marched only where they're worth it (else
     /// everywhere).
     pub grid: u32,
+    /// The coarsest layer, where the pyramid starts (8, 4, 2 or 1; everything is marched there) [David
+    /// 2026-11-08: "a set of selections for coarsest rays, so i can experiment with nixing the 8x8 layer"].
+    pub coarsest: u32,
     pub rays: u32,
     pub upscale: u32,
     pub earned: bool,
@@ -63,6 +66,7 @@ struct Layer {
 struct Targets {
     screen: (u32, u32),
     finest: u32,
+    coarsest: u32,
     store: Arc<CardStore>,
     /// The start pass's tiles across and down.
     tiles: (u32, u32),
@@ -97,10 +101,10 @@ impl SightDraw {
         Self { march, start, upscale, up, sampler, targets: None }
     }
 
-    /// The pyramid's layers for a screen of `screen`, down to `finest`, and their bindings to `store`, made
-    /// again when any of them changes (a moment's work: the store is the world's, not the screen's).
-    fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32), finest: u32, store: &Arc<CardStore>) -> &Targets {
-        let stale = self.targets.as_ref().is_none_or(|t| t.screen != screen || t.finest != finest || !Arc::ptr_eq(&t.store, store));
+    /// The pyramid's layers for a screen of `screen`, from `coarsest` down to `finest`, and their bindings to
+    /// `store`, made again when any of them changes (a moment's work: the store is the world's, not the screen's).
+    fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32), finest: u32, coarsest: u32, store: &Arc<CardStore>) -> &Targets {
+        let stale = self.targets.as_ref().is_none_or(|t| t.screen != screen || t.finest != finest || t.coarsest != coarsest || !Arc::ptr_eq(&t.store, store));
         if stale {
             let texture = |label: &str, size: (u32, u32), format: wgpu::TextureFormat| {
                 device
@@ -122,9 +126,9 @@ impl SightDraw {
             // The base has no layer above: its "worth it" in is a placeholder never read.
             let nothing_above = storage("sight's nothing above", 1);
             let no_distances_above = texture("sight's no distances above", (1, 1), wgpu::TextureFormat::R32Float);
-            let mut factors = vec![TILE];
+            let mut factors = vec![coarsest];
             while factors.last().is_some_and(|&f| f > finest.max(1)) {
-                let next = factors.last().copied().unwrap_or(TILE) / 2;
+                let next = factors.last().copied().unwrap_or(coarsest) / 2;
                 factors.push(next);
             }
             let mut layers: Vec<Layer> = Vec::new();
@@ -183,20 +187,23 @@ impl SightDraw {
                     wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::TextureView(picture_of(1)) },
                 ],
             });
-            self.targets = Some(Targets { screen, finest, store: store.clone(), tiles, layers, start_group, upscale_group });
+            self.targets = Some(Targets { screen, finest, coarsest, store: store.clone(), tiles, layers, start_group, upscale_group });
         }
         self.targets.as_ref().expect("made just now")
     }
 
     /// The pyramid marched and brought up onto `view` (the screen's picture, `screen` pixels).
     pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, screen: (u32, u32), eye: Eye, store: &Arc<CardStore>) {
-        let finest = match eye.grid {
+        let factor = |n: u32| match n {
             0..=1 => 1,
             2 => 2,
             3..=4 => 4,
             _ => 8,
         };
-        let tiles = self.targets(device, screen, finest, store).tiles;
+        let coarsest = factor(eye.coarsest);
+        // Never coarser than the coarsest.
+        let finest = factor(eye.grid).min(coarsest);
+        let tiles = self.targets(device, screen, finest, coarsest, store).tiles;
         // The camera: the eye, and the directions of the screen's edges (game axes: looking north, east is right).
         let forward = normalise(eye.looking);
         let right = normalise(cross([0.0, 0.0, 1.0], forward));
@@ -242,7 +249,7 @@ impl SightDraw {
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
-        let up_numbers: [[f32; 4]; 2] = [[screen.0 as f32, screen.1 as f32, finest as f32, 0.0], [eye.upscale as f32, 0.0, 0.0, 0.0]];
+        let up_numbers: [[f32; 4]; 2] = [[screen.0 as f32, screen.1 as f32, finest as f32, coarsest as f32], [eye.upscale as f32, 0.0, 0.0, 0.0]];
         queue.write_buffer(&self.up, 0, &up_numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         if !no_start {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's start pass"), timestamp_writes: None });
