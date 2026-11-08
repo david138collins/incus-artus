@@ -931,7 +931,8 @@ back to.
   frames throughout). **For the speed dive**: where the fog is total a ray could stop. **On file, not chased**: in
   the test scene a plateau asked for at 450 or 650 didn't stand that high (the view 600 to 1,000 off at a graze met
   the sky or something far beyond); 300 does. A test-scene matter as far as seen; real mountains draw above it.
-  Next: David's look at the fog; the mountains' contrast at a distance is his to tune with it, by eye.
+  **David's look at build 86** [2026-11-08: "fog looked sick."]. The start bake 119 s. The mountains' contrast at a
+  distance stays his to tune with the fog, by eye.
   Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
