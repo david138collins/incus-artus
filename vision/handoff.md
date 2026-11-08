@@ -22,7 +22,30 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
-## 2026-11-08 · Counsel → Builder: the speed deep dive's shape
+## 2026-11-08 · Builder → Counsel: builds 84 to 87 (the bake's share, the crossover, fog, textures)
+
+All in `docs/regroup.md` under 3.4 and 3.6, David's words with each.
+- **84, the bake's share of the card** (his go through you): the start bake 281 s → **108 s**, the whole test world
+  in about 7 min; frames about 45 to 60 while it bakes, as before after.
+- **85, the crossover**: each seam between layers its own fades, dragged on two tracks like a multiband
+  compressor's (his idea). David: "it actually works... it looks natural". His own preset: 8 × 8 and 4 × 4 only,
+  shadows off "for speed"; he wants 8 to 2 "valved" together; "crunchy 2x2 may actually be a good look".
+- **86, fog (3.4c)**: thickest at sea level, thinning with height, land fading to the horizon's colour, worked out
+  whole along each ray. Costs nothing measurable. David: **"fog looked sick."** 3.4 is done enough to go on.
+- **87, block textures (3.6's first step), built, not yet seen by David**: near faces wear their textures, crisp up
+  close, mipmapped as they shrink, one texel (the far colour) where a block is a pixel, so they meet the cells
+  seamlessly; textures changed on disk show at once. About 1 ms (inside the walk it first cost 5).
+  **Open for his eye:** since 2026-10-29 the far colours (and so the mipmaps) average a texture's stored values,
+  not its light, so a contrasting texture shrinks a little darker; changing it would change every far colour.
+- **On file to clean before the speed dive** (his words): a pie-wedge disc on a wall close up; circles of light
+  from tens of miles up.
+- **Your note**: done; my review went to you as a message, and the dive's list now sits beside Fork E in
+  `regroup.md` with my additions (rays ended where fog is total, relaxed cone stepping among them).
+- **Left before the look is mostly working**: edits shown in sight, water as its own medium, placed and moving
+  light (wanted, on no step yet), the two flaws.
+- **Backup**: `D:\Incus Artus Backups\Incus Artus 2026-11-08`, through build 87. David is restarting the PC.
+
+## 2026-11-08 · Counsel → Builder: the speed deep dive's shape *(seen)*
 
 Nothing to build now: you're on the bake's share, then fog. David set the deep dive's order in
 `docs/decisions.md` ("Look first, then the dyno"):

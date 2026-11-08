@@ -995,6 +995,18 @@ back to.
   the recipe for the averaged answer instead of averaging fine samples. "Correctly blurry" straight from the form: the
   projection principle, each footprint a projection of the one recipe. It has to agree with the fine levels, and the
   cache test says whether it does.
+- **The speed deep dive's list** (David 2026-11-08, its order and his ideas in `decisions.md`, "Look first, then the
+  dyno": the look first, then inspection measured, then power one measured step at a time). His ideas there:
+  temporal reuse with his rules, far pixels re-marched only once they've moved, warps kept alike, subgroups, solved
+  jumps and horizon maps, tiles by type. Builder's review (sent to Counsel 2026-11-08) adds: rays ended where the fog
+  is total (land at sea level 99% fog by about 5,000 blocks, against a reach of 150,000: likely the cheapest win);
+  relaxed cone stepping (each cell column the widest empty cone over its top, so a ray grazing flat land or sea
+  takes long safe steps: the case column-top skipping misses); an empty-space distance per cell (the same in 3D,
+  for caves); a hierarchical start pass; f16 accumulators; the workgroup's shape and order; the sea as a plane;
+  sky light in cells, or better from horizon maps; textures' last ~1 ms (build 87); Fork E's remnant, a
+  checkerboarded coarse layer filled in time. Before the dive, two flaws to clean up [David: "i think that may be
+  the kind of thing that we clean up before performance"]: the close-up pie-wedge disc, and the circles of light
+  from tens of miles up.
 - **Fork E, if it's too slow:** the coarse layer every other frame, a smaller fine budget, fewer rays a coarse pixel,
   a coarser coarse layer (a fifth or a sixth); each measured and kept only with its number.
 - **Fork F, if it looks wrong** (an edge of sharpness that shows, swimming as the camera moves): a longer fade,
