@@ -758,7 +758,8 @@ back to.
   **Measured** (the low slow flight, 30 up at 20 a second, 20° down, uncapped, runs alternated): finest 1 × 1 about
   104 fps without the parent's start, **about 163 to 171 with it**; finest 2 × 2 about 168 to 177 without, **about
   201 to 218 with it**. Measuring switch: `INCUS_SIGHT_NO_FOLLOW`.
-  Next: his look at 1 × 1, then 3.4 (light through the cache), each talked through first.
+  **David's look at build 78** [2026-11-08: "obviously no textures but its looking good"].
+  Next: 3.4 (light through the cache), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
