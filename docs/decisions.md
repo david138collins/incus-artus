@@ -1188,7 +1188,9 @@ below disagree with this one, this one stands.
     the engine dyno and begin to, in a scientific way, first thoroughly inspect our renderer and how it uses the
     gpu - look for ways to sort rays by length and match them to warps of similar length to avoid workers waiting
     for example - and then begin adding power through forced induction until we hit our goal and it doesnt blow a
-    headgasket. things like taa i think can be applied artfully to great and even mission critical advantage". So
+    headgasket. things like taa i think can be applied artfully to great and even mission critical advantage";
+    "the more fully featured it is before tuning the better we can tune and then sculpt the power curve with
+    induction". So
     the speed deep dive has three parts, in order:
     1. **The look**, as fleshed out as it can get first.
     2. **Inspection**, done scientifically: how the renderer uses the card, measured before anything changes.
