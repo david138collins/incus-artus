@@ -1207,6 +1207,26 @@ below disagree with this one, this one stands.
        - History is dropped wherever a block is edited or the light on a place changes.
        - The hard block faces near the eye stay crisp.
 
+       **Reference, David's pick** [2026-11-08]: Lasse Jon Fuglsang Pedersen, "Temporal Reprojection Anti-Aliasing
+       in INSIDE" (Playdead, GDC 2016, youtu.be/2XXS5UyNjjU). He said Playdead would release its source on GitHub.
+       What carries over to us:
+       - **Jitter.** Each frame shifts the view by a sub-pixel offset: the first 16 points of the Halton (2, 3)
+         sequence, chosen by eye with a magnifier. For us that means the pixel's ray offset and our step phase
+         (`scatter`).
+       - **Reprojection.** The hit position is reprojected with last frame's camera. The still world needs no
+         per-object motion, and movers are tagged. Each pixel takes its motion from the nearest-depth neighbour in
+         its 3 × 3, so edges travel with the thing in front.
+       - **Neighbourhood clipping** (after Karis). History is clipped to the box of colours in the current 3 × 3,
+         towards its centre. This was their cure for ghosting, where depth and velocity tests proved fragile, and
+         it also works through transparent layers. For us it catches most light changes and fog without special
+         rules.
+       - **A high feedback.** About 90% history, so old information fades within a few frames.
+       - **Motion blur as the fallback for fast pixels.** It starts at 2 pixels of motion a frame and is full at
+         15. It goes into the output only, never into the history, which fits "fast is slow, smooth is fast".
+       - **Noise soaked up.** Sparse random sampling (their occlusion, reflections, volumetrics) came out smooth.
+         For us that means fewer sky cones and shadow samples with rotating jitter.
+       - **Cost.** 1.7 ms at 1080p on an Xbox One, not optimised, built over about three months of a production.
+
        More for the list, scouted with David the same day ("we are not holding anything back"). Each is measured
        before it is kept:
        - **Far pixels refreshed only when they've moved** (David: "distant terrain moves incredibly slowly and i
