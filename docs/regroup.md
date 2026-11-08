@@ -956,6 +956,8 @@ back to.
   test's red and blue checker 28%, gabbro's speckle about 18% then). Averaging as light instead would change every
   far colour, and the bake with them. **On file**: a block's underside wears its bottom texture up close, while the
   cells count a bottom face as its sides' colour (seen only under overhangs).
+  **David's look at build 87** [2026-11-08: "they look good."]. The stored-values averaging stays as it is; it's
+  on file for him to raise if a contrasting texture ever shrinks too dark.
   Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
