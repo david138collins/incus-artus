@@ -82,6 +82,10 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
        across all the kingdoms, then having intellect workers (wizards, sages, scribes in a library or
        laboratory) research and assemble them.
 - **Tone:** Game of Thrones-coded politics and slow-building dread.
+- **[IDEA 2026-11-08] Names on file:** David's, for the world's lore. What each one names is still his to say.
+  - **Lacrimae Mundi**, "the Tears of the World".
+  - **Malleus Verbi**, "the Hammer of the Word". *Counsel:* it pairs with the game's own name. Incus is the anvil, and
+    Malleus is the hammer that strikes it.
 
 ## Pacing: the Dungeonmaster  [IDEA]
 
