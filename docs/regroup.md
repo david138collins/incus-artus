@@ -887,7 +887,17 @@ back to.
   whether it's baking now. `INCUS_SIGHT_FILL_SHARE` for measuring (0 none). **Measured** (the low slow flight, 80 s, a
   fresh test world): regions baked 168 with no share (75 to 98 fps), 271 at 0.4 (54 to 73), **346 at 0.5 (45 to
   59)**, 536 at 0.7 (30): the card was the bake's bottleneck, the share trades frames for it about evenly.
-  Next: his look at 84 (a fresh world's start bake by the clock, and the frames while it bakes), then fog (3.4c).
+  **Build 84 in play** (2026-11-08, a fresh world): the start's 729 regions in **108 s** (281 in build 83, 151 in
+  82), all 5,184 in 424 s; after it, 192 fps, sight 2.5 ms (coarsest 8, finest 2 × 2, his 2 × 2 fade 0.33 to 0.52).
+  **On file, to clean up before the speed dive** [David: "when you put your face right into a block, a circle appears
+  as you get very close like this. sort of like the circles of light that swallow the world if i fly tens of miles
+  over the surface straight up looking down. i think that may be the kind of thing that we clean up before
+  performance."]: his screenshot (screenshot-1794165405) shows, close up against a cliff face, a disc round the
+  crosshair cut into eight pie wedges of slightly different shades, the wall smooth outside it. Guessed, not looked
+  into: the disc's edge a distance cut (the nearest part of a flat wall is the middle of the screen), the wedges the
+  shading choosing a face by which way the ray points. The circles of light seen from tens of miles up, looking
+  down, may be the same kind of thing.
+  Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
