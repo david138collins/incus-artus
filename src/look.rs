@@ -156,6 +156,13 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if earned != kept.sight_earned() {
         kept.render.table.insert("sight_earned".to_string(), toml::Value::Boolean(earned));
     }
+    // The bake's share of the card [the start bake 46 s before shadows, 281 s with sky light: richer frames left it no
+    // room].
+    let mut share = kept.sight_fill_share();
+    if ui.add(egui::Slider::new(&mut share, 0.0..=0.9).step_by(0.05).text("of the card left to the far view's bake, while it bakes")).changed() {
+        kept.render.set_number("sight_fill_share", share);
+    }
+    ui.small(if crate::runner::filling_now() { "Baking now: the frames are paced to leave it its share (more: it's in sooner, the frames slower)." } else { "Nothing baking now: the frames go as fast as the limit lets them." });
     let mut rays = kept.sight_rays();
     ui.horizontal(|ui| {
         ui.label("Rays a coarse pixel:");
@@ -369,6 +376,13 @@ impl KeptSettings {
     /// sharp at skylines [David 2026-11-06: "can we have a switch?"; opens on crisp].
     pub fn sight_upscale(&self) -> u32 {
         (self.render.number("sight_upscale", 0.0) as u32).min(2)
+    }
+
+    /// While the far view bakes, the share of the card left to the bake (0 to 0.9; the frame paced so drawing takes
+    /// the rest; 0.5 unless chosen; `INCUS_SIGHT_FILL_SHARE` for measuring, 0 for none).
+    pub fn sight_fill_share(&self) -> f32 {
+        let chosen = std::env::var("INCUS_SIGHT_FILL_SHARE").ok().and_then(|v| v.parse().ok()).unwrap_or(self.render.number("sight_fill_share", 0.5));
+        chosen.clamp(0.0, 0.9)
     }
 
     /// Whether the sun casts shadows in sight (3.4b; on unless chosen).

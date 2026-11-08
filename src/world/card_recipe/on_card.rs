@@ -382,6 +382,7 @@ impl WorldOnCard {
                     let groups = groups_of(here);
                     pass.dispatch_workgroups(groups.min(65_535), groups.div_ceil(65_535), 1);
                 }
+                let _filling = crate::runner::filling();
                 {
                     let _gate = crate::runner::CARD_GATE.read();
                     queue.submit([encoder.finish()]);
@@ -397,6 +398,7 @@ impl WorldOnCard {
             let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
             let mut encoder = device.create_command_encoder(&Default::default());
             encoder.copy_buffer_to_buffer(buffer, 0, &readback, 0, size);
+            let _filling = crate::runner::filling();
             {
                 let _gate = crate::runner::CARD_GATE.read();
                 queue.submit([encoder.finish()]);

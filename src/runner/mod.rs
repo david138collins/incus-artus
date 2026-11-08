@@ -156,6 +156,76 @@ pub fn card() -> Option<&'static (wgpu::Device, wgpu::Queue)> {
 /// for GPU to come idle before reconfiguring the Surface"].
 pub static CARD_GATE: std::sync::RwLock<()> = std::sync::RwLock::new(());
 
+// ── Filling's share of the card (2026-11-08, David's go through Counsel: "that makes sense") ──
+//
+// The card does its work in the order it's handed it. Drawing as fast as it can, the next frame is always queued, so
+// each piece of the bake's work waited behind a whole frame; the richer the frames, the slower the bake (the start
+// bake 46 s before shadows, 281 s with sky light). While the bake is filling, the frame is paced so drawing takes at
+// most its share of the card's time, by sight's own clock: the rest is free, and the bake's pieces run as they come.
+// Measured (the low slow flight, 80 s, a fresh test world): regions baked 168 with no share, 271 with 0.4 (54 to 73
+// fps against 75 to 98), 536 with 0.7 (30 fps). Only the bake: the live levels round the eye are made all the time
+// as it moves, and pacing for them would hold the frames back in all play.
+
+/// Pieces of filling work handed to the card and not yet done, and when the last one finished (milliseconds since
+/// the game started).
+static FILLING: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static LAST_FILLED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static STARTED: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+
+fn since_start_ms() -> u64 {
+    STARTED.get_or_init(Instant::now).elapsed().as_millis() as u64
+}
+
+thread_local! {
+    /// Whether this thread is baking (`baking`): only the bake's pieces count as filling.
+    static BAKING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Runs `work` as the bake's: its pieces of card work count as filling.
+pub fn baking<T>(work: impl FnOnce() -> T) -> T {
+    BAKING.with(|b| b.set(true));
+    let out = work();
+    BAKING.with(|b| b.set(false));
+    out
+}
+
+/// Held while a piece of the bake's work is on the card (handed to it, and waited for); none off the bake.
+pub struct Filling;
+
+pub fn filling() -> Option<Filling> {
+    if !BAKING.with(|b| b.get()) {
+        return None;
+    }
+    since_start_ms();
+    FILLING.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+    Some(Filling)
+}
+
+impl Drop for Filling {
+    fn drop(&mut self) {
+        FILLING.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
+        LAST_FILLED.store(since_start_ms().max(1), std::sync::atomic::Ordering::Release);
+    }
+}
+
+/// Whether anything is filling: a piece on the card now, or one finished within the last tenth of a second (the
+/// gaps between one piece and the next).
+pub fn filling_now() -> bool {
+    use std::sync::atomic::Ordering;
+    let last = LAST_FILLED.load(Ordering::Acquire);
+    FILLING.load(Ordering::Acquire) > 0 || (last > 0 && since_start_ms().saturating_sub(last) < 100)
+}
+
+/// The most frames a second while filling, for drawing to take no more than (1 - `share`) of the card (by sight's
+/// clock); none if nothing's filling, the share is 0, or the card can't time itself. Never under 30.
+fn filling_cap(share: f32) -> Option<f32> {
+    if share <= 0.0 || !filling_now() {
+        return None;
+    }
+    let ms = crate::sight::draw::card_ms()?;
+    Some((1000.0 * (1.0 - share.min(0.9)) / ms.max(0.1)).max(30.0))
+}
+
 /// The screen's picture set up again, the gate shut meanwhile; a failure kept from being fatal (it's tried again
 /// next frame). Whether it took.
 fn set_up_picture(gpu: &Gpu) -> bool {
@@ -441,12 +511,13 @@ impl Runner {
                 (store, eye)
             })
         };
-        let (capture, resize_to, minimize, limit, screenshot) = {
+        let (capture, resize_to, minimize, limit, screenshot, fill_share) = {
             let world = self.app.world_mut();
             let limit = world.resource::<TestCap>().0.unwrap_or(world.resource::<FrameCap>().0);
+            let fill_share = world.resource::<crate::look::KeptSettings>().sight_fill_share();
             let screenshot = world.resource_mut::<ScreenshotRequest>().0.take();
             let mut state = world.resource_mut::<WindowState>();
-            (state.capture_mouse, state.resize_to.take(), state.minimize.take(), limit, screenshot)
+            (state.capture_mouse, state.resize_to.take(), state.minimize.take(), limit, screenshot, fill_share)
         };
         if let Some(minimized) = minimize {
             gpu.window.set_minimized(minimized);
@@ -567,7 +638,7 @@ impl Runner {
             return;
         }
         let refresh = self.app.world().resource::<WindowState>().refresh;
-        self.pace(limit);
+        self.pace(limit, filling_cap(fill_share));
         let now = Instant::now();
         let ms = self.last_frame.map_or(0.0, |last| now.duration_since(last).as_secs_f32() * 1000.0);
         self.last_frame = Some(now);
@@ -590,10 +661,17 @@ impl Runner {
     /// high-resolution timer, and how late it wakes is measured every time (`perf::woke`). On a screen
     /// with a variable refresh rate the screen shows each frame the moment it's ready, so the beat is
     /// what's seen. The simulation's clock is untouched by any of it: its time is real time (`time/`).
-    fn pace(&mut self, limit: FrameLimit) {
-        let FrameLimit::Steady(fps) = limit else {
-            self.beat = None;
-            return;
+    /// Waits for the frame's beat: the limit's, or filling's `cap` if that's lower (an uncapped or vsync'd frame
+    /// is paced by it too while filling).
+    fn pace(&mut self, limit: FrameLimit, cap: Option<f32>) {
+        let fps = match (limit, cap) {
+            (FrameLimit::Steady(fps), Some(cap)) => fps.min(cap),
+            (FrameLimit::Steady(fps), None) => fps,
+            (_, Some(cap)) => cap,
+            (_, None) => {
+                self.beat = None;
+                return;
+            }
         };
         let length = Duration::from_secs_f64(1.0 / fps.max(1.0) as f64);
         let now = Instant::now();

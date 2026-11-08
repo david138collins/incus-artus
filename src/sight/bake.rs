@@ -597,7 +597,8 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
             crate::loading::submit(crate::loading::Tier::Whenever, 0.0, move || {
                 while !baking.stop.load(Ordering::Relaxed) {
                     let Some(region) = baking.queue.lock().ok().and_then(|mut queue| queue.pop_front()) else { break };
-                    let record = bake_region(&maker, &with, odd, region);
+                    // Its card work counts as filling (the frame leaves it its share of the card).
+                    let record = crate::runner::baking(|| bake_region(&maker, &with, odd, region));
                     let Ok(mut bake) = baking.bake.lock() else { break };
                     bake.take(record, maker.card.as_deref());
                 }

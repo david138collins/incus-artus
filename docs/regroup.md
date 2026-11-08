@@ -875,6 +875,19 @@ back to.
   281 s that run (46 before shadows, 92 with them, 151 with coarsest 4, now 281 with sky light): every richer frame
   leaves the card less room for the bake, so a new world shows the raw far view for minutes. Proposed next: the bake
   a sure share of the card each frame while it fills (a little frame rate then, nothing after), then fog (3.4c).
+  [David's go, through Counsel: "that makes sense".]
+  **Build 84: the bake's share of the card.** Why it starved: the card does its work in the order it's handed it, and
+  the bake hands it small pieces, each waited for (so frames slot in between: 2026-11-06). Drawing as fast as it can,
+  the next frame is always queued, so each piece waited behind a whole frame; the richer the frame, the longer. Now,
+  while the bake's pieces are on the card (or were within the last tenth of a second), the frame loop paces itself so
+  drawing takes at most (1 − share) of the card's time, by sight's own clock (never under 30 fps); the rest is free
+  and the pieces run as they come. Only the bake counts (`runner::baking`, a mark on the baker's thread): the live
+  levels round the eye are made all the time as it moves, and pacing for them would hold frames back in all play.
+  The frame limit itself (and so vsync) is untouched. The Render page: the share, 0.5 unless chosen, and a line saying
+  whether it's baking now. `INCUS_SIGHT_FILL_SHARE` for measuring (0 none). **Measured** (the low slow flight, 80 s, a
+  fresh test world): regions baked 168 with no share (75 to 98 fps), 271 at 0.4 (54 to 73), **346 at 0.5 (45 to
+  59)**, 536 at 0.7 (30): the card was the bake's bottleneck, the share trades frames for it about evenly.
+  Next: his look at 84 (a fresh world's start bake by the clock, and the frames while it bakes), then fog (3.4c).
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
