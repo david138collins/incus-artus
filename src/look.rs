@@ -216,6 +216,27 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         kept.render.set_number("sight_sky_tint", tint);
     }
     ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun (not its shadows or sky light).");
+    // Fog (3.4c) [David 2026-10-28: fog out to about 2 miles; 2026-11-08: "that sounds alright"].
+    ui.separator();
+    ui.strong("Fog");
+    let mut fog = kept.sight_fog();
+    if ui.checkbox(&mut fog, "Fog (far land fades into the sky; valleys hazier than peaks)").changed() {
+        kept.render.table.insert("sight_fog".to_string(), toml::Value::Boolean(fog));
+    }
+    ui.add_enabled_ui(fog, |ui| {
+        let mut reach = kept.sight_fog_reach();
+        if ui.add(egui::Slider::new(&mut reach, 300.0..=50_000.0).logarithmic(true).step_by(10.0).suffix(" blocks").text("how far you see at sea level (land there mostly fog; 3,200 about 2 miles)")).changed() {
+            kept.render.set_number("sight_fog_reach", reach);
+        }
+        let mut height = kept.sight_fog_height();
+        if ui.add(egui::Slider::new(&mut height, 20.0..=2000.0).logarithmic(true).step_by(1.0).suffix(" blocks").text("how high the haze lies (it halves each so many blocks up)")).changed() {
+            kept.render.set_number("sight_fog_height", height);
+        }
+        let mut warmth = kept.sight_fog_warmth();
+        if ui.add(egui::Slider::new(&mut warmth, 0.0..=1.0).step_by(0.01).text("warmer looking towards the sun")).changed() {
+            kept.render.set_number("sight_fog_warmth", warmth);
+        }
+    });
 }
 
 /// The frame limits' names in the settings.
@@ -408,6 +429,25 @@ impl KeptSettings {
 
     pub fn sight_sky_tint(&self) -> f32 {
         self.render.number("sight_sky_tint", crate::sight::draw::SKY_TINT)
+    }
+
+    /// Fog (3.4c): on unless chosen; how far one sees, how high the air thins, its warmth towards the sun
+    /// (`draw::FOG_REACH`, `FOG_HEIGHT`, `FOG_WARMTH` unless chosen). Sight's own: the old renderer's `fog_*`
+    /// stay as they were.
+    pub fn sight_fog(&self) -> bool {
+        self.render.flag("sight_fog", true)
+    }
+
+    pub fn sight_fog_reach(&self) -> f32 {
+        self.render.number("sight_fog_reach", crate::sight::draw::FOG_REACH)
+    }
+
+    pub fn sight_fog_height(&self) -> f32 {
+        self.render.number("sight_fog_height", crate::sight::draw::FOG_HEIGHT)
+    }
+
+    pub fn sight_fog_warmth(&self) -> f32 {
+        self.render.number("sight_fog_warmth", crate::sight::draw::FOG_WARMTH)
     }
 
     /// Whether the game freezes when it isn't in front (`freeze_when_away`, on unless chosen).

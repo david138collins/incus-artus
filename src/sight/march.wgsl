@@ -47,6 +47,9 @@ struct Camera {
     // Sky light (3.4b): x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1
     // a sky blue), w how wide its cones are (blocks across a block of distance).
     sky: vec4<f32>,
+    // Fog (3.4c): x its thickness at sea level (a block's worth; 0 none), y how fast it thins going up (a block's
+    // worth), z sea level (blocks), w how much warmer it is towards the sun.
+    fog: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -268,11 +271,39 @@ fn mix_looks(a: Look, b: Look, w: f32) -> Look {
     return out;
 }
 
+const HORIZON: vec3<f32> = vec3<f32>(0.62, 0.72, 0.86);
+
 fn sky(d: vec3<f32>) -> vec3<f32> {
     let up = clamp(d.z, -0.2, 1.0);
-    let horizon = vec3<f32>(0.62, 0.72, 0.86);
     let zenith = vec3<f32>(0.16, 0.32, 0.66);
-    return mix(horizon, zenith, pow(max(up, 0.0), 0.6));
+    return mix(HORIZON, zenith, pow(max(up, 0.0), 0.6));
+}
+
+// ── Fog (3.4c, David 2026-11-08: "that sounds alright") ──
+//
+// The air between the eye and what it sees: thickest at sea level, halving every so many blocks up, so valleys
+// fill with haze and peaks stand clear. How much a ray goes through is worked out whole along it (the thickness
+// falls off exponentially with height, so its sum along a straight line has a closed form): no steps, nearly
+// free. Land fades to the sky's horizon colour, so far mountains melt into the sky rather than stand on it as
+// cut-outs; a little warmer looking towards the sun.
+const FOG_WARM: vec3<f32> = vec3<f32>(1.0, 0.82, 0.62);
+
+// `colour` seen `t` off along `d` through the fog.
+fn fogged(colour: vec3<f32>, d: vec3<f32>, t: f32) -> vec3<f32> {
+    if (camera.fog.x <= 0.0) {
+        return colour;
+    }
+    let thins = camera.fog.y;
+    // The thickness at the eye, then summed along the ray as it climbs or falls: e^(−thins·z) from 0 to t.
+    let at_eye = camera.fog.x * exp(clamp(-thins * (camera.position.z - camera.fog.z), -80.0, 80.0));
+    let climb = thins * d.z;
+    var along = t;
+    if (abs(climb * t) > 1e-4) {
+        along = (1.0 - exp(-clamp(climb * t, -80.0, 80.0))) / climb;
+    }
+    let amount = 1.0 - exp(-at_eye * along);
+    let sunward = pow(max(dot(d, camera.sun.xyz), 0.0), 8.0) * camera.fog.w;
+    return mix(colour, mix(HORIZON, FOG_WARM, sunward), amount);
 }
 
 // The level a ray reads at distance `t`: its pixel's size there, in whole powers of two, never finer than
@@ -1135,11 +1166,16 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
                 handed = sky_word(kind, open);
             }
         }
-        if (hidden) {
-            colour += seen.colour;
-        } else {
-            colour += shaded(seen, open);
+        // Through the fog to where it first met anything (the sky behind nothing isn't fogged: it's the sky).
+        var here = seen.colour;
+        if (!hidden) {
+            here = shaded(seen, open);
         }
+        let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
+        if (met < camera.reach.x) {
+            here = fogged(here, d, met);
+        }
+        colour += here;
         near = min(near, seen.distance);
         touch = min(touch, seen.touched);
         steps += seen.steps;

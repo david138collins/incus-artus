@@ -916,6 +916,22 @@ back to.
   other; seams not in use named, greyed. No shader change: the look moves only with the handles.
   **David's look at build 85** [2026-11-08: "it actually works is all i can say. i can see the seam between sharp
   blocks and coarse blocks and let them fade together. it looks natural."]. The start bake 115 s.
+  **3.4c, fog: build 86** [talked through 2026-11-08; David: "that sounds alright. i have no particular feelings
+  either way about fog right now"; 2026-10-28: fog out to about 2 miles]. The air between the eye and what it sees,
+  thickest at sea level and halving every so many blocks up (valleys hazy, peaks clear), worked out whole along each
+  ray (the exponential's closed form: no steps). Land fades to the sky's horizon colour, so far mountains melt into
+  the sky; a little warmer looking towards the sun. Each ray fogged once, where it first meets anything (the sky
+  behind nothing isn't fogged: it's the sky), so it runs through the layers and the crossover with no seams of its
+  own. Defaults (`draw::FOG_*`): at sea level land 3,200 blocks off nineteen parts in twenty fog; halving every 200
+  up; warmth 0.3. The Render page, under Sun: Fog, how far you see, how high the haze lies, warmth (sight's own
+  keys, `sight_fog*`: the old renderer's `fog_*` untouched). `INCUS_SIGHT_NO_FOG` for measuring. A card test
+  (`sight_s_fog_lies_low_and_far`, a thick low haze to measure it, in linear light): near land 0.15 of the way to the
+  horizon's colour, 600 off 0.48, the same view 150 higher 0.18. **Measured** (the low slow flight, 80 s, fresh
+  worlds, A/B twice): on and off the same, 46 to 52 fps, sight 10.5 to 12.9 ms (the bake's share pacing the
+  frames throughout). **For the speed dive**: where the fog is total a ray could stop. **On file, not chased**: in
+  the test scene a plateau asked for at 450 or 650 didn't stand that high (the view 600 to 1,000 off at a graze met
+  the sky or something far beyond); 300 does. A test-scene matter as far as seen; real mountains draw above it.
+  Next: David's look at the fog; the mountains' contrast at a distance is his to tune with it, by eye.
   Next: fog (3.4c), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.

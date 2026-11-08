@@ -507,6 +507,10 @@ impl Runner {
                     sky: kept.sight_sky(),
                     sky_strength: kept.sight_sky_strength(),
                     sky_tint: kept.sight_sky_tint(),
+                    fog: kept.sight_fog(),
+                    fog_reach: kept.sight_fog_reach(),
+                    fog_height: kept.sight_fog_height(),
+                    fog_warmth: kept.sight_fog_warmth(),
                 };
                 (store, eye)
             })

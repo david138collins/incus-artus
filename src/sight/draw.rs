@@ -44,6 +44,12 @@ pub struct Eye {
     pub sky: bool,
     pub sky_strength: f32,
     pub sky_tint: f32,
+    /// Fog (3.4c): on or off; how far one sees at sea level (blocks: land there is mostly fog); how high the air
+    /// thins (blocks: its thickness halves each so many up); and how much warmer it is towards the sun (0 to 1).
+    pub fog: bool,
+    pub fog_reach: f32,
+    pub fog_height: f32,
+    pub fog_warmth: f32,
 }
 
 impl Default for Eye {
@@ -66,6 +72,10 @@ impl Default for Eye {
             sky: true,
             sky_strength: SKY_STRENGTH,
             sky_tint: SKY_TINT,
+            fog: true,
+            fog_reach: FOG_REACH,
+            fog_height: FOG_HEIGHT,
+            fog_warmth: FOG_WARMTH,
         }
     }
 }
@@ -97,6 +107,13 @@ pub const SKY_TINT: f32 = 0.3;
 /// How fast a sky cone widens (blocks across a block of distance): wide, so it takes few steps and sees the land
 /// round about softly.
 const SKY_SPREAD: f32 = 0.6;
+
+/// Fog's defaults (3.4c): at sea level, land 3,200 blocks off (about 2 miles: David 2026-10-28) is nineteen
+/// parts in twenty fog; the air's thickness halves every 200 blocks up, so valleys fill with haze and peaks stand
+/// clear; a little warmer towards the sun.
+pub const FOG_REACH: f32 = 3200.0;
+pub const FOG_HEIGHT: f32 = 200.0;
+pub const FOG_WARMTH: f32 = 0.3;
 
 /// How fast a shadow ray widens (blocks across a block of distance, 3.4b): wider than the sun itself (about
 /// 0.01), so a shadow ray's steps grow with the distance and a far ridge's shadow comes soft.
@@ -273,6 +290,7 @@ impl SightDraw {
         let no_follow = std::env::var("INCUS_SIGHT_NO_FOLLOW").is_ok();
         let no_shadows = std::env::var("INCUS_SIGHT_NO_SHADOWS").is_ok();
         let no_sky = std::env::var("INCUS_SIGHT_NO_SKY").is_ok();
+        let no_fog = std::env::var("INCUS_SIGHT_NO_FOG").is_ok();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -320,6 +338,15 @@ impl SightDraw {
                 [cells_fade[0].max(0.1), cells_fade[1].max(0.05), 0.0, 0.0],
                 // Sky light (`INCUS_SIGHT_NO_SKY` leaves it out, for measuring): on, strength, tint, its cones' width.
                 [if eye.sky && !no_sky { 1.0 } else { 0.0 }, eye.sky_strength.clamp(0.0, 1.0), eye.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
+                // Fog (`INCUS_SIGHT_NO_FOG` leaves it out, for measuring): its thickness at sea level (a block's
+                // worth: three over the reach, so land there is nineteen parts in twenty fog; 0 none), how fast it
+                // thins going up (a block's worth), sea level, and its warmth towards the sun.
+                [
+                    if eye.fog && !no_fog { 3.0 / eye.fog_reach.max(10.0) } else { 0.0 },
+                    std::f32::consts::LN_2 / eye.fog_height.max(1.0),
+                    crate::world::SEA_LEVEL as f32,
+                    eye.fog_warmth.clamp(0.0, 1.0),
+                ],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -402,7 +429,7 @@ pub fn factors(eye: Eye) -> Vec<f32> {
 }
 
 /// The camera numbers' rows (`Camera` in `march.wgsl`).
-const CAMERA_ROWS: usize = 13;
+const CAMERA_ROWS: usize = 14;
 
 /// What the card took on sight's last frames (milliseconds, smoothed), if it can time itself: the Render page's.
 static CARD_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);

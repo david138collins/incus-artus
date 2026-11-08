@@ -1077,7 +1077,7 @@ fn ground(c: Case) -> i32 {
         let size = (640, 400);
         let pitch = -40f32.to_radians();
         // Up by a fraction of a block at a time (the cells' layering is what a ray's steps meet).
-        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, sky: false, ..Default::default() };
+        let eye = |z: f32| crate::sight::draw::Eye { position: [0.0, 0.0, z], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, sky: false, fog: false, ..Default::default() };
         let pictures: Vec<Vec<[u8; 3]>> = (0..6).map(|k| sight_picture(&device, &queue, &store, size, eye(400.0 + k as f32 * 1.37))).collect();
         // From just under the horizon (row 32 at 40° down) to the bottom: all sea.
         let first_row = 40u32;
@@ -1143,7 +1143,7 @@ fn ground(c: Case) -> i32 {
         let behind = [0.0, -low.cos(), low.sin()];
         let middle = |height: f32, pitch: f32, sun: [f32; 3], shadows: bool| {
             let pitch = pitch.to_radians();
-            let eye = crate::sight::draw::Eye { position: [0.0, 0.0, height], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 60.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun, shadows, sky: false, ..Default::default() };
+            let eye = crate::sight::draw::Eye { position: [0.0, 0.0, height], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 60.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun, shadows, sky: false, fog: false, ..Default::default() };
             let picture = sight_picture(&device, &queue, &store, size, eye);
             let p = picture[(size.1 / 2 * size.0 + size.0 / 2) as usize];
             p[0] as f32 * 0.2 + p[1] as f32 * 0.7 + p[2] as f32 * 0.1
@@ -1184,6 +1184,7 @@ fn ground(c: Case) -> i32 {
                 sky,
                 sky_strength: 1.0,
                 sky_tint: tint,
+                fog: false,
                 ..Default::default()
             };
             let picture = sight_picture(&device, &queue, &store, size, eye);
@@ -1203,6 +1204,60 @@ fn ground(c: Case) -> i32 {
         assert!((light(blue) - light(white)).abs() < light(white) * 0.1, "tinted, not much darker or brighter");
     }
 
+    /// Sight's fog (3.4c): near land hardly fogged, far land well on its way to the horizon's colour, and the same
+    /// view 150 blocks higher (over a plateau) clearer, the haze lying low (a thick, low haze, to measure it).
+    #[test]
+    #[ignore]
+    fn sight_s_fog_lies_low_and_far() {
+        // A plain at 150 to the west, a plateau at 300 to the east.
+        let Some((device, queue, store, _map)) = sight_scene(64.0, |x| if x < 24 { 150.0 } else { 300.0 }) else {
+            eprintln!("No graphics card: sight's fog test is skipped");
+            return;
+        };
+        let size = (320, 200);
+        // The middle pixel from 100 over the ground at `east`, looking north at the ground `off` away.
+        let middle = |east: f32, ground: f32, off: f32, fog: bool| {
+            let pitch = -(100.0f32 / off).atan();
+            let eye = crate::sight::draw::Eye {
+                position: [0.0, east, ground + 100.0],
+                looking: [pitch.cos(), 0.0, pitch.sin()],
+                field_of_view: 60.0,
+                grid: 2.0,
+                coarsest: 8,
+                shadows: false,
+                sky: false,
+                fog,
+                fog_reach: 1600.0,
+                fog_height: 100.0,
+                fog_warmth: 0.0,
+                ..Default::default()
+            };
+            let picture = sight_picture(&device, &queue, &store, size, eye);
+            picture[(size.1 / 2 * size.0 + size.0 / 2) as usize].map(|c| c as f32)
+        };
+        // In linear light (the picture holds sRGB), where the fog mixes.
+        let linear = |c: f32| {
+            let c = c / 255.0;
+            if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+        };
+        let light = |p: [f32; 3]| linear(p[0]) * 0.2 + linear(p[1]) * 0.7 + linear(p[2]) * 0.1;
+        let horizon = 0.62 * 0.2 + 0.72 * 0.7 + 0.86 * 0.1;
+        // How far towards the horizon's colour the fog took a view (0 none, 1 all the way).
+        let amount = |east: f32, ground: f32, off: f32| {
+            let (clear, foggy) = (middle(east, ground, off, false), middle(east, ground, off, true));
+            eprintln!("Sight's fog from {east} over {ground}, {off} off: clear {clear:?}, fogged {foggy:?}");
+            assert!(clear[1] < 160.0, "the view meets the ground, not the sky ({clear:?})");
+            (light(foggy) - light(clear)) / (horizon - light(clear))
+        };
+        let near = amount(-768.0, 150.0, 58.0);
+        let far = amount(-768.0, 150.0, 600.0);
+        let high = amount(768.0, 300.0, 600.0);
+        eprintln!("Sight's fog: near {near:.2}, far {far:.2}, the same far view 150 higher {high:.2}");
+        assert!(near < 0.2, "near land hardly fogged ({near:.2})");
+        assert!(far > 0.25 && far > near * 2.5, "far land well into the fog ({far:.2})");
+        assert!(high < far * 0.6, "higher up, the air clearer ({high:.2} against {far:.2})");
+    }
+
     /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up
     /// looking 12° down (the soak's view), read from the steps view's colours.
     #[test]
@@ -1213,7 +1268,7 @@ fn ground(c: Case) -> i32 {
         unsafe { std::env::set_var("INCUS_SIGHT_STEPS", "1") };
         let size = (640u32, 400u32);
         let pitch = -12f32.to_radians();
-        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, sky: false, ..Default::default() };
+        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 250.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 100.0, grid: 2.0, coarsest: 8, rays: 1, upscale: 0, earned: true, sun: crate::sight::draw::NOON, shadows: false, sky: false, fog: false, ..Default::default() };
         let picture = sight_picture(&device, &queue, &store, size, eye);
         unsafe { std::env::remove_var("INCUS_SIGHT_STEPS") };
         // The steps view: k = steps / 256 shown as dark blue (0) to green (0.5) to red (1), squared.
