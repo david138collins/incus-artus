@@ -844,7 +844,10 @@ back to.
   it. **Measured** (the low slow flight, uncapped, a fresh test world baking): coarsest 8 about 103 to 118 fps, sight
   on the card about 5.4 to 6.8 ms (as 80: the first-touch rule costs nothing to see); coarsest 4 (the default now)
   about 90 to 104 fps, sight about 7 to 8.3 ms.
-  Next: his look at 82 (1.5 between on a big slope; the fades; the clock on combos), then sky light.
+  **David's look at build 82** [2026-11-08: "the fades are worth working with. not sure about 1.5x, leave it alone
+  for the moment i guess. the speed readout is actually very useful"]. 1.5 stays as built, untouched till he asks;
+  the fades are his to tune. Start bake 151 s that run (the coarser default's share of the card).
+  Next: sky light (3.4b's second half), talked through first.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
