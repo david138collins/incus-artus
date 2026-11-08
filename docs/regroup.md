@@ -871,7 +871,10 @@ back to.
   the blocks' side faces near the eye, unlike the tops round them.
   **For the speed dive**: sky light is the land's, not the sun's or the view's: kept in the cells (a byte each, worked
   out as they're baked and made, an edit patching its neighbourhood) it would cost almost nothing a frame.
-  Next: his look at 83 (sky light's strength and tint by eye, low over valleys and among blocks).
+  **David's look at build 83** [2026-11-08: "the sky light helps give depth to farther terrain"]. The start bake took
+  281 s that run (46 before shadows, 92 with them, 151 with coarsest 4, now 281 with sky light): every richer frame
+  leaves the card less room for the bake, so a new world shows the raw far view for minutes. Proposed next: the bake
+  a sure share of the card each frame while it fills (a little frame rate then, nothing after), then fog (3.4c).
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
