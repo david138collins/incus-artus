@@ -1318,6 +1318,17 @@ below disagree with this one, this one stands.
            reserved first;
          - the latest mouse at the last moment before the frame goes (late latching), and again for timewarp
            just before it's shown.
+       - **Slots specialised by use** [David 2026-11-09, after the card reported 262,144 slots: "are there any
+         ways to optimize by specializing slots into multiple channels?"]. This is block work: the same picture
+         from a different layout.
+         - **Hot and cold data apart.** Every step of the march needs only how solid a cell is; colour and the
+           six face shares are needed only at a hit. Keeping the solid shares in their own tightly packed buffer
+           means each step pulls one byte through the cache instead of a whole 16-byte cell, so a cache line
+           holds 16 cells' worth instead of one.
+         - **Read-only where possible.** Buffers the march only reads are bound read-only, which lets the driver
+           use faster read paths.
+         - **Small constants as uniforms**, not storage.
+         - Combined with the texture-unit idea above.
        - **The mouse by the short hairs** [David 2026-11-09: "we really should make sure we have human input
          hardware by the short hairs, theres nothing worse than a vague mousefeel, and if we have it tightly, we can
          mess with it for fun, like when you get hit or sick"].
