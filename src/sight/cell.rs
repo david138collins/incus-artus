@@ -26,7 +26,8 @@ pub const UP: usize = 0;
 /// Colours and brightness are in 1,024ths of linear light.
 pub const FULL: u64 = 1023;
 
-/// What a block is, to sight.
+/// What a block is, to sight. `Water` is any medium (water, glass, ice: build 98): counted in a cell's see-through
+/// share.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Solid,
@@ -41,18 +42,21 @@ pub struct FarColours {
     /// By block number: its top's colour and its sides' (the bottom shows the sides').
     pub blocks: Vec<([u64; 3], [u64; 3])>,
     pub water: BlockId,
+    /// By block number: whether it's a medium (see-through, `BlockDef::medium`; build 98). Water is one whatever
+    /// this says.
+    pub media: Vec<bool>,
 }
 
 impl FarColours {
     pub fn new(palette: &crate::look::Palette, water: BlockId) -> Self {
         let whole = |c: [f32; 3]| c.map(|v| (v.clamp(0.0, 1.0) * FULL as f32).round() as u64);
-        Self { blocks: palette.blocks.iter().map(|&(top, side)| (whole(top), whole(side))).collect(), water }
+        Self { blocks: palette.blocks.iter().map(|&(top, side)| (whole(top), whole(side))).collect(), water, media: Vec::new() }
     }
 
     pub fn kind(&self, block: BlockId) -> Kind {
         if block == BlockId::AIR {
             Kind::Air
-        } else if block == self.water {
+        } else if block == self.water || self.media.get(block.0 as usize).copied().unwrap_or(false) {
             Kind::Water
         } else {
             Kind::Solid
@@ -242,10 +246,11 @@ impl Cell {
 pub const CARD_NUMBERS: usize = 18;
 
 impl Cell {
-    /// A cell of one block, with which block it is (3.6: the near walk textures its faces by it). Kept where the
-    /// heights' spread is, which for a single block is always nothing.
+    /// A cell of one block, with which block it is (3.6: the near walk textures its faces by it; build 98: and
+    /// looks through it by its medium). Kept where the heights' spread is, which for a single block is always
+    /// nothing.
     pub fn with_block(mut self, block: u16) -> Self {
-        if self.solid > 0 {
+        if self.solid > 0 || self.water > 0 {
             self.height_spread = block;
         }
         self
@@ -298,7 +303,7 @@ mod tests {
     const WATER: BlockId = BlockId(3);
 
     fn colours() -> FarColours {
-        FarColours { blocks: vec![([0; 3], [0; 3]), ([300, 300, 310], [250, 250, 260]), ([90, 400, 60], [200, 150, 90]), ([20, 60, 200], [20, 60, 200])], water: WATER }
+        FarColours { blocks: vec![([0; 3], [0; 3]), ([300, 300, 310], [250, 250, 260]), ([90, 400, 60], [200, 150, 90]), ([20, 60, 200], [20, 60, 200])], water: WATER, media: Vec::new() }
     }
 
     /// A small world with everything a cell can meet: rolling ground, a pond, an overhang, a cave.

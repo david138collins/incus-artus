@@ -160,7 +160,8 @@ pub fn patch_tile(tile: &mut Tile, key: TileKey, edits: &Edits) -> usize {
     let colours = &edits.with.colours;
     let solid_block = |at: [i32; 3]| {
         let block = reader.block(at);
-        if colours.kind(block) == Kind::Solid { block.0 } else { 0 }
+        // Solid, or a medium (build 98: the near walk looks through it by its own).
+        if colours.kind(block) != Kind::Air { block.0 } else { 0 }
     };
     // Each column's blocks apart (a single block's cell's block, by the column's cells).
     let mut blocks = tile.blocks.iter().copied();

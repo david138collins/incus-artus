@@ -187,6 +187,8 @@ pub struct SightDraw {
     texture_table: wgpu::Buffer,
     textures_revision: Option<u64>,
     textures_made: u64,
+    /// The media table (build 98, `BlockTextures::media_table`), sent with the textures.
+    media: wgpu::Buffer,
     /// The objects' models and sprites (build 96), drawn after the upscale into its depth.
     pub objects: super::models::ObjectsDraw,
 }
@@ -260,7 +262,12 @@ impl SightDraw {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's block textures' table"), contents: &table.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
         let objects = super::models::ObjectsDraw::new(device, format);
-        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, objects }
+        let media = {
+            use wgpu::util::DeviceExt;
+            let table = crate::sight::textures::BlockTextures::default().media_table();
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
+        };
+        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -273,6 +280,7 @@ impl SightDraw {
         self.textures = Self::texture_stack(device, queue, textures);
         let table = textures.table();
         queue.write_buffer(&self.texture_table, 0, &table.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>());
+        queue.write_buffer(&self.media, 0, &textures.media_table().iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         self.textures_revision = Some(revision);
         self.textures_made += 1;
     }
@@ -361,6 +369,7 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 13, resource: buffer(&self.texture_table) },
                         wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
                         wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
+                        wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
                     ],
                 });
                 far_above = Some(far.clone());

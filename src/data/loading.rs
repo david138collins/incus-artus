@@ -60,6 +60,21 @@ struct BlockFile {
     tags: Vec<String>,
     tool: bool,
     bar: Option<BarFile>,
+    medium: Option<MediumFile>,
+}
+
+/// `medium = { colour = [r, g, b], clarity = 16 }`: see-through as a medium (water, glass, ice), what's seen
+/// through it fading to `colour` over `clarity` blocks (build 98).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MediumFile {
+    colour: [u8; 3],
+    #[serde(default = "clarity")]
+    clarity: f32,
+}
+
+fn clarity() -> f32 {
+    super::CLARITY
 }
 
 /// `bar = { side = "…", end = "…", only = true }`: it can be a bar, with these textures of its own
@@ -122,6 +137,7 @@ pub fn parse_block(id: &str, text: &str) -> Result<(BlockDef, Vec<String>), Stri
         }
     }
     def.bar = file.bar.map(|bar| BarLook { side: bar.side, end: bar.end, only: bar.only });
+    def.medium = file.medium.map(|m| super::Medium { colour: m.colour, clarity: m.clarity.clamp(0.5, 4096.0) });
     // (A block that's only ever a bar needs no whole faces.)
     if def.faces.iter().any(String::is_empty) && !def.bar.as_ref().is_some_and(|bar| bar.only) {
         warnings.push("some faces have no texture (they show the magenta checkerboard)".to_string());
@@ -264,6 +280,10 @@ pub fn block_file_text(def: &BlockDef, header: &str) -> String {
             parts.push("only = true".to_string());
         }
         text += &if parts.is_empty() { "bar = {}\n".to_string() } else { format!("bar = {{ {} }}\n", parts.join(", ")) };
+    }
+    if let Some(medium) = &def.medium {
+        let [r, g, b] = medium.colour;
+        text += &format!("medium = {{ colour = [{r}, {g}, {b}], clarity = {} }}\n", medium.clarity);
     }
     text
 }

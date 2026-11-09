@@ -109,7 +109,22 @@ pub struct BlockDef {
     /// Whether it can be a bar (a quarter block, `world/pieces.rs`): only blocks marked can [David,
     /// 2026-11-01], and how a bar of it looks.
     pub bar: Option<BarLook>,
+    /// See-through as a medium (water, glass, ice; build 98): what you see through it is dimmed and tinted by how
+    /// far you look through it, and light passes [David 2026-11-09: "as long as transparency is done well and
+    /// flexible, we'll be fine when i add stuff lke that"].
+    pub medium: Option<Medium>,
 }
+
+/// A medium's look: its colour (0 to 255, as painted), what's seen through it fading to that; and its clarity, how
+/// many blocks you see through it (things that far are a twentieth themselves, the rest its colour).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Medium {
+    pub colour: [u8; 3],
+    pub clarity: f32,
+}
+
+/// How far you see through a medium by default (blocks) [David 2026-11-09: "16 fade through water is good"].
+pub const CLARITY: f32 = 16.0;
 
 /// How a block's bars look: their own textures, a long side (16 × 32 pixels, its length up the
 /// picture) and an end (16 × 16), in `assets/textures/bars/`; or, left empty, a share of the block's
@@ -140,6 +155,7 @@ impl BlockDef {
             tags: Vec::new(),
             tool: false,
             bar: None,
+            medium: None,
         }
     }
 
@@ -160,6 +176,7 @@ impl BlockDef {
             tags: Vec::new(),
             tool: false,
             bar: None,
+            medium: None,
         }
     }
 }

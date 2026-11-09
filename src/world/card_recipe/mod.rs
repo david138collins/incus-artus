@@ -742,7 +742,7 @@ fn ground(c: Case) -> i32 {
         let (device, queue) = crate::whole::shader::card()?;
         let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
         let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
-        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| ([k * 97 % 1024, k * 389 % 1024, k * 211 % 1024], [k * 53 % 1024, k * 701 % 1024, k * 131 % 1024])).collect(), water: blocks.water };
+        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| ([k * 97 % 1024, k * 389 % 1024, k * 211 % 1024], [k * 53 % 1024, k * 701 % 1024, k * 131 % 1024])).collect(), water: blocks.water, media: Vec::new() };
         let point = |north: f32, east: f32, width: f32, level: f32| Point { north, east, width, depth: 3.0, edge: 0.4, flat: 0.3, bowl: 1.3, level, bend: 0.0, curtain: f32::NAN, turn: 0.0, fade: 12.0 };
         let carving = Carving::new(vec![Reach { points: vec![point(-300.5, -400.0, 6.0, 200.0), point(-60.0, 80.0, 9.0, 180.0), point(0.0, 300.0, 10.0, 175.0)] }], Lakes::new(vec![Lake::new(200.0, -200.0, 20, 20, 8.0, (0..400).map(|i| if i % 3 == 0 { 170.0 } else { f32::NAN }).collect())]), Banks::default());
         let map = rich_map(true).with_rivers(std::sync::Arc::new(carving));
@@ -1124,7 +1124,7 @@ fn ground(c: Case) -> i32 {
         let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
         let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
         // Grass a mid green, stone a grey, water a blue (1,024ths of linear light).
-        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| if k == 3 { ([90, 220, 60], [120, 130, 90]) } else if k == 4 { ([40, 120, 300], [40, 120, 300]) } else { ([300, 290, 270], [260, 250, 235]) }).collect(), water: blocks.water };
+        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| if k == 3 { ([90, 220, 60], [120, 130, 90]) } else if k == 4 { ([40, 120, 300], [40, 120, 300]) } else { ([300, 290, 270], [260, 250, 235]) }).collect(), water: blocks.water, media: Vec::new() };
         let plan = CavePlan::default();
         let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).ok()?;
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
@@ -1614,6 +1614,41 @@ fn ground(c: Case) -> i32 {
         assert_eq!(hidden, 0, "under the ground it's hidden");
     }
 
+    /// Water seen through (build 98, generic transparency: David, "16 fade through water is good, just blue water is
+    /// fine for now"): looking straight down into the sea, the bottom 3 blocks under the surface shows through,
+    /// tinted; 27 under, it's gone, and the pixel is the water's own colour; and further off, where the cells are read,
+    /// the same.
+    #[test]
+    #[ignore]
+    fn sight_sees_through_water_as_deep_as_it_is() {
+        // The sea's surface is at 128: the ground 125 to the west of the middle (3 under), 101 to the east (27).
+        let Some((device, queue, store, _map)) = sight_scene_with(64.0, |x| if x < 24 { 125.0 } else { 101.0 }, Some((0, 0))) else {
+            eprintln!("No graphics card: sight's water test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let size = (160, 100);
+        let down = (-89.9f32).to_radians();
+        let middle = |east: f32, height: f32| {
+            let eye = crate::sight::draw::Eye { position: [0.3, east, height], looking: [down.cos(), 0.0, down.sin()], field_of_view: 30.0, grid: 2.0, coarsest: 8, shadows: false, sky: false, fog: false, ..Default::default() };
+            let picture = sight_picture(&device, &queue, &store, size, eye);
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("water_{east}_{height}.png")), size, &picture);
+            }
+            picture[(size.1 / 2 * size.0 + size.0 / 2) as usize]
+        };
+        let near = |east: f32| middle(east, 140.0);
+        let (shallow, deep) = (near(-30.0), near(30.0));
+        // From far up: the cells read, not the blocks.
+        let (far_shallow, far_deep) = (middle(-400.0, 2500.0), middle(400.0, 2500.0));
+        eprintln!("Sight through water: 3 deep {shallow:?}, 27 deep {deep:?}; from 2,500 up, {far_shallow:?} and {far_deep:?}");
+        let gap = |a: [u8; 3], b: [u8; 3]| (0..3).map(|c| (a[c] as i32 - b[c] as i32).abs()).max().unwrap_or(0);
+        assert!(gap(shallow, deep) > 20, "the shallows show the bottom ({shallow:?} against {deep:?})");
+        assert!(deep[2] > deep[0] + 20, "deep water is the water's blue ({deep:?})");
+        assert!(gap(far_shallow, far_deep) > 20, "from far up too ({far_shallow:?} against {far_deep:?})");
+        assert!(gap(deep, far_deep) <= 24, "deep water much the same near and far (the far cells average the sea floor in a little) ({deep:?} against {far_deep:?})");
+    }
+
     /// Sight's block textures (3.6): up close the near faces wear their texture (here a checker of red and blue
     /// squares, four texels a side), and as a face shrinks towards a pixel it takes the texture's shrunk versions,
     /// so a face far off is the texture shrunk to one texel: the colour the cells past it are made of (a flat
@@ -1628,7 +1663,7 @@ fn ground(c: Case) -> i32 {
         };
         let side = crate::look::TEXTURE_SIZE;
         let checker: Vec<u8> = (0..side * side).flat_map(|i| if (i % side / 4 + i / side / 4) % 2 == 0 { [200, 60, 60, 255] } else { [60, 60, 200, 255] }).collect();
-        let textures = BlockTextures { layers: vec![mips(checker)], blocks: (0..16).map(|k| if k == 0 { ([NONE; 6], 0) } else { ([0; 6], 0) }).collect(), bars: Vec::new(), problems: Vec::new() };
+        let textures = BlockTextures { layers: vec![mips(checker)], blocks: (0..16).map(|k| if k == 0 { ([NONE; 6], 0) } else { ([0; 6], 0) }).collect(), bars: Vec::new(), problems: Vec::new(), media: Vec::new() };
         let size = (320, 200);
         // From 4 over the ground, looking north `down` degrees down.
         let picture = |down: f32, on: bool, textures: &BlockTextures| {
@@ -1693,7 +1728,7 @@ fn ground(c: Case) -> i32 {
         // The scene's world again (as `sight_scene_with` makes it), to make the tile with the cell edited.
         let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
         let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
-        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| if k == 3 { ([90, 220, 60], [120, 130, 90]) } else if k == 4 { ([40, 120, 300], [40, 120, 300]) } else { ([300, 290, 270], [260, 250, 235]) }).collect(), water: blocks.water };
+        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| if k == 3 { ([90, 220, 60], [120, 130, 90]) } else if k == 4 { ([40, 120, 300], [40, 120, 300]) } else { ([300, 290, 270], [260, 250, 235]) }).collect(), water: blocks.water, media: Vec::new() };
         let plan = CavePlan::default();
         let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).expect("the world on the card");
         let pos = ChunkPos::new(0, 0);
@@ -1702,7 +1737,7 @@ fn ground(c: Case) -> i32 {
         let cell = [4, 0, ground + 1];
         // One colour for every block's every face (a warm orange), so the octant's face and the block's match.
         let side = crate::look::TEXTURE_SIZE;
-        let textures = BlockTextures { layers: vec![mips((0..side * side).flat_map(|_| [220u8, 120, 40, 255]).collect())], blocks: (0..16).map(|k| if k == 0 { ([crate::sight::textures::NONE; 6], 0) } else { ([0; 6], 0) }).collect(), bars: Vec::new(), problems: Vec::new() };
+        let textures = BlockTextures { layers: vec![mips((0..side * side).flat_map(|_| [220u8, 120, 40, 255]).collect())], blocks: (0..16).map(|k| if k == 0 { ([crate::sight::textures::NONE; 6], 0) } else { ([0; 6], 0) }).collect(), bars: Vec::new(), problems: Vec::new(), media: Vec::new() };
         let map = std::sync::Arc::new(map);
         let key = TileKey { level: 0, x: 0, y: 0 };
         // The cell as `what` (none: air), the tile made again round it and put on the card, its pieces too.

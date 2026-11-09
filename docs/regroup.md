@@ -1257,6 +1257,29 @@ lamps, lights at cave mouths), and day and night.
   fixed 85%; sunlight dims under it, and placed light floods through it, tinted. No reflections. Water first (about
   16 blocks to see through, blue); glass and ice take the same when they come. The sea as a plane stays on the
   dyno's list.
+- **Build 98: generic transparency.**
+  - **The data:** a block's `medium = { colour, clarity }` (`docs/data-files.md`); water's in `water.toml`
+    (63, 111, 149: the blue sight drew it before; clarity 16). Water without one takes that by default.
+  - **The cells:** any medium counts in a cell's see-through share (the byte that was water's); a single
+    see-through block keeps its block number, as solid ones do (`Cell::with_block`), so the near walk knows which
+    medium it is. Water the card's own cells make (the recipe's sea) keeps none, and is the world's water. No new
+    bake (the cell's 16 bytes are as they were).
+  - **The card:** each block's medium in a table (`BlockTextures::media_table`, binding 16, a uniform): its colour
+    as light and how fast it dims (a twentieth left at its clarity); the first place the world's water's.
+  - **The march:** the near walk, through a see-through block, dims and tints the ray by the length it goes
+    through that block, by that block's medium; seen through no further, it stops. The far cells dim by their
+    see-through share times the length, by water's medium. Both in place of water's fixed 85% at its surface: shallow
+    water shows its bottom, deep water is its own blue. Shadow rays and the sky's cones are dimmed the same way, so
+    it's darker the deeper under water. Placed light floods through media (untinted for now).
+  - **On file:** the far cells hold one medium (water's): glass or ice far off would be tinted as water until a cell
+    keeps which medium it is (a bake change); the far cells' averages put a little of the sea floor into deep water
+    (deep water near 66, 113, 153 against 85, 118, 151 from 2,500 up, in the test); placed light tinted by what it
+    goes through; animated and cycling water tiles, as textures on it.
+  - **Test:** `sight_sees_through_water_as_deep_as_it_is` (3 deep shows the bottom, 27 deep the water's blue, near
+    and from 2,500 up).
+  - **Measured** (the low flight's first 130 s): sight 9.9 to 14.6 ms against build 95's 8.2 to 12.7: about 1.5 ms,
+    rays going on through water to its bottom (or till it hides it) where they stopped mostly at its surface. For
+    the dyno: the sea as a plane (`docs/dyno.md`). Suite 416.
   - **Not yet (95):** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
     (radius 4, 64 blocks: a brazier farther off is neither lit nor drawn); sun shadows on and from objects; fog on
     objects (they're near).

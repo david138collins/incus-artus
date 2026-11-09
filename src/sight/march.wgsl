@@ -88,6 +88,17 @@ struct Camera {
 // The lit cells of air (build 95, `CardStore::put_lights`): each its place, and its light (red, green, blue 4 bits
 // each, the brightest light's beat 8 bits over them, the top bit set: a place in use).
 @group(0) @binding(15) var<storage, read> lights: array<vec4<u32>>;
+// Each block's medium (build 98: water, glass, ice; `BlockTextures::media_table`): its colour as light, and how fast
+// it dims what's seen through it (a block's worth; 0 not a medium). The first is the world's water's.
+@group(0) @binding(16) var<uniform> media: array<vec4<f32>, 256>;
+
+// The medium of block `block`: its own, or the world's water's (water the cells don't keep the block of).
+fn medium_of(block: u32) -> vec4<f32> {
+    if (block > 0u && block < 256u && media[block].w > 0.0) {
+        return media[block];
+    }
+    return media[0];
+}
 
 const NOT_BAKED: u32 = 0xFFFF0000u;
 // A cell of one block that's built of pieces (`BlockId::PIECES`, kept as its block by `Cell::with_block`).
@@ -102,8 +113,7 @@ const WORLD_HEIGHT: f32 = 1024.0;
 // The bake's regions are its cell columns of 1,024 (`bake::REGION`).
 const REGION: i32 = 10;
 
-// Water's colour, and rock's where a cell shows no surface (inside).
-const WATER_COLOUR: vec3<f32> = vec3<f32>(0.05, 0.16, 0.30);
+// Rock's colour, where a cell shows no surface (inside). (Water's is its medium's since build 98: `media`.)
 const ROCK: vec3<f32> = vec3<f32>(0.25, 0.24, 0.22);
 
 // A cell as the march reads it.
@@ -910,19 +920,26 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
             out.through = 0.0;
             return out;
         }
-        // Water's surface: mostly covered, the rest seen through it.
-        if (look.water >= 0.5) {
-            if (!in_water) {
-                out.colour += out.through * 0.85 * lit(WATER_COLOUR, 1.0);
-                out.sunny += out.through * 0.85 * sunlit(WATER_COLOUR, 1.0);
-                if (out.through > 0.5) {
-                    out.first = t;
-                }
-                out.through *= 0.15;
-                in_water = true;
+        // A medium (water, glass, ice: build 98, David: "as long as transparency is done well and flexible"): what's
+        // seen through it dimmed and tinted by how far the ray goes through this block, by the block's own medium (a
+        // twentieth left at its clarity). It took the place of water's fixed 85% at its surface.
+        in_water = look.water >= 0.5;
+        if (in_water) {
+            let m = medium_of(block_in_band(entry.x, entry.y, c.z));
+            let leaving = min(min(min(ahead.x, ahead.y), ahead.z), t1);
+            let keep = exp(-m.w * max(leaving - t, 0.0));
+            let taken = out.through * (1.0 - keep);
+            out.colour += taken * lit(m.rgb, 1.0);
+            out.sunny += taken * sunlit(m.rgb, 1.0);
+            if (out.through > 0.5 && out.through * keep <= 0.5) {
+                out.first = t;
             }
-        } else {
-            in_water = false;
+            out.through *= keep;
+            // Seen through no further: nothing behind shows.
+            if (out.through < 0.01) {
+                out.t = leaving;
+                return out;
+            }
         }
         // On to the next block, across whichever face comes first.
         if (ahead.x < ahead.y && ahead.x < ahead.z) {
@@ -1099,7 +1116,9 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     // looking down at it, up to a whole cell for one skimming along it (it crosses the soft edge slowly; the
     // steps' two ends keep the sum true).
     let surface_step = 0.25 / clamp(abs(d.z), 0.25, 1.0);
-    let water_colour = WATER_COLOUR;
+    // The far cells' see-through share is the world's water's medium (build 98).
+    let water_medium = media[0];
+    let water_colour = water_medium.rgb;
     let walked = steps;
     // Whether it went down through the world's floor, and what it last gathered in the cells over the floor (their
     // colour as lit, the sun's part, where and from which level).
@@ -1249,7 +1268,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             let solid_share = 0.5 * (before.solid + look.solid);
             let water_share = 0.5 * (before.water + look.water);
             let solid = 1.0 - pow(1.0 - min(solid_share, 0.999), length / size);
-            let water = (1.0 - pow(1.0 - min(water_share, 0.999), length / size)) * 0.85;
+            // Dimmed by the medium as far as the step goes through it (its share of the cells).
+            let water = 1.0 - exp(-water_medium.w * water_share * length);
             let covered = 1.0 - (1.0 - solid) * (1.0 - water);
             if (covered > 0.0) {
                 // The first touch: where this step began.
@@ -1341,11 +1361,12 @@ fn sunlight(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> 
 fn cone(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool, s: vec3<f32>, spread: f32, blocks: f32, away: f32, most: i32) -> f32 {
     var o = p;
     var t = 0.0;
+    var light = 1.0;
     if (on_block) {
         if (dot(facing, s) <= 0.0) {
             return away;
         }
-        // Off the face a hair, then (for the sun) the blocks walked.
+        // Off the face a hair, then (for the sun) the blocks walked; dimmed by any medium on the way (build 98).
         o = p + facing * 0.01;
         if (blocks > 0.0 && header[2] == 0 && is_kept(0)) {
             let h = hard(o, s, 0.0, min(camera.layer.w, blocks), false);
@@ -1353,6 +1374,7 @@ fn cone(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool, s: vec3
                 return 0.0;
             }
             t = h.t;
+            light = h.through;
         }
     } else {
         // Clear of the surface's own soft edge first (the blend reaches half a cell either side of it): up half a
@@ -1363,7 +1385,6 @@ fn cone(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool, s: vec3
         o = p + vec3<f32>(0.0, 0.0, size * 0.5);
         t = size / max(s.z, 0.1);
     }
-    var light = 1.0;
     let top = world_top() + 1.0;
     for (var n = 0; n < most; n++) {
         let q = o + s * t;
@@ -1420,7 +1441,8 @@ fn cone(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool, s: vec3
         // while its tiles filled in, gone once they had].
         let climbed = q.z - p.z;
         if (look.known && climbed >= size) {
-            light *= pow(1.0 - min(look.solid, 0.999), step / size);
+            // Through a medium's share, dimmed as the eye's rays are (build 98: darker the deeper under water).
+            light *= pow(1.0 - min(look.solid, 0.999), step / size) * exp(-media[0].w * look.water * step);
             if (light < 0.02) {
                 return 0.0;
             }

@@ -657,7 +657,8 @@ fn keep_placed_lights(
     let Some(card) = sight.card.clone() else { return };
     let solid = |at: [i32; 3]| {
         let at = IVec3::from_array(at);
-        at.z < 0 || (at.z < WORLD_HEIGHT && (voxel.chunk(ChunkPos::of_block(at)).is_none() || registry.def(voxel.get_block(at)).is_some_and(|def| def.opaque)))
+        // A medium (water, glass) lets light through (build 98).
+        at.z < 0 || (at.z < WORLD_HEIGHT && (voxel.chunk(ChunkPos::of_block(at)).is_none() || registry.def(voxel.get_block(at)).is_some_and(|def| def.opaque && def.medium.is_none())))
     };
     let (lights, among) = lights_of(&objects, &voxel);
     let sight = &mut *sight;
@@ -832,9 +833,11 @@ fn send_world_to_card(terrain: Res<Terrain>, caves: Res<Caves>, registry: Res<Bl
                 let blocks = TerrainBlocks::from_registry(&registry);
                 // The far colours' textures are named here and read on the lane.
                 let (faces, water) = crate::look::Palette::faces(&registry, &blocks);
+                let media: Vec<bool> = registry.defs().iter().map(|def| def.medium.is_some()).collect();
                 let spawn = voxel.spawn();
                 Some(crate::loading::submit(crate::loading::Tier::Soon, 0.0, move || {
-                    let colours = crate::sight::cell::FarColours::new(&crate::look::Palette::from_faces(&faces, water.as_deref()), blocks.water);
+                    let mut colours = crate::sight::cell::FarColours::new(&crate::look::Palette::from_faces(&faces, water.as_deref()), blocks.water);
+                    colours.media = media;
                     card_recipe::send(&device, &queue, &map, &caves, &blocks, &colours, (spawn.x, spawn.y))
                 }))
             }

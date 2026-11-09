@@ -33,7 +33,23 @@ pub struct BlockTextures {
     pub bars: Vec<[u32; 2]>,
     /// What couldn't be read (a texture's name and why), for the log.
     pub problems: Vec<String>,
+    /// By block number, each medium (build 98: water, glass, ice): its colour (linear light) and how fast it dims
+    /// what's seen through it (a block's worth; 0: not a medium). The first place is the world's water's, for water
+    /// whose block the cells don't keep (`media_table`).
+    pub media: Vec<[f32; 4]>,
 }
+
+/// A medium as the card reads it: its colour as light, and how fast it dims, so a twentieth is left at its clarity.
+pub fn medium_numbers(medium: &crate::data::Medium) -> [f32; 4] {
+    let light = |c: u8| {
+        let v = c as f32 / 255.0;
+        if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+    };
+    [light(medium.colour[0]), light(medium.colour[1]), light(medium.colour[2]), 20f32.ln() / medium.clarity.max(0.5)]
+}
+
+/// Water's medium when its file gives none (the blue sight drew it before build 98, seen through 16 blocks).
+pub const WATER_MEDIUM: crate::data::Medium = crate::data::Medium { colour: [63, 111, 149], clarity: crate::data::CLARITY };
 
 /// A bar's texture (`assets/textures/bars/`): a long side, `wide` x `tall` 16 x 32, or an end, 16 x 16, each
 /// pixel repeated to fill a layer (as the old renderer's `load_bar_texture`).
@@ -69,7 +85,29 @@ impl BlockTextures {
         let mut out = Self::from_faces(registry.defs().iter().map(|def| (def.faces.clone(), def.rotations)), |name| load_texture(&block_texture_folder().join(format!("{name}.png"))));
         let bars = registry.defs().iter().map(|def| def.bar.as_ref().filter(|bar| !bar.side.is_empty() && !bar.end.is_empty()).map(|bar| (bar.side.clone(), bar.end.clone())));
         out.add_bars(bars, |name, size| load_bar_texture(&bar_texture_folder().join(format!("{name}.png")), size));
+        let water = crate::world::TerrainBlocks::from_registry(registry).water;
+        out.media = registry.defs().iter().map(|def| def.medium.as_ref().map_or([0.0; 4], medium_numbers)).collect();
+        let water_medium = registry.def(water).and_then(|def| def.medium).unwrap_or(WATER_MEDIUM);
+        if let Some(slot) = out.media.get_mut(water.0 as usize) {
+            *slot = medium_numbers(&water_medium);
+        }
+        if let Some(first) = out.media.first_mut() {
+            *first = medium_numbers(&water_medium);
+        }
         out
+    }
+
+    /// The media as the card keeps them (`MOST_BLOCKS` places; the first the world's water's, water's default if
+    /// none were gathered).
+    pub fn media_table(&self) -> Vec<f32> {
+        let mut table = vec![[0.0f32; 4]; MOST_BLOCKS];
+        for (slot, medium) in table.iter_mut().zip(&self.media) {
+            *slot = *medium;
+        }
+        if table[0][3] <= 0.0 {
+            table[0] = medium_numbers(&WATER_MEDIUM);
+        }
+        table.into_iter().flatten().collect()
     }
 
     /// Each block's bars' own textures (a long side and an end, or none), read once each through `read`.

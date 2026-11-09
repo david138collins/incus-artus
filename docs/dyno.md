@@ -51,6 +51,7 @@ build-by-build numbers are in `docs/regroup.md`.
 - [ ] Solved jumps: a ray drops straight to the height of the tallest column top below it.
 - [ ] The sea as a flat plane: its top found in one sum (the 610-step horizon case). Designed with generic
       transparency.
+      Build 98's seeing through water added about 1.5 ms on the low flight (rays go on to the bottom).
 - [ ] The rasteriser starts the rays: boxes drawn around occupied bricks give each pixel its first possible hit.
 - [ ] A two-level start pass: 64 × 64 tiles, then 8 × 8.
 

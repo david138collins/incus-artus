@@ -9,3 +9,5 @@ textures = { all = "water" }
 solid = false
 targetable = false
 replaceable = true
+# Seen through (build 98): what's under it fades to its colour, gone about 16 blocks down.
+medium = { colour = [63, 111, 149], clarity = 16 }
