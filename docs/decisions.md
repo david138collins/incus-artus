@@ -1281,6 +1281,26 @@ below disagree with this one, this one stands.
        - Ray-tracing cores as an empty-space skipper (boxes around surface bricks), if wgpu's ray queries ever
          allow it.
 
+       **Idle hardware, and the processor as a partner** [David 2026-11-09, reading about Nsight: "i wonder if
+       we'll be able to find a way to use any hardware bits that aren't utilized to assist others"; and "we should
+       look at opportunities for cpu acceleration of the graphics... we may be able to hand off solutions to the
+       card where it's expedient, without the cost of a 2 way trip"]. The candidates:
+       - **Texture units.** The march blends 8 cells by hand. Stored as bricks in a 3D texture with an index,
+         cells would be blended by the texture hardware for free, and read through its cache, which is built
+         for neighbours. This is portable, and it touches the store's layout, so it's block work.
+       - **The rasteriser**, idle in a compute renderer. Drawing boxes around the occupied bricks gives each
+         pixel where its ray can first hit anything, so empty air is skipped by hardware that is otherwise
+         asleep.
+       - **The gaps between frames**, the card's idle time, filled with background work such as the bake.
+       - Tensor and ray-tracing cores stay out, under the rule below.
+       - **The processor runs one way, never round trips.** While the card draws frame N, the processor
+         prepares frame N + 1 and uploads it, so the card never waits:
+         - light floods, edit patches and lists of what changed;
+         - the regions the camera is heading into, predicted from its speed, so their bake comes first.
+         Anything the card reports back is read a few frames late, never waited for.
+       - **The laptop's catch.** Processor and card share one power and heat budget, so heavy processor work
+         can lower the card's clocks. Every handoff is measured on the dyno.
+
        **No per-card tricks** [David 2026-11-08: "im not interested in implementing all the different tricks
        individual modern cards can use, id have to own 20 gpus"]. Speed comes from the method, in portable
        software that runs on any card wgpu supports (the 980 Ti, AMD, the Steam Deck). One maker's hardware
