@@ -1732,6 +1732,203 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(touch, 0.0, 0.0, 0.0));
 }
 
+// ── The march split from its light (the dyno, 2026-11-09) ──
+//
+// The march is one big shader, and the card keeps as few of its pixels in flight as the room (registers) its
+// biggest path needs allows, used or not [the dyno's second step: the build with sky light kept's code in it, off,
+// was 8% slower]. So, with a ray a pixel, it's two passes a layer: `march_hit` marches each pixel's ray, wears its
+// texture, and keeps what it met (`hits`: its colour and the sun's and the sky's parts of it, where, how far, which
+// way it faces); then `light_hit` lights it as `march_pass` did after its march (the sun's shadow, sky light,
+// placed light, fog). Each runs with the room its own work needs. `march_pass` stays for four rays a pixel, and for
+// measuring against (`INCUS_SIGHT_NO_SPLIT`).
+
+// What each pixel's ray met: three words of four a pixel (`march_hit` writes, `light_hit` reads).
+@group(0) @binding(19) var<storage, read_write> hits: array<vec4<u32>>;
+
+// A pixel the layer above didn't find worth marching (`march_hit` drew it).
+const HIT_NONE: u32 = 4096u;
+
+// Every binding the layers have named, so both passes have the same ones whatever each reaches, and one layer's
+// bindings serve both.
+fn name_the_bindings() {
+    _ = camera.position;
+    _ = header[0];
+    _ = baked[0];
+    _ = live[0];
+    _ = pool[0];
+    _ = textureDimensions(picture);
+    _ = textureDimensions(how_far);
+    _ = starts[0];
+    _ = worth_in[0];
+    _ = worth_out[0];
+    _ = textureDimensions(far_above);
+    _ = textureSampleLevel(block_textures, block_sampler, vec2<f32>(0.0), 0, 0.0);
+    _ = block_table[0];
+    _ = pieces[0];
+    _ = lights[0];
+    _ = media[0];
+    _ = hits[0];
+}
+
+// The way a block face looks, from `face_of`'s number.
+fn face_way(face: u32) -> vec3<f32> {
+    let ways = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(-1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, -1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, -1.0));
+    return ways[min(face, 5u)];
+}
+
+// A pixel's ray's way (one ray, through its middle), as `march_pass` has it.
+fn pixel_way(id: vec2<u32>, size: vec2<u32>) -> vec3<f32> {
+    let uv = (vec2<f32>(id) + 0.5) / vec2<f32>(size);
+    let x = uv.x * 2.0 - 1.0;
+    let y = 1.0 - uv.y * 2.0;
+    return normalize(camera.forward.xyz + x * camera.right.xyz + y * camera.up.xyz);
+}
+
+// Its pixel in the layer above: by scale (halving, or 1.5's three to the 2 × 2's two).
+fn parent_of(id: vec2<u32>) -> vec2<u32> {
+    return min(vec2<u32>((vec2<f32>(id) + 0.5) * camera.pyramid.x), vec2<u32>(u32(max(camera.layer.x, 1.0)) - 1u, 65535u));
+}
+
+@compute @workgroup_size(8, 8)
+fn march_hit(@builtin(global_invocation_id) id: vec3<u32>) {
+    name_the_bindings();
+    let size = vec2<u32>(camera.view.xy);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    let at = (id.y * size.x + id.x) * 3u;
+    // A refining layer marches only where the pixel above said it's worth something (as `march_pass`).
+    let parent = parent_of(id.xy);
+    if (camera.layer.x > 0.0) {
+        let worth = worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu;
+        if (worth == 0u) {
+            textureStore(picture, vec2<i32>(id.xy), vec4<f32>(0.0));
+            textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
+            if (camera.layer.y > 0.5) {
+                worth_out[id.y * size.x + id.x] = NO_SKY << 8u;
+            }
+            hits[at + 2u] = vec4<u32>(HIT_NONE, 0u, 0u, 0u);
+            return;
+        }
+    }
+    // Where its tile's rays start, or short of its parent's nearest touch (as `march_pass`).
+    var begin = 0.5;
+    if (camera.tiles.z > 0.0) {
+        let tile = vec2<u32>(vec2<f32>(id.xy) / camera.tiles.z);
+        begin = starts[tile.y * u32(camera.tiles.x) + tile.x];
+    }
+    if (camera.layer.x > 0.0 && camera.follow.x > 0.5) {
+        let above = vec2<i32>(parent);
+        let edge = vec2<i32>(textureDimensions(far_above)) - 1;
+        var nearest = camera.reach.x;
+        for (var k = 0; k < 9; k++) {
+            let near_at = clamp(above + vec2<i32>(k % 3 - 1, k / 3 - 1), vec2<i32>(0), edge);
+            nearest = min(nearest, textureLoad(far_above, near_at, 0).x);
+        }
+        begin = max(begin, nearest - 2.0 - nearest * camera.view.z * 4.0);
+    }
+    let d = pixel_way(id.xy, size);
+    let seen = wear_texture(march(camera.position.xyz, d, scatter(id.xy * 2u), begin));
+    // The layer below's worth (the light pass puts its sky light over it), and where it first touched anything.
+    if (camera.layer.y > 0.5) {
+        worth_out[id.y * size.x + id.x] = u32(round(worth_of(seen.distance, seen.level) * 255.0));
+    }
+    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(seen.touched, 0.0, 0.0, 0.0));
+    // The placed light goes in with its colour: the sun's and the sky's parts the light takes away aren't it.
+    let colour = seen.colour + seen.glow;
+    hits[at] = vec4<u32>(pack2x16float(colour.rg), pack2x16float(vec2<f32>(colour.b, seen.sky_share)), pack2x16float(seen.sunny.rg), pack2x16float(vec2<f32>(seen.sunny.b, seen.skyish.r)));
+    hits[at + 1u] = vec4<u32>(pack2x16float(seen.skyish.gb), bitcast<u32>(seen.distance), bitcast<u32>(seen.touched), bitcast<u32>(dot(seen.at - camera.position.xyz, d)));
+    let kept = (u32(seen.level + 1) & 0xFFu) | (select(0u, 256u, seen.on_block)) | (face_of(seen.facing) << 9u) | (min(u32(seen.steps), 65535u) << 16u);
+    hits[at + 2u] = vec4<u32>(kept, 0u, 0u, 0u);
+}
+
+@compute @workgroup_size(8, 8)
+fn light_hit(@builtin(global_invocation_id) id: vec3<u32>) {
+    name_the_bindings();
+    let size = vec2<u32>(camera.view.xy);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    let at = (id.y * size.x + id.x) * 3u;
+    let r2 = hits[at + 2u];
+    if ((r2.x & HIT_NONE) != 0u) {
+        return;
+    }
+    var shown = 1.0;
+    let parent = parent_of(id.xy);
+    if (camera.layer.x > 0.0) {
+        shown = f32(worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu) / 255.0;
+    }
+    // What the ray met, as the march left it.
+    let r0 = hits[at];
+    let r1 = hits[at + 1u];
+    let d = pixel_way(id.xy, size);
+    var seen: Seen;
+    let colour_b = unpack2x16float(r0.y);
+    let sunny_b = unpack2x16float(r0.w);
+    seen.colour = vec3<f32>(unpack2x16float(r0.x), colour_b.x);
+    seen.sky_share = colour_b.y;
+    seen.sunny = vec3<f32>(unpack2x16float(r0.z), sunny_b.x);
+    seen.skyish = vec3<f32>(sunny_b.y, unpack2x16float(r1.x));
+    seen.distance = bitcast<f32>(r1.y);
+    seen.touched = bitcast<f32>(r1.z);
+    seen.at = camera.position.xyz + d * bitcast<f32>(r1.w);
+    seen.level = i32(r2.x & 0xFFu) - 1;
+    seen.on_block = (r2.x & 256u) != 0u;
+    seen.steps = f32(r2.x >> 16u);
+    seen.facing = select(vec3<f32>(0.0), face_way((r2.x >> 9u) & 7u), seen.on_block);
+    // How wide its shadow ray starts, as the march works it out.
+    if (seen.on_block) {
+        seen.wide = 1.0;
+    } else if (seen.distance < camera.reach.x) {
+        let read = select(1.0, f32(1 << u32(max(seen.level, 0))), seen.level >= 0);
+        seen.wide = max(seen.distance * camera.view.z, read);
+    }
+    // From here as `march_pass` lights its ray.
+    var handed = NO_SKY;
+    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
+    var open = 1.0;
+    if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
+        let kind = surface_kind(seen);
+        var have = false;
+        if (camera.layer.x > 0.0) {
+            let above = worth_in[parent.y * u32(camera.layer.x) + parent.x] >> 8u;
+            let parent_touch = textureLoad(far_above, vec2<i32>(parent), 0).x;
+            if (above != NO_SKY && (above >> 16u) == kind && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
+                open = f32(above & 0xFFFFu) / 65535.0;
+                have = true;
+            }
+        }
+        if (!have) {
+            open = sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+        }
+        handed = sky_word(kind, open);
+    }
+    var colour = seen.colour;
+    if (!hidden) {
+        colour = shaded(seen, open);
+    }
+    let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
+    if (met < camera.reach.x) {
+        let behind = seen.sky_share * sky(d);
+        let covered = max(1.0 - seen.sky_share, 1e-4);
+        colour = behind + fogged((colour - behind) / covered, d, met) * covered;
+    }
+    if (camera.layer.y > 0.5) {
+        let k = id.y * size.x + id.x;
+        worth_out[k] = (worth_out[k] & 0xFFu) | (handed << 8u);
+    }
+    if (camera.reach.z > 1.5 && seen.level >= 0) {
+        let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
+        colour = colour * 0.4 + tints[seen.level % 6] * 0.35;
+    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
+        let k = clamp(seen.steps / 256.0, 0.0, 1.0);
+        colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);
+        colour = colour * colour;
+    }
+    textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
+}
+
 // ── Far lights' glows (build 100; David: "braziers in a cave at night from a distance were just pixels of green that
 // popped in and out as they twinkled") ──
 //

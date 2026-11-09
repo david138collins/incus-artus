@@ -2040,6 +2040,49 @@ fn ground(c: Case) -> i32 {
         }
     }
 
+    /// The march split from its light (the dyno, 2026-11-09): marching each pixel's ray in one pass and lighting
+    /// what it met in another draws what the one pass drew (to a step of a colour, here and there: what the ray met is
+    /// kept in half floats between them): over hills, near and far, with the sun's shadows, sky light and textures.
+    #[test]
+    #[ignore]
+    fn sight_s_march_split_from_its_light_the_same() {
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
+            eprintln!("No graphics card: sight's split test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
+        let size = (640, 400);
+        let mut worst = (0usize, 0i32);
+        for (name, at, pitch, heading) in [("near", [0.0f32, 0.0, 6.0], -20.0f32, 0.0f32), ("far", [0.0, 0.0, 200.0], -25.0, 45.0), ("low", [0.0, 0.0, 40.0], -8.0, 120.0)] {
+            let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
+            let (p, h) = (pitch.to_radians(), heading.to_radians());
+            let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
+            let picture = |split: bool| {
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, split, ..Default::default() };
+                sight_picture(&device, &queue, &store, size, eye)
+            };
+            // Together twice (the scene's own steadiness), split between.
+            let (together, split, again) = (picture(false), picture(true), picture(false));
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("split_{name}.png")), size, &split);
+                write_picture(&dir.join(format!("split_{name}_together.png")), size, &together);
+                write_picture(&dir.join(format!("split_{name}_again.png")), size, &again);
+            }
+            let apart = |a: &[[u8; 3]], b: &[[u8; 3]]| {
+                let gaps: Vec<i32> = a.iter().zip(b).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
+                (gaps.iter().filter(|&&g| g > 1).count(), gaps.iter().copied().max().unwrap_or(0))
+            };
+            let (first, second, itself) = (apart(&together, &split), apart(&again, &split), apart(&together, &again));
+            eprintln!("Sight's march split from its light, {name}: against together {} pixels more than a step apart ({} at most), against together again {} ({}); together against itself {} ({})", first.0, first.1, second.0, second.1, itself.0, itself.1);
+            // The nearer of the two (the scene sometimes moves between pictures: together against itself says so).
+            let best = if first.0 <= second.0 { first } else { second };
+            worst = (worst.0.max(best.0), worst.1.max(best.1));
+        }
+        assert!(worst.0 <= (size.0 * size.1 / 1000) as usize, "the same picture ({} pixels more than a step apart, {} at most)", worst.0, worst.1);
+    }
+
     /// A measuring test (ignored; the dyno's first step): the near walk's steps a ray as it skips air, against every
     /// block walked, over flat land (the dyno's land leg: 40 up, 8° down) and over hills, with every live level made
     /// round the eye and with only the blocks and the 16s (as while the camera moves: the near levels never finish),

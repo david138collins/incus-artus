@@ -66,6 +66,9 @@ pub struct Eye {
     pub smooth_light: bool,
     /// The near walk skipping no air at all, every block walked (the truth any skipping must match: tests only).
     pub walk_every_block: bool,
+    /// The march split from its light, a ray a pixel (the dyno, 2026-11-09; off for measuring against, with
+    /// `INCUS_SIGHT_NO_SPLIT` or here).
+    pub split: bool,
 }
 
 impl Default for Eye {
@@ -100,6 +103,7 @@ impl Default for Eye {
             flicker_time: 0.0,
             smooth_light: false,
             walk_every_block: false,
+            split: true,
         }
     }
 }
@@ -200,6 +204,10 @@ const REACH: f32 = 150_000.0;
 pub struct SightDraw {
     march: wgpu::ComputePipeline,
     start: wgpu::ComputePipeline,
+    /// The march split from its light (the dyno, 2026-11-09; `march.wgsl`'s `march_hit` and `light_hit`), a ray a
+    /// pixel; `march` for four, and for measuring against (`INCUS_SIGHT_NO_SPLIT`).
+    march_hit: wgpu::ComputePipeline,
+    light_hit: wgpu::ComputePipeline,
     /// Far lights' glows (build 100): the pass that says which the eye sees (`march.wgsl`'s `glow_pass`), and their
     /// places, in and out (`super::lights::GLOWS_MOST` of them; the objects' draw reads them as its glows' places).
     glow_pass: wgpu::ComputePipeline,
@@ -233,6 +241,9 @@ struct Layer {
     far: wgpu::TextureView,
     camera: wgpu::Buffer,
     group: wgpu::BindGroup,
+    /// The split passes' bindings (the same, and what each pixel's ray met between them).
+    hit_group: wgpu::BindGroup,
+    light_group: wgpu::BindGroup,
 }
 
 struct Targets {
@@ -262,6 +273,8 @@ impl SightDraw {
         let march_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's march"), source: wgpu::ShaderSource::Wgsl(include_str!("march.wgsl").into()) });
         let march = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march"), layout: None, module: &march_module, entry_point: Some("march_pass"), compilation_options: Default::default(), cache: None });
         let start = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's start pass"), layout: None, module: &march_module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None });
+        let march_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march, split"), layout: None, module: &march_module, entry_point: Some("march_hit"), compilation_options: Default::default(), cache: None });
+        let light_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's light"), layout: None, module: &march_module, entry_point: Some("light_hit"), compilation_options: Default::default(), cache: None });
         let glow_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's far glows"), layout: None, module: &march_module, entry_point: Some("glow_pass"), compilation_options: Default::default(), cache: None });
         let glows = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("sight's far glows"),
@@ -307,7 +320,7 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().media_table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, glow_pass, glows, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
+        Self { march, start, march_hit, light_hit, glow_pass, glows, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -389,10 +402,9 @@ impl SightDraw {
                 let far = texture("sight's layer's distances", size, wgpu::TextureFormat::R32Float);
                 let worth = storage("sight's worth it", size.0 * size.1);
                 let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's camera"), size: CAMERA_ROWS as u64 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-                let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("sight's march"),
-                    layout: &self.march.get_bind_group_layout(0),
-                    entries: &[
+                // What each pixel's ray met, between the split passes: three words of four a pixel.
+                let hits = storage("sight's hits", size.0 * size.1 * 12);
+                let entries = [
                         wgpu::BindGroupEntry { binding: 0, resource: buffer(&camera) },
                         wgpu::BindGroupEntry { binding: 1, resource: buffer(&store.header) },
                         wgpu::BindGroupEntry { binding: 2, resource: buffer(&store.baked) },
@@ -410,10 +422,13 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
                         wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
                         wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
-                    ],
-                });
+                    ];
+                let group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's march"), layout: &self.march.get_bind_group_layout(0), entries: &entries });
+                let split: Vec<wgpu::BindGroupEntry> = entries.iter().cloned().chain([wgpu::BindGroupEntry { binding: 19, resource: buffer(&hits) }]).collect();
+                let hit_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's march, split"), layout: &self.march_hit.get_bind_group_layout(0), entries: &split });
+                let light_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's light"), layout: &self.light_hit.get_bind_group_layout(0), entries: &split });
                 far_above = Some(far.clone());
-                layers.push(Layer { factor, size, picture, far, camera, group });
+                layers.push(Layer { factor, size, picture, far, camera, group, hit_group, light_group });
                 worth_above = Some(worth);
             }
             let start_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -595,12 +610,29 @@ impl SightDraw {
             pass.set_bind_group(0, &targets.start_group, &[]);
             pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
         }
+        // The march split from its light (a ray a pixel; `INCUS_SIGHT_NO_SPLIT` keeps them together, for measuring).
+        let split = eye.split && eye.rays <= 1 && std::env::var("INCUS_SIGHT_NO_SPLIT").is_err();
         for layer in &targets.layers {
-            let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes });
-            pass.set_pipeline(&self.march);
-            pass.set_bind_group(0, &layer.group, &[]);
-            pass.dispatch_workgroups(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8), 1);
+            let groups = (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
+            if split {
+                let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march, split"), timestamp_writes });
+                pass.set_pipeline(&self.march_hit);
+                pass.set_bind_group(0, &layer.hit_group, &[]);
+                pass.dispatch_workgroups(groups.0, groups.1, 1);
+                drop(pass);
+                let timestamp_writes = compute_stamp(&mut passes, format!("light {}", layer.factor));
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's light"), timestamp_writes });
+                pass.set_pipeline(&self.light_hit);
+                pass.set_bind_group(0, &layer.light_group, &[]);
+                pass.dispatch_workgroups(groups.0, groups.1, 1);
+            } else {
+                let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes });
+                pass.set_pipeline(&self.march);
+                pass.set_bind_group(0, &layer.group, &[]);
+                pass.dispatch_workgroups(groups.0, groups.1, 1);
+            }
         }
         // The far glows: which the eye sees (build 100).
         let glow_places = self.objects.glow_places();
