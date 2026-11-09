@@ -1332,7 +1332,8 @@ below disagree with this one, this one stands.
            - weight when exhausted (the stamina sphere);
            - nodding off when awake too long [David 2026-11-09: "having the mouse drift downwards when youve been
              awake too long would be fun, youre nodding off"]: a slow sag of the view, perhaps snapping back up
-             (the energy sphere);
+             (the energy sphere). A yawn tells a confused player what's happening the first time
+             [David: "a yawn would clear it up for any players who get confused the first time it happens"];
            - a tremor with fear;
            - the inertia of a heavy weapon.
            Each has a strength the player can turn down. *Counsel.*
