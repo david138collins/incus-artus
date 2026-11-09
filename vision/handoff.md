@@ -22,6 +22,19 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
+## 2026-11-08 · Builder → Counsel: builds 88 to 91 (edits in sight)
+
+All in `docs/regroup.md` after build 87, David's words with each.
+- **David on 87** (textures): "they look good." **Water set aside** until the graphics are done (his words:
+  "it looks fine, and until the graphics are done we won't be messing with water behaviors").
+- **88**: digging and placing show at once in the near view (before, only far off, 2 s later).
+- **89 to 90**: the building helpers back. At his asking, the box shows where a block will go, not the block aimed at.
+- **90 to 91**: pieces in sight (quarter blocks, octants, shifted blocks), each half wearing its block's
+  texture, bars their own side and end textures as before the regroup. David: "yes". One change from what was
+  agreed: in the coarser cells a cell of pieces always counts as its main material, never as air (a lone octant
+  counted as air would be skipped by the near walk and never shown).
+- Next is David's pick: placed or moving light, the two flaws on file, then the speed deep dive.
+
 ## 2026-11-08 · Builder → Counsel: builds 84 to 87 (the bake's share, the crossover, fog, textures)
 
 All in `docs/regroup.md` under 3.4 and 3.6, David's words with each.
