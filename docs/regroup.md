@@ -1229,7 +1229,19 @@ lamps, lights at cave mouths), and day and night.
     the old texture: the fix shows once he exports the glTF again over it (read again at once, in play).
   - **On file for transparency** [Counsel 2026-11-09]: the light's flood should pass through see-through blocks
     (glass, water), perhaps tinted.
-  - **Not yet:** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
+  - **David on 95** (2026-11-09): placed several braziers (up to 7 lights, 2,123 lit cells), no problems in the
+    log. Open for his word: the light's smooth fall-off against the clear steps decided before ("very clear steps
+    in brightness", `decisions.md`, What light needs): a miss of mine, a one-line change or a switch.
+- **Build 96: the crossover back to sliders** [David 2026-11-09: "i don't think the silly multiband visual blender
+  thing i specced out was that good of an idea. i think it'd be better if we went back to a single strip for each
+  successive stage of the pyramid enabled to the next with their own sliders, because as you see i can't figure
+  out how to feather this transition here"]. "Fades between layers" on the Render page: a strip for each step of
+  the pyramid ("8 × 8 into 4 × 4", ...), each with its own from and to among the blocks and its start and doublings
+  past them; a step not in the pyramid greyed. The same keys as build 85's (nothing set is lost); `look/crossover.rs`
+  gone. His screenshot (a hard curved edge between blocks and blurry cells, at night) waits on his look with the
+  sliders: it may be a layer's own change from blocks to cells (at a block a pixel of that layer, `blocks_end` in
+  `march.wgsl`), which no fade between layers reaches.
+  - **Not yet (95):** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
     (radius 4, 64 blocks: a brazier farther off is neither lit nor drawn); sun shadows on and from objects; fog on
     objects (they're near).
 

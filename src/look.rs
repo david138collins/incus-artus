@@ -16,7 +16,6 @@ use crate::debug::SettingsAppExt;
 use crate::world::{BlockId, TerrainBlocks};
 use crate::ecs::prelude::*;
 
-mod crossover;
 
 /// The seams' names in the settings, by their finer layer (`draw::SEAMS`).
 const SEAM_NAMES: [&str; 4] = ["4", "2", "1_5", "1"];
@@ -110,31 +109,52 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         }
     });
     // Where each change between layers falls [David 2026-11-08: "do you believe we'll be able to tune the ways
-    // that it pumps between scales?"], on a crossover [David: "a slider for each intersection between layers, and
-    // bars that come from the side as i drag the slider for each intersection up and down, the band gets wider.
-    // sort of like a multiband compressor"; "oh yeah, a crossover! exactly"].
-    egui::CollapsingHeader::new("Fades between layers (the crossover)").default_open(true).show(ui, |ui| {
-        use crate::sight::draw::{BLOCKS_FADE, CELLS_FADE, SEAMS};
+    // that it pumps between scales?"]: a strip for each step of the pyramid, each with its own sliders [David
+    // 2026-11-09, after build 85's crossover: "i think it'd be better if we went back to a single strip for each
+    // successive stage of the pyramid enabled to the next with their own sliders"]. A step not in the pyramid now is
+    // greyed. The same keys as the crossover's, so nothing set is lost.
+    egui::CollapsingHeader::new("Fades between layers").default_open(true).show(ui, |ui| {
+        use crate::sight::draw::SEAMS;
         let layers = crate::sight::draw::factors(crate::sight::draw::Eye { grid, coarsest, between, ..Default::default() });
-        // Each seam by its finer layer: in use when that layer is in the pyramid under another.
+        // Each step by its finer layer: in use when that layer is in the pyramid under another.
         let coarser = |finer: f32| layers.iter().position(|&f| (f - finer).abs() < 0.01).filter(|&k| k > 0).map(|k| layers[k - 1]);
-        let seams = |fades: [[f32; 2]; 4], default: [f32; 2]| -> Vec<crossover::Seam> {
-            SEAMS.iter().zip(fades).map(|(&finer, fade)| crossover::Seam { finer, coarser: coarser(finer), fade, default }).collect()
-        };
-        ui.small("Drag a seam left or right to move it, up or down to widen its blend; double-click it for its default.");
-        ui.label("Near you, among the blocks (by distance):");
-        let mut near = seams(kept.sight_blocks_fades(), BLOCKS_FADE);
-        for k in crossover::track(ui, egui::Id::new("crossover_blocks"), crossover::Track::Blocks, &layers, &mut near) {
-            let [from, to] = near[k].fade;
-            kept.render.set_number(&format!("sight_fade_{}_from", SEAM_NAMES[k]), from);
-            kept.render.set_number(&format!("sight_fade_{}_to", SEAM_NAMES[k]), to);
-        }
-        ui.label("Past them, among the cells (by a cell's size on the screen):");
-        let mut far = seams(kept.sight_cells_fades(), CELLS_FADE);
-        for k in crossover::track(ui, egui::Id::new("crossover_cells"), crossover::Track::Cells, &layers, &mut far) {
-            let [start, doublings] = far[k].fade;
-            kept.render.set_number(&format!("sight_fade_{}_cells_start", SEAM_NAMES[k]), start);
-            kept.render.set_number(&format!("sight_fade_{}_cells_doublings", SEAM_NAMES[k]), doublings);
+        let name = |f: f32| if (f - 1.5).abs() < 0.01 { "1.5".to_string() } else { format!("{f} × {f}") };
+        ui.small("Near you, among the blocks: where the finer layer fades out, as shares of the blocks' reach (about 336 blocks), from where it starts fading to where it's gone. Past the blocks: where it fades back in, when its pixel is so many times the cells it reads, over so many doublings of distance.");
+        let near = kept.sight_blocks_fades();
+        let far = kept.sight_cells_fades();
+        for (k, &finer) in SEAMS.iter().enumerate() {
+            let above = coarser(finer);
+            ui.add_enabled_ui(above.is_some(), |ui| {
+                let title = match above {
+                    Some(above) => format!("{} into {}", name(above), name(finer)),
+                    None => format!("into {} (not in use)", name(finer)),
+                };
+                ui.strong(title);
+                let [mut from, mut to] = near[k];
+                ui.horizontal(|ui| {
+                    let a = ui.add(egui::Slider::new(&mut from, 0.0..=1.0).step_by(0.01).text("from"));
+                    let b = ui.add(egui::Slider::new(&mut to, 0.0..=1.0).step_by(0.01).text("to (among the blocks)"));
+                    if a.changed() || b.changed() {
+                        // Never ending before it starts.
+                        if a.changed() {
+                            to = to.max(from);
+                        } else {
+                            from = from.min(to);
+                        }
+                        kept.render.set_number(&format!("sight_fade_{}_from", SEAM_NAMES[k]), from);
+                        kept.render.set_number(&format!("sight_fade_{}_to", SEAM_NAMES[k]), to);
+                    }
+                });
+                let [mut start, mut doublings] = far[k];
+                ui.horizontal(|ui| {
+                    if ui.add(egui::Slider::new(&mut start, 0.25..=4.0).logarithmic(true).text("starts at (pixel / cell)")).changed() {
+                        kept.render.set_number(&format!("sight_fade_{}_cells_start", SEAM_NAMES[k]), start);
+                    }
+                    if ui.add(egui::Slider::new(&mut doublings, 0.05..=4.0).text("over (doublings, past the blocks)")).changed() {
+                        kept.render.set_number(&format!("sight_fade_{}_cells_doublings", SEAM_NAMES[k]), doublings);
+                    }
+                });
+            });
         }
         if ui.button("Fades back to as they were").clicked() {
             for name in SEAM_NAMES {
