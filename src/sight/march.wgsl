@@ -1015,9 +1015,14 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     let surface_step = 0.25 / clamp(abs(d.z), 0.25, 1.0);
     let water_colour = WATER_COLOUR;
     let walked = steps;
-    // Whether it went down through the world's floor, and the last level it read.
+    // Whether it went down through the world's floor, and what it last gathered in the cells over the floor (their
+    // colour as lit, the sun's part, where and from which level).
     var floored = false;
-    var last_level = -1;
+    var bottom = false;
+    var bottom_here = vec3<f32>(0.0);
+    var bottom_sun = vec3<f32>(0.0);
+    var bottom_t = 0.0;
+    var bottom_level = -1;
     for (var n = 0; n < 768; n++) {
         if (t > camera.reach.x || through < 0.01) {
             break;
@@ -1174,6 +1179,13 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
                 let here_sun = (ground_sun * solid + sunlit(water_colour, 1.0) * water) / both;
                 colour += through * covered * here;
                 sunny += through * covered * here_sun;
+                if (p.z <= size * 1.5) {
+                    bottom = true;
+                    bottom_here = here;
+                    bottom_sun = here_sun;
+                    bottom_t = t;
+                    bottom_level = level;
+                }
                 if (through > 0.5 && through * (1.0 - covered) <= 0.5) {
                     first = t;
                     first_level = level;
@@ -1184,25 +1196,24 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         before = look;
         before_t = t;
         chained = look.known;
-        if (look.known) {
-            last_level = level;
-        }
         t += dt;
     }
-    // Down through the world's floor, it has met the ground whatever the averages said: under the ground is rock.
-    // What it gathered is the ground it went through, all of it, not partly the sky [David after build 84: "the
-    // circles of light that swallow the world if i fly tens of miles over the surface straight up looking down": a
-    // far cell is an average, a cell of 1,024 over 150 blocks of ground about a seventh solid, so a ray looking down
-    // through it gathered a seventh of the ground and the rest of the sky's colour, beyond the distance where the
-    // cells read grew that coarse].
-    if (floored && through < 0.999) {
-        let met = 1.0 - through;
-        colour /= met;
-        sunny /= met;
+    // Down through the world's floor having gathered from the cells just over it, it has met the ground there
+    // whatever the averages said (under the ground is rock): what it didn't gather is that ground too, not the sky
+    // [David after build 84: "the circles of light that swallow the world if i fly tens of miles over the surface
+    // straight up looking down": a far cell is an average, a cell of 1,024 over 150 blocks of ground about a seventh
+    // solid, so a ray looking down through it gathered a seventh of the ground and the rest the sky's colour]. Only
+    // the ground over the floor: down through it over nothing (past the map, a region not baked yet), it stays sky
+    // [David on 93: "on the peaks at a distance, a band juts out from either side... the band slides up and down the
+    // tip with me": rays a little under the horizon brushed a peak's soft edge, went on over regions not baked yet and
+    // through the floor, and all of what wasn't gathered was taken as that brush].
+    if (floored && bottom) {
+        colour += through * bottom_here;
+        sunny += through * bottom_sun;
         through = 0.0;
         if (first >= camera.reach.x) {
-            first = touched;
-            first_level = last_level;
+            first = bottom_t;
+            first_level = bottom_level;
         }
     }
     // What the surfaces gave (the sky behind them added after).

@@ -1167,6 +1167,21 @@ lamps, lights at cave mouths), and day and night.
     layers took them for sky; now they're ground, and get all of that. About 2 to 3 ms for ground drawn as ground:
     for the dyno to look into (which part it is: the shadows, the sky's cones, or the finer layers' extra pixels).
   - Suite 408, all passing.
+- **David on 93** (2026-11-09, a fresh world, baking): "i think this may be an actual flaw. on the peaks at a
+  distance, a band juts out from either side, as i transverse up and down the band slides up and down the tip with
+  me." His screenshot: far peaks against the sky, each with a dark brim straight out both sides at the eye's height.
+  93's own doing: its floor rule took all of what a ray going down through the floor hadn't gathered as what it
+  had. Rays a little under the horizon brushed a peak's soft edge (a few parts in a hundred), went on over regions
+  not baked yet (skipped whole) and down through the floor, and the brush became the whole pixel: a band at the
+  eye's height, beside every peak, moving with the eye.
+- **Build 94: the floor rule, only over ground.** A ray down through the floor is filled with the ground it
+  gathered in the cells just over the floor (the last it gathered there, lit), and nothing else: down through the
+  floor over nothing (past the map, a region not baked yet) it stays sky, as before 93. Looking down from high up
+  the bottom cells are the ground, so the circles of light stay gone (that test still passes). Card test
+  `sight_over_nothing_the_floor_stays_sky` (a low plain to the map's edge, the eye 170 over it: just under the
+  horizon, away from the peak, every pixel within 5 of the sky over it; 176 off under 93's rule). Measured (the
+  low flight's first 130 s): sight 11.6 to 16.8 ms, 33 to 50 fps, about as 93: the cost is far ground drawn as
+  ground, not the brushed rays. Suite 409.
 
 ### Phase 6: everything else, each with its price  [loose]
 

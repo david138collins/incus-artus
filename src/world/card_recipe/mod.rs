@@ -1108,13 +1108,18 @@ fn ground(c: Case) -> i32 {
     /// The same, and with `near` (a place, x and y) the blocks themselves round it as well: the live level of
     /// single blocks, 128 a side, made there (as the game makes it round the eye).
     fn sight_scene_with(blocks_per_pixel: f32, height: impl Fn(usize) -> f32, near: Option<(i32, i32)>) -> Option<(wgpu::Device, wgpu::Queue, std::sync::Arc<crate::sight::card_store::CardStore>, crate::world::CompiledMap)> {
+        sight_scene_map(blocks_per_pixel, |column, _row| height(column), near)
+    }
+
+    /// The same, the ground's height by the map pixel's column (east) and row (north).
+    fn sight_scene_map(blocks_per_pixel: f32, height: impl Fn(usize, usize) -> f32, near: Option<(i32, i32)>) -> Option<(wgpu::Device, wgpu::Queue, std::sync::Arc<crate::sight::card_store::CardStore>, crate::world::CompiledMap)> {
         use crate::sight::cell::FarColours;
         use crate::sight::store::Maker;
         use crate::world::{BlockId, CavePlan, CompiledMap, Mutes, TerrainBlocks};
         use std::collections::HashMap;
         let (device, queue) = crate::whole::shader::card()?;
         let width = 48;
-        let mut map = CompiledMap::of_heights(width, blocks_per_pixel, &(0..width * width).map(|i| height(i % width)).collect::<Vec<f32>>());
+        let mut map = CompiledMap::of_heights(width, blocks_per_pixel, &(0..width * width).map(|i| height(i % width, i / width)).collect::<Vec<f32>>());
         map.mutes = Mutes { lift: true, mountains: true, raised_coast: true, ridges: true, torn_coast: true, detail: true, peaks: true, crags: true, summit_crags: true, rivers: true, ..Mutes::default() };
         let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
         let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
@@ -1480,6 +1485,44 @@ fn ground(c: Case) -> i32 {
             assert!(over_map > 1000, "the view takes in the map");
             assert_eq!(sky_like, 0, "from {height} up looking {}° down, {sky_like} pixels over the map are the sky's colour", -pitch);
         }
+    }
+
+    /// Over nothing, a ray down through the world's floor stays sky (David on 93: "on the peaks at a distance, a band
+    /// juts out from either side... the band slides up and down the tip with me"): 93's floor rule took all of what a
+    /// ray going down through the floor hadn't gathered as what it had, so rays a little under the horizon that
+    /// brushed a peak's soft edge (or the plain's) and went on over regions not baked yet were filled with that brush.
+    /// Here the plain ends at the map's edge: from 300 up (the plain at 131) the rays under the horizon that miss the
+    /// plain go on past the map, over nothing, and stay the sky's colour; only ground gathered just over the floor
+    /// fills a ray.
+    #[test]
+    #[ignore]
+    fn sight_over_nothing_the_floor_stays_sky() {
+        let Some((device, queue, store, _map)) = sight_scene_map(64.0, |column, row| if column == 24 && row == 36 { 330.0 } else if (23..26).contains(&column) && (35..38).contains(&row) { 290.0 } else { 131.0 }, None) else {
+            eprintln!("No graphics card: sight's over-nothing test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let size = (320, 200);
+        let low = 40f32.to_radians();
+        let sun = [low.cos() * 0.6, low.cos() * 0.8, low.sin()];
+        let eye = crate::sight::draw::Eye { position: [-1500.0, 32.0, 300.0], looking: [1.0, 0.0, 0.0], field_of_view: 40.0, grid: 2.0, coarsest: 8, sun, fog: false, ..Default::default() };
+        let picture = sight_picture(&device, &queue, &store, size, eye);
+        if let Some(dir) = &probe {
+            write_picture(&dir.join("over_nothing.png"), size, &picture);
+        }
+        // The map's edge is 3,036 ahead: rays down to 0.056 under level (170 down to the plain over that) miss the
+        // plain. Rows 2 to 10 under the horizon (row 100; the view's half height is tan 20° = 0.364), away from the
+        // peak (the middle third): each pixel against the sky's colour 2 rows over the horizon.
+        let mut most = 0;
+        for row in 102..110u32 {
+            for column in (8..100u32).chain(220..312) {
+                let p = picture[(row * size.0 + column) as usize];
+                let sky = picture[(98 * size.0 + column) as usize];
+                most = most.max((0..3).map(|c| (p[c] as i32 - sky[c] as i32).abs()).max().unwrap_or(0));
+            }
+        }
+        eprintln!("Sight over nothing: just under the horizon, away from the peak, the most a pixel is off the sky's colour over it {most} (of 255)");
+        assert!(most <= 24, "rays down through the floor over nothing should stay sky ({most} off)");
     }
 
     /// Sight's block textures (3.6): up close the near faces wear their texture (here a checker of red and blue
