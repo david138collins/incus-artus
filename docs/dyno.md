@@ -388,6 +388,14 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
 
 ## 4. The processor as a partner
 
+- [~] **The 10-second hitch** (found in the baseline's logs, 2026-11-09, chasing Counsel's question whether the slow
+      frames were the screen's tick: they weren't, they're spread from 8 to 20 ms and nearly all waiting on the
+      card's own work). One frame every 10 s took 16 to 22 ms in the game's update, growing through the flight: the
+      bake's line in the log counted its cells afresh, the whole map's 7 million columns, holding the bake's lock
+      meanwhile. Now kept as they come. Lossless (the count the same, tested). To check on the next flight: no
+      update spikes on the 10 s beat. The reports now give the 99.9th percentile and the worst frame too (a hitch
+      every 10 s is under the 99th).
+
 - [ ] One-way handoffs: the processor prepares frame N + 1's data while the card draws frame N. Never a round trip;
       anything read back is read a few frames late.
 - [ ] Camera prediction: the bake fills the ground the camera is heading into first.

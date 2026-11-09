@@ -937,6 +937,10 @@ fn ground(c: Case) -> i32 {
         assert_eq!(again.bake.lock().expect("the bake").regions_done, 10, "ten a frame");
         crate::sight::bake::take_kept(&again, maker.card.as_deref(), 10);
         assert_eq!(again.bake.lock().expect("the bake").regions_done, 16, "kept bake taken whole");
+        // Its cells as kept count, the same as counted afresh (and as the first bake's).
+        let (kept_count, counted) = again.bake.lock().map(|bake| (bake.cells(), bake.cells_counted())).expect("the bake");
+        assert_eq!(kept_count, counted, "the cells kept as they come, the same as counted");
+        assert_eq!(kept_count, baking.bake.lock().expect("the bake").cells_counted(), "the same as the first bake's");
         drop(jobs);
         crate::sight::bake::stop(&again);
         let (other, jobs) = start(maker.clone(), with.clone(), odd, half, (0, 0), 78, read(&folder).expect("read"));

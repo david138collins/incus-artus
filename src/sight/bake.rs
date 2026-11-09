@@ -126,6 +126,9 @@ impl Record {
 pub struct Bake {
     /// Each level's bounds, from cells of 32 up.
     pub extents: Vec<Extent>,
+    /// How many compact cells it holds, kept as they come and go (`cells`) [2026-11-09, the dyno: counted afresh for
+    /// the log every 10 s, the whole map's 7 million columns, it held the frame up 16 to 22 ms each time].
+    cells_kept: usize,
     /// Every region's record as last made (its cell columns from 32 to 1,024): kept once, shared with a save
     /// under way; made again, replaced whole (so nothing is left behind).
     records: HashMap<(i32, i32), Arc<Record>>,
@@ -190,8 +193,13 @@ impl Bake {
         if let Some(card) = card {
             card.put_region(&record);
         }
-        if self.records.insert(region, record).is_none() {
-            self.regions_done += 1;
+        let added = Self::cells_in(&record);
+        match self.records.insert(region, record) {
+            Some(old) => self.cells_kept = self.cells_kept + added - Self::cells_in(&old),
+            None => {
+                self.cells_kept += added;
+                self.regions_done += 1;
+            }
         }
         self.order.push(region);
         let seconds = self.started.elapsed().as_secs_f32();
@@ -221,7 +229,11 @@ impl Bake {
             if let Some(card) = card {
                 card.put_upper(level, px, py, parent.low, &cells);
             }
-            self.upper.insert((level, px, py), (parent.low, cells));
+            let added = cells.len();
+            if let Some((_, old)) = self.upper.insert((level, px, py), (parent.low, cells)) {
+                self.cells_kept -= old.len();
+            }
+            self.cells_kept += added;
             self.sums.insert((level, px, py), parent);
             (cx, cy) = (px, py);
         }
@@ -229,7 +241,18 @@ impl Bake {
 
     /// How many compact cells it holds.
     pub fn cells(&self) -> usize {
-        self.records.values().map(|r| r.levels.iter().flatten().map(|(_, c)| c.len()).sum::<usize>()).sum::<usize>() + self.upper.values().map(|(_, c)| c.len()).sum::<usize>()
+        self.cells_kept
+    }
+
+    /// The same, counted afresh (for the tests: what `cells` keeps).
+    #[cfg(test)]
+    pub fn cells_counted(&self) -> usize {
+        self.records.values().map(|r| Self::cells_in(r)).sum::<usize>() + self.upper.values().map(|(_, c)| c.len()).sum::<usize>()
+    }
+
+    /// A region's record's compact cells.
+    fn cells_in(record: &Record) -> usize {
+        record.levels.iter().flatten().map(|(_, c)| c.len()).sum()
     }
 
     /// For the log.
@@ -570,6 +593,7 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
     let mut bake = Bake {
         extents,
         upper: HashMap::new(),
+        cells_kept: 0,
         sums: HashMap::new(),
         regions: all.len(),
         start_regions,

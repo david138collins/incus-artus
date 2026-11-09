@@ -176,18 +176,20 @@ pub fn percentile(values: &[f32], share: f32) -> Option<f32> {
     Some(sorted[k.min(sorted.len() - 1)])
 }
 
-/// A line for `samples`: frames (count, fps from the median, median, 95th, 99th, ms), sight on the card (median and
-/// 95th), and each pass's median.
+/// A line for `samples`: frames (count, fps from the median, median, 95th, 99th and 99.9th, and the worst, ms), sight
+/// on the card (median and 95th), and each pass's median.
 pub fn line(samples: &Samples) -> String {
     let p = |values: &[f32], share: f32| percentile(values, share).map_or("-".to_string(), |v| format!("{v:.2}"));
     let fps = percentile(&samples.frames, 0.5).map_or("-".to_string(), |ms| format!("{:.0}", 1000.0 / ms.max(1e-3)));
     let passes: Vec<String> = samples.passes.iter().map(|(name, values)| format!("{name} {}", p(values, 0.5))).collect();
     format!(
-        "{} frames, {fps} fps (median); frame ms median {}, 95th {}, 99th {}; sight on the card ms median {}, 95th {}; passes (medians, ms): {}",
+        "{} frames, {fps} fps (median); frame ms median {}, 95th {}, 99th {}, 99.9th {}, worst {}; sight on the card ms median {}, 95th {}; passes (medians, ms): {}",
         samples.frames.len(),
         p(&samples.frames, 0.5),
         p(&samples.frames, 0.95),
         p(&samples.frames, 0.99),
+        p(&samples.frames, 0.999),
+        p(&samples.frames, 1.0),
         p(&samples.sight, 0.5),
         p(&samples.sight, 0.95),
         passes.join(", ")

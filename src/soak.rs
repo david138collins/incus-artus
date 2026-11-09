@@ -521,7 +521,7 @@ fn record_dyno(world: &mut World) {
 
 fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
     let mut text = format!(
-        "The dyno's flight: build {} ({})\nWindow {} x {}, the screen's refresh {:.0}; presets: {}\n",
+        "The dyno's flight: build {} ({})\nWindow {} x {}, the screen's refresh {:.0}, uncapped (presented without waiting for the refresh: AutoNoVsync); presets: {}\n",
         crate::diagnostics::BUILD_NUMBER,
         crate::diagnostics::BUILD,
         size.0,
