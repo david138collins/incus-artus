@@ -62,6 +62,8 @@ pub struct Eye {
     pub placed_lights: bool,
     pub flicker: f32,
     pub flicker_time: f32,
+    /// Placed light blended across a face, not a block's step at a time (off unless chosen: David wants the steps).
+    pub smooth_light: bool,
 }
 
 impl Default for Eye {
@@ -94,6 +96,7 @@ impl Default for Eye {
             placed_lights: true,
             flicker: FLICKER,
             flicker_time: 0.0,
+            smooth_light: false,
         }
     }
 }
@@ -498,7 +501,7 @@ impl SightDraw {
                 [direct, night + (1.0 - night) * glow, glow, night],
                 // Placed lights (build 95; `INCUS_SIGHT_NO_LIGHTS` leaves them out, for measuring): on, how much they
                 // flicker, the time they flicker by (kept under an hour's worth, so the card's sums stay fine).
-                [if eye.placed_lights && !no_lights { 1.0 } else { 0.0 }, eye.flicker.clamp(0.0, 1.0), eye.flicker_time.rem_euclid(3600.0), 0.0],
+                [if eye.placed_lights && !no_lights { 1.0 } else { 0.0 }, eye.flicker.clamp(0.0, 1.0), eye.flicker_time.rem_euclid(3600.0), if eye.smooth_light { 1.0 } else { 0.0 }],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }

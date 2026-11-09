@@ -271,6 +271,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         if ui.add(egui::Slider::new(&mut speed, 0.0..=5.0).step_by(0.05).text("how fast it flickers")).changed() {
             kept.render.set_number("flicker_speed", speed);
         }
+        // A block's step at a time, hard-edged, unless chosen [David 2026-11-09: "i just love the quantized per block
+        // lighting with the hard edges"].
+        let mut smooth = kept.sight_smooth_light();
+        if ui.checkbox(&mut smooth, "blended across faces (off: a block's step at a time, hard-edged)").changed() {
+            kept.render.table.insert("placed_light_smooth".to_string(), toml::Value::Boolean(smooth));
+        }
     });
     // Fog (3.4c) [David 2026-10-28: fog out to about 2 miles; 2026-11-08: "that sounds alright"].
     ui.separator();
@@ -499,6 +505,11 @@ impl KeptSettings {
 
     pub fn sight_flicker_speed(&self) -> f32 {
         self.render.number("flicker_speed", crate::sight::draw::FLICKER_SPEED)
+    }
+
+    /// Placed light blended across faces (off unless chosen: a block's step at a time).
+    pub fn sight_smooth_light(&self) -> bool {
+        self.render.flag("placed_light_smooth", false)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).

@@ -56,7 +56,8 @@ struct Camera {
     // under the horizon), y the sky's light (night's at the least), z the sky's own brightness (0 night, 1 day),
     // w night's light.
     daylight: vec4<f32>,
-    // Placed lights (build 95): x 1 for them on, y how much they flicker, z the time they flicker by (seconds).
+    // Placed lights (build 95): x 1 for them on, y how much they flicker, z the time they flicker by (seconds); w 1 to
+    // blend them across a face (0: a block's step at a time, hard-edged, as decided).
     glow: vec4<f32>,
 }
 
@@ -583,12 +584,17 @@ fn placed_light(c: vec3<i32>) -> vec3<f32> {
     return vec3<f32>(0.0);
 }
 
-// The placed light on a face, at `at` on it, looking along `facing`: the air in front of the face, blended between
-// the four cells nearest across it (as the old renderer kept light at each face's corners), so it falls away
-// smoothly over a face and from one to the next, not a block's step at a time.
+// The placed light on a face, at `at` on it, looking along `facing`: the air in front of the face. A face takes
+// its cell's light whole, so the light falls away a block's step at a time, hard-edged [David 2026-11-09, on build
+// 95's blend: "the smooth light looks ok. but i just love the quantized per block lighting with the hard edges";
+// `decisions.md`: "very clear steps in brightness"]. Or, chosen, blended between the four cells nearest across the
+// face (as the old renderer kept light at each face's corners), falling away smoothly.
 fn placed_light_on(at: vec3<f32>, facing: vec3<f32>) -> vec3<f32> {
     if (camera.glow.x < 0.5) {
         return vec3<f32>(0.0);
+    }
+    if (camera.glow.w < 0.5) {
+        return placed_light(vec3<i32>(floor(at + facing * 0.5)));
     }
     let along = abs(round(facing)) > vec3<f32>(0.5);
     // The middle of the layer of air in front of the face, and across it, the cells' middles round the point.

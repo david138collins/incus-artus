@@ -531,6 +531,7 @@ impl Runner {
                     placed_lights: kept.sight_placed_lights(),
                     flicker: kept.sight_flicker(),
                     flicker_time: started().elapsed().as_secs_f32() * kept.sight_flicker_speed(),
+                    smooth_light: kept.sight_smooth_light(),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
                 // disk, a block's data): once at the start, then seldom.

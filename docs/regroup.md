@@ -1243,6 +1243,11 @@ lamps, lights at cave mouths), and day and night.
   `march.wgsl`), which no fade between layers reaches.
   **David on 96** (2026-11-09): "i was able to fix the seam with the new sliders." A fade between layers, then, and
   the strips done enough to go on.
+- **Build 97: placed light in steps** [David 2026-11-09, on 95's blend: "the smooth light looks ok. but i just love
+  the quantized per block lighting with the hard edges"; as `decisions.md` had it: "very clear steps in
+  brightness"]. A face takes the light of the air cell in front of it whole: a block's step at a time, hard-edged.
+  The blend across faces stays as a choice on the Render page ("blended across faces", off; `placed_light_smooth`).
+  Models are lit from their cells as before. Suite 415.
   - **Not yet (95):** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
     (radius 4, 64 blocks: a brazier farther off is neither lit nor drawn); sun shadows on and from objects; fog on
     objects (they're near).
