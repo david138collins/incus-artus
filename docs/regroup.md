@@ -1370,6 +1370,14 @@ lamps, lights at cave mouths), and day and night.
     does; light through water isn't tinted by it; the flood on a chunk change floods every light again (now the far
     ones too: the dyno's "the lights' flood on chunk changes").
 
+- **The dyno begins** (2026-11-09). The plan, the save point (tag `before-dyno`, the USB backup), David's mark
+  ("a stable 237fps with current settings", in tiers) and the instruments are in `docs/dyno.md`. The test world,
+  `worlds/nice25 test` [David: "can you render nice25 as our test map, so when we add features for experiments and
+  so forth its persistent?"], is nice25 saved with its whole bake; `INCUS_LOAD_WORLD` starts the game in a saved
+  world, its bake read back (the first read-back of a whole bake ran the card out of memory: 5,184 regions put at
+  once; now 32 a frame). **The baseline at build 101:** baked, 5.5 ms median (180 fps), 16.3 at the 95th, 21.3 at the
+  99th; baking, 10.0 ms (100 fps), 29 and 33. Leg by leg, and what it means, in `docs/dyno.md`.
+
 ### Phase 6: everything else, each with its price  [loose]
 
 The real look of water (a flat colour since phase 3.6) and glass, pieces and bars, models (drawn as meshes into the same picture: the hybrid), people and figures (drawn, one instanced pass), and the 800-figure stand-in battle if David puts it in the bar. Sized when we get there.

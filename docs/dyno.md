@@ -81,6 +81,55 @@ So the dyno's **first job is a new baseline at build 101**, on the new fixed fli
 - the mouse's input-to-photon time;
 - the bake's rate, on the baking runs.
 
+### The baseline at build 101 (2026-11-09)
+
+The dyno's flight on `nice25 test`, David's settings (`presets/*/dyno.toml`), his screen's own 2,560 × 1,600,
+uncapped, two laps a flight; Edge (music), Aseprite, Discord and Steam running beside it. Frame times in ms (the
+median, then the 95th and 99th percentiles); "card" is sight on the card (the median, then the 95th).
+
+**Baked** (two flights, `logs/dyno-1794249218.txt` and `dyno-1794249400.txt`):
+
+| | Frame median | 95th | 99th | Card median | Card 95th |
+|---|---|---|---|---|---|
+| **Whole flight** | **5.51 / 5.59 (182 / 179 fps)** | 16.28 / 16.29 | 21.31 / 21.26 | 4.81 / 4.85 | 14.78 / 14.79 |
+| Over the land | 11.66 / 11.57 (86 fps) | 16.7 | 18.4 | 10.49 / 10.42 | 14.7 |
+| Round the peak | 3.81 / 3.85 (261 fps) | 18.1 / 18.3 | 22.9 / 23.1 | 1.51 / 1.53 | 16.7 |
+| Out to sea | 9.06 / 9.09 (110 fps) | 16.9 | 22.2 / 21.5 | 8.24 / 8.24 | 15.3 |
+| Quick | 3.33 / 3.56 (290 fps) | 8.9 | 12.2 | 1.22 / 1.25 | 7.5 |
+| Home | 7.28 / 7.48 (135 fps) | 12.4 | 15.4 | 6.11 / 6.15 | 10.9 |
+
+- **Flight to flight:** within 1 to 3% (the quick leg 7%). The dyno is steady enough to see a few percent.
+- **Where the card's time goes:** over the land and the sea, the coarse layers (8 × 8 and 4 × 4) take about 2.6 to
+  2.8 ms each, and over the land the 2 × 2 layer about 4.
+- **The processor's floor:** where the card is light (round the peak, quick), the frame is still about 2 ms more
+  than the card's work: about 2 ms a frame on the processor's side.
+- **Uneven:** even the cheap legs have a 95th percentile of 16 to 18 ms.
+
+**Baking** (a fresh bake of nice25, two laps from the start, `logs/dyno-1794249904.txt`; the start's 729 regions
+done in 119 s, at the end of the flight):
+
+| | Frame median | 95th | 99th | Card median | Card 95th |
+|---|---|---|---|---|---|
+| **Whole flight** | **10.00 (100 fps)** | 29.07 | 33.41 | 4.52 | 15.76 |
+| Over the land | 20.47 (49 fps) | 29.7 | 33.5 | 10.29 | 17.0 |
+| Round the peak | 7.92 (126 fps) | 33.3 | 33.7 | 2.95 | 21.0 |
+| Out to sea | 17.84 (56 fps) | 28.9 | 32.1 | 8.73 | 15.9 |
+| Quick | 5.79 (173 fps) | 16.4 | 24.8 | 1.12 | 7.9 |
+| Home | 10.83 (92 fps) | 15.7 | 16.5 | 5.18 | 9.6 |
+
+- **The creaking, measured:** while the bake runs, the frame takes about twice sight's own work on the card: the
+  bake's card work is the rest (it has about half the card while it runs, build 84). The frame rate halves, and
+  the 99th percentile goes from 21 to 33 ms.
+- **A saved world** loads with its bake whole (about 25 s from launch to drawn, the bake on the card in moments),
+  so playing one is the baked case: about 180 fps, not 100.
+
+**Heat:** the GPU 69 to 76 °C at 2.7 to 2.8 GHz all through (not slowed by its heat); the CPU area's reading
+swings between about 70 and 104 °C.
+
+**Against the mark** (David's tiers, baked): the median at 180 fps against the aim of 237 (a third faster wanted);
+the 99th percentile at 21 ms (47 fps) against "fine" at about 180 fps (5.5 ms: four times); the floor, a stable
+120, not met at the 99th either. The worst frames are the gap.
+
 ### How each step is judged
 
 - **One step a build, each measured alone,** on the same fixed flight, before and after. The runs alternate
@@ -257,11 +306,13 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
   card's own timestamps), as medians, 95th and 99th percentiles; the GPU's temperature and clock and the CPU area's
   temperature every 5 seconds. Written to `logs/dyno-<time>.txt` and the log; the game quits after.
 
-- [~] A wider fixed flight that takes in sea, mountains and a cave mouth, measured baked and baking separately.
-      Built; not flown yet.
-- [ ] A performance gate: every dyno build flies the same route, with its numbers kept in `regroup.md`.
-- [~] A card timer on each pass (start, each layer, glows, upscale, objects), not one for all of sight. Built.
-- [~] The heat watch: the GPU's temperature and clock, the CPU area's temperature, on every flight. Built.
+- [x] A wider fixed flight that takes in sea, mountains and a cave mouth, measured baked and baking separately.
+      Flown (the baseline above). No cave mouth yet: the test world has no caves (caves are test caves placed by
+      hand); some placed in `nice25 test` would join the route (its bake made again once, saved again by itself).
+- [x] A performance gate: every dyno build flies the same route, with its numbers kept in `regroup.md`.
+- [x] A card timer on each pass (start, each layer, glows, upscale, objects), not one for all of sight.
+- [x] The heat watch: the GPU's temperature and clock, the CPU area's temperature, on every flight (and the
+      agreed cutoff: 105 °C on the CPU area twice running stops the flight).
 - [ ] An input-to-photon gate: the mouse stays near build 67's 1.05 ms (uncapped).
 - [ ] Nsight: card time per pass, stall reasons (memory against divergence), and occupancy.
 - [ ] A slowest-ray view: each tile's slowest ray against its average, built from the steps view (`reach.z`).
@@ -352,7 +403,9 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
 
 ## 5. The first impression
 
-- [ ] The bake's share of the card revisited (build 84 traded frame rate for bake speed).
+- [ ] The bake's share of the card revisited (build 84 traded frame rate for bake speed). Measured at the
+      baseline: while it runs, the frame rate halves (100 fps median against 180) and the 99th percentile goes from
+      21 to 33 ms. A saved world doesn't bake: playing one is the baked case.
 - [ ] The bake hidden in the opening (docs/vision.md, The opening): the world forming before your eyes, and the
       first morning's fog following the bake.
 
