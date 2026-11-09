@@ -1089,6 +1089,25 @@ top, lights at cave mouths at night among them (the firm rule).
 Sun, shadows and sky light come with phase 3.4, through the cache. Left here: placed lights in the cells (torches,
 lamps, lights at cave mouths), and day and night.
 - **Builder:** 1 to 2 sessions. **David:** 1 to 2 looks. 1 test window.
+- **Begun 2026-11-09** [David: "lets begin with light."]. The steps, a build each, talked through with him: (1)
+  darkness, so there's a night for lights to show in; (2) placed lights as `caves.md` §11 decided (flooded through
+  the air on the processor, coloured, reach up to 15, the brighter of two per colour, stopped by walls, flickering in
+  the shader; the card keeping the lit air cells, a face taking the light of the air in front of it); then objects
+  drawn in sight (the brazier's model and flame: the march keeping a depth picture, models drawn into it); (3) the
+  carried light (a 32-block cube round the player, flooded again each block moved). Later, on file: lights seen from
+  far off. Objects wait without harm [David: "its ok, we can proceed without it, as long as it shouldn't be a
+  problem when we need to"]: they're placed, saved and collided with already, and a light comes from its object's
+  data, not its model.
+  **Build 92, darkness**: the Render page's sun goes under the horizon (to 30° under; it stopped at 5° up), and a
+  new slider, night light (0.04 unless chosen: what's left of the sky's light with the sun well down). The sun's
+  own light is full from 4° up and gone 2° under (its disc behind the horizon), with no shadow rays once it's gone;
+  the sky's light and the sky's own brightness fade from 4° up to 18° under (the dusk's first part bright, its last
+  dim), down to night's light; the sky darkens to a blue night (its day colours times night's light, bluer), with a
+  dusk glow low on the sun's side while the sun is near the horizon; fog fades to the same night sky, and water is
+  lit like the land. Caves keep only the sky light they see, so at night they're black. The World Compiler's
+  pictures keep their sun at 5° up or more. From 5° up the land looks as it did, but for a faint dusk glow on the
+  horizon under a sun 5° to 10° up. Tests: `the_light_goes_with_the_sun` and `sight_s_night_is_dark` (the plain 74 by
+  day, 8 at night, 0 with no night light; the sky 179 to 22). Suite 399.
 
 ### Phase 6: everything else, each with its price  [loose]
 

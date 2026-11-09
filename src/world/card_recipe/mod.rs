@@ -1331,6 +1331,49 @@ fn ground(c: Case) -> i32 {
         assert!((light(blue) - light(white)).abs() < light(white) * 0.1, "tinted, not much darker or brighter");
     }
 
+    /// Sight's darkness (David 2026-11-09, before lights): with the sun 5° up the plain is lit as it always was;
+    /// with it 30° under the horizon, the plain and the sky go to night's light (a twenty-fifth of the day's sky
+    /// light: very dark), and with no night light, black.
+    #[test]
+    #[ignore]
+    fn sight_s_night_is_dark() {
+        let Some((device, queue, store, _map)) = sight_scene(64.0, |_| 150.0) else {
+            eprintln!("No graphics card: sight's night test is skipped");
+            return;
+        };
+        let size = (320, 200);
+        let sun = |degrees: f32| {
+            let up = degrees.to_radians();
+            [up.cos() * -0.6, up.cos() * 0.8, up.sin()]
+        };
+        // The middle pixel looking 30° down at the plain, and one looking 30° up at the sky.
+        let middle = |pitch: f32, height: f32, night_light: f32| {
+            let pitch = pitch.to_radians();
+            let eye = crate::sight::draw::Eye {
+                position: [0.0, 0.0, 250.0],
+                looking: [pitch.cos(), 0.0, pitch.sin()],
+                field_of_view: 60.0,
+                grid: 2.0,
+                coarsest: 8,
+                sun: sun(height),
+                night_light,
+                shadows: true,
+                fog: false,
+                ..Default::default()
+            };
+            let picture = sight_picture(&device, &queue, &store, size, eye);
+            let p = picture[(size.1 / 2 * size.0 + size.0 / 2) as usize];
+            p[0] as f32 * 0.2 + p[1] as f32 * 0.7 + p[2] as f32 * 0.1
+        };
+        let (day, night, black) = (middle(-30.0, 5.0, 0.04), middle(-30.0, -30.0, 0.04), middle(-30.0, -30.0, 0.0));
+        let (sky_day, sky_night) = (middle(30.0, 5.0, 0.04), middle(30.0, -30.0, 0.04));
+        eprintln!("Sight's night: the plain {day:.1} by day, {night:.1} at night, {black:.1} with no night light; the sky {sky_day:.1} → {sky_night:.1}");
+        assert!(day > 40.0, "by day the plain is lit ({day:.1})");
+        assert!(night < day * 0.3 && night < 40.0, "at night it's dark ({day:.1} → {night:.1})");
+        assert!(black <= 1.0, "with no night light, black ({black:.1})");
+        assert!(sky_night < sky_day * 0.3, "the sky dark too ({sky_day:.1} → {sky_night:.1})");
+    }
+
     /// Sight's block textures (3.6): up close the near faces wear their texture (here a checker of red and blue
     /// squares, four texels a side), and as a face shrinks towards a pixel it takes the texture's shrunk versions,
     /// so a face far off is the texture shrunk to one texel: the colour the cells past it are made of (a flat

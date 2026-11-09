@@ -52,6 +52,10 @@ struct Camera {
     fog: vec4<f32>,
     // Block textures (3.6): x 1 for them on, y how sharp (a shift in the shrunk versions taken).
     textures: vec4<f32>,
+    // The time of day (David 2026-11-09, darkness before lights): x the sun's own light (0 to 1: gone with it
+    // under the horizon), y the sky's light (night's at the least), z the sky's own brightness (0 night, 1 day),
+    // w night's light.
+    daylight: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -297,11 +301,31 @@ fn mix_looks(a: Look, b: Look, w: f32) -> Look {
 }
 
 const HORIZON: vec3<f32> = vec3<f32>(0.62, 0.72, 0.86);
+const ZENITH: vec3<f32> = vec3<f32>(0.16, 0.32, 0.66);
+// Night's sky as a share of the day's, at night's light 1 (bluer: the land under starlight looks blue, not grey).
+const NIGHT_SKY: vec3<f32> = vec3<f32>(0.35, 0.45, 0.8);
+// The dusk's glow low over the horizon where the sun went down.
+const DUSK: vec3<f32> = vec3<f32>(1.0, 0.45, 0.18);
+
+// The sky's day colour seen along `d`, darkened through the dusk to night's (its brightness `camera.daylight.z`),
+// and the dusk's glow where the sun went down, while it's near the horizon.
+fn sky_tone(day: vec3<f32>, d: vec3<f32>) -> vec3<f32> {
+    let night = day * NIGHT_SKY * camera.daylight.w;
+    var colour = mix(night, day, camera.daylight.z);
+    // The dusk: strongest with the sun just under the horizon, low in the sky on its side.
+    let height = asin(clamp(camera.sun.z, -1.0, 1.0)) * 57.29578;
+    let dusk = exp(-pow((height + 2.0) / 4.0, 2.0));
+    let flat_sun = normalize(vec3<f32>(camera.sun.xy, 0.0) + vec3<f32>(1e-6, 0.0, 0.0));
+    let flat_d = normalize(vec3<f32>(d.xy, 0.0) + vec3<f32>(1e-6, 0.0, 0.0));
+    let towards = pow(max(dot(flat_d, flat_sun), 0.0), 3.0);
+    let low = pow(1.0 - clamp(abs(d.z), 0.0, 1.0), 6.0);
+    colour = mix(colour, DUSK * max(camera.daylight.z, 0.15), dusk * towards * low * 0.6);
+    return colour;
+}
 
 fn sky(d: vec3<f32>) -> vec3<f32> {
     let up = clamp(d.z, -0.2, 1.0);
-    let zenith = vec3<f32>(0.16, 0.32, 0.66);
-    return mix(HORIZON, zenith, pow(max(up, 0.0), 0.6));
+    return sky_tone(mix(HORIZON, ZENITH, pow(max(up, 0.0), 0.6)), d);
 }
 
 // ── Fog (3.4c, David 2026-11-08: "that sounds alright") ──
@@ -327,8 +351,8 @@ fn fogged(colour: vec3<f32>, d: vec3<f32>, t: f32) -> vec3<f32> {
         along = (1.0 - exp(-clamp(climb * t, -80.0, 80.0))) / climb;
     }
     let amount = 1.0 - exp(-at_eye * along);
-    let sunward = pow(max(dot(d, camera.sun.xyz), 0.0), 8.0) * camera.fog.w;
-    return mix(colour, mix(HORIZON, FOG_WARM, sunward), amount);
+    let sunward = pow(max(dot(d, camera.sun.xyz), 0.0), 8.0) * camera.fog.w * camera.daylight.x;
+    return mix(colour, sky_tone(mix(HORIZON, FOG_WARM, sunward), d), amount);
 }
 
 // The level a ray reads at distance `t`: its pixel's size there, in whole powers of two, never finer than
@@ -339,14 +363,15 @@ fn level_at(t: f32) -> i32 {
     return kept(clamp(level, header[2], header[1]));
 }
 
-// The light is kept in two parts (3.4b): the sky's, always there (`camera.sun.w` of a face's colour), and the
-// sun's, which a shadow takes away. `lit` is both; `sunlit` the sun's alone.
+// The light is kept in two parts (3.4b): the sky's, always there (`camera.sun.w` of a face's colour, by day), and
+// the sun's, which a shadow takes away. `lit` is both; `sunlit` the sun's alone. Each as bright as the time of day
+// has it: the sun's gone with it under the horizon, the sky's down to night's light.
 fn lit(colour: vec3<f32>, light: f32) -> vec3<f32> {
-    return colour * (camera.sun.w + (1.0 - camera.sun.w) * light);
+    return colour * (camera.sun.w * camera.daylight.y + (1.0 - camera.sun.w) * camera.daylight.x * light);
 }
 
 fn sunlit(colour: vec3<f32>, light: f32) -> vec3<f32> {
-    return colour * (1.0 - camera.sun.w) * light;
+    return colour * (1.0 - camera.sun.w) * camera.daylight.x * light;
 }
 
 // How much sun a face gets by its facing.
@@ -805,7 +830,7 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
         // Water's surface: mostly covered, the rest seen through it.
         if (look.water >= 0.5) {
             if (!in_water) {
-                out.colour += out.through * 0.85 * WATER_COLOUR;
+                out.colour += out.through * 0.85 * lit(WATER_COLOUR, 1.0);
                 out.sunny += out.through * 0.85 * sunlit(WATER_COLOUR, 1.0);
                 if (out.through > 0.5) {
                     out.first = t;
@@ -1127,7 +1152,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
                 let ground = (lit(before.colour, light_before) * before.solid + lit(look.colour, light_now) * look.solid) / solids;
                 let ground_sun = (sunlit(before.colour, light_before) * before.solid + sunlit(look.colour, light_now) * look.solid) / solids;
                 let both = max(solid + water, 1e-6);
-                let here = (ground * solid + water_colour * water) / both;
+                let here = (ground * solid + lit(water_colour, 1.0) * water) / both;
                 let here_sun = (ground_sun * solid + sunlit(water_colour, 1.0) * water) / both;
                 colour += through * covered * here;
                 sunny += through * covered * here_sun;

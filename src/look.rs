@@ -203,9 +203,15 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.add(egui::Slider::new(&mut from, 0.0..=360.0).step_by(1.0).suffix("°").text("from (0 north, 90 east, 180 south, 270 west)")).changed() {
         kept.light.set_number("sun_from", from);
     }
-    let mut height = kept.light.number("sun_height", 40.0).clamp(5.0, 90.0);
-    if ui.add(egui::Slider::new(&mut height, 5.0..=90.0).step_by(1.0).suffix("°").text("height over the horizon")).changed() {
+    // Under the horizon for night [David 2026-11-09: darkness first, "yes"]: the sun's light gone 2° under, the sky's
+    // dusk over by 18° under, leaving night's light.
+    let mut height = kept.light.number("sun_height", 40.0).clamp(-30.0, 90.0);
+    if ui.add(egui::Slider::new(&mut height, -30.0..=90.0).step_by(1.0).suffix("°").text("height over the horizon (under 0: dusk, then night)")).changed() {
         kept.light.set_number("sun_height", height);
+    }
+    let mut night = kept.sight_night_light();
+    if ui.add(egui::Slider::new(&mut night, 0.0..=0.5).step_by(0.005).text("night light (what's left of the sky's light, the sun well down)")).changed() {
+        kept.render.set_number("sight_night_light", night);
     }
     let mut shadows = kept.sight_shadows();
     if ui.checkbox(&mut shadows, "Shadows").changed() {
@@ -227,7 +233,7 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.add(egui::Slider::new(&mut tint, 0.0..=1.0).step_by(0.01).text("the sky's tint (0 white, 1 sky blue)")).changed() {
         kept.render.set_number("sight_sky_tint", tint);
     }
-    ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun (not its shadows or sky light).");
+    ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun (not its shadows or sky light), never lower than 5°.");
     // Fog (3.4c) [David 2026-10-28: fog out to about 2 miles; 2026-11-08: "that sounds alright"].
     ui.separator();
     ui.strong("Fog");
@@ -443,6 +449,11 @@ impl KeptSettings {
         self.render.number("sight_sky_tint", crate::sight::draw::SKY_TINT)
     }
 
+    /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).
+    pub fn sight_night_light(&self) -> f32 {
+        self.render.number("sight_night_light", crate::sight::draw::NIGHT_LIGHT)
+    }
+
     /// Block textures on the near faces (3.6): on unless chosen; how sharp (a shift in the shrunk versions taken:
     /// above 0 crisper, below smoother; 0 unless chosen).
     pub fn sight_textures(&self) -> bool {
@@ -483,10 +494,20 @@ impl KeptSettings {
         self.distant.number("finest_cell", 16.0)
     }
 
-    /// Where the sun is, in game axes (from its compass direction and height).
+    /// Where the sun is, in game axes (from its compass direction and height), for the World Compiler's
+    /// pictures: never lower than 5° (they're for seeing the land's shape, night or not).
     pub fn sun(&self) -> Vec3 {
+        self.sun_at(self.light.number("sun_height", 40.0).clamp(5.0, 90.0))
+    }
+
+    /// Where the sun is for sight: as the Render page has it, under the horizon at night.
+    pub fn sight_sun(&self) -> Vec3 {
+        self.sun_at(self.light.number("sun_height", 40.0).clamp(-30.0, 90.0))
+    }
+
+    fn sun_at(&self, height: f32) -> Vec3 {
         let from = self.light.number("sun_from", 315.0).to_radians();
-        let up = self.light.number("sun_height", 40.0).clamp(5.0, 90.0).to_radians();
+        let up = height.to_radians();
         Vec3::new(up.cos() * from.cos(), up.cos() * from.sin(), up.sin())
     }
 }

@@ -33,9 +33,12 @@ pub struct Eye {
     pub rays: u32,
     pub upscale: u32,
     pub earned: bool,
-    /// Towards the sun (game axes, a whole way long): the Render page's sun, the one the World Compiler's
-    /// pictures are lit by too (`KeptSettings::sun`).
+    /// Towards the sun (game axes, a whole way long): the Render page's sun (`KeptSettings::sight_sun`), below
+    /// the horizon at night (the World Compiler's pictures keep theirs over it).
     pub sun: [f32; 3],
+    /// What light is left when the sun is well down (0 to 1 of the sky's by day: starlight, moonlight) [David
+    /// 2026-11-09, darkness before lights; "Light is precious": nights very dark].
+    pub night_light: f32,
     /// Sun shadows (3.4b; the Render page's switch).
     pub shadows: bool,
     /// Sky light (3.4b): on or off, its strength (0 to 1: how dark a place seeing no sky goes), and its tint (0
@@ -72,6 +75,7 @@ impl Default for Eye {
             upscale: 0,
             earned: true,
             sun: NOON,
+            night_light: NIGHT_LIGHT,
             shadows: true,
             sky: true,
             sky_strength: SKY_STRENGTH,
@@ -128,6 +132,24 @@ const SHADOW_SPREAD: f32 = 0.04;
 /// The first sight's noon sun, high in the south, a little east ("a fixed noon sun"): the tests' sun.
 pub const NOON: [f32; 3] = [-0.35, 0.2, 0.91];
 const AMBIENT: f32 = 0.35;
+
+/// Night's light by default: a twenty-fifth of the sky's by day, so a night is very dark but the land's shape
+/// still shows where it sees the sky (and none where it doesn't: caves pitch black).
+pub const NIGHT_LIGHT: f32 = 0.04;
+
+/// The light by the sun's height (`sun_up`: the sine of its height over the horizon): how strong its own light
+/// is (full from 4° up, gone 2° under, as its disc sinks behind the horizon), and how bright the sky is (full from
+/// 4° up, fading through the dusk to nothing 18° under, when the last of the glow has gone: a dusk's first part
+/// bright, its last dim).
+pub fn daylight(sun_up: f32) -> (f32, f32) {
+    let height = sun_up.clamp(-1.0, 1.0).asin().to_degrees();
+    let smooth = |from: f32, to: f32| {
+        let k = ((height - from) / (to - from)).clamp(0.0, 1.0);
+        k * k * (3.0 - 2.0 * k)
+    };
+    let glow = smooth(-18.0, 4.0);
+    (smooth(-2.0, 4.0), glow * glow)
+}
 /// The start pass's tile, and the pyramid's base: screen pixels a side.
 const TILE: u32 = 8;
 /// The farthest a ray goes (blocks): past any map's far corner from anywhere in it.
@@ -384,6 +406,9 @@ impl SightDraw {
         let live_reach = store.reach(store.finest_live);
         let screen_pixel = 2.0 * tan_half / screen.1.max(1) as f32;
         let targets = self.targets.as_ref().expect("made above");
+        // The time of day (the sun's height): its own light and the sky's; with the sun down, no shadow rays.
+        let (direct, glow) = daylight(normalise(eye.sun)[2]);
+        let night = eye.night_light.clamp(0.0, 1.0);
         for (k, layer) in targets.layers.iter().enumerate() {
             let pixel = 2.0 * tan_half / layer.size.1 as f32;
             let above_width = if k == 0 { 0.0 } else { targets.layers[k - 1].size.0 as f32 };
@@ -412,7 +437,7 @@ impl SightDraw {
                 [above_width, below, if eye.earned { 1.0 } else { 0.0 }, live_reach],
                 // Each finer ray from short of its parent's nearest touch (`INCUS_SIGHT_NO_FOLLOW` leaves it out);
                 // sun shadows (`INCUS_SIGHT_NO_SHADOWS` leaves them out, for measuring), and their widening.
-                [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
+                [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
                 // The pyramid's steps: this layer to the one above, the one below to this, and where the one below
                 // fades out among the blocks (shares of their reach).
                 [to_above, to_child, fade[0].min(fade[1]), fade[1]],
@@ -431,6 +456,9 @@ impl SightDraw {
                 ],
                 // Block textures (3.6; `INCUS_SIGHT_NO_TEXTURES` leaves them out, for measuring): on, and how sharp.
                 [if eye.textures && !no_textures { 1.0 } else { 0.0 }, eye.texture_sharpness.clamp(-4.0, 4.0), 0.0, 0.0],
+                // The time of day: the sun's own light, the sky's light (night's at the least), the sky's
+                // brightness, and night's light.
+                [direct, night + (1.0 - night) * glow, glow, night],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -513,7 +541,7 @@ pub fn factors(eye: Eye) -> Vec<f32> {
 }
 
 /// The camera numbers' rows (`Camera` in `march.wgsl`).
-const CAMERA_ROWS: usize = 15;
+const CAMERA_ROWS: usize = 16;
 
 /// What the card took on sight's last frames (milliseconds, smoothed), if it can time itself: the Render page's.
 static CARD_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -619,5 +647,29 @@ mod tests {
         assert_eq!(layers(1, 1.0, true), vec![1.0], "1 × 1 everywhere: nothing between");
         assert_eq!(layers(2, 8.0, false), vec![2.0], "the finest never coarser than the coarsest");
         assert_eq!(layers(8, 1.5, true), vec![8.0, 4.0, 2.0, 1.5], "between only means anything with 1 × 1");
+    }
+
+    /// The time of day: a sun 4° up or higher lights as it always has (the presets' suns from 5° up look as they
+    /// did); at the horizon the sun's light is going and the sky's dimming; 18° under, both gone.
+    #[test]
+    fn the_light_goes_with_the_sun() {
+        let at = |degrees: f32| daylight(degrees.to_radians().sin());
+        assert_eq!(at(5.0), (1.0, 1.0));
+        assert_eq!(at(90.0), (1.0, 1.0));
+        let (direct, glow) = at(0.0);
+        assert!(direct > 0.2 && direct < 0.6, "the sun half down behind the horizon: {direct}");
+        assert!(glow > 0.5 && glow < 0.9, "the sky still bright at sunset: {glow}");
+        let (direct, glow) = at(-6.0);
+        assert_eq!(direct, 0.0, "the sun's own light gone");
+        assert!(glow > 0.1 && glow < 0.5, "the dusk dimming: {glow}");
+        assert_eq!(at(-18.0), (0.0, 0.0));
+        assert_eq!(at(-30.0), (0.0, 0.0));
+        // Steady as the sun sinks.
+        let mut last = at(10.0);
+        for k in 0..80 {
+            let now = at(10.0 - k as f32 * 0.5);
+            assert!(now.0 <= last.0 && now.1 <= last.1, "never brighter as it sinks");
+            last = now;
+        }
     }
 }
