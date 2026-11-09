@@ -1850,6 +1850,59 @@ fn ground(c: Case) -> i32 {
         assert!(high < far * 0.6, "higher up, the air clearer ({high:.2} against {far:.2})");
     }
 
+    /// A far ridge against the sky has no bright rim (David on build 98: "the way the mountains make a brighter
+    /// outline against the sky where their haze ends, is there a way we can tighten that up"): down a column of
+    /// the picture from the sky onto a hazed ridge, no pixel stands brighter than both the sky a little above it and
+    /// the ridge a little below.
+    #[test]
+    #[ignore]
+    fn sight_s_far_ridge_has_no_bright_rim() {
+        // A plain at 140; ridges at 330 running east to west, 1,000 to 1,250 off either way north and south.
+        let Some((device, queue, store, _map)) = sight_scene_map(64.0, |_, row| if (8..12).contains(&row) || (36..40).contains(&row) { 330.0 } else { 140.0 }, None) else {
+            eprintln!("No graphics card: sight's skyline test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let size = (320, 200);
+        let pitch = (2.0f32).to_radians();
+        let eye = crate::sight::draw::Eye {
+            position: [0.0, 0.0, 260.0],
+            looking: [pitch.cos(), 0.0, pitch.sin()],
+            field_of_view: 40.0,
+            grid: 2.0,
+            coarsest: 8,
+            shadows: false,
+            sky: false,
+            fog: true,
+            fog_reach: 1600.0,
+            fog_height: 200.0,
+            fog_warmth: 0.0,
+            ..Default::default()
+        };
+        let picture = sight_picture(&device, &queue, &store, size, eye);
+        if let Some(dir) = &probe {
+            write_picture(&dir.join("far_ridge.png"), size, &picture);
+        }
+        let linear = |c: u8| {
+            let c = c as f32 / 255.0;
+            if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+        };
+        let light = |p: [u8; 3]| linear(p[0]) * 0.2 + linear(p[1]) * 0.7 + linear(p[2]) * 0.1;
+        let mut worst = 0.0f32;
+        for x in [80u32, 160, 240] {
+            let column: Vec<f32> = (0..size.1).map(|y| light(picture[(y * size.0 + x) as usize])).collect();
+            // Where the ridge starts: the first pixel down the column clearly off the sky's smooth fall.
+            eprintln!("Sight's skyline, column {x}: {:?}", (0..size.1).step_by(8).map(|y| picture[(y * size.0 + x) as usize]).collect::<Vec<_>>());
+            let k = 8;
+            for y in k..size.1 as usize - k {
+                let bump = column[y] - column[y - k].max(column[y + k]);
+                worst = worst.max(bump);
+            }
+        }
+        eprintln!("Sight's skyline: the brightest bump over both sky and ridge {worst:.4}");
+        assert!(worst < 0.01, "no bright rim where the ridge meets the sky ({worst:.4})");
+    }
+
     /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up
     /// looking 12° down (the soak's view), read from the steps view's colours.
     #[test]

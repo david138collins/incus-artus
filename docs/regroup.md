@@ -1304,6 +1304,22 @@ lamps, lights at cave mouths), and day and night.
     distance, fading into the fog.
   - **The wash:** the light a brazier throws on the ground around it carries on past the loaded chunks, averaged
     down into the coarse cells: a couple of brighter, greener coarse pixels for a while past that.
+- **David's look at 98:** "it looks good, but there's one thing that bothers me... the way the mountains make a
+  brighter outline against the sky where their haze ends, is there a way we can tighten that up, especially if we're
+  going to be seperating screen tiles into lean types we'll have to pick where the sky starts and mountain ends
+  somewhere along that lining you see."
+- **Build 99: no pale rim on far skylines** (a flaw, from 86's fog). A ray that brushed a far peak's soft edge and
+  went on to the sky was fogged whole, to where it first touched: the sky it saw as well, turned to the horizon's pale
+  colour, paler than the sky up there and than the hazed peak, so a pale rim ran round every far skyline. Now only
+  what a ray met is fogged, as much of it as it met (the ray keeps how much went on to the sky); the sky behind stays
+  the sky, as the sky behind nothing always was. The edge is now a plain blend from hazed peak to sky: as soft as the
+  coarse cells it's read from, but with nothing paler than either side, so a tile sorted as sky or land has a clean
+  line to fall on.
+  - **Test:** `sight_s_far_ridge_has_no_bright_rim` (a ridge 330 high, 1,000 off, hazed; down three columns, no pixel
+    brighter than both the sky 8 above and the ridge 8 below): 0.050 brighter before (light, 0 to 1), 0.007 after.
+  - **On file:** a far peak hazed most of the way is paler than the sky behind it, since the fog's colour is the
+    horizon's at every height and the sky is bluer higher up. That's 86's look ("far mountains melt into the sky"),
+    and David's to change if he wants peaks to melt into the sky behind them instead. Suite 417.
 
 ### Phase 6: everything else, each with its price  [loose]
 

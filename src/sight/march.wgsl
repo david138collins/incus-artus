@@ -986,6 +986,8 @@ struct Seen {
     // The placed light on the face met, and what it gave (`Hard`'s): added after the shadow and sky light.
     glow_light: vec3<f32>,
     glow: vec3<f32>,
+    // How much of it went on to the sky (the sky's colour in `colour` that much): the sky behind isn't fogged.
+    sky_share: f32,
 }
 
 // A ray's colour with its shadow and its sky light (`open`: how much of the sky it sees, 0 to 1).
@@ -1082,7 +1084,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             steps = h.steps;
             if (h.met) {
                 // The face met: its shadow from the blocks themselves first.
-                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, h.colour - h.sunny, min(h.first, h.t), h.face_share, h.glow_light, h.glow);
+                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, h.colour - h.sunny, min(h.first, h.t), h.face_share, h.glow_light, h.glow, 0.0);
             }
             colour = h.colour;
             sunny = h.sunny;
@@ -1332,7 +1334,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
         wide = max(first * camera.view.z, read);
     }
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched, 0.0, vec3<f32>(0.0), vec3<f32>(0.0));
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched, 0.0, vec3<f32>(0.0), vec3<f32>(0.0), through);
 }
 
 // ── Sun shadows (3.4b, David 2026-11-08: "proceed") ──
@@ -1661,7 +1663,11 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
                 handed = sky_word(kind, open);
             }
         }
-        // Through the fog to where it first met anything (the sky behind nothing isn't fogged: it's the sky).
+        // Through the fog to where it first met anything (the sky behind nothing isn't fogged: it's the sky). Only
+        // what it met is fogged, as much of it as it met; the sky it went on to past a soft edge stays the sky
+        // [David on 98: "the way the mountains make a brighter outline against the sky where their haze ends": a ray
+        // that brushed a far peak's soft edge and went on had all of it fogged to the horizon's pale colour, the sky
+        // it saw too, paler than the sky up there and than the hazed peak: a pale rim round every far skyline].
         var here = seen.colour;
         if (!hidden) {
             here = shaded(seen, open);
@@ -1670,7 +1676,9 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         here += seen.glow;
         let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
         if (met < camera.reach.x) {
-            here = fogged(here, d, met);
+            let behind = seen.sky_share * sky(d);
+            let covered = max(1.0 - seen.sky_share, 1e-4);
+            here = behind + fogged((here - behind) / covered, d, met) * covered;
         }
         colour += here;
         near = min(near, seen.distance);
