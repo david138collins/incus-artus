@@ -1112,6 +1112,28 @@ lamps, lights at cave mouths), and day and night.
   it looks really good." (Night light 0.04 is the moonlit night; the slider goes to 0 for black.) Darkness done
   enough to go on. Then: "our performance levels are fk'd right now ... i think the 'ok now make it fast' part is
   happening today."
+- **The dyno's baseline** (2026-11-09, after build 92; David: "yes, please"). The low slow flight (`INCUS_SOAK=540`,
+  continuous, uncapped, 30 above the ground, 20 blocks a second, pitch -20), a fresh world each run, so each run
+  goes through the bake and past it; defaults, then David's `presets/render/test.toml` (8 × 8 and 4 × 4, tight
+  fades, shadows off), started with a new measuring switch `INCUS_START_PRESET=<category>/<name>` (a page starts
+  with that preset instead of its "default"; his files untouched). Every 10 s:
+
+  | | while baking | baked |
+  |---|---|---|
+  | defaults: frames a second | 38 to 43 (1% low 34 to 41) | 56 to 75 (1% low 40 to 53) |
+  | defaults: sight on the card | 11.5 to 14.4 ms | 12.1 to 16.6 ms |
+  | his preset: frames a second | 80 to 108 (1% low 67 to 95) | 197 to 262 (1% low 84 to 104) |
+  | his preset: sight on the card | 4.4 to 6.6 ms | 3.4 to 4.7 ms |
+  | the bake: the start's 729 regions / all 5,184 | defaults 108 s / 434 s; his 91 s / 359 s | |
+
+  What it says: (1) builds 88 to 92 cost nothing to see (sight while baking as at build 87, 11.1 to 14.2 ms);
+  (2) while baking, the frame is about twice sight's time: the bake's share (build 84) takes about half the card,
+  so a fresh world plays at about half speed for its first six or seven minutes, which is what David played 92 in;
+  (3) baked, the defaults' march itself is about 12 ms (finest 2 × 2, coarsest 4 × 4, shadows and sky light on),
+  at most about 80 frames a second however the rest is arranged; his preset's march is about a third of
+  that; (4) the ground matters: the defaults' last 30 s (new ground on the circle) went to 16 ms. The flight sees
+  only a fifth of its circle in 540 s, so both runs see the same ground and compare, but a later flight should
+  take in more kinds of land (sea, mountains, a cave mouth). Scratchpad `base92.sh`; logs kept there.
 
 ### Phase 6: everything else, each with its price  [loose]
 

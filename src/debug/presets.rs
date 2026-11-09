@@ -69,6 +69,18 @@ pub fn default_preset<T: DeserializeOwned>(category: &str) -> Option<T> {
     load(&preset_folder(category), DEFAULT).ok()
 }
 
+/// What a page starts with: its "default" preset, unless `INCUS_START_PRESET=<category>/<name>` names
+/// another for its category (for measuring: a soak flight with David's own settings, his files untouched).
+pub fn start_preset<T: DeserializeOwned>(category: &str) -> Option<T> {
+    if let Ok(wanted) = std::env::var("INCUS_START_PRESET")
+        && let Some((wanted_category, name)) = wanted.split_once('/')
+        && wanted_category == category
+    {
+        return load(&preset_folder(category), name).ok();
+    }
+    default_preset(category)
+}
+
 /// A small light that's on while `value` is exactly the category's "default" preset, and off once
 /// anything is changed (saving the changes as "default" lights it again). The preset is read again
 /// only when its file changes.

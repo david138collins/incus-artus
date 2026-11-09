@@ -181,11 +181,11 @@ pub fn page_default<T: DeserializeOwned + Default>(category: &str, group: &str) 
     super::default_preset::<toml::Table>(category).and_then(|table| table.get(group)?.clone().try_into().ok()).unwrap_or_default()
 }
 
-/// At start-up, every page with a "default" preset gets it.
+/// At start-up, every page with a "default" preset gets it (or the one `INCUS_START_PRESET` names).
 pub fn use_default_page_presets(world: &mut World) {
     world.resource_scope(|world, groups: Mut<SettingsGroups>| {
         for &(category, _) in &groups.pages {
-            if let Some(table) = super::default_preset::<toml::Table>(category) {
+            if let Some(table) = super::start_preset::<toml::Table>(category) {
                 load_page(world, &groups, category, &table);
             }
         }

@@ -27,7 +27,7 @@ mod presets;
 mod settings;
 mod slider;
 
-pub use presets::{default_light, default_preset, preset_bar, save_shortcut};
+pub use presets::{default_light, default_preset, preset_bar, save_shortcut, start_preset};
 pub use slider::Slider;
 pub use settings::{SettingsAppExt, page_default, page_presets};
 
