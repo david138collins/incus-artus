@@ -1241,6 +1241,8 @@ lamps, lights at cave mouths), and day and night.
   gone. His screenshot (a hard curved edge between blocks and blurry cells, at night) waits on his look with the
   sliders: it may be a layer's own change from blocks to cells (at a block a pixel of that layer, `blocks_end` in
   `march.wgsl`), which no fade between layers reaches.
+  **David on 96** (2026-11-09): "i was able to fix the seam with the new sliders." A fade between layers, then, and
+  the strips done enough to go on.
   - **Not yet (95):** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
     (radius 4, 64 blocks: a brazier farther off is neither lit nor drawn); sun shadows on and from objects; fog on
     objects (they're near).
