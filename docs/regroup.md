@@ -1182,6 +1182,10 @@ lamps, lights at cave mouths), and day and night.
   horizon, away from the peak, every pixel within 5 of the sky over it; 176 off under 93's rule). Measured (the
   low flight's first 130 s): sight 11.6 to 16.8 ms, 33 to 50 fps, about as 93: the cost is far ground drawn as
   ground, not the brushed rays. Suite 409.
+- **David on 94** (2026-11-09): "looks good. the circles are gone up close, and i don't even mind the circles i see
+  from the sky now. its fine, its just the lens. the glitch on the peaks is gone." The two flaws done enough to go
+  on. **On file**: from high up a faint circle still shows (the levels changing with distance, read as the lens);
+  his word is that it's fine, so it stays unless he raises it.
 
 ### Phase 6: everything else, each with its price  [loose]
 
