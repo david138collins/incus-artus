@@ -338,7 +338,25 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
       - strengthens spells or energy;
       - makes you much more likely to die in any fight;
       - is physically crippling, unless your skill at it is very high.
-      A real trade, for the dedicated.
+      A real trade, for the dedicated. David: "fasting to cast harder spells is a glass cannon."
+  - **[IDEA, David 2026-11-09] Cooking minigames, knives and butchery:** "i think adding almost cutesy cooking
+    minigames would be good as long as the reward is enough and that cooking can get faster with chef knives for
+    preparing ingredients faster, regular knives for skinning and quartering (i think the deer or boar would pop
+    apart without any more gore than the blood particles from killing it, and the pieces would stack in the
+    'every item is an inventory of like items' way, to be roasted (easy but hard to store) or butchered with a
+    butchers knife (more quickly) into proper meat (slices/steaks) (you get more out of it) which can be cooked in
+    more ways and stored more easily".
+    - **Cooking minigames:** almost cutesy, as long as the reward is worth it.
+    - **Knives by job:** a chef's knife prepares ingredients faster; a regular knife skins and quarters; a
+      butcher's knife butchers more quickly.
+    - **The carcass pops apart** into quarters (and hide and fat), with no gore beyond the blood particles from the
+      kill.
+    - **The pieces stack** as one slot of like items, as with blocks of every size ("One slot holds a material in
+      every size", under Building).
+    - **Two ways with a quarter:**
+      - **roasted whole:** easy, but hard to store;
+      - **butchered into proper meat** (slices, steaks): more meat from the same animal, more ways to cook it,
+        and easier to store.
 
 ## Life gauges: blood, stamina, energy  [IDEA]
 
