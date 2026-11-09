@@ -35,7 +35,9 @@ struct Camera {
     layer: vec4<f32>,
     // x: 1 if a refining layer's rays start a little short of the nearest touch round their parent pixel (0: from
     // the tile's start, for measuring). y: 1 for sun shadows (3.4b). z: how fast a shadow ray widens (blocks
-    // across a block of distance).
+    // across a block of distance). w: 1 if the near walk skips air by the finest column first (the dyno's first
+    // step; 0 the coarse levels only, as before, for measuring; 2 no skipping, every block walked: the truth, for
+    // the tests).
     follow: vec4<f32>,
     // The pyramid's steps (David 2026-11-08, 1.5 between 2 and 1, and the fades his to tune): x this layer's factor
     // over the one above's (0.5 halving, 0.75 for 1.5 under 2; 0 the base); y the one below's over this one's; z,
@@ -833,10 +835,58 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
             out.t = t1;
             return out;
         }
-        // Air over a coarser cell column's top (the bake's 64 and 32, then the live 16 and 8) is skipped whole,
-        // as in the march.
+        // Air over a coarser cell column's top is skipped whole, as in the march. From the finest column (2) up
+        // [the dyno, 2026-11-09: the coarse levels tried first, 64, 32, 16 and 8, a ray in the last 8 blocks over the
+        // ground walked block by block, four lookups at each block first; the blocks near the eye were 6.9 ms of the
+        // card's 11.1 over the land]: a column's top is never under those of the columns in it, so where the 2's
+        // reaches the ray none coarser can be under it (the block is walked, one lookup); over it, up the levels to
+        // the coarsest it's still over, and skipped by that one.
         var skipped = false;
-        for (var k = 0; k < 4 && !in_water; k++) {
+        if (camera.follow.w > 0.5 && camera.follow.w < 1.5 && !in_water) {
+            var best = -1;
+            var best_top = 0.0;
+            for (var up = 1; up <= 6; up++) {
+                if (up < header[0] && !is_kept(up)) {
+                    continue;
+                }
+                let size = f32(1 << u32(up));
+                let cc = floor(p.xy / size);
+                let entry = entry_at(up, i32(cc.x), i32(cc.y));
+                if (entry.y == NOT_BAKED) {
+                    continue;
+                }
+                let low = bitcast<i32>(entry.y << 16u) >> 16u;
+                let count = i32(entry.y >> 16u);
+                let top = f32(low + count) * size;
+                if (p.z <= top) {
+                    break;
+                }
+                best = up;
+                best_top = top;
+            }
+            if (best >= 0) {
+                let size = f32(1 << u32(best));
+                let cc = floor(p.xy / size);
+                var next = leave2(o.xy, d.xy, cc, size);
+                if (d.z < 0.0) {
+                    next = min(next, t + (best_top - p.z) / d.z);
+                }
+                if (next >= t1) {
+                    out.t = t1;
+                    return out;
+                }
+                if (next > t + 0.02) {
+                    // A little short of it, so the walk crosses into the next block itself (and knows by which face).
+                    t = next - 0.01;
+                    c = vec3<i32>(floor(o + d * t));
+                    ahead = faces_ahead(o, d, c);
+                    facing = -d;
+                    skipped = true;
+                }
+            }
+        }
+        // As before (the coarse levels, coarsest first): measuring against it.
+        for (var k = 0; k < 4 && !in_water && camera.follow.w < 0.5; k++) {
             let up = 6 - k;
             let size = f32(1 << u32(up));
             let cc = floor(p.xy / size);

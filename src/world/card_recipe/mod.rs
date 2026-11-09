@@ -1122,6 +1122,13 @@ fn ground(c: Case) -> i32 {
 
     /// The same, the ground's height by the map pixel's column (east) and row (north).
     fn sight_scene_map(blocks_per_pixel: f32, height: impl Fn(usize, usize) -> f32, near: Option<(i32, i32)>) -> Option<(wgpu::Device, wgpu::Queue, std::sync::Arc<crate::sight::card_store::CardStore>, crate::world::CompiledMap)> {
+        let live: &[usize] = if near.is_some() { &[0, 4] } else { &[4] };
+        sight_scene_levels(blocks_per_pixel, height, near, live, &[0])
+    }
+
+    /// The same, with the live levels `live` kept and those of them in `fill` made round `near` (as the game makes
+    /// them round the eye: the blocks, and the cells of 2, 4, 8 and 16).
+    fn sight_scene_levels(blocks_per_pixel: f32, height: impl Fn(usize, usize) -> f32, near: Option<(i32, i32)>, live: &[usize], fill: &[usize]) -> Option<(wgpu::Device, wgpu::Queue, std::sync::Arc<crate::sight::card_store::CardStore>, crate::world::CompiledMap)> {
         use crate::sight::cell::FarColours;
         use crate::sight::store::Maker;
         use crate::world::{BlockId, CavePlan, CompiledMap, Mutes, TerrainBlocks};
@@ -1137,18 +1144,19 @@ fn ground(c: Case) -> i32 {
         let plan = CavePlan::default();
         let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).ok()?;
         let half = (map.maps.width as f32 * map.maps.blocks_per_pixel / 2.0).ceil() as i32;
-        let live: &[usize] = if near.is_some() { &[0, 4] } else { &[4] };
         let store = std::sync::Arc::new(crate::sight::card_store::CardStore::new(&device, &queue, half, live, if near.is_some() { 128 } else { 64 }));
         let odd = world.odd;
         if let Some((x, y)) = near {
             use crate::sight::store::{TILE, TileKey, compact_tile, fill_tile};
-            let (tx, ty) = (x.div_euclid(TILE), y.div_euclid(TILE));
-            let reach = 64 / TILE;
-            for kx in tx - reach..tx + reach {
-                for ky in ty - reach..ty + reach {
-                    let key = TileKey { level: 0, x: kx, y: ky };
-                    let tile = fill_tile(&device, &queue, &world, &plan, odd, key);
-                    store.put_tile(0, kx, ky, TILE as u32, &compact_tile(&tile, 1));
+            for &level in fill {
+                let (tx, ty) = (x.div_euclid(TILE << level), y.div_euclid(TILE << level));
+                let reach = 64 / TILE;
+                for kx in tx - reach..tx + reach {
+                    for ky in ty - reach..ty + reach {
+                        let key = TileKey { level, x: kx, y: ky };
+                        let tile = fill_tile(&device, &queue, &world, &plan, odd, key);
+                        store.put_tile(level, kx, ky, TILE as u32, &compact_tile(&tile, key.size() as u32));
+                    }
                 }
             }
         }
@@ -1995,6 +2003,50 @@ fn ground(c: Case) -> i32 {
             assert!(green(&with) >= 1, "green pixels from {height} up");
             assert!(corner(&with) == corner(&without), "the ground away from it as dark as without it, from {height} up");
         }
+    }
+
+    /// The dyno's first step (2026-11-09): the near walk skipping air by the finest column first draws what walking
+    /// every block draws (the truth), over hills, low and grazing, looking down, and along a slope (the blocks and the
+    /// live cells of 2 to 16 made round the eye, as in the game). The coarse levels alone, as before, are measured
+    /// against the truth too (for the record: on steep ground they skipped into hills).
+    #[test]
+    #[ignore]
+    fn sight_s_near_walk_skips_air_by_the_finest_column_the_same() {
+        // Hills: 16 blocks a map pixel, rising and falling 40 either way of 150.
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
+            eprintln!("No graphics card: sight's near walk test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
+        let size = (320, 200);
+        let mut worst = (0usize, 0i32);
+        for (name, at, pitch, heading) in [("grazing", [0.0f32, 0.0, 8.0], -8.0f32, 0.0f32), ("down", [10.0, -20.0, 60.0], -45.0, 90.0), ("level", [-30.0, 10.0, 3.0], 0.0, 30.0)] {
+            let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
+            let (p, h) = (pitch.to_radians(), heading.to_radians());
+            let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
+            let picture = |fine_skip: bool, walk_every_block: bool| {
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, fine_skip, walk_every_block, ..Default::default() };
+                sight_picture(&device, &queue, &store, size, eye)
+            };
+            let (truth, coarse, fine) = (picture(false, true), picture(false, false), picture(true, false));
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("near_walk_{name}_truth.png")), size, &truth);
+                write_picture(&dir.join(format!("near_walk_{name}_coarse.png")), size, &coarse);
+                write_picture(&dir.join(format!("near_walk_{name}_fine.png")), size, &fine);
+            }
+            let differ = |a: &[[u8; 3]], b: &[[u8; 3]]| {
+                let d: Vec<i32> = a.iter().zip(b).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
+                (d.len(), d.iter().copied().max().unwrap_or(0))
+            };
+            let (fine_off, coarse_off) = (differ(&truth, &fine), differ(&truth, &coarse));
+            eprintln!("Sight's near walk, {name}: from every block walked, the finest first differs at {} pixels (by {} at most), the coarse levels alone at {} (by {})", fine_off.0, fine_off.1, coarse_off.0, coarse_off.1);
+            worst = (worst.0.max(fine_off.0), worst.1.max(fine_off.1));
+        }
+        // The same picture: a pixel or two a thousand may land a hair apart (where a skip leaves the ray), by a step
+        // of their colour at most.
+        assert!(worst.0 <= (size.0 * size.1 / 1000) as usize && worst.1 <= 2, "the same picture as every block walked ({} pixels differ, by {} at most)", worst.0, worst.1);
     }
 
     /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up
