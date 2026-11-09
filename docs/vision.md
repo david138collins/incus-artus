@@ -308,6 +308,9 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
         becomes judgmental if inspected"].
     - This answers the naming question above: the colours are the names. Red, blue and green on the item card, the
       words only on hover.
+    - **Left for the player to figure out** [David: "i guess as long as food is labelled when you check the card,
+      we can just not say anything and let the player figure it out"]. The item card names the food and what's in
+      it. The colours, and what each one does, aren't explained anywhere.
   - **[IDEA 2026-10-30] Salt or herbs to cure food** (David): salt is an alternative to herbs for
     preserved food. Curing a piece of meat takes **2 herbs or 1 salt**. Herbs add nutrition; salt adds
     none. Salt can be used elsewhere without being critical. *Counsel:* so salt is the convenient
