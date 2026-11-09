@@ -283,6 +283,46 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     choice and herbs the nourishing one, a real choice rather than a must-have. Salt comes from dry
     basins and salt deposits (`docs/worldgen.md`, "Strata"), which gives dry regions something to
     trade.
+- **[IDEA, David 2026-11-09] Food carries you through the year.** His notes, taken while the dyno ran:
+  "i need to reconcile long days and solid years with food and crops for players to not be frustrated. days that
+  are 30 minutes of sun and 30 minutes of night appeal to me. but 7 day weeks then seem excessive, even if we had
+  weekly crops. 5 days is 2 1/2 hours play if you sleep." His way through: rather than shrinking the calendar,
+  "make crops slightly time intensive but extremely rewarding to the player minecrafting alone out there, while
+  also providing a wide diversity of ways to get foodstuffs and cook them into something edible, to encourage
+  experiencing a variety of tasks ... to make time work for seasons and crops, theres got to be enough to get a
+  player through a year by exploiting all the different games we give him to play."
+  - **Days:** 30 minutes of sun and 30 of night (in place of the 15 + 15 on file under the calendar). Sleeping
+    skips the night, so a day is 30 to 60 minutes of play.
+  - **Crops:** slightly time-intensive but extremely rewarding, worth it to a lone player.
+  - **Many other ways to food,** each its own small game:
+    - gathering flowers, incenses and plants "for spells of fasting";
+    - foraging wild plants and cooking them by many recipes with fat, plants and herbs into more nutritious,
+      more efficient food;
+    - hunting: "hunting animals should be a thrill, with spear throwing and arrows and traps for rabbits."
+  - **The first animals:** deer, fish, rabbits, fowl, pheasant, boar. They give meat, hide and fat. Organs as
+    in Dwarf Fortress: "not sure if i want livers and stuff like df" [OPEN].
+  - **Cooking always pays:** "cooking more and more complex food should always pay off as the nutritional value
+    and benefits always slightly more than just add together."
+  - **Storage:** storing food properly prevents spoilage, which "makes you find and fire clay" (pots). It joins
+    curing with salt or herbs, above.
+  - **Hunger impairs, it doesn't damage:** "hunger is usually too aggressive in fo:nv survival mode and skyrim
+    survival mode and others. you can go three days without food before you really start becoming faint, and it
+    doesnt 'damage' you, it just impairs you. obviously starvation can kill you." That fits the spheres above:
+    low food shows as an energy sphere that won't refill and weaker magic, not as blood lost.
+  - *Counsel's notes* [PROPOSED]:
+    - **The year's length in play.** At the calendar on file (4 seasons × 7 days), 60-minute days make a season
+      7 hours of play (3½ if you sleep) and a year 28 (14). So one crop a season is a long wait, which is
+      exactly why the other food has to carry the player between harvests.
+    - **Winter is the test.** A season with no crops must be bridged by what was stored, cured and potted, plus
+      hunting, fishing and foraging. That gives storage and clay their reason, and makes autumn a harvest rush.
+    - **Weeks aren't needed.** Seasons can simply be counted in days; a week only matters for a social rhythm
+      (a market day, a rest day), and that can be any number of days, or none [OPEN].
+    - **"Slightly more than the sum":** each dish's worth is its ingredients' sum times a small bonus for each
+      kind of ingredient it combines (fat, meat, plant, herb). That rewards variety and complexity without
+      running away. A many-step meal stays worth cooking without one recipe beating everything.
+    - **Fasting as a choice:** because hunger impairs rather than harms, fasting can be deliberate. A spell of
+      fasting with burned incense could trade the body's strength for magic's. This ties food to the magic
+      system [OPEN].
 
 ## Life gauges: blood, stamina, energy  [IDEA]
 
@@ -716,7 +756,9 @@ bread and a blank diary. Birds sing and flit about.
     - **Gems tie mining to magic:** the gem list in the vault (diamond to onyx) becomes the enchanter's
       raw material, so the ladder of getting ore (`docs/decisions.md`, Blocks) feeds magic as well as
       metal.
-- Calendar: year = 4 seasons × 7 days; day = 15 min light + 15 min dark.
+- Calendar: year = 4 seasons × 7 days; day = 15 min light + 15 min dark. **[David 2026-11-09]:** days of 30 minutes
+  of sun and 30 of night appeal to him more; how many days a season is now open (see "Food carries you through the
+  year", above).
 
 ## Multiplayer and modding  [DECIDED]
 
