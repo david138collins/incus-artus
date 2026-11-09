@@ -723,6 +723,18 @@ bread and a blank diary. Birds sing and flit about.
     at their table. A primitive model in the best sense, like the earliest networked games.
 - Moddable: text IDs, content packs as folders, readable TOML.
 
+## Sound  [IDEA, David 2026-11-09]
+
+- **David makes it himself:** Omnisphere (its modelled objects, its resynthesis of his own recordings,
+  unlimited layering), his microphones and an RME Fireface.
+  - Footsteps come from layered patches.
+  - Fire comes from patches such as the recorded burning piano.
+  - Repeated sounds are rendered as many variations, and the game picks among them.
+- **No spoken words.** People and creatures make David's own grunts and hmms. Each kind of person or
+  creature could have its own sound.
+- *Counsel:* ship sounds dry and let the game add the space. The sky light's measure of how much sky a
+  place sees could also set how much a sound echoes and how muffled it gets in a cave.
+
 ## Notes for later: the gods, volcanoes, darkness and crime  [IDEA, 2026-10-23]
 
 David's notes, kept for general consideration later.
