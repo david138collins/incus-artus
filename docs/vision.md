@@ -732,6 +732,11 @@ bread and a blank diary. Birds sing and flit about.
   - Repeated sounds are rendered as many variations, and the game picks among them.
 - **No spoken words.** People and creatures make David's own grunts and hmms. Each kind of person or
   creature could have its own sound.
+- **Music wish list** [David 2026-11-09, "a long ways off and dependent on how much buzz we can generate"]:
+  smooth jazz from Macroblank, Oblique Occasions, or Emancipator & 9 Theory. Counsel's scouting:
+  - All three are independent and reachable. Macroblank and Oblique Occasions are on Bandcamp and
+    already collaborate with each other. Emancipator runs his own label, Loci Records.
+  - Anything licensed must be free of uncleared samples.
 - *Counsel:* ship sounds dry and let the game add the space. The sky light's measure of how much sky a
   place sees could also set how much a sound echoes and how muffled it gets in a cave.
 
