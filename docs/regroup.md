@@ -1021,6 +1021,8 @@ back to.
   bar's own corner (the old `bar_uv`, ported), and lines a whole block on the octant grid's texture up with the
   block, not the cell (as the old renderer did). Tests: `a_bars_own_textures_go_in_the_table`, the pieces table's
   part byte, and the pieces picture test with gabbro given a blue bar end (the slab's face blue).
+  **David's look at build 91** [2026-11-08: the bars show their brick textures: "yes"]. Edits in sight done enough
+  to go on: whole blocks, bars, octants and shifted blocks show as placed, at every live level, with the helpers.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
