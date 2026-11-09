@@ -970,7 +970,12 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     if (header[2] == 0 && is_kept(0)) {
         let blocks_end = min(1.0 / camera.view.z, camera.layer.w);
         if (begin < blocks_end) {
-            let h = hard(o, d, max(begin, 0.0), blocks_end);
+            // From the eye itself when the start is the first half block (the start pass's and a ray's own least):
+            // started there, a face nearer than half a block was met inside its block, facing the eye, its shadow
+            // and sky rays starting in the rock [David after build 84: "when you put your face right into a block, a
+            // circle appears": the disc where the wall is nearer than half a block, dark, cut into wedges by the sky
+            // cones each taking it as facing towards or away from them].
+            let h = hard(o, d, select(max(begin, 0.0), 0.0, begin <= 0.5), blocks_end);
             steps = h.steps;
             if (h.met) {
                 // The face met: its shadow from the blocks themselves first.
@@ -1010,6 +1015,9 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     let surface_step = 0.25 / clamp(abs(d.z), 0.25, 1.0);
     let water_colour = WATER_COLOUR;
     let walked = steps;
+    // Whether it went down through the world's floor, and the last level it read.
+    var floored = false;
+    var last_level = -1;
     for (var n = 0; n < 768; n++) {
         if (t > camera.reach.x || through < 0.01) {
             break;
@@ -1017,7 +1025,11 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         steps = walked + n + 1;
         let p = o + d * t;
         // Over the world's highest point going up, or under its floor going down: nothing more to meet.
-        if ((p.z > ceiling && d.z >= 0.0) || (p.z < -8.0 && d.z <= 0.0)) {
+        if (p.z > ceiling && d.z >= 0.0) {
+            break;
+        }
+        if (p.z < -8.0 && d.z <= 0.0) {
+            floored = true;
             break;
         }
         var level = level_at(t);
@@ -1133,6 +1145,12 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         } else {
             last_air = t;
             walking = false;
+            // Going down, never past the world's floor (under it all is rock): where the cells are as tall as all the
+            // ground, a stride from over its top landed under the floor and the ray met nothing, a hole of sky (seen
+            // from 30,000 up).
+            if (d.z < 0.0) {
+                dt = min(dt, max(p.z / -d.z, size * 0.25));
+            }
         }
         // The step from the last sample to this one, gathered from both its ends.
         if (look.known && chained && before.known) {
@@ -1166,7 +1184,26 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         before = look;
         before_t = t;
         chained = look.known;
+        if (look.known) {
+            last_level = level;
+        }
         t += dt;
+    }
+    // Down through the world's floor, it has met the ground whatever the averages said: under the ground is rock.
+    // What it gathered is the ground it went through, all of it, not partly the sky [David after build 84: "the
+    // circles of light that swallow the world if i fly tens of miles over the surface straight up looking down": a
+    // far cell is an average, a cell of 1,024 over 150 blocks of ground about a seventh solid, so a ray looking down
+    // through it gathered a seventh of the ground and the rest of the sky's colour, beyond the distance where the
+    // cells read grew that coarse].
+    if (floored && through < 0.999) {
+        let met = 1.0 - through;
+        colour /= met;
+        sunny /= met;
+        through = 0.0;
+        if (first >= camera.reach.x) {
+            first = touched;
+            first_level = last_level;
+        }
     }
     // What the surfaces gave (the sky behind them added after).
     let gathered = colour;

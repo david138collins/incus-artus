@@ -1072,7 +1072,7 @@ back to.
   sky light in cells, or better from horizon maps; textures' last ~1 ms (build 87); Fork E's remnant, a
   checkerboarded coarse layer filled in time. Before the dive, two flaws to clean up [David: "i think that may be
   the kind of thing that we clean up before performance"]: the close-up pie-wedge disc, and the circles of light
-  from tens of miles up.
+  from tens of miles up (both fixed in build 93, below).
 - **Fork E, if it's too slow:** the coarse layer every other frame, a smaller fine budget, fewer rays a coarse pixel,
   a coarser coarse layer (a fifth or a sixth); each measured and kept only with its number.
 - **Fork F, if it looks wrong** (an edge of sharpness that shows, swimming as the camera moves): a longer fade,
@@ -1134,6 +1134,39 @@ lamps, lights at cave mouths), and day and night.
   that; (4) the ground matters: the defaults' last 30 s (new ground on the circle) went to 16 ms. The flight sees
   only a fifth of its circle in 540 s, so both runs see the same ground and compare, but a later flight should
   take in more kinds of land (sea, mountains, a cave mouth). Scratchpad `base92.sh`; logs kept there.
+- **The last leg before the dyno** [David via Counsel, 2026-11-09: "yes, builder can put that in her gps"]: the two
+  flaws; placed lights with the storage-buffer decision (more slots from the card unless packing proves faster or
+  cleaner: "probably getting more is better if its more performant or clean"); the objects' depth contract;
+  generic transparency as a medium (water, later glass and ice: "if we get generic transparency done right this
+  time"; animated or cycling tiles are textures on it, after), the sea plane beside it on the block list; then the
+  dyno. Nsight once Builder is off the PC. Each a build and a look.
+- **Build 93: the two flaws**, both found in the test scene first (pictures written out and looked at) and each
+  now a card test that fails without its fix:
+  - **The disc up close** (`sight_s_a_face_up_close_is_lit_evenly`): every ray's walk of the blocks began half a
+    block out from the eye (the start pass's and a ray's least start), so a face nearer than that was met inside
+    its block: facing the eye (the walk's guess for the block it starts in), its shadow and sky rays starting in
+    the rock. The disc was where the wall is nearer than half a block; dark from the shadow ray, and cut into
+    wedges by the sky's cones, each taking the made-up facing as towards or away from it. Now the walk starts at
+    the eye when the start is that near. The eye 0.02 to 0.3 over a plain, straight down or 60° down: every pixel
+    the plain's own colour from 2 up (48 off before).
+  - **The circles of light from high up** (`sight_from_high_up_the_ground_stays_ground`): not light at all. A far
+    cell is an average: a cell of 1,024 over 150 blocks of ground is about a seventh solid, so a ray looking down
+    through it gathered a seventh of the ground and left through the world's floor, the rest the sky's colour; the
+    circle was the distance where the cells read grew that coarse. Now a ray that goes down through the world's
+    floor has met the ground (under it all is rock): what it gathered is the ground it went through, all of it.
+    And where the cells are as tall as all the ground, a stride through air from over its top landed under the
+    floor and the ray met nothing (holes of sky a coarse pixel big, 30,000 up): going down, a stride through air
+    now stops at the floor. Hills and sea from 2,000 to 60,000 up, straight down and 50° down: no pixel over the
+    map the sky's colour (5,416 of 20,880 from 30,000 before).
+  - What may look different in play: far land and sea seen steeply from high up are solid now, not washed toward
+    the sky's colour; the fog is what hazes the distance.
+  - **Measured** (the baseline's low slow flight, its first 200 s, while baking, defaults): sight 12 to 18 ms,
+    32 to 35 fps, against the baseline's 11.5 to 14.2 ms and 38 to 43. The floor rule is the cost: with it alone
+    switched off, 10.3 to 14.9 ms and 37 to 40 fps, the baseline again. Rays that went through the floor partly
+    gathered were drawn partly as sky, never half covered, so they took no shadow or sky light and the finer
+    layers took them for sky; now they're ground, and get all of that. About 2 to 3 ms for ground drawn as ground:
+    for the dyno to look into (which part it is: the shadows, the sky's cones, or the finer layers' extra pixels).
+  - Suite 408, all passing.
 
 ### Phase 6: everything else, each with its price  [loose]
 

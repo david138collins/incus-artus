@@ -1374,6 +1374,114 @@ fn ground(c: Case) -> i32 {
         assert!(sky_night < sky_day * 0.3, "the sky dark too ({sky_day:.1} → {sky_night:.1})");
     }
 
+    /// A picture written out as a PNG, for looking at (probes: `INCUS_PROBE_DIR`).
+    fn write_picture(path: &std::path::Path, size: (u32, u32), picture: &[[u8; 3]]) {
+        let file = std::fs::File::create(path).expect("the file");
+        let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), size.0, size.1);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().expect("the header");
+        writer.write_image_data(&picture.concat()).expect("the picture");
+    }
+
+    /// Sight up against a face (David after build 84: "when you put your face right into a block, a circle appears
+    /// as you get very close like this"): the eye a hair over a sunlit plain, straight down and at a slant, sees the
+    /// same even grass it sees from two blocks up, with shadows and sky light on. Every ray's walk began half a
+    /// block out, so a face nearer than that was met inside its block, facing the eye: a dark disc, cut into wedges.
+    #[test]
+    #[ignore]
+    fn sight_s_a_face_up_close_is_lit_evenly() {
+        let Some((device, queue, store, _map)) = sight_scene_with(64.0, |_| 150.0, Some((0, 0))) else {
+            eprintln!("No graphics card: sight's face-up-close test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let size = (320, 200);
+        let low = 40f32.to_radians();
+        let sun = [low.cos() * 0.6, low.cos() * 0.8, low.sin()];
+        // The plain's top is at 151.
+        let picture = |above: f32, pitch: f32| {
+            let down = pitch.to_radians();
+            let eye = crate::sight::draw::Eye { position: [0.3, 0.4, 151.0 + above], looking: [down.cos(), 0.0, down.sin()], field_of_view: 90.0, grid: 2.0, coarsest: 8, sun, shadows: true, sky: true, fog: false, ..Default::default() };
+            sight_picture(&device, &queue, &store, size, eye)
+        };
+        let far = picture(2.0, -89.9);
+        let lit = far[(size.1 / 2 * size.0 + size.0 / 2) as usize];
+        for (above, pitch) in [(0.02, -89.9), (0.1, -89.9), (0.3, -89.9), (0.1, -60.0), (0.3, -60.0)] {
+            let near = picture(above, pitch);
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("up_close_{above}_{}.png", -pitch as i32)), size, &near);
+            }
+            let off = near.iter().map(|p| (0..3).map(|c| (p[c] as i32 - lit[c] as i32).abs()).max().unwrap_or(0)).max().unwrap_or(0);
+            eprintln!("Sight up close, {above} over the plain looking {}° down: the most any pixel is off the plain's colour from 2 up {off} (of 255)", -pitch);
+            assert!(off <= 3, "{above} over the plain looking {}° down: a pixel {off} off the plain's own colour {lit:?}", -pitch);
+        }
+    }
+
+    /// Sight from high up (David after build 84: "the circles of light that swallow the world if i fly tens of miles
+    /// over the surface straight up looking down"): over hills and sea, from 2,000 to 60,000 up, straight down and
+    /// at a slant, every pixel over the map is ground, none the sky's colour. A far cell is an average (a cell of
+    /// 1,024 over 150 blocks of ground about a seventh solid): a ray looking down through it gathered a seventh of
+    /// the ground and went out through the world's floor, the rest the sky's colour, beyond the distance where the
+    /// cells grew that coarse; and where they were as tall as all the ground, a stride from over its top landed
+    /// under the floor, a hole of sky.
+    #[test]
+    #[ignore]
+    fn sight_from_high_up_the_ground_stays_ground() {
+        let Some((device, queue, store, _map)) = sight_scene(1024.0, |x| 150.0 + 120.0 * (x as f32 * 0.9).sin()) else {
+            eprintln!("No graphics card: sight's from-high-up test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let size = (320, 200);
+        let low = 40f32.to_radians();
+        let sun = [low.cos() * 0.6, low.cos() * 0.8, low.sin()];
+        // The sky's colour looking down (what leaked through): from 30,000 up looking 50° down, the top corner looks
+        // past the map's far edge, where there's nothing.
+        let slant = (-50f32).to_radians();
+        let past = crate::sight::draw::Eye { position: [0.3, 0.4, 30000.0], looking: [slant.cos(), 0.0, slant.sin()], field_of_view: 90.0, grid: 2.0, coarsest: 8, sun, fog: false, ..Default::default() };
+        let sky_blue = sight_picture(&device, &queue, &store, size, past)[(2 * size.0 + 2) as usize];
+        // Over the map (49,152 a side): only the ground's own pixels, not the sky past its edge.
+        let half = 24_000.0;
+        for (height, pitch) in [(2000.0, -89.9), (10000.0, -89.9), (30000.0, -89.9), (60000.0, -89.9), (20000.0, -50.0), (30000.0, -50.0), (40000.0, -50.0)] {
+            let down = f32::to_radians(pitch);
+            let eye = crate::sight::draw::Eye { position: [0.3, 0.4, height], looking: [down.cos(), 0.0, down.sin()], field_of_view: 90.0, grid: 2.0, coarsest: 8, sun, shadows: true, sky: true, fog: false, ..Default::default() };
+            let picture = sight_picture(&device, &queue, &store, size, eye);
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("high_up_{height}_{}.png", -pitch as i32)), size, &picture);
+            }
+            // Each pixel's ray, where it comes down to the ground's middle height (150), if that's over the map.
+            let forward = [down.cos(), 0.0, down.sin()];
+            let (right, upward) = ([0.0, 1.0, 0.0], [-down.sin(), 0.0, down.cos()]);
+            let aspect = size.0 as f32 / size.1 as f32;
+            let mut sky_like = 0;
+            let mut over_map = 0;
+            for y in 0..size.1 {
+                for x in 0..size.0 {
+                    let (sx, sy) = (((x as f32 + 0.5) / size.0 as f32 * 2.0 - 1.0) * aspect, 1.0 - (y as f32 + 0.5) / size.1 as f32 * 2.0);
+                    let d: Vec<f32> = (0..3).map(|k| forward[k] + sx * right[k] + sy * upward[k]).collect();
+                    if d[2] >= -1e-3 {
+                        continue;
+                    }
+                    let t = (height - 150.0) / -d[2];
+                    let (gx, gy) = (0.3 + d[0] * t, 0.4 + d[1] * t);
+                    // Well inside the map (a coarse pixel's width from its edge).
+                    if gx.abs() > half * 0.9 || gy.abs() > half * 0.9 {
+                        continue;
+                    }
+                    over_map += 1;
+                    let p = picture[(y * size.0 + x) as usize];
+                    if (0..3).all(|c| (p[c] as i32 - sky_blue[c] as i32).abs() <= 12) {
+                        sky_like += 1;
+                    }
+                }
+            }
+            eprintln!("Sight from {height} up looking {}° down: {sky_like} of {over_map} pixels over the map the sky's colour {sky_blue:?}", -pitch);
+            assert!(over_map > 1000, "the view takes in the map");
+            assert_eq!(sky_like, 0, "from {height} up looking {}° down, {sky_like} pixels over the map are the sky's colour", -pitch);
+        }
+    }
+
     /// Sight's block textures (3.6): up close the near faces wear their texture (here a checker of red and blue
     /// squares, four texels a side), and as a face shrinks towards a pixel it takes the texture's shrunk versions,
     /// so a face far off is the texture shrunk to one texel: the colour the cells past it are made of (a flat
