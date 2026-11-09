@@ -85,8 +85,13 @@ So the dyno's **first job is a new baseline at build 101**, on the new fixed fli
 
 - **One step a build, each measured alone,** on the same fixed flight, before and after. The runs alternate
   (before, after, before, after), so the laptop's heat drifting doesn't decide it.
-- **Kept only if the gain is clear of the noise:** both pairs agree, and the change is at least about 5% or 0.5 ms.
-  Otherwise it's **tried and dropped**, and that's a fine result. It's written down with its numbers either way.
+- **Three verdicts** [Counsel's review: small lossless wins add up]:
+  - **Kept:** the gain is clear of the noise (both pairs agree, at least about 5% or 0.5 ms).
+  - **Below noise, kept:** lossless (the picture test passes), a gain in both pairs but under the bar, no worse at
+    the 99th percentile, and not enough added complexity to worry about. Several of these add up.
+  - **Tried and dropped:** no gain, a loss, or a gain not worth what it adds. A fine result.
+
+  A step landing near the bar gets more paired runs before its verdict. Written down with its numbers either way.
 - **Block steps** must leave the picture unchanged: an A/B picture test on the card, the same frames before and after,
   equal to the pixel or within a stated tolerance.
 - **Induction steps** trade something, so they get David's eye: each behind a switch on the Render page, so he can
@@ -120,22 +125,29 @@ the instruments show re-ranks it, and any change is written here.
    Stated tolerance: pixels already more than 99% fog.
 2. Read-only bindings and small constants as uniforms. Trivial; may be small.
 3. The sea as a flat plane: wins back water's 1.5 ms and the horizon's worst rays (610 steps).
-4. Empty space skipped smarter: solved jumps, then relaxed cone stepping, for grazing rays over flat land.
-5. A two-level start pass (64 × 64 tiles, then 8 × 8).
+4. Empty space skipped smarter: solved jumps, then relaxed cone stepping, for grazing rays over flat land; then an
+   empty-space distance per cell in 3D, for caves and overhangs.
+5. Where rays start: a two-level start pass (64 × 64 tiles, then 8 × 8), and **the rasteriser starting the rays**
+   (boxes drawn round occupied bricks give each pixel its first possible hit) [David: "we need to look into ways to
+   exploit texture units and rasterizers"]. Measured against each other: they do the same job.
 6. Workgroup shape and Morton order.
 7. Tiles by type: sky, far, near, water and seam tiles, each with its own lean shader.
 8. Memory, if Nsight says the march waits on memory: hot and cold data apart, the store in Morton order, smaller
-   cells, f16 colour sums.
+   cells, f16 colour sums; and **texture units** (cells as bricks in a 3D texture, blended by the hardware and read
+   through its cache) [David, as above]. Texture units are tried even if memory isn't the wall: the hardware blend
+   would take over the march's own eight-cell blend, a cost in arithmetic as well as in reads.
 9. Horizon maps for far sun shadows and sky light (made at bake time, patched on edits). Potentially the biggest
    single block win, since shadows and sky light are most of the 8 ms gap to the lean preset. Bigger work, so after
-   the cheap ones.
+   the cheap ones. Then, or instead, **light the hologram**: sun and sky light kept in the cells, re-lit gradually as
+   the sun moves (the same cost taken out of the frame, a different way; measured against horizon maps).
 10. Warps kept busy (rays sorted by expected length, compaction, then David's ray queue): only if the slowest-ray
     view shows warps waiting.
 11. Textures' last 1 ms; placed light under many lights; the bake in the card's idle gaps.
 
 **C. The processor as a partner** (section 4), slotted in when the instruments point there: the objects' frame work
 kept between frames, the lights' flood redone only round what changed, one-way handoffs, camera prediction for the
-bake, late latching.
+bake, the turn sent ahead, late latching. **The heat watch** from the first flight on: the processor's and the card's
+clocks and temperatures logged on every flight, so a step that only moves heat around shows as that.
 
 **D. Induction, by David's eye** (section 3), after the block's cheap and sure steps:
 1. Rays start just short of last frame's hits.
@@ -179,6 +191,9 @@ bake, late latching.
   copy is there if the disk itself fails.
 
 ### For David
+
+(Counsel is asking him these, with whether the baking case gets its own target and its items move earlier: his felt
+complaint, "creaking when you move too quick", is the baking case. The order here moves when he answers.)
 
 - **Which number is the target?** I'd propose: defaults, baked, on the fixed flight, holding 60 fps at the 95th
   percentile, with the lean preset as the fallback. Yours to set.
