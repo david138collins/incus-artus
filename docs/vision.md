@@ -375,8 +375,21 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
         - **Dishes with old names:** pottage, stew, pie, pasty, sausage.
         - **The look:** warm colours, steam, and the sizzle and crackle of the fire, so a finished dish feels
           like a reward.
-        - **Each dish gets one short, homely line** of description. A one-line tooltip is free to write and makes
-          cooking feel like a craft.
+      - **The item card is plain** [David: "'itll see you through a cold night' is damp and clingy, just rabbit
+        stew with (rabbit, potato, herbs, salt) somewhere on the items card"]. No flavour line: the dish's name and
+        what went into it, as in "Rabbit stew (rabbit, potato, herbs, salt)". The coziness comes from the names and
+        the look, not from sentimental text.
+    - **[IDEA, David 2026-11-09] Over the fire, and how long food keeps:** "sticks can be consumed to put something
+      over a fire, 3 for roasting a haunch, 1 for a bird fish or rabbit, and they visually appear in the campfire
+      around it until its reused or removed. haunches roasted would be like 4 meals i guess but they would decay by
+      2 days. smoking would last longer but require a smoker and more wood. curing with salt/herbs gets you a cured
+      haunch i guess that is less nutritious but keeps for a while."
+      - **Spits from sticks:** putting food over a fire uses sticks: 3 for a haunch, 1 for a bird, fish or rabbit.
+        They show in the campfire around the food until reused or removed.
+      - **A roast haunch** is about 4 meals and spoils in 2 days.
+      - **Smoking** keeps longer, but needs a smoker and more wood.
+      - **Curing** with salt or herbs gives a cured haunch: less nutritious, but it keeps a while. With the curing
+        note above (herbs add nutrition, salt none), a herb-cured haunch would lose less than a salt-cured one.
 
 ## Life gauges: blood, stamina, energy  [IDEA]
 
