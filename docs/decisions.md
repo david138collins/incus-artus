@@ -1318,6 +1318,21 @@ below disagree with this one, this one stands.
            reserved first;
          - the latest mouse at the last moment before the frame goes (late latching), and again for timewarp
            just before it's shown.
+       - **The mouse by the short hairs** [David 2026-11-09: "we really should make sure we have human input
+         hardware by the short hairs, theres nothing worse than a vague mousefeel, and if we have it tightly, we can
+         mess with it for fun, like when you get hit or sick"].
+         - Already in place: the runner reads the mouse's raw movement (winit's device motion, so no Windows
+           acceleration), and build 67 measured input to photon at 1.05 ms uncapped and 4.65 ms at the 237 cap.
+         - To keep it tight: input to photon is a gate on every dyno build, with no smoothing unless chosen, and
+           the mouse read as late as possible (above).
+         - Once the feel is owned exactly, it becomes an instrument. Deliberate changes to it, made on purpose and
+           never by accident:
+           - a jolt when hit;
+           - drift and sway when sick or drunk;
+           - weight when exhausted (the stamina sphere);
+           - a tremor with fear;
+           - the inertia of a heavy weapon.
+           Each has a strength the player can turn down. *Counsel.*
 
        **No per-card tricks** [David 2026-11-08: "im not interested in implementing all the different tricks
        individual modern cards can use, id have to own 20 gpus"]. Speed comes from the method, in portable
