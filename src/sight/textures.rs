@@ -5,9 +5,14 @@
 //! light on the card): a texture shrunk to one texel is its block's far colour, so where a block is a pixel the
 //! textured face and the cell past it agree. And a table: each block's six faces' textures, and which turn at
 //! random. The near walk reads it where it meets a face (`march.wgsl`, `hard`).
+//!
+//! **Bars' own textures** (build 91, David on 90: "quarterblocks are still greyed"): a block that's a bar (a quarter
+//! block) may have a long side and an end of its own (`assets/textures/bars/`, 16 x 32 and 16 x 16, 32 pixels a
+//! block as every block's), each pixel repeated to fill a layer, so 0 to 1 across the bar's own width covers it (as
+//! the old renderer had them). The table's last word holds them.
 
-use crate::data::{BlockRegistry, TextureRotation, block_texture_folder};
-use crate::look::{TEXTURE_SIZE, load_texture, shrink};
+use crate::data::{BlockRegistry, TextureRotation, bar_texture_folder, block_texture_folder};
+use crate::look::{TEXTURE_SIZE, load_texture, read_png, shrink};
 
 /// No texture: the face keeps its flat colour.
 pub const NONE: u32 = 0xFFFF;
@@ -24,8 +29,27 @@ pub struct BlockTextures {
     /// By block number: each face's texture (`FACE_NAMES`' order: north, south, east, west, top, bottom; `NONE`
     /// for none), and which faces turn at random (a bit each, in that order).
     pub blocks: Vec<([u32; 6], u32)>,
+    /// By block number: its bars' own long side and end (`NONE` for none: a bar shows a share of the block's).
+    pub bars: Vec<[u32; 2]>,
     /// What couldn't be read (a texture's name and why), for the log.
     pub problems: Vec<String>,
+}
+
+/// A bar's texture (`assets/textures/bars/`): a long side, `wide` x `tall` 16 x 32, or an end, 16 x 16, each
+/// pixel repeated to fill a layer (as the old renderer's `load_bar_texture`).
+pub fn load_bar_texture(path: &std::path::Path, (wide, tall): (u32, u32)) -> Result<Vec<u8>, String> {
+    let (width, height, rgba) = read_png(path)?;
+    if (width, height) != (wide, tall) {
+        return Err(format!("is {width}×{height}, a bar's must be {wide}×{tall}"));
+    }
+    let mut pixels = Vec::with_capacity((TEXTURE_SIZE * TEXTURE_SIZE * 4) as usize);
+    for y in 0..TEXTURE_SIZE {
+        for x in 0..TEXTURE_SIZE {
+            let from = ((y * tall / TEXTURE_SIZE) * wide + x * wide / TEXTURE_SIZE) as usize * 4;
+            pixels.extend_from_slice(&rgba[from..from + 4]);
+        }
+    }
+    Ok(pixels)
 }
 
 /// A texture's versions, 32 × 32 down to 1 × 1.
@@ -42,7 +66,34 @@ pub fn mips(pixels: Vec<u8>) -> Vec<Vec<u8>> {
 impl BlockTextures {
     /// Every texture the registry's blocks name, read from the texture folder.
     pub fn gather(registry: &BlockRegistry) -> Self {
-        Self::from_faces(registry.defs().iter().map(|def| (def.faces.clone(), def.rotations)), |name| load_texture(&block_texture_folder().join(format!("{name}.png"))))
+        let mut out = Self::from_faces(registry.defs().iter().map(|def| (def.faces.clone(), def.rotations)), |name| load_texture(&block_texture_folder().join(format!("{name}.png"))));
+        let bars = registry.defs().iter().map(|def| def.bar.as_ref().filter(|bar| !bar.side.is_empty() && !bar.end.is_empty()).map(|bar| (bar.side.clone(), bar.end.clone())));
+        out.add_bars(bars, |name, size| load_bar_texture(&bar_texture_folder().join(format!("{name}.png")), size));
+        out
+    }
+
+    /// Each block's bars' own textures (a long side and an end, or none), read once each through `read`.
+    pub fn add_bars(&mut self, blocks: impl Iterator<Item = Option<(String, String)>>, read: impl Fn(&str, (u32, u32)) -> Result<Vec<u8>, String>) {
+        let mut named: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+        for bar in blocks.take(MOST_BLOCKS) {
+            let Some((side, end)) = bar else {
+                self.bars.push([NONE; 2]);
+                continue;
+            };
+            let layers = [(side, (16, 32)), (end, (16, 16))].map(|(name, size)| {
+                *named.entry(name.clone()).or_insert_with(|| match read(&name, size) {
+                    Ok(pixels) => {
+                        self.layers.push(mips(pixels));
+                        self.layers.len() as u32 - 1
+                    }
+                    Err(why) => {
+                        self.problems.push(format!("{name} (a bar's): {why}"));
+                        NONE
+                    }
+                })
+            });
+            self.bars.push(layers);
+        }
     }
 
     /// Made from each block's faces' texture names and turns, reading each texture once through `read`.
@@ -79,12 +130,14 @@ impl BlockTextures {
     }
 
     /// The table as the card reads it: two rows of four a block (north, south, east, west; top, bottom, the
-    /// random turns, 0), `MOST_BLOCKS` blocks, those past the registry's with no textures.
+    /// random turns, its bars' long side and end, 16 bits each), `MOST_BLOCKS` blocks, those past the registry's
+    /// with no textures.
     pub fn table(&self) -> Vec<u32> {
         let mut words = Vec::with_capacity(MOST_BLOCKS * 8);
         for k in 0..MOST_BLOCKS {
             let (faces, random) = self.blocks.get(k).copied().unwrap_or(([NONE; 6], 0));
-            words.extend([faces[0], faces[1], faces[2], faces[3], faces[4], faces[5], random, 0]);
+            let [side, end] = self.bars.get(k).copied().unwrap_or([NONE; 2]);
+            words.extend([faces[0], faces[1], faces[2], faces[3], faces[4], faces[5], random, (side & 0xFFFF) | (end & 0xFFFF) << 16]);
         }
         words
     }
@@ -118,6 +171,17 @@ mod tests {
         assert_eq!(textures.problems.len(), 1);
         let table = textures.table();
         assert_eq!(table.len(), MOST_BLOCKS * 8);
-        assert_eq!(&table[8..16], &[0, 0, 0, 0, 1, 2, 16, 0]);
+        assert_eq!(&table[8..16], &[0, 0, 0, 0, 1, 2, 16, NONE | NONE << 16]);
+    }
+
+    #[test]
+    fn a_bars_own_textures_go_in_the_table() {
+        let read = |name: &str, (wide, tall): (u32, u32)| if name == "missing" { Err("file not found".to_string()) } else { Ok(vec![(wide + tall) as u8; (TEXTURE_SIZE * TEXTURE_SIZE * 4) as usize]) };
+        let mut textures = BlockTextures::default();
+        textures.add_bars([None, Some(("brick_side".to_string(), "brick_end".to_string())), Some(("brick_side".to_string(), "missing".to_string()))].into_iter(), read);
+        assert_eq!(textures.bars, vec![[NONE; 2], [0, 1], [0, NONE]], "each read once, a missing one none");
+        assert_eq!(textures.layers[0][0][0], 48, "the long side read as 16 x 32");
+        assert_eq!(textures.layers[1][0][0], 32, "the end as 16 x 16");
+        assert_eq!(textures.table()[15], 1 << 16, "block 1's bars: side 0, end 1");
     }
 }

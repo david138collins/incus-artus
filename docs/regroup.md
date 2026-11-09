@@ -1010,8 +1010,17 @@ back to.
   half the slab is the block, [170, 93, 30] both, through the upper half the air) and
   `a_cell_of_pieces_counts_as_its_main_material`. Suite 396. Not measured: the walk reads one more word where a
   ray meets a block, and walks octants only in a cell of pieces. **On file**: a block with no texture (the tool
-  blocks) shows its octants rock grey; a shifted block's octants wear each cell's half of the texture, so its
-  texture is cut and shifted at the cell's edge; shadows and sky light see a cell of pieces whole.
+  blocks) shows its octants rock grey; shadows and sky light see a cell of pieces whole.
+  **David's look at build 90** [2026-11-08: "quarterblocks are still greyed but place right. the helper lines are
+  working right. shifting blocks works."]. The quarter blocks were stone brick, a bar block: its textures are a
+  bar's own (`bar = { side, end }`, `assets/textures/bars/`), which sight's table didn't have, so it found none.
+  **Build 91**: the bars' own textures in the table (its last word: the long side's layer and the end's), read as
+  the old renderer read them (16 × 32 and 16 × 16, each pixel repeated to fill a layer); each octant in the card's
+  table carries what it's part of (`Part`, the high byte; its block the low one, past 254 as 255); the near walk
+  puts a bar's long side up its length and its end on its ends (a lone octant its end on every face), from the
+  bar's own corner (the old `bar_uv`, ported), and lines a whole block on the octant grid's texture up with the
+  block, not the cell (as the old renderer did). Tests: `a_bars_own_textures_go_in_the_table`, the pieces table's
+  part byte, and the pieces picture test with gabbro given a blue bar end (the slab's face blue).
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

@@ -1345,7 +1345,7 @@ fn ground(c: Case) -> i32 {
         };
         let side = crate::look::TEXTURE_SIZE;
         let checker: Vec<u8> = (0..side * side).flat_map(|i| if (i % side / 4 + i / side / 4) % 2 == 0 { [200, 60, 60, 255] } else { [60, 60, 200, 255] }).collect();
-        let textures = BlockTextures { layers: vec![mips(checker)], blocks: (0..16).map(|k| if k == 0 { ([NONE; 6], 0) } else { ([0; 6], 0) }).collect(), problems: Vec::new() };
+        let textures = BlockTextures { layers: vec![mips(checker)], blocks: (0..16).map(|k| if k == 0 { ([NONE; 6], 0) } else { ([0; 6], 0) }).collect(), bars: Vec::new(), problems: Vec::new() };
         let size = (320, 200);
         // From 4 over the ground, looking north `down` degrees down.
         let picture = |down: f32, on: bool, textures: &BlockTextures| {
@@ -1419,7 +1419,7 @@ fn ground(c: Case) -> i32 {
         let cell = [4, 0, ground + 1];
         // One colour for every block's every face (a warm orange), so the octant's face and the block's match.
         let side = crate::look::TEXTURE_SIZE;
-        let textures = BlockTextures { layers: vec![mips((0..side * side).flat_map(|_| [220u8, 120, 40, 255]).collect())], blocks: (0..16).map(|k| if k == 0 { ([crate::sight::textures::NONE; 6], 0) } else { ([0; 6], 0) }).collect(), problems: Vec::new() };
+        let textures = BlockTextures { layers: vec![mips((0..side * side).flat_map(|_| [220u8, 120, 40, 255]).collect())], blocks: (0..16).map(|k| if k == 0 { ([crate::sight::textures::NONE; 6], 0) } else { ([0; 6], 0) }).collect(), bars: Vec::new(), problems: Vec::new() };
         let map = std::sync::Arc::new(map);
         let key = TileKey { level: 0, x: 0, y: 0 };
         // The cell as `what` (none: air), the tile made again round it and put on the card, its pieces too.
@@ -1467,6 +1467,15 @@ fn ground(c: Case) -> i32 {
         assert!(!near(air.0, block.0), "the block shows against the air");
         assert!(near(seen.0, block.0), "through its lower half the slab is the block");
         assert!(near(seen.1, air.1) && !near(seen.1, block.1), "through its upper half the slab is the air");
+        // Gabbro given a bar's own textures (build 91), the side the orange, the end a blue: a lone octant wears
+        // its end on every face, so the slab's face is blue.
+        let mut with_bars = textures.clone();
+        with_bars.layers.push(mips((0..side * side).flat_map(|_| [40u8, 80, 220, 255]).collect()));
+        with_bars.bars = vec![[crate::sight::textures::NONE; 2], [0, 1]];
+        let eye = crate::sight::draw::Eye { position: [0.5, 0.5, (ground + 1) as f32 + 0.25], looking: [1.0, 0.0, 0.0], field_of_view: 60.0, grid: 2.0, coarsest: 8, shadows: false, sky: false, fog: false, textures: true, ..Default::default() };
+        let barred = sight_picture_with(&device, &queue, &store, size, eye, Some(&with_bars))[(size.1 / 2 * size.0 + size.0 / 2) as usize];
+        eprintln!("Sight's pieces with a bar's own end texture (blue): {barred:?}");
+        assert!(barred[2] > barred[0] * 2, "a lone octant wears its bar's end");
     }
 
     /// Sight's fog (3.4c): near land hardly fogged, far land well on its way to the horizon's colour, and the same

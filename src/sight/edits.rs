@@ -100,12 +100,13 @@ pub fn main_material(chunk: &Chunk, at: [i32; 3]) -> BlockId {
     best.1
 }
 
-/// Every cell of pieces in the changed chunks, with its eight octants' blocks (0 for an empty one), for the
-/// card's table.
+/// Every cell of pieces in the changed chunks, each octant as the card's table has it (0 for an empty one):
+/// its block in the low byte (past 254 as 255) and what it's part of (`Part`) in the high one (build 91: a bar's
+/// own textures run along the bar, a shifted block's line up with the block).
 pub fn pieces_near(changed: &HashMap<ChunkPos, Arc<Chunk>>) -> Vec<([i32; 3], [u16; 8])> {
     changed
         .values()
-        .flat_map(|chunk| chunk.all_pieces().map(|(at, pieces)| (at.to_array(), std::array::from_fn(|o| pieces.get(o).map_or(0, |(block, _)| block.0)))))
+        .flat_map(|chunk| chunk.all_pieces().map(|(at, pieces)| (at.to_array(), std::array::from_fn(|o| pieces.get(o).map_or(0, |(block, part)| block.0.min(255) | (part.0 as u16) << 8)))))
         .collect()
 }
 
@@ -257,6 +258,13 @@ mod tests {
         assert_eq!(main_material(&chunk, [3, 4, 12]), BlockId::AIR, "no pieces there");
         let mut table = pieces_near(&[(ChunkPos::new(0, 0), Arc::new(chunk))].into_iter().collect());
         table.sort();
-        assert_eq!(table, vec![([3, 4, 10], [2, 1, 1, 0, 0, 2, 0, 1]), ([3, 4, 11], [0, 0, 0, 0, 2, 0, 1, 0])]);
+        assert_eq!(table, vec![([3, 4, 10], [2, 1, 1, 0, 0, 2, 0, 1]), ([3, 4, 11], [0, 0, 0, 0, 2, 0, 1, 0])], "lone octants: their blocks, part 0");
+        // A bar's half keeps what it's part of in the high byte.
+        let mut chunk = Chunk::from_sections(ChunkPos::new(0, 0), vec![Section::Uniform(BlockId::AIR); SECTIONS_PER_CHUNK]);
+        let mut bar = Pieces::default();
+        bar.set(0, gabbro, Part::of_bar(1, 0, true));
+        chunk.set_pieces_at(1, 1, 1, bar);
+        let table = pieces_near(&[(ChunkPos::new(0, 0), Arc::new(chunk))].into_iter().collect());
+        assert_eq!(table[0].1[0], 1 | (Part::of_bar(1, 0, true).0 as u16) << 8);
     }
 }

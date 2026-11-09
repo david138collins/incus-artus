@@ -433,7 +433,12 @@ fn face_of(facing: vec3<f32>) -> u32 {
 // Where on its face a place on block `c` is: across from the left, down from the top, as seen from outside (the
 // sides upright, the top with north up).
 fn face_uv(p: vec3<f32>, c: vec3<i32>, face: u32) -> vec2<f32> {
-    let q = clamp(p - vec3<f32>(c), vec3<f32>(0.0), vec3<f32>(1.0));
+    return face_uv_from(p, vec3<f32>(c), face);
+}
+
+// The same for a block whose least corner is `origin` (a whole block on the octant grid, half a block off the cells).
+fn face_uv_from(p: vec3<f32>, origin: vec3<f32>, face: u32) -> vec2<f32> {
+    let q = clamp(p - origin, vec3<f32>(0.0), vec3<f32>(1.0));
     switch face {
         case 0u: {
             return vec2<f32>(1.0 - q.y, 1.0 - q.z);
@@ -476,7 +481,11 @@ fn textured(flat: vec3<f32>, block: u32, p: vec3<f32>, c: vec3<i32>, facing: vec
             uv = vec2<f32>(1.0 - uv.y, uv.x);
         }
     }
-    // Texels across the pixel there: which shrunk version (32 texels a block).
+    return sample_layer(layer, uv, t);
+}
+
+// Texture `layer` at `uv`, `t` off: at the shrunk version for the pixel's size there (32 texels a block).
+fn sample_layer(layer: u32, uv: vec2<f32>, t: f32) -> vec3<f32> {
     let texels = 32.0 * t * camera.view.z;
     let lod = log2(max(texels, 1e-4)) - camera.textures.y;
     return textureSampleLevel(block_textures, block_sampler, uv, i32(layer), lod).rgb;
@@ -549,34 +558,84 @@ fn pieces_slot(c: vec3<i32>) -> i32 {
     return -1;
 }
 
-// Octant `o`'s block (`x + 2y + 4z`), 0 if it's empty.
-fn octant_block(slot: i32, o: i32) -> u32 {
+// Octant `o` (`x + 2y + 4z`) as the table has it: its block in the low byte, what it's part of (`Part`) in the
+// high one; 0 if it's empty.
+fn octant_word(slot: i32, o: i32) -> u32 {
     let w = pieces[u32(slot) * 2u + 1u][o / 2];
     return (w >> (16u * u32(o % 2))) & 0xFFFFu;
 }
 
-// An octant's face's colour: its block's texture (half of it across, as the octant lies on the block), or with
-// textures off the texture shrunk to its one texel (the block's far colour); rock grey for a block with none.
-fn octant_colour(block: u32, at: vec3<f32>, c: vec3<i32>, facing: vec3<f32>, t: f32) -> vec3<f32> {
-    if (block >= 256u) {
-        return ROCK;
+// One along an axis (0 x, 1 y, 2 z), as a vector.
+fn unit(axis: u32) -> vec3<f32> {
+    return vec3<f32>(f32(axis == 0u), f32(axis == 1u), f32(axis == 2u));
+}
+
+// An octant's corner in its cell (`o`'s bits), in blocks.
+fn octant_corner(o: u32) -> vec3<f32> {
+    return vec3<f32>(f32(o & 1u), f32((o >> 1u) & 1u), f32((o >> 2u) & 1u)) * 0.5;
+}
+
+// A bar's own texture's place, measured from the bar's own corner (the old renderer's `bar_uv`, before the
+// regroup): a long side's picture runs up the bar's length, whichever way the bar lies, and on across a cell's
+// side for a bar placed across two cells; an end's covers the half-by-half end (every face of a lone octant).
+// `part`: what the octant is part of (`Part`: its bar's axis, 0 for a lone octant; which end of the bar it is).
+fn bar_uv(face: u32, p: vec3<f32>, facing: vec3<f32>, o: u32, part: u32) -> vec2<f32> {
+    let lone = (part & 3u) == 0u;
+    let axis = select((part & 3u) - 1u, face / 2u, lone);
+    let end = f32((part >> 2u) & 1u);
+    let u = (axis + 1u) % 3u;
+    let v = (axis + 2u) % 3u;
+    let corner = octant_corner(o);
+    let start = dot(corner, unit(axis)) - end * 0.5;
+    // Where in its cell (0 to 1 each way), from a hair inside the face.
+    let inside = p - facing * 0.001;
+    let c = inside - floor(inside);
+    let along = dot(c, unit(axis)) - start;
+    let across_u = dot(c - corner, unit(u)) * 2.0;
+    let across_v = dot(c - corner, unit(v)) * 2.0;
+    if (face / 2u == axis) {
+        return vec2<f32>(across_u, 1.0 - across_v);
     }
+    return vec2<f32>(select(across_u, across_v, face / 2u == u), 1.0 - along);
+}
+
+// An octant's face's colour, met at `at` in the cell of pieces `c`, `t` off: a bar's own long side or end if its
+// block has them (build 91), a whole block on the octant grid its own face lined up with the block, else the
+// share of its block's face where the octant lies; with textures off, the texture shrunk to its one texel (the
+// block's far colour); rock grey for a block with none.
+fn octant_colour(word: u32, o: u32, at: vec3<f32>, c: vec3<i32>, facing: vec3<f32>, t: f32) -> vec3<f32> {
+    let block = word & 0xFFu;
+    let part = word >> 8u;
     let face = face_of(facing);
-    let layer = block_table[block * 2u + face / 4u][face % 4u];
+    var layer = block_table[block * 2u + face / 4u][face % 4u];
+    var uv = face_uv(at, c, face);
+    let bars = block_table[block * 2u + 1u].w;
+    if ((part & 16u) != 0u) {
+        // A whole block on the octant grid (`Part::of_block`): which of its corners this octant is.
+        let origin = vec3<f32>(c) + octant_corner(o) - octant_corner(part >> 5u);
+        uv = face_uv_from(at, origin, face);
+    } else if ((bars & 0xFFFFu) != NO_TEXTURE && (bars >> 16u) != NO_TEXTURE) {
+        let lone = (part & 3u) == 0u;
+        let axis = select((part & 3u) - 1u, face / 2u, lone);
+        layer = select(bars & 0xFFFFu, bars >> 16u, face / 2u == axis);
+        // (Kept off the far edge, which the sampler would wrap back to the near one.)
+        uv = clamp(bar_uv(face, at, facing, o, part), vec2<f32>(0.0), vec2<f32>(0.9999));
+    }
     if (layer == NO_TEXTURE) {
         return ROCK;
     }
     if (camera.textures.x < 0.5) {
         return textureSampleLevel(block_textures, block_sampler, vec2<f32>(0.5), i32(layer), 16.0).rgb;
     }
-    return textured(ROCK, block, at, c, facing, t);
+    return sample_layer(layer, uv, t);
 }
 
 struct Octant {
     met: bool,
     t: f32,
     facing: vec3<f32>,
-    block: u32,
+    word: u32,
+    o: u32,
 }
 
 // The ray through the cell of pieces `c` (in its table place `slot`) from `t0`, where it came in facing
@@ -592,12 +651,14 @@ fn octants(o: vec3<f32>, d: vec3<f32>, t0: f32, c: vec3<i32>, facing0: vec3<f32>
     var t = t0;
     var facing = facing0;
     for (var n = 0; n < 4; n++) {
-        let block = octant_block(slot, q.x + 2 * q.y + 4 * q.z);
-        if (block != 0u) {
+        let o = q.x + 2 * q.y + 4 * q.z;
+        let word = octant_word(slot, o);
+        if (word != 0u) {
             out.met = true;
             out.t = t;
             out.facing = facing;
-            out.block = block;
+            out.word = word;
+            out.o = u32(o);
             return out;
         }
         if (ahead.x < ahead.y && ahead.x < ahead.z) {
@@ -710,7 +771,7 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
                     out.met = true;
                     out.t = hit.t;
                     let at = o + d * hit.t;
-                    let colour = octant_colour(hit.block, at, c, hit.facing, hit.t);
+                    let colour = octant_colour(hit.word, hit.o, at, c, hit.facing, hit.t);
                     let light = face_light(hit.facing);
                     out.colour += out.through * lit(colour, light);
                     out.sunny += out.through * sunlit(colour, light);
