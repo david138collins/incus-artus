@@ -546,6 +546,18 @@ See `docs/simulation.md` for the working design.
   exploring until they see a big feature or shape they noticed during the intro. (This is the create-world
   map of "Three maps" above; the player never picks a spawn.)
 
+**[IDEA 2026-11-09] The bake belongs in this wait.** David: "i am willing to make the player endure a long
+initial 1 time wait to prevent them from dealing with the chunk loading i have going on. we might have to run
+around and juggle to get them to accept that with some contrived game starting activities, like a tiny Hazard
+Course world that the game world can load in behind." The sight bake (about 6 to 7 minutes for a whole world at
+build 92) is once per world, so it can fill in behind the intro above, and the player arrives with the whole
+world already baked. *Counsel:*
+- The world forming before your eyes is the activity he describes, and it's honest: the wait *is* the world
+  being made.
+- A small hazard-course world, to learn the controls while the real one loads behind, is the other option.
+- If the player skips ahead, a misty dawn could hide whatever isn't baked yet, the mist lifting as the bake
+  finishes. Fog is already built.
+
 **Then, after all the buildup, it's just Minecraft.** You're standing by a road with a tent, a loaf of
 bread and a blank diary. Birds sing and flit about.
 
