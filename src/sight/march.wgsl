@@ -75,8 +75,15 @@ struct Camera {
 @group(0) @binding(11) var block_textures: texture_2d_array<f32>;
 @group(0) @binding(12) var block_sampler: sampler;
 @group(0) @binding(13) var<uniform> block_table: array<vec4<u32>, 512>;
+// The cells built of pieces (build 90, `CardStore::put_pieces`): two words each, its place (x, y, z, 1 if used),
+// then its eight octants' blocks, two to a word (0 an empty octant).
+@group(0) @binding(14) var<storage, read> pieces: array<vec4<u32>>;
 
 const NOT_BAKED: u32 = 0xFFFF0000u;
+// A cell of one block that's built of pieces (`BlockId::PIECES`, kept as its block by `Cell::with_block`).
+const PIECES_MARK: u32 = 0xFFFFu;
+const PIECES_SLOTS: u32 = 16384u;
+const PIECES_PROBES: i32 = 32;
 // Past the map: nothing at all, not even the world's floor.
 const PAST_MAP: u32 = 0xFFFE0000u;
 const WORLD_HEIGHT: f32 = 1024.0;
@@ -486,12 +493,15 @@ fn wear_texture(seen: Seen) -> Seen {
     let c = vec3<i32>(floor(seen.at - seen.facing * 0.5));
     let entry = entry_at(0, c.x, c.y);
     let look = from_band(entry.x, entry.y, c.z);
-    if (!look.known || look.surface <= 0.0) {
+    let block = block_in_band(entry.x, entry.y, c.z);
+    // A face with no surface of its own in the sums (one seen through a gap in a cell of pieces, which the sums
+    // count as whole) was drawn rock grey: it still wears its block's texture.
+    if (!look.known || (look.surface <= 0.0 && block == 0u)) {
         return seen;
     }
-    let block = block_in_band(entry.x, entry.y, c.z);
+    let flat = select(look.colour, ROCK, look.surface <= 0.0);
     let t = length(seen.at - camera.position.xyz);
-    let change = (textured(look.colour, block, seen.at, c, seen.facing, t) - look.colour) * seen.face_share;
+    let change = (textured(flat, block, seen.at, c, seen.facing, t) - flat) * seen.face_share;
     let light = face_light(seen.facing);
     var out = seen;
     out.colour += lit(change, light);
@@ -515,6 +525,102 @@ struct Hard {
     // How much of the ray the face met took (what was left of it after any water on the way): its texture is
     // put on after the march, by that much (`wear_texture`).
     face_share: f32,
+}
+
+// ── Pieces (build 90, David on build 88: "no quarter blocks or grid shifts, they appear as white cubes") ──
+//
+// A cell built of pieces is eight octants (half a block a side), each empty or a block's. The near walk, meeting
+// one, steps through its octants to the first filled one (a ray crosses at most four), and that octant's face is
+// what it sees, its block's texture on it where the octant lies on the block's face (half the texture across).
+
+// Where the cell of pieces at `c` is in the table, or −1 if it isn't there.
+fn pieces_slot(c: vec3<i32>) -> i32 {
+    var h = ((bitcast<u32>(c.x) * 73856093u) ^ (bitcast<u32>(c.y) * 19349663u) ^ (bitcast<u32>(c.z) * 83492791u)) & (PIECES_SLOTS - 1u);
+    for (var k = 0; k < PIECES_PROBES; k++) {
+        let key = pieces[h * 2u];
+        if (key.w == 0u) {
+            return -1;
+        }
+        if (bitcast<i32>(key.x) == c.x && bitcast<i32>(key.y) == c.y && bitcast<i32>(key.z) == c.z) {
+            return i32(h);
+        }
+        h = (h + 1u) & (PIECES_SLOTS - 1u);
+    }
+    return -1;
+}
+
+// Octant `o`'s block (`x + 2y + 4z`), 0 if it's empty.
+fn octant_block(slot: i32, o: i32) -> u32 {
+    let w = pieces[u32(slot) * 2u + 1u][o / 2];
+    return (w >> (16u * u32(o % 2))) & 0xFFFFu;
+}
+
+// An octant's face's colour: its block's texture (half of it across, as the octant lies on the block), or with
+// textures off the texture shrunk to its one texel (the block's far colour); rock grey for a block with none.
+fn octant_colour(block: u32, at: vec3<f32>, c: vec3<i32>, facing: vec3<f32>, t: f32) -> vec3<f32> {
+    if (block >= 256u) {
+        return ROCK;
+    }
+    let face = face_of(facing);
+    let layer = block_table[block * 2u + face / 4u][face % 4u];
+    if (layer == NO_TEXTURE) {
+        return ROCK;
+    }
+    if (camera.textures.x < 0.5) {
+        return textureSampleLevel(block_textures, block_sampler, vec2<f32>(0.5), i32(layer), 16.0).rgb;
+    }
+    return textured(ROCK, block, at, c, facing, t);
+}
+
+struct Octant {
+    met: bool,
+    t: f32,
+    facing: vec3<f32>,
+    block: u32,
+}
+
+// The ray through the cell of pieces `c` (in its table place `slot`) from `t0`, where it came in facing
+// `facing0`: the first filled octant it meets, if any.
+fn octants(o: vec3<f32>, d: vec3<f32>, t0: f32, c: vec3<i32>, facing0: vec3<f32>, slot: i32) -> Octant {
+    var out: Octant;
+    let s = select(vec3<i32>(-1), vec3<i32>(1), d > vec3<f32>(0.0));
+    let across = select(0.5 / abs(d), vec3<f32>(1e30), abs(d) < vec3<f32>(1e-6));
+    let base = vec3<f32>(c);
+    var q = clamp(vec3<i32>(floor((o + d * t0 - base) * 2.0)), vec3<i32>(0), vec3<i32>(1));
+    let next = base + (vec3<f32>(q) + select(vec3<f32>(0.0), vec3<f32>(1.0), d > vec3<f32>(0.0))) * 0.5;
+    var ahead = select((next - o) / d, vec3<f32>(1e30), abs(d) < vec3<f32>(1e-6));
+    var t = t0;
+    var facing = facing0;
+    for (var n = 0; n < 4; n++) {
+        let block = octant_block(slot, q.x + 2 * q.y + 4 * q.z);
+        if (block != 0u) {
+            out.met = true;
+            out.t = t;
+            out.facing = facing;
+            out.block = block;
+            return out;
+        }
+        if (ahead.x < ahead.y && ahead.x < ahead.z) {
+            t = ahead.x;
+            q.x += s.x;
+            ahead.x += across.x;
+            facing = vec3<f32>(-f32(s.x), 0.0, 0.0);
+        } else if (ahead.y < ahead.z) {
+            t = ahead.y;
+            q.y += s.y;
+            ahead.y += across.y;
+            facing = vec3<f32>(0.0, -f32(s.y), 0.0);
+        } else {
+            t = ahead.z;
+            q.z += s.z;
+            ahead.z += across.z;
+            facing = vec3<f32>(0.0, 0.0, -f32(s.z));
+        }
+        if (any(q < vec3<i32>(0)) || any(q > vec3<i32>(1))) {
+            return out;
+        }
+    }
+    return out;
 }
 
 // Where the ray leaves block `c` across each axis's next face.
@@ -594,7 +700,33 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
             return out;
         }
         let look = from_band(entry.x, entry.y, c.z);
-        if (look.solid >= 0.5) {
+        // A cell of pieces: its octants walked; passed through them all, the walk goes on.
+        var through_pieces = false;
+        if (look.solid >= 0.5 && block_in_band(entry.x, entry.y, c.z) == PIECES_MARK) {
+            let slot = pieces_slot(c);
+            if (slot >= 0) {
+                let hit = octants(o, d, t, c, facing, slot);
+                if (hit.met) {
+                    out.met = true;
+                    out.t = hit.t;
+                    let at = o + d * hit.t;
+                    let colour = octant_colour(hit.block, at, c, hit.facing, hit.t);
+                    let light = face_light(hit.facing);
+                    out.colour += out.through * lit(colour, light);
+                    out.sunny += out.through * sunlit(colour, light);
+                    out.facing = hit.facing;
+                    if (out.through > 0.5) {
+                        out.first = hit.t;
+                    }
+                    // Its texture's on already.
+                    out.face_share = 0.0;
+                    out.through = 0.0;
+                    return out;
+                }
+                through_pieces = true;
+            }
+        }
+        if (look.solid >= 0.5 && !through_pieces) {
             out.met = true;
             out.t = t;
             let colour = select(look.colour, ROCK, look.surface <= 0.0);

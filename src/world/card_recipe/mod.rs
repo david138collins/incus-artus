@@ -1071,7 +1071,7 @@ fn ground(c: Case) -> i32 {
                     let (from, to) = ((ground - 8).div_euclid(size), (top.max(ground) + 6) / size);
                     let first: usize = tile.columns[..i].iter().map(|c| c.sums.len()).sum();
                     for z in from..=to {
-                        let want = sums_of_box([bx, by, z * size], size, &|p| reader.block(p), &colours);
+                        let want = sums_of_box([bx, by, z * size], size, &|p| reader.seen(p), &colours);
                         assert_eq!(column.at(z, size), want, "level {level}, cell ({cx}, {cy}, {z}) in tile ({}, {})", key.x, key.y);
                         if level == 0 && want.showing() > 0 && z >= column.low && z <= column.high() {
                             let block = reader.block([bx, by, z]);
@@ -1389,6 +1389,84 @@ fn ground(c: Case) -> i32 {
         for c in [0, 2] {
             assert!((far[c] - average[c]).abs() < average[c] * 0.08, "far off, the texture shrunk to one texel ({far:?} against {average:?})");
         }
+    }
+
+    /// Pieces in sight (build 90): a cell 3½ blocks ahead of the eye, on the ground, as air, as a whole block, and
+    /// as a slab (its lower four octants). Looking straight at it through its lower half, the slab is the whole
+    /// block (the same face, texture and light); through its upper half, it's the air (the ray goes on past it).
+    #[test]
+    fn sight_s_pieces_show_their_octants() {
+        use crate::sight::bake::Blocks;
+        use crate::sight::cell::FarColours;
+        use crate::sight::edits::{Edits, patch_tile, pieces_near};
+        use crate::sight::store::{TILE, TileKey, compact_tile, fill_tile};
+        use crate::sight::textures::{BlockTextures, mips};
+        use crate::world::{BlockId, CavePlan, ChunkPos, Part, Pieces, TerrainBlocks, WORLD_HEIGHT};
+        use std::collections::HashMap;
+        let Some((device, queue, store, map)) = sight_scene_with(64.0, |_| 150.0, Some((0, 0))) else {
+            eprintln!("No graphics card: sight's pieces test is skipped");
+            return;
+        };
+        // The scene's world again (as `sight_scene_with` makes it), to make the tile with the cell edited.
+        let names = ["incus:gabbro", "incus:stone", "incus:grass", "incus:water", "incus:dirt", "incus:sand", "incus:dry_grass", "incus:snowy_ground", "incus:gravel"];
+        let blocks = TerrainBlocks { gabbro: BlockId(1), stone: BlockId(2), grass: BlockId(3), water: BlockId(4), names: std::sync::Arc::new(names.iter().enumerate().map(|(k, n)| (n.to_string(), BlockId(k as u16 + 1))).collect::<HashMap<String, BlockId>>()) };
+        let colours = FarColours { blocks: (0..=names.len() as u64).map(|k| if k == 3 { ([90, 220, 60], [120, 130, 90]) } else if k == 4 { ([40, 120, 300], [40, 120, 300]) } else { ([300, 290, 270], [260, 250, 235]) }).collect(), water: blocks.water };
+        let plan = CavePlan::default();
+        let (world, _) = super::send(&device, &queue, &map, &plan, &blocks, &colours, (0, 0)).expect("the world on the card");
+        let pos = ChunkPos::new(0, 0);
+        let chunk = map.chunk(pos, &blocks, &plan).expect("the chunk");
+        let ground = (0..WORLD_HEIGHT).rev().find(|&z| chunk.block_at(4, 0, z) != BlockId::AIR).expect("ground");
+        let cell = [4, 0, ground + 1];
+        // One colour for every block's every face (a warm orange), so the octant's face and the block's match.
+        let side = crate::look::TEXTURE_SIZE;
+        let textures = BlockTextures { layers: vec![mips((0..side * side).flat_map(|_| [220u8, 120, 40, 255]).collect())], blocks: (0..16).map(|k| if k == 0 { ([crate::sight::textures::NONE; 6], 0) } else { ([0; 6], 0) }).collect(), problems: Vec::new() };
+        let map = std::sync::Arc::new(map);
+        let key = TileKey { level: 0, x: 0, y: 0 };
+        // The cell as `what` (none: air), the tile made again round it and put on the card, its pieces too.
+        let show = |what: Option<crate::world::Chunk>| {
+            let mut tile = fill_tile(&device, &queue, &world, &plan, world.odd, key);
+            let changed: HashMap<ChunkPos, std::sync::Arc<crate::world::Chunk>> = what.into_iter().map(|c| (pos, std::sync::Arc::new(c))).collect();
+            let edits = Edits { with: Blocks { map: map.clone(), blocks: blocks.clone(), colours: colours.clone(), changed: std::sync::Arc::new(changed.clone()) }, spots: std::sync::Arc::new([(pos, std::sync::Arc::new(vec![cell]))].into_iter().collect()), caves: std::sync::Arc::new(plan.clone()), recipe: Default::default() };
+            patch_tile(&mut tile, key, &edits);
+            store.put_tile(0, 0, 0, TILE as u32, &compact_tile(&tile, 1));
+            store.put_pieces(&pieces_near(&changed));
+        };
+        let size = (320, 200);
+        // The middle pixel looking straight north from 3½ blocks south of the cell, `up` into it.
+        let middle = |up: f32| {
+            let eye = crate::sight::draw::Eye {
+                position: [0.5, 0.5, (ground + 1) as f32 + up],
+                looking: [1.0, 0.0, 0.0],
+                field_of_view: 60.0,
+                grid: 2.0,
+                coarsest: 8,
+                shadows: false,
+                sky: false,
+                fog: false,
+                textures: true,
+                ..Default::default()
+            };
+            sight_picture_with(&device, &queue, &store, size, eye, Some(&textures))[(size.1 / 2 * size.0 + size.0 / 2) as usize]
+        };
+        let near = |a: [u8; 3], b: [u8; 3]| (0..3).all(|c| (a[c] as i32 - b[c] as i32).abs() <= 3);
+        show(None);
+        let air = (middle(0.25), middle(0.75));
+        let mut whole = chunk.clone();
+        whole.set_block_at(cell[0], cell[1], cell[2], blocks.gabbro);
+        show(Some(whole));
+        let block = (middle(0.25), middle(0.75));
+        let mut slab = chunk.clone();
+        let mut pieces = Pieces::default();
+        for o in 0..4 {
+            pieces.set(o, blocks.gabbro, Part::LONE);
+        }
+        slab.set_pieces_at(cell[0], cell[1], cell[2], pieces);
+        show(Some(slab));
+        let seen = (middle(0.25), middle(0.75));
+        eprintln!("Sight's pieces: through the lower half air {:?}, block {:?}, slab {:?}; the upper half air {:?}, block {:?}, slab {:?}", air.0, block.0, seen.0, air.1, block.1, seen.1);
+        assert!(!near(air.0, block.0), "the block shows against the air");
+        assert!(near(seen.0, block.0), "through its lower half the slab is the block");
+        assert!(near(seen.1, air.1) && !near(seen.1, block.1), "through its upper half the slab is the air");
     }
 
     /// Sight's fog (3.4c): near land hardly fogged, far land well on its way to the horizon's colour, and the same

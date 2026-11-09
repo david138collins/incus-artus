@@ -12,6 +12,8 @@
 //!   cells is one finest pixel: `store::side_for`), one after the other in the index. A level between them
 //!   not kept has its window all "not there", so the march reads the next coarser one.
 //! - **The header:** the levels' numbers (`header` in `march.wgsl`).
+//! - **The pieces** (build 90): each cell built of pieces (half blocks) near enough to have been edited, its
+//!   eight octants' blocks, in a table the near walk looks a cell up in by its place (`put_pieces`).
 //!
 //! The processor writes it all in small pieces (a region's or a tile's worth), queued with the card's own
 //! work in order: a column's cells always go before the entry that points to them.
@@ -24,6 +26,15 @@ use std::sync::Mutex;
 pub const POOL_CELLS: u32 = 24 << 20;
 /// An entry not baked yet.
 pub const NOT_BAKED: u32 = 0xFFFF_0000;
+/// The pieces table's places (32 bytes each, 512 KB); at most half are used, so a look-up stays short.
+pub const PIECES_SLOTS: u32 = 16_384;
+/// The most places a cell of pieces is looked for past its own (`march.wgsl`'s `pieces_slot`).
+pub const PIECES_PROBES: u32 = 32;
+
+/// Where a cell of pieces at `c` is first looked for (the same in `march.wgsl`).
+pub fn pieces_hash(c: [i32; 3]) -> u32 {
+    ((c[0] as u32).wrapping_mul(73_856_093) ^ (c[1] as u32).wrapping_mul(19_349_663) ^ (c[2] as u32).wrapping_mul(83_492_791)) & (PIECES_SLOTS - 1)
+}
 
 /// Places in the pool: first fit, neighbours merged when given back.
 #[derive(Debug)]
@@ -99,6 +110,8 @@ pub struct CardStore {
     /// The highest anything stands in what's on the card so far (blocks, to a cell): over it a ray that isn't
     /// coming down meets nothing (the march's ceiling, from the first region, not only once the bake is done).
     pub highest: std::sync::atomic::AtomicI32,
+    /// The cells of pieces (`put_pieces`).
+    pub pieces: wgpu::Buffer,
     queue: wgpu::Queue,
     places: Mutex<(Pool, Owners)>,
 }
@@ -148,7 +161,31 @@ impl CardStore {
             use wgpu::util::DeviceExt;
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's header"), contents: &header.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
-        Self { pool, baked, live, header, extents, finest_live, live_kept, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+        let pieces = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's pieces"), size: PIECES_SLOTS as u64 * 32, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        Self { pool, baked, live, header, extents, finest_live, live_kept, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), pieces, queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+    }
+
+    /// The cells of pieces on the card, all of them at once (each its place and its eight octants' blocks, 0 an
+    /// empty octant), the table written whole. Each cell goes in its first free place from its hash on; past half
+    /// the table, or past `PIECES_PROBES` places on, it's left out (it shows as a block of its main material).
+    /// How many went in.
+    pub fn put_pieces(&self, cells: &[([i32; 3], [u16; 8])]) -> usize {
+        let mut table = vec![[0u32; 8]; PIECES_SLOTS as usize];
+        let mut put = 0;
+        for &(c, octants) in cells.iter().take(PIECES_SLOTS as usize / 2) {
+            let start = pieces_hash(c);
+            for k in 0..PIECES_PROBES {
+                let slot = &mut table[((start + k) & (PIECES_SLOTS - 1)) as usize];
+                if slot[3] == 0 {
+                    let pair = |i: usize| octants[i] as u32 | (octants[i + 1] as u32) << 16;
+                    *slot = [c[0] as u32, c[1] as u32, c[2] as u32, 1, pair(0), pair(2), pair(4), pair(6)];
+                    put += 1;
+                    break;
+                }
+            }
+        }
+        self.queue.write_buffer(&self.pieces, 0, &table.iter().flatten().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>());
+        put
     }
 
     pub fn side(&self) -> i32 {

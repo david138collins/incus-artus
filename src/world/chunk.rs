@@ -77,6 +77,17 @@ impl Chunk {
         self.pieces.get(&block)
     }
 
+    /// The same, in plain numbers (sight).
+    pub fn pieces_at(&self, x: i32, y: i32, z: i32) -> Option<&Pieces> {
+        self.pieces.get(&IVec3::new(x, y, z))
+    }
+
+    /// `set_pieces` in plain numbers (sight's tests).
+    #[cfg(test)]
+    pub fn set_pieces_at(&mut self, x: i32, y: i32, z: i32, pieces: Pieces) -> BlockId {
+        self.set_pieces(IVec3::new(x, y, z), pieces)
+    }
+
     /// Makes a cell one built of these pieces (or, if there are none, air). Returns the block that
     /// was there before.
     pub fn set_pieces(&mut self, block: IVec3, pieces: Pieces) -> BlockId {

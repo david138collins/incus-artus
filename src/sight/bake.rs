@@ -445,7 +445,9 @@ pub fn column_from_blocks(cx: i32, cy: i32, with: &Blocks, caves: &crate::world:
         }
         let pos = ChunkPos::new(x.div_euclid(32), y.div_euclid(32));
         if let Some(chunk) = with.changed.get(&pos) {
-            return chunk.block_at(x, y, z);
+            // A cell of pieces as its main material (build 90, `edits::main_material`).
+            let block = chunk.block_at(x, y, z);
+            return if block == BlockId::PIECES { super::edits::main_material(chunk, [x, y, z]) } else { block };
         }
         let mut made = made.borrow_mut();
         let chunk = made.entry(pos).or_insert_with(|| with.map.chunk(pos, &with.blocks, caves));

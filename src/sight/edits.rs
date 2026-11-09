@@ -9,6 +9,11 @@
 //! - **Which blocks are edited** (`Edits::spots`): each change as it's announced, and for chunks changed before
 //!   sight started (a saved world), every block that differs from the recipe's (`differences`, on the loading
 //!   lane). A spot changed back is still made again, to the same cells: harmless.
+//! - **Pieces** (build 90): a cell built of pieces (half blocks; `BlockId::PIECES` in its chunk) counts in the
+//!   sums, at every level, as a block of its most-used material (`main_material`), never as air: the near walk
+//!   skips the air over a coarser cell column's top, so a lone octant counted as air would never be met. A cell of
+//!   one block keeps the marker as its block, and the near walk steps through its octants from the card's table
+//!   (`CardStore::put_pieces`, filled from `pieces_near`).
 //! - **A tile an edit reaches is made again** at every live level (`LiveStore::touch`), the cells on the card
 //!   kept till the new ones replace them, so nothing blinks.
 
@@ -52,6 +57,16 @@ impl<'a> Reader<'a> {
         Self { edits, near: RefCell::new(HashMap::new()) }
     }
 
+    /// The block at `at` as the sums count it: a cell of pieces as its main material.
+    pub fn seen(&self, at: [i32; 3]) -> BlockId {
+        let block = self.block(at);
+        if block != BlockId::PIECES {
+            return block;
+        }
+        let pos = ChunkPos::new(at[0].div_euclid(32), at[1].div_euclid(32));
+        self.edits.with.changed.get(&pos).map_or(BlockId::AIR, |chunk| main_material(chunk, at))
+    }
+
     /// The block at `at`: stone under the world, air over it and past the map.
     pub fn block(&self, [x, y, z]: [i32; 3]) -> BlockId {
         if z < 0 {
@@ -68,6 +83,30 @@ impl<'a> Reader<'a> {
         let chunk = near.entry(pos).or_insert_with(|| recipe_chunk(self.edits, pos));
         chunk.as_ref().map_or(BlockId::AIR, |chunk| chunk.block_at(x, y, z))
     }
+}
+
+/// The most-used material in the cell of pieces at `at` (the first octant's of those used as much), air if
+/// it has none.
+pub fn main_material(chunk: &Chunk, at: [i32; 3]) -> BlockId {
+    let Some(pieces) = chunk.pieces_at(at[0], at[1], at[2]) else { return BlockId::AIR };
+    let blocks: Vec<BlockId> = (0..8).filter_map(|o| pieces.get(o).map(|(block, _)| block)).collect();
+    let mut best = (0, BlockId::AIR);
+    for &block in &blocks {
+        let n = blocks.iter().filter(|&&b| b == block).count();
+        if n > best.0 {
+            best = (n, block);
+        }
+    }
+    best.1
+}
+
+/// Every cell of pieces in the changed chunks, with its eight octants' blocks (0 for an empty one), for the
+/// card's table.
+pub fn pieces_near(changed: &HashMap<ChunkPos, Arc<Chunk>>) -> Vec<([i32; 3], [u16; 8])> {
+    changed
+        .values()
+        .flat_map(|chunk| chunk.all_pieces().map(|(at, pieces)| (at.to_array(), std::array::from_fn(|o| pieces.get(o).map_or(0, |(block, _)| block.0)))))
+        .collect()
 }
 
 /// The recipe's chunk at `pos`, made if it hasn't been (outside the lock: two tiles may both make it, once).
@@ -140,7 +179,7 @@ pub fn patch_tile(tile: &mut Tile, key: TileKey, edits: &Edits) -> usize {
         }
         let at = [cx * size, cy * size, cz * size];
         let k = (cz - column.low) as usize;
-        column.sums[k] = sums_of_box(at, size, &|p| reader.block(p), colours);
+        column.sums[k] = sums_of_box(at, size, &|p| reader.seen(p), colours);
         column_blocks[k] = if size == 1 { solid_block(at) } else { 0 };
     }
     tile.blocks = by_column.into_iter().flatten().collect();
@@ -189,4 +228,35 @@ fn every_solid(chunk: &Chunk) -> Vec<[i32; 3]> {
         }
     }
     spots
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::world::{Part, Pieces, SECTIONS_PER_CHUNK, Section};
+
+    /// A cell of pieces counts as its most-used material (the first octant's when two are used as much), and
+    /// the card's table names each octant's block.
+    #[test]
+    fn a_cell_of_pieces_counts_as_its_main_material() {
+        let (gabbro, stone) = (BlockId(1), BlockId(2));
+        let mut chunk = Chunk::from_sections(ChunkPos::new(0, 0), vec![Section::Uniform(BlockId::AIR); SECTIONS_PER_CHUNK]);
+        let at = [3, 4, 10];
+        let mut pieces = Pieces::default();
+        for (o, block) in [(0, stone), (1, gabbro), (2, gabbro), (5, stone), (7, gabbro)] {
+            pieces.set(o, block, Part::LONE);
+        }
+        chunk.set_pieces_at(at[0], at[1], at[2], pieces);
+        assert_eq!(chunk.block_at(3, 4, 10), BlockId::PIECES);
+        assert_eq!(main_material(&chunk, at), gabbro, "three of gabbro to two of stone");
+        let mut even = Pieces::default();
+        even.set(4, stone, Part::LONE);
+        even.set(6, gabbro, Part::LONE);
+        chunk.set_pieces_at(3, 4, 11, even);
+        assert_eq!(main_material(&chunk, [3, 4, 11]), stone, "as much of each: the first octant's");
+        assert_eq!(main_material(&chunk, [3, 4, 12]), BlockId::AIR, "no pieces there");
+        let mut table = pieces_near(&[(ChunkPos::new(0, 0), Arc::new(chunk))].into_iter().collect());
+        table.sort();
+        assert_eq!(table, vec![([3, 4, 10], [2, 1, 1, 0, 0, 2, 0, 1]), ([3, 4, 11], [0, 0, 0, 0, 2, 0, 1, 0])]);
+    }
 }

@@ -992,6 +992,26 @@ back to.
   facing arrow: lines drawn over the picture from `LookTarget` with the camera's own projection (`to_screen`, the
   same as sight's rays), the part of a line behind the eye cut off. The Camera page's switch and brightness work
   as before. Drawn over everything (gizmos hid behind nearer blocks): seen through walls, if it bothers him.
+  **David's look at build 89** [2026-11-08: "they shouldn't go into blocks, they should show what they'll place;
+  additionally, the quarter blocks and shifted blocks still just go white"]; asked which, he chose to box the empty
+  place. **Build 90**: the helpers box what placing would take (magenta: the place in front of the face, or a bar's
+  or shifted block's room), the block aimed at no longer boxed; the face's cross stays (what a dig would take), and
+  in a cell of pieces the piece aimed at (white). **Pieces in sight**: the card keeps a table of every cell of
+  pieces in the changed chunks, its eight octants' blocks (`CardStore::put_pieces`, 16,384 places, at most half
+  used, looked up by a hash of the cell's place; written whole when an edit lands), and a cell of one block built
+  of pieces keeps the marker as its block; the near walk, meeting one, steps through its octants (a ray crosses at
+  most four) to the first filled one, its face wearing its block's texture where the octant lies on the block
+  (half of it across), or with textures off the texture's one texel; passed through, the walk goes on. **Changed
+  from what was agreed, and why**: in the sums a cell of pieces counts as a block of its most-used material
+  whatever it holds, not air under half: the near walk skips the air over a coarser cell column's top, so a lone
+  octant counted as air there would be skipped and never met. A face seen through a gap in a cell of pieces (the
+  sums count the cell whole, so the face behind has none) was rock grey: it now wears its texture. **Tests**:
+  `sight_s_pieces_show_their_octants` (a cell ahead of the eye as air, a whole block and a slab: through the lower
+  half the slab is the block, [170, 93, 30] both, through the upper half the air) and
+  `a_cell_of_pieces_counts_as_its_main_material`. Suite 396. Not measured: the walk reads one more word where a
+  ray meets a block, and walks octants only in a cell of pieces. **On file**: a block with no texture (the tool
+  blocks) shows its octants rock grey; a shifted block's octants wear each cell's half of the texture, so its
+  texture is cut and shifted at the cell's edge; shadows and sky light see a cell of pieces whole.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

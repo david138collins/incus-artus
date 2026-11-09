@@ -478,6 +478,8 @@ pub struct SightStore {
     /// started that differ from the recipe's, being found on the loading lane.
     edits: Option<Arc<crate::sight::edits::Edits>>,
     differing: Option<crate::loading::Job<Vec<(ChunkPos, Vec<[i32; 3]>)>>>,
+    /// The cells of pieces on the card's table (build 90).
+    pieces_shown: usize,
     /// When the store was last reported in the log.
     reported: Option<Instant>,
 }
@@ -637,7 +639,19 @@ fn keep_sight(
     if !spots.is_empty()
         && let Some(edits) = &sight.edits
     {
-        sight.edits = Some(Arc::new(with_spots(edits, &voxel, spots.iter().copied())));
+        let edits = Arc::new(with_spots(edits, &voxel, spots.iter().copied()));
+        // The cells of pieces on the card again (build 90): all of them, from the changed chunks.
+        if let Some(card) = &sight.card {
+            let cells = crate::sight::edits::pieces_near(&edits.with.changed);
+            if !cells.is_empty() || sight.pieces_shown > 0 {
+                let put = card.put_pieces(&cells);
+                if put < cells.len() {
+                    warn!("Sight's pieces: {} of {} cells of pieces on the card (its table is full)", put, cells.len());
+                }
+                sight.pieces_shown = put;
+            }
+        }
+        sight.edits = Some(edits);
         if let Some(live) = &mut sight.live {
             live.touch(spots);
         }

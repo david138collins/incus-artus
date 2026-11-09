@@ -399,9 +399,11 @@ fn line_on_screen(view: &CameraView, window: &WindowState, from: Vec3, to: Vec3)
     Some([egui::pos2(p.x, p.y), egui::pos2(q.x, q.y)])
 }
 
-/// The targeted block outlined (white) and the face being pointed at (magenta, with a cross); a bar's or a
-/// shifted block's room (magenta) and the piece aimed at (white) instead of the whole block; an object's
-/// facing arrow (magenta). Drawn over the picture (build 89: Bevy's gizmos drew them before the regroup).
+/// What placing would take (magenta): the empty place in front of the face pointed at, or a bar's or a shifted
+/// block's room [David on build 89: "they shouldn't go into blocks, they should show what they'll place"; the
+/// block aimed at was outlined white]; the face pointed at (magenta, with a cross), or in a cell of pieces the
+/// piece aimed at (white); an object's facing arrow (magenta). Drawn over the picture (build 89: Bevy's gizmos
+/// drew them before the regroup).
 fn draw_look_target(mut contexts: EguiContexts, settings: Res<CameraSettings>, target: Res<LookTarget>, view: Res<CameraView>, window: Res<WindowState>) -> Result {
     let Some(hit) = target.hit.filter(|_| settings.show_target_outline) else {
         return Ok(());
@@ -440,20 +442,26 @@ fn draw_look_target(mut contexts: EguiContexts, settings: Res<CameraSettings>, t
         line(to, to - along * 0.25 + side, magenta);
         line(to, to - along * 0.25 - side, magenta);
     }
-    for &octant in &target.ghost {
-        outline(octant, magenta);
+    // Where it would go: a bar's or a shifted block's room, or the empty place in front of the face.
+    if !target.ghost.is_empty() {
+        for &octant in &target.ghost {
+            outline(octant, magenta);
+        }
+    } else if hit.normal != IVec3::ZERO {
+        let place = (hit.block + hit.normal).as_vec3();
+        outline((place, place + Vec3::ONE), magenta);
     }
-    for &octant in &target.piece {
-        outline(octant, white);
-    }
-    if !target.ghost.is_empty() || !target.piece.is_empty() {
+    // What a dig would take: the piece aimed at, or the face's cross.
+    if !target.piece.is_empty() {
+        for &octant in &target.piece {
+            outline(octant, white);
+        }
         return Ok(());
     }
-    let low = hit.block.as_vec3();
-    outline((low, low + Vec3::ONE), white);
     if hit.normal == IVec3::ZERO {
         return Ok(());
     }
+    let low = hit.block.as_vec3();
     // The face's four corners: from its centre, half a block either way along its two in-plane axes.
     let normal = hit.normal.as_vec3();
     let face_centre = low + Vec3::splat(0.5) + normal * (0.5 + grow);

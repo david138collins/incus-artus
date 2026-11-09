@@ -316,6 +316,7 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 11, resource: wgpu::BindingResource::TextureView(&self.textures) },
                         wgpu::BindGroupEntry { binding: 12, resource: wgpu::BindingResource::Sampler(&self.texture_sampler) },
                         wgpu::BindGroupEntry { binding: 13, resource: buffer(&self.texture_table) },
+                        wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
                     ],
                 });
                 far_above = Some(far.clone());
