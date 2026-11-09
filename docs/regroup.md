@@ -1248,6 +1248,15 @@ lamps, lights at cave mouths), and day and night.
   brightness"]. A face takes the light of the air cell in front of it whole: a block's step at a time, hard-edged.
   The blend across faces stays as a choice on the Render page ("blended across faces", off; `placed_light_smooth`).
   Models are lit from their cells as before. Suite 415.
+  **David on 97** (2026-11-09): "the light looked dope." Placed light done enough to go on.
+- **Generic transparency, talked through** (2026-11-09) [David: "im not really interested in reflections, and i
+  think as long as transparency is done well and flexible, we'll be fine when i add stuff lke that. 16 fade through
+  water is good, just blue water is fine for now"]. A block's data may give it a medium (a tint and a clarity: how
+  many blocks you see through it); cells keep how much of them is a medium and which; a ray through a medium dims
+  and tints with the length it goes (the near walk block by block, the cells by their shares), in place of water's
+  fixed 85%; sunlight dims under it, and placed light floods through it, tinted. No reflections. Water first (about
+  16 blocks to see through, blue); glass and ice take the same when they come. The sea as a plane stays on the
+  dyno's list.
   - **Not yet (95):** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
     (radius 4, 64 blocks: a brazier farther off is neither lit nor drawn); sun shadows on and from objects; fog on
     objects (they're near).
