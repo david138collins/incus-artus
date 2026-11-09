@@ -57,6 +57,11 @@ pub struct Eye {
     /// crisper, below smoother).
     pub textures: bool,
     pub texture_sharpness: f32,
+    /// Placed lights (build 95): on or off; how much they flicker (0 none, 1 down to dark); and the time they
+    /// flicker by (seconds, sped up as chosen).
+    pub placed_lights: bool,
+    pub flicker: f32,
+    pub flicker_time: f32,
 }
 
 impl Default for Eye {
@@ -86,6 +91,9 @@ impl Default for Eye {
             fog_warmth: FOG_WARMTH,
             textures: true,
             texture_sharpness: 0.0,
+            placed_lights: true,
+            flicker: FLICKER,
+            flicker_time: 0.0,
         }
     }
 }
@@ -137,6 +145,10 @@ const AMBIENT: f32 = 0.35;
 /// still shows where it sees the sky (and none where it doesn't: caves pitch black).
 pub const NIGHT_LIGHT: f32 = 0.04;
 
+/// How much placed lights flicker by default, and how fast (the old renderer's: `flicker`, `flicker_speed`).
+pub const FLICKER: f32 = 0.15;
+pub const FLICKER_SPEED: f32 = 1.5;
+
 /// The light by the sun's height (`sun_up`: the sine of its height over the horizon): how strong its own light
 /// is (full from 4° up, gone 2° under, as its disc sinks behind the horizon), and how bright the sky is (full from
 /// 4° up, fading through the dusk to nothing 18° under, when the last of the glow has gone: a dusk's first part
@@ -172,6 +184,8 @@ pub struct SightDraw {
     texture_table: wgpu::Buffer,
     textures_revision: Option<u64>,
     textures_made: u64,
+    /// The objects' models and sprites (build 96), drawn after the upscale into its depth.
+    pub objects: super::models::ObjectsDraw,
 }
 
 /// One layer of the pyramid: its factor (screen pixels a side of a pixel), its size, its picture and distances,
@@ -197,6 +211,8 @@ struct Targets {
     layers: Vec<Layer>,
     start_group: wgpu::BindGroup,
     upscale_group: wgpu::BindGroup,
+    /// The screen's depth (build 96): the upscale's, from the march's distances, that the objects are drawn into.
+    depth: wgpu::TextureView,
 }
 
 fn buffer(b: &wgpu::Buffer) -> wgpu::BindingResource<'_> {
@@ -215,12 +231,13 @@ impl SightDraw {
             vertex: wgpu::VertexState { module: &up_module, entry_point: Some("whole_screen"), buffers: &[], compilation_options: Default::default() },
             fragment: Some(wgpu::FragmentState { module: &up_module, entry_point: Some("brought_up"), targets: &[Some(wgpu::ColorTargetState { format, blend: None, write_mask: wgpu::ColorWrites::ALL })], compilation_options: Default::default() }),
             primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
+            // The depth the objects are drawn into (build 96): written whole, every pixel.
+            depth_stencil: Some(wgpu::DepthStencilState { format: super::models::DEPTH, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Always), stencil: Default::default(), bias: Default::default() }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
         });
-        let up = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's upscale numbers"), size: 2 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let up = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's upscale numbers"), size: 3 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("sight's blend"), mag_filter: wgpu::FilterMode::Linear, min_filter: wgpu::FilterMode::Linear, address_mode_u: wgpu::AddressMode::ClampToEdge, address_mode_v: wgpu::AddressMode::ClampToEdge, ..Default::default() });
         // Until the registry's textures come: one texture of one texel, and a table with none.
         let textures = Self::texture_stack(device, queue, &crate::sight::textures::BlockTextures::default());
@@ -239,7 +256,8 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's block textures' table"), contents: &table.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0 }
+        let objects = super::models::ObjectsDraw::new(device, format);
+        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -339,6 +357,7 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 12, resource: wgpu::BindingResource::Sampler(&self.texture_sampler) },
                         wgpu::BindGroupEntry { binding: 13, resource: buffer(&self.texture_table) },
                         wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
+                        wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
                     ],
                 });
                 far_above = Some(far.clone());
@@ -358,6 +377,7 @@ impl SightDraw {
             });
             // A layer the pyramid doesn't go to is never read; the base stands in for it.
             let picture_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).picture;
+            let far_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).far;
             let upscale_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("sight's upscale"),
                 layout: &self.upscale.get_bind_group_layout(0),
@@ -370,9 +390,25 @@ impl SightDraw {
                     wgpu::BindGroupEntry { binding: 5, resource: buffer(&self.up) },
                     wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::TextureView(picture_of(1.0)) },
                     wgpu::BindGroupEntry { binding: 7, resource: wgpu::BindingResource::TextureView(picture_of(1.5)) },
+                    wgpu::BindGroupEntry { binding: 8, resource: wgpu::BindingResource::TextureView(far_of(4.0)) },
+                    wgpu::BindGroupEntry { binding: 9, resource: wgpu::BindingResource::TextureView(far_of(2.0)) },
+                    wgpu::BindGroupEntry { binding: 10, resource: wgpu::BindingResource::TextureView(far_of(1.0)) },
+                    wgpu::BindGroupEntry { binding: 11, resource: wgpu::BindingResource::TextureView(far_of(1.5)) },
                 ],
             });
-            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, upscale_group });
+            let depth = device
+                .create_texture(&wgpu::TextureDescriptor {
+                    label: Some("sight's depth"),
+                    size: wgpu::Extent3d { width: screen.0, height: screen.1, depth_or_array_layers: 1 },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: super::models::DEPTH,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                })
+                .create_view(&Default::default());
+            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, upscale_group, depth });
         }
         self.targets.as_ref().expect("made just now")
     }
@@ -395,6 +431,7 @@ impl SightDraw {
         let no_sky = std::env::var("INCUS_SIGHT_NO_SKY").is_ok();
         let no_fog = std::env::var("INCUS_SIGHT_NO_FOG").is_ok();
         let no_textures = std::env::var("INCUS_SIGHT_NO_TEXTURES").is_ok();
+        let no_lights = std::env::var("INCUS_SIGHT_NO_LIGHTS").is_ok();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -459,10 +496,13 @@ impl SightDraw {
                 // The time of day: the sun's own light, the sky's light (night's at the least), the sky's
                 // brightness, and night's light.
                 [direct, night + (1.0 - night) * glow, glow, night],
+                // Placed lights (build 95; `INCUS_SIGHT_NO_LIGHTS` leaves them out, for measuring): on, how much they
+                // flicker, the time they flicker by (kept under an hour's worth, so the card's sums stay fine).
+                [if eye.placed_lights && !no_lights { 1.0 } else { 0.0 }, eye.flicker.clamp(0.0, 1.0), eye.flicker_time.rem_euclid(3600.0), 0.0],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
-        let up_numbers: [[f32; 4]; 2] = [[screen.0 as f32, screen.1 as f32, finest, coarsest], [eye.upscale as f32, if has_between { 1.0 } else { 0.0 }, 0.0, 0.0]];
+        let up_numbers: [[f32; 4]; 3] = [[screen.0 as f32, screen.1 as f32, finest, coarsest], [eye.upscale as f32, if has_between { 1.0 } else { 0.0 }, 0.0, 0.0], [tan_half * aspect, tan_half, super::models::NEAREST, 0.0]];
         queue.write_buffer(&self.up, 0, &up_numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         // The card's own clock on sight's work, from its first pass's start to the upscale's end, when it can.
         let timed = self.timer.as_mut().and_then(|timer| timer.begin());
@@ -484,11 +524,25 @@ impl SightDraw {
         }
         let attachment = wgpu::RenderPassColorAttachment { view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store } };
         let timestamp_writes = timed.and(queries).map(|query_set| wgpu::RenderPassTimestampWrites { query_set, beginning_of_pass_write_index: None, end_of_pass_write_index: Some(1) });
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("sight's upscale"), color_attachments: &[Some(attachment)], timestamp_writes, ..Default::default() });
+        let depth = wgpu::RenderPassDepthStencilAttachment { view: &targets.depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(0.0), store: wgpu::StoreOp::Store }), stencil_ops: None };
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("sight's upscale"), color_attachments: &[Some(attachment)], depth_stencil_attachment: Some(depth), timestamp_writes, ..Default::default() });
         pass.set_pipeline(&self.upscale);
         pass.set_bind_group(0, &targets.upscale_group, &[]);
         pass.draw(0..3, 0..1);
         drop(pass);
+        // The objects, into the depth the upscale left (build 96).
+        let objects_view = super::models::ObjectsView {
+            eye: eye.position,
+            forward,
+            right,
+            up,
+            half: [tan_half * aspect, tan_half],
+            sun: normalise(eye.sun),
+            ambient: AMBIENT,
+            daylight: [direct, night + (1.0 - night) * glow],
+        };
+        let depth_view = targets.depth.clone();
+        self.objects.draw(device, queue, encoder, view, &depth_view, objects_view);
         if let (Some(k), Some(timer)) = (timed, &self.timer) {
             timer.resolve(encoder, k);
         }
@@ -541,7 +595,7 @@ pub fn factors(eye: Eye) -> Vec<f32> {
 }
 
 /// The camera numbers' rows (`Camera` in `march.wgsl`).
-const CAMERA_ROWS: usize = 16;
+const CAMERA_ROWS: usize = 17;
 
 /// What the card took on sight's last frames (milliseconds, smoothed), if it can time itself: the Render page's.
 static CARD_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);

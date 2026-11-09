@@ -145,6 +145,12 @@ pub fn run(mut app: App) {
 /// set once, as the window opens.
 static CARD: std::sync::OnceLock<(wgpu::Device, wgpu::Queue)> = std::sync::OnceLock::new();
 
+/// When the game started (the placed lights flicker by the time since).
+fn started() -> Instant {
+    static STARTED: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    *STARTED.get_or_init(Instant::now)
+}
+
 /// The card, once the window is open.
 pub fn card() -> Option<&'static (wgpu::Device, wgpu::Queue)> {
     CARD.get()
@@ -327,6 +333,14 @@ impl Runner {
         let required_features = adapter.features() & wgpu::Features::TIMESTAMP_QUERY;
         let required_limits = crate::whole::shader::big_buffers(&adapter);
         info!("The card's largest buffer: {} MB", required_limits.max_storage_buffer_binding_size.min(required_limits.max_buffer_size) >> 20);
+        // Its storage buffers a shader: logged, for knowing what other machines give [Counsel 2026-11-09]; under what
+        // sight needs, said plainly.
+        let slots = required_limits.max_storage_buffers_per_shader_stage;
+        info!("The card's storage buffers a shader: {slots} (sight needs {})", crate::whole::shader::STORAGE_BUFFERS_NEEDED);
+        if slots < crate::whole::shader::STORAGE_BUFFERS_NEEDED {
+            error!("This graphics card lets a shader read only {slots} storage buffers at once; Incus Artus needs {}.", crate::whole::shader::STORAGE_BUFFERS_NEEDED);
+            panic!("This graphics card lets a shader read only {slots} storage buffers at once; Incus Artus needs {}.", crate::whole::shader::STORAGE_BUFFERS_NEEDED);
+        }
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, required_limits, ..Default::default() })).expect("the card's device");
         let _ = CARD.set((device.clone(), queue.clone()));
         let size = window.inner_size();
@@ -514,6 +528,9 @@ impl Runner {
                     fog_warmth: kept.sight_fog_warmth(),
                     textures: kept.sight_textures(),
                     texture_sharpness: kept.sight_texture_sharpness(),
+                    placed_lights: kept.sight_placed_lights(),
+                    flicker: kept.sight_flicker(),
+                    flicker_time: started().elapsed().as_secs_f32() * kept.sight_flicker_speed(),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
                 // disk, a block's data): once at the start, then seldom.
@@ -526,7 +543,9 @@ impl Runner {
                     }
                     (registry.revision(), textures)
                 });
-                (store, eye, textures)
+                // The objects to draw (build 96): their models, lit where they stand, and their sprites.
+                let objects = crate::world::objects_to_draw(world, started().elapsed().as_millis() as u64, &eye);
+                (store, eye, textures, objects)
             })
         };
         let (capture, resize_to, minimize, limit, screenshot, fill_share) = {
@@ -597,13 +616,17 @@ impl Runner {
             }
             let mut commands = gpu.egui_renderer.update_buffers(&gpu.device, &gpu.queue, &mut encoder, &jobs, &screen);
             // Sight under the panel; without it, the sky's colour.
-            let drew_sight = if let Some((store, eye, textures)) = &sight {
+            let drew_sight = if let Some((store, eye, textures, objects)) = &sight {
                 let _timed = Timed::new("sight");
                 let draw = gpu.sight.get_or_insert_with(|| crate::sight::draw::SightDraw::new(&gpu.device, &gpu.queue, gpu.config.format));
                 if let Some((revision, textures)) = textures {
                     draw.set_textures(&gpu.device, &gpu.queue, textures, *revision);
                 }
+                draw.objects.set(objects.clone());
                 draw.frame(&gpu.device, &gpu.queue, &mut encoder, &view, (gpu.config.width, gpu.config.height), *eye, store);
+                for problem in draw.objects.take_problems() {
+                    warn!("{problem}");
+                }
                 true
             } else {
                 false

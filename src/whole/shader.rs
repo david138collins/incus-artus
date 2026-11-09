@@ -36,11 +36,21 @@ pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
     pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("the twin test"), required_limits: big_buffers(&adapter), ..Default::default() })).ok()
 }
 
-/// wgpu's usual limits, but buffers as big as the card allows: a world's pack is larger than the usual
-/// 128 MB [2026-11-05: 182 MB, the default bake's maps at full size].
+/// The storage buffers sight's march reads at once (`march.wgsl`): one more than wgpu's usual 8 since the placed
+/// lights (build 95). Every desktop card asks for far more [David 2026-11-09: "probably getting more is better if
+/// its more performant or clean"].
+pub const STORAGE_BUFFERS_NEEDED: u32 = 9;
+
+/// wgpu's usual limits, but buffers as big as the card allows (a world's pack is larger than the usual 128 MB
+/// [2026-11-05: 182 MB, the default bake's maps at full size]), and as many storage buffers a shader as it allows.
 pub fn big_buffers(adapter: &wgpu::Adapter) -> wgpu::Limits {
     let card = adapter.limits();
-    wgpu::Limits { max_storage_buffer_binding_size: card.max_storage_buffer_binding_size, max_buffer_size: card.max_buffer_size, ..Default::default() }
+    wgpu::Limits {
+        max_storage_buffer_binding_size: card.max_storage_buffer_binding_size,
+        max_buffer_size: card.max_buffer_size,
+        max_storage_buffers_per_shader_stage: card.max_storage_buffers_per_shader_stage,
+        ..Default::default()
+    }
 }
 
 #[cfg(test)]

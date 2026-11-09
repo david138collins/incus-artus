@@ -1186,6 +1186,52 @@ lamps, lights at cave mouths), and day and night.
   from the sky now. its fine, its just the lens. the glitch on the peaks is gone." The two flaws done enough to go
   on. **On file**: from high up a faint circle still shows (the levels changing with distance, read as the lens);
   his word is that it's fine, so it stays unless he raises it.
+- **Build 95: placed lights, and the brazier drawn** [David through Counsel, 2026-11-09: placed lights as planned;
+  "yeah, lets put the object in at the same time"; the slots: "probably getting more is better if its more
+  performant or clean"]. One build, one launch.
+  - **The light** (`sight/lights.rs`, ported from the old renderer's `placed_light.rs`): each object with a
+    `[light]` in its file (the brazier: green, reach 8, brightness 0.9) floods it from its sprite's spot through air
+    on the processor, a step dimmer a block, round corners, never through solid blocks (unloaded chunks count as
+    solid), 16 levels a colour, the brighter of two lights per colour. Flooded again when one's placed or taken,
+    when blocks change within its reach, and all again when the chunks round them come or go (`keep_placed_lights`,
+    `world/mod.rs`). On the card, a table of lit air cells (`CardStore::put_lights`, 65,536 places, binding 15),
+    written whole when what's lit changes.
+  - **On the faces:** the near walk, meeting a face, reads the air in front of it, blended between the four cells
+    nearest across the face (as the old renderer kept light at each face's corners: it falls away smoothly, not a
+    block at a time), eased (squared), flickering on each light's own beat (from where it stands). It's added on
+    top of the sun's and the sky's light, by the face's colour and its texture's, and kept apart from them, so no
+    shadow or sky openness dims it (a brazier lights a pitch-black cave). Shadow rays don't look lights up. The
+    shape it lights is a diamond (a step a block, as the old renderer's): rounder is possible if wanted.
+  - **The Render page**, under Sun: Placed lights (on), flicker (0.15), how fast it flickers (1.5): the old
+    renderer's keys, so its presets keep their say. `INCUS_SIGHT_NO_LIGHTS` for measuring.
+  - **The slots:** the march reads 9 storage buffers now; the card is asked for all it has
+    (`whole::shader::big_buffers`), and the log says how many (David's card: 262,144). Under 9, the game stops at
+    start saying so. No packing fallback: every desktop card wgpu runs on gives far more.
+  - **The brazier drawn** (`sight/models.rs`, `models.wgsl`): each placed object's glTF (its meshes and embedded
+    pictures, nearest-sampled, a texel see-through or solid), in the game's axes as its shape is read, scaled to its
+    height, on its feet, turned its way; lit by the sky and the sun on its faces if nothing stands over its column
+    (none under cover), and by the placed light where it stands (the brightest of its cells, flickering in step
+    with the faces round it). Its sprite (the flame strip) on its spot, on its own frame, turning about the upright
+    to face you, full bright. A model or strip changed on disk is read again.
+  - **The depth contract:** the upscale writes a depth picture as it brings the layers up: each screen pixel's,
+    from the finest layer shown there (more than half), where its rays first touched anything; the objects are drawn
+    into it (reverse depth: the nearest drawn, 0.05, over the distance ahead). No new slot in the march: the layers'
+    distance pictures were there already.
+  - **Tests:** the flood (a step a block, its reach, a wall, round over a low wall, brighter of two, a wall built
+    near a light); the brazier's glTF read (every mesh with its picture, 1.5 tall, its feet its lowest corner);
+    data URIs; card tests: a green light at night lights the ground round it and nothing past its reach, nothing
+    with lights off (`sight_s_placed_light_lights_the_ground_round_it`); the brazier on the plain shows, model and
+    flame, and sunk under the ground it's hidden (`sight_draws_the_brazier_where_it_stands`).
+  - **Measured** (the low flight, 130 s, A/B twice, no lights in the world): placed lights on 8.3 to 13.6 ms, off
+    8.3 to 13.2: within the noise.
+  - **The brazier's file:** David painted a missed face and saved it in Blockbench (`Art/3d braziere/braziere.bbmodel`,
+    2026-11-03, its `texture.png` 2026-11-02), but `assets/models/braziere.gltf` is the export of 2026-11-01 with
+    the old texture: the fix shows once he exports the glTF again over it (read again at once, in play).
+  - **On file for transparency** [Counsel 2026-11-09]: the light's flood should pass through see-through blocks
+    (glass, water), perhaps tinted.
+  - **Not yet:** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
+    (radius 4, 64 blocks: a brazier farther off is neither lit nor drawn); sun shadows on and from objects; fog on
+    objects (they're near).
 
 ### Phase 6: everything else, each with its price  [loose]
 

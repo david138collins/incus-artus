@@ -251,9 +251,7 @@ impl Shape {
     }
 
     /// Where a sprite goes (blocks, from the feet, unturned): its named point, or on top in the
-    /// middle; then moved by its offset (pixels).
-    // Read by the old renderer, which the regroup cut (docs/regroup.md); the new one reads it again.
-    #[allow(dead_code)]
+    /// middle; then moved by its offset (pixels). Where its light comes from too (build 95).
     pub fn spot(&self, sprite: &SpriteAttach) -> Vec3 {
         let point = sprite.at.as_ref().and_then(|name| self.points.iter().find(|(point, _)| point == name)).map(|(_, at)| *at);
         point.unwrap_or(Vec3::new(0.0, 0.0, self.size.z as f32 / 16.0)) + IVec3::from_array(sprite.offset).as_vec3() / 16.0

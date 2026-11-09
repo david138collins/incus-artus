@@ -1161,9 +1161,17 @@ fn ground(c: Case) -> i32 {
 
     /// The same, with block textures.
     fn sight_picture_with(device: &wgpu::Device, queue: &wgpu::Queue, store: &std::sync::Arc<crate::sight::card_store::CardStore>, size: (u32, u32), eye: crate::sight::draw::Eye, textures: Option<&crate::sight::textures::BlockTextures>) -> Vec<[u8; 3]> {
+        sight_picture_full(device, queue, store, size, eye, textures, None)
+    }
+
+    /// The same, with objects drawn into it (build 96).
+    fn sight_picture_full(device: &wgpu::Device, queue: &wgpu::Queue, store: &std::sync::Arc<crate::sight::card_store::CardStore>, size: (u32, u32), eye: crate::sight::draw::Eye, textures: Option<&crate::sight::textures::BlockTextures>, objects: Option<crate::sight::models::ObjectsFrame>) -> Vec<[u8; 3]> {
         let mut draw = crate::sight::draw::SightDraw::new(device, queue, wgpu::TextureFormat::Rgba8Unorm);
         if let Some(textures) = textures {
             draw.set_textures(device, queue, textures, 1);
+        }
+        if let Some(objects) = objects {
+            draw.objects.set(objects);
         }
         let target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("a test picture"),
@@ -1523,6 +1531,87 @@ fn ground(c: Case) -> i32 {
         }
         eprintln!("Sight over nothing: just under the horizon, away from the peak, the most a pixel is off the sky's colour over it {most} (of 255)");
         assert!(most <= 24, "rays down through the floor over nothing should stay sky ({most} off)");
+    }
+
+    /// Placed light (build 95): at night, a green light a block over a plain lights the ground round it green, the
+    /// ground past its reach stays dark, and with placed lights off it's all dark. The light flooded on the processor
+    /// (`sight/lights.rs`) and put on the card's table, as the game does.
+    #[test]
+    #[ignore]
+    fn sight_s_placed_light_lights_the_ground_round_it() {
+        use crate::sight::lights::{LightFrom, PlacedLights};
+        let Some((device, queue, store, _map)) = sight_scene_with(64.0, |_| 150.0, Some((0, 0))) else {
+            eprintln!("No graphics card: sight's placed light test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        // The plain's top is at 151: the light in the air just over it, green, reaching 8.
+        let mut lights = PlacedLights::default();
+        lights.set(&[LightFrom { object: [0, 0, 151 * 16], cell: [0, 0, 151], colour: [0, 15, 0], reach: 8 }], &|at: [i32; 3]| at[2] < 151);
+        let lit = lights.lit();
+        assert_eq!(store.put_lights(&lit), lit.len());
+        let size = (320, 200);
+        let night = (-30f32).to_radians();
+        let sun = [night.cos() * 0.6, night.cos() * 0.8, night.sin()];
+        // From 12 over the plain, 6 south of the light, looking north 60° down: the middle of the picture is the
+        // ground about 1 north of the light; the top of it is the ground 15 or more off (past its reach).
+        let down = (-60f32).to_radians();
+        let picture = |on: bool| {
+            let eye = crate::sight::draw::Eye { position: [-6.0, 0.5, 163.0], looking: [down.cos(), 0.0, down.sin()], field_of_view: 60.0, grid: 2.0, coarsest: 8, sun, night_light: 0.04, fog: false, placed_lights: on, flicker: 0.0, ..Default::default() };
+            sight_picture(&device, &queue, &store, size, eye)
+        };
+        let (with, without) = (picture(true), picture(false));
+        if let Some(dir) = &probe {
+            write_picture(&dir.join("placed_light_on.png"), size, &with);
+            write_picture(&dir.join("placed_light_off.png"), size, &without);
+        }
+        let middle = |p: &Vec<[u8; 3]>| p[(size.1 / 2 * size.0 + size.0 / 2) as usize];
+        let top = |p: &Vec<[u8; 3]>| p[(4 * size.0 + size.0 / 2) as usize];
+        eprintln!("Sight's placed light: by the light {:?} (off {:?}); past its reach {:?} (off {:?})", middle(&with), middle(&without), top(&with), top(&without));
+        let (lit_g, dark_g) = (middle(&with)[1] as i32, middle(&without)[1] as i32);
+        assert!(lit_g > dark_g + 60, "the ground by the light is lit ({dark_g} → {lit_g})");
+        assert!(middle(&with)[1] as i32 > middle(&with)[0] as i32 + 40, "green, as the light is");
+        assert!((0..3).all(|c| (top(&with)[c] as i32 - top(&without)[c] as i32).abs() <= 2), "past its reach the light does nothing");
+        assert!((0..3).all(|c| middle(&without)[c] < 40), "with placed lights off, the night's dark");
+    }
+
+    /// Objects drawn (build 96): David's brazier on the plain shows (its model and its flame), in front of the
+    /// ground; the same brazier sunk under the ground doesn't (the depth the march left keeps it hidden).
+    #[test]
+    #[ignore]
+    fn sight_draws_the_brazier_where_it_stands() {
+        use crate::sight::models::{ModelDrawn, ObjectsFrame, SpriteDrawn};
+        let Some((device, queue, store, _map)) = sight_scene_with(64.0, |_| 150.0, Some((0, 0))) else {
+            eprintln!("No graphics card: sight's objects test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let bytes = std::fs::read(crate::data::models_folder().join("braziere.gltf")).expect("the brazier's model");
+        let shape = crate::data::read_shape(&bytes, Some(1.5)).expect("its shape");
+        // On the plain (its top at 151), 4 north of the eye; or sunk 6 under it.
+        let brazier = |z: f32| ObjectsFrame {
+            models: vec![ModelDrawn { model: "braziere.gltf".into(), feet: [4.5, 0.5, z], model_feet: [-shape.feet.z, shape.feet.x, shape.feet.y], scale: shape.scale, facing: 0, sky: 1.0, glow: [0.0; 3] }],
+            sprites: vec![SpriteDrawn { strip: "green_flame_animation.png".into(), spot: [4.5, 0.5, z + 1.3], scale: 0.5, anchor: crate::data::Anchor::BottomCentre, frame_ms: 110, phase: 0 }],
+            millis: 0,
+        };
+        let size = (640, 400);
+        let down = (-15f32).to_radians();
+        let eye = crate::sight::draw::Eye { position: [2.5, 0.5, 152.6], looking: [down.cos(), 0.0, down.sin()], field_of_view: 50.0, grid: 2.0, coarsest: 8, fog: false, ..Default::default() };
+        let plain = sight_picture_full(&device, &queue, &store, size, eye, None, None);
+        let standing = sight_picture_full(&device, &queue, &store, size, eye, None, Some(brazier(151.0)));
+        let sunk = sight_picture_full(&device, &queue, &store, size, eye, None, Some(brazier(144.0)));
+        if let Some(dir) = &probe {
+            write_picture(&dir.join("brazier_standing.png"), size, &standing);
+            write_picture(&dir.join("brazier_sunk.png"), size, &sunk);
+        }
+        let changed = |a: &[[u8; 3]], b: &[[u8; 3]]| a.iter().zip(b).filter(|(a, b)| (0..3).any(|c| (a[c] as i32 - b[c] as i32).abs() > 8)).count();
+        let (shown, hidden) = (changed(&plain, &standing), changed(&plain, &sunk));
+        // The flame: bright green pixels.
+        let flame = standing.iter().filter(|p| p[1] > 150 && p[1] as i32 > p[0] as i32 + 60).count();
+        eprintln!("Sight's objects: the brazier standing changes {shown} pixels (its flame {flame}); sunk under the ground {hidden}");
+        assert!(shown > 500, "the brazier shows ({shown} pixels)");
+        assert!(flame > 20, "its flame shows ({flame} pixels)");
+        assert_eq!(hidden, 0, "under the ground it's hidden");
     }
 
     /// Sight's block textures (3.6): up close the near faces wear their texture (here a checker of red and blue

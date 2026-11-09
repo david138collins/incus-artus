@@ -432,6 +432,7 @@ impl Plugin for WorldPlugin {
             .init_resource::<SightKept>()
             .add_world_state_with("sight", save_sight, load_sight, fresh_sight)
             .add_systems(Update, keep_sight.after(send_world_to_card))
+            .add_systems(Update, keep_placed_lights.after(keep_sight))
             .init_resource::<WorldDebugState>()
             .init_resource::<EditRules>()
             .add_settings::<EditRules>("edit_rules")
@@ -480,8 +481,21 @@ pub struct SightStore {
     differing: Option<crate::loading::Job<Vec<(ChunkPos, Vec<[i32; 3]>)>>>,
     /// The cells of pieces on the card's table (build 90).
     pieces_shown: usize,
+    /// The placed lights (build 95), the chunks they were flooded among (their count and places, summed), and the
+    /// store their table was last put on.
+    lights: crate::sight::lights::PlacedLights,
+    lights_among: (usize, i64),
+    lights_card: Option<Arc<crate::sight::card_store::CardStore>>,
     /// When the store was last reported in the log.
     reported: Option<Instant>,
+}
+
+impl SightStore {
+    /// The placed light at `cell` (each colour 0 to 15) and its beat; none if it's dark there (build 96: an object's
+    /// model is lit by it).
+    pub fn placed_light_at(&self, cell: [i32; 3]) -> Option<([u32; 3], u32)> {
+        self.lights.at(cell)
+    }
 }
 
 impl Drop for SightStore {
@@ -550,6 +564,122 @@ fn with_spots(edits: &crate::sight::edits::Edits, voxel: &VoxelWorld, more: impl
         }
     }
     crate::sight::edits::Edits { with: crate::sight::bake::Blocks { changed: Arc::new(changed), ..edits.with.clone() }, spots: Arc::new(spots), ..edits.clone() }
+}
+
+/// The lights the objects in the loaded chunks give (build 95): each from its sprite's spot (a brazier's flame), or
+/// on top of it in the middle, in its colour times its brightness (16 levels each), as the old renderer had them.
+/// And the chunks they're among (how many, and their places summed): when those change, the lights flood again.
+fn lights_of(objects: &crate::data::ObjectRegistry, voxel: &VoxelWorld) -> (Vec<crate::sight::lights::LightFrom>, (usize, i64)) {
+    use crate::sight::lights::{LightFrom, MOST_REACH};
+    let mut lights = Vec::new();
+    let mut among = (0usize, 0i64);
+    for pos in voxel.chunk_positions() {
+        among.0 += 1;
+        among.1 = among.1.wrapping_add((pos.x as i64).wrapping_mul(1_000_003) ^ pos.y as i64);
+        let Some(chunk) = voxel.chunk(pos) else { continue };
+        for object in chunk.objects() {
+            let Some(def) = objects.by_name(&object.name) else { continue };
+            let Some(light) = def.light.as_ref() else { continue };
+            let shape = def.shape_or_block();
+            let spot = match &def.sprite {
+                Some(sprite) => shape.spot(sprite),
+                None => Vec3::new(0.0, 0.0, shape.size.z as f32 / 32.0),
+            };
+            let at = object.at.as_vec3() / 16.0 + turned(spot, object.facing);
+            let colour = light.colour.map(|channel| (channel as f32 / 255.0 * light.brightness.clamp(0.0, 1.0) * 15.0).round() as u32);
+            lights.push(LightFrom { object: object.at.to_array(), cell: at.floor().as_ivec3().to_array(), colour, reach: (light.reach.round() as i32).clamp(1, MOST_REACH) });
+        }
+    }
+    (lights, among)
+}
+
+/// What the objects in the loaded chunks need drawn this frame (build 96, `sight/models.rs`): each one's model, on
+/// its feet and turned its way, lit by the sky if nothing stands over it and by the placed light where it stands (the
+/// brightest of its cells', flickering as the faces round it do); and its sprite, on its spot, on its own frame.
+pub fn objects_to_draw(world: &World, millis: u64, eye: &crate::sight::draw::Eye) -> crate::sight::models::ObjectsFrame {
+    use crate::sight::models::{ModelDrawn, ObjectsFrame, SpriteDrawn};
+    let (Some(voxel), Some(objects), Some(registry), Some(sight)) = (world.get_resource::<VoxelWorld>(), world.get_resource::<crate::data::ObjectRegistry>(), world.get_resource::<BlockRegistry>(), world.get_resource::<SightStore>()) else {
+        return ObjectsFrame::default();
+    };
+    let opaque = |at: IVec3| registry.def(voxel.get_block(at)).is_some_and(|def| def.opaque);
+    let mut frame = ObjectsFrame { millis, ..Default::default() };
+    for pos in voxel.chunk_positions() {
+        let Some(chunk) = voxel.chunk(pos) else { continue };
+        for object in chunk.objects() {
+            let Some(def) = objects.by_name(&object.name) else { continue };
+            let shape = def.shape_or_block();
+            let feet = object.at.as_vec3() / 16.0;
+            let (bottom, top) = (feet.z.floor() as i32, (feet.z + shape.size.z as f32 / 16.0 - 1e-3).floor() as i32);
+            let cell = feet.floor().as_ivec3();
+            // Under cover, no sky's light (nor the sun's): anything solid over it, up to the world's top.
+            let sky = if (top + 1..WORLD_HEIGHT).any(|z| opaque(IVec3::new(cell.x, cell.y, z))) { 0.0 } else { 1.0 };
+            // The placed light where it stands: the brightest of the cells it's in, colour by colour.
+            let mut glow = [0.0f32; 3];
+            if eye.placed_lights {
+                for z in bottom..=top.max(bottom) {
+                    if let Some((light, beat)) = sight.placed_light_at([cell.x, cell.y, z]) {
+                        let now = crate::sight::lights::glow(light, beat, eye.flicker, eye.flicker_time);
+                        glow = [0, 1, 2].map(|k| glow[k].max(now[k]));
+                    }
+                }
+            }
+            frame.models.push(ModelDrawn {
+                model: def.model.clone(),
+                feet: feet.to_array(),
+                // The model's own feet in the game's axes (`read_shape` keeps it in the model's).
+                model_feet: [-shape.feet.z, shape.feet.x, shape.feet.y],
+                scale: shape.scale,
+                facing: object.facing,
+                sky,
+                glow,
+            });
+            if let Some(sprite) = &def.sprite {
+                let spot = feet + turned(shape.spot(sprite), object.facing);
+                let phase = (object.at.x.wrapping_mul(73_856_093) ^ object.at.y.wrapping_mul(19_349_663) ^ object.at.z.wrapping_mul(83_492_791)).unsigned_abs();
+                frame.sprites.push(SpriteDrawn { strip: sprite.file.clone(), spot: spot.to_array(), scale: sprite.scale, anchor: sprite.anchor, frame_ms: sprite.frame_ms, phase });
+            }
+        }
+    }
+    frame
+}
+
+/// Keeps the placed lights on the card (build 95, `sight/lights.rs`): flooded when one's placed or taken, again
+/// near blocks changed, and all again when the chunks round them come or go (unloaded ones count as solid); the
+/// card's table written whole whenever what's lit changes.
+fn keep_placed_lights(
+    voxel: Res<VoxelWorld>,
+    objects: Res<crate::data::ObjectRegistry>,
+    registry: Res<BlockRegistry>,
+    mut changes: MessageReader<BlockChanged>,
+    mut sight: ResMut<SightStore>,
+) {
+    let spots: Vec<[i32; 3]> = changes.read().map(|change| change.position.to_array()).collect();
+    let Some(card) = sight.card.clone() else { return };
+    let solid = |at: [i32; 3]| {
+        let at = IVec3::from_array(at);
+        at.z < 0 || (at.z < WORLD_HEIGHT && (voxel.chunk(ChunkPos::of_block(at)).is_none() || registry.def(voxel.get_block(at)).is_some_and(|def| def.opaque)))
+    };
+    let (lights, among) = lights_of(&objects, &voxel);
+    let sight = &mut *sight;
+    let mut changed = sight.lights.set(&lights, &solid);
+    if among != sight.lights_among {
+        sight.lights_among = among;
+        changed |= sight.lights.reflood_all(&solid);
+    } else if !spots.is_empty() {
+        changed |= sight.lights.reflood_near(&spots, &solid);
+    }
+    let fresh = sight.lights_card.as_ref().is_none_or(|put| !Arc::ptr_eq(put, &card));
+    if changed || fresh {
+        let lit = sight.lights.lit();
+        let put = card.put_lights(&lit);
+        if put < lit.len() {
+            warn!("Placed lights: {put} of {} lit cells on the card (its table is full)", lit.len());
+        }
+        if changed {
+            info!("Placed lights: {} lights, {} lit cells of air", sight.lights.count(), lit.len());
+        }
+        sight.lights_card = Some(card);
+    }
 }
 
 /// Keeps sight's live levels round the camera, and the bake going (patched for edits): started when the

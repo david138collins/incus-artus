@@ -234,6 +234,24 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
         kept.render.set_number("sight_sky_tint", tint);
     }
     ui.small("A low sun brings the land's shape out; overhead, it flattens it. The World Compiler's pictures take the same sun (not its shadows or sky light), never lower than 5°.");
+    // Placed lights (build 95): the light objects give (a brazier's), through the air, round corners, not through
+    // walls; the old renderer's keys (`placed_light`, `flicker`, `flicker_speed`), so its presets keep their say.
+    ui.separator();
+    ui.strong("Placed lights");
+    let mut placed = kept.sight_placed_lights();
+    if ui.checkbox(&mut placed, "Placed lights (what objects like the brazier light round them)").changed() {
+        kept.render.table.insert("placed_light".to_string(), toml::Value::Boolean(placed));
+    }
+    ui.add_enabled_ui(placed, |ui| {
+        let mut flicker = kept.sight_flicker();
+        if ui.add(egui::Slider::new(&mut flicker, 0.0..=1.0).step_by(0.01).text("flicker (0 steady, 1 down to dark)")).changed() {
+            kept.render.set_number("flicker", flicker);
+        }
+        let mut speed = kept.sight_flicker_speed();
+        if ui.add(egui::Slider::new(&mut speed, 0.0..=5.0).step_by(0.05).text("how fast it flickers")).changed() {
+            kept.render.set_number("flicker_speed", speed);
+        }
+    });
     // Fog (3.4c) [David 2026-10-28: fog out to about 2 miles; 2026-11-08: "that sounds alright"].
     ui.separator();
     ui.strong("Fog");
@@ -447,6 +465,20 @@ impl KeptSettings {
 
     pub fn sight_sky_tint(&self) -> f32 {
         self.render.number("sight_sky_tint", crate::sight::draw::SKY_TINT)
+    }
+
+    /// Placed lights (build 95): on unless chosen; how much and how fast they flicker (`draw::FLICKER`,
+    /// `FLICKER_SPEED` unless chosen). The old renderer's keys.
+    pub fn sight_placed_lights(&self) -> bool {
+        self.render.flag("placed_light", true)
+    }
+
+    pub fn sight_flicker(&self) -> f32 {
+        self.render.number("flicker", crate::sight::draw::FLICKER)
+    }
+
+    pub fn sight_flicker_speed(&self) -> f32 {
+        self.render.number("flicker_speed", crate::sight::draw::FLICKER_SPEED)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).

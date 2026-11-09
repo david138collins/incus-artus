@@ -31,6 +31,17 @@ pub const PIECES_SLOTS: u32 = 16_384;
 /// The most places a cell of pieces is looked for past its own (`march.wgsl`'s `pieces_slot`).
 pub const PIECES_PROBES: u32 = 32;
 
+/// The placed lights' table's places (16 bytes each, 1 MB): each a lit cell of air (build 95); at most half are
+/// used, so a look-up stays short.
+pub const LIGHT_SLOTS: u32 = 65_536;
+/// The most places a lit cell is looked for past its own (`march.wgsl`'s `placed_light`).
+pub const LIGHT_PROBES: u32 = 32;
+
+/// Where a lit cell at `c` is first looked for (the same in `march.wgsl`).
+pub fn light_hash(c: [i32; 3]) -> u32 {
+    ((c[0] as u32).wrapping_mul(73_856_093) ^ (c[1] as u32).wrapping_mul(19_349_663) ^ (c[2] as u32).wrapping_mul(83_492_791)) & (LIGHT_SLOTS - 1)
+}
+
 /// Where a cell of pieces at `c` is first looked for (the same in `march.wgsl`).
 pub fn pieces_hash(c: [i32; 3]) -> u32 {
     ((c[0] as u32).wrapping_mul(73_856_093) ^ (c[1] as u32).wrapping_mul(19_349_663) ^ (c[2] as u32).wrapping_mul(83_492_791)) & (PIECES_SLOTS - 1)
@@ -112,6 +123,8 @@ pub struct CardStore {
     pub highest: std::sync::atomic::AtomicI32,
     /// The cells of pieces (`put_pieces`).
     pub pieces: wgpu::Buffer,
+    /// The lit cells of air (`put_lights`).
+    pub lights: wgpu::Buffer,
     queue: wgpu::Queue,
     places: Mutex<(Pool, Owners)>,
 }
@@ -162,7 +175,30 @@ impl CardStore {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's header"), contents: &header.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
         };
         let pieces = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's pieces"), size: PIECES_SLOTS as u64 * 32, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        Self { pool, baked, live, header, extents, finest_live, live_kept, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), pieces, queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+        let lights = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's placed lights"), size: LIGHT_SLOTS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        Self { pool, baked, live, header, extents, finest_live, live_kept, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), pieces, lights, queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+    }
+
+    /// The lit cells of air on the card, all of them at once (each its place, and its light as
+    /// `lights::PlacedLights::lit` gives it), the table written whole. Each cell goes in its first free place from
+    /// its hash on; past half the table, or past `LIGHT_PROBES` places on, it's left out (dark). How many went in.
+    pub fn put_lights(&self, cells: &[([i32; 3], u32)]) -> usize {
+        let mut table = vec![[0u32; 4]; LIGHT_SLOTS as usize];
+        let mut put = 0;
+        for &(c, light) in cells.iter().take(LIGHT_SLOTS as usize / 2) {
+            let start = light_hash(c);
+            for k in 0..LIGHT_PROBES {
+                let slot = &mut table[((start + k) & (LIGHT_SLOTS - 1)) as usize];
+                if slot[3] == 0 {
+                    // The top bit: a place in use.
+                    *slot = [c[0] as u32, c[1] as u32, c[2] as u32, light | 1 << 31];
+                    put += 1;
+                    break;
+                }
+            }
+        }
+        self.queue.write_buffer(&self.lights, 0, &table.iter().flatten().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>());
+        put
     }
 
     /// The cells of pieces on the card, all of them at once (each its place and its eight octants' blocks, 0 an

@@ -56,6 +56,8 @@ struct Camera {
     // under the horizon), y the sky's light (night's at the least), z the sky's own brightness (0 night, 1 day),
     // w night's light.
     daylight: vec4<f32>,
+    // Placed lights (build 95): x 1 for them on, y how much they flicker, z the time they flicker by (seconds).
+    glow: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -82,12 +84,17 @@ struct Camera {
 // The cells built of pieces (build 90, `CardStore::put_pieces`): two words each, its place (x, y, z, 1 if used),
 // then its eight octants' blocks, two to a word (0 an empty octant).
 @group(0) @binding(14) var<storage, read> pieces: array<vec4<u32>>;
+// The lit cells of air (build 95, `CardStore::put_lights`): each its place, and its light (red, green, blue 4 bits
+// each, the brightest light's beat 8 bits over them, the top bit set: a place in use).
+@group(0) @binding(15) var<storage, read> lights: array<vec4<u32>>;
 
 const NOT_BAKED: u32 = 0xFFFF0000u;
 // A cell of one block that's built of pieces (`BlockId::PIECES`, kept as its block by `Cell::with_block`).
 const PIECES_MARK: u32 = 0xFFFFu;
 const PIECES_SLOTS: u32 = 16384u;
 const PIECES_PROBES: i32 = 32;
+const LIGHT_SLOTS: u32 = 65536u;
+const LIGHT_PROBES: i32 = 32;
 // Past the map: nothing at all, not even the world's floor.
 const PAST_MAP: u32 = 0xFFFE0000u;
 const WORLD_HEIGHT: f32 = 1024.0;
@@ -541,7 +548,62 @@ fn wear_texture(seen: Seen) -> Seen {
     out.colour += lit(change, light);
     out.sunny += sunlit(change, light);
     out.skyish += lit(change, light) - sunlit(change, light);
+    out.glow += change * seen.glow_light;
     return out;
+}
+
+// ── Placed light (build 95, David through Counsel: "yeah, lets put the object in at the same time") ──
+//
+// The light things give (a brazier's), flooded through the air on the processor (`lights.rs`): a face met by the
+// near walk takes the light of the air in front of it, on top of the sun's and the sky's, by its own colour (its
+// texture's too). Each light flickers on its own beat. Squared, as the old renderer eased it, so it falls away
+// softly towards the edge of its reach.
+
+// The placed light in the air cell `c` (each colour 0 to 1, as it flickers now), none where it's dark.
+fn placed_light(c: vec3<i32>) -> vec3<f32> {
+    if (camera.glow.x < 0.5) {
+        return vec3<f32>(0.0);
+    }
+    var h = ((bitcast<u32>(c.x) * 73856093u) ^ (bitcast<u32>(c.y) * 19349663u) ^ (bitcast<u32>(c.z) * 83492791u)) & (LIGHT_SLOTS - 1u);
+    for (var k = 0; k < LIGHT_PROBES; k++) {
+        let e = lights[h];
+        if (e.w == 0u) {
+            return vec3<f32>(0.0);
+        }
+        if (bitcast<i32>(e.x) == c.x && bitcast<i32>(e.y) == c.y && bitcast<i32>(e.z) == c.z) {
+            let level = vec3<f32>(f32(e.w & 15u), f32((e.w >> 4u) & 15u), f32((e.w >> 8u) & 15u)) / 15.0;
+            // Its beat: two waves at odd speeds, each light's own way along them.
+            let beat = f32((e.w >> 12u) & 255u) / 255.0 * 6.2831853;
+            let t = camera.glow.z;
+            let wave = 0.5 + 0.3 * sin(t * 9.1 + beat) + 0.2 * sin(t * 23.7 + beat * 3.0);
+            return level * level * (1.0 - camera.glow.y * wave);
+        }
+        h = (h + 1u) & (LIGHT_SLOTS - 1u);
+    }
+    return vec3<f32>(0.0);
+}
+
+// The placed light on a face, at `at` on it, looking along `facing`: the air in front of the face, blended between
+// the four cells nearest across it (as the old renderer kept light at each face's corners), so it falls away
+// smoothly over a face and from one to the next, not a block's step at a time.
+fn placed_light_on(at: vec3<f32>, facing: vec3<f32>) -> vec3<f32> {
+    if (camera.glow.x < 0.5) {
+        return vec3<f32>(0.0);
+    }
+    let along = abs(round(facing)) > vec3<f32>(0.5);
+    // The middle of the layer of air in front of the face, and across it, the cells' middles round the point.
+    let q = at + facing * 0.5;
+    let low = select(floor(q - 0.5), floor(q), along);
+    let f = select(q - 0.5 - floor(q - 0.5), vec3<f32>(0.0), along);
+    // The two ways across the face.
+    let u = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), along.x);
+    let v = select(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 1.0, 0.0), along.z);
+    let fu = dot(f, u);
+    let fv = dot(f, v);
+    let c = vec3<i32>(low);
+    let iu = vec3<i32>(u);
+    let iv = vec3<i32>(v);
+    return placed_light(c) * (1.0 - fu) * (1.0 - fv) + placed_light(c + iu) * fu * (1.0 - fv) + placed_light(c + iv) * (1.0 - fu) * fv + placed_light(c + iu + iv) * fu * fv;
 }
 
 // What the walk through the blocks found: whether it met a face (and where), and what it gathered on the way
@@ -559,6 +621,10 @@ struct Hard {
     // How much of the ray the face met took (what was left of it after any water on the way): its texture is
     // put on after the march, by that much (`wear_texture`).
     face_share: f32,
+    // The placed light on the face met (each colour 0 to 1), and what it gave (the face's colour by it, by how
+    // much of the ray the face took): kept apart from the sun's and the sky's, which shadows and sky light scale.
+    glow_light: vec3<f32>,
+    glow: vec3<f32>,
 }
 
 // ── Pieces (build 90, David on build 88: "no quarter blocks or grid shifts, they appear as white cubes") ──
@@ -715,8 +781,9 @@ fn faces_ahead(o: vec3<f32>, d: vec3<f32>, c: vec3<i32>) -> vec3<f32> {
     return select((next - o) / d, vec3<f32>(1e30), abs(d) < vec3<f32>(1e-6));
 }
 
-// The blocks from `t0` to `t1` along the ray.
-fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
+// The blocks from `t0` to `t1` along the ray; the placed light on the face met if `glowing` (the eye's rays, not the
+// shadows').
+fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
     var out: Hard;
     out.t = t0;
     out.first = camera.reach.x;
@@ -800,6 +867,11 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
                     let light = face_light(hit.facing);
                     out.colour += out.through * lit(colour, light);
                     out.sunny += out.through * sunlit(colour, light);
+                    // The air in front of the octant's face (in its own cell, or the next).
+                    if (glowing) {
+                        out.glow_light = placed_light_on(at, hit.facing);
+                    }
+                    out.glow += out.through * colour * out.glow_light;
                     out.facing = hit.facing;
                     if (out.through > 0.5) {
                         out.first = hit.t;
@@ -819,6 +891,11 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32) -> Hard {
             let light = face_light(facing);
             out.colour += out.through * lit(colour, light);
             out.sunny += out.through * sunlit(colour, light);
+            // The air in front of the face: the block it came from.
+            if (glowing) {
+                out.glow_light = placed_light_on(o + d * t, facing);
+            }
+            out.glow += out.through * colour * out.glow_light;
             out.facing = facing;
             if (out.through > 0.5) {
                 out.first = t;
@@ -883,6 +960,9 @@ struct Seen {
     touched: f32,
     // How much of it a block's face met by the near walk took (0: none): its texture goes on after (`wear_texture`).
     face_share: f32,
+    // The placed light on the face met, and what it gave (`Hard`'s): added after the shadow and sky light.
+    glow_light: vec3<f32>,
+    glow: vec3<f32>,
 }
 
 // A ray's colour with its shadow and its sky light (`open`: how much of the sky it sees, 0 to 1).
@@ -975,11 +1055,11 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             // and sky rays starting in the rock [David after build 84: "when you put your face right into a block, a
             // circle appears": the disc where the wall is nearer than half a block, dark, cut into wedges by the sky
             // cones each taking it as facing towards or away from them].
-            let h = hard(o, d, select(max(begin, 0.0), 0.0, begin <= 0.5), blocks_end);
+            let h = hard(o, d, select(max(begin, 0.0), 0.0, begin <= 0.5), blocks_end, true);
             steps = h.steps;
             if (h.met) {
                 // The face met: its shadow from the blocks themselves first.
-                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, h.colour - h.sunny, min(h.first, h.t), h.face_share);
+                return Seen(h.colour, h.first, f32(steps), 0, h.sunny, o + d * h.t, 1.0, h.facing, true, h.colour - h.sunny, min(h.first, h.t), h.face_share, h.glow_light, h.glow);
             }
             colour = h.colour;
             sunny = h.sunny;
@@ -1226,7 +1306,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
         wide = max(first * camera.view.z, read);
     }
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched, 0.0);
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched, 0.0, vec3<f32>(0.0), vec3<f32>(0.0));
 }
 
 // ── Sun shadows (3.4b, David 2026-11-08: "proceed") ──
@@ -1262,7 +1342,7 @@ fn cone(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool, s: vec3
         // Off the face a hair, then (for the sun) the blocks walked.
         o = p + facing * 0.01;
         if (blocks > 0.0 && header[2] == 0 && is_kept(0)) {
-            let h = hard(o, s, 0.0, min(camera.layer.w, blocks));
+            let h = hard(o, s, 0.0, min(camera.layer.w, blocks), false);
             if (h.met) {
                 return 0.0;
             }
@@ -1558,6 +1638,8 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         if (!hidden) {
             here = shaded(seen, open);
         }
+        // The placed light on it, which no shadow or sky takes away.
+        here += seen.glow;
         let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
         if (met < camera.reach.x) {
             here = fogged(here, d, met);
