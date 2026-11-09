@@ -223,12 +223,24 @@ the instruments show re-ranks it, and any change is written here.
    [David 2026-11-09: "blocky and quantized lighting is good all around i think. please try to see if there are any
    savings to be had there", and "yeah, blocky lighting is better. and we should find a reason why that can be
    cheaper, since it's mnuch coarser."] Built as a map on the card filled as places come into view (below);
-   against the cones every pixel, the same picture to 0.01 of a level on the whole (`sight_s_sky_light_kept_is_
-   the_cones_a_step_at_a_time`). Flying it now.
-3. **The sun's shadow kept** for the far (horizon maps, or the sun's openness per cell re-lit as the sun moves): 2.7
-   ms over the land, what's left of it after step 1.
-4. **The sea as a plane:** the near walk's steps through water (the blocks near the eye are 40% of the card at sea).
-5. Rays end where fog is total; the rest of the old order below as it was.
+   against the cones every pixel, the same picture to 0.01 of a level on the whole. **Tried and dropped**
+   (2026-11-09): flown, the map was slower than the cones it replaced (the card 5.29 to 5.64 ms on the whole, +7%;
+   over the land 11.9 to 12.6), and **the build with it in was 8% slower even with it switched off** (the cones
+   every pixel: 5.91 ms median against the reference's 5.46, the card 5.29 against 4.88, the GPU's clock the same).
+   So the march is one big shader whose every added line costs every pixel: the card keeps fewer pixels in flight
+   the more working room (registers) its biggest path needs, used or not. The sky cones' runtime cost is real (off,
+   the card's 3.8 ms over the land), but a lookup in a big map, with atomics, cost as much as it saved.
+3. **New: the march made lean.** The finding above says the lever is the shader's size. Measure it first (Nsight:
+   registers and pixels in flight for `march_pass`), then split the light out of the march: the march writes where
+   each ray met what (place, facing, level, colour), and a pass of its own lights it (sky, shadows, textures,
+   placed light). The march's loop then runs with the room it needs and no more, every step of every ray faster;
+   the light pass runs once a pixel, lean too. It's the item under section 2's warps ("the march writes its hit and
+   a separate pass shades it"), moved to the front. Sky light kept, stepped per face, may come back in the light
+   pass, where it doesn't weigh on the march.
+4. **The sun's shadow kept** for the far (horizon maps, or the sun's openness per cell re-lit as the sun moves): 2.7
+   ms over the land.
+5. **The sea as a plane:** the near walk's steps through water (the blocks near the eye are 40% of the card at sea).
+6. Rays end where fog is total; the rest of the old order below as it was.
 
 **B, the order as first written** (the cheapest and surest first; now after the above):
 1. Rays end where fog is total (the reach is 150,000 blocks; fog is 99% by about 5,000). Expected the cheapest win.

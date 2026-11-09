@@ -1385,6 +1385,10 @@ lamps, lights at cave mouths), and day and night.
   **Step 1, tried and dropped:** the near walk skipping air by the finest column first drew the same picture but flew
   slower (the 99th percentile 20.4 to 28 to 30 ms, twice tried): the near blocks' cost isn't stepping through air
   (the steps a ray didn't drop) but each near pixel's own work.
+  **Step 2, tried and dropped:** sky light kept in a map on the card (stepped a face at a time, as David chose) drew
+  the same picture but flew slower (the card +7%), and the build with it in was 8% slower even with it off: the
+  march is one big shader whose every added line costs every pixel. Next: measure its working room (Nsight), then
+  split the light out of the march into a pass of its own.
 
 ### Phase 6: everything else, each with its price  [loose]
 

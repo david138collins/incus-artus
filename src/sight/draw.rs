@@ -66,9 +66,6 @@ pub struct Eye {
     pub smooth_light: bool,
     /// The near walk skipping no air at all, every block walked (the truth any skipping must match: tests only).
     pub walk_every_block: bool,
-    /// Sky light kept in a map on the card (the dyno, 2026-11-09: a block face's or far cell's worked out once, read
-    /// after), not its cones marched for every pixel (`INCUS_SIGHT_NO_SKY_KEPT` or here, for measuring).
-    pub sky_kept: bool,
 }
 
 impl Default for Eye {
@@ -103,7 +100,6 @@ impl Default for Eye {
             flicker_time: 0.0,
             smooth_light: false,
             walk_every_block: false,
-            sky_kept: true,
         }
     }
 }
@@ -196,11 +192,6 @@ pub fn fog_left(eye: &Eye) -> impl Fn([f32; 3]) -> f32 + use<> {
     }
 }
 
-/// Sky light kept's places (`march.wgsl`'s `SKY_SLOTS`: two words each), and the frames its sweep takes to empty
-/// them all once.
-const SKY_SLOTS: u64 = 2_097_152;
-const SKY_SWEEP: u64 = 256;
-
 /// The start pass's tile, and the pyramid's base: screen pixels a side.
 const TILE: u32 = 8;
 /// The farthest a ray goes (blocks): past any map's far corner from anywhere in it.
@@ -231,8 +222,6 @@ pub struct SightDraw {
     media: wgpu::Buffer,
     /// The objects' models and sprites (build 96), drawn after the upscale into its depth.
     pub objects: super::models::ObjectsDraw,
-    /// The frames counted for sky light kept's sweep.
-    sky_sweep: u64,
 }
 
 /// One layer of the pyramid: its factor (screen pixels a side of a pixel), its size, its picture and distances,
@@ -262,8 +251,6 @@ struct Targets {
     upscale_group: wgpu::BindGroup,
     /// The screen's depth (build 96): the upscale's, from the march's distances, that the objects are drawn into.
     depth: wgpu::TextureView,
-    /// Sky light kept (`march.wgsl`'s `sky_kept`): two words a place, `SKY_SLOTS` of them, empty when made.
-    sky_cache: wgpu::Buffer,
 }
 
 fn buffer(b: &wgpu::Buffer) -> wgpu::BindingResource<'_> {
@@ -320,7 +307,7 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().media_table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, glow_pass, glows, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects, sky_sweep: 0 }
+        Self { march, start, glow_pass, glows, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -393,7 +380,6 @@ impl SightDraw {
             // The base has no layer above: its "worth it" in is a placeholder never read.
             let nothing_above = storage("sight's nothing above", 1);
             let no_distances_above = texture("sight's no distances above", (1, 1), wgpu::TextureFormat::R32Float);
-            let sky_cache = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's sky light kept"), size: SKY_SLOTS * 8, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
             let mut layers: Vec<Layer> = Vec::new();
             let mut worth_above: Option<wgpu::Buffer> = None;
             let mut far_above: Option<wgpu::TextureView> = None;
@@ -424,7 +410,6 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
                         wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
                         wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
-                        wgpu::BindGroupEntry { binding: 18, resource: buffer(&sky_cache) },
                     ],
                 });
                 far_above = Some(far.clone());
@@ -493,7 +478,7 @@ impl SightDraw {
                     view_formats: &[],
                 })
                 .create_view(&Default::default());
-            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, glow_group, upscale_group, depth, sky_cache });
+            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, glow_group, upscale_group, depth });
         }
         self.targets.as_ref().expect("made just now")
     }
@@ -517,7 +502,6 @@ impl SightDraw {
         let no_fog = std::env::var("INCUS_SIGHT_NO_FOG").is_ok();
         let no_textures = std::env::var("INCUS_SIGHT_NO_TEXTURES").is_ok();
         let no_lights = std::env::var("INCUS_SIGHT_NO_LIGHTS").is_ok();
-        let sky_kept = eye.sky_kept && std::env::var("INCUS_SIGHT_NO_SKY_KEPT").is_err();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -565,8 +549,7 @@ impl SightDraw {
                 // fades out among the blocks (shares of their reach).
                 [to_above, to_child, fade[0].min(fade[1]), fade[1]],
                 // Past the blocks, the one below's fade in: where it starts and over how many doublings.
-                // Sky light kept in the map (`INCUS_SIGHT_NO_SKY_KEPT` marches its cones for every pixel instead).
-                [cells_fade[0].max(0.1), cells_fade[1].max(0.05), if sky_kept { 1.0 } else { 0.0 }, 0.0],
+                [cells_fade[0].max(0.1), cells_fade[1].max(0.05), 0.0, 0.0],
                 // Sky light (`INCUS_SIGHT_NO_SKY` leaves it out, for measuring): on, strength, tint, its cones' width.
                 [if eye.sky && !no_sky { 1.0 } else { 0.0 }, eye.sky_strength.clamp(0.0, 1.0), eye.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
                 // Fog (`INCUS_SIGHT_NO_FOG` leaves it out, for measuring): its thickness at sea level (a block's
@@ -597,11 +580,6 @@ impl SightDraw {
         let queries = self.timer.as_ref().map(|timer| &timer.queries);
         let timing = timed.and(queries);
         let mut passes: Vec<String> = Vec::new();
-        // A sliver of the sky light kept emptied each frame, in turn: each place worked out again every
-        // `SKY_SWEEP` frames (an edit, a region newly baked, shows within a second or so).
-        let sliver = SKY_SLOTS * 8 / SKY_SWEEP;
-        encoder.clear_buffer(&targets.sky_cache, (self.sky_sweep % SKY_SWEEP) * sliver, Some(sliver));
-        self.sky_sweep = self.sky_sweep.wrapping_add(1);
         let compute_stamp = |passes: &mut Vec<String>, name: String| {
             let k = next_stamp(passes, timing.is_some(), name)?;
             Some(wgpu::ComputePassTimestampWrites { query_set: timing?, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) })
