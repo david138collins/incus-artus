@@ -304,9 +304,19 @@ impl Plugin for SavePlugin {
             .add_message::<WorldFileDone>()
             .log_event::<WorldFileDone>()
             // Startup: every part starts fresh for the starting world's seed (this makes the terrain).
-            .add_systems(Startup, start_first_world)
+            .add_systems(Startup, (start_first_world, load_world_at_start).chain())
             .add_systems(Update, handle_world_file_requests)
             .add_debug_page("Save", save_debug_page);
+    }
+}
+
+/// `INCUS_LOAD_WORLD=<its folder in worlds/>`: that world loaded as the game starts, straight into it, its bake of
+/// sight read back with it (the dyno's test world, `nice25 test`; or any world, played without rendering it again in
+/// the World Compiler).
+fn load_world_at_start(mut requests: MessageWriter<WorldFileRequest>) {
+    if let Ok(folder) = std::env::var("INCUS_LOAD_WORLD") {
+        info!("Loading the world in worlds/{folder} as the game starts (INCUS_LOAD_WORLD)");
+        requests.write(WorldFileRequest::Load { folder });
     }
 }
 

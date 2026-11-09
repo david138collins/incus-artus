@@ -44,9 +44,10 @@ const ABOVE: f32 = 120.0;
 /// Seconds between log lines.
 const EVERY: f32 = 10.0;
 
-/// Whether the game was started for a soak test.
+/// Whether the game was started for a soak test, or the dyno's flight (`INCUS_DYNO`: the World Compiler renders for
+/// it as for the soak, and the game never freezes away from the front).
 pub fn wanted() -> bool {
-    std::env::var("INCUS_SOAK").is_ok()
+    std::env::var("INCUS_SOAK").is_ok() || std::env::var("INCUS_DYNO").is_ok()
 }
 
 /// Whether the game is measuring itself: a soak test or a test window.
@@ -266,16 +267,18 @@ fn report(world: &mut World) {
 
 // ── The dyno's flight (`docs/dyno.md`, the instruments; `dyno.rs` has the route and the sums) ──
 //
-// `INCUS_DYNO=baked` (or `baking`), with `INCUS_START_SCREEN=worldgen` and `INCUS_SELFTEST_SUITE=compiler` as the
-// soak has them, and `INCUS_START_PRESET=render/dyno,compiler/dyno,worldgen/dyno,camera/dyno,player/dyno` for
-// David's settings kept still (copies of his defaults, 2026-11-09). Uncapped, the panel shut; the report goes in
-// `logs/dyno-<time>.txt` and the game quits.
-// - **baked:** the whole map's bake read back from `dyno bake/` (the world's own bake, kept for the dyno), so the
-//   laps are flown with nothing baking. The first time (or after the cells' code changes, `SIGHT_RULES`), it's baked
-//   whole while the route is flown over and over (measured as baking; about a quarter of an hour), then kept there.
-//   Then the route from the start, `INCUS_DYNO_LAPS` times (1 if not said), measured as baked and leg by leg.
-// - **baking:** a fresh bake, the route flown `INCUS_DYNO_LAPS` times from the start while it bakes (David's
-//   "creaking when you move too quick"), measured as baking.
+// `INCUS_DYNO=baked` (or `baking`), with `INCUS_START_PRESET=render/dyno,camera/dyno,player/dyno` for David's
+// settings kept still (copies of his defaults, 2026-11-09). Uncapped, the panel shut; the report goes in
+// `logs/dyno-<time>.txt` and the game quits. The world: the test world, `INCUS_LOAD_WORLD="nice25 test"` (David's
+// nice25 rendered and saved with its whole bake: `docs/dyno.md`); or nice25 rendered afresh, with
+// `INCUS_START_SCREEN=worldgen INCUS_SELFTEST_SUITE=compiler` and `compiler/dyno,worldgen/dyno` added to the presets.
+// - **baked:** the laps wait for the whole bake (read back with the test world, it's there in moments; rendered
+//   afresh, about a quarter of an hour, the route flown over and over meanwhile, measured as baking). Then the route
+//   from the start, `INCUS_DYNO_LAPS` times (1 if not said), measured as baked and leg by leg. With
+//   `INCUS_DYNO_SAVE_AS=<name>`, the world is saved under that name once its bake is whole (how the test world was
+//   made, and how it's made again after the cells' code changes, `SIGHT_RULES`, and its bake no longer reads back).
+// - **baking:** the route flown `INCUS_DYNO_LAPS` times from the start while the bake runs (David's "creaking when
+//   you move too quick"), measured as baking: on nice25 rendered afresh.
 
 /// Seconds between the heat watch's readings.
 const HEAT_EVERY: f32 = 5.0;
@@ -287,18 +290,15 @@ fn dyno_baking_run() -> bool {
     std::env::var("INCUS_DYNO").is_ok_and(|v| v == "baking")
 }
 
-/// Where the dyno keeps the whole map's bake (for its baked flights), if it's flying one.
-pub fn dyno_bake_folder() -> Option<std::path::PathBuf> {
-    (std::env::var("INCUS_DYNO").is_ok() && !dyno_baking_run()).then(|| crate::debug::project_folder().join("dyno bake"))
-}
+
 
 #[derive(Resource, Default)]
 struct Dyno {
     laps: u32,
     /// The baking flight (no bake read back, every lap measured as baking).
     baking_run: bool,
-    /// The whole bake sent to be kept (in `dyno bake/`), once.
-    bake_kept: bool,
+    /// The world saved (`INCUS_DYNO_SAVE_AS`), once its bake was whole.
+    saved: bool,
     baking_laps: u32,
     legs: Vec<crate::dyno::Leg>,
     /// When the flight began, and the lap now.
@@ -330,6 +330,8 @@ fn fly_dyno(
     mut mode: ResMut<ControlMode>,
     mut cameras: Query<&mut FlyCamera>,
     mut kept: ResMut<crate::look::KeptSettings>,
+    mut current: ResMut<crate::save::CurrentWorld>,
+    mut requests: MessageWriter<crate::save::WorldFileRequest>,
 ) {
     let Some(map) = terrain.compiled() else { return };
     if dyno.done {
@@ -359,17 +361,17 @@ fn fly_dyno(
     if kept.frame_limit_name() != crate::look::UNCAPPED {
         kept.set_frame_limit_name(crate::look::UNCAPPED.to_string());
     }
-    // Baked yet? Then the measured laps begin, from the start of the route (and the whole bake is kept for the
-    // next flight).
+    // Baked yet? Then the measured laps begin, from the start of the route (and the world's saved, if asked).
     let started = dyno.started.unwrap_or(now);
     let finished = sight.bake.as_ref().is_some_and(|baking| baking.bake.lock().is_ok_and(|bake| bake.all_done.is_some()));
     if finished
-        && !dyno.bake_kept
-        && let (Some(baking), Some(folder)) = (sight.bake.as_ref(), dyno_bake_folder())
+        && !dyno.saved
+        && let Ok(name) = std::env::var("INCUS_DYNO_SAVE_AS")
     {
-        let _ = std::fs::create_dir_all(&folder);
-        info!("Dyno: the whole bake kept in {} ({})", folder.display(), crate::sight::bake::keep_later(baking, folder.clone()));
-        dyno.bake_kept = true;
+        info!("Dyno: the bake is whole; the world saved as worlds/{name}");
+        current.name = name;
+        requests.write(crate::save::WorldFileRequest::Save);
+        dyno.saved = true;
     }
     if dyno.baked_at.is_none() && !dyno.baking_run {
         if finished || now - started > BAKING_MOST {

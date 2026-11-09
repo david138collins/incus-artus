@@ -231,19 +231,28 @@ complaint, "creaking when you move too quick", is the baking case. The order her
 **Flying the dyno** (built 2026-11-09, `src/dyno.rs` for the route and the sums, `src/soak.rs` for the flight):
 
 ```
-INCUS_DYNO=baked INCUS_START_SCREEN=worldgen INCUS_SELFTEST_SUITE=compiler INCUS_START_PRESET=render/dyno,compiler/dyno,worldgen/dyno,camera/dyno,player/dyno cargo run --release -j 4
+INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,camera/dyno,player/dyno cargo run --release -j 4
 ```
 
+- **The test world, `worlds/nice25 test`** [David 2026-11-09: "can you render nice25 as our test map, so when we add
+  features for experiments and so forth its persistent?"]: his nice25 map rendered by the World Compiler with his
+  compiler preset, saved with its whole bake of sight. `INCUS_LOAD_WORLD` starts the game straight into a saved world
+  (any world: David can play one without rendering it again). Loaded, its bake reads back in moments, so the flight
+  starts baked. What's placed in it for experiments stays.
+- **Made, and made again, by** `INCUS_DYNO=baked INCUS_DYNO_SAVE_AS="nice25 test" INCUS_START_SCREEN=worldgen
+  INCUS_SELFTEST_SUITE=compiler` with `compiler/dyno,worldgen/dyno` added to the presets: nice25 rendered afresh
+  (it's the newest map in `world bakes/`), the route flown while it bakes (about a quarter of an hour: the whole map
+  is 5,184 regions), saved once the bake is whole. Again whenever the cells' code changes what a cell holds
+  (`SIGHT_RULES`, which every such step must bump) or the world's pack does: its bake no longer reads back.
 - **The settings:** `presets/*/dyno.toml`, copies of David's defaults on 2026-11-09 ("current settings": his mark is
-  read with these). The world is the World Compiler's, from `compiler/dyno`, so it never moves either.
-- **The route,** found on that map from the middle, the same every time: over the land to the highest ground within
+  read with these).
+- **The route,** found on the map from the middle, the same every time: over the land to the highest ground within
   2,500, half round it, out to the nearest sea and 800 on (the horizon's long rays), quick back at 300 blocks a
   second, slowly up to the nearest cave mouth, home. About two to four minutes a lap.
-- **`INCUS_DYNO=baked`:** the whole map's bake read back from `dyno bake/`, so nothing is baking. The first flight
-  (and the first after the cells' code changes: `SIGHT_RULES`, which every step that changes what a cell holds must
-  bump) bakes it whole while flying, about a quarter of an hour, and keeps it. Then `INCUS_DYNO_LAPS` laps (1 if not
-  said), measured baked and leg by leg.
-- **`INCUS_DYNO=baking`:** a fresh bake, `INCUS_DYNO_LAPS` laps from the start while it bakes: the "creaking" case.
+- **`INCUS_DYNO=baked`:** the laps wait for the whole bake, then `INCUS_DYNO_LAPS` laps (1 if not said), measured
+  baked and leg by leg.
+- **`INCUS_DYNO=baking`:** nice25 rendered afresh (as above, without saving), `INCUS_DYNO_LAPS` laps from the start
+  while it bakes: the "creaking" case.
 - **What's kept:** each frame's time, and each pass's on the card (start, each layer, glows, upscale, objects; the
   card's own timestamps), as medians, 95th and 99th percentiles; the GPU's temperature and clock and the CPU area's
   temperature every 5 seconds. Written to `logs/dyno-<time>.txt` and the log; the game quits after.
