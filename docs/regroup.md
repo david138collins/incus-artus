@@ -1061,7 +1061,7 @@ back to.
   the recipe for the averaged answer instead of averaging fine samples. "Correctly blurry" straight from the form: the
   projection principle, each footprint a projection of the one recipe. It has to agree with the fine levels, and the
   cache test says whether it does.
-- **The speed deep dive's list** (David 2026-11-08, its order and his ideas in `decisions.md`, "Look first, then the
+- **The speed deep dive's list** (now kept as a checklist, ticked off as it goes: `docs/dyno.md`) (David 2026-11-08, its order and his ideas in `decisions.md`, "Look first, then the
   dyno": the look first, then inspection measured, then power one measured step at a time). His ideas there:
   temporal reuse with his rules, far pixels re-marched only once they've moved, warps kept alike, subgroups, solved
   jumps and horizon maps, tiles by type. Builder's review (sent to Counsel 2026-11-08) adds: rays ended where the fog

@@ -77,6 +77,8 @@ build-by-build numbers are in `docs/regroup.md`.
 - [ ] Workgroup shape and order: 8 × 8 against 16 × 4, Morton order.
 - [ ] Background work, such as the bake, in the card's idle gaps between frames.
 - [ ] Textures' last ~1 ms (build 87).
+- [ ] Placed light under many lights (build 95): one table probe a face met near the eye (four with the blend
+      across faces); check a lit cave full of braziers, and the table's fill (65,536 places, half used at most).
 
 ## 3. Induction: trades something, judged by David's eye
 
@@ -104,6 +106,11 @@ build-by-build numbers are in `docs/regroup.md`.
 - [ ] Late latching and timewarp: the newest mouse read just before the frame goes, and again just before it's
       shown.
 - [ ] Watch the laptop's shared heat budget: processor work can lower the card's clocks.
+- [ ] The objects' frame work (build 95): every placed object in the loaded chunks gathered each frame, its
+      column scanned up to the world's top for cover, its placings sent to the card afresh. Fine for a few
+      braziers; check with a settlement's worth (kept between frames, redone only when objects or blocks change).
+- [ ] The placed lights' flood (build 95): every light flooded again when the loaded chunks change; with many
+      lights, only those near the chunks that came or went.
 
 ## 5. The first impression
 
