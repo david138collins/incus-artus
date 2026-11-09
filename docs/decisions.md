@@ -1300,6 +1300,24 @@ below disagree with this one, this one stands.
          Anything the card reports back is read a few frames late, never waited for.
        - **The laptop's catch.** Processor and card share one power and heat budget, so heavy processor work
          can lower the card's clocks. Every handoff is measured on the dyno.
+       - **Texture units and the rasteriser are to be looked into first** [David 2026-11-09: "we need to look
+         into ways to exploit texture units and rasterizers to get all the work done more instantly each
+         frame"].
+       - **No idle lanes** [David 2026-11-09: "you know how a limiter pumps a line between two points according
+         to load? we should try to make all 32 workers in a warp... immediately do whatever else we can get them
+         to do when they start waiting"]. This works at two levels:
+         - **Lanes:** with persistent threads, a lane whose ray has finished takes the next ray from a shared
+           queue, so the warp stays full until the queue is empty ("dynamic ray fetch", Aila and Laine 2009,
+           *Understanding the Efficiency of Ray Traversal on GPUs*).
+         - **Warps:** while one warp waits on memory the scheduler runs another, which needs enough warps
+           resident (occupancy, so lean shaders).
+       - **The processor knows the mouse first** [David 2026-11-09: "i bet the cpu gets the mouse way before the
+         card and can send the anticipation ahead to prioritize work in taa as well for the clip masking"]. The
+         card learns where the camera is only when the processor tells it, so the processor can send ahead:
+         - the camera's turn and speed, so the strip coming on screen (pixels with no history) gets its rays
+           reserved first;
+         - the latest mouse at the last moment before the frame goes (late latching), and again for timewarp
+           just before it's shown.
 
        **No per-card tricks** [David 2026-11-08: "im not interested in implementing all the different tricks
        individual modern cards can use, id have to own 20 gpus"]. Speed comes from the method, in portable
