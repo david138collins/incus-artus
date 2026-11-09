@@ -339,6 +339,22 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
 - [ ] Horizon maps: far sun shadows and sky light become lookups (made at bake time, patched on edits). Same picture
       within a stated tolerance.
 - [ ] Light the hologram: sun and sky light kept in the cells, re-lit gradually as the sun moves.
+- [ ] **Sky light kept, not marched** [David 2026-11-09, after the breakdown found sky light the biggest single cost
+      (sky off: p99 -23%, over land the card 12.6 → 7.7 ms): "is there some way we can take sky light and bake it
+      into an indexed map that grows as the player explores the world and updates as he's in it to make it update,
+      leaving the other lighting types alone?"]. Sky light is how much of the sky a place can see. That depends only
+      on the blocks, not on the time of day, so it can be kept:
+      - **What's kept:** each cell's openness to the sky, from a few directions so a face still gets the sky
+        it faces (up and the four sides, or four numbers in the manner of spherical harmonics). The sky's colour and
+        brightness (dawn, dusk, overcast) multiply it at draw time, so the day still changes smoothly.
+      - **It grows as you explore:** made by the bake for the far levels, and as chunks are made for the near ones.
+      - **It updates while you're in it:** an edit re-figures the openness near it, and the column below for a dug
+        shaft. Spread over a few frames so the work stays even.
+      - **Left alone:** the sun's shadow (the sun moves) and placed light (its own flood).
+      - **Near the eye, one block a step:** like Minecraft's sky light, and like the stepped placed light he chose in
+        build 97, so it's a look question: the five cones could stay for near pixels, or the stepped kept light take
+        over. Judged by his eye, behind a switch.
+      - A cell-format change (bump SIGHT_RULES, a new bake), or its own buffer beside the cells (the hot/cold split).
 
 **Memory**
 - [ ] Hot and cold data apart: solid shares in their own tight buffer, colour and faces fetched only at a hit.
