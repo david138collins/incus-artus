@@ -1191,7 +1191,8 @@ below disagree with this one, this one stands.
     headgasket. things like taa i think can be applied artfully to great and even mission critical advantage";
     "the more fully featured it is before tuning the better we can tune and then sculpt the power curve with
     induction". So
-    the speed deep dive has three parts, in order:
+    the speed deep dive has three parts, in order (every idea, ticked with its measured result, is in the
+    checklist `docs/dyno.md`):
     1. **The look**, as fleshed out as it can get first.
     2. **Inspection**, done scientifically: how the renderer uses the card, measured before anything changes.
        This covers warps waiting on their slowest ray (divergence) and on memory, Nvidia's Nsight Graphics, and
