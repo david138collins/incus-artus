@@ -105,6 +105,32 @@ struct Owners {
     tiles: std::collections::HashMap<(usize, i32, i32), (u32, u32)>,
 }
 
+/// What the store holds, read back (`CardStore::read_back`, tests).
+#[cfg(test)]
+pub struct StoreRead {
+    pub live: Vec<[u32; 4]>,
+    pub baked: Vec<[u32; 2]>,
+    pub pool: Vec<[u32; 4]>,
+    pub finest_live: usize,
+    pub most_side: usize,
+    /// Each baked level's (from, across, where its entries start).
+    pub extents: Vec<((i32, i32), i32, u32)>,
+}
+
+#[cfg(test)]
+impl StoreRead {
+    /// A live slot's or baked entry's cells (its lowest, and the cells themselves), or none if empty or not there.
+    pub fn cells(&self, start: u32, word: u32) -> (i32, Vec<[u32; 4]>) {
+        let low = (word & 0xFFFF) as u16 as i16 as i32;
+        let count = (word >> 16) as usize;
+        if word == super::card_store::NOT_BAKED || count == 0 {
+            return (low, Vec::new());
+        }
+        let start = start as usize;
+        (low, self.pool.get(start..start + count).map(|c| c.to_vec()).unwrap_or_default())
+    }
+}
+
 /// The store on the card.
 pub struct CardStore {
     pub pool: wgpu::Buffer,
@@ -150,7 +176,7 @@ impl CardStore {
                 words.extend([0, NOT_BAKED]);
             }
             use wgpu::util::DeviceExt;
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's baked index"), contents: &words.iter().flat_map(|w: &u32| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's baked index"), contents: &words.iter().flat_map(|w: &u32| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC })
         };
         // Each live entry: start, lowest cell and count, and which column it is (x, y): "none" to begin with.
         let windows = (FIRST - finest_live) as i32;
@@ -160,9 +186,9 @@ impl CardStore {
                 words.extend([0, NOT_BAKED, i32::MIN as u32, i32::MIN as u32]);
             }
             use wgpu::util::DeviceExt;
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's live index"), contents: &words.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST })
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's live index"), contents: &words.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC })
         };
-        let pool = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's cells"), size: POOL_CELLS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let pool = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's cells"), size: POOL_CELLS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         // The header: the first baked level, the top, the finest live level, the live windows' side now, the
         // most (each level's window starts that squared on from the last), and which live levels are kept (a
         // bit each); then each baked level's from x, from y, across, and where its entries start.
@@ -291,11 +317,20 @@ impl CardStore {
                 at += cells.len() as u32;
                 rows[i / across as usize].extend(entry.iter().flat_map(|w| w.to_le_bytes()));
             }
+            // Each row's columns inside the level's bounds only [2026-11-09: a map needn't be whole regions, and a
+            // region past its edge wrote its row on past the end of the map's row, over the start of the next (the
+            // columns there "empty", or not, as the bakers happened to finish), and one starting outside it wasn't
+            // written at all; near the eye the walk then skipped into hills it took for empty air].
+            let Some((extent, offset)) = self.extents.get(k) else { continue };
             for (row, data) in rows.into_iter().enumerate() {
                 let (cx, cy) = (record.region.0 * across, record.region.1 * across + row as i32);
-                if let (Some(index), Some((_, offset))) = (self.index(level, cx, cy), self.extents.get(k)) {
-                    entries.push(((*offset as u64 + index as u64) * 8, data));
+                let (first, last) = (cx.max(extent.from.0), (cx + across).min(extent.from.0 + extent.across));
+                if first >= last {
+                    continue;
                 }
+                let Some(index) = self.index(level, first, cy) else { continue };
+                let (skip, take) = (((first - cx) * 8) as usize, ((last - first) * 8) as usize);
+                entries.push(((*offset as u64 + index as u64) * 8, data[skip..skip + take].to_vec()));
             }
         }
         self.queue.write_buffer(&self.pool, start as u64 * 16, &bytes);
@@ -362,6 +397,29 @@ impl CardStore {
             let (x, y) = ((tx * tile as i32).rem_euclid(side), (ty * tile as i32 + row as i32).rem_euclid(side));
             self.queue.write_buffer(&self.live, (window + (y * side + x) as u64) * 16, data);
         }
+    }
+
+    /// What the store holds, read back from the card (tests: two makings of a scene set side by side): the live
+    /// index (each slot's start, lowest cell and count, and column), the baked index (each entry's start, lowest
+    /// cell and count), and the pool's cells.
+    #[cfg(test)]
+    pub fn read_back(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> StoreRead {
+        let read = |buffer: &wgpu::Buffer| -> Vec<u32> {
+            let size = buffer.size();
+            let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+            let mut encoder = device.create_command_encoder(&Default::default());
+            encoder.copy_buffer_to_buffer(buffer, 0, &readback, 0, size);
+            queue.submit([encoder.finish()]);
+            readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
+            let _ = device.poll(wgpu::PollType::wait_indefinitely());
+            let words = readback.slice(..).get_mapped_range().map(|bytes| bytes.chunks_exact(4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect()).unwrap_or_default();
+            readback.unmap();
+            words
+        };
+        let live = read(&self.live).chunks_exact(4).map(|w| [w[0], w[1], w[2], w[3]]).collect();
+        let baked = read(&self.baked).chunks_exact(2).map(|w| [w[0], w[1]]).collect();
+        let pool = read(&self.pool).chunks_exact(4).map(|w| [w[0], w[1], w[2], w[3]]).collect();
+        StoreRead { live, baked, pool, finest_live: self.finest_live, most_side: self.most_side as usize, extents: self.extents.iter().map(|(e, at)| (e.from, e.across, *at)).collect() }
     }
 
     /// For the log: the pool's cells in use.

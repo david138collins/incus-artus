@@ -231,6 +231,21 @@ the instruments show re-ranks it, and any change is written here.
      whole as it's made), the live window's size (set), the `odd` flag (the world's own).
    - Next: read the store's buffers back from two makings and set them side by side, to see which data differ; then
      whether the game's own making (the live levels filled as the camera moves, the bake beside them) does it.
+   - **Found and fixed** (2026-11-09, `sight_s_scene_made_twice_holds_the_same`: the store read back from two
+     makings): the live levels were the same both times; a few baked columns were empty in one and not the other.
+     The bake writes a region's column index a row at a time, the region's 32 columns (at cells of 32) from where its
+     first falls. A map needn't be whole regions: a region over the map's east edge wrote its row on past the end of
+     the map's row, over the start of the next, marking those columns empty; one over the west edge wasn't written at
+     all (its first column off the map). Which spill-over lasted depended on which baker finished last. An empty
+     column tells the near walk there's nothing up to the sky there, so it skipped into the hill. Each row's written
+     now only where it's inside the map. **In the game:** the map (72,000 blocks) isn't whole regions either, so
+     this was along the map's west and east edges only (a strip a region wide, far out at sea); the test's small map
+     put the edge by the eye. The saved test world needs no new bake: its regions' cells were right, and the index
+     is written from them as it loads.
+   - Checks kept: the store and the pictures the same made twice; the near walk the same as every block walked; the
+     split the same as the one pass (its specks went with it). **The A/B picture tests can be trusted again.** And a
+     check on the Render page for David (Counsel's): "Walk every block near the eye", to flip where the near ground
+     looks wrong.
 2. [~] **Sky light kept, not marched** (step 2; David's idea, below in section 2): the five cones a pixel become a
    lookup. Sky light is 3.8 ms over the land, the biggest shading cost, and its own (no overlap with the walk).
    [David 2026-11-09: "blocky and quantized lighting is good all around i think. please try to see if there are any

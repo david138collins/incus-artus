@@ -278,6 +278,14 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
             kept.render.table.insert("placed_light_smooth".to_string(), toml::Value::Boolean(smooth));
         }
     });
+    // The near walk's truth (the dyno, 2026-11-09; Counsel: so David can check a place himself): every block near the
+    // eye walked, no air skipped over. Slow; if the picture changes when it's flipped, the skip is wrong there.
+    ui.separator();
+    ui.strong("Checks");
+    let mut every = kept.sight_walk_every_block();
+    if ui.checkbox(&mut every, "Walk every block near the eye (slow: no air skipped; if the picture changes, the skip is wrong there)").changed() {
+        kept.render.table.insert("sight_walk_every_block".to_string(), toml::Value::Boolean(every));
+    }
     // Fog (3.4c) [David 2026-10-28: fog out to about 2 miles; 2026-11-08: "that sounds alright"].
     ui.separator();
     ui.strong("Fog");
@@ -510,6 +518,11 @@ impl KeptSettings {
     /// Placed light blended across faces (off unless chosen: a block's step at a time).
     pub fn sight_smooth_light(&self) -> bool {
         self.render.flag("placed_light_smooth", false)
+    }
+
+    /// Every block near the eye walked, no air skipped (a check, off unless chosen).
+    pub fn sight_walk_every_block(&self) -> bool {
+        self.render.flag("sight_walk_every_block", false)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).

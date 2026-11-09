@@ -64,7 +64,8 @@ pub struct Eye {
     pub flicker_time: f32,
     /// Placed light blended across a face, not a block's step at a time (off unless chosen: David wants the steps).
     pub smooth_light: bool,
-    /// The near walk skipping no air at all, every block walked (the truth any skipping must match: tests only).
+    /// The near walk skipping no air at all, every block walked (the truth any skipping must match: the tests, and the
+    /// Render page's check).
     pub walk_every_block: bool,
     /// The march split from its light, a ray a pixel (the dyno's third step, 2026-11-09; `INCUS_SIGHT_SPLIT` in the
     /// game). Off: in one pass, the worst frames 12% better but the median 13% worse (the lighter views paying the

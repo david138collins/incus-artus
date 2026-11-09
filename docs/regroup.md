@@ -1392,6 +1392,12 @@ lamps, lights at cave mouths), and day and night.
   **Step 3:** kept, the card's work in one compute pass (the median 5.61 to 5.39 ms, 185 fps; the card −6%; the 99th
   22.3 to 20.8). Tried and kept off: the march split from its light (each march pass 35 to 58% faster alone, but the
   median +13% for the worst frames −12%); a choice to try again with a lighter light pass.
+  **A flaw found on the way and fixed:** the bake wrote each region's column index a row at a time from where its
+  first column fell, and where a region hangs over the map's edge (the map needn't be whole regions) the row ran on
+  past the end of the map's row into the next, marking columns empty, as the bakers happened to finish; the near
+  walk then skipped into hills. In the game, along the map's west and east edges only; in the tests' small maps, by
+  the eye. Each row's written inside the map now. A check for David on the Render page: walk every block near the
+  eye (if the picture changes when flipped, the skip is wrong there).
 
 ### Phase 6: everything else, each with its price  [loose]
 

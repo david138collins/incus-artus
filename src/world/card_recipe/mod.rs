@@ -2005,11 +2005,9 @@ fn ground(c: Case) -> i32 {
         }
     }
 
-    /// A measuring test (ignored; the dyno's first step, tried and dropped 2026-11-09): the near walk as it skips air
-    /// (the coarse levels, coarsest first) against every block walked (the truth), over hills: grazing, down and
-    /// level, the blocks and the live cells of 2 to 16 made round the eye. In this scene it skipped into the hills
-    /// near the eye on steep ground, by different amounts from run to run (so the scene may be at fault: something in
-    /// its making not settled); to be checked in the game before it's called a flaw.
+    /// The near walk as it skips air draws what every block walked draws (the truth), over hills: grazing, down and
+    /// level, the blocks and the live cells of 2 to 16 made round the eye [2026-11-09: it skipped into the hills near
+    /// the eye, differently each run, till the bake's rows were kept inside the map's bounds].
     #[test]
     #[ignore]
     fn sight_s_near_walk_against_every_block() {
@@ -2037,14 +2035,14 @@ fn ground(c: Case) -> i32 {
             }
             let d: Vec<i32> = truth.iter().zip(&walked).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
             eprintln!("Sight's near walk, {name}: against every block walked, {} pixels differ (by {} at most)", d.len(), d.iter().copied().max().unwrap_or(0));
+            assert!(d.len() <= (size.0 * size.1 / 1000) as usize, "the near walk draws what every block walked draws, {name} ({} pixels differ)", d.len());
         }
     }
 
-    /// A measuring test (ignored; the dyno's third step, the split off unless chosen): marching each pixel's ray in
-    /// one pass and lighting what it met in another, against the one pass: over hills, near and far, with the sun's
-    /// shadows, sky light and textures. The same to a step of a colour mostly (half floats between them), but in some
-    /// runs dark specks along the near blocks' edges (724 pixels, 51 at most, in the near view): on file to find
-    /// before the split is used.
+    /// The march split from its light (the dyno's third step, off unless chosen) draws what the one pass draws, to a
+    /// step of a colour (half floats between them): over hills, near and far, with the sun's shadows, sky light and
+    /// textures [2026-11-09: dark specks along near blocks' edges in some runs, gone with the bake's rows kept inside
+    /// the map's bounds].
     #[test]
     #[ignore]
     fn sight_s_march_split_from_its_light_the_same() {
@@ -2085,10 +2083,11 @@ fn ground(c: Case) -> i32 {
             worst = (worst.0.max(off.0), worst.1.max(off.1));
         }
         eprintln!("Sight's march split from its light: at worst {} pixels more than a step apart, {} at most", worst.0, worst.1);
+        assert!(worst.0 <= (size.0 * size.1 / 1000) as usize, "the same picture ({} pixels more than a step apart, {} at most)", worst.0, worst.1);
     }
 
-    /// A measuring test (ignored; chasing the near walk's run-to-run differences, 2026-11-09): the hills scene made
-    /// twice in one go, the same view drawn from each, skipping air and every block walked.
+    /// The hills scene made twice in one go draws the same, skipping air and every block walked [2026-11-09: it didn't,
+    /// the bake's rows written past the map's bounds as the bakers happened to finish].
     #[test]
     #[ignore]
     fn sight_s_scene_made_twice_draws_the_same() {
@@ -2106,7 +2105,81 @@ fn ground(c: Case) -> i32 {
             pictures.push((picture(false), picture(true)));
         }
         let apart = |a: &[[u8; 3]], b: &[[u8; 3]]| a.iter().zip(b).filter(|(x, y)| x != y).count();
-        eprintln!("Sight's scene made twice: skipping {} pixels apart, every block {} apart; first scene skipping against its truth {}, second {}", apart(&pictures[0].0, &pictures[1].0), apart(&pictures[0].1, &pictures[1].1), apart(&pictures[0].0, &pictures[0].1), apart(&pictures[1].0, &pictures[1].1));
+        let found = (apart(&pictures[0].0, &pictures[1].0), apart(&pictures[0].1, &pictures[1].1), apart(&pictures[0].0, &pictures[0].1), apart(&pictures[1].0, &pictures[1].1));
+        eprintln!("Sight's scene made twice: skipping {} pixels apart, every block {} apart; first scene skipping against its truth {}, second {}", found.0, found.1, found.2, found.3);
+        assert_eq!(found, (0, 0, 0, 0), "made twice, the same pictures");
+    }
+
+    /// The hills scene made twice holds the same on the card, its store read back each time and set side by side, live
+    /// slot by live slot and baked entry by baked entry (which levels differ, and how, if any) [2026-11-09: a few
+    /// baked columns were empty in one making and not in the other, the bake's rows written past the map's bounds].
+    #[test]
+    #[ignore]
+    fn sight_s_scene_made_twice_holds_the_same() {
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let mut reads = Vec::new();
+        for _ in 0..2 {
+            let Some((device, queue, store, _map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else { return };
+            reads.push(store.read_back(&device, &queue));
+        }
+        let (a, b) = (&reads[0], &reads[1]);
+        let side2 = a.most_side * a.most_side;
+        // The live levels, slot by slot.
+        for (window, (sa, sb)) in a.live.chunks(side2).zip(b.live.chunks(side2)).enumerate() {
+            let level = a.finest_live + window;
+            let (mut where_, mut bands, mut cells, mut example) = (0, 0, 0, String::new());
+            for (k, (x, y)) in sa.iter().zip(sb).enumerate() {
+                if (x[2], x[3]) != (y[2], y[3]) {
+                    where_ += 1;
+                    if example.is_empty() {
+                        example = format!("slot {k}: column ({}, {}) against ({}, {})", x[2] as i32, x[3] as i32, y[2] as i32, y[3] as i32);
+                    }
+                    continue;
+                }
+                let (ca, cb) = (a.cells(x[0], x[1]), b.cells(y[0], y[1]));
+                if ca.0 != cb.0 || ca.1.len() != cb.1.len() {
+                    bands += 1;
+                    if example.is_empty() {
+                        example = format!("column ({}, {}): band from {} for {} against from {} for {}", x[2] as i32, x[3] as i32, ca.0, ca.1.len(), cb.0, cb.1.len());
+                    }
+                } else if ca.1 != cb.1 {
+                    cells += 1;
+                    if example.is_empty() {
+                        let k = ca.1.iter().zip(&cb.1).position(|(p, q)| p != q).unwrap_or(0);
+                        example = format!("column ({}, {}): cell {} of its band {:?} against {:?}", x[2] as i32, x[3] as i32, k, ca.1[k], cb.1[k]);
+                    }
+                }
+            }
+            eprintln!("Sight's store made twice, live level {level} (cells of {}): {where_} slots for other columns, {bands} bands differ, {cells} columns' cells differ. {example}", 1 << level);
+            assert_eq!(where_ + bands + cells, 0, "live level {level} the same both times: {example}");
+        }
+        // The baked levels, entry by entry.
+        for (k, &(from, across, at)) in a.extents.iter().enumerate() {
+            let level = crate::sight::bake::FIRST + k;
+            let n = (across * across) as usize;
+            let (mut bands, mut cells, mut example) = (0, 0, String::new());
+            for i in 0..n {
+                let (x, y) = (a.baked[at as usize + i], b.baked[at as usize + i]);
+                let (ca, cb) = (a.cells(x[0], x[1]), b.cells(y[0], y[1]));
+                let column = (from.0 + (i as i32 % across), from.1 + (i as i32 / across));
+                if ca.0 != cb.0 || ca.1.len() != cb.1.len() {
+                    bands += 1;
+                    if example.is_empty() {
+                        example = format!("column {column:?}: band from {} for {} against from {} for {} (words {:08x} {:08x})", ca.0, ca.1.len(), cb.0, cb.1.len(), x[1], y[1]);
+                    }
+                } else if ca.1 != cb.1 {
+                    cells += 1;
+                    if example.is_empty() {
+                        let j = ca.1.iter().zip(&cb.1).position(|(p, q)| p != q).unwrap_or(0);
+                        example = format!("column {column:?}: cell {j} {:?} against {:?}", ca.1[j], cb.1[j]);
+                    }
+                }
+            }
+            if bands + cells > 0 || k < 3 {
+                eprintln!("Sight's store made twice, baked level {level} (cells of {}): {bands} bands differ, {cells} columns' cells differ of {n}. {example}", 1 << level);
+            }
+            assert_eq!(bands + cells, 0, "baked level {level} the same both times: {example}");
+        }
     }
 
     /// A measuring test (ignored; the dyno's first step): the near walk's steps a ray as it skips air, against every
