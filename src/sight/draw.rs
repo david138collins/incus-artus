@@ -603,51 +603,88 @@ impl SightDraw {
             let k = next_stamp(passes, timing.is_some(), name)?;
             Some(wgpu::RenderPassTimestampWrites { query_set: timing?, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) })
         };
-        if !no_start {
-            let timestamp_writes = compute_stamp(&mut passes, "start".into());
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's start pass"), timestamp_writes });
-            pass.set_pipeline(&self.start);
-            pass.set_bind_group(0, &targets.start_group, &[]);
-            pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
-        }
         // The march split from its light (a ray a pixel; `INCUS_SIGHT_NO_SPLIT` keeps them together, for measuring).
         let split = eye.split && eye.rays <= 1 && std::env::var("INCUS_SIGHT_NO_SPLIT").is_err();
-        for layer in &targets.layers {
-            let groups = (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
-            if split {
-                let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
-                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march, split"), timestamp_writes });
-                pass.set_pipeline(&self.march_hit);
-                pass.set_bind_group(0, &layer.hit_group, &[]);
-                pass.dispatch_workgroups(groups.0, groups.1, 1);
-                drop(pass);
-                let timestamp_writes = compute_stamp(&mut passes, format!("light {}", layer.factor));
-                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's light"), timestamp_writes });
-                pass.set_pipeline(&self.light_hit);
-                pass.set_bind_group(0, &layer.light_group, &[]);
-                pass.dispatch_workgroups(groups.0, groups.1, 1);
-            } else {
-                let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
-                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes });
-                pass.set_pipeline(&self.march);
-                pass.set_bind_group(0, &layer.group, &[]);
-                pass.dispatch_workgroups(groups.0, groups.1, 1);
-            }
-        }
-        // The far glows: which the eye sees (build 100).
+        // The far glows' places (build 100), put on the card before the work that says which the eye sees.
         let glow_places = self.objects.glow_places();
-        if !glow_places.is_empty() {
+        let glow_groups = (!glow_places.is_empty()).then(|| {
             let count = glow_places.len().min(super::lights::GLOWS_MOST);
             let groups = count.div_ceil(64);
             let mut places: Vec<f32> = glow_places[..count].iter().flat_map(|p| [p[0], p[1], p[2], 0.0]).collect();
             // The last group's spare places: none.
             places.resize(groups * 64 * 4, -1.0);
             queue.write_buffer(&self.glows, 0, &places.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
-            let timestamp_writes = compute_stamp(&mut passes, "glows".into());
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's far glows"), timestamp_writes });
-            pass.set_pipeline(&self.glow_pass);
-            pass.set_bind_group(0, &targets.glow_group, &[]);
-            pass.dispatch_workgroups(groups as u32, 1, 1);
+            groups as u32
+        });
+        // The card's work before the screen's (the start, each layer's march and light, the far glows) in one compute
+        // pass, its dispatches one after another (the card's barriers between them, but no pass ended and begun:
+        // 2026-11-09, the split's eight passes left some 1.4 ms between them). `INCUS_DYNO_PASS_TIMES` gives each its
+        // own pass, timed, for measuring where the time goes.
+        if std::env::var("INCUS_DYNO_PASS_TIMES").is_err() {
+            let timestamp_writes = compute_stamp(&mut passes, "march".into());
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march and light"), timestamp_writes });
+            if !no_start {
+                pass.set_pipeline(&self.start);
+                pass.set_bind_group(0, &targets.start_group, &[]);
+                pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
+            }
+            for layer in &targets.layers {
+                let groups = (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
+                if split {
+                    pass.set_pipeline(&self.march_hit);
+                    pass.set_bind_group(0, &layer.hit_group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                    pass.set_pipeline(&self.light_hit);
+                    pass.set_bind_group(0, &layer.light_group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                } else {
+                    pass.set_pipeline(&self.march);
+                    pass.set_bind_group(0, &layer.group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                }
+            }
+            if let Some(groups) = glow_groups {
+                pass.set_pipeline(&self.glow_pass);
+                pass.set_bind_group(0, &targets.glow_group, &[]);
+                pass.dispatch_workgroups(groups, 1, 1);
+            }
+        } else {
+            if !no_start {
+                let timestamp_writes = compute_stamp(&mut passes, "start".into());
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's start pass"), timestamp_writes });
+                pass.set_pipeline(&self.start);
+                pass.set_bind_group(0, &targets.start_group, &[]);
+                pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
+            }
+            for layer in &targets.layers {
+                let groups = (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
+                if split {
+                    let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
+                    let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march, split"), timestamp_writes });
+                    pass.set_pipeline(&self.march_hit);
+                    pass.set_bind_group(0, &layer.hit_group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                    drop(pass);
+                    let timestamp_writes = compute_stamp(&mut passes, format!("light {}", layer.factor));
+                    let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's light"), timestamp_writes });
+                    pass.set_pipeline(&self.light_hit);
+                    pass.set_bind_group(0, &layer.light_group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                } else {
+                    let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
+                    let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes });
+                    pass.set_pipeline(&self.march);
+                    pass.set_bind_group(0, &layer.group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                }
+            }
+            if let Some(groups) = glow_groups {
+                let timestamp_writes = compute_stamp(&mut passes, "glows".into());
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's far glows"), timestamp_writes });
+                pass.set_pipeline(&self.glow_pass);
+                pass.set_bind_group(0, &targets.glow_group, &[]);
+                pass.dispatch_workgroups(groups, 1, 1);
+            }
         }
         let attachment = wgpu::RenderPassColorAttachment { view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store } };
         let timestamp_writes = render_stamp(&mut passes, UPSCALE.into());

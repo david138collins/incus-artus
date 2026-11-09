@@ -2075,10 +2075,12 @@ fn ground(c: Case) -> i32 {
                 (gaps.iter().filter(|&&g| g > 1).count(), gaps.iter().copied().max().unwrap_or(0))
             };
             let (first, second, itself) = (apart(&together, &split), apart(&again, &split), apart(&together, &again));
-            eprintln!("Sight's march split from its light, {name}: against together {} pixels more than a step apart ({} at most), against together again {} ({}); together against itself {} ({})", first.0, first.1, second.0, second.1, itself.0, itself.1);
-            // The nearer of the two (the scene sometimes moves between pictures: together against itself says so).
-            let best = if first.0 <= second.0 { first } else { second };
-            worst = (worst.0.max(best.0), worst.1.max(best.1));
+            // Where together drew the same twice (this scene sometimes moves between pictures, the near walk landing
+            // differently on its steep hills: on file to find), split against it.
+            let steady: Vec<i32> = together.iter().zip(&again).zip(&split).filter(|((a, b), _)| a == b).map(|((a, _), c)| (0..3).map(|k| (a[k] as i32 - c[k] as i32).abs()).max().unwrap_or(0)).collect();
+            let off = (steady.iter().filter(|&&g| g > 1).count(), steady.iter().copied().max().unwrap_or(0));
+            eprintln!("Sight's march split from its light, {name}: where together drew the same twice ({} pixels), {} more than a step apart ({} at most); against together {} ({}), together again {} ({}); together against itself {} ({})", steady.len(), off.0, off.1, first.0, first.1, second.0, second.1, itself.0, itself.1);
+            worst = (worst.0.max(off.0), worst.1.max(off.1));
         }
         assert!(worst.0 <= (size.0 * size.1 / 1000) as usize, "the same picture ({} pixels more than a step apart, {} at most)", worst.0, worst.1);
     }
