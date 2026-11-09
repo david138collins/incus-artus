@@ -28,6 +28,9 @@ build-by-build numbers are in `docs/regroup.md`.
 - [x] The two flaws: the close-up disc and the circles from altitude (builds 93 and 94).
 - [x] More storage slots asked from the card (build 95): David's card reports 262,144, and we use 9.
 - [x] Nsight Graphics installed on David's machine (2026-11-09).
+- [ ] Far light, before the dyno starts [David 2026-11-09: "far light is important to be in there before we go onto
+      the dyno"]: a far brazier's glow as a twinkling pixel or so, and its light on the ground averaged into the
+      coarse cells. Details in `docs/regroup.md`, "Lights seen from farther".
 
 ## 1. Instruments: measure first
 

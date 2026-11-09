@@ -1295,6 +1295,15 @@ lamps, lights at cave mouths), and day and night.
   vanishes at once. Wanted: the glow and twinkle carry on past that edge, getting smaller with distance and
   fading into the fog, never snapping off. This was the "lights seen from far off" item under build 95's not yet.
   Queued after the flaw Builder is chasing.
+  **Before the dyno** [David, the same day: "far light is important to be in there before we go onto the dyno"].
+  What he remembers from the old engine and wants here: "braziers in a cave at night from a distance were just
+  pixels of green that popped in and out as they twinkled, less and less as you got farther away. and i'd think
+  some of the green light wash would squish down to a couple brighter greener coarse pixels for a moment after
+  that in our new engine." So two parts:
+  - **The glow:** a far brazier is a pixel or so of its light's colour, twinkling in and out, less often with
+    distance, fading into the fog.
+  - **The wash:** the light a brazier throws on the ground around it carries on past the loaded chunks, averaged
+    down into the coarse cells: a couple of brighter, greener coarse pixels for a while past that.
 
 ### Phase 6: everything else, each with its price  [loose]
 
