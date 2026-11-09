@@ -346,7 +346,7 @@ impl Plugin for WorldGenPlugin {
     }
 }
 
-fn run_suite(mut suite: ResMut<Suite>, mut soak_pressed: Local<bool>) {
+fn run_suite(mut suite: ResMut<Suite>, mut soak_pressed: Local<bool>, mut soak_waited: Local<Option<std::time::Instant>>) {
     let (size, blocks) = (suite.size_blocks, suite.blocks_per_pixel());
     for layer in &mut suite.layers {
         layer.drive(size, blocks);
@@ -355,11 +355,22 @@ fn run_suite(mut suite: ResMut<Suite>, mut soak_pressed: Local<bool>) {
     // The compiler only reads bakes once its tab has been opened.
     if suite.kit == Kit::Compiler {
         suite.compiler.drive();
-        // The soak test (`soak.rs`): the newest bake rendered once it's compiled, spawning in the
-        // middle.
+        // The soak test and the dyno's flights (`soak.rs`): the newest bake rendered once it's compiled and its
+        // climate has carved the rivers and lakes, as David waits for them by hand, spawning in the middle [David
+        // 2026-11-09, the dyno's test world made without them: "if you're using the editor, you have to wait for it to
+        // finish with rivers, otherwise you spawn without thwem"]. Five minutes at most, then without.
         if crate::soak::wanted() && !*soak_pressed && suite.compiler.is_compiled() {
-            *soak_pressed = true;
-            suite.compiler.press_render(IVec2::ZERO);
+            let since = *soak_waited.get_or_insert_with(std::time::Instant::now);
+            let rivers = suite.compiler.climate.carving().is_some() && !suite.compiler.climate.is_making();
+            if rivers || since.elapsed().as_secs() >= 300 {
+                if rivers {
+                    info!("Soak: rendered with its rivers, {:.0} s after it compiled", since.elapsed().as_secs_f32());
+                } else {
+                    warn!("Soak: rendered WITHOUT rivers: the climate wasn't done after five minutes");
+                }
+                *soak_pressed = true;
+                suite.compiler.press_render(IVec2::ZERO);
+            }
         }
     }
 }
