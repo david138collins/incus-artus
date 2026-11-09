@@ -94,6 +94,67 @@ pub fn far_glow(colour: [u8; 3], brightness: f32, beat: u32, flicker: f32, time:
     Some(colour.map(|c| c as f32 / 255.0 * strength))
 }
 
+// ── The wash (build 101; David: "i'd think some of the green light wash would squish down to a couple brighter
+// greener coarse pixels for a moment after that in our new engine") ──
+//
+// Far off, where the march reads cells bigger than blocks, the light on the ground is the lit ground's average over
+// each cell: its cells of air with ground under them, each light eased (squared, as the card shows it), summed and
+// shared out over the cell's area across (a flat floor's), so a light's patch is a few bright cells of 2, fewer and
+// dimmer of 4, and so on, down to a faint one of 128. Kept as a block's light is (0 to 15 a colour, square-rooted
+// back, the beat of its brightest), each cell's level with it, and put by the cell over the ground and the one under
+// it too, whichever the march meets the ground in.
+
+/// The coarsest level the wash goes to (cells of 128).
+pub const WASH_LEVELS: u32 = 7;
+
+/// The wash's cells from every lit cell of air (as `PlacedLights::lit` gives them) and what's solid: each its place
+/// (in cells of its level) and its light as the card reads it, its level over the beat (bits 20 to 24). Level 0 is
+/// only the blocks under lit ground (the lit air over it is there already).
+pub fn wash(lit: &[([i32; 3], u32)], solid: &dyn Fn([i32; 3]) -> bool) -> Vec<([i32; 3], u32)> {
+    // Each cell's eased light summed, colour by colour, and its brightest light's strength and beat.
+    let mut sums: HashMap<(u32, [i32; 3]), ([f32; 3], u32, u32)> = HashMap::new();
+    for &(at, light) in lit {
+        if !solid([at[0], at[1], at[2] - 1]) {
+            continue;
+        }
+        let rgb = unpack(light as u16 & 0xFFF);
+        let eased = rgb.map(|level| (level as f32 / 15.0).powi(2));
+        let (strength, beat) = (rgb.iter().sum::<u32>(), (light >> 12) & 255);
+        for level in 0..=WASH_LEVELS {
+            let cell = at.map(|v| v.div_euclid(1 << level));
+            let sum = sums.entry((level, cell)).or_insert(([0.0; 3], 0, beat));
+            for k in 0..3 {
+                sum.0[k] += eased[k];
+            }
+            if strength > sum.1 {
+                sum.1 = strength;
+                sum.2 = beat;
+            }
+        }
+    }
+    let mut cells: HashMap<(u32, [i32; 3]), (u16, u32, u32)> = HashMap::new();
+    for ((level, cell), (sum, strength, beat)) in sums {
+        let area = (1u32 << (2 * level)) as f32;
+        let light = pack(sum.map(|eased| ((eased / area).min(1.0).sqrt() * 15.0).round() as u32));
+        if light == 0 {
+            continue;
+        }
+        let under = [cell[0], cell[1], cell[2] - 1];
+        let places: &[[i32; 3]] = if level == 0 { &[under] } else { &[cell, under] };
+        for &place in places {
+            let kept = cells.entry((level, place)).or_insert((0, 0, beat));
+            if strength > kept.1 {
+                kept.1 = strength;
+                kept.2 = beat;
+            }
+            kept.0 = brighter(kept.0, light);
+        }
+    }
+    let mut out: Vec<([i32; 3], u32)> = cells.into_iter().map(|((level, at), (light, _, beat))| (at, light as u32 | beat << 12 | level << 20)).collect();
+    out.sort_unstable_by_key(|&(at, light)| (light >> 20, at));
+    out
+}
+
 /// A light as an object gives it: which object (its feet, 16ths of a block), the cell its light comes from, its
 /// colour at full (0 to 15 each) and its reach (blocks).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -312,6 +373,28 @@ mod tests {
         let fading = far_glow([60, 255, 90], 1.0, 77, 0.0, 0.0, 56.0).unwrap();
         assert!((fading[1] - 0.5).abs() < 0.01, "half way in at 56 ({fading:?})");
         assert!((0..1000).all(|k| far_glow([60, 255, 90], 1.0, 77, 0.0, k as f32 / 100.0, 2000.0).is_some()), "no flicker, no twinkle");
+    }
+
+    #[test]
+    fn the_wash_shares_lit_ground_out_over_coarse_cells() {
+        // A light over an open floor (solid under 1), green, reaching 15.
+        let floor = |at: [i32; 3]| at[2] < 1;
+        let mut lights = PlacedLights::default();
+        lights.set(&[LightFrom { object: [16, 16, 16], cell: [1, 1, 1], colour: [0, 15, 0], reach: 15 }], &floor);
+        let washed = wash(&lights.lit(), &floor);
+        let at = |level: u32, cell: [i32; 3]| washed.iter().find(|&&(c, light)| c == cell && light >> 20 == level).map(|&(_, light)| unpack(light as u16 & 0xFFF)[1]);
+        // The block under it: as bright as the air over it.
+        assert_eq!(at(0, [1, 1, 0]), Some(15));
+        // Its cell of 2, then coarser: dimmer and dimmer, as its patch is a smaller share of each.
+        let by_level: Vec<u32> = (1..=WASH_LEVELS).map(|level| at(level, [0, 0, 0]).unwrap_or(0)).collect();
+        eprintln!("The wash at the light, cells of 2 to 128: {by_level:?}");
+        assert!(by_level[0] >= 12, "a cell of 2 by the light nearly whole ({by_level:?})");
+        assert!(by_level.windows(2).all(|w| w[1] <= w[0]), "dimmer as the cells grow ({by_level:?})");
+        assert!(by_level[6] >= 1 && by_level[6] <= 4, "faint in a cell of 128 ({by_level:?})");
+        // Each kept by the cell over the ground and the one under it.
+        assert_eq!(at(3, [0, 0, 0]), at(3, [0, 0, -1]));
+        // Lit air with no ground under it isn't in the wash.
+        assert!(at(0, [1, 1, 4]).is_none());
     }
 
     #[test]

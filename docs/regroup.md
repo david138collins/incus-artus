@@ -1344,6 +1344,31 @@ lamps, lights at cave mouths), and day and night.
     braziers. Suite 419.
   - **On file:** the wash (its light on the ground averaged into the coarse cells) is the next build; a glow under
     water isn't tinted by it.
+- **David's look at 100:** "looks great, builder."
+- **Build 101: the wash** (the second half of "Lights seen from farther").
+  - **Every light floods,** loaded or put away (all the objects placed far off). What's solid: a chunk's blocks,
+    loaded or put away; where no chunk is in memory, the map's ground (`CompiledMap::column`, kept by column from
+    frame to frame), so a light by the loaded chunks' edge no longer stops dead at it (unloaded chunks counted solid
+    before) and a far one floods over its own ground. Caves and what's built in a chunk never changed aren't there
+    till it loads.
+  - **Averaged into the coarse cells** (`lights::wash`): the lit cells of air with ground under them, each light eased
+    (squared, as shown), summed over each cell of 2 to 128 and shared out over its area across, then square-rooted
+    back into a block's 16 steps, with the beat of its brightest light. A patch of a light reaching 15 is about a
+    cell of 16 at 8 of 15, a cell of 128 at 1 or 2. Kept for the cell over the ground and the one under it (whichever
+    the march meets the ground in), and at blocks' size the block under lit ground, for the far march's reads of blocks.
+  - **On the card:** the same table as the blocks' light, the cell's level in the key and its light (bits 20 to 24).
+  - **In the march:** where the far march gathers ground, the light kept for that cell at that level, by the ground's
+    own colour, added after the sun's and sky's (no shadow takes it), whole cells at a time: hard-edged coarse pixels,
+    as the blocks' light is stepped. It flickers on its brightest light's beat.
+  - **Test:** `sight_s_wash_shows_far_off` (a light in the middle of a cell of 16, at night, from 600 and 2,000 up:
+    one green coarse pixel, green 35 against 10, the ground away from it untouched; a light on a corner of four cells
+    shares its patch four ways, about half as bright in each); `the_wash_shares_lit_ground_out_over_coarse_cells`.
+  - **Cost:** a lookup in the light table each time the far march gathers ground, while placed lights are on. Not
+    measured on the flight yet (its world has no lights: the lookup finds an empty place first); the dyno's
+    instruments will show it. The table: about 240 cells of wash a light besides its lit air. Suite 421.
+  - **On file:** the wash is the ground's: walls and cliffs lit from the side get the cell's share, as the ground
+    does; light through water isn't tinted by it; the flood on a chunk change floods every light again (now the far
+    ones too: the dyno's "the lights' flood on chunk changes").
 
 ### Phase 6: everything else, each with its price  [loose]
 

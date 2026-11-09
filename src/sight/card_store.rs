@@ -37,9 +37,10 @@ pub const LIGHT_SLOTS: u32 = 65_536;
 /// The most places a lit cell is looked for past its own (`march.wgsl`'s `placed_light`).
 pub const LIGHT_PROBES: u32 = 32;
 
-/// Where a lit cell at `c` is first looked for (the same in `march.wgsl`).
-pub fn light_hash(c: [i32; 3]) -> u32 {
-    ((c[0] as u32).wrapping_mul(73_856_093) ^ (c[1] as u32).wrapping_mul(19_349_663) ^ (c[2] as u32).wrapping_mul(83_492_791)) & (LIGHT_SLOTS - 1)
+/// Where a lit cell at `c` of `level` (0 for blocks, the wash's coarser ones: `lights::wash`) is first looked for
+/// (the same in `march.wgsl`).
+pub fn light_hash(c: [i32; 3], level: u32) -> u32 {
+    ((c[0] as u32).wrapping_mul(73_856_093) ^ (c[1] as u32).wrapping_mul(19_349_663) ^ (c[2] as u32).wrapping_mul(83_492_791) ^ level.wrapping_mul(2_654_435_761)) & (LIGHT_SLOTS - 1)
 }
 
 /// Where a cell of pieces at `c` is first looked for (the same in `march.wgsl`).
@@ -186,7 +187,7 @@ impl CardStore {
         let mut table = vec![[0u32; 4]; LIGHT_SLOTS as usize];
         let mut put = 0;
         for &(c, light) in cells.iter().take(LIGHT_SLOTS as usize / 2) {
-            let start = light_hash(c);
+            let start = light_hash(c, (light >> 20) & 31);
             for k in 0..LIGHT_PROBES {
                 let slot = &mut table[((start + k) & (LIGHT_SLOTS - 1)) as usize];
                 if slot[3] == 0 {

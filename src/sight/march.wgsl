@@ -575,16 +575,22 @@ fn wear_texture(seen: Seen) -> Seen {
 
 // The placed light in the air cell `c` (each colour 0 to 1, as it flickers now), none where it's dark.
 fn placed_light(c: vec3<i32>) -> vec3<f32> {
+    return placed_light_at(0u, c);
+}
+
+// The placed light kept for the cell `c` of `level`: at 0 a block's (the air's, and the block under lit ground), at
+// the coarser levels the wash's (`lights.rs`: the lit ground's average over the cell) [build 101].
+fn placed_light_at(level: u32, c: vec3<i32>) -> vec3<f32> {
     if (camera.glow.x < 0.5) {
         return vec3<f32>(0.0);
     }
-    var h = ((bitcast<u32>(c.x) * 73856093u) ^ (bitcast<u32>(c.y) * 19349663u) ^ (bitcast<u32>(c.z) * 83492791u)) & (LIGHT_SLOTS - 1u);
+    var h = ((bitcast<u32>(c.x) * 73856093u) ^ (bitcast<u32>(c.y) * 19349663u) ^ (bitcast<u32>(c.z) * 83492791u) ^ (level * 2654435761u)) & (LIGHT_SLOTS - 1u);
     for (var k = 0; k < LIGHT_PROBES; k++) {
         let e = lights[h];
         if (e.w == 0u) {
             return vec3<f32>(0.0);
         }
-        if (bitcast<i32>(e.x) == c.x && bitcast<i32>(e.y) == c.y && bitcast<i32>(e.z) == c.z) {
+        if (bitcast<i32>(e.x) == c.x && bitcast<i32>(e.y) == c.y && bitcast<i32>(e.z) == c.z && ((e.w >> 20u) & 31u) == level) {
             let level = vec3<f32>(f32(e.w & 15u), f32((e.w >> 4u) & 15u), f32((e.w >> 8u) & 15u)) / 15.0;
             // Its beat: two waves at odd speeds, each light's own way along them.
             let beat = f32((e.w >> 12u) & 255u) / 255.0 * 6.2831853;
@@ -1069,6 +1075,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     var colour = vec3<f32>(0.0);
     // The sun's part of it (3.4b: what the shadow at the surface takes away).
     var sunny = vec3<f32>(0.0);
+    // The placed light gathered (build 101: the wash, far off), added after the shadow and sky light.
+    var glow = vec3<f32>(0.0);
     var through = 1.0;
     var first = camera.reach.x;
     var touched = camera.reach.x;
@@ -1091,6 +1099,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
             }
             colour = h.colour;
             sunny = h.sunny;
+            glow = h.glow;
             through = h.through;
             first = h.first;
             touched = h.first;
@@ -1290,6 +1299,15 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
                 let here_sun = (ground_sun * solid + sunlit(water_colour, 1.0) * water) / both;
                 colour += through * covered * here;
                 sunny += through * covered * here_sun;
+                // The placed light washed over the ground here, by the ground's own colour, whole cells at a time (no
+                // sun or sky takes it away: added after them) [build 101].
+                if (camera.glow.x > 0.5 && solid > 0.0) {
+                    let washed = placed_light_at(u32(level), vec3<i32>(floor(p / size)));
+                    if (any(washed > vec3<f32>(0.0))) {
+                        let albedo = (before.colour * before.solid + look.colour * look.solid) / solids;
+                        glow += through * covered * albedo * washed * solid / both;
+                    }
+                }
                 if (p.z <= size * 1.5) {
                     bottom = true;
                     bottom_here = here;
@@ -1337,7 +1355,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
         wide = max(first * camera.view.z, read);
     }
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched, 0.0, vec3<f32>(0.0), vec3<f32>(0.0), through);
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, vec3<f32>(0.0), false, gathered - sunny, touched, 0.0, vec3<f32>(0.0), glow, through);
 }
 
 // ── Sun shadows (3.4b, David 2026-11-08: "proceed") ──

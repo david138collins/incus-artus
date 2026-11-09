@@ -490,6 +490,8 @@ pub struct SightStore {
     /// store their table was last put on.
     lights: crate::sight::lights::PlacedLights,
     lights_among: (usize, i64),
+    /// The map's ground by column (build 101: what's solid for the placed lights where no chunk is), and the map.
+    grounds: (Option<Arc<CompiledMap>>, HashMap<(i32, i32), Option<i32>>),
     lights_card: Option<Arc<crate::sight::card_store::CardStore>>,
     /// When the store was last reported in the log.
     reported: Option<Instant>,
@@ -571,9 +573,10 @@ fn with_spots(edits: &crate::sight::edits::Edits, voxel: &VoxelWorld, more: impl
     crate::sight::edits::Edits { with: crate::sight::bake::Blocks { changed: Arc::new(changed), ..edits.with.clone() }, spots: Arc::new(spots), ..edits.clone() }
 }
 
-/// The lights the objects in the loaded chunks give (build 95): each from its sprite's spot (a brazier's flame), or
-/// on top of it in the middle, in its colour times its brightness (16 levels each), as the old renderer had them.
-/// And the chunks they're among (how many, and their places summed): when those change, the lights flood again.
+/// The lights the objects give (build 95; build 101: those in the changed chunks put away as well, every object
+/// placed far off, for the wash): each from its sprite's spot (a brazier's flame), or on top of it in the middle, in
+/// its colour times its brightness (16 levels each), as the old renderer had them. And the chunks loaded (how many,
+/// and their places summed): when those change, the lights flood again.
 fn lights_of(objects: &crate::data::ObjectRegistry, voxel: &VoxelWorld) -> (Vec<crate::sight::lights::LightFrom>, (usize, i64)) {
     use crate::sight::lights::{LightFrom, MOST_REACH};
     let mut lights = Vec::new();
@@ -581,7 +584,9 @@ fn lights_of(objects: &crate::data::ObjectRegistry, voxel: &VoxelWorld) -> (Vec<
     for pos in voxel.chunk_positions() {
         among.0 += 1;
         among.1 = among.1.wrapping_add((pos.x as i64).wrapping_mul(1_000_003) ^ pos.y as i64);
-        let Some(chunk) = voxel.chunk(pos) else { continue };
+    }
+    let loaded = voxel.chunk_positions().filter_map(|pos| voxel.chunk(pos));
+    for chunk in loaded.chain(voxel.put_away_chunks()) {
         for object in chunk.objects() {
             let Some(def) = objects.by_name(&object.name) else { continue };
             let Some(light) = def.light.as_ref() else { continue };
@@ -684,24 +689,47 @@ pub fn objects_to_draw(world: &World, millis: u64, eye: &crate::sight::draw::Eye
 }
 
 /// Keeps the placed lights on the card (build 95, `sight/lights.rs`): flooded when one's placed or taken, again
-/// near blocks changed, and all again when the chunks round them come or go (unloaded ones count as solid); the
-/// card's table written whole whenever what's lit changes.
+/// near blocks changed, and all again when the chunks loaded change; the card's table written whole whenever what's
+/// lit changes, with the wash (build 101: the lit ground averaged into the coarse cells, for far off). What's solid:
+/// a chunk's blocks, loaded or put away; elsewhere (a chunk never changed and not loaded), the map's ground (the
+/// light stops at the ground, as it would at the chunk's own; caves and what's built aren't there till it loads).
+#[allow(clippy::too_many_arguments)]
 fn keep_placed_lights(
     voxel: Res<VoxelWorld>,
     objects: Res<crate::data::ObjectRegistry>,
     registry: Res<BlockRegistry>,
+    terrain: Res<Terrain>,
     mut changes: MessageReader<BlockChanged>,
     mut sight: ResMut<SightStore>,
 ) {
     let spots: Vec<[i32; 3]> = changes.read().map(|change| change.position.to_array()).collect();
     let Some(card) = sight.card.clone() else { return };
+    let map = terrain.compiled().cloned();
+    // The map's ground by column, kept from frame to frame (the same map: worked out once a column).
+    let sight = &mut *sight;
+    if !matches!((&sight.grounds.0, &map), (Some(had), Some(now)) if Arc::ptr_eq(had, now)) {
+        sight.grounds = (map.clone(), HashMap::new());
+    }
+    let grounds = std::cell::RefCell::new(std::mem::take(&mut sight.grounds.1));
     let solid = |at: [i32; 3]| {
         let at = IVec3::from_array(at);
-        // A medium (water, glass) lets light through (build 98).
-        at.z < 0 || (at.z < WORLD_HEIGHT && (voxel.chunk(ChunkPos::of_block(at)).is_none() || registry.def(voxel.get_block(at)).is_some_and(|def| def.opaque && def.medium.is_none())))
+        if at.z < 0 {
+            return true;
+        }
+        if at.z >= WORLD_HEIGHT {
+            return false;
+        }
+        match voxel.changed_chunk(ChunkPos::of_block(at)) {
+            // A medium (water, glass) lets light through (build 98).
+            Some(chunk) => registry.def(chunk.get(at)).is_some_and(|def| def.opaque && def.medium.is_none()),
+            None => {
+                let Some(map) = &map else { return true };
+                let ground = *grounds.borrow_mut().entry((at.x, at.y)).or_insert_with(|| map.column(at.x, at.y).map(|(z, _)| z));
+                ground.is_none_or(|ground| at.z <= ground)
+            }
+        }
     };
     let (lights, among) = lights_of(&objects, &voxel);
-    let sight = &mut *sight;
     let mut changed = sight.lights.set(&lights, &solid);
     if among != sight.lights_among {
         sight.lights_among = among;
@@ -712,15 +740,18 @@ fn keep_placed_lights(
     let fresh = sight.lights_card.as_ref().is_none_or(|put| !Arc::ptr_eq(put, &card));
     if changed || fresh {
         let lit = sight.lights.lit();
-        let put = card.put_lights(&lit);
-        if put < lit.len() {
-            warn!("Placed lights: {put} of {} lit cells on the card (its table is full)", lit.len());
+        let washed = crate::sight::lights::wash(&lit, &solid);
+        let cells: Vec<([i32; 3], u32)> = lit.iter().chain(&washed).copied().collect();
+        let put = card.put_lights(&cells);
+        if put < cells.len() {
+            warn!("Placed lights: {put} of {} lit cells on the card (its table is full)", cells.len());
         }
         if changed {
-            info!("Placed lights: {} lights, {} lit cells of air", sight.lights.count(), lit.len());
+            info!("Placed lights: {} lights, {} lit cells of air, {} of the wash", sight.lights.count(), lit.len(), washed.len());
         }
         sight.lights_card = Some(card);
     }
+    sight.grounds.1 = grounds.into_inner();
 }
 
 /// Keeps sight's live levels round the camera, and the bake going (patched for edits): started when the

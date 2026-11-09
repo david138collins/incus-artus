@@ -1944,6 +1944,50 @@ fn ground(c: Case) -> i32 {
         assert!((1..=4).contains(&grazing), "seen from low over open ground ({grazing} changed)");
     }
 
+    /// The wash (build 101; David: "i'd think some of the green light wash would squish down to a couple brighter
+    /// greener coarse pixels for a moment after that in our new engine"): a light's patch on the ground, seen at night
+    /// from high over it, where the march reads cells bigger than blocks, is a few coarse pixels of its green; the
+    /// ground away from it is as dark as without it.
+    #[test]
+    #[ignore]
+    fn sight_s_wash_shows_far_off() {
+        use crate::sight::lights::{LightFrom, PlacedLights, wash};
+        let Some((device, queue, store, _map)) = sight_scene_with(64.0, |_| 150.0, Some((0, 0))) else {
+            eprintln!("No graphics card: sight's wash test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        // The plain's top is at 151: the light just over it in the middle of a cell of 16 (as most are: one on a corner
+        // of four shares its patch four ways), green, reaching 15.
+        let floor = |at: [i32; 3]| at[2] < 151;
+        let mut lights = PlacedLights::default();
+        lights.set(&[LightFrom { object: [8 * 16, 8 * 16, 151 * 16], cell: [8, 8, 151], colour: [0, 15, 0], reach: 15 }], &floor);
+        let lit = lights.lit();
+        let cells: Vec<([i32; 3], u32)> = lit.iter().chain(&wash(&lit, &floor)).copied().collect();
+        assert_eq!(store.put_lights(&cells), cells.len());
+        let size = (200, 200);
+        let night = (-30f32).to_radians();
+        let sun = [night.cos() * 0.6, night.cos() * 0.8, night.sin()];
+        let down = (-89.9f32).to_radians();
+        let picture = |height: f32, on: bool| {
+            let eye = crate::sight::draw::Eye { position: [8.5, 8.5, height], looking: [down.cos(), 0.0, down.sin()], field_of_view: 30.0, grid: 2.0, coarsest: 8, sun, night_light: 0.04, fog: false, placed_lights: on, flicker: 0.0, ..Default::default() };
+            sight_picture(&device, &queue, &store, size, eye)
+        };
+        let green = |p: &[[u8; 3]]| p.iter().filter(|c| c[1] as i32 > c[0] as i32 + 30).count();
+        for height in [600.0f32, 2000.0] {
+            let (with, without) = (picture(height, true), picture(height, false));
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("wash_{height}.png")), size, &with);
+            }
+            let middle = |p: &[[u8; 3]]| p[(size.1 / 2 * size.0 + size.0 / 2) as usize];
+            let corner = |p: &[[u8; 3]]| p[(4 * size.0 + 4) as usize];
+            eprintln!("Sight's wash from {height} up: by the light {:?} (off {:?}); {} green pixels; far from it {:?} (off {:?})", middle(&with), middle(&without), green(&with), corner(&with), corner(&without));
+            assert!(middle(&with)[1] as i32 > middle(&without)[1] as i32 + 20, "the light's patch shows from {height} up");
+            assert!(green(&with) >= 1, "green pixels from {height} up");
+            assert!(corner(&with) == corner(&without), "the ground away from it as dark as without it, from {height} up");
+        }
+    }
+
     /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up
     /// looking 12° down (the soak's view), read from the steps view's colours.
     #[test]
