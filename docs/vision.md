@@ -557,6 +557,10 @@ world already baked. *Counsel:*
 - A small hazard-course world, to learn the controls while the real one loads behind, is the other option.
 - If the player skips ahead, a misty dawn could hide whatever isn't baked yet, the mist lifting as the bake
   finishes. Fog is already built.
+- David: "we can have a specific weather event for the game beginning that excuses us to get the world made.
+  im not against a bit of stage magic." So the first morning's weather is chosen. *Counsel:* the fog's reach
+  can follow how far the bake has filled, so the mist sits exactly at the edge of the world that's ready and
+  lifts as it grows.
 
 **Then, after all the buildup, it's just Minecraft.** You're standing by a road with a tent, a loaf of
 bread and a blank diary. Birds sing and flit about.
