@@ -299,8 +299,8 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     - foraging wild plants and cooking them by many recipes with fat, plants and herbs into more nutritious,
       more efficient food;
     - hunting: "hunting animals should be a thrill, with spear throwing and arrows and traps for rabbits."
-  - **The first animals:** deer, fish, rabbits, fowl, pheasant, boar. They give meat, hide and fat. Organs as
-    in Dwarf Fortress: "not sure if i want livers and stuff like df" [OPEN].
+  - **The first animals:** deer, fish, rabbits, fowl, pheasant, boar. They give meat, hide and fat. No organs
+    [David: "i dont think organs are necessary, theyre all just meat"].
   - **Cooking always pays:** "cooking more and more complex food should always pay off as the nutritional value
     and benefits always slightly more than just add together."
   - **Storage:** storing food properly prevents spoilage, which "makes you find and fire clay" (pots). It joins
@@ -309,20 +309,36 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     survival mode and others. you can go three days without food before you really start becoming faint, and it
     doesnt 'damage' you, it just impairs you. obviously starvation can kill you." That fits the spheres above:
     low food shows as an energy sphere that won't refill and weaker magic, not as blood lost.
+    **But it has to hurt** [David, the same day]: "the hunger has to be bad with lots of impairments, like you
+    will not want to be hungry ... no, you dont lose blood from it, although you may lose more when hit, bleed
+    longer." So:
+    - many impairments, enough that you don't want to be hungry;
+    - no blood lost to hunger itself;
+    - hungry, you lose more blood when hit and bleed for longer.
+  - **Food is a loop** [David]: "food is a loop and fun loops will attract lots of people with shorter attention
+    spans." It has to be a fun loop in its own right, not a chore between the other games.
+  - **Seasons counted in days** [David]: "i like just counting days of seasons. we may only need two seasons."
+    No weeks or months: a season is a number of days. Two seasons or four [OPEN].
   - *Counsel's notes* [PROPOSED]:
     - **The year's length in play.** At the calendar on file (4 seasons × 7 days), 60-minute days make a season
       7 hours of play (3½ if you sleep) and a year 28 (14). So one crop a season is a long wait, which is
       exactly why the other food has to carry the player between harvests.
     - **Winter is the test.** A season with no crops must be bridged by what was stored, cured and potted, plus
       hunting, fishing and foraging. That gives storage and clay their reason, and makes autumn a harvest rush.
-    - **Weeks aren't needed.** Seasons can simply be counted in days; a week only matters for a social rhythm
-      (a market day, a rest day), and that can be any number of days, or none [OPEN].
+    - **Weeks aren't needed.** Seasons can simply be counted in days (David agreed, above).
     - **"Slightly more than the sum":** each dish's worth is its ingredients' sum times a small bonus for each
       kind of ingredient it combines (fat, meat, plant, herb). That rewards variety and complexity without
       running away. A many-step meal stays worth cooking without one recipe beating everything.
     - **Fasting as a choice:** because hunger impairs rather than harms, fasting can be deliberate. A spell of
       fasting with burned incense could trade the body's strength for magic's. This ties food to the magic
-      system [OPEN].
+      system.
+      **David** [same day]: "practicing fasting to enhance spells or energy is a neat idea, but it should make you
+      much more vulnerable to death in any fight as well as being crippling physically without very high levels."
+      So fasting:
+      - strengthens spells or energy;
+      - makes you much more likely to die in any fight;
+      - is physically crippling, unless your skill at it is very high.
+      A real trade, for the dedicated.
 
 ## Life gauges: blood, stamina, energy  [IDEA]
 
