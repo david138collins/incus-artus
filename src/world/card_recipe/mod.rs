@@ -2005,13 +2005,14 @@ fn ground(c: Case) -> i32 {
         }
     }
 
-    /// The dyno's first step (2026-11-09): the near walk skipping air by the finest column first draws what walking
-    /// every block draws (the truth), over hills, low and grazing, looking down, and along a slope (the blocks and the
-    /// live cells of 2 to 16 made round the eye, as in the game). The coarse levels alone, as before, are measured
-    /// against the truth too (for the record: on steep ground they skipped into hills).
+    /// A measuring test (ignored; the dyno's first step, tried and dropped 2026-11-09): the near walk as it skips air
+    /// (the coarse levels, coarsest first) against every block walked (the truth), over hills: grazing, down and
+    /// level, the blocks and the live cells of 2 to 16 made round the eye. In this scene it skipped into the hills
+    /// near the eye on steep ground, by different amounts from run to run (so the scene may be at fault: something in
+    /// its making not settled); to be checked in the game before it's called a flaw.
     #[test]
     #[ignore]
-    fn sight_s_near_walk_skips_air_by_the_finest_column_the_same() {
+    fn sight_s_near_walk_against_every_block() {
         // Hills: 16 blocks a map pixel, rising and falling 40 either way of 150.
         let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
         let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
@@ -2021,32 +2022,61 @@ fn ground(c: Case) -> i32 {
         let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
         let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
         let size = (320, 200);
-        let mut worst = (0usize, 0i32);
         for (name, at, pitch, heading) in [("grazing", [0.0f32, 0.0, 8.0], -8.0f32, 0.0f32), ("down", [10.0, -20.0, 60.0], -45.0, 90.0), ("level", [-30.0, 10.0, 3.0], 0.0, 30.0)] {
             let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
             let (p, h) = (pitch.to_radians(), heading.to_radians());
             let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
-            let picture = |fine_skip: bool, walk_every_block: bool| {
-                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, fine_skip, walk_every_block, ..Default::default() };
+            let picture = |walk_every_block: bool| {
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, walk_every_block, ..Default::default() };
                 sight_picture(&device, &queue, &store, size, eye)
             };
-            let (truth, coarse, fine) = (picture(false, true), picture(false, false), picture(true, false));
+            let (truth, walked) = (picture(true), picture(false));
             if let Some(dir) = &probe {
                 write_picture(&dir.join(format!("near_walk_{name}_truth.png")), size, &truth);
-                write_picture(&dir.join(format!("near_walk_{name}_coarse.png")), size, &coarse);
-                write_picture(&dir.join(format!("near_walk_{name}_fine.png")), size, &fine);
+                write_picture(&dir.join(format!("near_walk_{name}.png")), size, &walked);
             }
-            let differ = |a: &[[u8; 3]], b: &[[u8; 3]]| {
-                let d: Vec<i32> = a.iter().zip(b).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
-                (d.len(), d.iter().copied().max().unwrap_or(0))
-            };
-            let (fine_off, coarse_off) = (differ(&truth, &fine), differ(&truth, &coarse));
-            eprintln!("Sight's near walk, {name}: from every block walked, the finest first differs at {} pixels (by {} at most), the coarse levels alone at {} (by {})", fine_off.0, fine_off.1, coarse_off.0, coarse_off.1);
-            worst = (worst.0.max(fine_off.0), worst.1.max(fine_off.1));
+            let d: Vec<i32> = truth.iter().zip(&walked).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
+            eprintln!("Sight's near walk, {name}: against every block walked, {} pixels differ (by {} at most)", d.len(), d.iter().copied().max().unwrap_or(0));
         }
-        // The same picture: a pixel or two a thousand may land a hair apart (where a skip leaves the ray), by a step
-        // of their colour at most.
-        assert!(worst.0 <= (size.0 * size.1 / 1000) as usize && worst.1 <= 2, "the same picture as every block walked ({} pixels differ, by {} at most)", worst.0, worst.1);
+    }
+
+    /// A measuring test (ignored; the dyno's first step): the near walk's steps a ray as it skips air, against every
+    /// block walked, over flat land (the dyno's land leg: 40 up, 8° down) and over hills, with every live level made
+    /// round the eye and with only the blocks and the 16s (as while the camera moves: the near levels never finish),
+    /// at David's screen's size. Run with `--test-threads=1` (it sets the steps view's switch). [2026-11-09, the
+    /// finest-first skip tried: 80 a ray against 73 over flat land, 69 against 73 over hills: no steps to save.]
+    #[test]
+    #[ignore]
+    fn sight_s_near_walk_steps() {
+        let steps_of = |p: [u8; 3]| {
+            let (r, g) = ((p[0] as f32 / 255.0).sqrt(), (p[1] as f32 / 255.0).sqrt());
+            if r > 0.01 { (0.5 + r * 0.5) * 256.0 } else { g / 0.8 * 0.5 * 256.0 }
+        };
+        // David's screen's own size: the near walk reaches as far as there (about 336 blocks: past the ground 285 off).
+        let size = (2560u32, 1600u32);
+        for (ground_name, bpp, hills) in [("flat", 64.0f32, 0.0f32), ("hills", 16.0, 40.0)] {
+            let height = move |column: usize, row: usize| 150.0 + hills * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+            for (fill_name, fill) in [("every level", &[0usize, 1, 2, 3, 4][..]), ("blocks and 16s", &[0, 4][..])] {
+                let Some((device, queue, store, map)) = sight_scene_levels(bpp, height, Some((0, 0)), &[0, 1, 2, 3, 4], fill) else { return };
+                let ground = map.height(0.0, 0.0).unwrap_or(150.0);
+                let pitch = (-8.0f32).to_radians();
+                let picture = |walk_every_block: bool| {
+                    // SAFETY: run one at a time (`--test-threads=1`).
+                    unsafe { std::env::set_var("INCUS_SIGHT_STEPS", "1") };
+                    let eye = crate::sight::draw::Eye { position: [0.0, 0.0, ground + 40.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 70.0, grid: 2.0, coarsest: 8, shadows: false, sky: false, fog: false, walk_every_block, ..Default::default() };
+                    let picture = sight_picture(&device, &queue, &store, size, eye);
+                    unsafe { std::env::remove_var("INCUS_SIGHT_STEPS") };
+                    picture
+                };
+                let (skipping, every) = (picture(false), picture(true));
+                // The lower half: the ground, where the near walk is.
+                let mean = |picture: &[[u8; 3]]| {
+                    let rows = size.1 / 2..size.1;
+                    rows.clone().flat_map(|y| (0..size.0).map(move |x| (x, y))).map(|(x, y)| steps_of(picture[(y * size.0 + x) as usize])).sum::<f32>() / (rows.len() as u32 * size.0) as f32
+                };
+                eprintln!("Sight's near walk steps, {ground_name}, {fill_name}: skipping air {:.0} a ray, every block walked {:.0}", mean(&skipping), mean(&every));
+            }
+        }
     }
 
     /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up

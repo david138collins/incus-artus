@@ -64,10 +64,7 @@ pub struct Eye {
     pub flicker_time: f32,
     /// Placed light blended across a face, not a block's step at a time (off unless chosen: David wants the steps).
     pub smooth_light: bool,
-    /// The near walk skips air by the finest column first (the dyno's first step; off only for measuring against
-    /// the coarse levels alone, as before, with `INCUS_SIGHT_NO_FINE_SKIP` or here).
-    pub fine_skip: bool,
-    /// The near walk skipping no air at all, every block walked (the truth the skipping must match: tests only).
+    /// The near walk skipping no air at all, every block walked (the truth any skipping must match: tests only).
     pub walk_every_block: bool,
 }
 
@@ -102,7 +99,6 @@ impl Default for Eye {
             flicker: FLICKER,
             flicker_time: 0.0,
             smooth_light: false,
-            fine_skip: true,
             walk_every_block: false,
         }
     }
@@ -506,7 +502,6 @@ impl SightDraw {
         let no_fog = std::env::var("INCUS_SIGHT_NO_FOG").is_ok();
         let no_textures = std::env::var("INCUS_SIGHT_NO_TEXTURES").is_ok();
         let no_lights = std::env::var("INCUS_SIGHT_NO_LIGHTS").is_ok();
-        let fine_skip = eye.fine_skip && std::env::var("INCUS_SIGHT_NO_FINE_SKIP").is_err();
         let measuring = if std::env::var("INCUS_SIGHT_STEPS").is_ok() {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
@@ -549,7 +544,7 @@ impl SightDraw {
                 [above_width, below, if eye.earned { 1.0 } else { 0.0 }, live_reach],
                 // Each finer ray from short of its parent's nearest touch (`INCUS_SIGHT_NO_FOLLOW` leaves it out);
                 // sun shadows (`INCUS_SIGHT_NO_SHADOWS` leaves them out, for measuring), and their widening.
-                [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if eye.walk_every_block { 2.0 } else if fine_skip { 1.0 } else { 0.0 }],
+                [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if eye.walk_every_block { 2.0 } else { 0.0 }],
                 // The pyramid's steps: this layer to the one above, the one below to this, and where the one below
                 // fades out among the blocks (shares of their reach).
                 [to_above, to_child, fade[0].min(fade[1]), fade[1]],

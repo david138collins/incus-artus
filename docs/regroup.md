@@ -1382,6 +1382,9 @@ lamps, lights at cave mouths), and day and night.
   nothing. A 10-second hitch found and fixed on the way (the bake's log line counted 7 million columns every 10 s).
   The block re-ranked: the near walk skipping air by the live levels first, then sky light kept (David's idea), the
   sun's shadow kept, the sea as a plane.
+  **Step 1, tried and dropped:** the near walk skipping air by the finest column first drew the same picture but flew
+  slower (the 99th percentile 20.4 to 28 to 30 ms, twice tried): the near blocks' cost isn't stepping through air
+  (the steps a ray didn't drop) but each near pixel's own work.
 
 ### Phase 6: everything else, each with its price  [loose]
 

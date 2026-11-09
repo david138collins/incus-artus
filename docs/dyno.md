@@ -207,9 +207,17 @@ the instruments show re-ranks it, and any change is written here.
 7. **The new baseline at 101, written down.**
 
 **B. The block, re-ranked by the breakdown** (2026-11-09):
-1. **The near walk skips air by the live levels too:** the columns of 4 and 2 (and the finest checked first near the
-   ground, not four coarser lookups at every block). Lossless; pays for the eye's rays and the sun's shadow rays
-   from block faces at once. The blocks near the eye are 6.9 ms of 11.1 over the land.
+1. [-] **The near walk skips air by the live levels too** (step 1, tried and dropped 2026-11-09). The finest column
+   first, then up the levels: the same picture as every block walked, but slower. The first try, each skip a climb
+   from the 2s to the 64s: the card's median 6% better, the 99th percentile 20.4 to 29.5 ms worse. Refined
+   (starting where the last decision ended, the live levels only): 99th 20.4 to 27.9, over the land the card 11.1
+   to 14.1 ms. Measured at David's screen's size, the steps a ray didn't drop (over flat land 80 against 73: no
+   stride past 16; over hills 69 against 73): **the blocks near the eye don't cost in stepping through air** but in
+   what each near pixel does, the 2 × 2 layer's pixels and their shadow rays and sky cones. Kept from it: the tests'
+   truth (`Eye::walk_every_block`, every block walked) and the steps measured (`sight_s_near_walk_steps`).
+   *On file:* in its test scene the near walk as it is skipped into steep hills near the eye, by different amounts
+   from run to run, so the scene may be at fault; to check in the game before it's called a flaw
+   (`sight_s_near_walk_against_every_block`).
 2. **Sky light kept, not marched** (David's idea, below in section 2): the five cones a pixel become a lookup. Sky
    light is 3.8 ms over the land, the biggest shading cost, and its own (no overlap with the walk).
 3. **The sun's shadow kept** for the far (horizon maps, or the sun's openness per cell re-lit as the sun moves): 2.7
