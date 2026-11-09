@@ -39,7 +39,7 @@ pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
 /// The storage buffers sight's march reads at once (`march.wgsl`): one more than wgpu's usual 8 since the placed
 /// lights (build 95). Every desktop card asks for far more [David 2026-11-09: "probably getting more is better if
 /// its more performant or clean"].
-pub const STORAGE_BUFFERS_NEEDED: u32 = 9;
+pub const STORAGE_BUFFERS_NEEDED: u32 = 10;
 
 /// wgpu's usual limits, but buffers as big as the card allows (a world's pack is larger than the usual 128 MB
 /// [2026-11-05: 182 MB, the default bake's maps at full size]), and as many storage buffers a shader as it allows.

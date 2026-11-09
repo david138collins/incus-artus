@@ -43,7 +43,8 @@ struct Camera {
     // w where the one below fades out among the blocks (shares of their reach, from and to).
     pyramid: vec4<f32>,
     // Past the blocks, the one below's fade in: x where it starts (its pixel so many times its cells), y over how
-    // many doublings of distance.
+    // many doublings of distance. z: 1 for sky light kept in the map (`sky_kept`), 0 its cones marched for every
+    // pixel (for measuring).
     fade: vec4<f32>,
     // Sky light (3.4b): x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1
     // a sky blue), w how wide its cones are (blocks across a block of distance).
@@ -95,6 +96,10 @@ struct Camera {
 // Far lights' glows (build 100, `glow_pass`): each one's place in (xyz; w 0, or −1 for none), and whether the eye
 // sees it out (w: 1 seen, 0 hidden). Read straight after as the glows' places (`models.rs`).
 @group(0) @binding(17) var<storage, read_write> glows: array<vec4<f32>>;
+// Sky light kept (the dyno, 2026-11-09; David: "is there some way we can take sky light and bake it into an indexed
+// map that grows as the player explores the world and updates as he's in it", and "blocky and quantized lighting is
+// good all around"): two words a place, a block face's or a far cell's key, then its sky light (`sky_kept`).
+@group(0) @binding(18) var<storage, read_write> sky_cache: array<atomic<u32>>;
 
 // The medium of block `block`: its own, or the world's water's (water the cells don't keep the block of).
 fn medium_of(block: u32) -> vec4<f32> {
@@ -1062,6 +1067,72 @@ fn sky_seen(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> 
     return seen / (1.0 + 4.0 * rise);
 }
 
+// ── Sky light kept (the dyno, 2026-11-09) ──
+//
+// How much of the sky a surface sees (its five cones, `sky_seen`) worked out once for each block face near the eye
+// and each cell far off, the first time a pixel shows it, and kept in a map on the card that every pixel showing it
+// after reads: one lookup in place of five cones of up to 40 steps. So it's a block face's (or a cell's) step at a
+// time, as placed light is [David: "blocky and quantized lighting is good all around"]. The map fills as places come
+// into view ("grows as the player explores"), and a sliver of it is emptied every frame, so each place is worked out
+// again about every 256 frames ("updates as he's in it": a dug block, a region newly baked, within a second or so).
+
+// Places in the map (two words each: the key, then its sky light, 1 << 16 over it once it's in), and the most tried
+// past a key's own.
+const SKY_SLOTS: u32 = 2097152u;
+const SKY_PROBES: u32 = 16u;
+
+// A place's key: its level, its cell, the way its face looks (7 for a far cell: no one face), mixed into 32 bits
+// (never 0, which is an empty place).
+fn sky_key(level: i32, c: vec3<i32>, face: u32) -> u32 {
+    var h = (bitcast<u32>(c.x) * 73856093u) ^ (bitcast<u32>(c.y) * 19349663u) ^ (bitcast<u32>(c.z) * 83492791u) ^ (u32(level) * 2654435761u) ^ (face * 2246822519u);
+    h ^= h >> 16u;
+    h *= 0x7feb352du;
+    h ^= h >> 15u;
+    h *= 0x846ca68bu;
+    h ^= h >> 16u;
+    return max(h, 1u);
+}
+
+// The sky light a pixel's surface sees, from the map, or worked out and put in it.
+fn sky_kept(seen: Seen) -> f32 {
+    // A block face: the air in front of it, and its way. A far cell: its cell at the level it was read from.
+    var level = 0;
+    var cell = vec3<i32>(floor(seen.at + seen.facing * 0.5));
+    var face = face_of(seen.facing);
+    if (!seen.on_block) {
+        level = max(seen.level, 0);
+        cell = vec3<i32>(floor(seen.at / f32(1 << u32(level))));
+        face = 7u;
+    }
+    let key = sky_key(level, cell, face);
+    var h = key & (SKY_SLOTS - 1u);
+    for (var k = 0u; k < SKY_PROBES; k++) {
+        let held = atomicLoad(&sky_cache[h * 2u]);
+        if (held == key) {
+            let value = atomicLoad(&sky_cache[h * 2u + 1u]);
+            if (value != 0u) {
+                return f32(value & 0xFFFFu) / 65535.0;
+            }
+            // Being worked out by another pixel just now: worked out here too, not kept twice.
+            return sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+        }
+        if (held == 0u) {
+            let claimed = atomicCompareExchangeWeak(&sky_cache[h * 2u], 0u, key);
+            if (claimed.exchanged) {
+                let open = clamp(sky_seen(seen.at, seen.wide, seen.facing, seen.on_block), 0.0, 1.0);
+                atomicStore(&sky_cache[h * 2u + 1u], u32(round(open * 65535.0)) | 0x10000u);
+                return open;
+            }
+            if (claimed.old_value == key) {
+                return sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+            }
+        }
+        h = (h + 1u) & (SKY_SLOTS - 1u);
+    }
+    // The map's full round here: worked out, not kept.
+    return sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+}
+
 // A number from 0 to 1 for a pixel, steady from frame to frame (a hash of its place).
 fn scatter(at: vec2<u32>) -> f32 {
     var h = at.x * 0x9E3779B1u ^ (at.y * 0x85EBCA77u);
@@ -1679,7 +1750,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
             }
             if (!have) {
-                open = sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+                open = select(sky_seen(seen.at, seen.wide, seen.facing, seen.on_block), sky_kept(seen), camera.fade.z > 0.5);
             }
             if (r == 0u) {
                 handed = sky_word(kind, open);

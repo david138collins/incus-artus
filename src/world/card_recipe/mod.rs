@@ -2040,6 +2040,45 @@ fn ground(c: Case) -> i32 {
         }
     }
 
+    /// Sky light kept (the dyno, 2026-11-09; David: "blocky and quantized lighting is good all around"): a block
+    /// face's or far cell's sky light worked out once and read after draws what the cones marched for every pixel
+    /// draw, a face or cell a step at a time: over hills, near (the blocks) and far (the cells), sky light on alone.
+    #[test]
+    #[ignore]
+    fn sight_s_sky_light_kept_is_the_cones_a_step_at_a_time() {
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
+            eprintln!("No graphics card: sight's sky light kept test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
+        let size = (640, 400);
+        let mut worst_mean = 0.0f32;
+        for (name, at, pitch, heading) in [("near", [0.0f32, 0.0, 6.0], -20.0f32, 0.0f32), ("far", [0.0, 0.0, 200.0], -25.0, 45.0)] {
+            let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
+            let (p, h) = (pitch.to_radians(), heading.to_radians());
+            let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
+            let picture = |sky_kept: bool| {
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, shadows: false, sky: true, fog: false, textures: false, sky_kept, ..Default::default() };
+                sight_picture(&device, &queue, &store, size, eye)
+            };
+            let (marched, kept) = (picture(false), picture(true));
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("sky_{name}_marched.png")), size, &marched);
+                write_picture(&dir.join(format!("sky_{name}_kept.png")), size, &kept);
+            }
+            let gaps: Vec<i32> = marched.iter().zip(&kept).map(|(a, b)| (0..3).map(|c| (a[c] as i32 - b[c] as i32).abs()).max().unwrap_or(0)).collect();
+            let mean = gaps.iter().sum::<i32>() as f32 / gaps.len() as f32;
+            let mut sorted = gaps.clone();
+            sorted.sort_unstable();
+            let p99 = sorted[sorted.len() * 99 / 100];
+            eprintln!("Sight's sky light kept, {name}: against the cones every pixel, {:.2} apart on the whole, 99 in 100 within {p99}, {} pixels apart at all", mean, gaps.iter().filter(|&&g| g > 0).count());
+            worst_mean = worst_mean.max(mean);
+        }
+        assert!(worst_mean < 4.0, "the same light a step at a time ({worst_mean:.2} apart on the whole)");
+    }
+
     /// A measuring test (ignored; the dyno's first step): the near walk's steps a ray as it skips air, against every
     /// block walked, over flat land (the dyno's land leg: 40 up, 8° down) and over hills, with every live level made
     /// round the eye and with only the blocks and the 16s (as while the camera moves: the near levels never finish),

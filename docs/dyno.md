@@ -218,8 +218,13 @@ the instruments show re-ranks it, and any change is written here.
    *On file:* in its test scene the near walk as it is skipped into steep hills near the eye, by different amounts
    from run to run, so the scene may be at fault; to check in the game before it's called a flaw
    (`sight_s_near_walk_against_every_block`).
-2. **Sky light kept, not marched** (David's idea, below in section 2): the five cones a pixel become a lookup. Sky
-   light is 3.8 ms over the land, the biggest shading cost, and its own (no overlap with the walk).
+2. [~] **Sky light kept, not marched** (step 2; David's idea, below in section 2): the five cones a pixel become a
+   lookup. Sky light is 3.8 ms over the land, the biggest shading cost, and its own (no overlap with the walk).
+   [David 2026-11-09: "blocky and quantized lighting is good all around i think. please try to see if there are any
+   savings to be had there", and "yeah, blocky lighting is better. and we should find a reason why that can be
+   cheaper, since it's mnuch coarser."] Built as a map on the card filled as places come into view (below);
+   against the cones every pixel, the same picture to 0.01 of a level on the whole (`sight_s_sky_light_kept_is_
+   the_cones_a_step_at_a_time`). Flying it now.
 3. **The sun's shadow kept** for the far (horizon maps, or the sun's openness per cell re-lit as the sun moves): 2.7
    ms over the land, what's left of it after step 1.
 4. **The sea as a plane:** the near walk's steps through water (the blocks near the eye are 40% of the card at sea).
@@ -412,6 +417,18 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
       - **Against horizon maps:** they'd do the sun's far shadow too (any sun direction), but only for the ground's
         top (not under overhangs or in caves); this does sky light in 3D. Sky first (the bigger cost), measured
         against the cones (the picture within a tolerance, and the cost); horizon maps after, for the sun's part.
+      - **As built** (step 2, 2026-11-09), simpler than the store above: a map on the card, 2 million places (16 MB),
+        keyed by a block face (the air in front of it, and its way) near the eye or a cell (its level and place) far
+        off. The first pixel to show a place works its five cones out and puts them in; every pixel after reads the
+        one number. A sliver of the map is emptied each frame (all of it every 256 frames), so places are worked out
+        again within a second or so: edits and newly baked regions show (David's "grows as the player explores the
+        world and updates as he's in it"), and no frame does it all at once. `INCUS_SIGHT_NO_SKY_KEPT` marches the
+        cones every pixel, for measuring. Needs one more storage buffer: 10.
+      - **The sun's shadow, per face?** [David 2026-11-09: "idk how it'd look with shadows for close objects. the
+        shadows could be quite coarse, or overlaid, and i have a feeling i'll be fine with rough shadows for
+        everything. i'd have to see real shadows from actors with the global stepped lighting."] Leaning to rough
+        shadows everywhere, decided once things that move cast shadows he can judge. When the sun's step comes: a
+        shadow a face, behind a Render-page switch for his look; objects' shadows are on file from build 95.
 - [ ] Light the hologram: sun and sky light kept in the cells, re-lit gradually as the sun moves.
 - [ ] **Sky light kept, not marched** [David 2026-11-09, after the breakdown found sky light the biggest single cost
       (sky off: p99 -23%, over land the card 12.6 → 7.7 ms): "is there some way we can take sky light and bake it
