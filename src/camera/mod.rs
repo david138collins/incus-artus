@@ -57,7 +57,7 @@ impl Plugin for CameraPlugin {
                     .chain()
                     .run_if(in_state(Screen::Play)),
             )
-            .add_systems(EguiPrimaryContextPass, draw_crosshair.run_if(in_state(Screen::Play)))
+            .add_systems(EguiPrimaryContextPass, (draw_look_target, draw_crosshair).run_if(in_state(Screen::Play)))
             .add_debug_page("Camera", camera_debug_page)
             .add_page_preset("camera", &["camera", "panini"])
             .add_settings::<CameraSettings>("camera");
@@ -383,8 +383,92 @@ fn find_look_target(
     target.point = found.map(|(_, _, point)| point);
 }
 
-// (The targeted block's outline, the face's cross and a placing object's arrow were drawn by Bevy's
-// gizmos; they come back with the new renderer, from `LookTarget`.)
+/// A line in the world (game axes) on the window: its ends where they are on the screen, the part behind the
+/// eye cut off (`None` if it's all behind).
+fn line_on_screen(view: &CameraView, window: &WindowState, from: Vec3, to: Vec3) -> Option<[egui::Pos2; 2]> {
+    let forward = view.looking.normalize_or_zero();
+    let near = 0.05;
+    let (a, b) = ((from - view.position).dot(forward), (to - view.position).dot(forward));
+    if a < near && b < near {
+        return None;
+    }
+    // The end behind the eye brought forward along the line to just in front of it.
+    let cut = |behind: Vec3, ahead: Vec3, d_behind: f32, d_ahead: f32| behind + (ahead - behind) * ((near - d_behind) / (d_ahead - d_behind));
+    let (from, to) = if a < near { (cut(from, to, a, b), to) } else if b < near { (from, cut(to, from, b, a)) } else { (from, to) };
+    let (p, q) = (view.to_screen(window, from)?, view.to_screen(window, to)?);
+    Some([egui::pos2(p.x, p.y), egui::pos2(q.x, q.y)])
+}
+
+/// The targeted block outlined (white) and the face being pointed at (magenta, with a cross); a bar's or a
+/// shifted block's room (magenta) and the piece aimed at (white) instead of the whole block; an object's
+/// facing arrow (magenta). Drawn over the picture (build 89: Bevy's gizmos drew them before the regroup).
+fn draw_look_target(mut contexts: EguiContexts, settings: Res<CameraSettings>, target: Res<LookTarget>, view: Res<CameraView>, window: Res<WindowState>) -> Result {
+    let Some(hit) = target.hit.filter(|_| settings.show_target_outline) else {
+        return Ok(());
+    };
+    let dim = settings.helper_brightness.clamp(0.0, 1.0);
+    if dim <= 0.0 {
+        return Ok(());
+    }
+    let ctx = contexts.ctx_mut()?;
+    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("look target")));
+    let shade = |red: f32, green: f32, blue: f32| egui::Color32::from_rgba_unmultiplied((red * 255.0 * dim) as u8, (green * 255.0 * dim) as u8, (blue * 255.0 * dim) as u8, (dim * 255.0) as u8);
+    let (magenta, white) = (egui::Stroke::new(1.5, shade(1.0, 0.0, 1.0)), egui::Stroke::new(1.5, shade(1.0, 1.0, 1.0)));
+    let line = |from: Vec3, to: Vec3, stroke: egui::Stroke| {
+        if let Some(ends) = line_on_screen(&view, &window, from, to) {
+            painter.line_segment(ends, stroke);
+        }
+    };
+    // A box's twelve edges (its two corners, blocks), a hair bigger, so the lines sit just outside its faces.
+    let grow = 0.004;
+    let outline = |(low, high): (Vec3, Vec3), stroke: egui::Stroke| {
+        let (low, high) = (low - Vec3::splat(grow), high + Vec3::splat(grow));
+        let corner = |k: usize| Vec3::new(if k & 1 == 0 { low.x } else { high.x }, if k & 2 == 0 { low.y } else { high.y }, if k & 4 == 0 { low.z } else { high.z });
+        for k in 0..8 {
+            for bit in [1, 2, 4] {
+                if k & bit == 0 {
+                    line(corner(k), corner(k | bit), stroke);
+                }
+            }
+        }
+    };
+    if let Some((from, to)) = target.arrow {
+        line(from, to, magenta);
+        // Its head: two short strokes back from the point.
+        let along = (to - from).normalize_or_zero();
+        let side = Vec3::Z.cross(along).normalize_or_zero() * 0.15;
+        line(to, to - along * 0.25 + side, magenta);
+        line(to, to - along * 0.25 - side, magenta);
+    }
+    for &octant in &target.ghost {
+        outline(octant, magenta);
+    }
+    for &octant in &target.piece {
+        outline(octant, white);
+    }
+    if !target.ghost.is_empty() || !target.piece.is_empty() {
+        return Ok(());
+    }
+    let low = hit.block.as_vec3();
+    outline((low, low + Vec3::ONE), white);
+    if hit.normal == IVec3::ZERO {
+        return Ok(());
+    }
+    // The face's four corners: from its centre, half a block either way along its two in-plane axes.
+    let normal = hit.normal.as_vec3();
+    let face_centre = low + Vec3::splat(0.5) + normal * (0.5 + grow);
+    let axis = hit.normal.abs().max_position();
+    let (mut u, mut v) = (Vec3::ZERO, Vec3::ZERO);
+    u[(axis + 1) % 3] = 0.5;
+    v[(axis + 2) % 3] = 0.5;
+    let corners = [-u - v, u - v, u + v, -u + v].map(|offset| face_centre + offset);
+    for k in 0..4 {
+        line(corners[k], corners[(k + 1) % 4], magenta);
+    }
+    line(corners[0], corners[2], magenta);
+    line(corners[1], corners[3], magenta);
+    Ok(())
+}
 
 /// A small crosshair at the screen centre while flying; a hint while the mouse is free.
 /// Placeholder look: magenta lines, pink text.

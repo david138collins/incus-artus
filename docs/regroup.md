@@ -979,6 +979,19 @@ back to.
   (the cells of 16 the most, 7.9 ms; the neighbouring chunk's recipe made once). **On file**: the recipe's chunks
   made for edits are kept for the session (a few hundred KB each); scattered edits over a wide area would make
   many cells of 16 again (each 4,096 blocks): built up from the finer cells instead, if it ever shows.
+  **David's look at build 88** [2026-11-08: "i was able to place whole blocks on the grid, and dig blocks,and see
+  them. but there is no magenta highlight, and no quarter blocks or grid shifts, they appear as white cubes, in the
+  case of a shifted block, a 1.5x1 white cube."]. Two holes the regroup left: the helpers were Bevy's gizmos, cut
+  with its renderer; and sight takes a cell of pieces (the marker `BlockId::PIECES`) for one whole block with no
+  colour or texture. Agreed [David: "yes"]: the helpers back first (89), then pieces (90): up close the near walk
+  steps through a pieces cell's eight octants, each its own block's colour and texture; in cells of 2 and up
+  (where a block is about a pixel) a pieces cell counts as a block of its most-used material when half or more is
+  filled, air otherwise (counting eighths exactly would change the store's unit everywhere: not worth it now).
+  **Build 89, the helpers back**: the targeted block outlined white, the face pointed at in magenta with a cross,
+  a bar's or shifted block's room in magenta and the piece aimed at in white instead of the block, an object's
+  facing arrow: lines drawn over the picture from `LookTarget` with the camera's own projection (`to_screen`, the
+  same as sight's rays), the part of a line behind the eye cut off. The Camera page's switch and brightness work
+  as before. Drawn over everything (gizmos hid behind nearer blocks): seen through walls, if it bothers him.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse
