@@ -756,6 +756,20 @@ bread and a blank diary. Birds sing and flit about.
 - *Counsel:* ship sounds dry and let the game add the space. The sky light's measure of how much sky a
   place sees could also set how much a sound echoes and how muffled it gets in a cave.
 
+## Figures  [IDEA, David 2026-11-09]
+
+- **Minecraft-style figurines, slightly more detailed.** They have elbows (and presumably knees): "vintage
+  story invented elbows and if i do everything they do people will complain so im leaving them elbows".
+- **A Quake flavour** in the modelling: "i liked how quake looked, quick and crispy... quake flavor
+  modelling might be a nice touch". *Counsel:* the Quake look is
+  - chunky, angular silhouettes from few faces;
+  - hand-painted textures drawn crisp, without smoothing;
+  - animation in held poses snapping from one to the next, rather than smoothly blended. Quake 1 drew its
+    keyframes without blending, which is much of the crispness.
+
+  This fits the hard per-block light and the crunchy 2 × 2. Faceted pieces (helmets, weapons, a beast's
+  skull) on block-built bodies would carry it without leaving the blocky family.
+
 ## Notes for later: the gods, volcanoes, darkness and crime  [IDEA, 2026-10-23]
 
 David's notes, kept for general consideration later.
