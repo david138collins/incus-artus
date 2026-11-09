@@ -217,7 +217,8 @@ the instruments show re-ranks it, and any change is written here.
    truth (`Eye::walk_every_block`, every block walked) and the steps measured (`sight_s_near_walk_steps`).
    *On file:* in its test scene the near walk as it is skipped into steep hills near the eye, by different amounts
    from run to run, so the scene may be at fault; to check in the game before it's called a flaw
-   (`sight_s_near_walk_against_every_block`).
+   (`sight_s_near_walk_against_every_block`). Seen again in the third step's test pictures (the near view's right
+   half drawn from far cells where the blocks are): next to find.
 2. [~] **Sky light kept, not marched** (step 2; David's idea, below in section 2): the five cones a pixel become a
    lookup. Sky light is 3.8 ms over the land, the biggest shading cost, and its own (no overlap with the walk).
    [David 2026-11-09: "blocky and quantized lighting is good all around i think. please try to see if there are any
@@ -230,7 +231,23 @@ the instruments show re-ranks it, and any change is written here.
    So the march is one big shader whose every added line costs every pixel: the card keeps fewer pixels in flight
    the more working room (registers) its biggest path needs, used or not. The sky cones' runtime cost is real (off,
    the card's 3.8 ms over the land), but a lookup in a big map, with atomics, cost as much as it saved.
-3. **New: the march made lean.** The finding above says the lever is the shader's size. Measure it first (Nsight:
+3. [~] **The march made lean** (step 3, 2026-11-09). Two findings, one kept:
+   - [x] **Kept: the card's work in one compute pass** (the start, each layer, the far glows as dispatches one
+     after another, not a pass each). With the march as it was: the card's median 4.96 to 4.67 ms (−6%), the frame's
+     5.61 to 5.39 (185 fps), the 99th percentile 22.3 to 20.8 ms, every leg a little faster. The passes had been
+     leaving gaps: the split's eight passes left some 1.4 ms between them. `INCUS_DYNO_PASS_TIMES` gives each its
+     own timed pass again, for measuring where the time goes.
+   - [-] **Tried, kept off: the march split from its light** (`march_hit` keeps what each ray met, 48 bytes a pixel;
+     `light_hit` lights it). Each march pass alone was 35 to 58% faster (the 8 × 8 layer's 1.93 to 1.18 ms, the
+     2 × 2's 0.55 to 0.23): the room the shader needs does weigh on the march, as the second step showed. But in
+     one pass, against the march as it was: the worst frames better (the 99th 20.8 to 18.2 ms, −12%; the worst 26.4
+     to 22.4; over the land the card −7%), the median worse (5.39 to 6.07 ms, +13%; the lighter views 9 to 27%
+     slower, the hand-over and the barrier between march and light costing them more than the leaner march saves).
+     Kept as a choice (`Eye::split`, `INCUS_SIGHT_SPLIT`), off: to try again with a lighter light pass (sky light
+     kept, which in the light pass wouldn't weigh on the march). *On file:* in some runs it draws dark specks along
+     the near blocks' edges (724 pixels in the test's near view): to find before it's used.
+   The first plan for it, as written:
+   **The march made lean.** The finding above says the lever is the shader's size. Measure it first (Nsight:
    registers and pixels in flight for `march_pass`), then split the light out of the march: the march writes where
    each ray met what (place, facing, level, colour), and a pass of its own lights it (sky, shadows, textures,
    placed light). The march's loop then runs with the room it needs and no more, every step of every ray faster;

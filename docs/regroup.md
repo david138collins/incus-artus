@@ -1389,6 +1389,9 @@ lamps, lights at cave mouths), and day and night.
   the same picture but flew slower (the card +7%), and the build with it in was 8% slower even with it off: the
   march is one big shader whose every added line costs every pixel. Next: measure its working room (Nsight), then
   split the light out of the march into a pass of its own.
+  **Step 3:** kept, the card's work in one compute pass (the median 5.61 to 5.39 ms, 185 fps; the card −6%; the 99th
+  22.3 to 20.8). Tried and kept off: the march split from its light (each march pass 35 to 58% faster alone, but the
+  median +13% for the worst frames −12%); a choice to try again with a lighter light pass.
 
 ### Phase 6: everything else, each with its price  [loose]
 

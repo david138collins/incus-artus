@@ -1740,7 +1740,8 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
 // texture, and keeps what it met (`hits`: its colour and the sun's and the sky's parts of it, where, how far, which
 // way it faces); then `light_hit` lights it as `march_pass` did after its march (the sun's shadow, sky light,
 // placed light, fog). Each runs with the room its own work needs. `march_pass` stays for four rays a pixel, and for
-// measuring against (`INCUS_SIGHT_NO_SPLIT`).
+// measuring against. Off unless chosen (`Eye::split`, `INCUS_SIGHT_SPLIT`): flown in one pass, it made the worst
+// frames 12% better and the median 13% worse (2026-11-09).
 
 // What each pixel's ray met: three words of four a pixel (`march_hit` writes, `light_hit` reads).
 @group(0) @binding(19) var<storage, read_write> hits: array<vec4<u32>>;

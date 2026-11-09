@@ -66,8 +66,10 @@ pub struct Eye {
     pub smooth_light: bool,
     /// The near walk skipping no air at all, every block walked (the truth any skipping must match: tests only).
     pub walk_every_block: bool,
-    /// The march split from its light, a ray a pixel (the dyno, 2026-11-09; off for measuring against, with
-    /// `INCUS_SIGHT_NO_SPLIT` or here).
+    /// The march split from its light, a ray a pixel (the dyno's third step, 2026-11-09; `INCUS_SIGHT_SPLIT` in the
+    /// game). Off: in one pass, the worst frames 12% better but the median 13% worse (the lighter views paying the
+    /// hand-over and the barrier between march and light more than the leaner march saves). Kept to try again with a
+    /// lighter light pass (sky light kept there doesn't weigh on the march).
     pub split: bool,
 }
 
@@ -103,7 +105,7 @@ impl Default for Eye {
             flicker_time: 0.0,
             smooth_light: false,
             walk_every_block: false,
-            split: true,
+            split: false,
         }
     }
 }
@@ -205,7 +207,7 @@ pub struct SightDraw {
     march: wgpu::ComputePipeline,
     start: wgpu::ComputePipeline,
     /// The march split from its light (the dyno, 2026-11-09; `march.wgsl`'s `march_hit` and `light_hit`), a ray a
-    /// pixel; `march` for four, and for measuring against (`INCUS_SIGHT_NO_SPLIT`).
+    /// pixel, if chosen (`Eye::split`, off: `march` does both); `march` always for four rays a pixel.
     march_hit: wgpu::ComputePipeline,
     light_hit: wgpu::ComputePipeline,
     /// Far lights' glows (build 100): the pass that says which the eye sees (`march.wgsl`'s `glow_pass`), and their
@@ -603,8 +605,8 @@ impl SightDraw {
             let k = next_stamp(passes, timing.is_some(), name)?;
             Some(wgpu::RenderPassTimestampWrites { query_set: timing?, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) })
         };
-        // The march split from its light (a ray a pixel; `INCUS_SIGHT_NO_SPLIT` keeps them together, for measuring).
-        let split = eye.split && eye.rays <= 1 && std::env::var("INCUS_SIGHT_NO_SPLIT").is_err();
+        // The march split from its light (a ray a pixel), if chosen.
+        let split = eye.split && eye.rays <= 1;
         // The far glows' places (build 100), put on the card before the work that says which the eye sees.
         let glow_places = self.objects.glow_places();
         let glow_groups = (!glow_places.is_empty()).then(|| {
