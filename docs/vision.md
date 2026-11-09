@@ -293,6 +293,20 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
       - **Words, if wanted** (hover and item cards): *fat* and *starch* (an older word than carbs, and plain) for
         the two fuels, *protein* for mending, and for the third, from plants, herbs and variety, *vigour*. The set
         has no name of its own; it's just what's in the food.
+  - **[IDEA, David 2026-11-09] Food by colour:** "i see red as being meat, or protein, or beans/nuts/eggs, essential
+    for strength, constitution, endurance. i see blue as being vitamins/nutrition/micros, essential for INT, WIS,
+    CHA. i see green as being starch/carbs/fat, for agility, speed, dexterity."
+    - **Red:** meat, beans, nuts, eggs (protein). Feeds strength, constitution, endurance.
+    - **Blue:** vitamins, the small goodness of plants and herbs. Feeds intelligence, wisdom, charisma.
+    - **Green:** starch, carbs, fat (fuel, fast and slow). Feeds agility, speed, dexterity.
+    - *Counsel:* this lines up with two things already decided:
+      - **The three spheres** (HUD bottom bar: blue energy, red blood, green stamina). Each food colour fills the
+        sphere of its colour: red protein mends blood, blue keeps energy refilling, green fuels stamina. So a
+        player reads their diet off the gauges.
+      - **The nine attributes** on file (Str, Con, End, Int, Wil, Cha, Spd, Dex, Agi). They fall into his three
+        threes exactly, except that the file has *Wil* where he said *WIS* [OPEN: Wil or Wis].
+    - This answers the naming question above: the colours are the names. Red, blue and green on the item card, the
+      words only on hover.
   - **[IDEA 2026-10-30] Salt or herbs to cure food** (David): salt is an alternative to herbs for
     preserved food. Curing a piece of meat takes **2 herbs or 1 salt**. Herbs add nutrition; salt adds
     none. Salt can be used elsewhere without being critical. *Counsel:* so salt is the convenient
