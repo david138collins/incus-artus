@@ -70,11 +70,11 @@ pub fn default_preset<T: DeserializeOwned>(category: &str) -> Option<T> {
 }
 
 /// What a page starts with: its "default" preset, unless `INCUS_START_PRESET=<category>/<name>` names
-/// another for its category (for measuring: a soak flight with David's own settings, his files untouched).
+/// another for its category (for measuring: a soak flight with David's own settings, his files untouched). Several
+/// with commas between (the dyno's flight: `render/dyno,compiler/dyno`).
 pub fn start_preset<T: DeserializeOwned>(category: &str) -> Option<T> {
     if let Ok(wanted) = std::env::var("INCUS_START_PRESET")
-        && let Some((wanted_category, name)) = wanted.split_once('/')
-        && wanted_category == category
+        && let Some(name) = wanted.split(',').filter_map(|one| one.trim().split_once('/')).find(|(wanted_category, _)| *wanted_category == category).map(|(_, name)| name)
     {
         return load(&preset_folder(category), name).ok();
     }

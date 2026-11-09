@@ -228,8 +228,31 @@ complaint, "creaking when you move too quick", is the baking case. The order her
 
 ## 1. Instruments: measure first
 
-- [ ] A wider fixed flight that takes in sea, mountains and a cave mouth, measured baked and baking separately.
+**Flying the dyno** (built 2026-11-09, `src/dyno.rs` for the route and the sums, `src/soak.rs` for the flight):
+
+```
+INCUS_DYNO=baked INCUS_START_SCREEN=worldgen INCUS_SELFTEST_SUITE=compiler INCUS_START_PRESET=render/dyno,compiler/dyno,worldgen/dyno,camera/dyno,player/dyno cargo run --release -j 4
+```
+
+- **The settings:** `presets/*/dyno.toml`, copies of David's defaults on 2026-11-09 ("current settings": his mark is
+  read with these). The world is the World Compiler's, from `compiler/dyno`, so it never moves either.
+- **The route,** found on that map from the middle, the same every time: over the land to the highest ground within
+  2,500, half round it, out to the nearest sea and 800 on (the horizon's long rays), quick back at 300 blocks a
+  second, slowly up to the nearest cave mouth, home. About two to four minutes a lap.
+- **`INCUS_DYNO=baked`:** the whole map's bake read back from `dyno bake/`, so nothing is baking. The first flight
+  (and the first after the cells' code changes: `SIGHT_RULES`, which every step that changes what a cell holds must
+  bump) bakes it whole while flying, about a quarter of an hour, and keeps it. Then `INCUS_DYNO_LAPS` laps (1 if not
+  said), measured baked and leg by leg.
+- **`INCUS_DYNO=baking`:** a fresh bake, `INCUS_DYNO_LAPS` laps from the start while it bakes: the "creaking" case.
+- **What's kept:** each frame's time, and each pass's on the card (start, each layer, glows, upscale, objects; the
+  card's own timestamps), as medians, 95th and 99th percentiles; the GPU's temperature and clock and the CPU area's
+  temperature every 5 seconds. Written to `logs/dyno-<time>.txt` and the log; the game quits after.
+
+- [~] A wider fixed flight that takes in sea, mountains and a cave mouth, measured baked and baking separately.
+      Built; not flown yet.
 - [ ] A performance gate: every dyno build flies the same route, with its numbers kept in `regroup.md`.
+- [~] A card timer on each pass (start, each layer, glows, upscale, objects), not one for all of sight. Built.
+- [~] The heat watch: the GPU's temperature and clock, the CPU area's temperature, on every flight. Built.
 - [ ] An input-to-photon gate: the mouse stays near build 67's 1.05 ms (uncapped).
 - [ ] Nsight: card time per pass, stall reasons (memory against divergence), and occupancy.
 - [ ] A slowest-ray view: each tile's slowest ray against its average, built from the steps view (`reach.z`).

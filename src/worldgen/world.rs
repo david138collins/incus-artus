@@ -785,7 +785,7 @@ impl WorldGen {
 
     /// Starts from the "default" preset, if one has been saved.
     pub(super) fn use_default_preset(&mut self) {
-        if let Some(preset) = default_preset("worldgen") {
+        if let Some(preset) = crate::debug::start_preset("worldgen") {
             self.use_preset(preset);
         }
     }

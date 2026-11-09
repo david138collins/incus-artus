@@ -32,7 +32,8 @@ impl Plugin for TemperaturesPlugin {
                 .name("temperatures".into())
                 .spawn(move || {
                     loop {
-                        let now = Temperatures { cpu_area: cpu_area(), gpu: gpu() };
+                        let (gpu, gpu_clock) = gpu();
+                        let now = Temperatures { cpu_area: cpu_area(), gpu, gpu_clock };
                         if let Ok(mut latest) = shared.lock() {
                             *latest = now;
                         }
@@ -47,11 +48,18 @@ impl Plugin for TemperaturesPlugin {
     }
 }
 
-/// The latest readings, in °C (`None` = not offered, or not read yet).
-#[derive(Clone, Copy, Default)]
-struct Temperatures {
-    cpu_area: Option<f32>,
-    gpu: Option<f32>,
+/// The latest readings, in °C (`None` = not offered, or not read yet), and the card's clock (MHz: the dyno's heat
+/// watch, a card slowed by its heat shows here).
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Temperatures {
+    pub cpu_area: Option<f32>,
+    pub gpu: Option<f32>,
+    pub gpu_clock: Option<f32>,
+}
+
+/// The latest readings (for the dyno's flights).
+pub fn latest(world: &World) -> Temperatures {
+    world.get_resource::<Readings>().and_then(|readings| readings.0.lock().ok().map(|now| *now)).unwrap_or_default()
 }
 
 #[derive(Resource, Default)]
@@ -87,10 +95,18 @@ fn cpu_area() -> Option<f32> {
         .reduce(f32::max)
 }
 
-/// The hottest NVIDIA card, from `nvidia-smi`.
-fn gpu() -> Option<f32> {
-    let text = output_of("nvidia-smi", &["--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"])?;
-    text.lines().filter_map(|line| line.trim().parse::<f32>().ok()).reduce(f32::max)
+/// The hottest NVIDIA card, and its graphics clock (MHz), from `nvidia-smi`.
+fn gpu() -> (Option<f32>, Option<f32>) {
+    let Some(text) = output_of("nvidia-smi", &["--query-gpu=temperature.gpu,clocks.gr", "--format=csv,noheader,nounits"]) else { return (None, None) };
+    let mut hottest: Option<(f32, f32)> = None;
+    for line in text.lines() {
+        let mut values = line.split(',').map(|value| value.trim().parse::<f32>().ok());
+        let (Some(Some(celsius)), clock) = (values.next(), values.next().flatten()) else { continue };
+        if hottest.is_none_or(|(have, _)| celsius > have) {
+            hottest = Some((celsius, clock.unwrap_or(f32::NAN)));
+        }
+    }
+    (hottest.map(|(celsius, _)| celsius), hottest.map(|(_, clock)| clock).filter(|clock| clock.is_finite()))
 }
 
 /// Green while comfortable, yellow when warm, red when hot.

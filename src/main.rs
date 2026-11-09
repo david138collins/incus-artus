@@ -39,6 +39,7 @@ mod coords;
 mod data;
 mod debug;
 mod diagnostics;
+mod dyno;
 mod ecs;
 mod events;
 mod fate;

@@ -350,6 +350,11 @@ impl ObjectsDraw {
         self.frame.glows.iter().take(super::lights::GLOWS_MOST).map(|glow| glow.at).collect()
     }
 
+    /// Whether there's anything to draw this frame.
+    pub fn has_work(&self) -> bool {
+        !(self.frame.models.is_empty() && self.frame.sprites.is_empty() && self.frame.glows.is_empty())
+    }
+
     /// What to draw this frame.
     pub fn set(&mut self, frame: ObjectsFrame) {
         self.frame = frame;
@@ -442,8 +447,8 @@ impl ObjectsDraw {
     /// The objects drawn onto `target`, into `depth` (the march's, from the upscale), from `view`.
     /// Drawn into `target` and `depth`; the glows' places (and whether each is seen) in `glow_places`.
     #[allow(clippy::too_many_arguments)]
-    pub fn draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth: &wgpu::TextureView, view: ObjectsView, glow_places: &wgpu::Buffer) {
-        if self.frame.models.is_empty() && self.frame.sprites.is_empty() && self.frame.glows.is_empty() {
+    pub fn draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth: &wgpu::TextureView, view: ObjectsView, glow_places: &wgpu::Buffer, timestamp_writes: Option<wgpu::RenderPassTimestampWrites>) {
+        if !self.has_work() {
             return;
         }
         let rows: [[f32; 4]; VIEW_ROWS] = [
@@ -514,7 +519,7 @@ impl ObjectsDraw {
             .collect();
         let colour = wgpu::RenderPassColorAttachment { view: target, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store } };
         let depth_attachment = wgpu::RenderPassDepthStencilAttachment { view: depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store }), stencil_ops: None };
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("sight's objects"), color_attachments: &[Some(colour)], depth_stencil_attachment: Some(depth_attachment), ..Default::default() });
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("sight's objects"), color_attachments: &[Some(colour)], depth_stencil_attachment: Some(depth_attachment), timestamp_writes, ..Default::default() });
         pass.set_bind_group(0, &self.view_group, &[]);
         pass.set_pipeline(&self.models_pipeline);
         for (name, placings, count) in &model_buffers {

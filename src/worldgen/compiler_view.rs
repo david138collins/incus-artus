@@ -180,7 +180,8 @@ impl Compiler {
     /// quietly undid the default's (found 2026-10-27: David's coasts and lift came out different until
     /// he loaded "default" by hand).
     pub(super) fn use_default_preset(&mut self) {
-        if let Some(settings) = default_preset("compiler") {
+        // (`INCUS_START_PRESET` can name another: the dyno's flight, on a world that doesn't move.)
+        if let Some(settings) = crate::debug::start_preset("compiler") {
             self.settings = settings;
             self.keep_settings = true;
         }

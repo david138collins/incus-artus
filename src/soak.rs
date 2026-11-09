@@ -152,6 +152,14 @@ impl Plugin for SoakPlugin {
         if let Some(seconds) = test_window_seconds() {
             app.insert_resource(TestWindow { seconds, phase: usize::MAX }).add_systems(Last, run_test_window);
         }
+        // The dyno's flight (`dyno.rs`), instead of the soak's circle.
+        if std::env::var("INCUS_DYNO").is_ok() {
+            let laps = std::env::var("INCUS_DYNO_LAPS").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+            app.insert_resource(Dyno { laps, baking_run: dyno_baking_run(), ..Dyno::default() })
+                .add_systems(Update, fly_dyno.before(crate::camera::place_camera).run_if(in_state(Screen::Play)))
+                .add_systems(Last, record_dyno);
+            return;
+        }
         let Some(seconds) = std::env::var("INCUS_SOAK").ok().and_then(|v| v.parse().ok()) else { return };
         // (Since the regroup the game draws flat out with or without the focus: the old switch for it,
         // `INCUS_SOAK_CONTINUOUS`, isn't needed. The old renderer's switches went with it.)
@@ -254,4 +262,253 @@ fn report(world: &mut World) {
         info!("Soak: done after {flown:.0} s");
         world.write_message(AppExit::Success);
     }
+}
+
+// ── The dyno's flight (`docs/dyno.md`, the instruments; `dyno.rs` has the route and the sums) ──
+//
+// `INCUS_DYNO=baked` (or `baking`), with `INCUS_START_SCREEN=worldgen` and `INCUS_SELFTEST_SUITE=compiler` as the
+// soak has them, and `INCUS_START_PRESET=render/dyno,compiler/dyno,worldgen/dyno,camera/dyno,player/dyno` for
+// David's settings kept still (copies of his defaults, 2026-11-09). Uncapped, the panel shut; the report goes in
+// `logs/dyno-<time>.txt` and the game quits.
+// - **baked:** the whole map's bake read back from `dyno bake/` (the world's own bake, kept for the dyno), so the
+//   laps are flown with nothing baking. The first time (or after the cells' code changes, `SIGHT_RULES`), it's baked
+//   whole while the route is flown over and over (measured as baking; about a quarter of an hour), then kept there.
+//   Then the route from the start, `INCUS_DYNO_LAPS` times (1 if not said), measured as baked and leg by leg.
+// - **baking:** a fresh bake, the route flown `INCUS_DYNO_LAPS` times from the start while it bakes (David's
+//   "creaking when you move too quick"), measured as baking.
+
+/// Seconds between the heat watch's readings.
+const HEAT_EVERY: f32 = 5.0;
+/// The longest the bake is waited for (seconds): past it, the baked laps start anyway (and the report says so).
+const BAKING_MOST: f32 = 1800.0;
+
+/// Whether the dyno's flight is the baking one (`INCUS_DYNO=baking`).
+fn dyno_baking_run() -> bool {
+    std::env::var("INCUS_DYNO").is_ok_and(|v| v == "baking")
+}
+
+/// Where the dyno keeps the whole map's bake (for its baked flights), if it's flying one.
+pub fn dyno_bake_folder() -> Option<std::path::PathBuf> {
+    (std::env::var("INCUS_DYNO").is_ok() && !dyno_baking_run()).then(|| crate::debug::project_folder().join("dyno bake"))
+}
+
+#[derive(Resource, Default)]
+struct Dyno {
+    laps: u32,
+    /// The baking flight (no bake read back, every lap measured as baking).
+    baking_run: bool,
+    /// The whole bake sent to be kept (in `dyno bake/`), once.
+    bake_kept: bool,
+    baking_laps: u32,
+    legs: Vec<crate::dyno::Leg>,
+    /// When the flight began, and the lap now.
+    started: Option<f32>,
+    lap_started: f32,
+    /// When the bake was done (the measured laps began), and whether it really was (not just waited for too long).
+    baked_at: Option<f32>,
+    bake_finished: bool,
+    baked_laps: u32,
+    /// The leg flown now.
+    leg: Option<usize>,
+    /// Skip measuring this frame (the lap just began again: the camera jumped).
+    jumped: bool,
+    baking: crate::dyno::Samples,
+    baked: crate::dyno::Samples,
+    by_leg: Vec<(String, crate::dyno::Samples)>,
+    heat: Vec<String>,
+    next_heat: f32,
+    done: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn fly_dyno(
+    mut dyno: ResMut<Dyno>,
+    terrain: Res<Terrain>,
+    caves: Res<crate::world::Caves>,
+    sight: Res<crate::world::SightStore>,
+    time: Res<Time<Real>>,
+    mut mode: ResMut<ControlMode>,
+    mut cameras: Query<&mut FlyCamera>,
+    mut kept: ResMut<crate::look::KeptSettings>,
+) {
+    let Some(map) = terrain.compiled() else { return };
+    if dyno.done {
+        return;
+    }
+    let now = time.elapsed_secs();
+    if dyno.legs.is_empty() {
+        // The cave mouths: each tunnel's ends that come up to the ground.
+        let ground = |north: f32, east: f32| map.height(north, east);
+        let mut mouths = Vec::new();
+        for tunnel in &caves.0.tunnels {
+            for point in [tunnel.points.first(), tunnel.points.last()].into_iter().flatten() {
+                let [north, east, z] = point.at.map(|v| v as f32);
+                if ground(north, east).is_some_and(|top| z >= top - 8.0) {
+                    mouths.push([north, east, z]);
+                }
+            }
+        }
+        dyno.legs = crate::dyno::route(&ground, SEA_LEVEL as f32, &mouths);
+        let names: Vec<&str> = dyno.legs.iter().map(|leg| leg.name).collect();
+        info!("Dyno: the route, {:.0} s a lap: {}", crate::dyno::duration(&dyno.legs), names.join(", "));
+        dyno.started = Some(now);
+        dyno.lap_started = now;
+        dyno.next_heat = now;
+    }
+    *mode = ControlMode::Fly;
+    if kept.frame_limit_name() != crate::look::UNCAPPED {
+        kept.set_frame_limit_name(crate::look::UNCAPPED.to_string());
+    }
+    // Baked yet? Then the measured laps begin, from the start of the route (and the whole bake is kept for the
+    // next flight).
+    let started = dyno.started.unwrap_or(now);
+    let finished = sight.bake.as_ref().is_some_and(|baking| baking.bake.lock().is_ok_and(|bake| bake.all_done.is_some()));
+    if finished
+        && !dyno.bake_kept
+        && let (Some(baking), Some(folder)) = (sight.bake.as_ref(), dyno_bake_folder())
+    {
+        let _ = std::fs::create_dir_all(&folder);
+        info!("Dyno: the whole bake kept in {} ({})", folder.display(), crate::sight::bake::keep_later(baking, folder.clone()));
+        dyno.bake_kept = true;
+    }
+    if dyno.baked_at.is_none() && !dyno.baking_run {
+        if finished || now - started > BAKING_MOST {
+            info!("Dyno: {} after {:.0} s; the measured laps begin", if finished { "baked" } else { "still baking, waited long enough" }, now - started);
+            dyno.baked_at = Some(now);
+            dyno.bake_finished = finished;
+            dyno.lap_started = now;
+            dyno.jumped = true;
+        }
+    }
+    let flown = now - dyno.lap_started;
+    let Some((across, k, _)) = crate::dyno::along(&dyno.legs, flown) else {
+        // The lap's done: another, or the end.
+        if dyno.baked_at.is_some() {
+            dyno.baked_laps += 1;
+            if dyno.baked_laps >= dyno.laps.max(1) {
+                dyno.done = true;
+                return;
+            }
+        } else if dyno.baking_run {
+            dyno.baking_laps += 1;
+            if dyno.baking_laps >= dyno.laps.max(1) {
+                dyno.done = true;
+                return;
+            }
+        }
+        dyno.lap_started = now;
+        dyno.jumped = true;
+        return;
+    };
+    dyno.leg = Some(k);
+    let leg = dyno.legs[k].clone();
+    let from = if k == 0 { [0.0, 0.0] } else { dyno.legs[k - 1].to };
+    let heading = (leg.to[1] - from[1]).atan2(leg.to[0] - from[0]).to_degrees().rem_euclid(360.0);
+    let target = match leg.height {
+        crate::dyno::Height::Above(above) => map.height(across[0], across[1]).unwrap_or(0.0).max(SEA_LEVEL as f32) + above,
+        crate::dyno::Height::At(z) => z,
+    };
+    let ease = (2.0 * time.delta_secs()).min(1.0);
+    let jumped = dyno.jumped;
+    for mut camera in &mut cameras {
+        let z = camera.position.z + (target - camera.position.z) * ease;
+        camera.position = Vec3::new(across[0], across[1], if jumped || (camera.position.z - target).abs() > 500.0 { target } else { z });
+        // Turned the short way round, eased.
+        let turn = (heading - camera.heading + 540.0).rem_euclid(360.0) - 180.0;
+        camera.heading = if jumped { heading } else { (camera.heading + turn * ease).rem_euclid(360.0) };
+        camera.pitch = if jumped { leg.pitch } else { camera.pitch + (leg.pitch - camera.pitch) * ease };
+    }
+}
+
+fn record_dyno(world: &mut World) {
+    let now = world.resource::<Time<Real>>().elapsed_secs();
+    let ms = world.resource::<Time<Real>>().delta_secs() * 1000.0;
+    world.resource_mut::<crate::debug::DebugPanel>().visible = false;
+    let readings = crate::sight::draw::take_card_readings();
+    let heat = (world.resource::<Dyno>().started.is_some() && now >= world.resource::<Dyno>().next_heat).then(|| crate::temperatures::latest(world));
+    let window = world.resource::<crate::runner::WindowState>();
+    let screen = (window.size, window.refresh);
+    let mut dyno = world.resource_mut::<Dyno>();
+    if dyno.started.is_none() {
+        return;
+    }
+    let baked = dyno.baked_at.is_some();
+    let leg_name = dyno.leg.and_then(|k| dyno.legs.get(k)).map(|leg| leg.name.to_string());
+    if std::mem::take(&mut dyno.jumped) {
+        // The frame the camera jumped isn't the route's.
+    } else {
+        let dyno = &mut *dyno;
+        let phase = if baked { &mut dyno.baked } else { &mut dyno.baking };
+        phase.frame(ms);
+        for reading in &readings {
+            phase.card(reading.sight, &reading.passes);
+        }
+        if baked && let Some(name) = leg_name {
+            let at = match dyno.by_leg.iter().position(|(have, _)| *have == name) {
+                Some(at) => at,
+                None => {
+                    dyno.by_leg.push((name, crate::dyno::Samples::default()));
+                    dyno.by_leg.len() - 1
+                }
+            };
+            let samples = &mut dyno.by_leg[at].1;
+            samples.frame(ms);
+            for reading in &readings {
+                samples.card(reading.sight, &reading.passes);
+            }
+        }
+    }
+    if let Some(heat) = heat {
+        let at = now - dyno.started.unwrap_or(now);
+        let show = |value: Option<f32>, unit: &str| value.map_or("-".to_string(), |v| format!("{v:.0}{unit}"));
+        let line = format!("{at:>4.0} s ({}): GPU {}, clock {}, CPU area {}", if baked { "baked" } else { "baking" }, show(heat.gpu, " °C"), show(heat.gpu_clock, " MHz"), show(heat.cpu_area, " °C"));
+        info!("Dyno heat: {line}");
+        dyno.heat.push(line);
+        dyno.next_heat = now + HEAT_EVERY;
+    }
+    if dyno.done {
+        let report = dyno_report(&dyno, screen);
+        let folder = crate::debug::project_folder().join("logs");
+        let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        let path = folder.join(format!("dyno-{stamp}.txt"));
+        let _ = std::fs::create_dir_all(&folder);
+        match std::fs::write(&path, &report) {
+            Ok(()) => info!("Dyno: the report is in {}", path.display()),
+            Err(error) => warn!("Dyno: the report couldn't be written ({error})"),
+        }
+        for line in report.lines() {
+            info!("Dyno: {line}");
+        }
+        world.write_message(AppExit::Success);
+    }
+}
+
+fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
+    let mut text = format!(
+        "The dyno's flight: build {} ({})\nWindow {} x {}, the screen's refresh {:.0}; presets: {}\n",
+        crate::diagnostics::BUILD_NUMBER,
+        crate::diagnostics::BUILD,
+        size.0,
+        size.1,
+        refresh,
+        std::env::var("INCUS_START_PRESET").unwrap_or_else(|_| "the defaults".into())
+    );
+    let names: Vec<&str> = dyno.legs.iter().map(|leg| leg.name).collect();
+    text += &format!("The route, {:.0} s a lap: {}\n", crate::dyno::duration(&dyno.legs), names.join(", "));
+    let (started, baked_at) = (dyno.started.unwrap_or(0.0), dyno.baked_at.unwrap_or(0.0));
+    if dyno.baking_run {
+        text += &format!("The baking flight: a fresh bake, {} laps flown while it baked\n\n", dyno.baking_laps);
+    } else {
+        text += &format!("The bake: {} {:.0} s in; baked laps {}\n\n", if dyno.bake_finished { "done" } else { "NOT done, waited" }, baked_at - started, dyno.baked_laps);
+    }
+    text += &format!("Baking: {}\n", crate::dyno::line(&dyno.baking));
+    text += &format!("Baked: {}\n\nBaked, by leg:\n", crate::dyno::line(&dyno.baked));
+    for (name, samples) in &dyno.by_leg {
+        text += &format!("  {name}: {}\n", crate::dyno::line(samples));
+    }
+    text += "\nHeat:\n";
+    for line in &dyno.heat {
+        text += &format!("  {line}\n");
+    }
+    text
 }

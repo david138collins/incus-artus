@@ -534,7 +534,12 @@ fn load_sight(world: &mut World, folder: &crate::save::WorldFolder) -> Result<St
 }
 
 fn fresh_sight(world: &mut World, _seed: u64) {
-    world.resource_mut::<SightKept>().0 = None;
+    // The dyno's baked flights: the whole map's bake it kept (read back only if its stamp is this world's).
+    let kept = crate::soak::dyno_bake_folder().and_then(|folder| crate::sight::bake::read(&folder).ok().flatten());
+    if let Some(kept) = &kept {
+        info!("Dyno: the whole bake read back ({} regions)", kept.records.len());
+    }
+    world.resource_mut::<SightKept>().0 = kept;
 }
 
 /// The live levels kept round the camera (3.3: cells of 8, then blocks themselves [David 2026-11-06: "i think

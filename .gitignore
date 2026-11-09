@@ -20,6 +20,9 @@
 /logs/
 /worlds/
 
+# The whole map's bake the dyno's flights read back (`soak.rs`; about 300 MB, made again by a flight).
+/dyno bake/
+
 # Worlds baked by the Tectonic Sim (each is ~5 MB; its map.toml can bake it again).
 /world bakes/
 

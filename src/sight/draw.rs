@@ -571,19 +571,29 @@ impl SightDraw {
         }
         let up_numbers: [[f32; 4]; 3] = [[screen.0 as f32, screen.1 as f32, finest, coarsest], [eye.upscale as f32, if has_between { 1.0 } else { 0.0 }, 0.0, 0.0], [tan_half * aspect, tan_half, super::models::NEAREST, 0.0]];
         queue.write_buffer(&self.up, 0, &up_numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
-        // The card's own clock on sight's work, from its first pass's start to the upscale's end, when it can.
+        // The card's own clock on sight's work, when it can: each pass's start and end (the dyno's instruments), and
+        // sight's whole, from the first pass's start to the upscale's end.
         let timed = self.timer.as_mut().and_then(|timer| timer.begin());
         let queries = self.timer.as_ref().map(|timer| &timer.queries);
-        let mut first = timed.and(queries);
+        let timing = timed.and(queries);
+        let mut passes: Vec<String> = Vec::new();
+        let compute_stamp = |passes: &mut Vec<String>, name: String| {
+            let k = next_stamp(passes, timing.is_some(), name)?;
+            Some(wgpu::ComputePassTimestampWrites { query_set: timing?, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) })
+        };
+        let render_stamp = |passes: &mut Vec<String>, name: String| {
+            let k = next_stamp(passes, timing.is_some(), name)?;
+            Some(wgpu::RenderPassTimestampWrites { query_set: timing?, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) })
+        };
         if !no_start {
-            let timestamp_writes = first.take().map(|query_set| wgpu::ComputePassTimestampWrites { query_set, beginning_of_pass_write_index: Some(0), end_of_pass_write_index: None });
+            let timestamp_writes = compute_stamp(&mut passes, "start".into());
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's start pass"), timestamp_writes });
             pass.set_pipeline(&self.start);
             pass.set_bind_group(0, &targets.start_group, &[]);
             pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
         }
         for layer in &targets.layers {
-            let timestamp_writes = first.take().map(|query_set| wgpu::ComputePassTimestampWrites { query_set, beginning_of_pass_write_index: Some(0), end_of_pass_write_index: None });
+            let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes });
             pass.set_pipeline(&self.march);
             pass.set_bind_group(0, &layer.group, &[]);
@@ -598,13 +608,14 @@ impl SightDraw {
             // The last group's spare places: none.
             places.resize(groups * 64 * 4, -1.0);
             queue.write_buffer(&self.glows, 0, &places.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's far glows"), timestamp_writes: None });
+            let timestamp_writes = compute_stamp(&mut passes, "glows".into());
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's far glows"), timestamp_writes });
             pass.set_pipeline(&self.glow_pass);
             pass.set_bind_group(0, &targets.glow_group, &[]);
             pass.dispatch_workgroups(groups as u32, 1, 1);
         }
         let attachment = wgpu::RenderPassColorAttachment { view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store } };
-        let timestamp_writes = timed.and(queries).map(|query_set| wgpu::RenderPassTimestampWrites { query_set, beginning_of_pass_write_index: None, end_of_pass_write_index: Some(1) });
+        let timestamp_writes = render_stamp(&mut passes, UPSCALE.into());
         let depth = wgpu::RenderPassDepthStencilAttachment { view: &targets.depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(0.0), store: wgpu::StoreOp::Store }), stencil_ops: None };
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("sight's upscale"), color_attachments: &[Some(attachment)], depth_stencil_attachment: Some(depth), timestamp_writes, ..Default::default() });
         pass.set_pipeline(&self.upscale);
@@ -624,9 +635,10 @@ impl SightDraw {
             screen: [screen.0 as f32, screen.1 as f32],
         };
         let depth_view = targets.depth.clone();
-        self.objects.draw(device, queue, encoder, view, &depth_view, objects_view, &self.glows);
-        if let (Some(k), Some(timer)) = (timed, &self.timer) {
-            timer.resolve(encoder, k);
+        let objects_stamp = if self.objects.has_work() { render_stamp(&mut passes, "objects".into()) } else { None };
+        self.objects.draw(device, queue, encoder, view, &depth_view, objects_view, &self.glows, objects_stamp);
+        if let (Some(k), Some(timer)) = (timed, &mut self.timer) {
+            timer.resolve(encoder, k, passes);
         }
     }
 
@@ -687,12 +699,45 @@ pub fn card_ms() -> Option<f32> {
     (ms > 0.0).then_some(ms)
 }
 
-/// The card's clock on sight's work: two timestamps a frame, copied out to one of a few readbacks taken in
-/// turn, read when they come back (a frame or two late), never waited for.
+/// One frame's clock as the card read it (the dyno's instruments): each pass's milliseconds by name ("start",
+/// "layer 8" and so on, "glows", "upscale", "objects"), and sight's whole (the first pass's start to the upscale's
+/// end, as `card_ms` has always counted it).
+#[derive(Clone, Debug)]
+pub struct CardReading {
+    pub passes: Vec<(String, f32)>,
+    pub sight: f32,
+}
+
+/// The readings come back not yet taken (the newest 64).
+static CARD_READINGS: std::sync::Mutex<std::collections::VecDeque<CardReading>> = std::sync::Mutex::new(std::collections::VecDeque::new());
+
+/// The card's readings since last asked, oldest first (a frame or two behind the frames they time).
+pub fn take_card_readings() -> Vec<CardReading> {
+    CARD_READINGS.lock().map(|mut readings| readings.drain(..).collect()).unwrap_or_default()
+}
+
+/// The most passes timed in a frame.
+const TIMED_PASSES: usize = 16;
+/// The pass sight's whole ends with.
+const UPSCALE: &str = "upscale";
+
+/// The next pass's place on the clock (its two stamps at twice it), `name` kept for it; none if the frame isn't
+/// timed or the clock is full.
+fn next_stamp(passes: &mut Vec<String>, timed: bool, name: String) -> Option<u32> {
+    if !timed || passes.len() >= TIMED_PASSES {
+        return None;
+    }
+    passes.push(name);
+    Some(passes.len() as u32 - 1)
+}
+
+/// The card's clock on sight's work: two timestamps a pass, copied out to one of a few readbacks taken in turn,
+/// read when they come back (a frame or two late), never waited for.
 struct CardTimer {
     queries: wgpu::QuerySet,
     resolved: wgpu::Buffer,
-    readbacks: Vec<(wgpu::Buffer, Arc<std::sync::atomic::AtomicU8>)>,
+    /// Each readback, its state, and the passes it holds the clock of.
+    readbacks: Vec<(wgpu::Buffer, Arc<std::sync::atomic::AtomicU8>, Vec<String>)>,
     pending: Option<usize>,
     period_ns: f32,
 }
@@ -706,21 +751,29 @@ impl CardTimer {
         if !device.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
             return None;
         }
-        let queries = device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("sight's clock"), ty: wgpu::QueryType::Timestamp, count: 2 });
-        let resolved = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock"), size: 16, usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
-        let readbacks = (0..4).map(|_| (device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock read"), size: 16, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }), Arc::new(std::sync::atomic::AtomicU8::new(FREE)))).collect();
+        let stamps = 2 * TIMED_PASSES as u64;
+        let queries = device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("sight's clock"), ty: wgpu::QueryType::Timestamp, count: stamps as u32 });
+        let resolved = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock"), size: stamps * 8, usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
+        let readbacks = (0..4).map(|_| (device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock read"), size: stamps * 8, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }), Arc::new(std::sync::atomic::AtomicU8::new(FREE)), Vec::new())).collect();
         Some(Self { queries, resolved, readbacks, pending: None, period_ns: queue.get_timestamp_period() })
     }
 
     /// A free readback for this frame (none free: this frame isn't timed).
     fn begin(&mut self) -> Option<usize> {
-        self.pending = self.readbacks.iter().position(|(_, state)| state.load(std::sync::atomic::Ordering::Acquire) == FREE);
+        self.pending = self.readbacks.iter().position(|(_, state, _)| state.load(std::sync::atomic::Ordering::Acquire) == FREE);
         self.pending
     }
 
-    fn resolve(&self, encoder: &mut wgpu::CommandEncoder, k: usize) {
-        encoder.resolve_query_set(&self.queries, 0..2, &self.resolved, 0);
-        encoder.copy_buffer_to_buffer(&self.resolved, 0, &self.readbacks[k].0, 0, 16);
+    /// This frame's stamps (for `passes`, in order) copied out to readback `k`.
+    fn resolve(&mut self, encoder: &mut wgpu::CommandEncoder, k: usize, passes: Vec<String>) {
+        if passes.is_empty() {
+            self.pending = None;
+            return;
+        }
+        let stamps = 2 * passes.len() as u32;
+        encoder.resolve_query_set(&self.queries, 0..stamps, &self.resolved, 0);
+        encoder.copy_buffer_to_buffer(&self.resolved, 0, &self.readbacks[k].0, 0, stamps as u64 * 8);
+        self.readbacks[k].2 = passes;
     }
 
     fn after_submit(&mut self, device: &wgpu::Device) {
@@ -731,21 +784,30 @@ impl CardTimer {
             self.readbacks[k].0.slice(..).map_async(wgpu::MapMode::Read, move |result| state.store(if result.is_ok() { READY } else { FREE }, Ordering::Release));
         }
         let _ = device.poll(wgpu::PollType::Poll);
-        for (buffer, state) in &self.readbacks {
+        for (buffer, state, passes) in &self.readbacks {
             if state.load(Ordering::Acquire) != READY {
                 continue;
             }
-            let stamps = buffer.slice(..).get_mapped_range().ok().map(|bytes| {
-                let at = |i: usize| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap_or_default());
-                (at(0), at(1))
-            });
+            let stamps: Option<Vec<u64>> = buffer.slice(..).get_mapped_range().ok().map(|bytes| (0..2 * passes.len()).map(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap_or_default())).collect());
             buffer.unmap();
             state.store(FREE, Ordering::Release);
-            if let Some((from, to)) = stamps.filter(|(from, to)| to > from) {
-                let ms = (to - from) as f32 * self.period_ns / 1e6;
-                // Smoothed over about the last twenty frames.
-                let before = card_ms().unwrap_or(ms);
-                CARD_MS.store((before + (ms - before) * 0.05).to_bits(), Ordering::Relaxed);
+            let Some(stamps) = stamps else { continue };
+            let ms = |from: u64, to: u64| if to > from { (to - from) as f32 * self.period_ns / 1e6 } else { 0.0 };
+            let timed: Vec<(String, f32)> = passes.iter().enumerate().map(|(k, name)| (name.clone(), ms(stamps[2 * k], stamps[2 * k + 1]))).collect();
+            // Sight's whole: the first pass's start to the upscale's end.
+            let Some(upscale) = passes.iter().position(|name| name == UPSCALE) else { continue };
+            let sight = ms(stamps[0], stamps[2 * upscale + 1]);
+            if sight <= 0.0 {
+                continue;
+            }
+            // Smoothed over about the last twenty frames.
+            let before = card_ms().unwrap_or(sight);
+            CARD_MS.store((before + (sight - before) * 0.05).to_bits(), Ordering::Relaxed);
+            if let Ok(mut readings) = CARD_READINGS.lock() {
+                if readings.len() >= 64 {
+                    readings.pop_front();
+                }
+                readings.push_back(CardReading { passes: timed, sight });
             }
         }
     }
