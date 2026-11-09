@@ -810,6 +810,28 @@ fn faces_ahead(o: vec3<f32>, d: vec3<f32>, c: vec3<i32>) -> vec3<f32> {
 
 // The blocks from `t0` to `t1` along the ray; the placed light on the face met if `glowing` (the eye's rays, not the
 // shadows').
+// The coarsest column the near walk's finest-first skip goes by: the live levels' (2 to 16), whose bands are made
+// from every block column's ground. The bake's 32 and 64 are left out: trusted alone, a ray skipped into hills near
+// the eye on steep ground (the truth test, 2026-11-09: up to half the picture).
+const FINE_SKIP_TOP: i32 = 4;
+
+// The top of the cell column of `level` round `xy` (blocks), its band's top (x: 1 if it's known, y: the top):
+// unknown where a live level isn't kept or its tile isn't made, or a region isn't baked.
+fn column_top(level: i32, xy: vec2<f32>) -> vec2<f32> {
+    if (level < header[0] && !is_kept(level)) {
+        return vec2<f32>(0.0);
+    }
+    let size = f32(1 << u32(level));
+    let cc = floor(xy / size);
+    let entry = entry_at(level, i32(cc.x), i32(cc.y));
+    if (entry.y == NOT_BAKED) {
+        return vec2<f32>(0.0);
+    }
+    let low = bitcast<i32>(entry.y << 16u) >> 16u;
+    let count = i32(entry.y >> 16u);
+    return vec2<f32>(1.0, f32(low + count) * size);
+}
+
 fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
     var out: Hard;
     out.t = t0;
@@ -823,6 +845,11 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
     // The face it came in by (the eye's own block: facing the eye).
     var facing = -d;
     var in_water = false;
+    // The finest-first skip's level to try first (where the last decision ended: one lookup in open air or by the
+    // ground), and whether the last step was a skip (the walk then crosses into the next block before trying again:
+    // a skip ends a hair short of its column's edge, where another try finds no room).
+    var hint = FINE_SKIP_TOP;
+    var just_skipped = false;
     for (var n = 0; n < 512; n++) {
         out.steps = n + 1;
         if (t >= t1) {
@@ -842,28 +869,38 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
         // reaches the ray none coarser can be under it (the block is walked, one lookup); over it, up the levels to
         // the coarsest it's still over, and skipped by that one.
         var skipped = false;
-        if (camera.follow.w > 0.5 && camera.follow.w < 1.5 && !in_water) {
+        if (camera.follow.w > 0.5 && camera.follow.w < 1.5 && !in_water && !just_skipped) {
+            // Down from the hint till the ray's over a column's top (over it, it's over every finer one's too)...
             var best = -1;
             var best_top = 0.0;
-            for (var up = 1; up <= 6; up++) {
-                if (up < header[0] && !is_kept(up)) {
-                    continue;
-                }
-                let size = f32(1 << u32(up));
-                let cc = floor(p.xy / size);
-                let entry = entry_at(up, i32(cc.x), i32(cc.y));
-                if (entry.y == NOT_BAKED) {
-                    continue;
-                }
-                let low = bitcast<i32>(entry.y << 16u) >> 16u;
-                let count = i32(entry.y >> 16u);
-                let top = f32(low + count) * size;
-                if (p.z <= top) {
+            var level = clamp(hint, 1, FINE_SKIP_TOP);
+            loop {
+                let top = column_top(level, p.xy);
+                if (top.x > 0.5 && p.z > top.y) {
+                    best = level;
+                    best_top = top.y;
                     break;
                 }
-                best = up;
-                best_top = top;
+                if (level <= 1) {
+                    break;
+                }
+                level -= 1;
             }
+            // ...then up while it still is, for the longest skip.
+            if (best >= 0) {
+                for (var up = best + 1; up <= FINE_SKIP_TOP; up++) {
+                    let top = column_top(up, p.xy);
+                    if (top.x < 0.5) {
+                        continue;
+                    }
+                    if (p.z <= top.y) {
+                        break;
+                    }
+                    best = up;
+                    best_top = top.y;
+                }
+            }
+            hint = max(best, 1);
             if (best >= 0) {
                 let size = f32(1 << u32(best));
                 let cc = floor(p.xy / size);
@@ -885,6 +922,7 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
                 }
             }
         }
+        just_skipped = skipped;
         // As before (the coarse levels, coarsest first): measuring against it.
         for (var k = 0; k < 4 && !in_water && camera.follow.w < 0.5; k++) {
             let up = 6 - k;
