@@ -1108,6 +1108,10 @@ lamps, lights at cave mouths), and day and night.
   pictures keep their sun at 5° up or more. From 5° up the land looks as it did, but for a faint dusk glow on the
   horizon under a sun 5° to 10° up. Tests: `the_light_goes_with_the_sun` and `sight_s_night_is_dark` (the plain 74 by
   day, 8 at night, 0 with no night light; the sky 179 to 22). Suite 399.
+  **David on 92** (2026-11-09): "the dusk was beautiful. it only got as dark as a moonlit night, not pitch black, but
+  it looks really good." (Night light 0.04 is the moonlit night; the slider goes to 0 for black.) Darkness done
+  enough to go on. Then: "our performance levels are fk'd right now ... i think the 'ok now make it fast' part is
+  happening today."
 
 ### Phase 6: everything else, each with its price  [loose]
 
