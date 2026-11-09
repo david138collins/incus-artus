@@ -548,6 +548,9 @@ fn live_levels() -> Vec<usize> {
     LIVE_LEVELS.iter().copied().filter(|&level| !(no_blocks && level == 0)).collect()
 }
 
+/// How many regions of a bake read back with the world go on the card each frame (each some 64 writes and 35 KB).
+const KEPT_A_FRAME: usize = 32;
+
 /// How long a region is left alone after an edit before it's baked again.
 const EDITS_SETTLE: f32 = 2.0;
 
@@ -857,6 +860,10 @@ fn keep_sight(
         if let Some(live) = &mut sight.live {
             live.touch(spots);
         }
+    }
+    // A bake read back with the world: onto the card a few regions a frame (about a second for a whole map).
+    if let Some(bake) = &sight.bake {
+        crate::sight::bake::take_kept(bake, sight.card.as_deref(), KEPT_A_FRAME);
     }
     sight.patching.retain(|job| matches!(job.ready(), Ok(None)));
     let settled: Vec<(i32, i32)> = sight.edited.iter().filter(|(_, when)| now.duration_since(**when).as_secs_f32() >= EDITS_SETTLE).map(|(region, _)| *region).collect();

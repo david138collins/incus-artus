@@ -929,8 +929,13 @@ fn ground(c: Case) -> i32 {
             let baked = crate::sight::bake::bake_region(&maker, &with, odd, record.region);
             assert_eq!(*record, baked, "region {:?} read back", record.region);
         }
-        // Started with it, the bake is done before a region's baked; with another stamp, it isn't.
+        // Started with it, the bake is done before a region's baked: nothing baked, and what was read back put on the
+        // card a few regions a frame (`take_kept`), not as it starts; with another stamp, it isn't.
         let (again, jobs) = start(maker.clone(), with.clone(), odd, half, (0, 0), 77, read(&folder).expect("read"));
+        assert_eq!(again.bake.lock().expect("the bake").regions_done, 0, "none put on the card as it starts");
+        crate::sight::bake::take_kept(&again, maker.card.as_deref(), 10);
+        assert_eq!(again.bake.lock().expect("the bake").regions_done, 10, "ten a frame");
+        crate::sight::bake::take_kept(&again, maker.card.as_deref(), 10);
         assert_eq!(again.bake.lock().expect("the bake").regions_done, 16, "kept bake taken whole");
         drop(jobs);
         crate::sight::bake::stop(&again);

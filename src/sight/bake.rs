@@ -504,6 +504,8 @@ pub fn regions_of(chunk: ChunkPos) -> Vec<(i32, i32)> {
 pub struct Baking {
     pub bake: Mutex<Bake>,
     queue: Mutex<VecDeque<(i32, i32)>>,
+    /// What was read back with the world, still to go on the card (`take_kept`, a few regions a frame).
+    kept: Mutex<VecDeque<Record>>,
     pub stop: AtomicBool,
     writing: Mutex<()>,
     writes: Mutex<Vec<crate::loading::Job<()>>>,
@@ -581,19 +583,22 @@ pub fn start(maker: Maker, with: Blocks, odd: bool, half: i32, spawn: (i32, i32)
         stamp,
         half,
     };
+    // What was read back goes on the card a few regions a frame (`take_kept`), not all at once [2026-11-09, the
+    // dyno's test world read back whole: 5,184 regions put at once, some 64 writes each, all waiting for the frame's
+    // hand-over, and the card ran out of memory for them].
+    let mut read_back: VecDeque<Record> = VecDeque::new();
     if let Some(kept) = kept.filter(|kept| kept.stamp == stamp && kept.half == half) {
         let count = kept.records.len();
-        for record in kept.records {
-            bake.take(record, maker.card.as_deref());
-        }
+        read_back = kept.records.into_iter().collect();
         // What was read back is in the file already (unless it was cut short: then it's written afresh).
         bake.kept_in = kept.whole.then_some((kept.path, count));
     }
-    // Regions not baked yet, and those holding changed chunks (made again from their blocks, whatever the
-    // file had: a save may have caught a patch still under way).
+    let reading: HashSet<(i32, i32)> = read_back.iter().map(|record| record.region).collect();
+    // Regions not baked yet nor read back, and those holding changed chunks (made again from their blocks, whatever
+    // the file had: a save may have caught a patch still under way).
     let touched: HashSet<(i32, i32)> = with.changed.keys().flat_map(|&chunk| regions_of(chunk)).collect();
-    let queue: VecDeque<(i32, i32)> = all.into_iter().map(|(_, r)| r).filter(|r| !bake.is_baked(*r) || touched.contains(r)).collect();
-    let baking = Arc::new(Baking { bake: Mutex::new(bake), queue: Mutex::new(queue), stop: AtomicBool::new(false), writing: Mutex::new(()), writes: Mutex::new(Vec::new()) });
+    let queue: VecDeque<(i32, i32)> = all.into_iter().map(|(_, r)| r).filter(|r| (!bake.is_baked(*r) && !reading.contains(r)) || touched.contains(r)).collect();
+    let baking = Arc::new(Baking { bake: Mutex::new(bake), queue: Mutex::new(queue), kept: Mutex::new(read_back), stop: AtomicBool::new(false), writing: Mutex::new(()), writes: Mutex::new(Vec::new()) });
     let jobs = (0..BAKERS)
         .map(|_| {
             let (baking, maker, with) = (baking.clone(), maker.clone(), with.clone());
@@ -628,6 +633,18 @@ pub fn patch(baking: Arc<Baking>, maker: Maker, with: Blocks, odd: bool, regions
             }
         }
     })
+}
+
+/// Up to `most` of the regions read back with the world put on the card (each frame, by the frame's thread, so the
+/// card's writes are handed over in between). One baked meanwhile from changed chunks is newer: kept, not the file's.
+pub fn take_kept(baking: &Baking, card: Option<&super::card_store::CardStore>, most: usize) {
+    for _ in 0..most {
+        let Some(record) = baking.kept.lock().ok().and_then(|mut kept| kept.pop_front()) else { return };
+        let Ok(mut bake) = baking.bake.lock() else { return };
+        if !bake.is_baked(record.region) {
+            bake.take(record, card);
+        }
+    }
 }
 
 /// Every bake under way stops (a new world, or the game closing).
