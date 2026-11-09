@@ -130,6 +130,43 @@ swings between about 70 and 104 °C.
 the 99th percentile at 21 ms (47 fps) against "fine" at about 180 fps (5.5 ms: four times); the floor, a stable
 120, not met at the 99th either. The worst frames are the gap.
 
+### The breakdown (2026-11-09, build 101 with the 10-second hitch fixed)
+
+Each flight with one thing switched off (the measuring switches), against a reference flown the same way (a warm-up
+lap, then two measured: flights with it agree within about 2% on every leg). Whole-flight frame times in ms; the
+card's time over the land and out at sea. `logs/dyno-1794251718.txt` is the reference.
+
+| Switched off | Median | 95th | 99th | Over the land (card) | Out to sea (card) |
+|---|---|---|---|---|---|
+| (the reference) | 5.46 | 15.53 | 20.78 | 11.06 | 7.93 |
+| The blocks near the eye (`NO_BLOCKS`) | 4.81 (−12%) | 10.06 (−35%) | 11.56 (−44%) | 4.21 (−6.9 ms) | 4.74 (−3.2 ms) |
+| The 2 × 2 layer (`GRID=4`) | 4.89 (−10%) | 11.44 (−26%) | 13.21 (−36%) | 6.97 (−4.1 ms) | 5.87 (−2.1 ms) |
+| Sky light (`NO_SKY`) | 5.19 (−5%) | 12.63 (−19%) | 16.37 (−21%) | 7.22 (−3.8 ms) | 6.88 (−1.1 ms) |
+| Sun shadows (`NO_SHADOWS`) | 5.57 (+2%) | 13.28 (−15%) | 14.95 (−28%) | 8.36 (−2.7 ms) | 7.48 (−0.5 ms) |
+| Block textures (`NO_TEXTURES`) | 5.29 (−3%) | 15.59 | 21.12 | 11.22 | 7.82 |
+| Fog (`NO_FOG`) | 5.38 (−1%) | 15.52 | 20.74 | 11.00 | 7.88 |
+| Placed lights and the wash (`NO_LIGHTS`; none in the world) | 5.41 (−1%) | 15.40 | 20.65 | 11.06 | 7.99 |
+
+**What it says:**
+- **The worst frames are the heavy views' near work and their light.** Off, the blocks near the eye take 44% off the
+  99th percentile, the 2 × 2 layer 36%, shadows 28%, sky light 21%. The median moves far less: the typical frame
+  isn't the problem; the heavy views are.
+- **The near walk steps through air.** It skips air only over the tops of columns of 64, 32, 16 and 8; in the last 8
+  blocks over the ground it walks block by block, trying all four coarser levels at each block first (a ray 8°
+  down from 40 up: some 57 blocks so). The live levels' columns of 4 and 2 aren't used to skip.
+- **The sun's shadow ray from a block's face is the same walk** (`hard()` toward the sun, up to 128 blocks): a near
+  walk that skips air better pays for the eye's rays and the shadow's at once. **The sky cones aren't**: five cones,
+  up to 40 steps each, through the cells (never the blocks), as wide as the cone. Their cost is their own.
+- **The savings overlap** (Counsel's question): over the land the blocks, sky and shadows save 6.9 + 3.8 + 2.7 =
+  13.4 ms of an 11.1 ms whole. Without the blocks, fewer pixels are refined at 2 × 2, and those don't take sky light
+  or shadows either. Each step is measured after the one before it, so the order is written down with its numbers.
+- **At sea,** the blocks near the eye are 40% of the card: the near walk goes on through water block by block (no
+  skipping in a medium) till it's dimmed out, some 25 blocks down (build 98's 1.5 ms). The sea as a plane takes that.
+- **Fog, textures and placed lights cost next to nothing** (with no lights in the world: many lights is its own
+  check).
+- **Round the peak** the card's own time is small (1.3 ms) and moves ±0.4 ms with the switches either way: its worst
+  frames are a few heavy views on the circle.
+
 ### How each step is judged
 
 - **One step a build, each measured alone,** on the same fixed flight, before and after. The runs alternate
@@ -169,7 +206,18 @@ the instruments show re-ranks it, and any change is written here.
 6. The subgroup check.
 7. **The new baseline at 101, written down.**
 
-**B. The block, cheapest and surest first** (section 2):
+**B. The block, re-ranked by the breakdown** (2026-11-09):
+1. **The near walk skips air by the live levels too:** the columns of 4 and 2 (and the finest checked first near the
+   ground, not four coarser lookups at every block). Lossless; pays for the eye's rays and the sun's shadow rays
+   from block faces at once. The blocks near the eye are 6.9 ms of 11.1 over the land.
+2. **Sky light kept, not marched** (David's idea, below in section 2): the five cones a pixel become a lookup. Sky
+   light is 3.8 ms over the land, the biggest shading cost, and its own (no overlap with the walk).
+3. **The sun's shadow kept** for the far (horizon maps, or the sun's openness per cell re-lit as the sun moves): 2.7
+   ms over the land, what's left of it after step 1.
+4. **The sea as a plane:** the near walk's steps through water (the blocks near the eye are 40% of the card at sea).
+5. Rays end where fog is total; the rest of the old order below as it was.
+
+**B, the order as first written** (the cheapest and surest first; now after the above):
 1. Rays end where fog is total (the reach is 150,000 blocks; fog is 99% by about 5,000). Expected the cheapest win.
    Stated tolerance: pixels already more than 99% fog.
 2. Read-only bindings and small constants as uniforms. Trivial; may be small.
@@ -318,7 +366,9 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
 - [ ] A slowest-ray view: each tile's slowest ray against its average, built from the steps view (`reach.z`).
 - [ ] Register pressure in `march.wgsl` (one big shader).
 - [ ] The subgroup check: does the adapter offer them? Keep a path that works without them.
-- [ ] Break down builds 93 and 94's 2 to 3 ms: shadows, sky cones or the finer layers' extra pixels.
+- [x] The breakdown by the switches (the table above): the blocks near the eye, the 2 × 2 layer, sky light and
+      shadows are the heavy views' cost; fog, textures and placed lights next to nothing. (Builds 93 and 94's 2 to
+      3 ms aren't apart in it: no switch for the floor rule.)
 
 ## 2. The block: the same picture, faster
 
@@ -338,6 +388,22 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
 **Light computed once, not every frame**
 - [ ] Horizon maps: far sun shadows and sky light become lookups (made at bake time, patched on edits). Same picture
       within a stated tolerance.
+- [ ] **Sky light kept, not marched** [David 2026-11-09: "is there some way we can take sky light and bake it into an
+      indexed map that grows as the player explores the world and updates as he's in it to make it update, leaving
+      the other lighting types alone?"]. Builder's design, for his say:
+      - **Kept per cell:** what each of the five sky cones sees from the cell's surface (straight up, and the four
+        50° ones), 6 bits each, 4 bytes a cell. At draw time a pixel takes them by its surface's facing, as it adds
+        its cones up now, times the sky's colour and strength: a lookup in place of five cones of up to 40 steps.
+      - **The store:** 4 bytes beside each cell's 16: about 45 MB more on the card for the whole bake (180 MB now), a
+        quarter more on the disk with a saved world.
+      - **Made** on the card as each region's cells are baked (the same cones, once), and as the live levels' tiles
+        are made near the eye. A region's cones reach into its neighbours: made again once they're baked (the "grows
+        as the player explores"). Edits: their regions made again, as now ("updates as he's in it").
+      - **Near the eye** it steps a block at a time, a value a block face (Minecraft's way; his build 97 choice for
+        placed light): a look for his eye, against the cones' smooth shading now.
+      - **Against horizon maps:** they'd do the sun's far shadow too (any sun direction), but only for the ground's
+        top (not under overhangs or in caves); this does sky light in 3D. Sky first (the bigger cost), measured
+        against the cones (the picture within a tolerance, and the cost); horizon maps after, for the sun's part.
 - [ ] Light the hologram: sun and sky light kept in the cells, re-lit gradually as the sun moves.
 - [ ] **Sky light kept, not marched** [David 2026-11-09, after the breakdown found sky light the biggest single cost
       (sky off: p99 -23%, over land the card 12.6 → 7.7 ms): "is there some way we can take sky light and bake it

@@ -1377,6 +1377,11 @@ lamps, lights at cave mouths), and day and night.
   world, its bake read back (the first read-back of a whole bake ran the card out of memory: 5,184 regions put at
   once; now 32 a frame). **The baseline at build 101:** baked, 5.5 ms median (180 fps), 16.3 at the 95th, 21.3 at the
   99th; baking, 10.0 ms (100 fps), 29 and 33. Leg by leg, and what it means, in `docs/dyno.md`.
+  **The breakdown:** the worst frames are the heavy views' near work and their light (off: the blocks near the eye
+  −44% at the 99th, the 2 × 2 layer −36%, shadows −28%, sky light −21%); fog, textures and placed lights next to
+  nothing. A 10-second hitch found and fixed on the way (the bake's log line counted 7 million columns every 10 s).
+  The block re-ranked: the near walk skipping air by the live levels first, then sky light kept (David's idea), the
+  sun's shadow kept, the sea as a plane.
 
 ### Phase 6: everything else, each with its price  [loose]
 
