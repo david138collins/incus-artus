@@ -1289,6 +1289,12 @@ lamps, lights at cave mouths), and day and night.
   makes the lag and chop feel more like a problem that can be worked out through clever gpu origami than a doleful
   warning." The two things he feels: the bake (smooth once the ground is in, creaking when it has to catch up) and
   the frame rate itself. Even work each frame is what makes it read as solvable.
+- **Lights seen from farther** [David 2026-11-09, after looking at 98: "i think the lights should be visible from
+  farther; they snap off suddenly, when i think the glow and twinkle would still be able to get smaller for a while
+  more"]. Today a brazier beyond the loaded chunks (radius 4, 64 blocks) is neither drawn nor lit, so its glow
+  vanishes at once. Wanted: the glow and twinkle carry on past that edge, getting smaller with distance and
+  fading into the fog, never snapping off. This was the "lights seen from far off" item under build 95's not yet.
+  Queued after the flaw Builder is chasing.
 
 ### Phase 6: everything else, each with its price  [loose]
 
