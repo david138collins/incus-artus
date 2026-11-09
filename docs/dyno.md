@@ -76,7 +76,15 @@ build-by-build numbers are in `docs/regroup.md`.
 - [ ] Warps kept alike: rays sorted by expected length, or compaction (march N steps, pack the ones still going,
       repeat).
 - [ ] No idle lanes: persistent threads, a finished lane taking the next ray from a queue (dynamic ray fetch, Aila
-      and Laine 2009).
+      and Laine 2009). David's shape for it (2026-11-09): "a 'global ray buffer' that lets workers pull rays, and if
+      a thread hits a block gets marked terminated, its value written to screen, and at the end of the step use
+      wave intrinsics to squeeze out all the dead rays and give them fresh ones". Notes:
+      - The warp refills in one grab: one atomic add on the queue for as many rays as it has dead lanes.
+      - Rays are handed out in screen tiles (Morton order), so a refilled warp still reads nearby cells.
+      - Never assume 32 lanes: AMD's waves are 64 and Intel's 8 to 32.
+      - The march writes its hit and a separate pass shades it, so shading doesn't diverge too.
+      - A path without subgroups is kept (workgroup memory and atomics).
+      Measure first: the slowest-ray view tells whether warps really wait on their longest ray.
 - [ ] Subgroups: warp votes for shared strides, the warp's nearest start.
 - [ ] Workgroup shape and order: 8 × 8 against 16 × 4, Morton order.
 - [ ] Background work, such as the bake, in the card's idle gaps between frames.
