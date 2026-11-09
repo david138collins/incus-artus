@@ -195,8 +195,19 @@ clocks and temperatures logged on every flight, so a step that only moves heat a
 (Counsel is asking him these, with whether the baking case gets its own target and its items move earlier: his felt
 complaint, "creaking when you move too quick", is the baking case. The order here moves when he answers.)
 
-- **Which number is the target?** I'd propose: defaults, baked, on the fixed flight, holding 60 fps at the 95th
-  percentile, with the lean preset as the fallback. Yours to set.
+- **Which number is the target?** I'd proposed: defaults, baked, on the fixed flight, holding 60 fps at the 95th
+  percentile, with the lean preset as the fallback.
+  **David's answer** (2026-11-09): "well, i don't really think that way honestly. I'll be 100% satisfied if we can
+  get it to a stable 237fps with current settings. but i don't automatically believe we can't go farther. there's
+  no finish line for us, we just have to squeeze the blood from the stone until our hands fall off."
+  - So the mark is **a stable 237 fps (about 4.2 ms a frame) with his current settings**: steady, not an average,
+    so read at the 99th percentile. The settings are the ones he plays with today, written into the flight as a
+    preset so the mark never moves.
+  - From the baseline at build 92, that's about three to four times faster than defaults baked (12 to 16.6 ms).
+    His lean preset was already 3.4 to 4.7 ms.
+  - It's not a finish line: past 237, the dyno keeps going. Every step is still judged on its own numbers, not
+    against the mark.
+  - Still open: whether the baking case gets its own mark and its items move earlier.
 - **The flights take over the screen** for two or three minutes each, so I'll ask before running them.
 
 ## 0. Done before the dyno
