@@ -357,6 +357,26 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
       - **roasted whole:** easy, but hard to store;
       - **butchered into proper meat** (slices, steaks): more meat from the same animal, more ways to cook it,
         and easier to store.
+    - **The cut's name, and cozy food** [David, the same day]: "i guess the best way to divide an animal would be
+      haunches or what? quarters are just 1 item unless we were doing too much i think. food should reward with a
+      cozy feeling for some people who just think its fun to roleplay. so wording and appearance matters."
+      - One kind of piece per animal, not front and hind quarters apart.
+      - Food should feel cozy to players who cook for the fun of the role, so the wording and the look matter.
+      - *Counsel* [PROPOSED], names from old cookery:
+        - **Large game (deer, boar):** the carcass pops into **haunches**: a haunch of venison, a haunch of boar.
+          It's the old word for a big joint to roast, and it sounds like a feast.
+        - **Small game and fowl (rabbit, pheasant, fowl):** no cutting up; they come whole, as a dressed rabbit
+          or a plucked pheasant, roasted on a spit.
+        - **Fish:** whole, or filleted with the knife.
+        - **Butchered:** venison steaks, boar chops, and thin strips for drying into jerky (which keeps).
+        - **Fat by animal:** deer fat renders to **tallow**, boar fat to **lard**. Tallow also makes candles, so
+          hunting feeds light.
+        - **Cured:** a boar's haunch salted becomes salt pork or ham (salt or herbs, above).
+        - **Dishes with old names:** pottage, stew, pie, pasty, sausage.
+        - **The look:** warm colours, steam, and the sizzle and crackle of the fire, so a finished dish feels
+          like a reward.
+        - **Each dish gets one short, homely line** of description. A one-line tooltip is free to write and makes
+          cooking feel like a craft.
 
 ## Life gauges: blood, stamina, energy  [IDEA]
 
