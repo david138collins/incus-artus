@@ -351,6 +351,11 @@ fn fly_dyno(
     if dyno.legs.is_empty() && std::env::var("INCUS_LOAD_WORLD").is_ok() && current.saved.is_none() {
         return;
     }
+    // And till the world's on the card and drawn (its bake begun): before it, the frames draw next to nothing, at
+    // some 2,000 a second [2026-11-09, the first baking flight: 20 s of them were most of its frames].
+    if dyno.legs.is_empty() && sight.bake.is_none() {
+        return;
+    }
     if dyno.legs.is_empty() {
         // The cave mouths: each tunnel's ends that come up to the ground (its points are in 16ths of a block).
         let ground = |north: f32, east: f32| map.height(north, east);
@@ -465,7 +470,7 @@ fn record_dyno(world: &mut World) {
         for reading in &readings {
             phase.card(reading.sight, &reading.passes);
         }
-        if baked && let Some(name) = leg_name {
+        if (baked || dyno.baking_run) && let Some(name) = leg_name {
             let at = match dyno.by_leg.iter().position(|(have, _)| *have == name) {
                 Some(at) => at,
                 None => {
@@ -536,8 +541,12 @@ fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
     } else {
         text += &format!("The bake: {} {:.0} s in; baked laps {}\n\n", if dyno.bake_finished { "done" } else { "NOT done, waited" }, baked_at - started, dyno.baked_laps);
     }
-    text += &format!("Baking: {}\n", crate::dyno::line(&dyno.baking));
-    text += &format!("Baked: {}\n\nBaked, by leg:\n", crate::dyno::line(&dyno.baked));
+    if dyno.baking_run {
+        text += &format!("Baking: {}\n\nBaking, by leg:\n", crate::dyno::line(&dyno.baking));
+    } else {
+        text += &format!("Loading (the bake read back, or baked whole): {}\n", crate::dyno::line(&dyno.baking));
+        text += &format!("Baked: {}\n\nBaked, by leg:\n", crate::dyno::line(&dyno.baked));
+    }
     for (name, samples) in &dyno.by_leg {
         text += &format!("  {name}: {}\n", crate::dyno::line(samples));
     }
