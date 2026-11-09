@@ -973,7 +973,7 @@ fn ground(c: Case) -> i32 {
         }
         let region = (pos.x.div_euclid(32), pos.y.div_euclid(32));
         let before = bake_region(&maker, &with, odd, region);
-        let edited = Blocks { changed: std::sync::Arc::new([(pos, chunk)].into_iter().collect()), ..with.clone() };
+        let edited = Blocks { changed: std::sync::Arc::new([(pos, std::sync::Arc::new(chunk))].into_iter().collect()), ..with.clone() };
         let after = bake_region(&maker, &edited, odd, region);
         let solid = |column: &crate::sight::store::CellColumn, size: i32| (0..crate::world::WORLD_HEIGHT / size).map(|z| column.at(z, size).solid).sum::<u64>();
         let top_size = 1 << crate::sight::bake::REGION;
@@ -996,6 +996,106 @@ fn ground(c: Case) -> i32 {
         let region_cells = |record: &crate::sight::bake::Record| record.levels.iter().flatten().map(|(_, c)| c.len()).sum::<usize>() as i64;
         assert_eq!(cells_after as i64 - cells_before as i64 - (region_cells(&after) - region_cells(&before)), 0, "the patched region replaced, its old cells gone (and the levels above remade in place)");
         eprintln!("Sight's bake patched: {dug} blocks dug, the region's top cell that much lighter; {cells_before} cells before, {cells_after} after");
+    }
+
+    /// Edits in the live levels (build 88): a hole 3 by 3 and 6 deep at a chunk's north edge, and a pillar of 3
+    /// blocks stood on the ground. At every live level (cells of 1 to 16), each tile the edits reach, made on the
+    /// card and patched, holds exactly the cells the edited blocks make (round the edits, above and below them,
+    /// the card's cells next to the patched ones included), shows the hole and the pillar where the recipe
+    /// alone doesn't, and a single block's cell showing a face knows its block (a buried one's isn't kept).
+    #[test]
+    fn sight_s_live_levels_show_edits() {
+        use crate::sight::bake::Blocks;
+        use crate::sight::cell::sums_of_box;
+        use crate::sight::edits::{Edits, Reader, patch_tile};
+        use crate::sight::store::{TILE, TileKey, fill_tile};
+        use crate::world::{BlockId, ChunkPos, WORLD_HEIGHT};
+        let Some((device, queue, map, plan, blocks, colours, world)) = sight_world() else {
+            eprintln!("No graphics card: sight's live edits test is skipped");
+            return;
+        };
+        let odd = world.odd;
+        let pos = ChunkPos::new(576 / 32, 288 / 32);
+        let mut chunk = map.chunk(pos, &blocks, &plan).expect("the chunk");
+        let ground_at = |chunk: &crate::world::Chunk, x: i32, y: i32| (0..WORLD_HEIGHT).rev().find(|&z| chunk.block_at(x, y, z) != BlockId::AIR && chunk.block_at(x, y, z) != blocks.water).expect("ground");
+        let mut spots = Vec::new();
+        let (x0, y0) = (576 + 29, 288 + 10);
+        let ground = ground_at(&chunk, x0, y0);
+        for x in x0..x0 + 3 {
+            for y in y0..y0 + 3 {
+                for z in ground - 5..=ground {
+                    let old = chunk.block_at(x, y, z);
+                    if old != BlockId::AIR && old != blocks.water {
+                        chunk.set_block_at(x, y, z, BlockId::AIR);
+                        spots.push([x, y, z]);
+                    }
+                }
+            }
+        }
+        let (px, py) = (576 + 6, 288 + 20);
+        let top = ground_at(&chunk, px, py);
+        for z in top + 1..=top + 3 {
+            chunk.set_block_at(px, py, z, blocks.gabbro);
+            spots.push([px, py, z]);
+        }
+        let map = std::sync::Arc::new(map);
+        let with = Blocks { map: map.clone(), blocks: blocks.clone(), colours: colours.clone(), changed: std::sync::Arc::new([(pos, std::sync::Arc::new(chunk))].into_iter().collect()) };
+        let edits = Edits { with, spots: std::sync::Arc::new([(pos, std::sync::Arc::new(spots.clone()))].into_iter().collect()), caves: std::sync::Arc::new(plan.clone()), recipe: Default::default() };
+        let reader = Reader::new(&edits);
+        let mut checked = 0;
+        let mut took = Vec::new();
+        for level in 0..5usize {
+            let size = 1 << level;
+            let tile_blocks = TILE << level;
+            let mut keys: Vec<TileKey> = spots.iter().flat_map(|&[x, y, _]| [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)].map(|(dx, dy)| TileKey { level, x: (x + dx).div_euclid(tile_blocks), y: (y + dy).div_euclid(tile_blocks) })).collect();
+            keys.sort_by_key(|k| (k.x, k.y));
+            keys.dedup();
+            let (mut hole_seen, mut pillar_seen) = (false, false);
+            let mut patching = 0.0;
+            for key in keys {
+                let recipe = fill_tile(&device, &queue, &world, &plan, odd, key);
+                let mut tile = recipe.clone();
+                let started = std::time::Instant::now();
+                let redone = patch_tile(&mut tile, key, &edits);
+                patching += started.elapsed().as_secs_f32() * 1000.0;
+                let (tx, ty, _) = key.blocks();
+                for (i, column) in tile.columns.iter().enumerate() {
+                    let (cx, cy) = (tx / size + i as i32 % TILE, ty / size + i as i32 / TILE);
+                    let (bx, by) = (cx * size, cy * size);
+                    let near = spots.iter().any(|&[x, y, _]| x + 1 >= bx && x - 1 < bx + size && y + 1 >= by && y - 1 < by + size);
+                    if !near {
+                        assert_eq!(*column, recipe.columns[i], "level {level}: a column the edits don't reach is the card's");
+                        continue;
+                    }
+                    // Every cell from below the hole to above the pillar, against the edited blocks.
+                    let (from, to) = ((ground - 8).div_euclid(size), (top.max(ground) + 6) / size);
+                    let first: usize = tile.columns[..i].iter().map(|c| c.sums.len()).sum();
+                    for z in from..=to {
+                        let want = sums_of_box([bx, by, z * size], size, &|p| reader.block(p), &colours);
+                        assert_eq!(column.at(z, size), want, "level {level}, cell ({cx}, {cy}, {z}) in tile ({}, {})", key.x, key.y);
+                        if level == 0 && want.showing() > 0 && z >= column.low && z <= column.high() {
+                            let block = reader.block([bx, by, z]);
+                            let solid = block != BlockId::AIR && block != blocks.water;
+                            assert_eq!(tile.blocks[first + (z - column.low) as usize], if solid { block.0 } else { 0 }, "level 0, block ({bx}, {by}, {z}) knows its block");
+                        }
+                        let was = recipe.columns[i].at(z, size);
+                        if want != was {
+                            if bx <= x0 + 2 && bx + size > x0 && by <= y0 + 2 && by + size > y0 && want.solid < was.solid {
+                                hole_seen = true;
+                            }
+                            if bx <= px && bx + size > px && by <= py && by + size > py && want.solid > was.solid {
+                                pillar_seen = true;
+                            }
+                        }
+                        checked += 1;
+                    }
+                }
+                assert!(redone > 0, "level {level}: tile ({}, {}) has cells redone", key.x, key.y);
+            }
+            took.push(format!("cells of {size} {patching:.1} ms"));
+            assert!(hole_seen && pillar_seen, "level {level}: the hole ({hole_seen}) and the pillar ({pillar_seen}) show where the recipe alone doesn't");
+        }
+        eprintln!("Sight's live levels show edits: {} blocks edited, {checked} cells checked at five levels; patching took {} (the recipe's chunks made the first time)", spots.len(), took.join(", "));
     }
 
     /// A made-up world for sight's drawing tests: a plain map of `width` × `width` pixels of 64 blocks whose

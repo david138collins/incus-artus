@@ -251,6 +251,8 @@ pub struct LiveStore {
     pub side: i32,
     tiles: HashMap<TileKey, usize>,
     filling: HashMap<TileKey, Job<Made>>,
+    /// Tiles an edit reached while they were being made (with the blocks as they were): made again after.
+    stale: std::collections::HashSet<TileKey>,
     /// Tiles made since it started (for the log), and by level what they took (columns ms, cells ms, how many).
     pub made: usize,
     took: [(f32, f32, usize); LIVE_LEVELS],
@@ -258,7 +260,28 @@ pub struct LiveStore {
 
 impl LiveStore {
     pub fn new(levels: Vec<usize>, side: i32) -> Self {
-        Self { levels, side, tiles: HashMap::new(), filling: HashMap::new(), made: 0, took: [(0.0, 0.0, 0); LIVE_LEVELS] }
+        Self { levels, side, tiles: HashMap::new(), filling: HashMap::new(), stale: Default::default(), made: 0, took: [(0.0, 0.0, 0); LIVE_LEVELS] }
+    }
+
+    /// Edits at `spots` (blocks): the tiles they reach, at every level, made again (build 88). A tile's cells
+    /// stay on the card till the new ones replace them; one being made is made again once it's done.
+    pub fn touch(&mut self, spots: impl IntoIterator<Item = [i32; 3]>) {
+        let mut keys = std::collections::HashSet::new();
+        for [x, y, _] in spots {
+            for &level in &self.levels {
+                let tile_blocks = TILE << level;
+                // The block and the ones beside it (whose faces it may bare), across a tile's edge too.
+                for (dx, dy) in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    keys.insert(TileKey { level, x: (x + dx).div_euclid(tile_blocks), y: (y + dy).div_euclid(tile_blocks) });
+                }
+            }
+        }
+        for key in keys {
+            self.tiles.remove(&key);
+            if self.filling.contains_key(&key) {
+                self.stale.insert(key);
+            }
+        }
     }
 
     /// The tiles the levels want round `camera` (x and y, blocks), nearest first: exactly `side / TILE` a
@@ -286,11 +309,12 @@ impl LiveStore {
 
     /// Keeps the levels round `camera`: tiles left behind let go (and their making dropped), made ones
     /// taken in, and more asked for, nearest first, a few at a time (fine and coarse apart).
-    pub fn update(&mut self, camera: (f32, f32), maker: &Maker, odd: bool) {
+    pub fn update(&mut self, camera: (f32, f32), maker: &Maker, odd: bool, edits: Option<&Arc<super::edits::Edits>>) {
         let wanted = self.wanted(camera);
         let keep: std::collections::HashSet<TileKey> = wanted.iter().map(|&(_, key)| key).collect();
         self.tiles.retain(|key, _| keep.contains(key));
         self.filling.retain(|key, _| keep.contains(key));
+        self.stale.retain(|key| self.filling.contains_key(key));
         let mut done = Vec::new();
         self.filling.retain(|&key, job| match job.ready() {
             Ok(Some(made)) => {
@@ -304,7 +328,10 @@ impl LiveStore {
         for (key, made) in done {
             let took = &mut self.took[key.level];
             *took = (took.0 + made.took.0, took.1 + made.took.1, took.2 + 1);
-            self.tiles.insert(key, made.cells);
+            // Edited while it was being made: made again.
+            if !self.stale.remove(&key) {
+                self.tiles.insert(key, made.cells);
+            }
         }
         let most = most_filling();
         let fine = |key: &TileKey| key.level <= FINE_UP_TO;
@@ -319,9 +346,13 @@ impl LiveStore {
             }
             *n += 1;
             let maker = maker.clone();
+            let edits = edits.filter(|edits| edits.any()).cloned();
             // Keyed in chunks' units (32 cells), so sight and the chunks round the camera share the lane fairly.
             let job = crate::loading::submit(Tier::Soon, distance / 32.0, move || {
-                let tile = fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key);
+                let mut tile = fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key);
+                if let Some(edits) = &edits {
+                    super::edits::patch_tile(&mut tile, key, edits);
+                }
                 let size = key.size() as u32;
                 let columns = compact_tile(&tile, size);
                 if let Some(card) = &maker.card {

@@ -426,7 +426,8 @@ pub struct Blocks {
     pub map: Arc<CompiledMap>,
     pub blocks: TerrainBlocks,
     pub colours: FarColours,
-    pub changed: Arc<HashMap<ChunkPos, Chunk>>,
+    /// Shared, so an edit copies only its own chunk (build 88).
+    pub changed: Arc<HashMap<ChunkPos, Arc<Chunk>>>,
 }
 
 /// A cell column of 32 made from the blocks themselves (every one of its cells, then trimmed to its band:

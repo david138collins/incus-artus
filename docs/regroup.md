@@ -958,7 +958,27 @@ back to.
   cells count a bottom face as its sides' colour (seen only under overhangs).
   **David's look at build 87** [2026-11-08: "they look good."]. The stored-values averaging stays as it is; it's
   on file for him to raise if a contrasting texture ever shrinks too dark.
-  Next: fog (3.4c), talked through first.
+  **Water waits** [David 2026-11-08: "right now water is transparent blue. it looks fine, and until the graphics are
+  done we won't be messing with water behaviors."]: 3.6's water as a second medium is set aside until the graphics
+  are done. Next, edits shown in sight (build 88).
+  **3.6, edits in the live levels, build 88** [David 2026-11-08: "yes, proceed"]. Before it only the bake (cells of
+  32 up) showed an edit, 2 seconds after it was left alone; the live levels (1 to 16) were the recipe's, so a hole
+  dug didn't show near at all. Now each change as it's announced is a spot (`sight/edits.rs`), and every live
+  tile it reaches, at every level, is made again at once: on the card as before, then the cells the edits reach
+  made again from the blocks (the changed chunks as they are, the rest the recipe's, made once on the processor
+  and shared): an edited block changes its own cell and the cells of the six beside it, nothing else. A cell
+  column's band reaches out to hold them (a pillar over the ground, a shaft under it). The old cells stay on the
+  card till the new ones replace them (nothing blinks); a tile being made when an edit lands is made again after.
+  Chunks changed before sight started (a saved world) have their differences from the recipe found on the loading
+  lane. The bake's changed chunks are now shared, so an edit copies only its own chunk (it had copied every
+  changed chunk at each patch). **Test** (`sight_s_live_levels_show_edits`): a hole 3 by 3 and 6 deep at a chunk's
+  edge and a pillar of 3 on the ground; at all five levels every cell round them, patched and the card's beside
+  them, exactly the edited blocks' sums (1,334 cells), the hole and the pillar showing where the recipe alone
+  doesn't, a single block's cell showing a face knowing its block; columns the edits don't reach the card's.
+  **Measured** (the test): patching took about 12 ms across the five levels, on the loading lane, never the frame
+  (the cells of 16 the most, 7.9 ms; the neighbouring chunk's recipe made once). **On file**: the recipe's chunks
+  made for edits are kept for the session (a few hundred KB each); scattered edits over a wide area would make
+  many cells of 16 again (each 4,096 blocks): built up from the finer cells instead, if it ever shows.
   **The mountains' contrast at a distance** (palette and shading, his to tune by eye: on file under 3.4, light
   through the cache). **Far mountains at 8 × 8** may not need more; forests will carry them later.
 - **3.2's march must not draw ziggurats** [David 2026-11-06: "this wouldn't make ziggurats would it? four coarse

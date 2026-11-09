@@ -37,7 +37,6 @@ pub mod whole_recipe;
 pub mod card_recipe;
 mod test_world;
 
-#[cfg(test)]
 pub use section::Section;
 pub use block::BlockId;
 pub use caves::{CavePlan, Caves, TestCaveSettings};
@@ -475,6 +474,10 @@ pub struct SightStore {
     /// Regions an edit reached, and when it was last edited there (patched once left alone a while).
     edited: HashMap<(i32, i32), Instant>,
     patching: Vec<crate::loading::Job<()>>,
+    /// What's been edited, for the live levels (build 88), and the blocks of chunks changed before sight
+    /// started that differ from the recipe's, being found on the loading lane.
+    edits: Option<Arc<crate::sight::edits::Edits>>,
+    differing: Option<crate::loading::Job<Vec<(ChunkPos, Vec<[i32; 3]>)>>>,
     /// When the store was last reported in the log.
     reported: Option<Instant>,
 }
@@ -526,8 +529,25 @@ fn live_levels() -> Vec<usize> {
 const EDITS_SETTLE: f32 = 2.0;
 
 /// The changed chunks as they are now, for the bake.
-fn changed_now(voxel: &VoxelWorld) -> Arc<HashMap<ChunkPos, Chunk>> {
-    Arc::new(voxel.changed_chunks().iter().filter_map(|&pos| voxel.changed_chunk(pos).map(|chunk| (pos, chunk.clone()))).collect())
+fn changed_now(voxel: &VoxelWorld) -> Arc<HashMap<ChunkPos, Arc<Chunk>>> {
+    Arc::new(voxel.changed_chunks().iter().filter_map(|&pos| voxel.changed_chunk(pos).map(|chunk| (pos, Arc::new(chunk.clone())))).collect())
+}
+
+/// Edits with `more` spots (blocks, by chunk) added, none twice, and the chunks they're in taken as they are now.
+fn with_spots(edits: &crate::sight::edits::Edits, voxel: &VoxelWorld, more: impl IntoIterator<Item = [i32; 3]>) -> crate::sight::edits::Edits {
+    let mut changed = (*edits.with.changed).clone();
+    let mut spots = (*edits.spots).clone();
+    for spot in more {
+        let pos = ChunkPos::new(spot[0].div_euclid(CHUNK_SIZE), spot[1].div_euclid(CHUNK_SIZE));
+        let list = Arc::make_mut(spots.entry(pos).or_default());
+        if !list.contains(&spot) {
+            list.push(spot);
+        }
+        if let Some(chunk) = voxel.changed_chunk(pos) {
+            changed.insert(pos, Arc::new(chunk.clone()));
+        }
+    }
+    crate::sight::edits::Edits { with: crate::sight::bake::Blocks { changed: Arc::new(changed), ..edits.with.clone() }, spots: Arc::new(spots), ..edits.clone() }
 }
 
 /// Keeps sight's live levels round the camera, and the bake going (patched for edits): started when the
@@ -567,9 +587,18 @@ fn keep_sight(
         {
             let spawn = voxel.spawn();
             let with = crate::sight::bake::Blocks { map: map.clone(), blocks: TerrainBlocks::from_registry(&registry), colours: world.colours.clone(), changed: changed_now(&voxel) };
-            let (bake, jobs) = crate::sight::bake::start(maker.clone(), with, world.odd, half, (spawn.x, spawn.y), world.stamp, kept.0.take());
+            let (bake, jobs) = crate::sight::bake::start(maker.clone(), with.clone(), world.odd, half, (spawn.x, spawn.y), world.stamp, kept.0.take());
             sight.bake = Some(bake);
             sight.baking = jobs;
+            let edits = crate::sight::edits::Edits { with, spots: Default::default(), caves: caves.0.clone(), recipe: Default::default() };
+            // Chunks changed before (a saved world): which of their blocks differ from the recipe's.
+            if !edits.with.changed.is_empty() {
+                let finding = edits.clone();
+                sight.differing = Some(crate::loading::submit(crate::loading::Tier::Soon, 0.0, move || {
+                    finding.with.changed.iter().map(|(&pos, chunk)| (pos, crate::sight::edits::differences(chunk, &finding))).collect()
+                }));
+            }
+            sight.edits = Some(Arc::new(edits));
         }
         sight.maker = Some(maker);
         sight.live = Some(crate::sight::store::LiveStore::new(live_levels(), crate::sight::store::side_for(grid.max(2))));
@@ -586,9 +615,31 @@ fn keep_sight(
     }
     // Edits: their regions baked again once left alone a while.
     let now = Instant::now();
+    let mut spots: Vec<[i32; 3]> = Vec::new();
     for change in changes.read() {
         for region in crate::sight::bake::regions_of(ChunkPos::new(change.position.x.div_euclid(CHUNK_SIZE), change.position.y.div_euclid(CHUNK_SIZE))) {
             sight.edited.insert(region, now);
+        }
+        spots.push(change.position.to_array());
+    }
+    // The chunks changed before sight started: their differences found.
+    match sight.differing.as_ref().map(|job| job.ready()) {
+        Some(Ok(Some(found))) => {
+            sight.differing = None;
+            let count: usize = found.iter().map(|(_, s)| s.len()).sum();
+            info!("Sight's live levels: {count} blocks edited in {} chunks changed before", found.len());
+            spots.extend(found.into_iter().flat_map(|(_, s)| s));
+        }
+        Some(Err(())) => sight.differing = None,
+        _ => {}
+    }
+    // Edits shown in the live levels at once (build 88): the tiles they reach made again.
+    if !spots.is_empty()
+        && let Some(edits) = &sight.edits
+    {
+        sight.edits = Some(Arc::new(with_spots(edits, &voxel, spots.iter().copied())));
+        if let Some(live) = &mut sight.live {
+            live.touch(spots);
         }
     }
     sight.patching.retain(|job| matches!(job.ready(), Ok(None)));
@@ -599,14 +650,15 @@ fn keep_sight(
         for region in &settled {
             sight.edited.remove(region);
         }
-        let with = crate::sight::bake::Blocks { map: map.clone(), blocks: TerrainBlocks::from_registry(&registry), colours: world.colours.clone(), changed: changed_now(&voxel) };
+        let changed = sight.edits.as_ref().map_or_else(|| changed_now(&voxel), |edits| edits.with.changed.clone());
+        let with = crate::sight::bake::Blocks { map: map.clone(), blocks: TerrainBlocks::from_registry(&registry), colours: world.colours.clone(), changed };
         let job = crate::sight::bake::patch(bake, maker, with, world.odd, settled);
         sight.patching.push(job);
     }
     let camera = (view.position.x, view.position.y);
     let sight = &mut *sight;
     let (Some(live), Some(maker)) = (&mut sight.live, &sight.maker) else { return };
-    live.update(camera, maker, world.odd);
+    live.update(camera, maker, world.odd, sight.edits.as_ref());
     if sight.reported.is_none_or(|when| when.elapsed().as_secs_f32() >= 10.0) {
         sight.reported = Some(Instant::now());
         info!("{}", live.report(camera));
