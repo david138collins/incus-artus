@@ -304,7 +304,8 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
         sphere of its colour: red protein mends blood, blue keeps energy refilling, green fuels stamina. So a
         player reads their diet off the gauges.
       - **The nine attributes** on file (Str, Con, End, Int, Wil, Cha, Spd, Dex, Agi). They fall into his three
-        threes exactly, except that the file has *Wil* where he said *WIS* [OPEN: Wil or Wis].
+        threes exactly. *Wil* stays [David: "willpower probably, since wisdom is ambiguous against intelligence and
+        becomes judgmental if inspected"].
     - This answers the naming question above: the colours are the names. Red, blue and green on the item card, the
       words only on hover.
   - **[IDEA 2026-10-30] Salt or herbs to cure food** (David): salt is an alternative to herbs for
