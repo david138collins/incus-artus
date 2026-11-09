@@ -320,8 +320,10 @@ struct Dyno {
     leg: Option<usize>,
     /// Skip measuring this frame (the lap just began again: the camera jumped).
     jumped: bool,
-    /// Baked, and held at the route's start till the near levels round it are made (`LiveStore::settled`).
-    settling: bool,
+    /// Baked laps still to fly unmeasured first (one: the near levels never finish while the camera moves, some
+    /// 8,800 tiles round it, so a lap measured from the start began however full they were; after one lap, each
+    /// measured lap begins as the last ended).
+    warming: u32,
     baking: crate::dyno::Samples,
     baked: crate::dyno::Samples,
     by_leg: Vec<(String, crate::dyno::Samples)>,
@@ -402,29 +404,21 @@ fn fly_dyno(
     }
     if dyno.baked_at.is_none() && !dyno.baking_run {
         if finished || now - started > BAKING_MOST {
-            info!("Dyno: {} after {:.0} s; held at the start till the near levels are made", if finished { "baked" } else { "still baking, waited long enough" }, now - started);
+            info!("Dyno: {} after {:.0} s; a lap to warm up, then the measured laps", if finished { "baked" } else { "still baking, waited long enough" }, now - started);
             dyno.baked_at = Some(now);
             dyno.bake_finished = finished;
             dyno.lap_started = now;
             dyno.jumped = true;
-            dyno.settling = true;
+            dyno.warming = 1;
         }
-    }
-    // Held at the start till the near levels round it are made, then the laps (at least a second, at most 30).
-    if dyno.settling {
-        let at = cameras.iter().next().map_or((0.0, 0.0), |camera| (camera.position.x, camera.position.y));
-        let settled = sight.live.as_ref().is_some_and(|live| live.settled(at));
-        let held = now - dyno.baked_at.unwrap_or(now);
-        if (settled && held >= 1.0) || held >= 30.0 {
-            info!("Dyno: the near levels {} after {held:.1} s at the start; the measured laps begin", if settled { "made" } else { "NOT all made, waited long enough" });
-            dyno.settling = false;
-        }
-        dyno.lap_started = now;
     }
     let flown = now - dyno.lap_started;
     let Some((across, k, _)) = crate::dyno::along(&dyno.legs, flown) else {
         // The lap's done: another, or the end.
-        if dyno.baked_at.is_some() {
+        if dyno.warming > 0 {
+            dyno.warming -= 1;
+            info!("Dyno: warmed up; the measured laps begin");
+        } else if dyno.baked_at.is_some() {
             dyno.baked_laps += 1;
             if dyno.baked_laps >= dyno.laps.max(1) {
                 dyno.done = true;
@@ -474,8 +468,8 @@ fn record_dyno(world: &mut World) {
         return;
     }
     let baked = dyno.baked_at.is_some();
-    if dyno.settling {
-        // Held at the start, the near levels filling: not the route's.
+    if dyno.warming > 0 {
+        // The lap to warm up: not measured.
         return;
     }
     let leg_name = dyno.leg.and_then(|k| dyno.legs.get(k)).map(|leg| leg.name.to_string());

@@ -263,13 +263,6 @@ impl LiveStore {
         Self { levels, side, tiles: HashMap::new(), filling: HashMap::new(), stale: Default::default(), made: 0, took: [(0.0, 0.0, 0); LIVE_LEVELS] }
     }
 
-    /// Whether every tile wanted round `camera` is made and on the card, none still being made (the dyno's flights
-    /// wait for it before their laps: the first leg measured while the near levels filled varied 13% flight to
-    /// flight).
-    pub fn settled(&self, camera: (f32, f32)) -> bool {
-        self.filling.is_empty() && self.wanted(camera).iter().all(|(_, key)| self.tiles.contains_key(key))
-    }
-
     /// Edits at `spots` (blocks): the tiles they reach, at every level, made again (build 88). A tile's cells
     /// stay on the card till the new ones replace them; one being made is made again once it's done.
     pub fn touch(&mut self, spots: impl IntoIterator<Item = [i32; 3]>) {
