@@ -30,7 +30,7 @@ build-by-build numbers are in `docs/regroup.md`.
 - [x] Nsight Graphics installed on David's machine (2026-11-09).
 - [ ] Far light, before the dyno starts [David 2026-11-09: "far light is important to be in there before we go onto
       the dyno"]: a far brazier's glow as a twinkling pixel or so, and its light on the ground averaged into the
-      coarse cells. Details in `docs/regroup.md`, "Lights seen from farther".
+      coarse cells. Details in `docs/regroup.md`, "Lights seen from farther". The glow: build 100. The wash: next.
 
 ## 1. Instruments: measure first
 

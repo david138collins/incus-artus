@@ -43,12 +43,55 @@ pub fn phase(object: [i32; 3]) -> u32 {
 /// A light (0 to 15 each) as it shows now: eased (squared), flickering on its beat by `flicker` (0 to 1) at `time`
 /// (seconds); the same as `march.wgsl`'s `placed_light`, for what's lit on the processor's say (an object's model).
 pub fn glow(light: [u32; 3], beat: u32, flicker: f32, time: f32) -> [f32; 3] {
-    let beat = beat as f32 / 255.0 * std::f32::consts::TAU;
-    let wave = 0.5 + 0.3 * (time * 9.1 + beat).sin() + 0.2 * (time * 23.7 + beat * 3.0).sin();
+    let wave = wave(beat, time);
     light.map(|level| {
         let k = level as f32 / 15.0;
         k * k * (1.0 - flicker * wave)
     })
+}
+
+/// A light's flicker on its beat at `time` (seconds): 0 to 1, about a half on the whole, its peaks short.
+pub fn wave(beat: u32, time: f32) -> f32 {
+    let beat = beat as f32 / 255.0 * std::f32::consts::TAU;
+    0.5 + 0.3 * (time * 9.1 + beat).sin() + 0.2 * (time * 23.7 + beat * 3.0).sin()
+}
+
+// ── Far glows (build 100; David 2026-11-09: "braziers in a cave at night from a distance were just pixels of green
+// that popped in and out as they twinkled, less and less as you got farther away") ──
+//
+// Past the loaded chunks a light is a pixel or so of its colour (`models.rs` draws it, `march.wgsl`'s `glow_pass`
+// says whether the eye sees it). It fades in over the last stretch before the loaded chunks' edge, where its flame
+// is still drawn, so it never snaps; it twinkles, showing only while its flicker is high, the bar rising with
+// distance, so far off it shows only at its peaks; it gets smaller and dimmer with distance, and the fog takes it.
+
+/// Where a light's far glow starts (blocks from the eye), and where it's whole: the loaded chunks reach 64, its flame
+/// drawn to there.
+pub const GLOW_FROM: f32 = 48.0;
+pub const GLOW_WHOLE: f32 = 64.0;
+/// How far past that its twinkle thins to its peaks alone (blocks).
+pub const GLOW_THINS: f32 = 1500.0;
+/// How big a flame is seen from far off (blocks).
+pub const GLOW_SIZE: f32 = 0.75;
+/// The most far glows drawn (the nearest kept).
+pub const GLOWS_MOST: usize = 1024;
+
+/// A far light's glow now, `distance` off (its colour 0 to 255 each, and brightness 0 to 1, as its data has them):
+/// its colour (linear, 0 to 1 each), or none while its twinkle is down. Without flicker (`flicker` 0) it doesn't
+/// twinkle.
+pub fn far_glow(colour: [u8; 3], brightness: f32, beat: u32, flicker: f32, time: f32, distance: f32) -> Option<[f32; 3]> {
+    if distance < GLOW_FROM {
+        return None;
+    }
+    if flicker > 0.0 {
+        // Shown while its flicker is over a bar: a third of its swing near, nearly its top far off.
+        let far = ((distance - GLOW_WHOLE) / GLOW_THINS).clamp(0.0, 1.0);
+        if wave(beat, time) < 0.3 + 0.62 * far {
+            return None;
+        }
+    }
+    let fade_in = ((distance - GLOW_FROM) / (GLOW_WHOLE - GLOW_FROM)).clamp(0.0, 1.0);
+    let strength = brightness.clamp(0.0, 1.0) * fade_in;
+    Some(colour.map(|c| c as f32 / 255.0 * strength))
 }
 
 /// A light as an object gives it: which object (its feet, 16ths of a block), the cell its light comes from, its
@@ -248,6 +291,27 @@ mod tests {
         assert!(!lights.reflood_near(&[[40, 0, 1]], &walled), "a change far off floods nothing again");
         assert!(lights.reflood_near(&[[2, 0, 1]], &walled), "a change within its reach does");
         assert!(!lights.lit().iter().any(|(at, _)| *at == [3, 0, 1]), "the wall keeps its light from beyond it");
+    }
+
+    /// How often a far glow shows over `seconds`, sampled finely.
+    fn shown(distance: f32, seconds: f32) -> f32 {
+        let samples = (seconds * 240.0) as usize;
+        let on = (0..samples).filter(|&k| far_glow([60, 255, 90], 1.0, 77, 0.15, k as f32 / 240.0, distance).is_some()).count();
+        on as f32 / samples as f32
+    }
+
+    #[test]
+    fn a_far_glow_twinkles_less_the_farther_it_is() {
+        assert!(far_glow([60, 255, 90], 1.0, 77, 0.15, 0.0, 30.0).is_none(), "near, its flame is drawn instead");
+        let (near, mid, far) = (shown(80.0, 20.0), shown(700.0, 20.0), shown(3000.0, 20.0));
+        eprintln!("Far glows shown: {near:.2} at 80, {mid:.2} at 700, {far:.2} at 3,000");
+        assert!(near > 0.6, "near the edge mostly on ({near:.2})");
+        assert!(mid < near && far < mid, "less and less farther off ({near:.2}, {mid:.2}, {far:.2})");
+        assert!(far > 0.0 && far < 0.1, "far off, only at its peaks ({far:.2})");
+        // It fades in over the last stretch before the loaded chunks' edge, and it's steady without flicker.
+        let fading = far_glow([60, 255, 90], 1.0, 77, 0.0, 0.0, 56.0).unwrap();
+        assert!((fading[1] - 0.5).abs() < 0.01, "half way in at 56 ({fading:?})");
+        assert!((0..1000).all(|k| far_glow([60, 255, 90], 1.0, 77, 0.0, k as f32 / 100.0, 2000.0).is_some()), "no flicker, no twinkle");
     }
 
     #[test]

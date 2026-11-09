@@ -316,6 +316,11 @@ impl VoxelWorld {
         self.chunks.get(&pos).or_else(|| self.put_away.get(&pos))
     }
 
+    /// The changed chunks put away (not loaded), with all they hold: the objects placed far off among them.
+    pub fn put_away_chunks(&self) -> impl Iterator<Item = &Chunk> + '_ {
+        self.put_away.values()
+    }
+
     /// Where every loaded chunk is.
     pub fn chunk_positions(&self) -> impl Iterator<Item = ChunkPos> + '_ {
         self.chunks.keys().copied()
@@ -580,17 +585,52 @@ fn lights_of(objects: &crate::data::ObjectRegistry, voxel: &VoxelWorld) -> (Vec<
         for object in chunk.objects() {
             let Some(def) = objects.by_name(&object.name) else { continue };
             let Some(light) = def.light.as_ref() else { continue };
-            let shape = def.shape_or_block();
-            let spot = match &def.sprite {
-                Some(sprite) => shape.spot(sprite),
-                None => Vec3::new(0.0, 0.0, shape.size.z as f32 / 32.0),
-            };
-            let at = object.at.as_vec3() / 16.0 + turned(spot, object.facing);
+            let at = light_spot(def, object);
             let colour = light.colour.map(|channel| (channel as f32 / 255.0 * light.brightness.clamp(0.0, 1.0) * 15.0).round() as u32);
             lights.push(LightFrom { object: object.at.to_array(), cell: at.floor().as_ivec3().to_array(), colour, reach: (light.reach.round() as i32).clamp(1, MOST_REACH) });
         }
     }
     (lights, among)
+}
+
+/// Where an object's light comes from (blocks): its sprite's spot (a brazier's flame), or on top of it in the middle.
+fn light_spot(def: &crate::data::ObjectDef, object: &chunk::PlacedObject) -> Vec3 {
+    let shape = def.shape_or_block();
+    let spot = match &def.sprite {
+        Some(sprite) => shape.spot(sprite),
+        None => Vec3::new(0.0, 0.0, shape.size.z as f32 / 32.0),
+    };
+    object.at.as_vec3() / 16.0 + turned(spot, object.facing)
+}
+
+/// Far lights' glows (build 100, `sight/lights.rs`): every light from `lights::GLOW_FROM` off, in the loaded chunks
+/// and the changed chunks put away (all the objects placed far off), as it shows now: twinkling, through the fog;
+/// nearest first. None with placed lights off.
+fn far_glows(voxel: &VoxelWorld, objects: &crate::data::ObjectRegistry, eye: &crate::sight::draw::Eye) -> Vec<crate::sight::models::GlowDrawn> {
+    use crate::sight::lights::{GLOW_FROM, GLOW_SIZE, far_glow, phase};
+    if !eye.placed_lights || std::env::var("INCUS_SIGHT_NO_LIGHTS").is_ok() {
+        return Vec::new();
+    }
+    let fog_left = crate::sight::draw::fog_left(eye);
+    let from = Vec3::from_array(eye.position);
+    let mut glows: Vec<(f32, crate::sight::models::GlowDrawn)> = Vec::new();
+    let loaded = voxel.chunk_positions().filter_map(|pos| voxel.chunk(pos));
+    for chunk in loaded.chain(voxel.put_away_chunks()) {
+        for object in chunk.objects() {
+            let Some(def) = objects.by_name(&object.name) else { continue };
+            let Some(light) = def.light.as_ref() else { continue };
+            let at = light_spot(def, object);
+            let distance = at.distance(from);
+            if distance < GLOW_FROM {
+                continue;
+            }
+            let Some(colour) = far_glow(light.colour, light.brightness, phase(object.at.to_array()), eye.flicker, eye.flicker_time, distance) else { continue };
+            let left = fog_left(at.to_array());
+            glows.push((distance, crate::sight::models::GlowDrawn { at: at.to_array(), colour: colour.map(|c| c * left), size: GLOW_SIZE }));
+        }
+    }
+    glows.sort_by(|a, b| a.0.total_cmp(&b.0));
+    glows.into_iter().map(|(_, glow)| glow).collect()
 }
 
 /// What the objects in the loaded chunks need drawn this frame (build 96, `sight/models.rs`): each one's model, on
@@ -602,7 +642,7 @@ pub fn objects_to_draw(world: &World, millis: u64, eye: &crate::sight::draw::Eye
         return ObjectsFrame::default();
     };
     let opaque = |at: IVec3| registry.def(voxel.get_block(at)).is_some_and(|def| def.opaque);
-    let mut frame = ObjectsFrame { millis, ..Default::default() };
+    let mut frame = ObjectsFrame { millis, glows: far_glows(voxel, objects, eye), ..Default::default() };
     for pos in voxel.chunk_positions() {
         let Some(chunk) = voxel.chunk(pos) else { continue };
         for object in chunk.objects() {

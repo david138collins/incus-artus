@@ -1320,6 +1320,30 @@ lamps, lights at cave mouths), and day and night.
   - **On file:** a far peak hazed most of the way is paler than the sky behind it, since the fog's colour is the
     horizon's at every height and the sky is bluer higher up. That's 86's look ("far mountains melt into the sky"),
     and David's to change if he wants peaks to melt into the sky behind them instead. Suite 417.
+- **David's look at 99:** "looking good, looking good. your far light plan sounds good as well, proceed." (The plan:
+  the glow first, then the wash, a build each.)
+- **Build 100: far lights' glows** (the first half of "Lights seen from farther").
+  - **Which:** every light from 48 blocks off, in the loaded chunks and in the changed chunks put away (every
+    object placed far off is kept in memory with its chunk, so all of them are known), nearest first, 1,024 at most.
+  - **How it looks:** a square of its light's colour, added to the picture: as wide as its flame (0.75 blocks) in
+    whole pixels, 1 to 4, so it doesn't shimmer; under a pixel, one pixel dimmer by as much as it's smaller. It fades
+    in from 48 to 64 blocks, where the flame is still drawn, so it never snaps. It twinkles: shown only while its
+    flicker (the same beat as its flame's) is over a bar that rises with distance, a third of its swing at 64 to nearly
+    its top 1,500 further, so far off it shows only at its peaks; steady with flicker off. Through the fog as the land
+    is (`draw::fog_left`, the march's fog worked out the same on the processor).
+  - **What hides it:** a line walked on the card from the eye to it through the cells (`march.wgsl`'s `glow_pass`),
+    each cell as it's kept, as wide as the cells read at that distance; only a mostly solid one stops it. Not the
+    picture's depth (far off, where a ray first touched the soft edge of the ground's cells, short of a flame on the
+    ground), nor a ray marched as the picture's are (their smooth blend leaks a faint haze a cell over the ground, and
+    a line skimming open ground adds it up to covered). A light in the open (a sky cone straight up) is aimed a cell
+    over its flame, out of the ground's cell; one under rock at its flame. So a hill or a cave's rock hides it, open
+    ground doesn't.
+  - **Test:** `sight_shows_far_lights_as_glows` (one pixel 500 off in the open, none behind a ridge, one from 30 up
+    over the plain, its line skimming the ground's soft cells for 200 blocks); `a_far_glow_twinkles_less_the_farther_it_is`.
+  - **Cost:** one line a light, a few hundred cells each, and one small draw: nothing measurable with a handful of
+    braziers. Suite 419.
+  - **On file:** the wash (its light on the ground averaged into the coarse cells) is the next build; a glow under
+    water isn't tinted by it.
 
 ### Phase 6: everything else, each with its price  [loose]
 

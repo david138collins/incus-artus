@@ -16,7 +16,8 @@ struct View {
     lens: vec4<f32>,
     // xyz: towards the sun; w: the sky's share of the light (`AMBIENT`).
     sun: vec4<f32>,
-    // x: the sun's own light; y: the sky's (both by the time of day, as the march has them).
+    // x: the sun's own light; y: the sky's (both by the time of day, as the march has them); z, w: the screen's size
+    // (pixels).
     daylight: vec4<f32>,
 }
 
@@ -134,4 +135,49 @@ fn sprite_pixel(i: SpriteShaded) -> @location(0) vec4<f32> {
     }
     // Full bright: it's the light.
     return vec4<f32>(to_srgb(texel.rgb), 1.0);
+}
+
+// ── Far lights' glows (build 100) ──
+
+struct Glow {
+    // Its flame's place (blocks), and whether the eye sees it (1 or 0: `march.wgsl`'s `glow_pass`).
+    @location(0) at: vec4<f32>,
+    // Its light now (linear, 0 to 1 each), and how big its flame is (blocks).
+    @location(1) colour: vec3<f32>,
+    @location(2) size: f32,
+}
+
+struct GlowShaded {
+    @builtin(position) at: vec4<f32>,
+    @location(0) colour: vec3<f32>,
+}
+
+@vertex
+fn glow_corner(@builtin(vertex_index) k: u32, g: Glow) -> GlowShaded {
+    let corners = array<vec2<f32>, 6>(vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(0.0, 1.0));
+    var out: GlowShaded;
+    out.colour = vec3<f32>(0.0);
+    let s = on_screen(g.at.xyz);
+    // Hidden, or behind the eye: off the screen.
+    if (g.at.w < 0.5 || s.w < 1.0) {
+        out.at = vec4<f32>(-2.0, -2.0, 0.5, 1.0);
+        return out;
+    }
+    let screen = view.daylight.zw;
+    // Its flame across, in pixels: a square a pixel wide at the least (dimmer by as much as it's smaller), four at
+    // the most, on whole pixels so it doesn't shimmer as the eye moves.
+    let wide = g.size * screen.y / (2.0 * view.lens.y * s.w);
+    let side = clamp(round(wide), 1.0, 4.0);
+    let middle = (s.xy / s.w * vec2<f32>(0.5, -0.5) + 0.5) * screen;
+    let corner = floor(middle - side * 0.5 + 0.5) + corners[k] * side;
+    out.at = vec4<f32>((corner / screen - 0.5) * vec2<f32>(2.0, -2.0), 0.5, 1.0);
+    let smaller = min(wide, 1.0);
+    out.colour = g.colour * smaller * smaller;
+    return out;
+}
+
+@fragment
+fn glow_pixel(i: GlowShaded) -> @location(0) vec4<f32> {
+    // Added to what's there: it's light.
+    return vec4<f32>(to_srgb(clamp(i.colour, vec3<f32>(0.0), vec3<f32>(1.0))), 0.0);
 }

@@ -91,6 +91,9 @@ struct Camera {
 // Each block's medium (build 98: water, glass, ice; `BlockTextures::media_table`): its colour as light, and how fast
 // it dims what's seen through it (a block's worth; 0 not a medium). The first is the world's water's.
 @group(0) @binding(16) var<uniform> media: array<vec4<f32>, 256>;
+// Far lights' glows (build 100, `glow_pass`): each one's place in (xyz; w 0, or −1 for none), and whether the eye
+// sees it out (w: 1 seen, 0 hidden). Read straight after as the glows' places (`models.rs`).
+@group(0) @binding(17) var<storage, read_write> glows: array<vec4<f32>>;
 
 // The medium of block `block`: its own, or the world's water's (water the cells don't keep the block of).
 fn medium_of(block: u32) -> vec4<f32> {
@@ -1708,4 +1711,69 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // [2026-11-08: the half-covered distance was kept, and a finer layer marched everywhere over cells of 32 began
     // inside their soft edge, gathered too little of it, and its shadow rays shaded their own ground].
     textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(touch, 0.0, 0.0, 0.0));
+}
+
+// ── Far lights' glows (build 100; David: "braziers in a cave at night from a distance were just pixels of green that
+// popped in and out as they twinkled") ──
+//
+// Past the loaded chunks a light is drawn as a dot (`models.wgsl`), seen or not as a line walked to it through the
+// cells says: a hill or a cave's rock between hides it. Not by the picture's depth, nor by a ray marched as the
+// picture's are: far off, those meet the soft edge of the cells the ground is read from (blended smoothly, a third
+// solid ground cell is a faint haze a whole cell over the ground), and a line skimming open ground to a flame standing
+// on it adds that haze up and counts as covered. The line instead takes each cell as it's kept, as wide as the cells
+// read at its distance, and only a cell mostly solid stops it. A light in the open (the sky over it, as a sky cone
+// straight up says) has its line aimed a cell over its flame, out of the cell of ground it stands on; one under rock (a
+// cave) is aimed at its flame. Seen if nothing stops the line short of where it's aimed by more than a cell.
+@compute @workgroup_size(64)
+fn glow_pass(@builtin(global_invocation_id) id: vec3<u32>) {
+    // The march's bindings named, so this pass has the same ones whatever it reaches (the layers', but for their
+    // pictures and the pyramid's).
+    _ = header[0];
+    _ = baked[0];
+    _ = live[0];
+    _ = pool[0];
+    _ = pieces[0];
+    _ = lights[0];
+    _ = media[0];
+    _ = block_table[0];
+    _ = textureSampleLevel(block_textures, block_sampler, vec2<f32>(0.0), 0, 0.0);
+    let i = id.x;
+    if (i >= arrayLength(&glows)) {
+        return;
+    }
+    let glow = glows[i];
+    if (glow.w < 0.0) {
+        return;
+    }
+    let eye = camera.position.xyz;
+    let level = level_at(length(glow.xyz - eye));
+    let cell = f32(1 << u32(max(level, 0)));
+    let up = vec3<f32>(0.0, 0.0, 1.0);
+    let open = cone(glow.xyz, cell, up, false, up, camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    let r = glow.xyz + up * cell * smoothstep(0.3, 0.7, open) - eye;
+    let far = length(r);
+    if (far < 1.0) {
+        glows[i].w = 0.0;
+        return;
+    }
+    let d = r / far;
+    let end = far - cell - 1.5;
+    var t = 0.5;
+    var seen = 1.0;
+    for (var k = 0; k < 4096 && t < end; k++) {
+        let p = eye + d * t;
+        var l = level_at(t);
+        var look = cell_at(l, vec3<i32>(floor(p / f32(1 << u32(l)))));
+        // Not there yet (past a live window's reach): the next coarser that is.
+        for (var up_one = 0; up_one < 4 && !look.known && l < header[1]; up_one++) {
+            l = l + 1;
+            look = cell_at(l, vec3<i32>(floor(p / f32(1 << u32(l)))));
+        }
+        if (look.known && look.solid > 0.5) {
+            seen = 0.0;
+            break;
+        }
+        t += max(f32(1 << u32(l)) * 0.5, 0.5);
+    }
+    glows[i].w = seen;
 }

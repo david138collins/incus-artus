@@ -165,6 +165,30 @@ pub fn daylight(sun_up: f32) -> (f32, f32) {
     let glow = smooth(-18.0, 4.0);
     (smooth(-2.0, 4.0), glow * glow)
 }
+/// How much of a light at a place comes through the fog to `eye` (0 to 1), as the march fogs what it sees
+/// (`march.wgsl`'s `fogged`: the air thickest at sea level, thinning going up, summed whole along the way). For the far
+/// glows (build 100), which fade into the fog as the land round them does.
+pub fn fog_left(eye: &Eye) -> impl Fn([f32; 3]) -> f32 + use<> {
+    let on = eye.fog && std::env::var("INCUS_SIGHT_NO_FOG").is_err();
+    let thick = 3.0 / eye.fog_reach.max(10.0);
+    let thins = std::f32::consts::LN_2 / eye.fog_height.max(1.0);
+    let from = eye.position;
+    let at_eye = thick * (-thins * (from[2] - crate::world::SEA_LEVEL as f32)).clamp(-80.0, 80.0).exp();
+    move |at: [f32; 3]| {
+        if !on {
+            return 1.0;
+        }
+        let r = [at[0] - from[0], at[1] - from[1], at[2] - from[2]];
+        let t = (r[0] * r[0] + r[1] * r[1] + r[2] * r[2]).sqrt();
+        if t < 1e-3 {
+            return 1.0;
+        }
+        let climb = thins * r[2] / t;
+        let along = if (climb * t).abs() > 1e-4 { (1.0 - (-(climb * t).clamp(-80.0, 80.0)).exp()) / climb } else { t };
+        (-at_eye * along).exp()
+    }
+}
+
 /// The start pass's tile, and the pyramid's base: screen pixels a side.
 const TILE: u32 = 8;
 /// The farthest a ray goes (blocks): past any map's far corner from anywhere in it.
@@ -173,6 +197,10 @@ const REACH: f32 = 150_000.0;
 pub struct SightDraw {
     march: wgpu::ComputePipeline,
     start: wgpu::ComputePipeline,
+    /// Far lights' glows (build 100): the pass that says which the eye sees (`march.wgsl`'s `glow_pass`), and their
+    /// places, in and out (`super::lights::GLOWS_MOST` of them; the objects' draw reads them as its glows' places).
+    glow_pass: wgpu::ComputePipeline,
+    glows: wgpu::Buffer,
     upscale: wgpu::RenderPipeline,
     up: wgpu::Buffer,
     sampler: wgpu::Sampler,
@@ -215,6 +243,8 @@ struct Targets {
     tiles: (u32, u32),
     layers: Vec<Layer>,
     start_group: wgpu::BindGroup,
+    /// The glows' pass's bindings: the coarsest layer's camera, the store, and the glows.
+    glow_group: wgpu::BindGroup,
     upscale_group: wgpu::BindGroup,
     /// The screen's depth (build 96): the upscale's, from the march's distances, that the objects are drawn into.
     depth: wgpu::TextureView,
@@ -229,6 +259,13 @@ impl SightDraw {
         let march_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's march"), source: wgpu::ShaderSource::Wgsl(include_str!("march.wgsl").into()) });
         let march = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march"), layout: None, module: &march_module, entry_point: Some("march_pass"), compilation_options: Default::default(), cache: None });
         let start = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's start pass"), layout: None, module: &march_module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None });
+        let glow_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's far glows"), layout: None, module: &march_module, entry_point: Some("glow_pass"), compilation_options: Default::default(), cache: None });
+        let glows = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("sight's far glows"),
+            size: super::lights::GLOWS_MOST as u64 * 16,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let up_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's upscale"), source: wgpu::ShaderSource::Wgsl(include_str!("upscale.wgsl").into()) });
         let upscale = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("sight's upscale"),
@@ -267,7 +304,7 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().media_table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
+        Self { march, start, glow_pass, glows, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -387,6 +424,24 @@ impl SightDraw {
                     wgpu::BindGroupEntry { binding: 7, resource: buffer(&starts) },
                 ],
             });
+            let glow_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("sight's far glows"),
+                layout: &self.glow_pass.get_bind_group_layout(0),
+                entries: &[
+                    wgpu::BindGroupEntry { binding: 0, resource: buffer(&layers[0].camera) },
+                    wgpu::BindGroupEntry { binding: 1, resource: buffer(&store.header) },
+                    wgpu::BindGroupEntry { binding: 2, resource: buffer(&store.baked) },
+                    wgpu::BindGroupEntry { binding: 3, resource: buffer(&store.live) },
+                    wgpu::BindGroupEntry { binding: 4, resource: buffer(&store.pool) },
+                    wgpu::BindGroupEntry { binding: 11, resource: wgpu::BindingResource::TextureView(&self.textures) },
+                    wgpu::BindGroupEntry { binding: 12, resource: wgpu::BindingResource::Sampler(&self.texture_sampler) },
+                    wgpu::BindGroupEntry { binding: 13, resource: buffer(&self.texture_table) },
+                    wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
+                    wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
+                    wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
+                    wgpu::BindGroupEntry { binding: 17, resource: buffer(&self.glows) },
+                ],
+            });
             // A layer the pyramid doesn't go to is never read; the base stands in for it.
             let picture_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).picture;
             let far_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).far;
@@ -420,7 +475,7 @@ impl SightDraw {
                     view_formats: &[],
                 })
                 .create_view(&Default::default());
-            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, upscale_group, depth });
+            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, glow_group, upscale_group, depth });
         }
         self.targets.as_ref().expect("made just now")
     }
@@ -534,6 +589,20 @@ impl SightDraw {
             pass.set_bind_group(0, &layer.group, &[]);
             pass.dispatch_workgroups(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8), 1);
         }
+        // The far glows: which the eye sees (build 100).
+        let glow_places = self.objects.glow_places();
+        if !glow_places.is_empty() {
+            let count = glow_places.len().min(super::lights::GLOWS_MOST);
+            let groups = count.div_ceil(64);
+            let mut places: Vec<f32> = glow_places[..count].iter().flat_map(|p| [p[0], p[1], p[2], 0.0]).collect();
+            // The last group's spare places: none.
+            places.resize(groups * 64 * 4, -1.0);
+            queue.write_buffer(&self.glows, 0, &places.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's far glows"), timestamp_writes: None });
+            pass.set_pipeline(&self.glow_pass);
+            pass.set_bind_group(0, &targets.glow_group, &[]);
+            pass.dispatch_workgroups(groups as u32, 1, 1);
+        }
         let attachment = wgpu::RenderPassColorAttachment { view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store } };
         let timestamp_writes = timed.and(queries).map(|query_set| wgpu::RenderPassTimestampWrites { query_set, beginning_of_pass_write_index: None, end_of_pass_write_index: Some(1) });
         let depth = wgpu::RenderPassDepthStencilAttachment { view: &targets.depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(0.0), store: wgpu::StoreOp::Store }), stencil_ops: None };
@@ -552,9 +621,10 @@ impl SightDraw {
             sun: normalise(eye.sun),
             ambient: AMBIENT,
             daylight: [direct, night + (1.0 - night) * glow],
+            screen: [screen.0 as f32, screen.1 as f32],
         };
         let depth_view = targets.depth.clone();
-        self.objects.draw(device, queue, encoder, view, &depth_view, objects_view);
+        self.objects.draw(device, queue, encoder, view, &depth_view, objects_view, &self.glows);
         if let (Some(k), Some(timer)) = (timed, &self.timer) {
             timer.resolve(encoder, k);
         }

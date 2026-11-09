@@ -1593,6 +1593,7 @@ fn ground(c: Case) -> i32 {
             models: vec![ModelDrawn { model: "braziere.gltf".into(), feet: [4.5, 0.5, z], model_feet: [-shape.feet.z, shape.feet.x, shape.feet.y], scale: shape.scale, facing: 0, sky: 1.0, glow: [0.0; 3] }],
             sprites: vec![SpriteDrawn { strip: "green_flame_animation.png".into(), spot: [4.5, 0.5, z + 1.3], scale: 0.5, anchor: crate::data::Anchor::BottomCentre, frame_ms: 110, phase: 0 }],
             millis: 0,
+            ..Default::default()
         };
         let size = (640, 400);
         let down = (-15f32).to_radians();
@@ -1901,6 +1902,46 @@ fn ground(c: Case) -> i32 {
         }
         eprintln!("Sight's skyline: the brightest bump over both sky and ridge {worst:.4}");
         assert!(worst < 0.01, "no bright rim where the ridge meets the sky ({worst:.4})");
+    }
+
+    /// Far lights' glows (build 100; David: "braziers in a cave at night from a distance were just pixels of green
+    /// that popped in and out as they twinkled"): a light 500 off on open ground is a pixel or so of its colour; one
+    /// behind a ridge is hidden (its ray marched to it, not the picture's depth, says so).
+    #[test]
+    #[ignore]
+    fn sight_shows_far_lights_as_glows() {
+        // A plain at 140; ridges at 330, 770 to 1,020 off north and south.
+        let Some((device, queue, store, _map)) = sight_scene_map(64.0, |_, row| if (8..12).contains(&row) || (36..40).contains(&row) { 330.0 } else { 140.0 }, None) else {
+            eprintln!("No graphics card: sight's far glows test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let size = (320, 200);
+        let pitch = (-10.0f32).to_radians();
+        let eye = crate::sight::draw::Eye { position: [0.0, 0.0, 260.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 40.0, grid: 2.0, coarsest: 8, shadows: false, sky: false, fog: false, ..Default::default() };
+        let glow = |north: f32| crate::sight::models::ObjectsFrame { glows: vec![crate::sight::models::GlowDrawn { at: [north, 0.0, 141.5], colour: [1.0, 1.0, 1.0], size: 0.75 }], ..Default::default() };
+        let plain = sight_picture_full(&device, &queue, &store, size, eye, None, None);
+        let open = sight_picture_full(&device, &queue, &store, size, eye, None, Some(glow(500.0)));
+        let behind = sight_picture_full(&device, &queue, &store, size, eye, None, Some(glow(1300.0)));
+        if let Some(dir) = &probe {
+            write_picture(&dir.join("glow_open.png"), size, &open);
+        }
+        let changed = |picture: &[[u8; 3]]| plain.iter().zip(picture).filter(|(a, b)| a != b).map(|(a, b)| (0..3).map(|c| b[c] as i32 - a[c] as i32).max().unwrap_or(0)).collect::<Vec<i32>>();
+        let (seen, hidden) = (changed(&open), changed(&behind));
+        eprintln!("Sight's far glows: in the open {seen:?}; behind the ridge {hidden:?}");
+        // From low over the plain (30 up), one 600 off on it: a ray to the flame itself skims the ground's soft cells
+        // (128 to 160, a third solid) for its last 200 blocks; aimed over them, it sees it. (Not lower: this scene keeps
+        // only the 16s near the eye, not the game's 1s to 8s, so an eye 10 up is in a soft cell itself.)
+        let flat = (-2.5f32).to_radians();
+        let low = crate::sight::draw::Eye { position: [0.0, 0.0, 170.0], looking: [flat.cos(), 0.0, flat.sin()], ..eye };
+        let low_plain = sight_picture_full(&device, &queue, &store, size, low, None, None);
+        let low_glow = sight_picture_full(&device, &queue, &store, size, low, None, Some(glow(600.0)));
+        let grazing = low_plain.iter().zip(&low_glow).filter(|(a, b)| a != b).count();
+        eprintln!("Sight's far glows: from low over the plain, {grazing} pixels");
+        assert!((1..=4).contains(&seen.len()), "a pixel or so in the open ({} changed)", seen.len());
+        assert!(seen.iter().all(|&brighter| brighter > 40), "brighter where it shows ({seen:?})");
+        assert!(hidden.is_empty(), "hidden behind the ridge ({hidden:?})");
+        assert!((1..=4).contains(&grazing), "seen from low over open ground ({grazing} changed)");
     }
 
     /// A measuring test (ignored): sight's steps a ray, by band of the screen, over the made-up sea, from 120 up

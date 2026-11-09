@@ -12,6 +12,10 @@
 //! - **Its sprite** (a brazier's flame): a strip of frames (`data::read_strip`), on its spot, played at its
 //!   milliseconds a frame, each object on its own frame (from its place), turning about the upright to face you,
 //!   full bright.
+//! - **Far lights' glows** (build 100): past the loaded chunks, each light a square of its colour a pixel or so
+//!   wide, added to the picture: whole pixels, smaller (and dimmer as it's under a pixel) with distance, twinkling
+//!   and through the fog as `lights::far_glow` and `draw::fog_left` say, seen or not as a ray marched to it says
+//!   (`march.wgsl`'s `glow_pass`, so not by the depth).
 
 use crate::data::{Anchor, Strip, models_folder, png_rgba, read_strip, sprites_folder};
 use std::collections::HashMap;
@@ -49,11 +53,24 @@ pub struct SpriteDrawn {
     pub phase: u32,
 }
 
+/// A far light's glow to draw this frame (build 100).
+#[derive(Clone, Copy, Debug)]
+pub struct GlowDrawn {
+    /// Its flame's place (blocks).
+    pub at: [f32; 3],
+    /// Its light now (linear, 0 to 1 each): its colour as it twinkles, through the fog.
+    pub colour: [f32; 3],
+    /// How big its flame is (blocks).
+    pub size: f32,
+}
+
 /// What the objects need drawn this frame.
 #[derive(Clone, Debug, Default)]
 pub struct ObjectsFrame {
     pub models: Vec<ModelDrawn>,
     pub sprites: Vec<SpriteDrawn>,
+    /// Far lights' glows, nearest first (`lights::GLOWS_MOST` at most are drawn).
+    pub glows: Vec<GlowDrawn>,
     /// Milliseconds since the game started (the sprites' frames).
     pub millis: u64,
 }
@@ -71,6 +88,8 @@ pub struct ObjectsView {
     pub ambient: f32,
     /// The sun's own light and the sky's, by the time of day.
     pub daylight: [f32; 2],
+    /// The screen's size (pixels).
+    pub screen: [f32; 2],
 }
 
 /// The nearest anything is drawn (blocks): the depth's scale (`upscale.wgsl` the same).
@@ -102,6 +121,7 @@ struct Kept<T> {
 pub struct ObjectsDraw {
     models_pipeline: wgpu::RenderPipeline,
     sprites_pipeline: wgpu::RenderPipeline,
+    glows_pipeline: wgpu::RenderPipeline,
     view: wgpu::Buffer,
     view_group: wgpu::BindGroup,
     texture_layout: wgpu::BindGroupLayout,
@@ -289,11 +309,45 @@ impl ObjectsDraw {
             multiview_mask: None,
             cache: None,
         });
+        // The glows: added to the picture, by no depth (the glows' pass says which are seen).
+        let glow_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("sight's far glows"), bind_group_layouts: &[Some(&view_layout)], immediate_size: 0 });
+        let place_attributes = [float(0, 0, wgpu::VertexFormat::Float32x4)];
+        let glow_attributes = [float(0, 1, wgpu::VertexFormat::Float32x3), float(12, 2, wgpu::VertexFormat::Float32)];
+        let add = wgpu::BlendComponent { src_factor: wgpu::BlendFactor::One, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add };
+        let glows_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("sight's far glows"),
+            layout: Some(&glow_layout),
+            vertex: wgpu::VertexState {
+                module: &module,
+                entry_point: Some("glow_corner"),
+                buffers: &[
+                    Some(wgpu::VertexBufferLayout { array_stride: 16, step_mode: wgpu::VertexStepMode::Instance, attributes: &place_attributes }),
+                    Some(wgpu::VertexBufferLayout { array_stride: GLOW_FLOATS as u64 * 4, step_mode: wgpu::VertexStepMode::Instance, attributes: &glow_attributes }),
+                ],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &module,
+                entry_point: Some("glow_pixel"),
+                targets: &[Some(wgpu::ColorTargetState { format, blend: Some(wgpu::BlendState { color: add, alpha: add }), write_mask: wgpu::ColorWrites::COLOR })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState { cull_mode: None, ..Default::default() },
+            depth_stencil: Some(wgpu::DepthStencilState { format: DEPTH, depth_write_enabled: Some(false), depth_compare: Some(wgpu::CompareFunction::Always), stencil: Default::default(), bias: Default::default() }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
         let view = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's objects' view"), size: VIEW_ROWS as u64 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let view_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's objects' view"), layout: &view_layout, entries: &[wgpu::BindGroupEntry { binding: 0, resource: view.as_entire_binding() }] });
         // Pixel art: each texel a square as painted.
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("sight's objects' pictures"), mag_filter: wgpu::FilterMode::Nearest, min_filter: wgpu::FilterMode::Nearest, ..Default::default() });
-        Self { models_pipeline, sprites_pipeline, view, view_group, texture_layout, sampler, models: HashMap::new(), strips: HashMap::new(), frame: ObjectsFrame::default(), problems: Vec::new() }
+        Self { models_pipeline, sprites_pipeline, glows_pipeline, view, view_group, texture_layout, sampler, models: HashMap::new(), strips: HashMap::new(), frame: ObjectsFrame::default(), problems: Vec::new() }
+    }
+
+    /// The far glows' places this frame (as many as are drawn), for the glows' pass to say which are seen.
+    pub fn glow_places(&self) -> Vec<[f32; 3]> {
+        self.frame.glows.iter().take(super::lights::GLOWS_MOST).map(|glow| glow.at).collect()
     }
 
     /// What to draw this frame.
@@ -386,8 +440,10 @@ impl ObjectsDraw {
     }
 
     /// The objects drawn onto `target`, into `depth` (the march's, from the upscale), from `view`.
-    pub fn draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth: &wgpu::TextureView, view: ObjectsView) {
-        if self.frame.models.is_empty() && self.frame.sprites.is_empty() {
+    /// Drawn into `target` and `depth`; the glows' places (and whether each is seen) in `glow_places`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth: &wgpu::TextureView, view: ObjectsView, glow_places: &wgpu::Buffer) {
+        if self.frame.models.is_empty() && self.frame.sprites.is_empty() && self.frame.glows.is_empty() {
             return;
         }
         let rows: [[f32; 4]; VIEW_ROWS] = [
@@ -397,7 +453,7 @@ impl ObjectsDraw {
             [view.up[0], view.up[1], view.up[2], 0.0],
             [view.half[0], view.half[1], NEAREST, 0.0],
             [view.sun[0], view.sun[1], view.sun[2], view.ambient],
-            [view.daylight[0], view.daylight[1], 0.0, 0.0],
+            [view.daylight[0], view.daylight[1], view.screen[0], view.screen[1]],
         ];
         queue.write_buffer(&self.view, 0, &bytes(rows.as_flattened()));
         // Each model's placings, together.
@@ -439,7 +495,9 @@ impl ObjectsDraw {
                 None => by_strip.push((sprite.strip.clone(), placed.to_vec())),
             }
         }
+        let glows: Vec<f32> = frame.glows.iter().take(super::lights::GLOWS_MOST).flat_map(|glow| [glow.colour[0], glow.colour[1], glow.colour[2], glow.size]).collect();
         use wgpu::util::DeviceExt;
+        let glow_buffer = (!glows.is_empty()).then(|| device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's far glows' lights"), contents: &bytes(&glows), usage: wgpu::BufferUsages::VERTEX }));
         let model_buffers: Vec<(String, wgpu::Buffer, u32)> = by_model
             .into_iter()
             .map(|(name, list)| {
@@ -475,12 +533,20 @@ impl ObjectsDraw {
             pass.set_vertex_buffer(0, sprites.slice(..));
             pass.draw(0..6, 0..*count);
         }
+        if let Some(lights) = &glow_buffer {
+            pass.set_pipeline(&self.glows_pipeline);
+            pass.set_bind_group(0, &self.view_group, &[]);
+            pass.set_vertex_buffer(0, glow_places.slice(..));
+            pass.set_vertex_buffer(1, lights.slice(..));
+            pass.draw(0..6, 0..(glows.len() / GLOW_FLOATS) as u32);
+        }
     }
 }
 
 /// Floats in a model's placing, a sprite's, and the view's rows.
 const PLACED_FLOATS: usize = 13;
 const SPRITE_FLOATS: usize = 11;
+const GLOW_FLOATS: usize = 4;
 const VIEW_ROWS: usize = 7;
 
 #[cfg(test)]
