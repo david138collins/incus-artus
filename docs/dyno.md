@@ -130,6 +130,28 @@ swings between about 70 and 104 °C.
 the 99th percentile at 21 ms (47 fps) against "fine" at about 180 fps (5.5 ms: four times); the floor, a stable
 120, not met at the 99th either. The worst frames are the gap.
 
+### The test world with its rivers (2026-11-09, build 102)
+
+`nice25 test` was made without its rivers and lakes (and its climate): the automatic render rendered as soon as the
+map compiled, before the climate had carved them [David: "if you're using the editor, you have to wait for it to
+finish with rivers, otherwise you spawn without thwem"]. It waits for them now, and the test world was made again
+with them (its bake 689 s, 209 MB). **Everything before this was flown on the world without rivers;** steps are
+judged in pairs on one world, so what's kept stands, but the baseline from here is this:
+
+| Build 102, with rivers (`logs/dyno-1794267791.txt`, `-1794268014.txt`) | Median | 95th | 99th | Card median |
+|---|---|---|---|---|
+| **Whole flight** | **6.48 / 6.63 (153 fps)** | 16.58 / 16.36 | 21.58 / 21.67 | 5.08 / 5.35 |
+| Over the land | 12.70 / 12.97 | 17.7 / 16.6 | 19.8 / 19.2 | 11.2 / 11.6 |
+| Round the peak (rivers and lakes on the circle) | 6.79 / 6.85 | 19.9 | 25.7 / 24.7 | 4.68 / 5.04 |
+| Out to sea | 9.26 / 9.57 | 16.4 / 16.3 | 20.4 / 20.2 | 8.4 / 8.9 |
+| Quick | 3.71 / 4.18 | 8.9 / 9.0 | 12.5 / 12.2 | 1.37 / 1.67 |
+| Home | 7.53 / 7.39 | 12.4 / 12.6 | 14.8 / 15.2 | 6.03 / 6.17 |
+
+Against the same build without rivers (5.39 ms median, the card 4.67): the median 17% more, **round the peak the
+card's time three and a half times** (1.4 to 4.8 ms). Water near the eye is dear: the near walk goes on through water
+a block at a time, no skipping in a medium, till it's dimmed out some 25 blocks down (build 98). Water's moved to the
+front of the order.
+
 ### The breakdown (2026-11-09, build 101 with the 10-second hitch fixed)
 
 Each flight with one thing switched off (the measuring switches), against a reference flown the same way (a warm-up
