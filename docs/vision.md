@@ -576,6 +576,26 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
     - **It's spell lego** (above, `vision/watch-list.md` item 18) and the FX Lab's pieces, so the
       spellmaker and the effects can share one system, drawn with the sprite particles
       (`docs/decisions.md`, objects, "Sprites for effects and spells").
+- **[IDEA, David 2026-11-09] Magic's things, and where magic lives:** "potions, flasks (thrown potions), spells,
+  rings, amulets, cloaks, scrolls, wands, staffs, tomes (reusable scrolls, slower than memorized from the tome),
+  enchantments are kept in your pocket for things and cost a drain or reserve of energy, but gems can be enchanted
+  and encrusted onto weapons and armor, inherently magical weapons and armor are either masterwork artifacts from
+  an npc or items i add for quests or certain structure loots, and possibly only with astrological conditions for
+  players practicing enchantment. blessings."
+  - **The magic kit:** potions, flasks (thrown potions), spells, rings, amulets, cloaks, scrolls, wands, staffs,
+    tomes and enchantments. They're kept in your pocket for such things, and cost energy as a **drain** (spent on
+    use) or a **reserve** (held back from the blue sphere while it's worn or ready).
+  - **Tomes are reusable scrolls:** cast from the tome, a spell is slower than one memorised from it.
+  - **Weapons and armour take magic only through gems:** enchanted gems encrusted on them (above, Building:
+    quality, material and encrusting).
+  - **Inherently magical weapons and armour** are rare:
+    - masterwork artifacts made by an NPC;
+    - items David places for quests or as loot in certain structures;
+    - possibly, for players practising enchantment, only under astrological conditions.
+  - **Blessings** are on the list too (shape [OPEN]; there's also a Blessing scroll in the vault's lists).
+  - *Counsel:* the reserve is a good fit for the blue sphere. A worn ring could hold part of it back, visibly
+    (that part of the fluid locked, or a different shade), so wearing magic has a cost you can see, the way
+    fasting does.
 
 ## Economy  [IDEA]
 
@@ -860,6 +880,23 @@ bread and a blank diary. Birds sing and flit about.
     - **Gems tie mining to magic:** the gem list in the vault (diamond to onyx) becomes the enchanter's
       raw material, so the ladder of getting ore (`docs/decisions.md`, Blocks) feeds magic as well as
       metal.
+- **[IDEA, David 2026-11-09] Quality first, within material; and sharpness:** "quality would be the biggest
+  determinant of a weapon or armors worth, although poorly made adamantine or mithril weapons will still obviously
+  be better than a masterful copper weapon. sharpness isnt durability, it wears down relatively fast and is restored
+  relatively easily. skill can put a better edge on it that lasts longer and hits harder. a stone can sharpen it one
+  step at a time from say 1/4 more slowly, where a grinding stone does it rapidly. dull weapons just lose
+  effectiveness to a point. material plays a big role in how many steps of sharpness it has to maintain, and to use
+  as you fight, so a steel sword may not need to be sharpened as constantly."
+  - **Worth:** quality decides most of it within a material. Material still sets the range: a poorly made
+    adamantine or mithril weapon beats a masterwork copper one.
+  - **Sharpness is not durability.** It wears down fairly fast and comes back fairly easily.
+  - **Skill makes a better edge,** one that lasts longer and hits harder.
+  - **Sharpening:**
+    - a whetstone restores it one step at a time, slowly;
+    - a grinding stone does it fast.
+  - **Dull weapons** lose effectiveness, down to a floor, never to useless.
+  - **Material sets how many steps of sharpness** a blade holds before it needs work, so a steel sword can go
+    longer between sharpenings.
 - Calendar: year = 4 seasons × 7 days; day = 15 min light + 15 min dark. **[David 2026-11-09]:** days of 30 minutes
   of sun and 30 of night appeal to him more; how many days a season is now open (see "Food carries you through the
   year", above).
