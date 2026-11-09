@@ -2087,6 +2087,28 @@ fn ground(c: Case) -> i32 {
         eprintln!("Sight's march split from its light: at worst {} pixels more than a step apart, {} at most", worst.0, worst.1);
     }
 
+    /// A measuring test (ignored; chasing the near walk's run-to-run differences, 2026-11-09): the hills scene made
+    /// twice in one go, the same view drawn from each, skipping air and every block walked.
+    #[test]
+    #[ignore]
+    fn sight_s_scene_made_twice_draws_the_same() {
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let size = (320, 200);
+        let mut pictures = Vec::new();
+        for _ in 0..2 {
+            let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else { return };
+            let ground = map.height(0.0, 0.0).unwrap_or(150.0);
+            let pitch = (-8.0f32).to_radians();
+            let picture = |walk_every_block: bool| {
+                let eye = crate::sight::draw::Eye { position: [0.0, 0.0, ground + 8.0], looking: [pitch.cos(), 0.0, pitch.sin()], field_of_view: 70.0, grid: 2.0, coarsest: 8, walk_every_block, ..Default::default() };
+                sight_picture(&device, &queue, &store, size, eye)
+            };
+            pictures.push((picture(false), picture(true)));
+        }
+        let apart = |a: &[[u8; 3]], b: &[[u8; 3]]| a.iter().zip(b).filter(|(x, y)| x != y).count();
+        eprintln!("Sight's scene made twice: skipping {} pixels apart, every block {} apart; first scene skipping against its truth {}, second {}", apart(&pictures[0].0, &pictures[1].0), apart(&pictures[0].1, &pictures[1].1), apart(&pictures[0].0, &pictures[0].1), apart(&pictures[1].0, &pictures[1].1));
+    }
+
     /// A measuring test (ignored; the dyno's first step): the near walk's steps a ray as it skips air, against every
     /// block walked, over flat land (the dyno's land leg: 40 up, 8° down) and over hills, with every live level made
     /// round the eye and with only the blocks and the 16s (as while the camera moves: the near levels never finish),

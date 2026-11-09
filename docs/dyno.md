@@ -219,6 +219,18 @@ the instruments show re-ranks it, and any change is written here.
    from run to run, so the scene may be at fault; to check in the game before it's called a flaw
    (`sight_s_near_walk_against_every_block`). Seen again in the third step's test pictures (the near view's right
    half drawn from far cells where the blocks are): next to find.
+   **What's found so far** (2026-11-09; the pictures in `screenshots/dyno/`: "near walk flaw - as drawn" and
+   "- every block walked", 8 over a hillside looking a little down, the right half of the near hill drawn from
+   blurry far cells):
+   - The test scene with every live level made (the blocks and the cells of 2 to 16, as in the game) comes out
+     differently from one making to the next, even twice in one process (`sight_s_scene_made_twice_draws_the_same`:
+     skipping air, 37,956 pixels apart; every block walked, 12,488): its data isn't the same each time it's made.
+   - In one making a view's near tiles look missing altogether (no blocks even walking every block); in another,
+     they're there and the skip over the coarse columns goes into the hill. Which views, changes.
+   - Not: the card's work failing (none did), the pool's allotting (right), the store's buffers left unset (made
+     whole as it's made), the live window's size (set), the `odd` flag (the world's own).
+   - Next: read the store's buffers back from two makings and set them side by side, to see which data differ; then
+     whether the game's own making (the live levels filled as the camera moves, the bake beside them) does it.
 2. [~] **Sky light kept, not marched** (step 2; David's idea, below in section 2): the five cones a pixel become a
    lookup. Sky light is 3.8 ms over the land, the biggest shading cost, and its own (no overlap with the walk).
    [David 2026-11-09: "blocky and quantized lighting is good all around i think. please try to see if there are any
