@@ -277,12 +277,31 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   - **Nutrition:** needed to get all your energy back each day. Low nutrition means weaker magic, lower
     charisma, and an energy sphere you can't fully refill.
   - Most food and farming comes over from Dwarf Fortress.
+  - **[IDEA, David 2026-11-09] Fat and carbs are both fuel; the names are open.** "im unsure about 'carbs', because
+    fat and carbs both give energy or fuel, so they should both refill that nutrition meter. i dont like nutrition
+    meaning your (protein, nutrition, carbs) state and having its own name in its own set. 'fuel/carbs' from carbs
+    could just spike faster and wear off quicker and 'fuel/carbs' from fat could just wear off slower. i guess i
+    could just color them with no names if english has failed me?"
+    - **Fuel comes two ways:** carbs spike fast and wear off quickly, fat wears off slowly. Both refill the same
+      meter.
+    - **"Nutrition" can't be both** one of the three and the name of the whole set.
+    - Names, or colours only, [OPEN].
+    - *Counsel* [PROPOSED]:
+      - **Colours on the gauges, plain words on hover.** The spheres are fluid simulations, so fuel can show its
+        difference without words: carbs a thin, bright fluid that drains quickly, fat a thick, golden one that
+        drains slowly. A player sees which kind they're running on.
+      - **Words, if wanted** (hover and item cards): *fat* and *starch* (an older word than carbs, and plain) for
+        the two fuels, *protein* for mending, and for the third, from plants, herbs and variety, *vigour*. The set
+        has no name of its own; it's just what's in the food.
   - **[IDEA 2026-10-30] Salt or herbs to cure food** (David): salt is an alternative to herbs for
     preserved food. Curing a piece of meat takes **2 herbs or 1 salt**. Herbs add nutrition; salt adds
     none. Salt can be used elsewhere without being critical. *Counsel:* so salt is the convenient
     choice and herbs the nourishing one, a real choice rather than a must-have. Salt comes from dry
     basins and salt deposits (`docs/worldgen.md`, "Strata"), which gives dry regions something to
     trade.
+    **David, 2026-11-09:** "i think adding herbs and salt to the meat to cure it will raise the nutrition value
+    relative its pure protein, although the overall strength of cured meat is weaker." So cured meat is better
+    balanced than plain meat, but worth less in total.
 - **[IDEA, David 2026-11-09] Food carries you through the year.** His notes, taken while the dyno ran:
   "i need to reconcile long days and solid years with food and crops for players to not be frustrated. days that
   are 30 minutes of sun and 30 minutes of night appeal to me. but 7 day weeks then seem excessive, even if we had
