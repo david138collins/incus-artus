@@ -284,6 +284,9 @@ fn report(world: &mut World) {
 const HEAT_EVERY: f32 = 5.0;
 /// The longest the bake is waited for (seconds): past it, the baked laps start anyway (and the report says so).
 const BAKING_MOST: f32 = 1800.0;
+/// The heat a flight stops at (the CPU area, °C: agreed with David for measuring runs, 2026-11-05), read twice in a
+/// row (the CPU area's reading jumps 20 degrees between readings: one spike isn't the laptop's heat).
+const TOO_HOT: f32 = 105.0;
 
 /// Whether the dyno's flight is the baking one (`INCUS_DYNO=baking`).
 fn dyno_baking_run() -> bool {
@@ -299,6 +302,11 @@ struct Dyno {
     baking_run: bool,
     /// The world saved (`INCUS_DYNO_SAVE_AS`), once its bake was whole.
     saved: bool,
+    /// Stopped for the heat (`TOO_HOT`), at this CPU area's temperature; and whether the last reading was over it.
+    too_hot: Option<f32>,
+    hot_once: bool,
+    /// What else was running as the flight began (`background_programs`).
+    background: String,
     baking_laps: u32,
     legs: Vec<crate::dyno::Leg>,
     /// When the flight began, and the lap now.
@@ -338,13 +346,18 @@ fn fly_dyno(
         return;
     }
     let now = time.elapsed_secs();
+    // A saved world asked for (`INCUS_LOAD_WORLD`): the route waits till it's loaded (till then the world is the one
+    // the game starts with, without the saved one's caves).
+    if dyno.legs.is_empty() && std::env::var("INCUS_LOAD_WORLD").is_ok() && current.saved.is_none() {
+        return;
+    }
     if dyno.legs.is_empty() {
-        // The cave mouths: each tunnel's ends that come up to the ground.
+        // The cave mouths: each tunnel's ends that come up to the ground (its points are in 16ths of a block).
         let ground = |north: f32, east: f32| map.height(north, east);
         let mut mouths = Vec::new();
         for tunnel in &caves.0.tunnels {
             for point in [tunnel.points.first(), tunnel.points.last()].into_iter().flatten() {
-                let [north, east, z] = point.at.map(|v| v as f32);
+                let [north, east, z] = point.at.map(|v| v as f32 / 16.0);
                 if ground(north, east).is_some_and(|top| z >= top - 8.0) {
                     mouths.push([north, east, z]);
                 }
@@ -356,6 +369,8 @@ fn fly_dyno(
         dyno.started = Some(now);
         dyno.lap_started = now;
         dyno.next_heat = now;
+        dyno.background = background_programs();
+        info!("Dyno: running beside it: {}", dyno.background);
     }
     *mode = ControlMode::Fly;
     if kept.frame_limit_name() != crate::look::UNCAPPED {
@@ -364,13 +379,18 @@ fn fly_dyno(
     // Baked yet? Then the measured laps begin, from the start of the route (and the world's saved, if asked).
     let started = dyno.started.unwrap_or(now);
     let finished = sight.bake.as_ref().is_some_and(|baking| baking.bake.lock().is_ok_and(|bake| bake.all_done.is_some()));
-    if finished
-        && !dyno.saved
-        && let Ok(name) = std::env::var("INCUS_DYNO_SAVE_AS")
-    {
-        info!("Dyno: the bake is whole; the world saved as worlds/{name}");
-        current.name = name;
-        requests.write(crate::save::WorldFileRequest::Save);
+    if finished && !dyno.saved {
+        // Saved as asked (`INCUS_DYNO_SAVE_AS`); or the world loaded (`INCUS_LOAD_WORLD`) had to be baked again (its
+        // bake didn't read back: the cells' code, or the world, changed), saved again so the next flight needn't.
+        let rebaked = std::env::var("INCUS_LOAD_WORLD").is_ok() && now - started > 60.0;
+        if let Ok(name) = std::env::var("INCUS_DYNO_SAVE_AS") {
+            info!("Dyno: the bake is whole; the world saved as worlds/{name}");
+            current.name = name;
+            requests.write(crate::save::WorldFileRequest::Save);
+        } else if rebaked {
+            info!("Dyno: the world's bake was made again ({:.0} s); saved again with it", now - started);
+            requests.write(crate::save::WorldFileRequest::Save);
+        }
         dyno.saved = true;
     }
     if dyno.baked_at.is_none() && !dyno.baking_run {
@@ -462,6 +482,15 @@ fn record_dyno(world: &mut World) {
     }
     if let Some(heat) = heat {
         let at = now - dyno.started.unwrap_or(now);
+        let over = heat.cpu_area.filter(|&celsius| celsius >= TOO_HOT);
+        if let Some(celsius) = over
+            && dyno.hot_once
+        {
+            warn!("Dyno: the CPU area at {celsius:.0} °C twice running; the flight stops (the cutoff is {TOO_HOT:.0})");
+            dyno.too_hot = Some(celsius);
+            dyno.done = true;
+        }
+        dyno.hot_once = over.is_some();
         let show = |value: Option<f32>, unit: &str| value.map_or("-".to_string(), |v| format!("{v:.0}{unit}"));
         let line = format!("{at:>4.0} s ({}): GPU {}, clock {}, CPU area {}", if baked { "baked" } else { "baking" }, show(heat.gpu, " °C"), show(heat.gpu_clock, " MHz"), show(heat.cpu_area, " °C"));
         info!("Dyno heat: {line}");
@@ -497,6 +526,10 @@ fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
     );
     let names: Vec<&str> = dyno.legs.iter().map(|leg| leg.name).collect();
     text += &format!("The route, {:.0} s a lap: {}\n", crate::dyno::duration(&dyno.legs), names.join(", "));
+    text += &format!("Running beside it: {} (kept the same every flight, so the pairs cancel it: browser music, Aseprite idle)\n", dyno.background);
+    if let Some(celsius) = dyno.too_hot {
+        text += &format!("STOPPED for the heat: the CPU area reached {celsius:.0} °C (the cutoff is {TOO_HOT:.0}); what's below is as far as it got\n");
+    }
     let (started, baked_at) = (dyno.started.unwrap_or(0.0), dyno.baked_at.unwrap_or(0.0));
     if dyno.baking_run {
         text += &format!("The baking flight: a fresh bake, {} laps flown while it baked\n\n", dyno.baking_laps);
@@ -513,4 +546,36 @@ fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
         text += &format!("  {line}\n");
     }
     text
+}
+
+
+/// The programs running beside a flight that could take the processor or the card (browsers, Aseprite, and the
+/// like), by name, from Windows' task list; "none of note" if none, "unknown" where there's no task list.
+fn background_programs() -> String {
+    const NOTABLE: [(&str, &str); 12] = [
+        ("chrome.exe", "Chrome"),
+        ("msedge.exe", "Edge"),
+        ("firefox.exe", "Firefox"),
+        ("brave.exe", "Brave"),
+        ("opera.exe", "Opera"),
+        ("aseprite.exe", "Aseprite"),
+        ("blender.exe", "Blender"),
+        ("blockbench.exe", "Blockbench"),
+        ("obs64.exe", "OBS"),
+        ("discord.exe", "Discord"),
+        ("steam.exe", "Steam"),
+        ("spotify.exe", "Spotify"),
+    ];
+    let mut command = std::process::Command::new("tasklist");
+    command.args(["/FO", "CSV", "/NH"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let Ok(output) = command.output() else { return "unknown".into() };
+    let text = String::from_utf8_lossy(&output.stdout).to_lowercase();
+    let running: Vec<&str> = NOTABLE.iter().filter(|(exe, _)| text.lines().any(|line| line.starts_with(&format!("\"{exe}\"")))).map(|(_, name)| *name).collect();
+    if running.is_empty() { "none of note".into() } else { running.join(", ") }
 }
