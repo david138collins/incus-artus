@@ -1283,6 +1283,12 @@ lamps, lights at cave mouths), and day and night.
   - **Not yet (95):** lights seen from far off (the list drawn on top); lights and objects beyond the loaded chunks
     (radius 4, 64 blocks: a brazier farther off is neither lit nor drawn); sun shadows on and from objects; fog on
     objects (they're near).
+- **David on the engine, going into the dyno** (2026-11-09): "overall the new engine looks really nice, and if its
+  loaded, its at least smoothish on my laptop right now, at dismal framerates. you can tell it's creaking when you
+  move too quick though. i will say that the work we've done so that stuff happens predictably every duty cycle
+  makes the lag and chop feel more like a problem that can be worked out through clever gpu origami than a doleful
+  warning." The two things he feels: the bake (smooth once the ground is in, creaking when it has to catch up) and
+  the frame rate itself. Even work each frame is what makes it read as solvable.
 
 ### Phase 6: everything else, each with its price  [loose]
 
