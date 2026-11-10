@@ -2195,6 +2195,48 @@ fn ground(c: Case) -> i32 {
         assert!(worst.0 <= (size.0 * size.1 / 1000) as usize, "the same picture as the one pass ({} pixels more than a step apart, {} at most)", worst.0, worst.1);
     }
 
+    /// Light per face near the eye (the stages, 2026-11-09): each block face near the eye lit once, at its middle. It
+    /// changes only the near blocks' light: from high up, where no face is near, the picture is the same as each pixel
+    /// lit for itself; near the ground it differs, but as light, not as anything else (the picture about as bright).
+    #[test]
+    #[ignore]
+    fn sight_s_light_per_face_changes_only_the_near_faces() {
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
+            eprintln!("No graphics card: sight's light per face test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
+        let size = (640, 400);
+        let low = 30f32.to_radians();
+        let sun = [low.cos() * 0.6, low.cos() * 0.8, low.sin()];
+        for (name, at, pitch, heading) in [("near", [0.0f32, 0.0, 6.0], -20.0f32, 0.0f32), ("level", [-30.0, 10.0, 3.0], 0.0, 30.0), ("high", [0.0, 0.0, 400.0], -30.0, 45.0)] {
+            let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
+            let (p, h) = (pitch.to_radians(), heading.to_radians());
+            let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
+            let picture = |face_light: bool| {
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, stages: true, face_light, sun, ..Default::default() };
+                sight_picture(&device, &queue, &store, size, eye)
+            };
+            let (each, per_face) = (picture(false), picture(true));
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("per_face_{name}_off.png")), size, &each);
+                write_picture(&dir.join(format!("per_face_{name}_on.png")), size, &per_face);
+            }
+            let differ = each.iter().zip(&per_face).filter(|(x, y)| x != y).count();
+            let brightness = |p: &[[u8; 3]]| p.iter().map(|c| c.iter().map(|&v| v as f64).sum::<f64>()).sum::<f64>() / (p.len() * 3) as f64;
+            let (b0, b1) = (brightness(&each), brightness(&per_face));
+            eprintln!("Sight's light per face, {name}: {differ} pixels differ; brightness {b0:.1} against {b1:.1}");
+            if name == "high" {
+                assert_eq!(differ, 0, "from high up, no face near: the same picture");
+            } else {
+                assert!(differ > 0, "near the ground, light per face shows ({name})");
+                assert!((b1 - b0).abs() <= 0.05 * b0, "about as bright ({name}: {b0:.1} against {b1:.1})");
+            }
+        }
+    }
+
     /// The hills scene made twice in one go draws the same, skipping air and every block walked [2026-11-09: it didn't,
     /// the bake's rows written past the map's bounds as the bakers happened to finish].
     #[test]

@@ -286,6 +286,16 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.checkbox(&mut every, "Walk every block near the eye (slow: no air skipped; if the picture changes, the skip is wrong there)").changed() {
         kept.render.table.insert("sight_walk_every_block".to_string(), toml::Value::Boolean(every));
     }
+    // The march in stages and light per face near the eye (the dyno, 2026-11-09: David to look at; where they live on
+    // the page is his to say).
+    let mut stages = kept.sight_stages();
+    if ui.checkbox(&mut stages, "Draw in stages (the march, then shadow, sky light and light each a pass of its own)").changed() {
+        kept.render.table.insert("sight_stages".to_string(), toml::Value::Boolean(stages));
+    }
+    let mut per_face = kept.sight_face_light();
+    if ui.add_enabled(stages, egui::Checkbox::new(&mut per_face, "Light per face near the eye (each block face's shadow and sky light worked out once, at its middle; in stages)")).changed() {
+        kept.render.table.insert("sight_face_light".to_string(), toml::Value::Boolean(per_face));
+    }
     // Fog (3.4c) [David 2026-10-28: fog out to about 2 miles; 2026-11-08: "that sounds alright"].
     ui.separator();
     ui.strong("Fog");
@@ -523,6 +533,16 @@ impl KeptSettings {
     /// Every block near the eye walked, no air skipped (a check, off unless chosen).
     pub fn sight_walk_every_block(&self) -> bool {
         self.render.flag("sight_walk_every_block", false)
+    }
+
+    /// The march drawn in stages (the dyno's, off unless chosen).
+    pub fn sight_stages(&self) -> bool {
+        self.render.flag("sight_stages", false)
+    }
+
+    /// Light per face near the eye, in stages (off unless chosen).
+    pub fn sight_face_light(&self) -> bool {
+        self.render.flag("sight_face_light", false)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).
