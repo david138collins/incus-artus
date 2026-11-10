@@ -291,12 +291,28 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
 
 **The order from here** (David, 2026-11-09, via Counsel: "other than that i agree"):
 1. [x] Sky its own pass (d above).
-2. [ ] **Light per face near the eye:** a shadow and a sky value worked out once for each block face the near walk
+2. [x] **Light per face near the eye:** a shadow and a sky value worked out once for each block face the near walk
    shows, at the face's middle, shared by every pixel showing it (his blocky look: "blocky and quantized lighting is
    good all around", "rough shadows for everything"). A table of the frame's faces on the card, keyed by the block
    and its face, filled by the pixels that show them, lit once each. Behind a Render-page switch for his eye
-   (induction: it changes the picture).
-3. [ ] Fewer handovers (e: the passes for all layers at once), then packing only where a trace shows idle lanes.
+   (induction: it changes the picture). **David's look** (build 103): "merely slightly different, not better or
+   worse." Against the stages without it: the 99th −20.8%, over the land −13.5 / −22.6 / −25.2%.
+3. [x] **Fewer handovers.** Built in three goes, each flown against the game as it runs today (one pass):
+   - Lists: after each layer's march its live pixels listed, the passes after it launched by the count over them
+     only; the light per face over the faces found. First flown worse (the median +24.8%): wgpu runs a checking
+     program before every dispatch launched by a count (a pass and two hand-offs each, 13 a frame). Taken off for the
+     game (our counts are bounded; the tests keep it): the median +10.1%, the 95th −20.1%, the 99th −35.6%.
+   - The face lookup reads before it takes a slot (a big face's pixels had each taken it in turn).
+   - **Shadow, sky and light in one shading pass a layer** (apart, they read and wrote each record three times for
+     little work on the lighter views), the faces gathered by the listing pass: ten passes a frame, not twenty.
+     **The median +6.5%, the 95th −18.6%, the 99th −36.0%** (the card's 99th 17.8 down to 11.4 ms); over the land
+     −32.0 / −44.0 / −46.7%; round the peak the 95th −43.3%; at sea −11.4 / −13.1 / −33.2%; the lightest views level
+     (+1.7%); the home leg's median +14%. **On a clear day** (fog off): +6.8 / −18.3 / −34.0%, the same story.
+   - [-] The sun's cone as the sixth in the sky's loop (one copy of a cone's code in the shading pass, not two): the
+     same picture, but the median +9.1% (against +6.5%): the compiler's lottery again. Dropped.
+   - Each layer timed against the one program (whole flight, ms): the coarse layers' march alone is a little
+     cheaper than the one program's march and light together, but their shading adds the difference back; the
+     near layer is where the stages win (over the land 5.2 ms in one program, about 1.4 ms in stages).
 4. Then the far: the typical frame's coarse horizon rays need an answer that doesn't lean on fog (below). Texture
    units for the far cells' blend, empty air skipped smarter for grazing rays (solved jumps, relaxed cone
    stepping), the sea as a plane.
