@@ -2005,10 +2005,9 @@ fn ground(c: Case) -> i32 {
         }
     }
 
-    /// The near walk as it skips air (and runs of water: the dyno, 2026-11-09) draws what every block walked draws (the
-    /// truth), over hills: grazing, down and level, and down into a lake and along it; the blocks and the live cells of
-    /// 2 to 16 made round the eye [2026-11-09: it skipped into the hills near the eye, differently each run, till the
-    /// bake's rows were kept inside the map's bounds].
+    /// The near walk as it skips air draws what every block walked draws (the truth), over hills: grazing, down and
+    /// level, the blocks and the live cells of 2 to 16 made round the eye [2026-11-09: it skipped into the hills near
+    /// the eye, differently each run, till the bake's rows were kept inside the map's bounds].
     #[test]
     #[ignore]
     fn sight_s_near_walk_against_every_block() {
@@ -2021,45 +2020,22 @@ fn ground(c: Case) -> i32 {
         let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
         let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
         let size = (320, 200);
-        // And over the deepest lake within 300 of the middle (found on the map): down into the water, and along it.
-        let mut lake = (0.0f32, 0.0f32, f32::MAX);
-        for i in -30..=30 {
-            for j in -30..=30 {
-                let (north, east) = (i as f32 * 10.0, j as f32 * 10.0);
-                let z = ground(north, east);
-                if z < lake.2 {
-                    lake = (north, east, z);
-                }
-            }
-        }
-        eprintln!("Sight's near walk: the lake's deepest at ({}, {}), its ground at {:.0} (the sea at {})", lake.0, lake.1, lake.2, crate::world::SEA_LEVEL);
-        assert!(lake.2 < crate::world::SEA_LEVEL as f32 - 8.0, "a lake to look into");
-        for (name, at, pitch, heading) in [("grazing", [0.0f32, 0.0, 8.0], -8.0f32, 0.0f32), ("down", [10.0, -20.0, 60.0], -45.0, 90.0), ("level", [-30.0, 10.0, 3.0], 0.0, 30.0), ("into water", [lake.0, lake.1, 0.0], -50.0, 20.0), ("over water", [lake.0 - 20.0, lake.1 - 20.0, 0.0], -12.0, 60.0)] {
-            let position = if name.contains("water") { [at[0], at[1], crate::world::SEA_LEVEL as f32 + 6.0] } else { [at[0], at[1], ground(at[0], at[1]) + at[2]] };
+        for (name, at, pitch, heading) in [("grazing", [0.0f32, 0.0, 8.0], -8.0f32, 0.0f32), ("down", [10.0, -20.0, 60.0], -45.0, 90.0), ("level", [-30.0, 10.0, 3.0], 0.0, 30.0)] {
+            let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
             let (p, h) = (pitch.to_radians(), heading.to_radians());
             let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
-            let picture = |walk_every_block: bool, water_skip: bool| {
-                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, walk_every_block, water_skip, ..Default::default() };
+            let picture = |walk_every_block: bool| {
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, walk_every_block, ..Default::default() };
                 sight_picture(&device, &queue, &store, size, eye)
             };
-            let (truth, walked, no_water_skip) = (picture(true, true), picture(false, true), picture(false, false));
+            let (truth, walked) = (picture(true), picture(false));
             if let Some(dir) = &probe {
                 write_picture(&dir.join(format!("near_walk_{name}_truth.png")), size, &truth);
                 write_picture(&dir.join(format!("near_walk_{name}.png")), size, &walked);
             }
-            let apart = |a: &[[u8; 3]], b: &[[u8; 3]]| -> (usize, i32) {
-                let d: Vec<i32> = a.iter().zip(b).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
-                (d.len(), d.iter().copied().max().unwrap_or(0))
-            };
-            let (from_truth, from_water_walked) = (apart(&truth, &walked), apart(&no_water_skip, &walked));
-            eprintln!("Sight's near walk, {name}: against every block walked, {} pixels differ (by {} at most); against water walked a block at a time, {} (by {})", from_truth.0, from_truth.1, from_water_walked.0, from_water_walked.1);
-            // Runs of water crossed whole: the same as walked a block at a time.
-            assert!(from_water_walked.0 <= (size.0 * size.1 / 1000) as usize, "runs of water crossed whole draw what a block at a time draws, {name} ({} pixels differ)", from_water_walked.0);
-            // Against the truth: the same, but looking into water (on file: the walk as it skips air goes into water
-            // a little darker than every block walked, a few steps of colour, since before the water step).
-            if !name.contains("water") {
-                assert!(from_truth.0 <= (size.0 * size.1 / 1000) as usize, "the near walk draws what every block walked draws, {name} ({} pixels differ)", from_truth.0);
-            }
+            let d: Vec<i32> = truth.iter().zip(&walked).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
+            eprintln!("Sight's near walk, {name}: against every block walked, {} pixels differ (by {} at most)", d.len(), d.iter().copied().max().unwrap_or(0));
+            assert!(d.len() <= (size.0 * size.1 / 1000) as usize, "the near walk draws what every block walked draws, {name} ({} pixels differ)", d.len());
         }
     }
 

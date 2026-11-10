@@ -67,9 +67,6 @@ pub struct Eye {
     /// The near walk skipping no air at all, every block walked (the truth any skipping must match: the tests, and the
     /// Render page's check).
     pub walk_every_block: bool,
-    /// The near walk crossing runs of water whole (the dyno, 2026-11-09; off for measuring against, with
-    /// `INCUS_SIGHT_NO_WATER_SKIP` or here).
-    pub water_skip: bool,
     /// The march split from its light, a ray a pixel (the dyno's third step, 2026-11-09; `INCUS_SIGHT_SPLIT` in the
     /// game). Off: in one pass, the worst frames 12% better but the median 13% worse (the lighter views paying the
     /// hand-over and the barrier between march and light more than the leaner march saves). Kept to try again with a
@@ -109,7 +106,6 @@ impl Default for Eye {
             flicker_time: 0.0,
             smooth_light: false,
             walk_every_block: false,
-            water_skip: true,
             split: false,
         }
     }
@@ -566,7 +562,7 @@ impl SightDraw {
                 [above_width, below, if eye.earned { 1.0 } else { 0.0 }, live_reach],
                 // Each finer ray from short of its parent's nearest touch (`INCUS_SIGHT_NO_FOLLOW` leaves it out);
                 // sun shadows (`INCUS_SIGHT_NO_SHADOWS` leaves them out, for measuring), and their widening.
-                [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if eye.walk_every_block { 2.0 } else if !eye.water_skip || std::env::var("INCUS_SIGHT_NO_WATER_SKIP").is_ok() { 3.0 } else { 0.0 }],
+                [if no_follow { 0.0 } else { 1.0 }, if eye.shadows && !no_shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if eye.walk_every_block { 2.0 } else { 0.0 }],
                 // The pyramid's steps: this layer to the one above, the one below to this, and where the one below
                 // fades out among the blocks (shares of their reach).
                 [to_above, to_child, fade[0].min(fade[1]), fade[1]],
