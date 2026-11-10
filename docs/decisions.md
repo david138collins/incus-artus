@@ -1397,9 +1397,11 @@ below disagree with this one, this one stands.
        eye flies) at 255 registers, spilling to memory, holding a sixth of the card, and 15% of the card's time
        over the land. It's cut along the terrain pipeline's own stages, each handing only forward, as the march's
        are, or at least brought under 128 registers. What it works out doesn't change: the card's columns still
-       match the processor's to the bit. In Builder's order of the register work: the near walk and the far march
-       as separate passes (the march at 125 registers, a third of the card), then the texture units for the blend,
-       then this.
+       match the processor's to the bit. In Builder's order of the register work: the texture units for the blend
+       first, then the near walk and the far march as separate passes, then this. (The split was first until
+       Nsight, the same day, read each half alone: the far march 121 registers of the whole march's 125, the
+       near walk 80. Splitting frees the walk, but the far march's room is its own, mostly the eight-cell
+       blend's unpacking and sums, which the texture units take out of the program.)
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
