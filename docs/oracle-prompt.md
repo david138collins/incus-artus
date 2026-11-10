@@ -29,7 +29,12 @@ ship. The graphics are the linchpin. Everything else is easier.
 6. `vision/dyno-audit-2026-11-10.md`: an earlier outside read of the renderer. Its guesses were off by ten times
    both ways (its top guess measured a tenth of what it said; a lead it rated 1 to 4% measured 12%), so treat
    estimates, including your own, as leads to measure.
-7. The code: `src/sight/` (the renderer and its shaders), `src/world/` (the world's rules, on the processor and the
+7. The raw measurements, if you want to check our reading of them: `logs/dyno-*.txt` (about a hundred flight logs,
+   each headed with its build, its switches and what else was running), `logs/session-*.txt` (each launch), and
+   the slow-frame lines in them. The Nsight readings (registers, occupancy, stalls per pass) are transcribed in
+   `docs/dyno.md`. [David: if Builder copies her trace files and trace-reading scripts into `logs/nsight/`, add
+   them here.] Sample these with helpers; there are many.
+8. The code: `src/sight/` (the renderer and its shaders), `src/world/` (the world's rules, on the processor and the
    card), `src/worldgen/` (the generator and editor), `src/runner/` (the frame loop). It's about 62,000 lines of
    Rust and 5,100 of shader: send helpers out to read and report back, rather than reading it all yourself.
 
