@@ -494,11 +494,13 @@ Reference: `Art/quartile minecraft illustration.png`
   Sphere order, left to right: **blue energy** (next to equip, because equip can hold spells),
   **red blood**, **green stamina**. Can change later.
 - **[DECIDED]** Game name is **Incus Artus**.
-  - **[DECIDED 2026-10-26] Spelled *Artus* on purpose, not *Artis*.** *Incus* is Latin for anvil.
-    Strict Latin for "the anvil of art" would be *Incus Artis*; *artus* on its own means "limbs" or
-    "tight". David chose *Artus* because it looks and sounds better. The story told publicly: it carries
-    the ring of **Arthur** (König Artus, the Latin and German form of the name), which gives the title a
-    medieval, legendary sound. Anyone who points out the Latin gets that answer. Older notes and the inventory mockup that say *Artis* are out of date.
+  - **[DECIDED 2026-10-26, corrected 2026-11-10] Spelled *Artus* on purpose, not *Artis*.** *Incus* is
+    Latin for anvil, and *Artus* means craft: the anvil of craft. Strict Latin would be *Incus Artis*;
+    David prefers the u. David 2026-11-10: "note that artus is craft, not arthur. i do draw from arthurian
+    legend but its incus artus and not incus artis because i just prefer the u there." (An earlier note here
+    said the name was told publicly as an echo of Arthur; that was wrong. The Arthurian legend is one of his
+    sources for the lore, not the meaning of the name.) Older notes and the inventory mockup that say *Artis*
+    are out of date.
 - Reference art: `lorecraft/art/references/inventoryequipsave.png` (personal/party view, newest),
   `lorecraft/art/bad art/three man.png` (manager view), `lorecraft/art/personaltest1.png` (earlier in-world overlay).
 - **[DECIDED 2026-10-28] Sky, air and weather** (David):
