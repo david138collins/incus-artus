@@ -1355,6 +1355,24 @@ below disagree with this one, this one stands.
        software that runs on any card wgpu supports (the 980 Ti, AMD, the Steam Deck). One maker's hardware
        features (ray-tracing cores, DLSS, SER, variable-rate shading) are not pursued. Optional wgpu features
        that most cards share, such as subgroups, are fine as long as there's a path that works without them.
+
+       **Atomize the megakernel** [David 2026-11-09, after Nsight showed the march as one huge program the card
+       can barely fill: 128 registers a pixel, about 14% of the card's pixels in flight, arithmetic at a quarter
+       of peak, half of each group's lanes idle]: "the idea of a monolithic renderer was as misguided as the idea
+       of two renderers and two scales, so lets go the other way. i believe the hologram enables atomized
+       processing, so lets atomize the megakernal which apparently i was fated to repeat by not knowing history."
+       So sight becomes stages, not one program: wavefront-style small kernels passing results through
+       buffers (Laine, Karras and Aila, "Megakernels Considered Harmful", HPG 2013).
+       - The march finds what each ray hit.
+       - Light, shadow and sky run as passes of their own, over only the pixels that need them.
+       - Then tiles sorted by type, each type run by its own lean program, so a batch's rays are alike.
+       - Then the ray queue, if lanes are still idle.
+
+       The store of averaged cells is what makes this possible: every stage reads the same store, independently.
+       Each stage is flown with the twin and checked against the every-block truth, so the picture can't drift.
+       Shrinking the one program further was found to be a lottery on the compiler's choices: the sky cones as
+       one loop won, and compiling out the measuring views lost. Small kernels are far less exposed to that.
+       *On the look-first order:* "working backwards from the result we want made the goal crystal clear."
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
