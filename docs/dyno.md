@@ -343,9 +343,29 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
      filter, found through a table as the columns are now): a rework of the store and every read of it, more memory
      than the bands; the fine levels' windows can't share one mip chain with the bake's, so there two fetches and a
      mix. Its ceiling is measured first: the blend reading only the one cell a point is in.
-   - Next to fly (David's go): that one-cell blend; the steps by a surface twice as long; no walk back to the last
-     air before a surface (2026-11-06's fix for rings on flat ground); a ray finished at 95% covered, not 99%. Each
-     prices a part; none ships.
+   - **The second probes** (David: "yes, take a look with nsight, and think about how we can reduce our registers"):
+     - **The one-cell blend** (each read takes only the cell a point is in: one column's entry and one cell, not four
+       and eight): **−41.4 / −40.0 / −39.0%**, every leg alike (over the land −40%, at sea −38%, home −46%). A
+       ceiling (blocky cells end rays a little sooner too), but the eight-cell blend is the biggest single cost there
+       is, and not the far march's alone: the sun's and the sky's rays step through it too (over the land, where the
+       far-march probes moved little, it moved 40%).
+     - Steps by a surface twice as long: −7.8 / −5.7 / −4.7%. No walk back to the last air: −4.3 / −3.4 / −4.2%.
+     - [-] The blend's reads issued together (the four entries, then the eight cells; the same picture to the
+       pixel): −1.8 / −1.0 / −0.4%, noise. Dropped: the blend doesn't wait on its reads; its cost is the unpacking
+       and mixing of twelve values from each of eight cells, and its code.
+   - **The Nsight look at build 104** (two GPU traces, over the land and at sea; each pass's share of the shader
+     samples, land / sea): `march_hit` 32 / 62%, `shade_staged` (each pixel's shadow and sky rays) 29 / 17%,
+     `face_light_staged` (light per face) 19 / 9%, the near ground's tiles made as the camera flies 15 / 4%, the
+     listing 3 / 3%, the upscale 2 / 3%. Pixels in flight about 10% of what the card holds (9% at sea); the top
+     stall in every big pass **"Wait"** (a group waiting on its own last sum, too few others to switch to: too many
+     registers a pixel); the instruction cache's misses, the old one-pass march's top stall, down to 0.5% (the
+     stages' programs fit). Arithmetic at 16 to 18% of peak, memory light. And some 2 GB a second written to the
+     card's local memory, almost none read back: two small constant tables (a face's way, the levels view's tints)
+     kept there and filled out every pixel. The registers themselves show only in Nsight's window (asked of David).
+   - Built without the screen, the same picture to the pixel, to fly: the sun's and the sky's rays reading only how
+     solid and how watery (their own lean blend: each cell's first word, two sums, where they went through the whole
+     blend and left the compiler to drop the rest); and no tables picked from as the shader runs (the levels view
+     still drawn).
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
