@@ -488,6 +488,20 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
        next one comes to nothing. Kept as it was (the next level's window and a coarse tile round it: 57 MB flying,
        up to 150 MB standing still with the windows full). A trim that would keep the sweep: a cap by distance from
        the eye, or the grounds packed smaller (they're smooth heights).
+     - **The view near the ground, split** (two traces at the spawn, a probe as the twin): the near walk about 15%
+       of the march a frame there, the far march the rest (the coarse layers' rays and all past where a block is a
+       pixel go through the cells). **David's idea** ("is it possible to just shoot less rays in the areas we get
+       texels instead of pixels?"; Counsel's form: a fine pixel whose parent and its eight neighbours met the same
+       block plane intersects it, reading its own block and texel, where a block spans more than their gap) is sound
+       and the same picture, but its ceiling there is that 15% (about 6% of the frame, less: only faces' insides
+       inherit). After the far march's work.
+     - [-] The blend leaving at once in clear air (same picture to the pixel): +9.1% on the median. **Lost to** added
+       code in the blend (its checks, the columns read twice where it isn't air).
+     - **The narrower hand-over** (`BLEND_FROM` 0.8, the outside read's lead 3; a twin, priced): the whole flight
+       −2.8 / −6.7 / −5.5%, at sea −7.1 / −7.1 / −5.8%, home −5.7 / −6.3 / −9.1%, over the land level. A trade for
+       David's eye (rings over flat water, build 69). [A first flight read +12.8%: its twin file was made before the
+       `live_slot` fix went in, so it carried the old one. **A twin is made from the march as it is the day it
+       flies.**]
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
