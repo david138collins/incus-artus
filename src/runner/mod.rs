@@ -299,8 +299,25 @@ fn refresh_of(window: &Window) -> f32 {
 /// old march with FXC]. `WGPU_DX12_COMPILER` still chooses, for testing.
 fn windows_sdk_dxc() -> Option<String> {
     let folder = std::path::Path::new(r"C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64");
-    let dxc = folder.join("dxcompiler.dll");
-    (dxc.is_file() && folder.join("dxil.dll").is_file()).then(|| dxc.to_string_lossy().into_owned())
+    let (dxc, dxil) = (folder.join("dxcompiler.dll"), folder.join("dxil.dll"));
+    if !(dxc.is_file() && dxil.is_file()) {
+        return None;
+    }
+    #[cfg(windows)]
+    load_by_path(&dxil);
+    Some(dxc.to_string_lossy().into_owned())
+}
+
+/// A library loaded by its full path, kept for the game's life: `dxil.dll`, DXC's validator, before DXC asks for it
+/// by name, so DXC gets the one made with it [2026-11-09: under Nsight Graphics, whose own newer pair came first in
+/// the search, DXC was the SDK's (1.8) and its validator Nsight's (1.10): every shader failed validation ("DXIL
+/// container mismatch") and the card was lost].
+#[cfg(windows)]
+fn load_by_path(path: &std::path::Path) {
+    use std::os::windows::ffi::OsStrExt;
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+    // SAFETY: a nul-terminated path that outlives the call; the library is never freed.
+    let _ = unsafe { windows::Win32::System::LibraryLoader::LoadLibraryW(windows::core::PCWSTR(wide.as_ptr())) };
 }
 
 impl Runner {

@@ -1398,6 +1398,21 @@ lamps, lights at cave mouths), and day and night.
   walk then skipped into hills. In the game, along the map's west and east edges only; in the tests' small maps, by
   the eye. Each row's written inside the map now. A check for David on the Render page: walk every block near the
   eye (if the picture changes when flipped, the skip is wrong there).
+  **Step 4, tried and dropped:** runs of water crossed whole by the near walk, +7% (its lookups cost more than the
+  blocks they saved). It showed that a shader's added lines, run or not, move each view's cost by tens of percent;
+  from then a step is measured against the build before as a whole.
+  **Another flaw found and fixed:** looking steeply down at water or flat ground just past the near blocks, the near
+  walk's air skip landed on the surface where the blocks weren't made and handed over to the march there, which
+  missed the top half of the cells' soft edge: a band a shade off (up to 24 steps of colour), and wherever the near
+  blocks weren't made yet. A skip never lands there now; its cost isn't measurable. The card tests take turns at
+  the card (six picture tests failed run all at once).
+  **The twin:** two builds of the march flown in one flight, frame by frame (`INCUS_SIGHT_TWIN`), one flight of
+  about 3 minutes in place of four builds alternated; the march against itself agrees within 0.5% on the medians.
+  **The first look inside the march** (Nsight Graphics, installed and opened up by David): the card keeps only 13
+  to 17% of the pixels in flight it could (the march likely needs the most working room a pixel can have), half of
+  each group of 32 idle on each step, the arithmetic at a quarter of its peak and memory nearly idle; the march's
+  code too big for the card's instruction cache. So the levers are the march's working room and size, then the
+  groups' idle halves; details in `docs/dyno.md`.
 
 ### Phase 6: everything else, each with its price  [loose]
 

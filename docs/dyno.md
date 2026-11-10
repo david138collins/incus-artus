@@ -175,6 +175,59 @@ percent either way (the second step's 8% was the same thing).
 - *On file:* looking down into a lake, the near walk as it skips air draws the water a few steps of colour darker
   than every block walked (41,600 pixels of the test's view, 12 steps at most), in the shader as it was before the
   water step too: to find.
+  - **Found and fixed** (2026-11-09). The test's lake views were inside a hill: the map's rows run south, so the
+    lake is at (152, −268), not (−160, −272). What they measured in step 4's build isn't known; today's shader
+    draws them the same both ways. Placed over the lake, a real difference showed **past the blocks made** (the
+    blocks are made round (0, 0) in the test): 62,400 of the view's 64,000 pixels, 24 steps of colour at most.
+  - **What it was:** the near walk skips the air over a column's top in one go, coarsest column first. Looking
+    steeply down, the skip ran from the eye straight to the lake's top. Where that landed in a column whose blocks
+    aren't made, the walk handed over to the march there, on the water's surface. The march reads averaged cells,
+    whose surface is a soft edge reaching above the real one, and gathers it coming down to it. Started on the
+    surface, it missed the edge's upper half. Every block walked hands over where the blocks end instead, in the
+    air, so the march gathers the whole edge, as it does everywhere farther off.
+  - **In the game:** a band just past the near blocks, looking down at water or flat ground: a shade off from the
+    same surface farther away. Rays meeting the surface between the blocks' window's edge (48 to 64 blocks off,
+    the window going by tiles of 16) and 64 blocks along the ray hand over on the surface; farther ones hand over in
+    the air. Also wherever the near blocks aren't made yet, flying fast.
+  - **The fix:** a skip never lands in a column whose blocks aren't made. A finer column's skip takes it there,
+    or a block at a time, as every block walked does. The test has three views over water now: down into a lake
+    inside the blocks, down into one past them, and along it from its shore. All draw the same as every block
+    walked, to the pixel. **Its cost:** none to be seen, flown with the twin against the build before (the medians
+    −2% to +3% by leg, either way; the twin against itself moves as much). Commit 1868703.
+  - **And the card tests take turns** (found running the suite for it): run all at once, each with a device of
+    its own, six of sight's picture tests failed together that pass one at a time. The suite: 428 passed.
+
+### The first look inside the march (Nsight Graphics, 2026-11-09)
+
+A GPU trace of the flight out at sea (three frames at the card's own clocks; the trace file is kept outside the
+project, in Builder's scratchpad), the march as it was after the near walk's handover fix:
+
+- **Few pixels in flight:** during the march the card keeps 13 to 17% of the most it can (some 6 to 8 groups of 32
+  a unit, of 48). If the march needs the most working room (registers) a pixel can have, only 8 groups fit: 16.7%.
+  The measured share sits just under that, as long-running groups do. **To confirm** in Nsight's window (Shader
+  Pipelines, the Registers column for `march_pass`): the trace file keeps it in a form only the window reads.
+- **Waiting, not working:** the card's arithmetic runs at 23 to 30% of its peak, its memory at under 1% of its
+  bandwidth, its caches at 4 to 6%. The march's top states: **"Wait"** (a group waiting on its own last sum, with
+  too few others to switch to), "Selected" (working), and **"No Instructions"** (waiting for the march's own code
+  to be fetched: it's too big for the card's instruction cache). Memory waits come well after.
+- **Half of each group idle:** on average 14 of a group's 32 pixels take each step (44%): neighbouring rays go
+  different ways.
+- **No one hot loop:** the biggest single line takes 4.7% of the samples, the twenty biggest about 12% together.
+  The compiled march runs to some 13,000 lines of the card's intermediate code.
+- **What it explains:** step 4's finding (added lines, run or not, moving each view's cost by tens of percent) is
+  the instruction cache and the working room: where the compiler puts code decides how often its fetch misses, and
+  every line the march might run counts against the pixels in flight. The split's march passes, 35 to 58% faster
+  alone, were the same thing seen from the other side.
+- **So the levers, in order:** the march's working room and size first (fewer registers, less code: each a twin
+  flight, and a trace to see the pixels in flight move); then the groups' idle halves (rays alike in a group).
+  Memory layout matters less than planned: the march isn't waiting on memory.
+
+**Running Nsight from here** (Builder's notes): the command line, `ngfx.exe --activity "GPU Trace Profiler"`,
+started from its own folder; **never `--platform`** (Nsight's windows take it as their own setting and fail:
+"no Qt platform plugin could be initialized"); `--set-gpu-clocks unaltered`, `--real-time-shader-profiler`,
+`--auto-export`. Under it, the game's DXC had picked up Nsight's newer validator ("DXIL container mismatch", the card
+lost at the first shader): the game now loads the SDK's validator itself, by its path. The trace file opens in
+Nsight's MCP server (`ngfx-mcp.exe`, on 127.0.0.1 only), which reads its shader profiler rows and hotspots.
 
 ### The breakdown (2026-11-09, build 101 with the 10-second hitch fixed)
 
@@ -480,8 +533,21 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
 - [x] A card timer on each pass (start, each layer, glows, upscale, objects), not one for all of sight.
 - [x] The heat watch: the GPU's temperature and clock, the CPU area's temperature, on every flight (and the
       agreed cutoff: 105 °C on the CPU area twice running stops the flight).
+- [~] **The twin** (2026-11-09): two builds of the march flown in one flight, frame by frame. `INCUS_SIGHT_TWIN=<a
+      march.wgsl>` has the game read that shader as it starts and draw every other timed frame with it (the start,
+      the march and the glows; not the split). The card's clock on each kept apart, and the report sets them side
+      by side, whole and leg by leg: "the twin against the march", median, 95th and 99th. The views and the heat
+      are the same for both, and one flight (about 3 minutes) takes the place of four alternating builds (about
+      25). Step 4 showed a step has to be measured against the build before as a whole: this is that, in one game.
+      The frames' own times are both's (the card's work for each is what's apart). **Checked:** the march against
+      itself (`logs/dyno-1794274012.txt`), the medians within 0.4% on every leg but the sea's 2.2%, the 95th within
+      1.8%, the 99th within 3.3%: that's the twin's noise. First used on the near walk's handover fix against the
+      build before (`logs/dyno-1794274234.txt`): within the noise.
 - [ ] An input-to-photon gate: the mouse stays near build 67's 1.05 ms (uncapped).
-- [ ] Nsight: card time per pass, stall reasons (memory against divergence), and occupancy.
+- [ ] Nsight: card time per pass, stall reasons (memory against divergence), and occupancy. *2026-11-09:* Nsight
+      Graphics 2026.4.0 installed, and the counters opened; its command line (`ngfx.exe`, GPU Trace Profiler, the
+      real-time shader profiler, exported) is in `C:\Program Files\NVIDIA Corporation\Nsight Graphics
+      2026.4.0\host\windows-desktop-nomad-x64`.
 - [ ] A slowest-ray view: each tile's slowest ray against its average, built from the steps view (`reach.z`).
 - [ ] Register pressure in `march.wgsl` (one big shader).
 - [ ] The subgroup check: does the adapter offer them? Keep a path that works without them.

@@ -215,6 +215,14 @@ pub struct SightDraw {
     /// places, in and out (`super::lights::GLOWS_MOST` of them; the objects' draw reads them as its glows' places).
     glow_pass: wgpu::ComputePipeline,
     glows: wgpu::Buffer,
+    /// The dyno's twin (`INCUS_SIGHT_TWIN`: another `march.wgsl`, read as the game starts), drawing every other
+    /// timed frame in place of the march, its clock kept apart (`CardReading::twin`): two builds of the march flown
+    /// in one flight, frame by frame, the views and the heat the same for both [2026-11-09: added code, run or not,
+    /// moved each view's cost by tens of percent, so a step is measured against the build before as a whole]. Its
+    /// bindings must be the march's. Not with the split, or `INCUS_DYNO_PASS_TIMES`.
+    twin: Option<Twin>,
+    /// Whether the next timed frame is the twin's.
+    twin_next: bool,
     upscale: wgpu::RenderPipeline,
     up: wgpu::Buffer,
     sampler: wgpu::Sampler,
@@ -235,6 +243,13 @@ pub struct SightDraw {
     pub objects: super::models::ObjectsDraw,
 }
 
+/// The twin's passes (`SightDraw::twin`).
+struct Twin {
+    march: wgpu::ComputePipeline,
+    start: wgpu::ComputePipeline,
+    glow_pass: wgpu::ComputePipeline,
+}
+
 /// One layer of the pyramid: its factor (screen pixels a side of a pixel), its size, its picture and distances,
 /// its camera numbers, and its bindings.
 struct Layer {
@@ -247,6 +262,8 @@ struct Layer {
     /// The split passes' bindings (the same, and what each pixel's ray met between them).
     hit_group: wgpu::BindGroup,
     light_group: wgpu::BindGroup,
+    /// The twin's bindings (the same, for its own pipeline), if there's a twin.
+    twin_group: Option<wgpu::BindGroup>,
 }
 
 struct Targets {
@@ -262,6 +279,9 @@ struct Targets {
     start_group: wgpu::BindGroup,
     /// The glows' pass's bindings: the coarsest layer's camera, the store, and the glows.
     glow_group: wgpu::BindGroup,
+    /// The twin's start and glows' bindings, if there's a twin.
+    twin_start_group: Option<wgpu::BindGroup>,
+    twin_glow_group: Option<wgpu::BindGroup>,
     upscale_group: wgpu::BindGroup,
     /// The screen's depth (build 96): the upscale's, from the march's distances, that the objects are drawn into.
     depth: wgpu::TextureView,
@@ -279,6 +299,18 @@ impl SightDraw {
         let march_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march, split"), layout: None, module: &march_module, entry_point: Some("march_hit"), compilation_options: Default::default(), cache: None });
         let light_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's light"), layout: None, module: &march_module, entry_point: Some("light_hit"), compilation_options: Default::default(), cache: None });
         let glow_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's far glows"), layout: None, module: &march_module, entry_point: Some("glow_pass"), compilation_options: Default::default(), cache: None });
+        let twin = std::env::var("INCUS_SIGHT_TWIN").ok().and_then(|path| match std::fs::read_to_string(&path) {
+            Ok(source) => {
+                let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's twin march"), source: wgpu::ShaderSource::Wgsl(source.into()) });
+                let pipeline = |label: &str, entry: &str| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(label), layout: None, module: &module, entry_point: Some(entry), compilation_options: Default::default(), cache: None });
+                crate::ecs::prelude::info!("Sight's twin: {path}, drawing every other timed frame in place of the march");
+                Some(Twin { march: pipeline("sight's twin march", "march_pass"), start: pipeline("sight's twin start pass", "start_pass"), glow_pass: pipeline("sight's twin far glows", "glow_pass") })
+            }
+            Err(error) => {
+                crate::ecs::prelude::warn!("Sight's twin: {path} couldn't be read ({error}); the march alone");
+                None
+            }
+        });
         let glows = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("sight's far glows"),
             size: super::lights::GLOWS_MOST as u64 * 16,
@@ -323,7 +355,7 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().media_table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, march_hit, light_hit, glow_pass, glows, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
+        Self { march, start, march_hit, light_hit, glow_pass, glows, twin, twin_next: false, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -427,42 +459,39 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
                     ];
                 let group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's march"), layout: &self.march.get_bind_group_layout(0), entries: &entries });
+                let twin_group = self.twin.as_ref().map(|twin| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's twin march"), layout: &twin.march.get_bind_group_layout(0), entries: &entries }));
                 let split: Vec<wgpu::BindGroupEntry> = entries.iter().cloned().chain([wgpu::BindGroupEntry { binding: 19, resource: buffer(&hits) }]).collect();
                 let hit_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's march, split"), layout: &self.march_hit.get_bind_group_layout(0), entries: &split });
                 let light_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's light"), layout: &self.light_hit.get_bind_group_layout(0), entries: &split });
                 far_above = Some(far.clone());
-                layers.push(Layer { factor, size, picture, far, camera, group, hit_group, light_group });
+                layers.push(Layer { factor, size, picture, far, camera, group, hit_group, light_group, twin_group });
                 worth_above = Some(worth);
             }
-            let start_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("sight's start pass"),
-                layout: &self.start.get_bind_group_layout(0),
-                entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: buffer(&layers[0].camera) },
-                    wgpu::BindGroupEntry { binding: 1, resource: buffer(&store.header) },
-                    wgpu::BindGroupEntry { binding: 2, resource: buffer(&store.baked) },
-                    wgpu::BindGroupEntry { binding: 3, resource: buffer(&store.live) },
-                    wgpu::BindGroupEntry { binding: 7, resource: buffer(&starts) },
-                ],
-            });
-            let glow_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("sight's far glows"),
-                layout: &self.glow_pass.get_bind_group_layout(0),
-                entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: buffer(&layers[0].camera) },
-                    wgpu::BindGroupEntry { binding: 1, resource: buffer(&store.header) },
-                    wgpu::BindGroupEntry { binding: 2, resource: buffer(&store.baked) },
-                    wgpu::BindGroupEntry { binding: 3, resource: buffer(&store.live) },
-                    wgpu::BindGroupEntry { binding: 4, resource: buffer(&store.pool) },
-                    wgpu::BindGroupEntry { binding: 11, resource: wgpu::BindingResource::TextureView(&self.textures) },
-                    wgpu::BindGroupEntry { binding: 12, resource: wgpu::BindingResource::Sampler(&self.texture_sampler) },
-                    wgpu::BindGroupEntry { binding: 13, resource: buffer(&self.texture_table) },
-                    wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
-                    wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
-                    wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
-                    wgpu::BindGroupEntry { binding: 17, resource: buffer(&self.glows) },
-                ],
-            });
+            let start_entries = [
+                wgpu::BindGroupEntry { binding: 0, resource: buffer(&layers[0].camera) },
+                wgpu::BindGroupEntry { binding: 1, resource: buffer(&store.header) },
+                wgpu::BindGroupEntry { binding: 2, resource: buffer(&store.baked) },
+                wgpu::BindGroupEntry { binding: 3, resource: buffer(&store.live) },
+                wgpu::BindGroupEntry { binding: 7, resource: buffer(&starts) },
+            ];
+            let start_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's start pass"), layout: &self.start.get_bind_group_layout(0), entries: &start_entries });
+            let twin_start_group = self.twin.as_ref().map(|twin| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's twin start pass"), layout: &twin.start.get_bind_group_layout(0), entries: &start_entries }));
+            let glow_entries = [
+                wgpu::BindGroupEntry { binding: 0, resource: buffer(&layers[0].camera) },
+                wgpu::BindGroupEntry { binding: 1, resource: buffer(&store.header) },
+                wgpu::BindGroupEntry { binding: 2, resource: buffer(&store.baked) },
+                wgpu::BindGroupEntry { binding: 3, resource: buffer(&store.live) },
+                wgpu::BindGroupEntry { binding: 4, resource: buffer(&store.pool) },
+                wgpu::BindGroupEntry { binding: 11, resource: wgpu::BindingResource::TextureView(&self.textures) },
+                wgpu::BindGroupEntry { binding: 12, resource: wgpu::BindingResource::Sampler(&self.texture_sampler) },
+                wgpu::BindGroupEntry { binding: 13, resource: buffer(&self.texture_table) },
+                wgpu::BindGroupEntry { binding: 14, resource: buffer(&store.pieces) },
+                wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
+                wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
+                wgpu::BindGroupEntry { binding: 17, resource: buffer(&self.glows) },
+            ];
+            let glow_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's far glows"), layout: &self.glow_pass.get_bind_group_layout(0), entries: &glow_entries });
+            let twin_glow_group = self.twin.as_ref().map(|twin| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's twin far glows"), layout: &twin.glow_pass.get_bind_group_layout(0), entries: &glow_entries }));
             // A layer the pyramid doesn't go to is never read; the base stands in for it.
             let picture_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).picture;
             let far_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).far;
@@ -496,7 +525,7 @@ impl SightDraw {
                     view_formats: &[],
                 })
                 .create_view(&Default::default());
-            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, glow_group, upscale_group, depth });
+            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, glow_group, twin_start_group, twin_glow_group, upscale_group, depth });
         }
         self.targets.as_ref().expect("made just now")
     }
@@ -595,6 +624,13 @@ impl SightDraw {
         // The card's own clock on sight's work, when it can: each pass's start and end (the dyno's instruments), and
         // sight's whole, from the first pass's start to the upscale's end.
         let timed = self.timer.as_mut().and_then(|timer| timer.begin());
+        // The twin (the dyno's) draws every other timed frame, the one-pass march only: each timed frame is the march's
+        // or the twin's in turn, so both get as many readings whichever frames the clock times.
+        let twin_possible = timed.is_some() && self.twin.is_some() && !(eye.split && eye.rays <= 1) && std::env::var("INCUS_DYNO_PASS_TIMES").is_err();
+        if twin_possible {
+            self.twin_next = !self.twin_next;
+        }
+        let twin = if twin_possible && self.twin_next { self.twin.as_ref() } else { None };
         let queries = self.timer.as_ref().map(|timer| &timer.queries);
         let timing = timed.and(queries);
         let mut passes: Vec<String> = Vec::new();
@@ -627,8 +663,16 @@ impl SightDraw {
             let timestamp_writes = compute_stamp(&mut passes, "march".into());
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march and light"), timestamp_writes });
             if !no_start {
-                pass.set_pipeline(&self.start);
-                pass.set_bind_group(0, &targets.start_group, &[]);
+                match (twin, &targets.twin_start_group) {
+                    (Some(twin), Some(group)) => {
+                        pass.set_pipeline(&twin.start);
+                        pass.set_bind_group(0, group, &[]);
+                    }
+                    _ => {
+                        pass.set_pipeline(&self.start);
+                        pass.set_bind_group(0, &targets.start_group, &[]);
+                    }
+                }
                 pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
             }
             for layer in &targets.layers {
@@ -641,14 +685,30 @@ impl SightDraw {
                     pass.set_bind_group(0, &layer.light_group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                 } else {
-                    pass.set_pipeline(&self.march);
-                    pass.set_bind_group(0, &layer.group, &[]);
+                    match (twin, &layer.twin_group) {
+                        (Some(twin), Some(group)) => {
+                            pass.set_pipeline(&twin.march);
+                            pass.set_bind_group(0, group, &[]);
+                        }
+                        _ => {
+                            pass.set_pipeline(&self.march);
+                            pass.set_bind_group(0, &layer.group, &[]);
+                        }
+                    }
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                 }
             }
             if let Some(groups) = glow_groups {
-                pass.set_pipeline(&self.glow_pass);
-                pass.set_bind_group(0, &targets.glow_group, &[]);
+                match (twin, &targets.twin_glow_group) {
+                    (Some(twin), Some(group)) => {
+                        pass.set_pipeline(&twin.glow_pass);
+                        pass.set_bind_group(0, group, &[]);
+                    }
+                    _ => {
+                        pass.set_pipeline(&self.glow_pass);
+                        pass.set_bind_group(0, &targets.glow_group, &[]);
+                    }
+                }
                 pass.dispatch_workgroups(groups, 1, 1);
             }
         } else {
@@ -712,8 +772,9 @@ impl SightDraw {
         let depth_view = targets.depth.clone();
         let objects_stamp = if self.objects.has_work() { render_stamp(&mut passes, "objects".into()) } else { None };
         self.objects.draw(device, queue, encoder, view, &depth_view, objects_view, &self.glows, objects_stamp);
+        let twin_drew = twin.is_some();
         if let (Some(k), Some(timer)) = (timed, &mut self.timer) {
-            timer.resolve(encoder, k, passes);
+            timer.resolve(encoder, k, passes, twin_drew);
         }
     }
 
@@ -781,6 +842,8 @@ pub fn card_ms() -> Option<f32> {
 pub struct CardReading {
     pub passes: Vec<(String, f32)>,
     pub sight: f32,
+    /// Drawn by the twin (`INCUS_SIGHT_TWIN`), not the march.
+    pub twin: bool,
 }
 
 /// The readings come back not yet taken (the newest 64).
@@ -811,8 +874,8 @@ fn next_stamp(passes: &mut Vec<String>, timed: bool, name: String) -> Option<u32
 struct CardTimer {
     queries: wgpu::QuerySet,
     resolved: wgpu::Buffer,
-    /// Each readback, its state, and the passes it holds the clock of.
-    readbacks: Vec<(wgpu::Buffer, Arc<std::sync::atomic::AtomicU8>, Vec<String>)>,
+    /// Each readback, its state, the passes it holds the clock of, and whether the twin drew that frame.
+    readbacks: Vec<(wgpu::Buffer, Arc<std::sync::atomic::AtomicU8>, Vec<String>, bool)>,
     pending: Option<usize>,
     period_ns: f32,
 }
@@ -829,18 +892,18 @@ impl CardTimer {
         let stamps = 2 * TIMED_PASSES as u64;
         let queries = device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("sight's clock"), ty: wgpu::QueryType::Timestamp, count: stamps as u32 });
         let resolved = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock"), size: stamps * 8, usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
-        let readbacks = (0..4).map(|_| (device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock read"), size: stamps * 8, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }), Arc::new(std::sync::atomic::AtomicU8::new(FREE)), Vec::new())).collect();
+        let readbacks = (0..4).map(|_| (device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's clock read"), size: stamps * 8, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }), Arc::new(std::sync::atomic::AtomicU8::new(FREE)), Vec::new(), false)).collect();
         Some(Self { queries, resolved, readbacks, pending: None, period_ns: queue.get_timestamp_period() })
     }
 
     /// A free readback for this frame (none free: this frame isn't timed).
     fn begin(&mut self) -> Option<usize> {
-        self.pending = self.readbacks.iter().position(|(_, state, _)| state.load(std::sync::atomic::Ordering::Acquire) == FREE);
+        self.pending = self.readbacks.iter().position(|(_, state, _, _)| state.load(std::sync::atomic::Ordering::Acquire) == FREE);
         self.pending
     }
 
-    /// This frame's stamps (for `passes`, in order) copied out to readback `k`.
-    fn resolve(&mut self, encoder: &mut wgpu::CommandEncoder, k: usize, passes: Vec<String>) {
+    /// This frame's stamps (for `passes`, in order) copied out to readback `k`; `twin` if the twin drew it.
+    fn resolve(&mut self, encoder: &mut wgpu::CommandEncoder, k: usize, passes: Vec<String>, twin: bool) {
         if passes.is_empty() {
             self.pending = None;
             return;
@@ -849,6 +912,7 @@ impl CardTimer {
         encoder.resolve_query_set(&self.queries, 0..stamps, &self.resolved, 0);
         encoder.copy_buffer_to_buffer(&self.resolved, 0, &self.readbacks[k].0, 0, stamps as u64 * 8);
         self.readbacks[k].2 = passes;
+        self.readbacks[k].3 = twin;
     }
 
     fn after_submit(&mut self, device: &wgpu::Device) {
@@ -859,7 +923,7 @@ impl CardTimer {
             self.readbacks[k].0.slice(..).map_async(wgpu::MapMode::Read, move |result| state.store(if result.is_ok() { READY } else { FREE }, Ordering::Release));
         }
         let _ = device.poll(wgpu::PollType::Poll);
-        for (buffer, state, passes) in &self.readbacks {
+        for (buffer, state, passes, twin) in &self.readbacks {
             if state.load(Ordering::Acquire) != READY {
                 continue;
             }
@@ -882,7 +946,7 @@ impl CardTimer {
                 if readings.len() >= 64 {
                     readings.pop_front();
                 }
-                readings.push_back(CardReading { passes: timed, sight });
+                readings.push_back(CardReading { passes: timed, sight, twin: *twin });
             }
         }
     }

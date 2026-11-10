@@ -327,6 +327,10 @@ struct Dyno {
     baking: crate::dyno::Samples,
     baked: crate::dyno::Samples,
     by_leg: Vec<(String, crate::dyno::Samples)>,
+    /// The twin's readings (`INCUS_SIGHT_TWIN`: the frames it drew, baked), whole and by leg; the march's are the
+    /// rest.
+    baked_twin: crate::dyno::Samples,
+    by_leg_twin: Vec<(String, crate::dyno::Samples)>,
     heat: Vec<String>,
     next_heat: f32,
     done: bool,
@@ -479,21 +483,34 @@ fn record_dyno(world: &mut World) {
         let dyno = &mut *dyno;
         let phase = if baked { &mut dyno.baked } else { &mut dyno.baking };
         phase.frame(ms);
-        for reading in &readings {
+        for reading in readings.iter().filter(|reading| !reading.twin) {
             phase.card(reading.sight, &reading.passes);
         }
+        // The twin's frames (`INCUS_SIGHT_TWIN`) kept apart, baked only.
+        if baked {
+            for reading in readings.iter().filter(|reading| reading.twin) {
+                dyno.baked_twin.card(reading.sight, &reading.passes);
+            }
+        }
         if (baked || dyno.baking_run) && let Some(name) = leg_name {
-            let at = match dyno.by_leg.iter().position(|(have, _)| *have == name) {
+            let place = |legs: &mut Vec<(String, crate::dyno::Samples)>| match legs.iter().position(|(have, _)| *have == name) {
                 Some(at) => at,
                 None => {
-                    dyno.by_leg.push((name, crate::dyno::Samples::default()));
-                    dyno.by_leg.len() - 1
+                    legs.push((name.clone(), crate::dyno::Samples::default()));
+                    legs.len() - 1
                 }
             };
+            let at = place(&mut dyno.by_leg);
             let samples = &mut dyno.by_leg[at].1;
             samples.frame(ms);
-            for reading in &readings {
+            for reading in readings.iter().filter(|reading| !reading.twin) {
                 samples.card(reading.sight, &reading.passes);
+            }
+            if baked && readings.iter().any(|reading| reading.twin) {
+                let at = place(&mut dyno.by_leg_twin);
+                for reading in readings.iter().filter(|reading| reading.twin) {
+                    dyno.by_leg_twin[at].1.card(reading.sight, &reading.passes);
+                }
             }
         }
     }
@@ -561,6 +578,18 @@ fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
     }
     for (name, samples) in &dyno.by_leg {
         text += &format!("  {name}: {}\n", crate::dyno::line(samples));
+    }
+    if !dyno.baked_twin.sight.is_empty() {
+        text += &format!(
+            "\nThe twin ({}), drawing every other timed frame in place of the march: sight on the card (ms), the march's frames against the twin's (the frames' times above are both's, and the card's above the march's alone):\n",
+            std::env::var("INCUS_SIGHT_TWIN").unwrap_or_default()
+        );
+        text += &format!("  baked, whole: {}\n", crate::dyno::twin_line(&dyno.baked, &dyno.baked_twin));
+        for (name, samples) in &dyno.by_leg {
+            if let Some((_, twin)) = dyno.by_leg_twin.iter().find(|(have, _)| have == name) {
+                text += &format!("  {name}: {}\n", crate::dyno::twin_line(samples, twin));
+            }
+        }
     }
     text += "\nHeat:\n";
     for line in &dyno.heat {

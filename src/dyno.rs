@@ -196,9 +196,48 @@ pub fn line(samples: &Samples) -> String {
     )
 }
 
+/// Sight on the card for the march and its twin side by side (`INCUS_SIGHT_TWIN`, frame by frame): each one's
+/// median, 95th and 99th (ms) and readings, and the twin's against the march's (per cent: below 0 the twin's faster).
+pub fn twin_line(march: &Samples, twin: &Samples) -> String {
+    let show = |values: &[f32], share: f32| percentile(values, share).map_or("-".to_string(), |v| format!("{v:.2}"));
+    let against = |share: f32| match (percentile(&march.sight, share), percentile(&twin.sight, share)) {
+        (Some(a), Some(b)) if a > 0.0 => format!("{:+.1}%", (b / a - 1.0) * 100.0),
+        _ => "-".to_string(),
+    };
+    format!(
+        "march median {}, 95th {}, 99th {} ({} readings); twin median {}, 95th {}, 99th {} ({}); the twin against the march: median {}, 95th {}, 99th {}",
+        show(&march.sight, 0.5),
+        show(&march.sight, 0.95),
+        show(&march.sight, 0.99),
+        march.sight.len(),
+        show(&twin.sight, 0.5),
+        show(&twin.sight, 0.95),
+        show(&twin.sight, 0.99),
+        twin.sight.len(),
+        against(0.5),
+        against(0.95),
+        against(0.99)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The twin's line: each side's numbers, and the twin's against the march's.
+    #[test]
+    fn the_twin_line_sets_the_card_s_times_side_by_side() {
+        let mut march = Samples::default();
+        let mut twin = Samples::default();
+        for k in 1..=100 {
+            march.card(k as f32, &[]);
+            twin.card(k as f32 * 0.8, &[]);
+        }
+        let line = twin_line(&march, &twin);
+        assert!(line.contains("march median 51.00"), "{line}");
+        assert!(line.contains("(100 readings)"), "{line}");
+        assert!(line.contains("the twin against the march: median -20.0%, 95th -20.0%, 99th -20.0%"), "{line}");
+    }
 
     /// A made-up world: a hill 300 high at (1,000, 500), sea west of east −2,000.
     fn ground(north: f32, east: f32) -> Option<f32> {
