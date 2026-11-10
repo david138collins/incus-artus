@@ -286,10 +286,10 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.checkbox(&mut every, "Walk every block near the eye (slow: no air skipped; if the picture changes, the skip is wrong there)").changed() {
         kept.render.table.insert("sight_walk_every_block".to_string(), toml::Value::Boolean(every));
     }
-    // The march in stages and light per face near the eye (the dyno, 2026-11-09: David to look at; where they live on
-    // the page is his to say).
+    // The march in stages and light per face near the eye (the dyno, 2026-11-09), the game's drawing since build 104
+    // [David 2026-11-10, asked whether they become the normal drawing: "yes"; the switches stay here to flip back].
     let mut stages = kept.sight_stages();
-    if ui.checkbox(&mut stages, "Draw in stages (the march, then shadow, sky light and light each a pass of its own)").changed() {
+    if ui.checkbox(&mut stages, "Draw in stages (the march, then the shading, each a pass of its own; off: all in one pass)").changed() {
         kept.render.table.insert("sight_stages".to_string(), toml::Value::Boolean(stages));
     }
     let mut per_face = kept.sight_face_light();
@@ -535,14 +535,14 @@ impl KeptSettings {
         self.render.flag("sight_walk_every_block", false)
     }
 
-    /// The march drawn in stages (the dyno's, off unless chosen).
+    /// The march drawn in stages (the dyno's; on unless chosen, since build 104: David 2026-11-10, "yes").
     pub fn sight_stages(&self) -> bool {
-        self.render.flag("sight_stages", false)
+        self.render.flag("sight_stages", true)
     }
 
-    /// Light per face near the eye, in stages (off unless chosen).
+    /// Light per face near the eye, in stages (on unless chosen, since build 104).
     pub fn sight_face_light(&self) -> bool {
-        self.render.flag("sight_face_light", false)
+        self.render.flag("sight_face_light", true)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).

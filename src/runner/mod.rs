@@ -556,7 +556,9 @@ impl Runner {
                     smooth_light: kept.sight_smooth_light(),
                     walk_every_block: kept.sight_walk_every_block(),
                     split: std::env::var("INCUS_SIGHT_SPLIT").is_ok(),
-                    stages: std::env::var("INCUS_SIGHT_STAGES").is_ok() || kept.sight_stages(),
+                    // In stages unless chosen (since build 104); `INCUS_SIGHT_ONE_PASS`, or the split, flies the
+                    // one pass's shapes to measure against.
+                    stages: std::env::var("INCUS_SIGHT_ONE_PASS").is_err() && std::env::var("INCUS_SIGHT_SPLIT").is_err() && (std::env::var("INCUS_SIGHT_STAGES").is_ok() || kept.sight_stages()),
                     face_light: kept.sight_face_light() || std::env::var("INCUS_SIGHT_FACE_LIGHT").is_ok(),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
@@ -645,7 +647,13 @@ impl Runner {
             // Sight under the panel; without it, the sky's colour.
             let drew_sight = if let Some((store, eye, textures, objects)) = &sight {
                 let _timed = Timed::new("sight");
-                let draw = gpu.sight.get_or_insert_with(|| crate::sight::draw::SightDraw::new(&gpu.device, &gpu.queue, gpu.config.format));
+                let draw = gpu.sight.get_or_insert_with(|| {
+                    let draw = crate::sight::draw::SightDraw::new(&gpu.device, &gpu.queue, gpu.config.format);
+                    if let Some(note) = draw.twin_note() {
+                        info!("{note}");
+                    }
+                    draw
+                });
                 if let Some((revision, textures)) = textures {
                     draw.set_textures(&gpu.device, &gpu.queue, textures, *revision);
                 }

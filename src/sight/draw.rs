@@ -72,9 +72,11 @@ pub struct Eye {
     /// hand-over and the barrier between march and light more than the leaner march saves). Kept to try again with a
     /// lighter light pass (sky light kept there doesn't weigh on the march).
     pub split: bool,
-    /// The march in stages, a ray a pixel (the dyno, 2026-11-09; David: "lets atomize the megakernal";
-    /// `INCUS_SIGHT_STAGES` in the game, or the Render page): the march, its live pixels listed, then shaded
-    /// (`march.wgsl`'s `march_hit`, `listed_staged`, `shade_staged`). Off unless chosen while it's built and flown.
+    /// The march in stages, a ray a pixel (the dyno, 2026-11-09; David: "lets atomize the megakernal"): the march,
+    /// its live pixels listed, then shaded (`march.wgsl`'s `march_hit`, `listed_staged`, `shade_staged`). On unless
+    /// chosen, since build 104 [David 2026-11-10, asked whether the stages with light per face become the normal
+    /// drawing: "yes"]; off (the Render page, or `INCUS_SIGHT_ONE_PASS` in the game), the one pass, kept to measure
+    /// against.
     pub stages: bool,
     /// Light per face near the eye, in stages (the Render page's switch; David 2026-11-09: "blocky and quantized
     /// lighting is good all around"): each block face the near walk shows lit once, at its middle, every pixel
@@ -115,8 +117,8 @@ impl Default for Eye {
             smooth_light: false,
             walk_every_block: false,
             split: false,
-            stages: false,
-            face_light: false,
+            stages: true,
+            face_light: true,
         }
     }
 }
@@ -215,36 +217,26 @@ const TILE: u32 = 8;
 const REACH: f32 = 150_000.0;
 
 pub struct SightDraw {
-    march: wgpu::ComputePipeline,
-    start: wgpu::ComputePipeline,
-    /// The march split from its light (the dyno, 2026-11-09; `march.wgsl`'s `march_hit` and `light_hit`), a ray a
-    /// pixel, if chosen (`Eye::split`, off: `march` does both); `march` always for four rays a pixel.
-    march_hit: wgpu::ComputePipeline,
-    light_hit: wgpu::ComputePipeline,
-    /// The march in stages (`Eye::stages`): `march_hit`, its live pixels listed (`listed_staged`, below), then each
-    /// pixel shaded: its sky light, the sun reaching it, its light (`shade_staged`).
-    shade_staged: wgpu::ComputePipeline,
-    /// Light per face near the eye (`Eye::face_light`): the pass lighting the frame's faces (the listing pass gathers
-    /// them), the table (its keys, emptied each frame, and its light), and each pass's bindings to it (group 1: the
-    /// light's, the listing's, the shading's).
-    face_light_staged: wgpu::ComputePipeline,
+    /// The march's passes, from `march.wgsl` (`Passes`).
+    passes: Passes,
+    /// Light per face near the eye (`Eye::face_light`): the table of the frame's faces (its keys, emptied each frame;
+    /// their light, and the slots taken listed, are bound to the passes alone).
     face_keys: wgpu::Buffer,
     /// The faces taken this frame, how many, as the card's indirect dispatch reads it (groups across, 1, 1, the
     /// count), then whether light per face is on this frame; set each frame.
     face_count: wgpu::Buffer,
-    face_groups: [wgpu::BindGroup; 3],
-    /// The pass listing each layer's live pixels after its march, so the stages after it run over them only.
-    listed_staged: wgpu::ComputePipeline,
-    /// Far lights' glows (build 100): the pass that says which the eye sees (`march.wgsl`'s `glow_pass`), and their
-    /// places, in and out (`super::lights::GLOWS_MOST` of them; the objects' draw reads them as its glows' places).
-    glow_pass: wgpu::ComputePipeline,
+    /// Far lights' glows (build 100): their places, in and out (`super::lights::GLOWS_MOST` of them; the objects' draw
+    /// reads them as its glows' places; `Passes::glow_pass` says which the eye sees).
     glows: wgpu::Buffer,
     /// The dyno's twin (`INCUS_SIGHT_TWIN`: another `march.wgsl`, read as the game starts), drawing every other
-    /// timed frame in place of the march, its clock kept apart (`CardReading::twin`): two builds of the march flown
-    /// in one flight, frame by frame, the views and the heat the same for both [2026-11-09: added code, run or not,
-    /// moved each view's cost by tens of percent, so a step is measured against the build before as a whole]. Its
-    /// bindings must be the march's. Not with the split, or `INCUS_DYNO_PASS_TIMES`.
-    twin: Option<Twin>,
+    /// timed frame in place of the game's passes, in the same shape (one pass, split, or in stages), its clock kept
+    /// apart (`CardReading::twin`): two builds of the march flown in one flight, frame by frame, the views and the heat
+    /// the same for both [2026-11-09: added code, run or not, moved each view's cost by tens of percent, so a step is
+    /// measured against the build before as a whole]. Its bindings must be the game's. Not with
+    /// `INCUS_DYNO_PASS_TIMES`.
+    twin: Option<Passes>,
+    /// What the twin is, for the game's log (`SightDraw::twin_note`: sight's code doesn't reach Bevy's).
+    twin_note: Option<String>,
     /// The twin as another shape (`INCUS_SIGHT_TWIN=split`, or `=stages`): its frames drawn split, the march then its
     /// light, or in stages, by this build's own shader.
     twin_split: bool,
@@ -273,11 +265,61 @@ pub struct SightDraw {
     pub objects: super::models::ObjectsDraw,
 }
 
-/// The twin's passes (`SightDraw::twin`).
-struct Twin {
+/// One build of the march's shader (`march.wgsl`), its passes: the game's own, and the dyno's twin's
+/// (`SightDraw::twin`), each with bindings of its own (a pipeline's bindings are made for it alone).
+struct Passes {
+    /// The one pass, a pixel's march and light together (`march_pass`; always for four rays a pixel), and the start
+    /// pass before any march (`start_pass`).
     march: wgpu::ComputePipeline,
     start: wgpu::ComputePipeline,
+    /// The march split from its light (the dyno, 2026-11-09; `march_hit` and `light_hit`), a ray a pixel, if chosen
+    /// (`Eye::split`).
+    march_hit: wgpu::ComputePipeline,
+    light_hit: wgpu::ComputePipeline,
+    /// The march in stages (`Eye::stages`): `march_hit`, its live pixels listed (`listed_staged`), the faces near the
+    /// eye lit once each with light per face (`face_light_staged`; the listing gathers them), then each listed pixel
+    /// shaded: its sky light, the sun reaching it, its light (`shade_staged`).
+    listed_staged: wgpu::ComputePipeline,
+    face_light_staged: wgpu::ComputePipeline,
+    shade_staged: wgpu::ComputePipeline,
+    /// Far lights' glows (build 100): the pass that says which the eye sees (`glow_pass`).
     glow_pass: wgpu::ComputePipeline,
+    /// The face table's bindings (group 1): the light per face's (launched by the faces' count, so without it), the
+    /// listing's, the shading's.
+    face_groups: [wgpu::BindGroup; 3],
+}
+
+impl Passes {
+    /// `source`'s passes, labelled from `label` ("sight's", "sight's twin"), bound to the face table (`faces`: its
+    /// keys, their light, the slots taken listed, and the count).
+    fn new(device: &wgpu::Device, source: &str, label: &str, faces: [&wgpu::Buffer; 4]) -> Self {
+        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some(&format!("{label} march")), source: wgpu::ShaderSource::Wgsl(source.into()) });
+        let pipeline = |name: &str, entry: &str| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(&format!("{label} {name}")), layout: None, module: &module, entry_point: Some(entry), compilation_options: Default::default(), cache: None });
+        let (march, start) = (pipeline("march", "march_pass"), pipeline("start pass", "start_pass"));
+        let (march_hit, light_hit) = (pipeline("march, split", "march_hit"), pipeline("light", "light_hit"));
+        let listed_staged = pipeline("live pixels listed, staged", "listed_staged");
+        let face_light_staged = pipeline("light per face, staged", "face_light_staged");
+        let shade_staged = pipeline("shading, staged", "shade_staged");
+        let glow_pass = pipeline("far glows", "glow_pass");
+        let face_group = |pipeline: &wgpu::ComputePipeline, counted: bool| {
+            let entries: Vec<wgpu::BindGroupEntry> = faces.iter().take(if counted { 4 } else { 3 }).enumerate().map(|(k, b)| wgpu::BindGroupEntry { binding: k as u32, resource: buffer(b) }).collect();
+            device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some(&format!("{label} faces")), layout: &pipeline.get_bind_group_layout(1), entries: &entries })
+        };
+        let face_groups = [face_group(&face_light_staged, false), face_group(&listed_staged, true), face_group(&shade_staged, true)];
+        Self { march, start, march_hit, light_hit, listed_staged, face_light_staged, shade_staged, glow_pass, face_groups }
+    }
+}
+
+/// A layer's bindings for one build's passes (`Passes`): the one pass's; the split's (the same, and what each pixel's
+/// ray met between them); the stages' listing (the split's, the layer's live list and its count), shading (without
+/// the count: launched by it) and light per face (the coarsest layer's are used).
+struct Bound {
+    group: wgpu::BindGroup,
+    hit_group: wgpu::BindGroup,
+    light_group: wgpu::BindGroup,
+    listed_group: wgpu::BindGroup,
+    shade_group: wgpu::BindGroup,
+    face_light_group: wgpu::BindGroup,
 }
 
 /// One layer of the pyramid: its factor (screen pixels a side of a pixel), its size, its picture and distances,
@@ -288,20 +330,11 @@ struct Layer {
     picture: wgpu::TextureView,
     far: wgpu::TextureView,
     camera: wgpu::Buffer,
-    group: wgpu::BindGroup,
-    /// The split passes' bindings (the same, and what each pixel's ray met between them).
-    hit_group: wgpu::BindGroup,
-    light_group: wgpu::BindGroup,
-    /// The stages' shading pass's bindings (the split's and the layer's live list), and the light per face's (the
-    /// coarsest layer's are used).
-    shade_group: wgpu::BindGroup,
-    face_light_group: wgpu::BindGroup,
+    /// Its bindings, for the game's passes, then the twin's if there's a twin.
+    bound: Vec<Bound>,
     /// The layer's live pixels after its march, listed, and how many (the card's indirect dispatch: groups across, 1,
-    /// 1, the count; set to none each frame), and the listing pass's bindings.
+    /// 1, the count; set to none each frame).
     live_count: wgpu::Buffer,
-    listed_group: wgpu::BindGroup,
-    /// The twin's bindings (the same, for its own pipeline), if there's a twin.
-    twin_group: Option<wgpu::BindGroup>,
 }
 
 struct Targets {
@@ -314,12 +347,10 @@ struct Targets {
     /// The start pass's tiles across and down.
     tiles: (u32, u32),
     layers: Vec<Layer>,
-    start_group: wgpu::BindGroup,
-    /// The glows' pass's bindings: the coarsest layer's camera, the store, and the glows.
-    glow_group: wgpu::BindGroup,
-    /// The twin's start and glows' bindings, if there's a twin.
-    twin_start_group: Option<wgpu::BindGroup>,
-    twin_glow_group: Option<wgpu::BindGroup>,
+    /// The start pass's bindings, and the glows' pass's (the coarsest layer's camera, the store, and the glows): for
+    /// the game's passes, then the twin's if there's a twin.
+    start_bound: Vec<wgpu::BindGroup>,
+    glow_bound: Vec<wgpu::BindGroup>,
     upscale_group: wgpu::BindGroup,
     /// The screen's depth (build 96): the upscale's, from the march's distances, that the objects are drawn into.
     depth: wgpu::TextureView,
@@ -336,48 +367,28 @@ impl SightDraw {
 
     /// The same, the march's shader from `march` (tests: another build of it, to draw the same scenes with both).
     pub fn with_march(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat, march: &str) -> Self {
-        let march_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's march"), source: wgpu::ShaderSource::Wgsl(march.into()) });
-        let march = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march"), layout: None, module: &march_module, entry_point: Some("march_pass"), compilation_options: Default::default(), cache: None });
-        let start = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's start pass"), layout: None, module: &march_module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None });
-        let march_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march, split"), layout: None, module: &march_module, entry_point: Some("march_hit"), compilation_options: Default::default(), cache: None });
-        let light_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's light"), layout: None, module: &march_module, entry_point: Some("light_hit"), compilation_options: Default::default(), cache: None });
-        let shade_staged = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's shading, staged"), layout: None, module: &march_module, entry_point: Some("shade_staged"), compilation_options: Default::default(), cache: None });
-        let face_light_staged = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's light per face, staged"), layout: None, module: &march_module, entry_point: Some("face_light_staged"), compilation_options: Default::default(), cache: None });
+        // The face table (light per face near the eye): its keys, their light, the slots taken this frame listed, and
+        // how many.
         let face_table = |label: &str| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: FACE_SLOTS as u64 * 4, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let (face_keys, face_values) = (face_table("sight's faces"), face_table("sight's faces' light"));
         let face_list = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's faces listed"), size: (FACE_SLOTS as u64 + 64) * 4, usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false });
         let face_count = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's faces counted"), size: 32, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        // The light per face is launched by the faces' count, so it hasn't the count among its bindings.
-        let face_group = |pipeline: &wgpu::ComputePipeline, counted: bool| {
-            let entries = [
-                wgpu::BindGroupEntry { binding: 0, resource: buffer(&face_keys) },
-                wgpu::BindGroupEntry { binding: 1, resource: buffer(&face_values) },
-                wgpu::BindGroupEntry { binding: 2, resource: buffer(&face_list) },
-                wgpu::BindGroupEntry { binding: 3, resource: buffer(&face_count) },
-            ];
-            let entries = if counted { &entries[..] } else { &entries[..3] };
-            device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's faces"), layout: &pipeline.get_bind_group_layout(1), entries })
-        };
-        let listed_staged = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's live pixels listed, staged"), layout: None, module: &march_module, entry_point: Some("listed_staged"), compilation_options: Default::default(), cache: None });
-        let face_groups = [face_group(&face_light_staged, false), face_group(&listed_staged, true), face_group(&shade_staged, true)];
-        let glow_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's far glows"), layout: None, module: &march_module, entry_point: Some("glow_pass"), compilation_options: Default::default(), cache: None });
+        let faces = [&face_keys, &face_values, &face_list, &face_count];
+        let passes = Passes::new(device, march, "sight's", faces);
         // `INCUS_SIGHT_TWIN=split`: the twin is another shape, not another file: its frames drawn split, the march then
-        // its light (the march in stages, the plan's step a: 2026-11-09).
+        // its light (the march in stages, the plan's step a: 2026-11-09); `=stages` in stages, `=faces` in stages with
+        // light per face near the eye. Otherwise a file: another build of the march, in the game's own shape.
         let twin_split = std::env::var("INCUS_SIGHT_TWIN").is_ok_and(|twin| twin == "split");
         let twin_stages = std::env::var("INCUS_SIGHT_TWIN").is_ok_and(|twin| twin == "stages");
         let twin_faces = std::env::var("INCUS_SIGHT_TWIN").is_ok_and(|twin| twin == "faces");
-        if twin_split || twin_stages || twin_faces {
-            crate::ecs::prelude::info!("Sight's twin: the march {}, drawing every other timed frame", if twin_split { "split from its light" } else if twin_stages { "in stages" } else { "in stages, light per face near the eye" });
-        }
+        let mut twin_note = (twin_split || twin_stages || twin_faces).then(|| format!("Sight's twin: the march {}, drawing every other timed frame", if twin_split { "split from its light" } else if twin_stages { "in stages" } else { "in stages, light per face near the eye" }));
         let twin = std::env::var("INCUS_SIGHT_TWIN").ok().filter(|_| !twin_split && !twin_stages && !twin_faces).and_then(|path| match std::fs::read_to_string(&path) {
             Ok(source) => {
-                let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's twin march"), source: wgpu::ShaderSource::Wgsl(source.into()) });
-                let pipeline = |label: &str, entry: &str| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(label), layout: None, module: &module, entry_point: Some(entry), compilation_options: Default::default(), cache: None });
-                crate::ecs::prelude::info!("Sight's twin: {path}, drawing every other timed frame in place of the march");
-                Some(Twin { march: pipeline("sight's twin march", "march_pass"), start: pipeline("sight's twin start pass", "start_pass"), glow_pass: pipeline("sight's twin far glows", "glow_pass") })
+                twin_note = Some(format!("Sight's twin: {path}, drawing every other timed frame in place of the game's march, in its shape"));
+                Some(Passes::new(device, &source, "sight's twin", faces))
             }
             Err(error) => {
-                crate::ecs::prelude::warn!("Sight's twin: {path} couldn't be read ({error}); the march alone");
+                twin_note = Some(format!("Sight's twin: {path} couldn't be read ({error}); the march alone"));
                 None
             }
         });
@@ -425,7 +436,7 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().media_table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, march_hit, light_hit, shade_staged, face_light_staged, face_keys, face_count, face_groups, listed_staged, glow_pass, glows, twin, twin_split, twin_stages, twin_faces, twin_next: false, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
+        Self { passes, face_keys, face_count, glows, twin, twin_note, twin_split, twin_stages, twin_faces, twin_next: false, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -498,6 +509,8 @@ impl SightDraw {
             // The base has no layer above: its "worth it" in is a placeholder never read.
             let nothing_above = storage("sight's nothing above", 1);
             let no_distances_above = texture("sight's no distances above", (1, 1), wgpu::TextureFormat::R32Float);
+            // The builds of the march drawing: the game's, then the twin's if there's a twin (each its own bindings).
+            let builds: Vec<&Passes> = std::iter::once(&self.passes).chain(self.twin.as_ref()).collect();
             let mut layers: Vec<Layer> = Vec::new();
             let mut worth_above: Option<wgpu::Buffer> = None;
             let mut far_above: Option<wgpu::TextureView> = None;
@@ -528,8 +541,6 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
                         wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
                     ];
-                let group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's march"), layout: &self.march.get_bind_group_layout(0), entries: &entries });
-                let twin_group = self.twin.as_ref().map(|twin| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's twin march"), layout: &twin.march.get_bind_group_layout(0), entries: &entries }));
                 let split: Vec<wgpu::BindGroupEntry> = entries.iter().cloned().chain([wgpu::BindGroupEntry { binding: 19, resource: buffer(&hits) }]).collect();
                 // The stages after the march: the split's bindings and the layer's live list.
                 let live_list = storage("sight's live pixels listed", size.0 * size.1 + 64);
@@ -537,13 +548,22 @@ impl SightDraw {
                 // The passes launched by the count read the list but haven't the count among their bindings.
                 let staged: Vec<wgpu::BindGroupEntry> = split.iter().cloned().chain([wgpu::BindGroupEntry { binding: 20, resource: buffer(&live_list) }]).collect();
                 let listing: Vec<wgpu::BindGroupEntry> = staged.iter().cloned().chain([wgpu::BindGroupEntry { binding: 21, resource: buffer(&live_count) }]).collect();
-                let hit_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's march, split"), layout: &self.march_hit.get_bind_group_layout(0), entries: &split });
-                let light_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's light"), layout: &self.light_hit.get_bind_group_layout(0), entries: &split });
-                let shade_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's shading, staged"), layout: &self.shade_staged.get_bind_group_layout(0), entries: &staged });
-                let listed_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's live pixels listed, staged"), layout: &self.listed_staged.get_bind_group_layout(0), entries: &listing });
-                let face_light_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's light per face, staged"), layout: &self.face_light_staged.get_bind_group_layout(0), entries: &split });
+                let bound = builds
+                    .iter()
+                    .map(|passes| {
+                        let bind = |label: &str, pipeline: &wgpu::ComputePipeline, entries: &[wgpu::BindGroupEntry]| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some(label), layout: &pipeline.get_bind_group_layout(0), entries });
+                        Bound {
+                            group: bind("sight's march", &passes.march, &entries),
+                            hit_group: bind("sight's march, split", &passes.march_hit, &split),
+                            light_group: bind("sight's light", &passes.light_hit, &split),
+                            listed_group: bind("sight's live pixels listed, staged", &passes.listed_staged, &listing),
+                            shade_group: bind("sight's shading, staged", &passes.shade_staged, &staged),
+                            face_light_group: bind("sight's light per face, staged", &passes.face_light_staged, &split),
+                        }
+                    })
+                    .collect();
                 far_above = Some(far.clone());
-                layers.push(Layer { factor, size, picture, far, camera, group, hit_group, light_group, shade_group, face_light_group, live_count, listed_group, twin_group });
+                layers.push(Layer { factor, size, picture, far, camera, bound, live_count });
                 worth_above = Some(worth);
             }
             let start_entries = [
@@ -553,8 +573,7 @@ impl SightDraw {
                 wgpu::BindGroupEntry { binding: 3, resource: buffer(&store.live) },
                 wgpu::BindGroupEntry { binding: 7, resource: buffer(&starts) },
             ];
-            let start_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's start pass"), layout: &self.start.get_bind_group_layout(0), entries: &start_entries });
-            let twin_start_group = self.twin.as_ref().map(|twin| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's twin start pass"), layout: &twin.start.get_bind_group_layout(0), entries: &start_entries }));
+            let start_bound = builds.iter().map(|passes| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's start pass"), layout: &passes.start.get_bind_group_layout(0), entries: &start_entries })).collect();
             let glow_entries = [
                 wgpu::BindGroupEntry { binding: 0, resource: buffer(&layers[0].camera) },
                 wgpu::BindGroupEntry { binding: 1, resource: buffer(&store.header) },
@@ -569,8 +588,7 @@ impl SightDraw {
                 wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
                 wgpu::BindGroupEntry { binding: 17, resource: buffer(&self.glows) },
             ];
-            let glow_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's far glows"), layout: &self.glow_pass.get_bind_group_layout(0), entries: &glow_entries });
-            let twin_glow_group = self.twin.as_ref().map(|twin| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's twin far glows"), layout: &twin.glow_pass.get_bind_group_layout(0), entries: &glow_entries }));
+            let glow_bound = builds.iter().map(|passes| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's far glows"), layout: &passes.glow_pass.get_bind_group_layout(0), entries: &glow_entries })).collect();
             // A layer the pyramid doesn't go to is never read; the base stands in for it.
             let picture_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).picture;
             let far_of = |factor: f32| &layers.iter().find(|l| (l.factor - factor).abs() < 0.01).unwrap_or(&layers[0]).far;
@@ -604,7 +622,7 @@ impl SightDraw {
                     view_formats: &[],
                 })
                 .create_view(&Default::default());
-            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_group, glow_group, twin_start_group, twin_glow_group, upscale_group, depth });
+            self.targets = Some(Targets { screen, factors: factors.to_vec(), store: store.clone(), textures_made: self.textures_made, tiles, layers, start_bound, glow_bound, upscale_group, depth });
         }
         self.targets.as_ref().expect("made just now")
     }
@@ -703,19 +721,23 @@ impl SightDraw {
         // The card's own clock on sight's work, when it can: each pass's start and end (the dyno's instruments), and
         // sight's whole, from the first pass's start to the upscale's end.
         let timed = self.timer.as_mut().and_then(|timer| timer.begin());
-        // The twin (the dyno's) draws every other timed frame, the one-pass march only: each timed frame is the march's
-        // or the twin's in turn, so both get as many readings whichever frames the clock times.
-        // The march's own shape (one pass, split, or in stages); a twin of another shape takes every other timed frame
-        // from it (the stages against the split: `INCUS_SIGHT_SPLIT` with `INCUS_SIGHT_TWIN=stages`), a twin file
-        // only from the one pass.
+        // The twin (the dyno's) draws every other timed frame: each timed frame is the game's or the twin's in turn, so
+        // both get as many readings whichever frames the clock times. The march's own shape (one pass, split, or in
+        // stages); a twin of another shape takes every other timed frame from it (the stages against the split:
+        // `INCUS_SIGHT_SPLIT` with `INCUS_SIGHT_TWIN=stages`), a twin file draws in the game's shape with its passes.
         let (base_split, base_stages) = (eye.split && eye.rays <= 1, eye.stages && eye.rays <= 1);
         let shaped_twin = (self.twin_split || self.twin_stages || self.twin_faces) && eye.rays <= 1;
-        let twin_possible = timed.is_some() && ((self.twin.is_some() && !base_split && !base_stages) || shaped_twin) && std::env::var("INCUS_DYNO_PASS_TIMES").is_err();
+        let twin_possible = timed.is_some() && (self.twin.is_some() || shaped_twin) && std::env::var("INCUS_DYNO_PASS_TIMES").is_err();
         if twin_possible {
             self.twin_next = !self.twin_next;
         }
         let twin_frame = twin_possible && self.twin_next;
-        let twin = if twin_frame { self.twin.as_ref() } else { None };
+        // The passes drawing this frame (a twin file's on its frames, the game's otherwise), and which of the bindings
+        // are theirs.
+        let (build, b) = match &self.twin {
+            Some(twin) if twin_frame => (twin, 1),
+            _ => (&self.passes, 0),
+        };
         let queries = self.timer.as_ref().map(|timer| &timer.queries);
         let timing = timed.and(queries);
         let mut passes: Vec<String> = Vec::new();
@@ -763,16 +785,8 @@ impl SightDraw {
             let timestamp_writes = compute_stamp(&mut passes, "march".into());
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march and light"), timestamp_writes });
             if !no_start {
-                match (twin, &targets.twin_start_group) {
-                    (Some(twin), Some(group)) => {
-                        pass.set_pipeline(&twin.start);
-                        pass.set_bind_group(0, group, &[]);
-                    }
-                    _ => {
-                        pass.set_pipeline(&self.start);
-                        pass.set_bind_group(0, &targets.start_group, &[]);
-                    }
-                }
+                pass.set_pipeline(&build.start);
+                pass.set_bind_group(0, &targets.start_bound[b], &[]);
                 pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
             }
             if stages {
@@ -782,69 +796,53 @@ impl SightDraw {
                 let groups_of = |layer: &Layer| (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
                 for layer in &targets.layers {
                     let groups = groups_of(layer);
-                    pass.set_pipeline(&self.march_hit);
-                    pass.set_bind_group(0, &layer.hit_group, &[]);
+                    pass.set_pipeline(&build.march_hit);
+                    pass.set_bind_group(0, &layer.bound[b].hit_group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
-                    pass.set_pipeline(&self.listed_staged);
-                    pass.set_bind_group(0, &layer.listed_group, &[]);
-                    pass.set_bind_group(1, &self.face_groups[1], &[]);
+                    pass.set_pipeline(&build.listed_staged);
+                    pass.set_bind_group(0, &layer.bound[b].listed_group, &[]);
+                    pass.set_bind_group(1, &build.face_groups[1], &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                 }
                 if face_light {
-                    pass.set_pipeline(&self.face_light_staged);
-                    pass.set_bind_group(0, &targets.layers[0].face_light_group, &[]);
-                    pass.set_bind_group(1, &self.face_groups[0], &[]);
+                    pass.set_pipeline(&build.face_light_staged);
+                    pass.set_bind_group(0, &targets.layers[0].bound[b].face_light_group, &[]);
+                    pass.set_bind_group(1, &build.face_groups[0], &[]);
                     pass.dispatch_workgroups_indirect(&self.face_count, 0);
                 }
                 for layer in &targets.layers {
-                    pass.set_pipeline(&self.shade_staged);
-                    pass.set_bind_group(0, &layer.shade_group, &[]);
-                    pass.set_bind_group(1, &self.face_groups[2], &[]);
+                    pass.set_pipeline(&build.shade_staged);
+                    pass.set_bind_group(0, &layer.bound[b].shade_group, &[]);
+                    pass.set_bind_group(1, &build.face_groups[2], &[]);
                     pass.dispatch_workgroups_indirect(&layer.live_count, 0);
                 }
             }
             for layer in targets.layers.iter().filter(|_| !stages) {
                 let groups = (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
                 if split {
-                    pass.set_pipeline(&self.march_hit);
-                    pass.set_bind_group(0, &layer.hit_group, &[]);
+                    pass.set_pipeline(&build.march_hit);
+                    pass.set_bind_group(0, &layer.bound[b].hit_group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
-                    pass.set_pipeline(&self.light_hit);
-                    pass.set_bind_group(0, &layer.light_group, &[]);
+                    pass.set_pipeline(&build.light_hit);
+                    pass.set_bind_group(0, &layer.bound[b].light_group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                 } else {
-                    match (twin, &layer.twin_group) {
-                        (Some(twin), Some(group)) => {
-                            pass.set_pipeline(&twin.march);
-                            pass.set_bind_group(0, group, &[]);
-                        }
-                        _ => {
-                            pass.set_pipeline(&self.march);
-                            pass.set_bind_group(0, &layer.group, &[]);
-                        }
-                    }
+                    pass.set_pipeline(&build.march);
+                    pass.set_bind_group(0, &layer.bound[b].group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                 }
             }
             if let Some(groups) = glow_groups {
-                match (twin, &targets.twin_glow_group) {
-                    (Some(twin), Some(group)) => {
-                        pass.set_pipeline(&twin.glow_pass);
-                        pass.set_bind_group(0, group, &[]);
-                    }
-                    _ => {
-                        pass.set_pipeline(&self.glow_pass);
-                        pass.set_bind_group(0, &targets.glow_group, &[]);
-                    }
-                }
+                pass.set_pipeline(&build.glow_pass);
+                pass.set_bind_group(0, &targets.glow_bound[b], &[]);
                 pass.dispatch_workgroups(groups, 1, 1);
             }
         } else {
             if !no_start {
                 let timestamp_writes = compute_stamp(&mut passes, "start".into());
                 let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's start pass"), timestamp_writes });
-                pass.set_pipeline(&self.start);
-                pass.set_bind_group(0, &targets.start_group, &[]);
+                pass.set_pipeline(&build.start);
+                pass.set_bind_group(0, &targets.start_bound[b], &[]);
                 pass.dispatch_workgroups(tiles.0.div_ceil(8), tiles.1.div_ceil(8), 1);
             }
             if stages {
@@ -869,14 +867,14 @@ impl SightDraw {
                 };
                 let across = |layer: &Layer| Launch::Across(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
                 for layer in &targets.layers {
-                    timed_pass(format!("layer {}", layer.factor), &self.march_hit, &layer.hit_group, None, across(layer));
-                    timed_pass(format!("listed {}", layer.factor), &self.listed_staged, &layer.listed_group, Some(&self.face_groups[1]), across(layer));
+                    timed_pass(format!("layer {}", layer.factor), &build.march_hit, &layer.bound[b].hit_group, None, across(layer));
+                    timed_pass(format!("listed {}", layer.factor), &build.listed_staged, &layer.bound[b].listed_group, Some(&build.face_groups[1]), across(layer));
                 }
                 if face_light {
-                    timed_pass("face light".into(), &self.face_light_staged, &targets.layers[0].face_light_group, Some(&self.face_groups[0]), Launch::Listed(&self.face_count));
+                    timed_pass("face light".into(), &build.face_light_staged, &targets.layers[0].bound[b].face_light_group, Some(&build.face_groups[0]), Launch::Listed(&self.face_count));
                 }
                 for layer in &targets.layers {
-                    timed_pass(format!("shade {}", layer.factor), &self.shade_staged, &layer.shade_group, Some(&self.face_groups[2]), Launch::Listed(&layer.live_count));
+                    timed_pass(format!("shade {}", layer.factor), &build.shade_staged, &layer.bound[b].shade_group, Some(&build.face_groups[2]), Launch::Listed(&layer.live_count));
                 }
             }
             for layer in targets.layers.iter().filter(|_| !stages) {
@@ -884,28 +882,28 @@ impl SightDraw {
                 if split {
                     let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
                     let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march, split"), timestamp_writes });
-                    pass.set_pipeline(&self.march_hit);
-                    pass.set_bind_group(0, &layer.hit_group, &[]);
+                    pass.set_pipeline(&build.march_hit);
+                    pass.set_bind_group(0, &layer.bound[b].hit_group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                     drop(pass);
                     let timestamp_writes = compute_stamp(&mut passes, format!("light {}", layer.factor));
                     let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's light"), timestamp_writes });
-                    pass.set_pipeline(&self.light_hit);
-                    pass.set_bind_group(0, &layer.light_group, &[]);
+                    pass.set_pipeline(&build.light_hit);
+                    pass.set_bind_group(0, &layer.bound[b].light_group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                 } else {
                     let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
                     let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march"), timestamp_writes });
-                    pass.set_pipeline(&self.march);
-                    pass.set_bind_group(0, &layer.group, &[]);
+                    pass.set_pipeline(&build.march);
+                    pass.set_bind_group(0, &layer.bound[b].group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
                 }
             }
             if let Some(groups) = glow_groups {
                 let timestamp_writes = compute_stamp(&mut passes, "glows".into());
                 let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's far glows"), timestamp_writes });
-                pass.set_pipeline(&self.glow_pass);
-                pass.set_bind_group(0, &targets.glow_group, &[]);
+                pass.set_pipeline(&build.glow_pass);
+                pass.set_bind_group(0, &targets.glow_bound[b], &[]);
                 pass.dispatch_workgroups(groups, 1, 1);
             }
         }
@@ -936,6 +934,11 @@ impl SightDraw {
         if let (Some(k), Some(timer)) = (timed, &mut self.timer) {
             timer.resolve(encoder, k, passes, twin_drew);
         }
+    }
+
+    /// What the dyno's twin is (`INCUS_SIGHT_TWIN`), if there's one, for the game's log.
+    pub fn twin_note(&self) -> Option<&str> {
+        self.twin_note.as_deref()
     }
 
     /// After the frame's work is handed to the card: this frame's clock asked for, and any come back read

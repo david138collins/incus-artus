@@ -2130,7 +2130,7 @@ fn ground(c: Case) -> i32 {
             let (p, h) = (pitch.to_radians(), heading.to_radians());
             let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
             let picture = |split: bool| {
-                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, split, ..Default::default() };
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, split, stages: false, ..Default::default() };
                 sight_picture(&device, &queue, &store, size, eye)
             };
             // Together twice (the scene's own steadiness), split between.
@@ -2156,9 +2156,10 @@ fn ground(c: Case) -> i32 {
         assert!(worst.0 <= (size.0 * size.1 / 1000) as usize, "the same picture ({} pixels more than a step apart, {} at most)", worst.0, worst.1);
     }
 
-    /// The march in stages (the dyno, 2026-11-09: the march, the sun's shadow and the light each a pass of their own)
-    /// draws what the one pass draws, to a step of a colour (the records' half floats between them), and what the
-    /// split draws: over hills near and far, down into a lake, with the sun's shadows, sky light and textures.
+    /// The march in stages (the dyno, 2026-11-09: the march, then the shading, each a pass of its own; the game's
+    /// drawing since build 104) draws what the one pass draws, to a step of a colour (the records' half floats between
+    /// them), and what the split draws: over hills near and far, down into a lake, with the sun's shadows, sky light
+    /// and textures. Without light per face (which changes the near faces' light: its own test, below).
     #[test]
     #[ignore]
     fn sight_s_march_in_stages_the_same() {
@@ -2176,7 +2177,7 @@ fn ground(c: Case) -> i32 {
             let (p, h) = (pitch.to_radians(), heading.to_radians());
             let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
             let picture = |split: bool, stages: bool| {
-                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, split, stages, ..Default::default() };
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, split, stages, face_light: false, ..Default::default() };
                 sight_picture(&device, &queue, &store, size, eye)
             };
             let (together, split, stages) = (picture(false, false), picture(true, false), picture(false, true));

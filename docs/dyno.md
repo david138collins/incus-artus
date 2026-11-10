@@ -313,6 +313,11 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
    - Each layer timed against the one program (whole flight, ms): the coarse layers' march alone is a little
      cheaper than the one program's march and light together, but their shading adds the difference back; the
      near layer is where the stages win (over the land 5.2 ms in one program, about 1.4 ms in stages).
+   - **The game's drawing since build 104.** Asked whether the stages with light per face become the normal
+     drawing (the median +6.5%, the 99th −36%), David: "yes" (2026-11-10, via Counsel; `decisions.md`). Both on
+     unless chosen; the Render page's two checks stay, to flip back. `INCUS_SIGHT_ONE_PASS` flies the one pass to
+     measure against (`INCUS_SIGHT_SPLIT` the split). The tests draw as the game does, in stages with light per
+     face; the stages against the one pass keep their own test, without light per face.
 4. Then the far: the typical frame's coarse horizon rays need an answer that doesn't lean on fog (below). Texture
    units for the far cells' blend, empty air skipped smarter for grazing rays (solved jumps, relaxed cone
    stepping), the sea as a plane.
@@ -631,15 +636,16 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
 - [x] The heat watch: the GPU's temperature and clock, the CPU area's temperature, on every flight (and the
       agreed cutoff: 105 °C on the CPU area twice running stops the flight).
 - [~] **The twin** (2026-11-09): two builds of the march flown in one flight, frame by frame. `INCUS_SIGHT_TWIN=<a
-      march.wgsl>` has the game read that shader as it starts and draw every other timed frame with it (the start,
-      the march and the glows; not the split). The card's clock on each kept apart, and the report sets them side
-      by side, whole and leg by leg: "the twin against the march", median, 95th and 99th. The views and the heat
-      are the same for both, and one flight (about 3 minutes) takes the place of four alternating builds (about
-      25). Step 4 showed a step has to be measured against the build before as a whole: this is that, in one game.
-      The frames' own times are both's (the card's work for each is what's apart). **Checked:** the march against
-      itself (`logs/dyno-1794274012.txt`), the medians within 0.4% on every leg but the sea's 2.2%, the 95th within
-      1.8%, the 99th within 3.3%: that's the twin's noise. First used on the near walk's handover fix against the
-      build before (`logs/dyno-1794274234.txt`): within the noise.
+      march.wgsl>` has the game read that shader as it starts and draw every other timed frame with it, in the
+      game's own shape (since build 104 all its passes, each with bindings of its own, the stages being the game's
+      drawing; before, the one pass's start, march and glows only). The card's clock on each kept apart, and the
+      report sets them side by side, whole and leg by leg: "the twin against the march", median, 95th and 99th.
+      The views and the heat are the same for both, and one flight (about 3 minutes) takes the place of four
+      alternating builds (about 25). Step 4 showed a step has to be measured against the build before as a whole:
+      this is that, in one game. The frames' own times are both's (the card's work for each is what's apart).
+      **Checked:** the march against itself (`logs/dyno-1794274012.txt`), the medians within 0.4% on every leg but
+      the sea's 2.2%, the 95th within 1.8%, the 99th within 3.3%: that's the twin's noise. First used on the near
+      walk's handover fix against the build before (`logs/dyno-1794274234.txt`): within the noise.
 - [ ] An input-to-photon gate: the mouse stays near build 67's 1.05 ms (uncapped).
 - [ ] Nsight: card time per pass, stall reasons (memory against divergence), and occupancy. *2026-11-09:* Nsight
       Graphics 2026.4.0 installed, and the counters opened; its command line (`ngfx.exe`, GPU Trace Profiler, the
