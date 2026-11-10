@@ -1373,6 +1373,12 @@ below disagree with this one, this one stands.
        Shrinking the one program further was found to be a lottery on the compiler's choices: the sky cones as
        one loop won, and compiling out the measuring views lost. Small kernels are far less exposed to that.
        *On the look-first order:* "working backwards from the result we want made the goal crystal clear."
+
+       **Nothing relies on fog to perform** [David 2026-11-09]: "i kind of feel like 'rays end where fog is total'
+       is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune for
+       any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
+       renderer to perform." So the renderer is tuned for the clearest day. Ending rays in total fog comes last, if
+       at all: a bonus on foggy days, never what the frame rate depends on.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
