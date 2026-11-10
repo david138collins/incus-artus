@@ -321,6 +321,31 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
 4. Then the far: the typical frame's coarse horizon rays need an answer that doesn't lean on fog (below). Texture
    units for the far cells' blend, empty air skipped smarter for grazing rays (solved jumps, relaxed cone
    stepping), the sea as a plane.
+   **The first probes** (2026-11-10, at build 104; each a twin flown every other frame against the game, the whole
+   flight's median / 95th / 99th). The twin against itself in the stages' shape reads level (+0.0 / −0.8 / −1.1%; the
+   legs within 1.5%, the quick leg's 1 ms median ±8%): the instrument works in the game's shape.
+   - No hand-over blend (one level read where two are mixed, the last 40% of each level's stretch): −9.7 / −12.5 /
+     −10.4%; round the peak and home −11% on the median, over the land −1.3%. Not to ship (the mix is what keeps the
+     level changes from drawing rings, David's build 69), but the second read costs a tenth of the sight.
+   - Air strides twice as long: −3.2 / −4.3 / −4.8%. The steps through air are a small part.
+   - [-] **The deeper air skip** (built: after each skip in a row the next tries a column coarser still, up to eight
+     levels over, never past where the level changes; the same picture to the pixel in all seven test views):
+     −1.6 / +2.1 / +2.0%, noise. Dropped: skipping the air already costs little.
+   - So the far march's time is where rays meet surfaces: the fine steps there, each reading the eight cells round
+     it (four columns' entries, eight cells), and both levels in the hand-over stretch.
+   - **David's idea** (via Counsel): "oh yeah! maybe we can make the texture units handle blending two pyramid
+     levels." Weighed: the shape fits (each level's cells twice the last's every way, a mip chain; the hardware's
+     trilinear filter is the blend within a level, with colours kept weighted by their surface; a fractional level
+     does the hand-over in the same fetch). The store doesn't, yet: its cells are bands in a pool, a column's cells
+     round its surface only and neighbouring columns not neighbours in memory, so nothing the hardware can filter
+     across; a level as one texture would be hundreds of millions of cells (windows some 700 columns a side, the
+     world 1,024 tall). The way in is bricks (small blocks of cells where there's surface, with a border for the
+     filter, found through a table as the columns are now): a rework of the store and every read of it, more memory
+     than the bands; the fine levels' windows can't share one mip chain with the bake's, so there two fetches and a
+     mix. Its ceiling is measured first: the blend reading only the one cell a point is in.
+   - Next to fly (David's go): that one-cell blend; the steps by a surface twice as long; no walk back to the last
+     air before a surface (2026-11-06's fix for rings on flat ground); a ray finished at 95% covered, not 99%. Each
+     prices a part; none ships.
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
