@@ -495,7 +495,7 @@ Reference: `Art/quartile minecraft illustration.png`
   **red blood**, **green stamina**. Can change later.
 - **[DECIDED]** Game name is **Incus Artus**.
   - **[DECIDED 2026-10-26, corrected 2026-11-10] Spelled *Artus* on purpose, not *Artis*.** *Incus* is
-    Latin for anvil, and *Artus* means craft: the anvil of craft. Strict Latin would be *Incus Artis*;
+    Latin for anvil, and *Artus* means craft: the anvil of the craft. Strict Latin would be *Incus Artis*;
     David prefers the u. David 2026-11-10: "note that artus is craft, not arthur. i do draw from arthurian
     legend but its incus artus and not incus artis because i just prefer the u there." (An earlier note here
     said the name was told publicly as an echo of Arthur; that was wrong. The Arthurian legend is one of his

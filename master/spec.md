@@ -8,7 +8,7 @@ Status key: [decided] he decided it. [wanted] he wants it, with details or timin
 - Incus Artus is "basically just minecraft and dwarf fortress at the same time": a big open-world immersive survival and settlement sim.
 - Minecraft-style first-person building and exploring, with Dwarf Fortress-style living settlements; a commercial, standalone game.
 - You can be a lone adventurer, grow from a campsite into a network of towns, or both, moving freely between first person and the management views.
-- The name is Incus Artus, the anvil of craft: Artus is craft, spelled with a u because he prefers it.
+- The name is Incus Artus, the anvil of the craft: Artus is craft, spelled with a u because he prefers it.
 - The world is small but must feel big, and big but must feel small; it unfolds like origami as you discover it, its complexity shown only when needed.
 - Nothing in it is truly random: a metaphysical world, the form, is projected into a physical one, "so that 1 always equals 1".
 - It only has to pass a glance as real: fantasy and fun come before science.
@@ -50,7 +50,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Minecraft and Dwarf Fortress in one game: an open-world immersive survival and settlement sim, Minecraft-style first-person building and exploring with Dwarf Fortress-style living settlements: "basically just minecraft and dwarf fortress at the same time". [decided] (vision.md:12-14; conv:10, 38)
 - A commercial, standalone game; the old Minecraft mod was only a step toward it. [decided] (vision.md:18; conv:16, 38)
 - Play as a lone adventurer, grow from a campsite into a network of towns, or both. [decided] (vision.md:14-15; conv:16, 22)
-- Called Incus Artus, the anvil of craft: "artus is craft, not arthur ... i just prefer the u there." Arthurian legend is one of the lore's sources, not the name's meaning. "Incus Artis" is out of date. [decided] (decisions.md:496-503)
+- Called Incus Artus, the anvil of the craft: "artus is craft, not arthur ... i just prefer the u there." Arthurian legend is one of the lore's sources, not the name's meaning. "Incus Artis" is out of date. [decided] (decisions.md:496-503)
 - Keep familiar conventions, for everyone. [decided] (simulation.md:329)
 - Minecraft rebuilt from scratch with what hardcore mods, RLCraft, Vintage Story and Songs of Syx taught: more depth and quality of life, keeping Minecraft's joy. [idea] (vision.md:23-26; conv:529)
 - Natural, logical solutions: no redstone; villagers given orders and farmhands do what a contraption would; big hauls by labour, wagons and donkeys: "villagers being given orders is better than redstone by far". [idea] (vision.md:27-29; conv:22, 529)
