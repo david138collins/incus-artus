@@ -357,9 +357,16 @@ impl WorldOnCard {
     /// between [2026-11-06: tiles of 16-block cells in one go held frames, "showing it" 4.7 ms, 900 slow
     /// frames in 40 s of flight].
     pub fn cells_by(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], choose: impl FnOnce(&[[i32; 2]]) -> Vec<[i32; 4]>, pieces: (u32, u32)) -> Vec<[u32; crate::sight::cell::CARD_NUMBERS]> {
+        self.cells_by_given(device, queue, region, None, choose, pieces)
+    }
+
+    /// The same, the region's grounds (for it and three columns round, x fastest, as the grounds pass makes them)
+    /// handed in where they're known already, put on the card in place of working them out again: the finer live
+    /// levels' tiles take theirs from the coarsest's (`sight::store::SharedGrounds`), the card's own numbers.
+    pub fn cells_by_given(&self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 4], given: Option<Vec<[i32; 2]>>, choose: impl FnOnce(&[[i32; 2]]) -> Vec<[i32; 4]>, pieces: (u32, u32)) -> Vec<[u32; crate::sight::cell::CARD_NUMBERS]> {
         use wgpu::util::DeviceExt;
         let bytes = |v: &[i32]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
-        let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
+        let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let region_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("the region"), contents: &bytes(&[region[0], region[1], region[2], region[3], 0]), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST });
         let ground_count = ((region[2] + 6) * (region[3] + 6)) as u32;
         let chosen_count = ((region[2] + 2) * (region[3] + 2)) as u32;
@@ -411,11 +418,20 @@ impl WorldOnCard {
             Some(view.to_vec())
         };
         let by_threads = |n: u32| n.div_ceil(64);
-        if !in_pieces(&self.grounds, &bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count, pieces.0, &by_threads) {
-            return Vec::new();
-        }
-        let Some(made) = read_back(&grounds, ground_count as u64 * 8) else { return Vec::new() };
-        let made: Vec<[i32; 2]> = made.chunks_exact(8).map(|b| [i32::from_le_bytes([b[0], b[1], b[2], b[3]]), i32::from_le_bytes([b[4], b[5], b[6], b[7]])]).collect();
+        let made: Vec<[i32; 2]> = match given {
+            // Known already: put on the card (ahead of the passes that read them, in the queue's order).
+            Some(given) if given.len() == ground_count as usize => {
+                queue.write_buffer(&grounds, 0, &bytes(&given.iter().flatten().copied().collect::<Vec<i32>>()));
+                given
+            }
+            _ => {
+                if !in_pieces(&self.grounds, &bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count, pieces.0, &by_threads) {
+                    return Vec::new();
+                }
+                let Some(made) = read_back(&grounds, ground_count as u64 * 8) else { return Vec::new() };
+                made.chunks_exact(8).map(|b| [i32::from_le_bytes([b[0], b[1], b[2], b[3]]), i32::from_le_bytes([b[4], b[5], b[6], b[7]])]).collect()
+            }
+        };
         let cells = choose(&made);
         if cells.is_empty() {
             return Vec::new();

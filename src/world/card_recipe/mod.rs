@@ -761,6 +761,41 @@ fn ground(c: Case) -> i32 {
         Some((device, queue, map, plan, blocks, colours, world))
     }
 
+    /// The finer live levels' tiles made from the coarsest level's grounds (`SharedGrounds`, the dyno 2026-11-10: the
+    /// outside read's lead 2) are the same to the bit as made from their own grounds pass, at every level under the
+    /// coarsest, at a coarse tile's corners (its three columns round reaching into the coarse tile's) and by caves and
+    /// a river; and every one of them took its grounds from the coarse tile's.
+    #[test]
+    fn sight_s_shared_grounds_make_the_same_tiles() {
+        use crate::sight::store::{SharedGrounds, TILE, TileKey, fill_tile, fill_tile_sharing};
+        let Some((device, queue, _map, plan, _blocks, _colours, world)) = sight_world() else {
+            eprintln!("No graphics card: sight's shared grounds test is skipped");
+            return;
+        };
+        let shared = SharedGrounds::new(&[0, 1, 2, 3, 4]);
+        let coarse = TILE << 4;
+        let mut compared = 0;
+        for (x, y) in [(600i32, 300i32), (-60, 80), (630, 340)] {
+            let coarse_key = TileKey { level: 4, x: x.div_euclid(coarse), y: y.div_euclid(coarse) };
+            fill_tile_sharing(&device, &queue, &world, &plan, world.odd, coarse_key, Some(&shared));
+            for level in 0..4usize {
+                let tile_blocks = TILE << level;
+                let per = coarse / tile_blocks;
+                let (first_x, first_y) = (coarse_key.x * per, coarse_key.y * per);
+                for (tx, ty) in [(first_x, first_y), (first_x + per - 1, first_y + per - 1), (x.div_euclid(tile_blocks), y.div_euclid(tile_blocks))] {
+                    let key = TileKey { level, x: tx, y: ty };
+                    let own = fill_tile(&device, &queue, &world, &plan, world.odd, key);
+                    let from_coarse = fill_tile_sharing(&device, &queue, &world, &plan, world.odd, key, Some(&shared));
+                    assert_eq!(own.columns, from_coarse.columns, "level {level}, tile {key:?}: the cells made from the coarse tile's grounds");
+                    assert_eq!(own.blocks, from_coarse.blocks, "level {level}, tile {key:?}: the cells' blocks");
+                    compared += 1;
+                }
+            }
+        }
+        assert_eq!(shared.given.load(std::sync::atomic::Ordering::Relaxed), compared, "every finer tile took its grounds from the coarse tile's");
+        eprintln!("Sight's shared grounds: {compared} finer tiles the same to the bit, made from the coarse tiles' grounds");
+    }
+
     /// Sight's live levels (phase 3.1c): every cell exactly its eight children at the level below added, the
     /// cells left out of the bands included (solid below, empty above), at every level, by caves and a river;
     /// and the cells just past each band really are solid all round, or empty, as the card makes them.

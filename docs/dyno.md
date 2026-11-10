@@ -410,9 +410,21 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
        dynamism for gameplay"; light that moves with actors stays prompt): priced by lighting one face in eight a
        frame, −1.4 / −2.2 / −2.8%; over the land −6.1%, round the peak's 95th and 99th −9.7 / −10.4%. A ceiling for
        the lighting part. Behind a Render-page switch if built.
-     - Its lead 2 (the ground columns shared by the live levels, the same to the bit): by its count about half the
-       near ground pass's columns while flying (the finer levels' windows inside the 16s' make theirs again), near
-       8% of the card over the land. Not built yet; priced by a flight once it is.
+     - [x] **The ground columns shared by the live levels** (its lead 2; David: "her order is right, she can
+       proceed without me looking"): the coarsest level's tiles keep the grounds the card worked out for them (each
+       block column's ground and water, two 16-bit numbers, the tile and three columns round), and a finer tile
+       inside one takes its grounds from there, put on the card in place of the grounds pass (`SharedGrounds`,
+       `fill_tile_sharing`, `cells_by_given`); kept only for the coarse tiles the next level's window reaches (208
+       of them flying, about 57 MB on the processor's side). The same to the bit (36 finer tiles at every level, at
+       a coarse tile's corners and by caves and a river: `sight_s_shared_grounds_make_the_same_tiles`). Flown build
+       against build, off and on twice each (`INCUS_SIGHT_NO_SHARED_GROUNDS` turns it off; the offs agree within
+       1%): 96% of the finer tiles took their grounds from the coarse ones, and **the tiles made in a flight went
+       from 24,900 to 41,500** (2.2 million cells on the card against 1.4): the live levels now keep up with the
+       flight, so the march falls back to coarser levels less. **The median −9.5 / −8.6%**; over the land −4.5 /
+       −3.9% and the 99th −8.2%; round the peak −28% (the card's own sight −31 to −38%: fuller windows); the
+       quick leg −35 / −28%; home's 99th −11 / −15%. But at sea the 95th and 99th +4 to +5% (more tiles made a
+       second, more cells made in some frames), and the whole flight's 95th and 99th +1.5 to +2.2%. **In the game,
+       build 106.** The lane's pace (how many tiles at once) is the knob for the sea's tails, later.
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our

@@ -106,17 +106,113 @@ impl Tile {
     }
 }
 
+/// The coarsest live level's tiles' grounds (each block column's ground and water, −1 past the map, for the tile
+/// and three columns round it, as the card worked them out and read them back), kept for the finer levels' tiles
+/// inside them: a finer tile takes its grounds from here, put on the card in place of the grounds pass working them
+/// out again [2026-11-10, the dyno; the outside read's lead 2: the levels' windows sit one inside another, so a
+/// column near the eye was worked out once for every level, about twice the work of the coarsest's alone, and the
+/// pass holds 255 registers]. The card's own numbers, so the cells made from them are the same to the bit. Only
+/// the coarsest tiles the next level's window reaches are kept (`keep_round`); a finer tile asked for before its
+/// coarse one is made works its own out, as before.
+pub struct SharedGrounds {
+    /// The coarsest live level (its tiles are kept), and the next one (the window kept for).
+    level: usize,
+    next: Option<usize>,
+    /// By the coarsest level's tile (x, y): its grounds, two 16-bit numbers a column (a ground is 1 to 1,023, water
+    /// up to 1,024, −1 past the map).
+    tiles: std::sync::Mutex<HashMap<(i32, i32), Arc<Vec<[i16; 2]>>>>,
+    /// Finer tiles given their grounds, and made without (for the log).
+    pub given: std::sync::atomic::AtomicUsize,
+    pub worked: std::sync::atomic::AtomicUsize,
+}
+
+impl SharedGrounds {
+    /// `INCUS_SIGHT_NO_SHARED_GROUNDS` keeps none (every tile works its own out, as before: for measuring).
+    pub fn new(levels: &[usize]) -> Self {
+        let level = levels.iter().copied().max().unwrap_or(0);
+        let next = levels.iter().copied().filter(|&l| l < level).max().filter(|_| std::env::var("INCUS_SIGHT_NO_SHARED_GROUNDS").is_err());
+        Self { level, next, tiles: Default::default(), given: Default::default(), worked: Default::default() }
+    }
+
+    /// A finer tile's grounds (for it and three columns round, x fastest), if the coarsest tile round it is kept.
+    pub fn for_tile(&self, key: TileKey) -> Option<Vec<[i32; 2]>> {
+        if key.level >= self.level {
+            return None;
+        }
+        let (x0, y0, side) = key.blocks();
+        let coarse = TILE << self.level;
+        let (cx, cy) = (x0.div_euclid(coarse), y0.div_euclid(coarse));
+        let kept = self.tiles.lock().ok()?.get(&(cx, cy)).cloned();
+        let Some(kept) = kept else {
+            self.worked.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return None;
+        };
+        // The finer tile and its three columns round lie inside the coarse tile and its three round.
+        let (across, from) = ((coarse + 6) as usize, ((x0 - cx * coarse) as usize, (y0 - cy * coarse) as usize));
+        let n = (side + 6) as usize;
+        let mut grounds = Vec::with_capacity(n * n);
+        for y in 0..n {
+            let row = (from.1 + y) * across + from.0;
+            grounds.extend(kept[row..row + n].iter().map(|&[g, w]| [g as i32, w as i32]));
+        }
+        self.given.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Some(grounds)
+    }
+
+    /// A tile's grounds as the card made them: kept if it's of the coarsest level (and every number fits).
+    pub fn keep(&self, key: TileKey, grounds: &[[i32; 2]]) {
+        if key.level != self.level || self.next.is_none() || grounds.iter().flatten().any(|&v| v < i16::MIN as i32 || v > i16::MAX as i32) {
+            return;
+        }
+        let kept: Vec<[i16; 2]> = grounds.iter().map(|&[g, w]| [g as i16, w as i16]).collect();
+        if let Ok(mut tiles) = self.tiles.lock() {
+            tiles.insert((key.x, key.y), Arc::new(kept));
+        }
+    }
+
+    /// Lets go of the coarse tiles the next level's window round `camera` (blocks) doesn't reach, a coarse tile's
+    /// width to spare (`side`: the levels' cell columns a side).
+    pub fn keep_round(&self, camera: (f32, f32), side: i32) {
+        let Some(next) = self.next else { return };
+        let (fine, coarse) = (TILE << next, TILE << self.level);
+        let n = side / TILE;
+        let reach = |at: f32| {
+            let first = ((at / fine as f32).floor() as i32 - n / 2) * fine;
+            (first - coarse, first + n * fine + coarse)
+        };
+        let ((x0, x1), (y0, y1)) = (reach(camera.0), reach(camera.1));
+        if let Ok(mut tiles) = self.tiles.lock() {
+            tiles.retain(|&(x, y), _| x * coarse < x1 && (x + 1) * coarse > x0 && y * coarse < y1 && (y + 1) * coarse > y0);
+        }
+    }
+
+    /// Coarse tiles kept.
+    pub fn kept(&self) -> usize {
+        self.tiles.lock().map_or(0, |tiles| tiles.len())
+    }
+}
+
 /// Makes a tile: the columns round it on the card, each cell column's band worked out from them, then the
 /// band's cells on the card. `odd`: a layer somewhere is air or water, so bands start at the bottom. Waits on
 /// the card: for the loading lane.
 pub fn fill_tile(device: &wgpu::Device, queue: &wgpu::Queue, world: &WorldOnCard, caves: &CavePlan, odd: bool, key: TileKey) -> Tile {
+    fill_tile_sharing(device, queue, world, caves, odd, key, None)
+}
+
+/// The same, its grounds taken from the coarsest level's tile round it where that's made (`shared`), or (a tile
+/// of the coarsest level) kept there for the finer ones.
+pub fn fill_tile_sharing(device: &wgpu::Device, queue: &wgpu::Queue, world: &WorldOnCard, caves: &CavePlan, odd: bool, key: TileKey, shared: Option<&SharedGrounds>) -> Tile {
     let size = key.size();
     let (x0, y0, side) = key.blocks();
     let started = std::time::Instant::now();
     let mut columns_ms = 0.0;
     let mut bands = Vec::with_capacity((TILE * TILE) as usize);
-    let made = world.cells_by(device, queue, [x0, y0, side, side], |grounds| {
+    let given = shared.and_then(|shared| shared.for_tile(key));
+    let made = world.cells_by_given(device, queue, [x0, y0, side, side], given, |grounds| {
         columns_ms = started.elapsed().as_secs_f32() * 1000.0;
+        if let Some(shared) = shared {
+            shared.keep(key, grounds);
+        }
         // The region's grounds and three columns round them.
         let across = side + 6;
         let column = |x: i32, y: i32| grounds[((y - y0 + 3) * across + (x - x0 + 3)) as usize];
@@ -256,11 +352,14 @@ pub struct LiveStore {
     /// Tiles made since it started (for the log), and by level what they took (columns ms, cells ms, how many).
     pub made: usize,
     took: [(f32, f32, usize); LIVE_LEVELS],
+    /// The coarsest level's grounds, kept for the finer levels' tiles (`SharedGrounds`).
+    grounds: Arc<SharedGrounds>,
 }
 
 impl LiveStore {
     pub fn new(levels: Vec<usize>, side: i32) -> Self {
-        Self { levels, side, tiles: HashMap::new(), filling: HashMap::new(), stale: Default::default(), made: 0, took: [(0.0, 0.0, 0); LIVE_LEVELS] }
+        let grounds = Arc::new(SharedGrounds::new(&levels));
+        Self { levels, side, tiles: HashMap::new(), filling: HashMap::new(), stale: Default::default(), made: 0, took: [(0.0, 0.0, 0); LIVE_LEVELS], grounds }
     }
 
     /// Edits at `spots` (blocks): the tiles they reach, at every level, made again (build 88). A tile's cells
@@ -311,6 +410,7 @@ impl LiveStore {
     /// taken in, and more asked for, nearest first, a few at a time (fine and coarse apart).
     pub fn update(&mut self, camera: (f32, f32), maker: &Maker, odd: bool, edits: Option<&Arc<super::edits::Edits>>) {
         let wanted = self.wanted(camera);
+        self.grounds.keep_round(camera, self.side);
         let keep: std::collections::HashSet<TileKey> = wanted.iter().map(|&(_, key)| key).collect();
         self.tiles.retain(|key, _| keep.contains(key));
         self.filling.retain(|key, _| keep.contains(key));
@@ -346,10 +446,11 @@ impl LiveStore {
             }
             *n += 1;
             let maker = maker.clone();
+            let grounds = self.grounds.clone();
             let edits = edits.filter(|edits| edits.any()).cloned();
             // Keyed in chunks' units (32 cells), so sight and the chunks round the camera share the lane fairly.
             let job = crate::loading::submit(Tier::Soon, distance / 32.0, move || {
-                let mut tile = fill_tile(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key);
+                let mut tile = fill_tile_sharing(&maker.device, &maker.queue, &maker.world, &maker.caves, odd, key, Some(&grounds));
                 if let Some(edits) = &edits {
                     super::edits::patch_tile(&mut tile, key, edits);
                 }
@@ -378,6 +479,7 @@ impl LiveStore {
             })
             .collect();
         let cells: usize = self.tiles.values().sum();
-        format!("Sight's live levels ({} a side): {}; {cells} cells on the card, {} filling, {} made", self.side, levels.join("; "), self.filling.len(), self.made)
+        let (given, worked) = (self.grounds.given.load(std::sync::atomic::Ordering::Relaxed), self.grounds.worked.load(std::sync::atomic::Ordering::Relaxed));
+        format!("Sight's live levels ({} a side): {}; {cells} cells on the card, {} filling, {} made; finer tiles' grounds from the coarsest's {given}, worked out {worked} ({} coarse tiles kept)", self.side, levels.join("; "), self.filling.len(), self.made, self.grounds.kept())
     }
 }
