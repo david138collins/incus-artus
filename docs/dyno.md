@@ -425,6 +425,24 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
        quick leg −35 / −28%; home's 99th −11 / −15%. But at sea the 95th and 99th +4 to +5% (more tiles made a
        second, more cells made in some frames), and the whole flight's 95th and 99th +1.5 to +2.2%. **In the game,
        build 106.** The lane's pace (how many tiles at once) is the knob for the sea's tails, later.
+     - [-] **The near ground's grounds pass in stages** (David: "yes ... as long as it looks right"; each stage
+       handing only forward, the processor's columns to the bit). Cut in two (the ground before the rivers and
+       lakes, then carved): the first still 255 registers and spilling, with 19,700 of the 24,100 instructions; the
+       carve alone 4,480. Cut in four (the maps blended to each column, left as ten numbers a column; the parts: the
+       land or sea, the mountains, the peaks; put together with the crags, the torn coast and the detail; then
+       carved): David's readout, the parts **255** (8 groups, 12,600 instructions, still spilling), the putting
+       together 53 (36 groups), the carve 96 (20 groups). Every way the processor's to the bit (9,612 columns by
+       caves, a river, a lake and the map's edge). **Flown against the single pass, alternating twice: lost.** Each
+       stage waited for apart (four round trips a piece): the median +5%, the land's 99th +5 to +7%. Every stage of
+       a piece sent at once, waited for once: still the median +1.7 to +1.9%, round the peak +8 to +13%, the rest
+       noise. The hand-overs (14 numbers a column out and back) and the extra dispatches cost more than the lighter
+       stages saved, while the parts still spill. **Dropped**; the patch kept on file (Builder's scratchpad,
+       `grounds_stages_2026-11-10.patch`), and the test kept: `sight_s_grounds_are_the_processors_columns`. If it's
+       tried again, the parts cut once more (the ridges apart from the peaks) is where the 255 is.
+     - **Next to price: the tile lane's pace** (`MOST_FILLING`, 8 fine and 2 coarse tiles at once;
+       `INCUS_SIGHT_FILLING` flies others): since build 106 the lane makes two thirds more tiles a flight, and the
+       sea's 95th and 99th rose 4 to 5% with it. Counsel, for David ("even beats fast"): price it before it's
+       forgotten.
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our

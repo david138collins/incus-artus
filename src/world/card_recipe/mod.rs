@@ -761,6 +761,34 @@ fn ground(c: Case) -> i32 {
         Some((device, queue, map, plan, blocks, colours, world))
     }
 
+    /// Sight's grounds as the card works them out for a tile (`sight_grounds_pass`) are the processor's columns to
+    /// the bit [2026-11-10: written for the pass cut into stages, tried and dropped: `docs/dyno.md`] (`CompiledMap::column`: the ground, and water over it, −1 past the
+    /// map), over regions by caves, a river, a lake and the map's edge, the three columns round each included.
+    #[test]
+    fn sight_s_grounds_are_the_processors_columns() {
+        let Some((device, queue, map, _plan, _blocks, _colours, world)) = sight_world() else {
+            eprintln!("No graphics card: sight's grounds test is skipped");
+            return;
+        };
+        let mut checked = 0;
+        for region in [[592, 288, 32, 32], [-80, 64, 48, 16], [192, -208, 16, 16], [-320, -416, 64, 64], [1520, 0, 32, 8], [-1550, 0, 32, 8], [3060, 0, 32, 8]] {
+            let mut grounds = Vec::new();
+            world.cells_by(&device, &queue, region, |made| {
+                grounds = made.to_vec();
+                Vec::new()
+            }, (4096, 1024));
+            let across = region[2] + 6;
+            assert_eq!(grounds.len() as i32, across * (region[3] + 6), "region {region:?}: every column round it worked out");
+            for (i, card) in grounds.iter().enumerate() {
+                let (x, y) = (region[0] - 3 + i as i32 % across, region[1] - 3 + i as i32 / across);
+                let processor = map.column(x, y).map_or([-1, 0], |(z, water)| [z, water.unwrap_or(0)]);
+                assert_eq!(*card, processor, "column ({x}, {y}) of region {region:?}: the card's ground and water against the processor's");
+                checked += 1;
+            }
+        }
+        eprintln!("Sight's grounds: {checked} columns the processor's to the bit");
+    }
+
     /// The finer live levels' tiles made from the coarsest level's grounds (`SharedGrounds`, the dyno 2026-11-10: the
     /// outside read's lead 2) are the same to the bit as made from their own grounds pass, at every level under the
     /// coarsest, at a coarse tile's corners (its three columns round reaching into the coarse tile's) and by caves and
