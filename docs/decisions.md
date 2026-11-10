@@ -1424,6 +1424,11 @@ below disagree with this one, this one stands.
        may be kept and brought up to date a little at a time. Light that moves with actors (moving torches,
        light from effects) stays prompt, every frame. Priced with a twin first, then behind a Render-page switch
        for his look.
+       *Built the same day and dropped* (the rule stands): light per face kept, the same to the pixel as lit
+       afresh, lost in flight (the median +10.8% and +0.6%, the quick leg +18 to +20%, the land level). What it
+       lost to: the dyno flies a hundred blocks a second and more, so the near faces are mostly new each frame and
+       lit anyway, and the table's bookkeeping cost more than the relighting saved. It may pay walking or standing,
+       which the dyno doesn't fly; the patch is kept (dyno.md, 3826eb8).
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
