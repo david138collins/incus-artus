@@ -1379,6 +1379,16 @@ below disagree with this one, this one stands.
        any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
        renderer to perform." So the renderer is tuned for the clearest day. Ending rays in total fog comes last, if
        at all: a bonus on foggy days, never what the frame rate depends on.
+
+       **The stages, with light per face, are the normal drawing** [David 2026-11-10, asked whether they should
+       become the game's normal drawing now: "yes"]. His look at light per face near the eye was "merely slightly
+       different, not better or worse" (build 103), and he had asked for it: "blocky and quantized lighting is
+       good all around". Against the one-pass march as it ran, the typical frame is 6.5% slower and the worst
+       frames much faster: the 95th -18.6%, the 99th -36.0% (the card's 17.8 ms down to 11.4), over the land
+       -32/-44/-47%, the same on a clear day. Even beats fast. Both switches ("Draw in stages" and "Light per
+       face near the eye") stay on the Render page as checks, on by default [David: "eh just leave em there until
+       we need to clean up"]. The typical frame is won back in the far march, which both shapes share (dyno
+       item 4).
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
