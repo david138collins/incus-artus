@@ -533,6 +533,7 @@ impl Runner {
                     flicker_time: started().elapsed().as_secs_f32() * kept.sight_flicker_speed(),
                     smooth_light: kept.sight_smooth_light(),
                     walk_every_block: kept.sight_walk_every_block(),
+                    water_skip: true,
                     split: std::env::var("INCUS_SIGHT_SPLIT").is_ok(),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on

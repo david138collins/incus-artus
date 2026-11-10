@@ -35,8 +35,9 @@ struct Camera {
     layer: vec4<f32>,
     // x: 1 if a refining layer's rays start a little short of the nearest touch round their parent pixel (0: from
     // the tile's start, for measuring). y: 1 for sun shadows (3.4b). z: how fast a shadow ray widens (blocks
-    // across a block of distance). w: 2 for the near walk to skip no air, every block walked (the truth, for the
-    // tests: the dyno's first step, 2026-11-09).
+    // across a block of distance). w: 2 for the near walk to skip nothing, every block walked (the truth, for the
+    // tests and the Render page's check: the dyno, 2026-11-09); 3 for it to skip air but not water (measuring the
+    // dyno's water step against it).
     follow: vec4<f32>,
     // The pyramid's steps (David 2026-11-08, 1.5 between 2 and 1, and the fades his to tune): x this layer's factor
     // over the one above's (0.5 halving, 0.75 for 1.5 under 2; 0 the base); y the one below's over this one's; z,
@@ -837,7 +838,7 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
         // Air over a coarser cell column's top (the bake's 64 and 32, then the live 16 and 8) is skipped whole,
         // as in the march (not in the tests' truth: every block walked).
         var skipped = false;
-        for (var k = 0; k < 4 && !in_water && camera.follow.w < 0.5; k++) {
+        for (var k = 0; k < 4 && !in_water && (camera.follow.w < 0.5 || camera.follow.w > 2.5); k++) {
             let up = 6 - k;
             let size = f32(1 << u32(up));
             let cc = floor(p.xy / size);
@@ -936,7 +937,35 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
         in_water = look.water >= 0.5;
         if (in_water) {
             let m = medium_of(block_in_band(entry.x, entry.y, c.z));
-            let leaving = min(min(min(ahead.x, ahead.y), ahead.z), t1);
+            var leaving = min(min(min(ahead.x, ahead.y), ahead.z), t1);
+            // A run of the world's water crossed whole: the bigger live cell round the block that's all water (4 or
+            // 2: a cell's water share is kept in 255ths, and in one of 8 or 16 a few blocks of rock round to all
+            // water; in one of 4 a single block shows), to a hair short of where the ray leaves it. Through one medium the dimming and the tint
+            // add up the same over a stretch as a block at a time (the dyno, 2026-11-09: the test world with its
+            // rivers, round the peak the card's time three and a half times the dry world's, the walk going on
+            // through water a block at a time some 25 blocks down). Not where the ray would turn half covered or dim
+            // out inside the run: there a block at a time, so it stops where it would.
+            var jumped = false;
+            if (camera.follow.w < 0.5 && all(m == media[0])) {
+                for (var up = 2; up >= 1; up--) {
+                    if (up < header[0] && !is_kept(up)) {
+                        continue;
+                    }
+                    let size = f32(1 << u32(up));
+                    let cc = floor(vec3<f32>(c) / size);
+                    let cell = cell_at(up, vec3<i32>(cc));
+                    if (!cell.known || cell.water < 0.999 || cell.solid > 0.001) {
+                        continue;
+                    }
+                    let short_of = min(leave(o, d, cc, size), t1) - 0.01;
+                    let after = out.through * exp(-m.w * max(short_of - t, 0.0));
+                    if (short_of > leaving && !(out.through > 0.5 && after <= 0.5) && after >= 0.01) {
+                        leaving = short_of;
+                        jumped = true;
+                    }
+                    break;
+                }
+            }
             let keep = exp(-m.w * max(leaving - t, 0.0));
             let taken = out.through * (1.0 - keep);
             out.colour += taken * lit(m.rgb, 1.0);
@@ -949,6 +978,15 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
             if (out.through < 0.01) {
                 out.t = leaving;
                 return out;
+            }
+            if (jumped) {
+                // On from a hair short of the run's far side: the walk crosses into the next block itself (and knows
+                // by which face), the last hair of water taken with the block it's in.
+                t = leaving;
+                c = vec3<i32>(floor(o + d * t));
+                ahead = faces_ahead(o, d, c);
+                facing = -d;
+                continue;
             }
         }
         // On to the next block, across whichever face comes first.
