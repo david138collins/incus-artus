@@ -152,6 +152,30 @@ card's time three and a half times** (1.4 to 4.8 ms). Water near the eye is dear
 a block at a time, no skipping in a medium, till it's dimmed out some 25 blocks down (build 98). Water's moved to the
 front of the order.
 
+### Step 4, tried and dropped, and how steps are measured from here (2026-11-09)
+
+**Runs of water crossed whole** (the near walk jumping a live cell of 4 or 2 that's all water, the dimming and tint
+added up exactly; the same picture as water walked a block at a time). Flown in its own build, on against off: the
+median +7% (5.44 to 5.82 ms), the card +7.5%, round the peak and at sea 10 to 18% slower: the jump's lookups cost
+more than the blocks they saved. Dropped (reverted, 8994b6a).
+
+**What it showed about measuring:** its build flew differently from the build before it **even with the jump off**:
+over the land the card 10.7 to 15.0 ms, round the peak 4.8 to 1.7, at sea 8.2 to 6.4; the median better (6.14 to
+5.44 ms) and the 99th percentile much worse (20.7 to 35.6 ms). The flight with the build before's shader, flown
+straight after on the same world, gave the build before's numbers again (`logs/dyno-1794270670.txt`): not the
+world, the heat or the background, but the shader itself. With the jump off the two shaders do the same; what
+changed is how the card's compiler laid out the whole march round the added lines (where it keeps what, how it
+orders the work). The march is one big shader, and added code, run or not, can move each view's cost by tens of
+percent either way (the second step's 8% was the same thing).
+- **So from here, a step is flown against the build before it**, both whole builds; a switch inside one build
+  measures only what running the step costs, not what compiling it in costs.
+- **And a lead:** the same march, laid out otherwise, did round the peak (rivers and lakes) in a third of the
+  time. Finding what the compiler did there (Nsight's view of the compiled shader: its registers, where it waits)
+  may be worth more than any one step.
+- *On file:* looking down into a lake, the near walk as it skips air draws the water a few steps of colour darker
+  than every block walked (41,600 pixels of the test's view, 12 steps at most), in the shader as it was before the
+  water step too: to find.
+
 ### The breakdown (2026-11-09, build 101 with the 10-second hitch fixed)
 
 Each flight with one thing switched off (the measuring switches), against a reference flown the same way (a warm-up
