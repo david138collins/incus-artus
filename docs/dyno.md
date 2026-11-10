@@ -275,6 +275,37 @@ to a step of a colour, the records' half floats, and every-block truth for the m
 Nsight after c and d (the registers per stage: David's two-minute look). Then step 4, tiles by type (sky, far, near
 blocks, water, seams, each with its own lean march), and step 5, the ray queue, only if lanes still idle.
 **Sizes:** about 7 to 9 hours of Builder's, a 4-minute flight after each step, one Nsight look from David.
+
+**As built so far** (2026-11-09), flown against the split, frame by frame:
+- [x] a. The twin as another shape (`INCUS_SIGHT_TWIN=split` or `=stages`; with `INCUS_SIGHT_SPLIT` the base is the
+  split). The split against the one program: the median +9.0%, 95th −7.0%, 99th −12.3%; over the land −12 to −15%
+  at every percentile.
+- [x] c, unpacked: the sun's shadow its own pass. Against the split: the median +4.1%, 95th +1.0%, 99th −0.8%.
+- [x] d, unpacked: sky light its own pass. Against the split: the median +6.7%, 95th +0.5%, 99th −2.8%; over the
+  land −1 to −3% at every percentile; the lightest views pay the extra passes (+29% on the quick leg, under 1 ms).
+- **Each stage timed** (`INCUS_DYNO_PASS_TIMES`, medians, ms): over the whole flight the march's coarse layers
+  (8 × 8 and 4 × 4, 1.3 each) are the typical frame; over the land, light and shadow on the near blocks' 2 × 2
+  layer (1.5 and 1.7) are the heavy frame's cost, 5.9 of its 9.1 ms light and shadow in all. Every 2 × 2 pixel
+  walks its own ray to the sun and casts five sky cones, where one block face covers hundreds of pixels that all
+  get the same answer. So packing helps less than planned: the cost is repeated work, not idle lanes.
+
+**The order from here** (David, 2026-11-09, via Counsel: "other than that i agree"):
+1. [x] Sky its own pass (d above).
+2. [ ] **Light per face near the eye:** a shadow and a sky value worked out once for each block face the near walk
+   shows, at the face's middle, shared by every pixel showing it (his blocky look: "blocky and quantized lighting is
+   good all around", "rough shadows for everything"). A table of the frame's faces on the card, keyed by the block
+   and its face, filled by the pixels that show them, lit once each. Behind a Render-page switch for his eye
+   (induction: it changes the picture).
+3. [ ] Fewer handovers (e: the passes for all layers at once), then packing only where a trace shows idle lanes.
+4. Then the far: the typical frame's coarse horizon rays need an answer that doesn't lean on fog (below). Texture
+   units for the far cells' blend, empty air skipped smarter for grazing rays (solved jumps, relaxed cone
+   stepping), the sea as a plane.
+5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
+   total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
+   for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
+   renderer to perform." A rule now (`decisions.md`, "Nothing relies on fog to perform"): **tune for the clearest
+   day.** Big steps are flown with fog off (`INCUS_SIGHT_NO_FOG`) as well as with his settings, so the clear case is
+   measured too.
 **On the side:** the near ground's pass (`sight_grounds_pass`, the tiles made as the camera flies) holds 255
 registers, the most there is (likely spilling to memory), and took 1 to 8% of the card in the traces, by how much
 ground was being made; a look after the stages.
