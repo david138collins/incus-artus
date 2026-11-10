@@ -14,9 +14,28 @@ pub fn source() -> String {
     [table("LOG2", &LOG2), table("EXP2", &EXP2), table("SIN", &SIN), table("ATAN", &ATAN), KIT.to_string()].concat()
 }
 
-/// A graphics card to run a twin test on, if there is one (DirectX 12 on Windows, as the game).
+/// The card tests take turns: each holds the card for as long as its thread lives [2026-11-09: run all at once,
+/// each with a device of its own, six of sight's picture tests failed together that pass one at a time].
+#[cfg(test)]
+static CARD_TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
+thread_local! {
+    /// This thread's turn at the card, once it has asked for one (a test asking twice keeps the one it has).
+    static TURN: std::cell::RefCell<Option<std::sync::MutexGuard<'static, ()>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// A graphics card to run a twin test on, if there is one (DirectX 12 on Windows, as the game), once it's this
+/// test's turn.
 #[cfg(test)]
 pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
+    TURN.with(|turn| {
+        let mut turn = turn.borrow_mut();
+        if turn.is_none() {
+            // A test that failed holding it gives it up all the same.
+            *turn = Some(CARD_TURN.lock().unwrap_or_else(|failed| failed.into_inner()));
+        }
+    });
     let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
     if cfg!(windows) {
         descriptor.backends = wgpu::Backends::DX12;

@@ -855,6 +855,19 @@ fn hard(o: vec3<f32>, d: vec3<f32>, t0: f32, t1: f32, glowing: bool) -> Hard {
             if (d.z < 0.0) {
                 next = min(next, t + (top - p.z) / d.z);
             }
+            if (next >= t1 || next > t + 0.02) {
+                // Never on into a column whose blocks aren't made (past their window, or not made yet): there the walk
+                // hands over to the march, and a march started on a surface's top misses the soft edge over it that it
+                // gathers coming down to it [2026-11-09: looking down into a lake past the blocks made, up to 24 steps
+                // of colour from every block walked]. A finer column's skip, or a block at a time to it, as every
+                // block walked does. (A column not made between here and there isn't looked for: the window's made
+                // nearest first.)
+                let to = select(next - 0.01, t1, next >= t1);
+                let lands = floor((o + d * to).xy);
+                if (entry_at(0, i32(lands.x), i32(lands.y)).y == NOT_BAKED) {
+                    continue;
+                }
+            }
             if (next >= t1) {
                 out.t = t1;
                 return out;

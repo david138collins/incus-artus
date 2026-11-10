@@ -2020,8 +2020,12 @@ fn ground(c: Case) -> i32 {
         let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
         let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
         let size = (320, 200);
-        for (name, at, pitch, heading) in [("grazing", [0.0f32, 0.0, 8.0], -8.0f32, 0.0f32), ("down", [10.0, -20.0, 60.0], -45.0, 90.0), ("level", [-30.0, 10.0, 3.0], 0.0, 30.0)] {
-            let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
+        let mut apart = Vec::new();
+        // And over water, the eye 6 over the sea's 128 (x north, y east; the map's rows run south): the lake at (−71,
+        // 19), its north shore inside the blocks made round (0, 0), down into it from there; and the one at (152,
+        // −268), past them, down into it and along it from its west shore. Both some 18 deep.
+        for (name, at, pitch, heading) in [("grazing", [0.0f32, 0.0, 8.0], -8.0f32, 0.0f32), ("down", [10.0, -20.0, 60.0], -45.0, 90.0), ("level", [-30.0, 10.0, 3.0], 0.0, 30.0), ("into water, the blocks", [-48.0, 19.0, 0.0], -50.0, 180.0), ("into water", [152.0, -268.0, 0.0], -50.0, 20.0), ("over water", [152.0, -290.0, 0.0], -12.0, 90.0)] {
+            let position = if name.contains("water") { [at[0], at[1], crate::world::SEA_LEVEL as f32 + 6.0] } else { [at[0], at[1], ground(at[0], at[1]) + at[2]] };
             let (p, h) = (pitch.to_radians(), heading.to_radians());
             let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
             let picture = |walk_every_block: bool| {
@@ -2034,8 +2038,11 @@ fn ground(c: Case) -> i32 {
                 write_picture(&dir.join(format!("near_walk_{name}.png")), size, &walked);
             }
             let d: Vec<i32> = truth.iter().zip(&walked).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
-            eprintln!("Sight's near walk, {name}: against every block walked, {} pixels differ (by {} at most)", d.len(), d.iter().copied().max().unwrap_or(0));
-            assert!(d.len() <= (size.0 * size.1 / 1000) as usize, "the near walk draws what every block walked draws, {name} ({} pixels differ)", d.len());
+            eprintln!("Sight's near walk, {name} (the eye at {:?}, the ground and water under it {:?}): against every block walked, {} pixels differ (by {} at most)", position, map.ground_and_water(at[0], at[1]), d.len(), d.iter().copied().max().unwrap_or(0));
+            apart.push((name, d.len()));
+        }
+        for (name, n) in apart {
+            assert!(n <= (size.0 * size.1 / 1000) as usize, "the near walk draws what every block walked draws, {name} ({n} pixels differ)");
         }
     }
 
