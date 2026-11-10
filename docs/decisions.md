@@ -1409,6 +1409,13 @@ below disagree with this one, this one stands.
        stage still held 255. The game stays on the single pass; the patch and the to-the-bit test are kept. His
        yes stands if it's tried again, and the ridges apart from the peaks is where the room is (dyno.md, 7622168).
 
+       **A drop is for its context, not for good** [David 2026-11-10]: "just note that some fails may have been
+       contextual and that context may change as we work through the graphics engine trying to get it into the card
+       properly, and that we will be better equipped going forward if we dont get it this time". So a step that
+       lost is written down with what it lost to (the sky-light map to the one big program's room, which is gone
+       now; the near ground's stages to their hand-overs), and tried again when that changes. And if this engine
+       doesn't reach the card's speed, what the dyno taught goes into the next one from its first build.
+
        **Terrain light may lag; actors' light may not** [David 2026-11-10, asked whether a block face's light
        could be kept from frame to frame and lag up to about a quarter-second when the sun moves or new ground
        lands (an outside audit's lead: light per face kept, not worked out afresh each frame): "i think quarter
