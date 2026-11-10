@@ -1402,6 +1402,12 @@ below disagree with this one, this one stands.
        Nsight, the same day, read each half alone: the far march 121 registers of the whole march's 125, the
        near walk 80. Splitting frees the walk, but the far march's room is its own, mostly the eight-cell
        blend's unpacking and sums, which the texture units take out of the program.)
+       *Tried the same day and dropped:* cut in two, then four (the maps, the parts, the uncarved ground, the
+       carve), every stage matching the processor's columns to the bit, the stages lost to the single pass even
+       sent to the card at once (the median +1.7 to +1.9%, round the peak +8 to +13%): the hand-overs, 14 numbers
+       a column out and back, and the extra dispatches cost more than the lighter stages saved, while the parts
+       stage still held 255. The game stays on the single pass; the patch and the to-the-bit test are kept. His
+       yes stands if it's tried again, and the ridges apart from the peaks is where the room is (dyno.md, 7622168).
 
        **Terrain light may lag; actors' light may not** [David 2026-11-10, asked whether a block face's light
        could be kept from frame to frame and lag up to about a quarter-second when the sun moves or new ground
