@@ -1955,6 +1955,140 @@ fn light_hit(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
 }
 
+// ── The march in stages (the dyno, 2026-11-09; David: "lets atomize the megakernal") ──
+//
+// The split's two passes cut further, each a small program of its own over the record `march_hit` leaves: the sun's
+// shadow (`shadow_staged`: the walk toward the sun, its answer written into the record), then the light
+// (`light_staged`: as `light_hit`, the shadow read from the record, not walked). `march_hit` is the stages' first.
+// The split stays as it was, to measure against.
+
+// What pixel `id`'s ray met, as `march_hit` left it (its record's three words), with how wide its shadow ray starts.
+fn hit_of(id: vec2<u32>, size: vec2<u32>, r0: vec4<u32>, r1: vec4<u32>, r2: vec4<u32>) -> Seen {
+    let d = pixel_way(id, size);
+    var seen: Seen;
+    let colour_b = unpack2x16float(r0.y);
+    let sunny_b = unpack2x16float(r0.w);
+    seen.colour = vec3<f32>(unpack2x16float(r0.x), colour_b.x);
+    seen.sky_share = colour_b.y;
+    seen.sunny = vec3<f32>(unpack2x16float(r0.z), sunny_b.x);
+    seen.skyish = vec3<f32>(sunny_b.y, unpack2x16float(r1.x));
+    seen.distance = bitcast<f32>(r1.y);
+    seen.touched = bitcast<f32>(r1.z);
+    seen.at = camera.position.xyz + d * bitcast<f32>(r1.w);
+    seen.level = i32(r2.x & 0xFFu) - 1;
+    seen.on_block = (r2.x & 256u) != 0u;
+    seen.steps = f32(r2.x >> 16u);
+    seen.facing = select(vec3<f32>(0.0), face_way((r2.x >> 9u) & 7u), seen.on_block);
+    if (seen.on_block) {
+        seen.wide = 1.0;
+    } else if (seen.distance < camera.reach.x) {
+        let read = select(1.0, f32(1 << u32(max(seen.level, 0))), seen.level >= 0);
+        seen.wide = max(seen.distance * camera.view.z, read);
+    }
+    return seen;
+}
+
+// A ray's colour with its shadow and its sky light, as `shaded`, the sun that reaches it (`sun`, 0 to 1) given.
+fn shaded_by(seen: Seen, open: f32, sun: f32) -> vec3<f32> {
+    if (seen.wide <= 0.0) {
+        return seen.colour;
+    }
+    var colour = seen.colour;
+    if (camera.follow.y > 0.5) {
+        colour -= seen.sunny * (1.0 - sun);
+    }
+    let sky = select(1.0, mix(1.0, open, camera.sky.y), camera.sky.x > 0.5);
+    let tint = mix(vec3<f32>(1.0), SKY_TINT, camera.sky.z);
+    return colour + seen.skyish * (sky * tint - 1.0);
+}
+
+// The stages' shadow: how much of the sun reaches what each pixel's ray met, where it shows and has a shadow to
+// take (the record's fourth word's second; 1 where it walked none).
+@compute @workgroup_size(8, 8)
+fn shadow_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+    name_the_bindings();
+    let size = vec2<u32>(camera.view.xy);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    let at = (id.y * size.x + id.x) * 3u;
+    let r2 = hits[at + 2u];
+    if ((r2.x & HIT_NONE) != 0u) {
+        return;
+    }
+    let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
+    var sun = 1.0;
+    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
+    if (!hidden && seen.wide > 0.0 && camera.follow.y > 0.5) {
+        sun = sunlight(seen.at, seen.wide, seen.facing, seen.on_block);
+    }
+    hits[at + 2u] = vec4<u32>(r2.x, bitcast<u32>(sun), r2.z, r2.w);
+}
+
+// The stages' light: as `light_hit`, the sun's shadow read from the record.
+@compute @workgroup_size(8, 8)
+fn light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+    name_the_bindings();
+    let size = vec2<u32>(camera.view.xy);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    let at = (id.y * size.x + id.x) * 3u;
+    let r2 = hits[at + 2u];
+    if ((r2.x & HIT_NONE) != 0u) {
+        return;
+    }
+    var shown = 1.0;
+    let parent = parent_of(id.xy);
+    if (camera.layer.x > 0.0) {
+        shown = f32(worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu) / 255.0;
+    }
+    let d = pixel_way(id.xy, size);
+    let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
+    var handed = NO_SKY;
+    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
+    var open = 1.0;
+    if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
+        let kind = surface_kind(seen);
+        var have = false;
+        if (camera.layer.x > 0.0) {
+            let above = worth_in[parent.y * u32(camera.layer.x) + parent.x] >> 8u;
+            let parent_touch = textureLoad(far_above, vec2<i32>(parent), 0).x;
+            if (above != NO_SKY && (above >> 16u) == kind && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
+                open = f32(above & 0xFFFFu) / 65535.0;
+                have = true;
+            }
+        }
+        if (!have) {
+            open = sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+        }
+        handed = sky_word(kind, open);
+    }
+    var colour = seen.colour;
+    if (!hidden) {
+        colour = shaded_by(seen, open, bitcast<f32>(r2.y));
+    }
+    let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
+    if (met < camera.reach.x) {
+        let behind = seen.sky_share * sky(d);
+        let covered = max(1.0 - seen.sky_share, 1e-4);
+        colour = behind + fogged((colour - behind) / covered, d, met) * covered;
+    }
+    if (camera.layer.y > 0.5) {
+        let k = id.y * size.x + id.x;
+        worth_out[k] = (worth_out[k] & 0xFFu) | (handed << 8u);
+    }
+    if (camera.reach.z > 1.5 && seen.level >= 0) {
+        let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
+        colour = colour * 0.4 + tints[seen.level % 6] * 0.35;
+    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
+        let k = clamp(seen.steps / 256.0, 0.0, 1.0);
+        colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);
+        colour = colour * colour;
+    }
+    textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
+}
+
 // ── Far lights' glows (build 100; David: "braziers in a cave at night from a distance were just pixels of green that
 // popped in and out as they twinkled") ──
 //

@@ -2156,6 +2156,45 @@ fn ground(c: Case) -> i32 {
         assert!(worst.0 <= (size.0 * size.1 / 1000) as usize, "the same picture ({} pixels more than a step apart, {} at most)", worst.0, worst.1);
     }
 
+    /// The march in stages (the dyno, 2026-11-09: the march, the sun's shadow and the light each a pass of their own)
+    /// draws what the one pass draws, to a step of a colour (the records' half floats between them), and what the
+    /// split draws: over hills near and far, down into a lake, with the sun's shadows, sky light and textures.
+    #[test]
+    #[ignore]
+    fn sight_s_march_in_stages_the_same() {
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
+            eprintln!("No graphics card: sight's stages test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
+        let size = (640, 400);
+        let mut worst = (0usize, 0i32);
+        for (name, at, pitch, heading) in [("near", [0.0f32, 0.0, 6.0], -20.0f32, 0.0f32), ("far", [0.0, 0.0, 200.0], -25.0, 45.0), ("low", [0.0, 0.0, 40.0], -8.0, 120.0), ("into water", [152.0, -268.0, 6.0], -50.0, 20.0)] {
+            let position = if name.contains("water") { [at[0], at[1], crate::world::SEA_LEVEL as f32 + at[2]] } else { [at[0], at[1], ground(at[0], at[1]) + at[2]] };
+            let (p, h) = (pitch.to_radians(), heading.to_radians());
+            let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
+            let picture = |split: bool, stages: bool| {
+                let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, split, stages, ..Default::default() };
+                sight_picture(&device, &queue, &store, size, eye)
+            };
+            let (together, split, stages) = (picture(false, false), picture(true, false), picture(false, true));
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("stages_{name}.png")), size, &stages);
+                write_picture(&dir.join(format!("stages_{name}_together.png")), size, &together);
+            }
+            let apart = |a: &[[u8; 3]], b: &[[u8; 3]]| {
+                let gaps: Vec<i32> = a.iter().zip(b).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
+                (gaps.iter().filter(|&&g| g > 1).count(), gaps.iter().filter(|&&g| g > 0).count(), gaps.iter().copied().max().unwrap_or(0))
+            };
+            let (from_together, from_split) = (apart(&together, &stages), apart(&split, &stages));
+            eprintln!("Sight's march in stages, {name}: against the one pass {} pixels more than a step apart ({} differ, {} at most); against the split {} ({} differ, {} at most)", from_together.0, from_together.1, from_together.2, from_split.0, from_split.1, from_split.2);
+            worst = (worst.0.max(from_together.0), worst.1.max(from_together.2));
+        }
+        assert!(worst.0 <= (size.0 * size.1 / 1000) as usize, "the same picture as the one pass ({} pixels more than a step apart, {} at most)", worst.0, worst.1);
+    }
+
     /// The hills scene made twice in one go draws the same, skipping air and every block walked [2026-11-09: it didn't,
     /// the bake's rows written past the map's bounds as the bakers happened to finish].
     #[test]

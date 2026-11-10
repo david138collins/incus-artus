@@ -72,6 +72,10 @@ pub struct Eye {
     /// hand-over and the barrier between march and light more than the leaner march saves). Kept to try again with a
     /// lighter light pass (sky light kept there doesn't weigh on the march).
     pub split: bool,
+    /// The march in stages, a ray a pixel (the dyno, 2026-11-09; David: "lets atomize the megakernal";
+    /// `INCUS_SIGHT_STAGES` in the game): the split cut further, the sun's shadow a pass of its own (`march.wgsl`'s
+    /// `shadow_staged`), the light after it (`light_staged`). Off unless chosen while it's built and flown.
+    pub stages: bool,
 }
 
 impl Default for Eye {
@@ -107,6 +111,7 @@ impl Default for Eye {
             smooth_light: false,
             walk_every_block: false,
             split: false,
+            stages: false,
         }
     }
 }
@@ -211,6 +216,9 @@ pub struct SightDraw {
     /// pixel, if chosen (`Eye::split`, off: `march` does both); `march` always for four rays a pixel.
     march_hit: wgpu::ComputePipeline,
     light_hit: wgpu::ComputePipeline,
+    /// The march in stages (`Eye::stages`): `march_hit`, then the sun's shadow and the light after it.
+    shadow_staged: wgpu::ComputePipeline,
+    light_staged: wgpu::ComputePipeline,
     /// Far lights' glows (build 100): the pass that says which the eye sees (`march.wgsl`'s `glow_pass`), and their
     /// places, in and out (`super::lights::GLOWS_MOST` of them; the objects' draw reads them as its glows' places).
     glow_pass: wgpu::ComputePipeline,
@@ -221,9 +229,10 @@ pub struct SightDraw {
     /// moved each view's cost by tens of percent, so a step is measured against the build before as a whole]. Its
     /// bindings must be the march's. Not with the split, or `INCUS_DYNO_PASS_TIMES`.
     twin: Option<Twin>,
-    /// The twin as another shape (`INCUS_SIGHT_TWIN=split`): its frames drawn split, the march then its light, by
-    /// this build's own shader.
+    /// The twin as another shape (`INCUS_SIGHT_TWIN=split`, or `=stages`): its frames drawn split, the march then its
+    /// light, or in stages, by this build's own shader.
     twin_split: bool,
+    twin_stages: bool,
     /// Whether the next timed frame is the twin's.
     twin_next: bool,
     upscale: wgpu::RenderPipeline,
@@ -265,6 +274,9 @@ struct Layer {
     /// The split passes' bindings (the same, and what each pixel's ray met between them).
     hit_group: wgpu::BindGroup,
     light_group: wgpu::BindGroup,
+    /// The stages' shadow and light passes' bindings (the same as the split's).
+    shadow_group: wgpu::BindGroup,
+    staged_group: wgpu::BindGroup,
     /// The twin's bindings (the same, for its own pipeline), if there's a twin.
     twin_group: Option<wgpu::BindGroup>,
 }
@@ -306,14 +318,17 @@ impl SightDraw {
         let start = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's start pass"), layout: None, module: &march_module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None });
         let march_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march, split"), layout: None, module: &march_module, entry_point: Some("march_hit"), compilation_options: Default::default(), cache: None });
         let light_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's light"), layout: None, module: &march_module, entry_point: Some("light_hit"), compilation_options: Default::default(), cache: None });
+        let shadow_staged = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's shadow, staged"), layout: None, module: &march_module, entry_point: Some("shadow_staged"), compilation_options: Default::default(), cache: None });
+        let light_staged = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's light, staged"), layout: None, module: &march_module, entry_point: Some("light_staged"), compilation_options: Default::default(), cache: None });
         let glow_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's far glows"), layout: None, module: &march_module, entry_point: Some("glow_pass"), compilation_options: Default::default(), cache: None });
         // `INCUS_SIGHT_TWIN=split`: the twin is another shape, not another file: its frames drawn split, the march then
         // its light (the march in stages, the plan's step a: 2026-11-09).
         let twin_split = std::env::var("INCUS_SIGHT_TWIN").is_ok_and(|twin| twin == "split");
-        if twin_split {
-            crate::ecs::prelude::info!("Sight's twin: the march split from its light, drawing every other timed frame");
+        let twin_stages = std::env::var("INCUS_SIGHT_TWIN").is_ok_and(|twin| twin == "stages");
+        if twin_split || twin_stages {
+            crate::ecs::prelude::info!("Sight's twin: the march {}, drawing every other timed frame", if twin_split { "split from its light" } else { "in stages" });
         }
-        let twin = std::env::var("INCUS_SIGHT_TWIN").ok().filter(|_| !twin_split).and_then(|path| match std::fs::read_to_string(&path) {
+        let twin = std::env::var("INCUS_SIGHT_TWIN").ok().filter(|_| !twin_split && !twin_stages).and_then(|path| match std::fs::read_to_string(&path) {
             Ok(source) => {
                 let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's twin march"), source: wgpu::ShaderSource::Wgsl(source.into()) });
                 let pipeline = |label: &str, entry: &str| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(label), layout: None, module: &module, entry_point: Some(entry), compilation_options: Default::default(), cache: None });
@@ -369,7 +384,7 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().media_table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, march_hit, light_hit, glow_pass, glows, twin, twin_split, twin_next: false, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
+        Self { march, start, march_hit, light_hit, shadow_staged, light_staged, glow_pass, glows, twin, twin_split, twin_stages, twin_next: false, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -477,8 +492,10 @@ impl SightDraw {
                 let split: Vec<wgpu::BindGroupEntry> = entries.iter().cloned().chain([wgpu::BindGroupEntry { binding: 19, resource: buffer(&hits) }]).collect();
                 let hit_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's march, split"), layout: &self.march_hit.get_bind_group_layout(0), entries: &split });
                 let light_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's light"), layout: &self.light_hit.get_bind_group_layout(0), entries: &split });
+                let shadow_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's shadow, staged"), layout: &self.shadow_staged.get_bind_group_layout(0), entries: &split });
+                let staged_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("sight's light, staged"), layout: &self.light_staged.get_bind_group_layout(0), entries: &split });
                 far_above = Some(far.clone());
-                layers.push(Layer { factor, size, picture, far, camera, group, hit_group, light_group, twin_group });
+                layers.push(Layer { factor, size, picture, far, camera, group, hit_group, light_group, shadow_group, staged_group, twin_group });
                 worth_above = Some(worth);
             }
             let start_entries = [
@@ -640,7 +657,12 @@ impl SightDraw {
         let timed = self.timer.as_mut().and_then(|timer| timer.begin());
         // The twin (the dyno's) draws every other timed frame, the one-pass march only: each timed frame is the march's
         // or the twin's in turn, so both get as many readings whichever frames the clock times.
-        let twin_possible = timed.is_some() && (self.twin.is_some() || (self.twin_split && eye.rays <= 1)) && !(eye.split && eye.rays <= 1) && std::env::var("INCUS_DYNO_PASS_TIMES").is_err();
+        // The march's own shape (one pass, split, or in stages); a twin of another shape takes every other timed frame
+        // from it (the stages against the split: `INCUS_SIGHT_SPLIT` with `INCUS_SIGHT_TWIN=stages`), a twin file
+        // only from the one pass.
+        let (base_split, base_stages) = (eye.split && eye.rays <= 1, eye.stages && eye.rays <= 1);
+        let shaped_twin = (self.twin_split || self.twin_stages) && eye.rays <= 1;
+        let twin_possible = timed.is_some() && ((self.twin.is_some() && !base_split && !base_stages) || shaped_twin) && std::env::var("INCUS_DYNO_PASS_TIMES").is_err();
         if twin_possible {
             self.twin_next = !self.twin_next;
         }
@@ -658,7 +680,9 @@ impl SightDraw {
             Some(wgpu::RenderPassTimestampWrites { query_set: timing?, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) })
         };
         // The march split from its light (a ray a pixel), if chosen.
-        let split = (eye.split || (twin_frame && self.twin_split)) && eye.rays <= 1;
+        let shaped = twin_frame && shaped_twin;
+        let stages = if shaped { self.twin_stages } else { base_stages };
+        let split = if shaped { self.twin_split } else { base_split && !base_stages };
         // The far glows' places (build 100), put on the card before the work that says which the eye sees.
         let glow_places = self.objects.glow_places();
         let glow_groups = (!glow_places.is_empty()).then(|| {
@@ -692,7 +716,17 @@ impl SightDraw {
             }
             for layer in &targets.layers {
                 let groups = (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
-                if split {
+                if stages {
+                    pass.set_pipeline(&self.march_hit);
+                    pass.set_bind_group(0, &layer.hit_group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                    pass.set_pipeline(&self.shadow_staged);
+                    pass.set_bind_group(0, &layer.shadow_group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                    pass.set_pipeline(&self.light_staged);
+                    pass.set_bind_group(0, &layer.staged_group, &[]);
+                    pass.dispatch_workgroups(groups.0, groups.1, 1);
+                } else if split {
                     pass.set_pipeline(&self.march_hit);
                     pass.set_bind_group(0, &layer.hit_group, &[]);
                     pass.dispatch_workgroups(groups.0, groups.1, 1);
@@ -736,7 +770,15 @@ impl SightDraw {
             }
             for layer in &targets.layers {
                 let groups = (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
-                if split {
+                if stages {
+                    for (name, pipeline, group) in [("layer", &self.march_hit, &layer.hit_group), ("shadow", &self.shadow_staged, &layer.shadow_group), ("light", &self.light_staged, &layer.staged_group)] {
+                        let timestamp_writes = compute_stamp(&mut passes, format!("{name} {}", layer.factor));
+                        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march in stages"), timestamp_writes });
+                        pass.set_pipeline(pipeline);
+                        pass.set_bind_group(0, group, &[]);
+                        pass.dispatch_workgroups(groups.0, groups.1, 1);
+                    }
+                } else if split {
                     let timestamp_writes = compute_stamp(&mut passes, format!("layer {}", layer.factor));
                     let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's march, split"), timestamp_writes });
                     pass.set_pipeline(&self.march_hit);
