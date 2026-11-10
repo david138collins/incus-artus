@@ -1402,6 +1402,15 @@ below disagree with this one, this one stands.
        Nsight, the same day, read each half alone: the far march 121 registers of the whole march's 125, the
        near walk 80. Splitting frees the walk, but the far march's room is its own, mostly the eight-cell
        blend's unpacking and sums, which the texture units take out of the program.)
+
+       **Terrain light may lag; actors' light may not** [David 2026-11-10, asked whether a block face's light
+       could be kept from frame to frame and lag up to about a quarter-second when the sun moves or new ground
+       lands (an outside audit's lead: light per face kept, not worked out afresh each frame): "i think quarter
+       second light wont really be visible with coarse lit blocks anways, especially if near actors work faster.
+       terrain light almost needs zero dynamism for gameplay"]. So the sun's and the sky's light on the terrain
+       may be kept and brought up to date a little at a time. Light that moves with actors (moving torches,
+       light from effects) stays prompt, every frame. Priced with a twin first, then behind a Render-page switch
+       for his look.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
