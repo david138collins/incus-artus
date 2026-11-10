@@ -619,7 +619,19 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
         over. Judged by his eye, behind a switch.
       - A cell-format change (bump SIGHT_RULES, a new bake), or its own buffer beside the cells (the hot/cold split).
 
-**The compiler's layout** (step 4's finding: added code, run or not, moves each view's cost by tens of percent)
+**The compiler's layout** (step 4's finding: added code, run or not, moves each view's cost by tens of percent;
+Nsight's look: the march holds 128 registers a pixel, so 16 groups of 32 a unit at most of 48, and runs to 30,600
+instructions, too many for the instruction cache)
+- [x] **The march made smaller, 1: the sky's five cones in one loop** (2026-11-09). Written out, the cone's whole
+      code was in the march five times. One loop now, its count read from the store so the compiler can't write it
+      out again. The picture the same to the pixel (`sight_s_other_march_draws_the_same`, seven views, against the
+      march as it was; a 1% nudge to the sky light shows in thousands of pixels, so the test sees). Flown with the
+      twin against the march as it was (`logs/dyno-1794276682.txt`): the card's median −3.3%, 95th −6.1%, 99th
+      −5.3%; every leg faster (over the land −8.5% on the median, round the peak −7.0% at the 99th).
+- [ ] **The march made smaller, 2:** the measuring views (the steps' heat, the levels' tints, whose six-colour table
+      takes some 5 KB of the card's shared memory a group) compiled out unless chosen (override constants), then
+      the sun's shadow walk and the eye's near walk (the near walk's code in the march twice), and what else Nsight
+      shows big.
 - [ ] **The settings compiled in** (WGSL `override` constants; Counsel, 2026-11-09). A switch that's off is taken
       out of the march when its pipeline is made, not kept as a branch whose path still claims registers. wgpu 30
       does it on DX12: naga puts the values in (and keeps only the pipeline's own entry point) before writing the

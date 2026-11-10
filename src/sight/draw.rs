@@ -293,7 +293,12 @@ fn buffer(b: &wgpu::Buffer) -> wgpu::BindingResource<'_> {
 
 impl SightDraw {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
-        let march_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's march"), source: wgpu::ShaderSource::Wgsl(include_str!("march.wgsl").into()) });
+        Self::with_march(device, queue, format, include_str!("march.wgsl"))
+    }
+
+    /// The same, the march's shader from `march` (tests: another build of it, to draw the same scenes with both).
+    pub fn with_march(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat, march: &str) -> Self {
+        let march_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's march"), source: wgpu::ShaderSource::Wgsl(march.into()) });
         let march = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march"), layout: None, module: &march_module, entry_point: Some("march_pass"), compilation_options: Default::default(), cache: None });
         let start = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's start pass"), layout: None, module: &march_module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None });
         let march_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march, split"), layout: None, module: &march_module, entry_point: Some("march_hit"), compilation_options: Default::default(), cache: None });

@@ -1067,11 +1067,23 @@ const SKY_STEPS: i32 = 40;
 fn sky_seen(p: vec3<f32>, footprint: f32, facing: vec3<f32>, on_block: bool) -> f32 {
     let lean = sin(radians(50.0));
     let rise = cos(radians(50.0));
-    var seen = cone(p, footprint, facing, on_block, vec3<f32>(0.0, 0.0, 1.0), camera.sky.w, 0.0, 0.0, SKY_STEPS);
-    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(lean, 0.0, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
-    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(-lean, 0.0, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
-    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(0.0, lean, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
-    seen += rise * cone(p, footprint, facing, on_block, vec3<f32>(0.0, -lean, rise), camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    // The five cones in one loop, so the march holds one copy of the cone's code, not five [the dyno, 2026-11-09:
+    // Nsight, the march's 30,600 instructions too many for the card's instruction cache; the picture the same to the
+    // pixel, and the card 3% faster on the median, 5 to 6% at the 95th and 99th]: straight up, then north, south,
+    // east and west, added up in that order as when written out one by one. The count read from the store
+    // (`header[0]`, never below 0), so the compiler can't unroll the loop back into five copies.
+    let cones = 5 + min(header[0], 0);
+    var seen = 0.0;
+    for (var k = 0; k < cones; k++) {
+        var way = vec3<f32>(0.0, 0.0, 1.0);
+        var weight = 1.0;
+        if (k > 0) {
+            let s = select(-lean, lean, (k & 1) == 1);
+            way = select(vec3<f32>(0.0, s, rise), vec3<f32>(s, 0.0, rise), k <= 2);
+            weight = rise;
+        }
+        seen += weight * cone(p, footprint, facing, on_block, way, camera.sky.w, 0.0, 0.0, SKY_STEPS);
+    }
     return seen / (1.0 + 4.0 * rise);
 }
 

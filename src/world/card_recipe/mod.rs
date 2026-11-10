@@ -1190,6 +1190,11 @@ fn ground(c: Case) -> i32 {
         if let Some(objects) = objects {
             draw.objects.set(objects);
         }
+        sight_picture_by(&mut draw, device, queue, store, size, eye)
+    }
+
+    /// A picture by a drawer already made (its march, textures and objects as it has them).
+    fn sight_picture_by(draw: &mut crate::sight::draw::SightDraw, device: &wgpu::Device, queue: &wgpu::Queue, store: &std::sync::Arc<crate::sight::card_store::CardStore>, size: (u32, u32), eye: crate::sight::draw::Eye) -> Vec<[u8; 3]> {
         let target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("a test picture"),
             size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
@@ -2044,6 +2049,64 @@ fn ground(c: Case) -> i32 {
         for (name, n) in apart {
             assert!(n <= (size.0 * size.1 / 1000) as usize, "the near walk draws what every block walked draws, {name} ({n} pixels differ)");
         }
+    }
+
+    /// Another build of the march (`INCUS_SIGHT_AB=<a march.wgsl>`: the dyno's steps that should leave the picture as
+    /// it is, such as the march made smaller) draws what the march as built draws: over hills near and far, down into
+    /// lakes and along one, from high up, with the sun's shadows, sky light and textures, every pixel set side by
+    /// side. Skipped without one.
+    #[test]
+    #[ignore]
+    fn sight_s_other_march_draws_the_same() {
+        use crate::sight::textures::{BlockTextures, NONE, mips};
+        let Ok(path) = std::env::var("INCUS_SIGHT_AB") else {
+            eprintln!("No other march to set beside it (INCUS_SIGHT_AB): sight's A/B picture test is skipped");
+            return;
+        };
+        let other = std::fs::read_to_string(&path).expect("the other march");
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
+            eprintln!("No graphics card: sight's A/B picture test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
+        let side = crate::look::TEXTURE_SIZE;
+        let checker: Vec<u8> = (0..side * side).flat_map(|i| if (i % side / 4 + i / side / 4) % 2 == 0 { [200, 60, 60, 255] } else { [60, 60, 200, 255] }).collect();
+        let textures = BlockTextures { layers: vec![mips(checker)], blocks: (0..16).map(|k| if k == 0 { ([NONE; 6], 0) } else { ([0; 6], 0) }).collect(), bars: Vec::new(), problems: Vec::new(), media: Vec::new() };
+        let format = wgpu::TextureFormat::Rgba8Unorm;
+        let mut built = crate::sight::draw::SightDraw::new(&device, &queue, format);
+        let mut theirs = crate::sight::draw::SightDraw::with_march(&device, &queue, format, &other);
+        built.set_textures(&device, &queue, &textures, 1);
+        theirs.set_textures(&device, &queue, &textures, 1);
+        let size = (480, 300);
+        let mut worst = (0usize, 0i32);
+        // Heights over the ground, or (water) over the sea's 128; x north, y east.
+        for (name, at, pitch, heading) in [
+            ("grazing", [0.0f32, 0.0, 8.0], -8.0f32, 0.0f32),
+            ("down", [10.0, -20.0, 60.0], -45.0, 90.0),
+            ("level", [-30.0, 10.0, 3.0], 0.0, 30.0),
+            ("into water, the blocks", [-48.0, 19.0, 6.0], -50.0, 180.0),
+            ("into water", [152.0, -268.0, 6.0], -50.0, 20.0),
+            ("over water", [152.0, -290.0, 6.0], -12.0, 90.0),
+            ("high", [0.0, 0.0, 400.0], -30.0, 45.0),
+        ] {
+            let position = if name.contains("water") { [at[0], at[1], crate::world::SEA_LEVEL as f32 + at[2]] } else { [at[0], at[1], ground(at[0], at[1]) + at[2]] };
+            let (p, h) = (pitch.to_radians(), heading.to_radians());
+            let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
+            let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, ..Default::default() };
+            let ours = sight_picture_by(&mut built, &device, &queue, &store, size, eye);
+            let other_picture = sight_picture_by(&mut theirs, &device, &queue, &store, size, eye);
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("ab_{name}_built.png")), size, &ours);
+                write_picture(&dir.join(format!("ab_{name}_other.png")), size, &other_picture);
+            }
+            let d: Vec<i32> = ours.iter().zip(&other_picture).filter(|(x, y)| x != y).map(|(x, y)| (0..3).map(|c| (x[c] as i32 - y[c] as i32).abs()).max().unwrap_or(0)).collect();
+            let found = (d.len(), d.iter().copied().max().unwrap_or(0));
+            eprintln!("Sight's other march, {name}: {} pixels differ (by {} at most)", found.0, found.1);
+            worst = (worst.0.max(found.0), worst.1.max(found.1));
+        }
+        assert!(worst.0 <= (size.0 * size.1 / 1000) as usize && worst.1 <= 2, "the other march draws what the march as built draws ({} pixels differ at worst, by {} at most)", worst.0, worst.1);
     }
 
     /// The march split from its light (the dyno's third step, off unless chosen) draws what the one pass draws, to a
