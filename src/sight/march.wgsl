@@ -1958,9 +1958,10 @@ fn light_hit(@builtin(global_invocation_id) id: vec3<u32>) {
 // ── The march in stages (the dyno, 2026-11-09; David: "lets atomize the megakernal") ──
 //
 // The split's two passes cut further, each a small program of its own over the record `march_hit` leaves: the sun's
-// shadow (`shadow_staged`: the walk toward the sun, its answer written into the record), then the light
-// (`light_staged`: as `light_hit`, the shadow read from the record, not walked). `march_hit` is the stages' first.
-// The split stays as it was, to measure against.
+// shadow (`shadow_staged`: the walk toward the sun, its answer written into the record), sky light (`sky_staged`:
+// the five cones, or the parent's, its answer written into the record and handed down), then the light
+// (`light_staged`: as `light_hit`, the shadow and the sky read from the record, not walked). `march_hit` is the
+// stages' first. The split stays as it was, to measure against.
 
 // What pixel `id`'s ray met, as `march_hit` left it (its record's three words), with how wide its shadow ray starts.
 fn hit_of(id: vec2<u32>, size: vec2<u32>, r0: vec4<u32>, r1: vec4<u32>, r2: vec4<u32>) -> Seen {
@@ -2025,9 +2026,11 @@ fn shadow_staged(@builtin(global_invocation_id) id: vec3<u32>) {
     hits[at + 2u] = vec4<u32>(r2.x, bitcast<u32>(sun), r2.z, r2.w);
 }
 
-// The stages' light: as `light_hit`, the sun's shadow read from the record.
+// The stages' sky light: how much of the sky what each pixel's ray met sees, its parent's where that was for the
+// same surface about as far off, else its five cones (the record's fourth word's third; 1 where it has none), and
+// handed down to the layer below (a layer's sky after the one above's).
 @compute @workgroup_size(8, 8)
-fn light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+fn sky_staged(@builtin(global_invocation_id) id: vec3<u32>) {
     name_the_bindings();
     let size = vec2<u32>(camera.view.xy);
     if (id.x >= size.x || id.y >= size.y) {
@@ -2038,13 +2041,8 @@ fn light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
     if ((r2.x & HIT_NONE) != 0u) {
         return;
     }
-    var shown = 1.0;
-    let parent = parent_of(id.xy);
-    if (camera.layer.x > 0.0) {
-        shown = f32(worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu) / 255.0;
-    }
-    let d = pixel_way(id.xy, size);
     let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
+    let parent = parent_of(id.xy);
     var handed = NO_SKY;
     let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
     var open = 1.0;
@@ -2064,19 +2062,43 @@ fn light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         handed = sky_word(kind, open);
     }
+    hits[at + 2u] = vec4<u32>(r2.x, r2.y, bitcast<u32>(open), r2.w);
+    if (camera.layer.y > 0.5) {
+        let k = id.y * size.x + id.x;
+        worth_out[k] = (worth_out[k] & 0xFFu) | (handed << 8u);
+    }
+}
+
+// The stages' light: as `light_hit`, the sun's shadow and the sky light read from the record.
+@compute @workgroup_size(8, 8)
+fn light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+    name_the_bindings();
+    let size = vec2<u32>(camera.view.xy);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    let at = (id.y * size.x + id.x) * 3u;
+    let r2 = hits[at + 2u];
+    if ((r2.x & HIT_NONE) != 0u) {
+        return;
+    }
+    var shown = 1.0;
+    let parent = parent_of(id.xy);
+    if (camera.layer.x > 0.0) {
+        shown = f32(worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu) / 255.0;
+    }
+    let d = pixel_way(id.xy, size);
+    let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
+    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
     var colour = seen.colour;
     if (!hidden) {
-        colour = shaded_by(seen, open, bitcast<f32>(r2.y));
+        colour = shaded_by(seen, bitcast<f32>(r2.z), bitcast<f32>(r2.y));
     }
     let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
     if (met < camera.reach.x) {
         let behind = seen.sky_share * sky(d);
         let covered = max(1.0 - seen.sky_share, 1e-4);
         colour = behind + fogged((colour - behind) / covered, d, met) * covered;
-    }
-    if (camera.layer.y > 0.5) {
-        let k = id.y * size.x + id.x;
-        worth_out[k] = (worth_out[k] & 0xFFu) | (handed << 8u);
     }
     if (camera.reach.z > 1.5 && seen.level >= 0) {
         let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
