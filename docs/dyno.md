@@ -473,6 +473,21 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
        cost more than the relighting it saved, and with the switch off the build ran about 6 to 7% slower than build
        107's own flights (single flights, a hint, not paired). It may pay walking or standing, which the dyno doesn't
        fly. The patch on file (Builder's scratchpad, `faces_kept_2026-11-10.patch`).
+     - **The first impression, measured** (David's order: "just do those in order": the first impression, the
+       shared grounds' memory, then the far march's blend). Standing still at the test world's spawn, two blocks
+       over the ground, the flights' settings, three minutes (the soak at speed 0): **113 to 117 fps from start to
+       finish**, the card's sight 8.1 ms throughout, no rise when the near levels finish filling. A trace there 40 s
+       in: the tile passes under 3% of the card; the march 41%, the shading (each pixel's sun and sky rays) 35%,
+       light per face 13.5%. So the first minutes aren't the levels filling: they're **the view near the ground**,
+       about 8 ms of the card where a flight's typical frame is 4.5. That view is the first thing a player sees.
+     - [-] **The shared grounds trimmed** (a coarse tile let go once every finer tile wanted inside it was made, and
+       once a second, not every frame): standing still the cache still grew while the far levels filled (398 tiles at
+       150 s), and in flight sharing fell from 96% to 36% (6,000 tiles given, 10,600 working their own out), the
+       tiles made from 24,500 to 17,600, the median +11%. **Dropped. What it lost to:** each finer level needs a
+       coarse tile's grounds in turn as its window sweeps over it; let go when the level now over it is done, the
+       next one comes to nothing. Kept as it was (the next level's window and a coarse tile round it: 57 MB flying,
+       up to 150 MB standing still with the windows full). A trim that would keep the sweep: a cap by distance from
+       the eye, or the grounds packed smaller (they're smooth heights).
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
