@@ -1389,6 +1389,17 @@ below disagree with this one, this one stands.
        face near the eye") stay on the Render page as checks, on by default [David: "eh just leave em there until
        we need to clean up"]. The typical frame is won back in the far march, which both shapes share (dyno
        item 4).
+
+       **The near ground's generator cut into stages too** [David 2026-11-10, asked whether the near-ground tile
+       pass may be cut into stages with the same result to the bit: "yes ... as long as it looks right, which is
+       something we know now. seems like the whole thing *can* be carved into a gpu shape."]. Nsight at build 104
+       put `sight_grounds_pass` (the terrain generator on the card, working out the near ground's columns as the
+       eye flies) at 255 registers, spilling to memory, holding a sixth of the card, and 15% of the card's time
+       over the land. It's cut along the terrain pipeline's own stages, each handing only forward, as the march's
+       are, or at least brought under 128 registers. What it works out doesn't change: the card's columns still
+       match the processor's to the bit. In Builder's order of the register work: the near walk and the far march
+       as separate passes (the march at 125 registers, a third of the card), then the texture units for the blend,
+       then this.
   - **What light needs** [David 2026-11-06]: "i dont think i care about reflection and bounce. moving torches are
     obviously necessary as well as light from fx. accurate shadows are only necessary up close and i can imagine
     them being that sharp if theres only 16 light levels per block. sunrays may be cooler than i had previously
