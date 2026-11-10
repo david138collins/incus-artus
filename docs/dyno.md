@@ -433,7 +433,11 @@ complaint, "creaking when you move too quick", is the baking case. The order her
 - [x] The baseline (after build 92).
 - [x] The two flaws: the close-up disc and the circles from altitude (builds 93 and 94).
 - [x] More storage slots asked from the card (build 95): David's card reports 262,144, and we use 9.
-- [x] Nsight Graphics installed on David's machine (2026-11-09).
+- [ ] Nsight Graphics installed on David's machine. *Corrected 2026-11-09:* what's installed is Nsight Systems
+      2026.6.1, not Nsight Graphics (found looking for its command line); asked David. And the card's performance
+      counters opened to all users (NVIDIA Control Panel: Desktop, Enable Developer Settings; then Developer, Manage
+      GPU Performance Counters): Nsight Systems' GPU metrics (warps in flight over a flight) refuse without it
+      ("Insufficient privilege", ERR_NVGPUCTRPERM), and Nsight Graphics needs it too.
 - [x] Far light, before the dyno starts [David 2026-11-09: "far light is important to be in there before we go onto
       the dyno"]: a far brazier's glow as a twinkling pixel or so, and its light on the ground averaged into the
       coarse cells. Details in `docs/regroup.md`, "Lights seen from farther". The glow: build 100. The wash: build 101 (its lookup's cost not measured yet: on the instruments' first flight).
@@ -549,6 +553,17 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
         over. Judged by his eye, behind a switch.
       - A cell-format change (bump SIGHT_RULES, a new bake), or its own buffer beside the cells (the hot/cold split).
 
+**The compiler's layout** (step 4's finding: added code, run or not, moves each view's cost by tens of percent)
+- [ ] **The settings compiled in** (WGSL `override` constants; Counsel, 2026-11-09). A switch that's off is taken
+      out of the march when its pipeline is made, not kept as a branch whose path still claims registers. wgpu 30
+      does it on DX12: naga puts the values in (and keeps only the pipeline's own entry point) before writing the
+      HLSL, and DXC drops the branches that can't run. First for the measuring switches, so a step's build with it
+      off is the build before; then lean variants of the one march (water or not, shadows or not, tile types later).
+      To weigh: sight's three pipelines take 8.8 s to compile with DXC, so a Render-page change picking another
+      variant compiles in the background, the old one drawing meanwhile.
+- [ ] **What the compiler did** (Nsight Graphics, the compiled march: registers, spills, where it waits), the
+      slow layout against the fast one round the peak (step 4's builds). Waits on Nsight Graphics (section 0).
+
 **Memory**
 - [ ] Hot and cold data apart: solid shares in their own tight buffer, colour and faces fetched only at a hit.
 - [ ] Texture units: cells as bricks in a 3D texture, blended by hardware and read through its neighbour cache.
@@ -625,6 +640,11 @@ INCUS_DYNO=baked INCUS_LOAD_WORLD="nice25 test" INCUS_START_PRESET=render/dyno,c
       21 to 33 ms. A saved world doesn't bake: playing one is the baked case.
 - [ ] The bake hidden in the opening (docs/vision.md, The opening): the world forming before your eyes, and the
       first morning's fog following the bake.
+- [ ] **DXC shipped with the game** (before release; Counsel, 2026-11-09). The game compiles its shaders with DXC
+      only where the Windows SDK's `dxcompiler.dll` is installed (`runner::windows_sdk_dxc`). Players won't have the
+      SDK, so they'd get the old compiler (FXC): some 50 s to compile the march at the start (found 2026-11-04), and
+      a different layout and speed from what the dyno measures. wgpu 30 builds DXC into the game with its
+      `static-dxc` feature (or takes the dlls beside the exe), so every player runs what was measured.
 
 ## Ruled out
 
