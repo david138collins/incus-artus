@@ -499,7 +499,13 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
        code in the blend (its checks, the columns read twice where it isn't air).
      - **The narrower hand-over** (`BLEND_FROM` 0.8, the outside read's lead 3; a twin, priced): the whole flight
        −2.8 / −6.7 / −5.5%, at sea −7.1 / −7.1 / −5.8%, home −5.7 / −6.3 / −9.1%, over the land level. A trade for
-       David's eye (rings over flat water, build 69). [A first flight read +12.8%: its twin file was made before the
+       David's eye (rings over flat water, build 69). **A Render-page slider, build 108** (David: "yes"; "level
+       hand-over starts at", 0.3 to 0.95, 0.6 unless chosen; `INCUS_SIGHT_BLEND_FROM` for flights): the constant now
+       the camera's `fade.z`; at 0.6 the same picture to the pixel (the suite and sight's 20 picture tests), and build
+       107's march flown as its twin +0.1 / −0.4 / −0.3%: the slider costs nothing.
+     - [-] A ray done at 95% covered, what it gathered scaled up to the whole (priced, David: "yes"): −2.4 / −0.8 /
+       −1.1%, the picture moved a little almost everywhere (up to 3 to 12 steps of 255, most over water). Too little
+       for a change everywhere; on file. [A first flight read +12.8%: its twin file was made before the
        `live_slot` fix went in, so it carried the old one. **A twin is made from the march as it is the day it
        flies.**]
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is

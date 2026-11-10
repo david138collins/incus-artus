@@ -175,6 +175,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if earned != kept.sight_earned() {
         kept.render.table.insert("sight_earned".to_string(), toml::Value::Boolean(earned));
     }
+    // The far march's hand-over between levels [the dyno, 2026-11-10: at 0.8 the whole flight's 95th 6.7% faster, out
+    // at sea the median 7%; for David's eye on rings over flat water, build 69's].
+    let mut blend_from = kept.sight_blend_from();
+    if ui.add(egui::Slider::new(&mut blend_from, 0.3..=0.95).step_by(0.05).text("level hand-over starts at (later: narrower and faster; too late and rings show over flat water)")).changed() {
+        kept.render.set_number("sight_blend_from", blend_from);
+    }
     // Block textures (3.6) [David 2026-11-08: "so the blocks are mipmapped, right? go ahead"]: on the blocks near
     // the eye; a texture changed on disk shows at once (the data watch).
     let mut textures = kept.sight_textures();
@@ -543,6 +549,11 @@ impl KeptSettings {
     /// Light per face near the eye, in stages (on unless chosen, since build 104).
     pub fn sight_face_light(&self) -> bool {
         self.render.flag("sight_face_light", true)
+    }
+
+    /// Where in a level's stretch the far march's hand-over to the next begins (`draw::BLEND_FROM` unless chosen).
+    pub fn sight_blend_from(&self) -> f32 {
+        self.render.number("sight_blend_from", crate::sight::draw::BLEND_FROM)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).

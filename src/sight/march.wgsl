@@ -43,7 +43,7 @@ struct Camera {
     // w where the one below fades out among the blocks (shares of their reach, from and to).
     pyramid: vec4<f32>,
     // Past the blocks, the one below's fade in: x where it starts (its pixel so many times its cells), y over how
-    // many doublings of distance.
+    // many doublings of distance. z: where in a level's stretch its blend with the next begins (the hand-over).
     fade: vec4<f32>,
     // Sky light (3.4b): x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1
     // a sky blue), w how wide its cones are (blocks across a block of distance).
@@ -319,7 +319,8 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
 }
 
 // Where in a level's stretch (0 its start, 1 where the next takes over) the blend with the next begins.
-const BLEND_FROM: f32 = 0.6;
+// (`camera.fade.z`: 0.6 unless chosen on the Render page [2026-11-10, the dyno: later, a narrower hand-over, fewer
+// steps reading two levels: at 0.8 the whole flight's 95th 6.7% faster; David's eye on rings over flat water].)
 
 // Two looks mixed: `w` of the second.
 fn mix_looks(a: Look, b: Look, w: f32) -> Look {
@@ -1273,10 +1274,10 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         // Over the last stretch before the next level takes over, the two blended, so the change is gradual,
         // never a seam (seams drew rings round the eye over flat water that moved as it moved: David, build 69).
         let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
-        if (look.known && over > BLEND_FROM && level < header[1]) {
+        if (look.known && over > camera.fade.z && level < header[1]) {
             let next = blend(kept(level + 1), p);
             if (next.known) {
-                look = mix_looks(look, next, (over - BLEND_FROM) / (1.0 - BLEND_FROM));
+                look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
             }
         }
         let size = f32(1 << u32(level));

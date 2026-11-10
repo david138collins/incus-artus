@@ -560,6 +560,8 @@ impl Runner {
                     // one pass's shapes to measure against.
                     stages: std::env::var("INCUS_SIGHT_ONE_PASS").is_err() && std::env::var("INCUS_SIGHT_SPLIT").is_err() && (std::env::var("INCUS_SIGHT_STAGES").is_ok() || kept.sight_stages()),
                     face_light: kept.sight_face_light() || std::env::var("INCUS_SIGHT_FACE_LIGHT").is_ok(),
+                    // `INCUS_SIGHT_BLEND_FROM` for flights.
+                    blend_from: std::env::var("INCUS_SIGHT_BLEND_FROM").ok().and_then(|v| v.parse().ok()).unwrap_or_else(|| kept.sight_blend_from()),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
                 // disk, a block's data): once at the start, then seldom.

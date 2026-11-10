@@ -82,6 +82,11 @@ pub struct Eye {
     /// lighting is good all around"): each block face the near walk shows lit once, at its middle, every pixel
     /// showing it taking that (gathered by `march.wgsl`'s `listed_staged`, lit by `face_light_staged`).
     pub face_light: bool,
+    /// Where in a level's stretch the far march's blend with the next level begins (0 its start, 1 where the next
+    /// takes over; the Render page's slider, 0.6 unless chosen): later, a narrower hand-over, fewer steps reading two
+    /// levels [2026-11-10: at 0.8 the whole flight's 95th 6.7% faster]; too late and the change of level shows as
+    /// rings over flat water (David, build 69).
+    pub blend_from: f32,
 }
 
 impl Default for Eye {
@@ -119,6 +124,7 @@ impl Default for Eye {
             split: false,
             stages: true,
             face_light: true,
+            blend_from: BLEND_FROM,
         }
     }
 }
@@ -693,7 +699,7 @@ impl SightDraw {
                 // fades out among the blocks (shares of their reach).
                 [to_above, to_child, fade[0].min(fade[1]), fade[1]],
                 // Past the blocks, the one below's fade in: where it starts and over how many doublings.
-                [cells_fade[0].max(0.1), cells_fade[1].max(0.05), 0.0, 0.0],
+                [cells_fade[0].max(0.1), cells_fade[1].max(0.05), eye.blend_from.clamp(0.3, 0.95), 0.0],
                 // Sky light (`INCUS_SIGHT_NO_SKY` leaves it out, for measuring): on, strength, tint, its cones' width.
                 [if eye.sky && !no_sky { 1.0 } else { 0.0 }, eye.sky_strength.clamp(0.0, 1.0), eye.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
                 // Fog (`INCUS_SIGHT_NO_FOG` leaves it out, for measuring): its thickness at sea level (a block's
@@ -986,6 +992,9 @@ pub fn factors(eye: Eye) -> Vec<f32> {
     }
     factors
 }
+
+/// Where in a level's stretch the far march's blend with the next begins, unless chosen (`Eye::blend_from`).
+pub const BLEND_FROM: f32 = 0.6;
 
 /// The faces table's slots (`march.wgsl`'s `FACE_SLOTS`: light per face near the eye).
 const FACE_SLOTS: u32 = 262_144;
