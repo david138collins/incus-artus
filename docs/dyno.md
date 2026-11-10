@@ -439,10 +439,21 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
        stages saved, while the parts still spill. **Dropped**; the patch kept on file (Builder's scratchpad,
        `grounds_stages_2026-11-10.patch`), and the test kept: `sight_s_grounds_are_the_processors_columns`. If it's
        tried again, the parts cut once more (the ridges apart from the peaks) is where the 255 is.
-     - **Next to price: the tile lane's pace** (`MOST_FILLING`, 8 fine and 2 coarse tiles at once;
-       `INCUS_SIGHT_FILLING` flies others): since build 106 the lane makes two thirds more tiles a flight, and the
-       sea's 95th and 99th rose 4 to 5% with it. Counsel, for David ("even beats fast"): price it before it's
-       forgotten.
+     - [x] **The tile lane's pace** (`MOST_FILLING`; Counsel, for David's "even beats fast": since build 106 the lane
+       made two thirds more tiles a flight, and the sea's 95th and 99th rose 4 to 5%). Flown, 8 fine and 2 coarse
+       tiles at once (the base, three times, within 1.4%), 8 and 1, 4 and 2, and build 105's way (no shared grounds,
+       8 and 2). Against build 105's way:
+
+       | | median | 95th | 99th | sea 95th / 99th | near levels filled | coarse filled |
+       |---|---|---|---|---|---|---|
+       | build 106 (8 and 2) | −11.7% | +0.9% | +1.9% | +4.7 / +4.8% | about twice | +22 to +33% |
+       | 8 and 1 | −18.6% | −2.4% | −3.1% | −0.3 / −0.8% | about 2.5 times | −25 to −29% |
+       | **4 and 2** | **−25.0%** | **−7.9%** | **−8.2%** | **−4.5 / −5.2%** | **the same** | **+30 to +46%** |
+
+       (Filled: the tiles made at each level, three moments of the same flight.) **4 and 2 in the game, build 107**:
+       the near levels fill as fast as before build 106, the coarse ones fuller, every frame faster. 8 and 1 traded
+       the coarse levels for nothing the near ones needed. The lane's pace is a look at loading, not at the picture
+       once loaded; David may want a feel of the near ground filling.
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our

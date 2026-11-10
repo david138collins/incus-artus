@@ -30,9 +30,13 @@ pub const TILE: i32 = 16;
 /// together, the coarse tiles held up the near blocks behind them [David 2026-11-07, build 76: "it takes forever
 /// to load chunks around me... hopefully we can speed it up or make it go to the closest chunk first"]; the fine
 /// ones mostly wait on the card's round trips, so more of them at once costs it little. (Measured, flying the soak
-/// at 150 a second at 237: 3 tiles at once of any level cost about 1.6 ms a frame; 8 at once, 3.5.)
+/// at 150 a second at 237: 3 tiles at once of any level cost about 1.6 ms a frame; 8 at once, 3.5.) Four fine at once
+/// since build 107 [2026-11-10, the dyno: with the finer tiles taking their grounds from the coarse ones (build 106)
+/// each fine tile is quick, and eight at once made two thirds more tiles a flight than before, the sea's slowest
+/// frames 4 to 5% slower for it; four at once fill the near levels as fast as eight did before build 106, the coarse
+/// ones fuller, and against build 105 the median 25% faster, the 95th and 99th 8%].
 /// `INCUS_SIGHT_FILLING=<fine>,<coarse>` other numbers (measuring).
-pub const MOST_FILLING: (usize, usize) = (8, 2);
+pub const MOST_FILLING: (usize, usize) = (4, 2);
 /// The coarsest fine level.
 const FINE_UP_TO: usize = 2;
 
