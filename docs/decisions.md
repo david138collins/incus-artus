@@ -928,6 +928,26 @@ Reference: `Art/quartile minecraft illustration.png`
     number per activity, the same zone rules for built and placed rooms);
   - **pieces with named seams** (hooks, stages, modules), so one can be swapped without touching its
     neighbours.
+- **[DECIDED 2026-11-10] Four roles, the truth and the journals** [David, stepping back from the dyno to
+  "build a better way of working"]:
+  - **The roles:** "ok, so Builder, David, Counsel, Oracle." David holds the vision and makes the calls. Builder
+    builds, free to focus on the technical constraints. Counsel doesn't hold the master plan in its head but
+    "only observe it, protect it, inform builder on it, and work with me to conceive of updates to the master
+    plan." The Oracle is turned to for guidance: "to look at the structure, and find a more elegant form that does
+    it with less, and question the assumptions and axioms."
+  - **The truth, apart from the journals:** "we need a true, live architectural viewer of the software. like the
+    view that power plant generator operators see on their screens. this is seperate from the logs you have been
+    keeping in docs, which are more like dev logs or journals. so we need living documents that are the truth, and
+    reflect that instantly and reflexively, so everyone is on the same page. this could take the form of the
+    master map, along with a master plan, as a map for where we have decided to work towards." And: "we need a
+    ship list, or the objective spec for the game." So three living documents: **the master map** (what exists
+    and how it's wired, kept true by the build itself), **the master plan** (where we've decided to go) and **the
+    spec** (the game we're shipping). The journals (`decisions.md`, `dyno.md`, `regroup.md` and the rest) stay as
+    the record of how we got here.
+  - **The plan lives in files, not in a session:** sessions are summarised and forget; files don't.
+  - **On a rewrite** (being weighed, with the Oracle): "nothing that isnt ultimately part of the players joy is
+    sacred to me." If it comes, "we could keep 'old incus artus' aside, and only check the rewrite against it":
+    the old project as reference and test oracle, each new stage checked against its output.
 
 ## World Creation
 

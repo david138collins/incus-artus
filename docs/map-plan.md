@@ -58,6 +58,21 @@ down, so what runs when, and which way data crosses between processor and card, 
 **Across all levels:** the rules that bind (the projection principle, whole numbers, the linear pipeline, even beats
 fast, nothing relies on fog, terrain light may lag, no per-card tricks): one line each, linked to `decisions.md`.
 
+## 2b. Live, like a control room
+
+David, the same day: "a true, live architectural viewer of the software. like the view that power plant generator
+operators see on their screens ... living documents that are the truth, and reflect that instantly and
+reflexively." So the map is one of three truth documents (with the master plan and the spec), and it should be
+generated from the software as far as it can be, not only written about it. Two depths:
+
+- **Now, for the game as it is:** the map written by hand, but kept honest by the build itself (the test in section
+  4, run with every build, fails the moment the map and the code disagree). The page is remade from the file.
+- **Built in, if sight or the whole game is rewritten:** the wiring declared as data in one place (the frame as a
+  graph of passes, each with what it reads and writes; the world's recipe as its stages; the lanes), the engine
+  assembled from that declaration, and the map drawn from it, so it can't disagree. And a control-room page in the
+  game itself: that diagram with each pass's time, each lane's load and the card's room, live as it runs. This is a
+  requirement to hand the Oracle for any new structure.
+
 ## 3. Its form
 
 - **The source:** one file in the repo, `docs/map.md`, plain text with diagrams drawn in Mermaid (a text form of
