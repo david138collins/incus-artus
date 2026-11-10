@@ -454,6 +454,25 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
        the near levels fill as fast as before build 106, the coarse ones fuller, every frame faster. 8 and 1 traded
        the coarse levels for nothing the near ones needed. The lane's pace is a look at loading, not at the picture
        once loaded; David may want a feel of the near ground filling.
+     - **David's look at build 107** (2026-11-10): "it looks good, and definitely is becoming more even". First in a
+       world without a kept bake (the bake making itself all through his look: the game paced evenly at 76 to 92
+       frames a second, as the dyno measured while baking, 100); then in the test world: high up 216, near the ground
+       138, looking down 233, looking up 170. The log: after a load the near levels filled from nothing in about 100
+       s (the frames about 100 a second), then 156 to 175, the far levels (8s and 16s, two at a time) still filling
+       five minutes on, the frames 105 to 170 by how big the tiles being made were. So the first minutes of a world
+       are the live levels being made: **the first impression** (section 5) is where the fix goes. And the shared
+       grounds kept 555 coarse tiles standing still (about 150 MB on the processor's side, against 57 MB flying):
+       to trim.
+     - [-] **Light per face kept between frames** (lead 1, built: faces keyed by their own places, the table kept,
+       each face lit when it first shows and again a sixteenth of the frames, stale slots taken back; behind a
+       Render-page switch; twenty frames the same to the pixel as lit afresh, the eye still and moving; the suite and
+       sight's 21 picture tests passed). Flown kept against afresh, alternating twice: the median +10.8% and +0.6%,
+       the quick leg +18 to +20% both times (the card's +30 to +36%), over the land level. **Dropped. What it lost to:**
+       on the dyno's route the eye flies a hundred blocks a second and more, so the faces near it are mostly new each
+       frame and lit anyway; the table's bookkeeping (a pixel's look-up marking the face seen, the places checked)
+       cost more than the relighting it saved, and with the switch off the build ran about 6 to 7% slower than build
+       107's own flights (single flights, a hint, not paired). It may pay walking or standing, which the dyno doesn't
+       fly. The patch on file (Builder's scratchpad, `faces_kept_2026-11-10.patch`).
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
