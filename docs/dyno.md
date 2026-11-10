@@ -229,6 +229,56 @@ started from its own folder; **never `--platform`** (Nsight's windows take it as
 lost at the first shader): the game now loads the SDK's validator itself, by its path. The trace file opens in
 Nsight's MCP server (`ngfx-mcp.exe`, on 127.0.0.1 only), which reads its shader profiler rows and hotspots.
 
+### The march in stages: the plan (2026-11-09)
+
+David's decision [via Counsel, `decisions.md`]: "the idea of a monolithic renderer was as misguided as the idea of
+two renderers and two scales, so lets go the other way. i believe the hologram enables atomized processing, so lets
+atomize the megakernal which apparently i was fated to repeat by not knowing history." The field's name for it is
+wavefront rendering (Laine, Karras and Aila, "Megakernels Considered Harmful", 2013: one big program with few pixels
+in flight, a cold instruction cache and idle lanes, answered with small programs per stage handing work on through
+memory, each running only the pixels that need it).
+
+**Today,** for each layer (8 × 8, 4 × 4, 2 × 2), one program does everything for each pixel: the march (the near
+blocks, then the far cells), the texture, sky light (five cones), the sun's shadow (a walk toward the sun), placed
+light, fog, and the measuring views. 128 registers for all of it, about 30,000 instructions.
+
+**The stages,** each frame:
+1. **Hit,** a layer at a time, coarse to fine (each finer layer starts from the one above, as now): the march
+   alone. Where each pixel's ray meets something and what it gathered on the way, written to a record per pixel
+   (some 64 bytes: the colour and its sun and sky parts in half floats, where, which way the face looks, how far),
+   with the layer's distances and "worth it" for the next layer.
+2. **Sky,** coarse to fine: only the pixels whose surface needs sky light of its own (a finer pixel still takes its
+   parent's where it's the same surface about as far off): the five cones. Writes how open it is to the sky.
+3. **Shadow,** all layers in one go: only the pixels whose surface faces the sun: the walk toward it. Writes how
+   much sun reaches it.
+4. **Light,** all layers: every marched pixel's colour from its record, the shadow and sky light put in, then
+   placed light and fog, into the layer's picture. The measuring views live here, never in the march.
+5. **Upscale** and objects, as now.
+
+**Why it should be faster:** each program is small, with its own registers and its own code in the instruction
+cache (split before, the march passes alone ran 35 to 58% faster). Sky and shadow run only on the pixels that need
+them, packed together (a list per stage, run by indirect dispatch), so no lane in a group idles while its neighbours
+work. **What it costs:** the records (some 85 MB on the card at David's screen; their traffic about 1% of the card's
+memory bandwidth at 150 fps, where the march uses under 1% now) and a few more waits between stages. The split lost
+its median to exactly that (+13%, the worst frames −12%), with sky and shadow still in its light pass.
+
+**Built in this order, each its own commit,** flown with the twin, the picture checked (the same as the one program
+to a step of a colour, the records' half floats, and every-block truth for the march):
+- a. **The twin for structures:** every other timed frame drawn by the stages in place of the one program (the twin
+  as built swaps one shader file for another of the same shape; the stages are another shape).
+- b. **Hit and light** (the split, refreshed): the stages' baseline.
+- c. **Shadow its own stage,** packed.
+- d. **Sky its own stage,** packed.
+- e. **Fewer waits:** light and shadow for all layers in one dispatch each.
+- f. **The measuring views out of the march.**
+
+Nsight after c and d (the registers per stage: David's two-minute look). Then step 4, tiles by type (sky, far, near
+blocks, water, seams, each with its own lean march), and step 5, the ray queue, only if lanes still idle.
+**Sizes:** about 7 to 9 hours of Builder's, a 4-minute flight after each step, one Nsight look from David.
+**On the side:** the near ground's pass (`sight_grounds_pass`, the tiles made as the camera flies) holds 255
+registers, the most there is (likely spilling to memory), and took 1 to 8% of the card in the traces, by how much
+ground was being made; a look after the stages.
+
 ### The breakdown (2026-11-09, build 101 with the 10-second hitch fixed)
 
 Each flight with one thing switched off (the measuring switches), against a reference flown the same way (a warm-up
@@ -628,10 +678,13 @@ instructions, too many for the instruction cache)
       march as it was; a 1% nudge to the sky light shows in thousands of pixels, so the test sees). Flown with the
       twin against the march as it was (`logs/dyno-1794276682.txt`): the card's median −3.3%, 95th −6.1%, 99th
       −5.3%; every leg faster (over the land −8.5% on the median, round the peak −7.0% at the 99th).
-- [ ] **The march made smaller, 2:** the measuring views (the steps' heat, the levels' tints, whose six-colour table
-      takes some 5 KB of the card's shared memory a group) compiled out unless chosen (override constants), then
-      the sun's shadow walk and the eye's near walk (the near walk's code in the march twice), and what else Nsight
-      shows big.
+- [-] **The march made smaller, 2: the measuring views compiled out unless chosen** (an override constant,
+      `MEASURING`; the steps' heat and the levels' tints, whose six-colour table takes some 5 KB of the card's shared
+      memory a group). Tried and dropped (2026-11-09): the picture the same to the pixel, but flown with the twin
+      against the march (`logs/dyno-1794277097.txt`) **slower**: the median +1.8%, 95th +12%, 99th +6.7% (at sea
+      the 95th +14%). Taking code out moved the compiler's choices the wrong way: shrinking one big program is a
+      lottery on them, which is why the march goes to stages next (above). Both builds traced together in one game
+      (`trace_twin`, Builder's scratchpad), to see what the compiler changed.
 - [ ] **The settings compiled in** (WGSL `override` constants; Counsel, 2026-11-09). A switch that's off is taken
       out of the march when its pipeline is made, not kept as a branch whose path still claims registers. wgpu 30
       does it on DX12: naga puts the values in (and keeps only the pipeline's own entry point) before writing the
