@@ -1963,6 +1963,64 @@ fn light_hit(@builtin(global_invocation_id) id: vec3<u32>) {
 // (`light_staged`: as `light_hit`, the shadow and the sky read from the record, not walked). `march_hit` is the
 // stages' first. The split stays as it was, to measure against.
 
+// Each layer's pixels its march met something for (not the ones the layer above didn't find worth marching), listed
+// by the pass after its march (`listed_staged`), so the stages after it run over them only, not over the whole layer
+// [2026-11-09, each stage timed: on the lightest views the near layer's passes, launched over its million pixels
+// to find a few to work on, cost a fixed half millisecond]. Its count as the card's indirect dispatch reads it:
+// groups of 64 across, 1, 1, then the count.
+@group(0) @binding(20) var<storage, read_write> live_list: array<u32>;
+@group(0) @binding(21) var<storage, read_write> live_count: array<atomic<u32>, 4>;
+
+// The list, so every pass after the march has the same bindings. Not its count: a pass launched by the count can't
+// have it open as well.
+fn name_the_lists() {
+    _ = live_list[0];
+}
+
+// The pixel the `k`th thread of a listed pass works on. The last group's threads past the list's end read what an
+// earlier frame left there: a pixel with nothing to do this frame (it leaves at once), or one listed this frame as
+// well, worked twice the same way (every listed pass writes the same from the same record), so no harm.
+fn listed_pixel(group: vec3<u32>, index: u32, size: vec2<u32>) -> vec2<u32> {
+    let at = live_list[group.x * 64u + index];
+    return vec2<u32>(at % size.x, at / size.x);
+}
+
+// A group's pixels it marched, gathered (counted in the group, a place in the list taken once for them all).
+var<workgroup> group_live: atomic<u32>;
+var<workgroup> group_first: u32;
+
+// The stages' list of a layer's live pixels, after its march.
+@compute @workgroup_size(8, 8)
+fn listed_staged(@builtin(global_invocation_id) id: vec3<u32>, @builtin(local_invocation_index) index: u32) {
+    name_the_bindings();
+    name_the_lists();
+    if (index == 0u) {
+        atomicStore(&group_live, 0u);
+    }
+    workgroupBarrier();
+    let size = vec2<u32>(camera.view.xy);
+    var live = false;
+    if (id.x < size.x && id.y < size.y) {
+        live = (hits[(id.y * size.x + id.x) * 3u + 2u].x & HIT_NONE) == 0u;
+    }
+    var mine = 0u;
+    if (live) {
+        mine = atomicAdd(&group_live, 1u);
+    }
+    workgroupBarrier();
+    if (index == 0u) {
+        let n = atomicLoad(&group_live);
+        if (n > 0u) {
+            group_first = atomicAdd(&live_count[3], n);
+            atomicMax(&live_count[0], (group_first + n + 63u) / 64u);
+        }
+    }
+    workgroupBarrier();
+    if (live) {
+        live_list[group_first + mine] = id.y * size.x + id.x;
+    }
+}
+
 // What pixel `id`'s ray met, as `march_hit` left it (its record's three words), with how wide its shadow ray starts.
 fn hit_of(id: vec2<u32>, size: vec2<u32>, r0: vec4<u32>, r1: vec4<u32>, r2: vec4<u32>) -> Seen {
     let d = pixel_way(id, size);
@@ -2015,6 +2073,10 @@ fn shaded_by(seen: Seen, open: f32, sun: f32) -> vec3<f32> {
 // The frame's faces: each slot's key (0: empty), and its light (the sun reaching it and the sky it sees, half floats).
 @group(1) @binding(0) var<storage, read_write> face_keys: array<atomic<u32>>;
 @group(1) @binding(1) var<storage, read_write> face_values: array<u32>;
+// The slots taken this frame, listed (so the light per face lights only them), and how many, as the card's indirect
+// dispatch reads it: groups of 64 across, 1, 1, then the count.
+@group(1) @binding(2) var<storage, read_write> face_list: array<u32>;
+@group(1) @binding(3) var<storage, read_write> face_count: array<atomic<u32>, 4>;
 
 // The table's slots (a power of two), and how far along it a face is looked for from its first slot.
 const FACE_SLOTS: u32 = 262144u;
@@ -2024,6 +2086,8 @@ const FACE_PROBES: u32 = 16u;
 fn name_the_faces() {
     _ = atomicLoad(&face_keys[0]);
     _ = face_values[0];
+    _ = face_list[0];
+    _ = atomicLoad(&face_count[0]);
 }
 
 // A face's key: its block from the eye's (each way +128, a byte), the way it looks, and a high bit (never 0); 0 if
@@ -2043,7 +2107,14 @@ fn face_slot(key: u32) -> u32 {
     for (var k = 0u; k < FACE_PROBES; k++) {
         let slot = (first + k) & (FACE_SLOTS - 1u);
         let found = atomicCompareExchangeWeak(&face_keys[slot], 0u, key);
-        if (found.exchanged || found.old_value == key) {
+        if (found.exchanged) {
+            // A face new this frame: listed, for the light per face.
+            let k = atomicAdd(&face_count[3], 1u);
+            face_list[k] = slot;
+            atomicMax(&face_count[0], (k + 64u) / 64u);
+            return slot + 1u;
+        }
+        if (found.old_value == key) {
             return slot + 1u;
         }
     }
@@ -2053,10 +2124,12 @@ fn face_slot(key: u32) -> u32 {
 // The stages' faces: each pixel showing a block's face near the eye finds its face in the table (or puts it in),
 // its slot kept in the record (the fourth word's fourth: slot and 1, 0 for none).
 @compute @workgroup_size(8, 8)
-fn faces_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+fn faces_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
     name_the_bindings();
+    name_the_lists();
     name_the_faces();
     let size = vec2<u32>(camera.view.xy);
+    let id = listed_pixel(group, index, size);
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }
@@ -2085,11 +2158,10 @@ fn faces_staged(@builtin(global_invocation_id) id: vec3<u32>) {
 @compute @workgroup_size(64)
 fn face_light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
     name_the_bindings();
-    name_the_faces();
-    let slot = id.x;
-    if (slot >= FACE_SLOTS) {
-        return;
-    }
+    // Not the faces' count: it's launched by it. Past the list's end, an earlier frame's slots: empty this frame (it
+    // leaves), or listed this frame too, lit twice the same way.
+    _ = face_values[0];
+    let slot = face_list[id.x] & (FACE_SLOTS - 1u);
     let key = atomicLoad(&face_keys[slot]);
     if (key == 0u) {
         return;
@@ -2112,10 +2184,12 @@ fn face_light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
 // The stages' shadow: how much of the sun reaches what each pixel's ray met, where it shows and has a shadow to
 // take (the record's fourth word's second; 1 where it walked none): its face's, with light per face near the eye.
 @compute @workgroup_size(8, 8)
-fn shadow_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+fn shadow_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
     name_the_bindings();
+    name_the_lists();
     name_the_faces();
     let size = vec2<u32>(camera.view.xy);
+    let id = listed_pixel(group, index, size);
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }
@@ -2142,10 +2216,12 @@ fn shadow_staged(@builtin(global_invocation_id) id: vec3<u32>) {
 // same surface about as far off, else its five cones (the record's fourth word's third; 1 where it has none), and
 // handed down to the layer below (a layer's sky after the one above's).
 @compute @workgroup_size(8, 8)
-fn sky_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+fn sky_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
     name_the_bindings();
+    name_the_lists();
     name_the_faces();
     let size = vec2<u32>(camera.view.xy);
+    let id = listed_pixel(group, index, size);
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }
@@ -2189,9 +2265,11 @@ fn sky_staged(@builtin(global_invocation_id) id: vec3<u32>) {
 
 // The stages' light: as `light_hit`, the sun's shadow and the sky light read from the record.
 @compute @workgroup_size(8, 8)
-fn light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
+fn light_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
     name_the_bindings();
+    name_the_lists();
     let size = vec2<u32>(camera.view.xy);
+    let id = listed_pixel(group, index, size);
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }

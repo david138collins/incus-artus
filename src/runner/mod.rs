@@ -334,6 +334,11 @@ impl Runner {
         // this kind of laptop, about 6 frames a second against 240]; `WGPU_BACKEND` still chooses.
         let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
         descriptor.backends = if cfg!(windows) && std::env::var("WGPU_BACKEND").is_err() { wgpu::Backends::DX12 } else { wgpu::Backends::from_env().unwrap_or(wgpu::Backends::PRIMARY) };
+        // No checking program before each dispatch launched by a count on the card (wgpu's own, on unless taken off:
+        // a pass of its own and two hand-offs each time, about 0.6 ms a frame with the stages' 13 [2026-11-09]). Our
+        // counts are our own shaders', bounded: a layer's live pixels in groups of 64 (32,000 at most at 4K, the
+        // card's limit 65,535) and the faces' (4,096 at most). The tests keep the checks.
+        descriptor.flags.remove(wgpu::InstanceFlags::VALIDATION_INDIRECT_CALL);
         if std::env::var("WGPU_DX12_COMPILER").is_err()
             && let Some(dxc) = windows_sdk_dxc()
         {
