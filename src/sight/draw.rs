@@ -221,6 +221,9 @@ pub struct SightDraw {
     /// moved each view's cost by tens of percent, so a step is measured against the build before as a whole]. Its
     /// bindings must be the march's. Not with the split, or `INCUS_DYNO_PASS_TIMES`.
     twin: Option<Twin>,
+    /// The twin as another shape (`INCUS_SIGHT_TWIN=split`): its frames drawn split, the march then its light, by
+    /// this build's own shader.
+    twin_split: bool,
     /// Whether the next timed frame is the twin's.
     twin_next: bool,
     upscale: wgpu::RenderPipeline,
@@ -304,7 +307,13 @@ impl SightDraw {
         let march_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's march, split"), layout: None, module: &march_module, entry_point: Some("march_hit"), compilation_options: Default::default(), cache: None });
         let light_hit = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's light"), layout: None, module: &march_module, entry_point: Some("light_hit"), compilation_options: Default::default(), cache: None });
         let glow_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("sight's far glows"), layout: None, module: &march_module, entry_point: Some("glow_pass"), compilation_options: Default::default(), cache: None });
-        let twin = std::env::var("INCUS_SIGHT_TWIN").ok().and_then(|path| match std::fs::read_to_string(&path) {
+        // `INCUS_SIGHT_TWIN=split`: the twin is another shape, not another file: its frames drawn split, the march then
+        // its light (the march in stages, the plan's step a: 2026-11-09).
+        let twin_split = std::env::var("INCUS_SIGHT_TWIN").is_ok_and(|twin| twin == "split");
+        if twin_split {
+            crate::ecs::prelude::info!("Sight's twin: the march split from its light, drawing every other timed frame");
+        }
+        let twin = std::env::var("INCUS_SIGHT_TWIN").ok().filter(|_| !twin_split).and_then(|path| match std::fs::read_to_string(&path) {
             Ok(source) => {
                 let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("sight's twin march"), source: wgpu::ShaderSource::Wgsl(source.into()) });
                 let pipeline = |label: &str, entry: &str| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(label), layout: None, module: &module, entry_point: Some(entry), compilation_options: Default::default(), cache: None });
@@ -360,7 +369,7 @@ impl SightDraw {
             let table = crate::sight::textures::BlockTextures::default().media_table();
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sight's media"), contents: &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>(), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST })
         };
-        Self { march, start, march_hit, light_hit, glow_pass, glows, twin, twin_next: false, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
+        Self { march, start, march_hit, light_hit, glow_pass, glows, twin, twin_split, twin_next: false, upscale, up, sampler, targets: None, timer: CardTimer::new(device, queue), textures, texture_sampler, texture_table, textures_revision: None, textures_made: 0, media, objects }
     }
 
     /// The registry revision the block textures on the card were made from (none yet).
@@ -631,11 +640,12 @@ impl SightDraw {
         let timed = self.timer.as_mut().and_then(|timer| timer.begin());
         // The twin (the dyno's) draws every other timed frame, the one-pass march only: each timed frame is the march's
         // or the twin's in turn, so both get as many readings whichever frames the clock times.
-        let twin_possible = timed.is_some() && self.twin.is_some() && !(eye.split && eye.rays <= 1) && std::env::var("INCUS_DYNO_PASS_TIMES").is_err();
+        let twin_possible = timed.is_some() && (self.twin.is_some() || (self.twin_split && eye.rays <= 1)) && !(eye.split && eye.rays <= 1) && std::env::var("INCUS_DYNO_PASS_TIMES").is_err();
         if twin_possible {
             self.twin_next = !self.twin_next;
         }
-        let twin = if twin_possible && self.twin_next { self.twin.as_ref() } else { None };
+        let twin_frame = twin_possible && self.twin_next;
+        let twin = if twin_frame { self.twin.as_ref() } else { None };
         let queries = self.timer.as_ref().map(|timer| &timer.queries);
         let timing = timed.and(queries);
         let mut passes: Vec<String> = Vec::new();
@@ -648,7 +658,7 @@ impl SightDraw {
             Some(wgpu::RenderPassTimestampWrites { query_set: timing?, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) })
         };
         // The march split from its light (a ray a pixel), if chosen.
-        let split = eye.split && eye.rays <= 1;
+        let split = (eye.split || (twin_frame && self.twin_split)) && eye.rays <= 1;
         // The far glows' places (build 100), put on the card before the work that says which the eye sees.
         let glow_places = self.objects.glow_places();
         let glow_groups = (!glow_places.is_empty()).then(|| {
@@ -777,7 +787,7 @@ impl SightDraw {
         let depth_view = targets.depth.clone();
         let objects_stamp = if self.objects.has_work() { render_stamp(&mut passes, "objects".into()) } else { None };
         self.objects.draw(device, queue, encoder, view, &depth_view, objects_view, &self.glows, objects_stamp);
-        let twin_drew = twin.is_some();
+        let twin_drew = twin_frame;
         if let (Some(k), Some(timer)) = (timed, &mut self.timer) {
             timer.resolve(encoder, k, passes, twin_drew);
         }
