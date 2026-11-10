@@ -215,7 +215,19 @@ fn kept(level: i32) -> i32 {
 fn live_slot(level: i32, cx: i32, cy: i32) -> vec4<u32> {
     let side = header[3];
     let window = u32(level - header[2]) * u32(header[4] * header[4]);
-    return live[window + u32((((cy % side) + side) % side) * side + (((cx % side) + side) % side))];
+    return live[window + u32(wrapped(cy, side) * side + wrapped(cx, side))];
+}
+
+// `c` wrapped into 0 to `side` (as `((c % side) + side) % side`, the same for every `c`), by a float floor, then a
+// fix-up either way for the quotient's rounding: no whole-number division, which the card has no instruction for, a
+// long chain of steps each [2026-11-10, the outside read's lead 6: four of them for every column read at a live level,
+// sixteen a blend; without them the card's sight 11.9% faster on the median, the picture the same to the pixel].
+// Exact while `c` and `side` are whole numbers a float holds (under 16 million).
+fn wrapped(c: i32, side: i32) -> i32 {
+    var m = c - side * i32(floor(f32(c) / f32(side)));
+    m = select(m, m - side, m >= side);
+    m = select(m, m + side, m < 0);
+    return m;
 }
 
 // The cell at `c` (cell indices) of `level`: from the live windows, or the baked levels; `known` false if it

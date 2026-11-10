@@ -675,3 +675,82 @@ pub fn take_kept(baking: &Baking, card: Option<&super::card_store::CardStore>, m
 pub fn stop(baking: &Baking) {
     baking.stop.store(true, Ordering::Relaxed);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// How many bricks a world's bake would take (the dyno's item 4, 2026-11-10: blocks of cells kept whole, so the
+    /// card's texture units can blend them, David's idea), level by level: bricks of 4, 8 and 16 cells a side,
+    /// without a border and with one cell more on each far side (the hardware's blend at a brick's edge reads its
+    /// neighbour's first cells). A brick is left out where every cell in it is air or every one rock, as the bands
+    /// leave those out now. `INCUS_BRICKS_WORLD` the world's folder (the test world by default). Prints; asserts
+    /// nothing.
+    #[test]
+    #[ignore]
+    fn bricks_the_bake_would_take() {
+        let folder = PathBuf::from(std::env::var("INCUS_BRICKS_WORLD").unwrap_or_else(|_| "worlds/nice25 test".into()));
+        let kept = read(&folder).expect("the bake's file").expect("a bake in the folder");
+        let sizes = [(4usize, 0usize), (4, 1), (8, 0), (8, 1), (16, 0), (16, 1)];
+        let mut totals = vec![0u64; sizes.len()];
+        let mut all_cells = 0u64;
+        eprintln!("The bake of {}: {} regions, half {}", folder.display(), kept.records.len(), kept.half);
+        for (k, level) in (FIRST..=REGION).enumerate() {
+            let extent = Extent::of(level, kept.half);
+            let across = extent.across as usize;
+            // Each column's band (its lowest cell, and one past its highest), where it's known.
+            let mut bands: Vec<Option<(i32, i32)>> = vec![None; across * across];
+            let per = 1i32 << (REGION - level);
+            let mut cells = 0u64;
+            for record in &kept.records {
+                for (i, (low, column)) in record.levels[k].iter().enumerate() {
+                    let (x, y) = (record.region.0 * per + i as i32 % per - extent.from.0, record.region.1 * per + i as i32 / per - extent.from.1);
+                    if x < 0 || y < 0 || x as usize >= across || y as usize >= across {
+                        continue;
+                    }
+                    bands[y as usize * across + x as usize] = Some((*low, *low + column.len() as i32));
+                    cells += column.len() as u64;
+                }
+            }
+            all_cells += cells;
+            let mut line = format!("  cells of {}: {} columns a side, {} cells in bands", 1 << level, across, cells);
+            for (s, &(size, border)) in sizes.iter().enumerate() {
+                let mut bricks = 0u64;
+                let n = across.div_ceil(size);
+                for by in 0..n {
+                    for bx in 0..n {
+                        // The lowest band's bottom and the highest's top over the brick's columns (and its border's).
+                        let (mut low, mut high, mut any) = (i32::MAX, i32::MIN, false);
+                        for y in by * size..((by + 1) * size + border).min(across) {
+                            for x in bx * size..((bx + 1) * size + border).min(across) {
+                                if let Some((l, h)) = bands[y * across + x] {
+                                    low = low.min(l);
+                                    high = high.max(h);
+                                    any = true;
+                                }
+                            }
+                        }
+                        if !any {
+                            continue;
+                        }
+                        // The bricks up the column whose cells (and border) reach between the lowest band's bottom
+                        // and the highest's top: under it all rock, over it all air.
+                        let (b, e) = (size as i32, border as i32);
+                        let first = ((low - b - e).div_euclid(b) + 1).max(0);
+                        let last = (high - 1).div_euclid(b);
+                        bricks += (last - first + 1).max(0) as u64;
+                    }
+                }
+                let texels = bricks * ((size + border) as u64).pow(3);
+                totals[s] += texels;
+                line += &format!("; {}{}: {} bricks, {:.1}M texels ({:.2}x)", size, if border > 0 { "+1" } else { "" }, bricks, texels as f64 / 1e6, texels as f64 / cells.max(1) as f64);
+            }
+            eprintln!("{line}");
+        }
+        let mut line = format!("  all: {:.2}M cells in bands", all_cells as f64 / 1e6);
+        for (s, &(size, border)) in sizes.iter().enumerate() {
+            line += &format!("; {}{}: {:.1}M texels ({:.2}x; 2 bytes each {:.0} MB, 12 each {:.0} MB)", size, if border > 0 { "+1" } else { "" }, totals[s] as f64 / 1e6, totals[s] as f64 / all_cells.max(1) as f64, totals[s] as f64 * 2.0 / 1e6, totals[s] as f64 * 12.0 / 1e6);
+        }
+        eprintln!("{line}");
+    }
+}

@@ -362,10 +362,57 @@ blocks, water, seams, each with its own lean march), and step 5, the ray queue, 
      stages' programs fit). Arithmetic at 16 to 18% of peak, memory light. And some 2 GB a second written to the
      card's local memory, almost none read back: two small constant tables (a face's way, the levels view's tints)
      kept there and filled out every pixel. The registers themselves show only in Nsight's window (asked of David).
-   - Built without the screen, the same picture to the pixel, to fly: the sun's and the sky's rays reading only how
-     solid and how watery (their own lean blend: each cell's first word, two sums, where they went through the whole
-     blend and left the compiler to drop the rest); and no tables picked from as the shader runs (the levels view
-     still drawn).
+   - **The registers** (David, from Nsight's window, the sea trace's Shader Pipelines; groups of 32 a unit can
+     hold, of 48): `march_hit` **125** (16 groups: a third of the card; the old one pass was 128), `shade_staged` 72
+     (28), `face_light_staged` 56 (36), the near ground's tiles (`sight_grounds_pass`) **255** (8; 24,100
+     instructions: the world's own column worked out on the card, spilling to memory: the local writes above are
+     its, 8× more over the land, where it does about 4× the work, not the two tables'), the listing 33 (48), the
+     upscale 20, the start 48 (40), the cells' passes 168 (12). So the stages took the shading out but not the march's
+     room: the near walk and the far march together hold it at a third. Under 80 it would hold half, under 64 two
+     thirds. The ~10% measured in flight, against that third, is the drains and tails of twelve passes a frame
+     (each waiting for the last to empty, the slowest rays holding each one's end).
+   - [-] Flown, the same picture to the pixel, noise both: the sun's and the sky's rays with a lean blend of their
+     own (+0.2 / +0.8 / +0.8%: the compiler was already leaving out the colour and faces they don't use), and no
+     tables picked from as the shader runs (+0.2 / +0.2 / −0.4%). Kept on file, not built in: code that doesn't pay
+     has cost before.
+   - **The one-cell blend's 41% split:** the sun's and the sky's rays alone −11.3 / −8.2 / −9.4% (over the land
+     −16%); the far march alone **−28.0 / −31.2 / −26.1%**. Together the whole. So three quarters of what the
+     texture units could win is in the far march's own blend: the first bricks worth building hold all it reads
+     (how solid, how watery, the colour, the faces), not the rays' two numbers alone.
+   - **David on the near ground's pass** (via Counsel): "yes ... as long as it looks right, which is something we
+     know now. seems like the whole thing *can* be carved into a gpu shape." It may be cut into stages: what it works
+     out unchanged, the card's columns matching the processor's to the bit, each stage only handing forward.
+   - The order (Counsel's, unless the numbers say otherwise): the march split (the near walk and the far march each
+     a pass, each with only its own room), then the texture units, then the near ground's stages. The split sized
+     first: a trace each with a probe as the twin (the far march alone; the near walk alone), their registers read
+     beside the whole march's.
+   - **The split, sized** (David's readouts, the sea traces): the far march alone **121** registers (16 groups),
+     9,270 instructions; the near walk alone **80** (24 groups, half the card), 10,800; both 125. The far march's
+     room is its own: the split would free the walk, which out at sea took 3% of the card beside the whole march's
+     49%. It waits.
+   - **Bricks, counted** (`bake::tests::bricks_the_bake_would_take`, the test world's bake, cells of 32 up: 11.2
+     million cells in bands): bricks of 4 a side take 2.6 times the cells, 5.5 with the one-cell border the
+     hardware's blend needs; of 8 with it, 7.3 (a brick holds the air and rock round a thin surface; at the coarse
+     levels every brick column is one brick tall). How solid and how watery alone (two bytes a cell): 122 to 164 MB.
+     The whole look the far march blends (twelve numbers): 735 MB to 1 GB for the bake alone, too much for most
+     cards. So the texture units can carry the density (the rays, the far march's coverage), not the look.
+   - **The outside read** (`vision/dyno-audit-2026-11-10.md`, at David's ask; its leads priced as twins):
+     - [x] **`live_slot` without whole-number remainders** (its lead 6): a column's place in its wrapping window by
+       a float floor and a fix-up either way, not `((c % side) + side) % side` twice: four divisions by a number the
+       compiler can't know for every column read at a live level, sixteen a blend, four a block of the near walk,
+       each a long chain of steps (the shape of the top stall). **−11.9 / −8.0 / −8.8%**; over the land −15.5%,
+       round the peak −9.1%, at sea −7.9%, home −7.0%. The same picture to the pixel. **In the game, build 105.**
+     - [-] The far march's last sample keeping its light, not its six face shares (lead 7): −1.5 / −1.2 / −2.0%
+       alone, nothing on top of the above (−11.5 / −8.6 / −8.7% together). Kept on file.
+     - [-] The sun's and the sky's rays remembering a failed skip (lead 4): +1.5 / −0.9 / −1.7%, noise. Dropped.
+     - **Light per face kept between frames** (lead 1; David: "i think quarter second light wont really be visible
+       with coarse lit blocks anways, especially if near actors work faster. terrain light almost needs zero
+       dynamism for gameplay"; light that moves with actors stays prompt): priced by lighting one face in eight a
+       frame, −1.4 / −2.2 / −2.8%; over the land −6.1%, round the peak's 95th and 99th −9.7 / −10.4%. A ceiling for
+       the lighting part. Behind a Render-page switch if built.
+     - Its lead 2 (the ground columns shared by the live levels, the same to the bit): by its count about half the
+       near ground pass's columns while flying (the finer levels' windows inside the 16s' make theirs again), near
+       8% of the card over the land. Not built yet; priced by a flight once it is.
 5. **Rays ending where the fog is total: last, if at all.** David: "i kind of feel like 'rays end where fog is
    total' is such an obvious hit that we should save it for last, and see if it's necessary. i would prefer to tune
    for any latitude of vision, including very clear days, so it might be nice, but nothing should rely on fog in our
