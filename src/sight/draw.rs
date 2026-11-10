@@ -993,8 +993,10 @@ pub fn factors(eye: Eye) -> Vec<f32> {
     factors
 }
 
-/// Where in a level's stretch the far march's blend with the next begins, unless chosen (`Eye::blend_from`).
-pub const BLEND_FROM: f32 = 0.6;
+/// Where in a level's stretch the far march's blend with the next begins, unless chosen (`Eye::blend_from`): 0.8
+/// since build 109 (David 2026-11-10, looking low over the sea at 0.6, 0.8 and 0.9: "i didn't really see any difference
+/// visually between the settings"; at 0.8 the whole flight's median 2.8% faster, the 95th 6.7%).
+pub const BLEND_FROM: f32 = 0.8;
 
 /// The faces table's slots (`march.wgsl`'s `FACE_SLOTS`: light per face near the eye).
 const FACE_SLOTS: u32 = 262_144;

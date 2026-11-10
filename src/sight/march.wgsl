@@ -319,7 +319,7 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
 }
 
 // Where in a level's stretch (0 its start, 1 where the next takes over) the blend with the next begins.
-// (`camera.fade.z`: 0.6 unless chosen on the Render page [2026-11-10, the dyno: later, a narrower hand-over, fewer
+// (`camera.fade.z`: 0.8 unless chosen on the Render page (0.6 before build 109) [2026-11-10, the dyno: later, a narrower hand-over, fewer
 // steps reading two levels: at 0.8 the whole flight's 95th 6.7% faster; David's eye on rings over flat water].)
 
 // Two looks mixed: `w` of the second.
