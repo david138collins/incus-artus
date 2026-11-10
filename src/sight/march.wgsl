@@ -1957,11 +1957,12 @@ fn light_hit(@builtin(global_invocation_id) id: vec3<u32>) {
 
 // ── The march in stages (the dyno, 2026-11-09; David: "lets atomize the megakernal") ──
 //
-// The split's two passes cut further, each a small program of its own over the record `march_hit` leaves: the sun's
-// shadow (`shadow_staged`: the walk toward the sun, its answer written into the record), sky light (`sky_staged`:
-// the five cones, or the parent's, its answer written into the record and handed down), then the light
-// (`light_staged`: as `light_hit`, the shadow and the sky read from the record, not walked). `march_hit` is the
-// stages' first. The split stays as it was, to measure against.
+// The split cut differently: `march_hit` marches each layer's pixels; `listed_staged` lists those it met something
+// for (and gathers the faces near the eye, with light per face, below); `face_light_staged` lights the faces once
+// each; `shade_staged` shades each listed pixel (its sky light, the sun reaching it, its light), from its face where
+// it has one. [2026-11-09: built as a pass each for the shadow, sky and light, then folded into one: apart, they read
+// and wrote each pixel's record three times over, for little work on the lighter views.] The split stays as it was,
+// to measure against.
 
 // Each layer's pixels its march met something for (not the ones the layer above didn't find worth marching), listed
 // by the pass after its march (`listed_staged`), so the stages after it run over them only, not over the whole layer
@@ -1989,11 +1990,14 @@ fn listed_pixel(group: vec3<u32>, index: u32, size: vec2<u32>) -> vec2<u32> {
 var<workgroup> group_live: atomic<u32>;
 var<workgroup> group_first: u32;
 
-// The stages' list of a layer's live pixels, after its march.
+// The stages' list of a layer's live pixels, after its march; with light per face, each live pixel showing a block's
+// face near the eye finds its face in the table (or puts it in), its slot kept in the record (the fourth word's
+// fourth: slot and 1, 0 for none) [2026-11-09: once a pass of its own, folded in here].
 @compute @workgroup_size(8, 8)
 fn listed_staged(@builtin(global_invocation_id) id: vec3<u32>, @builtin(local_invocation_index) index: u32) {
     name_the_bindings();
     name_the_lists();
+    name_the_faces();
     if (index == 0u) {
         atomicStore(&group_live, 0u);
     }
@@ -2018,6 +2022,19 @@ fn listed_staged(@builtin(global_invocation_id) id: vec3<u32>, @builtin(local_in
     workgroupBarrier();
     if (live) {
         live_list[group_first + mine] = id.y * size.x + id.x;
+        let at = (id.y * size.x + id.x) * 3u;
+        let r2 = hits[at + 2u];
+        if (atomicLoad(&face_count[4]) != 0u && (r2.x & 256u) != 0u) {
+            let d = pixel_way(id.xy, size);
+            let block = vec3<i32>(floor(camera.position.xyz + d * (bitcast<f32>(hits[at + 1u].w) + 0.01)));
+            let entry = entry_at(0, block.x, block.y);
+            if (entry.y != NOT_BAKED && block_in_band(entry.x, entry.y, block.z) != PIECES_MARK) {
+                let key = face_key(block, (r2.x >> 9u) & 7u);
+                if (key != 0u) {
+                    hits[at + 2u] = vec4<u32>(r2.x, r2.y, r2.z, face_slot(key));
+                }
+            }
+        }
     }
 }
 
@@ -2066,17 +2083,17 @@ fn shaded_by(seen: Seen, open: f32, sun: f32) -> vec3<f32> {
 // A block face near the eye covers many pixels, and each worked out its own shadow ray and five sky cones, all
 // coming to about the same answer. With this on (the Render page's switch, in stages), each face the near walk shows
 // is lit once, at its middle, and every pixel showing it takes that: the frame's faces gathered in a table on the
-// card (`faces_staged`), lit one a thread (`face_light_staged`), read by the shadow and sky passes. A face is its
-// block (from the eye's block, within 127 every way: the near walk reaches some 64) and the way it looks, in one
-// word. Pieces' faces and everything off the blocks stay a pixel at a time.
+// card (by `listed_staged`), lit one a thread (`face_light_staged`), read by `shade_staged`. A face is its block
+// (from the eye's block, within 127 every way: the near walk reaches some 64) and the way it looks, in one word.
+// Pieces' faces and everything off the blocks stay a pixel at a time.
 
 // The frame's faces: each slot's key (0: empty), and its light (the sun reaching it and the sky it sees, half floats).
 @group(1) @binding(0) var<storage, read_write> face_keys: array<atomic<u32>>;
 @group(1) @binding(1) var<storage, read_write> face_values: array<u32>;
 // The slots taken this frame, listed (so the light per face lights only them), and how many, as the card's indirect
-// dispatch reads it: groups of 64 across, 1, 1, then the count.
+// dispatch reads it: groups of 64 across, 1, 1, then the count; then whether light per face is on this frame (1).
 @group(1) @binding(2) var<storage, read_write> face_list: array<u32>;
-@group(1) @binding(3) var<storage, read_write> face_count: array<atomic<u32>, 4>;
+@group(1) @binding(3) var<storage, read_write> face_count: array<atomic<u32>, 8>;
 
 // The table's slots (a power of two), and how far along it a face is looked for from its first slot.
 const FACE_SLOTS: u32 = 262144u;
@@ -2106,6 +2123,15 @@ fn face_slot(key: u32) -> u32 {
     let first = (key * 2654435761u) >> 14u;
     for (var k = 0u; k < FACE_PROBES; k++) {
         let slot = (first + k) & (FACE_SLOTS - 1u);
+        // Read first: a big face's pixels all find it there, and only the first to come takes it [2026-11-09: every
+        // pixel taking the slot in turn to find it taken, the faces pass cost 0.28 ms on the lightest views].
+        let there = atomicLoad(&face_keys[slot]);
+        if (there == key) {
+            return slot + 1u;
+        }
+        if (there != 0u) {
+            continue;
+        }
         let found = atomicCompareExchangeWeak(&face_keys[slot], 0u, key);
         if (found.exchanged) {
             // A face new this frame: listed, for the light per face.
@@ -2119,38 +2145,6 @@ fn face_slot(key: u32) -> u32 {
         }
     }
     return 0u;
-}
-
-// The stages' faces: each pixel showing a block's face near the eye finds its face in the table (or puts it in),
-// its slot kept in the record (the fourth word's fourth: slot and 1, 0 for none).
-@compute @workgroup_size(8, 8)
-fn faces_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
-    name_the_bindings();
-    name_the_lists();
-    name_the_faces();
-    let size = vec2<u32>(camera.view.xy);
-    let id = listed_pixel(group, index, size);
-    if (id.x >= size.x || id.y >= size.y) {
-        return;
-    }
-    let at = (id.y * size.x + id.x) * 3u;
-    let r2 = hits[at + 2u];
-    if ((r2.x & HIT_NONE) != 0u || (r2.x & 256u) == 0u) {
-        return;
-    }
-    let d = pixel_way(id.xy, size);
-    let t = bitcast<f32>(hits[at + 1u].w);
-    // The block the ray went into at its face (a hair along it, so a face's edge goes to its own block).
-    let block = vec3<i32>(floor(camera.position.xyz + d * (t + 0.01)));
-    let entry = entry_at(0, block.x, block.y);
-    if (entry.y == NOT_BAKED || block_in_band(entry.x, entry.y, block.z) == PIECES_MARK) {
-        return;
-    }
-    let key = face_key(block, (r2.x >> 9u) & 7u);
-    if (key == 0u) {
-        return;
-    }
-    hits[at + 2u] = vec4<u32>(r2.x, r2.y, r2.z, face_slot(key));
 }
 
 // The stages' light per face: each face in the table lit once, at its middle: the sun reaching it (its shadow, as a
@@ -2179,132 +2173,6 @@ fn face_light_staged(@builtin(global_invocation_id) id: vec3<u32>) {
         open = sky_seen(middle, 1.0, facing, true);
     }
     face_values[slot] = pack2x16float(vec2<f32>(sun, open));
-}
-
-// The stages' shadow: how much of the sun reaches what each pixel's ray met, where it shows and has a shadow to
-// take (the record's fourth word's second; 1 where it walked none): its face's, with light per face near the eye.
-@compute @workgroup_size(8, 8)
-fn shadow_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
-    name_the_bindings();
-    name_the_lists();
-    name_the_faces();
-    let size = vec2<u32>(camera.view.xy);
-    let id = listed_pixel(group, index, size);
-    if (id.x >= size.x || id.y >= size.y) {
-        return;
-    }
-    let at = (id.y * size.x + id.x) * 3u;
-    let r2 = hits[at + 2u];
-    if ((r2.x & HIT_NONE) != 0u) {
-        return;
-    }
-    let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
-    var sun = 1.0;
-    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
-    if (!hidden && seen.wide > 0.0 && camera.follow.y > 0.5) {
-        if (r2.w > 0u) {
-            // Its face's (light per face near the eye).
-            sun = unpack2x16float(face_values[r2.w - 1u]).x;
-        } else {
-            sun = sunlight(seen.at, seen.wide, seen.facing, seen.on_block);
-        }
-    }
-    hits[at + 2u] = vec4<u32>(r2.x, bitcast<u32>(sun), r2.z, r2.w);
-}
-
-// The stages' sky light: how much of the sky what each pixel's ray met sees, its parent's where that was for the
-// same surface about as far off, else its five cones (the record's fourth word's third; 1 where it has none), and
-// handed down to the layer below (a layer's sky after the one above's).
-@compute @workgroup_size(8, 8)
-fn sky_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
-    name_the_bindings();
-    name_the_lists();
-    name_the_faces();
-    let size = vec2<u32>(camera.view.xy);
-    let id = listed_pixel(group, index, size);
-    if (id.x >= size.x || id.y >= size.y) {
-        return;
-    }
-    let at = (id.y * size.x + id.x) * 3u;
-    let r2 = hits[at + 2u];
-    if ((r2.x & HIT_NONE) != 0u) {
-        return;
-    }
-    let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
-    let parent = parent_of(id.xy);
-    var handed = NO_SKY;
-    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
-    var open = 1.0;
-    if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
-        let kind = surface_kind(seen);
-        var have = false;
-        if (r2.w > 0u) {
-            // Its face's (light per face near the eye).
-            open = unpack2x16float(face_values[r2.w - 1u]).y;
-            have = true;
-        }
-        if (!have && camera.layer.x > 0.0) {
-            let above = worth_in[parent.y * u32(camera.layer.x) + parent.x] >> 8u;
-            let parent_touch = textureLoad(far_above, vec2<i32>(parent), 0).x;
-            if (above != NO_SKY && (above >> 16u) == kind && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
-                open = f32(above & 0xFFFFu) / 65535.0;
-                have = true;
-            }
-        }
-        if (!have) {
-            open = sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
-        }
-        handed = sky_word(kind, open);
-    }
-    hits[at + 2u] = vec4<u32>(r2.x, r2.y, bitcast<u32>(open), r2.w);
-    if (camera.layer.y > 0.5) {
-        let k = id.y * size.x + id.x;
-        worth_out[k] = (worth_out[k] & 0xFFu) | (handed << 8u);
-    }
-}
-
-// The stages' light: as `light_hit`, the sun's shadow and the sky light read from the record.
-@compute @workgroup_size(8, 8)
-fn light_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
-    name_the_bindings();
-    name_the_lists();
-    let size = vec2<u32>(camera.view.xy);
-    let id = listed_pixel(group, index, size);
-    if (id.x >= size.x || id.y >= size.y) {
-        return;
-    }
-    let at = (id.y * size.x + id.x) * 3u;
-    let r2 = hits[at + 2u];
-    if ((r2.x & HIT_NONE) != 0u) {
-        return;
-    }
-    var shown = 1.0;
-    let parent = parent_of(id.xy);
-    if (camera.layer.x > 0.0) {
-        shown = f32(worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu) / 255.0;
-    }
-    let d = pixel_way(id.xy, size);
-    let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
-    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
-    var colour = seen.colour;
-    if (!hidden) {
-        colour = shaded_by(seen, bitcast<f32>(r2.z), bitcast<f32>(r2.y));
-    }
-    let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
-    if (met < camera.reach.x) {
-        let behind = seen.sky_share * sky(d);
-        let covered = max(1.0 - seen.sky_share, 1e-4);
-        colour = behind + fogged((colour - behind) / covered, d, met) * covered;
-    }
-    if (camera.reach.z > 1.5 && seen.level >= 0) {
-        let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
-        colour = colour * 0.4 + tints[seen.level % 6] * 0.35;
-    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
-        let k = clamp(seen.steps / 256.0, 0.0, 1.0);
-        colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);
-        colour = colour * colour;
-    }
-    textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
 }
 
 // ── Far lights' glows (build 100; David: "braziers in a cave at night from a distance were just pixels of green that
@@ -2370,4 +2238,88 @@ fn glow_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         t += max(f32(1 << u32(l)) * 0.5, 0.5);
     }
     glows[i].w = seen;
+}
+
+// The stages' shading, one pass a layer after the march [2026-11-09: the shadow, sky and light passes apart read and
+// wrote each pixel's record three times over, for little work on the lighter views]: its sky light (its face's, its
+// parent's where that's the same surface about as far off, or its five cones; handed down to the layer below), the
+// sun reaching it (its face's, or its walk toward the sun), then its light, placed light and fog, as `light_hit`.
+@compute @workgroup_size(8, 8)
+fn shade_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) index: u32) {
+    name_the_bindings();
+    name_the_lists();
+    name_the_faces();
+    let size = vec2<u32>(camera.view.xy);
+    let id = listed_pixel(group, index, size);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    let at = (id.y * size.x + id.x) * 3u;
+    let r2 = hits[at + 2u];
+    if ((r2.x & HIT_NONE) != 0u) {
+        return;
+    }
+    var shown = 1.0;
+    let parent = parent_of(id.xy);
+    if (camera.layer.x > 0.0) {
+        shown = f32(worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu) / 255.0;
+    }
+    let d = pixel_way(id.xy, size);
+    let seen = hit_of(id.xy, size, hits[at], hits[at + 1u], r2);
+    let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
+    // Its face's slot and 1, with light per face on (0: none).
+    let face = select(0u, r2.w, atomicLoad(&face_count[4]) != 0u);
+    var handed = NO_SKY;
+    var open = 1.0;
+    if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
+        let kind = surface_kind(seen);
+        var have = false;
+        if (face > 0u) {
+            open = unpack2x16float(face_values[face - 1u]).y;
+            have = true;
+        }
+        if (!have && camera.layer.x > 0.0) {
+            let above = worth_in[parent.y * u32(camera.layer.x) + parent.x] >> 8u;
+            let parent_touch = textureLoad(far_above, vec2<i32>(parent), 0).x;
+            if (above != NO_SKY && (above >> 16u) == kind && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
+                open = f32(above & 0xFFFFu) / 65535.0;
+                have = true;
+            }
+        }
+        if (!have) {
+            open = sky_seen(seen.at, seen.wide, seen.facing, seen.on_block);
+        }
+        handed = sky_word(kind, open);
+    }
+    var sun = 1.0;
+    if (!hidden && seen.wide > 0.0 && camera.follow.y > 0.5) {
+        if (face > 0u) {
+            sun = unpack2x16float(face_values[face - 1u]).x;
+        } else {
+            sun = sunlight(seen.at, seen.wide, seen.facing, seen.on_block);
+        }
+    }
+    var colour = seen.colour;
+    if (!hidden) {
+        colour = shaded_by(seen, open, sun);
+    }
+    let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
+    if (met < camera.reach.x) {
+        let behind = seen.sky_share * sky(d);
+        let covered = max(1.0 - seen.sky_share, 1e-4);
+        colour = behind + fogged((colour - behind) / covered, d, met) * covered;
+    }
+    if (camera.layer.y > 0.5) {
+        let k = id.y * size.x + id.x;
+        worth_out[k] = (worth_out[k] & 0xFFu) | (handed << 8u);
+    }
+    if (camera.reach.z > 1.5 && seen.level >= 0) {
+        let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
+        colour = colour * 0.4 + tints[seen.level % 6] * 0.35;
+    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
+        let k = clamp(seen.steps / 256.0, 0.0, 1.0);
+        colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);
+        colour = colour * colour;
+    }
+    textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
 }
