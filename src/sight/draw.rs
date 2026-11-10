@@ -1000,7 +1000,7 @@ pub fn take_card_readings() -> Vec<CardReading> {
 }
 
 /// The most passes timed in a frame.
-const TIMED_PASSES: usize = 16;
+const TIMED_PASSES: usize = 32;
 /// The pass sight's whole ends with.
 const UPSCALE: &str = "upscale";
 

@@ -552,7 +552,7 @@ impl Runner {
                     walk_every_block: kept.sight_walk_every_block(),
                     split: std::env::var("INCUS_SIGHT_SPLIT").is_ok(),
                     stages: std::env::var("INCUS_SIGHT_STAGES").is_ok() || kept.sight_stages(),
-                    face_light: kept.sight_face_light(),
+                    face_light: kept.sight_face_light() || std::env::var("INCUS_SIGHT_FACE_LIGHT").is_ok(),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
                 // disk, a block's data): once at the start, then seldom.
