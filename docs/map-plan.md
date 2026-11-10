@@ -24,6 +24,9 @@ world generation ──► the world ──► sight ──► the screen
                                             sim, people, fate, time, events (parked)
 ```
 
+Drawn as swimlanes (Builder's note): the frame, loading and simulation lanes across, the processor and the card
+down, so what runs when, and which way data crosses between processor and card, shows at a glance.
+
 **Level 1, a card for each part** (about 20: one per folder of `src/` that matters, the shaders, the data files):
 
 | Field | Example (sight's store) |
@@ -33,7 +36,11 @@ world generation ──► the world ──► sight ──► the screen
 | Reads / writes | Who feeds it, who reads it |
 | Runs when | At load, per tile, per frame, per edit |
 | Where | Processor or card |
-| Cost, last measured | ms or share of the card, with the build and date |
+| Lane | Frame, loading or simulation (several of today's costs were lane problems: the tile lane's pace, the old meshing on the frame's path) |
+| Limits | The fixed sizes it lives within: the pool's 24M cells, the face table's 262,144 slots, the windows' 672 a side (hidden caps are where slowdowns hide) |
+| Switches | Every `INCUS_*` setting and Render-page key that changes it: how we measure, and how we flip back |
+| Keeps true | What it must never break (the processor's columns to the bit; every cell the exact sum of its children; the same picture as every block walked), each with the test that guards it |
+| Cost, last measured | Card passes: share of the card on the dyno's route (whole / land / sea), ms, registers, groups in flight. Processor parts: ms a frame or a job. Each with its build, date and a link to its row in `dyno.md` |
 | Tests | Which ones guard it |
 | Files | Paths |
 | State | Liked / working / parked / under review |
@@ -41,9 +48,12 @@ world generation ──► the world ──► sight ──► the screen
 
 **Level 2, the two pipelines step by step:**
 - **The frame:** each pass in order (start, the layers, the march, listing, faces, shading, upscale, objects), what
-  each reads and writes, its registers and share of the card.
+  each reads and writes, its registers, groups in flight and share of the card. **Each wait between passes marked**
+  (about twelve a frame): the drains are where half the card's room goes, and they should be visible.
 - **The world's recipe:** its linear stages (maps, parts, uncarved ground, carving, cells), on which side
-  (processor, card or both), and the to-the-bit checks between them.
+  (processor, card or both), and the to-the-bit checks between them. **Its three copies side by side** (fractions
+  for the editor's previews, whole numbers for the game's chunks, the card's for tiles and the bake) and where each
+  is read, so the drift risk shows at a glance until it's settled (the review's route E).
 
 **Across all levels:** the rules that bind (the projection principle, whole numbers, the linear pipeline, even beats
 fast, nothing relies on fog, terrain light may lag, no per-card tricks): one line each, linked to `decisions.md`.
@@ -61,9 +71,15 @@ fast, nothing relies on fog, terrain light may lag, no per-card tricks): one lin
 
 - **Same commit:** whoever changes the wiring updates the map in that commit. Builder for the code's parts and
   costs; Counsel for the rules, the states and the page.
-- **A check in the tests:** a test lists every folder of `src/` and every shader entry point (`@compute`,
-  `@vertex`, `@fragment`) and fails if one isn't named in the map. The map can't fall silently behind the code.
-- **Costs carry their build and date,** so a stale number shows as stale.
+- **A check in the tests, both ways** (Builder's shape): a plain test that reads `docs/map.md` and walks `src/`, run
+  with the rest on every build (no card needed, like the doorway gauge). It fails if:
+  - any folder of `src/`, top-level `.rs` file or shader entry point (`@compute`, `@vertex`, `@fragment`) isn't
+    named in the map;
+  - any `INCUS_*` variable the code reads isn't named (so every card's Switches are complete by construction);
+  - any code name in the map (written `like_this`) no longer exists in the code (so dead names can't stay);
+  - any cost line lacks its build and date.
+  The map can't fall silently behind the code, or keep what's gone.
+- **Costs carry their build and date,** so a stale number shows its age.
 
 ## 5. How it's built, step by step
 
@@ -72,7 +88,7 @@ Each step has a gate. Sizes are Builder's and Counsel's time plus David's looks.
 1. **The skeleton** (Counsel, from Builder's review and the `src/` tree): Level 0 and the list of cards, empty.
    *Gate:* David reads it and says it's the right shape and the right names.
 2. **The cards** (Builder fills each from the code; Counsel the rules and states). *Gate:* the check in section 4
-   passes: every folder and every shader entry point named.
+   passes, both ways.
 3. **The two pipelines** (Builder). *Gate:* Builder checks each step against the code; David can follow it.
 4. **The page** (Counsel). *Gate:* David stares at it and says it works for him.
 5. **The journals point at it:** a short "current state: see the map" line at the top of each.
