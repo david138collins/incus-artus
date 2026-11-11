@@ -1024,8 +1024,9 @@ Reference: `Art/quartile minecraft illustration.png`
       column) plus the profiles, with a README giving the rule that makes a column's blocks. It's the Oracle's tablet
       in a plain form.
     - The test world has no caves and no edits, so the columns are the whole world.
-    - Trial over four tiles round the spawn: every 37th column the same as old's own, 0.22 bytes a column, about 1 GB
-      for the whole world.
+    - Trial over four tiles round the spawn, all four written: every 37th column of one of them checked, all the same
+      as old's own; 0.22 bytes a column, about 1 GB for the whole world if all of it were like the land at the spawn.
+      The full run writes much less, since much of the square is sea or past the map.
     - Kept in `exports/` (not in git) and on the USB.
   - Still open, for the Oracle: the new format itself, cut so generation can grow.
 - **[DECIDED 2026-11-11] Old's pictures are a reference, not a yardstick** (David to Builder): "still not sure what
