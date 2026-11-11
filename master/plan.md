@@ -96,10 +96,14 @@ Each experiment's pass mark is written down before it flies.
   - [x] The default preset's maps and river network; sample columns (the test world's, nice25 with the dyno's
         presets, not the startup default: `references/world/`, `references/columns.txt`, 5,047 columns)
   - [ ] Tagged `old-final`
-  - [ ] The test world exported whole as columns, for the new eye to read, so it never runs old's world gen. David:
+  - [x] The test world exported whole as columns, for the new eye to read, so it never runs old's world gen. David:
         "export nice25 so that we can use it as a 'generated' world to look at with the new graphics engine, before
         rebuilding world gen after the graphics engine is done." (`world/export.rs`, a7d3cfb; kept in `exports/`
         and on the USB, not in git)
+        - Written 2026-11-11 (build 115): 19,881 tiles, 5.2 billion columns, 0.11 GB, 7 profiles, 8 minutes.
+        - Checked: one tile in 50 read back (399 tiles, 104.6 million columns), every column's ground and water the
+          world's, and 1,029,963 whole profiles the world's (`INCUS_EXPORT_CHECK=50`).
+        - On the USB: *not yet* (the stick wasn't in).
   - The pictures are kept for reference, not as a yardstick (David: "it'll look good or it won't, idc what the old
     things look like in particular, other than the basic way we're doing things")
   - *Gate:* the references listed here, each with where it's kept

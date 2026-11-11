@@ -219,9 +219,133 @@ pub fn export(map: &CompiledMap, registry: &BlockRegistry, folder: &Path, tiles:
     Ok(Exported { tiles: written.into_inner(), columns: columns.into_inner(), bytes: bytes.into_inner(), profiles: profiles.list.len(), seconds: started.elapsed().as_secs_f64() })
 }
 
+/// A tile read back (`tiles/<tx> <ty>.bin`): the three runs undone, each column's ground (−1 past the map), water (0
+/// none) and profile number, north fastest.
+pub fn read_tile(bytes: &[u8]) -> Result<Vec<(i32, i32, u32)>, String> {
+    let raw = miniz_oxide::inflate::decompress_to_vec(bytes).map_err(|error| format!("inflate: {error:?}"))?;
+    let mut at = 0;
+    let mut leb = || -> Result<u64, String> {
+        let (mut v, mut shift) = (0u64, 0);
+        loop {
+            let byte = *raw.get(at).ok_or("a tile ends early")?;
+            at += 1;
+            v |= ((byte & 0x7F) as u64) << shift;
+            if byte & 0x80 == 0 {
+                return Ok(v);
+            }
+            shift += 7;
+        }
+    };
+    let n = (TILE * TILE) as usize;
+    let mut last = 0i64;
+    let mut grounds = Vec::with_capacity(n);
+    for _ in 0..n {
+        let v = leb()?;
+        last += ((v >> 1) as i64) ^ -((v & 1) as i64);
+        grounds.push(last as i32);
+    }
+    let waters: Vec<i32> = (0..n).map(|_| leb().map(|v| v as i32)).collect::<Result<_, _>>()?;
+    let numbers: Vec<u32> = (0..n).map(|_| leb().map(|v| v as u32)).collect::<Result<_, _>>()?;
+    Ok((0..n).map(|k| (grounds[k], waters[k], numbers[k])).collect())
+}
+
+/// An export checked against the world it came from: one tile in every `every` (by its place in the list, and the
+/// tile at the middle) read back, every column's ground and water against `CompiledMap::column`, and one column in 101
+/// its whole profile (top and every layer under it, by name, with their depths) against the chunks' own
+/// (`Mineralogy::layers`). A line saying what it found.
+pub fn check(map: &CompiledMap, registry: &BlockRegistry, folder: &Path, every: usize, threads: usize) -> Result<String, String> {
+    let text = std::fs::read_to_string(folder.join("world.toml")).map_err(|error| format!("world.toml: {error}"))?;
+    let toml: toml::Table = toml::from_str(&text).map_err(|error| format!("world.toml: {error}"))?;
+    let least = toml.get("least").and_then(|v| v.as_array()).and_then(|a| a.first()).and_then(|v| v.as_integer()).ok_or("world.toml: no least corner")? as i32;
+    let across = toml.get("tiles").and_then(|v| v.as_integer()).ok_or("world.toml: no tiles")? as i32;
+    let listed: Vec<(String, Vec<(String, i64)>)> = toml
+        .get("profile")
+        .and_then(|v| v.as_array())
+        .ok_or("world.toml: no profiles")?
+        .iter()
+        .map(|p| {
+            let top = p.get("top").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+            let under = p.get("under").and_then(|v| v.as_array()).map(|layers| layers.iter().filter_map(|l| l.as_array()).map(|l| (l[0].as_str().unwrap_or_default().to_string(), l[1].as_integer().unwrap_or(0))).collect()).unwrap_or_default();
+            (top, under)
+        })
+        .collect();
+    let blocks = TerrainBlocks::from_registry(registry);
+    let mineralogy = map.mineralogy(&blocks);
+    let middle = -least / TILE;
+    let tiles: Vec<[i32; 2]> = (0..across).flat_map(|tx| (0..across).map(move |ty| [tx, ty])).enumerate().filter(|(k, t)| k % every.max(1) == 0 || *t == [middle, middle]).map(|(_, t)| t).collect();
+    let next = AtomicUsize::new(0);
+    let (read, columns, wrong, profiles_checked, profiles_wrong, missing) = (AtomicUsize::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicUsize::new(0));
+    let first_wrong: Mutex<Option<String>> = Mutex::new(None);
+    std::thread::scope(|scope| {
+        for _ in 0..threads.max(1) {
+            scope.spawn(|| loop {
+                let k = next.fetch_add(1, Ordering::Relaxed);
+                let Some(&[tx, ty]) = tiles.get(k) else { break };
+                let (x0, y0) = (least + tx * TILE, least + ty * TILE);
+                let path = folder.join("tiles").join(format!("{tx} {ty}.bin"));
+                let Ok(bytes) = std::fs::read(&path) else {
+                    // No file: then no column of it may be on the map.
+                    let on_map = (0..TILE).step_by(16).any(|j| (0..TILE).step_by(16).any(|i| map.column(x0 + i, y0 + j).is_some()));
+                    if on_map {
+                        missing.fetch_add(1, Ordering::Relaxed);
+                    }
+                    continue;
+                };
+                let Ok(tile) = read_tile(&bytes) else {
+                    missing.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                };
+                read.fetch_add(1, Ordering::Relaxed);
+                for (c, &(ground, water, number)) in tile.iter().enumerate() {
+                    let (i, j) = (c as i32 % TILE, c as i32 / TILE);
+                    let (x, y) = (x0 + i, y0 + j);
+                    columns.fetch_add(1, Ordering::Relaxed);
+                    let truth = map.column(x, y);
+                    let same = match truth {
+                        Some((z, over)) => (ground, water) == (z, over.unwrap_or(0)),
+                        None => ground == -1,
+                    };
+                    if !same {
+                        wrong.fetch_add(1, Ordering::Relaxed);
+                        if let Ok(mut first) = first_wrong.lock() {
+                            first.get_or_insert_with(|| format!("column {x} {y}: exported {ground} {water}, the world {truth:?}"));
+                        }
+                        continue;
+                    }
+                    let Some((z, over)) = truth.filter(|_| c % 101 == 0) else { continue };
+                    let at = |di: i32, dj: i32| map.column(x + di, y + dj).map_or(z, |(g, _)| g);
+                    let slope = if mineralogy.reads_slope { super::terrain::slope_across(at(SLOPE_REACH, 0) - at(-SLOPE_REACH, 0), at(0, SLOPE_REACH) - at(0, -SLOPE_REACH)) } else { 0.0 };
+                    let (north, east) = (x as f32 + 0.5, y as f32 + 0.5);
+                    let layers = mineralogy.layers(map, super::placer::Column { north, east, ground: z as f32, slope, climate: map.climate(north, east, z as f32), water: over });
+                    let wanted = (registry.name(layers.top).to_string(), layers.under().iter().map(|&(b, d)| (registry.name(b).to_string(), d as i64)).collect::<Vec<_>>());
+                    profiles_checked.fetch_add(1, Ordering::Relaxed);
+                    if listed.get(number as usize) != Some(&wanted) {
+                        profiles_wrong.fetch_add(1, Ordering::Relaxed);
+                        if let Ok(mut first) = first_wrong.lock() {
+                            first.get_or_insert_with(|| format!("column {x} {y}: profile {number} is {:?}, the world's {wanted:?}", listed.get(number as usize)));
+                        }
+                    }
+                }
+            });
+        }
+    });
+    Ok(format!(
+        "{} tiles of {} chosen read back ({} missing or unreadable), {} columns, {} with ground or water not the world's; {} profiles checked whole, {} not the world's{}",
+        read.into_inner(),
+        tiles.len(),
+        missing.into_inner(),
+        columns.into_inner(),
+        wrong.into_inner(),
+        profiles_checked.into_inner(),
+        profiles_wrong.into_inner(),
+        first_wrong.into_inner().ok().flatten().map_or(String::new(), |first| format!("; the first: {first}"))
+    ))
+}
+
 /// `INCUS_EXPORT_WORLD=<a saved world's name>`: that world exported into `exports/<name>/`, and the game ends there
 /// (`main.rs`, before anything else starts; no window). `INCUS_EXPORT_TILES=<from north>,<from east>,<to north>,<to
-/// east>` (tiles, from the least corner) for a part of it. Whether it was asked for.
+/// east>` (tiles, from the least corner) for a part of it. `INCUS_EXPORT_CHECK=<one tile in so many>` checks an export
+/// already written instead (`check`). Whether it was asked for.
 pub fn export_if_asked() -> bool {
     let Ok(name) = std::env::var("INCUS_EXPORT_WORLD") else { return false };
     let folder = crate::debug::project_folder().join("worlds").join(&name);
@@ -242,6 +366,14 @@ pub fn export_if_asked() -> bool {
     });
     let out = crate::debug::project_folder().join("exports").join(&name);
     let threads = std::thread::available_parallelism().map_or(8, |n| n.get()).saturating_sub(2).max(1);
+    if let Some(every) = std::env::var("INCUS_EXPORT_CHECK").ok().and_then(|v| v.parse::<usize>().ok()) {
+        let started = std::time::Instant::now();
+        match check(&map, &BlockRegistry::load(), &out, every, threads) {
+            Ok(line) => eprintln!("Export check: {line} ({:.0} s)", started.elapsed().as_secs_f64()),
+            Err(error) => eprintln!("Export check: failed: {error}"),
+        }
+        return true;
+    }
     let made_by = format!("old Incus Artus, build {} ({})", crate::diagnostics::BUILD_NUMBER, crate::diagnostics::BUILD);
     eprintln!("Export: {name} into {} on {threads} threads{}", out.display(), tiles.map_or(String::new(), |t| format!(", tiles {t:?}")));
     match export(&map, &BlockRegistry::load(), &out, tiles, threads, &name, &made_by) {
@@ -284,36 +416,6 @@ D the last depth, or 0 with none), at height Z from 0 up:
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// A tile read back: the three runs undone, each column's ground, water and profile.
-    pub fn read_tile(bytes: &[u8]) -> Vec<(i32, i32, u32)> {
-        let raw = miniz_oxide::inflate::decompress_to_vec(bytes).expect("a tile");
-        let mut at = 0;
-        let mut leb = || {
-            let (mut v, mut shift) = (0u64, 0);
-            loop {
-                let byte = raw[at];
-                at += 1;
-                v |= ((byte & 0x7F) as u64) << shift;
-                if byte & 0x80 == 0 {
-                    return v;
-                }
-                shift += 7;
-            }
-        };
-        let n = (TILE * TILE) as usize;
-        let mut last = 0i64;
-        let grounds: Vec<i32> = (0..n)
-            .map(|_| {
-                let v = leb();
-                last += ((v >> 1) as i64) ^ -((v & 1) as i64);
-                last as i32
-            })
-            .collect();
-        let waters: Vec<i32> = (0..n).map(|_| leb() as i32).collect();
-        let numbers: Vec<u32> = (0..n).map(|_| leb() as u32).collect();
-        (0..n).map(|k| (grounds[k], waters[k], numbers[k])).collect()
-    }
 
     #[test]
     fn zigzag_and_leb_are_undone() {
@@ -366,7 +468,7 @@ mod tests {
         let listed = toml["profile"].as_array().expect("profiles").len();
         assert_eq!(listed, done.profiles);
         let (tx, ty) = (middle, middle);
-        let tile = read_tile(&std::fs::read(out.join("tiles").join(format!("{tx} {ty}.bin"))).expect("the tile"));
+        let tile = read_tile(&std::fs::read(out.join("tiles").join(format!("{tx} {ty}.bin"))).expect("the tile")).expect("the tile reads");
         let least = -half;
         let mut checked = 0;
         for k in (0..tile.len()).step_by(37) {
