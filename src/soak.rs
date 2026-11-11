@@ -280,16 +280,21 @@ fn report(world: &mut World) {
 // - **baking:** the route flown `INCUS_DYNO_LAPS` times from the start while the bake runs (David's "creaking when
 //   you move too quick"), measured as baking: on nice25 rendered afresh.
 // - **The standing marks** (`dyno::marks`, the Oracle's experiment 1), after the baked laps: the camera held still at
-//   each, waited on till the live levels round it are whole (at most `MARK_SETTLE_MOST`), the build replayed where
+//   each, waited on till the live levels round it are whole (at most `MARK_SETTLE_MOST`, or `INCUS_DYNO_SETTLE_MOST`), the build replayed where
 //   there is one, then measured `MARK_MEASURE` seconds. `INCUS_DYNO_LAPS=0` flies the marks alone (for the small card);
 //   `INCUS_DYNO_MARKS=0` leaves them out; `INCUS_DYNO_BUILD=<event log>` replays another build.
 // - **The header** says exactly what flew: the build and whether its code was committed (the difference saved beside
 //   the report, `dyno-<time>.patch`), every `INCUS_*` and `WGPU_*` switch, the card and how it was chosen, the window
 //   and how the picture was handed to the screen as granted, the presets, what ran beside it.
 
-/// The longest a mark is waited on for its live levels to be whole (seconds), and how long it's measured.
+/// The longest a mark is waited on for its live levels to be whole (seconds; `INCUS_DYNO_SETTLE_MOST` for another: the
+/// references wait longer, so each picture is of the view settled), and how long it's measured.
 const MARK_SETTLE_MOST: f32 = 180.0;
 const MARK_MEASURE: f32 = 20.0;
+
+fn settle_most() -> f32 {
+    std::env::var("INCUS_DYNO_SETTLE_MOST").ok().and_then(|v| v.parse().ok()).unwrap_or(MARK_SETTLE_MOST)
+}
 /// How long the build's placings are given to be applied, once sent (seconds).
 const BUILD_TAKES: f32 = 3.0;
 /// The build replayed at its mark, if none is named: David's quarter-block build of 2026-11-10 (build 108).
@@ -654,7 +659,7 @@ fn fly_marks(
     let waited = now - dyno.mark_since;
     let how = |waited: f32| if whole { format!("whole in {waited:.0} s") } else { format!("NOT whole after {waited:.0} s: {have} of {want} tiles, {filling} being made{}", if top.is_none() { ", the ground's chunk not here" } else { "" }) };
     let next = match state {
-        MarkState::Arriving if whole || waited > MARK_SETTLE_MOST => {
+        MarkState::Arriving if whole || waited > settle_most() => {
             let record = &mut dyno.by_mark[k];
             record.place = format!("north {:.1}, east {:.1}, the eye at {eye:.1} ({:.2} over the ground), facing {:.0}°, pitch {pitch:.1}°{}", mark.at[0], mark.at[1], player.eye_height, mark.heading, if mark.clear { ", fog off" } else { "" });
             record.settled.push(format!("the live levels {}", how(waited)));
@@ -697,7 +702,7 @@ fn fly_marks(
                 (*cells, *refused) = (*cells + changes, *refused + refusals);
             }
             let rebuilt = whole && !sight.edits_waiting();
-            (rebuilt || waited > MARK_SETTLE_MOST).then(|| {
+            (rebuilt || waited > settle_most()).then(|| {
                 let bake = if sight.edits_waiting() { "; the bake NOT yet patched" } else { "; the bake patched" };
                 dyno.by_mark[k].settled.push(format!("after the build, the live levels {}{bake}", how(waited)));
                 MarkState::Standing
@@ -960,7 +965,8 @@ fn dyno_report(dyno: &Dyno, shown: Shown, patch: Option<String>) -> String {
     }
     if !dyno.by_mark.is_empty() {
         text += &format!(
-            "\nThe standing marks (uncapped, the camera still; each waited on till the live levels round it were whole, at most {MARK_SETTLE_MOST:.0} s, then measured {MARK_MEASURE:.0} s):\n"
+            "\nThe standing marks (uncapped, the camera still; each waited on till the live levels round it were whole, at most {:.0} s, then measured {MARK_MEASURE:.0} s):\n",
+            settle_most()
         );
         for record in &dyno.by_mark {
             text += &format!("  {}: {}\n", record.name, if record.place.is_empty() { "not reached" } else { &record.place });
