@@ -798,6 +798,9 @@ impl SightDraw {
             1.0
         } else if std::env::var("INCUS_SIGHT_LEVELS").is_ok() {
             2.0
+        } else if std::env::var("INCUS_SIGHT_LIGHT_VIEW").is_ok() {
+            // Where each pixel's light came from (experiment 4b; the shading pass's `camera.reach.z` 3).
+            3.0
         } else {
             0.0
         };

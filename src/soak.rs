@@ -373,6 +373,8 @@ enum MarkState {
     Rebuilding,
     /// Measured, standing still.
     Standing,
+    /// Measured; its picture taken (`screenshots/dyno/`, a reference for later), not measured.
+    Picture,
 }
 
 /// What a mark measured: where it stood, how it settled, the build's placings, and its frames while settling and
@@ -557,7 +559,7 @@ fn fly_marks(
     mut dyno: ResMut<Dyno>,
     terrain: Res<Terrain>,
     sight: Res<crate::world::SightStore>,
-    (voxel, registry, player): (Res<crate::world::VoxelWorld>, Res<crate::data::BlockRegistry>, Res<crate::player::PlayerSettings>),
+    (voxel, registry, player, mut screenshot): (Res<crate::world::VoxelWorld>, Res<crate::data::BlockRegistry>, Res<crate::player::PlayerSettings>, ResMut<crate::runner::ScreenshotRequest>),
     time: Res<Time<Real>>,
     mut mode: ResMut<ControlMode>,
     mut cameras: Query<&mut FlyCamera>,
@@ -653,6 +655,17 @@ fn fly_marks(
             })
         }
         MarkState::Standing if waited >= MARK_MEASURE => {
+            // Measured: its picture, as it stood (a reference for later, and what the light's view shows).
+            let folder = crate::debug::project_folder().join("screenshots").join("dyno");
+            let _ = std::fs::create_dir_all(&folder);
+            let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            let path = folder.join(format!("mark-{stamp}-{} {}.png", k + 1, mark.name));
+            info!("Dyno: {}: its picture, {}", mark.name, path.display());
+            dyno.by_mark[k].settled.push(format!("its picture: screenshots/dyno/{}", path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned())));
+            screenshot.0 = Some(path);
+            Some(MarkState::Picture)
+        }
+        MarkState::Picture if waited >= 0.5 => {
             // The next mark, or the end; the fog put back after a clear day.
             if mark.clear
                 && let Some(fog) = dyno.fog_was.take()
@@ -718,8 +731,8 @@ fn record_dyno(world: &mut World) {
         samples.lane_work(lane_kinds, lane_pieces);
     };
     if let Some((k, state)) = dyno.mark {
-        // At a mark: settling, or standing.
-        if let (Some(lanes), Some(record)) = (lanes, dyno.by_mark.get_mut(k)) {
+        // At a mark: settling, or standing (its picture's frames not measured).
+        if let (Some(lanes), Some(record)) = (lanes.filter(|_| state != MarkState::Picture), dyno.by_mark.get_mut(k)) {
             take(if state == MarkState::Standing { &mut record.standing } else { &mut record.settling }, lanes);
         }
     } else if let Some(lanes) = lanes {

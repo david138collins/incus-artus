@@ -2453,6 +2453,8 @@ fn shade_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocati
     }
     var handed = NO_SKY;
     var open = 1.0;
+    // Whether its sky light came down from the layer above (for the light's view, `camera.reach.z` 3).
+    var sky_handed = false;
     if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
         let kind = surface_kind(seen);
         var have = false;
@@ -2470,6 +2472,7 @@ fn shade_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocati
             if (above != NO_SKY && (above >> 16u) == kind && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
                 open = f32(above & 0xFFFFu) / 65535.0;
                 have = true;
+                sky_handed = true;
             }
         }
         if (!have) {
@@ -2501,7 +2504,22 @@ fn shade_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocati
         let k = id.y * size.x + id.x;
         worth_out[k] = (worth_out[k] & 0xFFu) | (handed << 8u);
     }
-    if (camera.reach.z > 1.5 && seen.level >= 0) {
+    if (camera.reach.z > 2.5) {
+        // The light's view (experiment 4b, `INCUS_SIGHT_LIGHT_VIEW`): where each pixel's light came from. Blue a block's
+        // face (light per face), green the light kept in its cell, yellow its sky handed down from the layer above (its
+        // sun by its own ray), red its own rays; grey none (hidden, or the sky).
+        var tint = vec3<f32>(0.5, 0.5, 0.5);
+        if (face > 0u) {
+            tint = vec3<f32>(0.2, 0.35, 1.0);
+        } else if (stored.x >= 0.0) {
+            tint = vec3<f32>(0.2, 1.0, 0.3);
+        } else if (sky_handed) {
+            tint = vec3<f32>(1.0, 0.9, 0.2);
+        } else if (!hidden && seen.wide > 0.0) {
+            tint = vec3<f32>(1.0, 0.25, 0.2);
+        }
+        colour = colour * 0.3 + tint * 0.55;
+    } else if (camera.reach.z > 1.5 && seen.level >= 0) {
         let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
         colour = colour * 0.4 + tints[seen.level % 6] * 0.35;
     } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
