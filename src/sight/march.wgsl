@@ -60,6 +60,10 @@ struct Camera {
     // Placed lights (build 95): x 1 for them on, y how much they flicker, z the time they flicker by (seconds); w 1 to
     // blend them across a face (0: a block's step at a time, hard-edged, as decided).
     glow: vec4<f32>,
+    // Light kept in the cells (the Oracle's experiment 4b, 2026-11-11; `light_cells`, `kept_light`): x where this
+    // frame's sweep starts (a column of the live windows, then of the baked levels, in order), y how many columns it
+    // takes, z the sun's step (1 to 255; 0 none kept), w 1 to read what's kept in place of the far pixels' rays.
+    kept: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -1860,6 +1864,113 @@ fn name_the_bindings() {
     _ = lights[0];
     _ = media[0];
     _ = hits[0];
+    _ = cell_light[0];
+}
+
+// The light kept beside each cell in the pool (experiment 4b; one word a cell, at the cell's place in the pool): the
+// sun's step it was lit for (top 8 bits; 0 none), the sky it sees (12 bits) and the sun reaching it (12 bits).
+@group(0) @binding(22) var<storage, read_write> cell_light: array<u32>;
+
+// The light kept for the cell a far surface point at `level` is in, or the one under it (the blend's soft edge reaches
+// half a cell above the surface): the sun reaching it (x) and the sky it sees (y); x below 0 if none is kept for the
+// sun's step now (or keeping is off), and the pixel's own rays light it.
+fn kept_light(at: vec3<f32>, level: i32) -> vec2<f32> {
+    let step = u32(camera.kept.z);
+    if (step == 0u || camera.kept.w < 0.5 || level < header[2]) {
+        return vec2<f32>(-1.0);
+    }
+    let size = f32(1 << u32(level));
+    let c = vec3<i32>(floor(at / size));
+    let entry = entry_at(level, c.x, c.y);
+    if (entry.y == NOT_BAKED || entry.y == PAST_MAP) {
+        return vec2<f32>(-1.0);
+    }
+    let low = bitcast<i32>(entry.y << 16u) >> 16u;
+    let count = i32(entry.y >> 16u);
+    for (var k = 0; k < 2; k++) {
+        let cz = c.z - k;
+        if (cz >= low && cz < low + count) {
+            let w = cell_light[entry.x + u32(cz - low)];
+            if ((w >> 24u) == step) {
+                return vec2<f32>(f32(w & 4095u) / 4095.0, f32((w >> 12u) & 4095u) / 4095.0);
+            }
+        }
+    }
+    return vec2<f32>(-1.0);
+}
+
+// The sweep that keeps the cells' light (experiment 4b): a thread a column, `camera.kept.y` columns from
+// `camera.kept.x` on (the live windows' columns first, then each baked level's), each of its cells with a surface not
+// yet lit for the sun's step lit: its sun ray and its sky cones from its surface, as wide as the cell, as a far pixel's
+// rays from where it met it. A frame's worth a frame; a cell lit already is passed over.
+@compute @workgroup_size(64)
+fn light_cells(@builtin(global_invocation_id) id: vec3<u32>) {
+    name_the_bindings();
+    let step = u32(camera.kept.z);
+    if (step == 0u || id.x >= u32(camera.kept.y)) {
+        return;
+    }
+    let most = u32(header[4]);
+    let live_total = u32(header[0] - header[2]) * most * most;
+    let g = u32(camera.kept.x) + id.x;
+    var level = 0;
+    var cx = 0;
+    var cy = 0;
+    var entry = vec2<u32>(0u, NOT_BAKED);
+    if (g < live_total) {
+        level = header[2] + i32(g / (most * most));
+        if (!is_kept(level)) {
+            return;
+        }
+        let slot = live[g];
+        entry = slot.xy;
+        cx = bitcast<i32>(slot.z);
+        cy = bitcast<i32>(slot.w);
+    } else {
+        let b = g - live_total;
+        let levels = header[1] - header[0] + 1;
+        for (var k = 0; k < levels; k++) {
+            let base = 6 + 4 * k;
+            let across = u32(header[base + 2]);
+            let first = u32(header[base + 3]);
+            if (b >= first && b < first + across * across) {
+                let i = b - first;
+                level = header[0] + k;
+                cx = header[base] + i32(i % across);
+                cy = header[base + 1] + i32(i / across);
+                entry = baked[b];
+                break;
+            }
+        }
+    }
+    if (entry.y == NOT_BAKED || entry.y == PAST_MAP) {
+        return;
+    }
+    let low = bitcast<i32>(entry.y << 16u) >> 16u;
+    let count = i32(entry.y >> 16u);
+    let size = f32(1 << u32(level));
+    let up = vec3<f32>(0.0, 0.0, 1.0);
+    for (var i = 0; i < count; i++) {
+        let index = entry.x + u32(i);
+        if ((cell_light[index] >> 24u) == step) {
+            continue;
+        }
+        let look = cell_of(pool[index]);
+        if (look.surface <= 0.0) {
+            continue;
+        }
+        // Its surface: up the cell as far as it's solid.
+        let p = vec3<f32>((f32(cx) + 0.5) * size, (f32(cy) + 0.5) * size, (f32(low + i) + clamp(look.solid, 0.0, 1.0)) * size);
+        var sun = 1.0;
+        if (camera.follow.y > 0.5) {
+            sun = sunlight(p, size, up, false);
+        }
+        var open = 1.0;
+        if (camera.sky.x > 0.5) {
+            open = sky_seen(p, size, up, false);
+        }
+        cell_light[index] = (step << 24u) | (u32(round(clamp(open, 0.0, 1.0) * 4095.0)) << 12u) | u32(round(clamp(sun, 0.0, 1.0) * 4095.0));
+    }
 }
 
 // The way a block face looks, from `face_of`'s number.
@@ -2335,6 +2446,11 @@ fn shade_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocati
     let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
     // Its face's slot and 1, with light per face on (0: none).
     let face = select(0u, r2.w, atomicLoad(&face_count[4]) != 0u);
+    // The light kept in its cell (experiment 4b), for a far surface: read in place of its rays where it's there.
+    var stored = vec2<f32>(-1.0);
+    if (!seen.on_block && seen.level >= 0 && face == 0u) {
+        stored = kept_light(seen.at, seen.level);
+    }
     var handed = NO_SKY;
     var open = 1.0;
     if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
@@ -2342,6 +2458,10 @@ fn shade_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocati
         var have = false;
         if (face > 0u) {
             open = unpack2x16float(face_values[face - 1u]).y;
+            have = true;
+        }
+        if (!have && stored.x >= 0.0) {
+            open = stored.y;
             have = true;
         }
         if (!have && camera.layer.x > 0.0) {
@@ -2361,6 +2481,8 @@ fn shade_staged(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocati
     if (!hidden && seen.wide > 0.0 && camera.follow.y > 0.5) {
         if (face > 0u) {
             sun = unpack2x16float(face_values[face - 1u]).x;
+        } else if (stored.x >= 0.0) {
+            sun = stored.x;
         } else {
             sun = sunlight(seen.at, seen.wide, seen.facing, seen.on_block);
         }

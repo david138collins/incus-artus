@@ -2157,6 +2157,50 @@ fn ground(c: Case) -> i32 {
         }
     }
 
+    /// The light kept in the cells (the Oracle's experiment 4b): once the sweep has been over every column, the far
+    /// pixels read their cells' light in place of their rays, and the picture is nearly the rays' (the light a cell's,
+    /// not a pixel's: it steps), about as bright, with no black holes; from high up and grazing.
+    #[test]
+    #[ignore]
+    fn sight_s_light_kept_lights_like_the_rays() {
+        let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
+        let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
+            eprintln!("No graphics card: sight's light kept picture test is skipped");
+            return;
+        };
+        let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
+        let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
+        let mut draw = crate::sight::draw::SightDraw::new(&device, &queue, wgpu::TextureFormat::Rgba8Unorm);
+        let size = (480, 300);
+        let sweeps = store.columns().div_ceil(crate::sight::draw::SWEEP_COLUMNS) as usize + 1;
+        for (name, at, pitch, heading) in [("high", [0.0f32, 0.0, 400.0], -30.0f32, 45.0f32), ("grazing", [0.0, 0.0, 8.0], -8.0, 0.0)] {
+            let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
+            let (p, h) = (pitch.to_radians(), heading.to_radians());
+            let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
+            let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, ..Default::default() };
+            let rays = sight_picture_by(&mut draw, &device, &queue, &store, size, eye);
+            let kept_eye = crate::sight::draw::Eye { light_kept: true, ..eye };
+            let mut kept = Vec::new();
+            for _ in 0..sweeps {
+                kept = sight_picture_by(&mut draw, &device, &queue, &store, size, kept_eye);
+            }
+            if let Some(dir) = &probe {
+                write_picture(&dir.join(format!("kept-{name}-rays.png")), size, &rays);
+                write_picture(&dir.join(format!("kept-{name}-kept.png")), size, &kept);
+            }
+            let differing = rays.iter().zip(&kept).filter(|(a, b)| a.iter().zip(b.iter()).any(|(x, y)| x.abs_diff(*y) > 2)).count();
+            let mean_difference = rays.iter().zip(&kept).map(|(a, b)| a.iter().zip(b.iter()).map(|(x, y)| x.abs_diff(*y) as f64).sum::<f64>()).sum::<f64>() / (rays.len() * 3) as f64;
+            let brightness = |picture: &[[u8; 3]]| picture.iter().map(|p| p.iter().map(|&c| c as f64).sum::<f64>()).sum::<f64>() / picture.len() as f64;
+            let black = |picture: &[[u8; 3]]| picture.iter().filter(|p| p.iter().all(|&c| c < 4)).count();
+            let (r, k) = (brightness(&rays), brightness(&kept));
+            eprintln!("{name}: after {sweeps} frames, {differing} of {} pixels differ, by {mean_difference:.2} a channel on average; brightness rays {r:.0}, kept {k:.0}; black {} and {}", kept.len(), black(&rays), black(&kept));
+            assert!(differing * 200 > kept.len(), "{name}: the kept light should be read somewhere ({differing} pixels differ)");
+            assert!(mean_difference < 6.0, "{name}: the kept light near the rays' ({mean_difference:.2} a channel on average)");
+            assert!((k - r).abs() < 0.1 * r, "{name}: about as bright as the rays ({k:.0} against {r:.0})");
+            assert!(black(&kept) <= black(&rays) + kept.len() / 100, "{name}: no black holes ({} against {})", black(&kept), black(&rays));
+        }
+    }
+
     /// Another build of the march (`INCUS_SIGHT_AB=<a march.wgsl>`: the dyno's steps that should leave the picture as
     /// it is, such as the march made smaller) draws what the march as built draws: over hills near and far, down into
     /// lakes and along one, from high up, with the sun's shadows, sky light and textures, every pixel set side by

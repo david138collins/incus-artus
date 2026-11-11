@@ -152,6 +152,9 @@ pub struct CardStore {
     pub pieces: wgpu::Buffer,
     /// The lit cells of air (`put_lights`).
     pub lights: wgpu::Buffer,
+    /// The light kept beside each cell of the pool (experiment 4b: one word a cell, at the cell's own place;
+    /// `march.wgsl`'s `light_cells` writes it, `kept_light` reads it): cleared wherever new cells go in.
+    pub cell_light: wgpu::Buffer,
     queue: wgpu::Queue,
     places: Mutex<(Pool, Owners)>,
 }
@@ -203,7 +206,22 @@ impl CardStore {
         };
         let pieces = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's pieces"), size: PIECES_SLOTS as u64 * 32, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let lights = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's placed lights"), size: LIGHT_SLOTS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        Self { pool, baked, live, header, extents, finest_live, live_kept, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), pieces, lights, queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+        let cell_light = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's cells' light kept"), size: POOL_CELLS as u64 * 4, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        Self { pool, baked, live, header, extents, finest_live, live_kept, side: std::sync::atomic::AtomicI32::new(side), most_side: side, highest: std::sync::atomic::AtomicI32::new(0), pieces, lights, cell_light, queue: queue.clone(), places: Mutex::new((Pool::new(POOL_CELLS), Owners::default())) }
+    }
+
+    /// Every cell column the indexes hold, live windows' and baked levels' together (the light kept's sweep, in
+    /// `light_cells`'s order: the live windows, then each baked level's).
+    pub fn columns(&self) -> u64 {
+        let live = (FIRST - self.finest_live) as u64 * (self.most_side * self.most_side) as u64;
+        live + self.extents.iter().map(|(extent, _)| (extent.across * extent.across) as u64).sum::<u64>()
+    }
+
+    /// The light kept for `n` cells from `start` in the pool cleared (new cells there: lit again by the sweep).
+    fn clear_light(&self, start: u32, n: usize) {
+        if n > 0 {
+            self.queue.write_buffer(&self.cell_light, start as u64 * 4, &vec![0u8; n * 4]);
+        }
     }
 
     /// The lit cells of air on the card, all of them at once (each its place, and its light as
@@ -334,6 +352,7 @@ impl CardStore {
             }
         }
         self.queue.write_buffer(&self.pool, start as u64 * 16, &bytes);
+        self.clear_light(start, total);
         for (at, data) in entries {
             self.queue.write_buffer(&self.baked, at, &data);
         }
@@ -356,6 +375,7 @@ impl CardStore {
         let Some(start) = pool.take(cells.len() as u32) else { return };
         owners.upper.insert((level, cx, cy), (start, cells.len() as u32));
         self.queue.write_buffer(&self.pool, start as u64 * 16, &Self::cells_bytes(cells));
+        self.clear_light(start, cells.len());
         if let (Some(index), Some((_, offset))) = (self.index(level, cx, cy), self.extents.get(level - FIRST)) {
             let entry = Self::entry(start, low, cells.len());
             self.queue.write_buffer(&self.baked, (*offset as u64 + index as u64) * 8, &entry.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>());
@@ -392,6 +412,7 @@ impl CardStore {
             rows[i / tile as usize].extend([entry[0], entry[1], cx as u32, cy as u32].iter().flat_map(|w| w.to_le_bytes()));
         }
         self.queue.write_buffer(&self.pool, start as u64 * 16, &bytes);
+        self.clear_light(start, total);
         let window = (level - self.finest_live) as u64 * (self.most_side * self.most_side) as u64;
         for (row, data) in rows.iter().enumerate() {
             let (x, y) = ((tx * tile as i32).rem_euclid(side), (ty * tile as i32 + row as i32).rem_euclid(side));

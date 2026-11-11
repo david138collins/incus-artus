@@ -614,6 +614,8 @@ impl Runner {
                     // How the far cells are read (experiment 2): the Render page's choice, or `INCUS_SIGHT_FAR_READS`
                     // (1 crisp, 2 smooth in height) for flights.
                     far_reads: std::env::var("INCUS_SIGHT_FAR_READS").ok().and_then(|v| v.parse().ok()).filter(|&m: &u32| m <= 2).unwrap_or_else(|| kept.sight_far_reads()),
+                    // The light kept in the cells (experiment 4b): the Render page's switch, or `INCUS_SIGHT_LIGHT_KEPT`.
+                    light_kept: std::env::var("INCUS_SIGHT_LIGHT_KEPT").is_ok() || kept.sight_light_kept(),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
                 // disk, a block's data): once at the start, then seldom.

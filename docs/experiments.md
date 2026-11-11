@@ -329,3 +329,57 @@ the card's texture hardware does the blend (about 5.5 times the cells, against 2
   one (a weaker card's), but neither is the look.
 - Since the blend stays, its cost moves from the far march's code to the texture hardware. The probe P7's 41% is
   roughly what the hardware can win back, measured at build 107.
+
+**For the record** (David's "yes", 2026-11-11: no look needed): flights F (crisp) and G (the in-between) against C, the
+route and the three marks. *(Results below, with 4b's.)*
+
+---
+
+## Experiment 4b: light kept in the cells, and looked up  *(plan 1.5)*
+
+David's go: "yes" (2026-11-11).
+
+**Why.** Experiment 4a: light (sky light and sun shadows) is 42% of the card at the spawn mark, 17% at the mountain top
+and at the build, and a quarter of the route's median. It's found afresh by rays every pixel, every frame, though the
+land hasn't moved and the light hasn't changed. David: "the big sun shadows don't need to change smoothly. they can
+change every 30 seconds for all i care."
+
+### What was built (build 114)
+
+- **A light word beside every cell of the pool** (`CardStore::cell_light`, 4 bytes a cell, 96 MB beside the pool's
+  384): the sun's step it was lit for, the sky the cell sees (12 bits) and the sun reaching it (12 bits). It's cleared
+  wherever new cells go in (regions, upper columns, live tiles), so a reused place never shows old light.
+- **The sweep** (`light_cells` in `march.wgsl`, a timed pass of its own, "light kept"). Each frame it goes over
+  32,768 of the store's cell columns (some 9 million: live windows, then baked levels), lighting each surface cell
+  not yet lit for the sun's step: its sun ray and its sky cones from its surface, as wide as the cell. Those are the
+  rays a far pixel casts from where it meets that cell. A cell already lit costs one read. A whole sweep takes about a
+  second and a half at 200 frames a second.
+- **The sun's step:** a new one whenever the sun moves a quarter of a degree, or shadows or sky light are switched.
+  Every cell is then lit again by the sweep, and rays light the pixels meanwhile.
+- **The lookup** (`kept_light`, in the shading pass): a far surface pixel (not a block face near the eye, which has
+  light per face) reads its cell's light in place of its own sun ray and five sky cones, where it's there for this
+  step. Otherwise the pixel's own rays, as now.
+- The Render page's switch "Light kept in the far cells", or `INCUS_SIGHT_LIGHT_KEPT=1`. Off unless chosen.
+- A card test, `sight_s_light_kept_lights_like_the_rays`: after one sweep, the picture is nearly the rays' (it
+  differs somewhere, by little on average, at the same brightness, with no black holes).
+
+### The pass mark (written before the flight and the look)
+
+**Measured:** flight H (`INCUS_SIGHT_LIGHT_KEPT=1`) against C, the route and the three marks, with the sweep's own
+cost ("light kept") in every line.
+
+**David's look:** far ground lit a cell at a time (light that steps), against rays, standing and flying; and the sun
+moved, to see the relighting.
+
+**What changes the plan** (the Oracle's):
+- **The lookup wins most of 4a's ceiling for the far pixels:** the spawn mark comes down by a good part of light's
+  42% (to 4.5 ms or under, against C's 5.94 and E's 3.46), the sweep costing little. Then the light lane is
+  confirmed for the rebuild as the Oracle drew it.
+- **It costs about as much as the rays:** the spawn under a tenth faster. Then the light moves into the hit record's
+  read, or the brick layout is reconsidered before bricks are built.
+- **The near faces are untouched** (light per face, each frame): what's left of light's share at the spawn after 4b
+  is theirs, and says what keeping the near faces' light too would be worth.
+
+### Results
+
+*(to come.)*

@@ -194,6 +194,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if reads != kept.sight_far_reads() {
         kept.render.set_number("sight_far_reads", reads as f32);
     }
+    // The Oracle's experiment 4b [2026-11-11]: the light kept in the cells, each lit once for the sun as it stands, a far
+    // pixel reading its cell's light in place of its own sun ray and sky cones (David: big shadows may change in steps).
+    let mut light_kept = kept.sight_light_kept();
+    if ui.checkbox(&mut light_kept, "Light kept in the far cells (experiment 4b: each cell lit once for the sun; a far pixel reads its cell's light, not its own rays)").changed() {
+        kept.render.set_flag("sight_light_kept", light_kept);
+    }
     // Block textures (3.6) [David 2026-11-08: "so the blocks are mipmapped, right? go ahead"]: on the blocks near
     // the eye; a texture changed on disk shows at once (the data watch).
     let mut textures = kept.sight_textures();
@@ -577,6 +583,11 @@ impl KeptSettings {
     /// and smooth in height.
     pub fn sight_far_reads(&self) -> u32 {
         self.render.number("sight_far_reads", 0.0).round().clamp(0.0, 2.0) as u32
+    }
+
+    /// The light kept in the far cells (experiment 4b; off unless chosen).
+    pub fn sight_light_kept(&self) -> bool {
+        self.render.flag("sight_light_kept", false)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).

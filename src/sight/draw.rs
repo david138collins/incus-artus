@@ -92,6 +92,10 @@ pub struct Eye {
     /// cell column, its two cells blended). The Render page's choice, or `INCUS_SIGHT_FAR_READS`. Drawn by that way's
     /// build once it's made.
     pub far_reads: u32,
+    /// The light kept in the cells (the Oracle's experiment 4b): each cell with a surface lit once for the sun as it
+    /// stands (a sweep a frame's worth at a time), and a far pixel reading its cell's light in place of its own sun ray
+    /// and sky cones where it's there. The Render page's switch, or `INCUS_SIGHT_LIGHT_KEPT`.
+    pub light_kept: bool,
 }
 
 impl Default for Eye {
@@ -131,6 +135,7 @@ impl Default for Eye {
             face_light: true,
             blend_from: BLEND_FROM,
             far_reads: 0,
+            light_kept: false,
         }
     }
 }
@@ -266,6 +271,12 @@ pub struct SightDraw {
     march_source: String,
     face_values: wgpu::Buffer,
     face_list: wgpu::Buffer,
+    /// The light kept in the cells (experiment 4b, `Eye::light_kept`): where the sweep goes on from (a column of the
+    /// store's indexes), the sun's step (1 to 255; a new one whenever the sun or the light's switches change), and
+    /// what that step was for.
+    kept_sweep: u64,
+    kept_step: u32,
+    kept_for: Option<[f32; 5]>,
     upscale: wgpu::RenderPipeline,
     up: wgpu::Buffer,
     sampler: wgpu::Sampler,
@@ -305,6 +316,8 @@ struct Passes {
     shade_staged: wgpu::ComputePipeline,
     /// Far lights' glows (build 100): the pass that says which the eye sees (`glow_pass`).
     glow_pass: wgpu::ComputePipeline,
+    /// The light kept in the cells (experiment 4b): the sweep that lights them (`light_cells`).
+    light_cells: wgpu::ComputePipeline,
     /// The face table's bindings (group 1): the light per face's (launched by the faces' count, so without it), the
     /// listing's, the shading's.
     face_groups: [wgpu::BindGroup; 3],
@@ -328,12 +341,13 @@ impl Passes {
         let face_light_staged = pipeline("light per face, staged", "face_light_staged");
         let shade_staged = pipeline("shading, staged", "shade_staged");
         let glow_pass = pipeline("far glows", "glow_pass");
+        let light_cells = pipeline("light kept", "light_cells");
         let face_group = |pipeline: &wgpu::ComputePipeline, counted: bool| {
             let entries: Vec<wgpu::BindGroupEntry> = faces.iter().take(if counted { 4 } else { 3 }).enumerate().map(|(k, b)| wgpu::BindGroupEntry { binding: k as u32, resource: buffer(b) }).collect();
             device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some(&format!("{label} faces")), layout: &pipeline.get_bind_group_layout(1), entries: &entries })
         };
         let face_groups = [face_group(&face_light_staged, false), face_group(&listed_staged, true), face_group(&shade_staged, true)];
-        Self { march, start, march_hit, light_hit, listed_staged, face_light_staged, shade_staged, glow_pass, face_groups }
+        Self { march, start, march_hit, light_hit, listed_staged, face_light_staged, shade_staged, glow_pass, light_cells, face_groups }
     }
 }
 
@@ -347,6 +361,8 @@ struct Bound {
     listed_group: wgpu::BindGroup,
     shade_group: wgpu::BindGroup,
     face_light_group: wgpu::BindGroup,
+    /// The light kept's sweep (experiment 4b; the coarsest layer's, the game's build's, are used).
+    cells_group: wgpu::BindGroup,
 }
 
 /// One layer of the pyramid: its factor (screen pixels a side of a pixel), its size, its picture and distances,
@@ -481,6 +497,9 @@ impl SightDraw {
             march_source: march.to_string(),
             face_values,
             face_list,
+            kept_sweep: 0,
+            kept_step: 0,
+            kept_for: None,
             upscale,
             up,
             sampler,
@@ -600,7 +619,9 @@ impl SightDraw {
                         wgpu::BindGroupEntry { binding: 15, resource: buffer(&store.lights) },
                         wgpu::BindGroupEntry { binding: 16, resource: buffer(&self.media) },
                     ];
-                let split: Vec<wgpu::BindGroupEntry> = entries.iter().cloned().chain([wgpu::BindGroupEntry { binding: 19, resource: buffer(&hits) }]).collect();
+                // The passes that name every binding (`name_the_bindings`: all but the one pass): the hits, and the light
+                // kept in the cells (experiment 4b).
+                let split: Vec<wgpu::BindGroupEntry> = entries.iter().cloned().chain([wgpu::BindGroupEntry { binding: 19, resource: buffer(&hits) }, wgpu::BindGroupEntry { binding: 22, resource: buffer(&store.cell_light) }]).collect();
                 // The stages after the march: the split's bindings and the layer's live list.
                 let live_list = storage("sight's live pixels listed", size.0 * size.1 + 64);
                 let live_count = device.create_buffer(&wgpu::BufferDescriptor { label: Some("sight's live pixels counted"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
@@ -618,6 +639,7 @@ impl SightDraw {
                             listed_group: bind("sight's live pixels listed, staged", &passes.listed_staged, &listing),
                             shade_group: bind("sight's shading, staged", &passes.shade_staged, &staged),
                             face_light_group: bind("sight's light per face, staged", &passes.face_light_staged, &split),
+                            cells_group: bind("sight's light kept", &passes.light_cells, &split),
                         }
                     })
                     .collect();
@@ -728,6 +750,30 @@ impl SightDraw {
         }
     }
 
+    /// The light kept in the cells (experiment 4b): this frame's stretch of the sweep (where it starts, how many
+    /// columns), the sun's step (a new one when the sun moves a quarter of a degree, or shadows or sky light are
+    /// switched, so every cell is lit again), and whether far pixels read it; all 0 with it off.
+    fn light_sweep(&mut self, eye: &Eye, store: &CardStore, shadows: bool, sky: bool) -> [f32; 4] {
+        if !eye.light_kept {
+            return [0.0; 4];
+        }
+        let sun = normalise(eye.sun);
+        let now = [sun[0], sun[1], sun[2], shadows as u32 as f32, sky as u32 as f32];
+        let same = self.kept_for.is_some_and(|was| was[3] == now[3] && was[4] == now[4] && was[0] * now[0] + was[1] * now[1] + was[2] * now[2] > 0.25f32.to_radians().cos());
+        if !same {
+            self.kept_step = self.kept_step % 255 + 1;
+            self.kept_for = Some(now);
+        }
+        let total = store.columns();
+        if self.kept_sweep >= total {
+            self.kept_sweep = 0;
+        }
+        let count = SWEEP_COLUMNS.min(total - self.kept_sweep);
+        let start = self.kept_sweep;
+        self.kept_sweep += count;
+        [start as f32, count as f32, self.kept_step as f32, 1.0]
+    }
+
     /// The pyramid marched and brought up onto `view` (the screen's picture, `screen` pixels).
     pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, screen: (u32, u32), eye: Eye, store: &Arc<CardStore>) {
         self.make_reads(device, eye.far_reads);
@@ -758,9 +804,11 @@ impl SightDraw {
         // How far the live level reaches (blocks): half its window.
         let live_reach = store.reach(store.finest_live);
         let screen_pixel = 2.0 * tan_half / screen.1.max(1) as f32;
-        let targets = self.targets.as_ref().expect("made above");
         // The time of day (the sun's height): its own light and the sky's; with the sun down, no shadow rays.
         let (direct, glow) = daylight(normalise(eye.sun)[2]);
+        // The light kept in the cells (experiment 4b): this frame's stretch of the sweep, and the sun's step.
+        let kept = self.light_sweep(&eye, store, eye.shadows && !no_shadows && direct > 0.0, eye.sky && !no_sky);
+        let targets = self.targets.as_ref().expect("made above");
         let night = eye.night_light.clamp(0.0, 1.0);
         for (k, layer) in targets.layers.iter().enumerate() {
             let pixel = 2.0 * tan_half / layer.size.1 as f32;
@@ -815,6 +863,8 @@ impl SightDraw {
                 // Placed lights (build 95; `INCUS_SIGHT_NO_LIGHTS` leaves them out, for measuring): on, how much they
                 // flicker, the time they flicker by (kept under an hour's worth, so the card's sums stay fine).
                 [if eye.placed_lights && !no_lights { 1.0 } else { 0.0 }, eye.flicker.clamp(0.0, 1.0), eye.flicker_time.rem_euclid(3600.0), if eye.smooth_light { 1.0 } else { 0.0 }],
+                // The light kept in the cells (experiment 4b): the sweep's stretch, the sun's step, and read or not.
+                kept,
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -882,6 +932,15 @@ impl SightDraw {
             queue.write_buffer(&self.glows, 0, &places.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
             groups as u32
         });
+        // The light kept in the cells (experiment 4b): this frame's stretch of the sweep, first, in a pass of its own
+        // (timed apart; sight's whole counts it), by the game's build whatever's drawing.
+        if kept[1] > 0.0 {
+            let timestamp_writes = compute_stamp(&mut passes, "light kept".into());
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("sight's light kept"), timestamp_writes });
+            pass.set_pipeline(&self.passes.light_cells);
+            pass.set_bind_group(0, &targets.layers[0].bound[0].cells_group, &[]);
+            pass.dispatch_workgroups((kept[1] as u32).div_ceil(64), 1, 1);
+        }
         // The card's work before the screen's (the start, each layer's march and light, the far glows) in one compute
         // pass, its dispatches one after another (the card's barriers between them, but no pass ended and begun:
         // 2026-11-09, the split's eight passes left some 1.4 ms between them). `INCUS_DYNO_PASS_TIMES` gives each its
@@ -1101,7 +1160,11 @@ pub const BLEND_FROM: f32 = 0.8;
 const FACE_SLOTS: u32 = 262_144;
 
 /// The camera numbers' rows (`Camera` in `march.wgsl`).
-const CAMERA_ROWS: usize = 17;
+const CAMERA_ROWS: usize = 18;
+
+/// The light kept's sweep (experiment 4b): the cell columns it goes over a frame (the store's indexes hold some 9
+/// million: a whole sweep in about a second and a half at 200 frames a second; a cell lit already costs a read).
+pub const SWEEP_COLUMNS: u64 = 32_768;
 
 /// The far reads' builds' states (`Eye::far_reads` 1 and 2), for the Render page (`reads_state`): not asked for yet,
 /// being made, made, or failed.
