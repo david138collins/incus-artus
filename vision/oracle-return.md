@@ -25,7 +25,10 @@ All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "W
   jarring pops or seams."
 - **Crisp:** the enlarging stays crisp (that was the box he'd always set to crisp). Your crisp-or-soft *cells* was
   another question: experiment 2 answered it **soft** (section 2).
-- **Light:** sun shadows in steps of up to 30 seconds are fine. The day's length doesn't change how it's built.
+- **Light:** sun shadows in steps of up to 30 seconds are fine. The day's length doesn't change how it's built. And
+  after experiment 4b, on far land lit from its cell's kept light against its own rays: "honestly the difference is
+  moot. it obviously changes a little, but i don't think i could tell the difference between the two in a blind
+  test".
 - **Order:**
   - the Registrar (and its Color Lab and HSL handling) before the Graphics Kit;
   - the editor made again, "more streamlined";
@@ -75,7 +78,7 @@ The plan is `master/plan.md`.
 | 2 | Crisp: plain bricks at 2.6 times the cells, the simplest and fastest. Soft: 3D textures at 5.5 times, the texture hardware blending, the memory plan doubled | Crisp (build 112), David: "it doesn't look better ... sometimes it looked decent, other times a little janky". Shallow hills band as you move (stair-steps of whole cells sliding). A third way, crisp across and smooth in height (build 113): "its better than ziggurat lods but, its not better than blended" | **Soft bricks.** Crisp and the in-between stay as fallbacks for a card short of memory |
 | 3 | The library's checks cost 3 to 15%; ship unchecked | Unchecked, sight is **31 to 49% slower** at the three marks and 8.6% faster on the route's median. The world's rules are about 15% faster a piece | Checks stay on in old. In the new engine each program is priced both ways; the world's rules are the candidate for unchecked |
 | 4a | Light is about half the card near the ground | 42% at the spawn, 17% at the mountain top, 17% beside the build, 25% of the route's median | 4b goes ahead. But light alone won't close the gap where it's widest |
-| 4b | The lane lights each cell once, "about a thousandth of the work". If the lookup costs as much as the rays, light moves into the hit record's read or the bricks' layout is reconsidered | The lookup works and is cheap: the sweep takes 0.00 to 0.01 ms a frame, and the kept light is read across nearly all the far land. But the marks come down only **9%, 3% and 3%** (4a's ceiling: 42, 17, 17), and the route's median is 3% slower. The light's view shows why: the near block faces, lit per face every frame, fill most of every eye-level view | Neither of your two readings. The far half of the light lane holds as drawn, for the far view. At eye level light's cost is the near faces'. Your 4.2 has them read light from the air cell in front, which 4b didn't try; experiment 6 does ("light looked up") |
+| 4b | The lane lights each cell once, "about a thousandth of the work". If the lookup costs as much as the rays, light moves into the hit record's read or the bricks' layout is reconsidered | The lookup works and is cheap: the sweep takes 0.00 to 0.01 ms a frame, and the kept light is read across nearly all the far land. But the marks come down only **9%, 3% and 3%** (4a's ceiling: 42, 17, 17), and the route's median is 3% slower. The light's view shows why: the near block faces, lit per face every frame, fill most of every eye-level view | Neither of your two readings. The far half of the light lane holds as drawn, for the far view; David can't tell it from the rays "in a blind test". At eye level light's cost is the near faces'. Your 4.2 has them read light from the air cell in front, which 4b didn't try; experiment 6 does ("light looked up") |
 
 ### Today's gap
 
@@ -152,7 +155,9 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
     of it;
   - light kept for the far pixels is a small win at eye level (9%, 3%, 3%): far pixels are a minority of those views,
     and their light was already cheap. Light's share there belongs to the near faces.
-- **Settled by David's eye, as you left it:** crisp or soft. Soft, so the texture hardware does the blend (2).
+- **Settled by David's eye, as you left it:**
+  - crisp or soft: soft, so the texture hardware does the blend (2);
+  - light that steps: he can't tell the far cells' kept light from the rays (4b).
 - **Not yet tested:**
   - near faces' light read from the air cell in front (6);
   - the brick walk far (5) and near (6);
@@ -204,7 +209,7 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] Experiment 2: one-cell far reads against the blend (David's looks): soft
 - [x] Optional: the crisp and in-between flights at the marks: the blend in code is 24 to 33% of every mark
 - [x] Experiment 4b flown: light stored in the baked cells, looked up for the far pixels (flight H, build 114)
-- [ ] Experiment 4b: David's look at light that steps
+- [x] Experiment 4b: David's look at light that steps (build 115): he can't tell it from the rays
 - [ ] References from old; old frozen
 - [ ] The packing and the skeleton (2.1)
 - [ ] Experiment 5: the eye, far (2.2)

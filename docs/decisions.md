@@ -1013,6 +1013,12 @@ Reference: `Art/quartile minecraft illustration.png`
   behind a wall you will see a shadow approach as someone rounds that corner." The day's length doesn't shape it:
   "10, 15, 30 minute days won't make an appreciable difference to how we implement it." *Counsel:* the relight
   follows the sun's steps whatever the day; the step's size is a tuning number.
+  - **[DECIDED 2026-11-11, experiment 4b] Light kept a cell at a time, for the far view.** On the far land lit from
+    each cell's kept light against its own rays, with the sun moved (build 115): "honestly the difference is moot. it
+    obviously changes a little, but i don't think i could tell the difference between the two in a blind test". So
+    the rebuild keeps far light in the cells, relit as the sun steps. At eye level it saves little (the spawn 9%):
+    most of light's cost there is the near faces', which the new eye looks up too, at experiment 6
+    (`docs/experiments.md`, experiment 4b).
 - **The enlarging stays crisp:** "crisp was always my preference. 'crisp' is in fact still 'smooth', and 'smooth'
   mostly just spread it out, which didn't seem as honest." That is the enlarging box (`look.rs:216`: crisp, smooth,
   smooth sharp at skylines). **[OPEN]** The Oracle's crisp or soft *cells* is another thing: whether the far march
