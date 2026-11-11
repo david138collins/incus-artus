@@ -1018,6 +1018,11 @@ Reference: `Art/quartile minecraft illustration.png`
   smooth sharp at skylines). **[OPEN]** The Oracle's crisp or soft *cells* is another thing: whether the far march
   reads the one cell it's in or blends eight (today it blends). David to the Oracle: "I am unsure about crisp,
   we'll have to work it out, and probably just do a test of it." Its experiment 2 is that test.
+  - **[DECIDED 2026-11-11, experiment 2] Blended.** On crisp (build 112): "it doesn't look awful, but, it doesn't
+    look better ... sometimes it looked decent, other times a little janky." On crisp across and smooth in height
+    (build 113): "eh, i don't prefer it. its better than ziggurat lods but, its not better than blended". So the
+    rebuild's far cells are soft: 3D textures with a border, blended by the card's texture hardware. Crisp and the
+    in-between stay as fallbacks for a card short of memory (`docs/experiments.md`, experiment 2).
 - **The world made once, like a stone tablet:** "yeah, 4gb world file is no biggie. generating the world like a
   stone tablet seems like a reasonable idea." Stage magic while it's made: "we're willing to do a bit of
   distraction and stage magic with character/world creation, lore exposition, cool onscreen world gen toy versions

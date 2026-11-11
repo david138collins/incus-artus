@@ -23,8 +23,8 @@ All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "W
 - **The near field:** rays "if they're cheap, and if that writes elegant compact code that is easier to manage";
   triangles for actors; "triangles for everything in the near field *if* it can look right and there are no
   jarring pops or seams."
-- **Crisp:** the enlarging stays crisp (that was the box he'd always set to crisp). Your crisp-or-soft *cells* is
-  another question; experiment 2 is his look at it.
+- **Crisp:** the enlarging stays crisp (that was the box he'd always set to crisp). Your crisp-or-soft *cells* was
+  another question: experiment 2 answered it **soft** (section 2).
 - **Light:** sun shadows in steps of up to 30 seconds are fine. The day's length doesn't change how it's built.
 - **Order:**
   - the Registrar (and its Color Lab and HSL handling) before the Graphics Kit;
@@ -54,7 +54,7 @@ The plan is `master/plan.md`.
 
 | # | Question | Where it stands |
 |---|---|---|
-| 1 | Crisp or soft far cells | Experiment 2, David's look (being built) |
+| 1 | Crisp or soft far cells | **Soft**, after two looks (experiment 2) |
 | 2 | Rivers and the sea's level | Not answered directly. David: "we don't have to cling to the world gen stack"; water is to be a design step of its own |
 | 3 | The moons' shadows | Open (plan step 2.4) |
 | 4 | People far off | Open (2.4) |
@@ -72,6 +72,7 @@ The plan is `master/plan.md`.
 | # | What you expected | What we measured | What it changed |
 |---|---|---|---|
 | 1 | The worst-view figures were soft. The card's number left out tile making. Nothing had been flown on a weaker card | Soft, a little high: "8 ms at the spawn" is 5.94 standing; "14 ms beside quarter blocks" is 11.74. The lanes are 12% of the card on the route and lift its 99th from 9.79 to 13.93 ms. The Intel card ran everything correctly, 2.5 to 3.8 times slower | The baselines. Nothing fails but speed, so nothing shapes the store yet |
+| 2 | Crisp: plain bricks at 2.6 times the cells, the simplest and fastest. Soft: 3D textures at 5.5 times, the texture hardware blending, the memory plan doubled | Crisp (build 112), David: "it doesn't look better ... sometimes it looked decent, other times a little janky". Shallow hills band as you move (stair-steps of whole cells sliding). A third way, crisp across and smooth in height (build 113): "its better than ziggurat lods but, its not better than blended" | **Soft bricks.** Crisp and the in-between stay as fallbacks for a card short of memory |
 | 3 | The library's checks cost 3 to 15%; ship unchecked | Unchecked, sight is **31 to 49% slower** at the three marks and 8.6% faster on the route's median. The world's rules are about 15% faster a piece | Checks stay on in old. In the new engine each program is priced both ways; the world's rules are the candidate for unchecked |
 | 4a | Light is about half the card near the ground | 42% at the spawn, 17% at the mountain top, 17% beside the build, 25% of the route's median | 4b goes ahead. But light alone won't close the gap where it's widest |
 
@@ -97,6 +98,9 @@ The laptop at 2,560 × 1,600, a 240 budget of 4.17 ms a frame. Builds 110 and 11
   the laptop's memory. Its live levels weren't whole after 180 s (each tile takes about 3 times as long), so its
   numbers drew a slightly coarser picture.
 - **The twin drift** you found (`sight/cell.wgsl:76-89`) was left alone; it goes with the twin.
+- **What the hardware blend could win** is measured only on the route: probe P7's 41% (build 107). At the standing
+  marks it isn't measured yet. Builder offered the flights (crisp and the in-between against C, about 25 minutes, no
+  look); see section 5.
 
 ---
 
@@ -113,8 +117,8 @@ The laptop at 2,560 × 1,600, a 240 budget of 4.17 ms a frame. Builds 110 and 11
   - "near stepping is not the main cost; near light is" (your 4.2) doesn't hold beside builds. There light is 17%,
     and with it free the build mark is still 9.76 ms, 2.3 times the budget: the walk through quarter blocks is most
     of it.
+- **Settled by David's eye, as you left it:** crisp or soft. Soft, so the texture hardware does the blend (2).
 - **Not yet tested:**
-  - one-cell reads (2);
   - light looked up (4b);
   - the brick walk far (5) and near (6);
   - the rules in 32 bits (7);
@@ -135,13 +139,21 @@ The laptop at 2,560 × 1,600, a 240 budget of 4.17 ms a frame. Builds 110 and 11
 4. **The small card's enlarging pass at ten times the NVIDIA's cost:** what does that say about full-screen passes on
    cards that share memory, and about the 980 Ti's column?
 
-*(More as experiments 2, 4b, 5 and 6 land.)*
+5. **Soft bricks** (experiment 2):
+   - The memory plan roughly doubles: your 250 to 450 MB crisp becomes perhaps 500 to 900 MB. Does anything else in
+     the lens change with 3D textures, such as borders at brick edges, filtering across a level's hand-over, or the
+     empty-group mask under blended reads?
+   - Your case that flat ground gathers the same at both levels used exact lengths inside crisp cells. Does it hold
+     when every read is blended?
+
+*(More as experiments 4b, 5 and 6 land.)*
 
 ---
 
 ## 5. Still to come
 
-- [ ] Experiment 2: one-cell far reads against the blend (David's look)
+- [x] Experiment 2: one-cell far reads against the blend (David's looks): soft
+- [ ] Optional: the crisp and in-between flights at the marks (what the hardware blend could win there)
 - [ ] Experiment 4b: light stored in the baked cells, looked up
 - [ ] References from old; old frozen
 - [ ] The packing and the skeleton (2.1)
