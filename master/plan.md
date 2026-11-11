@@ -13,7 +13,7 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 - **Working on:** Phase 1, *Learn, in old*. Experiment 1 (the instruments) is being built.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** whether `Art/` and `For Claude/` go online.
+- **Waiting on David:** nothing until experiment 1 is ready to fly.
 - **David's next look:** two flights for experiment 1, when Builder asks for the screen.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look.
 
@@ -48,14 +48,15 @@ flowchart LR
 
 Each experiment's pass mark is written down before it flies.
 
-- [ ] **1.1 The safety copy** (the Oracle's step 0)
+- [x] **1.1 The safety copy** (the Oracle's step 0)
   - [x] David's work that wasn't in git: blocks, textures, models, palettes, presets (1e3c21c)
   - [x] `vision/`, `CLAUDE.md`, the dyno-audit skill (0216222)
   - [x] The logs the record cites, in `kept logs/`; `notes/` and `imgui.ini` kept out of git (a203cdd)
   - [x] Pushed to the private GitHub repository
   - [x] USB copy: `D:\Incus Artus Backups\Incus Artus 2026-11-11 before rebuild`
   - [x] Tagged `before-rebuild` (a203cdd)
-  - [ ] `Art/` and `For Claude/` online, or not: David's word
+  - [x] `Art/`'s new files and `For Claude/` kept off GitHub for now (David 2026-11-11: "Not yet"); both are
+        on the USB copy
 - [ ] **1.2 Experiment 1, the instruments** *(building)*
   - [ ] Flight headers say exactly what flew: every switch, the commit and whether it was clean, the card, the
         present mode
@@ -129,7 +130,7 @@ Each experiment's pass mark is written down before it flies.
 
 | Question | Waits on |
 |---|---|
-| `Art/` and `For Claude/` online? | 1.1 |
+| `Art/`'s new files and `For Claude/` online? "Not yet" for now | David, any time |
 | Far cells crisp or soft (one cell read, or eight blended)? | 1.4, David's look |
 | The control room as a page in the game's own panel? | 2.1 |
 | Old's new place: `old\` inside this folder (the default), or elsewhere? | 2.1 |
