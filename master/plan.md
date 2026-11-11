@@ -151,6 +151,10 @@ Each experiment's pass mark is written down before it flies.
 - **A GTX 980 Ti at 1080p:** a smooth 60, loosely. "If you have one, you should be able to play this game."
   Not a floor to design to.
 - Room left in the frame for people, animals, battles of up to 800 figures, and the simulation on the processor.
+- **Today's gap** (experiment 1, build 110, `docs/experiments.md`): on the laptop, standing, the card takes 1.4
+  times the budget at the spawn, 1.6 times on the mountain top and 2.8 times beside the quarter-block build; on
+  the route, the worst frames (99th percentile, new ground counted) take 13.9 ms, 3.3 times. The Intel card is 2.5
+  to 3.8 times slower than the NVIDIA, standing.
 
 ## What every step keeps
 
