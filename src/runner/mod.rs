@@ -611,6 +611,8 @@ impl Runner {
                     face_light: kept.sight_face_light() || std::env::var("INCUS_SIGHT_FACE_LIGHT").is_ok(),
                     // `INCUS_SIGHT_BLEND_FROM` for flights.
                     blend_from: std::env::var("INCUS_SIGHT_BLEND_FROM").ok().and_then(|v| v.parse().ok()).unwrap_or_else(|| kept.sight_blend_from()),
+                    // The far cells crisp (experiment 2): the Render page's switch, or `INCUS_SIGHT_CRISP` for flights.
+                    crisp: std::env::var("INCUS_SIGHT_CRISP").is_ok() || kept.sight_crisp(),
                 };
                 // The block textures (3.6), gathered again whenever the registry's change (a texture changed on
                 // disk, a block's data): once at the start, then seldom.

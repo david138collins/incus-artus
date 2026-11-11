@@ -275,11 +275,28 @@ fn entry_at(level: i32, cx: i32, cy: i32) -> vec2<u32> {
     return baked[u32(header[base + 3] + y * across + x)];
 }
 
+// The far cells read crisp: the one cell a point is in, in place of the eight round it (the Oracle's experiment 2,
+// 2026-11-11, for David's eye: the probe P7's read, which took 41% off sight at build 107). Set only for the crisp
+// build (`draw.rs`, `Eye::crisp`); in the game's own build it's false and the compiler leaves the branch out.
+override ONE_CELL: bool = false;
+
 // A smooth blend of the eight cells round `p` at `level` (trilinear: no threshold, so a slope's edge is a
 // gradient, never stairs); `known` false if any of them isn't there. Each of the four cell columns' entries
-// is read once, then its two cells.
+// is read once, then its two cells. (With `ONE_CELL`, the one cell `p` is in.)
 fn blend(level: i32, p: vec3<f32>) -> Look {
     let size = f32(1 << u32(level));
+    if (ONE_CELL) {
+        let c = vec3<i32>(floor(p / size));
+        let entry = entry_at(level, c.x, c.y);
+        if (entry.y == NOT_BAKED) {
+            return empty_look(false);
+        }
+        var one = from_band(entry.x, entry.y, c.z);
+        if (one.surface <= 0.0) {
+            one.colour = ROCK;
+        }
+        return one;
+    }
     let u = p / size - 0.5;
     let b = floor(u);
     let f = u - b;

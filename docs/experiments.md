@@ -255,3 +255,49 @@ story, though:
 - With it free, the spawn would be inside the 240 budget (3.46 ms against 4.17).
 - The mountain top (5.45) and the quarter-block build (9.76) would still be over it. There the rest of the march is
   the cost: the far view's reach and the near walk through pieces.
+
+---
+
+## Experiment 2: the far cells crisp, against today's blend  *(plan 1.4)*
+
+David's go: "yes go ahead" (2026-11-11).
+
+**Why.** The far march blends the eight cells round each point it reads (trilinear). Read alone, the cell a point is
+in took 41% off sight at build 107 (the probe P7, `kept logs/nsight/probes/march_p7_one_cell.wgsl`). The rebuild's
+bricks depend on David's eye here:
+- **Crisp is fine:** the bricks are plain buffers, 2.6 times the cells: the simplest and fastest form.
+- **Soft is needed:** the bricks become 3D textures with a border, 5.5 times the cells. The card's texture hardware
+  does the blend, and the memory plan doubles.
+
+### What was built (build 112)
+
+- `ONE_CELL`, an overridable constant in `march.wgsl`. In the crisp build, `blend()` reads only the cell a point is
+  in, as P7 did, for the far march and for the sun's and sky's rays that step through the cells. So the far view's
+  shape and colour change, and so do the edges of far shadows and sky light. In the game's own build it's false and
+  the compiler leaves the branch out.
+- The crisp build is compiled on a thread of its own the first time it's chosen (a few seconds, blended till then),
+  then kept, so switching back and forth is instant.
+- On the Render page: "Far cells crisp", next to the level hand-over slider. `INCUS_SIGHT_CRISP=1` for flights.
+- A card test, `sight_s_crisp_far_cells_draw`: the crisp build compiles and draws. Over a test scene, 10 to 16% of the
+  pixels differ from the blend, at the same brightness, with no black holes.
+
+### The pass mark (written before David's look)
+
+**David's look decides:** crisp is wrong, acceptable, or good. He looks at the same places both ways, still and moving:
+- standing at the spawn;
+- on the mountain top;
+- low over the sea, at the horizon;
+- flying.
+
+**What changes the plan:**
+- **Acceptable or good:** the bricks are plain buffers (crisp), and the far march's 8-cell blend goes from the rebuild's
+  design.
+- **Wrong:** the bricks are textures with borders (soft), and the memory plan is redone for 5.5 times the cells.
+- **Wrong in one place only** (only at the horizon, say): that's written down as a mixed answer, for the Oracle at the
+  fork.
+
+**Measured after the look**, for the record: a crisp flight against flight C, the route and the three marks.
+
+### Results
+
+*(to come: David's words, then the flight.)*

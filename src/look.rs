@@ -181,6 +181,12 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.add(egui::Slider::new(&mut blend_from, 0.3..=0.95).step_by(0.05).text("level hand-over starts at (later: narrower and faster; too late and rings show over flat water)")).changed() {
         kept.render.set_number("sight_blend_from", blend_from);
     }
+    // The Oracle's experiment 2 [2026-11-11]: the far cells read crisp, one at a time, against today's blend of eight,
+    // for David's eye (it decides the rebuild's bricks: crisp, plain and smaller; soft, textures the card blends).
+    let mut crisp = kept.sight_crisp();
+    if ui.checkbox(&mut crisp, format!("Far cells crisp: each read alone, not blended with its neighbours (experiment 2; the crisp build {})", crate::sight::draw::crisp_state())).changed() {
+        kept.render.set_flag("sight_crisp", crisp);
+    }
     // Block textures (3.6) [David 2026-11-08: "so the blocks are mipmapped, right? go ahead"]: on the blocks near
     // the eye; a texture changed on disk shows at once (the data watch).
     let mut textures = kept.sight_textures();
@@ -558,6 +564,11 @@ impl KeptSettings {
     /// Where in a level's stretch the far march's hand-over to the next begins (`draw::BLEND_FROM` unless chosen).
     pub fn sight_blend_from(&self) -> f32 {
         self.render.number("sight_blend_from", crate::sight::draw::BLEND_FROM)
+    }
+
+    /// The far cells read crisp, one at a time (experiment 2; off unless chosen).
+    pub fn sight_crisp(&self) -> bool {
+        self.render.flag("sight_crisp", false)
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).
