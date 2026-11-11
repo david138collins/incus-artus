@@ -108,7 +108,7 @@ The plan is `master/plan.md`.
 | 2 | Crisp: plain bricks at 2.6 times the cells, the simplest and fastest. Soft: 3D textures at 5.5 times, the texture hardware blending, the memory plan doubled | Crisp (build 112), David: "it doesn't look better ... sometimes it looked decent, other times a little janky". Shallow hills band as you move (stair-steps of whole cells sliding). A third way, crisp across and smooth in height (build 113): "its better than ziggurat lods but, its not better than blended" | **Soft bricks.** Crisp and the in-between stay as fallbacks for a card short of memory |
 | 3 | The library's checks cost 3 to 15%; ship unchecked | Unchecked, sight is **31 to 49% slower** at the three marks and 8.6% faster on the route's median. The world's rules are about 15% faster a piece | Checks stay on in old. In the new engine each program is priced both ways; the world's rules are the candidate for unchecked |
 | 4a | Light is about half the card near the ground | 42% at the spawn, 17% at the mountain top, 17% beside the build, 25% of the route's median | 4b goes ahead. But light alone won't close the gap where it's widest |
-| 8, early | The tablet at 1 to 4 GB a world | The test world exported as columns (ground, water, profile number; no caves or edits in this world): 0.22 bytes a column over four trial tiles of land round the spawn, about 1 GB if the whole world were like them; every 37th column of one tile checked matched old's own. The full run writes far less (0.08 GB at 59% of its tiles: much of the square is sea or past the map). *The full export's size and check: to come* | Not yet. Caves' boxes, edits and the summed levels aren't in it, so it's a floor, not the tablet's size |
+| 8, early | The tablet at 1 to 4 GB a world | The whole test world exported as columns: each column's ground, water and profile number, plus the world's 7 profiles. There are no caves or edits in this world. **5.2 billion columns in 0.11 GB**, 0.02 bytes a column (a sea tile's median 780 bytes, the largest land tile 74 KB, 0.28 bytes a column), written in 8 minutes on 22 threads. Read back one tile in 50: 104.6 million columns and 1,029,963 whole profiles, none differing from old's | The columns are a small part of your 1 to 4 GB. What's left to size is the summed levels, which this doesn't hold, and caves' boxes, which this world doesn't have (question 7) |
 | 4b | The lane lights each cell once, "about a thousandth of the work". If the lookup costs as much as the rays, light moves into the hit record's read or the bricks' layout is reconsidered | The lookup works and is cheap: the sweep takes 0.00 to 0.01 ms a frame, and the kept light is read across nearly all the far land. But the marks come down only **9%, 3% and 3%** (4a's ceiling: 42, 17, 17), and the route's median is 3% slower. The light's view shows why: the near block faces, lit per face every frame, fill most of every eye-level view | Neither of your two readings. The far half of the light lane holds as drawn, for the far view; David can't tell it from the rays "in a blind test". At eye level light's cost is the near faces'. Your 4.2 has them read light from the air cell in front, which 4b didn't try; experiment 6 does ("light looked up") |
 
 ### Today's gap
@@ -193,7 +193,7 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
   - near faces' light read from the air cell in front (6);
   - the brick walk far (5) and near (6);
   - the rules in 32 bits (7);
-  - the tablet's size (8), though the export of plain columns will give a floor.
+  - the tablet's size (8): its columns are measured (0.11 GB), but not its levels or its boxes.
 
 ---
 
@@ -244,8 +244,12 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
      that make bricks from it. If so, the bricks could be fixed with the eye, and the tablet left open for
      generation, as long as bricks can still be made from it. Does the tablet's layout matter to the frame
      anywhere, through loading in fast flight, edits or light?
-   - The export is plain columns at about 0.22 bytes each over land. Is that a good start for the tablet's columns, or does the
-     tablet want another layout (for loading in fast flight, or for the boxes)?
+   - The export holds the whole world's columns in 0.11 GB (0.28 bytes a column at most, on land). Is that a good
+     start for the tablet's columns, or does the tablet want another layout, for loading in fast flight or for the
+     boxes?
+   - With the columns this small, the tablet's size is mostly its summed levels (old's far bake, cells of 32 and up
+     only, is 200 MB). Should the fine levels be summed as they load, your experiment 8 fallback, even though the
+     size limit isn't pressing?
 
 *(More as experiments 5 and 6 land.)*
 
@@ -260,7 +264,7 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] References from old (1.6), listed in `master/references.md`: 24 pictures (six places, four times of day), the
       test world's maps and river network, 5,047 sample columns, and the marks' flights
 - [x] The export decided (David): the whole test world as columns, for the new eye (`world/export.rs`)
-- [ ] The full export written and checked; its size into experiment 8's row
+- [x] The full export written and checked: 0.11 GB, none differing (experiment 8's row)
 - [ ] Old frozen (`old-final`)
 - [ ] The packing and the skeleton (2.1)
 - [ ] Experiment 5: the eye, far (2.2)

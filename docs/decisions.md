@@ -1027,6 +1027,8 @@ Reference: `Art/quartile minecraft illustration.png`
     - Trial over four tiles round the spawn, all four written: every 37th column of one of them checked, all the same
       as old's own; 0.22 bytes a column, about 1 GB for the whole world if all of it were like the land at the spawn.
       The full run writes much less, since much of the square is sea or past the map.
+    - Written whole (61f0d4d): 5.2 billion columns in 0.11 GB, 7 profiles, in 8 minutes. Read back one tile in 50:
+      104.6 million columns and 1,029,963 whole profiles, none differing from old's.
     - Kept in `exports/` (not in git) and on the USB.
   - Still open, for the Oracle: the new format itself, cut so generation can grow.
 - **[DECIDED 2026-11-11] Old's pictures are a reference, not a yardstick** (David to Builder): "still not sure what

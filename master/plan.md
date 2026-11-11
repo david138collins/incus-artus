@@ -13,10 +13,11 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 - **Working on:** Phase 1, *Learn, in old*. Experiments 1, 2, 3, 4a and 4b done (2026-11-11, `docs/experiments.md`):
   soft bricks (the blend stays); light kept a cell at a time, which David can't tell from rays ("in a blind test"),
   though at eye level light's cost is the near faces'. The references from old are taken (1.6), and the test world
-  is being exported whole for the new eye to read. Then old is frozen (`old-final`), and the restart begins (2.1).
+  is exported whole for the new eye to read: 5.2 billion columns in 0.11 GB, checked against old's. Then old is
+  frozen (`old-final`), and the restart begins (2.1).
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on:** the export to finish and be checked (Builder); then David's OK for the tag `old-final`.
+- **Waiting on David:** his OK for the tag `old-final`. The export goes on the USB when the stick is in.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`.
 
