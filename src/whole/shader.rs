@@ -60,6 +60,28 @@ pub fn card() -> Option<(wgpu::Device, wgpu::Queue)> {
 /// its more performant or clean"].
 pub const STORAGE_BUFFERS_NEEDED: u32 = 10;
 
+/// Whether the big shaders (sight's march, the world's recipe) are compiled without the library's runtime checks
+/// (`INCUS_SHADERS_UNCHECKED`, the Oracle's experiment 3, 2026-11-11: what the checks cost in programs this size).
+pub fn unchecked() -> bool {
+    std::env::var("INCUS_SHADERS_UNCHECKED").is_ok()
+}
+
+/// A big shader compiled from `desc`: checked as usual, or without the library's runtime checks with
+/// `INCUS_SHADERS_UNCHECKED` (no buffer reads clamped to their bounds, no loops given a counter, no divisions guarded
+/// against zero). Measuring only, till the experiment says otherwise.
+pub fn big_module(device: &wgpu::Device, desc: wgpu::ShaderModuleDescriptor<'_>) -> wgpu::ShaderModule {
+    if unchecked() {
+        // SAFETY: assumed, not proven, which is part of what experiment 3 tests: the march and the recipe are meant to
+        // keep every buffer index inside its buffer themselves, their loops have a fixed most of steps, and their
+        // divisors aren't meant to be zero. A shader that broke this would draw or make differently from the checked
+        // build, which the flight's load check (the columns round the spawn against the processor's) and the picture
+        // tests run with this switch would show. A measuring switch only, never the default, till that's settled.
+        unsafe { device.create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked()) }
+    } else {
+        device.create_shader_module(desc)
+    }
+}
+
 /// wgpu's usual limits, but buffers as big as the card allows (a world's pack is larger than the usual 128 MB
 /// [2026-11-05: 182 MB, the default bake's maps at full size]), and as many storage buffers a shader as it allows.
 pub fn big_buffers(adapter: &wgpu::Adapter) -> wgpu::Limits {

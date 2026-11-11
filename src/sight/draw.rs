@@ -299,7 +299,8 @@ impl Passes {
     /// `source`'s passes, labelled from `label` ("sight's", "sight's twin"), bound to the face table (`faces`: its
     /// keys, their light, the slots taken listed, and the count).
     fn new(device: &wgpu::Device, source: &str, label: &str, faces: [&wgpu::Buffer; 4]) -> Self {
-        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some(&format!("{label} march")), source: wgpu::ShaderSource::Wgsl(source.into()) });
+        // Checked, or not (`INCUS_SHADERS_UNCHECKED`, measuring: `whole::shader::big_module`).
+        let module = crate::whole::shader::big_module(device, wgpu::ShaderModuleDescriptor { label: Some(&format!("{label} march")), source: wgpu::ShaderSource::Wgsl(source.into()) });
         let pipeline = |name: &str, entry: &str| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(&format!("{label} {name}")), layout: None, module: &module, entry_point: Some(entry), compilation_options: Default::default(), cache: None });
         let (march, start) = (pipeline("march", "march_pass"), pipeline("start pass", "start_pass"));
         let (march_hit, light_hit) = (pipeline("march, split", "march_hit"), pipeline("light", "light_hit"));

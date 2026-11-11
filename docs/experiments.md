@@ -149,3 +149,48 @@ store before it's built (the Oracle's "what changes the plan"). The marks' numbe
 rebuild is measured against.
 
 **Fixed after the flights:** the header's switches list no longer repeats the build's own stamp (`INCUS_BUILD*`).
+
+---
+
+## Experiments 3 and 4a: what the library's checks cost, and how much of each mark is light  *(plan 1.3)*
+
+David's go: "go ahead ... and start the tests" (2026-11-11).
+
+### What was built (build 111)
+
+- **Experiment 3:** `INCUS_SHADERS_UNCHECKED` compiles the two big shaders without wgpu's runtime checks
+  (`whole::shader::big_module`, `create_shader_module_trusted`): sight's march (all its passes) and the world's recipe
+  (the tiles and the bake). Three guards come out: buffer reads clamped to their bounds, loops given a counter, and
+  divisions guarded against zero. A measuring switch only, never the default.
+- **Experiment 4a:** no new code. `INCUS_SIGHT_NO_SKY` and `INCUS_SIGHT_NO_SHADOWS` switch sky light and sun shadows
+  off as the game runs. Their code stays in the shader, so this measures the work skipped, not a smaller program.
+
+### The pass marks (written before the flights)
+
+Three flights on the 5070 Ti in "NVIDIA GPU only", each as flight A (the route twice, then the three marks; the test
+world, the dyno's presets), all on build 111:
+- **C**: as built (checked): the baseline for both experiments, on the same build and the same day.
+- **D**: `INCUS_SHADERS_UNCHECKED=1`.
+- **E**: `INCUS_SIGHT_NO_SKY=1 INCUS_SIGHT_NO_SHADOWS=1`. It flies unchecked too if D shows the checks cost 3% or more
+  (then measured against D); otherwise checked (measured against C).
+
+**Experiment 3** passes as a measurement if:
+1. Unchecked draws and makes the same as checked. Sight's picture tests and the recipe's bit tests pass with the switch
+   on, and D's load check says the columns and cells round the spawn are the same as the processor's. If any of these
+   differs, that's a finding in itself (a shader relies on a guard) and is written down before anything else.
+2. D against C, for sight on the route (median, 95th, 99th), at each standing mark, and for the lanes' work a piece.
+
+**What changes the plan** (the Oracle's): if the checks cost 3% or more anywhere that matters (the route's median or
+tail, or a mark), every later experiment in old flies unchecked so the comparisons are fair, and the new engine ships
+unchecked with the checks kept in its tests. Under 3% (A/A noise is ±1.5% over a flight), the checks stay.
+
+**Experiment 4a** passes as a measurement if E's route and all three marks are measured against the right baseline,
+light's share given for each.
+
+**What changes the plan:** the Oracle expects light to be about half the card's work near the ground. If switching it
+off saves less than a fifth at the spawn mark, that expectation is wrong, and experiment 4b (light kept in the cells and
+looked up) is weighed again before it's built.
+
+### Results
+
+*(to come.)*

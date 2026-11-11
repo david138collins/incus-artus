@@ -224,7 +224,8 @@ pub fn send(device: &wgpu::Device, queue: &wgpu::Queue, map: &CompiledMap, caves
     let put = ms(started);
 
     let started = Instant::now();
-    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the recipe"), source: wgpu::ShaderSource::Wgsl((source() + COLUMNS + SIGHT).into()) });
+    // Checked, or not (`INCUS_SHADERS_UNCHECKED`, measuring: `whole::shader::big_module`).
+    let module = crate::whole::shader::big_module(device, wgpu::ShaderModuleDescriptor { label: Some("the recipe"), source: wgpu::ShaderSource::Wgsl((source() + COLUMNS + SIGHT).into()) });
     let pipeline = |entry: &str| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(entry), layout: None, module: &module, entry_point: Some(entry), compilation_options: Default::default(), cache: None });
     let columns = pipeline("columns");
     let compiled = ms(started);
