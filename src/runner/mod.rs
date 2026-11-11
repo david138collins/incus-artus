@@ -122,12 +122,17 @@ pub struct FileDropped(pub std::path::PathBuf);
 #[derive(Resource, Clone, Debug, Default)]
 pub struct ScreenshotRequest(pub Option<std::path::PathBuf>);
 
+/// Asked by the game: the next frame's world alone (sight and the objects, before the panels are painted over it)
+/// saved as a PNG here (the references from old: pictures the new engine's are set beside, whatever its panels).
+#[derive(Resource, Clone, Debug, Default)]
+pub struct WorldPicture(pub Option<std::path::PathBuf>);
+
 /// The colour the picture is cleared to (the sky's, for now: nothing else is drawn yet).
 const SKY: wgpu::Color = wgpu::Color { r: 0.25, g: 0.34, b: 0.52, a: 1.0 };
 
 /// Runs the game until it asks to quit or the window is closed.
 pub fn run(mut app: App) {
-    app.init_resource::<WindowState>().init_resource::<FrameCap>().init_resource::<TestCap>().init_resource::<BallastTarget>().init_resource::<ScreenshotRequest>().add_message::<FileDropped>();
+    app.init_resource::<WindowState>().init_resource::<FrameCap>().init_resource::<TestCap>().init_resource::<BallastTarget>().init_resource::<ScreenshotRequest>().init_resource::<WorldPicture>().add_message::<FileDropped>();
     #[cfg(feature = "dev")]
     app.insert_resource(BallastTarget(ballast::from_start()));
     // Plugins finish their set-up (Bevy's `App::run` did this).
@@ -633,13 +638,14 @@ impl Runner {
                 (store, eye, textures, objects)
             })
         };
-        let (capture, resize_to, minimize, limit, screenshot, fill_share) = {
+        let (capture, resize_to, minimize, limit, screenshot, fill_share, world_picture) = {
             let world = self.app.world_mut();
             let limit = world.resource::<TestCap>().0.unwrap_or(world.resource::<FrameCap>().0);
             let fill_share = world.resource::<crate::look::KeptSettings>().sight_fill_share();
             let screenshot = world.resource_mut::<ScreenshotRequest>().0.take();
+            let world_picture = world.resource_mut::<WorldPicture>().0.take();
             let mut state = world.resource_mut::<WindowState>();
-            (state.capture_mouse, state.resize_to.take(), state.minimize.take(), limit, screenshot, fill_share)
+            (state.capture_mouse, state.resize_to.take(), state.minimize.take(), limit, screenshot, fill_share, world_picture)
         };
         if let Some(minimized) = minimize {
             gpu.window.set_minimized(minimized);
@@ -724,6 +730,8 @@ impl Runner {
             } else {
                 false
             };
+            // The world alone, before the panels (`WorldPicture`).
+            let world_shot = world_picture.filter(|_| drew_sight && gpu.config.usage.contains(wgpu::TextureUsages::COPY_SRC)).map(|path| (path, copy_out(&gpu.device, &mut encoder, &texture.texture)));
             {
                 let load = if drew_sight { wgpu::LoadOp::Load } else { wgpu::LoadOp::Clear(SKY) };
                 let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load, store: wgpu::StoreOp::Store } };
@@ -754,6 +762,9 @@ impl Runner {
             }
             if let Some((path, (buffer, padded))) = shot {
                 // (F12 and the self-test only: the frame waits for the copy.)
+                save_screenshot(&gpu.device, buffer, padded, (gpu.config.width, gpu.config.height), gpu.config.format, path);
+            }
+            if let Some((path, (buffer, padded))) = world_shot {
                 save_screenshot(&gpu.device, buffer, padded, (gpu.config.width, gpu.config.height), gpu.config.format, path);
             }
             for id in &output.textures_delta.free {

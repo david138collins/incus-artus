@@ -162,7 +162,28 @@ pub struct Mark {
     pub clear: bool,
     /// Placings replayed before it's measured (the quarter-block build).
     pub build: Vec<Placing>,
+    /// How far over a player's eye the camera stands (blocks; 0 a player's own eye, over the ground or the sea).
+    pub above: f32,
+    /// Measured standing (the marks), or only pictured (the references' other places).
+    pub measured: bool,
 }
+
+/// The references' places besides the marks (`INCUS_DYNO_REFERENCES`: pictures of old to set the new engine's
+/// beside), only pictured: high over the spawn looking out, low over the sea at the route's far point looking at the
+/// horizon (`sea`, if the route has one), and the mountain top again with fog (the marks' is the clear day).
+pub fn reference_places(spawn: [i32; 2], top: &Mark, sea: Option<[f32; 2]>) -> Vec<Mark> {
+    let place = |name, at, heading, pitch, clear, above| Mark { name, at, heading, pitch, look_at: None, clear, build: Vec::new(), above, measured: false };
+    let mut places = vec![place("high over the spawn", [spawn[0] as f32 + 0.5, spawn[1] as f32 + 0.5], 0.0, -30.0, false, 400.0)];
+    if let Some(sea) = sea {
+        let heading = if sea[0].hypot(sea[1]) > 1.0 { sea[1].atan2(sea[0]).to_degrees().rem_euclid(360.0) } else { 0.0 };
+        places.push(place("low over the sea", sea, heading, -2.0, false, 20.0));
+    }
+    places.push(place("the mountain top with fog", top.at, top.heading, top.pitch, false, 0.0));
+    places
+}
+
+/// The times of day the references are pictured at: a name and the sun's height (degrees).
+pub const REFERENCE_TIMES: [(&str, f32); 4] = [("noon", 40.0), ("low sun", 10.0), ("dusk", -4.0), ("night", -25.0)];
 
 /// One placing as the event log tells it (`world/edits.rs`, an "edit request"): a whole block at a cell, or a bar of a
 /// block from its corner (half blocks) along an axis (0 north–south, 1 east–west, 2 upright), in a cell.
@@ -211,7 +232,7 @@ pub fn placings(log: &str) -> Vec<Placing> {
 pub fn marks(ground: &dyn Fn(f32, f32) -> Option<f32>, spawn: [i32; 2], build: Vec<Placing>) -> Vec<Mark> {
     let mut marks = Vec::new();
     // 1. On the ground at the spawn, looking north and level.
-    marks.push(Mark { name: "on the ground at the spawn", at: [spawn[0] as f32 + 0.5, spawn[1] as f32 + 0.5], heading: 0.0, pitch: 0.0, look_at: None, clear: false, build: Vec::new() });
+    marks.push(Mark { name: "on the ground at the spawn", at: [spawn[0] as f32 + 0.5, spawn[1] as f32 + 0.5], heading: 0.0, pitch: 0.0, look_at: None, clear: false, build: Vec::new(), above: 0.0, measured: true });
     // 2. The mountain top: the route's peak, then its highest block column within 50, looking out from the middle.
     let rough = peak_of(ground);
     let mut top = (rough, f32::MIN);
@@ -227,7 +248,7 @@ pub fn marks(ground: &dyn Fn(f32, f32) -> Option<f32>, spawn: [i32; 2], build: V
     }
     let top = [top.0[0].floor() + 0.5, top.0[1].floor() + 0.5];
     let heading = if top[0].hypot(top[1]) > 1.0 { top[1].atan2(top[0]).to_degrees().rem_euclid(360.0) } else { 0.0 };
-    marks.push(Mark { name: "the mountain top on a clear day", at: top, heading, pitch: -5.0, look_at: None, clear: true, build: Vec::new() });
+    marks.push(Mark { name: "the mountain top on a clear day", at: top, heading, pitch: -5.0, look_at: None, clear: true, build: Vec::new(), above: 0.0, measured: true });
     // 3. Beside the build: 8 blocks off its north side, half way along it, looking at its middle.
     if !build.is_empty() {
         let cells: Vec<[i32; 3]> = build.iter().map(Placing::cell).collect();
@@ -235,7 +256,7 @@ pub fn marks(ground: &dyn Fn(f32, f32) -> Option<f32>, spawn: [i32; 2], build: V
         let most = cells.iter().fold([i32::MIN; 3], |a, c| [a[0].max(c[0]), a[1].max(c[1]), a[2].max(c[2])]);
         let middle = [(least[0] + most[0] + 1) as f32 / 2.0, (least[1] + most[1] + 1) as f32 / 2.0, (least[2] + most[2] + 1) as f32 / 2.0];
         let at = [most[0] as f32 + 1.0 + 8.0, middle[1]];
-        marks.push(Mark { name: "beside the quarter-block build", at, heading: 180.0, pitch: 0.0, look_at: Some(middle), clear: false, build });
+        marks.push(Mark { name: "beside the quarter-block build", at, heading: 180.0, pitch: 0.0, look_at: Some(middle), clear: false, build, above: 0.0, measured: true });
     }
     marks
 }
@@ -469,6 +490,23 @@ mod tests {
         assert_eq!(marks[2].look_at, Some([102.0, 203.0, 141.5]));
         assert_eq!(marks[2].build, build);
         assert_eq!(super::marks(&ground, [0, 0], Vec::new()).len(), 2, "no build, no build mark");
+    }
+
+    /// The references' other places: high over the spawn looking out, low over the sea looking away from the middle,
+    /// the mountain top again with fog; all only pictured; no sea, no sea place.
+    #[test]
+    fn the_references_places_are_where_they_should_be() {
+        let top = &marks(&ground, [3, -4], Vec::new())[1];
+        let places = reference_places([3, -4], top, Some([0.0, -3000.0]));
+        let names: Vec<&str> = places.iter().map(|place| place.name).collect();
+        assert_eq!(names, ["high over the spawn", "low over the sea", "the mountain top with fog"]);
+        assert!(places.iter().all(|place| !place.measured));
+        assert_eq!((places[0].at, places[0].above, places[0].pitch), ([3.5, -3.5], 400.0, -30.0));
+        assert_eq!(places[1].above, 20.0);
+        assert!((places[1].heading - 270.0).abs() < 0.01, "looking away from the middle, west: {}", places[1].heading);
+        assert_eq!((places[2].at, places[2].clear), (top.at, false));
+        assert_eq!(reference_places([0, 0], top, None).len(), 2);
+        assert!(REFERENCE_TIMES.windows(2).all(|pair| pair[0].1 > pair[1].1), "noon down to night");
     }
 
     #[test]

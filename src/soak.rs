@@ -358,6 +358,8 @@ struct Dyno {
     by_mark: Vec<MarkRecord>,
     /// The fog as it was before a clear day's mark turned it off.
     fog_was: Option<bool>,
+    /// The sun's height as it was before the references' times of day (put back after each place).
+    sun_was: Option<f32>,
     /// The lanes' work read since sight's last reading (ms), for the next reading.
     lanes_pending: f32,
 }
@@ -373,8 +375,10 @@ enum MarkState {
     Rebuilding,
     /// Measured, standing still.
     Standing,
-    /// Measured; its picture taken (`screenshots/dyno/`, a reference for later), not measured.
-    Picture,
+    /// Measured (or only pictured): its pictures of the world alone, one a time of day with the references
+    /// (`REFERENCE_TIMES`, into `references/pictures/`), else one as it stands (`screenshots/dyno/`); not measured.
+    /// `index`: the time of day; `asked`: its picture asked for.
+    Pictures { index: usize, asked: bool },
 }
 
 /// What a mark measured: where it stood, how it settled, the build's placings, and its frames while settling and
@@ -527,6 +531,37 @@ fn end_of_route(dyno: &mut Dyno) {
     }
 }
 
+/// Whether the flight takes the references from old (`INCUS_DYNO_REFERENCES`, plan 1.6): the references' other places
+/// after the marks, each pictured at every time of day (`references/pictures/`), and the sample columns at the end.
+fn references() -> bool {
+    std::env::var("INCUS_DYNO_REFERENCES").is_ok()
+}
+
+/// The sample columns (plan 1.6, `references/columns.txt`): the world's ground and its river's or lake's water to the
+/// block (`CompiledMap::column`, what the chunks are filled from and the card's columns are checked against), on a grid
+/// of 1,000 blocks over the map and at each place pictured; the new engine's world is set beside them column by column.
+fn write_reference_columns(map: &crate::world::CompiledMap, places: &[crate::dyno::Mark]) {
+    let mut text = String::from("# The sample columns of old Incus Artus (plan 1.6): north, east, the ground's Z, the water's top (- none), or 'past the map'.\n");
+    let mut columns: Vec<(i32, i32)> = places.iter().map(|mark| (mark.at[0].floor() as i32, mark.at[1].floor() as i32)).collect();
+    for i in -35..=35 {
+        for j in -35..=35 {
+            columns.push((i * 1000, j * 1000));
+        }
+    }
+    for (north, east) in columns {
+        match map.column(north, east) {
+            Some((ground, water)) => text += &format!("{north} {east} {ground} {}\n", water.map_or("-".to_string(), |w| w.to_string())),
+            None => text += &format!("{north} {east} past the map\n"),
+        }
+    }
+    let path = crate::debug::project_folder().join("references").join("columns.txt");
+    let _ = std::fs::create_dir_all(path.parent().unwrap_or(&path));
+    match std::fs::write(&path, text) {
+        Ok(()) => info!("Dyno: the sample columns written to {}", path.display()),
+        Err(error) => warn!("Dyno: the sample columns couldn't be written ({error})"),
+    }
+}
+
 /// The build replayed at its mark: the placings in `INCUS_DYNO_BUILD`'s event log, or `THE_BUILD`'s (none if it can't
 /// be read, said in the log).
 fn the_build() -> Vec<crate::dyno::Placing> {
@@ -559,7 +594,7 @@ fn fly_marks(
     mut dyno: ResMut<Dyno>,
     terrain: Res<Terrain>,
     sight: Res<crate::world::SightStore>,
-    (voxel, registry, player, mut screenshot): (Res<crate::world::VoxelWorld>, Res<crate::data::BlockRegistry>, Res<crate::player::PlayerSettings>, ResMut<crate::runner::ScreenshotRequest>),
+    (voxel, registry, player, mut picture): (Res<crate::world::VoxelWorld>, Res<crate::data::BlockRegistry>, Res<crate::player::PlayerSettings>, ResMut<crate::runner::WorldPicture>),
     time: Res<Time<Real>>,
     mut mode: ResMut<ControlMode>,
     mut cameras: Query<&mut FlyCamera>,
@@ -575,9 +610,17 @@ fn fly_marks(
     let now = time.elapsed_secs();
     if dyno.marks.is_none() {
         let ground = |north: f32, east: f32| map.height(north, east);
-        let marks = crate::dyno::marks(&ground, voxel.spawn().to_array(), the_build());
+        let mut marks = crate::dyno::marks(&ground, voxel.spawn().to_array(), the_build());
+        // `INCUS_DYNO_REFERENCES`: the references' other places too, after the marks (the sea: where the route's
+        // "out to sea" ends).
+        if references()
+            && let Some(top) = marks.get(1).cloned()
+        {
+            let sea = dyno.legs.iter().rfind(|leg| leg.name == "out to sea").map(|leg| leg.to);
+            marks.extend(crate::dyno::reference_places(voxel.spawn().to_array(), &top, sea));
+        }
         let names: Vec<&str> = marks.iter().map(|mark| mark.name).collect();
-        info!("Dyno: the standing marks: {}", names.join(", "));
+        info!("Dyno: the standing marks{}: {}", if references() { " and the references' places" } else { "" }, names.join(", "));
         dyno.by_mark = marks.iter().map(|mark| MarkRecord { name: mark.name.to_string(), ..MarkRecord::default() }).collect();
         dyno.marks = Some(marks);
         dyno.mark = Some((0, MarkState::Arriving));
@@ -599,7 +642,7 @@ fn fly_marks(
     let column = IVec2::new(mark.at[0].floor() as i32, mark.at[1].floor() as i32);
     let top = top_solid(&voxel, &registry, column);
     let feet = top.map_or_else(|| map.height(mark.at[0], mark.at[1]).unwrap_or(SEA_LEVEL as f32).max(SEA_LEVEL as f32) + 2.0, |z| z as f32 + 1.0);
-    let eye = feet + player.eye_height;
+    let eye = feet.max(SEA_LEVEL as f32 + 1.0) + player.eye_height + mark.above;
     let pitch = mark.look_at.map_or(mark.pitch, |[north, east, z]| (z - eye).atan2((north - mark.at[0]).hypot(east - mark.at[1])).to_degrees());
     for mut camera in &mut cameras {
         camera.position = Vec3::new(mark.at[0], mark.at[1], eye);
@@ -615,7 +658,13 @@ fn fly_marks(
             let record = &mut dyno.by_mark[k];
             record.place = format!("north {:.1}, east {:.1}, the eye at {eye:.1} ({:.2} over the ground), facing {:.0}°, pitch {pitch:.1}°{}", mark.at[0], mark.at[1], player.eye_height, mark.heading, if mark.clear { ", fog off" } else { "" });
             record.settled.push(format!("the live levels {}", how(waited)));
-            Some(if mark.build.is_empty() { MarkState::Standing } else { MarkState::Building { sent: false } })
+            Some(if !mark.build.is_empty() {
+                MarkState::Building { sent: false }
+            } else if mark.measured {
+                MarkState::Standing
+            } else {
+                MarkState::Pictures { index: 0, asked: false }
+            })
         }
         MarkState::Building { sent: false } => {
             for placing in &mark.build {
@@ -654,32 +703,67 @@ fn fly_marks(
                 MarkState::Standing
             })
         }
-        MarkState::Standing if waited >= MARK_MEASURE => {
-            // Measured: its picture, as it stood (a reference for later, and what the light's view shows).
-            let folder = crate::debug::project_folder().join("screenshots").join("dyno");
-            let _ = std::fs::create_dir_all(&folder);
-            let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
-            let path = folder.join(format!("mark-{stamp}-{} {}.png", k + 1, mark.name));
-            info!("Dyno: {}: its picture, {}", mark.name, path.display());
-            dyno.by_mark[k].settled.push(format!("its picture: screenshots/dyno/{}", path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned())));
-            screenshot.0 = Some(path);
-            Some(MarkState::Picture)
-        }
-        MarkState::Picture if waited >= 0.5 => {
-            // The next mark, or the end; the fog put back after a clear day.
-            if mark.clear
-                && let Some(fog) = dyno.fog_was.take()
-            {
-                kept.render.set_flag("sight_fog", fog);
+        MarkState::Standing if waited >= MARK_MEASURE => Some(MarkState::Pictures { index: 0, asked: false }),
+        MarkState::Pictures { index, asked } => {
+            // Its pictures of the world alone: with the references, one at each time of day (the sun set, a moment to
+            // settle, the picture, a moment for it), else one as it stands.
+            let times: Vec<(&str, Option<f32>)> = if references() { crate::dyno::REFERENCE_TIMES.iter().map(|&(name, height)| (name, Some(height))).collect() } else { vec![("as set", None)] };
+            match (times.get(index), asked) {
+                (Some(&(_, height)), false) if waited >= 0.0 => {
+                    if let Some(height) = height {
+                        if dyno.sun_was.is_none() {
+                            dyno.sun_was = Some(kept.light.number("sun_height", 40.0));
+                        }
+                        if kept.light.number("sun_height", 40.0) != height {
+                            kept.light.set_number("sun_height", height);
+                            dyno.mark_since = now;
+                            return;
+                        }
+                    }
+                    // A moment for the light to settle, then the picture.
+                    if waited < 0.6 {
+                        return;
+                    }
+                    let path = if references() {
+                        let folder = crate::debug::project_folder().join("references").join("pictures");
+                        let _ = std::fs::create_dir_all(&folder);
+                        folder.join(format!("{:02} {} - {}.png", k + 1, mark.name, times[index].0))
+                    } else {
+                        let folder = crate::debug::project_folder().join("screenshots").join("dyno");
+                        let _ = std::fs::create_dir_all(&folder);
+                        let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+                        folder.join(format!("mark-{stamp}-{} {}.png", k + 1, mark.name))
+                    };
+                    info!("Dyno: {}: its picture, {}", mark.name, path.display());
+                    dyno.by_mark[k].settled.push(format!("its picture: {}", path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned())));
+                    picture.0 = Some(path);
+                    Some(MarkState::Pictures { index, asked: true })
+                }
+                (Some(_), true) if waited >= 0.4 => Some(MarkState::Pictures { index: index + 1, asked: false }),
+                (None, _) => {
+                    // The next place, or the end; the sun and the fog put back.
+                    if let Some(height) = dyno.sun_was.take() {
+                        kept.light.set_number("sun_height", height);
+                    }
+                    if mark.clear
+                        && let Some(fog) = dyno.fog_was.take()
+                    {
+                        kept.render.set_flag("sight_fog", fog);
+                    }
+                    if k + 1 < dyno.marks.as_ref().map_or(0, Vec::len) {
+                        dyno.mark = Some((k + 1, MarkState::Arriving));
+                        dyno.mark_since = now;
+                        dyno.jumped = true;
+                    } else {
+                        if references() {
+                            write_reference_columns(map, dyno.marks.as_deref().unwrap_or(&[]));
+                        }
+                        dyno.done = true;
+                    }
+                    return;
+                }
+                _ => None,
             }
-            if k + 1 < dyno.marks.as_ref().map_or(0, Vec::len) {
-                dyno.mark = Some((k + 1, MarkState::Arriving));
-                dyno.mark_since = now;
-                dyno.jumped = true;
-            } else {
-                dyno.done = true;
-            }
-            None
         }
         _ => None,
     };
@@ -732,7 +816,7 @@ fn record_dyno(world: &mut World) {
     };
     if let Some((k, state)) = dyno.mark {
         // At a mark: settling, or standing (its picture's frames not measured).
-        if let (Some(lanes), Some(record)) = (lanes.filter(|_| state != MarkState::Picture), dyno.by_mark.get_mut(k)) {
+        if let (Some(lanes), Some(record)) = (lanes.filter(|_| !matches!(state, MarkState::Pictures { .. })), dyno.by_mark.get_mut(k)) {
             take(if state == MarkState::Standing { &mut record.standing } else { &mut record.settling }, lanes);
         }
     } else if let Some(lanes) = lanes {
@@ -886,7 +970,10 @@ fn dyno_report(dyno: &Dyno, shown: Shown, patch: Option<String>) -> String {
             if let Some((asked, cells, refused)) = record.build {
                 text += &format!("    the build: {asked} placings replayed, {cells} cells changed, {refused} refused (David's session: 1 refused)\n");
             }
-            text += &format!("    standing: {}\n", crate::dyno::line(&record.standing));
+            // (The references' other places are only pictured: no standing.)
+            if !record.standing.frames.is_empty() {
+                text += &format!("    standing: {}\n", crate::dyno::line(&record.standing));
+            }
             text += &format!("    settling: {}\n", crate::dyno::line(&record.settling));
         }
     }
