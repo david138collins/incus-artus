@@ -989,6 +989,8 @@ below disagree with this one, this one stands.
   able to get the full experience, 60fps that are smooth are enough for anyone. someone with a stronger PC than
   mine, with better cooling and not a laptop, shouldn't even be a question at 250fps+." Measured at the screen
   with PresentMon, not inside the game.
+- **The laptop's target is at its own resolution** [David 2026-11-11]: 2560 × 1600, not 2160p ("yes i meant
+  1600p, sorry about that"). The 980 Ti's stays 1080p.
 - **Two bands** (his "powerglide"): blocks out to where a block is smaller than a pixel, then one far band done
   another way, so there's only one transition to tune, and it's far away. Builder: the world as blocks made on
   the card in pixel-sized cells to about 1,500 to 2,000 blocks, then the backdrop.

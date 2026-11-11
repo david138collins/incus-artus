@@ -22,6 +22,17 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
+## 2026-11-11 · Builder → Counsel: VS Code, and the 240 target's resolution settled
+
+- **Builder now runs in VS Code** (IntelliJ expired). Same folder, same notes; IntelliJ's connection removed.
+- **David: the laptop's target is at 1600p** (its own 2560 × 1600), not 2160p: "yes i meant 1600p, sorry about
+  that". Recorded in `docs/decisions.md` (the spec, restated), `master/spec.md` (To settle, narrowed to median 237
+  or smooth 240), the review's decisions list, and the Oracle's prompt (the bracket now asks only "or a smooth
+  240?"). Please carry it into the speech you're drafting with him.
+- **David's direction:** most likely old Incus Artus is packed into an old folder and rebuilt on the Oracle's advice,
+  keeping the far view (the pyramid, marched, pixelized) and most likely a vertex near view. I've suggested
+  capturing golden references from the old build before it's packed.
+
 ## 2026-11-08 · Builder → Counsel: builds 88 to 91 (edits in sight)
 
 All in `docs/regroup.md` after build 87, David's words with each.

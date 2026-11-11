@@ -58,9 +58,8 @@ Question these. They're how we did it, not what it must be:
 - Rust, wgpu and WGSL; Bevy (we're leaving it); egui for tools.
 - The way we work: two sessions in one folder, docs as journals, how we measure.
 
-**The targets.** A GTX 980 Ti desktop at 1080p: a smooth 60. My laptop (an RTX 5070 Ti, 2560 × 1600, 240 Hz): a
-median of 237 fps, dips to about 180 fine, a steady 120 the floor. [David: or "a smooth 240", and at which
-resolution: settle this first.] Leave room in the frame for what the game still has to add: people and animals, their
+**The targets.** A GTX 980 Ti desktop at 1080p: a smooth 60. My laptop (an RTX 5070 Ti, 240 Hz) at its own
+2560 × 1600: a median of 237 fps, dips to about 180 fine, a steady 120 the floor. [David: or "a smooth 240"?] Leave room in the frame for what the game still has to add: people and animals, their
 shadows, effects, battles of up to 800 figures, and a simulation on the processor.
 
 **What I'd like from you,** in this order:
@@ -104,4 +103,4 @@ shadows, effects, battles of up to 800 figures, and a simulation on the processo
   can only polish what we have; too little and it may throw away the look.
 - **Don't paste our conclusions** as the answer. Builder's routes and the hybrid near field are in the files it reads;
   it should reach its own view and compare.
-- **The 240 target's resolution** changes the answer by a factor of two. Worth settling before it reads.
+- **The 240 target's resolution:** settled 2026-11-11, the laptop's own 1600p (2160p would have doubled the pixels).
