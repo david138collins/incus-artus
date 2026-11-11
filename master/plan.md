@@ -17,7 +17,7 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
   frozen (`old-final`), and the restart begins (2.1).
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his OK for the tag `old-final`. The export goes on the USB when the stick is in.
+- **Waiting on David:** the USB stick, for the export's copy. (`old-final` is tagged: 7c809d3.)
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`.
 
@@ -96,7 +96,8 @@ Each experiment's pass mark is written down before it flies.
   - [x] The marks' flights, with the repaired instruments (C and C2, the Intel card's B; `master/references.md`)
   - [x] The default preset's maps and river network; sample columns (the test world's, nice25 with the dyno's
         presets, not the startup default: `references/world/`, `references/columns.txt`, 5,047 columns)
-  - [ ] Tagged `old-final`
+  - [x] Tagged `old-final` (7c809d3, pushed; after the events log the third mark replays went in. David: "so,
+        we'll pack up the old incus artus into old, and just use it for looking at and reference")
   - [x] The test world exported whole as columns, for the new eye to read, so it never runs old's world gen. David:
         "export nice25 so that we can use it as a 'generated' world to look at with the new graphics engine, before
         rebuilding world gen after the graphics engine is done." (`world/export.rs`, a7d3cfb; kept in `exports/`
