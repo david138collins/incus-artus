@@ -991,6 +991,14 @@ Reference: `Art/quartile minecraft illustration.png`
   with old open beside it"; old's code is copied in pieces only where David or the look says it's right.
 - **Experiments first, in old:** "the first order of business is to run some experiments on old incus artus to
   further inform our plans to rebuild it, better, faster, stronger."
+- **The eye first, and rigour throughout** (2026-11-11, after experiment 3's surprise): "it illustrates why we need
+  to be rigorous and scientific while rebuilding incus artus. and i've been thinking about how important it is to
+  start with the graphics solution knocked out of the park. the rest of it is mostly fun and frolicking. getting the
+  computationally restrictive and demanding part, that makes such a difference to the game experience, should have
+  come first. but, its always a process of iterating on processes. sometimes there's just no way to make a thing
+  right the first time and you have to go through prototypes." *Counsel:* the plan already has this order. Phase 2
+  is the eye, and it's whole and walked by David before the world is rebuilt. Old was the prototype that found the
+  look and made the experiments possible.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

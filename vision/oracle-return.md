@@ -20,6 +20,10 @@ All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "W
   you don't know how to do something unless you can do it again from memory." Your "port" verdicts become "rebuilt
   with old open beside it". Old's code is copied in pieces only where David or the look says it's right.
 - **Experiments first, in old,** as you advised.
+- **The eye first, and rigour throughout.** After experiment 3's surprise: "it illustrates why we need to be rigorous
+  and scientific while rebuilding incus artus ... how important it is to start with the graphics solution knocked out
+  of the park. the rest of it is mostly fun and frolicking." He sees old as the prototype it took to get here: "sometimes
+  there's just no way to make a thing right the first time and you have to go through prototypes."
 - **The near field:** rays "if they're cheap, and if that writes elegant compact code that is easier to manage";
   triangles for actors; "triangles for everything in the near field *if* it can look right and there are no
   jarring pops or seams."
