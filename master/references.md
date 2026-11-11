@@ -14,7 +14,7 @@ Not the startup default world.
 
 - **Its definition:** `references/world/`.
   - The recipe's settings: `compiled.toml`.
-  - Its thirteen maps: `map-*.png` (height, coast, coast distance, lift distance, push strength and direction,
+  - Its eleven maps: `map-*.png` (height, coast, coast distance, lift distance, push strength, push x and y,
     squeeze, rain, temperature, tilt).
   - Its river network: `rivers.txt`.
   - Its terrain and world files.
