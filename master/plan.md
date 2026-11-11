@@ -90,9 +90,11 @@ Each experiment's pass mark is written down before it flies.
     (at eye level light's cost is the near faces'). David on light that steps: "i don't think i could tell the
     difference between the two in a blind test".
 - [ ] **1.6 References from old, then old frozen**
-  - [ ] Pictures at fixed places, times of day and settings
-  - [ ] The marks' flights, with the repaired instruments
-  - [ ] The default preset's maps and river network; sample columns
+  - [x] Pictures at fixed places, times of day and settings (24: six places, four times of day; `references/pictures/`,
+        `master/references.md`)
+  - [x] The marks' flights, with the repaired instruments (C and C2, the Intel card's B; `master/references.md`)
+  - [x] The default preset's maps and river network; sample columns (the test world's, nice25 with the dyno's
+        presets, not the startup default: `references/world/`, `references/columns.txt`, 5,047 columns)
   - [ ] Tagged `old-final`
   - *To decide before the tag:* whether old exports nice25's blocks where the new eye will work, so the eye never
     runs old's world gen (David's concern, 2026-11-11; the open question below)

@@ -1,0 +1,1804 @@
+width = 2250
+blocks_per_pixel = 32.0
+seed = "bb547d7bb414556f"
+water = -1.0
+lowest = -2.6303644
+highest = 8.760665
+most_crushed = 5.0870843
+most_stretched = -0.46871603
+mountain_points = [
+    [
+    36496.0,
+    16144.0,
+],
+    [
+    36176.0,
+    16400.0,
+],
+    [
+    37904.0,
+    16720.0,
+],
+    [
+    34480.0,
+    16912.0,
+],
+    [
+    37456.0,
+    17104.0,
+],
+    [
+    33168.0,
+    17136.0,
+],
+    [
+    37616.0,
+    17168.0,
+],
+    [
+    33776.0,
+    17360.0,
+],
+    [
+    35152.0,
+    17360.0,
+],
+    [
+    36688.0,
+    17392.0,
+],
+    [
+    37360.0,
+    17680.0,
+],
+    [
+    35440.0,
+    17808.0,
+],
+    [
+    37712.0,
+    17840.0,
+],
+    [
+    38288.0,
+    17872.0,
+],
+    [
+    38608.0,
+    17904.0,
+],
+    [
+    38672.0,
+    17904.0,
+],
+    [
+    38896.0,
+    17904.0,
+],
+    [
+    37008.0,
+    18000.0,
+],
+    [
+    32944.0,
+    18032.0,
+],
+    [
+    35984.0,
+    18096.0,
+],
+    [
+    36752.0,
+    18320.0,
+],
+    [
+    33552.0,
+    18416.0,
+],
+    [
+    33232.0,
+    18960.0,
+],
+    [
+    38960.0,
+    19056.0,
+],
+    [
+    31344.0,
+    19472.0,
+],
+    [
+    40080.0,
+    19600.0,
+],
+    [
+    40528.0,
+    20016.0,
+],
+    [
+    30960.0,
+    20240.0,
+],
+    [
+    42000.0,
+    20240.0,
+],
+    [
+    42928.0,
+    20464.0,
+],
+    [
+    43344.0,
+    20464.0,
+],
+    [
+    40048.0,
+    20624.0,
+],
+    [
+    46864.0,
+    21072.0,
+],
+    [
+    48336.0,
+    21136.0,
+],
+    [
+    49008.0,
+    21168.0,
+],
+    [
+    48624.0,
+    21200.0,
+],
+    [
+    48688.0,
+    21200.0,
+],
+    [
+    45392.0,
+    21360.0,
+],
+    [
+    45808.0,
+    21744.0,
+],
+    [
+    46160.0,
+    21776.0,
+],
+    [
+    51472.0,
+    22160.0,
+],
+    [
+    53232.0,
+    22512.0,
+],
+    [
+    48048.0,
+    22576.0,
+],
+    [
+    49328.0,
+    22608.0,
+],
+    [
+    53552.0,
+    23376.0,
+],
+    [
+    55216.0,
+    23728.0,
+],
+    [
+    56112.0,
+    24752.0,
+],
+    [
+    56272.0,
+    24752.0,
+],
+    [
+    53808.0,
+    24784.0,
+],
+    [
+    54672.0,
+    24880.0,
+],
+    [
+    57072.0,
+    25680.0,
+],
+    [
+    54000.0,
+    25936.0,
+],
+    [
+    56944.0,
+    25936.0,
+],
+    [
+    57136.0,
+    26000.0,
+],
+    [
+    57744.0,
+    26416.0,
+],
+    [
+    56496.0,
+    26544.0,
+],
+    [
+    56624.0,
+    26608.0,
+],
+    [
+    53200.0,
+    26768.0,
+],
+    [
+    55376.0,
+    26832.0,
+],
+    [
+    58000.0,
+    26928.0,
+],
+    [
+    55024.0,
+    27056.0,
+],
+    [
+    56528.0,
+    27184.0,
+],
+    [
+    53552.0,
+    27504.0,
+],
+    [
+    54064.0,
+    27696.0,
+],
+    [
+    53264.0,
+    27888.0,
+],
+    [
+    55952.0,
+    27888.0,
+],
+    [
+    28880.0,
+    27952.0,
+],
+    [
+    56528.0,
+    27952.0,
+],
+    [
+    52944.0,
+    28080.0,
+],
+    [
+    56016.0,
+    28144.0,
+],
+    [
+    54448.0,
+    28176.0,
+],
+    [
+    56048.0,
+    28528.0,
+],
+    [
+    56208.0,
+    28656.0,
+],
+    [
+    19824.0,
+    28688.0,
+],
+    [
+    31792.0,
+    28720.0,
+],
+    [
+    31632.0,
+    29392.0,
+],
+    [
+    31632.0,
+    29456.0,
+],
+    [
+    50928.0,
+    29520.0,
+],
+    [
+    28656.0,
+    29552.0,
+],
+    [
+    27760.0,
+    29840.0,
+],
+    [
+    20144.0,
+    30032.0,
+],
+    [
+    51632.0,
+    30032.0,
+],
+    [
+    56240.0,
+    30064.0,
+],
+    [
+    53744.0,
+    30096.0,
+],
+    [
+    52784.0,
+    30128.0,
+],
+    [
+    59664.0,
+    30736.0,
+],
+    [
+    51184.0,
+    30960.0,
+],
+    [
+    58352.0,
+    31088.0,
+],
+    [
+    24144.0,
+    31216.0,
+],
+    [
+    60144.0,
+    31568.0,
+],
+    [
+    51248.0,
+    31664.0,
+],
+    [
+    59888.0,
+    31664.0,
+],
+    [
+    53072.0,
+    31824.0,
+],
+    [
+    60080.0,
+    31888.0,
+],
+    [
+    33104.0,
+    32048.0,
+],
+    [
+    21296.0,
+    32240.0,
+],
+    [
+    30800.0,
+    32304.0,
+],
+    [
+    38416.0,
+    32464.0,
+],
+    [
+    49744.0,
+    32496.0,
+],
+    [
+    35536.0,
+    32528.0,
+],
+    [
+    53360.0,
+    32528.0,
+],
+    [
+    37360.0,
+    32624.0,
+],
+    [
+    38192.0,
+    32624.0,
+],
+    [
+    37520.0,
+    32656.0,
+],
+    [
+    31344.0,
+    32688.0,
+],
+    [
+    35056.0,
+    32720.0,
+],
+    [
+    31888.0,
+    32784.0,
+],
+    [
+    56048.0,
+    32912.0,
+],
+    [
+    33456.0,
+    32944.0,
+],
+    [
+    29616.0,
+    33040.0,
+],
+    [
+    30832.0,
+    33104.0,
+],
+    [
+    29104.0,
+    33168.0,
+],
+    [
+    36976.0,
+    33168.0,
+],
+    [
+    59312.0,
+    33264.0,
+],
+    [
+    29584.0,
+    33584.0,
+],
+    [
+    36048.0,
+    33584.0,
+],
+    [
+    32048.0,
+    33712.0,
+],
+    [
+    35216.0,
+    33712.0,
+],
+    [
+    38576.0,
+    33872.0,
+],
+    [
+    37552.0,
+    34064.0,
+],
+    [
+    51792.0,
+    34192.0,
+],
+    [
+    30320.0,
+    34224.0,
+],
+    [
+    36464.0,
+    34288.0,
+],
+    [
+    33360.0,
+    34416.0,
+],
+    [
+    29040.0,
+    34608.0,
+],
+    [
+    28560.0,
+    34704.0,
+],
+    [
+    27984.0,
+    35088.0,
+],
+    [
+    35888.0,
+    35152.0,
+],
+    [
+    54832.0,
+    35152.0,
+],
+    [
+    27376.0,
+    35184.0,
+],
+    [
+    35664.0,
+    35280.0,
+],
+    [
+    27792.0,
+    35472.0,
+],
+    [
+    38064.0,
+    35568.0,
+],
+    [
+    52208.0,
+    35600.0,
+],
+    [
+    37488.0,
+    35728.0,
+],
+    [
+    35120.0,
+    35824.0,
+],
+    [
+    27248.0,
+    36144.0,
+],
+    [
+    36528.0,
+    36304.0,
+],
+    [
+    35632.0,
+    36368.0,
+],
+    [
+    35344.0,
+    36432.0,
+],
+    [
+    35344.0,
+    36496.0,
+],
+    [
+    36112.0,
+    36624.0,
+],
+    [
+    50064.0,
+    36784.0,
+],
+    [
+    36336.0,
+    36816.0,
+],
+    [
+    41648.0,
+    36880.0,
+],
+    [
+    38576.0,
+    37136.0,
+],
+    [
+    35440.0,
+    37424.0,
+],
+    [
+    38256.0,
+    37424.0,
+],
+    [
+    35056.0,
+    37744.0,
+],
+    [
+    47536.0,
+    37744.0,
+],
+    [
+    41616.0,
+    37808.0,
+],
+    [
+    35152.0,
+    37904.0,
+],
+    [
+    50128.0,
+    37904.0,
+],
+    [
+    34416.0,
+    37936.0,
+],
+    [
+    53424.0,
+    38032.0,
+],
+    [
+    37840.0,
+    38224.0,
+],
+    [
+    42064.0,
+    38320.0,
+],
+    [
+    43952.0,
+    38384.0,
+],
+    [
+    53232.0,
+    38512.0,
+],
+    [
+    49392.0,
+    38544.0,
+],
+    [
+    38928.0,
+    38608.0,
+],
+    [
+    46928.0,
+    38608.0,
+],
+    [
+    37712.0,
+    38640.0,
+],
+    [
+    40528.0,
+    38768.0,
+],
+    [
+    46416.0,
+    38800.0,
+],
+    [
+    47056.0,
+    38800.0,
+],
+    [
+    49968.0,
+    39024.0,
+],
+    [
+    37328.0,
+    39280.0,
+],
+    [
+    48560.0,
+    39376.0,
+],
+    [
+    36976.0,
+    39824.0,
+],
+    [
+    39664.0,
+    39920.0,
+],
+    [
+    36944.0,
+    40016.0,
+],
+    [
+    39440.0,
+    40016.0,
+],
+    [
+    44496.0,
+    40016.0,
+],
+    [
+    37296.0,
+    40080.0,
+],
+    [
+    41136.0,
+    40144.0,
+],
+    [
+    44944.0,
+    40176.0,
+],
+    [
+    48496.0,
+    40240.0,
+],
+    [
+    38320.0,
+    40432.0,
+],
+    [
+    38704.0,
+    40496.0,
+],
+    [
+    38288.0,
+    40560.0,
+],
+    [
+    48656.0,
+    40560.0,
+],
+    [
+    40016.0,
+    40592.0,
+],
+    [
+    44880.0,
+    40848.0,
+],
+    [
+    47984.0,
+    40944.0,
+],
+    [
+    39472.0,
+    40976.0,
+],
+    [
+    45776.0,
+    41104.0,
+],
+    [
+    43248.0,
+    41680.0,
+],
+    [
+    44336.0,
+    42000.0,
+],
+    [
+    44272.0,
+    42160.0,
+],
+    [
+    43728.0,
+    42704.0,
+],
+    [
+    43504.0,
+    42800.0,
+],
+    [
+    46160.0,
+    43280.0,
+],
+    [
+    38736.0,
+    43408.0,
+],
+    [
+    42192.0,
+    43568.0,
+],
+    [
+    43824.0,
+    43600.0,
+],
+    [
+    48112.0,
+    44240.0,
+],
+    [
+    40368.0,
+    44400.0,
+],
+    [
+    46448.0,
+    44432.0,
+],
+    [
+    42608.0,
+    44464.0,
+],
+    [
+    42224.0,
+    45104.0,
+],
+    [
+    46512.0,
+    45200.0,
+],
+    [
+    46992.0,
+    45232.0,
+],
+    [
+    46352.0,
+    45488.0,
+],
+    [
+    47760.0,
+    45520.0,
+],
+    [
+    47984.0,
+    45808.0,
+],
+    [
+    39120.0,
+    46096.0,
+],
+    [
+    47888.0,
+    46320.0,
+],
+    [
+    40336.0,
+    46608.0,
+],
+    [
+    46320.0,
+    46608.0,
+],
+    [
+    40304.0,
+    46736.0,
+],
+    [
+    42288.0,
+    46832.0,
+],
+    [
+    42416.0,
+    46832.0,
+],
+    [
+    44752.0,
+    47120.0,
+],
+    [
+    46544.0,
+    47152.0,
+],
+    [
+    40016.0,
+    47312.0,
+],
+    [
+    42032.0,
+    47568.0,
+],
+    [
+    43088.0,
+    47728.0,
+],
+    [
+    41104.0,
+    48432.0,
+],
+    [
+    41040.0,
+    49168.0,
+],
+    [
+    46832.0,
+    49360.0,
+],
+    [
+    46512.0,
+    49680.0,
+],
+    [
+    46608.0,
+    49872.0,
+],
+    [
+    44656.0,
+    50064.0,
+],
+    [
+    40688.0,
+    50640.0,
+],
+    [
+    41200.0,
+    50640.0,
+],
+    [
+    44816.0,
+    50736.0,
+],
+    [
+    43920.0,
+    50832.0,
+],
+    [
+    44176.0,
+    51088.0,
+],
+    [
+    48272.0,
+    51088.0,
+],
+    [
+    47184.0,
+    51184.0,
+],
+    [
+    46416.0,
+    51408.0,
+],
+    [
+    49904.0,
+    51440.0,
+],
+    [
+    48240.0,
+    51536.0,
+],
+    [
+    40464.0,
+    51696.0,
+],
+    [
+    44496.0,
+    51696.0,
+],
+    [
+    40464.0,
+    51792.0,
+],
+    [
+    45008.0,
+    51920.0,
+],
+    [
+    40176.0,
+    52048.0,
+],
+    [
+    38832.0,
+    52592.0,
+],
+    [
+    48880.0,
+    52688.0,
+],
+    [
+    22960.0,
+    52848.0,
+],
+    [
+    45232.0,
+    52976.0,
+],
+    [
+    23632.0,
+    53136.0,
+],
+    [
+    41072.0,
+    53232.0,
+],
+    [
+    48112.0,
+    53360.0,
+],
+    [
+    47056.0,
+    53744.0,
+],
+    [
+    47152.0,
+    54128.0,
+],
+    [
+    26416.0,
+    54448.0,
+],
+    [
+    40880.0,
+    54480.0,
+],
+    [
+    42480.0,
+    54544.0,
+],
+    [
+    46448.0,
+    54544.0,
+],
+    [
+    42192.0,
+    54576.0,
+],
+    [
+    45072.0,
+    54608.0,
+],
+    [
+    26320.0,
+    55280.0,
+],
+    [
+    27408.0,
+    56080.0,
+],
+    [
+    25296.0,
+    56592.0,
+],
+    [
+    30864.0,
+    56752.0,
+],
+    [
+    29008.0,
+    57712.0,
+],
+    [
+    27792.0,
+    57840.0,
+],
+    [
+    28272.0,
+    57840.0,
+],
+]
+cooling = 0.13000001
+spawn = [
+    0,
+    0,
+]
+
+[ranges]
+coast = [
+    -0.030000046,
+    0.030000044,
+]
+coast_distance = [
+    -33606.047,
+    7568.6235,
+]
+height = [
+    -2.6303823,
+    8.673866,
+]
+lift_distance = [
+    0.0,
+    34848.824,
+]
+push_strength = [
+    -0.0000014567785,
+    0.8894406,
+]
+push_x = [
+    -0.9999904,
+    1.0000039,
+]
+push_y = [
+    -0.9999962,
+    0.9999985,
+]
+rain = [
+    0.0,
+    1.0,
+]
+squeeze = [
+    -0.46871603,
+    5.0870843,
+]
+temperature = [
+    -0.61212957,
+    0.7000003,
+]
+tilt = [
+    -1.0604817,
+    0.96311074,
+]
+
+[interpreter]
+deepest = 66.0
+highlands = 256.0
+ceiling = 1023.0
+grade = 1.0
+coast_rise = 32.0
+coast_edge_width = 1322.9999
+coast_fall_back = 40000.0
+ridges = 2.0
+ridge_layers = 2
+ridge_roughness = 1.0
+ridge_alignment = 2.0
+steady_ridges = true
+ridge_wander = 1440.0
+ridge_wander_size = 4100.0
+ridge_spacing = 666.6666
+ridge_length = 2062.7485
+sharpness = 1.17
+detail = 12.0
+detail_keeps_coast = false
+noise_maths = "whole_numbers"
+recipe_maths = "whole_numbers"
+
+[interpreter.land]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    0.825,
+],
+]
+bends = [-0.39166656]
+
+[interpreter.sea]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.44666666,
+    0.49583334,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [
+    -0.5083335,
+    -0.4583338,
+]
+
+[interpreter.coast_edge]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [-0.23333246]
+
+[interpreter.lift]
+height = 55.0
+reach = 25000.0
+pad = 5200.0
+pad_falloff = 3.0
+from = "Points"
+least = 0.3
+most = 1.0
+spacing = 800.0
+range_cut = 0.65
+smallest_range = 250.0
+
+[interpreter.lift.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.01,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [
+    -1.0,
+    -0.6750005,
+]
+
+[interpreter.peaks]
+on = true
+height = 512.0
+height_spread = 0.29
+width = 1551.3281
+width_spread = 1.33
+wobble = 1.0
+wobble_spread = 2.0
+add = true
+crags = 1.0
+crag_size = 750.0
+crag_layers = 6
+crag_finer = 1.6
+crag_weaker = 0.78800017
+foot_fade = 0.15
+summit = 41.600006
+summit_from = 256.0
+summit_full = 700.0
+coast_fade = 1600.0
+coast_falloff = 0.45
+steepest = 3.8807933
+carve_below = true
+
+[interpreter.peaks.rise]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [-0.8083334]
+
+[interpreter.peaks.finer_by_layer]
+dots = [
+    [
+    0.0,
+    1.0,
+],
+    [
+    0.33,
+    0.1375,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [
+    1.0,
+    -0.033333514,
+]
+
+[interpreter.peaks.weaker_by_layer]
+dots = [
+    [
+    0.0,
+    1.0,
+],
+    [
+    0.8983333,
+    0.7375,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[interpreter.peaks.summit_noise]
+scale = 280.0
+octaves = 4
+persistence = 0.48
+lacunarity = 2.05
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 0
+fill_range = true
+contrast = 2.649999
+brightness = 0.0
+curve = 3.1
+invert = false
+
+[interpreter.peaks.summit_fade]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [0.15833357]
+
+[interpreter.peaks.slope_response]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [0.19166651]
+
+[interpreter.mountains]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.2569316,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [
+    -0.3750001,
+    -0.09166677,
+]
+
+[interpreter.detail_noise]
+scale = 410.0
+octaves = 5
+persistence = 0.0
+lacunarity = 4.0
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 0
+fill_range = true
+contrast = 2.35
+brightness = -0.32999998
+curve = 2.3
+invert = false
+
+[interpreter.detail_mask]
+source = "Coast"
+invert = false
+reach = 4800.0
+
+[interpreter.detail_mask.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+bends = [-1.0]
+
+[interpreter.torn_coast]
+amount = 4.2
+inland = 500.0
+out_to_sea = 0.0
+patches = 0.4
+patch_size = 1880.4629
+balance = -0.65
+
+[interpreter.torn_coast.noise]
+scale = 200.88626
+octaves = 4
+persistence = 0.19
+lacunarity = 1.5640007
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 0
+fill_range = true
+contrast = 1.2499998
+brightness = -0.43
+curve = 0.22
+invert = false
+
+[interpreter.mineralogy]
+crust = 130.0
+fields = []
+
+[[interpreter.mineralogy.distributors]]
+name = "the surface"
+on = true
+
+[interpreter.mineralogy.distributors.chooser]
+kind = "first_fit"
+at = 0.5
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:snowy_ground"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.puts.under]]
+block = "incus:dirt"
+depth = 2
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "climate/temperature"
+
+[interpreter.mineralogy.distributors.candidates.layers.wander]
+amount = 0.3
+size = 512.0
+seed = 24079
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = -0.45
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:gabbro"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+under = []
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 333.0
+above = true
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:stone"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+under = []
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 256.0
+above = true
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:sand"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.puts.under]]
+block = "incus:sand"
+depth = 0
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 129.0
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:sand"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.puts.under]]
+block = "incus:sand"
+depth = 0
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "climate/rain"
+
+[interpreter.mineralogy.distributors.candidates.layers.wander]
+amount = 0.3
+size = 512.0
+seed = 31261
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 0.0
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "multiply"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "climate/temperature"
+
+[interpreter.mineralogy.distributors.candidates.layers.wander]
+amount = 0.3
+size = 512.0
+seed = 24079
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 0.11000002
+above = true
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:dry_grass"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.puts.under]]
+block = "incus:dirt"
+depth = 2
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "climate/rain"
+
+[interpreter.mineralogy.distributors.candidates.layers.wander]
+amount = 0.3
+size = 512.0
+seed = 31261
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 0.21000004
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:grass"
+layers = []
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.puts.under]]
+block = "incus:dirt"
+depth = 2
+
+[[interpreter.mineralogy.distributors]]
+name = "the sea floor"
+on = true
+
+[interpreter.mineralogy.distributors.chooser]
+kind = "first_fit"
+at = 0.5
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:sand"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.puts.under]]
+block = "incus:sand"
+depth = 0
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 128.0
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "multiply"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 120.0
+above = true
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:gravel"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.puts.under]]
+block = "incus:gravel"
+depth = 0
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 128.0
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "multiply"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 120.0
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:stone"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+under = []
+top_only = false
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "ground/height"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 128.0
+above = false
+soft = 0.0
+
+[[interpreter.mineralogy.distributors]]
+name = "river and lake beds"
+on = true
+
+[interpreter.mineralogy.distributors.chooser]
+kind = "first_fit"
+at = 0.5
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:gravel"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+under = []
+top_only = true
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "rivers/under_water"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 0.5
+above = true
+soft = 0.0
+
+[[interpreter.mineralogy.distributors.candidates]]
+on = true
+block = "incus:sand"
+
+[interpreter.mineralogy.distributors.candidates.puts]
+kind = "column"
+under = []
+top_only = true
+
+[[interpreter.mineralogy.distributors.candidates.layers]]
+on = true
+mode = "normal"
+strength = 1.0
+
+[interpreter.mineralogy.distributors.candidates.layers.source]
+kind = "field"
+key = "rivers/under_water"
+
+[interpreter.mineralogy.distributors.candidates.layers.curve]
+shape = "step"
+at = 0.5
+above = true
+soft = 0.0
+
+[left_out]
+lift = false
+mountains = false
+raised_coast = false
+ridges = false
+torn_coast = false
+detail = false
+peaks = false
+crags = false
+summit_crags = false
+rivers = false
