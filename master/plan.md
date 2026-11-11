@@ -14,8 +14,8 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
   `docs/experiments.md`); the next experiments wait on David's go.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for experiments 3 and 4a (1.3), after reading experiment 1's results; the laptop
-  back to "NVIDIA GPU only" (it was switched to Optimus for the Intel flight).
+- **Waiting on David:** his go for experiments 3 and 4a (1.3), after reading experiment 1's results. (The laptop is
+  back on "NVIDIA GPU only", as flight A and his play.)
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look.
 
 ---
