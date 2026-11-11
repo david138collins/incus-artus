@@ -908,8 +908,10 @@ Reference: `Art/quartile minecraft illustration.png`
 
 - **[DECIDED]** Windows only for now. Lightweight graphics, CPU budget saved for simulation.
   Long render distance wanted; distant-terrain approach decided later.
-- **[DECIDED]** Bevy, latest stable, version locked.
-- **[DECIDED]** git for history, GitHub (private) for backup.
+- **[DECIDED]** Bevy, latest stable, version locked. *[Replaced: the regroup of 2026-11-05 cut it to a scheduler;
+  on 2026-11-11 David: "we're leaving bevy entirely, it just helped bootstrap us."]*
+- **[DECIDED]** git for history, GitHub (private) for backup. *[2026-11-11: David made the private repository
+  `incus-artus` on GitHub; not connected yet.]*
 - **[DECIDED]** Claude writes all code and explains what and why as it goes; David runs the game and gives feedback.
   Stop after each step, and whenever there's a real design choice.
 - **[DECIDED 2026-10-26] Refactor religiously** [David]. The work goes a step forward, then retraces its steps
@@ -958,6 +960,68 @@ Reference: `Art/quartile minecraft illustration.png`
   10 minutes on a slightly below-average PC, shown as a loading screen with the generation drawn live,
   with lore and art. While designing: live sliders, a fast make (seconds) and a full make (minutes).
   Pipeline and reasons in `docs/worldgen.md` ("The pipeline after the landform").
+
+---
+
+## The rebuild: after the Oracle
+
+**[DECIDED 2026-11-11]** From David's answers to the Oracle (its session, 2026-11-11) and his reply to its review
+(`vision/oracle-review.md`) the same day.
+
+- **Start from scratch, with old Incus Artus as the reference.** David: "i think our plan for the rebuild should
+  basically be to use the old incus artus as a reference and go through it step by step. this time i can look at
+  the old one and point out the parts that are important, and we can assemble them more neatly this time. some
+  structural changes are also going in: so i think its better to start from scratch. even though in most ways it
+  will be very much the same." And: "we don't have to cling to the world gen stack we have, because we now know
+  the way back; to create is human. to duplicate is divine. you don't know how to do something unless you can do
+  it again from memory." *Counsel:* nothing is carried over whole. The Oracle's "port" verdicts become "rebuilt
+  with old open beside it"; old's code is copied in pieces only where David or the look says it's right.
+- **Experiments first, in old:** "the first order of business is to run some experiments on old incus artus to
+  further inform our plans to rebuild it, better, faster, stronger."
+- **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
+  and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
+  with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
+- **The near field: whichever is cheap, compact and looks right.** "im comfortable with nearfield rays if they're
+  cheap, and if that writes elegant compact code that is easier to manage. im also comfortable with triangles for
+  actors and other things, or, triangles for everything in the near field *if* it can look right and there are no
+  jarring pops or seams." To the Oracle: "I had an idea for a while we had to raymarch everything, but i try to be
+  open minded and be ready to part with brief technical convictions."
+- **Honest**, David's definition: "honest means that it doesn't need to be blended into the near seam. the colors
+  and shading are identical a priori. honest means that you can see everything that actually exists, even if its
+  tiny." Far changes "don't need to be absolutely instant real time updates, they just need to be accurate ... we
+  don't want any fakery." What must show far off: "lights from a distance, caves from a distance and the stuff
+  inside of them." Thin things: "i just don't want things popping in and out. that's jarring. ideally the fence ...
+  would just average into its background gradually as you walk backwards from it, until its just a faint
+  brown/dark line in the distance." A felled tree shows far off "within a reasonable timeframe ... say a few
+  seconds."
+- **Light:** "the big sun shadows don't need to change smoothly. they can change every 30 seconds for all i care.
+  and even near shadows may be fine as just coarse lighting; a person might only darken 2-3 blocks significantly
+  and the adjacent blocks a little bit. as long as its realtime, in the local near field, so that if you're hiding
+  behind a wall you will see a shadow approach as someone rounds that corner." The day's length doesn't shape it:
+  "10, 15, 30 minute days won't make an appreciable difference to how we implement it." *Counsel:* the relight
+  follows the sun's steps whatever the day; the step's size is a tuning number.
+- **The enlarging stays crisp:** "crisp was always my preference. 'crisp' is in fact still 'smooth', and 'smooth'
+  mostly just spread it out, which didn't seem as honest." That is the enlarging box (`look.rs:216`: crisp, smooth,
+  smooth sharp at skylines). **[OPEN]** The Oracle's crisp or soft *cells* is another thing: whether the far march
+  reads the one cell it's in or blends eight (today it blends). David to the Oracle: "I am unsure about crisp,
+  we'll have to work it out, and probably just do a test of it." Its experiment 2 is that test.
+- **The world made once, like a stone tablet:** "yeah, 4gb world file is no biggie. generating the world like a
+  stone tablet seems like a reasonable idea." Stage magic while it's made: "we're willing to do a bit of
+  distraction and stage magic with character/world creation, lore exposition, cool onscreen world gen toy versions
+  to watch." The same seed making the same world: "its not really critical, i think" (the Oracle keeps it
+  anyway). *Counsel:* "1 always equals 1" is then kept by one stored answer that everything reads, in place of
+  the processor and the card agreeing to the bit. **[OPEN]** David to confirm that reading in his own words.
+- **The dyno and the player:** "the dyno is meant to be demanding ... if we can make our dev inspection of the
+  world smooth and fast, we'll be golden when it comes to the player experience."
+- **Weaker cards:** "don't want to treat a 980ti as a floor, i just think that if you have one, you should be able
+  to play this game, loosely speaking." And: "once we get back from zero to the dyno i'll set us up to use the
+  igpu at least for a check." The laptop's second card is Intel's built-in graphics (Core Ultra 9 275HX). The
+  laptop is "always plugged in, turbo, max fans."
+- **Heights and water:** "0-1024 should be fine." And: "if we rebuild world gen we need to come up with a better
+  way to manage water levels, i think, i had a hard time getting a mix of cliff and beach along water. and rivers
+  were a beast to get right, so, may be a better way to do them, or arrange the world gen pipeline."
+- **Rust stays:** "i chose rust because it seems like a powerful safe language with a lot of particularly good
+  code and very little bad code written in it." **Backed up online:** "no, we should have it backed up online."
 
 ---
 
