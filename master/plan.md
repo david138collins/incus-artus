@@ -16,7 +16,8 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
   handful of cheap experiments in old settle what paper can't before anything new is written.
 - **Waiting on David:** his look for experiment 2: the far view drawn crisp (one cell read) against today's blend,
   at the same places, standing and moving.
-- **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look.
+- **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
+  what we learn for it as we go, in `vision/oracle-return.md`.
 
 ---
 
@@ -103,7 +104,7 @@ Each experiment's pass mark is written down before it flies.
 - [ ] **2.3 The eye, near** (experiment 6): near blocks from old's world, by rays, or by triangles if rays skim
   - *Gate:* the ground mark under 1.5 ms on the laptop; David's look, against old to the pixel
 - [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
-      fresh. The design is fixed here, or changed
+      fresh, then Counsel's brief, `vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - *Gate:* the reference pictures within a stated tolerance; under 4.2 ms at the 99th percentile on the laptop,
     on the flight and at all three marks; the Intel card's numbers recorded. **David walks old's world through
