@@ -69,4 +69,40 @@ from them.
 
 ### Results
 
-*(to come: the flights' logs, then the numbers.)*
+**Flight A**: the 5070 Ti, 2026-11-11, build 110 (090904f, committed), the laptop in "NVIDIA GPU only" mode
+(PredatorSense), uncapped, 2560 × 1600; Edge, Aseprite, Discord and Steam running beside it, as for build 107.
+Log: `logs/dyno-1794414666.txt` (kept in `kept logs/`).
+
+| | sight on the card, ms (median / 95th / 99th) | sight and the lanes, ms (median / 95th / 99th) | frames a second (median) |
+|---|---|---|---|
+| The route, baked (2 laps) | 4.19 / 9.02 / 9.79 | 4.53 / 9.64 / 13.93 | 222 |
+| **On the ground at the spawn**, standing | 5.94 / 6.22 / 6.79 | the same (the lanes idle) | 167 |
+| **The mountain top, clear day**, standing | 6.59 / 6.90 / 7.48 | the same | 150 |
+| **Beside the quarter-block build**, standing | 11.74 / 12.11 / 12.25 | the same | 85 |
+| *The target: 240 a second* | *4.17 in all* | | |
+
+Against the pass mark:
+1. **Headers: pass.** Build, commit and "committed"; every switch; the card ("chosen by the default, high
+   performance"); "Immediate (as granted)". One blemish: the switches list also shows the build's own stamp
+   (`INCUS_BUILD`, `INCUS_BUILD_CHANGED`, `INCUS_BUILD_NUMBER`), which cargo passes to the game as it runs. They're
+   to be left out of the list.
+2. **The lanes: pass.** Over the land, 97 ms of lane work a second, about 1.6 ms in a 16 ms frame. The build 104 trace
+   showed 1.8 to 4.8 ms in frames of 14 to 18 ms (`kept logs/nsight/queries/f104_land.json`), so the clock agrees
+   with Nsight at the low end, as expected after builds 105 to 107 shared the grounds between levels. Across the route
+   the lanes are 12% of the card's time (9 to 19% by leg), and the grounds pass is about 80% of them. They add little
+   to the median (4.19 to 4.53) but a lot to the tail (the 99th 9.79 to 13.93).
+3. **The clock costs nothing: pass.** Sight's route median is 4.19 ms, exactly as foreseen (107's 4.31 less 2.8%).
+4. **The marks: pass.**
+   - The spawn's live levels were whole in 137 s, the mountain top's in 44 s.
+   - At the build, they were not whole after 180 s (8,315 of 8,820 tiles: it's 4,200 blocks from the middle), then
+     whole 82 s after the build went in, with the bake patched.
+   - The build replayed exactly as David's session logged it: 169 placings, 299 cells changed, 1 refused.
+   - The card stayed awake (2.7 to 2.8 GHz). The processor area peaked at 103 °C only while loading, then 76 to 98.
+5. **The Intel card:** flight B, to come. Its first try was held back so the laptop could be switched to Optimus,
+   where the Intel card drives the screen itself (in "NVIDIA GPU only" its frames would be copied across to the
+   NVIDIA's screen).
+
+**What the marks say.** Standing, the card alone takes 1.4 times the target's whole frame at the spawn, 1.6 times at
+the mountain top and 2.8 times beside the quarter-block build. The record's soft figures were near: "8 ms at the
+spawn" is 5.9 here, and "14 ms beside quarter blocks" (a frame time with the panel up) is 11.7. Standing still, the
+lanes do nothing, so the marks are sight's alone. While a mark settles, the lanes add 4 to 8% of the card.
