@@ -58,7 +58,11 @@ It passes if all of these hold:
    change applied (4.31 ms less 2.8%: about 4.19 ms). If it's outside that, one more flight with
    `INCUS_LANE_CLOCK=off` tells the clock's cost from the day's drift.
 4. **All three marks are measured.** Each reaches whole live levels, or the report says how far it got. The build
-   replays as David built it: 169 placings, 277 cells changed and 1 refused, as his session logged.
+   replays as David built it: 169 placings, 277 cells changed and 1 refused, as his session logged. *[Corrected after
+   flight A, as Counsel found: the 277 was miscounted before the flight. It took only the lines naming pieces and left
+   out the 22 blocks of gabbro he placed (23 asked, 1 refused). His session's event log,
+   `kept logs/events-1794341728.log`, has 299 "block changed" lines and 1 "edit refused", so the mark is 299 cells and
+   1 refused.]*
 5. **The Intel card flies the marks, or fails for a reason that can be named:** the error, the limit or the compiler's
    message, as written.
 
@@ -96,7 +100,9 @@ Against the pass mark:
    - The spawn's live levels were whole in 137 s, the mountain top's in 44 s.
    - At the build, they were not whole after 180 s (8,315 of 8,820 tiles: it's 4,200 blocks from the middle), then
      whole 82 s after the build went in, with the bake patched.
-   - The build replayed exactly as David's session logged it: 169 placings, 299 cells changed, 1 refused.
+   - The build replayed exactly as David's session logged it: 169 placings, 299 cells changed, 1 refused (his event
+     log, `kept logs/events-1794341728.log`: 299 "block changed", 1 "edit refused"; the pass mark's 277 was a
+     miscount, corrected above).
    - The card stayed awake (2.7 to 2.8 GHz). The processor area peaked at 103 °C only while loading, then 76 to 98.
 5. **The Intel card:** flight B, to come. Its first try was held back so the laptop could be switched to Optimus,
    where the Intel card drives the screen itself (in "NVIDIA GPU only" its frames would be copied across to the
