@@ -1,0 +1,4 @@
+# malachite: registered in the Registrar from malachite.png.
+# This file defines the block "incus:malachite". See docs/data-files.md for every setting.
+
+textures = { all = "malachite" }

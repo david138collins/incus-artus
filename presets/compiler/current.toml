@@ -1,0 +1,214 @@
+water = -0.029999996
+soften = 64.0
+soften_mountains = 64.0
+foothills = 2500.0
+deepest = 66.0
+highlands = 144.0
+grade = 0.42
+ridges = 2.0
+ridge_layers = 8
+ridge_roughness = 0.4
+ridge_alignment = 2.0
+steady_ridges = true
+ridge_wander = 0.0
+ridge_wander_size = 2000.0
+ridge_spacing = 800.0
+ridge_length = 2600.0
+sharpness = 1.9
+passes = 0.0
+pass_spacing = 375.0
+rift_depth = 80.0
+hills = 22.7
+detail = 12.0
+stone_from = 215
+gabbro_from = 285
+
+[land]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.040925268,
+    0.14583333,
+],
+    [
+    0.3985765,
+    0.34583333,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[sea]
+dots = [
+    [
+    0.0,
+    0.26666668,
+],
+    [
+    0.19928825,
+    0.16666667,
+],
+    [
+    0.6868327,
+    0.2375,
+],
+    [
+    0.8256228,
+    0.20833333,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[lift]
+height = 0.0
+reach = 8000.0
+pad = 1500.0
+pad_falloff = 1.0
+from = "Points"
+least = 0.25
+most = 1.0
+spacing = 3000.0
+range_cut = 0.2
+smallest_range = 2000.0
+
+[lift.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.5836299,
+    0.3375,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[mountains]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.08,
+    0.0,
+],
+    [
+    0.5,
+    0.35,
+],
+    [
+    1.0,
+    0.9,
+],
+]
+
+[hill_noise]
+scale = 1100.0
+octaves = 2
+persistence = 0.43
+lacunarity = 2.3
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 1
+fill_range = true
+contrast = 5.0
+brightness = 0.07
+curve = 5.0
+invert = false
+
+[hill_mask]
+source = "Everywhere"
+invert = false
+reach = 4000.0
+
+[hill_mask.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[detail_noise]
+scale = 124.7357
+octaves = 2
+persistence = 0.13
+lacunarity = 1.1
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 0
+fill_range = true
+contrast = 0.5500001
+brightness = -0.15
+curve = 3.3075001
+invert = true
+
+[detail_mask]
+source = "Coast"
+invert = true
+reach = 4000.0
+
+[detail_mask.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[additives]
+spacing = 400.0
+distance = 1500.0
+dots = 16
+bend = 1.0
+sides = "Both"
+least_mountains = 0.12
+grain_reach = 1500.0
+grain_from_squeeze = 0.5
+streams_on = false
+drift_on = true
+drift_spacing = 1000.0
+drift_least = 0.25
+drift_most = 1.0
+drift_distance = 2000.0
+drift_dots = 12
+drift_spread = 0.35
+drift_lean = 0.0
+drift_thin = 0.5
+drift_way = "Tip"
+drift_toward = 180.0
+range_cut = 0.2
+tip_pull = 0.4
+coherence = 0.0
+knot_scatter = 0.5
+spiral = 0.0
+spiral_exponent = 1.0

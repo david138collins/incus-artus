@@ -1,13 +1,8 @@
 # The master palette: every colour the game's art uses, each with a permanent number (slot).
 # Written by the Registrar's Color Lab; edit it there rather than here.
 
-next_slot = 536
-next_spline = 6
-
-[[spline]]
-id = 1
-name = "gabbro crushed"
-steps = [483, 484, 485, 486, 487, 488, 489, 490]
+next_slot = 644
+next_spline = 13
 
 [[spline]]
 id = 2
@@ -25,49 +20,49 @@ name = "grass crushed"
 steps = [518, 519, 254, 520, 521, 522, 523, 524, 525, 526, 527, 528, 529, 530, 531, 532, 533, 534, 535]
 
 [[spline]]
-id = 5
-name = "spline 5"
+id = 6
+name = "malachite crushed"
+steps = [561, 562, 563, 564, 565, 566]
+
+[[spline]]
+id = 7
+name = "gabbro crushed"
 steps = [491, 492, 493, 494, 495, 496, 497, 498, 499]
+
+[[spline]]
+id = 8
+name = "dirt1 crushed"
+steps = [583, 584, 585, 586, 587, 588, 589, 590, 591]
+
+[[spline]]
+id = 9
+name = "dry_grass crushed"
+steps = [595, 596, 597, 598, 599, 600, 601, 602]
+
+[[spline]]
+id = 10
+name = "sand crushed"
+steps = [621, 622, 623, 624, 625, 626, 627, 628]
+
+[[spline]]
+id = 11
+name = "gravel crushed"
+steps = [630, 631, 632, 633, 634, 635, 636, 637]
+
+[[spline]]
+id = 12
+name = "snowy_ground crushed"
+steps = [642, 643, 640, 641]
 
 [[colour]]
 slot = 254
 rgb = "#231000"
-[[colour]]
-slot = 268
-rgb = "#0000d2"
-[[colour]]
-slot = 269
-rgb = "#fe0000"
 [[colour]]
 slot = 277
 rgb = "#606060"
 [[colour]]
 slot = 282
 rgb = "#686868"
-[[colour]]
-slot = 483
-rgb = "#0b1009"
-[[colour]]
-slot = 484
-rgb = "#1b2319"
-[[colour]]
-slot = 485
-rgb = "#2b3228"
-[[colour]]
-slot = 486
-rgb = "#394235"
-[[colour]]
-slot = 487
-rgb = "#545f4f"
-[[colour]]
-slot = 488
-rgb = "#73826e"
-[[colour]]
-slot = 489
-rgb = "#8d9b89"
-[[colour]]
-slot = 490
-rgb = "#b0bbac"
 [[colour]]
 slot = 491
 rgb = "#171409"
@@ -203,3 +198,132 @@ rgb = "#66b432"
 [[colour]]
 slot = 535
 rgb = "#80c447"
+[[colour]]
+slot = 561
+rgb = "#2f2b2b"
+[[colour]]
+slot = 562
+rgb = "#3a4336"
+[[colour]]
+slot = 563
+rgb = "#3d483f"
+[[colour]]
+slot = 564
+rgb = "#465143"
+[[colour]]
+slot = 565
+rgb = "#485448"
+[[colour]]
+slot = 566
+rgb = "#5e6d5e"
+[[colour]]
+slot = 583
+rgb = "#1a170a"
+[[colour]]
+slot = 584
+rgb = "#1f160e"
+[[colour]]
+slot = 585
+rgb = "#2c1701"
+[[colour]]
+slot = 586
+rgb = "#281f0f"
+[[colour]]
+slot = 587
+rgb = "#1d1d1d"
+[[colour]]
+slot = 588
+rgb = "#36230f"
+[[colour]]
+slot = 589
+rgb = "#3c2c1d"
+[[colour]]
+slot = 590
+rgb = "#513414"
+[[colour]]
+slot = 591
+rgb = "#634833"
+[[colour]]
+slot = 595
+rgb = "#495630"
+[[colour]]
+slot = 596
+rgb = "#5e6d31"
+[[colour]]
+slot = 597
+rgb = "#726c34"
+[[colour]]
+slot = 598
+rgb = "#7d823c"
+[[colour]]
+slot = 599
+rgb = "#859444"
+[[colour]]
+slot = 600
+rgb = "#8ca64b"
+[[colour]]
+slot = 601
+rgb = "#94b952"
+[[colour]]
+slot = 602
+rgb = "#8b8881"
+[[colour]]
+slot = 621
+rgb = "#402b12"
+[[colour]]
+slot = 622
+rgb = "#5c5124"
+[[colour]]
+slot = 623
+rgb = "#7d6827"
+[[colour]]
+slot = 624
+rgb = "#707038"
+[[colour]]
+slot = 625
+rgb = "#85742b"
+[[colour]]
+slot = 626
+rgb = "#8c7f30"
+[[colour]]
+slot = 627
+rgb = "#999239"
+[[colour]]
+slot = 628
+rgb = "#a4a441"
+[[colour]]
+slot = 630
+rgb = "#1e1c16"
+[[colour]]
+slot = 631
+rgb = "#2c2b29"
+[[colour]]
+slot = 632
+rgb = "#3b3934"
+[[colour]]
+slot = 633
+rgb = "#3f3f3f"
+[[colour]]
+slot = 634
+rgb = "#474747"
+[[colour]]
+slot = 635
+rgb = "#4c4c4c"
+[[colour]]
+slot = 636
+rgb = "#555450"
+[[colour]]
+slot = 637
+rgb = "#838073"
+[[colour]]
+slot = 640
+rgb = "#dbffff"
+[[colour]]
+slot = 641
+rgb = "#ffffff"
+[[colour]]
+slot = 642
+rgb = "#acafbd"
+[[colour]]
+slot = 643
+rgb = "#bac7e5"

@@ -1,0 +1,157 @@
+water = -0.90610117
+soften = 280.0
+foothills = 10500.0
+deepest = 30.0
+highlands = 218.35994
+grade = 0.5
+ridges = 1.55
+ridge_layers = 3
+ridge_roughness = 0.52
+ridge_alignment = 1.0
+steady_ridges = true
+ridge_wander = 0.0
+ridge_wander_size = 5200.0
+ridge_spacing = 1250.0
+ridge_length = 3047.619
+sharpness = 1.5
+passes = 0.3
+pass_spacing = 7300.0
+rift_depth = 69.60001
+hills = 25.0
+detail = 12.0
+stone_from = 215
+gabbro_from = 285
+
+[land]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.3594306,
+    0.11666667,
+],
+    [
+    0.5053381,
+    0.39166668,
+],
+    [
+    1.0,
+    0.5375,
+],
+]
+
+[sea]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.15302491,
+    0.45833334,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[mountains]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.3469751,
+    0.7625,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[hill_noise]
+scale = 8000.0
+octaves = 3
+persistence = 0.5
+lacunarity = 4.0
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 150.0
+octave_turn = 90.0
+fade = "Smooth"
+solo_octave = 0
+fill_range = true
+contrast = 3.5
+brightness = 0.2
+curve = 5.0
+invert = false
+
+[hill_mask]
+source = "Squeeze"
+invert = false
+reach = 1394.491
+
+[hill_mask.curve]
+dots = [
+    [
+    0.0,
+    0.29583332,
+],
+    [
+    0.47338402,
+    0.6041667,
+],
+    [
+    1.0,
+    0.0,
+],
+]
+
+[detail_noise]
+scale = 512.0
+octaves = 2
+persistence = 0.43
+lacunarity = 4.0
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 0
+fill_range = true
+contrast = 1.0
+brightness = 0.05
+curve = 3.2
+invert = false
+
+[detail_mask]
+source = "Coast"
+invert = true
+reach = 3800.0
+
+[detail_mask.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.01,
+    1.0,
+],
+    [
+    0.76045626,
+    0.68333334,
+],
+    [
+    1.0,
+    0.0,
+],
+]

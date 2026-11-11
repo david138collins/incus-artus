@@ -1,0 +1,213 @@
+water = -0.03
+soften = 64.0
+foothills = 2500.0
+deepest = 30.0
+highlands = 200.0
+grade = 0.4
+ridges = 0.5
+ridge_layers = 3
+ridge_roughness = 0.45
+ridge_alignment = 1.0
+steady_ridges = true
+ridge_wander = 0.0
+ridge_wander_size = 2000.0
+ridge_spacing = 3000.0
+ridge_length = 15000.0
+sharpness = 1.2
+passes = 0.4
+pass_spacing = 12000.0
+rift_depth = 30.0
+hills = 16.1
+detail = 6.3
+stone_from = 215
+gabbro_from = 285
+
+[land]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.49466193,
+    0.33333334,
+],
+    [
+    0.74911034,
+    0.5875,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[sea]
+dots = [
+    [
+    0.0,
+    0.2125,
+],
+    [
+    0.4911032,
+    0.25416666,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[lift]
+height = 0.0
+reach = 8000.0
+pad = 1500.0
+pad_falloff = 1.0
+from = "Points"
+least = 0.25
+most = 1.0
+spacing = 3000.0
+range_cut = 0.2
+smallest_range = 2000.0
+
+[lift.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.52313167,
+    0.4875,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[mountains]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.08,
+    0.0,
+],
+    [
+    0.5,
+    0.35,
+],
+    [
+    1.0,
+    0.9,
+],
+]
+
+[hill_noise]
+scale = 1100.0
+octaves = 3
+persistence = 0.32
+lacunarity = 4.0
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 1
+fill_range = true
+contrast = 0.1
+brightness = -0.53999996
+curve = 0.5
+invert = false
+
+[hill_mask]
+source = "Coast"
+invert = false
+reach = 4000.0
+
+[hill_mask.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    1.0,
+    1.0,
+],
+]
+
+[detail_noise]
+scale = 512.0
+octaves = 3
+persistence = 0.23
+lacunarity = 4.0
+offset_north = 0.0
+offset_east = 0.0
+stretch = 1.0
+stretch_angle = 0.0
+octave_turn = 0.0
+fade = "Smooth"
+solo_octave = 0
+fill_range = true
+contrast = 4.5
+brightness = -0.6
+curve = 0.14
+invert = false
+
+[detail_mask]
+source = "Coast"
+invert = false
+reach = 275.625
+
+[detail_mask.curve]
+dots = [
+    [
+    0.0,
+    0.0,
+],
+    [
+    0.7718631,
+    0.6166667,
+],
+    [
+    0.9714829,
+    0.13333334,
+],
+    [
+    1.0,
+    0.0,
+],
+]
+
+[additives]
+spacing = 400.0
+distance = 1500.0
+dots = 16
+bend = 1.0
+sides = "Both"
+least_mountains = 0.12
+grain_reach = 1500.0
+grain_from_squeeze = 0.5
+streams_on = false
+drift_on = true
+drift_spacing = 1000.0
+drift_least = 0.25
+drift_most = 1.0
+drift_distance = 2000.0
+drift_dots = 12
+drift_spread = 0.35
+drift_lean = 0.0
+drift_thin = 0.5
+drift_way = "Tip"
+drift_toward = 180.0
+range_cut = 0.2
+tip_pull = 0.4
+coherence = 0.0
+knot_scatter = 0.5
+spiral = 0.0
+spiral_exponent = 1.0

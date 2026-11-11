@@ -1,0 +1,18 @@
+# Brazier: from braziere.gltf (David's Blockbench model, a Doom-style brazier).
+# See docs/objects.md for every setting.
+
+name = "Brazier"
+model = "braziere.gltf"
+height = 1.5
+solid = true
+
+[sprite]
+file = "green_flame_animation.png"
+frame_ms = 110
+offset = [0, 0, -3]
+scale = 0.5
+
+[light]
+colour = [80, 255, 60]
+reach = 8
+brightness = 0.9

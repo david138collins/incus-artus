@@ -1,0 +1,4 @@
+# sand: registered in the Registrar from sand.png.
+# This file defines the block "incus:sand". See docs/data-files.md for every setting.
+
+textures = { all = "sand" }

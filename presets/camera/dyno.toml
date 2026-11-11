@@ -1,0 +1,13 @@
+[camera]
+fast_multiplier = 10.0
+field_of_view = 100.0
+fly_speed = 200.0
+invert_mouse_y = false
+mouse_sensitivity = 0.10000000149011612
+ray_length = 64.0
+show_target_outline = true
+
+[panini]
+crop_to_fit = 1.0
+distance = 0.30000001192092896
+enabled = true

@@ -1,0 +1,118 @@
+[plates]
+plates = 16
+coverage = 0.47
+spread = 3
+ocean_rings = 2
+ocean_among_land = 6
+ocean_edge = 0.47
+
+[plates.waves]
+on = true
+style = "Perlin"
+amount = 5900.0
+size = 9000.0
+octaves = 5
+roughness = 0.54
+
+[plates.rough]
+on = true
+style = "Midpoint"
+amount = 1000.0
+size = 170.0
+octaves = 3
+roughness = 0.55
+
+[motion.land]
+slowest = 76.0
+fastest = 200.0
+spin = 0.3
+inward = 0.0
+
+[motion.ocean]
+slowest = 61.60003
+fastest = 154.00006
+spin = 1.0
+inward = 0.67
+
+[rock]
+grain = 866.38306
+patch_size = 6000.0
+passes = 2
+crack = 0.29
+push = 0.25000003
+friction = 0.79999995
+stickiness = 1.48
+bowl_start = 0.66
+bowl = 3.0
+
+[rock.land]
+patchiness = 1.0
+stiffness = 0.10958352
+give_way = 0.08400003
+creep = 0.7199999
+drag = 0.0018922158
+weight = 1.0
+thickest = 5.9547987
+stiffness_spread = 0.0
+weight_spread = 0.0
+
+[rock.ocean]
+patchiness = 1.0
+stiffness = 0.10958352
+give_way = 0.08400003
+creep = 0.7199999
+drag = 0.0018922158
+weight = 1.8085
+thickest = 1.5
+stiffness_spread = 0.0
+weight_spread = 0.0
+
+[heights]
+terrain_size = 3900.0
+octaves = 4
+roughness = 0.55
+water = -0.57
+
+[heights.land]
+base = -0.11000001
+terrain = 1.0
+tilt = 0.7
+blend = 0.71
+shelf_width = 2100.0
+shelf_depth = 0.32999998
+squeeze = 1.7299993
+base_spread = 0.0
+terrain_spread = 0.0
+shelf_width_spread = 0.0
+shelf_depth_spread = 0.0
+squeeze_spread = 0.0
+
+[heights.ocean]
+base = -1.4
+terrain = 1.0
+tilt = 0.7
+blend = 0.71
+shelf_width = 2100.0
+shelf_depth = 0.32999998
+squeeze = 1.7299993
+base_spread = 0.0
+terrain_spread = 0.0
+shelf_width_spread = 0.0
+shelf_depth_spread = 0.0
+squeeze_spread = 0.0
+
+[show]
+cells = false
+vertices = false
+lines = false
+arrows = false
+boundaries = false
+bowl = true
+arrow_steps = 100.0
+thickness_as_white = 3.0
+shading_smoothness = 3
+tears_open_past = 3.05
+squeeze_direction = false
+seal_gaps = 860.0
+fill_holes = 3600.0
+run_length = 300

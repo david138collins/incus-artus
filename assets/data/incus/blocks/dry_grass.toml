@@ -1,0 +1,4 @@
+# dry_grass: registered in the Registrar from dry_grass.png.
+# This file defines the block "incus:dry_grass". See docs/data-files.md for every setting.
+
+textures = { all = "dry_grass" }

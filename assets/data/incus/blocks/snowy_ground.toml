@@ -1,0 +1,4 @@
+# snowy_ground: registered in the Registrar from snowy_ground.png.
+# This file defines the block "incus:snowy_ground". See docs/data-files.md for every setting.
+
+textures = { all = "snowy_ground" }

@@ -1,0 +1,78 @@
+[plates]
+plates = 9
+coverage = 0.47
+spread = 10
+ocean_rings = 1
+ocean_among_land = 2
+ocean_edge = 0.5
+
+[plates.waves]
+on = true
+style = "Perlin"
+amount = 5900.0
+size = 9000.0
+octaves = 5
+roughness = 0.54
+
+[plates.rough]
+on = true
+style = "Midpoint"
+amount = 1000.0
+size = 170.0
+octaves = 3
+roughness = 0.55
+
+[motion]
+slowest = 50.0
+fastest = 200.0
+ocean_speed = 0.77000034
+spin = 0.5
+inward = 0.67
+
+[rock]
+grain = 1161.0361
+patchiness = 1.0
+patch_size = 6000.0
+stiffness = 0.17
+passes = 2
+give_way = 0.1
+creep = 0.65
+crack = 0.29
+push = 0.2
+friction = 0.76
+drag = 0.0023
+ocean_weight = 1.8085
+stickiness = 1.48
+thickest = 7.6
+bowl_start = 0.5921002
+bowl = 4.6
+
+[heights]
+land = -0.11000001
+ocean = -1.4
+terrain = 1.0
+terrain_size = 5238.095
+octaves = 4
+roughness = 0.62
+tilt = 0.7
+blend = 0.71
+shelf_width = 2100.0
+shelf_depth = 0.32999998
+squeeze = 1.7299993
+water = -0.24999999
+
+[show]
+cells = false
+vertices = false
+lines = false
+arrows = false
+boundaries = false
+bowl = true
+arrow_steps = 100.0
+thickness_as_white = 3.0
+shading_smoothness = 3
+tears_open_past = 3.05
+squeeze_direction = false
+seal_gaps = 860.0
+fill_holes = 3600.0
+run_length = 300

@@ -1,0 +1,172 @@
+[blocks."incus:gabbro"]
+friction = 1.0
+rotations = [
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+]
+targetable = true
+
+[blocks."incus:grass"]
+friction = 1.0
+rotations = [
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Random",
+    "Fixed",
+]
+targetable = true
+
+[blocks."incus:grid"]
+friction = 1.0
+rotations = [
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+]
+targetable = true
+
+[blocks."incus:outline"]
+friction = 1.0
+rotations = [
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+]
+targetable = true
+
+[blocks."incus:stone"]
+friction = 1.0
+rotations = [
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+    "Fixed",
+]
+targetable = true
+
+[camera]
+fast_multiplier = 5.0
+field_of_view = 100.0
+fly_speed = 20.0
+invert_mouse_y = false
+mouse_sensitivity = 0.10000000149011612
+ray_length = 64.0
+show_target_outline = true
+
+[edit_rules]
+protect_bottom_layer = true
+
+[panini]
+crop_to_fit = 1.0
+distance = 0.30000001192092896
+enabled = true
+
+[player]
+air_control = 1.899999976158142
+backward_factor = 0.5
+body_height = 1.5
+body_width = 0.75
+break_cooldown = 0.25
+crouch_edge_guard = true
+crouch_eye_height = 1.0499999523162842
+crouch_height = 1.2000000476837158
+crouch_speed = 0.5
+envelopes_in_air = false
+eye_height = 1.3799999952316284
+gravity = 32.0
+ground_grip = 10.0
+jump_height = 1.25
+landing_grip = 0.009999999776482582
+max_fall_speed = 78.4000015258789
+place_cooldown = 0.25
+reach = 5.0
+respawn_below_z = -64.0
+run_speed = 5.699999809265137
+sprint_double_tap = 0.30000001192092896
+sprint_fov_boost = 12.0
+sprint_speed = 7.199999809265137
+strafe_factor = 0.75
+walk_speed = 3.200000047683716
+
+[player.crouch_envelope]
+attack = 0.11999999731779099
+attack_curve = 0.0
+decay = 0.0
+decay_curve = 0.0
+release = 0.11999999731779099
+release_curve = 0.0
+sustain = 1.0
+
+[player.landing_envelope]
+attack = 0.21459850668907166
+attack_curve = 0.32500001788139343
+decay = 0.0
+decay_curve = 0.0
+release = 0.30000001192092896
+release_curve = 0.0
+sustain = 1.0
+
+[player.run_envelope]
+attack = 0.75
+attack_curve = 0.75
+decay = 0.0
+decay_curve = 0.0
+release = 0.6000000238418579
+release_curve = 0.0
+sustain = 1.0
+
+[player.sprint_envelope]
+attack = 0.30000001192092896
+attack_curve = 0.5
+decay = 0.0
+decay_curve = 0.0
+release = 1.5
+release_curve = -0.15000000596046448
+sustain = 1.0
+
+[player.sprint_fov_envelope]
+attack = 0.15000000596046448
+attack_curve = 0.8999999761581421
+decay = 0.0
+decay_curve = 0.0
+release = 0.4000000059604645
+release_curve = 0.0
+sustain = 1.0
+
+[player.walk_envelope]
+attack = 0.15000000596046448
+attack_curve = -0.5
+decay = 0.0
+decay_curve = 0.0
+release = 0.30000001192092896
+release_curve = 1.0
+sustain = 1.0
+
+[render]
+debug_view = "Normal"
+fog_enabled = true
+fog_end = 380.0
+fog_start = 150.0
+max_jobs_per_frame = 64
+render_distance_chunks = 12
+shade_bottom = 0.5
+shade_east_west = 0.6499999761581421
+shade_north_south = 0.800000011920929
+shade_top = 1.0
+
+[smooth_motion]
+enabled = true

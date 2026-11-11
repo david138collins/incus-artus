@@ -1,0 +1,35 @@
+walk_speed = 3.6
+sprint_speed = 7.2
+strafe_factor = 0.8
+backward_factor = 0.65
+envelopes_in_air = false
+ground_grip = 10.0
+jump_height = 1.25
+gravity = 32.0
+max_fall_speed = 78.4
+air_control = 1.9
+body_height = 1.5
+body_width = 0.6
+eye_height = 1.35
+reach = 5.0
+break_cooldown = 0.25
+place_cooldown = 0.25
+respawn_below_z = -64.0
+
+[walk_envelope]
+attack = 0.15
+attack_curve = -0.5
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 0.3
+release_curve = 1.0
+
+[sprint_envelope]
+attack = 0.3
+attack_curve = 0.50000006
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 0.9
+release_curve = 0.71666646

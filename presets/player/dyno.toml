@@ -1,0 +1,79 @@
+walk_speed = 3.3
+run_speed = 6.6
+sprint_speed = 8.8
+sprint_double_tap = 0.5
+sprint_fov_boost = 15.0
+strafe_factor = 0.75
+backward_factor = 0.5
+envelopes_in_air = false
+ground_grip = 5.0
+slide_distance = 5.0
+crouch_height = 1.2
+crouch_eye_height = 1.05
+crouch_speed = 0.3
+crouch_edge_guard = true
+jump_height = 1.25
+gravity = 16.0
+max_fall_speed = 200.0
+air_control = 0.5
+body_height = 1.5
+body_width = 0.75
+eye_height = 1.38
+reach = 5.0
+break_cooldown = 0.25
+place_cooldown = 0.25
+respawn_below_z = -64.0
+
+[sprint_fov_envelope]
+attack = 2.0
+attack_curve = -0.40000004
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 0.3
+release_curve = 0.0
+
+[walk_envelope]
+attack = 0.0
+attack_curve = -0.5
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 0.26640922
+release_curve = 1.0
+
+[run_envelope]
+attack = 1.0
+attack_curve = 0.83333325
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 0.0
+release_curve = 0.0
+
+[sprint_envelope]
+attack = 2.0
+attack_curve = 0.5
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 4.0
+release_curve = -0.15
+
+[momentum_envelope]
+attack = 0.0
+attack_curve = 0.0
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 1.0
+release_curve = -1.0
+
+[crouch_envelope]
+attack = 0.1
+attack_curve = 0.0
+decay = 0.0
+decay_curve = 0.0
+sustain = 1.0
+release = 0.3
+release_curve = 0.0

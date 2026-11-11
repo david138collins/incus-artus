@@ -1,0 +1,6 @@
+# stone_brick: a bar block (a quarter block), from David's quartile_cut_stone_block_small_side.png
+# and quartile_cut_stone_block_small_end.png (assets/new): the first bar block.
+# This file defines the block "incus:stone_brick". See docs/data-files.md for every setting.
+
+name = "Stone brick"
+bar = { side = "stone_brick_side", end = "stone_brick_end", only = true }

@@ -1,0 +1,71 @@
+[distant]
+enabled = true
+finest_cell = 16
+height_tint = 0.15000000596046448
+hill_shading = 0.16199997067451477
+march = true
+march_most = 200
+most_at_once = 0
+rings = 7
+shading_fade = 2.0
+slope_match = 1.0
+
+[far_copies]
+march = true
+on = true
+pixels = 2.0
+reach = 4000.0
+real = true
+shaded = true
+sharpness = 2.0
+sized = true
+solid_share = 0.5
+
+[light]
+broad_reach = 32.0
+detail = 32.0
+foot_shading = 0.2199999988079071
+near = true
+near_detail = 2.0
+on = true
+relief = 0.5
+relief_reach = 2000.0
+shade_reach = 0.5
+shadows = 0.44999998807907104
+side_shading = 0.75
+sky = 1.100000023841858
+sky_reach = 3000.0
+softness = 0.0
+step_reach = 17.0
+step_shadows = 0.10000000149011612
+sun_from = 315.0
+sun_height = 40.0
+
+[render]
+debug_view = "Normal"
+flicker = 0.15000000596046448
+flicker_speed = 1.5
+fog_enabled = false
+fog_end = 3600.0
+fog_start = 0.0
+frame_cap = 2
+lantern = 12.0
+lantern_brightness = 0.8999999761581421
+light_only = false
+march_from = 8
+max_jobs_per_frame = 64
+meshes_per_frame = 48
+painted_mips = false
+placed_light = true
+render_distance_chunks = 64
+seam_probe = false
+shade_bottom = 0.5
+shade_east_west = 0.6499999761581421
+shade_north_south = 0.800000011920929
+shade_top = 1.0
+sky_brightness = 1.0
+sky_light = true
+sky_reach = 8
+survey = false
+survey_darkness = 0.3499999940395355
+survey_every = 4

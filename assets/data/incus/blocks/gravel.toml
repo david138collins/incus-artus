@@ -1,0 +1,4 @@
+# gravel: registered in the Registrar from gravel.png.
+# This file defines the block "incus:gravel". See docs/data-files.md for every setting.
+
+textures = { all = "gravel" }
