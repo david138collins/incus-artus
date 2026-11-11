@@ -60,8 +60,10 @@ every log in `kept logs/`.
 
 ## How the new engine is checked against them
 
-- **Pictures:** the same places, times of day and settings, set beside these by David's eye first. Once the new engine
-  draws them, a tolerance per picture is agreed and tested.
+- **Pictures:** kept for reference, not a yardstick. David (2026-11-11): "still not sure what good the pictures are.
+  it'll look good or it won't, idc what the old things look like in particular, other than the basic way we're doing
+  things, like pixelating the far horizon." The new engine is judged by his eye on its own. These are there if a
+  question comes up ("was it like this before?"), not as a test to pass.
 - **Columns:** the new world's ground and water at the same columns, to the block, for the same world. A different
   recipe on purpose (a stage rewritten) is judged by David's eye on the maps, not by the columns.
 - **The marks:** the same three, flown the same way. The new engine's numbers go beside C2's.
