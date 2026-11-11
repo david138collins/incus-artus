@@ -160,6 +160,9 @@ Each experiment's pass mark is written down before it flies.
   times the budget at the spawn, 1.6 times on the mountain top and 2.8 times beside the quarter-block build; on
   the route, the worst frames (99th percentile, new ground counted) take 13.9 ms, 3.3 times. The Intel card is 2.5
   to 3.8 times slower than the NVIDIA, standing.
+- **With light free** (experiment 4a): the spawn fits the budget (3.46 ms), but the mountain top (5.45) and the
+  build (9.76) don't. There the rest is the far reach and the near walk through quarter blocks, so storing light
+  alone won't close the gap: the near field (2.3) and the far reads (2.2) have to win too.
 
 ## What every step keeps
 
