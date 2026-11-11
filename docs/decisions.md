@@ -952,6 +952,19 @@ Reference: `Art/quartile minecraft illustration.png`
   - **On a rewrite** (being weighed, with the Oracle): "nothing that isnt ultimately part of the players joy is
     sacred to me." If it comes, "we could keep 'old incus artus' aside, and only check the rewrite against it":
     the old project as reference and test oracle, each new stage checked against its output.
+- **[DECIDED 2026-11-11] Where things are kept** [Counsel's proposal, after David asked "did we establish a working
+  principle of memory storage for agents between sessions along with the 'master' documents?"; David: "Yes, record
+  it"]:
+  - **`master/`** (map, plan, spec): what's true now. Every session reads it first, starting with "Where we are" in
+    `master/plan.md`. Kept short enough to read whole.
+  - **The journal** (`docs/` and `vision/` today, `journal/` after the packing): how we got here, and David's
+    decisions in his own words. Added to, never rewritten.
+  - **The agents' memory** (one folder that Builder and Counsel share; its index is loaded into every session): only
+    habits and warnings about working with David and this project ("never cargo fmt", "launch with --release",
+    "he/him"). Never the plan, the project's state or numbers. A note that says what's true about the project moves
+    to `master/`.
+  - **`vision/handoff.md`:** short notes between sessions, cleared once acted on.
+  - **Session transcripts** aren't a store: they're summarised and forget.
 
 ## World Creation
 

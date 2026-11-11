@@ -160,4 +160,5 @@ Each experiment's pass mark is written down before it flies.
   far changes may arrive late but are accurate; nothing is a stand-in.
 - **The way we work:** even beats fast; nothing relies on fog; no tricks for one maker's cards; measure from the
   start; the pass mark before the flight; no number without its log; old is the check; one thing asked of David
-  at a time; a drop is for its context, not for good.
+  at a time; a drop is for its context, not for good; what's true lives in `master/`, and the agents' memory
+  holds only habits and warnings.
