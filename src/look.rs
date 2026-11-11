@@ -181,11 +181,18 @@ fn render_debug_page(ui: &mut egui::Ui, world: &mut World) {
     if ui.add(egui::Slider::new(&mut blend_from, 0.3..=0.95).step_by(0.05).text("level hand-over starts at (later: narrower and faster; too late and rings show over flat water)")).changed() {
         kept.render.set_number("sight_blend_from", blend_from);
     }
-    // The Oracle's experiment 2 [2026-11-11]: the far cells read crisp, one at a time, against today's blend of eight,
-    // for David's eye (it decides the rebuild's bricks: crisp, plain and smaller; soft, textures the card blends).
-    let mut crisp = kept.sight_crisp();
-    if ui.checkbox(&mut crisp, format!("Far cells crisp: each read alone, not blended with its neighbours (experiment 2; the crisp build {})", crate::sight::draw::crisp_state())).changed() {
-        kept.render.set_flag("sight_crisp", crisp);
+    // The Oracle's experiment 2 [2026-11-11]: how the far cells are read, for David's eye (it decides the rebuild's
+    // bricks: crisp, plain and smaller; soft, textures the card blends). Crisp, build 112: "it doesn't look awful, but,
+    // it doesn't look better", whorls moving against a shallow hill; so a third way, smooth in height.
+    let mut reads = kept.sight_far_reads();
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Far cells (experiment 2):");
+        ui.radio_value(&mut reads, 0, "blended");
+        ui.radio_value(&mut reads, 1, format!("crisp{}", crate::sight::draw::reads_state(1)));
+        ui.radio_value(&mut reads, 2, format!("crisp across, smooth in height{}", crate::sight::draw::reads_state(2)));
+    });
+    if reads != kept.sight_far_reads() {
+        kept.render.set_number("sight_far_reads", reads as f32);
     }
     // Block textures (3.6) [David 2026-11-08: "so the blocks are mipmapped, right? go ahead"]: on the blocks near
     // the eye; a texture changed on disk shows at once (the data watch).
@@ -566,9 +573,10 @@ impl KeptSettings {
         self.render.number("sight_blend_from", crate::sight::draw::BLEND_FROM)
     }
 
-    /// The far cells read crisp, one at a time (experiment 2; off unless chosen).
-    pub fn sight_crisp(&self) -> bool {
-        self.render.flag("sight_crisp", false)
+    /// How the far cells are read (experiment 2, `Eye::far_reads`): 0 blended (unless chosen), 1 crisp, 2 crisp across
+    /// and smooth in height.
+    pub fn sight_far_reads(&self) -> u32 {
+        self.render.number("sight_far_reads", 0.0).round().clamp(0.0, 2.0) as u32
     }
 
     /// Night's light (what's left of the sky's light with the sun well down; `draw::NIGHT_LIGHT` unless chosen).

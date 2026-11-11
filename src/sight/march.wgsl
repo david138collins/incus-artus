@@ -275,17 +275,21 @@ fn entry_at(level: i32, cx: i32, cy: i32) -> vec2<u32> {
     return baked[u32(header[base + 3] + y * across + x)];
 }
 
-// The far cells read crisp: the one cell a point is in, in place of the eight round it (the Oracle's experiment 2,
-// 2026-11-11, for David's eye: the probe P7's read, which took 41% off sight at build 107). Set only for the crisp
-// build (`draw.rs`, `Eye::crisp`); in the game's own build it's false and the compiler leaves the branch out.
-override ONE_CELL: bool = false;
+// How the far cells are read (the Oracle's experiment 2, 2026-11-11, for David's eye), set only for the builds that
+// try another way (`draw.rs`, `Eye::far_reads`); in the game's own build it's 0 and the compiler leaves the rest out:
+// - 0: the eight cells round a point, blended (as always);
+// - 1: crisp, the one cell a point is in (the probe P7's read, which took 41% off sight at build 107; David: "it doesn't
+//   look awful, but, it doesn't look better", whorls moving against a shallow hill);
+// - 2: crisp across, smooth in height: the one cell column a point is in, its two cells blended up and down (the height
+//   steps the whorls come from smoothed, for 2 cells and 1 column entry against the blend's 8 and 4).
+override FAR_READS: u32 = 0u;
 
 // A smooth blend of the eight cells round `p` at `level` (trilinear: no threshold, so a slope's edge is a
 // gradient, never stairs); `known` false if any of them isn't there. Each of the four cell columns' entries
-// is read once, then its two cells. (With `ONE_CELL`, the one cell `p` is in.)
+// is read once, then its two cells. (`FAR_READS` 1 or 2: the other ways above.)
 fn blend(level: i32, p: vec3<f32>) -> Look {
     let size = f32(1 << u32(level));
-    if (ONE_CELL) {
+    if (FAR_READS == 1u) {
         let c = vec3<i32>(floor(p / size));
         let entry = entry_at(level, c.x, c.y);
         if (entry.y == NOT_BAKED) {
@@ -296,6 +300,38 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
             one.colour = ROCK;
         }
         return one;
+    }
+    if (FAR_READS == 2u) {
+        let column = vec2<i32>(floor(p.xy / size));
+        let entry = entry_at(level, column.x, column.y);
+        if (entry.y == NOT_BAKED) {
+            return empty_look(false);
+        }
+        let uz = p.z / size - 0.5;
+        let bz = floor(uz);
+        let fz = uz - bz;
+        var out = empty_look(true);
+        var weight = 0.0;
+        for (var oz = 0; oz < 2; oz++) {
+            let look = from_band(entry.x, entry.y, i32(bz) + oz);
+            let w = select(1.0 - fz, fz, oz == 1);
+            out.solid += w * look.solid;
+            out.water += w * look.water;
+            let shown = w * look.surface;
+            out.colour += shown * look.colour;
+            out.plus += shown * look.plus;
+            out.minus += shown * look.minus;
+            weight += shown;
+        }
+        if (weight > 0.0) {
+            out.colour /= weight;
+            out.plus /= weight;
+            out.minus /= weight;
+            out.surface = weight;
+        } else {
+            out.colour = ROCK;
+        }
+        return out;
     }
     let u = p / size - 0.5;
     let b = floor(u);

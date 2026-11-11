@@ -87,9 +87,11 @@ pub struct Eye {
     /// levels [2026-11-10: at 0.8 the whole flight's 95th 6.7% faster]; too late and the change of level shows as
     /// rings over flat water (David, build 69).
     pub blend_from: f32,
-    /// The far cells read crisp, one at a time, not blended eight together (the Oracle's experiment 2, for David's
-    /// eye: the Render page's switch, or `INCUS_SIGHT_CRISP`). Drawn by the crisp build once it's made.
-    pub crisp: bool,
+    /// How the far cells are read (the Oracle's experiment 2, for David's eye; `FAR_READS` in `march.wgsl`): 0 the
+    /// eight round a point blended (the game's), 1 crisp (the one cell), 2 crisp across and smooth in height (the one
+    /// cell column, its two cells blended). The Render page's choice, or `INCUS_SIGHT_FAR_READS`. Drawn by that way's
+    /// build once it's made.
+    pub far_reads: u32,
 }
 
 impl Default for Eye {
@@ -128,7 +130,7 @@ impl Default for Eye {
             stages: true,
             face_light: true,
             blend_from: BLEND_FROM,
-            crisp: false,
+            far_reads: 0,
         }
     }
 }
@@ -255,11 +257,12 @@ pub struct SightDraw {
     twin_faces: bool,
     /// Whether the next timed frame is the twin's.
     twin_next: bool,
-    /// The crisp build (the Oracle's experiment 2, `Eye::crisp`: the far cells read one at a time, `ONE_CELL` in
-    /// `march.wgsl`), made on a thread of its own the first time it's asked for, then kept and drawn in place of the
-    /// game's passes while asked for. The march's source and the face table's other two buffers, kept to make it.
-    crisp: Option<Passes>,
-    crisp_making: Option<std::thread::JoinHandle<Passes>>,
+    /// The builds that read the far cells another way (the Oracle's experiment 2, `Eye::far_reads` 1 and 2,
+    /// `FAR_READS` in `march.wgsl`), each made on a thread of its own the first time it's asked for, then kept and drawn
+    /// in place of the game's passes while asked for. The march's source and the face table's other two buffers, kept
+    /// to make them.
+    reads: [Option<Passes>; 2],
+    reads_making: [Option<std::thread::JoinHandle<Passes>>; 2],
     march_source: String,
     face_values: wgpu::Buffer,
     face_list: wgpu::Buffer,
@@ -314,7 +317,7 @@ impl Passes {
         Self::with_constants(device, source, label, faces, &[])
     }
 
-    /// The same, with the shader's overridable constants set (`[("ONE_CELL", 1.0)]`: the crisp build).
+    /// The same, with the shader's overridable constants set (`[("FAR_READS", 1.0)]`: the crisp build).
     fn with_constants(device: &wgpu::Device, source: &str, label: &str, faces: [&wgpu::Buffer; 4], constants: &[(&str, f64)]) -> Self {
         // Checked, or not (`INCUS_SHADERS_UNCHECKED`, measuring: `whole::shader::big_module`).
         let module = crate::whole::shader::big_module(device, wgpu::ShaderModuleDescriptor { label: Some(&format!("{label} march")), source: wgpu::ShaderSource::Wgsl(source.into()) });
@@ -368,7 +371,7 @@ struct Targets {
     store: Arc<CardStore>,
     /// The textures they were bound with (`SightDraw::textures_made`).
     textures_made: u64,
-    /// How many builds of the march they have bindings for (the game's, the twin's, the crisp build's).
+    /// How many builds of the march they have bindings for (the game's, the twin's, the other far reads').
     builds: usize,
     /// The start pass's tiles across and down.
     tiles: (u32, u32),
@@ -473,8 +476,8 @@ impl SightDraw {
             twin_stages,
             twin_faces,
             twin_next: false,
-            crisp: None,
-            crisp_making: None,
+            reads: [None, None],
+            reads_making: [None, None],
             march_source: march.to_string(),
             face_values,
             face_list,
@@ -541,7 +544,7 @@ impl SightDraw {
     /// The pyramid's layers for a screen of `screen`, one a factor (coarsest first), and their bindings to
     /// `store`, made again when any of them changes (a moment's work: the store is the world's, not the screen's).
     fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32), factors: &[f32], store: &Arc<CardStore>) -> &Targets {
-        let builds_now = 1 + self.twin.is_some() as usize + self.crisp.is_some() as usize;
+        let builds_now = 1 + self.twin.is_some() as usize + self.reads.iter().flatten().count();
         let stale = self.targets.as_ref().is_none_or(|t| t.screen != screen || t.factors != factors || !Arc::ptr_eq(&t.store, store) || t.textures_made != self.textures_made || t.builds != builds_now);
         if stale {
             let texture = |label: &str, size: (u32, u32), format: wgpu::TextureFormat| {
@@ -564,9 +567,9 @@ impl SightDraw {
             // The base has no layer above: its "worth it" in is a placeholder never read.
             let nothing_above = storage("sight's nothing above", 1);
             let no_distances_above = texture("sight's no distances above", (1, 1), wgpu::TextureFormat::R32Float);
-            // The builds of the march drawing: the game's, then the twin's if there's a twin, then the crisp build's once
-            // it's made (each its own bindings).
-            let builds: Vec<&Passes> = std::iter::once(&self.passes).chain(self.twin.as_ref()).chain(self.crisp.as_ref()).collect();
+            // The builds of the march drawing: the game's, then the twin's if there's a twin, then the other far reads'
+            // once they're made (each its own bindings).
+            let builds: Vec<&Passes> = std::iter::once(&self.passes).chain(self.twin.as_ref()).chain(self.reads.iter().flatten()).collect();
             let mut layers: Vec<Layer> = Vec::new();
             let mut worth_above: Option<wgpu::Buffer> = None;
             let mut far_above: Option<wgpu::TextureView> = None;
@@ -683,44 +686,51 @@ impl SightDraw {
         self.targets.as_ref().expect("made just now")
     }
 
-    /// The crisp build (`Eye::crisp`): made on a thread of its own the first time it's `wanted` (compiling sight's
-    /// passes takes seconds; the frames go on meanwhile, blended), taken in once it's made.
-    fn make_crisp(&mut self, device: &wgpu::Device, wanted: bool) {
+    /// The build for far reads `wanted` (`Eye::far_reads`, 1 or 2; 0 is the game's own): made on a thread of its own the
+    /// first time it's wanted (compiling sight's passes takes seconds; the frames go on meanwhile, blended), taken in
+    /// once it's made. Every finished making is taken in, whichever is wanted now.
+    fn make_reads(&mut self, device: &wgpu::Device, wanted: u32) {
         use std::sync::atomic::Ordering;
-        if wanted && self.crisp.is_none() && self.crisp_making.is_none() {
+        if let Some(k) = (wanted as usize).checked_sub(1).filter(|&k| k < 2)
+            && self.reads[k].is_none()
+            && self.reads_making[k].is_none()
+        {
             let (device, source) = (device.clone(), self.march_source.clone());
             let faces = [self.face_keys.clone(), self.face_values.clone(), self.face_list.clone(), self.face_count.clone()];
-            CRISP_STATE.store(CRISP_MAKING, Ordering::Relaxed);
-            self.crisp_making = Some(std::thread::spawn(move || {
+            READS_STATE[k].store(READS_MAKING, Ordering::Relaxed);
+            self.reads_making[k] = Some(std::thread::spawn(move || {
                 let [a, b, c, d] = &faces;
-                Passes::with_constants(&device, &source, "sight's crisp", [a, b, c, d], &[("ONE_CELL", 1.0)])
+                Passes::with_constants(&device, &source, &format!("sight's far reads {}", k + 1), [a, b, c, d], &[("FAR_READS", (k + 1) as f64)])
             }));
         }
-        if self.crisp_making.as_ref().is_some_and(|making| making.is_finished())
-            && let Some(making) = self.crisp_making.take()
-        {
-            match making.join() {
-                Ok(passes) => {
-                    self.crisp = Some(passes);
-                    CRISP_STATE.store(CRISP_READY, Ordering::Relaxed);
+        for k in 0..2 {
+            if self.reads_making[k].as_ref().is_some_and(|making| making.is_finished())
+                && let Some(making) = self.reads_making[k].take()
+            {
+                match making.join() {
+                    Ok(passes) => {
+                        self.reads[k] = Some(passes);
+                        READS_STATE[k].store(READS_READY, Ordering::Relaxed);
+                    }
+                    Err(_) => READS_STATE[k].store(READS_FAILED, Ordering::Relaxed),
                 }
-                Err(_) => CRISP_STATE.store(CRISP_FAILED, Ordering::Relaxed),
             }
         }
     }
 
-    /// The crisp build made now, waited for (tests: drawing with it from the first frame).
+    /// The build for far reads `mode` (1 or 2) made now, waited for (tests: drawing with it from the first frame).
     #[cfg(test)]
-    pub fn crisp_now(&mut self, device: &wgpu::Device) {
-        self.make_crisp(device, true);
-        if let Some(making) = self.crisp_making.take() {
-            self.crisp = Some(making.join().expect("the crisp build"));
+    pub fn reads_now(&mut self, device: &wgpu::Device, mode: u32) {
+        self.make_reads(device, mode);
+        let k = mode as usize - 1;
+        if let Some(making) = self.reads_making[k].take() {
+            self.reads[k] = Some(making.join().expect("the far reads' build"));
         }
     }
 
     /// The pyramid marched and brought up onto `view` (the screen's picture, `screen` pixels).
     pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, screen: (u32, u32), eye: Eye, store: &Arc<CardStore>) {
-        self.make_crisp(device, eye.crisp);
+        self.make_reads(device, eye.far_reads);
         let factors = factors(eye);
         let (coarsest, finest) = (factors[0], factors[factors.len() - 1]);
         let has_between = factors.iter().any(|&f| (f - 1.5).abs() < 0.01);
@@ -824,12 +834,13 @@ impl SightDraw {
             self.twin_next = !self.twin_next;
         }
         let twin_frame = twin_possible && self.twin_next;
-        // The passes drawing this frame (a twin file's on its frames, the crisp build's while it's asked for and made,
-        // the game's otherwise), and which of the bindings are theirs.
-        let crisp_b = 1 + self.twin.is_some() as usize;
-        let (build, b) = match (&self.twin, &self.crisp) {
+        // The passes drawing this frame (a twin file's on its frames, the far reads' build asked for once it's made, the
+        // game's otherwise), and which of the bindings are theirs (after the game's and the twin's, the far reads' in
+        // order, those made).
+        let reads = (eye.far_reads as usize).checked_sub(1).filter(|&k| k < 2).and_then(|k| self.reads[k].as_ref().map(|passes| (k, passes)));
+        let (build, b) = match (&self.twin, reads) {
             (Some(twin), _) if twin_frame => (twin, 1),
-            (_, Some(crisp)) if eye.crisp => (crisp, crisp_b),
+            (_, Some((k, passes))) => (passes, 1 + self.twin.is_some() as usize + self.reads[..k].iter().flatten().count()),
             _ => (&self.passes, 0),
         };
         let queries = self.timer.as_ref().map(|timer| &timer.queries);
@@ -1092,20 +1103,22 @@ const FACE_SLOTS: u32 = 262_144;
 /// The camera numbers' rows (`Camera` in `march.wgsl`).
 const CAMERA_ROWS: usize = 17;
 
-/// The crisp build's state, for the Render page (`crisp_state`): not asked for yet, being made, made, or failed.
-static CRISP_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(CRISP_NONE);
-const CRISP_NONE: u8 = 0;
-const CRISP_MAKING: u8 = 1;
-const CRISP_READY: u8 = 2;
-const CRISP_FAILED: u8 = 3;
+/// The far reads' builds' states (`Eye::far_reads` 1 and 2), for the Render page (`reads_state`): not asked for yet,
+/// being made, made, or failed.
+static READS_STATE: [std::sync::atomic::AtomicU8; 2] = [const { std::sync::atomic::AtomicU8::new(READS_NONE) }; 2];
+const READS_NONE: u8 = 0;
+const READS_MAKING: u8 = 1;
+const READS_READY: u8 = 2;
+const READS_FAILED: u8 = 3;
 
-/// The crisp build's state in words, for the Render page.
-pub fn crisp_state() -> &'static str {
-    match CRISP_STATE.load(std::sync::atomic::Ordering::Relaxed) {
-        CRISP_MAKING => "being made (a few seconds; blended till then)",
-        CRISP_READY => "ready",
-        CRISP_FAILED => "couldn't be made (see the log)",
-        _ => "made the first time it's chosen",
+/// The state of far reads `mode`'s build (1 or 2) in words, for the Render page.
+pub fn reads_state(mode: u32) -> &'static str {
+    let Some(state) = (mode as usize).checked_sub(1).and_then(|k| READS_STATE.get(k)) else { return "" };
+    match state.load(std::sync::atomic::Ordering::Relaxed) {
+        READS_MAKING => " (being made: a few seconds, blended till then)",
+        READS_READY => "",
+        READS_FAILED => " (couldn't be made: see the log)",
+        _ => " (made the first time it's chosen)",
     }
 }
 

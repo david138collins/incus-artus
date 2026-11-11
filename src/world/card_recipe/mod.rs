@@ -2114,21 +2114,22 @@ fn ground(c: Case) -> i32 {
         }
     }
 
-    /// The crisp build (the Oracle's experiment 2: the far cells read one at a time, `ONE_CELL`) compiles and draws: over
-    /// hills from high up and grazing, its picture differs from the blend's (the switch does something), is about as
-    /// bright, and has no black holes the blend hasn't.
+    /// The far reads' other builds (the Oracle's experiment 2, `FAR_READS`: 1 crisp, the one cell; 2 crisp across and
+    /// smooth in height, the one column's two cells) compile and draw: over hills from high up and grazing, each picture
+    /// differs from the blend's (the choice does something), is about as bright, and has no black holes the blend hasn't.
     #[test]
     #[ignore]
-    fn sight_s_crisp_far_cells_draw() {
+    fn sight_s_far_reads_draw() {
         let height = |column: usize, row: usize| 150.0 + 40.0 * ((column as f32 * 0.7).sin() * (row as f32 * 0.45).cos());
         let Some((device, queue, store, map)) = sight_scene_levels(16.0, height, Some((0, 0)), &[0, 1, 2, 3, 4], &[0, 1, 2, 3, 4]) else {
-            eprintln!("No graphics card: sight's crisp picture test is skipped");
+            eprintln!("No graphics card: sight's far reads picture test is skipped");
             return;
         };
         let probe = std::env::var("INCUS_PROBE_DIR").ok().map(std::path::PathBuf::from);
         let ground = |north: f32, east: f32| map.height(north, east).unwrap_or(150.0);
         let mut draw = crate::sight::draw::SightDraw::new(&device, &queue, wgpu::TextureFormat::Rgba8Unorm);
-        draw.crisp_now(&device);
+        draw.reads_now(&device, 1);
+        draw.reads_now(&device, 2);
         let size = (480, 300);
         for (name, at, pitch, heading) in [("high", [0.0f32, 0.0, 400.0], -30.0f32, 45.0f32), ("grazing", [0.0, 0.0, 8.0], -8.0, 0.0)] {
             let position = [at[0], at[1], ground(at[0], at[1]) + at[2]];
@@ -2136,19 +2137,23 @@ fn ground(c: Case) -> i32 {
             let looking = [p.cos() * h.cos(), p.cos() * h.sin(), p.sin()];
             let eye = crate::sight::draw::Eye { position, looking, field_of_view: 70.0, grid: 2.0, coarsest: 8, ..Default::default() };
             let blended = sight_picture_by(&mut draw, &device, &queue, &store, size, eye);
-            let crisp = sight_picture_by(&mut draw, &device, &queue, &store, size, crate::sight::draw::Eye { crisp: true, ..eye });
             if let Some(dir) = &probe {
-                write_picture(&dir.join(format!("crisp-{}-blended.png", name.replace(' ', "-"))), size, &blended);
-                write_picture(&dir.join(format!("crisp-{}-crisp.png", name.replace(' ', "-"))), size, &crisp);
+                write_picture(&dir.join(format!("reads-{name}-0-blended.png")), size, &blended);
             }
-            let differing = blended.iter().zip(&crisp).filter(|(a, b)| a.iter().zip(b.iter()).any(|(x, y)| x.abs_diff(*y) > 2)).count();
-            let brightness = |picture: &[[u8; 3]]| picture.iter().map(|p| p.iter().map(|&c| c as f64).sum::<f64>()).sum::<f64>() / picture.len() as f64;
-            let black = |picture: &[[u8; 3]]| picture.iter().filter(|p| p.iter().all(|&c| c < 4)).count();
-            let (b, c) = (brightness(&blended), brightness(&crisp));
-            eprintln!("{name}: {differing} of {} pixels differ; brightness blended {b:.0}, crisp {c:.0}; black {} and {}", crisp.len(), black(&blended), black(&crisp));
-            assert!(differing * 100 > crisp.len(), "{name}: crisp should differ from the blend somewhere ({differing} pixels)");
-            assert!((c - b).abs() < 0.25 * b, "{name}: crisp about as bright as the blend ({c:.0} against {b:.0})");
-            assert!(black(&crisp) <= black(&blended) + crisp.len() / 100, "{name}: no black holes in the crisp picture ({} against {})", black(&crisp), black(&blended));
+            for (mode, way) in [(1u32, "crisp"), (2, "smooth-in-height")] {
+                let other = sight_picture_by(&mut draw, &device, &queue, &store, size, crate::sight::draw::Eye { far_reads: mode, ..eye });
+                if let Some(dir) = &probe {
+                    write_picture(&dir.join(format!("reads-{name}-{mode}-{way}.png")), size, &other);
+                }
+                let differing = blended.iter().zip(&other).filter(|(a, b)| a.iter().zip(b.iter()).any(|(x, y)| x.abs_diff(*y) > 2)).count();
+                let brightness = |picture: &[[u8; 3]]| picture.iter().map(|p| p.iter().map(|&c| c as f64).sum::<f64>()).sum::<f64>() / picture.len() as f64;
+                let black = |picture: &[[u8; 3]]| picture.iter().filter(|p| p.iter().all(|&c| c < 4)).count();
+                let (b, c) = (brightness(&blended), brightness(&other));
+                eprintln!("{name}, {way}: {differing} of {} pixels differ; brightness blended {b:.0}, this {c:.0}; black {} and {}", other.len(), black(&blended), black(&other));
+                assert!(differing * 100 > other.len(), "{name}, {way}: should differ from the blend somewhere ({differing} pixels)");
+                assert!((c - b).abs() < 0.25 * b, "{name}, {way}: about as bright as the blend ({c:.0} against {b:.0})");
+                assert!(black(&other) <= black(&blended) + other.len() / 100, "{name}, {way}: no black holes ({} against {})", black(&other), black(&blended));
+            }
         }
     }
 
