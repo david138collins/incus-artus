@@ -19,7 +19,7 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
 - **Waiting on David:** his word on how phase 2 starts (Counsel put ideas to him, 2026-11-11) and 2.1's two
-  questions (old's place, the control room), before Builder starts 2.1. The USB stick, for the export's copy.
+  questions (old's place, the control room), before Builder starts 2.1.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`.
 
@@ -92,7 +92,8 @@ Each experiment's pass mark is written down before it flies.
   - The lookup is almost free and found nearly everywhere far: the spawn 9% faster, the mountain top and the build 3%
     (at eye level light's cost is the near faces'). David on light that steps: "i don't think i could tell the
     difference between the two in a blind test".
-- [ ] **1.6 References from old, then old frozen**
+- [x] **1.6 References from old, then old frozen** (`master/references.md`; tagged `old-final`, 7c809d3; the export
+      on the USB)
   - [x] Pictures at fixed places, times of day and settings (24: six places, four times of day; `references/pictures/`,
         `master/references.md`)
   - [x] The marks' flights, with the repaired instruments (C and C2, the Intel card's B; `master/references.md`)
@@ -107,7 +108,8 @@ Each experiment's pass mark is written down before it flies.
         - Written 2026-11-11 (build 115): 19,881 tiles, 5.2 billion columns, 0.11 GB, 7 profiles, 8 minutes.
         - Checked: one tile in 50 read back (399 tiles, 104.6 million columns), every column's ground and water the
           world's, and 1,029,963 whole profiles the world's (`INCUS_EXPORT_CHECK=50`).
-        - On the USB: *not yet* (the stick wasn't in).
+        - On the USB: `D:\Incus Artus Backups\exports\nice25 test` (2026-11-11; all 19,883 files compared with
+          the laptop's by SHA-256, none differing).
   - The pictures are kept for reference, not as a yardstick (David: "it'll look good or it won't, idc what the old
     things look like in particular, other than the basic way we're doing things")
   - *Gate:* the references listed here, each with where it's kept
