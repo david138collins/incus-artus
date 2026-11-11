@@ -24,6 +24,16 @@ All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "W
   and scientific while rebuilding incus artus ... how important it is to start with the graphics solution knocked out
   of the park. the rest of it is mostly fun and frolicking." He sees old as the prototype it took to get here: "sometimes
   there's just no way to make a thing right the first time and you have to go through prototypes."
+- **The world's format, and old's world gen kept out of the new eye** (a concern raised for planning, not yet
+  decided):
+  - "when we build a new graphics engine from our research, i don't think we should necessarily use the old world
+    gen as the way we're going to store and access the world will fundamentally change. i think it would be better if
+    we could somehow just take nice25 and convert it the new format we're going to use, and use that for tuning the
+    graphics engine, before going back and rebuilding the world gen stack with a finished graphics solution."
+  - "the new world format is critical to performance. so, we don't really want the new graphics engine touching it.
+    we'd need to establish exactly how the format is going to work in a way that lets me expand and refine the
+    generation process. we're not quite at that point, but im bringing up the concern now so we can plan for it."
+  - See question 7.
 - **The near field:** rays "if they're cheap, and if that writes elegant compact code that is easier to manage";
   triangles for actors; "triangles for everything in the near field *if* it can look right and there are no
   jarring pops or seams."
@@ -56,6 +66,13 @@ The plan is `master/plan.md`.
   - Experiment 8 opens the tablet (3.1), and experiment 7 opens world generation (3.4).
 - **After the eye:** the tablet, then the Registrar, then the Graphics Kit, then world generation stage by stage, then
   making a world, then the game's systems.
+- **Proposed, for you to weigh (David's concern above):** the eye is fed a converted nice25, not old's world gen.
+  - Before old is frozen, old exports nice25's blocks where the eye will work (the spawn, the three marks, the
+    dyno's route), each column as old makes it, in a plain form.
+  - In the new project, a converter writes that into the new format, and again whenever the format changes; old is
+    never touched again. Experiment 8 is answered from it.
+  - The far cells come from old's far bake as planned, and old's bake becomes the check for the new sums.
+  - World generation is later rebuilt to write the same format, with old's export as its check, block for block.
 
 ### Your ten questions, where they stand
 
@@ -204,6 +221,22 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
    - Far light was already cheap (the mountain top: half the picture, 3%). Does the far light lane still earn its
      place, at 4 bytes a cell (96 MB in old), or does light go inside the soft bricks?
 
+7. **The world's format, and where the eye gets its world** (David's concern, section 1):
+   - Your step 4 feeds the eye "old's bake file and chunks through a loader". But old keeps no blocks: nice25's
+     chunks folder is empty, and every block is made again by old's world gen whenever it's near. So that loader
+     would run old's world gen inside the new engine. Should the eye read a converted nice25 instead, as proposed
+     in section 1, with experiment 8 moved before experiment 5?
+   - David needs a format "that lets me expand and refine the generation process": later stages, strata and ores,
+     water's redesign, things not yet imagined. How is the format cut so that generation can grow without the eye
+     being rebuilt or slowed?
+   - Counsel's reading of your design, to confirm or correct: there are two formats. The bricks are what the eye
+     reads in the frame, so its speed rests on them. The tablet is what generation writes, read only by the lanes
+     that make bricks from it. If so, the bricks could be fixed with the eye, and the tablet left open for
+     generation, as long as bricks can still be made from it. Does the tablet's layout matter to the frame
+     anywhere, through loading in fast flight, edits or light?
+   - nice25 is 2,250 map pixels at 32 blocks, about 72,000 blocks across (your 5.2 billion columns). Old's far bake
+     is 200 MB. How large an area at block detail should the export take for the eye's tuning?
+
 *(More as experiments 5 and 6 land.)*
 
 ---
@@ -214,7 +247,8 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] Optional: the crisp and in-between flights at the marks: the blend in code is 24 to 33% of every mark
 - [x] Experiment 4b flown: light stored in the baked cells, looked up for the far pixels (flight H, build 114)
 - [x] Experiment 4b: David's look at light that steps (build 115): he can't tell it from the rays
-- [ ] References from old; old frozen
+- [ ] References from old; old frozen. Before the tag: decide whether old exports nice25's blocks where the eye will
+      work (question 7), since old isn't touched after it
 - [ ] The packing and the skeleton (2.1)
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle

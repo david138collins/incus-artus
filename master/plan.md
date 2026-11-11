@@ -94,6 +94,8 @@ Each experiment's pass mark is written down before it flies.
   - [ ] The marks' flights, with the repaired instruments
   - [ ] The default preset's maps and river network; sample columns
   - [ ] Tagged `old-final`
+  - *To decide before the tag:* whether old exports nice25's blocks where the new eye will work, so the eye never
+    runs old's world gen (David's concern, 2026-11-11; the open question below)
   - *Gate:* the references listed here, each with where it's kept
 
 ## Phase 2 · Restart: the eye on old's world
@@ -149,6 +151,7 @@ Each experiment's pass mark is written down before it flies.
 |---|---|
 | `Art/`'s new files and `For Claude/` online? "Not yet" for now | David, any time |
 | ~~Far cells crisp or soft (one cell read, or eight blended)?~~ | Answered at 1.4: soft |
+| The world's format, and where the eye gets its world. David: the eye tuned on nice25 converted to the new format, not on old's world gen, and a format "that lets me expand and refine the generation process" (`docs/decisions.md`) | The Oracle, at the fork (her brief's question 7); the export from old before `old-final` (1.6) |
 | The control room as a page in the game's own panel? | 2.1 |
 | Old's new place: `old\` inside this folder (the default), or elsewhere? | 2.1 |
 | The moons: does the brighter one cast shadows? | 2.4 |

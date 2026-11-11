@@ -999,6 +999,25 @@ Reference: `Art/quartile minecraft illustration.png`
   right the first time and you have to go through prototypes." *Counsel:* the plan already has this order. Phase 2
   is the eye, and it's whole and walked by David before the world is rebuilt. Old was the prototype that found the
   look and made the experiments possible.
+- **[OPEN 2026-11-11] The world's format, and old's world gen kept out of the new eye.** A concern raised now so we
+  can plan for it:
+  - "when we build a new graphics engine from our research, i don't think we should necessarily use the old world
+    gen as the way we're going to store and access the world will fundamentally change. i think it would be better
+    if we could somehow just take nice25 and convert it the new format we're going to use, and use that for tuning
+    the graphics engine, before going back and rebuilding the world gen stack with a finished graphics solution.
+    just an idea and a concern."
+  - "the new world format is critical to performance. so, we don't really want the new graphics engine touching it.
+    we'd need to establish exactly how the format is going to work in a way that lets me expand and refine the
+    generation process. we're not quite at that point, but im bringing up the concern now so we can plan for it."
+  - *Counsel:* old keeps no blocks (nice25's chunks folder is empty; old's world gen makes every block again when
+    it's near), so the plan's "near blocks from old's world" would run old's world gen inside the new eye.
+  - The proposal: old exports nice25's blocks where the eye will work before it's frozen. A converter in the new
+    project writes them into the new format, and the eye reads only that. World generation is rebuilt later to write
+    the same format.
+  - In the Oracle's design the eye reads bricks and only the lanes read the tablet, so the format the frame rests on
+    may be separable from the one generation grows in.
+  - Taken to the Oracle at the fork (`vision/oracle-return.md`, question 7). The export must be decided before
+    `old-final`.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
