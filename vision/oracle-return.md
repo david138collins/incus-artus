@@ -75,6 +75,7 @@ The plan is `master/plan.md`.
 | 2 | Crisp: plain bricks at 2.6 times the cells, the simplest and fastest. Soft: 3D textures at 5.5 times, the texture hardware blending, the memory plan doubled | Crisp (build 112), David: "it doesn't look better ... sometimes it looked decent, other times a little janky". Shallow hills band as you move (stair-steps of whole cells sliding). A third way, crisp across and smooth in height (build 113): "its better than ziggurat lods but, its not better than blended" | **Soft bricks.** Crisp and the in-between stay as fallbacks for a card short of memory |
 | 3 | The library's checks cost 3 to 15%; ship unchecked | Unchecked, sight is **31 to 49% slower** at the three marks and 8.6% faster on the route's median. The world's rules are about 15% faster a piece | Checks stay on in old. In the new engine each program is priced both ways; the world's rules are the candidate for unchecked |
 | 4a | Light is about half the card near the ground | 42% at the spawn, 17% at the mountain top, 17% beside the build, 25% of the route's median | 4b goes ahead. But light alone won't close the gap where it's widest |
+| 4b | The lane lights each cell once, "about a thousandth of the work". If the lookup costs as much as the rays, light moves into the hit record's read or the bricks' layout is reconsidered | The lookup works and is cheap: the sweep takes 0.00 to 0.01 ms a frame, and the kept light is read across nearly all the far land. But the marks come down only **9%, 3% and 3%** (4a's ceiling: 42, 17, 17), and the route's median is 3% slower. The light's view shows why: the near block faces, lit per face every frame, fill most of every eye-level view | Neither of your two readings. The far half of the light lane holds as drawn, for the far view. At eye level light's cost is the near faces'. Your 4.2 has them read light from the air cell in front, which 4b didn't try; experiment 6 does ("light looked up") |
 
 ### Today's gap
 
@@ -87,6 +88,20 @@ The laptop at 2,560 × 1,600, a 240 budget of 4.17 ms a frame. Builds 110 and 11
 | Beside the quarter-block build | 11.74 | 2.8 | 9.76 | 29.5 |
 | The route: median, and 99th with the lanes | 4.19, 13.93 | 1.0, 3.3 | 3.03 (median) | — |
 
+### What each piece is worth
+
+How much faster sight on the card is with the piece taken away, against the same build with it in. Each was flown
+alone; they don't add up.
+
+| | Spawn | Mountain top | Beside the build | Route median |
+|---|---|---|---|---|
+| All light: sky light and sun shadows off (4a: E against C) | 42% | 17% | 17% | 25% |
+| Light kept, for the far pixels only (4b: H against C2) | 9% | 3% | 3% | 3% slower |
+| The far reads' blend in code (crisp, F against C) | 27% | 33% | 27% | 23% |
+| The same, smooth in height kept (the in-between, G against C2) | 24% | 31% | 28% | 20% |
+
+C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's code costs nothing when it's off.
+
 ### Details worth your attention
 
 - **The standing marks repeat within half a percent** from flight to flight; the route's median drifts about 3%.
@@ -98,9 +113,24 @@ The laptop at 2,560 × 1,600, a 240 budget of 4.17 ms a frame. Builds 110 and 11
   the laptop's memory. Its live levels weren't whole after 180 s (each tile takes about 3 times as long), so its
   numbers drew a slightly coarser picture.
 - **The twin drift** you found (`sight/cell.wgsl:76-89`) was left alone; it goes with the twin.
-- **What the hardware blend could win** is measured only on the route: probe P7's 41% (build 107). At the standing
-  marks it isn't measured yet. Builder offered the flights (crisp and the in-between against C, about 25 minutes, no
-  look); see section 5.
+- **What the hardware blend could win** (flights F and G, David's "yes", no look): the blend in code is a quarter to a
+  third of the card at every mark, and a third of the route's 99th (9.69 to 6.46 ms crisp). That's the ceiling of what
+  the soft bricks' texture hardware can win back while keeping the blended look. The hardware's blend isn't quite
+  free, so it's an upper bound.
+- **4b's light view** (`INCUS_SIGHT_LIGHT_VIEW`; the three marks' pictures in `kept logs/pictures/`) tints each pixel
+  by where its light came from:
+  - green, the light kept in its cell: nearly all the far land at every mark;
+  - yellow, its sky handed down: a scatter through the far land;
+  - red, its own rays: hardly any;
+  - blue, a near block face lit per face every frame: the ground and the water near the eye, most of every picture;
+  - yellow throughout: the quarter-block build. Its pieces aren't in the face table, so each pixel casts its own sun
+    ray.
+- **At the mountain top the kept light covers about half the picture, yet wins 3% of 4a's 17%.** Builder's reading:
+  the far pixels' light was already cheap, their sky mostly handed down. So the far light lane's gain in the frame is
+  small even where it's found. Its other gain: with it on, the build's levels settled in 59 s against 83.
+- **4b kept a light word of 4 bytes beside every cell** of old's pool: 96 MB beside the pool's 384.
+- **4b's lost flight:** G first died at start, because the script rebuilt the program with 4b half-written in the
+  folder. It was flown again on build 114. No numbers came from the broken run.
 
 ---
 
@@ -111,15 +141,20 @@ The laptop at 2,560 × 1,600, a 240 budget of 4.17 ms a frame. Builds 110 and 11
   - the record's worst figures were soft;
   - the lanes' work was outside the number and fattens the tail;
   - the small card fails only on speed;
-  - big programs are fragile under the compiler (experiment 3 is a stark case of it).
+  - big programs are fragile under the compiler (experiment 3 is a stark case of it);
+  - light belongs to the place, not the eye: kept in the far cells, it's found nearly everywhere and the sweep costs
+    almost nothing (4b);
+  - the blend is a large cost: a quarter to a third of every mark (flights F and G).
 - **Didn't:**
   - the checks' cost had the wrong sign where it matters;
   - "near stepping is not the main cost; near light is" (your 4.2) doesn't hold beside builds. There light is 17%,
     and with it free the build mark is still 9.76 ms, 2.3 times the budget: the walk through quarter blocks is most
-    of it.
+    of it;
+  - light kept for the far pixels is a small win at eye level (9%, 3%, 3%): far pixels are a minority of those views,
+    and their light was already cheap. Light's share there belongs to the near faces.
 - **Settled by David's eye, as you left it:** crisp or soft. Soft, so the texture hardware does the blend (2).
 - **Not yet tested:**
-  - light looked up (4b);
+  - near faces' light read from the air cell in front (6);
   - the brick walk far (5) and near (6);
   - the rules in 32 bits (7);
   - the tablet's size (8).
@@ -145,16 +180,31 @@ The laptop at 2,560 × 1,600, a 240 budget of 4.17 ms a frame. Builds 110 and 11
      empty-group mask under blended reads?
    - Your case that flat ground gathers the same at both levels used exact lengths inside crisp cells. Does it hold
      when every read is blended?
+   - Flights F and G put the blend in code at 24 to 33% of the marks. How much of that do you expect the texture
+     hardware to keep, and on the small card, whose full-screen passes cost so much more?
 
-*(More as experiments 4b, 5 and 6 land.)*
+6. **Experiment 4b, light at eye level:** kept far, light wins 9%, 3% and 3%. The near faces (lit per face every
+   frame) fill most of each view, and 4a's ceiling minus 4b's far gain leaves up to about a third of the spawn mark
+   in near light.
+   - In the lens the near face reads its light from the air cell in front. Is that a word like 4b's, kept per sun
+     step for every air cell near the eye? What does it cost in memory near, and in the lane's work when blocks
+     change?
+   - Quarter blocks today cast a sun ray per pixel. In the lens, where do pieces read their light?
+   - Builder's alternative is old's light per face kept between frames (tried at build 107, dropped on the moving
+     route), judged on the standing marks. Is that worth a flight in old, or does experiment 6 answer it better?
+   - Far light was already cheap (the mountain top: half the picture, 3%). Does the far light lane still earn its
+     place, at 4 bytes a cell (96 MB in old), or does light go inside the soft bricks?
+
+*(More as experiments 5 and 6 land.)*
 
 ---
 
 ## 5. Still to come
 
 - [x] Experiment 2: one-cell far reads against the blend (David's looks): soft
-- [ ] Optional: the crisp and in-between flights at the marks (what the hardware blend could win there)
-- [ ] Experiment 4b: light stored in the baked cells, looked up
+- [x] Optional: the crisp and in-between flights at the marks: the blend in code is 24 to 33% of every mark
+- [x] Experiment 4b flown: light stored in the baked cells, looked up for the far pixels (flight H, build 114)
+- [ ] Experiment 4b: David's look at light that steps
 - [ ] References from old; old frozen
 - [ ] The packing and the skeleton (2.1)
 - [ ] Experiment 5: the eye, far (2.2)

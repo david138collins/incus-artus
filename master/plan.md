@@ -11,11 +11,13 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 ## Where we are
 
 - **Working on:** Phase 1, *Learn, in old*. Experiments 1, 2, 3 and 4a done (2026-11-11, `docs/experiments.md`;
-  experiment 2's answer: soft bricks, the blend stays); experiment 4b (1.5, light kept in the cells) is next.
+  experiment 2's answer: soft bricks, the blend stays). Experiment 4b (1.5, light kept in the cells) is flown: the far
+  lookup works and costs almost nothing, but wins only 9% at the spawn, since at eye level light's cost is the near
+  faces'. Its look is next, then the references (1.6).
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for experiment 4b (light stored in the baked cells and looked up; a few hours' build and
-  one look at light that steps).
+- **Waiting on David:** his look at light that steps (build 114, with Builder): the far ground lit a cell at a time,
+  against rays, and the sun moved.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`.
 
@@ -143,7 +145,7 @@ Each experiment's pass mark is written down before it flies.
 | Question | Waits on |
 |---|---|
 | `Art/`'s new files and `For Claude/` online? "Not yet" for now | David, any time |
-| Far cells crisp or soft (one cell read, or eight blended)? | 1.4, David's look |
+| ~~Far cells crisp or soft (one cell read, or eight blended)?~~ | Answered at 1.4: soft |
 | The control room as a page in the game's own panel? | 2.1 |
 | Old's new place: `old\` inside this folder (the default), or elsewhere? | 2.1 |
 | The moons: does the brighter one cast shadows? | 2.4 |
@@ -167,6 +169,10 @@ Each experiment's pass mark is written down before it flies.
 - **With light free** (experiment 4a): the spawn fits the budget (3.46 ms), but the mountain top (5.45) and the
   build (9.76) don't. There the rest is the far reach and the near walk through quarter blocks, so storing light
   alone won't close the gap: the near field (2.3) and the far reads (2.2) have to win too.
+- **Light kept, far only** (experiment 4b): 9% off the spawn, 3% off the mountain top and the build. At eye level most
+  of light's cost is in the near faces, lit afresh every frame. The new eye looks their light up too (2.3).
+- **The blend** (flights F and G): the far reads' blend in code is a quarter to a third of every mark. That's the
+  most the soft bricks' texture hardware can win back (2.2).
 
 ## What every step keeps
 
