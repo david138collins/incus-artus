@@ -1,0 +1,28 @@
+{
+    // Incus Artus: settings for everyone who opens this folder in VS Code.
+
+    // rust-analyzer checks the code into its own folder (target/rust-analyzer), so it never waits on
+    // Builder's builds or makes them wait.
+    "rust-analyzer.cargo.targetDir": true,
+
+    // Never reformat on save: the project has no rustfmt.toml, and rustfmt would rewrite every file in
+    // a style that isn't ours.
+    "editor.formatOnSave": false,
+    "[rust]": {
+        "editor.formatOnSave": false
+    },
+
+    // target/ is tens of gigabytes and logs/ holds hundreds of files: keep them out of the file watcher
+    // and the search.
+    "files.watcherExclude": {
+        "**/target/**": true,
+        "**/logs/**": true
+    },
+    "search.exclude": {
+        "**/target": true,
+        "**/logs": true
+    },
+    "files.exclude": {
+        "**/target": true
+    }
+}

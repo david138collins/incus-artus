@@ -1,0 +1,15 @@
+{
+    // VS Code offers to install these when the folder is opened.
+    "recommendations": [
+        // Rust: errors, types and go-to-definition as you read.
+        "rust-lang.rust-analyzer",
+        // The shaders (.wgsl) in colour.
+        "PolyMeilex.wgsl",
+        // Presets and data files (.toml) in colour.
+        "tamasfe.even-better-toml",
+        // The master map's diagrams drawn in the Markdown preview.
+        "bierner.markdown-mermaid",
+        // Claude inside VS Code, if a session is ever run here.
+        "anthropic.claude-code"
+    ]
+}
