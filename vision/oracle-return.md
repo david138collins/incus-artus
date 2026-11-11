@@ -24,8 +24,8 @@ All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "W
   and scientific while rebuilding incus artus ... how important it is to start with the graphics solution knocked out
   of the park. the rest of it is mostly fun and frolicking." He sees old as the prototype it took to get here: "sometimes
   there's just no way to make a thing right the first time and you have to go through prototypes."
-- **The world's format, and old's world gen kept out of the new eye** (a concern raised for planning, not yet
-  decided):
+- **The world's format, and old's world gen kept out of the new eye** (raised for planning; the export since
+  decided, the format still open):
   - "when we build a new graphics engine from our research, i don't think we should necessarily use the old world
     gen as the way we're going to store and access the world will fundamentally change. i think it would be better if
     we could somehow just take nice25 and convert it the new format we're going to use, and use that for tuning the
@@ -33,7 +33,13 @@ All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "W
   - "the new world format is critical to performance. so, we don't really want the new graphics engine touching it.
     we'd need to establish exactly how the format is going to work in a way that lets me expand and refine the
     generation process. we're not quite at that point, but im bringing up the concern now so we can plan for it."
+  - Then, deciding the export: "export nice25 so that we can use it as a 'generated' world to look at with the new
+    graphics engine, before rebuilding world gen after the graphics engine is done."
   - See question 7.
+- **Old's pictures are a reference, not a yardstick:** "still not sure what good the pictures are. it'll look good or
+  it won't, idc what the old things look like in particular, other than the basic way we're doing things, like
+  pixelating the far horizon." The 24 pictures taken from old (`master/references.md`) are kept to answer "was it
+  like this before?". The new eye is judged by his eye on its own.
 - **The near field:** rays "if they're cheap, and if that writes elegant compact code that is easier to manage";
   triangles for actors; "triangles for everything in the near field *if* it can look right and there are no
   jarring pops or seams."
@@ -66,13 +72,16 @@ The plan is `master/plan.md`.
   - Experiment 8 opens the tablet (3.1), and experiment 7 opens world generation (3.4).
 - **After the eye:** the tablet, then the Registrar, then the Graphics Kit, then world generation stage by stage, then
   making a world, then the game's systems.
-- **Proposed, for you to weigh (David's concern above):** the eye is fed a converted nice25, not old's world gen.
-  - Before old is frozen, old exports nice25's blocks where the eye will work (the spawn, the three marks, the
-    dyno's route), each column as old makes it, in a plain form.
-  - In the new project, a converter writes that into the new format, and again whenever the format changes; old is
-    never touched again. Experiment 8 is answered from it.
-  - The far cells come from old's far bake as planned, and old's bake becomes the check for the new sums.
-  - World generation is later rebuilt to write the same format, with old's export as its check, block for block.
+- **The eye reads an exported world, not old's world gen** (David, deciding on his concern above):
+  - Before old is frozen, it exports the whole test world once, as columns: each column's ground, water and a
+    profile number, plus the profiles and the rule that makes a column's blocks (`world/export.rs`). It's your
+    tablet in a plain form. The test world has no caves or edits, so the columns are all of it.
+  - The new project converts that into its own format, again whenever the format changes; old is never run for it
+    again.
+  - Far cells are summed from it in the new project, and old's far bake checks the sums.
+  - World generation is rebuilt later to write the same format, with the export as its check, column by column.
+- **Your step 4's picture gate is dropped.** "Pictures against old's golden references ... within a stated
+  tolerance" becomes David's eye on its own terms, the basic way kept (above).
 
 ### Your ten questions, where they stand
 
@@ -99,6 +108,7 @@ The plan is `master/plan.md`.
 | 2 | Crisp: plain bricks at 2.6 times the cells, the simplest and fastest. Soft: 3D textures at 5.5 times, the texture hardware blending, the memory plan doubled | Crisp (build 112), David: "it doesn't look better ... sometimes it looked decent, other times a little janky". Shallow hills band as you move (stair-steps of whole cells sliding). A third way, crisp across and smooth in height (build 113): "its better than ziggurat lods but, its not better than blended" | **Soft bricks.** Crisp and the in-between stay as fallbacks for a card short of memory |
 | 3 | The library's checks cost 3 to 15%; ship unchecked | Unchecked, sight is **31 to 49% slower** at the three marks and 8.6% faster on the route's median. The world's rules are about 15% faster a piece | Checks stay on in old. In the new engine each program is priced both ways; the world's rules are the candidate for unchecked |
 | 4a | Light is about half the card near the ground | 42% at the spawn, 17% at the mountain top, 17% beside the build, 25% of the route's median | 4b goes ahead. But light alone won't close the gap where it's widest |
+| 8, early | The tablet at 1 to 4 GB a world | The test world exported as columns (ground, water, profile number; no caves or edits in this world): 0.22 bytes a column over four trial tiles round the spawn, about 1 GB for the whole world. Every 37th column checked matched old's own. *The full export's own size: to come* | Not yet. Caves' boxes, edits and the summed levels aren't in it, so it's a floor, not the tablet's size |
 | 4b | The lane lights each cell once, "about a thousandth of the work". If the lookup costs as much as the rays, light moves into the hit record's read or the bricks' layout is reconsidered | The lookup works and is cheap: the sweep takes 0.00 to 0.01 ms a frame, and the kept light is read across nearly all the far land. But the marks come down only **9%, 3% and 3%** (4a's ceiling: 42, 17, 17), and the route's median is 3% slower. The light's view shows why: the near block faces, lit per face every frame, fill most of every eye-level view | Neither of your two readings. The far half of the light lane holds as drawn, for the far view; David can't tell it from the rays "in a blind test". At eye level light's cost is the near faces'. Your 4.2 has them read light from the air cell in front, which 4b didn't try; experiment 6 does ("light looked up") |
 
 ### Today's gap
@@ -183,7 +193,7 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
   - near faces' light read from the air cell in front (6);
   - the brick walk far (5) and near (6);
   - the rules in 32 bits (7);
-  - the tablet's size (8).
+  - the tablet's size (8), though the export gives a floor: about 1 GB of plain columns.
 
 ---
 
@@ -222,10 +232,10 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
      place, at 4 bytes a cell (96 MB in old), or does light go inside the soft bricks?
 
 7. **The world's format, and where the eye gets its world** (David's concern, section 1):
-   - Your step 4 feeds the eye "old's bake file and chunks through a loader". But old keeps no blocks: nice25's
-     chunks folder is empty, and every block is made again by old's world gen whenever it's near. So that loader
-     would run old's world gen inside the new engine. Should the eye read a converted nice25 instead, as proposed
-     in section 1, with experiment 8 moved before experiment 5?
+   - Your step 4 fed the eye "old's bake file and chunks through a loader". But old keeps no blocks: nice25's chunks
+     folder is empty, and every block is made again by old's world gen whenever it's near. So that loader would
+     have run old's world gen inside the new engine. David decided the eye reads the exported world instead
+     (section 1). Does that change anything in experiments 5 and 6, or in what the fork should show?
    - David needs a format "that lets me expand and refine the generation process": later stages, strata and ores,
      water's redesign, things not yet imagined. How is the format cut so that generation can grow without the eye
      being rebuilt or slowed?
@@ -234,8 +244,8 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
      that make bricks from it. If so, the bricks could be fixed with the eye, and the tablet left open for
      generation, as long as bricks can still be made from it. Does the tablet's layout matter to the frame
      anywhere, through loading in fast flight, edits or light?
-   - nice25 is 2,250 map pixels at 32 blocks, about 72,000 blocks across (your 5.2 billion columns). Old's far bake
-     is 200 MB. How large an area at block detail should the export take for the eye's tuning?
+   - The export is plain columns at about 0.22 bytes each. Is that a good start for the tablet's columns, or does the
+     tablet want another layout (for loading in fast flight, or for the boxes)?
 
 *(More as experiments 5 and 6 land.)*
 
@@ -249,8 +259,9 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] Experiment 4b: David's look at light that steps (build 115): he can't tell it from the rays
 - [x] References from old (1.6), listed in `master/references.md`: 24 pictures (six places, four times of day), the
       test world's maps and river network, 5,047 sample columns, and the marks' flights
-- [ ] Old frozen (`old-final`). Before the tag: decide whether old exports nice25's blocks where the eye will work
-      (question 7), since old isn't touched after it
+- [x] The export decided (David): the whole test world as columns, for the new eye (`world/export.rs`)
+- [ ] The full export written and checked; its size into experiment 8's row
+- [ ] Old frozen (`old-final`)
 - [ ] The packing and the skeleton (2.1)
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle

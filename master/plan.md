@@ -12,11 +12,11 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 - **Working on:** Phase 1, *Learn, in old*. Experiments 1, 2, 3, 4a and 4b done (2026-11-11, `docs/experiments.md`):
   soft bricks (the blend stays); light kept a cell at a time, which David can't tell from rays ("in a blind test"),
-  though at eye level light's cost is the near faces'. Next, the references from old (1.6), then old frozen.
+  though at eye level light's cost is the near faces'. The references from old are taken (1.6), and the test world
+  is being exported whole for the new eye to read. Then old is frozen (`old-final`), and the restart begins (2.1).
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for the references from old (1.6): pictures at fixed places, the marks' flights, the
-  default preset's maps and rivers, sample columns; then the tag `old-final`.
+- **Waiting on:** the export to finish and be checked (Builder); then David's OK for the tag `old-final`.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`.
 
@@ -96,8 +96,12 @@ Each experiment's pass mark is written down before it flies.
   - [x] The default preset's maps and river network; sample columns (the test world's, nice25 with the dyno's
         presets, not the startup default: `references/world/`, `references/columns.txt`, 5,047 columns)
   - [ ] Tagged `old-final`
-  - *To decide before the tag:* whether old exports nice25's blocks where the new eye will work, so the eye never
-    runs old's world gen (David's concern, 2026-11-11; the open question below)
+  - [ ] The test world exported whole as columns, for the new eye to read, so it never runs old's world gen. David:
+        "export nice25 so that we can use it as a 'generated' world to look at with the new graphics engine, before
+        rebuilding world gen after the graphics engine is done." (`world/export.rs`, a7d3cfb; kept in `exports/`
+        and on the USB, not in git)
+  - The pictures are kept for reference, not as a yardstick (David: "it'll look good or it won't, idc what the old
+    things look like in particular, other than the basic way we're doing things")
   - *Gate:* the references listed here, each with where it's kept
 
 ## Phase 2 · Restart: the eye on old's world
@@ -110,15 +114,17 @@ Each experiment's pass mark is written down before it flies.
   - [ ] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
   - [ ] The control room: the same map, live, in the game's panel
   - *Gate:* an empty frame measured; the map drawn from the code
-- [ ] **2.2 The eye, far** (experiment 5): far cells kept in bricks, read straight from old's far bake
-  - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop; pictures beside old's; numbers from the
-    Intel card. If they're twice that or more: keep the bricks and the light, march far the lean way instead
-- [ ] **2.3 The eye, near** (experiment 6): near blocks from old's world, by rays, or by triangles if rays skim
-  - *Gate:* the ground mark under 1.5 ms on the laptop; David's look, against old to the pixel
+- [ ] **2.2 The eye, far** (experiment 5): far cells kept in bricks, made from the exported test world (old's far
+      bake checks their sums)
+  - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop; David's look; numbers from the Intel card.
+    If they're twice that or more: keep the bricks and the light, march far the lean way instead
+- [ ] **2.3 The eye, near** (experiment 6): near blocks from the exported test world, by rays, or by triangles if
+      rays skim
+  - *Gate:* the ground mark under 1.5 ms on the laptop; David's look
 - [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
       fresh, then Counsel's brief, `vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
-  - *Gate:* the reference pictures within a stated tolerance; under 4.2 ms at the 99th percentile on the laptop,
+  - *Gate:* David's eye, on its own terms, the basic way kept; under 4.2 ms at the 99th percentile on the laptop,
     on the flight and at all three marks; the Intel card's numbers recorded. **David walks old's world through
     the new eye**
 
@@ -153,7 +159,7 @@ Each experiment's pass mark is written down before it flies.
 |---|---|
 | `Art/`'s new files and `For Claude/` online? "Not yet" for now | David, any time |
 | ~~Far cells crisp or soft (one cell read, or eight blended)?~~ | Answered at 1.4: soft |
-| The world's format, and where the eye gets its world. David: the eye tuned on nice25 converted to the new format, not on old's world gen, and a format "that lets me expand and refine the generation process" (`docs/decisions.md`) | The Oracle, at the fork (her brief's question 7); the export from old before `old-final` (1.6) |
+| The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `docs/decisions.md`). Where the eye gets its world is decided: the exported test world (1.6) | The Oracle, at the fork (her brief's question 7) |
 | The control room as a page in the game's own panel? | 2.1 |
 | Old's new place: `old\` inside this folder (the default), or elsewhere? | 2.1 |
 | The moons: does the brighter one cast shadows? | 2.4 |
@@ -190,6 +196,6 @@ Each experiment's pass mark is written down before it flies.
 - **Honest:** near and far agree before any blending; everything that exists shows, however small; nothing pops;
   far changes may arrive late but are accurate; nothing is a stand-in.
 - **The way we work:** even beats fast; nothing relies on fog; no tricks for one maker's cards; measure from the
-  start; the pass mark before the flight; no number without its log; old is the check; one thing asked of David
+  start; the pass mark before the flight; no number without its log; old is the reference (its columns check the world to the block; the look is David's eye); one thing asked of David
   at a time; a drop is for its context, not for good; what's true lives in `master/`, and the agents' memory
   holds only habits and warnings.
