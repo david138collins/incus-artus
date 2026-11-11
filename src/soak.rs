@@ -800,9 +800,13 @@ struct Shown {
     present: String,
 }
 
-/// Every `INCUS_*` and `WGPU_*` switch set for the game, sorted, as `NAME=value`.
+/// Every `INCUS_*` and `WGPU_*` switch set for the game, sorted, as `NAME=value` (not the build's own stamp, which
+/// `cargo run` hands the game too: the header gives it already).
 fn switches() -> String {
-    let mut set: Vec<String> = std::env::vars().filter(|(name, _)| name.starts_with("INCUS_") || name.starts_with("WGPU_")).map(|(name, value)| format!("{name}={value}")).collect();
+    let mut set: Vec<String> = std::env::vars()
+        .filter(|(name, _)| (name.starts_with("INCUS_") && !name.starts_with("INCUS_BUILD")) || name.starts_with("WGPU_"))
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect();
     set.sort();
     if set.is_empty() { "none".into() } else { set.join(", ") }
 }

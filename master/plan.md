@@ -10,11 +10,12 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ## Where we are
 
-- **Working on:** Phase 1, *Learn, in old*. Experiment 1 (the instruments) is being built.
+- **Working on:** Phase 1, *Learn, in old*. Experiment 1 (the instruments) passed on both cards (2026-11-11,
+  `docs/experiments.md`); the next experiments wait on David's go.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** nothing until experiment 1 is ready to fly.
-- **David's next look:** two flights for experiment 1, when Builder asks for the screen.
+- **Waiting on David:** his go for experiments 3 and 4a (1.3), after reading experiment 1's results; the laptop
+  back to "NVIDIA GPU only" (it was switched to Optimus for the Intel flight).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look.
 
 ---
@@ -57,15 +58,15 @@ Each experiment's pass mark is written down before it flies.
   - [x] Tagged `before-rebuild` (a203cdd)
   - [x] `Art/`'s new files and `For Claude/` kept off GitHub for now (David 2026-11-11: "Not yet"); both are
         on the USB copy
-- [ ] **1.2 Experiment 1, the instruments** *(flight A flown; flight B, the Intel card, next)*
+- [x] **1.2 Experiment 1, the instruments** (both flights passed: `docs/experiments.md`)
   - [x] Flight headers say exactly what flew: every switch, the commit and whether it was clean, the card, the
         present mode (build 110, 090904f; flight A, `kept logs/dyno-1794414666.txt`)
   - [x] The card's time counts the work of making new ground (the lanes' clock; agrees with the build 104 trace:
         `docs/experiments.md`, flight A)
   - [x] Three standing marks, uncapped: on the ground at the spawn, beside the quarter-block build, a mountain
         top on a clear day (flight A: 5.9, 11.7 and 6.6 ms on the card standing)
-  - [ ] The choice of card restored; the marks flown once on the Intel card (restored in 090904f; the Intel
-        flight waits on the laptop switched to Optimus)
+  - [x] The choice of card restored; the marks flown once on the Intel card (restored in 090904f; flight B,
+        `kept logs/dyno-1794416695.txt`: it ran, no failure but speed; standing 22.7, 20.6 and 29.5 ms)
   - *Gate:* David watches two flights; real baselines for the views that matter; the Intel card runs, or fails
     for a reason we can name
 - [ ] **1.3 Experiments 3 and 4a:** the library's safety checks off; light switched off
