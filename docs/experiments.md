@@ -330,8 +330,24 @@ the card's texture hardware does the blend (about 5.5 times the cells, against 2
 - Since the blend stays, its cost moves from the far march's code to the texture hardware. The probe P7's 41% is
   roughly what the hardware can win back, measured at build 107.
 
-**For the record** (David's "yes", 2026-11-11: no look needed): flights F (crisp) and G (the in-between) against C, the
-route and the three marks. *(Results below, with 4b's.)*
+**For the record** (David's "yes", 2026-11-11: no look needed): flights F (crisp, build 113,
+`kept logs/dyno-1794425205.txt`) against C, and G (the in-between, build 114, `kept logs/dyno-1794427769.txt`) against
+C2 (build 114's own baseline, below). Sight on the card, median:
+
+| | blended | crisp (F) | the in-between (G) |
+|---|---|---|---|
+| On the ground at the spawn, standing | 5.94 (C) / 5.88 (C2) | 4.32 (−27%) | 4.44 (−24%) |
+| The mountain top, standing | 6.58 / 6.59 | 4.41 (−33%) | 4.57 (−31%) |
+| Beside the quarter-block build, standing | 11.71 / 11.68 | 8.50 (−27%) | 8.36 (−28%) |
+| The route, median / 99th | 4.06 / 9.69 | 3.12 / 6.46 (−23% / −33%) | 3.27 (−20%) |
+
+So the far march's blend in code is a quarter to a third of the card at every mark. That's roughly the ceiling of what
+the rebuild's soft bricks (the texture hardware blending) can win back while keeping the blended look. The hardware's
+blend isn't quite free, so it's an upper bound.
+
+*A flight lost:* G was first flown (2026-11-11, 19:28) straight after F by one script. The script ran `cargo run`
+afresh, and the half-written 4b code then in the folder was built and died at start, on a binding count. Flown again
+on build 114, committed.
 
 ---
 
@@ -382,4 +398,43 @@ moved, to see the relighting.
 
 ### Results
 
-*(to come.)*
+**Flight C2** (build 114, 9d996b8, everything off; `kept logs/dyno-1794427178.txt`): the 4b code costs nothing switched
+off. Against C (build 111): route 4.07 against 4.06, spawn 5.88 against 5.94, mountain top 6.59 against 6.58, build
+11.68 against 11.71.
+
+**Flight H** (`INCUS_SIGHT_LIGHT_KEPT=1`, build 114; `kept logs/dyno-1794428459.txt`), against C2:
+
+| | C2 | H | change | light off (E, against C) |
+|---|---|---|---|---|
+| On the ground at the spawn, standing | 5.88 | 5.34 | −9% | −42% |
+| The mountain top, standing | 6.59 | 6.37 | −3% | −17% |
+| Beside the quarter-block build, standing | 11.68 | 11.29 | −3% | −17% |
+| The route, median / 95th / 99th | 4.07 / 9.02 / 9.71 | 4.21 / 8.87 / 9.71 | +3% / −2% / 0% | −25% / −13% / −14% |
+
+- **The sweep costs almost nothing:** "light kept" 0.00 to 0.01 ms a frame at its median.
+- **The levels settle sooner** with it on: the build's in 59 s after the build went in, against 83 in C.
+- **A repeat** (`kept logs/dyno-1794429425.txt`, the marks alone, with the light's view): 5.38, 6.38 and 11.30, the
+  same as H.
+
+**Why so little: the light's view** (`INCUS_SIGHT_LIGHT_VIEW`, the three marks' pictures in `kept logs/pictures/`):
+- **Green (the light kept)** covers nearly all the far land at every mark, with a little yellow (sky handed down) and
+  hardly any red (own rays). The lookup is found where it should be.
+- **Blue (the near block faces, lit per face every frame)** covers most of the screen at all three marks: everything
+  near the eye, which 4b doesn't touch.
+- **The quarter-block build is yellow:** its pieces aren't in the face table, so each of their pixels casts its own
+  sun ray.
+
+So at these eye-level marks, most of light's cost (4a's 42% at the spawn) is in the near faces' light, worked out
+again every frame.
+
+**Against the pass mark:**
+- The spawn only 9% faster, at the line between "wins most" and "costs as much as the rays". Neither reading fits:
+  the lookup is cheap and found nearly everywhere far, but far pixels are a minority of these views, and their sky
+  was mostly handed down already.
+- So the plan isn't changed by "the lookup costs as much as the rays". The far half of the light lane works as the
+  Oracle drew it, for the far view.
+- **What's left is the near faces.** Keeping their light between frames, so the face table is filled once for the sun
+  and reused, is where most of light's share at eye level is. It was tried at build 107 ("light per face kept",
+  dropped: no gain over the moving route). Standing marks would judge it better. This goes to the Oracle at the fork.
+
+**David's look at light that steps:** *to come* (far land lit a cell at a time, against rays, and the sun moved).
