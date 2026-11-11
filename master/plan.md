@@ -10,12 +10,12 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ## Where we are
 
-- **Working on:** Phase 1, *Learn, in old*. Experiment 1 (the instruments) passed on both cards (2026-11-11,
-  `docs/experiments.md`); the next experiments wait on David's go.
+- **Working on:** Phase 1, *Learn, in old*. Experiments 1, 3 and 4a flown (2026-11-11, `docs/experiments.md`);
+  experiment 2 (1.4, the one-cell look) is next and needs David's eye.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for experiments 3 and 4a (1.3), after reading experiment 1's results. (The laptop is
-  back on "NVIDIA GPU only", as flight A and his play.)
+- **Waiting on David:** his look for experiment 2: the far view drawn crisp (one cell read) against today's blend,
+  at the same places, standing and moving.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look.
 
 ---
@@ -69,8 +69,13 @@ Each experiment's pass mark is written down before it flies.
         `kept logs/dyno-1794416695.txt`: it ran, no failure but speed; standing 22.7, 20.6 and 29.5 ms)
   - *Gate:* David watches two flights; real baselines for the views that matter; the Intel card runs, or fails
     for a reason we can name
-- [ ] **1.3 Experiments 3 and 4a:** the library's safety checks off; light switched off
+- [x] **1.3 Experiments 3 and 4a:** the library's safety checks off; light switched off (build 111; flights C, D,
+      E in `kept logs/`; `docs/experiments.md`)
   - *Gate:* two numbers: what the checks cost, and how much of each mark is light
+  - The checks: unchecked, sight's march is 31 to 49% *slower* at the three marks (faster only on the light views);
+    the world's rules about 15% faster a piece. The checks stay on.
+  - Light (sky and shadows): 42% of the spawn mark, 17% of the mountain top and of the build, 25% of the route's
+    median.
 - [ ] **1.4 Experiment 2, one-cell far reads against today's blend**
   - *Gate:* David's look. Decides the bricks' form (crisp: plain, 2.6 × the cells; soft: textures, 5.5 ×)
 - [ ] **1.5 Experiment 4b, light stored in the baked cells and looked up**

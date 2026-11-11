@@ -193,4 +193,65 @@ looked up) is weighed again before it's built.
 
 ### Results
 
-*(to come.)*
+**Flight C** (checked, the baseline; build 111, e1c0d6e, 2026-11-11; `kept logs/dyno-1794419654.txt`) repeats flight A:
+- the marks within half a percent (spawn 5.94 ms, mountain top 6.58, build 11.71);
+- the route's sight median 4.06 against A's 4.19 (−3%).
+
+Standing marks repeat far better than the route, so small differences are judged at the marks.
+
+**Experiment 3, flight D** (`INCUS_SHADERS_UNCHECKED=1`, flown straight after C; `kept logs/dyno-1794420516.txt`).
+
+**1. The same picture and the same world: pass.** With the switch on, the card's 26 tests pass (sight's pictures, the
+recipe's bit tests), and D's load check made the columns and cells round the spawn the same as the processor's.
+
+**2. D against C:**
+
+| | checked (C) | unchecked (D) | change |
+|---|---|---|---|
+| The route, sight median / 95th / 99th (ms) | 4.06 / 9.00 / 9.69 | 3.71 / 8.55 / 9.80 | −8.6% / −5.0% / +1.1% |
+| Over the land / round the peak / out to sea / home, median | 5.25 / 2.37 / 5.71 / 5.12 | 5.15 / 1.70 / 5.73 / 4.58 | −2% / −28% / 0% / −11% |
+| **On the ground at the spawn**, standing | 5.94 | 8.50 | **+43%** |
+| **The mountain top**, standing | 6.58 | 9.79 | **+49%** |
+| **Beside the quarter-block build**, standing | 11.71 | 15.32 | **+31%** |
+| The lanes' card time a piece, over the route | about 0.19 ms | about 0.16 ms | about −15% |
+| Compiling at load: the recipe; sight's three | 5.8 s; 7.9 s | 8.0 s; 11.9 s | slower |
+
+Notes on the table:
+- **It isn't the heat.** The card held 2.77 to 2.82 GHz through both flights, at alike temperatures.
+- **The marks moved the same at the median, 95th and 99th,** so it's the program, not noise.
+- **The settling took longer in D** (the spawn 174 s against 136; the build after the build 160 against 83) because
+  the slower frames left the lanes less of the card.
+
+**What it means.** Unchecked, sight's march is faster in the light views and much slower in the heavy ones, the views
+that matter. The recipe (the lanes) is about 15% quicker a piece. The Oracle guessed the checks cost 3 to 15%. Where
+it matters most, taking them off costs 31 to 49% instead. Why is unverified. A likely cause: without its loops counted,
+the compiler lays out the march's long loops differently, needing more registers (Nsight's register count, read in its
+own window, would show it).
+
+**Against the rule written beforehand:** the checks don't cost 3% anywhere that matters. Removing them costs more than
+that, so **the checks stay on**, and every later experiment in old flies checked. For the new engine, "ship unchecked"
+isn't a blanket answer: each program is priced both ways, and the world's rules, which gained, are the candidate.
+
+**Experiment 4a, flight E** (`INCUS_SIGHT_NO_SKY=1 INCUS_SIGHT_NO_SHADOWS=1`, checked, so measured against C;
+`kept logs/dyno-1794421157.txt`). What's left on is the sun's direct light on each face (no shadow), placed lights and
+fog. The light's code stays in the program; only its work is skipped.
+
+| | light on (C) | light off (E) | light's share |
+|---|---|---|---|
+| **On the ground at the spawn**, standing | 5.94 | 3.46 | **42%** |
+| **The mountain top**, standing | 6.58 | 5.45 | 17% |
+| **Beside the quarter-block build**, standing | 11.71 | 9.76 | 17% |
+| The route, sight median / 95th / 99th | 4.06 / 9.00 / 9.69 | 3.03 / 7.79 / 8.37 | 25% / 13% / 14% |
+| Over the land / out to sea / home, median | 5.25 / 5.71 / 5.12 | 2.87 / 4.02 / 4.00 | 45% / 30% / 22% |
+
+Notes:
+- Round the peak, the median rose (2.37 to 3.25) while the 95th and 99th fell by over a third. That leg's median
+  jumps between flights (A 2.50, C 2.37, D 1.70), so its tails are the reading there.
+- With the light off, the frames left the lanes more of the card: the spawn's levels were whole in 79 s against 136.
+
+**Against the pass mark:** measured at every mark and on the route: pass. The Oracle's "light is about half near the
+ground" holds near enough at the spawn (42%), so **experiment 4b goes ahead as planned.** Light isn't the whole
+story, though:
+- With it free, the spawn would be inside the 240 budget (3.46 ms against 4.17).
+- The mountain top (5.45) and the quarter-block build (9.76) would still be over it. There the rest of the march is
+  the cost: the far view's reach and the near walk through pieces.
