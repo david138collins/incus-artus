@@ -315,3 +315,17 @@ the one cell column a point is in and blends its two cells up and down: 2 cells 
 blend's 8 cells and 4 entries. The whorls on shallow hills come from the height steps, so this aims at them while
 keeping the bricks plain. If it's still janky, the answer is soft (textures, the hardware's blend, about twice the
 plain bricks' memory).
+
+**Build 113** (d2b52ef): the three ways on one choice on the Render page (blended, crisp, crisp across and smooth in
+height), each other way compiled the first time it's chosen. Over the test scene, the in-between differs from the blend
+in 6% of the pixels, crisp in 10 to 16%.
+
+**David's second look** (build 113, the test world, 2026-11-11, about six minutes), on the in-between: "eh, i don't
+prefer it. its better than ziggurat lods but, its not better than blended".
+
+**The answer: blended, so the rebuild's bricks are soft.** The far cells are stored as 3D textures with a border, and
+the card's texture hardware does the blend (about 5.5 times the cells, against 2.6 for plain bricks).
+- Crisp and the in-between are both acceptable fallbacks, "better than ziggurat lods" (David), if memory ever forces
+  one (a weaker card's), but neither is the look.
+- Since the blend stays, its cost moves from the far march's code to the texture hardware. The probe P7's 41% is
+  roughly what the hardware can win back, measured at build 107.

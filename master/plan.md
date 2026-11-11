@@ -10,12 +10,12 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ## Where we are
 
-- **Working on:** Phase 1, *Learn, in old*. Experiments 1, 3 and 4a flown (2026-11-11, `docs/experiments.md`);
-  experiment 2 (1.4, the one-cell look) is next and needs David's eye.
+- **Working on:** Phase 1, *Learn, in old*. Experiments 1, 2, 3 and 4a done (2026-11-11, `docs/experiments.md`;
+  experiment 2's answer: soft bricks, the blend stays); experiment 4b (1.5, light kept in the cells) is next.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look for experiment 2: the far view drawn crisp (one cell read) against today's blend,
-  at the same places, standing and moving.
+- **Waiting on David:** his go for experiment 4b (light stored in the baked cells and looked up; a few hours' build and
+  one look at light that steps).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`.
 
@@ -77,8 +77,11 @@ Each experiment's pass mark is written down before it flies.
     the world's rules about 15% faster a piece. The checks stay on.
   - Light (sky and shadows): 42% of the spawn mark, 17% of the mountain top and of the build, 25% of the route's
     median.
-- [ ] **1.4 Experiment 2, one-cell far reads against today's blend**
+- [x] **1.4 Experiment 2, one-cell far reads against today's blend** (builds 112 and 113; David's two looks,
+      `docs/experiments.md`)
   - *Gate:* David's look. Decides the bricks' form (crisp: plain, 2.6 × the cells; soft: textures, 5.5 ×)
+  - **Soft.** Blended is the look: crisp "doesn't look better", the in-between (smooth in height) "better than
+    ziggurat lods but, its not better than blended" (David). Crisp stays a known fallback for a card short of memory.
 - [ ] **1.5 Experiment 4b, light stored in the baked cells and looked up**
   - *Gate:* what a lookup costs; David's look at light that steps
 - [ ] **1.6 References from old, then old frozen**
