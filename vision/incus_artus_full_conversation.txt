@@ -1,0 +1,571 @@
+# Incus Artus Conversation Transcript
+# Compiled from the full thread between David Collins and Grok
+# Date range: early 2026 Minecraft mod discussions through 2026-10-26 terrain/additive mountain work
+# Note: Early portions are reconstructed from the conversation history provided to the model. Full verbatim AI responses for the oldest messages are not all present in the active context; the most recent exchanges are complete.
+
+## Early User Queries (Minecraft Mod Phase)
+
+what are all the different types of mineable stone/rock/dirt blocks you can encounter in dwarf fortress? group them by type but just least each one and next to them what can come out of them
+
+ok, lets try again. i am trying to make a game that is basically just minecraft and dwarf fortress at the same time. i am starting with a minecraft mod that will progress towards a full world gen that produces realms of continents inside a 100,000 block radius circular ocean. the terrain itself will be slightly smoother and slightly more realistic minecraft biomes but overall a distribution like df world maps. all the blocks from dwarf fortress are coming over to minecraft. the workshops will be discrete structures from blueprints which contain a required amount of blocks and items to be functional and employ villagers. the composition of the earth in this mod will be like df, all the stone types and ores and boulders. so what i need is a thorough list of the blocks in df as it would apply to minecraft analog assets. like how in mc there is stone, and stone with iron ore. if iron or hematite or whatever can be present in gneiss or in granite or chert, i need to know that in the list as a block, because i am currently able to replace vanilla blocks and register new blocks, and am trying to make all the blocks i need before getting into how the earth is composed of them in the mc mod.
+
+that is good, but now i would like you to produce a flat list of just the assets and names in the granite, granite_hematite, granite_native_gold, etc. just one big list of every variation of block i would encounter with no notes, loosely ordered as they are in your previous reply.  note that this conversation is intended to be corollary to a more technical step by step conversation i am having, where i will be getting a broader picture here 
+
+perfect. how many is that. 
+
+i am making a minecraft mod as a step towards a standalone game, and the gist of it is that it is dwarf fortress style management of generic fantasy settlement simations, inside of minecraft, and you can do either or both, with compelling combat. besides that there are many practical ways of doing things in songs of syx and vintage story i would lift. my vision direction content wise is generic myth and fantasy, and eventually procedural stories and quests. there would be an isometric management mode that lets you access the tools you have unlocked such as a manager that can assign work orders to workshops, or control what gets stored in which warehouse. speaking of logistics, things will take up more space and you will be limited to 10 hotbar slots unless you have a backpack or something. items can be stored and stacked on the ground. pallets made of wood can store 4 miniaturized stacks or items per block, with 1x1 and 2x2 pallets, 2x2 pallets would have 16 slots to put a stack or item and a visual mini appears on the pallet. crates, bins, boxes, chests, coffers, barrels, are for storing various things. crafting system largely replaced with many work blocks. blocks take up overall more space. villagers only have 1 slot so they can carry 1 stack and hold 1 item, but may need a bag to gather cotton. items reflect the material theyre made of, with more variety and simulationy rocks and ores and plants and materials. worldgen is more like df world maps st the broader scale, and more like minecraft at a smaller scale, with continents contained within a 100k block radius. the df simulation can be pared down to the most valuable parts for creating the sense of a living world. there would be elf villages in the forests, dwarf villages carved inside of mountains, and human villages on the plains. once the world is generated, villages are places in good spots and connected logically with roads according to the factions that develop through another sim step. some history is ran but not so deep like df, just enough to give it a little content. there are monsters in the caves and stuff to begin with and they only respawn slowly so you can clear a cave for a good bit. there are savage factions that are like spawners that populate the area with hostiles, like a goblin den that may send out raids or harass travellers and the area becomes full of goblins causing mischief until you kill them off, the bigger the den gets the more high level goblin enemies there will be. currently i have created a new block successfully. if you have questions about specific aspects of the game, otherwise suggest the next step
+
+would it be really any difficulty to have the final minecraft style engine be quarter block logic even though most things are full blocks, so basically halve the grid so you can place in 1/2 steps
+
+im using junie in intellij for the actual code, im talking to you more for art and direction now
+
+go deeper on dual mode feel and how you could let the player really be alone minecrafting or start with or acquire villagers and expand. villagers being given orders is better than redstone by far. they also eat and so there has to be continuous activity, and villagers will be valuable for a lot of activities
+
+well you wouldnt necessarily dismiss anyone. if you abandon it it will just keep going and survive in a crude way if it can like all the other npc villages. it may wither or survive a long time depending on what you built there. oh and the settlement manager starts with a campsite and the player can level up his management skill through to cottage, to farmstead. operating one expends management capital, so after a few hours you might be able to afford a campsite and a cottage. they have perimeters that can expand and a campsite can make a like a fishing spot if its near fish or a deer skinning and tanning rack and stuff.  but its primitive. as inventory management is fun donkeys with packs become crucial for an adventurer. they have good pathfinding because they mostly trace your steps so leading a train of donkeys is practical, or a cart if there is a trail of some kind. you can direct your villagers to build campsites in the forest beyond the town perimeter for hunting or logging, or tell them to build different types of roads. 
+
+you should be able to get up to being appointed king of a kingdom and control 10 towns and build forts too, if your settlement thrives enough. combat would be simple like in dwarf fortress, you outfit and train squads and can give them basic orders besides patrolling the town or guarding an area or dealing with criminals. but a high level player with magic gear and abilities should be able to solo a 20 man squad or defeat a fortress, if he is good. there is no level scaling. really dangerous high level enemies can be anywhere, and there are for example weak zombies and really strong zombies. the threat level of combat is uncertain and combat is highly lethal, a single wound is really bad. some kind of engaging motion+direction+click combat and parry system that feels like a rhythm game and looks cool is important
+
+but you do have to be present to run the settlement. the others run in the lite sim and your managers and nobles skill in managing and the orders and systems you set up will matter. but you have to visit to directly control, you only have one full management simulation going at a time. and the game should generate problems for towns procedurally, for example if theres a rat infestation and they live near a swamp it could generate a quest in one or more of the npcs in that village. this would raise your reputation and earn a reward, leading to eventually being able to buy a deed and live there or able to run the town
+
+the structures come from blueprints and have item requirements and can level up, its like song of syx where a bakery needs tables, shelves, ovens, etc. obviously you can define your own. blueprints because decorating and aesthetics is what is cool in minecraft and clumsy in dwarf fortress.in order tombe able to make and abandon campsites, your management contexts are gone once you leave unless you have a political stake there, which could be you living with up to 5 others in a cottage, and if one is a farmer, he will keep farming. you wouldnt have much of anything in the management window while away though, in a just a cottage, which can house 6. a farmstead can house 12. a campsite 4. so you can travel with 3 followers easily. a site with no allies/followers/owned villagers or  would dissapear from the manager
+
+i believe a gestural attack and parry system that uses mouse and feet motion to initiate attacks and guards would be good enough to make every encounter fun, dangerous, and possible with skill. different weapons have different moves and skill allows you to do better moves, or do them more easily. right now i think about directional attacks and guards that take moving thr mouse in a straight line and produces one guard, but other moves require you to draw a V in a direction, or you can riposte by parrying straight to the upper right to block an attack from that direction, and then transcribe a V the same direction then reversing to perform a riposte that hits unless a smaller block window is met. npcs look similar when fighting but are doing something simpler and treat the player differently sometimes 
+
+there would be like 3 layers of combos that become progressively harder to achieve/ parry. combat between npcs may use the animations but theyre not doing anything like the player vs npc does
+
+ok, summarize everything about this game im making. dont worry about combat.
+
+this is a big open world immersive survival and settlement sim. and i dont know a lick of code. just committing to learning what i learn as i have junie code and doing whatever is expedient. but what principles of software design should i be thinking about now, as i work to complete the mod, that will also be key when i transition to a commercial engine and all what that entails
+
+Explain data-driven design for modding
+
+so you know something about how i want to generate the world. basically like dwarf fortress does in steps. one thing i haven't touched on is ecology and environment. i was thinking, four months/seasons of 30 days. try to describe the dwarf fortress world gen and ecology and weather system to me, as i try to think what a good balance would be. because if you're sleeping routinely, a season in that system would last 300 minutes, or 5 hours. maybe 21 days would be better, that's 2 hours  for a season, or 4 if you're burning the midnight oil. and that's the most a working stiff can usually play. and i get the feeling the piece de resistance is in world gen, and in the isometric management mode. world gen is easier in my guess. please give me a primer on what the task of transplanting a df lite world gen into minecraft will be like, how world gen works, how i can mess with and test it, and what the next step should be now that i have block registration refactored by junie and i stand at 'i have added a block to the game'. im climbing a ladder not tilling a field. vertical objectives.
+
+is there a way to completely replace vanilla world gen with a framework that takes the headache out of going to a new engine, and so i can create a custom flatworld with things like a big cutaway so i can see the stone composition immediately upon loading
+
+keep everything you just said in mind. i do want to make this dev world, made as a custom world type.  but for now, realize ive described df lite villagers. go over all the components of a dwarf in df, making an isometric mode at all, the selection tool for mining where you click 3 times define a rectangular prism for villagers to mine or fell trees or place floor blocks or whatever, view modes using alt + scroll that changes how many z levels are visible, adding a blueprint system that is both negative and positive . list all the things that make a dwarf who he is in df so i can think about
+my next move
+
+i have a concept of religion in the game. i imagine a god of fate that is part of the larger dungeonmaster, who has units of fate he scatteres among both people and settlements, called fatedness, which makes them do something less necessary, like suddenly go to war with a neighbor faction. fate being the force that lets things happen anyways. thered be shrine and temple structures. the god of fate would be the agent that causes random, fortuitous, or malicious things to happen. worshipping him with offerings and ceremonies in s town could effect your luck.
+
+concerning biomes, there would be an environment layer of goodness and evilness that determines partially what sub biomes place. necromancers (savage group) (found in towers) would obviously spawn more in bad areas vs good areas. the basic biomes are from df, with sub biomes based on various things, 
+
+go over the process and tools of world generation in general that will be necessary to recreate df world gen into mincecraft and do so in a way that replaces minecrafts completely and is portable to a new engine. dive into how noises are coded into layers 
+
+describe test harnesses, or if theres some open source world gen viewer i could use while tuning the gen faster than loading into minecraft
+
+i would start working on world gen by making the custom test world type that produces a 512x 512 disk of water with an small piece of land, so i can see what ive done, along with a test harness viewer. i think i need to check both constantly anyways. 
+
+since i will need to be placing structures anyways, suppose i made a structure spawn at 0 0  that is a pit to -64. and can we start at zero for z? the eternal magma lake should begin at 0 and the ozone  wall should be at 400 
+
+change of topic, hold forth on the summary of the worlds arcane wisdom on how to make exciting cave systems to explore, and lets go into fictional geology, so that i can create richer world gen by simulating for example tectonic plates that move and push up mountain ridges and subduction zones, and i have to find some geological fantasy to explain how natural mountain springs make creeks make rivers out to the sea, and how such fun caves formed. id like to learn some geology for this 
+
+How to simulate cave systems with tectonic plates
+
+yes i so voroni noise, to make large cells that represent plates, giving them random values like momentum and vector, and deriving a base layer of the terrain this way
+
+after the tectonic base terrain layer, what would be the next geological force that makes area on earth have elevation differences?
+
+what would this 2nd phase be called geologically, and give me a set of examples with photos of these places on earth so i can see what variety it might create and if i need to imagine some new influence in the fantasy world to make some interesting terrain
+
+redo that with actual images of that geological feature from earth
+
+compare the cost of the best ai coding agents per... unit of programming per dollar
+
+if i buy claude, will it talk to junie in intellij idea, since they have integration for claude
+
+will i see two seperate usage gauges for junie and claude?
+
+but both will be manipulating files and writing code? what if junie runs out but claude doesnt? what is this 5 hour window?
+
+i dont understand the 5 hour window still. i can only use it for 5 hours a day? or a week?
+
+im having a hard time deciding how i want to purchase claude and use it with junie. also will claude read the stuff from junie and the plan and understand what we are doing?
+
+im using intellij on their trial. i keep seeing that its free but what is going to happen in 29 days. and, what if i dont want to continue the junie trial and just use claude?
+
+what will i lose from intellij idea in 29 days? and im not sure i understand if i should subscribe to junie, and claude, because junie is the native tool, or if it makes more sense to just use claude. idk if its a synergy or not.
+
+or i could start claude in a few weeks and transition away from junie over a week and then drop it
+
+you know the roadmap of the game im building. junie has successfully created a world preset that is a circle of water around a circle of land with a hole in the center down to bedrock and 32 block thick layers alternating between stone and gabbro with dirt on top, and removed all vanilla structures and spawns. now i can put blocks in the world, and have a rudimentary dev world. im stumped for the clear next step
+
+in world gen, we discussed tectonic voroni cells as generating the larger continent shapes. but there has to be a level of variation at the smallest scale too. try to express the regular irregularity that all earth is subject to. because the circle island i have right now is not even a plate size, so i need to work with the opposite of the larger features
+
+describe to me how vanilla minecraft villages are made, what builds the configuration, and how generic is it to procedural village generation in general
+
+give me an overview of the steps involving in making a gui and interaction and management system with an isometric view and overlay. im not sure that adding ripples to the world is the next step. what would it take to make it so if i place a villager in my testworld, i can click on him and get a dialogue box that says hello and offers the choices between saying hello and closing the dialogue, or (leave), so i have the framework for interacting with villagers. what would it take to make it so i have an isometric view i have tab to access, and later start adding screens and menus to it, such as a follower page, that lists the people currently being managed or following you, with their name, some more info in columns, etc. i have to think carefully how to approach this as it will need to be portable, and be set up in a way i can keep adding to it. what will it take to create my own villager, a dwarf, that has the potential for all the data entity component features of my lorecraft rulebook that will port with it. for example villagers in minecraft do not have names. every npc spawned in lorecraft would have a name selected from files of first and last names etc. is there a way to create data driven dwarves here that ports out later?
+
+junie is working on the data driven worldgen part now. lets talk about religion, i want a small pantheon of generic gods. one for sure is the god of fate. another is the god of life and death. i want this pantheon to be very asymmetrical. what are some other kinds of gods that would be good candidates. you can reference the golden bough by JG frazier. these gods can be worshipped to grant boons
+
+lets say that the litesim that runs in the rest of the world will recognize towns needs, outputs, and local resources, creating a trade impulse. traders travel from town to town with a few people an a wagon (two donkeys or horses). how do you set up the litesim so that if you walk down a road, and start a settlement, traders will definitely be coming down that road from time to time as they go between towns, and if you have a trading post, they stop. or if you are wandering and see one, you can talk to them and trade. so the traders would have to have some trackable minor existence and move about the world and may cross your path if youre on a road. they can still try to reach a fort unconnected but they may have issues reaching you and come less often. i dont know that they need to have persistent identities but they would have a selection based on where they have been. it doesnt have to be persistent. 
+
+cant the lite sim that is basically just doing lots of tiny things like tracking the harvest of each random town and food consumption daily and applying starvation damage if they dont get enough because a farmer died in an accident, all in data but simple data and small math, this kind of sounds like the gpu could do a better job with a fraction of its many cores time
+
+oh ok
+
+based on all what you know about the game, describe all the data components behind a dwarf or human or elf that i will have in the end, their entire character sheet and back end stats
+
+i need to make a 16x16x24 dwarf model in blockbench and texture it. should i open a new generic model, or java block/item or modded entity off the choices in the new tab
+
+in the creating the project screen, what does 'model identifier' mean, vs just the file name
+
+what does entity class mean? and, the dwarves are gonna be 1.5 tall, so i need a 16x16x24 model size, what should i put down for the two UV values? idk what uv means. and flip y axis was already checked, what is that
+
+is there a way to add voxels one pixel at a time to a cube in blockbench, so that i can like build a rounded head through addition?
+
+can i merge cubes or will they always just be a collection of cubes and no other shape?
+
+im curious why its like that. and, in the commercial engine, i can use normal 3d models that are as abstractly blocky as i want, right, or is there some drawback/advantage/limitation here i am not seeing
+
+how big would the performance hit really be if the head was say 7 cubes stacked versus the same shape as a solid polygonal prism
+
+ok
+
+i have a very simple dwarf modeled except for his left arm. i've copied the right arm by alt dragging the cube in the outliner. how do i flip it and mirror it
+
+here is my dwarf. can you give me a gallery of images of dwarves drawn in more old 80s metal and dnd style of art poster so i can paint the model while looking at them?
+
+im looking for pictures that are just a dwarf
+
+can i move a 1x1 block a decimal amount somehow in blockbench so the eyebrows are just barely sticking out
+
+it will let me position it by decimals, but can i get blocks of decimal sizes?
+
+i type 1.25 in a field of the y size field and it snaps back to 1
+
+i don't see any number next to the resize tool. and, it snaps in the transform box field too. does minecraft not support different sizes of cubes than integers?
+
+i am painting it, and its not behaving like i expect. i covered it all in tan to make it visible, and then i only clicked orange onto the beard cubes, but it appears on the legs and face as well. what is going wrong here?
+
+got it. i'd like for people to wear regular clothes in my game. should i paint the dwarf in a boxers and a wifebeater and socks, is there a way to add clothing to him later, or will clothes have to be some kind of skin pack that changes when they get dressed?
+
+im seeing a color conflict on blocks that are coplanar and exposed. should one of the cubes be transparent in this case? but what if they animate, exposing previously covered pixels.
+
+do you see the distortion on the underwear? what am i to do, the arms can't be transparent.
+
+a quarter block offset is perfect and lets me retain full color coverage
+
+how do i save the colors i've been using
+
+how do i draw transparent in libresprite with the pencil
+
+junie is working on inserting that. i should be able to give myself a dwarven male spawn egg and put a npc into the test world, with a random name, then push it off the cliff. but what will happen when he falls past the bedrock hole, while he just leave render distance? if i put a platform will he take fall damage? i havent discussed at all with junie about health
+
+i think ive told junie to make it a data driven dwarf for incrementally extensing it and then going to the new engine with it. maynt it not have no such attribute or be rendered with novel classes or somethibg
+
+help me generate a list of names (one per line) by creating combinatorials of syllables. first we will do the dwarven male first name syllables.
+
+thok thog thuth thak that thab than dor dar der erb erg erk ert naf nof not nok nod bur bul bud bok ber 
+
+take those syllables and give me a list of all the combinations of two of them. or at least 1024 of the total possible pool, randomly selected.
+
+ok, now for last names. 
+
+yon tor thot tak gul gos kon kro kah lerb loff leth ledd dul dor derb tul
+
+consider that dwarves may give their sons their fathers last name and their daughters their mothers last name. that's the kind of diversity that won't offend anyone i think. obviously a different race may have different customs and this seems pretty reasonable and inoffensive, and gives flavor to dwarven society. dwarven females are a weird subject anyways.
+
+what IS the status of dwarven females. collate the zeitgeists opinion, and see if it was handled in a different way by any authorities at any point. the only thing i remember reading is that they kind of... are barefoot trad wives. but i don't want to assimilate any content from the types of people that would care to make it some issue. i want everything to be completely normative and universally inoffensive to anyone that isn't obsessed with online discussions or something
+
+i've decided they look almost the same as males but are slightly narrower and have thinner beards, they are 1/3rd of births, and somehow i'll make them about 1/3rd less likely to desire a job so they're just rare. idk how pregnancy periods and how long npcs live and take to grow up will work.i imagine it'd be different between every race but elves the longest and most expensive, like the protoss, dwarves are a good medium life and investment, and humans are the most adaptable, shortest lived, fastest to reproduce race
+
+junie succeeded at make a dwarven spawn egg that spawns a dwarf that just stands there and dies if i push him off a cliff.  what do you think i should do next. remember vertical leaps not horizontal content creation. and im not sure terrain gen is worth pursuing in this little world just yet. i think it would only make sense to mess woth terrain gen on the full size of at least a small dwarf fortress world map. how big would that be? i thought of asking junie to make an accessible world map for me to use in testing now but that later will be used in a world creation sequence when a player creates a world, although inwould have to use the zoomed in version where each tile is 1 chunk and theres a tile for each biome. and we havent discussed about the chunks as it applies to the commercial engine. is there any specific reason chunks are how it has to work in the standalone product?
+
+Explore UI interaction patterns
+
+so you think i should focus on the unique elements of interactions with npcs im aiming for. alright, well one thing ive thought about, in the imagination of someone who has tried to learn three programming languages for about 3 weeks and quit each time, is how does talking to npcs interact with managing npcs and do these systems need to be under an umbrella or an explicitly design relationship just yet? or can dialogue be simple prompts that can perform any action i wish off of selecting from a list of dialogue choices, such as opening a bartering screen or progressing a quest path or changing reputations or accepting quests? also i just realized the HUD should be skyrim because the combat loop (which i believe the player should have to do to some extent but should also have tons of chances to do it basically whenever in a variety of ways) i imagine always goes back to good skyrim encounters and the ways ive imagined they could be cooler for years. i like the idea of combat being a combination of footwork and mouse gestures + clicks, and that as soon as you draw a weapon you sort of slide a
+little bit and your camera has a small amount of delay and amoothing, like when you toggle cinematic mouse in minecraft with backspace. so when you fight you feel weight and swinging even though the attacks are pretty basic radial gestures that will probably need some complex rigging code to implement,  but just relies on collision of projected 2d zones from the hostile mobs attack colli...[truncated]...and i dont have an idea for balancing the defenses against a human so likely any players kingdom could be wrecked by an attacker while hr was logged off and mp is not important to me because timately this is just the perfect gsme ive dreamt of while wishing i was playing df while i was playing mc or vice versa. so probably just have mobs not advance while impaled. and they stagger when the playedr uninpales by moving back, (pribably to deal with someone else) rather than clicking left mouse and stepping forqard, which hurts the target badly (if they have higher strength +weight weight they can knock yu off with a shove that disengages the impalr and staggers you and them lightly with an equal backwards push). so combat movement should involve a lot of tapping wasd, and you slide a bit. because i think controlling your bodily momentum to derive the footwork half of the dynamic combat system will be a lot of fun and feel better than normal movemnt BECAUSE if you move normally, you try to move like youd fight in minecraft or call of duty, while having to interrupt that with motions to trigger different attacks, whereas with momentum applied to you once you draw a weapon, you have to  carefully consider your position and stance. (stance is not a real thi g in the game, if you like sweeping attacks where you start strafing, move your mouse away from your point of aim, left click and drag towards your point of aim, thats difficult i. a 1 block wide tunnel). what was i talking about
+
+i hope you do remember everything i just said about combat because its important and true. you are the project manager and need to hold the entire vision. in your context so you can warn me from mistakes as i update you with what junie did and consider the next steps. because i think the combat has to look so fking fun and so accessible that everyone tries the demo, to make money. 
+
+ok, just remember everything about combat for later on. i am trying to no-expense-spared speedrun a eminently fun and playable demo because everytging you can touch is a toy and for those that want more you can conquer the world which dozens of youtubers could make hours long videos on. the actual whole concept applies to neckbeard linuxlord dnd nerds who playrd df before it was on steam. but the appeal has to be instant gratification at hand at all times, creating two clearly forking sets of options for players at any fime, which is go look for trouble or go exploring, or work on building somethibg that yields a greater, but more cerebral power fantasy, but which always presents some typr of emergent threat or need that players can chase forever as they seek the psychological womb through their efforts, or for true forever world type builders, there you go, as much resources and help as you need for your builds, they can construct templates that you stamp down as orders; or lay a rectangular prism of floor blocks for you while you do other things, and you can set up your kingdoms warehouses so that the haulers fill a warehouse you build near some place you want to minecraft something cool at with the reaources you allocate in the warehouse scrern like in df/sos)  . a full suite of experiences and fun for short term (your mom) players, medium term (just wants to beat the game) players, and long term (people who want to live in the game) players. but the short term appeals to everyone and then people hear others being like whaaaat this game has so much depth and content and get into it
+
+im going to say this to junie. "after a lengthy consultation with the project manager grok, we've decided that the next thing we're going to do is implement a dialogue system that is capable of arbitrary function calls (is that right? im not a programmer) to do things like open the barter screen, progress a quest or dialogue storyline or start a quest, change a reputation and advance a dialogue tree, etc. but first, we just want to be able to click on the dwarves and get a dialogue box that says "dwarf_name: hello!" and has two options in a list that say 1. hello! and 2. (leave). this doesn't need to be in the same wheelhouse as a the iso manager mode, its just dialogue that we can add all sorts of functions to your selections. lay out the work here for me. ". one question, what resources will i need to produce here? the dialogue box has to have an appearance, and a font, and a background and font color, and so on. i need to have some decisions on this before setting off junie.
+
+i did just that, with your addition. its asking if i want to continue in current session or start a new session. im not sure what i should pick because until basically yesterday i didn't take AI seriously and im not sure what the difference will be.
+
+junie succeeded at making the dwarves pop up with a dialogue screen when i right click them just like i described. it wants to extend that ability, for making it easier to create dialogue trees and triggers, but i'm not sure that's the critical move.
+
+i dont really care about dialogue right now and im not sure the iso manager is useful until friendly npcs can have a little life and behaviors. the toy is too advanced now too. perhaps i should create humans and elves and confirm i can start creating tons of different mobs when im ready.  then i can deal with rigging animations, and bringing them to life a bit. what do you think
+
+so maybe just make them walk and move their head around sometimes. i would learn how to do simple walking and head turning in blockbench. that opens me up to perhaps even adding a crop plant (like barley) to the game, a cottage structure, a hoe and a scythe, a bed, and THEN the iso manager overlay, i would be able to add a house with a scythe, a hoe, a bag of seeds and a bed as a structure, spawn a dwarf, ask him to recruit, assign him a quarters (the farmer shack), instruct him to plant a crop by selecting a xy rectangle with two clicks, and then add the behaviors that they sleep at night, and spend half the day trying to work and half wandering. he would have to know to hoe up the soil, then plant the seeds, then would have nothing to do for some time while ot grows, and when its grown, he scythes it and thus has a stack of wheat in his inventoty. not sure how he would know when it was grown or how to do what. also have to give them an inventory, and make it so items can be found and stored, etc. what so you think
+
+that sounds right. i am going to do that when i resume tomorrow. but inwant to give something else to the vision. 
+
+the history of the world ends with the player character entering the world and an wakening of the gods, which causes turmoil (kingdoms begin warring, litesim war is almost like risk with men and material and gold being expended. it would take some time before the npc kingdoms have captains high level enough to be generals and assemble armies of brigades which are 20 followers and four squads of five, squads led by a captain, brigades led by a lieutenant in one of the squads, and armies i guess up to three brigades with a general instead of a lieutenant in one of the brigades.). but also, evil has awakened, and the dens of the monster types like skeletons and zombies from haunted graveyards and crypts, and necromancers in their towers,spreading a miasma, goblin dens expanding, etc, these are savage factions that have a very simple sort of way to expand if not dealt with. and since they will be doing their risk thing in the litesim the whole time, when you go soemwhere new, the hostile settlements may be pretty advanced, adding natural difficulty scaling. and one way to win is to do some quest for the gods like in ultima and bring the age of strife you arrived with like finn tbe human arrived on earth, if yoy can do that it turns it to peaceful mode or quells the hostile factions across the board. so thats the start of the story, history was happening until the first impact when the primitive, tiny dens of evil creatures all began expanding, and wars began to take place between kingdoms, and the player character incarnates. the age of strife ends with a 2nd impact... of your choosing. you can start a ritual to summon the lord of darkness if youre settlements libraries and schools or something get to max level, and plunge the world into darkness as jts invaded, for fun.or conquer/vassalize it all to make peace among the people and get string enough to wipe out the evil hordes entirely. there may be some evil faction that is more than a fancy mob spawner at some point like from HOMM 4
+
+add to vision: you can just live in a town and do quests for fun. as time goes on many people will offer quests. if you have enough reputation in town, you may win an election ceremony where the people cast votes. you have to get 60% of peoples signature and take ot to the current leader snd demand an election. obviously if you do a quest for someone they will probably vote for you. but you have to wait for chance to cause a villager to spawn a quest
+
+and there are two ways to summon the dark lord, either find a evil temple and get the. necronomicon that is there, or buy all 9 of the evil fragments to craft one. once you begin the ritual with it, all npc factions attack you with everything and hostile factions become neutral. once completed you gain control over the hostile forces and can direct them like followers and turn all towns evil to win again
+
+what sort of things will i need to decide in order to have the wander and look about idle routine done correctly? i know i'll need to create animations, but i don't know how those animations are packaged and used by the game. and im not sure what parameters we'll need for making an idle cycle now, and things to leave space for to do later. lets elaborate and clarify the next step, which is adding some life to the dwarf.
+
+when mobs look about in minecraft, the direction is random, or at you, so the head is pivoting to a random direction. but that's not 'an animation' like legs swinging is. that's the game pointing the head off its pivot. how does that work?
+
+junie wants me to create a walk animation, and to set the length to 20-30 ticks (1-1.5 seconds) and the fps to 20. the attached image is the dialogue window i get when i click create new animation in blockbench. what settings should i use?
+
+"Keyframes for walking:
+Left Leg: At tick 0, rotate forward ~30°. At tick 10, rotate backward ~30°. At tick 20, back to 0°.
+Right Leg: Opposite of left leg. At tick 0, rotate backward ~30°. At tick 10, rotate forward ~30°. At tick 20, back to 0°. Left Arm: Opposite of left leg (swings with right leg)
+Right Arm: Same as left leg (swings with left leg)"
+
+this is what junie said about the walking animation but it doesn't quite make sense to me. because, if the left leg rotates forward 30 between tick zero and ten, and then rotates backwards 30 between frame ten and twenty, the leg only did half a swing. should the animation be longer? i would think it would be
+tick 0  moves from 0 to +30
+tick 10 reaches +30 and heads back
+tick 20 reaches 0 and moves to -30
+tick 30 reaches -30 and heads back
+tick 40 reaches zero, loops
+
+alright, i'm satisfied with the animation. junie told me to export the java model class, but i believe i already did in order to put him in the game. so i exported again, i don't know if there's anything else i should do or if the animations are included in dwarven_male.java. junie mentioned making sure animations is checked, but theres no option for that, it just saves.
+
+ok. i hit export animation from the animate tabs left side export button, and selected the checkboxes junie mentioned. i overwrote the original dwarven_male.java, is that correct? the new animation file will contain both still and moving elements where the previous version was only still.
+
+we got it sorted out. now that they move about and look around what do you think are our best options to progress?
+
+follow me, idk. not that exciting. inventory, would need other things to make use of, like i havent added an item yet. i would at least need an item and an inventory. the designate would require the iso manager to be pretty far along.
+
+working towards a party list doesnt sound half bad. lets work backwards from that. can we just let the manager assume all entities are owned, and populate them into the screens, or does that put us at risk of costly refactors? i would like to mimic the dwarf fortress management screens with population tasks labor places work orders inventory tabs at top and lists below. the isometric camera and interactive selection overlays sound intense, can those be done a bit later or do they need to be involved? i conceive of windows that come from dialogue to be one thing, although the barter screen will probably be the same whether initiated because a trader has arrived at your trade depot or because you talk to a shopkeeper or one in the wild. the next window is the manager, which is full screen like df. in the isocam manager mode you'd be selecting orders from a tool bar hud like dig or build and selecting regions in 3d. thats another thing. so we need to establish how the iso camera mode for viewing the rts type information, directing labor, patrols, etc, will integrate ergonomically with the manager screen. there needs to be a clear division of functions and an ergonomic access method so you can be quick. although i wonder if a stop time function would be useful since afaik you couldnt make a game like this multiplayer really. idk how you would it sounds harder than implementing the entire world of warcraft with infra from scratch.
+
+well adding the ability of the dwarves to be owned is a good next step i agree, and a dialogue option to recruit them, but  i would need the manager shell (not the isometric settlement view where you become the current settlement you are in and managing to construct or define or look around) to be existent, have a population tab, and know how to display the information like df. at this point probably just the name, and then health in the list.
+
+ok, i'm going to tell junie exactly that after we hammer out some issues with the animation, junie did successfully get the dwarf to move about and look around, but, the dwarf is walking backwards, and his arms and legs move so fast they just look like they are vibrating, so, i might have misinterpreted the timeline in the keyframe editor. are these problems i can correct by going into blockbench, flipping the model, and expanding the time the keyframes take until it looks smooth?
+
+no you don't understand the first part. he's not moving his arms and legs backwards. he's moving them (too quickly) as he moves backwards, so he's facing away from the direction he's moving,  as in backpeddling.
+
+ok, i put all the bones into one body bone and saved that in the editor. but, the animation i have in the animate tab looks fine. it moves normally. its only moving fast in the minecraft.
+
+really not sure what im doing wrong here
+
+ok, so its getting better but is still buggy. like i told junie to adjust the speed of the limbs moving to the dwarfs speed and make it so that stopping walking lets the animation complete rather than snapping. now the limbs go nuts when i push him. id like to take a step back and look at animation and rendering stacks as a whole and discuss how we can aet up a portable system based on best practices to get great results and will allow more complex animation design later on
+
+we seem to have gotten it straightened out by reworking how animations are handled as you suggested. remind me what we thought the next step would be?
+
+ i need to think carefully now about GUI design. the player crafts, has dialogue, does bartering, views his inventory and armor/stats, has a level up screen, a spell list where learned spells or abilities can be put into the hotbar to equip them. 
+
+he has a Manager screen that has a population tab that lists the units one controls, a work orders tab that lists the tasks assigned to crafting shops, dig orders made from the iso view, construction orders, etc. a site tab that lists managed sites, like if you have a mining outpost settlement a bit off from a village settlement, a research tab that shows what your knowledge workers in ljbraries, schools, laboratories (alchemy and research) etc are doing.
+
+he has an isometric/top down view mode that lets you scroll height levels, adjust how many levels above and below the current level are rendered for seeing into dwarven strongholds carved into mountains. a toggle for seeing through occluded blocks or not. units can be inspected by clicking on them and getting a character sheet that includes their current tasks and needs and happiness.  you can place dig orders or place block orders by using a 3d region select tool where you click a corner, drag it into a rectangle and click, then click againon the final corner to make it a rectangular prism , or select a building to place a construction blueprint for, tree felling orders, or define a patrol route for a squad, click on things like warehouses to open their management window, which is from the Manager screen but can be a small window in the iso mode, and maybe that same window can appear if you visit the warehouse and talk to the worker or click on the warehouse scribes desk in person.
+
+i gotta sort out what goes where, and make sure i know what each element needs access to and how it displays, make sure we arent being redundant and its ergonomic and none of the screens are obscure or pointless.
+
+i think the manager, the dialogue, inventory, barter, and also the hud elements of the iso mode, should be s unified interface shell that can open a fullscreen manager and also handles popup screens in both first person and strategic mode. that say there is a unified look and feel 
+
+also the first person HUD might as well work off the window shell system. its not gonna be a minecraft hud
+
+I'd like to make a mockup of the ui shell screens and pick a font and id like to make the demo good enough that it can be used for the actual assets, like the window borders, tab shapes, font, seperators, etc. at least get down what i can imagine now. the first actual working function in the manager will be the population tab that lists your villagers. idk what to call them, df calls it creatures, since lizardmen and whatnot can join your towns and im not considering that now. "people" is dumb, "citizens" kind of implies youre a big deal and not just the leader of a group, "population" is the best i have but is t good,  nor is populace, units, staff, or personelle. villager is mc and a campsite or city arent villagers. a random woodworker in a town isnt your "follower" or a member of your party, which would be a screen when you are travelling with npcs, you form a party, you can leave them somewhere etc. idk what to call the list of npcs that yoy control and can assign to quarters and jobs etc
+
+thats very cute and the iso mode order toolbar actually looks great, but im goong to make it by hand. how do i express my artwork and design to junie so that she understands what the ui shell needs to be capable of rendering and take my assets to use. should i do the art of the ui shell in different windows, mockup a 1st person hud over a screenshot, and show these pictures to her and then produce the list of assets as required? i am excited to do the art for the ui and this will be a good task before linking the dwarves to the roster. what kind of image editing software would be best set up for ui design?
+
+so what are some conventional techniques for this because almost all games have a sort of ui system, and it has to be drawn a certain way, and Windows came entirely from this. im going for something that is fantasy themed and crispy dos styled. the main menu graphics and artwork for the game as a product will be palette-crushed and dithered ms-dos fantasy flavored
+
+so i tell junie i need a comprehensive ui shell system that replaces all vanilla windows and screen info elements, and it will handle a fullscreen manager with panels, it will hand floating windows in first person and iso mode, and it will handle HUD elements in both first person and iso mode. it will handle dialogue, barter, personal inventory and stats and equips in 1st person. i will provide demo images of poses of the UI and the sliced assets. the shell needs to be portable to the commercial engine later and ready to receive all the games data points in real time. the first link we will make is by adding a dialogue line to dwarves that says follow me, which will add them to the roster with their name and health in the info list.
+
+i am working on the art for the ui. for the ui shell and main menu and other artwork, im using a 64 color palette, and doing unantialiased pixel graphics. which would look great in 640x480, but since it will be displayed on any number of monitors, and i want it to remain crispy, how do i approach scaling, particularly with fonts; i found a bitmap font i like, but its only available in 12 and 24 point. will 12, 24, 48, and 96 be sufficient? im not sure i am grasping the problem 
+
+so what should the smallest font be, the one that would be used for the smallest text displayed in game, like item descriptions when hovering or something. should i just use a 640x480 image in libresprite and assume that if it looks right on that image, it is right? i would paste a minecraft screenshot squashed down to 640x480 as the background for the iso and 1st person modes as reference. i have a 1920p tv and a 2560x1600 laptop, and 640x480 at 100% scale looks small in the editor, hard to read. but the ui renderer would basically match a multiple of 640x480 to fit the players resolution, and overlay it on the players 2k or 4k or whatever monitor or tv?
+
+i need a tool that will let me select several colors inside a gpl palette, and manipulate their values as a group.
+
+the actual answer was grafx2. i dont think anything else does it quite as powerfully that isnt a baroque photo grading tool or something. 
+
+how on earth did the artists of diablo 2 achieve the menu and hud artwork
+
+i spent all day obsessively altering rows of colors and analyzing classic 90s video game interface art and decided to start with 144 after seeing diablo II art up close. they have single line borders that feel 3d because of how the color changes along it, and 8 pixel text in buttons that looks exactly like an iron letter in a stone with water and rust staining dripping from the metal on the stone. i will use more colors up to 256 as needed.  and even 3 pixel deep window borders had shading around them with shadows that give them 3D depth
+
+are there any articles, interviews, or videos with the artists of diablo or behind the scenes looks at their process
+
+on a 640x480 screen a decorative font may be 48px tall for the name of the game on the title screen. i have a bitmap font of the right shape. im looking for tutorials, preferably articles with illustrations rather than video, of how to use lighter and darker tones to creat depth and form in the letters
+
+what would you name this game if you couldnt use any word or phrase ive mentioned before as a candidate
+
+no wrong ideas, try three more directions like you just did
+
+the appeal of the final product will attempt to be completely immediate and my plan is to let people figure out how deep it is on through reviewers
+
+how do i import fonts into grafx2
+
+ok, well how do i convert a font to grafx2's marker row layout?
+
+what is the order of characters i have to adhere to
+
+can you print the accurate sequence so that i can paste it into the text tool of libresprite and produce the entire necessary string to mark with the pixels on the top row
+
+how do i use a lua script like this -- -- Fix up a font bitmap for use in Grafx2---- Copyright 2015 Yves Rizou - Pastebin.com
+
+can you find the gpl file for Diablo II's full 256 colors
+
+since i intend to use the ui elements art pixel perfect in a 640x480 ratio on the screen, with a 256 color palette, should i be working entirely with indexed images in aseprite and grafx2
+
+in grafx2 there is a spread button in the palette editor that lets you fade between two colors on the palette, is there anything like this in aseprite
+
+i think there would be a stylistic advantage to drawing the entire game in 256 carefully selected colors, because you select and add colors as you need them and 8bit minecraft shader mods suck because the game wasnt drawn that way.  but is there any performance gain to be had in 256 color rendering 3D?
+
+plus if the game was drawn with 256 colors, you could still render full color depth only as fx and itd look striking
+
+im looking for plugins for gimp or aseprite or a standalone browser or .net app that lets me generate perlin noise with variable parameters using a palette i define
+
+i need a way to map an image to a palette of colors, with adjustment options for thresholds and stuff
+
+the lua palettize script made aseprite crash
+
+I'm trying to decide what the menus should be in the manager. it'll be for viewing all the information about the locale you have authority over, including its denizens, the inventory in the warehouses, the work that has been ordered, including the orders placed at workshops, as well as keeping track of places you are in charge of but not present at, in one way or another. I suppose you could implement couriers or pigeons to be able to issue general orders to another settlement you own, but it's delayed.  anyways, i'm looking for every word in the english language that could be one of the buttons at the top of the screen that you click to open different screens of the manager. i have denizens, management, settlements, locations, inventory, warehouses, stores, supplies, work orders, tasks, assignments, supervisors. i have to decide what is going to go where and spread those things carefully out amongst the correct set of 6-7 words.
+
+i need to disambiguate sites, which could be any structure or area you define as a warehouse or a dumping pit or graveyard, vs settlements. which are also sites, or locations. Areas could work, but that doesn't imply structures. and some but not all sites would be structures, for example a field of crops would be a structure
+
+what kinds of types of items exist? to cover everything that might be needed in the game, i have Food, Materials, Supplies, Tools, Weapons, Armor, Valuables. but wherre would books go on this list.
+
+what are some titles of members of a court or staff, like a presidential cabinent appointment or advisors to a prime ministers he selected, find all these words
+
+when does the npc ai convolution become a performance issue... could a regular persons gaming computer handle 500 villagers?
+
+assume theyre awake because if the player is in his quarters while in the manager screen or the iso supervisor he will sleep automatically if no villagers are panicked and time advances. 
+
+later in the new engine i would want to use every trick in the book to do as much ai as possible as cheaply as possible so that you can see a commotion of life and the details get lost.
+
+idk about pathfinding. but the appearance and routine of villagers going about their business, working, eating, sleeping, socializing, drinking, worshipping, and idle should all be fairly straightforward and provide lots of visual activity. for work they will need to find things and move things, scaffolds, hunting, logging.
+
+what are the most advanced pathfinding techniques for economy
+
+is there a way to eliminate pathfinding by just having the npc move in a direction once outside and only reroute or do a quarter turn circle and start over once they slow down for more than 2 seconds on collision or something
+
+what tricks and methods were used in 256 color 3d pc games? different palettes for different levels? i cant do that because all assets could be anywhere. im curious if they had principles behind color selection or if they chose them as needed for whatever they were making
+
+what is the performance cost of going from 16x16 textures in minecraft to 32x32
+
+after two days ive made this, do i have room in 256 colors with this for 3d graphics?
+
+list all the english words associated with skills, class, proficiency, trade, role, occupation, etc
+
+take the latin translations of every two word combinations of the words, lore, forge, story, craft, mine, world, life, adventure, and any very closely related words, and show them
+
+all the words you have used are good, but make a truly comprehensive combinatorial of all of them as you have already done but without omissions from any 
+
+translate these ncus artis, ars vitae, vita artis, ars orbis, ars itineris, iter artis, ars regni, regnii artis, vita mundi, iter mundi, faber mundi, iter orbis, orbis regni, vita itinerus, incus vitae, incus adventus,
+
+imagine golden eras of humanity as colors on a color wheel. if humans are romans, and elves are ancient greeks, what are dwarves
+
+so dwarves wouldnt be babylonian i think, they were more metropolitan, so what culture with syllables like i gave you previously of the dwarves names and the  art and statues that most closely resemble overbearing brutalist squared off dwarven aesthetics
+
+please post a broad sampling of images that reference hittite, anatolian, uratian culture, art, architechture, statues, bas reliefs, with links to any large galleries of their cultures
+
+i own a legit boxed copy of adobe photoshop cs6 with a cd-rom and key. how do i load my own custom palettes into it
+
+ok, how do i take grayscale texture files into pscs6 and index it so that only the tones in my palette are used, and all the tones are used, mapping them from dark to bright? when i load a texture, and go to indexed color and load a custom swatch, it winds up only being one color usually.
+
+how to make ps work in pixels
+
+in cs6 how do i make a marquis selection rectangle of an exact size, and how do i relocate the selection area
+
+are you able to identify any transitional period where artists that had spent a career working inside 256 colors worked on projects just after 1000 or more colors became available, and used them the same way they had learned
+
+how long was the 16 bit period and how many colors is that
+
+give me a sample of 10 common names of a regular roman citizen
+
+do the same for ancient hellenic names
+
+im looking for true deep dives on hand dithering by someone who is a master
+
+you have three diablo style spheres at the bottom of your hud, red green blue. they represent your blood, your stamina, and your energy. injuries are injuries that gimp you. damage is inflicted as bloodloss, injuries, and effects. red is strength, constitution, endurance. green is agility, speed, dexterity. blue is intelligence, willpower, charisma. your health is (blue) nutrition (fruits, veggies, healthy things), (green) carbohydrates like bread, sweets, potatoes, and (red) protein. bloodloss comes from being hurt and most attacks inflict both short and long term bleeds, stamina depletes with doing things and recovers but not all the way until you rest, and energy, which is used for some mundane things but also magic. for npcs some stats are effected by work (red) rest (green) and play (blue)  as regards needs and happiness. 
+
+i want the ui to render as if it was pixel perfect 640x480 on any screen. its going to look like this, with inventory hotbar on right, equips on left, and three glass spheres in the center, filled with energy, blood, and stamina. how could one implement a pixel fluid sim inside each glass sphere, when they deplete, pixels are removed at random from the fluid in the sphere, and the fluids would slosh with movement, enough that in dynamic fights you may be reading it by feel sincs its not a bar or number
+
+if i want to do visual FX inside the fluid to simulate various little things like a healing potion is a purple phial and it dumps purple fluid in the sphere that glows when it touches the blood and forms more blood. i imagine them as litle "hell of sand" browser game type of deals where when you get hit by a lightning attack lightning flashes through the spheres and pixels turn to 2 fire and 2 smoke pixels and then vanish, or when you are struck by a blade, a slash of particles of blood flash and vanish, and as you recover naturall, drops of 4-5 pixels condense on the top and drip down. if you have a fast regen buff itd drip faster.
+
+suppose i want the fluid that condenses at the top to run down in beads along the front of the glass sphere as if it was 3d, rolling down and entering the pool. how could such a thing be implemented
+
+the extended inventory concept is very important. there are some proportions that will need to be tuned. the player needs to be able to be able to mine quickly enough that he can have fun building, but it should definitely be more involved. more steps. one thing is that i am sure in the commercial engine is i want a quartile system, where instead of stairs and walls and slabs, you have stones that are .25 x .25 x 1 blocks that can be placed in any orientation, and can be overlapped. maybe half of them drop when mined. vintage story has vertical slabs like this, but you can not for example lean a tool against the wall unless its a full block, and you can't place a item frame for example against it. i will want to resolve that, although its not a priority in the prototype. what is important is the increased physicality of items that will encourage you to use laborers or wagons, carts, donkeys etc. first of all you only naturally have 10 inventory slots. a back pack can be in one of them and might hold 6 spaces. books can stack to  4 even if they're unique, when you (E in minecraft) to your crafting/inventory (i call it personal/party) they expand so you can shuffle them. being that we can also have .25x.25x1 blocks, trees will look much nicer, and there will be big logs (full block) and small logs. when you cut the tree down, they all fall to the ground and lay there until picked up. they don't have to be mined up, but to process them to boards and stuff, they will have to be placed in a sawhorse and sawed, instead of mining 10 wood blocks, you cut the tree down, transport the logs to a sawmill or carpenter, or just set up your own sawhorse and saw them. there needs to be some kind of balanced way of getting boulders from blocks of stone, and getting ore, where maybe it gradually drops as mined. 
+
+one reason this is critical is because it takes the simple behaviors of villagers, and elaborates them in a clear cut way. a carpenter shop will require x number of shelves, where logs will be visually stored, and the worker will take a log, place it on a sawhorse, saw it, take the planks to a table, saw it, hammer it, and the furniture appears on the table, and he has to transport the table to a warehouse and place it on a shelf and the warehouse be a place where furniture can be stored to X number of shelf spaces, as defined by the player. bakeries, kitchens, blacksmiths, will all work this way, creating interesting behavior.
+
+creating labors, for example placing a house for the villagers to build, costs some gold in addition to the materials
+
+put everything ive said about this game and how it works into a summary
+
+Condense the summary to 1000 characters
+
+when you cut a tree down each block of the logs and leaves it is composed of should gain a momentum in the direction it was chopped from, increasing woth each z level such that it collapses in a straight line increasing by one block of distance for each block in height from the bottom log of the tree that yoy have to chop at, and falling logs break leaves when they finally arrive at the x y coords they 'fall' into. so you will have to clear leaves off of what was the top of the tree and you do have to chop them each off actuallly because they were connected. you get sticks from leaves, and large logs and small logs. you can quarter large logs by placing them upright on the ground and chopping.
+
+dirt should be relatively easy to mine for both you and the nps. you will have access to dirt/grass slabs etc though they will not spawn naturally in terrain i think. i think i should try to develop the elements of interaction in parallel for the player and the npc so that the balance between the two stays in sight and they dont clash
+
+i think mining stone will have to have a bit of nuance. what would be the language that distinguishes between how marble is mined and how rock or ore is removed? i envision 1/4 size blocks stored physically on pallets 8 per pallet block, but i think there has to be several distinct stages of mining that a natural rock block has to go through. stage 1 it drops a rock (which is used for cobblestone, like stones are pennies and boulders are nickels. also gravel), in stage 2 it drops a boulder, and in stage 3 it drops a boulder with a pick or a stone block with a hammer and chisel. so there are blocks, which make 2 boulders and a rock, and a boulder can make 3 rocks or one "brick" or "cut stone" .25 x .25 x 1 block. ore blocks will drop more pieces of ore the more skilled a miner is, but it drops them one by one. not sure how to account for if an inept dwarf mines at a block and leaves and a master dwarf comes to mine it. i suppose each unit of mining time does a fractional amount of the blocks remaining hp.
+
+boulders among other things can be stored in bins which are open 2x2 sturdy crates. 1x1s are called crates and are general items. i think there should be a lot of container items that should be suites more for some things by being able to store more. preserving containers like casks, barrels, jars, can only have one item like in dwarf fort and so a barrel of cheese becomes a food item as far as inventory system is concerned. 
+
+going back to the topic of cutting down trees, how could this be implemented such that the behaviors are portable to a new engine? in the prototype, i would see a minecraft tree fall like so: the stump stays on the ground. the log above the stump would slide and fall to the block next to the stump. the 3rd log of the trunk would slide on the 2nd log at the same time, a little quicker, and then falling to the 3rd block from the stump. and so on and so forth, with the leaves moving along with their z level of the tree, until the log they're attached to begins to fall, at which point they just fall down. i think this behavior could be expressed in a very simple formula or something that makes it fool proof. basically if you imagined the tree as a simple stack of pixels that slide freely, the pixels would have more velocity at each successive z level, so the 2nd pixel from the bottom would be on the cusp of falling off the stump pixel at the same time as the top pixel was on the cusp of falling off the 2nd to last pixel of the tree, 5-6 pixels away from the stump horizontally. however, this motion needs to result in an exact end location that is pre-determined or at least pre-determinable. how can the act of imparting relative velocities to each block of the tree, while connected in z slices, until each block has reached its maximum x/y travel and begins to fall? 
+
+note, that for behaviors like this, it'll be critical that i'm able to tweak the exact values while watching the event take place, so i can get it looking just right (for example the distribution of speed top to bottom - i need to see how it looks if the lower blocks are quicker than the top and vice versa to see which is more 'tree fallingly'. how would i express this need for a comprehensive developer page i can access and observe key values governing the behaviors i am defining and adjust to taste?
+
+rather than a lot of notepad.exe are there any useful whiteboarding tools for organizings lots of lists and notes with tables
+
+give me a prompt for junie that will facilitate the tree felling system to the following parameters, keeping in mind this is for the prototype mod so no quartile blocks or any thing extra now.
+
+the trees bottom block is the only mineable one. when it is mined, the tree falls such that all the blocks above the stump block slide together in the direction opposite the face that was mined, and fall down a block together, then all the blocks of the tree above that keep sliding and dropping until it is finished and the blocks can be minded normally. when a wood block would land on a grass block the grass block breaks and the wood block continues down. once the tree blocks of a z level of the tree begins falling, so do all the leaves that came with it. the behavior should be engine agnostic and formulaic such that the speeds and momentums can be tweaked easily. 
+
+replace grass blocks with leaves. sood blocks falling break leaf blocks, express it as youd express it to me and jnclude the formula
+
+note that the uncollapsed part of the tree all slides together, and goes down together, as each z layer is deposited in sequence
+
+i am going in circles with junie trying to get the trees to fall right. i wonder if i should skip the mod and just start with an engine of some kind working around minecraft might just be wasting time
+
+on the other hand, knowing what ive done so far - got new blocks in, got a dwarf walking around in, got a test world, trees are falling (badly). what is minecraft doing for me that i will have to start think about now as i just start. id like to overview the process of starting in the new engine as priorities would shift
+
+ok, so what are the engines i should be considering or codebases i can start from for a minecraft dwarf fortress clone, please be in depth and try to provoke thought on the salient points to consider and lay out some of the new work i will have in front of me to get to where i am now in the mod
+
+im looking for the ultimate in flexibility and power in a minecraft rendering engine. godot looks like unreal engine or something, im not sure thats exactly what i'm looking for. am i looking for a rendering framework to start with a data driven entity component system, or what, should i just tell claude to make my own engine in rust for maximum scalability for simulation, or what
+
+talk more about bevy in rust. keep in mind i am doing *zero* coding. it will *all* be claude. i am providing the art, the logic, the rules. so iteration speed may not have any relevance since i'm not able to code anyways.
+
+i am terrified of the first prompt i'd make to claude, because it would determine the direction of everything from there. i need to know what every consideration a developer would have on the software, backend side of this project, so that i can define explicitly what i want the software to be capable of from the start with claude, and while i can't write code, i want to be able to see what is going on and follow the shape of the system of systems. so please give me an extremely detailed deep dive on the systems that claude would spin up when i tell it 'make minecraft in a test world for us to start adding content and behaviors'. we need to rehearse this until it's correct, and there isn't a whole lot of important decisions about the new game engine being answered for me because i didn't even know what the questions were
+
+we're going to need to slow down so i can ask questions and learn about each one of these things you have numbered. describe to me the concerns i need to have about the timestep choice, and what you mean by a time control resource. how does this relate to other systems in the game, and is this part of the 'application' that starts the game onto the screen and captures the mouse and keyboard?
+
+so i want variable rendering for the UI layer and the game world layer, but fixed timesteps for the simulation running off a universal timecontrol resource that can be paused or accelerated.
+
+lets discuss world representation. I definitely want the game to be fast, and i'm not going for a ton of visual definition, but lots of fidelity in terms of render distance and lod culling - like in minecraft chests dissapear at 8 blocks away and that's annoying. i'd rather sacrifice and make the world look big and full. 
+
+explain to me the necessity and virtues of the chunk system and viable or interesting alternatives, and how it could be adapted given what we've learned in the years since minecraft came out. i want to make the fixes that seem obvious now from when minecraft first came out.
+
+explain to me what block state living in the same id or parallel array means?
+
+one thing i'm concerned about, is chunks as biome data: if i use larger chunks, the borders are obvious; but is there any a priori reason why biomes have to be determiners of biome, rather than some other system? i imagine the biomes changing more gradually as the environmental conditions change and different plants grow and the terrain shifts, but im not sure if thats unreasonably complex, or something that can be baked at world gen. 
+
+but i suppose chunks are necessary, so we should have a 32x32 chunk size; but, if i don't need to use chunks for biomes, 64x64 would be better? please advise so i can write down my decision in the notes
+
+meshing and rendering. why wouldn't i want greedy meshing? isn't there just a best option? what would the choice be between? i would like to have the ability to work on water or caustics. i dont know what frustum and distance culling is. i'd like to get this whole thing right from the get go.
+
+this is what i have right now. put this all together with everything you know about this game to create a perfect start with claude in intellij idea on a new project making this minecraft X dwarf fortress clone style open world immersive survival and settlement simulation horror game. 
+
+We're going to make Incus artus using bevy, in rust, to facilitate large, fast simulations using a data driven entity component system for a minecraft clone with dwarf fortress style simulation and management of npc's.
+Timecontrol resource that every system can read as the clock of the simulation. it can be set to 0 to pause when the menu or manager is open, or accelerated during strategic views. the rendering of the UI, and the rendering of the game world, can be variable timesteps, but the simulation parameters are fixed timesteps.
+the world representation will be the same general concept and proportions as minecraft. biomes will not determined per chunk. seperate render distance from simulation distance. there will be a light simulation that runs in the entire world at all times, and a full sim that runs in the players locale. chunks will have a hierarchical multi-resolution system in order to render terrain at long distances for little performance cost. sparse storage principles for storing only non air blocks or paletted compression inside the chunk should be observed. Very distant structures can remain visible as simplified meshes even after their full chunk data is unloaded. dense chunk...[truncated]...l have some important early components: position and velocity, for a kinematics controller. blockID and chunkcoord. npc's will need 'health' and we need a way to progress the act of mining a block.
+i don't want this codebase to turn to spaghetti down the line, so lets organize everything like a big centrally planned city with a central event and message bus. for example, 'blockmined' 'block placed', 'treecut', 'item picked up', etc. systems communicate by writing events, not reaching into each other.
+block definitions will be loaded from json data files. we'll generate texture atlases and load models from blockbench. i'll provide folders of assets as we go, for block definitions, models, user interface art, etc. properties of in game 'items and creatures' should live in data, not be hard coded.
+as we're going to be developing and tuning this for a while we need a debug and observability layer. any time we're adding variables to the world, like noise size to generate rain maps, these variables should be added in pages of the debug screen (can just be a black window with text and toggles and fields) so that i can manipulate them and observe the results for tuning. it should list live resources, and be able to spawn a tree or an item, for example. i will need this in order to help report to you what is happening and get you accurate information.
+we're going to need a way to save the world. i don't plan on having a save system at all though, it will be like minecraft with worlds.
+
+in order that claude is able to anticipate the future needs of the system, please include the entire outlay of the game, from start to finish, along with your design brief. you can omit the section in the code box, i like the wording above it better.
+
+ok i just bought claude code and downloaded the app. i have intellij idea open and junie is in it, and i have claude open. how do i put claude inside of the intellij idea
+
+cool its working. claude is asking about pawn movement and timestepping: "Pawn movement. Is the pawn's movement part of the fixed-tick simulation (deterministic and consistent at speed-up), or real-time like the camera? [Fixed tick, smoothed between ticks for display]"
+
+using the terminal to talk to claude is kind of annoying. is there any way i can use the app and have it work in the ide the same way
+
+what agentic features can claude do in my pc? can it operate software?
+
+Compare Claude Code with Cursor
+
+but if claude is in the terminal how will i show her pictures ive made of things
+
+you know almost everything about my game as i've spoken to you about it for almost a week now i think.  i need a list of things that a block needs to know, in the entity component system.  tell me about all the things a minecraft block knows, and all the things an analogous dwarf fortress block knows, and match similiarities and differences and produce a list of similar language along the lines of features i've discussed
+
+lets talk about designing tree in the bevy and rust engine
+
+going to claude and bevy was the right call. since last night weve actually gotten to placing blocks and running around like in mindcraft with a full live world edit panel and a rock solid dual time system and a spinning block clock for observing the clock in real time as i adjust tick rate and speed and pause
+
+claude is so good that we are going to take this overview conversation towards a more theoretical level since claude handles technical things so well
+
+later on: i want the game to become horror very quickly when something bad, like goblins
+  attacking the village you're sleeping in the inn at at night. im going to try and make it seem really as scary
+  as it'd be to have 2 foot tall monsters creeping into peoples houses and stabbing them. i want the game to be relatively idyllic when nothing bad is happening, but give a real sense that really awful things can happen so that peoples heart picks up a little when they're engaging with the malice of the enemies. it is medieval after all.
+
+one think ive been thinking about is, how i add vanilla structures, like trees and procedural villages. i imagine river run from skyrim as the archetypal first little village you come across. i think the way i think it works is pretty close: the village starts as a well or market meeting area, and it has atrachements like puzzle pieces. they have rules of what can go where and randomize until its done, like waveform collapse. one thing, is i want the village to level and clear for itself so you dont get rarted minecraft village antics. but my real question is, how do i create this data? i think i should have claude give me the editor tools and pit together a sort of fun little work platform where i can define a rectangular prism size that is represented on the platform for me to assemble structures and use the editor tools i define to link them as data objects for instantiating at world gen and later for new trees growing and stuff. and i might as well have a fun immersive editor for building out the vanilla content base inside of itself. make this into a recursive fun feedback loop that makes something so fun that everyone who watches a youtube short buys the game. and then buys the editor edition for modding. since apparently i can program anything i can imagine now. 
+
+i think the shape of the village after it is constructed should grow a radius around itself that will in the middle, create smooth slopes between any structures on the surface, and fades in levelling strength over six blocks or so
+
+what would it tke to implement a network pipe so that i can watch alphatesters, chat with them, and receive messages they leave in game when they have ideas or find problems? and leave it expandable so i can spawn in with them. but im not currently considering multiplayer, and if i did itd probably be more point to point a couple of friends oriented than a big multiplayer server thing. like a dnd friendgroup
+
+with bevy in rust, the graphics i've got right now are fast and clean. am i going to ruin my life if i tell claude to implement panini FOV projection right now, since i've added a 'run 2' sprint feature, that does an FOV bump, and i've thought alot about how in minecraft everything looks better at 70 but everyone plays in quake pro. whats the difficulty here?
+
+The end goal
+Incus Artus is a commercial, standalone, open-world survival and settlement simulation. It combines Minecraft-style first-person building and exploration with Dwarf Fortress-style management of living settlements. You can stay a lone adventurer, or grow from a campsite into a network of towns, moving freely between hands-on first-person play and an isometric management view.
+Quality worlds over quantity. Graphics stay lightweight and comfortable so the processor's budget goes to making the world feel alive. Everything is data-driven and moddable, built for Windows first. You write the rules and content, make the art and do the tuning; I write all the code.
+---
+Player experience and modes
+Three ways of looking at the game, sharing one interface shell:
+1. Personal / party view (first person). Direct physical interaction. Inventory and crafting windows float over the world, and you can click on items within reach in the world. That encourages you to lay your alchemy supplies out on a table, for example.
+2. Isometric supervising / foreman view. Selecting regions, giving labor orders, oversight.
+   - You can scroll height slices to see inside buildings.
+   - People keep see-through indicators, visible through walls and trees.
+   - Distant-style detail is fine here, but people must stay easy to find.
+3. Full-screen manager. Your mockup's tabs:
+   - Inhabitants: name, status, current task, occupation, roles, skills.
+   - Resources: food, supplies, materials, furniture, ...[truncated]...n't know, and what to fill me in on
+1. The minute-to-minute core loop. What does a typical 30 minutes of play look like, early on and late?
+2. Win, lose and death. Permadeath? Playing on as a follower? How do the endings get triggered?
+3. Combat specifics. What does "gestural" mean in controls? Weapons, blocking, ranged, and how injuries are modelled.
+4. Magic: schools, costs, how energy is used, and how spells are learned.
+5. Religion and the god of fate: mechanics, not just flavour.
+6. Economy: where gold comes from, prices, trade, taxes.
+7. Lore: the setting, the Age of Strife, races beyond the three, the factions behind the hostile sites, what "darker rituals" means.
+8. Followers in first person: do they fight beside you? Can you command them directly? What are party mechanics?
+9. Animals: livestock, mounts (the donkey, wagons and mule carts are mentioned), wildlife, hunting.
+10. Farming and food: crops, cooking, how protein/nutrition/carbs work.
+11. Character creation and growth: how skills improve, and where the attributes come from.
+12. Dialogue and quests: how conversations work, and how procedural quests are built.
+13. Audio direction.
+14. Release plan: first-release scope, platform (Steam?), timeline.
+One small inconsistency: your inventory mockup says "Incus Artis" while the decided name is "Incus Artus". I assume the mockup is just older.
+Want me to save this as docs/vision.md, so you and Grok can mark it up and I can fold the answers back into the decisions file?
+
+I've written everything into docs/vision.md (open in IntelliJ, committed as 5444015). It combines the brief, your answers, today's message and your notes vault: the gods and the player's origin, the three endings, the Dungeonmaster and event cards, the Fate probability engine, gestural combat, magic, the show economy, inhabitants vs followers, and the food → spheres link. Open questions are listed at the bottom for when you're back from art; the first is horror. Your vault calls the game an "immersive horror survival-and-settlement simulation", which wasn't in the brief.
+What today's answers change about what's next
+Two of your ideas affect how the code underneath has to be built, and are cheap now but painful later:
+1. The Goddess of Fate needs every random roll to go through one place. For her to twist the odds, each roll must say what kind of roll it is and which way the player would want it to go. If systems each roll their own dice, someone has to find and rewire every roll later. If one "Fate" service exists before anything rolls dice, every future system uses it from day one. One distinction it should make:
+   - "planet forming" randomness (world generation) must stay fixed and repeatable from the world seed
+   - "living world" randomness is what Fate is allowed to bend
+2. Saving has to cover more than blocks. Fate's current odds, the Dungeonmaster's deck, and evil's growth are all part of a world's state. Step 8 should save a world as "chunks + world state" from the s...[truncated]...tion for the order
+1. Step 8: save and load worlds. World folders, changed chunks only, plus a world-state file ready for Fate, the Dungeonmaster and the calendar. It finishes the foundation.
+2. The Fate service. Small: one place for all randomness, with roll categories and a debug page showing every roll and the current odds twist. You'd have dials to make "unlikely" likely and watch it happen. It's invisible to players, but it's the base for the story.
+3. Then one of these, your choice:
+   - (a) World generation and chunk streaming. The real continent, and the first big tuning playground for terrain, layers and caves. It also produces your art to-do list (stones, soils, trees).
+   - (b) A combat gesture prototype. Draw a weapon, press, and trace a gesture with the damped cursor and the committed feet and camera. The game tells you which attack it read, before any animation or art exists. It's the same "play with the dials until it feels right" work you just did with movement, and it would show early whether the billiards feel works.
+   - (c) A settler skeleton. One dwarf who walks to a block you mark and digs it. The first Dwarf Fortress loop.
+I'd lean towards (a), since every other system happens in the world and it gives you art to make. (b) suits your tuning style best, though, and is the riskiest design idea to prove.
+You don't need to decide now. When you're back from the art, tell me whether steps 1 and 2 sound right and which of (a), (b) or (c) you'd like after that.
+
+i said i think the need to build the combat processor one step at a time until we have the structure for an attack so we dial in one stage of the action before introducing the next part of a swing. i believe that will come later because we will need something that can attack and block as well to assemble it. getting a dwarf into the world comes way before that, and then giving him some behaviors. note that im going to balance it so each race is fun to play and focus on humans as the standard choice. we are just starting with dwarves because the dwarves behavior is the biggest part of what we are adding to minecraft, besides just rebuilding minecraft from scratch in light of all we have learned since then with improvements and basically the enhancements collectively agreed upon from hardcore realism mods and things like rlcraft and vintage story for enough more quality of life and depth of simulation, that everyone can experience their survival adventure in their own way with their own solutions, and the joy of minecraft is preserved without the baggage of things like redstone for accomplishing what a few farmhands that work for you can do, making it an immersive experience because you solve problems in logical ways and the problems you have, like moving 10,000 rock blocks to make a castle, have better solutions than hours of mining and shulker boxes. natural, logical solutions for everything.  tangible storage is fun to look at so people wont mind needing a wagon and two donk...[truncated]...ll randomness, with roll categories and a debug page showing every roll and the current odds twist. You'd have dials to make "unlikely" likely and watch it happen. It's invisible to players, but it's the base for the story.
+3. Then one of these, your choice:
+   - (a) World generation and chunk streaming. The real continent, and the first big tuning playground for terrain, layers and caves. It also produces your art to-do list (stones, soils, trees).
+   - (b) A combat gesture prototype. Draw a weapon, press, and trace a gesture with the damped cursor and the committed feet and camera. The game tells you which attack it read, before any animation or art exists. It's the same "play with the dials until it feels right" work you just did with movement, and it would show early whether the billiards feel works.
+   - (c) A settler skeleton. One dwarf who walks to a block you mark and digs it. The first Dwarf Fortress loop.
+
+I'd lean towards (a), since every other system happens in the world and it gives you art to make. (b) suits your tuning style best, though, and is the riskiest design idea to prove.
+
+You don't need to decide now. When you're back from the art, tell me whether steps 1 and 2 sound right and which of (a), (b) or (c) you'd like after that. , , , i think i should direct claudes attention to the dual simulation layers, the local one and the world (lite) that makes the world live. how to insert that priority infrastructure to claudd along with these considerations i had?
+
+we may need a "rich lite" simulation that carries more information concerning settlements you own and settlements where you have residence or active quest lines. itd be neat if the npc settlement sims considered you an inhabitant when you officially own House location inside of a settlement that you do not control. and if you are questing in the world because you spoke to a person in the bar at Silverdeer Glade, an elven Village who needs proof someone else in the village murdered someone else in the village, that village probably needs a rich lite sim for continuity and plot executions, especially since theyll be generated procedurally like ad libs.
+
+the rich lite sim should have a variety of triggers, which are tied to routines necessary for the player; this way, we can explicitly call world areas into the rich lite mode for exact gameplay needs, and expand that function as reauired during later procedural plot building. i like the response you made but refactor with this in mind
+
+refactor with this note: evey person in the world is named from the start. and if the rich lite sim is operating its going, it does not pick and choose. entering an area that was in lite sim only knows that there are crop fields and what time of year it is and what staye they ought to be in because it measures the resources they produce and consume and what state its in. if you visit silverdeer glade and steal some turnips, and return from the quest in a month, theyll still be gone.
+
+it does track individual births and deaths.  villages in the whole world are full of people and all ages and states from the start. they give birth to babys and rhose babies mature and take jobs and may be sent in raids and die in the lite sim. but its all done theoretically. if an elf settlement decides to raid you ot sends the 5 guards with determinable equipment tables depending on fsctors that they have and they appear at your settlements simulation region border. the lite sim isnt tracking their movements, theyre just a name in a village that has matured with these stats and theres a guard job open so he tskes if, is trained some, the village has a blacksmith of x level and they have native copper so the five elf fighters have copper ringmail and copper spears and are x level. but thats all lite, its a spreadsheet.  does that make sense
+
+## Recent Terrain / Additive Mountain Discussion (2026-10-26)
+
+so the math couldnt really be efficiently applied to the data maps the tectonics generates because it isnt noise to begin with
+
+so does the math work from a center on a noise field, so could i take a noise field and drop dots on it and mountains rise out of that point? or when does it amplify and how does it make a mountain shape rather than raising the whole field into a more exaggerated one
+
+can you give me an example of how to ask claude to implement this as our beachhead into additive terrain?
+
+what would be the simplest method of scattering points in a direction, the fastest logic
+
+we already have a ridge detector that draws lines in betweent the highest peaks to form a line along the natural mountain chain. whats the cheapest way to take particles placed along that line and make them stream directionally from it such that the particles follow the general line and curve of the ridge, but curve together as they emanate, with a direction decided by which way the ridge curves (or inverse) and a control for how much they move from their start, and for how much the curve effects them?
+
+the ridge detector wasn't really built for this, so we had a hard time and are instead doing this: [Claude's long analysis of field-based mountain properties, structure tensor, local prominence, etc.]
+
+you read the image right and understand my intentions. understand that this is just our first attempt to get particle streaming, we're gonna have to work and work on this and come up with different ways to control the streaming and scattering and direction until we have a setting that routinely produces pleasant ranges of fantasy mountains (which basically means its taller than it is wide. actually driving the additive mountain generators off of the dots comes after we're satisfied with how we throw dots around. s1. ok, i think you're right, ridges were the wrong approach. i guess i assumed since we had a detector we'd make it work but it wasn't made for this. yes, keep in mind we're going to be expanding the additives broadly under the heading of additves. just mountains won't be enough, i will probably need to generate some other stuff. additionally i've been thinking about the hills and ground detail settings; sometimes they get interesting or good results but they really effect the entire map in unintended ways. considering that additive generation is likely to be expensive, our next process may be to see what can be done in the compiler and what requires additive synthesis, and we can shift stuff around the two sides until we're happy. so knowing what our next steps will be (get the particle scattering/streaming off of mountains working, get the mountain synthesizer working, experiment with it, then rework hill and ground detail in light of the features we can add in other ways now, adjust both tool sets to one another, and then begin to expand the additive processes abilities as we see fit, i agree with your plan. we may have to try and scrap a few methods.
+
+how do wind and mountains relate geologically? im wondering if there's any relations between mountain formation and wind direction (similar causes to both phenomenon) that i can use to drive dot scattering mountain indicators backwards from the tectonically derived ranges i have.
+
+do you get what i mean by working backwards from an influence though? like, if a force drives an outcome in the system, and in our simulation we have the driven object but not the force and the sim *looks* right, couldn't we derive the real forces that act on the system, and work them out backwards from what we already have to good effect? can you think of any other parameters like this that could be useful to my project?
+
+whats the easiest way to share this entire conversation alllll the way from the start with someone else?
+
+i can't select all the text because the window has a limited scope and i have to scroll to actually produce it. claude has the same problem with that link. is it possible for you to render a text file of our entire conversation from start to finish for me?
+
+--- End of transcript ---
