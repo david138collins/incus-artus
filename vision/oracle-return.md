@@ -247,8 +247,10 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] Optional: the crisp and in-between flights at the marks: the blend in code is 24 to 33% of every mark
 - [x] Experiment 4b flown: light stored in the baked cells, looked up for the far pixels (flight H, build 114)
 - [x] Experiment 4b: David's look at light that steps (build 115): he can't tell it from the rays
-- [ ] References from old; old frozen. Before the tag: decide whether old exports nice25's blocks where the eye will
-      work (question 7), since old isn't touched after it
+- [x] References from old (1.6), listed in `master/references.md`: 24 pictures (six places, four times of day), the
+      test world's maps and river network, 5,047 sample columns, and the marks' flights
+- [ ] Old frozen (`old-final`). Before the tag: decide whether old exports nice25's blocks where the eye will work
+      (question 7), since old isn't touched after it
 - [ ] The packing and the skeleton (2.1)
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle
