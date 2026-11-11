@@ -1042,6 +1042,8 @@ Reference: `Art/quartile minecraft illustration.png`
   use it for looking at and reference." Tagged `old-final` on 7c809d3 and pushed (Builder), after the event log of
   David's quarter-block build went into git (7c809d3; the third standing mark replays it, and it had never been
   committed). The export's USB copy waits for the stick.
+  - On the USB the same day (Builder, a78f1f2): `D:\Incus Artus Backups\exports\nice25 test`, all 19,883 files
+    compared with the laptop's by SHA-256, none differing. Phase 1 done enough to go on.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

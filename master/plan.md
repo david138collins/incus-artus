@@ -10,18 +10,19 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ## Where we are
 
-- **Working on:** Phase 1, *Learn, in old*. Experiments 1, 2, 3, 4a and 4b done (2026-11-11, `docs/experiments.md`):
-  soft bricks (the blend stays); light kept a cell at a time, which David can't tell from rays ("in a blind test"),
-  though at eye level light's cost is the near faces'. The references from old are taken (1.6), and the test world
-  is exported whole for the new eye to read: 5.2 billion columns in 0.11 GB, checked against old's. Old is frozen
-  (`old-final`, 7c809d3), kept for looking at and reference. Next, the restart (2.1): old packed into its own
-  folder, and the new project's skeleton.
+- **Working on:** the start of Phase 2, *Restart*. Phase 1 is done enough to go on (2026-11-11): experiments 1, 2,
+  3, 4a and 4b (`docs/experiments.md`) gave soft bricks (the blend stays) and light kept a cell at a time, which
+  David can't tell from rays ("in a blind test"), though at eye level light's cost is the near faces'. The
+  references from old are taken, the test world is exported whole for the new eye to read (5.2 billion columns in
+  0.11 GB, checked against old's, kept on the laptop and the USB), and old is frozen (`old-final`, 7c809d3), kept
+  for looking at and reference. Next, 2.1: old packed into its own folder, and the new project's skeleton.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
 - **Waiting on David:** his word on how phase 2 starts (Counsel put ideas to him, 2026-11-11) and 2.1's two
   questions (old's place, the control room), before Builder starts 2.1.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
-  what we learn for it as we go, in `vision/oracle-return.md`.
+  what we learn for it as we go, in `vision/oracle-return.md`. David is weighing calling it early as well, before
+  2.1 is built, to review Phase 1's findings (2026-11-11).
 
 ---
 
@@ -29,8 +30,8 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ```mermaid
 flowchart LR
-  P0["0 · Decide the direction"]:::ticked --> P1["1 · Learn, in old"]:::now
-  P1 --> P2["2 · Restart: the eye on old's world"]
+  P0["0 · Decide the direction"]:::ticked --> P1["1 · Learn, in old"]:::ticked
+  P1 --> P2["2 · Restart: the eye on old's world"]:::now
   P2 --> F{"The fork<br/>(the Oracle back)"}
   F --> P2b["2.4 · The eye, whole"]
   P2b --> P3["3 · The world"]
@@ -50,7 +51,7 @@ flowchart LR
 - [x] VS Code set up for Builder (1ab561e)
 - [ ] The spec cut by David (`master/spec.md`), alongside everything below
 
-## Phase 1 · Learn, in old  ← *now*
+## Phase 1 · Learn, in old
 
 Each experiment's pass mark is written down before it flies.
 
@@ -114,7 +115,7 @@ Each experiment's pass mark is written down before it flies.
     things look like in particular, other than the basic way we're doing things")
   - *Gate:* the references listed here, each with where it's kept
 
-## Phase 2 · Restart: the eye on old's world
+## Phase 2 · Restart: the eye on old's world  ← *now*
 
 - [ ] **2.1 Pack, and the skeleton**
   - [ ] Old moves to `old\`, with its own assets and its own build folder, and still runs
