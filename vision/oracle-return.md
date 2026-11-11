@@ -265,7 +265,8 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
       test world's maps and river network, 5,047 sample columns, and the marks' flights
 - [x] The export decided (David): the whole test world as columns, for the new eye (`world/export.rs`)
 - [x] The full export written and checked: 0.11 GB, none differing (experiment 8's row)
-- [ ] Old frozen (`old-final`)
+- [x] Old frozen (`old-final`, 7c809d3; David: "so, we'll pack up the old incus artus into old, and just use it
+      for looking at and reference")
 - [ ] The packing and the skeleton (2.1)
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle

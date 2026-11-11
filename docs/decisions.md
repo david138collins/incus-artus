@@ -1038,6 +1038,10 @@ Reference: `Art/quartile minecraft illustration.png`
   answer "was it like this before?" when that comes up. The Oracle's roadmap step 4 (the eye whole) set pictures
   against old's within a stated tolerance; that gate is dropped. Any pixel comparison with old is Builder's
   instrument for catching mistakes, not a test of the look.
+- **[DECIDED 2026-11-11] Old frozen** (David to Counsel): "so, we'll pack up the old incus artus into old, and just
+  use it for looking at and reference." Tagged `old-final` on 7c809d3 and pushed (Builder), after the event log of
+  David's quarter-block build went into git (7c809d3; the third standing mark replays it, and it had never been
+  committed). The export's USB copy waits for the stick.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
