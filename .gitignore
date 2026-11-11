@@ -25,3 +25,9 @@
 
 # The Registrar's undo steps: copies of the files a change touched, made before it.
 /registrar undo/
+
+# David's own notes on each section of the editor's panels: his, never committed.
+/notes/
+
+# The tools' window layout (Dear ImGui's state file).
+imgui.ini

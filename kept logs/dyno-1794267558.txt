@@ -1,0 +1,168 @@
+The dyno's flight: build 102 (163afac + changes)
+Window 2560 x 1600, the screen's refresh 240, uncapped (presented without waiting for the refresh: AutoNoVsync); presets: render/dyno,compiler/dyno,worldgen/dyno,camera/dyno,player/dyno
+The route, 65 s a lap: over the land, round the peak, round the peak, round the peak, round the peak, round the peak, round the peak, out to sea, out to sea, quick, home
+Running beside it: Edge, Aseprite, Discord, Steam (kept the same every flight, so the pairs cancel it: browser music, Aseprite idle)
+The bake: done 689 s in; baked laps 1
+
+Loading (the bake read back, or baked whole): 51127 frames, 86 fps (median); frame ms median 11.62, 95th 31.54, 99th 33.51, 99.9th 34.05, worst 3527.97; sight on the card ms median 4.99, 95th 16.82; passes (medians, ms): march 4.82, upscale 0.15
+Baked: 8161 frames, 142 fps (median); frame ms median 7.03, 95th 16.84, 99th 22.69, 99.9th 27.41, worst 35.80; sight on the card ms median 5.65, 95th 15.28; passes (medians, ms): march 5.47, upscale 0.15
+
+Baked, by leg:
+  over the land: 403 frames, 79 fps (median); frame ms median 12.69, 95th 16.60, 99th 17.95, 99.9th 18.68, worst 18.68; sight on the card ms median 11.29, 95th 14.40; passes (medians, ms): march 11.05, upscale 0.17
+  round the peak: 1843 frames, 137 fps (median); frame ms median 7.28, 95th 21.40, 99th 26.28, 99.9th 29.39, worst 35.80; sight on the card ms median 5.19, 95th 19.31; passes (medians, ms): march 5.02, upscale 0.15
+  out to sea: 3527 frames, 98 fps (median); frame ms median 10.17, 95th 17.23, 99th 20.73, 99.9th 24.58, worst 29.84; sight on the card ms median 9.01, 95th 15.65; passes (medians, ms): march 8.78, upscale 0.15
+  quick: 1547 frames, 225 fps (median); frame ms median 4.45, 95th 9.51, 99th 13.56, 99.9th 15.92, worst 17.25; sight on the card ms median 1.69, 95th 7.10; passes (medians, ms): march 1.40, upscale 0.15
+  home: 841 frames, 132 fps (median); frame ms median 7.56, 95th 12.94, 99th 16.15, 99.9th 17.69, worst 19.75; sight on the card ms median 6.35, 95th 11.09; passes (medians, ms): march 6.19, upscale 0.15
+
+Heat:
+     0 s (baking): GPU 69 °C, clock 2640 MHz, CPU area 91 °C
+     5 s (baking): GPU 70 °C, clock 2707 MHz, CPU area 75 °C
+    10 s (baking): GPU 71 °C, clock 2797 MHz, CPU area 88 °C
+    15 s (baking): GPU 71 °C, clock 2797 MHz, CPU area 84 °C
+    20 s (baking): GPU 73 °C, clock 2805 MHz, CPU area 90 °C
+    25 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 83 °C
+    30 s (baking): GPU 72 °C, clock 2782 MHz, CPU area 92 °C
+    35 s (baking): GPU 72 °C, clock 2797 MHz, CPU area 83 °C
+    40 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 83 °C
+    45 s (baking): GPU 72 °C, clock 2745 MHz, CPU area 78 °C
+    50 s (baking): GPU 71 °C, clock 2805 MHz, CPU area 100 °C
+    55 s (baking): GPU 74 °C, clock 2790 MHz, CPU area 83 °C
+    60 s (baking): GPU 72 °C, clock 2790 MHz, CPU area 100 °C
+    65 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 100 °C
+    70 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 81 °C
+    75 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 84 °C
+    80 s (baking): GPU 74 °C, clock 2700 MHz, CPU area 83 °C
+    85 s (baking): GPU 73 °C, clock 2790 MHz, CPU area 87 °C
+    90 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 87 °C
+    95 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 88 °C
+   100 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 86 °C
+   105 s (baking): GPU 73 °C, clock 2805 MHz, CPU area 99 °C
+   110 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 88 °C
+   115 s (baking): GPU 73 °C, clock 2805 MHz, CPU area 97 °C
+   120 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 87 °C
+   125 s (baking): GPU 73 °C, clock 2790 MHz, CPU area 94 °C
+   130 s (baking): GPU 75 °C, clock 2767 MHz, CPU area 83 °C
+   135 s (baking): GPU 75 °C, clock 2760 MHz, CPU area 82 °C
+   140 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 84 °C
+   145 s (baking): GPU 75 °C, clock 2805 MHz, CPU area 98 °C
+   150 s (baking): GPU 73 °C, clock 2692 MHz, CPU area 86 °C
+   155 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 85 °C
+   160 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 93 °C
+   165 s (baking): GPU 76 °C, clock 2782 MHz, CPU area 79 °C
+   170 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 92 °C
+   175 s (baking): GPU 73 °C, clock 2805 MHz, CPU area 100 °C
+   180 s (baking): GPU 73 °C, clock 2805 MHz, CPU area 97 °C
+   185 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 88 °C
+   190 s (baking): GPU 74 °C, clock 2730 MHz, CPU area 91 °C
+   195 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 90 °C
+   200 s (baking): GPU 74 °C, clock 2790 MHz, CPU area 88 °C
+   205 s (baking): GPU 75 °C, clock 2805 MHz, CPU area 90 °C
+   210 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 85 °C
+   215 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 96 °C
+   220 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 83 °C
+   225 s (baking): GPU 77 °C, clock 2790 MHz, CPU area 88 °C
+   230 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 85 °C
+   235 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 85 °C
+   240 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 98 °C
+   245 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 100 °C
+   250 s (baking): GPU 75 °C, clock 2805 MHz, CPU area 100 °C
+   255 s (baking): GPU 75 °C, clock 2790 MHz, CPU area 88 °C
+   260 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 91 °C
+   265 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 87 °C
+   270 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 93 °C
+   275 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 97 °C
+   280 s (baking): GPU 75 °C, clock 2782 MHz, CPU area 95 °C
+   285 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 93 °C
+   290 s (baking): GPU 75 °C, clock 2752 MHz, CPU area 94 °C
+   295 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 96 °C
+   300 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 98 °C
+   306 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 98 °C
+   311 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 103 °C
+   316 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 90 °C
+   321 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 94 °C
+   326 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 95 °C
+   331 s (baking): GPU 77 °C, clock 2790 MHz, CPU area 83 °C
+   336 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 82 °C
+   341 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 82 °C
+   346 s (baking): GPU 74 °C, clock 2790 MHz, CPU area 96 °C
+   351 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 98 °C
+   356 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 101 °C
+   361 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 95 °C
+   366 s (baking): GPU 75 °C, clock 2805 MHz, CPU area 86 °C
+   371 s (baking): GPU 74 °C, clock 2737 MHz, CPU area 93 °C
+   376 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 99 °C
+   381 s (baking): GPU 74 °C, clock 2617 MHz, CPU area 85 °C
+   386 s (baking): GPU 75 °C, clock 2782 MHz, CPU area 99 °C
+   391 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 93 °C
+   396 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 87 °C
+   401 s (baking): GPU 78 °C, clock 2797 MHz, CPU area 88 °C
+   406 s (baking): GPU 78 °C, clock 2797 MHz, CPU area 98 °C
+   411 s (baking): GPU 75 °C, clock 2790 MHz, CPU area 99 °C
+   416 s (baking): GPU 77 °C, clock 2790 MHz, CPU area 86 °C
+   421 s (baking): GPU 74 °C, clock 2790 MHz, CPU area 103 °C
+   426 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 99 °C
+   431 s (baking): GPU 76 °C, clock 2805 MHz, CPU area 95 °C
+   436 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 102 °C
+   441 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 102 °C
+   446 s (baking): GPU 76 °C, clock 2782 MHz, CPU area 87 °C
+   451 s (baking): GPU 75 °C, clock 2670 MHz, CPU area 86 °C
+   456 s (baking): GPU 76 °C, clock 2715 MHz, CPU area 92 °C
+   461 s (baking): GPU 77 °C, clock 2790 MHz, CPU area 93 °C
+   466 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 92 °C
+   471 s (baking): GPU 78 °C, clock 2797 MHz, CPU area 97 °C
+   476 s (baking): GPU 75 °C, clock 2767 MHz, CPU area 90 °C
+   481 s (baking): GPU 77 °C, clock 2782 MHz, CPU area 86 °C
+   486 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 102 °C
+   491 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 92 °C
+   496 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 89 °C
+   501 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 101 °C
+   506 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 102 °C
+   511 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 103 °C
+   516 s (baking): GPU 77 °C, clock 2760 MHz, CPU area 92 °C
+   521 s (baking): GPU 75 °C, clock 2790 MHz, CPU area 91 °C
+   526 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 92 °C
+   531 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 99 °C
+   536 s (baking): GPU 79 °C, clock 2797 MHz, CPU area 101 °C
+   541 s (baking): GPU 77 °C, clock 2775 MHz, CPU area 92 °C
+   546 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 91 °C
+   551 s (baking): GPU 76 °C, clock 2662 MHz, CPU area 88 °C
+   556 s (baking): GPU 77 °C, clock 2790 MHz, CPU area 99 °C
+   561 s (baking): GPU 76 °C, clock 2767 MHz, CPU area 87 °C
+   566 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 93 °C
+   571 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 101 °C
+   576 s (baking): GPU 75 °C, clock 2790 MHz, CPU area 101 °C
+   581 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 101 °C
+   586 s (baking): GPU 77 °C, clock 2790 MHz, CPU area 93 °C
+   591 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 98 °C
+   596 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 98 °C
+   601 s (baking): GPU 77 °C, clock 2805 MHz, CPU area 95 °C
+   606 s (baking): GPU 76 °C, clock 2767 MHz, CPU area 100 °C
+   611 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 98 °C
+   616 s (baking): GPU 76 °C, clock 2737 MHz, CPU area 90 °C
+   621 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 99 °C
+   626 s (baking): GPU 76 °C, clock 2797 MHz, CPU area 96 °C
+   631 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 99 °C
+   636 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 103 °C
+   641 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 102 °C
+   646 s (baking): GPU 76 °C, clock 2647 MHz, CPU area 94 °C
+   651 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 101 °C
+   656 s (baking): GPU 77 °C, clock 2797 MHz, CPU area 95 °C
+   661 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 101 °C
+   666 s (baking): GPU 77 °C, clock 2805 MHz, CPU area 94 °C
+   671 s (baking): GPU 75 °C, clock 2797 MHz, CPU area 103 °C
+   676 s (baking): GPU 73 °C, clock 2790 MHz, CPU area 102 °C
+   681 s (baking): GPU 75 °C, clock 2625 MHz, CPU area 102 °C
+   686 s (baking): GPU 76 °C, clock 2790 MHz, CPU area 94 °C
+   754 s (baked): GPU 74 °C, clock 2797 MHz, CPU area 95 °C
+   759 s (baked): GPU 76 °C, clock 2790 MHz, CPU area 88 °C
+   764 s (baked): GPU 76 °C, clock 2797 MHz, CPU area 90 °C
+   769 s (baked): GPU 76 °C, clock 2797 MHz, CPU area 87 °C
+   774 s (baked): GPU 76 °C, clock 2767 MHz, CPU area 100 °C
+   779 s (baked): GPU 77 °C, clock 2797 MHz, CPU area 95 °C
+   784 s (baked): GPU 75 °C, clock 2760 MHz, CPU area 104 °C
+   789 s (baked): GPU 77 °C, clock 2797 MHz, CPU area 80 °C
+   794 s (baked): GPU 75 °C, clock 2797 MHz, CPU area 82 °C
+   799 s (baked): GPU 73 °C, clock 2797 MHz, CPU area 86 °C
+   804 s (baked): GPU 71 °C, clock 2805 MHz, CPU area 87 °C
+   809 s (baked): GPU 73 °C, clock 2797 MHz, CPU area 90 °C
+   814 s (baked): GPU 74 °C, clock 2767 MHz, CPU area 103 °C

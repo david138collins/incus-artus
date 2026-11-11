@@ -1,0 +1,45 @@
+The dyno's flight: build 101 (7423edd + changes)
+Window 2560 x 1600, the screen's refresh 240, uncapped (presented without waiting for the refresh: AutoNoVsync); presets: render/dyno,camera/dyno,player/dyno
+The route, 65 s a lap: over the land, round the peak, round the peak, round the peak, round the peak, round the peak, round the peak, out to sea, out to sea, quick, home
+Running beside it: Edge, Aseprite, Discord, Steam (kept the same every flight, so the pairs cancel it: browser music, Aseprite idle)
+The bake: done 3 s in; baked laps 2
+
+Loading (the bake read back, or baked whole): 161 frames, 59 fps (median); frame ms median 17.05, 95th 25.87, 99th 72.56, 99.9th 2078.81, worst 2078.81; sight on the card ms median 5.76, 95th 7.90; passes (medians, ms): layer 2 2.03, layer 4 1.38, layer 8 1.33, start 0.01, upscale 0.14
+Baked: 22191 frames, 195 fps (median); frame ms median 5.13, 95th 12.54, 99th 16.30, 99.9th 20.64, worst 26.69; sight on the card ms median 4.50, 95th 11.32; passes (medians, ms): layer 2 0.30, layer 4 1.47, layer 8 1.41, start 0.01, upscale 0.15
+
+Baked, by leg:
+  over the land: 1091 frames, 109 fps (median); frame ms median 9.18, 95th 13.30, 99th 15.22, 99.9th 15.84, worst 15.92; sight on the card ms median 7.74, 95th 11.73; passes (medians, ms): layer 2 3.91, layer 4 2.08, layer 8 1.60, start 0.01, upscale 0.15
+  round the peak: 5598 frames, 292 fps (median); frame ms median 3.42, 95th 14.31, 99th 19.03, 99.9th 21.47, worst 23.61; sight on the card ms median 0.78, 95th 12.68; passes (medians, ms): layer 2 0.30, layer 4 0.07, layer 8 0.03, start 0.01, upscale 0.15
+  out to sea: 9342 frames, 129 fps (median); frame ms median 7.73, 95th 12.78, 99th 15.21, 99.9th 18.54, worst 26.69; sight on the card ms median 6.85, 95th 11.59; passes (medians, ms): layer 2 0.80, layer 4 2.28, layer 8 2.20, start 0.01, upscale 0.15
+  quick: 4060 frames, 322 fps (median); frame ms median 3.10, 95th 7.36, 99th 9.87, 99.9th 13.49, worst 15.02; sight on the card ms median 0.76, 95th 6.01; passes (medians, ms): layer 2 0.28, layer 4 0.06, layer 8 0.03, start 0.01, upscale 0.14
+  home: 2100 frames, 162 fps (median); frame ms median 6.19, 95th 10.05, 99th 11.49, 99.9th 13.32, worst 14.85; sight on the card ms median 5.28, 95th 8.44; passes (medians, ms): layer 2 0.28, layer 4 2.42, layer 8 2.11, start 0.01, upscale 0.14
+
+Heat:
+     0 s (baking): GPU 54 °C, clock 855 MHz, CPU area 102 °C
+    33 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 74 °C
+    38 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 76 °C
+    43 s (baked): GPU 69 °C, clock 2805 MHz, CPU area 78 °C
+    48 s (baked): GPU 68 °C, clock 2797 MHz, CPU area 80 °C
+    53 s (baked): GPU 70 °C, clock 2790 MHz, CPU area 102 °C
+    58 s (baked): GPU 71 °C, clock 2790 MHz, CPU area 98 °C
+    63 s (baked): GPU 68 °C, clock 2782 MHz, CPU area 103 °C
+    68 s (baked): GPU 69 °C, clock 2805 MHz, CPU area 81 °C
+    73 s (baked): GPU 69 °C, clock 2805 MHz, CPU area 77 °C
+    78 s (baked): GPU 68 °C, clock 2797 MHz, CPU area 76 °C
+    83 s (baked): GPU 65 °C, clock 2820 MHz, CPU area 76 °C
+    88 s (baked): GPU 67 °C, clock 2790 MHz, CPU area 85 °C
+    93 s (baked): GPU 68 °C, clock 2775 MHz, CPU area 102 °C
+    98 s (baked): GPU 68 °C, clock 2805 MHz, CPU area 72 °C
+   103 s (baked): GPU 71 °C, clock 2797 MHz, CPU area 71 °C
+   108 s (baked): GPU 71 °C, clock 2790 MHz, CPU area 71 °C
+   113 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 86 °C
+   118 s (baked): GPU 70 °C, clock 2782 MHz, CPU area 80 °C
+   124 s (baked): GPU 71 °C, clock 2805 MHz, CPU area 85 °C
+   129 s (baked): GPU 70 °C, clock 2790 MHz, CPU area 84 °C
+   134 s (baked): GPU 70 °C, clock 2805 MHz, CPU area 70 °C
+   139 s (baked): GPU 69 °C, clock 2805 MHz, CPU area 79 °C
+   144 s (baked): GPU 69 °C, clock 2797 MHz, CPU area 74 °C
+   149 s (baked): GPU 65 °C, clock 2812 MHz, CPU area 74 °C
+   154 s (baked): GPU 67 °C, clock 2790 MHz, CPU area 80 °C
+   159 s (baked): GPU 67 °C, clock 2790 MHz, CPU area 102 °C
+   164 s (baked): GPU 69 °C, clock 2805 MHz, CPU area 94 °C

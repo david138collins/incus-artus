@@ -1,0 +1,148 @@
+{
+ "aggregateResult": null,
+ "availability": {
+  "approximate": false,
+  "available": true,
+  "reason": null,
+  "source": "real"
+ },
+ "columns": [
+  "shader",
+  "samples",
+  "samplePercent",
+  "dominantStalls"
+ ],
+ "entity": "shader_profiler",
+ "notes": [
+  "Candidate records came from the retained real artifact inspection result.",
+  "Candidate rows were read to completion from bounded WarpViz GTAPI pages.",
+  "Markers are normalized from each queue's main hierarchy; alternate hierarchy views are not duplicated.",
+  "Shader Profiler rows expose sampled performance only; exact invocation counts, occupancy, and divergence are omitted when GTAPI does not report them. dominantStalls contains at most the top three GTAPI-ordered reasons contributing at least 1% of the shader scope.",
+  "Shader Profiler hotspots are the deterministic union of GTAPI per-shader partitions keyed by deviceIndex, shaderIndex, sourceType, and partition-local hotspotIndex. source/intermediate/SASS rows are overlapping representations and must not be summed. samplePercent uses the total samples for the same device and full-trace range, so percentages are comparable only within one device/range. Unavailable evidence is omitted, and source-line text is never inlined.",
+  "GTAPI shader-source descriptor queries succeeded with zero files; shader_sources is supported-empty, not unavailable.",
+  "Frame and marker duration metrics are mechanically derived from GTAPI nanosecond ranges; sampled metric values use the full trace range.",
+  "Marker duration metric rows omit frame.index and percent_of_frame: the generic GTAPI marker-list record does not carry exact frame membership, and this provider does not invent that correlation.",
+  "Action rows omit canonical frame.index: GTAPI in_frame_index is an action ordinal within a frame, not the owning frame identity, and exact temporal frame correlation is not implemented by this generic reader."
+ ],
+ "rowCount": 12,
+ "rows": [
+  [
+   "march_hit",
+   561844,
+   62.10966172894097,
+   [
+    "Wait",
+    "Selected",
+    "Long Scoreboard"
+   ]
+  ],
+  [
+   "shade_staged",
+   153250,
+   16.9411894760115,
+   [
+    "Wait",
+    "Long Scoreboard",
+    "Selected"
+   ]
+  ],
+  [
+   "face_light_staged",
+   85191,
+   9.417532611098828,
+   [
+    "Wait",
+    "Selected",
+    "Long Scoreboard"
+   ]
+  ],
+  [
+   "sight_grounds_pass",
+   32584,
+   3.6020340481980986,
+   [
+    "Wait",
+    "Selected",
+    "Branch Resolving"
+   ]
+  ],
+  [
+   "listed_staged",
+   27363,
+   3.024872871987619,
+   [
+    "Long Scoreboard",
+    "Barrier",
+    "Short Scoreboard"
+   ]
+  ],
+  [
+   "brought_up",
+   24668,
+   2.7269511386248064,
+   [
+    "Long Scoreboard",
+    "Wait",
+    "Short Scoreboard"
+   ]
+  ],
+  [
+   "sight_cells_pass",
+   15629,
+   1.727724961308866,
+   [
+    "Barrier",
+    "Wait",
+    "Selected"
+   ]
+  ],
+  [
+   "sight_choices_pass",
+   1536,
+   0.1697988061021446,
+   [
+    "Wait",
+    "Long Scoreboard",
+    "Selected"
+   ]
+  ],
+  [
+   "start_pass",
+   972,
+   0.10745080698651338,
+   [
+    "Long Scoreboard",
+    "No Instructions",
+    "Wait"
+   ]
+  ],
+  [
+   "fs_main_gamma_framebuffer",
+   640,
+   0.07074950254256025,
+   [
+    "Long Scoreboard",
+    "Wait",
+    "Short Scoreboard"
+   ]
+  ],
+  [
+   "vs_main",
+   140,
+   0.015476453681185054,
+   [
+    "Short Scoreboard",
+    "Long Scoreboard",
+    "Wait"
+   ]
+  ],
+  [
+   "whole_screen",
+   2,
+   0.0002210921954455008,
+   [
+    "No Instructions"
+   ]
+  ]
+ ]
+}

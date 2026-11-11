@@ -1,0 +1,1284 @@
+{
+ "aggregateResult": null,
+ "availability": {
+  "approximate": false,
+  "available": true,
+  "reason": null,
+  "source": "real"
+ },
+ "columns": [
+  "id",
+  "frame.index",
+  "queue",
+  "action.kind",
+  "duration_us"
+ ],
+ "entity": "actions",
+ "notes": [
+  "Candidate records came from the retained real artifact inspection result.",
+  "Candidate rows were read to completion from bounded WarpViz GTAPI pages.",
+  "Markers are normalized from each queue's main hierarchy; alternate hierarchy views are not duplicated.",
+  "Shader Profiler rows expose sampled performance only; exact invocation counts, occupancy, and divergence are omitted when GTAPI does not report them. dominantStalls contains at most the top three GTAPI-ordered reasons contributing at least 1% of the shader scope.",
+  "Shader Profiler hotspots are the deterministic union of GTAPI per-shader partitions keyed by deviceIndex, shaderIndex, sourceType, and partition-local hotspotIndex. source/intermediate/SASS rows are overlapping representations and must not be summed. samplePercent uses the total samples for the same device and full-trace range, so percentages are comparable only within one device/range. Unavailable evidence is omitted, and source-line text is never inlined.",
+  "GTAPI shader-source descriptor queries succeeded with zero files; shader_sources is supported-empty, not unavailable.",
+  "Frame and marker duration metrics are mechanically derived from GTAPI nanosecond ranges; sampled metric values use the full trace range.",
+  "Marker duration metric rows omit frame.index and percent_of_frame: the generic GTAPI marker-list record does not carry exact frame membership, and this provider does not invent that correlation.",
+  "Action rows omit canonical frame.index: GTAPI in_frame_index is an action ordinal within a frame, not the owning frame identity, and exact temporal frame correlation is not implemented by this generic reader."
+ ],
+ "rowCount": 179,
+ "rows": [
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/0",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.848
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/1",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.144
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/2",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.336
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/3",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   49.503
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/4",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.872
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/5",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.496
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/6",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.656
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/7",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1994.239
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/8",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.72
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/9",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.24
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/10",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.144
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/11",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.951
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/12",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/13",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.176
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/14",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.111
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/15",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.304
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/16",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.184
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/17",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   39.711
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/18",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.079
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/19",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/20",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/21",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/22",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   70.175
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/23",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.272
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/24",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.184
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/25",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   38.047
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/26",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.879
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/27",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.015
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/28",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/29",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.792
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/30",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/31",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.792
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/32",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.472
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/33",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   37.759
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/34",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.432
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/35",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/36",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.24
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/37",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.24
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/38",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/39",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/40",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.888
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/41",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.304
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/42",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.496
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/43",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/44",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/45",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/46",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.272
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/47",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/48",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.76
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/49",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/50",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.792
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/51",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/52",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/53",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/54",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.592
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/55",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.015
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/56",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.52
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/57",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/58",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.528
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/59",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.016
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/60",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.624
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/61",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/62",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/63",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/64",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.888
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/65",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.247
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/66",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.2
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/67",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   8.512
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/68",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1943.744
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/69",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   8.704
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/70",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   2045.92
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/71",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   28.416
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/72",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   967.36
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/73",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   198.112
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/74",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   3558.144
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/75",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   919.776
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/76",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1372.096
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/77",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1871.584
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/78",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   21.536
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/79",
+   null,
+   "ID3D12Device queue 0",
+   "draw",
+   156.416
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/80",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.496
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/81",
+   null,
+   "ID3D12Device queue 0",
+   "draw",
+   7.072
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/82",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.848
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/83",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.304
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/84",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.92
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/85",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.792
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/86",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.208
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/87",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   3629.919
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/88",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.312
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/89",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   788.511
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/90",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.656
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/91",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.136
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/92",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.368
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/93",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.856
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/94",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.92
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/95",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.92
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/96",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.792
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/97",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.048
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/98",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.856
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/99",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.856
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/100",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.04
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/101",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   8.384
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/102",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   2580.864
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/103",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   393.568
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/104",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1967.072
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/105",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   40.928
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/106",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1179.776
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/107",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   191.104
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/108",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   3051.136
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/109",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   819.264
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/110",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1291.616
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/111",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1732.32
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/112",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   21.792
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/113",
+   null,
+   "ID3D12Device queue 0",
+   "draw",
+   157.024
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/114",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.816
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/115",
+   null,
+   "ID3D12Device queue 0",
+   "draw",
+   7.965
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/116",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.816
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/117",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.112
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/118",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.144
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/119",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.048
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/120",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   49.023
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/121",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.072
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/122",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/123",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   760.127
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/124",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.527
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/125",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.304
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/126",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/127",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/128",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/129",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   66.911
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/130",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/131",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/132",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/133",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   56.895
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/134",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.208
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/135",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.696
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/136",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   52.127
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/137",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.88
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/138",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.92
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/139",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/140",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.632
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/141",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   68.671
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/142",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.016
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/143",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/144",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.823
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/145",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.335
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/146",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.951
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/147",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.048
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/148",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/149",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.184
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/150",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   37.823
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/151",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.855
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/152",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.527
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/153",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.264
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/154",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.52
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/155",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/156",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.888
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/157",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.016
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/158",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.048
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/159",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.016
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/160",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.984
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/161",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.888
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/162",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   1.952
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/163",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   2.752
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/164",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   8.64
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/165",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1844.384
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/166",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   8.736
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/167",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   2184.992
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/168",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1011.808
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/169",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   950.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/170",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   197.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/171",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   2214.719
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/172",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   689.824
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/173",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   1183.872
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/174",
+   null,
+   "ID3D12Device queue 0",
+   "dispatch",
+   2042.08
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/175",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   23.008
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/176",
+   null,
+   "ID3D12Device queue 0",
+   "draw",
+   157.12
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/177",
+   null,
+   "ID3D12Device queue 0",
+   "copy",
+   3.104
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/actions/d0q0/178",
+   null,
+   "ID3D12Device queue 0",
+   "draw",
+   8.125
+  ]
+ ]
+}

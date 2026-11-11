@@ -1,0 +1,52 @@
+The dyno's flight: build 102 (8719c1b + changes)
+Window 2560 x 1600, the screen's refresh 240, uncapped (presented without waiting for the refresh: AutoNoVsync); presets: render/dyno,camera/dyno,player/dyno
+The route, 65 s a lap: over the land, round the peak, round the peak, round the peak, round the peak, round the peak, round the peak, out to sea, out to sea, quick, home
+Running beside it: Edge, Aseprite, Discord, Steam (kept the same every flight, so the pairs cancel it: browser music, Aseprite idle)
+The bake: done 3 s in; baked laps 2
+
+Loading (the bake read back, or baked whole): 161 frames, 66 fps (median); frame ms median 15.24, 95th 24.21, 99th 64.98, 99.9th 1735.51, worst 1735.51; sight on the card ms median 7.58, 95th 12.71; passes (medians, ms): march 7.44, upscale 0.14
+Baked: 19584 frames, 176 fps (median); frame ms median 5.70, 95th 14.25, 99th 18.74, 99.9th 23.29, worst 27.27; sight on the card ms median 4.58, 95th 12.90; passes (medians, ms): march 4.43, upscale 0.14
+
+Baked, by leg:
+  over the land: 909 frames, 90 fps (median); frame ms median 11.06, 95th 15.31, 99th 17.95, 99.9th 19.74, worst 22.57; sight on the card ms median 10.25, 95th 13.44; passes (medians, ms): march 10.07, upscale 0.15
+  round the peak: 4343 frames, 171 fps (median); frame ms median 5.84, 95th 17.56, 99th 21.66, 99.9th 25.41, worst 27.27; sight on the card ms median 4.59, 95th 16.64; passes (medians, ms): march 4.44, upscale 0.15
+  out to sea: 8580 frames, 116 fps (median); frame ms median 8.64, 95th 13.99, 99th 17.16, 99.9th 21.23, worst 25.49; sight on the card ms median 7.20, 95th 12.83; passes (medians, ms): march 7.04, upscale 0.15
+  quick: 3761 frames, 288 fps (median); frame ms median 3.47, 95th 8.03, 99th 11.56, 99.9th 14.20, worst 17.96; sight on the card ms median 0.87, 95th 5.99; passes (medians, ms): march 0.73, upscale 0.14
+  home: 1991 frames, 150 fps (median); frame ms median 6.65, 95th 10.52, 99th 12.94, 99.9th 15.40, worst 17.45; sight on the card ms median 5.34, 95th 9.08; passes (medians, ms): march 5.19, upscale 0.14
+
+The twin (split), drawing every other timed frame in place of the march: sight on the card (ms), the march's frames against the twin's (the frames' times above are both's, and the card's above the march's alone):
+  baked, whole: march median 4.58, 95th 12.90, 99th 17.82 (9792 readings); twin median 5.00, 95th 11.99, 99th 15.64 (9792); the twin against the march: median +9.0%, 95th -7.0%, 99th -12.3%
+  over the land: march median 10.25, 95th 13.44, 99th 15.18 (454 readings); twin median 9.00, 95th 11.82, 99th 12.95 (455); the twin against the march: median -12.2%, 95th -12.1%, 99th -14.7%
+  round the peak: march median 4.59, 95th 16.64, 99th 20.29 (2172 readings); twin median 4.84, 95th 14.59, 99th 17.47 (2171); the twin against the march: median +5.4%, 95th -12.3%, 99th -13.9%
+  out to sea: march median 7.20, 95th 12.83, 99th 16.69 (4290 readings); twin median 7.87, 95th 12.13, 99th 14.85 (4290); the twin against the march: median +9.2%, 95th -5.5%, 99th -11.0%
+  quick: march median 0.87, 95th 5.99, 99th 9.77 (1881 readings); twin median 0.92, 95th 6.13, 99th 9.80 (1880); the twin against the march: median +5.6%, 95th +2.3%, 99th +0.4%
+  home: march median 5.34, 95th 9.08, 99th 10.81 (995 readings); twin median 6.10, 95th 8.76, 99th 10.46 (996); the twin against the march: median +14.2%, 95th -3.5%, 99th -3.3%
+
+Heat:
+     0 s (baking): GPU 47 °C, clock 412 MHz, CPU area 98 °C
+    68 s (baked): GPU 67 °C, clock 2692 MHz, CPU area 71 °C
+    73 s (baked): GPU 66 °C, clock 2700 MHz, CPU area 72 °C
+    78 s (baked): GPU 67 °C, clock 2700 MHz, CPU area 92 °C
+    83 s (baked): GPU 68 °C, clock 2707 MHz, CPU area 77 °C
+    88 s (baked): GPU 66 °C, clock 2677 MHz, CPU area 84 °C
+    93 s (baked): GPU 67 °C, clock 2700 MHz, CPU area 85 °C
+    98 s (baked): GPU 70 °C, clock 2662 MHz, CPU area 72 °C
+   103 s (baked): GPU 68 °C, clock 2707 MHz, CPU area 73 °C
+   108 s (baked): GPU 68 °C, clock 2700 MHz, CPU area 72 °C
+   113 s (baked): GPU 67 °C, clock 2707 MHz, CPU area 72 °C
+   118 s (baked): GPU 65 °C, clock 2722 MHz, CPU area 70 °C
+   123 s (baked): GPU 65 °C, clock 2707 MHz, CPU area 71 °C
+   128 s (baked): GPU 67 °C, clock 2685 MHz, CPU area 80 °C
+   133 s (baked): GPU 67 °C, clock 2685 MHz, CPU area 89 °C
+   138 s (baked): GPU 71 °C, clock 2700 MHz, CPU area 76 °C
+   143 s (baked): GPU 70 °C, clock 2700 MHz, CPU area 83 °C
+   148 s (baked): GPU 70 °C, clock 2700 MHz, CPU area 95 °C
+   153 s (baked): GPU 68 °C, clock 2677 MHz, CPU area 84 °C
+   158 s (baked): GPU 71 °C, clock 2700 MHz, CPU area 77 °C
+   163 s (baked): GPU 70 °C, clock 2647 MHz, CPU area 90 °C
+   168 s (baked): GPU 72 °C, clock 2707 MHz, CPU area 71 °C
+   173 s (baked): GPU 71 °C, clock 2707 MHz, CPU area 71 °C
+   178 s (baked): GPU 69 °C, clock 2707 MHz, CPU area 70 °C
+   183 s (baked): GPU 66 °C, clock 2715 MHz, CPU area 70 °C
+   188 s (baked): GPU 66 °C, clock 2715 MHz, CPU area 69 °C
+   193 s (baked): GPU 69 °C, clock 2692 MHz, CPU area 71 °C

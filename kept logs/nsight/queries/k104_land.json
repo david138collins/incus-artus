@@ -1,0 +1,94 @@
+{
+ "aggregateResult": null,
+ "availability": {
+  "approximate": false,
+  "available": true,
+  "reason": null,
+  "source": "real"
+ },
+ "columns": [
+  "id",
+  "frame.index",
+  "label",
+  "scope",
+  "status"
+ ],
+ "entity": "markers",
+ "notes": [
+  "Candidate records came from the retained real artifact inspection result.",
+  "Candidate rows were read to completion from bounded WarpViz GTAPI pages.",
+  "Markers are normalized from each queue's main hierarchy; alternate hierarchy views are not duplicated.",
+  "Shader Profiler rows expose sampled performance only; exact invocation counts, occupancy, and divergence are omitted when GTAPI does not report them. dominantStalls contains at most the top three GTAPI-ordered reasons contributing at least 1% of the shader scope.",
+  "Shader Profiler hotspots are the deterministic union of GTAPI per-shader partitions keyed by deviceIndex, shaderIndex, sourceType, and partition-local hotspotIndex. source/intermediate/SASS rows are overlapping representations and must not be summed. samplePercent uses the total samples for the same device and full-trace range, so percentages are comparable only within one device/range. Unavailable evidence is omitted, and source-line text is never inlined.",
+  "GTAPI shader-source descriptor queries succeeded with zero files; shader_sources is supported-empty, not unavailable.",
+  "Frame and marker duration metrics are mechanically derived from GTAPI nanosecond ranges; sampled metric values use the full trace range.",
+  "Marker duration metric rows omit frame.index and percent_of_frame: the generic GTAPI marker-list record does not carry exact frame membership, and this provider does not invent that correlation.",
+  "Action rows omit canonical frame.index: GTAPI in_frame_index is an action ordinal within a frame, not the owning frame identity, and exact temporal frame correlation is not implemented by this generic reader."
+ ],
+ "rowCount": 9,
+ "rows": [
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/0",
+   null,
+   "sight's march and light",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/1",
+   null,
+   "sight's upscale",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/2",
+   null,
+   "the panel",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/3",
+   null,
+   "sight's march and light",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/4",
+   null,
+   "sight's upscale",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/5",
+   null,
+   "the panel",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/6",
+   null,
+   "sight's march and light",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/7",
+   null,
+   "sight's upscale",
+   "ID3D12Device queue 0",
+   null
+  ],
+  [
+   "3e166986-4c3f-45c1-bab1-629664000393/inspected-artifact/1/markers/d0q0/marker/8",
+   null,
+   "the panel",
+   "ID3D12Device queue 0",
+   null
+  ]
+ ]
+}

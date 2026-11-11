@@ -1,0 +1,38 @@
+The dyno's flight: build 101 (16f3005 + changes)
+Window 2560 x 1600, the screen's refresh 240; presets: render/dyno,compiler/dyno,worldgen/dyno,camera/dyno,player/dyno
+The route, 65 s a lap: over the land, round the peak, round the peak, round the peak, round the peak, round the peak, round the peak, out to sea, out to sea, quick, home
+Running beside it: Edge, Aseprite, Discord, Steam (kept the same every flight, so the pairs cancel it: browser music, Aseprite idle)
+The baking flight: a fresh bake, 2 laps flown while it baked
+
+Baking: 41257 frames, 1923 fps (median); frame ms median 0.52, 95th 19.82, 99th 28.52; sight on the card ms median 4.51, 95th 15.04; passes (medians, ms): layer 2 0.40, layer 4 1.74, layer 8 1.88, start 0.01, upscale 0.14
+Baked: 0 frames, - fps (median); frame ms median -, 95th -, 99th -; sight on the card ms median -, 95th -; passes (medians, ms): 
+
+Baked, by leg:
+
+Heat:
+     0 s (baking): GPU 55 °C, clock 817 MHz, CPU area 102 °C
+     5 s (baking): GPU 60 °C, clock 2820 MHz, CPU area 104 °C
+    10 s (baking): GPU 63 °C, clock 2797 MHz, CPU area 92 °C
+    15 s (baking): GPU 65 °C, clock 2790 MHz, CPU area 104 °C
+    21 s (baking): GPU 66 °C, clock 2805 MHz, CPU area 93 °C
+    26 s (baking): GPU 72 °C, clock 2797 MHz, CPU area 72 °C
+    31 s (baking): GPU 72 °C, clock 2805 MHz, CPU area 89 °C
+    36 s (baking): GPU 72 °C, clock 2805 MHz, CPU area 83 °C
+    41 s (baking): GPU 72 °C, clock 2797 MHz, CPU area 86 °C
+    46 s (baking): GPU 71 °C, clock 2797 MHz, CPU area 93 °C
+    51 s (baking): GPU 71 °C, clock 2797 MHz, CPU area 93 °C
+    56 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 78 °C
+    61 s (baking): GPU 71 °C, clock 2790 MHz, CPU area 98 °C
+    66 s (baking): GPU 72 °C, clock 2775 MHz, CPU area 88 °C
+    71 s (baking): GPU 73 °C, clock 2737 MHz, CPU area 71 °C
+    76 s (baking): GPU 74 °C, clock 2805 MHz, CPU area 75 °C
+    81 s (baking): GPU 73 °C, clock 2805 MHz, CPU area 89 °C
+    86 s (baking): GPU 72 °C, clock 2767 MHz, CPU area 89 °C
+    91 s (baking): GPU 74 °C, clock 2797 MHz, CPU area 83 °C
+    96 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 87 °C
+   101 s (baking): GPU 72 °C, clock 2782 MHz, CPU area 86 °C
+   106 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 83 °C
+   111 s (baking): GPU 70 °C, clock 2797 MHz, CPU area 84 °C
+   116 s (baking): GPU 71 °C, clock 2797 MHz, CPU area 84 °C
+   121 s (baking): GPU 73 °C, clock 2797 MHz, CPU area 73 °C
+   126 s (baking): GPU 72 °C, clock 2767 MHz, CPU area 75 °C

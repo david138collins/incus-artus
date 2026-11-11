@@ -1,0 +1,45 @@
+The dyno's flight: build 101 (ee05bee + changes)
+Window 2560 x 1600, the screen's refresh 240, uncapped (presented without waiting for the refresh: AutoNoVsync); presets: render/dyno,camera/dyno,player/dyno
+The route, 65 s a lap: over the land, round the peak, round the peak, round the peak, round the peak, round the peak, round the peak, out to sea, out to sea, quick, home
+Running beside it: Edge, Aseprite, Discord, Steam (kept the same every flight, so the pairs cancel it: browser music, Aseprite idle)
+The bake: done 3 s in; baked laps 2
+
+Loading (the bake read back, or baked whole): 161 frames, 64 fps (median); frame ms median 15.61, 95th 23.75, 99th 28.03, 99.9th 2066.87, worst 2066.87; sight on the card ms median 3.71, 95th 5.31; passes (medians, ms): layer 2 0.03, layer 4 1.79, layer 8 1.67, start 0.01, upscale 0.13
+Baked: 26561 frames, 208 fps (median); frame ms median 4.81, 95th 10.06, 99th 11.56, 99.9th 13.21, worst 17.73; sight on the card ms median 3.96, 95th 9.05; passes (medians, ms): layer 2 0.03, layer 4 1.54, layer 8 1.87, start 0.01, upscale 0.14
+
+Baked, by leg:
+  over the land: 1842 frames, 185 fps (median); frame ms median 5.42, 95th 8.37, 99th 9.57, 99.9th 10.59, worst 12.74; sight on the card ms median 4.21, 95th 6.19; passes (medians, ms): layer 2 0.03, layer 4 1.82, layer 8 2.18, start 0.01, upscale 0.13
+  round the peak: 7006 frames, 247 fps (median); frame ms median 4.04, 95th 8.82, 99th 10.05, 99.9th 11.08, worst 11.63; sight on the card ms median 2.48, 95th 7.34; passes (medians, ms): layer 2 0.03, layer 4 0.58, layer 8 1.45, start 0.01, upscale 0.13
+  out to sea: 11585 frames, 186 fps (median); frame ms median 5.39, 95th 10.86, 99th 12.20, 99.9th 13.54, worst 17.73; sight on the card ms median 4.74, 95th 9.71; passes (medians, ms): layer 2 0.03, layer 4 2.04, layer 8 2.23, start 0.01, upscale 0.14
+  quick: 3892 frames, 349 fps (median); frame ms median 2.86, 95th 7.94, 99th 9.42, 99.9th 10.70, worst 11.08; sight on the card ms median 0.50, 95th 6.47; passes (medians, ms): layer 2 0.03, layer 4 0.01, layer 8 0.16, start 0.01, upscale 0.13
+  home: 2236 frames, 167 fps (median); frame ms median 5.98, 95th 9.41, 99th 10.39, 99.9th 11.37, worst 12.44; sight on the card ms median 5.10, 95th 7.75; passes (medians, ms): layer 2 0.03, layer 4 2.65, layer 8 2.02, start 0.01, upscale 0.14
+
+Heat:
+     0 s (baking): GPU 53 °C, clock 862 MHz, CPU area 81 °C
+    68 s (baked): GPU 70 °C, clock 2760 MHz, CPU area 91 °C
+    73 s (baked): GPU 72 °C, clock 2797 MHz, CPU area 77 °C
+    78 s (baked): GPU 69 °C, clock 2790 MHz, CPU area 78 °C
+    83 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 78 °C
+    88 s (baked): GPU 71 °C, clock 2775 MHz, CPU area 102 °C
+    93 s (baked): GPU 69 °C, clock 2797 MHz, CPU area 96 °C
+    98 s (baked): GPU 70 °C, clock 2782 MHz, CPU area 103 °C
+   103 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 81 °C
+   108 s (baked): GPU 69 °C, clock 2797 MHz, CPU area 79 °C
+   113 s (baked): GPU 69 °C, clock 2797 MHz, CPU area 77 °C
+   118 s (baked): GPU 65 °C, clock 2805 MHz, CPU area 75 °C
+   123 s (baked): GPU 68 °C, clock 2797 MHz, CPU area 82 °C
+   128 s (baked): GPU 69 °C, clock 2767 MHz, CPU area 91 °C
+   133 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 72 °C
+   138 s (baked): GPU 72 °C, clock 2797 MHz, CPU area 71 °C
+   143 s (baked): GPU 70 °C, clock 2775 MHz, CPU area 83 °C
+   148 s (baked): GPU 71 °C, clock 2797 MHz, CPU area 83 °C
+   153 s (baked): GPU 72 °C, clock 2707 MHz, CPU area 77 °C
+   158 s (baked): GPU 72 °C, clock 2797 MHz, CPU area 80 °C
+   163 s (baked): GPU 70 °C, clock 2775 MHz, CPU area 102 °C
+   168 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 92 °C
+   173 s (baked): GPU 70 °C, clock 2805 MHz, CPU area 86 °C
+   178 s (baked): GPU 71 °C, clock 2797 MHz, CPU area 98 °C
+   183 s (baked): GPU 67 °C, clock 2805 MHz, CPU area 95 °C
+   188 s (baked): GPU 70 °C, clock 2797 MHz, CPU area 97 °C
+   193 s (baked): GPU 71 °C, clock 2790 MHz, CPU area 98 °C
+   198 s (baked): GPU 71 °C, clock 2797 MHz, CPU area 101 °C
