@@ -300,4 +300,18 @@ bricks depend on David's eye here:
 
 ### Results
 
-*(to come: David's words, then the flight.)*
+**David's look** (build 112, the test world, 2026-11-11, about five minutes): "it doesn't look awful, but, it doesn't
+look better. idk how much room there is to tweak/tune the crisp to being a bit less whorly when you move your head
+against a shallow hill. sometimes it looked decent, other times a little janky. like i said idk how much it can be
+massaged."
+
+**Against the pass mark: a mixed answer.** Acceptable still, a little janky in motion over shallow slopes, never
+better than the blend. *Builder's reading:* read crisp, a slope crossing the cells becomes stair-steps of whole cells,
+and as the eye moves their edges slide across the hill as bands (David's "whorls"). The blend hides this by grading the
+steps.
+
+**Proposed next** (David's call): a third choice on the same switch, *crisp across, smooth in height*. Each read takes
+the one cell column a point is in and blends its two cells up and down: 2 cells and 1 column entry, against the
+blend's 8 cells and 4 entries. The whorls on shallow hills come from the height steps, so this aims at them while
+keeping the bricks plain. If it's still janky, the answer is soft (textures, the hardware's blend, about twice the
+plain bricks' memory).
