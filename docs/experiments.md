@@ -437,4 +437,12 @@ again every frame.
   and reused, is where most of light's share at eye level is. It was tried at build 107 ("light per face kept",
   dropped: no gain over the moving route). Standing marks would judge it better. This goes to the Oracle at the fork.
 
-**David's look at light that steps:** *to come* (far land lit a cell at a time, against rays, and the sun moved).
+**David's look at light that steps** (build 115, the test world, 2026-11-11, a couple of minutes: the switch on and off
+over far land, and the sun moved): "honestly the difference is moot. it obviously changes a little, but i don't think i
+could tell the difference between the two in a blind test".
+
+**Experiment 4b's answer:** light kept a cell at a time is the look for the far view: David can't tell it from the
+rays. The sun's relighting over a second and a half, rays meanwhile, didn't show as a problem. Keeping it is nearly
+free and found nearly everywhere far. At eye level the gain is small, because the near faces' light is most of what's
+left. The Oracle's 4.2 already has the near faces read their light from the air cell in front of them, tested in her
+experiment 6; Counsel put the standing-marks question to her as her question 6.

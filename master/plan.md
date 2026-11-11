@@ -10,14 +10,13 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ## Where we are
 
-- **Working on:** Phase 1, *Learn, in old*. Experiments 1, 2, 3 and 4a done (2026-11-11, `docs/experiments.md`;
-  experiment 2's answer: soft bricks, the blend stays). Experiment 4b (1.5, light kept in the cells) is flown: the far
-  lookup works and costs almost nothing, but wins only 9% at the spawn, since at eye level light's cost is the near
-  faces'. Its look is next, then the references (1.6).
+- **Working on:** Phase 1, *Learn, in old*. Experiments 1, 2, 3, 4a and 4b done (2026-11-11, `docs/experiments.md`):
+  soft bricks (the blend stays); light kept a cell at a time, which David can't tell from rays ("in a blind test"),
+  though at eye level light's cost is the near faces'. Next, the references from old (1.6), then old frozen.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at light that steps (build 114, with Builder): the far ground lit a cell at a time,
-  against rays, and the sun moved.
+- **Waiting on David:** his go for the references from old (1.6): pictures at fixed places, the marks' flights, the
+  default preset's maps and rivers, sample columns; then the tag `old-final`.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`.
 
@@ -84,8 +83,12 @@ Each experiment's pass mark is written down before it flies.
   - *Gate:* David's look. Decides the bricks' form (crisp: plain, 2.6 × the cells; soft: textures, 5.5 ×)
   - **Soft.** Blended is the look: crisp "doesn't look better", the in-between (smooth in height) "better than
     ziggurat lods but, its not better than blended" (David). Crisp stays a known fallback for a card short of memory.
-- [ ] **1.5 Experiment 4b, light stored in the baked cells and looked up**
+- [x] **1.5 Experiment 4b, light stored in the baked cells and looked up** (builds 114 and 115; flights C2 and H,
+      the light's view; `docs/experiments.md`)
   - *Gate:* what a lookup costs; David's look at light that steps
+  - The lookup is almost free and found nearly everywhere far: the spawn 9% faster, the mountain top and the build 3%
+    (at eye level light's cost is the near faces'). David on light that steps: "i don't think i could tell the
+    difference between the two in a blind test".
 - [ ] **1.6 References from old, then old frozen**
   - [ ] Pictures at fixed places, times of day and settings
   - [ ] The marks' flights, with the repaired instruments
