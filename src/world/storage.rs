@@ -384,7 +384,7 @@ fn save_compiled(map: &CompiledMap, spawn: IVec2, folder: &Path) -> Result<(), S
 }
 
 /// Reads a compiled world's maps and spawn spot back, or `None` if the world is the test cylinder.
-fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> {
+pub(super) fn load_compiled(folder: &Path) -> Result<Option<(CompiledMap, IVec2)>, String> {
     let Ok(text) = std::fs::read_to_string(folder.join("compiled.toml")) else { return Ok(None) };
     let info: CompiledFile = toml::from_str(&text).map_err(|error| format!("compiled.toml: {error}"))?;
     let read = |name: &str| -> Result<Vec<f32>, String> {

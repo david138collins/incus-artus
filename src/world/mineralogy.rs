@@ -108,7 +108,7 @@ pub const MOST_UNDER: usize = 4;
 
 /// What a column is made of at its top: the surface block, then the blocks under it, each down to
 /// its depth, then stone.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Layers {
     pub top: BlockId,
     /// The blocks under the top and the depth below the surface each goes down to, deepest last

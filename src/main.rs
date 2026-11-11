@@ -81,6 +81,10 @@ fn task_pools() -> TaskPoolOptions {
 fn main() {
     // First, so even a crash while the game is being put together leaves a report.
     diagnostics::start();
+    // `INCUS_EXPORT_WORLD=<name>`: a saved world exported as columns, then the game ends (no window).
+    if world::export::export_if_asked() {
+        return;
+    }
     let mut app = App::new();
     app
         // Bevy's core only (the regroup): threads, the frame counter, time, input types, states,

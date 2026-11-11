@@ -39,6 +39,8 @@ serde = { version = "=1.0.229", features = ["derive"] }
 toml = "=1.1.8"
 # Writes PNG pictures (exporting fields from the World Gen suite). Bevy already uses this version.
 png = "=0.18.1"
+# Deflate, for a world exported as columns (world/export.rs). png already uses this version.
+miniz_oxide = "=0.8.9"
 # Reads glTF models' shapes (an object's size and what bodies bump into, data/objects.rs). Bevy
 # already uses this version, with these features among its own.
 gltf = { version = "=1.4.1", default-features = false, features = ["names", "utils"] }

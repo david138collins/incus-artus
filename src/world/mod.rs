@@ -23,6 +23,7 @@ mod pieces;
 mod raycast;
 mod section;
 mod storage;
+pub mod export;
 mod streaming;
 mod carving;
 mod caves;
