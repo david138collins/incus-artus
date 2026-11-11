@@ -393,6 +393,10 @@ impl KeptGroup {
     pub fn set_number(&mut self, name: &str, value: f32) {
         self.table.insert(name.to_string(), toml::Value::Float(value as f64));
     }
+
+    pub fn set_flag(&mut self, name: &str, value: bool) {
+        self.table.insert(name.to_string(), toml::Value::Boolean(value));
+    }
 }
 
 /// The old renderer's settings groups, kept whole (see the module notes). The defaults are the old

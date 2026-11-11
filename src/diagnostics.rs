@@ -49,12 +49,22 @@ const REPORTS_KEPT: usize = 20;
 const RECENT_LINES: usize = 80;
 const RECENT_INPUTS: usize = 30;
 
-/// Which commit the game was built from, "+ changes" if its code had uncommitted changes (see
-/// `build.rs`).
+/// Which commit the game was built from, "+ changes" and a fingerprint of them if its code differed from the commit
+/// (see `build.rs`).
 pub const BUILD: &str = match option_env!("INCUS_BUILD") {
     Some(build) => build,
     None => "unknown",
 };
+
+/// The code's files that differed from the commit when it was built, by name ("(new)" for files git didn't know);
+/// empty if none.
+pub const BUILD_CHANGED: &str = match option_env!("INCUS_BUILD_CHANGED") {
+    Some(changed) => changed,
+    None => "",
+};
+
+/// The difference itself (a patch against the commit, new code files whole), so a flight can keep exactly what flew.
+pub const BUILD_PATCH: &str = include_str!(concat!(env!("OUT_DIR"), "/changes.patch"));
 
 /// The build's number, counted from 1: one more for each build handed to David to play (the `BUILD`
 /// file; see `build.rs`). 0 if it's missing. Saved worlds keep the build they were made in

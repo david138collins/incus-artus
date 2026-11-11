@@ -78,6 +78,90 @@ const BATCH: usize = 1024;
 const PIECE_COLUMNS: u32 = 8192;
 const PIECE_CELLS: u32 = 512;
 
+// ── The lanes' clock ──
+//
+// The loading lanes' work on the card (the live tiles and the bake: `cells_by_given`'s passes) goes in its own
+// submissions, outside sight's timer, so the dyno never counted it [the Oracle, 2026-11-11: 1.8 to 4.8 ms a frame over
+// the land in the build 104 traces]. Each piece is stamped by the card's own clock and the stamps read back when its
+// pass is done; the totals wait here, by kind, for the dyno to take. `INCUS_LANE_CLOCK=off` leaves the stamps out (to
+// check the clock costs nothing).
+
+/// The kinds of lane work timed: the grounds, the choices and the cells passes.
+pub const LANE_KINDS: [&str; 3] = ["grounds", "choices", "cells"];
+/// Most pieces stamped before their stamps are read (the card's query sets hold 4,096 stamps).
+const STAMPED_AT_ONCE: u32 = 2048;
+/// Nanoseconds of lane work on the card by kind, and the pieces timed, since last taken.
+static LANE_NS: [std::sync::atomic::AtomicU64; 3] = [const { std::sync::atomic::AtomicU64::new(0) }; 3];
+static LANE_PIECES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// The lanes' work on the card since last asked: milliseconds by kind (`LANE_KINDS`), and how many pieces.
+pub fn take_lane_times() -> ([f32; 3], u64) {
+    use std::sync::atomic::Ordering;
+    (LANE_NS.each_ref().map(|ns| ns.swap(0, Ordering::Relaxed) as f32 / 1e6), LANE_PIECES.swap(0, Ordering::Relaxed))
+}
+
+fn lane_clock_on(device: &wgpu::Device) -> bool {
+    device.features().contains(wgpu::Features::TIMESTAMP_QUERY) && std::env::var("INCUS_LANE_CLOCK").map_or(true, |v| v != "off")
+}
+
+/// One pass's stamps: two a piece, read back after its last piece is done.
+struct LaneClock {
+    queries: wgpu::QuerySet,
+    resolved: wgpu::Buffer,
+    readback: wgpu::Buffer,
+}
+
+impl LaneClock {
+    /// Room for `pieces` pieces' stamps (at most `STAMPED_AT_ONCE`).
+    fn new(device: &wgpu::Device, pieces: u32) -> Self {
+        let stamps = 2 * pieces.clamp(1, STAMPED_AT_ONCE) as u64;
+        Self {
+            queries: device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("the lanes' clock"), ty: wgpu::QueryType::Timestamp, count: stamps as u32 }),
+            resolved: device.create_buffer(&wgpu::BufferDescriptor { label: Some("the lanes' clock"), size: stamps * 8, usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false }),
+            readback: device.create_buffer(&wgpu::BufferDescriptor { label: Some("the lanes' clock read"), size: stamps * 8, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false }),
+        }
+    }
+
+    /// Piece `k`'s stamps (its place among the ones not yet read).
+    fn writes(&self, k: u32) -> wgpu::ComputePassTimestampWrites<'_> {
+        wgpu::ComputePassTimestampWrites { query_set: &self.queries, beginning_of_pass_write_index: Some(2 * k), end_of_pass_write_index: Some(2 * k + 1) }
+    }
+
+    /// The first `pieces` pieces' stamps copied out for reading (in the encoder of the last of them).
+    fn resolve(&self, encoder: &mut wgpu::CommandEncoder, pieces: u32) {
+        encoder.resolve_query_set(&self.queries, 0..2 * pieces, &self.resolved, 0);
+        encoder.copy_buffer_to_buffer(&self.resolved, 0, &self.readback, 0, 2 * pieces as u64 * 8);
+    }
+
+    /// Once that work is done: the pieces' times added to the lanes' totals as `kind`.
+    fn read(&self, device: &wgpu::Device, queue: &wgpu::Queue, pieces: u32, kind: usize) {
+        use std::sync::atomic::Ordering;
+        let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let set = flag.clone();
+        self.readback.slice(..2 * pieces as u64 * 8).map_async(wgpu::MapMode::Read, move |result| set.store(result.is_ok(), Ordering::Release));
+        // The work is done, so the mapping comes with the next ask; a few asks at most.
+        for _ in 0..1000 {
+            if device.poll(wgpu::PollType::Poll).is_err() || flag.load(Ordering::Acquire) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_micros(20));
+        }
+        if !flag.load(Ordering::Acquire) {
+            return;
+        }
+        let period = queue.get_timestamp_period() as f64;
+        let ns: f64 = self.readback.slice(..2 * pieces as u64 * 8).get_mapped_range().map_or(0.0, |bytes| {
+            bytes.chunks_exact(16).map(|pair| {
+                let (begin, end) = (u64::from_le_bytes(pair[..8].try_into().unwrap_or_default()), u64::from_le_bytes(pair[8..].try_into().unwrap_or_default()));
+                if end > begin { (end - begin) as f64 * period } else { 0.0 }
+            }).sum()
+        });
+        self.readback.unmap();
+        LANE_NS[kind].fetch_add(ns as u64, Ordering::Relaxed);
+        LANE_PIECES.fetch_add(pieces as u64, Ordering::Relaxed);
+    }
+}
+
 /// Waits till `flag` is set (by a card's callback: work done, or a buffer mapped) gently: asking the card
 /// without blocking and sleeping a moment between asks, so a loading-lane worker never sits inside wgpu
 /// waiting [2026-11-06: with blocking waits on the lane, the frame's own showing waited 5 to 6 ms on sight's
@@ -376,19 +460,32 @@ impl WorldOnCard {
             let entries: Vec<wgpu::BindGroupEntry> = entries.iter().map(|&(binding, buffer)| wgpu::BindGroupEntry { binding, resource: buffer.as_entire_binding() }).collect();
             device.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout: &pipeline.get_bind_group_layout(0), entries: &entries })
         };
-        // A pass in pieces: each piece's start written into the region, dispatched, and waited for.
-        let in_pieces = |pipeline: &wgpu::ComputePipeline, group: &wgpu::BindGroup, count: u32, piece: u32, groups_of: &dyn Fn(u32) -> u32| {
+        // A pass in pieces: each piece's start written into the region, dispatched, and waited for; each stamped by
+        // the card's clock (`kind`, in `LANE_KINDS`) and the stamps read once the last piece, or every
+        // `STAMPED_AT_ONCE`, is done.
+        let timed = lane_clock_on(device);
+        let in_pieces = |pipeline: &wgpu::ComputePipeline, group: &wgpu::BindGroup, count: u32, piece: u32, groups_of: &dyn Fn(u32) -> u32, kind: usize| {
+            let clock = timed.then(|| LaneClock::new(device, count.div_ceil(piece)));
             let mut first = 0;
+            let mut stamped = 0;
             while first < count {
                 let here = piece.min(count - first);
                 queue.write_buffer(&region_buffer, 16, &(first as i32).to_le_bytes());
                 let mut encoder = device.create_command_encoder(&Default::default());
                 {
-                    let mut pass = encoder.begin_compute_pass(&Default::default());
+                    let timestamp_writes = clock.as_ref().map(|clock| clock.writes(stamped));
+                    let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None, timestamp_writes });
                     pass.set_pipeline(pipeline);
                     pass.set_bind_group(0, group, &[]);
                     let groups = groups_of(here);
                     pass.dispatch_workgroups(groups.min(65_535), groups.div_ceil(65_535), 1);
+                }
+                let read = clock.as_ref().filter(|_| {
+                    stamped += 1;
+                    stamped == STAMPED_AT_ONCE || first + here >= count
+                });
+                if let Some(clock) = read {
+                    clock.resolve(&mut encoder, stamped);
                 }
                 let _filling = crate::runner::filling();
                 {
@@ -397,6 +494,10 @@ impl WorldOnCard {
                 }
                 if !wait_gently(device, &when_done(queue)) {
                     return false;
+                }
+                if let Some(clock) = read {
+                    clock.read(device, queue, stamped, kind);
+                    stamped = 0;
                 }
                 first += here;
             }
@@ -425,7 +526,7 @@ impl WorldOnCard {
                 given
             }
             _ => {
-                if !in_pieces(&self.grounds, &bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count, pieces.0, &by_threads) {
+                if !in_pieces(&self.grounds, &bind(&self.grounds, &[(0, &self.data), (1, &region_buffer), (2, &grounds)]), ground_count, pieces.0, &by_threads, 0) {
                     return Vec::new();
                 }
                 let Some(made) = read_back(&grounds, ground_count as u64 * 8) else { return Vec::new() };
@@ -440,11 +541,11 @@ impl WorldOnCard {
         let cells_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("cells"), contents: &bytes(&flat), usage: wgpu::BufferUsages::STORAGE });
         let size = cells.len() as u64 * crate::sight::cell::CARD_NUMBERS as u64 * 4;
         let sums = storage("sums", size);
-        if !in_pieces(&self.choices, &bind(&self.choices, &[(0, &self.data), (1, &region_buffer), (2, &grounds), (3, &chosen)]), chosen_count, pieces.0, &by_threads) {
+        if !in_pieces(&self.choices, &bind(&self.choices, &[(0, &self.data), (1, &region_buffer), (2, &grounds), (3, &chosen)]), chosen_count, pieces.0, &by_threads, 1) {
             return Vec::new();
         }
         // The cells pass gives each cell a group of its own.
-        if !in_pieces(&self.cells, &bind(&self.cells, &[(0, &self.data), (1, &region_buffer), (3, &chosen), (4, &cells_buffer), (5, &sums)]), cells.len() as u32, pieces.1, &|n| n) {
+        if !in_pieces(&self.cells, &bind(&self.cells, &[(0, &self.data), (1, &region_buffer), (3, &chosen), (4, &cells_buffer), (5, &sums)]), cells.len() as u32, pieces.1, &|n| n, 2) {
             return Vec::new();
         }
         let Some(view) = read_back(&sums, size) else { return Vec::new() };

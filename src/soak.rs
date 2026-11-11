@@ -157,7 +157,7 @@ impl Plugin for SoakPlugin {
         if std::env::var("INCUS_DYNO").is_ok() {
             let laps = std::env::var("INCUS_DYNO_LAPS").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
             app.insert_resource(Dyno { laps, baking_run: dyno_baking_run(), ..Dyno::default() })
-                .add_systems(Update, fly_dyno.before(crate::camera::place_camera).run_if(in_state(Screen::Play)))
+                .add_systems(Update, (fly_dyno, fly_marks).chain().before(crate::camera::place_camera).run_if(in_state(Screen::Play)))
                 .add_systems(Last, record_dyno);
             return;
         }
@@ -279,6 +279,21 @@ fn report(world: &mut World) {
 //   made, and how it's made again after the cells' code changes, `SIGHT_RULES`, and its bake no longer reads back).
 // - **baking:** the route flown `INCUS_DYNO_LAPS` times from the start while the bake runs (David's "creaking when
 //   you move too quick"), measured as baking: on nice25 rendered afresh.
+// - **The standing marks** (`dyno::marks`, the Oracle's experiment 1), after the baked laps: the camera held still at
+//   each, waited on till the live levels round it are whole (at most `MARK_SETTLE_MOST`), the build replayed where
+//   there is one, then measured `MARK_MEASURE` seconds. `INCUS_DYNO_LAPS=0` flies the marks alone (for the small card);
+//   `INCUS_DYNO_MARKS=0` leaves them out; `INCUS_DYNO_BUILD=<event log>` replays another build.
+// - **The header** says exactly what flew: the build and whether its code was committed (the difference saved beside
+//   the report, `dyno-<time>.patch`), every `INCUS_*` and `WGPU_*` switch, the card and how it was chosen, the window
+//   and how the picture was handed to the screen as granted, the presets, what ran beside it.
+
+/// The longest a mark is waited on for its live levels to be whole (seconds), and how long it's measured.
+const MARK_SETTLE_MOST: f32 = 180.0;
+const MARK_MEASURE: f32 = 20.0;
+/// How long the build's placings are given to be applied, once sent (seconds).
+const BUILD_TAKES: f32 = 3.0;
+/// The build replayed at its mark, if none is named: David's quarter-block build of 2026-11-10 (build 108).
+const THE_BUILD: &str = "kept logs/events-1794341728.log";
 
 /// Seconds between the heat watch's readings.
 const HEAT_EVERY: f32 = 5.0;
@@ -334,6 +349,42 @@ struct Dyno {
     heat: Vec<String>,
     next_heat: f32,
     done: bool,
+    /// The route's laps are done: the marks now (`fly_marks`), made the first time; the one flown and how far it's
+    /// got, since when; and what each measured.
+    marks_due: bool,
+    marks: Option<Vec<crate::dyno::Mark>>,
+    mark: Option<(usize, MarkState)>,
+    mark_since: f32,
+    by_mark: Vec<MarkRecord>,
+    /// The fog as it was before a clear day's mark turned it off.
+    fog_was: Option<bool>,
+    /// The lanes' work read since sight's last reading (ms), for the next reading.
+    lanes_pending: f32,
+}
+
+/// How far a mark has got.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum MarkState {
+    /// The camera there, the live levels filling round it.
+    Arriving,
+    /// The build's placings sent (or about to be), being applied.
+    Building { sent: bool },
+    /// The build in; the levels and the bake made again round it.
+    Rebuilding,
+    /// Measured, standing still.
+    Standing,
+}
+
+/// What a mark measured: where it stood, how it settled, the build's placings, and its frames while settling and
+/// standing.
+#[derive(Default)]
+struct MarkRecord {
+    name: String,
+    place: String,
+    settled: Vec<String>,
+    build: Option<(usize, usize, usize)>,
+    settling: crate::dyno::Samples,
+    standing: crate::dyno::Samples,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -350,7 +401,7 @@ fn fly_dyno(
     mut requests: MessageWriter<crate::save::WorldFileRequest>,
 ) {
     let Some(map) = terrain.compiled() else { return };
-    if dyno.done {
+    if dyno.done || dyno.marks_due {
         return;
     }
     let now = time.elapsed_secs();
@@ -408,9 +459,15 @@ fn fly_dyno(
     }
     if dyno.baked_at.is_none() && !dyno.baking_run {
         if finished || now - started > BAKING_MOST {
-            info!("Dyno: {} after {:.0} s; a lap to warm up, then the measured laps", if finished { "baked" } else { "still baking, waited long enough" }, now - started);
             dyno.baked_at = Some(now);
             dyno.bake_finished = finished;
+            // `INCUS_DYNO_LAPS=0`: no laps, the marks at once.
+            if dyno.laps == 0 {
+                info!("Dyno: {} after {:.0} s; no laps, the standing marks", if finished { "baked" } else { "still baking, waited long enough" }, now - started);
+                end_of_route(&mut dyno);
+                return;
+            }
+            info!("Dyno: {} after {:.0} s; a lap to warm up, then the measured laps", if finished { "baked" } else { "still baking, waited long enough" }, now - started);
             dyno.lap_started = now;
             dyno.jumped = true;
             dyno.warming = 1;
@@ -425,7 +482,7 @@ fn fly_dyno(
         } else if dyno.baked_at.is_some() {
             dyno.baked_laps += 1;
             if dyno.baked_laps >= dyno.laps.max(1) {
-                dyno.done = true;
+                end_of_route(&mut dyno);
                 return;
             }
         } else if dyno.baking_run {
@@ -459,14 +516,179 @@ fn fly_dyno(
     }
 }
 
+/// The route's laps done: the standing marks next, unless they're left out (`INCUS_DYNO_MARKS=0`).
+fn end_of_route(dyno: &mut Dyno) {
+    if std::env::var("INCUS_DYNO_MARKS").is_ok_and(|v| v == "0") {
+        dyno.done = true;
+    } else {
+        dyno.marks_due = true;
+    }
+}
+
+/// The build replayed at its mark: the placings in `INCUS_DYNO_BUILD`'s event log, or `THE_BUILD`'s (none if it can't
+/// be read, said in the log).
+fn the_build() -> Vec<crate::dyno::Placing> {
+    let path = std::env::var("INCUS_DYNO_BUILD").map(std::path::PathBuf::from).unwrap_or_else(|_| crate::debug::project_folder().join(THE_BUILD));
+    match std::fs::read_to_string(&path) {
+        Ok(log) => crate::dyno::placings(&log),
+        Err(error) => {
+            warn!("Dyno: the build to replay ({}) couldn't be read ({error}); no build mark", path.display());
+            Vec::new()
+        }
+    }
+}
+
+/// The highest solid block in a column (pieces count), once its chunk is here.
+fn top_solid(voxel: &crate::world::VoxelWorld, registry: &crate::data::BlockRegistry, column: IVec2) -> Option<i32> {
+    use crate::world::{BlockId, WORLD_BOTTOM, WORLD_HEIGHT};
+    if !voxel.is_loaded(IVec3::new(column.x, column.y, WORLD_BOTTOM)) {
+        return None;
+    }
+    (WORLD_BOTTOM..WORLD_HEIGHT).rev().find(|&z| {
+        let block = voxel.get_block(IVec3::new(column.x, column.y, z));
+        block == BlockId::PIECES || registry.is_solid(block)
+    })
+}
+
+/// The standing marks, one after another (`dyno::marks`): the camera held at each with a player's eye over the ground,
+/// waited on till the live levels round it are whole, the build replayed where there is one, then measured.
+#[allow(clippy::too_many_arguments)]
+fn fly_marks(
+    mut dyno: ResMut<Dyno>,
+    terrain: Res<Terrain>,
+    sight: Res<crate::world::SightStore>,
+    (voxel, registry, player): (Res<crate::world::VoxelWorld>, Res<crate::data::BlockRegistry>, Res<crate::player::PlayerSettings>),
+    time: Res<Time<Real>>,
+    mut mode: ResMut<ControlMode>,
+    mut cameras: Query<&mut FlyCamera>,
+    mut kept: ResMut<crate::look::KeptSettings>,
+    mut requests: MessageWriter<crate::world::BlockEditRequest>,
+    (mut changed, mut refused): (MessageReader<crate::world::BlockChanged>, MessageReader<crate::world::BlockEditRefused>),
+) {
+    let (changes, refusals) = (changed.read().count(), refused.read().count());
+    if !dyno.marks_due || dyno.done {
+        return;
+    }
+    let Some(map) = terrain.compiled() else { return };
+    let now = time.elapsed_secs();
+    if dyno.marks.is_none() {
+        let ground = |north: f32, east: f32| map.height(north, east);
+        let marks = crate::dyno::marks(&ground, voxel.spawn().to_array(), the_build());
+        let names: Vec<&str> = marks.iter().map(|mark| mark.name).collect();
+        info!("Dyno: the standing marks: {}", names.join(", "));
+        dyno.by_mark = marks.iter().map(|mark| MarkRecord { name: mark.name.to_string(), ..MarkRecord::default() }).collect();
+        dyno.marks = Some(marks);
+        dyno.mark = Some((0, MarkState::Arriving));
+        dyno.mark_since = now;
+        dyno.jumped = true;
+    }
+    let Some((k, state)) = dyno.mark else { return };
+    let Some(mark) = dyno.marks.as_ref().and_then(|marks| marks.get(k)).cloned() else { return };
+    *mode = ControlMode::Fly;
+    if kept.frame_limit_name() != crate::look::UNCAPPED {
+        kept.set_frame_limit_name(crate::look::UNCAPPED.to_string());
+    }
+    // The clear day: fog off while it stands (put back after).
+    if mark.clear && dyno.fog_was.is_none() {
+        dyno.fog_was = Some(kept.sight_fog());
+        kept.render.set_flag("sight_fog", false);
+    }
+    // A player's eye over the column's top block once its chunk is here (over the map's ground till then).
+    let column = IVec2::new(mark.at[0].floor() as i32, mark.at[1].floor() as i32);
+    let top = top_solid(&voxel, &registry, column);
+    let feet = top.map_or_else(|| map.height(mark.at[0], mark.at[1]).unwrap_or(SEA_LEVEL as f32).max(SEA_LEVEL as f32) + 2.0, |z| z as f32 + 1.0);
+    let eye = feet + player.eye_height;
+    let pitch = mark.look_at.map_or(mark.pitch, |[north, east, z]| (z - eye).atan2((north - mark.at[0]).hypot(east - mark.at[1])).to_degrees());
+    for mut camera in &mut cameras {
+        camera.position = Vec3::new(mark.at[0], mark.at[1], eye);
+        camera.heading = mark.heading;
+        camera.pitch = pitch;
+    }
+    let (have, want, filling) = sight.live.as_ref().map_or((0, 1, 0), |live| live.fullness((mark.at[0], mark.at[1])));
+    let whole = have == want && filling == 0 && top.is_some();
+    let waited = now - dyno.mark_since;
+    let how = |waited: f32| if whole { format!("whole in {waited:.0} s") } else { format!("NOT whole after {waited:.0} s: {have} of {want} tiles, {filling} being made{}", if top.is_none() { ", the ground's chunk not here" } else { "" }) };
+    let next = match state {
+        MarkState::Arriving if whole || waited > MARK_SETTLE_MOST => {
+            let record = &mut dyno.by_mark[k];
+            record.place = format!("north {:.1}, east {:.1}, the eye at {eye:.1} ({:.2} over the ground), facing {:.0}°, pitch {pitch:.1}°{}", mark.at[0], mark.at[1], player.eye_height, mark.heading, if mark.clear { ", fog off" } else { "" });
+            record.settled.push(format!("the live levels {}", how(waited)));
+            Some(if mark.build.is_empty() { MarkState::Standing } else { MarkState::Building { sent: false } })
+        }
+        MarkState::Building { sent: false } => {
+            for placing in &mark.build {
+                let block = |name: &str| registry.id(name);
+                let (position, kind) = match placing {
+                    crate::dyno::Placing::Block { cell, block: name } => (IVec3::from_array(*cell), block(name).map(crate::world::EditKind::Place)),
+                    crate::dyno::Placing::Bar { cell, at, axis, block: name } => (IVec3::from_array(*cell), block(name).map(|block| crate::world::EditKind::PlaceBar { at: IVec3::from_array(*at), axis: *axis, block })),
+                };
+                match kind {
+                    Some(kind) => {
+                        requests.write(crate::world::BlockEditRequest { position, kind, source: crate::world::EditSource::Player(crate::events::PlayerId(0)) });
+                    }
+                    None => warn!("Dyno: the build names a block that isn't registered: {placing:?}"),
+                }
+            }
+            info!("Dyno: the build's {} placings sent", mark.build.len());
+            dyno.by_mark[k].build = Some((mark.build.len(), 0, 0));
+            dyno.mark_since = now;
+            dyno.mark = Some((k, MarkState::Building { sent: true }));
+            None
+        }
+        MarkState::Building { sent: true } => {
+            if let Some((_, cells, refused)) = &mut dyno.by_mark[k].build {
+                (*cells, *refused) = (*cells + changes, *refused + refusals);
+            }
+            (waited > BUILD_TAKES).then_some(MarkState::Rebuilding)
+        }
+        MarkState::Rebuilding => {
+            if let Some((_, cells, refused)) = &mut dyno.by_mark[k].build {
+                (*cells, *refused) = (*cells + changes, *refused + refusals);
+            }
+            let rebuilt = whole && !sight.edits_waiting();
+            (rebuilt || waited > MARK_SETTLE_MOST).then(|| {
+                let bake = if sight.edits_waiting() { "; the bake NOT yet patched" } else { "; the bake patched" };
+                dyno.by_mark[k].settled.push(format!("after the build, the live levels {}{bake}", how(waited)));
+                MarkState::Standing
+            })
+        }
+        MarkState::Standing if waited >= MARK_MEASURE => {
+            // The next mark, or the end; the fog put back after a clear day.
+            if mark.clear
+                && let Some(fog) = dyno.fog_was.take()
+            {
+                kept.render.set_flag("sight_fog", fog);
+            }
+            if k + 1 < dyno.marks.as_ref().map_or(0, Vec::len) {
+                dyno.mark = Some((k + 1, MarkState::Arriving));
+                dyno.mark_since = now;
+                dyno.jumped = true;
+            } else {
+                dyno.done = true;
+            }
+            None
+        }
+        _ => None,
+    };
+    if let Some(state) = next {
+        if state == MarkState::Standing {
+            info!("Dyno: {}: standing, measured for {MARK_MEASURE:.0} s", mark.name);
+        }
+        dyno.mark = Some((k, state));
+        dyno.mark_since = now;
+    }
+}
+
 fn record_dyno(world: &mut World) {
     let now = world.resource::<Time<Real>>().elapsed_secs();
     let ms = world.resource::<Time<Real>>().delta_secs() * 1000.0;
     world.resource_mut::<crate::debug::DebugPanel>().visible = false;
     let readings = crate::sight::draw::take_card_readings();
+    // The lanes' work on the card read this frame (taken every frame, so none is left over from frames not measured).
+    let (lane_kinds, lane_pieces) = crate::world::card_recipe::take_lane_times();
     let heat = (world.resource::<Dyno>().started.is_some() && now >= world.resource::<Dyno>().next_heat).then(|| crate::temperatures::latest(world));
     let window = world.resource::<crate::runner::WindowState>();
-    let screen = (window.size, window.refresh);
+    let screen = Shown { size: window.size, refresh: window.refresh, card: window.card.clone(), present: window.present.clone() };
     let mut dyno = world.resource_mut::<Dyno>();
     if dyno.started.is_none() {
         return;
@@ -474,18 +696,36 @@ fn record_dyno(world: &mut World) {
     let baked = dyno.baked_at.is_some();
     if dyno.warming > 0 {
         // The lap to warm up: not measured.
+        dyno.lanes_pending = 0.0;
         return;
     }
     let leg_name = dyno.leg.and_then(|k| dyno.legs.get(k)).map(|leg| leg.name.to_string());
-    if std::mem::take(&mut dyno.jumped) {
-        // The frame the camera jumped isn't the route's.
+    // The lanes' work since sight's last reading goes beside the next.
+    let lanes = if std::mem::take(&mut dyno.jumped) {
+        dyno.lanes_pending = 0.0;
+        None
     } else {
+        dyno.lanes_pending += lane_kinds.iter().sum::<f32>();
+        Some(if readings.iter().any(|reading| !reading.twin) { std::mem::take(&mut dyno.lanes_pending) } else { 0.0 })
+    };
+    let take = |samples: &mut crate::dyno::Samples, lanes: f32| {
+        samples.frame(ms);
+        let mut lanes = Some(lanes);
+        for reading in readings.iter().filter(|reading| !reading.twin) {
+            samples.card(reading.sight, &reading.passes);
+            samples.with_lanes(reading.sight, lanes.take().unwrap_or(0.0));
+        }
+        samples.lane_work(lane_kinds, lane_pieces);
+    };
+    if let Some((k, state)) = dyno.mark {
+        // At a mark: settling, or standing.
+        if let (Some(lanes), Some(record)) = (lanes, dyno.by_mark.get_mut(k)) {
+            take(if state == MarkState::Standing { &mut record.standing } else { &mut record.settling }, lanes);
+        }
+    } else if let Some(lanes) = lanes {
         let dyno = &mut *dyno;
         let phase = if baked { &mut dyno.baked } else { &mut dyno.baking };
-        phase.frame(ms);
-        for reading in readings.iter().filter(|reading| !reading.twin) {
-            phase.card(reading.sight, &reading.passes);
-        }
+        take(phase, lanes);
         // The twin's frames (`INCUS_SIGHT_TWIN`) kept apart, baked only.
         if baked {
             for reading in readings.iter().filter(|reading| reading.twin) {
@@ -501,11 +741,7 @@ fn record_dyno(world: &mut World) {
                 }
             };
             let at = place(&mut dyno.by_leg);
-            let samples = &mut dyno.by_leg[at].1;
-            samples.frame(ms);
-            for reading in readings.iter().filter(|reading| !reading.twin) {
-                samples.card(reading.sight, &reading.passes);
-            }
+            take(&mut dyno.by_leg[at].1, lanes);
             if baked && readings.iter().any(|reading| reading.twin) {
                 let at = place(&mut dyno.by_leg_twin);
                 for reading in readings.iter().filter(|reading| reading.twin) {
@@ -532,11 +768,19 @@ fn record_dyno(world: &mut World) {
         dyno.next_heat = now + HEAT_EVERY;
     }
     if dyno.done {
-        let report = dyno_report(&dyno, screen);
         let folder = crate::debug::project_folder().join("logs");
         let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
         let path = folder.join(format!("dyno-{stamp}.txt"));
         let _ = std::fs::create_dir_all(&folder);
+        // The code's difference from its commit, beside the report, so what flew can be had again.
+        let patch = (!crate::diagnostics::BUILD_CHANGED.is_empty()).then(|| {
+            let patch = folder.join(format!("dyno-{stamp}.patch"));
+            match std::fs::write(&patch, crate::diagnostics::BUILD_PATCH) {
+                Ok(()) => patch.file_name().map_or_else(String::new, |name| name.to_string_lossy().into_owned()),
+                Err(error) => format!("NOT saved ({error})"),
+            }
+        });
+        let report = dyno_report(&dyno, screen, patch);
         match std::fs::write(&path, &report) {
             Ok(()) => info!("Dyno: the report is in {}", path.display()),
             Err(error) => warn!("Dyno: the report couldn't be written ({error})"),
@@ -548,19 +792,41 @@ fn record_dyno(world: &mut World) {
     }
 }
 
-fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
+/// The window and the card a flight was drawn on, for its header.
+struct Shown {
+    size: (u32, u32),
+    refresh: f32,
+    card: String,
+    present: String,
+}
+
+/// Every `INCUS_*` and `WGPU_*` switch set for the game, sorted, as `NAME=value`.
+fn switches() -> String {
+    let mut set: Vec<String> = std::env::vars().filter(|(name, _)| name.starts_with("INCUS_") || name.starts_with("WGPU_")).map(|(name, value)| format!("{name}={value}")).collect();
+    set.sort();
+    if set.is_empty() { "none".into() } else { set.join(", ") }
+}
+
+fn dyno_report(dyno: &Dyno, shown: Shown, patch: Option<String>) -> String {
+    use crate::diagnostics::{BUILD, BUILD_CHANGED, BUILD_NUMBER};
+    let code = match &patch {
+        None => "committed (the code as its commit has it)".to_string(),
+        Some(patch) => format!("NOT committed: {BUILD_CHANGED}; the difference beside this report: {patch}"),
+    };
+    let lane_clock = if std::env::var("INCUS_LANE_CLOCK").is_ok_and(|v| v == "off") { "off (INCUS_LANE_CLOCK=off): the lanes' work isn't counted" } else { "on (where the card can time itself)" };
     let mut text = format!(
-        "The dyno's flight: build {} ({})\nWindow {} x {}, the screen's refresh {:.0}, uncapped (presented without waiting for the refresh: AutoNoVsync); presets: {}\n",
-        crate::diagnostics::BUILD_NUMBER,
-        crate::diagnostics::BUILD,
-        size.0,
-        size.1,
-        refresh,
-        std::env::var("INCUS_START_PRESET").unwrap_or_else(|_| "the defaults".into())
+        "The dyno's flight: build {BUILD_NUMBER} ({BUILD}); the code {code}\nThe card: {}\nWindow {} x {}, the screen's refresh {:.0}, uncapped; the picture handed to the screen: {} (as granted); presets: {}\nSwitches: {}\nThe lanes' clock: {lane_clock}\n",
+        if shown.card.is_empty() { "unknown" } else { &shown.card },
+        shown.size.0,
+        shown.size.1,
+        shown.refresh,
+        if shown.present.is_empty() { "unknown" } else { &shown.present },
+        std::env::var("INCUS_START_PRESET").unwrap_or_else(|_| "the defaults".into()),
+        switches()
     );
     let names: Vec<&str> = dyno.legs.iter().map(|leg| leg.name).collect();
     text += &format!("The route, {:.0} s a lap: {}\n", crate::dyno::duration(&dyno.legs), names.join(", "));
-    text += &format!("Running beside it: {} (kept the same every flight, so the pairs cancel it: browser music, Aseprite idle)\n", dyno.background);
+    text += &format!("Running beside it: {}\n", dyno.background);
     if let Some(celsius) = dyno.too_hot {
         text += &format!("STOPPED for the heat: the CPU area reached {celsius:.0} °C (the cutoff is {TOO_HOT:.0}); what's below is as far as it got\n");
     }
@@ -589,6 +855,22 @@ fn dyno_report(dyno: &Dyno, (size, refresh): ((u32, u32), f32)) -> String {
             if let Some((_, twin)) = dyno.by_leg_twin.iter().find(|(have, _)| have == name) {
                 text += &format!("  {name}: {}\n", crate::dyno::twin_line(samples, twin));
             }
+        }
+    }
+    if !dyno.by_mark.is_empty() {
+        text += &format!(
+            "\nThe standing marks (uncapped, the camera still; each waited on till the live levels round it were whole, at most {MARK_SETTLE_MOST:.0} s, then measured {MARK_MEASURE:.0} s):\n"
+        );
+        for record in &dyno.by_mark {
+            text += &format!("  {}: {}\n", record.name, if record.place.is_empty() { "not reached" } else { &record.place });
+            for settled in &record.settled {
+                text += &format!("    {settled}\n");
+            }
+            if let Some((asked, cells, refused)) = record.build {
+                text += &format!("    the build: {asked} placings replayed, {cells} cells changed, {refused} refused (David's session: 1 refused)\n");
+            }
+            text += &format!("    standing: {}\n", crate::dyno::line(&record.standing));
+            text += &format!("    settling: {}\n", crate::dyno::line(&record.settling));
         }
     }
     text += "\nHeat:\n";

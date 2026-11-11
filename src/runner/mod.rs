@@ -60,6 +60,11 @@ pub struct WindowState {
     pub freeze_when_away: bool,
     /// The first frame after a freeze: the simulation's clock leaves out the time away (`time/`).
     pub resumed: bool,
+    /// The graphics card drawing: its name, kind, driver, and how it was chosen (`choose_card`), for the flights'
+    /// headers.
+    pub card: String,
+    /// How the picture is handed to the screen now, as granted (`present_mode`): "Immediate", "Fifo" and so on.
+    pub present: String,
 }
 
 impl WindowState {
@@ -73,7 +78,7 @@ impl Default for WindowState {
     fn default() -> Self {
         // Never freezing from the first frame while the game measures itself [2026-11-08: a soak run's window
         // came up behind another, froze before the setting reached it, and waited for a click].
-        Self { size: (1280, 960), scale: 1.0, focused: true, capture_mouse: false, resize_to: None, minimize: None, refresh: 60.0, freeze_when_away: !crate::soak::measuring(), resumed: false }
+        Self { size: (1280, 960), scale: 1.0, focused: true, capture_mouse: false, resize_to: None, minimize: None, refresh: 60.0, freeze_when_away: !crate::soak::measuring(), resumed: false, card: String::new(), present: String::new() }
     }
 }
 
@@ -253,6 +258,8 @@ struct Gpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
+    /// The ways of handing the picture to the screen this card and window allow (`present_mode`).
+    present_modes: Vec<wgpu::PresentMode>,
     egui_state: egui_winit::State,
     egui_renderer: egui_wgpu::Renderer,
     /// Whether the mouse is captured now (so it's only changed when the game asks for a change).
@@ -292,6 +299,44 @@ fn wanted_ballast() -> bool {
 /// The screen's refresh rate (refreshes a second), 60 if it can't be had.
 fn refresh_of(window: &Window) -> f32 {
     window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz()).map_or(60.0, |millihertz| millihertz as f32 / 1000.0)
+}
+
+/// The graphics card to draw with, and how it was chosen [restored 2026-11-11, the Oracle's experiment 1: since the
+/// regroup the runner always asked for the high-performance card and read no setting]: `WGPU_ADAPTER_NAME` (part of
+/// its name, any case) picks one by name; else `WGPU_POWER_PREF` (`low`, `high` or `none`) by power; else the
+/// high-performance one. Every card found is listed in the log. A name that matches none stops the game, naming the
+/// cards there are.
+fn choose_card(instance: &wgpu::Instance, surface: &wgpu::Surface) -> (wgpu::Adapter, String) {
+    let adapters = pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+    for adapter in &adapters {
+        let info = adapter.get_info();
+        let drawable = if adapter.is_surface_supported(surface) { "" } else { "; can't draw to this window" };
+        info!("A graphics card here: {} ({:?}, {:?}){drawable}", info.name, info.device_type, info.backend);
+    }
+    if let Ok(wanted) = std::env::var("WGPU_ADAPTER_NAME") {
+        let names: Vec<String> = adapters.iter().map(|adapter| adapter.get_info().name).collect();
+        let lower = wanted.to_lowercase();
+        let Some(adapter) = adapters.into_iter().find(|adapter| adapter.get_info().name.to_lowercase().contains(&lower) && adapter.is_surface_supported(surface)) else {
+            error!("WGPU_ADAPTER_NAME={wanted} matches no graphics card that can draw here; there are: {}", names.join(", "));
+            panic!("WGPU_ADAPTER_NAME={wanted} matches no graphics card that can draw here; there are: {}", names.join(", "));
+        };
+        return (adapter, format!("WGPU_ADAPTER_NAME={wanted}"));
+    }
+    let (power_preference, chosen_by) = match wgpu::PowerPreference::from_env() {
+        Some(power) => (power, format!("WGPU_POWER_PREF={}", std::env::var("WGPU_POWER_PREF").unwrap_or_default())),
+        None => (wgpu::PowerPreference::HighPerformance, "the default, high performance".to_string()),
+    };
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference, compatible_surface: Some(surface), ..Default::default() })).expect("a graphics card");
+    (adapter, chosen_by)
+}
+
+/// How the picture is handed to the screen, chosen from what the card and window allow in the order wgpu's own
+/// "Auto" modes use, so what's granted is known and logged: uncapped, without waiting for the refresh (Immediate,
+/// else Mailbox, else Fifo); capped, with it (FifoRelaxed, else Fifo).
+fn present_mode(allowed: &[wgpu::PresentMode], uncapped: bool) -> wgpu::PresentMode {
+    use wgpu::PresentMode::{Fifo, FifoRelaxed, Immediate, Mailbox};
+    let order: &[wgpu::PresentMode] = if uncapped { &[Immediate, Mailbox, Fifo] } else { &[FifoRelaxed, Fifo] };
+    order.iter().copied().find(|mode| allowed.contains(mode)).unwrap_or(Fifo)
 }
 
 /// The Windows SDK's `dxcompiler.dll`, if it is installed (with the `dxil.dll` beside it): DXC
@@ -346,9 +391,10 @@ impl Runner {
         }
         let instance = wgpu::Instance::new(descriptor);
         let surface = instance.create_surface(window.clone()).expect("a surface to draw on");
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, compatible_surface: Some(&surface), ..Default::default() })).expect("a graphics card");
+        let (adapter, chosen_by) = choose_card(&instance, &surface);
         let info = adapter.get_info();
         info!("Graphics card: {} ({:?}, driver {} {})", info.name, info.backend, info.driver, info.driver_info);
+        self.app.world_mut().resource_mut::<WindowState>().card = format!("{} ({:?}, {:?}, driver {} {}; chosen by {chosen_by})", info.name, info.device_type, info.backend, info.driver, info.driver_info);
         // The card's own timestamps, where it has them: sight's clock on the Render page, and the ballast
         // (developer builds, when it's asked for).
         let timed = cfg!(feature = "dev") && wanted_ballast();
@@ -370,7 +416,8 @@ impl Runner {
         // The panel's colours are worked out as sRGB; a plain (non-sRGB) surface shows them as made.
         config.format = config.format.remove_srgb_suffix();
         config.view_formats = vec![config.format];
-        config.present_mode = wgpu::PresentMode::AutoVsync;
+        let present_modes = surface.get_capabilities(&adapter).present_modes;
+        config.present_mode = present_mode(&present_modes, false);
         // Copied from for screenshots, where the card allows it.
         if surface.get_capabilities(&adapter).usages.contains(wgpu::TextureUsages::COPY_SRC) {
             config.usage |= wgpu::TextureUsages::COPY_SRC;
@@ -383,6 +430,7 @@ impl Runner {
             let mut state = self.app.world_mut().resource_mut::<WindowState>();
             state.size = (config.width, config.height);
             state.scale = window.scale_factor() as f32;
+            state.present = format!("{:?}", config.present_mode);
         }
         #[cfg(feature = "dev")]
         let ballast = if timed {
@@ -400,6 +448,7 @@ impl Runner {
             device,
             queue,
             config,
+            present_modes,
             egui_state,
             egui_renderer,
             captured: false,
@@ -607,7 +656,9 @@ impl Runner {
         }
         if self.limit != Some(limit) {
             self.limit = Some(limit);
-            gpu.config.present_mode = if limit == FrameLimit::Uncapped { wgpu::PresentMode::AutoNoVsync } else { wgpu::PresentMode::AutoVsync };
+            gpu.config.present_mode = present_mode(&gpu.present_modes, limit == FrameLimit::Uncapped);
+            info!("The picture handed to the screen: {:?} ({})", gpu.config.present_mode, if limit == FrameLimit::Uncapped { "uncapped: not waiting for the refresh" } else { "with the refresh" });
+            self.app.world_mut().resource_mut::<WindowState>().present = format!("{:?}", gpu.config.present_mode);
             gpu.set_up_again = !set_up_picture(gpu);
         }
         if gpu.set_up_again {

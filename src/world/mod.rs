@@ -503,6 +503,11 @@ impl SightStore {
     pub fn placed_light_at(&self, cell: [i32; 3]) -> Option<([u32; 3], u32)> {
         self.lights.at(cell)
     }
+
+    /// Whether edits are still waiting to reach the bake (their regions settling, or being baked again).
+    pub fn edits_waiting(&self) -> bool {
+        !self.edited.is_empty() || !self.patching.is_empty()
+    }
 }
 
 impl Drop for SightStore {

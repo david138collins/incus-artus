@@ -469,6 +469,14 @@ impl LiveStore {
         }
     }
 
+    /// Tiles made and wanted round `camera`, all levels together, and how many are being made: whole when the first
+    /// two are equal and the last is 0 (the dyno's marks wait for it before measuring).
+    pub fn fullness(&self, camera: (f32, f32)) -> (usize, usize, usize) {
+        let wanted = self.wanted(camera);
+        let have = wanted.iter().filter(|(_, key)| self.tiles.contains_key(key)).count();
+        (have, wanted.len(), self.filling.len())
+    }
+
     /// For the log: tiles made and wanted at each level, and the cells kept.
     pub fn report(&self, camera: (f32, f32)) -> String {
         let wanted = self.wanted(camera);

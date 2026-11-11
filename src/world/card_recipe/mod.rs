@@ -9,7 +9,7 @@ use crate::world::whole_recipe::{WholeCarving, WholeCurve, WholeMap, WholeNoise}
 use crate::worldgen::noise::{ARROWS, Fade};
 
 mod on_card;
-pub use on_card::{WorldOnCard, send};
+pub use on_card::{LANE_KINDS, WorldOnCard, send, take_lane_times};
 
 const RECIPE: &str = include_str!("recipe.wgsl");
 
