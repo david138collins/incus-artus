@@ -1,0 +1,596 @@
+Incus Artus event log (started 1794341728, seconds since 1970)
+tick        1  landed          player 0 at 0.5 0.5 145.0, falling at 1.1 blocks/s
+tick        1  sim level       Test Settlement: thin → local (the player is here)
+tick        1  sim level       Test Caravan: thin → local (met, 92 blocks away)
+tick        2  activity        Villager 2 goes to bed (North House)
+tick        2  activity        Villager 3 goes to bed (North Cottage)
+tick        2  activity        Villager 4 goes to bed (North Cottage)
+tick        2  activity        Villager 5 goes to bed (South House)
+tick        2  activity        Villager 6 goes to bed (South House)
+tick        2  meeting         Villager 5 and Villager 6 nodded to each other and walked on
+tick      722  world file      loaded "nice25 test" in 913 ms. "nice25 test" was made in build 102; this is build 108. The land the recipe makes may have moved since. Start a new world to be sure.
+Loaded: clock, sight (sight's bake: 5184 regions kept), terrain (0 changed chunks), fate, sim (0 places, 0 journeys), people (0 people), player
+tick     4771  landed          player 0 at -835.4 929.1 215.0, falling at 67.2 blocks/s
+tick     4772  footstep        player 0 at -835.4 929.1 215.0
+tick     4809  landed          player 0 at -836.7 931.4 216.0, falling at 2.8 blocks/s
+tick     4825  landed          player 0 at -837.9 932.2 217.0, falling at 2.8 blocks/s
+tick     4842  landed          player 0 at -838.7 932.8 218.0, falling at 2.8 blocks/s
+tick     5377  landed          player 0 at -1802.2 790.9 222.0, falling at 78.4 blocks/s
+tick     5380  footstep        player 0 at -1802.2 790.9 222.0
+tick     5397  landed          player 0 at -1801.2 790.1 221.0, falling at 8.5 blocks/s
+tick     5412  landed          player 0 at -1800.0 789.0 220.0, falling at 8.5 blocks/s
+tick     6211  footstep        player 0 at -1798.7 787.9 220.0
+tick     6226  landed          player 0 at -1798.4 786.8 219.0, falling at 8.5 blocks/s
+tick     6235  footstep        player 0 at -1797.9 786.7 219.0
+tick     6262  footstep        player 0 at -1797.3 786.5 219.0
+tick     7978  landed          player 0 at -3496.4 850.5 125.0, falling at 20.3 blocks/s
+tick     7986  footstep        player 0 at -3496.4 850.5 125.0
+tick     8110  landed          player 0 at -3502.9 840.4 125.0, falling at 8.1 blocks/s
+tick     8123  landed          player 0 at -3503.5 840.3 126.0, falling at 2.8 blocks/s
+tick     8214  footstep        player 0 at -3506.3 833.5 126.0
+tick     8733  landed          player 0 at -3732.9 556.6 127.0, falling at 41.6 blocks/s
+tick     8758  footstep        player 0 at -3732.9 556.6 127.0
+tick     8947  landed          player 0 at -3624.0 -1061.0 138.0, falling at 1.1 blocks/s
+tick     8948  footstep        player 0 at -3624.0 -1061.0 138.0
+tick     8968  footstep        player 0 at -3624.0 -1061.3 138.0
+tick     8984  landed          player 0 at -3624.0 -1061.4 138.0, falling at 8.1 blocks/s
+tick     9189  landed          player 0 at -3896.2 -1096.5 143.0, falling at 8.5 blocks/s
+tick     9206  footstep        player 0 at -3896.2 -1096.5 143.0
+tick     9220  landed          player 0 at -3897.1 -1096.7 142.0, falling at 8.5 blocks/s
+tick     9306  landed          player 0 at -3914.3 -1095.4 141.0, falling at 8.5 blocks/s
+tick     9377  footstep        player 0 at -3923.9 -1092.9 141.0
+tick     9428  landed          player 0 at -3950.3 -1129.3 137.0, falling at 16.0 blocks/s
+tick     9435  footstep        player 0 at -3950.3 -1129.3 137.0
+tick     9451  landed          player 0 at -3983.8 -1182.6 137.0, falling at 1.1 blocks/s
+tick     9452  footstep        player 0 at -3983.8 -1182.6 137.0
+tick     9499  landed          player 0 at -3987.1 -1187.9 136.0, falling at 8.5 blocks/s
+tick     9514  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7980 -2381 272 (half blocks) at -3990 -1191 136
+tick     9515  block changed   -3990 -1191 136: incus:air → pieces (by player 0)
+tick     9515  block changed   -3990 -1191 136: incus:air → pieces (by player 0)
+tick     9528  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7978 -2383 272 (half blocks) at -3989 -1192 136
+tick     9529  block changed   -3989 -1192 136: incus:air → pieces (by player 0)
+tick     9529  block changed   -3989 -1191 136: incus:air → pieces (by player 0)
+tick     9539  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7978 -2382 272 (half blocks) at -3989 -1191 136
+tick     9540  block changed   -3989 -1191 136: pieces → pieces (by player 0)
+tick     9547  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7978 -2380 272 (half blocks) at -3989 -1190 136
+tick     9548  block changed   -3989 -1190 136: incus:air → pieces (by player 0)
+tick     9548  block changed   -3989 -1190 136: incus:air → pieces (by player 0)
+tick     9552  footstep        player 0 at -3987.5 -1188.9 136.0
+tick     9555  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7975 -2382 272 (half blocks) at -3988 -1191 136
+tick     9556  block changed   -3988 -1191 136: incus:air → pieces (by player 0)
+tick     9556  block changed   -3988 -1191 136: incus:air → pieces (by player 0)
+tick     9565  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2383 272 (half blocks) at -3989 -1192 136
+tick     9566  block changed   -3989 -1192 136: pieces → pieces (by player 0)
+tick     9566  block changed   -3989 -1191 136: pieces → pieces (by player 0)
+tick     9574  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7977 -2381 272 (half blocks) at -3989 -1191 136
+tick     9575  block changed   -3989 -1191 136: pieces → pieces (by player 0)
+tick     9575  block changed   -3988 -1191 136: pieces → pieces (by player 0)
+tick     9582  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7977 -2380 273 (half blocks) at -3989 -1190 136
+tick     9583  block changed   -3989 -1190 136: pieces → pieces (by player 0)
+tick     9583  block changed   -3988 -1190 136: incus:air → pieces (by player 0)
+tick     9590  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7978 -2381 273 (half blocks) at -3989 -1191 136
+tick     9591  block changed   -3989 -1191 136: pieces → pieces (by player 0)
+tick     9591  block changed   -3989 -1191 136: pieces → pieces (by player 0)
+tick     9598  landed          player 0 at -3986.8 -1189.0 136.0, falling at 8.1 blocks/s
+tick     9598  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7975 -2381 273 (half blocks) at -3988 -1191 136
+tick     9599  block changed   -3988 -1191 136: pieces → pieces (by player 0)
+tick     9599  block changed   -3988 -1190 136: pieces → pieces (by player 0)
+tick     9602  footstep        player 0 at -3986.8 -1189.0 136.0
+tick     9610  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2384 273 (half blocks) at -3989 -1192 136
+tick     9611  block changed   -3989 -1192 136: pieces → pieces (by player 0)
+tick     9611  block changed   -3989 -1192 136: pieces → pieces (by player 0)
+tick     9615  landed          player 0 at -3987.0 -1189.4 137.0, falling at 2.8 blocks/s
+tick     9618  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2382 273 (half blocks) at -3989 -1191 136
+tick     9619  block changed   -3989 -1191 136: pieces → pieces (by player 0)
+tick     9640  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7978 -2380 274 (half blocks) at -3989 -1190 137
+tick     9641  block changed   -3989 -1190 137: incus:air → pieces (by player 0)
+tick     9641  block changed   -3989 -1190 137: incus:air → pieces (by player 0)
+tick     9648  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7976 -2381 273 (half blocks) at -3988 -1191 136
+tick     9649  block changed   -3988 -1191 136: pieces → pieces (by player 0)
+tick     9652  landed          player 0 at -3987.8 -1190.4 137.0, falling at 8.1 blocks/s
+tick     9653  footstep        player 0 at -3987.8 -1190.4 137.0
+tick     9660  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7976 -2381 274 (half blocks) at -3988 -1191 137
+tick     9661  block changed   -3988 -1191 137: incus:air → pieces (by player 0)
+tick     9661  block changed   -3988 -1191 137: incus:air → pieces (by player 0)
+tick     9668  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7976 -2380 274 (half blocks) at -3988 -1190 137
+tick     9669  block changed   -3988 -1190 137: incus:air → pieces (by player 0)
+tick     9669  block changed   -3988 -1190 137: incus:air → pieces (by player 0)
+tick     9675  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7977 -2381 275 (half blocks) at -3989 -1191 137
+tick     9676  block changed   -3989 -1191 137: incus:air → pieces (by player 0)
+tick     9676  block changed   -3988 -1191 137: pieces → pieces (by player 0)
+tick     9676  landed          player 0 at -3988.7 -1190.1 138.0, falling at 6.0 blocks/s
+tick     9683  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7975 -2383 272 (half blocks) at -3988 -1192 136
+tick     9684  block changed   -3988 -1192 136: incus:air → pieces (by player 0)
+tick     9684  block changed   -3987 -1192 136: incus:air → pieces (by player 0)
+tick     9692  landed          player 0 at -3988.3 -1190.0 138.0, falling at 8.1 blocks/s
+tick     9692  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2383 274 (half blocks) at -3989 -1192 137
+tick     9693  block changed   -3989 -1192 137: incus:air → pieces (by player 0)
+tick     9693  block changed   -3989 -1191 137: pieces → pieces (by player 0)
+tick     9699  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2382 275 (half blocks) at -3989 -1191 137
+tick     9700  block changed   -3989 -1191 137: pieces → pieces (by player 0)
+tick     9708  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7980 -2382 272 (half blocks) at -3990 -1191 136
+tick     9709  block changed   -3990 -1191 136: pieces → pieces (by player 0)
+tick     9709  block changed   -3990 -1191 136: pieces → pieces (by player 0)
+tick     9715  landed          player 0 at -3988.1 -1189.9 138.0, falling at 8.1 blocks/s
+tick     9716  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7979 -2381 274 (half blocks) at -3990 -1191 137
+tick     9717  block changed   -3990 -1191 137: incus:air → pieces (by player 0)
+tick     9717  block changed   -3989 -1191 137: pieces → pieces (by player 0)
+tick     9726  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7979 -2381 275 (half blocks) at -3990 -1191 137
+tick     9727  block changed   -3990 -1191 137: pieces → pieces (by player 0)
+tick     9727  block changed   -3989 -1191 137: pieces → pieces (by player 0)
+tick     9731  landed          player 0 at -3988.1 -1189.9 138.0, falling at 8.1 blocks/s
+tick     9733  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7977 -2380 275 (half blocks) at -3989 -1190 137
+tick     9734  block changed   -3989 -1190 137: pieces → pieces (by player 0)
+tick     9734  block changed   -3988 -1190 137: pieces → pieces (by player 0)
+tick     9741  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2381 276 (half blocks) at -3989 -1191 138
+tick     9742  block changed   -3989 -1191 138: incus:air → pieces (by player 0)
+tick     9742  block changed   -3989 -1190 138: incus:air → pieces (by player 0)
+tick     9745  landed          player 0 at -3988.1 -1189.9 138.5, falling at 6.0 blocks/s
+tick     9749  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2381 277 (half blocks) at -3989 -1191 138
+tick     9750  block changed   -3989 -1191 138: pieces → pieces (by player 0)
+tick     9750  block changed   -3989 -1190 138: pieces → pieces (by player 0)
+tick     9759  landed          player 0 at -3988.1 -1189.9 139.0, falling at 6.0 blocks/s
+tick     9762  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7978 -2381 278 (half blocks) at -3989 -1191 139
+tick     9763  block changed   -3989 -1191 139: incus:air → pieces (by player 0)
+tick     9763  block changed   -3989 -1191 139: incus:air → pieces (by player 0)
+tick     9769  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2384 275 (half blocks) at -3989 -1192 137
+tick     9770  block changed   -3989 -1192 137: pieces → pieces (by player 0)
+tick     9770  block changed   -3989 -1192 137: pieces → pieces (by player 0)
+tick     9773  landed          player 0 at -3988.1 -1189.9 139.5, falling at 6.0 blocks/s
+tick     9777  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2382 279 (half blocks) at -3989 -1191 139
+tick     9778  block changed   -3989 -1191 139: pieces → pieces (by player 0)
+tick     9778  block changed   -3989 -1191 139: pieces → pieces (by player 0)
+tick     9787  landed          player 0 at -3988.1 -1189.9 140.0, falling at 6.0 blocks/s
+tick     9788  footstep        player 0 at -3988.1 -1189.9 140.0
+tick     9796  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7976 -2381 276 (half blocks) at -3988 -1191 138
+tick     9797  block changed   -3988 -1191 138: incus:air → pieces (by player 0)
+tick     9797  block changed   -3988 -1191 138: incus:air → pieces (by player 0)
+tick     9803  landed          player 0 at -3988.1 -1189.9 140.0, falling at 8.1 blocks/s
+tick     9803  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7976 -2381 277 (half blocks) at -3988 -1191 138
+tick     9804  block changed   -3988 -1191 138: pieces → pieces (by player 0)
+tick     9804  block changed   -3988 -1191 138: pieces → pieces (by player 0)
+tick     9830  footstep        player 0 at -3988.1 -1189.9 140.0
+tick     9844  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7975 -2383 273 (half blocks) at -3988 -1192 136
+tick     9845  block changed   -3988 -1192 136: pieces → pieces (by player 0)
+tick     9845  block changed   -3987 -1192 136: pieces → pieces (by player 0)
+tick     9851  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7975 -2382 273 (half blocks) at -3988 -1191 136
+tick     9852  block changed   -3988 -1191 136: pieces → pieces (by player 0)
+tick     9852  block changed   -3987 -1191 136: incus:air → pieces (by player 0)
+tick     9854  footstep        player 0 at -3987.9 -1190.9 140.0
+tick     9877  landed          player 0 at -3987.6 -1192.1 138.0, falling at 11.7 blocks/s
+tick     9889  landed          player 0 at -3987.2 -1192.8 136.0, falling at 11.7 blocks/s
+tick     9895  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7975 -2383 276 (half blocks) at -3988 -1192 138
+tick     9896  block changed   -3988 -1192 138: incus:air → pieces (by player 0)
+tick     9896  block changed   -3988 -1191 138: pieces → pieces (by player 0)
+tick     9903  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7976 -2383 276 (half blocks) at -3988 -1192 138
+tick     9904  block changed   -3988 -1192 138: pieces → pieces (by player 0)
+tick     9904  block changed   -3988 -1191 138: pieces → pieces (by player 0)
+tick     9910  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2386 275 (half blocks) at -3989 -1193 137
+tick     9911  block changed   -3989 -1193 137: incus:air → pieces (by player 0)
+tick     9911  block changed   -3989 -1193 137: incus:air → pieces (by player 0)
+tick     9920  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7979 -2383 275 (half blocks) at -3990 -1192 137
+tick     9921  block changed   -3990 -1192 137: incus:air → pieces (by player 0)
+tick     9921  block changed   -3990 -1191 137: pieces → pieces (by player 0)
+tick     9928  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7978 -2383 274 (half blocks) at -3989 -1192 137
+tick     9929  block changed   -3989 -1192 137: pieces → pieces (by player 0)
+tick     9929  block changed   -3989 -1191 137: pieces → pieces (by player 0)
+tick     9936  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7978 -2385 274 (half blocks) at -3989 -1193 137
+tick     9937  block changed   -3989 -1193 137: pieces → pieces (by player 0)
+tick     9937  block changed   -3989 -1192 137: pieces → pieces (by player 0)
+tick     9960  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7978 -2382 278 (half blocks) at -3989 -1191 139
+tick     9961  block changed   -3989 -1191 139: pieces → pieces (by player 0)
+tick     9961  block changed   -3989 -1191 139: pieces → pieces (by player 0)
+tick     9976  footstep        player 0 at -3992.4 -1191.9 136.0
+tick     9976  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7981 -2382 275 (half blocks) at -3991 -1191 137
+tick     9977  block changed   -3991 -1191 137: incus:air → pieces (by player 0)
+tick     9977  block changed   -3990 -1191 137: pieces → pieces (by player 0)
+tick     9985  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7980 -2381 274 (half blocks) at -3990 -1191 137
+tick     9986  block changed   -3990 -1191 137: pieces → pieces (by player 0)
+tick     9986  block changed   -3990 -1191 137: pieces → pieces (by player 0)
+tick     9994  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7979 -2383 274 (half blocks) at -3990 -1192 137
+tick     9995  block changed   -3990 -1192 137: pieces → pieces (by player 0)
+tick     9995  block changed   -3990 -1191 137: pieces → pieces (by player 0)
+tick    10002  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7980 -2380 274 (half blocks) at -3990 -1190 137
+tick    10003  block changed   -3990 -1190 137: incus:air → pieces (by player 0)
+tick    10003  block changed   -3990 -1190 137: incus:air → pieces (by player 0)
+tick    10026  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7979 -2380 277 (half blocks) at -3990 -1190 138
+tick    10027  block changed   -3990 -1190 138: incus:air → pieces (by player 0)
+tick    10027  block changed   -3989 -1190 138: pieces → pieces (by player 0)
+tick    10034  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7978 -2380 276 (half blocks) at -3989 -1190 138
+tick    10035  block changed   -3989 -1190 138: pieces → pieces (by player 0)
+tick    10042  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2379 275 (half blocks) at -3989 -1190 137
+tick    10043  block changed   -3989 -1190 137: pieces → pieces (by player 0)
+tick    10043  block changed   -3989 -1189 137: incus:air → pieces (by player 0)
+tick    10050  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7978 -2379 274 (half blocks) at -3989 -1190 137
+tick    10051  block changed   -3989 -1190 137: pieces → pieces (by player 0)
+tick    10051  block changed   -3989 -1190 137: pieces → pieces (by player 0)
+tick    10059  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7979 -2380 273 (half blocks) at -3990 -1190 136
+tick    10060  block changed   -3990 -1190 136: incus:air → pieces (by player 0)
+tick    10060  block changed   -3989 -1190 136: pieces → pieces (by player 0)
+tick    10067  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7978 -2378 275 (half blocks) at -3989 -1189 137
+tick    10068  block changed   -3989 -1189 137: pieces → pieces (by player 0)
+tick    10068  block changed   -3989 -1189 137: pieces → pieces (by player 0)
+tick    10099  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2377 275 (half blocks) at -3989 -1189 137
+tick    10100  block changed   -3989 -1189 137: pieces → pieces (by player 0)
+tick    10100  block changed   -3989 -1188 137: incus:air → pieces (by player 0)
+tick    10102  footstep        player 0 at -3989.4 -1184.6 136.0
+tick    10135  footstep        player 0 at -3989.4 -1184.4 136.0
+tick    10152  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7975 -2378 272 (half blocks) at -3988 -1189 136
+tick    10153  block changed   -3988 -1189 136: incus:air → pieces (by player 0)
+tick    10153  block changed   -3988 -1189 136: incus:air → pieces (by player 0)
+tick    10160  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7977 -2377 272 (half blocks) at -3989 -1189 136
+tick    10161  block changed   -3989 -1189 136: incus:air → pieces (by player 0)
+tick    10161  block changed   -3988 -1189 136: pieces → pieces (by player 0)
+tick    10170  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7977 -2378 273 (half blocks) at -3989 -1189 136
+tick    10171  block changed   -3989 -1189 136: pieces → pieces (by player 0)
+tick    10171  block changed   -3989 -1189 136: pieces → pieces (by player 0)
+tick    10177  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7979 -2379 272 (half blocks) at -3990 -1190 136
+tick    10178  block changed   -3990 -1190 136: pieces → pieces (by player 0)
+tick    10178  block changed   -3990 -1190 136: pieces → pieces (by player 0)
+tick    10178  footstep        player 0 at -3988.6 -1186.8 136.0
+tick    10187  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7979 -2378 272 (half blocks) at -3990 -1189 136
+tick    10188  block changed   -3990 -1189 136: incus:air → pieces (by player 0)
+tick    10188  block changed   -3990 -1189 136: incus:air → pieces (by player 0)
+tick    10195  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7979 -2376 272 (half blocks) at -3990 -1188 136
+tick    10196  block changed   -3990 -1188 136: incus:air → pieces (by player 0)
+tick    10196  block changed   -3990 -1188 136: incus:air → pieces (by player 0)
+tick    10205  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7978 -2377 271 (half blocks) at -3989 -1189 135
+tick    10206  block changed   -3989 -1189 136: pieces → pieces (by player 0)
+tick    10212  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7977 -2376 272 (half blocks) at -3989 -1188 136
+tick    10213  block changed   -3989 -1188 136: incus:air → pieces (by player 0)
+tick    10213  block changed   -3988 -1188 136: incus:air → pieces (by player 0)
+tick    10220  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7979 -2375 273 (half blocks) at -3990 -1188 136
+tick    10221  block changed   -3990 -1188 136: pieces → pieces (by player 0)
+tick    10221  block changed   -3990 -1188 137: incus:air → pieces (by player 0)
+tick    10228  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7980 -2376 272 (half blocks) at -3990 -1188 136
+tick    10229  block changed   -3990 -1188 136: pieces → pieces (by player 0)
+tick    10229  block changed   -3990 -1188 136: pieces → pieces (by player 0)
+tick    10237  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7982 -2376 272 (half blocks) at -3991 -1188 136
+tick    10238  block changed   -3991 -1188 136: incus:air → pieces (by player 0)
+tick    10238  block changed   -3991 -1188 136: incus:air → pieces (by player 0)
+tick    10245  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7982 -2377 273 (half blocks) at -3991 -1189 136
+tick    10246  block changed   -3991 -1189 136: incus:air → pieces (by player 0)
+tick    10246  block changed   -3991 -1188 136: pieces → pieces (by player 0)
+tick    10255  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7983 -2375 272 (half blocks) at -3992 -1188 136
+tick    10256  block changed   -3992 -1188 136: incus:air → pieces (by player 0)
+tick    10256  block changed   -3992 -1187 136: incus:air → pieces (by player 0)
+tick    10262  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7983 -2376 272 (half blocks) at -3992 -1188 136
+tick    10263  block changed   -3992 -1188 136: pieces → pieces (by player 0)
+tick    10270  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7984 -2376 272 (half blocks) at -3992 -1188 136
+tick    10271  block changed   -3992 -1188 136: pieces → pieces (by player 0)
+tick    10271  block changed   -3992 -1188 136: pieces → pieces (by player 0)
+tick    10278  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7985 -2377 272 (half blocks) at -3993 -1189 136
+tick    10279  block changed   -3993 -1189 136: incus:air → pieces (by player 0)
+tick    10279  block changed   -3993 -1189 136: incus:air → pieces (by player 0)
+tick    10286  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7985 -2377 272 (half blocks) at -3993 -1189 136
+tick    10287  block changed   -3992 -1189 136: incus:air → pieces (by player 0)
+tick    10295  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7984 -2379 272 (half blocks) at -3992 -1190 136
+tick    10296  block changed   -3992 -1190 136: incus:air → pieces (by player 0)
+tick    10296  block changed   -3992 -1189 136: pieces → pieces (by player 0)
+tick    10303  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7983 -2379 272 (half blocks) at -3992 -1190 136
+tick    10304  block changed   -3992 -1190 136: pieces → pieces (by player 0)
+tick    10304  block changed   -3992 -1190 136: pieces → pieces (by player 0)
+tick    10312  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7984 -2380 272 (half blocks) at -3992 -1190 136
+tick    10313  block changed   -3992 -1190 136: pieces → pieces (by player 0)
+tick    10313  block changed   -3992 -1190 136: pieces → pieces (by player 0)
+tick    10320  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7983 -2382 272 (half blocks) at -3992 -1191 136
+tick    10321  block changed   -3992 -1191 136: incus:air → pieces (by player 0)
+tick    10321  block changed   -3992 -1191 136: incus:air → pieces (by player 0)
+tick    10328  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7983 -2383 272 (half blocks) at -3992 -1192 136
+tick    10329  block changed   -3992 -1192 136: incus:air → pieces (by player 0)
+tick    10339  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7983 -2382 272 (half blocks) at -3992 -1191 136
+tick    10340  block changed   -3991 -1191 136: incus:air → pieces (by player 0)
+tick    10349  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7982 -2383 272 (half blocks) at -3991 -1192 136
+tick    10350  block changed   -3991 -1192 136: incus:air → pieces (by player 0)
+tick    10357  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7982 -2385 272 (half blocks) at -3991 -1193 136
+tick    10358  block changed   -3991 -1193 136: incus:air → pieces (by player 0)
+tick    10358  block changed   -3991 -1192 136: pieces → pieces (by player 0)
+tick    10367  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7981 -2385 272 (half blocks) at -3991 -1193 136
+tick    10368  block changed   -3991 -1193 136: pieces → pieces (by player 0)
+tick    10368  block changed   -3991 -1192 136: pieces → pieces (by player 0)
+tick    10374  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7982 -2385 273 (half blocks) at -3991 -1193 136
+tick    10375  block changed   -3991 -1193 136: pieces → pieces (by player 0)
+tick    10375  block changed   -3991 -1192 136: pieces → pieces (by player 0)
+tick    10396  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7980 -2385 272 (half blocks) at -3990 -1193 136
+tick    10397  block changed   -3990 -1193 136: incus:air → pieces (by player 0)
+tick    10397  block changed   -3990 -1193 136: incus:air → pieces (by player 0)
+tick    10404  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7979 -2385 272 (half blocks) at -3990 -1193 136
+tick    10405  block changed   -3990 -1193 136: pieces → pieces (by player 0)
+tick    10405  block changed   -3990 -1193 136: pieces → pieces (by player 0)
+tick    10412  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7977 -2386 272 (half blocks) at -3989 -1193 136
+tick    10413  block changed   -3989 -1193 136: incus:air → pieces (by player 0)
+tick    10413  block changed   -3989 -1193 136: incus:air → pieces (by player 0)
+tick    10419  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7976 -2385 272 (half blocks) at -3988 -1193 136
+tick    10420  block changed   -3988 -1193 136: incus:air → pieces (by player 0)
+tick    10420  block changed   -3988 -1193 136: incus:air → pieces (by player 0)
+tick    10427  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7974 -2386 272 (half blocks) at -3987 -1193 136
+tick    10428  block changed   -3987 -1193 136: incus:air → pieces (by player 0)
+tick    10428  block changed   -3987 -1193 136: incus:air → pieces (by player 0)
+tick    10435  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7976 -2389 272 (half blocks) at -3988 -1195 136
+tick    10436  block changed   -3988 -1195 136: incus:air → pieces (by player 0)
+tick    10436  block changed   -3988 -1195 136: incus:air → pieces (by player 0)
+tick    10442  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7975 -2390 272 (half blocks) at -3988 -1195 136
+tick    10443  block changed   -3988 -1195 136: pieces → pieces (by player 0)
+tick    10443  block changed   -3988 -1195 136: pieces → pieces (by player 0)
+tick    10450  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7974 -2390 272 (half blocks) at -3987 -1195 136
+tick    10451  block changed   -3987 -1195 136: incus:air → pieces (by player 0)
+tick    10451  block changed   -3987 -1195 136: incus:air → pieces (by player 0)
+tick    10464  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7972 -2388 272 (half blocks) at -3986 -1194 136
+tick    10465  block changed   -3986 -1194 136: incus:air → pieces (by player 0)
+tick    10465  block changed   -3986 -1194 136: incus:air → pieces (by player 0)
+tick    10471  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7972 -2385 272 (half blocks) at -3986 -1193 136
+tick    10472  block changed   -3986 -1193 136: incus:air → pieces (by player 0)
+tick    10472  block changed   -3986 -1193 136: incus:air → pieces (by player 0)
+tick    10480  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7974 -2380 273 (half blocks) at -3987 -1190 136
+tick    10481  block changed   -3987 -1190 136: incus:air → pieces (by player 0)
+tick    10481  block changed   -3987 -1190 137: incus:air → pieces (by player 0)
+tick    10488  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7976 -2384 275 (half blocks) at -3988 -1192 137
+tick    10489  block changed   -3988 -1192 137: incus:air → pieces (by player 0)
+tick    10489  block changed   -3988 -1192 138: pieces → pieces (by player 0)
+tick    10495  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7974 -2383 276 (half blocks) at -3987 -1192 138
+tick    10496  block changed   -3987 -1192 138: incus:air → pieces (by player 0)
+tick    10496  block changed   -3987 -1192 138: incus:air → pieces (by player 0)
+tick    10511  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7976 -2377 273 (half blocks) at -3988 -1189 136
+tick    10512  block changed   -3988 -1189 136: pieces → pieces (by player 0)
+tick    10512  block changed   -3988 -1189 137: incus:air → pieces (by player 0)
+tick    10518  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7973 -2380 272 (half blocks) at -3987 -1190 136
+tick    10519  block changed   -3987 -1190 136: pieces → pieces (by player 0)
+tick    10519  block changed   -3987 -1190 136: pieces → pieces (by player 0)
+tick    10526  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7969 -2379 272 (half blocks) at -3985 -1190 136
+tick    10527  block changed   -3985 -1190 136: incus:air → pieces (by player 0)
+tick    10527  block changed   -3985 -1190 136: incus:air → pieces (by player 0)
+tick    10534  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7970 -2380 272 (half blocks) at -3985 -1190 136
+tick    10535  block changed   -3985 -1190 136: pieces → pieces (by player 0)
+tick    10535  block changed   -3985 -1190 136: pieces → pieces (by player 0)
+tick    10541  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7971 -2384 272 (half blocks) at -3986 -1192 136
+tick    10542  block changed   -3986 -1192 136: incus:air → pieces (by player 0)
+tick    10542  block changed   -3986 -1192 136: incus:air → pieces (by player 0)
+tick    10550  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7972 -2387 272 (half blocks) at -3986 -1194 136
+tick    10551  block changed   -3986 -1194 136: pieces → pieces (by player 0)
+tick    10551  block changed   -3986 -1194 136: pieces → pieces (by player 0)
+tick    10558  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7967 -2386 272 (half blocks) at -3984 -1193 136
+tick    10559  block changed   -3984 -1193 136: incus:air → pieces (by player 0)
+tick    10559  block changed   -3984 -1193 136: incus:air → pieces (by player 0)
+tick    10565  edit request    player 0 asks to place a upright bar of incus:stone_brick from -7968 -2385 272 (half blocks) at -3984 -1193 136
+tick    10566  block changed   -3984 -1193 136: pieces → pieces (by player 0)
+tick    10566  block changed   -3984 -1193 136: pieces → pieces (by player 0)
+tick    10573  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7971 -2385 272 (half blocks) at -3986 -1193 136
+tick    10574  block changed   -3986 -1193 136: pieces → pieces (by player 0)
+tick    10580  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7970 -2384 272 (half blocks) at -3985 -1192 136
+tick    10581  block changed   -3985 -1192 136: incus:air → pieces (by player 0)
+tick    10581  block changed   -3985 -1192 136: incus:air → pieces (by player 0)
+tick    10588  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7969 -2383 272 (half blocks) at -3985 -1192 136
+tick    10589  block changed   -3985 -1192 136: pieces → pieces (by player 0)
+tick    10589  block changed   -3985 -1191 136: incus:air → pieces (by player 0)
+tick    10610  footstep        player 0 at -3979.1 -1191.9 136.0
+tick    10643  footstep        player 0 at -3980.2 -1191.3 136.0
+tick    10707  footstep        player 0 at -3982.2 -1190.3 136.0
+tick    10759  landed          player 0 at -3984.3 -1187.1 137.0, falling at 2.8 blocks/s
+tick    10772  landed          player 0 at -3984.5 -1186.4 136.0, falling at 8.5 blocks/s
+tick    10795  landed          player 0 at -3985.7 -1186.3 137.0, falling at 2.8 blocks/s
+tick    10839  landed          player 0 at -3987.7 -1186.1 136.0, falling at 8.5 blocks/s
+tick    10840  footstep        player 0 at -3987.7 -1186.1 136.0
+tick    10885  edit request    player 0 asks to place incus:gabbro at -3992 -1188 137
+tick    10886  block changed   -3992 -1188 137: incus:air → incus:gabbro (by player 0)
+tick    10893  edit request    player 0 asks to place incus:gabbro at -3993 -1189 136
+tick    10894  edit refused    -3993 -1189 136: place incus:gabbro by player 0 refused: Occupied
+tick    10901  edit request    player 0 asks to place incus:gabbro at -3993 -1188 136
+tick    10902  block changed   -3993 -1188 136: incus:air → incus:gabbro (by player 0)
+tick    10908  edit request    player 0 asks to place incus:gabbro at -3993 -1187 136
+tick    10909  block changed   -3993 -1187 136: incus:air → incus:gabbro (by player 0)
+tick    10916  edit request    player 0 asks to place incus:gabbro at -3994 -1189 136
+tick    10917  block changed   -3994 -1189 136: incus:air → incus:gabbro (by player 0)
+tick    10928  edit request    player 0 asks to place incus:gabbro at -3996 -1191 136
+tick    10929  block changed   -3996 -1191 136: incus:air → incus:gabbro (by player 0)
+tick    10936  edit request    player 0 asks to place incus:gabbro at -3996 -1190 136
+tick    10937  block changed   -3996 -1190 136: incus:air → incus:gabbro (by player 0)
+tick    10944  edit request    player 0 asks to place incus:gabbro at -3997 -1190 136
+tick    10945  block changed   -3997 -1190 136: incus:air → incus:gabbro (by player 0)
+tick    10951  edit request    player 0 asks to place incus:gabbro at -3997 -1189 136
+tick    10952  block changed   -3997 -1189 136: incus:air → incus:gabbro (by player 0)
+tick    10959  edit request    player 0 asks to place incus:gabbro at -3996 -1189 136
+tick    10960  block changed   -3996 -1189 136: incus:air → incus:gabbro (by player 0)
+tick    10967  edit request    player 0 asks to place incus:gabbro at -3995 -1189 136
+tick    10968  block changed   -3995 -1189 136: incus:air → incus:gabbro (by player 0)
+tick    10974  edit request    player 0 asks to place incus:gabbro at -3994 -1187 136
+tick    10975  block changed   -3994 -1187 136: incus:air → incus:gabbro (by player 0)
+tick    10982  edit request    player 0 asks to place incus:gabbro at -3995 -1186 136
+tick    10983  block changed   -3995 -1186 136: incus:air → incus:gabbro (by player 0)
+tick    10990  edit request    player 0 asks to place incus:gabbro at -3998 -1185 136
+tick    10991  block changed   -3998 -1185 136: incus:air → incus:gabbro (by player 0)
+tick    10997  edit request    player 0 asks to place incus:gabbro at -3998 -1186 136
+tick    10998  block changed   -3998 -1186 136: incus:air → incus:gabbro (by player 0)
+tick    11005  edit request    player 0 asks to place incus:gabbro at -3999 -1186 136
+tick    11006  block changed   -3999 -1186 136: incus:air → incus:gabbro (by player 0)
+tick    11012  edit request    player 0 asks to place incus:gabbro at -4000 -1187 136
+tick    11013  block changed   -4000 -1187 136: incus:air → incus:gabbro (by player 0)
+tick    11020  edit request    player 0 asks to place incus:gabbro at -3997 -1188 136
+tick    11021  block changed   -3997 -1188 136: incus:air → incus:gabbro (by player 0)
+tick    11087  edit request    player 0 asks to place incus:gabbro at -3993 -1195 136
+tick    11088  block changed   -3993 -1195 136: incus:air → incus:gabbro (by player 0)
+tick    11110  edit request    player 0 asks to place incus:gabbro at -3993 -1200 136
+tick    11111  block changed   -3993 -1200 136: incus:air → incus:gabbro (by player 0)
+tick    11117  edit request    player 0 asks to place incus:gabbro at -3993 -1197 136
+tick    11118  block changed   -3993 -1197 136: incus:air → incus:gabbro (by player 0)
+tick    11125  edit request    player 0 asks to place incus:gabbro at -3994 -1197 136
+tick    11126  block changed   -3994 -1197 136: incus:air → incus:gabbro (by player 0)
+tick    11133  edit request    player 0 asks to place incus:gabbro at -3994 -1197 137
+tick    11134  block changed   -3994 -1197 137: incus:air → incus:gabbro (by player 0)
+tick    11236  footstep        player 0 at -3991.5 -1200.8 136.0
+tick    11720  landed          player 0 at -3988.9 -1198.4 136.0, falling at 57.6 blocks/s
+tick    11728  footstep        player 0 at -3988.9 -1198.4 136.0
+tick    11791  footstep        player 0 at -3988.8 -1194.0 136.0
+tick    11927  footstep        player 0 at -3993.1 -1190.1 136.0
+tick    12013  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7979 -2386 272 (half blocks) at -3990 -1193 136
+tick    12014  block changed   -3990 -1193 136: pieces → pieces (by player 0)
+tick    12018  footstep        player 0 at -3992.8 -1193.5 136.0
+tick    12021  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7984 -2384 272 (half blocks) at -3992 -1192 136
+tick    12022  block changed   -3992 -1192 136: pieces → pieces (by player 0)
+tick    12022  block changed   -3992 -1192 136: pieces → pieces (by player 0)
+tick    12029  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7985 -2384 273 (half blocks) at -3993 -1192 136
+tick    12030  block changed   -3993 -1192 136: incus:air → pieces (by player 0)
+tick    12030  block changed   -3992 -1192 136: pieces → pieces (by player 0)
+tick    12036  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7985 -2381 272 (half blocks) at -3993 -1191 136
+tick    12037  block changed   -3993 -1191 136: incus:air → pieces (by player 0)
+tick    12037  block changed   -3992 -1191 136: pieces → pieces (by player 0)
+tick    12044  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7986 -2382 272 (half blocks) at -3993 -1191 136
+tick    12045  block changed   -3993 -1191 136: pieces → pieces (by player 0)
+tick    12045  block changed   -3993 -1191 136: pieces → pieces (by player 0)
+tick    12052  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7986 -2380 272 (half blocks) at -3993 -1190 136
+tick    12053  block changed   -3993 -1190 136: incus:air → pieces (by player 0)
+tick    12053  block changed   -3993 -1190 136: incus:air → pieces (by player 0)
+tick    12059  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7986 -2381 272 (half blocks) at -3993 -1191 136
+tick    12060  block changed   -3993 -1191 136: pieces → pieces (by player 0)
+tick    12067  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7985 -2385 272 (half blocks) at -3993 -1193 136
+tick    12068  block changed   -3993 -1193 136: incus:air → pieces (by player 0)
+tick    12068  block changed   -3993 -1192 136: pieces → pieces (by player 0)
+tick    12068  footstep        player 0 at -3995.2 -1191.4 136.0
+tick    12075  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7986 -2386 272 (half blocks) at -3993 -1193 136
+tick    12076  block changed   -3993 -1193 136: pieces → pieces (by player 0)
+tick    12076  block changed   -3993 -1193 136: pieces → pieces (by player 0)
+tick    12099  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7983 -2386 272 (half blocks) at -3992 -1193 136
+tick    12100  block changed   -3992 -1193 136: incus:air → pieces (by player 0)
+tick    12100  block changed   -3992 -1193 136: incus:air → pieces (by player 0)
+tick    12107  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7986 -2384 272 (half blocks) at -3993 -1192 136
+tick    12108  block changed   -3993 -1192 136: pieces → pieces (by player 0)
+tick    12108  block changed   -3993 -1192 136: pieces → pieces (by player 0)
+tick    12114  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7986 -2386 273 (half blocks) at -3993 -1193 136
+tick    12115  block changed   -3993 -1193 136: pieces → pieces (by player 0)
+tick    12115  block changed   -3993 -1193 136: pieces → pieces (by player 0)
+tick    12122  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7984 -2386 272 (half blocks) at -3992 -1193 136
+tick    12123  block changed   -3992 -1193 136: pieces → pieces (by player 0)
+tick    12123  block changed   -3992 -1193 136: pieces → pieces (by player 0)
+tick    12129  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7987 -2390 273 (half blocks) at -3994 -1195 136
+tick    12130  block changed   -3994 -1195 136: incus:air → pieces (by player 0)
+tick    12130  block changed   -3994 -1195 136: incus:air → pieces (by player 0)
+tick    12137  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7986 -2391 274 (half blocks) at -3993 -1196 137
+tick    12138  block changed   -3993 -1196 137: incus:air → pieces (by player 0)
+tick    12138  block changed   -3993 -1195 137: incus:air → pieces (by player 0)
+tick    12149  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7986 -2393 274 (half blocks) at -3993 -1197 137
+tick    12150  block changed   -3993 -1197 137: incus:air → pieces (by player 0)
+tick    12150  block changed   -3993 -1196 137: pieces → pieces (by player 0)
+tick    12164  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7988 -2390 274 (half blocks) at -3994 -1195 137
+tick    12165  block changed   -3994 -1195 137: incus:air → pieces (by player 0)
+tick    12165  block changed   -3994 -1195 137: incus:air → pieces (by player 0)
+tick    12177  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7988 -2390 275 (half blocks) at -3994 -1195 137
+tick    12178  block changed   -3994 -1195 137: pieces → pieces (by player 0)
+tick    12178  block changed   -3994 -1195 137: pieces → pieces (by player 0)
+tick    12191  landed          player 0 at -3994.3 -1195.4 136.0, falling at 8.1 blocks/s
+tick    12191  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7989 -2382 272 (half blocks) at -3995 -1191 136
+tick    12192  block changed   -3995 -1191 136: incus:air → pieces (by player 0)
+tick    12192  block changed   -3994 -1191 136: incus:air → pieces (by player 0)
+tick    12198  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7988 -2383 272 (half blocks) at -3994 -1192 136
+tick    12199  block changed   -3994 -1192 136: incus:air → pieces (by player 0)
+tick    12199  block changed   -3994 -1192 136: incus:air → pieces (by player 0)
+tick    12206  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7988 -2384 272 (half blocks) at -3994 -1192 136
+tick    12207  block changed   -3994 -1192 136: pieces → pieces (by player 0)
+tick    12207  block changed   -3994 -1192 136: pieces → pieces (by player 0)
+tick    12213  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7986 -2381 273 (half blocks) at -3993 -1191 136
+tick    12214  block changed   -3993 -1191 136: pieces → pieces (by player 0)
+tick    12214  block changed   -3993 -1191 136: pieces → pieces (by player 0)
+tick    12250  landed          player 0 at -3995.5 -1191.3 137.0, falling at 2.8 blocks/s
+tick    12306  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7980 -2380 273 (half blocks) at -3990 -1190 136
+tick    12307  block changed   -3990 -1190 136: pieces → pieces (by player 0)
+tick    12307  block changed   -3990 -1190 136: pieces → pieces (by player 0)
+tick    12314  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7978 -2379 273 (half blocks) at -3989 -1190 136
+tick    12315  block changed   -3989 -1190 136: pieces → pieces (by player 0)
+tick    12315  block changed   -3989 -1189 136: pieces → pieces (by player 0)
+tick    12321  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7983 -2377 276 (half blocks) at -3992 -1189 138
+tick    12322  block changed   -3992 -1189 138: incus:air → pieces (by player 0)
+tick    12322  block changed   -3992 -1188 138: incus:air → pieces (by player 0)
+tick    12329  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7984 -2376 276 (half blocks) at -3992 -1188 138
+tick    12330  block changed   -3992 -1188 138: pieces → pieces (by player 0)
+tick    12330  block changed   -3992 -1188 138: pieces → pieces (by player 0)
+tick    12337  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7986 -2376 276 (half blocks) at -3993 -1188 138
+tick    12338  block changed   -3993 -1188 138: incus:air → pieces (by player 0)
+tick    12338  block changed   -3993 -1188 138: incus:air → pieces (by player 0)
+tick    12352  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7981 -2382 276 (half blocks) at -3991 -1191 138
+tick    12353  block changed   -3991 -1191 138: incus:air → pieces (by player 0)
+tick    12353  block changed   -3990 -1191 138: incus:air → pieces (by player 0)
+tick    12354  landed          player 0 at -3992.4 -1187.1 137.0, falling at 8.1 blocks/s
+tick    12373  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7985 -2375 276 (half blocks) at -3993 -1188 138
+tick    12374  block changed   -3993 -1188 138: pieces → pieces (by player 0)
+tick    12374  block changed   -3993 -1187 138: incus:air → pieces (by player 0)
+tick    12382  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7978 -2372 273 (half blocks) at -3989 -1186 136
+tick    12383  block changed   -3989 -1186 136: incus:air → pieces (by player 0)
+tick    12383  block changed   -3989 -1186 136: incus:air → pieces (by player 0)
+tick    12390  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7979 -2370 273 (half blocks) at -3990 -1185 136
+tick    12391  block changed   -3990 -1185 136: incus:air → pieces (by player 0)
+tick    12391  block changed   -3990 -1185 136: incus:air → pieces (by player 0)
+tick    12399  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7979 -2374 274 (half blocks) at -3990 -1187 137
+tick    12400  block changed   -3990 -1187 137: incus:air → pieces (by player 0)
+tick    12400  block changed   -3990 -1187 137: incus:air → pieces (by player 0)
+tick    12401  landed          player 0 at -3992.2 -1185.1 136.0, falling at 8.5 blocks/s
+tick    12407  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7980 -2375 274 (half blocks) at -3990 -1188 137
+tick    12408  block changed   -3990 -1188 137: pieces → pieces (by player 0)
+tick    12408  block changed   -3990 -1187 137: pieces → pieces (by player 0)
+tick    12414  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7980 -2374 274 (half blocks) at -3990 -1187 137
+tick    12415  block changed   -3990 -1187 137: pieces → pieces (by player 0)
+tick    12422  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7977 -2375 272 (half blocks) at -3989 -1188 136
+tick    12423  block changed   -3989 -1188 136: pieces → pieces (by player 0)
+tick    12423  block changed   -3988 -1188 136: pieces → pieces (by player 0)
+tick    12429  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7981 -2372 274 (half blocks) at -3991 -1186 137
+tick    12430  block changed   -3991 -1186 137: incus:air → pieces (by player 0)
+tick    12430  block changed   -3990 -1186 137: incus:air → pieces (by player 0)
+tick    12436  landed          player 0 at -3989.5 -1184.4 137.0, falling at 2.8 blocks/s
+tick    12437  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7979 -2373 275 (half blocks) at -3990 -1187 137
+tick    12438  block changed   -3990 -1187 137: pieces → pieces (by player 0)
+tick    12438  block changed   -3989 -1187 137: incus:air → pieces (by player 0)
+tick    12452  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7982 -2377 276 (half blocks) at -3991 -1189 138
+tick    12453  block changed   -3991 -1189 138: incus:air → pieces (by player 0)
+tick    12453  block changed   -3991 -1189 138: incus:air → pieces (by player 0)
+tick    12460  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7982 -2376 276 (half blocks) at -3991 -1188 138
+tick    12461  block changed   -3991 -1188 138: incus:air → pieces (by player 0)
+tick    12461  block changed   -3991 -1188 138: incus:air → pieces (by player 0)
+tick    12565  landed          player 0 at -3981.0 -1187.9 136.0, falling at 8.5 blocks/s
+tick    12617  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7971 -2384 274 (half blocks) at -3986 -1192 137
+tick    12618  block changed   -3986 -1192 137: incus:air → pieces (by player 0)
+tick    12618  block changed   -3986 -1192 137: incus:air → pieces (by player 0)
+tick    12625  edit request    player 0 asks to place a east–west bar of incus:stone_brick from -7968 -2386 274 (half blocks) at -3984 -1193 137
+tick    12626  block changed   -3984 -1193 137: incus:air → pieces (by player 0)
+tick    12626  block changed   -3984 -1193 137: incus:air → pieces (by player 0)
+tick    12717  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7976 -2391 273 (half blocks) at -3988 -1196 136
+tick    12718  block changed   -3988 -1196 136: incus:air → pieces (by player 0)
+tick    12718  block changed   -3988 -1196 136: incus:air → pieces (by player 0)
+tick    12731  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7973 -2390 272 (half blocks) at -3987 -1195 136
+tick    12732  block changed   -3987 -1195 136: pieces → pieces (by player 0)
+tick    12732  block changed   -3986 -1195 136: incus:air → pieces (by player 0)
+tick    12739  edit request    player 0 asks to place a north–south bar of incus:stone_brick from -7974 -2391 273 (half blocks) at -3987 -1196 136
+tick    12740  block changed   -3987 -1196 136: incus:air → pieces (by player 0)
+tick    12740  block changed   -3987 -1196 136: incus:air → pieces (by player 0)
+tick    12900  footstep        player 0 at -3987.2 -1199.1 136.0
+tick    12945  footstep        player 0 at -3986.1 -1197.0 136.0
+tick    12966  landed          player 0 at -3986.2 -1195.8 137.0, falling at 2.8 blocks/s
+tick    12978  footstep        player 0 at -3986.2 -1195.5 137.0
+tick    13015  landed          player 0 at -3987.8 -1192.8 138.0, falling at 2.8 blocks/s
+tick    13057  landed          player 0 at -3988.1 -1191.4 138.5, falling at 8.1 blocks/s
+tick    13082  landed          player 0 at -3987.4 -1191.0 138.5, falling at 8.1 blocks/s
+tick    13097  landed          player 0 at -3987.6 -1189.9 140.0, falling at 2.8 blocks/s
+tick    13100  footstep        player 0 at -3987.7 -1189.8 140.0
+tick    13149  footstep        player 0 at -3988.3 -1190.2 140.0
+tick    13171  landed          player 0 at -3988.2 -1188.6 138.0, falling at 11.7 blocks/s
+tick    13184  footstep        player 0 at -3988.3 -1187.9 138.0
+tick    13203  landed          player 0 at -3989.8 -1187.9 138.5, falling at 6.0 blocks/s
+tick    13215  footstep        player 0 at -3990.3 -1188.1 138.5
+tick    13246  landed          player 0 at -3992.1 -1189.6 136.5, falling at 11.7 blocks/s
+tick    13273  landed          player 0 at -3991.8 -1191.9 137.0, falling at 8.1 blocks/s
+tick    13284  landed          player 0 at -3991.6 -1192.9 136.5, falling at 5.3 blocks/s
+tick    13295  landed          player 0 at -3991.4 -1193.9 136.0, falling at 5.3 blocks/s
+tick    13515  landed          player 0 at -688.6 -2202.9 127.0, falling at 67.2 blocks/s
+tick    13564  footstep        player 0 at -688.6 -2202.9 127.0
+tick    13593  footstep        player 0 at -688.6 -2204.0 127.0
+tick    13827  landed          player 0 at -335.9 -2355.4 127.0, falling at 52.3 blocks/s
+tick    15549  landed          player 0 at -4096.2 -1370.4 131.0, falling at 78.4 blocks/s
+tick    15552  footstep        player 0 at -4096.2 -1370.4 131.0
+tick    15870  footstep        player 0 at -4063.6 -1317.3 131.0
+tick    15899  footstep        player 0 at -4063.1 -1316.5 131.0
+tick    16110  landed          player 0 at -4039.8 -1281.3 132.0, falling at 2.8 blocks/s
+tick    16265  landed          player 0 at -4025.2 -1259.6 133.0, falling at 2.8 blocks/s
+tick    16375  landed          player 0 at -4017.3 -1243.0 134.0, falling at 2.8 blocks/s
+tick    16471  landed          player 0 at -4009.2 -1229.1 135.0, falling at 2.8 blocks/s
+tick    16601  landed          player 0 at -3997.8 -1211.4 135.0, falling at 8.1 blocks/s
+tick    16617  landed          player 0 at -3996.5 -1211.2 136.0, falling at 2.8 blocks/s
+tick    16884  landed          player 0 at -3983.6 -1189.1 136.0, falling at 8.1 blocks/s
+tick    16905  landed          player 0 at -3984.0 -1187.8 136.0, falling at 8.1 blocks/s
+tick    16930  landed          player 0 at -3985.4 -1185.9 137.0, falling at 2.8 blocks/s
+tick    17700  landed          player 0 at -3807.8 -856.1 130.0, falling at 55.5 blocks/s
