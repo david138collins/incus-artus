@@ -1135,3 +1135,41 @@ its passes), median ms:
   2a's numbers hold within 5%.
 - **The baseline,** old's far view whole on bricks (W): the far marks at 1.4 to 4.0 ms, 1.4 to 4 times the gate's typical
   1 ms. The map's costs now come from the newest flight flown as the game runs (W), not from N.
+
+
+## Change 1: soft bricks blended by the texture hardware  *(plan 2.2, experiment 5's first change)*
+
+David: "honestly, i think we should try all these things and gather data about the performance impacts they have, and let
+me take a look at how they look while flying and while still/moving my head" (2026-11-12). Memory is a bar too: the
+whole game's card memory "well below" 4 GB at worst. Each step is weighed against it, the near eye and light included.
+
+### What's built
+
+- **The bricks also kept as 3D textures** in atlases on the card, each brick with a one-cell border on its high sides,
+  holding the next cells over, so the hardware's filter blends across a brick's edge. A brick's cells under its band
+  are kept solid and over it empty, as the bands say.
+- **When a region comes in,** its bricks are made with borders from whichever neighbours are in, and the bricks of the
+  neighbours below it in north, east and both get their borders filled from it. Rays never read a border not filled
+  yet: the march reads the four columns' bands first, as old's blend did, and a column not summed is unknown.
+- **The blend:** where all four columns are in and the brick is on the card, one fetch for how solid and how watery (at
+  every step), then the colour and the faces' fetches where it's covered. Where not (a column outside the bricks, a
+  brick not kept), the code's blend as before, so nothing is ever read wrong.
+- **Two ways, both on the card at once for David's look, one at a time for the flights** (`INCUS_FAR_BLEND` = `code`,
+  `exact`, `spread`, or `both` for the look), switched live on the Render page:
+  - **A, exact:** colour and the six faces' shares stored multiplied by the surface, with the surface itself, as 16-bit
+    floats. The hardware's filter sums them, and one divide gives old's blend.
+  - **B, spread:** colour and faces spread into empty neighbours when the brick is made, filtered unweighted, in 8 bits.
+  - Solid and watery are true and unspread in both (16-bit).
+- The hand-over between levels stays as old's.
+
+### The pass mark (written before the code)
+
+- **A card test,** at points spread through the regions round the spawn, each of the eight cells' blends against the
+  code's. **A** within 16-bit rounding: every value within 1/1,000 of the code's. **B:** the largest difference reported, and
+  where, with no bar (it's meant to differ by a hair).
+- **Pictures** off the screen, from high over the spawn and low over the sea, A and B beside the code's, before David
+  sees them.
+- **Flights:** code, A and B, one at a time at every mark, each far pass on the card, and the card's memory.
+- **Builder's estimate** *[low]*: the 8 × 8 and 4 × 4 layers 15 to 30% cheaper with A, a little more with B. Memory *[medium]*:
+  A about 2.5 GB for the whole world's far view, B about half. Either way that's set against the 4 GB bar, with what it leaves
+  room for, before anything is chosen.
