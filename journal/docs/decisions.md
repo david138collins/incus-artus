@@ -1159,6 +1159,20 @@ Reference: `Art/quartile minecraft illustration.png`
   reference columns to the block. What's left is carried to where it's first fed: the doorway's pieces, objects and
   lights to 2.4; its named fields to 3.1; every mark flown on both cards by one command to 2.2, whose gate needs
   the Intel card (the laptop on "Optimus" for that flight). Next: 2.2, the far eye.
+- **[DECIDED 2026-11-12] The far cells summed on the processor** (David, after Counsel set it beside his rule of
+  2026-11-04, "ONLY write code that increases the gpu's effort"): "yes, i think we'd be right to use the processor
+  for summing the far cells. its a 1 time event, and it's quick." 2.2's first step sums them on the loading lane
+  from the doorway's columns; old's bake ran the recipe on the card. If the first sum's time comes in well over
+  Builder's estimate (two minutes), it's looked at again.
+- **[DECIDED 2026-11-12] Old words weigh less** (David, to Counsel): "you should probably decay the
+  authoritativeness of my statements about how things should be, by the time since i've said them and how much has
+  changed. some things may never change, but really, everything everywhere is always moving, and so are the ideas
+  we have, as we try and discard them. reminding me of them is great, because it brings up how far we've come, just
+  don't be too attached to the things i've said unless its about current or recent work. you guys are doing a great
+  job. just remember that i also have a limited context window and may have no clue whatsoever why i said something
+  should be this way a week ago!" So an old word is quoted with its date and what's changed since, as a reminder,
+  and asked about, not held as binding. Words about current or recent work keep their weight. This file is read
+  that way too: its older entries are how we got here, and `master/` is what holds now.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
