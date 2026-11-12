@@ -1212,6 +1212,11 @@ Reference: `Art/quartile minecraft illustration.png`
   sky, and a mountain's own pixels are left nearly as they were, for one power a pixel. David: "that actually works
   great". The value he settles on becomes the default, and Default returns to it. Why: the skyline's darker squares
   were old's unsolved edge; a feather that costs nothing and leaves the land's body alone answers it.
+  - **His value: 4** ("i maxed it"): the default from build 125, the slider now running to 8 so his value sits in
+    the middle of the knob. The rest of 2a's look (`journal/docs/experiments.md`): "honestly none of the crossover
+    sliders do much" (from far cells alone the finer layers are rarely earned; the sliders are kept for when the
+    near eye brings small cells in); low over the sea, "yeah it goes up if i look around. anyways just noting it"
+    (1.3 ms looking up, 4.2 along the horizon). He named no ring as a seam.
   - **[LATER] Weighting kinds of pixels, for the polish** (David, the same day): "i think being able to weight
     different kinds of pixels may be a very cheap and useful tool for a lot of things, once we've got performance
     where we want it and can spend some time just polishing the look a bit." Nothing built for it now; it waits for

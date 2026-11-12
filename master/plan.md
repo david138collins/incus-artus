@@ -16,10 +16,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   also made the ground from the recipe, which the export did once, in 8 minutes). Step 2a, the far eye's shape, is
   in (build 122, after 121 crashed at an edge, fixed in the open): old's far march on bricks, faces lit by the sun,
   fog and sky, no shadows or sky light yet; 911 MB of bricks for the whole world (old's pool was 384 MB). David
-  looked high over the spawn ("it looks right, mostly"), and its flight is the baseline: 1.2 to 4.0 ms on the card
-  at the far marks, 2 to 4 times the gate, before light. Build 123 adds the Render page (F3) where he tunes the sky's
-  weight and the levels' hand-over, the card time beside them. Next: his tuning, the look low over the sea, then 2b,
-  old's light.
+  looked ("it looks right, mostly"), and its flight read 1.2 to 4.0 ms on the card at the far marks, 2 to 4 times the
+  gate, before light. On the Render page (F3) he set the sky's feather at skylines ("that actually works great", 4
+  the default); low over the sea he named no ring as a seam. Step 2b, old's light (the sun's shadow ray and the
+  sky's five cones), is built (build 126, 4fbd70d). Next: David's look at it high over the spawn, then its flight,
+  which is the baseline for the three changes.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -38,8 +39,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his tuning of build 123 high over the spawn (the sky's weight, the hand-over), then his look
-  low over the sea. Also whether `CLAUDE.md` points at the map now. Ahead: at 2.2's gate the Intel card's numbers, which need the
+- **Waiting on David:** his look at build 126, old's light on the far view, high over the spawn. Also whether
+  `CLAUDE.md` points at the map now. Ahead: at 2.2's gate the Intel card's numbers, which need the
   laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
