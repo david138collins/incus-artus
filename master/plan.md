@@ -29,8 +29,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his desktop "Play Incus Artus.bat", which starts the top of the folder (now the new game):
-  keep it there and add one for old?
+- **Waiting on David:** nothing now. Builder brings him the editor's drop-down spellings as she places them. His
+  desktop has two launchers: "Play Incus Artus" (the new game) and "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 

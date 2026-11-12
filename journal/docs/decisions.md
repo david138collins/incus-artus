@@ -1112,6 +1112,9 @@ Reference: `Art/quartile minecraft illustration.png`
     boxes for sections. *Builder's reading:* the lanes are the larger boxes with their passes inside; the stores sit
     outside, joined by lines to what reads and writes them; the tooltips carry each box's card, with live times.
     `master/map.md` is still drawn from the same list by the build's test, for the sessions.
+- **[DECIDED 2026-11-12] Two desktop launchers** (David, to Counsel's pick: "Yes, add old's"). "Play Incus Artus.bat"
+  starts the top of the folder, now the new game, and stays so. "Play old Incus Artus.bat" (Counsel's, the same
+  file but for its folder) starts `old\`, with old's own build folder.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
