@@ -1244,6 +1244,14 @@ Reference: `Art/quartile minecraft illustration.png`
   on the memory each costs: "yes, we'll need to assess the costs scientifically and weigh their effects
   architecturally." So each step reports its time and the game's whole card memory, and a choice is weighed against
   the whole eye's budget (near eye, light and the rest included), not by the far view alone.
+- **[DECIDED 2026-11-12] Ask idle hardware what it can do** (David, to Counsel): "supposing that we keep the games
+  running graphics memory consumption under a safe 4gb, or even a sleek 2.5gb, what other uses do we have for
+  graphics memory? we should have an exploitative mindset: if something in the generic hardware resources we are
+  using is being underutilized, we should ask, 'what can *you* do for me?'" A principle, as with the idle triangle
+  and texture hardware before (changes 1 and 2). *Counsel's reading, for the fork:* what the game needs to run stays
+  under the memory bar on every card; what only makes it faster or finer is kept as caches that grow into a card's
+  free memory and drop away on a small one, bounded by the card and never growing with play, the picture the same
+  either way. Put to the Oracle (`journal/vision/oracle-return.md`, question 9).
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

@@ -38,6 +38,12 @@ facts say so, and say which one and why.
 - **Know the noise.** A repeat flight can differ by a percent or two; a warm-up can make the first half minute of a
   session slower. Measure settled, and read one flight with its noise.
 
+- **Ask idle hardware what it can do.** If any part of the ordinary hardware sits underused (a fixed-function unit,
+  free memory, the time between frames, spare threads), ask "what can *you* do for me?" Keep what the program needs to
+  run within the smallest machine's budget; let what only makes it faster or finer grow into what a bigger machine
+  has free, and drop away on a small one, giving the same result either way. Portable features only, never one
+  vendor's trick.
+
 ## Keeping it true
 
 - **Corrections in the open.** A wrong figure, a miscount, a bad read: corrected beside the original, saying what was

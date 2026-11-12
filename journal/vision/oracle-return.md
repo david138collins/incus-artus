@@ -299,6 +299,18 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
    - Is that your "rays that skim along the ground" (your 4.8, what would make the budget wrong), met in old already?
    - Does starting rays at drawn boxes answer grazing rays over flat land, or do they still walk many bricks?
    - What should the new engine's clocks (a layer and a pass at a time, from 2.1) look at first, at this mark?
+9. **Required memory and spare memory** (David, 2026-11-12: "if something in the generic hardware resources we are
+   using is being underutilized, we should ask, 'what can *you* do for me?'"). His bar is the game's card memory well
+   below 4 GB at worst; the laptop's card has 12. Counsel's split: what the game needs to run stays under the bar on
+   every card, and what only makes it faster or finer is kept as caches that grow into a card's free memory and drop
+   away on a small one, bounded by the card, never growing with play.
+   - Which of your levers trade memory for time best on a big card: the far picture fixed to the world (your E),
+     light kept by place, the next sun step's light prepared before it's shown, a wider ring of near bricks kept
+     loaded, maps that let rays skip air faster?
+   - Is a cache that changes size with the card honest under "1 always equals 1" and "no per-card tricks", if the
+     picture it gives is the same and only the time differs?
+   - What else sits idle that the design should ask the same of: the card's time between frames, its copy engine,
+     the processor's spare threads, the laptop's 31 GB of memory?
 
 ## 5. Still to come
 
