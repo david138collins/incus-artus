@@ -1539,3 +1539,13 @@ the spawn 2.267 against 2.262, low over the sea 3.071 against 3.024. Within 3%: 
   storage buffers again, and the raised limit is taken back. Counsel's question: a card that allows only 8 (tier-1
   DirectX 12) would have refused the far eye.
 - Flown once more at bricks of 4, to see that both cost nothing and the jump's stall is gone.
+
+**Build 134 flown at bricks of 4 with the window** (6dc9171, 13:29 to 13:35, `kept logs/flight-1794512135.txt`):
+- The fast run went its 50.0 km: the jump's stall is gone.
+- Memory 471 MB in use.
+- The still marks within 1% of build 133's (the spawn 0.706, the mountain top 2.114, the plain 1.179, high over the
+  spawn 2.287, low over the sea 3.092), so the flags in the bands' buffer cost nothing.
+- At a player's 200 a second, the tail is as before: 99.9th 6.2 ms, worst 7.9, the putting pass's worst 7.2.
+- At 2,000 a second: the window kept up (8,072 and 18,303 blocks); frames 99th 8.7, worst 23.6.
+- Next, David's look: the window's distant ridges against the whole world's, and moving at a player's pace with the
+  camera at its true speed, for whether the conveyor's spikes can be felt.
