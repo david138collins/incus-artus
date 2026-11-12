@@ -1336,6 +1336,15 @@ Reference: `Art/quartile minecraft illustration.png`
     David feeling the spikes at a player's pace; Counsel would build it anyway against his "solid as a rock".
   - **[OPEN] The distant ridges:** from height, past the window the finer layers now read 64s where they read 32s,
     up to 35 to 49 of 255 apart on far ridges. For his eye, window against whole world.
+  - **His look at build 134** (to Builder, moving at a player's 200 blocks a second and at the ridges): "it looks
+    good". He named no hitch and no ridge, so the window stands as it is, and the brick-at-a-time conveyor waits
+    unless he feels the spikes.
+- **[DECIDED 2026-11-12] The temperatures tracked again, always on** (David, to Builder: "i'd like for you to start
+  tracking temperatures again, just as before"; asked where its switch goes: "No switch, always on"). Build 135: old's
+  readings every 3 s on their own lane (the processor's area, the card and its clock), drawn top right while playing
+  but not on flights; each flight standing reports its hottest readings and the card's slowest clock;
+  `INCUS_TEMPERATURES=0` turns them off for measuring. Why: heat was how old's slowdowns first showed, and a flight's
+  numbers mean more beside the clocks they ran at.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
