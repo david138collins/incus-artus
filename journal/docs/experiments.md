@@ -1578,3 +1578,35 @@ mark was drawn at 640 × 400 with the steps' view, bricks of 4 with the window.
 **The brick size, last pick (2026-11-12):** with the window, memory stopped binding: 916 MB at bricks of 8 against 471
 at 4, both far under the 4 GB bar, and 8 is 6 to 11% faster on the card. Counsel recommended 8, and David said "you can
 go with 8". The default since 33e48a1.
+
+David's go (2026-11-12), after the plan was put to him: "yes, proceed".
+
+### What's built
+
+- **The far boxes.** Each 256-block column of land (the 256s' bands, as on the card already, so no new data) is
+  drawn as a box by the card's triangle hardware, once a frame, at the 8 × 8 layer's size, with the same rays: a
+  layer pixel's middle.
+  - A box runs from under the world's floor to its band's top.
+  - It's swollen by what a blend can reach at its far corner's distance: the level read there, plus the next for
+    the hand-over, a whole cell of that every way, its top rounded up to that cell.
+  - Each pixel keeps the farthest box surface its ray passes, front or back (a depth test, farthest kept).
+- **The march at the 8 × 8 layer stops there.** Past the last box nothing can be met, so a ray with no box behind it
+  is sky at once, and a ray skimming the horizon stops once it's past the last land it could touch.
+  - Past the map's edge there are no boxes. Rays now step on through nothing to the reach (150 km) or till they're
+    over the highest block.
+  - The finer layers are unchanged: they aren't earned over the sky.
+- **`INCUS_FAR_BOXES=0`** marches as before, for the flights against it.
+
+### The pass mark (written before the code)
+
+- **The picture is the same, pixel for pixel,** with the boxes and without, at the far marks and the spawn over the
+  whole world (the test loading it as the game does). They're conservative by construction, so any difference is a
+  box too small.
+- **The check must bite:** boxes deliberately too small (no swelling) change the picture.
+- **The steps' view:** the sky over the horizon goes from teal to dark blue at the plain and over the sea.
+- **Flights, bricks of 8 with the window, boxes on and off.** Builder's estimates [low]:
+  - Low over the sea and the plain: 10 to 25% off the far eye. Rays just over the horizon still meet swollen far
+    boxes for 20 to 30 km, so not all of the sky is won.
+  - High over the spawn and the mountain top: under 5% either way.
+  - The boxes' own pass: 0.05 to 0.2 ms (83,000 boxes, 36 corners each).
+- **Memory:** a depth picture at the 8 × 8 layer's size, about 0.3 MB.
