@@ -58,8 +58,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** change 2 off by default and kept behind a switch till the Intel flights (Builder's pick);
-  when to take the fog line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** the machine free for Builder's A/B (build 136 against 137 with the boxes off, four flights,
+  about 25 minutes, stopped early when he needed the PC): it decides whether change 2's code is kept behind a switch
+  or taken out now; then the next candidates (the open-sea shortcut, change 3); when to take the fog line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
