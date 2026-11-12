@@ -1701,3 +1701,28 @@ Tracked from build 138: Windows' own count for the game's process, in each fligh
 - **From build 139, the temperatures are drawn on flights too** [David: "while you are running tests, i am sitting
   here watching, and id like to know what the temps are at while watching"]. A few letters of drawing, so earlier
   flights compare with later ones a hair less exactly; within a session, as before.
+
+## After the Oracle's return: the boxes out, the map's edge, and her two tests  *(plan 2.2)*
+
+The Oracle's reading (2026-11-12): the far eye is waiting, not working. About a thousand long rays skimming the horizon
+set each layer's time, each step waiting on the one before, while the card sits nearly idle. David: "we should at least
+try 2, 3 and 4", and these first, to answer her with numbers.
+
+### The pass mark (written before the code)
+
+- **The boxes taken out** (git keeps them at 9548078). The march keeps its `end`.
+- **Rays end at the map's edge.** Past the map there's nothing, but today a ray goes on toward the 150 km reach till
+  it's over the highest block.
+  - The end is where the ray leaves the map's square, swollen by two cells of the level after the one read there (a
+    blend's reach). Worked out per ray by arithmetic, in every layer.
+  - `INCUS_FAR_EDGE=0` marches on as before.
+  - The picture the same, pixel for pixel, as today's saved ones at five marks over the whole world.
+  - Estimate [low]: 0 to 5% off at the horizon marks. The steps saved are skips, the cheap kind, as the boxes showed.
+- **Her two tests, as measuring switches:**
+  - `INCUS_TEST_HALF=1`: only the left half of each layer marched. If a layer's time barely moves, it waits on its
+    longest rays; if it halves, the card is busy.
+  - `INCUS_TEST_STEPS=384`: the step limit halved from 768. What the longest rays cost; the picture may change at the
+    horizon, and that's looked at.
+  - Builder's guess [low]: half the rays takes 25 to 40% off a layer, between her two readings; 384 steps takes under
+    10% off, since few rays reach 768.
+- **Flown in one session:** the edge off, the edge on, half the rays, 384 steps.
