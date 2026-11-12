@@ -319,7 +319,6 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | ~~The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before?~~ | Answered 2026-11-12: the editor's, as the software map |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
 | Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? | The fork |
-| The game's main memory: a bar of about 4 GB required (Counsel's proposal), caches growing on bigger machines? | David, any time |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |
@@ -337,6 +336,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 - **Card memory:** well below 4 GB in the worst case, on a world of the standard size (David, 2026-11-12). It grows
   with the world's size, which is fine for modders' giant worlds, but never with play: only the changes accumulate.
 - **Speed:** solid as a rock at a player's pace; fast developer flight may creak, as long as it isn't egregious.
+- **Main memory:** "somewhere between 4 and 8gb in the end" (David, 2026-11-12); what the game must have to run
+  toward the low end, so an 8 GB machine still runs it.
 - **Today's gap** (experiment 1, build 110, `journal/docs/experiments.md`): on the laptop, standing, the card takes 1.4
   times the budget at the spawn, 1.6 times on the mountain top and 2.8 times beside the quarter-block build; on
   the route, the worst frames (99th percentile, new ground counted) take 13.9 ms, 3.3 times. The Intel card is 2.5

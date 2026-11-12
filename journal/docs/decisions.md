@@ -1371,10 +1371,11 @@ Reference: `Art/quartile minecraft illustration.png`
   off something else."). Every report and the session's log give the game's main memory beside its card memory, and
   Builder looks for uses of spare main memory that cost next to nothing or take load off the card or the processor
   (Counsel's first candidates: prepared far bricks kept ready so refilling the window is a plain copy, which would
-  also spread its hitches; the tiles round the eye kept unpacked; room kept for the simulation). **[OPEN]** The bar:
-  Counsel's proposal is required main memory under about 4 GB, so an 8 GB machine keeps room for everything else,
-  with caches growing on bigger machines, as for the card. Why: his "what can *you* do for me?", for the laptop's 31
-  GB.
+  also spread its hitches; the tiles round the eye kept unpacked; room kept for the simulation). The bar, Counsel
+  having proposed about 4 GB required: David, "i think we will be ok if we just keep our utilization somewhere
+  between 4 and 8gb in the end." *Counsel's reading, his to correct:* the game's main memory ends up between 4 and
+  8 GB, what it must have to run toward the low end, so an 8 GB machine still runs it. Why: his "what can *you* do
+  for me?", for the laptop's 31 GB.
 - **[OPEN] Temporal reuse (TAA), and where it goes** (David, to Counsel: "what about TAA, is that in the
   testing/performance pipeline, towards the end, probably?"). Decided for old on 2026-11-08 with his rules (anything
   fast never takes from history; pixels with no history get rays first; edits and light changes drop history; near
