@@ -1142,6 +1142,18 @@ Reference: `Art/quartile minecraft illustration.png`
   2.1's gate on the doorway). On the map, a third lane, "loading", holds the pass "the doorway", reading "the export"
   and writing "a tile's columns": Builder's names, his to change. What changed, pieces and lights, and named fields
   come with what first feeds them.
+- **[DECIDED 2026-11-12] The marks as data** (David, to Builder: "go ahead"). `data/marks.toml` holds the places
+  every flight stands at, as old flew them, each eye checked against old's to a tenth of a block: the spawn, the
+  mountain top on a clear day, the bare plain near and far, the plain with David's build (its 169 placings, 146 bars
+  and 23 blocks, made as changes through the doorway, none refused), the scatter at 1,000, 10,000 and 100,000, high
+  over the spawn, low over the sea (builds 119 and 120). The game starts at the first mark. *Builder's reading, his
+  to change:* the plan's "plain's horizon" is the bare plain's far eye. Her names on the map: the pass "going to a
+  mark", the stores "the marks" and "what changed".
+  - **Corrected in the open: the floor.** Build 119's flight found the session's first 25 seconds or so run slower,
+    the card's pass too. The empty frame's floor recorded above (build 116: 0.40 ms, 0.019 on the card) was measured
+    inside that warm-up. Settled, it's **0.34 ms a frame and 0.012 on the card** (build 120, every mark 0.338 to
+    0.344; `kept logs/flight-1794489536.txt`). 116, 117 and 118 flew the same way, so their comparisons stand; only
+    the floor's number moves.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

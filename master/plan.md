@@ -12,18 +12,16 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 - **Working on:** Phase 2, *Restart*, step 2.1. Old is packed into `old\` and still runs there (its tests pass, and
   the check flight matched 1.7's to within 0.3%); the journal is in `journal/`, found through
-  `journal/contents.md`. The new project runs from the top of the folder (the build numbers carry on from old's):
-  a full-screen window, a flying camera on old's keys, the panel (F3), and the clocks; the empty frame flew at 0.40
-  ms a frame and 0.019 ms on the card (build 116), the floor every later change is measured from. Build 117 added
-  the wiring, the code's own list of its lanes, passes and stores, with each pass timed and `master/map.md` drawn
-  from it; and the new editor (F2), its pages by a drop-down, the software map the one that works. David looked at
-  both ("editor looks about like what i'd expect"), and 117 flew within 4% of the floor. Build 118 splits handing
-  over in two at David's word, so it can be watched and tuned later: handing the card its work 0.08 ms, showing it
-  0.14 ms. The doorway's columns are in (read-only, the export behind it): all 5,047 reference columns answered to
-  the block, a tile in 2.2 ms. Now: the marks as data (the spawn, the bare plain, the plain with David's build as
-  169 changes through the doorway, the mountain top, the far marks, the scatter dial).
-  As the editor fills, every window, setting and control is placed with David (`journal/docs/decisions.md`,
-  2026-11-12).
+  `journal/contents.md`. The new project runs from the top of the folder (build 120; the numbers carry on from
+  old's): a full-screen window, a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
+  empty frame measured: 0.34 ms a frame and 0.012 ms on the card once the session has warmed up (build 116's 0.40
+  was inside the warm-up). The wiring, the code's own list of its lanes, passes and stores, draws `master/map.md`;
+  the new editor (F2) has its pages by a drop-down, the software map the one that works (David: "editor looks about
+  like what i'd expect"). The doorway answers all 5,047 reference columns to the block, and the marks are data, the
+  build and the scatter made as changes through it, every mark flown at 0.338 to 0.344 ms. **2.1's gate is met**;
+  the doorway's pieces, lights and named fields, and flying both cards by one command, are still open under it.
+  Next: 2.2, the far eye, the first thing drawn on screen. As the editor fills, every window, setting and control
+  is placed with David (`journal/docs/decisions.md`, 2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
   light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
@@ -34,8 +32,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** whether `CLAUDE.md` points at the map now. His desktop has two launchers: "Play Incus
-  Artus" (the new game) and "Play old Incus Artus" (`old\`).
+- **Waiting on David:** whether 2.1 closes with those open lines carried to where each is first fed (Counsel's
+  pick); whether `CLAUDE.md` points at the map now. Ahead at 2.2's gate: the Intel card's numbers, which need the
+  laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+  "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
