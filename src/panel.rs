@@ -2,7 +2,7 @@
 //!
 //! Its name and its pages' names are old's, so they're the ones David knows; new pages are named with him.
 
-use crate::camera::Camera;
+use crate::camera::{Camera, Pace};
 use crate::clocks::{PassTimes, Spread};
 use crate::far_eye::FarLook;
 use crate::wiring::PassId;
@@ -28,7 +28,7 @@ pub struct Readings<'a> {
     pub passes: &'a [PassTimes],
     /// The card's whole frame, first pass's start to last pass's end (none: the card can't time its own work).
     pub card_whole: Option<Spread>,
-    pub camera: &'a Camera,
+    pub camera: Camera,
     pub captured: bool,
     /// The card's memory the game holds, MB: in use, and held (none where the card can't say).
     pub memory: Option<(f64, f64)>,
@@ -42,8 +42,9 @@ impl Panel {
         Self { visible: true, page: 0 }
     }
 
-    /// The panel, its Render page changing the far eye's look (`look`: none without a far eye).
-    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>) {
+    /// The panel, its Camera page changing the camera's speed and its Render page the far eye's look (`look`: none
+    /// without a far eye).
+    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, pace: &mut Pace) {
         if !self.visible {
             return;
         }
@@ -58,7 +59,7 @@ impl Panel {
             ui.separator();
             match self.page {
                 0 => overview(ui, readings),
-                1 => camera(ui, readings),
+                1 => camera(ui, readings, pace),
                 _ => render(ui, readings, look),
             }
         });
@@ -213,9 +214,16 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     }
 }
 
-fn camera(ui: &mut egui::Ui, readings: &Readings) {
-    let camera = readings.camera;
+/// The Camera page: where the camera is, and how fast it flies (its speed and Shift's multiplier, with a Default).
+fn camera(ui: &mut egui::Ui, readings: &Readings, pace: &mut Pace) {
+    let camera = &readings.camera;
     ui.label(format!("north {:.1}, east {:.1}, up {:.1}", camera.position.x, camera.position.y, camera.position.z));
     ui.label(format!("facing {:.0}°, pitch {:.1}°", camera.facing, camera.pitch));
     ui.label(if readings.captured { "Mouse: captured (Tab to release)" } else { "Mouse: free (Tab to fly)" });
+    ui.separator();
+    ui.add(egui::Slider::new(&mut pace.speed, 1.0..=2000.0).logarithmic(true).text("speed (blocks a second)"));
+    ui.add(egui::Slider::new(&mut pace.multiplier, 1.0..=20.0).text("multiplier (Shift held)"));
+    if ui.add_enabled(*pace != Pace::DEFAULT, egui::Button::new("Default").small()).clicked() {
+        *pace = Pace::DEFAULT;
+    }
 }

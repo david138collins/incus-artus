@@ -68,6 +68,7 @@ flowchart TB
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
   pass_laying_out_the_panel --> store_the_panel_s_shapes
+  pass_laying_out_the_panel --> store_the_camera
   pass_laying_out_the_panel --> store_the_far_eye_s_look
   store_the_camera --> pass_the_far_start
   store_the_far_bricks --> pass_the_far_start
@@ -167,8 +168,8 @@ flowchart TB
 ### laying out the panel
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Render page changes the far eye's look.
-- **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes and the far eye's look.
+- **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.
+- **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes, the camera and the far eye's look.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.010, 95th 0.018, 99th 0.023, worst 0.313.
 - **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
@@ -295,7 +296,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark and flying. **Read by:** laying out the panel and the far start.
+- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** laying out the panel and the far start.
 - **Files:** src/camera.rs.
 
 ### the clocks
