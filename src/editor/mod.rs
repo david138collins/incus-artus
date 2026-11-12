@@ -22,12 +22,13 @@ enum Page {
 impl Page {
     const ALL: [Page; 4] = [Page::SoftwareMap, Page::Tectonics, Page::WorldGen, Page::Registrar];
 
-    /// Its name in the drop-down (David's words; the greyed ones' spellings are his to settle).
+    /// Its name in the drop-down, in David's words [2026-11-12: "we should probably call them Tectonic Sim, World Gen, and
+    /// Registrar, since 'compiler/interpreter' would go inside the world gen page"].
     fn name(self) -> &'static str {
         match self {
             Page::SoftwareMap => "Software map",
-            Page::Tectonics => "Tectonics",
-            Page::WorldGen => "World gen",
+            Page::Tectonics => "Tectonic Sim",
+            Page::WorldGen => "World Gen",
             Page::Registrar => "Registrar",
         }
     }
