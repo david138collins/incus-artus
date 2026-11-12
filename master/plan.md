@@ -10,9 +10,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 ## Where we are
 
-- **Working on:** Phase 2, *Restart*, step 2.2, the far eye (experiment 5): old's far march moved onto bricks, the
-  first thing the new project draws. Builder brings its first step and pass mark to Counsel before any code, and
-  David looks at it before it's flown.
+- **Working on:** Phase 2, *Restart*, step 2.2, the far eye (experiment 5). Step 1 is in: the far cells summed on
+  the processor from the doorway, every one of 11.2 million the same as old's bake, byte for byte; the eighth round
+  the spawn in 2.6 s and the whole world in 16.9 s (old's bake: 46 to 55 s and about 12 min on the card, though it
+  also made the ground from the recipe, which the export did once, in 8 minutes). Next, step 2: old's far march moved
+  onto bricks as it is, the first thing the new project draws. Builder brings its pass mark to Counsel before any
+  code, and David looks at it before it's flown.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -31,12 +34,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** whether `CLAUDE.md` points at the map now. 2.2's first step has his go: the far cells summed
-  on the processor from the doorway, with old's far colours carried until the Registrar (3.2), checked byte for
-  byte against old's bake; nothing on screen yet. Ahead: his look at the
-  far eye's first picture,
-  and at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
-  "Play old Incus Artus" (`old\`).
+- **Waiting on David:** whether `CLAUDE.md` points at the map now. Ahead: his look at the far eye's first picture
+  (step 2), and at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight.
+  His desktop has two launchers: "Play Incus Artus" (the new game) and "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
