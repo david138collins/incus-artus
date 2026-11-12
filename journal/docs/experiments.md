@@ -1088,3 +1088,19 @@ With 2b, old's far view is whole on bricks: the baseline the plan's three change
 - **The flight:** every far pass on the card at every mark, beside 2a's. *Builder's estimate [low]:* light adds a fifth to a
   half to the far eye at the far marks (old's light was 17 to 42% of its eye at the three standing marks), which puts
   them about 1.5 to 6 ms. That's the baseline, with no bar of its own in this step.
+
+### David's look, and the flights' pass mark
+
+David on build 126, high over the spawn: "light looks normal. hard to tell as it is, but ive never had an issue with your sun
+lights looks, so proceed".
+
+**Four flights, written before they fly** (build 126, every mark, the first held till every region is in). Counsel's ask,
+for the size of the third change's target (light read from the cell):
+- **W:** whole, as the game runs;
+- **S:** without the sun's shadows (`INCUS_SIGHT_NO_SHADOWS=1`);
+- **K:** without the sky light (`INCUS_SIGHT_NO_SKY=1`);
+- **N:** with neither: the shape alone, against 2a's flight (build 122) as a check that 2a's numbers still hold with the sky's
+  weight in.
+
+The light's cost is W against N, at each far mark, and its two parts are W against S and W against K. The estimate in the
+pass mark above stands: light a fifth to a half of the far eye.
