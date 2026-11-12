@@ -248,7 +248,7 @@ impl Runner {
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
-                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells => unreachable!("{} isn't one of the frame's passes", pass.name),
+                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures => unreachable!("{} isn't one of the frame's passes", pass.name),
             };
             self.timed(pass.id, started);
             if !carry_on {
@@ -410,6 +410,8 @@ impl Runner {
             camera: &self.camera,
             captured: self.captured,
             memory: running.memory,
+            blends: running.far.as_ref().map_or([true, false, false], FarEye::blends),
+            far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
         self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look));
         let output = ctx.end_pass();

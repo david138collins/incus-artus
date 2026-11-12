@@ -32,6 +32,9 @@ pub struct Readings<'a> {
     pub captured: bool,
     /// The card's memory the game holds, MB: in use, and held (none where the card can't say).
     pub memory: Option<(f64, f64)>,
+    /// Which far blends can be chosen now (the code's, exact, spread), and how the far cells are coming in.
+    pub blends: [bool; 3],
+    pub far: String,
 }
 
 impl Panel {
@@ -129,6 +132,7 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     if let Some((used, held)) = readings.memory {
         ui.label(format!("The card's memory: {used:.0} MB in use, {held:.0} MB held (the bar: well under 4,000 at worst)"));
     }
+    ui.label(format!("The far cells: {}", readings.far));
     ui.label(format!("The frame: {:.2} ms, {fps:.0} a second", frame.median));
     ui.label(FAR_PASSES.iter().map(|id| format!("{} {:.2}", crate::wiring::pass(*id).name.trim_start_matches("the far "), card(*id).median)).collect::<Vec<_>>().join(" · "));
     ui.separator();
@@ -140,8 +144,17 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     egui::ScrollArea::vertical().max_height(560.0).show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.strong("The picture");
-            let differs = (look.detail, look.bring_up, look.view, look.sky_weight) != (d.detail, d.bring_up, d.view, d.sky_weight);
-            section_default(ui, look, differs, |l| (l.detail, l.bring_up, l.view, l.sky_weight) = (d.detail, d.bring_up, d.view, d.sky_weight));
+            let differs = (look.blend, look.detail, look.bring_up, look.view, look.sky_weight) != (d.blend, d.detail, d.bring_up, d.view, d.sky_weight);
+            section_default(ui, look, differs, |l| (l.blend, l.detail, l.bring_up, l.view, l.sky_weight) = (d.blend, d.detail, d.bring_up, d.view, d.sky_weight));
+        });
+        // Change 1: the far cells blended by the code (old's) or the texture hardware, each greyed till it's built.
+        ui.horizontal(|ui| {
+            ui.label("far blend");
+            for (k, name) in ["old's (code)", "exact (hardware)", "spread (hardware)"].iter().enumerate() {
+                ui.add_enabled_ui(readings.blends[k], |ui| {
+                    ui.selectable_value(&mut look.blend, k as u32, *name);
+                });
+            }
         });
         ui.add(egui::Slider::new(&mut look.detail, -2..=3).text("detail (levels finer)"));
         ui.horizontal(|ui| {

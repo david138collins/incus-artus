@@ -14,6 +14,7 @@
 //! - `doorway`: the one piece that answers "what's here?" a tile at a time (the export behind it now).
 //! - `far`: the far cells, summed from the doorway's columns (cubes of 32 and every level above), on the loading lane.
 //! - `bricks`: the far cells on the card, as bricks.
+//! - `atlas`: the far bricks as textures, blended by the card's texture hardware (change 1).
 //! - `far_eye`: the far eye, old's far march on bricks (`far.wgsl`, `far_up.wgsl`).
 //! - `marks`: the places every flight stands at, as data (`data/marks.toml`); the game starts at the first.
 //! - `flight`: a measured flight (`INCUS_FLIGHT=1`) at every mark, written to a report in `logs/`.
@@ -21,6 +22,7 @@
 //!   `master/map.md` are drawn from it.
 //! - `runner`: the window and the frame, which use all of the above.
 
+mod atlas;
 mod bricks;
 mod camera;
 mod card;

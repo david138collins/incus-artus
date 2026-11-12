@@ -35,6 +35,7 @@ flowchart TB
     direction LR
     pass_the_doorway["the doorway"]
     pass_summing_the_far_cells["summing the far cells"]
+    pass_making_the_far_textures["making the far textures"]
   end
   store_the_keys_held[("the keys held")]
   store_the_camera[("the camera")]
@@ -52,6 +53,7 @@ flowchart TB
   store_the_far_bricks[("the far bricks")]
   store_the_far_layers[("the far layers")]
   store_the_far_eye_s_look[("the far eye's look")]
+  store_the_far_textures[("the far textures")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -72,12 +74,15 @@ flowchart TB
   store_the_far_eye_s_look --> pass_the_far_start
   pass_the_far_start --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_8_x_8
+  store_the_far_textures --> pass_the_far_8_x_8
   store_the_far_layers --> pass_the_far_8_x_8
   pass_the_far_8_x_8 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_4_x_4
+  store_the_far_textures --> pass_the_far_4_x_4
   store_the_far_layers --> pass_the_far_4_x_4
   pass_the_far_4_x_4 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_2_x_2
+  store_the_far_textures --> pass_the_far_2_x_2
   store_the_far_layers --> pass_the_far_2_x_2
   pass_the_far_2_x_2 --> store_the_far_layers
   store_the_far_layers --> pass_bringing_it_up
@@ -92,6 +97,8 @@ flowchart TB
   pass_the_doorway --> store_a_tile_s_columns
   store_a_tile_s_columns --> pass_summing_the_far_cells
   pass_summing_the_far_cells --> store_the_far_cells
+  store_the_far_cells --> pass_making_the_far_textures
+  pass_making_the_far_textures --> store_the_far_textures
 ```
 
 ## The lanes
@@ -119,7 +126,7 @@ flowchart TB
 
 - **Runs:** as tiles are asked for.
 - **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
-- **Its passes, in order:** the doorway and summing the far cells.
+- **Its passes, in order:** the doorway, summing the far cells and making the far textures.
 - **Files:** src/doorway.rs.
 
 ## The passes
@@ -189,7 +196,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.
-- **Reads:** the far bricks and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.070; on the card median 0.627, 95th 0.641, 99th 0.647, worst 1.362.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -197,7 +204,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.
-- **Reads:** the far bricks and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.139; on the card median 0.008, 95th 0.008, 99th 0.008, worst 0.047.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -205,7 +212,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.
-- **Reads:** the far bricks and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.030; on the card median 0.024, 95th 0.024, 99th 0.025, worst 0.198.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -264,6 +271,15 @@ flowchart TB
 - **Reads:** a tile's columns. **Writes:** the far cells.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor not run.
 - **Files:** src/far.rs.
+
+### making the far textures
+
+- **A pass** in loading, on the processor.
+- **What it is:** Once every region is in, on a thread of its own: each far brick made again as a 9 x 9 x 9 block of texels (its border the next cells over) in the atlas, the two ways of change 1 (exact: colour and faces times surface, 16-bit; spread: spread into empty neighbours, 8-bit), and sent to the card an atlas layer at a time.
+- **Reads:** the far cells. **Writes:** the far textures.
+- **Switch** `INCUS_FAR_BLEND`: which ways are made: code (none), exact, spread, or both (unset: both, the code's blend till one is chosen).
+- **Cost, last measured** (`kept logs/flight-1794497402.txt`): not measured.
+- **Files:** src/atlas.rs.
 
 ## The stores
 
@@ -357,7 +373,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** The world as the far eye sees it: cubes of 32 blocks and every level above, 16 bytes a cell (old's form: how solid, how wet, which ways its faces look, their colour, how their light and height spread, how much surface shows), only each column's surface band kept. Colours from data/far colours.toml, old's, until the Registrar.
-- **Written by:** summing the far cells. **Read by:** putting the far cells on the card.
+- **Written by:** summing the far cells. **Read by:** putting the far cells on the card and making the far textures.
 - **Limit:** blocks a side of the first level's cells, 32.
 - **Limit:** blocks a side of a region, made at once, 1024.
 - **Files:** src/far.rs.
@@ -386,4 +402,13 @@ flowchart TB
 - **What it is:** What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline; each with its default (Default puts them all back).
 - **Written by:** laying out the panel. **Read by:** the far start.
 - **Files:** src/far_eye.rs and src/panel.rs.
+
+### the far textures
+
+- **A store** on the card.
+- **What it is:** The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and each way's colour and faces; each brick's slot beside its place in the bricks' index.
+- **Written by:** making the far textures. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Limit:** texels a side of a brick, its border included, 9.
+- **Limit:** bricks a side of an atlas layer, 64.
+- **Files:** src/atlas.rs.
 

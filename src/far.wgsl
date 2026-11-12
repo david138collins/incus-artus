@@ -32,7 +32,8 @@ struct Camera {
     // cone's spread (radians from a tile's middle ray to its corners).
     tiles: vec4<f32>,
     // The screen pyramid: x the layer above's width in its pixels (0: this is the base); y 1 if a finer layer follows;
-    // z the rule (0 refine everywhere, 1 only where it's earned).
+    // z the rule (0 refine everywhere, 1 only where it's earned); w how the far cells are blended (0 the code, 1 the
+    // texture hardware exact, 2 spread: change 1).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
     // shadows; z: how fast a shadow ray widens (blocks across a block of distance).
@@ -53,6 +54,8 @@ struct Camera {
     daylight: vec4<f32>,
     // The world's water: its colour as light, and how fast it dims what's seen through it (a block's worth).
     water: vec4<f32>,
+    // The far bricks' atlas (change 1): its size in texels (1s while there's none).
+    atlas: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -73,6 +76,18 @@ struct Camera {
 @group(0) @binding(9) var<storage, read_write> worth_out: array<u32>;
 // The layer above's distances (the base: a placeholder never read).
 @group(0) @binding(10) var far_above: texture_2d<f32>;
+// The far bricks as textures (change 1, `atlas.rs`): each brick place's slot in the atlas, the filter, how solid and
+// how watery, and the two ways' colour and faces (exact: multiplied by surface, with the surface; spread: spread into
+// empty neighbours, with the surface ÷ 4).
+@group(0) @binding(11) var<storage, read> slots: array<u32>;
+@group(0) @binding(12) var soft: sampler;
+@group(0) @binding(13) var t_solid: texture_3d<f32>;
+@group(0) @binding(14) var a_colour: texture_3d<f32>;
+@group(0) @binding(15) var a_plus: texture_3d<f32>;
+@group(0) @binding(16) var a_minus: texture_3d<f32>;
+@group(0) @binding(17) var b_colour: texture_3d<f32>;
+@group(0) @binding(18) var b_plus: texture_3d<f32>;
+@group(0) @binding(19) var b_minus: texture_3d<f32>;
 
 const FIRST: i32 = 5;
 const TOP: i32 = 16;
@@ -234,6 +249,78 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
         out.colour = ROCK;
     }
     return out;
+}
+
+const NO_SLOT: u32 = 0xFFFFFFFFu;
+// A brick's texels a side in the atlas, its border included.
+const SIDE: f32 = 9.0;
+
+// The eight cells round `p` at `level` blended by the texture hardware (change 1): `way` 1 exact, 2 spread. The four
+// columns' bands are read first, as the code's blend reads them (a column not summed: unknown); where the bricks can't
+// answer (outside the level, under or over the world, a brick not in the atlas), the code's blend.
+fn blend_soft(level: i32, p: vec3<f32>, way: u32) -> Look {
+    let size = f32(1 << u32(level));
+    let u = p / size - 0.5;
+    let b = floor(u);
+    let f = u - b;
+    let base = vec3<i32>(b);
+    for (var k = 0; k < 4; k++) {
+        if (entry_at(level, base.x + (k & 1), base.y + (k >> 1)) == NOT_SUMMED) {
+            return empty_look(false);
+        }
+    }
+    let x = base.x - table(level, 1);
+    let y = base.y - table(level, 2);
+    if (x < 0 || y < 0 || base.z < 0 || x >= table(level, 3) || y >= table(level, 3) || base.z >= table(level, 10)) {
+        return blend(level, p);
+    }
+    let wide = u32(table(level, 6));
+    let tall = u32(table(level, 7));
+    let place = table(level, 5) + (i32(u32(y) >> wide) * table(level, 8) + i32(u32(x) >> wide)) * table(level, 9) + i32(u32(base.z) >> tall);
+    let slot = slots[u32(place)];
+    if (slot == NO_SLOT) {
+        return blend(level, p);
+    }
+    let origin = vec3<f32>(f32(slot & 0xFFu), f32((slot >> 8u) & 0xFFu), f32(slot >> 16u)) * SIDE;
+    let local = vec3<f32>(f32(u32(x) & ((1u << wide) - 1u)), f32(u32(y) & ((1u << wide) - 1u)), f32(u32(base.z) & ((1u << tall) - 1u)));
+    let at = (origin + local + f + 0.5) / camera.atlas.xyz;
+    // How solid and how watery, at every step; the colour and faces only where something's there.
+    let sw = textureSampleLevel(t_solid, soft, at, 0.0).xy;
+    var look = empty_look(true);
+    look.solid = sw.x;
+    look.water = sw.y;
+    look.colour = ROCK;
+    if (sw.x + sw.y <= 0.0) {
+        return look;
+    }
+    if (way == 1u) {
+        let c = textureSampleLevel(a_colour, soft, at, 0.0);
+        if (c.a > 0.0) {
+            look.colour = c.rgb / c.a;
+            look.plus = textureSampleLevel(a_plus, soft, at, 0.0).rgb / c.a;
+            look.minus = textureSampleLevel(a_minus, soft, at, 0.0).rgb / c.a;
+            look.surface = c.a;
+        }
+    } else {
+        let c = textureSampleLevel(b_colour, soft, at, 0.0);
+        if (c.a > 0.0) {
+            look.colour = c.rgb;
+            look.plus = textureSampleLevel(b_plus, soft, at, 0.0).rgb;
+            look.minus = textureSampleLevel(b_minus, soft, at, 0.0).rgb;
+            look.surface = c.a * 4.0;
+        }
+    }
+    return look;
+}
+
+// The eight cells round `p` blended: by the code (old's, `blend`) or the texture hardware, as chosen (`camera.layer.w`:
+// 0 the code, 1 exact, 2 spread).
+fn far_blend(level: i32, p: vec3<f32>) -> Look {
+    let way = u32(camera.layer.w);
+    if (way == 0u) {
+        return blend(level, p);
+    }
+    return blend_soft(level, p, way);
 }
 
 // Two looks mixed: `w` of the second.
@@ -481,12 +568,12 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
         if (skipped) {
             continue;
         }
-        var look = blend(level, p);
+        var look = far_blend(level, p);
         // Over the last stretch before the next level takes over, the two blended, so the change is gradual, never a
         // seam (seams drew rings round the eye over flat water that moved as it moved: David, build 69).
         let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
         if (look.known && over > camera.fade.z && level < TOP) {
-            let next = blend(level + 1, p);
+            let next = far_blend(level + 1, p);
             if (next.known) {
                 look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
             }
@@ -634,7 +721,7 @@ fn cone(p: vec3<f32>, footprint: f32, s: vec3<f32>, spread: f32, most: i32) -> f
             t = max(leave2(o.xy, s.xy, r, f32(1 << u32(REGION))), t) + 0.01;
             continue;
         }
-        let look = blend(level, q);
+        let look = far_blend(level, q);
         let size = f32(1 << u32(level));
         // A step as long as the ray is wide (never under its cell): what it crosses dims it by how solid it is, once
         // it's climbed a whole cell of what it reads over where it started.

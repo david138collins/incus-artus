@@ -188,6 +188,8 @@ pub struct Store {
     /// Each region's 1,024 as it comes in, and each level over 1,024's columns as they're made.
     tops: HashMap<[i32; 2], CellColumn>,
     upper: Vec<HashMap<[i32; 2], CellColumn>>,
+    /// The far cells kept as they come, for the atlas (change 1), taken by its builder once every region is in.
+    pub kept: crate::atlas::Kept,
     /// Regions in, the highest anything stands (blocks), and the bricks made.
     pub regions_in: usize,
     pub highest: f32,
@@ -215,7 +217,8 @@ impl Store {
             (index_count * 4) as f64 / 1e6,
             (FIRST_POOL * CELL_BYTES) >> 20
         );
-        Self { levels, table: table_buffer, entries, index, pool, capacity: FIRST_POOL, used: 0, generation: 0, tops: HashMap::new(), upper: vec![HashMap::new(); TOP - REGION], regions_in: 0, highest: 0.0, bricks: 0 }
+        let kept = crate::atlas::Kept::new(&levels);
+        Self { kept, levels, table: table_buffer, entries, index, pool, capacity: FIRST_POOL, used: 0, generation: 0, tops: HashMap::new(), upper: vec![HashMap::new(); TOP - REGION], regions_in: 0, highest: 0.0, bricks: 0 }
     }
 
     /// The pool's bytes in use, and its size.
@@ -270,6 +273,14 @@ impl Store {
         for part in region_parts(&self.levels, region, columns) {
             self.put(device, queue, &mut encoder, &part);
         }
+        for level in FIRST..=REGION {
+            let n = 1 << (REGION - level);
+            let size = 1u32 << level;
+            for (k, column) in columns[level - FIRST].iter().enumerate() {
+                let (cx, cy) = (region[0] * n + k as i32 % n, region[1] * n + k as i32 / n);
+                self.kept.keep(level, cx, cy, entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
+            }
+        }
         // The highest anything stands: the top of the highest band among its cells of 32.
         let top = columns[0].iter().map(|c| (c.high() + 1) * (1 << FIRST)).max().unwrap_or(0);
         self.highest = self.highest.max(top as f32);
@@ -304,6 +315,10 @@ impl Store {
         let (bx, by) = ((place[0] - l.from[0]).div_euclid(l.wide), (place[1] - l.from[1]).div_euclid(l.wide));
         let columns = std::mem::take(&mut self.upper[level - REGION - 1]);
         let part = part(&l, l.from[0] + bx * l.wide, l.from[1] + by * l.wide, l.wide, |cx, cy| columns.get(&[cx, cy]));
+        let size = 1u32 << level;
+        for (at, column) in columns.iter().filter(|(at, _)| (at[0] - l.from[0]).div_euclid(l.wide) == bx && (at[1] - l.from[1]).div_euclid(l.wide) == by) {
+            self.kept.keep(level, at[0], at[1], entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
+        }
         self.upper[level - REGION - 1] = columns;
         self.put(device, queue, encoder, &part);
     }

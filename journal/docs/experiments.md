@@ -1173,3 +1173,30 @@ whole game's card memory "well below" 4 GB at worst. Each step is weighed agains
 - **Builder's estimate** *[low]*: the 8 × 8 and 4 × 4 layers 15 to 30% cheaper with A, a little more with B. Memory *[medium]*:
   A about 2.5 GB for the whole world's far view, B about half. Either way that's set against the 4 GB bar, with what it leaves
   room for, before anything is chosen.
+
+### Results: the card test and the pictures
+
+**Built as planned, with one change of when:** the atlas isn't kept up to date region by region. It's made once, on a
+thread of its own, after every region is in, from the cells kept as they came. Till then the far eye blends in code, as
+before. Borders then never need filling as neighbours arrive.
+
+**The card test** (`atlas::card_tests`, 24,000 points at levels 32 to 1,024 through the nine regions round the spawn):
+- **The pass mark missed.** It asked the exact way for 1/1,000 everywhere, and the card can't do that. Its filter weighs the
+  eight cells to about 1/256, so how solid and how watery differ by up to 0.0045. And where hardly any surface weighs a point,
+  the colour is a tiny sum's quotient and swings:
+
+  | exact, by the point's surface | points | colour difference, median | 99th | largest |
+  |---|---|---|---|---|
+  | a quarter of a floor or more | 12,433 | 0.00005 | 0.0011 | 0.0063 |
+  | 0.05 to 0.25 | 2,523 | 0.00005 | 0.0037 | 0.14 |
+  | under 0.05 | 1,508 | 0.00005 | 0.16 | 0.49 |
+
+  The exact way is exact to the hardware's own precision wherever a point shows real surface. The test's bar is now what
+  the hardware can do: solid and watery within 1/200, colour within 1/100 where a quarter of a floor shows.
+- **Spread** differs more broadly, by its nature: the colour's median 0.002, its 99th 0.08 with real surface and 0.27
+  without, the faces by up to 1.0 where empty cells took a neighbour's.
+- Both ways are known and unknown exactly where the code's blend is.
+
+**The pictures** (off the screen, high over the spawn, 640 × 400, all three drawn from the same nine regions): the eye can't
+tell them apart. Against the code's, pixel by pixel, out of 255: exact a median of 0, a 99th of 1 and at most 6; spread a
+median of 0, a 99th of 2 and at most 8.

@@ -71,6 +71,7 @@ pub enum PassId {
     Measuring,
     TheDoorway,
     SummingTheFarCells,
+    MakingTheFarTextures,
 }
 
 pub struct Pass {
@@ -103,6 +104,7 @@ pub enum StoreId {
     FarBricks,
     FarLayers,
     FarLook,
+    FarTextures,
 }
 
 pub struct Store {
@@ -148,7 +150,7 @@ pub const LANES: [Lane; 3] = [
     },
 ];
 
-pub const PASSES: [Pass; 17] = [
+pub const PASSES: [Pass; 18] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -237,7 +239,7 @@ pub const PASSES: [Pass; 17] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -248,7 +250,7 @@ pub const PASSES: [Pass; 17] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -259,7 +261,7 @@ pub const PASSES: [Pass; 17] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.",
-        reads: &[StoreId::FarBricks, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -343,9 +345,20 @@ pub const PASSES: [Pass; 17] = [
         switches: &[],
         files: &["src/far.rs"],
     },
+    Pass {
+        id: PassId::MakingTheFarTextures,
+        name: "making the far textures",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "Once every region is in, on a thread of its own: each far brick made again as a 9 x 9 x 9 block of texels (its border the next cells over) in the atlas, the two ways of change 1 (exact: colour and faces times surface, 16-bit; spread: spread into empty neighbours, 8-bit), and sent to the card an atlas layer at a time.",
+        reads: &[StoreId::FarCells],
+        writes: &[StoreId::FarTextures],
+        switches: &[("INCUS_FAR_BLEND", "which ways are made: code (none), exact, spread, or both (unset: both, the code's blend till one is chosen)")],
+        files: &["src/atlas.rs"],
+    },
 ];
 
-pub const STORES: [Store; 16] = [
+pub const STORES: [Store; 17] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -473,6 +486,14 @@ pub const STORES: [Store; 16] = [
         what: "What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline; each with its default (Default puts them all back).",
         limits: &[],
         files: &["src/far_eye.rs", "src/panel.rs"],
+    },
+    Store {
+        id: StoreId::FarTextures,
+        name: "the far textures",
+        on: Where::Card,
+        what: "The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and each way's colour and faces; each brick's slot beside its place in the bricks' index.",
+        limits: &[("texels a side of a brick, its border included", crate::atlas::SIDE as u64), ("bricks a side of an atlas layer", crate::atlas::ACROSS as u64)],
+        files: &["src/atlas.rs"],
     },
 ];
 
