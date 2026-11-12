@@ -1348,3 +1348,39 @@ The brick's side is chosen at launch (`INCUS_FAR_BRICK`: 2, 4 or 8; 8 till flown
     and a blend reads the same number of things. Smaller bricks scatter the atlas's texels, so the far marks could be
     up to 10% slower.
   - At 2 [low]: up to 20% slower.
+
+### Results: the three flights
+
+Build 131 (f6958f9), 2026-11-12, 11:55 to 12:10, spread at detail 0: bricks of 8 `kept logs/flight-1794506431.txt`, 4
+`-1794506724`, 2 `-1794507025`.
+
+**The far eye on the card, whole, median ms:**
+
+| | bricks of 8 | 4 | 2 |
+|---|---|---|---|
+| on the ground at the spawn | 0.653 | 0.702 (+7.5%) | 0.772 (+18%) |
+| the bare plain | 1.144 | 1.205 (+5.3%) | 1.301 (+14%) |
+| the mountain top, clear day | 2.152 | 2.307 (+7.2%) | 2.631 (+22%) |
+| high over the spawn | 2.178 | 2.332 (+7.1%) | 2.603 (+20%) |
+| low over the sea | 2.865 | 3.233 (+12.8%) | 3.564 (+24%) |
+
+**The card's memory, in use (held):**
+
+| | the pool (used of grown) | the atlas | the whole game |
+|---|---|---|---|
+| bricks of 8 | 911 of 1,074 MB | 1,481 MB | 2,656 MB (3,139) |
+| 4 | 466 of 537 MB | 934 MB | 1,555 MB (2,147) |
+| 2 | 234 of 268 MB | 794 MB | 1,315 MB (2,013) |
+
+The atlas was made and sent in 17.0 s at 8, 3.3 s at 4 and 3.2 s at 2.
+
+- **Memory, met and better:** I gave about 1,650 MB at 4 and got 1,555; I gave 1,450 at 2 and got 1,315.
+- **Card time at 4, missed at one mark:** within 10% at four of the five marks. Low over the sea, the dearest, is
+  12.8% slower, over the 10% I gave.
+- **At 2, missed at two marks:** the mountain top (+22%) and low over the sea (+24%) are over the 20% I gave.
+- **The trade:**
+  - Bricks of 4 take 1.1 GB off the card for 5 to 13% more far time: 0.37 ms at the dearest mark, 0.05 at the spawn.
+  - Bricks of 2 take a further 240 MB for 7 to 10% more on top.
+  - The memory goes on the near eye and everything else under the 4 GB bar.
+- **Builder's recommendation:** bricks of 4. The window round the eye (step 4) is still to come, and it would take
+  most of what's left off the card.
