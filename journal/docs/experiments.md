@@ -1388,3 +1388,51 @@ The atlas was made and sent in 17.0 s at 8, 3.3 s at 4 and 3.2 s at 2.
 **David's pick (2026-11-12):** "4 sounds good". Bricks of 4 are the default from here. Counsel's point, which David
 took: the window round the eye (step 4) cuts the same memory another way, so the last pick waits on step 4's flights
 at 4 and at 8, and 8 stays a launch switch away (`INCUS_FAR_BRICK=8`).
+
+## Step 4: a window round the eye for the 32s and 64s  *(plan 2.2)*
+
+At bricks of 4, the 32s hold 75% of the far bricks and the 64s 18%. They're only read near the eye: at detail 0 on
+David's 2560 × 1600, the 8 × 8 layer reads 32s out to about 9 km and 64s to about 18 km.
+
+### What's built
+
+- **The window.** Only the 32s within 10 regions of the eye (10,240 blocks) are on the card, and the 64s within 20.
+  The 128s and up stay whole.
+  - The bands (`entries`) stay whole, for skipping.
+  - `INCUS_FAR_WINDOW` sets the 32s' radius in regions (the 64s' is twice it); 0 is the whole world, as before.
+- **The conveyor.** Each frame, within the putting pass's 3 ms, it makes and sends the regions coming into the window
+  (nearest first) from the cells kept on the processor, and gives back the room of those that left.
+  - A region leaves one region past the radius, so the edge doesn't flicker in and out.
+  - Freed places in the pool and the atlas are used again, so neither grows with play.
+- **Usable regions.** A region is usable at a level when it and its eight neighbours are on the card, since a blend
+  reaches one cell over. The card keeps a flag for each.
+  - Where a 32 isn't usable, the far eye reads the 64; where neither is, the 128.
+  - So falling behind shows coarser cells near the window's edge, never a hole.
+- **The atlas follows.** It's built once when every region is in, from the coarse levels and the window. After that,
+  bricks are made and sent as they come in, and it grows by copying if it must.
+- **A flight that moves.** A mark may have a speed: the camera flies straight ahead along its facing, level, through
+  its settling and measuring. Two moving marks are added:
+  - a player's top speed, 200 blocks a second (the spec), low over the land;
+  - fast, 2,000 a second.
+  - Each standing reports where the eye began and ended, so a run that didn't move is seen. It also reports the
+    least reach of usable 32s and 64s round the eye over the measured frames: how far behind the window fell.
+
+### The pass mark (written before the code)
+
+- **Tests:**
+  - The far bricks read back as the far cells in usable regions, after the window has moved and come back.
+  - The window, moved back and forth, leaves the pool's and the atlas's room where its first visit left it.
+  - Change 1's card test and the edge test hold.
+- **The pictures, still:** the same at the ground marks as with the whole world. High over the spawn, the finer
+  layers far out may read a 64 where they read a 32 before: within 8 of 255 [medium].
+- **Memory [medium]:** the whole game in use from 1,555 MB (bricks of 4, the whole world) to about 450 MB, and at
+  bricks of 8 from 2,656 to about 700. It no longer grows with the world's size, except at the 128s and up.
+- **Card time, still [medium]:** within 3% of build 131's at each mark. One flag is read per blend.
+- **Moving, at 200 blocks a second:** solid. The window is never behind by more than a region (the usable 32s reach at
+  least 8 regions round the eye), and the frames are like the still marks'. This is the player's bar ("solid as a
+  rock when i stop and act more like a player").
+- **Moving, at 2,000 a second:** no bar. Where it starts to creak is reported: how far the window falls behind, and
+  the frames' spread. David's look shows what a player would see if it fell behind (David: "if the game creaks at
+  10,000mph that's fine. as long as its not aggregious").
+- **Flights:** bricks of 4 and 8 with the window, the still marks and the two moving ones; build 131's give the
+  whole world.
