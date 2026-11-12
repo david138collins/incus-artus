@@ -10,19 +10,20 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ## Where we are
 
-- **Working on:** the start of Phase 2, *Restart*. Phase 1 is done enough to go on (2026-11-11): experiments 1, 2,
-  3, 4a and 4b (`docs/experiments.md`) gave soft bricks (the blend stays) and light kept a cell at a time, which
-  David can't tell from rays ("in a blind test"), though at eye level light's cost is the near faces'. The
-  references from old are taken, the test world is exported whole for the new eye to read (5.2 billion columns in
-  0.11 GB, checked against old's, kept on the laptop and the USB), and old is frozen (`old-final`, 7c809d3), kept
-  for looking at and reference. Next, 2.1: old packed into its own folder, and the new project's skeleton.
+- **Working on:** 1.7, one reading flight in old (switches only), then Phase 2, *Restart*. Experiments 1, 2, 3, 4a
+  and 4b (`docs/experiments.md`) gave soft bricks (the blend stays) and light kept a cell at a time, which David
+  can't tell from rays ("in a blind test"), though at eye level light's cost is the near faces'. The references
+  from old are taken, the test world is exported whole for the new eye to read (5.2 billion columns in 0.11 GB,
+  checked against old's, kept on the laptop and the USB), and old is frozen (`old-final`, 7c809d3), kept for looking
+  at and reference. The Oracle, called early, answered before the first line (`vision/oracle-review.md`, second
+  part); David agreed its changes, amended by Builder and Counsel (`docs/decisions.md`, "Before the first line").
+  Next, 2.1: old packed into its own folder, the new project's skeleton, and the doorway.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his word on how phase 2 starts (Counsel put ideas to him, 2026-11-11) and 2.1's two
-  questions (old's place, the control room), before Builder starts 2.1.
+- **Waiting on David:** 2.1's two questions (old's place, the control room), before Builder packs old. The reading
+  flight doesn't wait.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
-  what we learn for it as we go, in `vision/oracle-return.md`. David is weighing calling it early as well, before
-  2.1 is built, to review Phase 1's findings (2026-11-11).
+  what we learn for it as we go, in `vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
 ---
 
@@ -30,8 +31,8 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ```mermaid
 flowchart LR
-  P0["0 · Decide the direction"]:::ticked --> P1["1 · Learn, in old"]:::ticked
-  P1 --> P2["2 · Restart: the eye on old's world"]:::now
+  P0["0 · Decide the direction"]:::ticked --> P1["1 · Learn, in old"]:::now
+  P1 --> P2["2 · Restart: the eye on old's world"]
   P2 --> F{"The fork<br/>(the Oracle back)"}
   F --> P2b["2.4 · The eye, whole"]
   P2b --> P3["3 · The world"]
@@ -51,7 +52,7 @@ flowchart LR
 - [x] VS Code set up for Builder (1ab561e)
 - [ ] The spec cut by David (`master/spec.md`), alongside everything below
 
-## Phase 1 · Learn, in old
+## Phase 1 · Learn, in old  ← *now*
 
 Each experiment's pass mark is written down before it flies.
 
@@ -114,35 +115,59 @@ Each experiment's pass mark is written down before it flies.
   - The pictures are kept for reference, not as a yardstick (David: "it'll look good or it won't, idc what the old
     things look like in particular, other than the basic way we're doing things")
   - *Gate:* the references listed here, each with where it's kept
+- [ ] **1.7 The reading flight** (the Oracle's second part; David: "i agree on all counts"): the third mark with old's
+      switches only, no code after `old-final`. The march split from light, and the layers turned off one at a time,
+      to find where the bare plain's cost lives (9.51 ms before the build goes in, which adds about 2)
+  - *Gate:* the plain's cost placed in its parts, with the logs
 
-## Phase 2 · Restart: the eye on old's world  ← *now*
+## Phase 2 · Restart: the eye on old's world
 
-- [ ] **2.1 Pack, and the skeleton**
+Each change in 2.2 and 2.3 flies alone, behind its own switch, on both cards, and each program is priced checked and
+unchecked the first time it flies. Marks are data, flown on both cards by one command.
+
+- [ ] **2.1 Pack, the skeleton, and the doorway**
   - [ ] Old moves to `old\`, with its own assets and its own build folder, and still runs
   - [ ] `docs/` and `vision/` become `journal/`, with a contents page; `master/` on top; `CLAUDE.md` points at
         `master/`; memories trimmed to habits and warnings
   - [ ] The new project: a window that runs, the clock, a flying camera, the instruments
   - [ ] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
   - [ ] The control room: the same map, live, in the game's panel
-  - *Gate:* an empty frame measured; the map drawn from the code
-- [ ] **2.2 The eye, far** (experiment 5): far cells kept in bricks, made from the exported test world (old's far
-      bake checks their sums)
-  - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop; David's look; numbers from the Intel card.
-    If they're twice that or more: keep the bricks and the light, march far the lean way instead
-- [ ] **2.3 The eye, near** (experiment 6): near blocks from the exported test world, by rays, or by triangles if
-      rays skim
-  - *Gate:* the ground mark under 1.5 ms on the laptop; David's look
+  - [ ] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as
+        runs of blocks; pieces, objects and lights; what changed; named fields over the land. The export behind it
+        now, the tablet at 3.1. Read-only until the fork. The engine never opens a world file
+  - [ ] The marks as data: the spawn; the bare plain; the plain with David's build (its 169 placings from the event
+        log, replayed as changes); the mountain top; far marks (high over the spawn, low over the sea, the plain's
+        horizon); the scatter dial (random blocks, none to very many)
+  - *Gate:* an empty frame measured; the map drawn from the code; the doorway answers the 5,047 reference columns
+    to the block
+- [ ] **2.2 The eye, far** (experiment 5): old's far march moved onto bricks as it is, then three changes, each
+      alone: soft bricks blended by the texture hardware (flown two ways: Builder's exact blend and the Oracle's
+      spread); rays begun at drawn boxes; light read from the cell. The far cells are summed by a lane from what the
+      doorway answers (old's far bake checks the sums; the first sum's time is measured). The open-sea shortcut
+      waits until a sea mark shows it's needed
+  - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop, at the far marks; David's look, above all at
+    rings where levels hand over; numbers from the Intel card. If they're twice that or more: keep the bricks and
+    the light, march far the lean way instead
+- [ ] **2.3 The eye, near** (experiment 6): rays first: old's near walk on bricks of blocks, begun at the drawn boxes,
+      light kept in the air cell in front of each face, pieces walked by their octants. David's build arrives as
+      changes, testing the eye's change path. Marks: the bare plain, the scatter at three densities, the build, a
+      bigger quarter-block building, the spawn, the mountain top
+  - *The rule, written beforehand:* rays pass every ground mark at 1.5 ms or under on the laptop: rays keep the near
+    field. Rays miss a mark: faces as triangles are built and flown on the same marks, and take the near field if
+    they pass where rays missed. Both pass and triangles are over 1 ms cheaper at the worst mark: David's call
+  - *Gate:* the rule above; David's eye for pops and seams; the scatter's curve (cost should follow the screen)
 - [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
       fresh, then Counsel's brief, `vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - *Gate:* David's eye, on its own terms, the basic way kept; under 4.2 ms at the 99th percentile on the laptop,
-    on the flight and at all three marks; the Intel card's numbers recorded. **David walks old's world through
+    on the flight and at every mark; the Intel card's numbers recorded. **David walks old's world through
     the new eye**
 
 ## Phase 3 · The world
 
-- [ ] **3.1 The tablet** (experiment 8 sizes it first): the made world on disk; one doorway for "what's here
-      now"; walking, digging, placing, saving. Filled first from old's world
+- [ ] **3.1 The tablet** (experiment 8 sizes it first): the made world on disk, put behind the doorway built at 2.1;
+      walking, digging, placing, saving. Filled first from the exported test world. It holds no summed levels:
+      those are the eye's
   - *Gate:* the same blocks as old's; dig, place, save, load; under 4 GB a world
 - [ ] **3.2 The Registrar,** with its Color Lab and the way we work with HSL
 - [ ] **3.3 The Graphics Kit,** built on the Registrar's colour system
@@ -170,7 +195,9 @@ Each experiment's pass mark is written down before it flies.
 |---|---|
 | `Art/`'s new files and `For Claude/` online? "Not yet" for now | David, any time |
 | ~~Far cells crisp or soft (one cell read, or eight blended)?~~ | Answered at 1.4: soft |
-| The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `docs/decisions.md`). Where the eye gets its world is decided: the exported test world (1.6) | The Oracle, at the fork (her brief's question 7) |
+| The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `docs/decisions.md`). Where the engine meets it is decided: the doorway (2.1), with the exported test world behind it first. Left open: the tablet's own layout | 3.1 |
+| Seasons: a re-texture (a named field the look reads), a re-block (changes through the doorway), or both. Both are kept possible | Later; nothing to decide now |
+| Digging and placing before the fork? Decided no: read-only until then | Answered 2026-11-11 |
 | The control room as a page in the game's own panel? | 2.1 |
 | Old's new place: `old\` inside this folder (the default), or elsewhere? | 2.1 |
 | The moons: does the brighter one cast shadows? | 2.4 |

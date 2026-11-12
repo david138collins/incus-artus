@@ -1044,6 +1044,27 @@ Reference: `Art/quartile minecraft illustration.png`
   committed). The export's USB copy waits for the stick.
   - On the USB the same day (Builder, a78f1f2): `D:\Incus Artus Backups\exports\nice25 test`, all 19,883 files
     compared with the laptop's by SHA-256, none differing. Phase 1 done enough to go on.
+- **[DECIDED 2026-11-11] Before the first line: the Oracle called early.** David called the Oracle back after Phase 1,
+  before any new code, with Counsel's brief and a prompt of his own on how to start over and what form the engine
+  should take first. Its answer is the second part of `vision/oracle-review.md` (63b0eca). Builder read it too, and
+  Counsel put the points to David, with Builder's read folded in. David: "i agree on all counts. please ask builder to
+  begin the next steps."
+  - **A reading flight in old first**, with switches only, so old stays as tagged. It finds where the bare plain's
+    cost lives. *Counsel:* the third mark turned out to be mostly a bare plain: 9.51 ms before the build goes in,
+    which adds about 2 (flights C, E and F, the settling medians, checked).
+  - **The doorway first**, at 2.1, moved up from 3.1. One small piece answers "what's here?" a tile at a time, and the
+    export sits behind it. It stays read-only until the fork: looking and flying are enough until then.
+  - **The summed levels are the engine's, not the world's.** The far eye's cells come through the doorway from the
+    start, summed by a lane. Old's far bake is the check, not the source. David's principle: the engine never opens a
+    world file. (Builder had proposed reading old's bake first; Counsel differed, and David agreed with Counsel.)
+  - **Test places are data in the new project.** David's build is its 169 placings from the event log; old's chunk
+    format is never read.
+  - **One change at a time.** Experiments 5 and 6 fly each change behind its own switch, on both cards, with each
+    program priced checked and unchecked. Soft bricks are flown two ways: Builder's exact blend (premultiplied, 16-bit)
+    and the Oracle's spread. The open-sea shortcut is held until a sea mark shows it's needed.
+  - **Rays first for the near eye,** by a rule written before the flight. Triangles are built only if rays miss a mark.
+  - **Marks are data,** flown on both cards by one command. The third mark is split into the bare plain and the
+    build; the far eye gets marks of its own; a scatter dial gives cost against clutter.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

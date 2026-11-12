@@ -86,6 +86,20 @@ The plan is `master/plan.md`.
   - World generation is rebuilt later to write the same format, with the export as its check, column by column.
 - **Your step 4's picture gate is dropped.** "Pictures against old's golden references ... within a stated
   tolerance" becomes David's eye on its own terms, the basic way kept (above).
+- **Your second part's changes, taken (2026-11-11).** David: "i agree on all counts" (`docs/decisions.md`, "Before
+  the first line"). The changes:
+  - the reading flight in old (1.7, switches only);
+  - the doorway at 2.1, read-only until the fork;
+  - marks as data, with the third mark split and far marks and the scatter dial added;
+  - 2.2 and 2.3 one change at a time on both cards, rays first by your rule.
+
+  Builder and Counsel amended three points:
+  - The far cells come through the doorway from the start; old's far bake is the check, not the source.
+  - Soft bricks are flown two ways. One is your spread into neighbours. The other is Builder's exact blend: colour
+    and faces stored premultiplied by surface, plus surface itself, in 16-bit, so the hardware's filter sums them
+    and one divide gives old's blend exactly.
+  - The test places are data in the new project: David's build is its 169 placings, and old's chunk format is never
+    read.
 
 ### Your ten questions, where they stand
 
@@ -275,7 +289,9 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] The full export written and checked: 0.11 GB, none differing (experiment 8's row)
 - [x] Old frozen (`old-final`, 7c809d3; David: "so, we'll pack up the old incus artus into old, and just use it
       for looking at and reference")
-- [ ] The packing and the skeleton (2.1)
+- [x] Called early: your second part, "before the first line"; its changes taken (David: "i agree on all counts")
+- [ ] The reading flight in old (1.7): where the bare plain's cost lives
+- [ ] The packing, the skeleton and the doorway (2.1)
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle
 
