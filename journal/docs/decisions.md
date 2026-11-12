@@ -1303,6 +1303,11 @@ Reference: `Art/quartile minecraft illustration.png`
   - **The camera moves, slowly** (David, to Builder): "yes, i did notice i could actually move. its just too slow to
     notice at first." No bug: old's 20 blocks a second (100 with Shift) is too slow to see against far cells. Builder
     offers a faster one, asking him where its control goes before anything is built.
+    - *Corrected in the open (Counsel): it was a bug.* Step 4's first moving flight went 1.3% of its asked speed (63
+      blocks of 5,000), and its report showed it. Since the rebuild began the camera's step had been the sliver
+      between frames, not the whole frame, so it flew at about 1% of its speed: his "too slow to notice", and why the
+      speed slider seemed weak. Fixed in build 133 (85d876f) with a test that fails on the old step. At the same
+      settings the camera now feels about 75 times faster.
   - **[DECIDED 2026-11-12] The camera's speed, his placement** (David, to Builder): "yes, i should have a speed and
     multiplier slider in the camera tab please". Build 130: on the panel's Camera page (F3), "speed (blocks a
     second)" from 1 to 2,000 on a logarithmic slider, and "multiplier (Shift held)" from 1 to 20, defaulting to old's
@@ -1315,6 +1320,22 @@ Reference: `Art/quartile minecraft illustration.png`
   since 18d2537; `INCUS_FAR_BRICK=8` keeps 8 a launch away. Why "for now": the window round the eye (step 4) cuts the
   same memory another way, so the final size is picked after step 4 is flown at both 4 and 8 (Counsel's order, put to
   him by Builder).
+- **[DECIDED 2026-11-12] The window round the eye, and the card's default limits** (step 4, builds 132 to 134). Only
+  the 32s within about 8 km of the eye and the 64s within about 18 km are kept on the card; the coarser levels stay
+  whole. The game's card memory in use at bricks of 4: **471 MB** with the window, against 1,791 for the whole world;
+  still card time within 3% of the whole world's. Builder had raised the card's storage buffers a pass from 8 to 16
+  for it; Counsel asked whether a 980 Ti and the Intel card allow 16, and Builder folded the extra flags into an
+  existing buffer instead (build 134), so the far eye keeps the default every card allows, at no cost.
+  - **[LATER] What 16 buffers could do** (David, to Counsel): "we will revisit that and ask, what can 16 buffers do
+    for us, if there's anything to gain". On the window's card in the map, the 8-buffer way kept as the fallback.
+    Why: his "what can *you* do for me?", applied to limits, without making the floor depend on them.
+  - **Moving, the first time measured:** at a player's 200 blocks a second the window keeps up (about 100 blocks
+    behind) and the typical frame matches the whole world's, but the tail is worse (1 frame in 1,000 at 6.2 to 6.7
+    ms, the worst 7.9 to 9.4, against 4.2 and 4.4): spikes as a whole region of the window is swapped in. At 2,000
+    it keeps up and creaks (worst 22 ms). **[OPEN]** Builder's fix, a brick at a time instead of a region, waits on
+    David feeling the spikes at a player's pace; Counsel would build it anyway against his "solid as a rock".
+  - **[OPEN] The distant ridges:** from height, past the window the finer layers now read 64s where they read 32s,
+    up to 35 to 49 of 255 apart on far ridges. For his eye, window against whole world.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

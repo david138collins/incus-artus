@@ -73,6 +73,10 @@ Practical things learned the hard way. Each has its reason, so a later session c
 - The graphics library's safety checks can cost a third of the card or more: price each program checked and unchecked.
 - Ask the card for the library's default limits, and raise one only on purpose, saying so in the code and the log
   (the largest buffer, say, raised for a whole world kept on the card).
+- **Stay at the default limits for what must run.** A raised limit is a portability risk: an older or smaller card
+  may not allow it, and the program then fails to start on the very machine named as the floor. If there's a cheap
+  way to stay at the default, take it; ask later what the raised limit could buy as an optional extra, with the
+  default way kept as the fallback.
 
 ## The laptop
 

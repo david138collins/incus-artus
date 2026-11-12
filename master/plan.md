@@ -28,9 +28,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   The camera's speed is on the Camera page now (build 130). Step 3 is flown (build 131): bricks of 4 take the
   game's card memory from 2,656 to 1,555 MB for 5 to 13% more card time (low over the sea 2.87 → 3.23 ms); bricks of
   2, 1,315 MB for 14 to 24% more; the picture the same. David: "4 sounds good", for now, the final size picked after
-  the window is flown at 4 and 8. Next: step 4, the window round the eye (Builder's estimate: the far view from
-  about 1.4 GB to 0.25 GB), with a first moving flight at a player's 200 blocks a second and faster, to see whether
-  it keeps up. The fog line waits (fog may be redone another way later).
+  the window is flown at 4 and 8. Step 4, the window round the eye, is flown (builds 132 to 134): the game's card
+  memory **471 MB** at bricks of 4 against 1,791 for the whole world, still card time within 3%, the card's default
+  limits kept. The first moving flights found the camera had flown at 1% of its speed since the rebuild began
+  (fixed, build 133). At a player's 200 blocks a second the window keeps up, but a region swapped in at once spikes
+  the worst frames to 7.9 to 9.4 ms; at 2,000 it creaks. Next: David's look at 134, moving at a player's pace (are
+  the spikes felt?) and at the distant ridges (window against whole world). The fog line waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -49,7 +52,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look when the window is ready; when to take the fog line; whether `CLAUDE.md` points at
+- **Waiting on David:** his look at build 134 (the spikes at a player's pace; the distant ridges), and the brick-at-a-
+  time fix if he feels them (Counsel would build it anyway); when to take the fog line; whether `CLAUDE.md` points at
   the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
