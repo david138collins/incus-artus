@@ -1370,6 +1370,37 @@ Reference: `Art/quartile minecraft illustration.png`
     the boxes off, alternating twice in one session: the unused code costs the march 0.2 to 1%, at most 0.01 ms, the
     same at every mark. A first 7.5% hint had been noise between sessions. So "kept till the Intel flights" costs
     under 1%; out now is the other way, since git keeps it.
+- **[DECIDED 2026-11-12] The Oracle called midway through 2.2, and its first reply** (David sent Counsel's prompt,
+  `journal/vision/oracle-prompt-2026-11-12.md`, with his own: "I beg that if you have access to the knowledge of
+  sophisticated algorithms and architectures that could radically change our performance picture, you mention
+  them"). The Oracle's reading, in its session, before its third part: **the far eye is waiting, not working.** A
+  layer costs about the same however many rays it runs (the 8 × 8 and the 4 × 4, four times the pixels, 0.92 and 0.91
+  ms at the mountain top); about a thousand rays skimming the horizon, each up to 768 steps that wait on the one
+  before, at forty to sixty small reads a step, set each layer's time while the card sits nearly idle. Medium
+  confidence; a second reading (the card busy but holding few rays in flight, the program being large) fits most of
+  the same facts. What follows if it holds: make each step lean (what doesn't change kept in hand); make the longest
+  rays shorter (the open sea as a sum, rays ended at the map's edge, a gentler rule for long skims); fewer layers
+  waiting on each other (the 4 × 4 base). On its own design: the boxes "were aimed at the wrong thing"; the rest held
+  (bricks, the hardware's blend, light in the cell); the far eye becomes the lean march on bricks; for the near eye,
+  rays from the eye with better skipping, triangles the fallback. (Builder's correction to David: the 4 × 4 runs only
+  where the 8 × 8 says it's worth it, so "four times the rays" overstates; the half-rays test settles it.)
+  - **Its questions, and David's answer** (to Builder): "we should at least try 2, 3 and 4. Do you think we should do
+    your three steps before answering her, to gather some information? if so, please proceed with them". So:
+    - **First, before he answers it, Builder's three steps:** the boxes taken out (the Oracle no longer wants them for
+      the near eye; git keeps them) and rays ended at the map's edge, exact, behind a switch; the Oracle's two tests
+      (half the rays marched; the step limit halved, 768 to 384) and Nsight on the new march; then the lean step, the
+      same picture proved pixel for pixel. Each with its pass mark first.
+    - **Then, to be tried, his "2, 3 and 4":** the skyline made by how much of each square the land covers, instead
+      of rays through a haze of part-solid cells; plain land drawn as a surface from the same cells, rays kept for
+      what isn't plain columns (caves, towers, bridges, canopy); the horizon band alone refreshed over a few frames
+      (the slowest thing in view, turning still exact). Each a look step; the order set once the tests say which
+      reading holds.
+    - **[OPEN] Its question 5:** the cells of 2 to 16 blocks aren't in the new eye yet, between the block field and
+      the 32s, where forests and towns will mostly be seen. The Oracle advises bringing them into the far eye's march
+      before the fork, so the fork judges the whole distance. 2.3's, or 2.2's before the fork: David to say.
+  - **Temporal reuse:** Builder's view, keep whole-screen TAA where his 2026-11-08 rules put it, after the eye is
+    whole; the Oracle's question 4 is its narrow, safe form (the horizon band only), which tells cheaply whether
+    history suits his eye.
 - **[DECIDED 2026-11-12] Main memory tracked, and searched for free wins** (David, to Counsel, asking "do you think
   we are under-utilizing system ram? i think basically everyone will have at least 8gb", then: "tell builder to begin
   tracking ram use, and start looking for opportunities where using it is almost a free win or takes some heat/load

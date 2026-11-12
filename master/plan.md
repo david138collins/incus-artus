@@ -10,36 +10,19 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 ## Where we are
 
-- **Working on:** Phase 2, *Restart*, step 2.2, the far eye (experiment 5). Step 1 is in: the far cells summed on
-  the processor from the doorway, every one of 11.2 million the same as old's bake, byte for byte; the eighth round
-  the spawn in 2.6 s and the whole world in 16.9 s (old's bake: 46 to 55 s and about 12 min on the card, though it
-  also made the ground from the recipe, which the export did once, in 8 minutes). Step 2 is in: old's far march on
-  bricks (911 MB for the whole world; old's pool was 384 MB), with old's light. David looked at both ("it looks
-  right, mostly"; "light looks normal ... so proceed"), set the sky's feather at skylines on the Render page (F3)
-  ("that actually works great", 4 the default), and named no ring as a seam low over the sea. The baseline (build
-  126): 1.4 to 4.0 ms on the card at the far marks, 2 to 4 times the gate; light only 3 to 13% of it, so the cost is
-  the march itself. Now, by David's word ("try all these things and gather data ... let me take a look"), each tried
-  and measured in turn, then his eye still and flying: the panel fix and live settings; change 1 both ways; bricks
-  of 4 against 8; a window round the eye; change 2; change 3; the Intel card last. Card memory has his bar: well
-  below 4 GB at worst. Change 1 is done enough to go on: the texture hardware's spread blend takes 14 to 29% off at
-  every mark (low over the sea 4.0 → 2.9 ms); David saw no difference between the blends, so the exact way is out;
-  detail stays at 0 ("yeah 0 is fine", from height, after +2 cost up to 77% more). Its catch is memory: 2.7 GB with
-  the whole world's far view on the card, which a window round the eye would cut, since the levels near it hold 94%.
-  The camera's speed is on the Camera page now (build 130). Step 3 is flown (build 131): bricks of 4 take the
-  game's card memory from 2,656 to 1,555 MB for 5 to 13% more card time (low over the sea 2.87 → 3.23 ms); bricks of
-  2, 1,315 MB for 14 to 24% more; the picture the same. David: "4 sounds good", for now, the final size picked after
-  the window is flown at 4 and 8. Step 4, the window round the eye, is flown (builds 132 to 134): the game's card
-  memory **471 MB** at bricks of 4 against 1,791 for the whole world, still card time within 3%, the card's default
-  limits kept. The first moving flights found the camera had flown at 1% of its speed since the rebuild began
-  (fixed, build 133). At a player's 200 blocks a second the window keeps up, but a region swapped in at once spikes
-  the worst frames to 7.9 to 9.4 ms; at 2,000 it creaks. David moved at a player's pace and looked at the ridges: "it
-  looks good". The temperatures are tracked again, always on, top right (build 136). With the window, bricks of 8
-  (916 MB, 6 to 11% faster than 4's 471): "you can go with 8". Change 2, rays begun at drawn boxes, is flown (build
-  137): the picture the same, but it doesn't pay on this card (even at the plain, up to 7.5% slower elsewhere),
-  because the steps it cuts are the sky's cheap ones; Builder recommends it off, kept behind a switch till the Intel
-  flights. Where the far eye stands (bricks of 8, the window, the spread): about 1.1 to 2.9 ms at the far marks
-  against the gate's 1 typical and 2 worst. Left: change 3 (light, at most about 0.2 ms), the Intel flights, and the
-  gate. The fog line waits.
+- **Working on:** Phase 2, *Restart*, step 2.2, the far eye (experiment 5), each change tried, measured and looked at
+  by David's word ("try all these things and gather data"). In so far: the far cells summed from the doorway (old's
+  bake, byte for byte, the whole world in 17 s); old's far march on bricks with old's light; the texture hardware's
+  spread blend (14 to 29% off); bricks of 8; a window round the eye (the game's card memory 916 MB, against 2.7 GB for
+  the whole world); the sky's feather at skylines; the Render and Camera pages; temperatures always on; main memory
+  tracked (2.8 GB held, 1.0 GB in use). Change 2, the drawn boxes, didn't pay and is out. The far eye stands at 1.1 to
+  2.9 ms at the far marks against the gate's 1 typical and 2 worst.
+- **Now:** the Oracle, called midway (its prompt `journal/vision/oracle-prompt-2026-11-12.md`), reads the far eye as
+  *waiting, not working*: about a thousand rays skimming the horizon set each layer's time. Before David answers it,
+  Builder runs its two tests (half the rays; the step limit halved) and Nsight, ends rays at the map's edge, and
+  makes each step lean. Then, by David's word, the Oracle's three looks: the skyline by coverage, plain land as a
+  surface, the horizon band refreshed over a few frames. Then change 3, the Intel card, and the gate. The fog line
+  waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -58,10 +41,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** whether to send the Oracle the mid-2.2 prompt (`journal/vision/oracle-prompt-2026-11-12.md`);
-  change 2 off by default and kept till the Intel flights (its unused code measured at under 1%), or out now; the
-  next candidates, the open-sea shortcut (the sea is the worst mark, about 2.9 ms) and change 3
-  (light, at most about 0.2 ms); when to take the fog line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** his answers to the Oracle once Builder's tests are in, so it can write its third part; where
+  the cells of 2 to 16 blocks go (the far eye before the fork, as the Oracle advises, or 2.3); when to take the fog
+  line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -249,7 +231,14 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         (f47e006 built, 85d876f the camera's step fixed, 6dc9171 back to 8 storage buffers; the game's card memory 471
         MB at bricks of 4, still time within 3% of the whole world's; at 200 blocks a second it keeps up with spikes,
         at 2,000 it creaks; `journal/docs/experiments.md`; David: "it looks good")
-  - [ ] Change 2, rays begun at the drawn boxes (flown, build 137: doesn't pay on this card; off or out, by David)
+  - [x] Change 2, rays begun at the drawn boxes (flown, build 137: the picture the same, but it doesn't pay on this
+        card; taken out after the Oracle's mid-2.2 reply, git keeping it; `journal/docs/experiments.md`)
+  - [ ] The Oracle's mid-2.2 steps, before David answers it ("please proceed with them"): rays ended at the map's
+        edge; its two tests (half the rays; the step limit halved) and Nsight on the new march; the lean step (what
+        doesn't change between steps kept in hand), the picture the same
+  - [ ] Then, to be tried by David's word ("we should at least try 2, 3 and 4"), each a look step, the order set by
+        the tests: the skyline made by how much land covers each square; plain land drawn as a surface, rays for the
+        rest; the horizon band refreshed over a few frames
   - [ ] Change 3, light read from the cell, after light's share is measured again
   - [ ] Main memory in every report and the session's log, beside the card's; spare main memory searched for free
         wins or load taken off the card or the processor (David, 2026-11-12)
@@ -319,7 +308,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
 | ~~The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before?~~ | Answered 2026-11-12: the editor's, as the software map |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
-| Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? | The fork |
+| Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? Its narrow form, the horizon band refreshed over a few frames, is to be tried in 2.2 | The fork |
+| The cells of 2 to 16 blocks (between the block field and the 32s, where forests and towns are mostly seen): in the far eye's march before the fork, as the Oracle advises, or in 2.3? | David, before 2.3 |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |

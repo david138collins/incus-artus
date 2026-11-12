@@ -369,6 +369,11 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 **Midway through 2.2 (2026-11-12):** David asked for a prompt calling the Oracle before the fork:
 `journal/vision/oracle-prompt-2026-11-12.md`. It points here and asks twelve questions drawn from section 4. If he
 sends it, its answer becomes the third part of `journal/vision/oracle-review.md`, and this file goes on gathering.
+*Sent the same day.* The Oracle's first reply, in its session: the far eye is waiting, not working (about a thousand
+rays skimming the horizon set each layer's time), at medium confidence, with five questions of its own. David chose
+to run its two tests and the lean step before answering, and to try its skyline by coverage, plain land as a
+surface, and the horizon band over a few frames (`journal/docs/decisions.md`, 2026-11-12). The results go in
+section 2 as they land, for its third part.
 
 ## 6. The message to send at the fork
 
