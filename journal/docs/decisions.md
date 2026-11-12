@@ -1361,6 +1361,10 @@ Reference: `Art/quartile minecraft illustration.png`
   near the horizon, which the boxes don't shorten.
   - **[OPEN] Builder recommends:** off by default, the code kept behind `INCUS_FAR_BOXES` until the Intel flights,
     then kept or taken out on their numbers. David to say.
+  - **The price of keeping it, measured** (Counsel asked, from change 1's lesson): build 136 against build 137 with
+    the boxes off, alternating twice in one session: the unused code costs the march 0.2 to 1%, at most 0.01 ms, the
+    same at every mark. A first 7.5% hint had been noise between sessions. So "kept till the Intel flights" costs
+    under 1%; out now is the other way, since git keeps it.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
