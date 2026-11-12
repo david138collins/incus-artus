@@ -729,3 +729,31 @@ Handing the card its work should be well under 0.1 ms. The frame should stay wit
   the card's work. That's worth a look before the eye adds its passes to it.
 - **Split between them, or the frame moved by more than 10%:** written down as it is, and flown once more before it's
   read into.
+
+### Results
+
+Two flights, 2026-11-12, build 118 (29a02df), the code committed: `kept logs/flight-1794487928.txt` and
+`kept logs/flight-1794487963.txt` (the second flown because the first came out split, as the pass mark said). Each
+measured 20 s, about 52,000 frames, every one timed on the card. On the processor, median ms (95th):
+
+| | first | second |
+|---|---|---|
+| The frame | 0.418 (0.561) | 0.417 (0.557) |
+| handing the card its work | 0.078 (0.241) | 0.077 (0.239) |
+| showing it | 0.142 (0.271) | 0.142 (0.271) |
+| measuring (now with the card's times read back) | 0.009 | 0.009 |
+| the panel, on the card | 0.018 | 0.018 |
+
+- **The two flights repeat** to within 1%, and the frame is where build 117 left it (0.420).
+- **Builder's guess held only in part.** Showing it is the larger part, about two thirds of the hand-over. But handing the
+  card its work holds the other third, 0.08 ms. That's under the 0.1 guessed, but not "well under".
+- **Showing it** (0.14 ms) is the hand-over's own pace: the picture waits its turn for the screen. Nothing to tune while
+  the frame is empty. It's the place to look when the frame's lead over the screen is set, with David's eye, once the world
+  is drawn.
+- **Handing the card its work** (0.08 ms) is likely the processor working, not waiting *[estimate, medium]*: the
+  library checking and translating the frame's work for DirectX before it goes. It's the one to watch as the eye adds
+  its passes, since that work grows with what's handed over. Nothing is changed for it now; the map shows it.
+- **Not read into:** a single pass's median can't be added to another's, so these don't say the split saved or cost
+  anything; the frame says it didn't. Several passes' 95th sit near 0.16 ms in turn (getting the picture, recording the
+  panel, laying it out), as if one interruption of about that length lands in whichever pass is running. That's to watch, not
+  to chase on an empty frame.

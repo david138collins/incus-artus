@@ -1,0 +1,17 @@
+The flight: Incus Artus, build 118 (29a02df); the code committed
+The card: NVIDIA GeForce RTX 5070 Ti Laptop GPU (DiscreteGpu, Dx12, driver 32.0.16.2101 ; chosen by the default, high performance)
+The picture 2560 x 1600, the screen's refresh 240, uncapped; handed to the screen: Immediate; the panel hidden
+Switches: INCUS_FLIGHT=1
+
+Standing: the camera at north 0.0, east 0.0, up 0.0, facing 0°, pitch 0.0°; 5 s settling, then 20 s measured
+  the frame: 52731 frames, 2400 a second (median); ms median 0.417, 95th 0.557, 99th 0.712, 99.9th 0.917, worst 1.977
+  each pass (ms; 52730 frames timed on the card):
+    hearing the window: on the processor not run
+    flying: on the processor median 0.000, 95th 0.000, 99th 0.001, worst 0.217
+    laying out the panel: on the processor median 0.009, 95th 0.090, 99th 0.165, worst 0.398
+    getting the picture: on the processor median 0.004, 95th 0.159, 99th 0.340, worst 1.398
+    the panel: recording it on the processor median 0.004, 95th 0.157, 99th 0.170, worst 0.915; on the card median 0.018, 95th 0.023, 99th 0.042, worst 0.312
+    handing the card its work: on the processor median 0.077, 95th 0.239, 99th 0.317, worst 1.763
+    showing it: on the processor median 0.142, 95th 0.271, 99th 0.323, worst 1.467
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.147, worst 0.418
+  the card's whole: median 0.018, 95th 0.023, 99th 0.042, worst 0.312
