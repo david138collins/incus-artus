@@ -1200,3 +1200,39 @@ before. Borders then never need filling as neighbours arrive.
 **The pictures** (off the screen, high over the spawn, 640 × 400, all three drawn from the same nine regions): the eye can't
 tell them apart. Against the code's, pixel by pixel, out of 255: exact a median of 0, a 99th of 1 and at most 6; spread a
 median of 0, a 99th of 2 and at most 8.
+
+### Results: the three flights
+
+Build 128 (842f83a), the code committed, 2026-11-12, 10:14 to 10:29, each way alone (its own textures built, so its memory
+is its own): C the code's blend `kept logs/flight-1794500370.txt`, A exact `-1794500669`, B spread `-1794500962`. The
+first mark was held till every region was in and the atlas built: 7.9 s to make and send A's, 6.8 s B's.
+
+**The far eye on the card, whole, median ms (against C):**
+
+| | C, the code's | A, exact | B, spread |
+|---|---|---|---|
+| on the ground at the spawn | 0.794 | 0.644 (−19%) | 0.645 (−19%) |
+| the bare plain (the build, the scatter: the same) | 1.440 | 1.148 (−20%) | 1.140 (−21%) |
+| high over the spawn | 2.564 | 2.210 (−14%) | 2.173 (−15%) |
+| the mountain top, clear day | 2.750 | 2.226 (−19%) | 2.146 (−22%) |
+| low over the sea | 4.007 | 2.942 (−27%) | 2.864 (−29%) |
+
+The layers low over the sea: the 8 × 8 1.94 → 1.28 (A) and 1.24 (B); the 4 × 4 1.94 → 1.53 and 1.49.
+
+**The card's memory (the library's allocator, in use and held):** C 1,125 and 1,611 MB; A 3,802 and 4,420 MB (its textures
+2,592 MB); B 2,656 and 3,139 MB (its textures 1,481 MB). The bricks' pool (911 MB) stays in all three, for the code's blend
+wherever the bricks can't answer.
+
+- **Within the estimate:** 14 to 29% off the far eye at every mark, the most low over the sea. Spread is a little
+  faster than exact (1 to 4%), with fewer bytes fetched.
+- **The code's own blend got 1 to 8% slower** than build 126 (high over the spawn 2.564 against 2.375, the spawn 0.794
+  against 0.771). Nothing in its path changed, but the hardware's path now sits beside it in the same program. It's old's
+  lesson again: code added costs every pixel even when it's switched off.
+- **Against the 4 GB bar** (the whole game's card memory, well under it at worst), with the near eye, light and the rest
+  still to come:
+  - A as it stands is over it (3.8 GB in use, 4.4 held), leaving no room.
+  - B leaves about 1.3 GB in use (0.9 held): room for the near eye's estimate (0.25 to 0.9 GB), just.
+  - Both are the whole world's far view on the card. The window round the eye (the plan's fourth step) would keep only the
+    32s and 64s near the eye, which hold 94% of both the pool and the textures.
+  - Without the pool (if the textures alone answered), A would be about 2.7 GB and B 1.6.
+- **Still David's eye,** still and flying, the three switched live.
