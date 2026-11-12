@@ -12,8 +12,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 - **Working on:** Phase 2, *Restart*, step 2.1. Old is packed into `old\` and still runs there (its tests pass, and
   the check flight matched 1.7's to within 0.3%); the journal is in `journal/`, found through
-  `journal/contents.md`. Next, Builder starts the new project's skeleton at the top of the folder: a window that
-  runs, the clock, a flying camera, and instruments that time the card a layer and a stage at a time.
+  `journal/contents.md`. The new project's skeleton is at the top of the folder (392ae0d): a full-screen window,
+  the frame's clock and the card's clock a pass at a time, a flying camera on old's keys, the panel (F3), and a
+  one-minute flight of the empty frame. It builds; it hasn't run yet. Next: David's first look, then the rest of
+  2.1 (everything declared as data and the map, the control room, the doorway, the marks).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
   light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
@@ -24,9 +26,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** two small answers. His desktop "Play Incus Artus.bat" starts at the top of the folder, where
-  there's no game now: point it at `old\`? And do the new project's build numbers carry on from old's (116 next),
-  or start again?
+- **Waiting on David:** his go to launch the skeleton (a look, and the empty frame's flight, about a minute); whether
+  the new project's build numbers carry on from old's (116 next) or start again; and his desktop "Play Incus
+  Artus.bat", which starts the top of the folder (now the new game): keep it there and add one for old?
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
