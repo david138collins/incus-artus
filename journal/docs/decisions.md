@@ -1115,6 +1115,15 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED 2026-11-12] Two desktop launchers** (David, to Counsel's pick: "Yes, add old's"). "Play Incus Artus.bat"
   starts the top of the folder, now the new game, and stays so. "Play old Incus Artus.bat" (Counsel's, the same
   file but for its folder) starts `old\`, with old's own build folder.
+- **[DECIDED 2026-11-12] The editor's pages: Tectonic Sim, World Gen, Registrar** (David, to Builder, giving the go
+  for build 117): "yes, launch it. we should probably call them Tectonic Sim, World Gen, and Registrar, since
+  'compiler/interpreter' would go inside the world gen page. if it even needs an explicit window. we can definitely
+  organize the world gen stack better this time."
+  - The drop-down's greyed pages spelt so (Builder, 8283179), beside the software map; still build 117, since it
+    hadn't launched before.
+  - Old's World Compiler and World Interpreter go inside the World Gen page, as a window of their own only if one is
+    needed. The world gen stack is laid out afresh at 3.4: its stages in one linear chain, each control placed with
+    David.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
