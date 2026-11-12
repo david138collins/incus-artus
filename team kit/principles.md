@@ -38,6 +38,11 @@ facts say so, and say which one and why.
 - **Know the noise.** A repeat flight can differ by a percent or two; a warm-up can make the first half minute of a
   session slower. Measure settled, and read one flight with its noise.
 
+- **No megakernels.** Build card work as small passes over shared per-pixel stores, each timed on its own, not one
+  giant program: in a register-bound giant, code added costs every pixel even when switched off, and the compiler's
+  layout becomes a lottery. Split one piece at a time and measure each split alone; splitting isn't always faster.
+- **Read the watts beside the load.** A card can report itself fully loaded while it waits on a few long chains of
+  work; its power draw falling as the frame gets dearer says it's queued, not working.
 - **Ask idle hardware what it can do.** If any part of the ordinary hardware sits underused (a fixed-function unit,
   free memory, the time between frames, spare threads), ask "what can *you* do for me?" Keep what the program needs to
   run within the smallest machine's budget; let what only makes it faster or finer grow into what a bigger machine

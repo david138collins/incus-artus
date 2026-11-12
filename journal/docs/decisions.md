@@ -1433,6 +1433,23 @@ Reference: `Art/quartile minecraft illustration.png`
   - *Its pass mark, suggested:* the settled picture equal to the full march's, pixel for pixel; the lag measured
     (frames to settle at each level, walking and flying); his eye judging "basically invisible".
   - Builder drafts a writeup of the tests and lazy rays for the Oracle with David.
+- **[DECIDED 2026-11-12] No megakernels: small passes, as an architectural goal** (David, to Builder): "i hope we
+  haven't built another megakernal ... if we've made a megakernal, it seems obvious we should start splitting it up
+  now and establish an architectural goal that supports the microkernalization of it." And: "lets begin the research
+  we need before going back to answer the oracles questions". Why: old's one giant program was register-bound, so
+  code added cost every pixel even switched off; the near eye is still to be built.
+  - **The goal:** the eye as separate small passes over a per-pixel store (march, light, finish), each measured
+    alone. Lazy rays fit it, since a ray's state is kept between frames anyway.
+  - **Builder's risks:** a split may not be faster (each measured alone); the soft skyline's gathered sum must be
+    carried whole across the handover; more passes add fixed cost at cheap views; if the march itself is the
+    megakernel, only the lean step fixes it.
+  - **The order (Builder's):** the Nsight look; the lean step; light split out; lazy rays on top. The Oracle is
+    answered after this research.
+  - **The watts say "waiting"** (build 141, LibreHardwareMonitor, which David installed with PawnIO): the card reports
+    98 to 100% load at every mark, but draws less the dearer the mark: 99 W at the spawn, 78 to 89 at the plain, the
+    mountain top and high over the spawn, 58 over the sea and 63 on a player's run (about 100 W is the card fully at
+    work). Queued, not working. The processor sits at 5 to 11% load, 34 to 42 W: room there for work that takes
+    load off the card.
 - **[DECIDED 2026-11-12] Main memory tracked, and searched for free wins** (David, to Counsel, asking "do you think
   we are under-utilizing system ram? i think basically everyone will have at least 8gb", then: "tell builder to begin
   tracking ram use, and start looking for opportunities where using it is almost a free win or takes some heat/load

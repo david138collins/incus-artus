@@ -21,8 +21,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   *waiting, not working*: about a thousand rays skimming the horizon set each layer's time. Builder's tests (build
   140) point nearer that reading, and ending rays at the map's edge took 6 to 19% off (low over the sea 2.58 ms, a
   player's run 2.52). David's lead from it: **lazy rays**, long rays marched a little each frame, lazier with
-  distance, ramping up when flying. Builder and David are writing it up for the Oracle with the tests' data; the
-  Nsight look and the lean step come next. Then the Oracle's looks (the skyline by coverage, plain land as a
+  distance, ramping up when flying. The watts agree (build 141): the card shows full load but draws 58 W over the sea
+  against 99 at the spawn, so it's queued, not working; the processor idles at 5 to 11%. David's goal, before
+  answering the Oracle: **no megakernels**, the eye as small passes, each measured alone. Next: the Nsight look, the
+  lean step, light split out, lazy rays. Then the Oracle's looks (the skyline by coverage, plain land as a
   surface, the horizon band over frames), change 3, the Intel card, and the gate. The fog line waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
@@ -238,6 +240,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         edge; its two tests (half the rays; the step limit halved) and Nsight on the new march; the lean step (what
         doesn't change between steps kept in hand), the picture the same. *In so far (build 140, c15d256):* the map's
         edge kept, 6 to 19% off every far mark; the tests point nearer "waiting". Nsight and the lean step to come
+  - [ ] The far eye split into small passes (David's goal: no megakernels), in Builder's order: the Nsight look, the
+        lean step, light split out, then lazy rays on top; each split measured alone
   - [ ] Lazy rays (David's lead, 2026-11-12: "spread out any rays that can be lazy"): rays marched a share of their
         steps each frame, resuming, lazier by level and distance, the duty cycle up when moving fast; the settled
         picture equal to the full march's, the lag measured, his eye judging "basically invisible"
@@ -358,3 +362,5 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   start; the pass mark before the flight; no number without its log; old is the reference (its columns check the world to the block; the look is David's eye); one thing asked of David
   at a time; a drop is for its context, not for good; what's true lives in `master/`, and the agents' memory
   holds only habits and warnings.
+- **The shape:** no megakernels. The eye is built as small passes over a per-pixel store, each measured alone (David,
+  2026-11-12: "establish an architectural goal that supports the microkernalization of it").
