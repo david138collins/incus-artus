@@ -77,6 +77,7 @@ flowchart TB
   store_the_camera --> pass_laying_out_the_panel
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
+  store_the_temperatures --> pass_laying_out_the_panel
   pass_laying_out_the_panel --> store_the_panel_s_shapes
   pass_laying_out_the_panel --> store_the_camera
   pass_laying_out_the_panel --> store_the_far_eye_s_look
@@ -195,7 +196,7 @@ flowchart TB
 
 - **A pass** in the frame, on the processor.
 - **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.
-- **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes, the camera and the far eye's look.
+- **Reads:** the camera, the clocks, the wiring and the temperatures. **Writes:** the panel's shapes, the camera and the far eye's look.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.010, 95th 0.018, 99th 0.023, worst 0.313.
 - **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
@@ -312,7 +313,7 @@ flowchart TB
 ### reading the temperatures
 
 - **A pass** in the temperatures, on the processor.
-- **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). On a flight, the hottest and the GPU's slowest clock at each standing in its report. Not shown on screen [David: "i dont need to see the temp readout"].
+- **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). Drawn top right while playing, always (green under 70 °C, yellow under 85, red over); not on a flight. On a flight, the hottest and the GPU's slowest clock at each standing in its report.
 - **Reads:** none. **Writes:** the temperatures.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): not measured.
 - **Files:** src/temperatures.rs.
@@ -459,7 +460,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** The latest reading: the CPU area and the GPU (°C), and the GPU's clock (MHz); each left out where the computer doesn't offer it. On the laptop the CPU area is the thermal zone _TZ.TZ01, the motherboard round the processor, not its cores; 105 °C is the cutoff David agreed for long runs.
-- **Written by:** reading the temperatures. **Read by:** measuring.
+- **Written by:** reading the temperatures. **Read by:** laying out the panel and measuring.
 - **Limit:** seconds between readings, 3.
 - **Files:** src/temperatures.rs.
 

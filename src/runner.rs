@@ -423,6 +423,12 @@ impl Runner {
             far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
         self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), &mut self.camera.pace);
+        // The temperatures, top right, always (not on a flight: what's measured there is the frame alone).
+        if self.flight.is_none()
+            && let Some(watch) = &self.temperatures
+        {
+            crate::temperatures::draw(&ctx, watch.latest());
+        }
         let output = ctx.end_pass();
         running.egui_state.handle_platform_output(&running.window, output.platform_output);
         work.jobs = ctx.tessellate(output.shapes, output.pixels_per_point);
