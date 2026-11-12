@@ -1574,3 +1574,7 @@ mark was drawn at 640 × 400 with the steps' view, bricks of 4 with the window.
   nothing). Low over the sea that layer is 1.23 of the 3.07 ms.
 - **What boxes could win:** the sky rays with no box behind them. Rays that skim far land still march, from the box
   they meet.
+
+**The brick size, last pick (2026-11-12):** with the window, memory stopped binding: 916 MB at bricks of 8 against 471
+at 4, both far under the 4 GB bar, and 8 is 6 to 11% faster on the card. Counsel recommended 8, and David said "you can
+go with 8". The default since 33e48a1.
