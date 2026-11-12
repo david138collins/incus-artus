@@ -97,14 +97,15 @@ fog = true
 eyes = ["far"]
 speed = 200.0
 
-# Fast, 2,000 blocks a second, from 20 km north of the spawn and 300 over it, south across the world: 50 km in its 25 s.
+# Fast, 2,000 blocks a second, from 20 km north of the spawn, south across the world: 50 km in its 25 s. 1,300 over
+# its start (about 1,430 up), over the highest peaks [build 132: at 300 over it the run went into a mountain's side].
 # No bar: where it creaks is reported.
 [[mark]]
 name = "fast across the world"
 at = [20000.5, 0.5]
-above = 300.0
+above = 1300.0
 facing = 180.0
-pitch = -5.0
+pitch = -8.0
 fog = true
 eyes = ["far"]
 speed = 2000.0

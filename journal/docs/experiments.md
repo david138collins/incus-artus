@@ -1462,3 +1462,31 @@ David's 2560 × 1600, the 8 × 8 layer reads 32s out to about 9 km and 64s to ab
     never a hole.
   - What's left is for David's eye on his own screen: the window against the whole world at the mountain top and
     high over the spawn.
+
+### The first flights, and the camera's step (build 132)
+
+Build 132 flown 12:44 to 13:02: the window at bricks of 4 `kept logs/flight-1794509431.txt` and 8 `-1794509780`, and
+the whole world at 4 `-1794510123`.
+
+- **The moving marks didn't move as asked, and the report showed it.** The player's run went 55 to 67 blocks of the
+  5,000 asked; the fast run went 2,400 to 2,800 of the 50,000. That's about 1.3% of its speed.
+- **The cause is the camera's step.** It was the time from the last frame handed over to this frame's start, the
+  sliver between frames, not the frame. So the camera has flown at about 1% of its speed since the rebuild began. That
+  was David's "too slow to notice", and why the speed slider seemed weak.
+  - Fixed: the step is now from one frame's step to the next (`clocks.rs`).
+  - A test holds it. Run against the old step, it fails ("a 50 ms frame steps 0.05 s, not 0.001").
+- **The fast run started inside a mountain's reach.** At 300 over its start it flew into snowy peaks, where the far
+  eye has little to march (0.24 ms). It now starts at 1,300 over its start, above the highest peaks.
+- **The still marks are good:**
+  - The card's memory in use: the window at bricks of 4 **470 MB** (872 held); at 8, 916 MB (1,879); the whole world
+    at 4, 1,791 MB (2,253).
+  - The whole world is now 236 MB more than build 131's, from the atlas's room for the window's moves (a quarter
+    again and a layer), which a whole world doesn't need.
+  - So at 4 the estimate of about 450 was met; at 8, about 700, missed (916).
+  - Card time with the window against the whole world, same build, at bricks of 4: within 3% at every mark (+0.7,
+    -2.4, +1.1, -0.6, +1.6%). Met.
+  - The usable 32s reached at least 8.1 to 8.3 km round the eye at every still mark, the 64s 18.3 to 18.5 km: the
+    window was whole.
+- **After the 22 km jump to the fast run's start,** at bricks of 4 the 64s reached only 9.3 km over its measured
+  frames (18.3 at 8). The conveyor at 4 hadn't caught up in the 5 s of settling.
+- The moving runs are flown again with the step fixed. Their numbers above aren't the window's.

@@ -35,15 +35,16 @@ impl Spread {
     }
 }
 
-/// The frame's clock: from one frame handed to the screen to the next.
+/// The frame's clock: from one frame handed to the screen to the next, and from one frame's step to the next.
 pub struct FrameClock {
     last: Option<Instant>,
+    stepped: Option<Instant>,
     recent: VecDeque<f32>,
 }
 
 impl FrameClock {
     pub fn new() -> Self {
-        Self { last: None, recent: VecDeque::with_capacity(RECENT) }
+        Self { last: None, stepped: None, recent: VecDeque::with_capacity(RECENT) }
     }
 
     /// A frame handed over now: its length in milliseconds (none for the first).
@@ -59,10 +60,14 @@ impl FrameClock {
         ms
     }
 
-    /// The seconds since the last frame, for moving things (none before the first, and at most a tenth of a second,
-    /// so a stall doesn't throw the camera across the world).
-    pub fn step(&self, now: Instant) -> f32 {
-        self.last.map_or(0.0, |last| now.duration_since(last).as_secs_f32().min(0.1))
+    /// The seconds since the last frame's step, for moving things (none before the first, and at most a tenth of a
+    /// second, so a stall doesn't throw the camera across the world). From step to step, a whole frame [build 132's
+    /// moving flight: it was from the last frame handed over to this frame's start, the sliver between frames, so the
+    /// camera had flown at about 1% of its speed since the rebuild began (David: "too slow to notice")].
+    pub fn step(&mut self, now: Instant) -> f32 {
+        let seconds = self.stepped.map_or(0.0, |last| now.duration_since(last).as_secs_f32().min(0.1));
+        self.stepped = Some(now);
+        seconds
     }
 
     /// The recent frames' spread.
@@ -216,4 +221,23 @@ impl PassClock {
 pub struct PassTimes {
     pub processor: Spread,
     pub card: Option<Spread>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    /// A step is the whole time from one frame's step to the next, whenever the frame between is handed over.
+    #[test]
+    fn a_step_is_a_whole_frame() {
+        let mut clock = FrameClock::new();
+        let start = Instant::now();
+        assert_eq!(clock.step(start), 0.0, "nothing before the first");
+        clock.shown(start + Duration::from_millis(49));
+        let step = clock.step(start + Duration::from_millis(50));
+        assert!((step - 0.050).abs() < 1e-4, "a 50 ms frame steps 0.05 s, not {step}");
+        clock.shown(start + Duration::from_millis(1049));
+        assert_eq!(clock.step(start + Duration::from_millis(1050)), 0.1, "a stall steps a tenth of a second at most");
+    }
 }
