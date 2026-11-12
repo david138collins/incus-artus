@@ -3,9 +3,9 @@
 //! Each level (cells of 32 up to 65,536) is laid over the whole map:
 //! - **Each cell column's band** (`entries`): its lowest kept cell and how many, as old kept it, or "not summed yet".
 //!   Below the band every cell is solid with no face, above it empty (`far::CellColumn`).
-//! - **The cells of the bands, in bricks** (`pool`): a brick is 4 × 4 cell columns, 4 cells tall, where the level is
-//!   that big (or 8 or 2 a side, chosen at launch: plan 2.2, step 3, `brick_side`). A brick stays within its region,
-//!   so a region's arrival makes its bricks whole: at 4, 2 × 2 at 512, 1 at 1,024. A brick is found by
+//! - **The cells of the bands, in bricks** (`pool`): a brick is 8 × 8 cell columns, 8 cells tall, where the level is
+//!   that big (or 4 or 2 a side, chosen at launch: plan 2.2, step 3, `brick_side`). A brick stays within its region,
+//!   so a region's arrival makes its bricks whole: at 8, 4 × 4 at 256, 2 × 2 at 512, 1 at 1,024. A brick is found by
 //!   arithmetic, its place in the level's index (`index`), and a cell by its place in the brick. Only bricks holding
 //!   some band are made.
 //!
@@ -30,14 +30,15 @@ pub const NOT_SUMMED: u32 = 0xFFFF_0000;
 /// No brick at a place in the index.
 pub const NO_BRICK: u32 = u32::MAX;
 
-/// A brick's side in cells: 4, or 8 or 2 at launch for measuring (`INCUS_FAR_BRICK`). Plan 2.2, step 3: smaller bricks
+/// A brick's side in cells: 8, or 4 or 2 at launch for measuring (`INCUS_FAR_BRICK`). Plan 2.2, step 3: smaller bricks
 /// hold less beside the bands, so the card holds less; build 131 flew them, 4 taking the whole game from 2,656 to 1,555
-/// MB for 5 to 13% more far time, and David: "4 sounds good". The last pick waits on the window round the eye (step 4),
-/// flown at 4 and 8.
+/// MB for 5 to 13% more far time ("4 sounds good" for then). With the window round the eye (step 4) memory stopped
+/// binding, 916 MB at 8 against 471 at 4, and 8 was 6 to 11% faster; Counsel recommended 8, and David: "you can go
+/// with 8".
 pub fn brick_side() -> i32 {
     match std::env::var("INCUS_FAR_BRICK").ok().and_then(|s| s.parse().ok()) {
         Some(side @ (2 | 4 | 8)) => side,
-        _ => 4,
+        _ => 8,
     }
 }
 

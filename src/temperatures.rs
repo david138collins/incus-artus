@@ -1,5 +1,9 @@
-//! The temperatures: how hot the computer runs, in the top right corner while you play, and in a flight's report
-//! [David, 2026-11-12: "i'd like for you to start tracking temperatures again, just as before"; always shown, no switch].
+//! The temperatures: how hot the computer runs, in the session's log every half minute and in a flight's report
+//! [David, 2026-11-12: "i'd like for you to start tracking temperatures again, just as before"; then, of the corner
+//! readout build 135 drew: "i dont need to see the temp readout"].
+//!
+//! Read beside the watts, the clocks and the frame rate, not alone: the laptop runs Turbo with its fans full, and its
+//! CPU area touches 100 °C as a matter of course [David, via Counsel]. A card slowed by heat shows first in its clock.
 //!
 //! Read every few seconds on a thread of their own (a reading takes about a second), so the frame never waits for them,
 //! as old read them:
@@ -17,8 +21,9 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// How often they're read.
+/// How often they're read, and every how many readings one goes in the session's log (half a minute).
 const EVERY: Duration = Duration::from_secs(3);
+const LOGGED: u32 = 10;
 
 /// A reading, in °C (none: not offered, or not read yet), and the card's clock (MHz).
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
@@ -45,11 +50,15 @@ impl Watch {
         std::thread::Builder::new()
             .name("reading the temperatures".into())
             .spawn(move || {
-                loop {
+                for n in 0u32.. {
                     let (gpu, gpu_clock) = gpu();
                     let now = Temperatures { cpu_area: cpu_area(), gpu, gpu_clock };
                     if let Ok(mut latest) = shared.lock() {
                         *latest = now;
+                    }
+                    if n % LOGGED == 0 {
+                        let read = |value: Option<f32>, unit: &str| value.map_or("not read".to_string(), |v| format!("{v:.0} {unit}"));
+                        log::info!("The temperatures: the CPU area {}, the GPU {} at {}", read(now.cpu_area, "°C"), read(now.gpu, "°C"), read(now.gpu_clock, "MHz"));
                     }
                     std::thread::sleep(EVERY);
                 }
@@ -107,29 +116,6 @@ fn gpu_of(text: &str) -> (Option<f32>, Option<f32>) {
         }
     }
     (hottest.map(|(celsius, _)| celsius), hottest.and_then(|(_, clock)| clock))
-}
-
-/// Green while comfortable, yellow when warm, red when hot (old's).
-fn colour(celsius: f32) -> egui::Color32 {
-    if celsius < 70.0 {
-        egui::Color32::from_rgb(120, 220, 120)
-    } else if celsius < 85.0 {
-        egui::Color32::from_rgb(230, 200, 90)
-    } else {
-        egui::Color32::from_rgb(235, 90, 80)
-    }
-}
-
-/// The readings drawn in the top right corner, over everything, a dark edge under each so it reads over sky and snow.
-pub fn draw(ctx: &egui::Context, now: Temperatures) {
-    let lines: Vec<(String, f32)> = [("CPU area", now.cpu_area), ("GPU", now.gpu)].into_iter().filter_map(|(name, reading)| reading.map(|c| (format!("{name} {c:.0} °C"), c))).collect();
-    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("temperatures")));
-    let top_right = ctx.content_rect().right_top() + egui::vec2(-10.0, 8.0);
-    for (k, (text, celsius)) in lines.iter().enumerate() {
-        let at = top_right + egui::vec2(0.0, k as f32 * 18.0);
-        painter.text(at + egui::vec2(1.0, 1.0), egui::Align2::RIGHT_TOP, text, egui::FontId::proportional(15.0), egui::Color32::BLACK);
-        painter.text(at, egui::Align2::RIGHT_TOP, text, egui::FontId::proportional(15.0), colour(*celsius));
-    }
 }
 
 #[cfg(test)]

@@ -77,7 +77,6 @@ flowchart TB
   store_the_camera --> pass_laying_out_the_panel
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
-  store_the_temperatures --> pass_laying_out_the_panel
   pass_laying_out_the_panel --> store_the_panel_s_shapes
   pass_laying_out_the_panel --> store_the_camera
   pass_laying_out_the_panel --> store_the_far_eye_s_look
@@ -187,7 +186,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The regions summed since the last frame put on the card as bricks, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in. Then the window round the eye brought to it (step 4): the 32s' and 64s' regions past it given back, those within it made from the far cells kept and put on, nearest first, the far textures following. At most 3 ms a frame for both.
 - **Reads:** the far cells and the camera. **Writes:** the far bricks, the far textures and the window round the eye.
-- **Switch** `INCUS_FAR_BRICK`: a brick's side in cells: 2, 4 or 8 (unset: 4), for the pool and the far textures both (2.2, step 3).
+- **Switch** `INCUS_FAR_BRICK`: a brick's side in cells: 2, 4 or 8 (unset: 8), for the pool and the far textures both (2.2, step 3).
 - **Switch** `INCUS_FAR_WINDOW`: the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4).
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.319.
 - **Files:** src/bricks.rs and src/far_eye.rs.
@@ -196,7 +195,7 @@ flowchart TB
 
 - **A pass** in the frame, on the processor.
 - **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.
-- **Reads:** the camera, the clocks, the wiring and the temperatures. **Writes:** the panel's shapes, the camera and the far eye's look.
+- **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes, the camera and the far eye's look.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.010, 95th 0.018, 99th 0.023, worst 0.313.
 - **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
@@ -313,7 +312,7 @@ flowchart TB
 ### reading the temperatures
 
 - **A pass** in the temperatures, on the processor.
-- **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept. Drawn top right while playing, always (green under 70 °C, yellow under 85, red over); on a flight, the hottest and the GPU's slowest clock at each standing in its report.
+- **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). On a flight, the hottest and the GPU's slowest clock at each standing in its report. Not shown on screen [David: "i dont need to see the temp readout"].
 - **Reads:** none. **Writes:** the temperatures.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): not measured.
 - **Files:** src/temperatures.rs.
@@ -460,7 +459,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** The latest reading: the CPU area and the GPU (°C), and the GPU's clock (MHz); each left out where the computer doesn't offer it. On the laptop the CPU area is the thermal zone _TZ.TZ01, the motherboard round the processor, not its cores; 105 °C is the cutoff David agreed for long runs.
-- **Written by:** reading the temperatures. **Read by:** laying out the panel and measuring.
+- **Written by:** reading the temperatures. **Read by:** measuring.
 - **Limit:** seconds between readings, 3.
 - **Files:** src/temperatures.rs.
 
