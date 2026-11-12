@@ -113,7 +113,7 @@ The plan is `master/plan.md`.
 | 5 | Leaves far off | Open (2.4). David earlier: leaves partly see-through, "like minecraft" |
 | 6 | The rejector | Open, not needed till 3.5 |
 | 7 | `Art/` online | "Not yet" |
-| 8 | The control room in the game's panel | Yes (2026-11-11). Then at 2.1: "the control panel will be a page in" the editor; whether that moves the control room there, David to say |
+| 8 | The control room in the game's panel | Yes (2026-11-11), then moved at 2.1: it's the "software map", a page of the new editor ("a black screen with magenta boxes that show a tooltip when you hover, connected by lines"), drawn from the code's own list of its lanes, passes, stages and stores |
 | 9 | The small card | The Core Ultra 9 275HX's integrated Intel graphics; flown in experiment 1 |
 | 10 | The new eye's picture | At this fork |
 
@@ -291,7 +291,7 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
    of the screen; at the spawn, nearer mountains stop the rays.
    - Is that your "rays that skim along the ground" (your 4.8, what would make the budget wrong), met in old already?
    - Does starting rays at drawn boxes answer grazing rays over flat land, or do they still walk many bricks?
-   - What should the new engine's clocks (a layer and a stage at a time, from 2.1) look at first, at this mark?
+   - What should the new engine's clocks (a layer and a pass at a time, from 2.1) look at first, at this mark?
 
 ## 5. Still to come
 

@@ -1092,6 +1092,26 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED 2026-11-12] The skeleton, looked at** (David, to Builder, on build 116: "looks fine. go ahead"). The
   empty frame was then flown: 0.40 ms a frame at the median and 0.019 ms on the card, with nothing in the world
   (`kept logs/flight-1794486371.txt`; `journal/docs/experiments.md`). Every later change is measured from there.
+- **[DECIDED 2026-11-12] The software map, a page of the new editor, and the four words** (David, to Builder, on
+  her declaration's shape): "i think the new editor should have a drop-down menu at the top that brings you to the
+  desired page (software map, tectonics, world gen, registrar, etc). the software map should just be a black screen
+  with magenta boxes that show a tooltip when you hover, connected by lines, and inside of larger boxes for sections
+  if need be. the words you're using are fine."
+  - **The words** (Builder's, now his): a *lane* is a line of work with its own pace (the frame is one); a *pass* is
+    one piece of the frame's work with its own clock, on the processor or the card; a *stage* is one step of the
+    world's recipe only; a *store* is something held, with its size and limits. Old's other use of "stage" (the
+    march's) isn't carried over, so the plan's "a layer and a stage at a time" reads "a layer and a pass at a time".
+    The names in her sample stand (flying, laying out the panel, the panel, the keys held, the camera, the clocks,
+    the panel's shapes, the screen's picture).
+  - **The control room is the software map**, a page of the new editor, not of the F3 panel. That answers the
+    question above ("the control panel will be a page in" the editor): the control panel is the control room.
+  - **The editor:** its own screen, its pages reached by the drop-down at the top. *Builder's reading, his to
+    change:* old's F2 opens it (the spec's "on its own screen (F2)"); the drop-down lists his four in his words,
+    with only the software map working and the rest greyed until they exist.
+  - **The software map:** black, with magenta boxes that show a tooltip on hover, joined by lines, inside larger
+    boxes for sections. *Builder's reading:* the lanes are the larger boxes with their passes inside; the stores sit
+    outside, joined by lines to what reads and writes them; the tooltips carry each box's card, with live times.
+    `master/map.md` is still drawn from the same list by the build's test, for the sessions.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

@@ -15,10 +15,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   `journal/contents.md`. The new project's skeleton runs from the top of the folder as build 116 (the numbers carry
   on from old's): a full-screen window, a flying camera on old's keys, the panel (F3), and the clocks. David looked
   ("looks fine. go ahead"), and the empty frame flew at 0.40 ms a frame and 0.019 ms on the card, the floor every
-  later change is measured from. Next, with nothing placed on screen: every stage, pass, lane and store declared as
-  data, drawing `master/map.md`; Builder brings the declaration's shape and names to David before it's wired. Then
-  the control room, the doorway and the marks. As the editor fills, every window, setting and control is placed
-  with David (`journal/docs/decisions.md`, 2026-11-12).
+  later change is measured from. Now: every stage, pass, lane and store declared as data, in David's agreed words
+  and shape, drawing `master/map.md`; and the control room as the new editor's first page, the software map (black,
+  magenta boxes, a tooltip on hover). Then the doorway and the marks. As the editor fills, every window, setting and
+  control is placed with David (`journal/docs/decisions.md`, 2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
   light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
@@ -29,11 +29,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the declaration's shape (Builder's, nothing wired): the four words (lane, pass, stage,
-  store) and their meanings, the names in its sample, and the map's look (map-plan's step 1 gate); his desktop
-  "Play Incus Artus.bat", which starts the top of the folder (now the new game): keep it there and add one for
-  old?; and where the control room goes: he said "the control panel will be a page in" the editor, where on
-  2026-11-11 it was to be a page in the game's panel.
+- **Waiting on David:** his desktop "Play Incus Artus.bat", which starts the top of the folder (now the new game):
+  keep it there and add one for old?
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
@@ -158,11 +155,13 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         walkthrough gone, its record in the journal; the fresh-eyes audit moved to the new engine. Builder's trimmed:
         her habits, the team's ways and the rebuild's direction now hold habits and warnings only)
   - [x] The new project: a window that runs, the clock, a flying camera, the instruments (the card timed a layer
-        and a stage at a time from the first build: old's one clock couldn't place the bare plain's cost, 1.7)
+        and a pass at a time from the first build: old's one clock couldn't place the bare plain's cost, 1.7)
         (392ae0d, build 116 c4d102e, David: "looks fine"; the empty frame flown, `kept logs/flight-1794486371.txt`:
         0.40 ms a frame, 0.019 ms on the card; `journal/docs/experiments.md`)
   - [ ] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
-  - [ ] The control room: the same map, live, in the game's panel
+  - [ ] The control room: the software map, a page of the new editor (its own screen, pages by a drop-down at the
+        top): black, magenta boxes with a tooltip on hover, joined by lines, inside larger boxes for sections; live
+        (David, 2026-11-12)
   - [ ] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as
         runs of blocks; pieces, objects and lights; what changed; named fields over the land. The export behind it
         now, the tablet at 3.1. Read-only until the fork. The engine never opens a world file
@@ -233,7 +232,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | Seasons: a re-texture (a named field the look reads), a re-block (changes through the doorway), or both. Both are kept possible | Later; nothing to decide now |
 | Digging and placing before the fork? Decided no: read-only until then | Answered 2026-11-11 |
 | ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
-| The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before? | 2.1, before the control room |
+| ~~The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before?~~ | Answered 2026-11-12: the editor's, as the software map |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
