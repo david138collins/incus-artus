@@ -962,3 +962,8 @@ processor's threads:
 - **On the map:** the loading lane holds a second pass, "summing the far cells", reading "a tile's columns" and writing
   "the far cells" (Builder's names, David's to change). Its card says why it's on the processor. Nothing in the game
   asks for the far cells yet: the far eye will, in step 2.
+- *Corrected (Counsel, the same day):* the "why" above is only part of it. Old's bake also made the ground itself,
+  running the world's recipe on the card for every column ("only the cells of 32 run the recipe, on the card",
+  `old/src/sight/bake.rs`). The new sum reads ground the export already made: that took 8 minutes, once. So 46–55 s against
+  2.6 s is both, the recipe left out as well as runs against blocks. What matters for the player stands: in the new design
+  the world is made once, and its levels are summed at load in seconds.
