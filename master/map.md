@@ -190,7 +190,7 @@ flowchart TB
 - **Switch** `INCUS_SIGHT_STEPS`: the steps' view: dark blue few steps, through green, to red 256 or more.
 - **Switch** `INCUS_SIGHT_NO_SHADOWS`: the sun's shadows left out (for measuring).
 - **Switch** `INCUS_SIGHT_NO_SKY`: the sky light left out (for measuring).
-- **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default +2).
+- **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's).
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.052, 95th 0.088, 99th 0.124, worst 0.366; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.016.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 

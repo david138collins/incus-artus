@@ -1303,3 +1303,7 @@ The layers at +2 against 0:
     to 0.4 ms), reading finer cells.
 - **For David's eye:** whether the 2 × 2 is what he liked at +2, or the finer cells alone. The 2 × 2's crossover (the
   Render page's "2 × 2 fades in from") can push it back out with +2 kept, its cost read on the gauge as he moves it.
+
+**David's look from height (build 130, 2026-11-12):** he flew up and compared 0 and +2: "yeah 0 is fine". The default
+goes back to 0, old's, which every flight before build 129 measured. At the spawn he'd seen no difference from -1 to +4
+("as you have the detail set now, everything from -1 to 4 looks the same"). The fog line waits as written.

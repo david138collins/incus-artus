@@ -230,7 +230,7 @@ pub const PASSES: [Pass; 18] = [
             ("INCUS_SIGHT_STEPS", "the steps' view: dark blue few steps, through green, to red 256 or more"),
             ("INCUS_SIGHT_NO_SHADOWS", "the sun's shadows left out (for measuring)"),
             ("INCUS_SIGHT_NO_SKY", "the sky light left out (for measuring)"),
-            ("INCUS_FAR_DETAIL", "the detail at launch, levels finer than a pixel's size (the Render page's; default +2)"),
+            ("INCUS_FAR_DETAIL", "the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's)"),
         ],
         files: &["src/far_eye.rs", "src/far.wgsl"],
     },

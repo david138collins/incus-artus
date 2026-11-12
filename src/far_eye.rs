@@ -76,8 +76,8 @@ pub struct FarLook {
     /// saw no difference from exact, build 128, "as far as the far blend, they all look the same").
     pub blend: u32,
     /// Detail: the level read at each distance, so many levels finer (more) or coarser (less) than its pixel's size
-    /// (old's level bias, turned round). +2 David's: "-2 detail looked better, didn't seem to impact the frames" (build
-    /// 128, when the slider ran backwards: his -2 was two levels finer).
+    /// (old's level bias, turned round). 0, old's: +2 cost up to 77% more looking down from height (build 129, the 2 x 2
+    /// earned), and David, looking from up high at build 130: "yeah 0 is fine".
     pub detail: i32,
     /// How the pyramid is brought up to the screen: 0 crisp, 1 smooth, 2 smooth with sharp skylines.
     pub bring_up: u32,
@@ -108,7 +108,7 @@ impl FarLook {
         fade_2: CELLS_FADES[1],
         sky_weight: SKY_WEIGHT,
         blend: 1,
-        detail: 2,
+        detail: 0,
         bring_up: 0,
         view: 0,
         sun_from: SUN_FROM,
