@@ -366,6 +366,10 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle
 
+**Midway through 2.2 (2026-11-12):** David asked for a prompt calling the Oracle before the fork:
+`journal/vision/oracle-prompt-2026-11-12.md`. It points here and asks twelve questions drawn from section 4. If he
+sends it, its answer becomes the third part of `journal/vision/oracle-review.md`, and this file goes on gathering.
+
 ## 6. The message to send at the fork
 
 A draft for David to edit when the time comes:

@@ -33,6 +33,10 @@
   it's shaped. A line in a shared bar only if every window under it needs it; a control goes when what it controls
   goes. Something placed for now to get on is said to be his to move.
 - **Grey out, don't hide:** a control that doesn't apply yet is shown disabled, not removed. Folding keeps panels tidy.
+- **Ask before removing.** A short answer can be read two ways ("i dont need to see the readout" meant he didn't need a
+  launch to see it, not that it should go). Before taking anything away that he can see, ask which he meant.
+- **He watches the work.** He often sits and watches the tests for hours: what's on screen during them (temperatures,
+  progress) is for him too.
 - **Don't fix problems before they're seen.** Note a possible future problem on file; raise it when his screenshots
   or the numbers show it.
 - **Flaws found mid-change:** fix at once only what puts holes in the picture or misleads other tests; write the rest

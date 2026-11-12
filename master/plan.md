@@ -58,8 +58,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** change 2 off by default and kept till the Intel flights (its unused code measured at under
-  1%), or out now; the next candidates, the open-sea shortcut (the sea is the worst mark, about 2.9 ms) and change 3
+- **Waiting on David:** whether to send the Oracle the mid-2.2 prompt (`journal/vision/oracle-prompt-2026-11-12.md`);
+  change 2 off by default and kept till the Intel flights (its unused code measured at under 1%), or out now; the
+  next candidates, the open-sea shortcut (the sea is the worst mark, about 2.9 ms) and change 3
   (light, at most about 0.2 ms); when to take the fog line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers

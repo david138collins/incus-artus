@@ -1348,6 +1348,11 @@ Reference: `Art/quartile minecraft illustration.png`
   - *Corrected in the open (Builder):* his "i dont need to see the temp readout" answered whether he needed a launch
     to see it, not whether to show it; Builder took it off the screen (33e48a1), and David asked "why aren't temps
     shown on the screen". Back on screen, top right, in build 136 (ecb67ef).
+  - **Always, flights included** (David, to Builder: "in the future, can you make sure that the temp displays are
+    always visible while in the world"; then, when Counsel suggested keeping flights clean: "well, while you are
+    running tests, i am sitting here watching, and id like to know what the temps are at while watching. believe it
+    or not i sit here all day just watching you work through hours of tests."). Build 139 (38e0dd1) draws the
+    readout on flights too, a few letters' cost, noted in the experiments. Why: he watches the flights.
 - **[DECIDED 2026-11-12] Bricks of 8, with the window** (David, to Builder, after Counsel recommended 8: "you can go
   with 8"). With the window, memory stopped binding (916 MB at 8 against 471 at 4, far under the 4 GB bar) and speed
   still does (the far marks 2 to 3 times the gate), so 8's 6 to 11% is worth more than 445 MB. The default since
@@ -1376,6 +1381,10 @@ Reference: `Art/quartile minecraft illustration.png`
   between 4 and 8gb in the end." *Counsel's reading, his to correct:* the game's main memory ends up between 4 and
   8 GB, what it must have to run toward the low end, so an 8 GB machine still runs it. Why: his "what can *you* do
   for me?", for the laptop's 31 GB.
+  - **The first picture** (build 138, Builder's `src/memory.rs`, Windows' own count): the game holds 2,826 MB
+    private at the end, 1,036 MB of it in memory (the working set); 1,312 MB at 1.6 s before any far cells, 2,670 at
+    61 s with all in, then about 20 MB more over the marks. The 1.3 GB at the start isn't placed yet (drivers and the
+    card's staging copies are likely); Builder breaks it down stage by stage before pricing any free win.
 - **[OPEN] Temporal reuse (TAA), and where it goes** (David, to Counsel: "what about TAA, is that in the
   testing/performance pipeline, towards the end, probably?"). Decided for old on 2026-11-08 with his rules (anything
   fast never takes from history; pixels with no history get rays first; edits and light changes drop history; near
