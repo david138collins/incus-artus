@@ -1240,7 +1240,10 @@ Reference: `Art/quartile minecraft illustration.png`
   5. change 2 (rays begun at the drawn boxes);
   6. change 3 (light read from the cell), after light is measured again;
   7. the Intel card's flights last, with Optimus put to him a step ahead.
-  Why: the costs and the looks are both his to weigh, and data beats guessing which change wins.
+  Why: the costs and the looks are both his to weigh, and data beats guessing which change wins. David, to Counsel,
+  on the memory each costs: "yes, we'll need to assess the costs scientifically and weigh their effects
+  architecturally." So each step reports its time and the game's whole card memory, and a choice is weighed against
+  the whole eye's budget (near eye, light and the rest included), not by the far view alone.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
