@@ -805,3 +805,43 @@ Run by its test, 2026-11-12 (`cargo test --release`, `doorway::tests::the_doorwa
   Fixed before the commit: each layer is now laid deepest first.
 - **On the map:** a third lane, "loading" ("as tiles are asked for"), holds the doorway. It reads "the export" and
   writes "a tile's columns". Nothing in the game asks it yet. These names are Builder's, David's to change.
+
+
+## The marks as data  *(plan 2.1)*
+
+David's go: "go ahead" (2026-11-12). The marks are the places every flight stands at, the same each time. They're now
+data, `data/marks.toml`, not code: each has a name, a place, how high over a player's eye, a facing and pitch, whether
+fog is on, which eye's marks it is (2.2's far eye, 2.3's near eye), and what's changed there first. Old worked its
+marks out from the map; the new file holds the places old flew, from its reports.
+
+Each mark's eye is placed from the doorway's answer, a player's eye (1.38) over the ground or the water, so the marks
+also put the doorway to use in the game. The build's placings and the scatter's blocks are made as changes through
+the doorway ("what changed"). Nothing draws the world yet, so none of this shows on the screen; the flight stands at
+each mark in turn, and the game starts at the first, the spawn.
+
+The marks, in the file's order:
+- **on the ground at the spawn** (near);
+- **the mountain top on a clear day** (near);
+- **the bare plain** (near and far: it's the plan's "plain's horizon" for the far eye);
+- **the plain with David's build** (near): the 169 placings of `kept logs/events-1794341728.log`, made as changes;
+- **the scatter** (near): random blocks round the bare plain, at three settings of the dial;
+- **high over the spawn** and **low over the sea** (far).
+
+### The pass mark (written before the code)
+
+**The marks are right if,** by their test, each eye stands where old's did, to a tenth of a block. That's old's
+reports (`kept logs/dyno-1794448108.txt`, `kept logs/dyno-1794433359.txt`):
+- the spawn at 395.4 over (0.5, 0.5);
+- the mountain top at 1,025.4 over (−605.5, 78.5);
+- the plain at 137.4 over (−3,975, −1,192);
+- high over the spawn at 795.4;
+- low over the sea at 151.4 over (−1,905.7, −2,137.7).
+
+The facings must be old's: 0°, 172.6°, 180°, 0°, 228.3°.
+
+**And** the build is all 169 placings made as changes, none refused: 146 bars and 23 whole blocks. Each scatter setting
+makes exactly its count of blocks.
+
+**The flight** stands at every mark in turn, a section of the report each. *Builder's estimate [medium]:* every mark's frame
+is within 10% of the empty frame's 0.42 ms. Nothing is drawn yet, so the places can't differ. A mark that differs points
+at the marks' own work (going to a mark, the doorway, the changes), which the passes' times will show.
