@@ -883,3 +883,23 @@ Build 120: the first mark settles 30 s more (35 s in all), and each standing's r
 - **The marks, as before:** within 10% of each other, every eye and every change as the first flight.
 - **Going there** *[estimate, low]*: a few milliseconds for a plain mark (one tile, 2 ms); the scatter at 100,000 in
   under a second (its four tiles and a hundred thousand changes). All of it while the frames settle, not measured.
+
+### Results, second flight
+
+Build 120 (2ee6651), the code committed, 2026-11-12: `kept logs/flight-1794489536.txt`. The first mark settled 35 s.
+
+| | spawn (first) | mountain top | bare plain | build | scatter 1k / 10k / 100k | high over spawn | low over sea |
+|---|---|---|---|---|---|---|---|
+| the frame, median ms | 0.338 | 0.340 | 0.338 | 0.344 | 0.340 / 0.341 / 0.338 | 0.340 | 0.338 |
+| going there, ms | 3.2 | 3.0 | 2.6 | 3.2 | 9.4 / 10.1 / 18.7 | 3.7 | 3.2 |
+
+- **The warm-up was the cause.** The spawn, still first, now reads 0.338 ms, within 1% of the rest, and its card pass
+  0.012 like theirs. All nine standings fall within 2% of each other (0.338 to 0.344), and the card's pass is 0.012 at each.
+- **The marks, as before:** every eye and every change the same as the first flight.
+- **Going there,** inside the estimate: about 3 ms for a mark (the doorway reading one tile, 2.5 to 3.4 ms of it). The
+  scatter reads three tiles; at 100,000 blocks it takes 18.7 ms, well under the second guessed.
+- **The settled floor:** 0.34 ms a frame, 0.012 on the card, with nothing in the world. Corrected in the plan beside
+  build 116's line.
+- **The marks' line in 2.1 is ticked.** The plain's horizon is the bare plain, marked for both eyes (Builder's reading,
+  David's to change). One command flies every mark on one card. Both cards at once waits on the Optimus setting, when
+  the Intel card is flown.

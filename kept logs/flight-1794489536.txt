@@ -1,0 +1,153 @@
+The flight: Incus Artus, build 120 (2ee6651); the code committed
+The card: NVIDIA GeForce RTX 5070 Ti Laptop GPU (DiscreteGpu, Dx12, driver 32.0.16.2101 ; chosen by the default, high performance)
+The picture 2560 x 1600, the screen's refresh 240, uncapped; handed to the screen: Immediate; the panel hidden
+Switches: INCUS_FLIGHT=1
+The marks: data/marks.toml; 5 s settling, then 20 s measured at each (the first settling 30 s more: the session's warm-up)
+
+At on the ground at the spawn (near eye; fog on): the eye at north 0.5, east 0.5, up 395.4, facing 0°, pitch 0.0°
+  going there: 3.2 ms (the doorway answered 1 tiles in 3.1 ms)
+  the frame: 60738 frames, 2955 a second (median); ms median 0.338, 95th 0.507, 99th 0.674, 99.9th 0.879, worst 11.663
+  each pass (ms; 60738 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.166
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.195
+    laying out the panel: on the processor median 0.008, 95th 0.088, 99th 0.118, worst 1.415
+    getting the picture: on the processor median 0.004, 95th 0.088, 99th 0.340, worst 4.941
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.089, worst 0.233; on the card median 0.012, 95th 0.013, 99th 0.014, worst 0.210
+    handing the card its work: on the processor median 0.070, 95th 0.158, 99th 0.234, worst 1.434
+    showing it: on the processor median 0.143, 95th 0.272, 99th 0.321, worst 11.535
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.157, worst 0.375
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.014, worst 0.210
+
+At the mountain top on a clear day (near eye; fog off): the eye at north -605.5, east 78.5, up 1025.4, facing 173°, pitch -5.0°
+  going there: 3.0 ms (the doorway answered 1 tiles in 2.8 ms)
+  the frame: 58590 frames, 2943 a second (median); ms median 0.340, 95th 0.514, 99th 0.665, 99.9th 0.845, worst 1.886
+  each pass (ms; 58590 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.171
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.077, worst 0.280
+    laying out the panel: on the processor median 0.009, 95th 0.087, 99th 0.147, worst 0.858
+    getting the picture: on the processor median 0.004, 95th 0.082, 99th 0.299, worst 1.381
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.083, worst 1.326; on the card median 0.012, 95th 0.013, 99th 0.013, worst 0.204
+    handing the card its work: on the processor median 0.069, 95th 0.158, 99th 0.237, worst 1.482
+    showing it: on the processor median 0.144, 95th 0.274, 99th 0.330, worst 1.695
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.155, worst 1.429
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.013, worst 0.204
+
+At the bare plain (near and far eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 2.6 ms (the doorway answered 1 tiles in 2.5 ms)
+  the frame: 60578 frames, 2955 a second (median); ms median 0.338, 95th 0.503, 99th 0.668, 99.9th 0.853, worst 2.555
+  each pass (ms; 60578 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.172
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.277
+    laying out the panel: on the processor median 0.008, 95th 0.091, 99th 0.120, worst 0.363
+    getting the picture: on the processor median 0.004, 95th 0.089, 99th 0.340, worst 2.225
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.089, worst 0.226; on the card median 0.012, 95th 0.013, 99th 0.013, worst 0.208
+    handing the card its work: on the processor median 0.070, 95th 0.158, 99th 0.235, worst 1.460
+    showing it: on the processor median 0.143, 95th 0.271, 99th 0.326, worst 1.596
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.161, worst 0.426
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.013, worst 0.208
+
+At the plain with David's build (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 3.2 ms (the doorway answered 1 tiles in 2.7 ms)
+  made through the doorway: 23 whole blocks, 146 bars, 0 refused
+  the frame: 57905 frames, 2904 a second (median); ms median 0.344, 95th 0.519, 99th 0.664, 99.9th 0.873, worst 1.780
+  each pass (ms; 57906 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.190
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.178
+    laying out the panel: on the processor median 0.009, 95th 0.089, 99th 0.150, worst 0.421
+    getting the picture: on the processor median 0.004, 95th 0.088, 99th 0.296, worst 1.196
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.089, worst 0.235; on the card median 0.012, 95th 0.013, 99th 0.013, worst 0.208
+    handing the card its work: on the processor median 0.071, 95th 0.160, 99th 0.238, worst 1.485
+    showing it: on the processor median 0.147, 95th 0.278, 99th 0.337, worst 1.586
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.161, worst 0.424
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.013, worst 0.208
+
+At the scatter, the scatter at 1000 (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 9.4 ms (the doorway answered 3 tiles in 7.6 ms)
+  made through the doorway: 1000 whole blocks, 0 bars, 0 refused
+  the frame: 59624 frames, 2945 a second (median); ms median 0.340, 95th 0.514, 99th 0.673, 99.9th 0.867, worst 2.431
+  each pass (ms; 59624 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.200
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.295
+    laying out the panel: on the processor median 0.009, 95th 0.088, 99th 0.126, worst 0.362
+    getting the picture: on the processor median 0.004, 95th 0.088, 99th 0.327, worst 1.911
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.089, worst 0.234; on the card median 0.012, 95th 0.013, 99th 0.013, worst 0.215
+    handing the card its work: on the processor median 0.071, 95th 0.159, 99th 0.235, worst 0.672
+    showing it: on the processor median 0.144, 95th 0.275, 99th 0.334, worst 1.381
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.162, worst 1.309
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.013, worst 0.215
+
+At the scatter, the scatter at 10000 (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 10.1 ms (the doorway answered 3 tiles in 7.7 ms)
+  made through the doorway: 10000 whole blocks, 0 bars, 0 refused
+  the frame: 58774 frames, 2930 a second (median); ms median 0.341, 95th 0.518, 99th 0.658, 99.9th 0.841, worst 1.951
+  each pass (ms; 58774 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.170
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.304
+    laying out the panel: on the processor median 0.009, 95th 0.088, 99th 0.123, worst 0.435
+    getting the picture: on the processor median 0.004, 95th 0.083, 99th 0.319, worst 1.596
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.089, worst 0.243; on the card median 0.012, 95th 0.013, 99th 0.013, worst 0.212
+    handing the card its work: on the processor median 0.071, 95th 0.159, 99th 0.238, worst 1.272
+    showing it: on the processor median 0.145, 95th 0.277, 99th 0.334, worst 1.400
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.163, worst 1.713
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.013, worst 0.212
+
+At the scatter, the scatter at 100000 (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 18.7 ms (the doorway answered 3 tiles in 8.1 ms)
+  made through the doorway: 100000 whole blocks, 0 bars, 0 refused
+  the frame: 60765 frames, 2958 a second (median); ms median 0.338, 95th 0.505, 99th 0.671, 99.9th 0.885, worst 3.358
+  each pass (ms; 60765 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.165
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.070, worst 0.290
+    laying out the panel: on the processor median 0.008, 95th 0.087, 99th 0.116, worst 0.296
+    getting the picture: on the processor median 0.004, 95th 0.086, 99th 0.342, worst 2.908
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.085, worst 0.241; on the card median 0.012, 95th 0.013, 99th 0.014, worst 0.210
+    handing the card its work: on the processor median 0.069, 95th 0.158, 99th 0.233, worst 1.317
+    showing it: on the processor median 0.143, 95th 0.271, 99th 0.319, worst 1.572
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.160, worst 0.405
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.014, worst 0.210
+
+At high over the spawn (far eye; fog on): the eye at north 0.5, east 0.5, up 795.4, facing 0°, pitch -30.0°
+  going there: 3.7 ms (the doorway answered 1 tiles in 3.4 ms)
+  the frame: 59280 frames, 2944 a second (median); ms median 0.340, 95th 0.519, 99th 0.659, 99.9th 0.842, worst 3.116
+  each pass (ms; 59280 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.177
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.274
+    laying out the panel: on the processor median 0.009, 95th 0.088, 99th 0.147, worst 0.363
+    getting the picture: on the processor median 0.004, 95th 0.084, 99th 0.316, worst 2.599
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.088, worst 0.233; on the card median 0.012, 95th 0.013, 99th 0.013, worst 0.208
+    handing the card its work: on the processor median 0.070, 95th 0.158, 99th 0.238, worst 0.611
+    showing it: on the processor median 0.144, 95th 0.275, 99th 0.331, worst 1.428
+    measuring: on the processor median 0.009, 95th 0.016, 99th 0.161, worst 0.482
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.013, worst 0.208
+
+At low over the sea (far eye; fog on): the eye at north -1905.7, east -2137.7, up 151.4, facing 228°, pitch -2.0°
+  going there: 3.2 ms (the doorway answered 1 tiles in 3.1 ms)
+  the frame: 61731 frames, 2955 a second (median); ms median 0.338, 95th 0.498, 99th 0.661, 99.9th 0.851, worst 1.607
+  each pass (ms; 61731 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.177
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.290
+    laying out the panel: on the processor median 0.008, 95th 0.090, 99th 0.119, worst 0.804
+    getting the picture: on the processor median 0.004, 95th 0.089, 99th 0.348, worst 1.053
+    the panel: recording it on the processor median 0.003, 95th 0.007, 99th 0.089, worst 0.222; on the card median 0.012, 95th 0.013, 99th 0.014, worst 0.207
+    handing the card its work: on the processor median 0.070, 95th 0.157, 99th 0.233, worst 1.355
+    showing it: on the processor median 0.143, 95th 0.271, 99th 0.322, worst 1.408
+    measuring: on the processor median 0.009, 95th 0.015, 99th 0.122, worst 0.408
+    the doorway: on the processor not run
+  the card's whole: median 0.012, 95th 0.013, 99th 0.014, worst 0.207

@@ -163,6 +163,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         and a pass at a time from the first build: old's one clock couldn't place the bare plain's cost, 1.7)
         (392ae0d, build 116 c4d102e, David: "looks fine"; the empty frame flown, `kept logs/flight-1794486371.txt`:
         0.40 ms a frame, 0.019 ms on the card; `journal/docs/experiments.md`)
+        *Corrected (Builder, build 119's flight):* that floor was measured inside the session's first ~25 s, which run
+        slower. Settled, the empty frame is 0.34 ms and 0.012 on the card (build 120, `kept logs/flight-1794489536.txt`)
   - [x] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
         (`src/wiring.rs`, 1ae278c: two lanes, seven passes, eight stores, no stages yet; its tests check both ways;
         the map's costs from build 117's flight, `kept logs/flight-1794487642.txt`; `journal/docs/experiments.md`)
@@ -174,11 +176,15 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         runs of blocks; pieces, objects and lights; what changed; named fields over the land. The export behind it
         now, the tablet at 3.1. Read-only until the fork. The engine never opens a world file
         (columns as runs in, `src/doorway.rs`: the 5,047 reference columns answered to the block, a tile in 2.2 ms;
-        `journal/docs/experiments.md`. Pieces, objects and lights, what changed, and the named fields come with what
-        first feeds them: what changed with the build's placings, next)
-  - [ ] The marks as data: the spawn; the bare plain; the plain with David's build (its 169 placings from the event
+        `journal/docs/experiments.md`. What changed in too, by tile: the build's 146 bars and 23 blocks, and the
+        scatter, b48ddc3. Pieces, objects and lights, and the named fields come with what first feeds them)
+  - [x] The marks as data: the spawn; the bare plain; the plain with David's build (its 169 placings from the event
         log, replayed as changes); the mountain top; far marks (high over the spawn, low over the sea, the plain's
         horizon); the scatter dial (random blocks, none to very many)
+        (`data/marks.toml`, build 119 b48ddc3 and 120 2ee6651: every eye where old's stood, the build and the scatter
+        made through the doorway, none refused; flown, `kept logs/flight-1794489536.txt`, every mark 0.338 to 0.344 ms.
+        The plain's horizon is the bare plain, marked for both eyes. One command flies every mark on one card; both
+        cards at once waits on the Optimus setting, when the Intel card is flown)
   - *Gate:* an empty frame measured; the map drawn from the code; the doorway answers the 5,047 reference columns
     to the block
 - [ ] **2.2 The eye, far** (experiment 5): old's far march moved onto bricks as it is, then three changes, each
