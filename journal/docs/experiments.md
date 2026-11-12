@@ -1013,3 +1013,38 @@ pieces, placed light and textures.
 - **Builder's estimate** *[medium]:* the bricks for the whole world take 0.9 to 1.3 GB on the card. Mostly the cells of
   32: a brick is 8 cells tall where a band is 1 or 2. The Oracle's 250 to 450 MB was for windows round the eye, not the
   whole world. Both cards allow a buffer of up to 2 GB.
+
+### Results: David's first look, and the flight
+
+**Build 121 crashed** 18 s into David's first look, high over the spawn. At the levels over 1,024, a row's last brick reaches
+past the level's columns, and its bands were written into the next row, and at the last row past the end of the
+bands. The card refused it. Build 122 stops each row at the level's last column, with a test on every level's edge
+bricks (the card test had covered only the middle). Build 122 ran whole: the eighth nearest in 2.7 s, every region in
+17.2 s, 127,606 bricks, 911 MB on the card.
+
+**David's look** (high over the spawn, 2026-11-12): "there's a little bit of blotchiness ... it looks right, mostly, and
+if performance is keeping up with what we'll need, we can proceed". Two things he named:
+- **The blotches.** The flight below shows why. From the far cells alone, the finest layer (2 × 2) is almost never earned:
+  old's rule refines only where a pixel would be bigger than the cells it reads, and the far cells are 32 blocks and up.
+  So most of the screen is 8 × 8 and 4 × 4 squares shown crisp, each a slightly different average.
+- **Old's skyline:** coarse squares that are part mountain and part sky show as darker squares beside the slopes. David
+  wants the sky weighted more in the math, a natural feather "that we can forget about"; it's built next, with a slider.
+
+**The flight** (`kept logs/flight-1794495630.txt`, build 122, the code committed). The first mark was held till every
+region was in, then settled 35 s; 20 s measured at each mark. The far eye on the card, median ms (99th):
+
+| | the far start | 8 × 8 | 4 × 4 | 2 × 2 | bringing it up | **the card's whole** | the frame |
+|---|---|---|---|---|---|---|---|
+| on the ground at the spawn | 0.004 | 0.316 | 0.007 | 0.023 | 0.093 | **0.452** (0.464) | 0.564 |
+| the mountain top, clear day | 0.006 | 1.323 | 1.198 | 0.023 | 0.094 | **2.792** (3.465) | 2.791 |
+| the bare plain (and the build, the scatter: the same) | 0.005 | 1.081 | 0.007 | 0.023 | 0.093 | **1.219** (1.481) | 1.257 |
+| high over the spawn | 0.005 | 0.957 | 1.072 | 0.023 | 0.096 | **2.267** (3.147) | 2.308 |
+| low over the sea | 0.004 | 1.766 | 1.903 | 0.023 | 0.093 | **3.950** (4.282) | 3.967 |
+
+- **The 2 × 2 is almost never marched:** 0.023 ms at every mark is its pixels finding they're not worth it. The 4 × 4 is
+  worth it only looking out from high or along the sea, where it costs as much as the base.
+- **Against 2.2's gate** (the far layers under 1 ms typical, 2 worst, at the far marks), old's march as it is reads 1.2 to
+  4.0 ms at the far marks: 2 to 4 times it, low over the sea the most. That's the baseline the plan's three changes are
+  measured against (soft bricks, rays begun at drawn boxes, light read from the cell). There's no light in it yet, which
+  2b adds.
+- **The build and the scatter cost nothing yet:** the far cells don't hold changes (the near eye's change path is 2.3).
