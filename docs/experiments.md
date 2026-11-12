@@ -446,3 +446,56 @@ rays. The sun's relighting over a second and a half, rays meanwhile, didn't show
 free and found nearly everywhere far. At eye level the gain is small, because the near faces' light is most of what's
 left. The Oracle's 4.2 already has the near faces read their light from the air cell in front of them, tested in her
 experiment 6; Counsel put the standing-marks question to her as her question 6.
+
+---
+
+## The reading flight: where the bare plain's cost lives  *(plan 1.7)*
+
+David's go: "i agree on all counts. please ask builder to begin the next steps" (2026-11-11, relayed by Counsel), on
+the Oracle's second part (`vision/oracle-review.md`, "Before the first line"). The Oracle found that the third mark is
+mostly a bare plain: in flights C, E and F the build added about 2.2 ms to a place that already cost 9.5 with nothing
+on it. Nobody knows which part of the frame that is.
+
+### What flies (no code: old stays as tagged, `old-final`)
+
+- **The bare plain at the build mark:** `INCUS_DYNO_BUILD="kept logs/events-1794341728 unplaced.log"`, David's build's
+  169 placings with every block renamed to a name no block has. The mark stands where it always has (`dyno::marks`
+  takes the spot and the facing from the placings) and places nothing. The report still calls the mark "beside the
+  quarter-block build", and should say 169 placings replayed, 0 cells changed.
+- **Six flights,** build 115's code (HEAD, 7c809d3's code unchanged). They run on the 5070 Ti in "NVIDIA GPU only"
+  with the marks alone (`INCUS_DYNO_LAPS=0`), the test world and the dyno's presets:
+  - **I:** as the game runs. This gives the plain's clean number.
+  - **J:** light off (`INCUS_SIGHT_NO_SKY=1 INCUS_SIGHT_NO_SHADOWS=1`).
+  - **K:** the blocks left out (`INCUS_SIGHT_NO_BLOCKS=1`): the near field drawn from cells of 2.
+  - **L:** the finest layer 4 × 4 (`INCUS_SIGHT_GRID=4`), so the 2 × 2 layer's work goes.
+  - **M:** the coarsest layer 4 × 4 (`INCUS_SIGHT_COARSEST=4`): the 8 × 8 layer's part drawn with four times the rays.
+  - **N:** the steps' view (`INCUS_SIGHT_STEPS=1`): each mark's picture coloured by how many steps its rays took
+    (blue few, green 128, red 256 or more). Its numbers aren't compared.
+
+### The pass mark (written before the flights)
+
+**The flight is good to read if** I's spawn and mountain top repeat C2's (5.88 and 6.59 ms standing) within 2%. If they
+don't, the day's noise is written down first and the comparisons are read with it.
+
+**The Oracle's guess** *[estimate, low]*: the coarse layers' long rays, over the sky and along the horizon. A ray going
+up ends only when it's over the world's highest block (1,024). Builder's arithmetic:
+- from the plain's eye at 137, a ray 1° up crosses about 50,800 blocks before it's clear;
+- from the spawn's eye at 395, about 36,000;
+- from the mountain top's eye at 1,025, none.
+
+That ordering fits the marks' costs.
+
+**What each result means:**
+- **The guess holds if** N's picture at the plain is red or green over the sky near the horizon and blue on the near
+  ground, and M lifts the plain by much more than it lifts the mountain top. The plain's cost is far rays over the sky.
+  - In the new eye that is the sky the drawn boxes skip (2.2's second change). The plain's horizon goes in as one of
+    the far eye's marks.
+- **If K takes most of the plain's cost,** it's the near walk. The bare plain becomes one of the near eye's ground marks
+  (2.3) and weighs more there.
+- **If J takes most of it,** it's the near faces' light. The near light lane (the Oracle's second part, section 3) is
+  where the plain is won.
+- **If none of them takes most of it,** the cost is spread out. That is written down as it is, and the plain is flown in
+  both eyes' marks.
+
+Nothing in old changes on any result. The reading decides which eye's marks the plain belongs to and what each eye's
+pass mark is measured on.
