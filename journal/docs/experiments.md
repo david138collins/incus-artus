@@ -1061,3 +1061,30 @@ region was in, then settled 35 s; 20 s measured at each mark. The far eye on the
 - **Low over the sea:** looking up, mostly sky, 1.3 ms; along the horizon, 4.2 ms: "yeah it goes up if i look around. anyways
   just noting it." He named no ring as a seam.
 - **Next: 2b,** old's light.
+
+
+## The far eye, 2b: old's light  *(plan 2.2, step 2)*
+
+David's go for the two looks (2a the shape, 2b old's light), 2026-11-12; then "whats next" after the first.
+
+### What's built
+
+Old's light for the far cells (`old/src/sight/march.wgsl`, 3.4b), as it was:
+- **The sun's shadow:** a ray from the surface towards the sun through the same far cells, widening as it goes (0.04 of a
+  block for each block), reading the level as wide as it is, skipping air over the columns' tops, dimmed by what it
+  crosses. A far ridge's shadow comes soft.
+- **Sky light:** five wide cones (straight up, and four leaning 50° out), each weighted by how high it looks, say how much
+  of the sky a place sees, so valleys and hollows darken. A finer layer takes its parent pixel's sky light where it's the
+  same surface about as far off, as old did.
+- Both only where a pixel shows. Old's switches for measuring: `INCUS_SIGHT_NO_SHADOWS`, `INCUS_SIGHT_NO_SKY`.
+
+With 2b, old's far view is whole on bricks: the baseline the plan's three changes are each measured against.
+
+### The pass mark (written before the code)
+
+- **The card refuses nothing,** and an off-screen picture from the spawn shows the land shaded, not flat, before David's
+  look.
+- **David's eye** on the light, high over the spawn first.
+- **The flight:** every far pass on the card at every mark, beside 2a's. *Builder's estimate [low]:* light adds a fifth to a
+  half to the far eye at the far marks (old's light was 17 to 42% of its eye at the three standing marks), which puts
+  them about 1.5 to 6 ms. That's the baseline, with no bar of its own in this step.
