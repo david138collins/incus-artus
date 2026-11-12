@@ -17,12 +17,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the whole world); the sky's feather at skylines; the Render and Camera pages; temperatures always on; main memory
   tracked (2.8 GB held, 1.0 GB in use). Change 2, the drawn boxes, didn't pay and is out. The far eye stands at 1.1 to
   2.9 ms at the far marks against the gate's 1 typical and 2 worst.
-- **Now:** the Oracle, called midway (its prompt `journal/vision/oracle-prompt-2026-11-12.md`), reads the far eye as
-  *waiting, not working*: about a thousand rays skimming the horizon set each layer's time. Before David answers it,
-  Builder runs its two tests (half the rays; the step limit halved) and Nsight, ends rays at the map's edge, and
-  makes each step lean. Then, by David's word, the Oracle's three looks: the skyline by coverage, plain land as a
-  surface, the horizon band refreshed over a few frames. Then change 3, the Intel card, and the gate. The fog line
-  waits.
+- **Now:** the Oracle, called midway (its prompt `journal/vision/oracle-prompt-2026-11-12.md`), read the far eye as
+  *waiting, not working*: about a thousand rays skimming the horizon set each layer's time. Builder's tests (build
+  140) point nearer that reading, and ending rays at the map's edge took 6 to 19% off (low over the sea 2.58 ms, a
+  player's run 2.52). David's lead from it: **lazy rays**, long rays marched a little each frame, lazier with
+  distance, ramping up when flying. Builder and David are writing it up for the Oracle with the tests' data; the
+  Nsight look and the lean step come next. Then the Oracle's looks (the skyline by coverage, plain land as a
+  surface, the horizon band over frames), change 3, the Intel card, and the gate. The fog line waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -235,7 +236,12 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         card; taken out after the Oracle's mid-2.2 reply, git keeping it; `journal/docs/experiments.md`)
   - [ ] The Oracle's mid-2.2 steps, before David answers it ("please proceed with them"): rays ended at the map's
         edge; its two tests (half the rays; the step limit halved) and Nsight on the new march; the lean step (what
-        doesn't change between steps kept in hand), the picture the same
+        doesn't change between steps kept in hand), the picture the same. *In so far (build 140, c15d256):* the map's
+        edge kept, 6 to 19% off every far mark; the tests point nearer "waiting". Nsight and the lean step to come
+  - [ ] Lazy rays (David's lead, 2026-11-12: "spread out any rays that can be lazy"): rays marched a share of their
+        steps each frame, resuming, lazier by level and distance, the duty cycle up when moving fast; the settled
+        picture equal to the full march's, the lag measured, his eye judging "basically invisible"
+  - [ ] Priced beside it: a per-column height skip for rays skimming plain land; rays shuffled or sorted by length
   - [ ] Then, to be tried by David's word ("we should at least try 2, 3 and 4"), each a look step, the order set by
         the tests: the skyline made by how much land covers each square; plain land drawn as a surface, rays for the
         rest; the horizon band refreshed over a few frames

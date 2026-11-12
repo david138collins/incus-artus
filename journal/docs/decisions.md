@@ -1401,6 +1401,38 @@ Reference: `Art/quartile minecraft illustration.png`
   - **Temporal reuse:** Builder's view, keep whole-screen TAA where his 2026-11-08 rules put it, after the eye is
     whole; the Oracle's question 4 is its narrow, safe form (the horizon band only), which tells cheaply whether
     history suits his eye.
+  - **The tests' answer** (build 140, one session, `journal/docs/experiments.md`): rays ended at the map's edge take 6
+    to 19% off every far mark (kept on; low over the sea 2.77 → 2.58 ms, a player's run 3.10 → 2.52); half the rays
+    take only 13 to 36% off the 8 × 8, so the truth sits between the Oracle's readings, nearer "waiting"; the step
+    limit halved takes 20% off the sea and 11% off the plain, so the few rays past 384 steps cost a fifth of the
+    dearest mark. The long rays' chain sets most of each layer's time.
+- **[IDEA 2026-11-12] Distance fields and shuffled rays** (David, to Counsel): "could we use signed distance fields to
+  significantly decrease the spread in ray length? is there a way to shuffle rays automatically so that warps fill and
+  empty one at a time instead of collectively?" *Counsel and Builder:* a plain distance to the nearest surface shrinks
+  just where grazing rays live, so the height forms fit better: a per-column height (a max-height pyramid finer than
+  the 32s' band tops the march already skips by) would let a ray skimming a plain skip, cheap in memory and exact for
+  plain columns; cone-step maps are its cousin. Shuffling (persistent threads, rounds with packing, rays sorted by last
+  frame's length, his own idea of 2026-11-08) helps the share that scales with ray count, 13 to 36% by the test; it
+  can't shorten the single longest ray. Both to be priced.
+- **[DECIDED 2026-11-12] Lazy rays, a lead** (David, to Counsel): "is there a way to make the long ray step again...
+  in pieces across frames? instead of doing it once every ten frames... just take a leisurely time getting there, a
+  little at a time, each frame? ... i feel like this could work at several levels by distance/resolution. spread out
+  any rays that can be lazy." Before it: "im ok with distant terrain updating less often, you know; at a proportionate
+  distance, as long as its real ... increasing duty cycle to meet demand when necessary (probably flying)". Then: "i
+  think this lazy-ray idea might be a winner. if its basically invisible and can ramp up duty cycle when necessary, it
+  sounds like a good lead."
+  - **The idea:** any ray whose part of the picture changes little per frame marches a share of its steps each frame,
+    resuming where it left off; its result stands until it finishes. Laziness follows level and distance (the near
+    field full every frame, coarser and farther layers lazier) and shortens with speed. It answers the tests'
+    "waiting": the long chain is cut into short pieces a frame, and the total work falls too.
+  - *What it needs (Counsel, Builder to price):* each lazy ray's state kept (a few MB for the far layers, spare
+    memory's free win); a store indexed by direction round the eye, so turning costs nothing; rays restarted when the
+    eye has moved past a level's tolerance, and where edits or light changes touch (his 2026-11-08 rules); directions
+    new to view get coarse rays first. At 10 km, eight blocks of travel is about a pixel and a third at 2,560 wide,
+    under one 8 × 8 square.
+  - *Its pass mark, suggested:* the settled picture equal to the full march's, pixel for pixel; the lag measured
+    (frames to settle at each level, walking and flying); his eye judging "basically invisible".
+  - Builder drafts a writeup of the tests and lazy rays for the Oracle with David.
 - **[DECIDED 2026-11-12] Main memory tracked, and searched for free wins** (David, to Counsel, asking "do you think
   we are under-utilizing system ram? i think basically everyone will have at least 8gb", then: "tell builder to begin
   tracking ram use, and start looking for opportunities where using it is almost a free win or takes some heat/load
