@@ -1104,3 +1104,34 @@ for the size of the third change's target (light read from the cell):
 
 The light's cost is W against N, at each far mark, and its two parts are W against S and W against K. The estimate in the
 pass mark above stands: light a fifth to a half of the far eye.
+
+### Results: the four flights
+
+Build 126, 2026-11-12, 09:25 to 09:44, one after another: W `kept logs/flight-1794497402.txt`, S `-1794497681`, K
+`-1794497955`, N `-1794498228`. Counsel committed the team kit while they flew, so S, K and N carry a newer commit
+(740c882); the code is the same, and every header says the code was committed. The far eye on the card (its whole, all
+its passes), median ms:
+
+| | W, whole | S, no shadows | K, no sky light | N, neither | **light, W − N** | shadows, W − S | sky light, W − K |
+|---|---|---|---|---|---|---|---|
+| on the ground at the spawn | 0.771 | 0.633 | 0.536 | 0.455 | **0.316 (41%)** | 0.138 | 0.235 |
+| the bare plain (the build, the scatter: the same) | 1.415 | 1.382 | 1.259 | 1.224 | **0.191 (13%)** | 0.033 | 0.156 |
+| high over the spawn | 2.375 | 2.274 | 2.179 | 2.144 | **0.231 (10%)** | 0.101 | 0.196 |
+| the mountain top, clear day | 2.737 | 2.727 | 2.688 | 2.665 | **0.072 (3%)** | 0.010 | 0.049 |
+| low over the sea | 3.953 | 3.910 | 3.856 | 3.797 | **0.156 (4%)** | 0.043 | 0.097 |
+
+- **The light is small in the far eye:** 3 to 13% at the far marks, 0.07 to 0.23 ms. That's under Builder's guess of a fifth to a
+  half, and under old's 17 to 42%. Old's light was largely the near blocks' faces lit at the finest layer. Here light is only
+  worked out where a pixel shows, and nearly every far pixel is an 8 × 8 or a 4 × 4 square.
+- **The parts overlap:** shadows and sky light each cost more alone than their share of the two together. The sky light is the
+  larger at every mark.
+- **So the third change (light read from the cell) has little to win in the far eye,** 0.2 ms at most at the far marks. The
+  far eye's cost is the march itself, the 8 × 8 and 4 × 4 layers (high over the spawn 0.96 and 1.07 ms, low over the sea
+  1.77 and 1.90). The first two changes are aimed at the march: the eight-cell blend done by the texture hardware, and rays
+  begun at the bricks' boxes.
+- **N, against 2a (build 122):** the same at the spawn and the plain (0.455 against 0.452, 1.224 against 1.219), and 4 to 5%
+  faster at the far marks (high over the spawn 2.144 against 2.267, low over the sea 3.797 against 3.950). Nothing in the
+  march's own code changed between them. The likeliest cause is two sessions' noise on the long rays *[estimate, low]*.
+  2a's numbers hold within 5%.
+- **The baseline,** old's far view whole on bricks (W): the far marks at 1.4 to 4.0 ms, 1.4 to 4 times the gate's typical
+  1 ms. The map's costs now come from the newest flight flown as the game runs (W), not from N.

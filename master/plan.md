@@ -206,6 +206,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         million cells the same as old's, byte for byte, each region's 1,024 to its exact sums. The eighth round the
         spawn in 2.6 s and the whole world in 16.9 s on 24 threads (old's, on the card: 46 to 55 s and about 12 min);
         `journal/docs/experiments.md`
+  - [x] Step 2, old's far march on bricks as it is (`src/far_eye.rs`, `far.wgsl`, `bricks.rs`): 2a the shape and
+        2b old's light, David's looks ("it looks right, mostly", "light looks normal ... so proceed"); the whole
+        world's bricks 911 MB; the baseline, `kept logs/flight-1794497402.txt`: the far marks 1.4 to 4.0 ms on the card,
+        light 3 to 13% of it. Found on the way: the sky's weight at a skyline (David's 4) and the Render page
+        (`journal/docs/experiments.md`)
   - [ ] Every mark flown on both cards by one command (carried from 2.1): the Intel card's flight needs the laptop
         switched to "Optimus", put to David a step ahead
   - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop, at the far marks; David's look, above all at

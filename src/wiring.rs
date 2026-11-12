@@ -634,13 +634,16 @@ mod tests {
     }
 
     /// The newest kept flight (`kept logs/flight-*.txt`): its name, and its text.
+    /// The newest kept flight flown as the game runs (no switch but `INCUS_FLIGHT`: a flight with something left out for
+    /// measuring isn't the game's cost).
     fn newest_flight() -> Option<(String, String)> {
         let folder = top().join("kept logs");
         let mut flights: Vec<String> = std::fs::read_dir(&folder).ok()?.flatten().map(|entry| entry.file_name().to_string_lossy().into_owned()).filter(|name| name.starts_with("flight-") && name.ends_with(".txt")).collect();
         flights.sort();
-        let name = flights.pop()?;
-        let text = std::fs::read_to_string(folder.join(&name)).ok()?;
-        Some((name, text))
+        flights.into_iter().rev().find_map(|name| {
+            let text = std::fs::read_to_string(folder.join(&name)).ok()?;
+            text.lines().any(|line| line == "Switches: INCUS_FLIGHT=1").then_some((name, text))
+        })
     }
 
     /// A pass's cost from a flight's report: the rest of its line ("    <name>: ...").
@@ -659,7 +662,7 @@ mod tests {
         text += "The words: a **lane** is a line of work with its own pace; a **pass** is one piece of a lane's work, on the\n";
         text += "processor or the card; a **stage** is one step of the world's recipe (none yet); a **store** is something held.\n\n";
         let flight_line = match &flight {
-            Some((name, report)) => format!("The costs are the newest kept flight's, at its first standing, `kept logs/{name}`: {}.\n\n", report.lines().next().unwrap_or("").trim_start_matches("The flight: ")),
+            Some((name, report)) => format!("The costs are the newest kept flight's flown as the game runs, at its first standing, `kept logs/{name}`: {}.\n\n", report.lines().next().unwrap_or("").trim_start_matches("The flight: ")),
             None => "No flight is kept yet, so no costs.\n\n".to_string(),
         };
         text += &flight_line;
