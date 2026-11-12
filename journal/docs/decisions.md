@@ -1294,6 +1294,12 @@ Reference: `Art/quartile minecraft illustration.png`
     then bricks of 4 against 8). The fog line waits: fog is for looks only, and may be taken out and done another way
     later; the finer detail and the near eye may change how it reads first. He checks the camera's "up" (F3, Camera)
     at his next launch.
+  - **His look at build 129** (31 minutes, to Builder): "as you have the detail set now, everything from -1 to 4
+    looks the same." Builder's reading: with the camera not moving for him he saw only the spawn, where every setting
+    reads the finest 32-block cells nearly everywhere (+2 costs 2% there); detail shows looking down from height,
+    where +2 costs 77%, which he hasn't seen. **[OPEN]** Builder recommends the default go back to 0 (old's, what
+    everything has been measured at) unless a look from the mountain top says otherwise, and offers a launch there.
+    Why it matters: a 77% cost should be bought by something he can see.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
