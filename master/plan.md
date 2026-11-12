@@ -19,8 +19,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   from it; and the new editor (F2), its pages by a drop-down, the software map the one that works. David looked at
   both ("editor looks about like what i'd expect"), and 117 flew within 4% of the floor. Build 118 splits handing
   over in two at David's word, so it can be watched and tuned later: handing the card its work 0.08 ms, showing it
-  0.14 ms. Now: the doorway
-  (read-only, the export behind it, answering the 5,047 reference columns to the block), then the marks as data.
+  0.14 ms. The doorway's columns are in (read-only, the export behind it): all 5,047 reference columns answered to
+  the block, a tile in 2.2 ms. Now: the marks as data (the spawn, the bare plain, the plain with David's build as
+  169 changes through the doorway, the mountain top, the far marks, the scatter dial).
   As the editor fills, every window, setting and control is placed with David (`journal/docs/decisions.md`,
   2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)

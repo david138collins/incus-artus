@@ -1137,6 +1137,11 @@ Reference: `Art/quartile minecraft illustration.png`
   eye adds passes) and *showing it* (0.14 ms, the picture waiting its turn for the screen; where the frame's lead
   over the screen is set later, with his eye). Two flights repeat within 1%, the frame as 117's
   (`kept logs/flight-1794487928.txt`, `-1794487963.txt`; `journal/docs/experiments.md`). Nothing is tuned now.
+- **[DECIDED 2026-11-12] The doorway's columns** (David, to Builder: "go ahead"). `src/doorway.rs` answers "what's
+  here?" a tile at a time from old's export, read-only: all 5,047 reference columns as old's, to the block (ead30eb;
+  2.1's gate on the doorway). On the map, a third lane, "loading", holds the pass "the doorway", reading "the export"
+  and writing "a tile's columns": Builder's names, his to change. What changed, pieces and lights, and named fields
+  come with what first feeds them.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
