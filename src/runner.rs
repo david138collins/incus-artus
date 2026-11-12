@@ -249,7 +249,6 @@ impl Runner {
                 PassId::LayingOutThePanel => self.laying_out_the_panel(&mut work),
                 PassId::GettingThePicture => self.getting_the_picture(&mut work),
                 PassId::TheFarStart => self.the_far_start(&mut work),
-                PassId::TheFarBoxes => self.the_far_boxes(&mut work),
                 PassId::TheFar8 => self.the_far_layer(&mut work, 0, PassId::TheFar8),
                 PassId::TheFar4 => self.the_far_layer(&mut work, 1, PassId::TheFar4),
                 PassId::TheFar2 => self.the_far_layer(&mut work, 2, PassId::TheFar2),
@@ -363,15 +362,6 @@ impl Runner {
         let Some(encoder) = &mut work.encoder else { return false };
         let timestamps = wiring::card_slot(PassId::TheFarStart).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.compute_pass(slot)));
         far.start(encoder, timestamps);
-        true
-    }
-
-    /// The far boxes (change 2): where the base layer's rays end.
-    fn the_far_boxes(&mut self, work: &mut FrameWork) -> bool {
-        let Some(running) = &mut self.running else { return false };
-        let (Some(far), Some(encoder)) = (&running.far, &mut work.encoder) else { return true };
-        let timestamps = wiring::card_slot(PassId::TheFarBoxes).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
-        far.boxes(encoder, timestamps);
         true
     }
 

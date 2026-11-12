@@ -37,10 +37,11 @@ struct Camera {
     // texture hardware: change 1).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
-    // shadows; z: how fast a shadow ray widens (blocks across a block of distance); w: 1 if this layer's rays end at the
-    // far boxes (change 2: the base layer).
+    // shadows; z: how fast a shadow ray widens (blocks across a block of distance); w: 1 if rays end at
+    // the map's edge.
     follow: vec4<f32>,
-    // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's.
+    // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
+    // (the Oracle's tests): z the most steps a ray takes (768), w 1 if only the left half of the layer is marched.
     pyramid: vec4<f32>,
     // The finer layer's fade in: x where it starts (its pixel so many times its cells), y over how many doublings of
     // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
@@ -89,9 +90,6 @@ struct Camera {
 @group(0) @binding(14) var t_colour: texture_3d<f32>;
 @group(0) @binding(15) var t_plus: texture_3d<f32>;
 @group(0) @binding(16) var t_minus: texture_3d<f32>;
-// The far boxes' ends (change 2, `far_boxes.wgsl`): the farthest box surface each base layer pixel's ray passes, as a
-// share of twice the reach (0: none, sky).
-@group(0) @binding(17) var ends: texture_depth_2d;
 
 
 const FIRST: i32 = 5;
@@ -479,7 +477,7 @@ struct Seen {
     sky_share: f32,
 }
 
-// A ray from `o` along `d`, from `begin` to `end` (past `end` nothing can be met: the far boxes, change 2). `phase`: a
+// A ray from `o` along `d`, from `begin` to `end` (past `end` nothing can be met: the map's edge). `phase`: a
 // pixel's own number from 0 to 1 (`scatter`), where its fine steps fall within a fine step, so their places against the
 // ground don't line up across the screen.
 fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
@@ -514,7 +512,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     var bottom_t = 0.0;
     var bottom_level = -1;
     let last = min(camera.reach.x, end);
-    for (var n = 0; n < 768; n++) {
+    let most = i32(camera.pyramid.z);
+    for (var n = 0; n < most; n++) {
         if (t > last || through < 0.01) {
             break;
         }
@@ -906,11 +905,41 @@ fn worth_of(near: f32, level: i32) -> f32 {
     return clamp((ratio / camera.fade.x - 1.0) / max(exp2(camera.fade.y) - 1.0, 1e-3), 0.0, 1.0);
 }
 
+// Where a ray along `d` leaves the square `lo` to `hi` (north and east), from inside it.
+fn leaves(o: vec2<f32>, d: vec2<f32>, lo: vec2<f32>, hi: vec2<f32>) -> f32 {
+    let to = select(lo, hi, d > vec2<f32>(0.0));
+    let t = (to - o) / select(d, vec2<f32>(1e-9), abs(d) < vec2<f32>(1e-9));
+    return min(select(t.x, 1e30, abs(d.x) < 1e-9), select(t.y, 1e30, abs(d.y) < 1e-9));
+}
+
+// Where a ray from `o` along `d` can last meet anything: where it leaves the map's square (the regions'), swollen by
+// two cells of the level after the one read there (a blend reaches a cell past its own; the hand-over mixes the next
+// level in). Past the map there's nothing. From outside the map: the reach.
+fn map_end(o: vec3<f32>, d: vec3<f32>) -> f32 {
+    let region = f32(1 << u32(REGION));
+    let lo = vec2<f32>(f32(table(REGION, 1)), f32(table(REGION, 2))) * region;
+    let hi = lo + f32(table(REGION, 3)) * region;
+    if (any(o.xy < lo) || any(o.xy > hi)) {
+        return camera.reach.x;
+    }
+    let s = 2.0 * f32(1 << u32(min(level_at(leaves(o.xy, d.xy, lo, hi)) + 1, TOP)));
+    return leaves(o.xy, d.xy, lo - s, hi + s);
+}
+
 // One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
 @compute @workgroup_size(8, 8)
 fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = vec2<u32>(camera.view.xy);
     if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    // The Oracle's test, for measuring: the right half of the layer not marched.
+    if (camera.pyramid.w > 0.5 && id.x * 2u >= size.x) {
+        textureStore(picture, vec2<i32>(id.xy), vec4<f32>(0.0));
+        textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
+        if (camera.layer.y > 0.5) {
+            worth_out[id.y * size.x + id.x] = NO_SKY << 8u;
+        }
         return;
     }
     var shown = 1.0;
@@ -946,10 +975,10 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
     let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
-    // Where its ray ends: at the farthest far box it passes (none: sky at once), or the reach.
+    // Where its ray ends: at the map's edge, or the reach.
     var end = camera.reach.x;
     if (camera.follow.w > 0.5) {
-        end = textureLoad(ends, vec2<i32>(id.xy), 0) * 2.0 * camera.reach.x;
+        end = map_end(camera.position.xyz, d);
     }
     let seen = march(camera.position.xyz, d, scatter(id.xy * 2u), begin, end);
     // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it).

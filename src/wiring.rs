@@ -62,7 +62,6 @@ pub enum PassId {
     LayingOutThePanel,
     GettingThePicture,
     TheFarStart,
-    TheFarBoxes,
     TheFar8,
     TheFar4,
     TheFar2,
@@ -110,7 +109,6 @@ pub enum StoreId {
     FarTextures,
     FarWindow,
     Temperatures,
-    FarEnds,
 }
 
 pub struct Store {
@@ -164,7 +162,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 20] = [
+pub const PASSES: [Pass; 19] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -247,20 +245,12 @@ pub const PASSES: [Pass; 20] = [
             ("INCUS_SIGHT_STEPS", "the steps' view: dark blue few steps, through green, to red 256 or more"),
             ("INCUS_SIGHT_NO_SHADOWS", "the sun's shadows left out (for measuring)"),
             ("INCUS_SIGHT_NO_SKY", "the sky light left out (for measuring)"),
+            ("INCUS_FAR_EDGE", "0: rays marched on past the map's edge toward the reach, as before (unset: ended at the edge)"),
+            ("INCUS_TEST_HALF", "for measuring (the Oracle's test): only the left half of each far layer marched"),
+            ("INCUS_TEST_STEPS", "for measuring (the Oracle's test): the most steps a far ray takes (unset: 768)"),
             ("INCUS_FAR_DETAIL", "the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's)"),
         ],
         files: &["src/far_eye.rs", "src/far.wgsl"],
-    },
-    Pass {
-        id: PassId::TheFarBoxes,
-        name: "the far boxes",
-        lane: LaneId::Frame,
-        on: Where::Card,
-        what: "Change 2: each 256-block column of land drawn as a box by the triangle hardware at the 8 x 8 layer's size, swollen by what a blend can reach at its distance; each pixel keeps the farthest box surface its ray passes. The base layer's rays end there: past it nothing can be met, and a pixel with no box is sky at once.",
-        reads: &[StoreId::Camera, StoreId::FarBricks],
-        writes: &[StoreId::FarEnds],
-        switches: &[("INCUS_FAR_BOXES", "0: no far boxes, the base layer's rays marched to the reach as before (2.2, change 2)")],
-        files: &["src/far_eye.rs", "src/far_boxes.wgsl"],
     },
     Pass {
         id: PassId::TheFar8,
@@ -268,7 +258,7 @@ pub const PASSES: [Pass; 20] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarEnds, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -279,7 +269,7 @@ pub const PASSES: [Pass; 20] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarEnds, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -290,7 +280,7 @@ pub const PASSES: [Pass; 20] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarEnds, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -398,7 +388,7 @@ pub const PASSES: [Pass; 20] = [
     },
 ];
 
-pub const STORES: [Store; 20] = [
+pub const STORES: [Store; 19] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -550,14 +540,6 @@ pub const STORES: [Store; 20] = [
         what: "The latest reading: the CPU area and the GPU (°C), and the GPU's clock (MHz); each left out where the computer doesn't offer it. On the laptop the CPU area is the thermal zone _TZ.TZ01, the motherboard round the processor, not its cores; 105 °C is the cutoff David agreed for long runs.",
         limits: &[("seconds between readings", 3)],
         files: &["src/temperatures.rs"],
-    },
-    Store {
-        id: StoreId::FarEnds,
-        name: "the far boxes' ends",
-        on: Where::Card,
-        what: "Change 2: for each pixel of the far eye's base layer, the farthest far box surface its ray passes, as a share of twice the reach, in a depth picture (0: no box, sky). Drawn each frame.",
-        limits: &[("the level whose columns are drawn (cells of 2^this)", 8)],
-        files: &["src/far_boxes.wgsl"],
     },
 ];
 

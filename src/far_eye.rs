@@ -135,9 +135,6 @@ struct Layer {
     group: wgpu::BindGroup,
 }
 
-/// The level whose columns are drawn as the far boxes (change 2, `far_boxes.wgsl`'s `BOX_LEVEL`): cells of 256.
-const BOX_LEVEL: usize = 8;
-
 /// What's sized to the screen (made again when the screen's size changes, or the bricks' pool grows).
 struct Targets {
     screen: (u32, u32),
@@ -145,9 +142,6 @@ struct Targets {
     /// Whether the atlas was in when they were made, and its generation (bumped when it grows).
     atlas_in: bool,
     atlas_generation: u32,
-    /// The far boxes' ends at the base layer's size, and their bind group (change 2).
-    ends: wgpu::TextureView,
-    boxes_group: wgpu::BindGroup,
     tiles: (u32, u32),
     layers: Vec<Layer>,
     up_numbers: wgpu::Buffer,
@@ -172,11 +166,12 @@ pub struct FarEye {
     atlas: Option<Atlas>,
     building: Option<mpsc::Receiver<Atlas>>,
     stand_ins: [wgpu::TextureView; 2],
-    /// The far boxes (change 2): their pipeline (none: `INCUS_FAR_BOXES=0`, the rays marched to the reach as before),
-    /// its layout, and a depth of one texel standing in for the finer layers, which don't end at them.
-    boxes: Option<wgpu::RenderPipeline>,
-    boxes_layout: wgpu::BindGroupLayout,
-    no_ends: wgpu::TextureView,
+    /// Whether rays end at the map's edge (`INCUS_FAR_EDGE=0`: marched on toward the reach, as before), and the Oracle's
+    /// two tests (2026-11-12), for measuring: only the left half of each layer marched (`INCUS_TEST_HALF`), and the most
+    /// steps a ray takes (`INCUS_TEST_STEPS`; 768).
+    edge: bool,
+    test_half: bool,
+    most_steps: f32,
 }
 
 impl FarEye {
@@ -208,7 +203,6 @@ impl FarEye {
                 volume(14),
                 volume(15),
                 volume(16),
-                wgpu::BindGroupLayoutEntry { binding: 17, visibility: compute, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Depth, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
@@ -280,47 +274,11 @@ impl FarEye {
                 .create_view(&wgpu::TextureViewDescriptor::default())
         };
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
-        // The far boxes (change 2): drawn with the far eye's camera, levels and bands, by the shader read after the far
-        // eye's own; `INCUS_FAR_BOXES=0` leaves them out.
-        let drawn = wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT;
-        let boxes_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("the far boxes"),
-            entries: &[
-                uniform(0, drawn),
-                wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::VERTEX, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None }, count: None },
-                wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::VERTEX, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None }, count: None },
-            ],
-        });
-        let boxes = (std::env::var("INCUS_FAR_BOXES").as_deref() != Ok("0")).then(|| {
-            let source = format!("{}\n{}", include_str!("far.wgsl"), include_str!("far_boxes.wgsl"));
-            let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far boxes"), source: wgpu::ShaderSource::Wgsl(source.into()) });
-            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far boxes"), bind_group_layouts: &[Some(&boxes_layout)], immediate_size: 0 });
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("the far boxes"),
-                layout: Some(&layout),
-                vertex: wgpu::VertexState { module: &module, entry_point: Some("box_corner"), compilation_options: Default::default(), buffers: &[] },
-                fragment: Some(wgpu::FragmentState { module: &module, entry_point: Some("box_surface"), compilation_options: Default::default(), targets: &[] }),
-                primitive: wgpu::PrimitiveState::default(),
-                depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Greater), stencil: Default::default(), bias: Default::default() }),
-                multisample: wgpu::MultisampleState::default(),
-                multiview_mask: None,
-                cache: None,
-            })
-        });
-        log::info!("The far boxes: {}", if boxes.is_some() { "drawn, the base layer's rays ending at them" } else { "left out (INCUS_FAR_BOXES=0)" });
-        let no_ends = device
-            .create_texture(&wgpu::TextureDescriptor {
-                label: Some("no far boxes"),
-                size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, boxes, boxes_layout, no_ends }
+        let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
+        let test_half = std::env::var_os("INCUS_TEST_HALF").is_some();
+        let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
+        log::info!("The far rays: {}, {most_steps:.0} steps at most{}", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" }, if test_half { ", only the left half of each layer marched (INCUS_TEST_HALF)" } else { "" });
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, test_half, most_steps }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -341,8 +299,14 @@ impl FarEye {
     /// The look's settings a flight's numbers depend on, for its report.
     pub fn settings(&self) -> String {
         let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
-        let boxes = if self.boxes.is_some() { "the far boxes drawn" } else { "no far boxes" };
-        format!("bricks of {}, {window}, {boxes}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
+        let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
+        if self.test_half {
+            rays += ", only the left half of each layer marched";
+        }
+        if self.most_steps != 768.0 {
+            rays += &format!(", {:.0} steps at most", self.most_steps);
+        }
+        format!("bricks of {}, {window}, {rays}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
     }
 
     /// How the far cells are coming in, for the panel and the flight's report.
@@ -435,19 +399,6 @@ impl FarEye {
         let starts = buffer("the far starts", (tiles.0 * tiles.1) as u64 * 4, storage);
         let nothing_above = buffer("the far layers' nothing above", 16, storage);
         let no_far = texture("the far layers' no distances above", (1, 1), wgpu::TextureFormat::R32Float);
-        let base = ((screen.0 as f32 / LAYERS[0]).ceil().max(1.0) as u32, (screen.1 as f32 / LAYERS[0]).ceil().max(1.0) as u32);
-        let ends = device
-            .create_texture(&wgpu::TextureDescriptor {
-                label: Some("the far boxes' ends"),
-                size: wgpu::Extent3d { width: base.0, height: base.1, depth_or_array_layers: 1 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut layers: Vec<Layer> = Vec::new();
         let mut worth_above: Option<wgpu::Buffer> = None;
         for factor in LAYERS {
@@ -477,7 +428,6 @@ impl FarEye {
                     entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
                     entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
                     entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
-                    entry(17, wgpu::BindingResource::TextureView(if layers.is_empty() { &ends } else { &self.no_ends })),
                 ],
             });
             worth_above = Some(worth);
@@ -497,12 +447,7 @@ impl FarEye {
                 wgpu::BindGroupEntry { binding: 5, resource: up_numbers.as_entire_binding() },
             ],
         });
-        let boxes_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("the far boxes"),
-            layout: &self.boxes_layout,
-            entries: &[entry(0, layers[0].camera.as_entire_binding()), entry(1, self.store.table.as_entire_binding()), entry(2, self.store.entries.as_entire_binding())],
-        });
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, ends, boxes_group, tiles, layers, up_numbers, up_group });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, tiles, layers, up_numbers, up_group });
     }
 
     /// The frame's numbers for each layer and for bringing it up, from the camera (done before the card's passes are
@@ -548,8 +493,8 @@ impl FarEye {
                 [REACH, -look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
-                [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if k == 0 && self.boxes.is_some() { 1.0 } else { 0.0 }],
-                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), 0.0, 0.0],
+                [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if self.edge { 1.0 } else { 0.0 }],
+                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, if self.test_half { 1.0 } else { 0.0 }],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
                 [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
@@ -572,17 +517,6 @@ impl FarEye {
         pass.set_pipeline(&self.start);
         pass.set_bind_group(0, &targets.layers[0].group, &[]);
         pass.dispatch_workgroups(targets.tiles.0.div_ceil(8), targets.tiles.1.div_ceil(8), 1);
-    }
-
-    /// The far boxes drawn (change 2): each base layer pixel's farthest box surface, where its ray ends.
-    pub fn boxes(&self, encoder: &mut wgpu::CommandEncoder, timestamps: Option<wgpu::RenderPassTimestampWrites<'_>>) {
-        let (Some(targets), Some(pipeline)) = (&self.targets, &self.boxes) else { return };
-        let depth = wgpu::RenderPassDepthStencilAttachment { view: &targets.ends, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(0.0), store: wgpu::StoreOp::Store }), stencil_ops: None };
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("the far boxes"), color_attachments: &[], depth_stencil_attachment: Some(depth), timestamp_writes: timestamps, ..Default::default() });
-        pass.set_pipeline(pipeline);
-        pass.set_bind_group(0, &targets.boxes_group, &[]);
-        let l = &self.store.levels[BOX_LEVEL - crate::far::FIRST];
-        pass.draw(0..36, 0..(l.across * l.across) as u32);
     }
 
     /// Layer `k` of the pyramid (0 the base, 8 × 8).
@@ -711,7 +645,6 @@ mod tests {
         let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the picture read back"), size: (row * screen.1) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
         eye.start(&mut encoder, None);
-        eye.boxes(&mut encoder, None);
         for k in 0..LAYERS.len() {
             eye.layer(k, &mut encoder, None);
         }
