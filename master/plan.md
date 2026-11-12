@@ -160,10 +160,13 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         and a pass at a time from the first build: old's one clock couldn't place the bare plain's cost, 1.7)
         (392ae0d, build 116 c4d102e, David: "looks fine"; the empty frame flown, `kept logs/flight-1794486371.txt`:
         0.40 ms a frame, 0.019 ms on the card; `journal/docs/experiments.md`)
-  - [ ] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
-  - [ ] The control room: the software map, a page of the new editor (its own screen, pages by a drop-down at the
+  - [x] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
+        (`src/wiring.rs`, 1ae278c: two lanes, seven passes, eight stores, no stages yet; its tests check both ways;
+        the map's costs from build 117's flight, `kept logs/flight-1794487642.txt`; `journal/docs/experiments.md`)
+  - [x] The control room: the software map, a page of the new editor (its own screen, pages by a drop-down at the
         top): black, magenta boxes with a tooltip on hover, joined by lines, inside larger boxes for sections; live
         (David, 2026-11-12)
+        (build 117, 1ae278c and 8283179; David: "editor looks about like what i'd expect")
   - [ ] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as
         runs of blocks; pieces, objects and lights; what changed; named fields over the land. The export behind it
         now, the tablet at 3.1. Read-only until the fork. The engine never opens a world file

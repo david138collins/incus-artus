@@ -677,3 +677,24 @@ of it hasn't been repeated yet.
   software map) are ticked, with the map's costs filled from this flight.
 - **Over it:** the frame's passes now each have a time of their own, so the new cost is placed pass by pass before
   anything more is built on it. If no pass holds it, it's the flight's noise: flown once more, and both written down.
+
+### Results
+
+One flight, 2026-11-12, from the top folder: `kept logs/flight-1794487642.txt`. The header says build 117 (a2a8cdb:
+8283179's code, the commit after it holding only the pass mark), the code committed. 20 s measured, 52,207 frames,
+every one timed on the card.
+
+| | median | 95th | 99th | worst |
+|---|---|---|---|---|
+| The frame (ms) | 0.420 | 0.562 | 0.735 | 3.251 |
+| The card's pass (ms) | 0.018 | 0.022 | 0.041 | 0.294 |
+
+Each pass on the processor, median ms: flying 0.000, laying out the panel 0.009, getting the picture 0.005, the panel
+(recording it) 0.004, **handing over 0.310**, measuring 0.000. Hearing the window: not run, as expected.
+
+- **Good to read, and within the estimate:** the frame 4% over the floor's 0.404 (inside the 10%), the card's pass
+  0.018 against 0.019. The wiring costs the frame nothing that can be measured here.
+- **Where the empty frame's time is:** handing over, 0.31 of its 0.42 ms. That's the frame's work handed to the card and the
+  picture to the screen, waited for on the processor. About 0.09 ms falls outside every pass: the window's own round
+  trip between frames, which no pass holds yet.
+- **The map's costs** are filled from this flight (`master/map.md`).
