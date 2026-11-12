@@ -25,7 +25,8 @@ struct Camera {
     view: vec4<f32>,
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
-    // x: the farthest a ray goes (blocks); y: the level bias; z: 1 the steps' view, 2 the levels' view; w: the highest
+    // x: the farthest a ray goes (blocks); y: the level bias (old's: more, coarser; the Render page's detail turned
+    // round, so more detail is finer); z: 1 the steps' view, 2 the levels' view; w: the highest
     // anything stands (blocks).
     reach: vec4<f32>,
     // The start pass: x, y the tiles across and down; z a tile's side in this layer's pixels (0: no start pass); w the
@@ -33,7 +34,7 @@ struct Camera {
     tiles: vec4<f32>,
     // The screen pyramid: x the layer above's width in its pixels (0: this is the base); y 1 if a finer layer follows;
     // z the rule (0 refine everywhere, 1 only where it's earned); w how the far cells are blended (0 the code, 1 the
-    // texture hardware exact, 2 spread: change 1).
+    // texture hardware: change 1).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
     // shadows; z: how fast a shadow ray widens (blocks across a block of distance).
@@ -77,17 +78,13 @@ struct Camera {
 // The layer above's distances (the base: a placeholder never read).
 @group(0) @binding(10) var far_above: texture_2d<f32>;
 // The far bricks as textures (change 1, `atlas.rs`): each brick place's slot in the atlas, the filter, how solid and
-// how watery, and the two ways' colour and faces (exact: multiplied by surface, with the surface; spread: spread into
-// empty neighbours, with the surface ÷ 4).
+// how watery, and the colour and faces spread into empty neighbours (with the surface ÷ 4).
 @group(0) @binding(11) var<storage, read> slots: array<u32>;
 @group(0) @binding(12) var soft: sampler;
 @group(0) @binding(13) var t_solid: texture_3d<f32>;
-@group(0) @binding(14) var a_colour: texture_3d<f32>;
-@group(0) @binding(15) var a_plus: texture_3d<f32>;
-@group(0) @binding(16) var a_minus: texture_3d<f32>;
-@group(0) @binding(17) var b_colour: texture_3d<f32>;
-@group(0) @binding(18) var b_plus: texture_3d<f32>;
-@group(0) @binding(19) var b_minus: texture_3d<f32>;
+@group(0) @binding(14) var t_colour: texture_3d<f32>;
+@group(0) @binding(15) var t_plus: texture_3d<f32>;
+@group(0) @binding(16) var t_minus: texture_3d<f32>;
 
 const FIRST: i32 = 5;
 const TOP: i32 = 16;
@@ -255,10 +252,10 @@ const NO_SLOT: u32 = 0xFFFFFFFFu;
 // A brick's texels a side in the atlas, its border included.
 const SIDE: f32 = 9.0;
 
-// The eight cells round `p` at `level` blended by the texture hardware (change 1): `way` 1 exact, 2 spread. The four
-// columns' bands are read first, as the code's blend reads them (a column not summed: unknown); where the bricks can't
-// answer (outside the level, under or over the world, a brick not in the atlas), the code's blend.
-fn blend_soft(level: i32, p: vec3<f32>, way: u32) -> Look {
+// The eight cells round `p` at `level` blended by the texture hardware (change 1, the spread way). The four columns'
+// bands are read first, as the code's blend reads them (a column not summed: unknown); where the bricks can't answer
+// (outside the level, under or over the world, a brick not in the atlas), the code's blend.
+fn blend_soft(level: i32, p: vec3<f32>) -> Look {
     let size = f32(1 << u32(level));
     let u = p / size - 0.5;
     let b = floor(u);
@@ -293,34 +290,23 @@ fn blend_soft(level: i32, p: vec3<f32>, way: u32) -> Look {
     if (sw.x + sw.y <= 0.0) {
         return look;
     }
-    if (way == 1u) {
-        let c = textureSampleLevel(a_colour, soft, at, 0.0);
-        if (c.a > 0.0) {
-            look.colour = c.rgb / c.a;
-            look.plus = textureSampleLevel(a_plus, soft, at, 0.0).rgb / c.a;
-            look.minus = textureSampleLevel(a_minus, soft, at, 0.0).rgb / c.a;
-            look.surface = c.a;
-        }
-    } else {
-        let c = textureSampleLevel(b_colour, soft, at, 0.0);
-        if (c.a > 0.0) {
-            look.colour = c.rgb;
-            look.plus = textureSampleLevel(b_plus, soft, at, 0.0).rgb;
-            look.minus = textureSampleLevel(b_minus, soft, at, 0.0).rgb;
-            look.surface = c.a * 4.0;
-        }
+    let c = textureSampleLevel(t_colour, soft, at, 0.0);
+    if (c.a > 0.0) {
+        look.colour = c.rgb;
+        look.plus = textureSampleLevel(t_plus, soft, at, 0.0).rgb;
+        look.minus = textureSampleLevel(t_minus, soft, at, 0.0).rgb;
+        look.surface = c.a * 4.0;
     }
     return look;
 }
 
 // The eight cells round `p` blended: by the code (old's, `blend`) or the texture hardware, as chosen (`camera.layer.w`:
-// 0 the code, 1 exact, 2 spread).
+// 0 the code, 1 the hardware).
 fn far_blend(level: i32, p: vec3<f32>) -> Look {
-    let way = u32(camera.layer.w);
-    if (way == 0u) {
+    if (camera.layer.w < 0.5) {
         return blend(level, p);
     }
-    return blend_soft(level, p, way);
+    return blend_soft(level, p);
 }
 
 // Two looks mixed: `w` of the second.

@@ -4,11 +4,12 @@
 //! one cell on its high sides holding the next cells over, so the hardware's filter blends the eight cells round a point
 //! in one fetch, across a brick's edge too. Under a band every cell is solid, over it empty, as the bands say.
 //!
-//! Two ways, each a set of textures beside one shared texture of how solid and how watery (true, unspread, 16-bit):
-//! - **Exact** (Builder's): the colour and the six faces' shares stored multiplied by how much surface each cell shows,
-//!   with the surface itself, as 16-bit floats. The filter sums them; one divide gives old's blend.
-//! - **Spread** (the Oracle's): the colour and faces of each cell that shows no surface taken from the nearest one that
-//!   does, in the brick, and filtered unweighted, in 8 bits; the surface kept beside the colour.
+//! How solid and how watery (true, unspread, 16-bit floats), and beside them the colour and the six faces' shares the
+//! spread way (the Oracle's): each cell that shows no surface takes the colour and faces of the nearest one that does,
+//! in the brick, filtered unweighted, in 8 bits, the surface kept beside the colour. Build 128 flew it against the exact
+//! way (colour and faces times surface, 16-bit, one divide after the filter: old's blend to the hardware's precision)
+//! and David saw no difference ("as far as the far blend, they all look the same"), so spread was kept: a little faster,
+//! and 1.1 GB lighter on the card (`journal/docs/experiments.md`, change 1).
 //!
 //! Built once, after every region is in, on a thread of its own from the cells kept as they came (`Kept`), an atlas layer
 //! at a time; till then the far eye blends in code as before. Each brick's place in the atlas is kept beside its place in
@@ -93,22 +94,13 @@ impl Look {
     }
 }
 
-/// Which ways to build.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Ways {
-    pub exact: bool,
-    pub spread: bool,
-}
-
 /// The atlas on the card.
 pub struct Atlas {
     /// Its size in texels.
     pub size: [u32; 3],
     pub solid: wgpu::TextureView,
-    /// Exact: colour × surface and surface, plus faces × surface, minus faces × surface.
-    pub exact: Option<[wgpu::TextureView; 3]>,
     /// Spread: colour and surface ÷ 4, plus faces, minus faces.
-    pub spread: Option<[wgpu::TextureView; 3]>,
+    pub spread: [wgpu::TextureView; 3],
     /// Each brick place's slot in the atlas (`NO_SLOT` none), packed: north, east, up in slots, 8 bits each.
     pub slots: wgpu::Buffer,
     pub bricks: usize,
@@ -118,7 +110,7 @@ pub struct Atlas {
     pub seconds: f32,
 }
 
-/// A 32-bit float as a 16-bit one (round to nearest even), for the exact way's textures.
+/// A 32-bit float as a 16-bit one (round to nearest even), for how solid and how watery.
 fn half(v: f32) -> u16 {
     let bits = v.to_bits();
     let sign = ((bits >> 16) & 0x8000) as u16;
@@ -230,7 +222,7 @@ fn spread(looks: &[Look]) -> Vec<Look> {
 }
 
 /// Builds the atlas from what's kept and sends it to the card, an atlas layer (64 × 64 bricks) at a time.
-pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, ways: Ways) -> Atlas {
+pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept) -> Atlas {
     let started = std::time::Instant::now();
     let list = bricks(kept);
     let per_layer = (ACROSS * ACROSS) as usize;
@@ -248,43 +240,30 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, ways: Ways
             view_formats: &[],
         })
     };
-    use wgpu::TextureFormat::{Rg16Float, Rgba8Unorm, Rgba16Float};
+    use wgpu::TextureFormat::{Rg16Float, Rgba8Unorm};
     let solid = texture("the far bricks: solid and watery", Rg16Float);
-    let exact = ways.exact.then(|| [texture("the far bricks, exact: colour", Rgba16Float), texture("the far bricks, exact: faces plus", Rgba16Float), texture("the far bricks, exact: faces minus", Rgba16Float)]);
-    let spread_set = ways.spread.then(|| [texture("the far bricks, spread: colour", Rgba8Unorm), texture("the far bricks, spread: faces plus", Rgba8Unorm), texture("the far bricks, spread: faces minus", Rgba8Unorm)]);
+    let spread_set = [texture("the far bricks: colour", Rgba8Unorm), texture("the far bricks: faces plus", Rgba8Unorm), texture("the far bricks: faces minus", Rgba8Unorm)];
     let texels_a_layer = (size[0] * size[1] * SIDE) as usize;
     let mut slots = vec![NO_SLOT; kept.levels.last().map_or(0, |l| (l.index_at + (l.bricks * l.bricks * l.bricks_up) as u32) as usize)];
     for (layer, chunk) in list.chunks(per_layer).enumerate() {
         let mut solid_bytes = vec![0u8; texels_a_layer * 4];
-        let mut exact_bytes = ways.exact.then(|| [vec![0u8; texels_a_layer * 8], vec![0u8; texels_a_layer * 8], vec![0u8; texels_a_layer * 8]]);
-        let mut spread_bytes = ways.spread.then(|| [vec![0u8; texels_a_layer * 4], vec![0u8; texels_a_layer * 4], vec![0u8; texels_a_layer * 4]]);
+        let mut spread_bytes = [vec![0u8; texels_a_layer * 4], vec![0u8; texels_a_layer * 4], vec![0u8; texels_a_layer * 4]];
         for (k, brick) in chunk.iter().enumerate() {
             let (sx, sy) = (k as u32 % ACROSS, k as u32 / ACROSS);
             slots[brick.place as usize] = sx | (sy << 8) | ((layer as u32) << 16);
             let looks = texels(kept, brick);
-            let spread_looks = ways.spread.then(|| spread(&looks));
+            let spread_looks = spread(&looks);
             for (t, look) in looks.iter().enumerate() {
                 let (i, j, z) = (t as u32 % SIDE, (t as u32 / SIDE) % SIDE, t as u32 / SIDE / SIDE);
                 let at = ((sx * SIDE + i) + (sy * SIDE + j) * size[0] + z * size[0] * size[1]) as usize;
                 for (c, v) in [look.solid, look.water].iter().enumerate() {
                     solid_bytes[at * 4 + c * 2..at * 4 + c * 2 + 2].copy_from_slice(&half(*v).to_le_bytes());
                 }
-                if let Some(bytes) = &mut exact_bytes {
-                    let s = look.surface;
-                    let rows = [[look.colour[0] * s, look.colour[1] * s, look.colour[2] * s, s], [look.plus[0] * s, look.plus[1] * s, look.plus[2] * s, 0.0], [look.minus[0] * s, look.minus[1] * s, look.minus[2] * s, 0.0]];
-                    for (b, row) in bytes.iter_mut().zip(rows) {
-                        for (c, v) in row.iter().enumerate() {
-                            b[at * 8 + c * 2..at * 8 + c * 2 + 2].copy_from_slice(&half(*v).to_le_bytes());
-                        }
-                    }
-                }
-                if let (Some(bytes), Some(spread_looks)) = (&mut spread_bytes, &spread_looks) {
-                    let l = &spread_looks[t];
-                    let rows = [[l.colour[0], l.colour[1], l.colour[2], l.surface / 4.0], [l.plus[0], l.plus[1], l.plus[2], 0.0], [l.minus[0], l.minus[1], l.minus[2], 0.0]];
-                    for (b, row) in bytes.iter_mut().zip(rows) {
-                        for (c, v) in row.iter().enumerate() {
-                            b[at * 4 + c] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-                        }
+                let l = &spread_looks[t];
+                let rows = [[l.colour[0], l.colour[1], l.colour[2], l.surface / 4.0], [l.plus[0], l.plus[1], l.plus[2], 0.0], [l.minus[0], l.minus[1], l.minus[2], 0.0]];
+                for (b, row) in spread_bytes.iter_mut().zip(rows) {
+                    for (c, v) in row.iter().enumerate() {
+                        b[at * 4 + c] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
                     }
                 }
             }
@@ -298,15 +277,8 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, ways: Ways
             );
         };
         write(&solid, &solid_bytes, 4);
-        if let (Some(textures), Some(bytes)) = (&exact, &exact_bytes) {
-            for (t, b) in textures.iter().zip(bytes) {
-                write(t, b, 8);
-            }
-        }
-        if let (Some(textures), Some(bytes)) = (&spread_set, &spread_bytes) {
-            for (t, b) in textures.iter().zip(bytes) {
-                write(t, b, 4);
-            }
+        for (t, b) in spread_set.iter().zip(&spread_bytes) {
+            write(t, b, 4);
         }
         queue.submit([]);
     }
@@ -314,13 +286,12 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, ways: Ways
     queue.write_buffer(&slots_buffer, 0, &slots.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
     queue.submit([]);
     let texels = (size[0] * size[1] * size[2]) as u64;
-    let bytes = texels * (4 + if ways.exact { 24 } else { 0 } + if ways.spread { 12 } else { 0 });
+    let bytes = texels * (4 + 12);
     let view = |t: &wgpu::Texture| t.create_view(&wgpu::TextureViewDescriptor::default());
     Atlas {
         size,
         solid: view(&solid),
-        exact: exact.as_ref().map(|set| [view(&set[0]), view(&set[1]), view(&set[2])]),
-        spread: spread_set.as_ref().map(|set| [view(&set[0]), view(&set[1]), view(&set[2])]),
+        spread: [view(&spread_set[0]), view(&spread_set[1]), view(&spread_set[2])],
         slots: slots_buffer,
         bricks: list.len(),
         bytes,
@@ -348,7 +319,7 @@ mod card_tests {
     use crate::doorway::Doorway;
     use crate::far::{FarColours, region, regions_of};
 
-    /// The test's shader: the far eye's own, with a kernel blending each point by the code and both hardware ways.
+    /// The test's shader: the far eye's own, with a kernel blending each point by the code and by the hardware.
     const KERNEL: &str = r#"
 @group(0) @binding(20) var<storage, read> points: array<vec4<f32>>;
 @group(0) @binding(21) var<storage, read_write> answers: array<vec4<f32>>;
@@ -366,18 +337,17 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let p = points[n];
     let level = i32(p.w);
-    put(n * 12u, blend(level, p.xyz));
-    put(n * 12u + 4u, blend_soft(level, p.xyz, 1u));
-    put(n * 12u + 8u, blend_soft(level, p.xyz, 2u));
+    put(n * 8u, blend(level, p.xyz));
+    put(n * 8u + 4u, blend_soft(level, p.xyz));
 }
 "#;
 
     /// Change 1's test: at points through the regions round the spawn, at every level from 32 to 1,024, the hardware's
-    /// blend against the code's, value by value. Its pass mark (exact within 1/1,000 everywhere) missed when it first ran:
-    /// the card's filter weighs the eight cells to about 1/256, so how solid and how watery differ by up to 0.0045, and
-    /// where hardly any surface weighs a point its colour can swing (a tiny sum divides it). Its bar is now what the
-    /// hardware can do, where it can be seen: how solid and watery within 1/200, the colour within 1/100 where a point
-    /// shows a quarter of a cell's floor or more. The pictures differ by 6 of 255 at most (`journal/docs/experiments.md`).
+    /// blend against the code's, value by value. The card's filter weighs the eight cells to about 1/256 (build 128: the
+    /// exact way's pass mark of 1/1,000 missed by it), so how solid and how watery are held to 1/200, and known and
+    /// unknown must be the code's at every point. The spread way's colour differs by design where little surface shows
+    /// (it spreads into empty neighbours where old's weighs by surface): reported by surface, not held to a bar; the
+    /// pictures it makes, and David's look, are its test (`journal/docs/experiments.md`).
     #[test]
     fn the_hardware_blends_as_the_code_does() {
         let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
@@ -400,7 +370,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
         let kept = std::mem::take(&mut store.kept);
-        let atlas = build(&device, &queue, &kept, Ways { exact: true, spread: true });
+        let atlas = build(&device, &queue, &kept);
         // The points: in the nine regions, near each column's band (where blends mix most), at every level from 32 to
         // 1,024, scattered through each cell.
         let mut points: Vec<[f32; 4]> = Vec::new();
@@ -432,12 +402,10 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
         queue.write_buffer(&camera, 0, &numbers.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let points_buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("points"), size: (points.len() * 16) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&points_buffer, 0, &points.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
-        let size = (points.len() * 12 * 16) as u64;
+        let size = (points.len() * 8 * 16) as u64;
         let answers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("answers"), size, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("answers read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("soft"), mag_filter: wgpu::FilterMode::Linear, min_filter: wgpu::FilterMode::Linear, ..Default::default() });
-        let exact = atlas.exact.as_ref().unwrap();
-        let spread_views = atlas.spread.as_ref().unwrap();
         let entries = [
             wgpu::BindGroupEntry { binding: 0, resource: camera.as_entire_binding() },
             wgpu::BindGroupEntry { binding: 1, resource: store.table.as_entire_binding() },
@@ -447,12 +415,9 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
             wgpu::BindGroupEntry { binding: 11, resource: atlas.slots.as_entire_binding() },
             wgpu::BindGroupEntry { binding: 12, resource: wgpu::BindingResource::Sampler(&sampler) },
             wgpu::BindGroupEntry { binding: 13, resource: wgpu::BindingResource::TextureView(&atlas.solid) },
-            wgpu::BindGroupEntry { binding: 14, resource: wgpu::BindingResource::TextureView(&exact[0]) },
-            wgpu::BindGroupEntry { binding: 15, resource: wgpu::BindingResource::TextureView(&exact[1]) },
-            wgpu::BindGroupEntry { binding: 16, resource: wgpu::BindingResource::TextureView(&exact[2]) },
-            wgpu::BindGroupEntry { binding: 17, resource: wgpu::BindingResource::TextureView(&spread_views[0]) },
-            wgpu::BindGroupEntry { binding: 18, resource: wgpu::BindingResource::TextureView(&spread_views[1]) },
-            wgpu::BindGroupEntry { binding: 19, resource: wgpu::BindingResource::TextureView(&spread_views[2]) },
+            wgpu::BindGroupEntry { binding: 14, resource: wgpu::BindingResource::TextureView(&atlas.spread[0]) },
+            wgpu::BindGroupEntry { binding: 15, resource: wgpu::BindingResource::TextureView(&atlas.spread[1]) },
+            wgpu::BindGroupEntry { binding: 16, resource: wgpu::BindingResource::TextureView(&atlas.spread[2]) },
             wgpu::BindGroupEntry { binding: 20, resource: points_buffer.as_entire_binding() },
             wgpu::BindGroupEntry { binding: 21, resource: answers.as_entire_binding() },
         ];
@@ -471,59 +436,45 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
         readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
         let got: Vec<f32> = readback.slice(..).get_mapped_range().unwrap().as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)).collect();
-        // Each way's largest difference from the code's, by value: solid, water, colour, faces (and where).
+        // The largest differences from the code's, by value: solid, water, colour, faces (and where).
         let names = ["solid", "water", "colour", "faces"];
         let mut report = String::new();
-        let mut exact_worst = 0.0f32;
-        for (way, offset) in [("exact", 16usize), ("spread", 32usize)] {
-            let mut worst = [(0.0f32, 0usize); 4];
-            let mut unknown = 0;
-            for p in 0..points.len() {
-                let base = p * 48;
-                let code = &got[base..base + 16];
-                let soft = &got[base + offset..base + offset + 16];
-                if code[3] < 0.5 || soft[3] < 0.5 {
-                    unknown += (code[3] != soft[3]) as usize;
-                    continue;
-                }
-                let differ = |a: &[f32], b: &[f32]| a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0f32, f32::max);
-                // Colour and faces only where there's surface to weigh them (with none, both are rock's and nothing).
-                let surfaced = code[2] > 1e-3;
-                let d = [(code[0] - soft[0]).abs(), (code[1] - soft[1]).abs(), if surfaced { differ(&code[4..7], &soft[4..7]) } else { 0.0 }, if surfaced { differ(&code[8..15], &soft[8..15]) } else { 0.0 }];
-                for k in 0..4 {
-                    if d[k] > worst[k].0 {
-                        worst[k] = (d[k], p);
-                    }
-                }
+        let mut worst = [(0.0f32, 0usize); 4];
+        let mut unknown = 0;
+        for p in 0..points.len() {
+            let base = p * 32;
+            let code = &got[base..base + 16];
+            let soft = &got[base + 16..base + 32];
+            if code[3] < 0.5 || soft[3] < 0.5 {
+                unknown += (code[3] != soft[3]) as usize;
+                continue;
             }
-            // How the colour's differences spread, by how much surface weighs the point (a little: the hardware's weights,
-            // about 1/256, divided by a small sum, can swing it; a lot: they can't).
-            for (from, to) in [(1e-3f32, 0.05f32), (0.05, 0.25), (0.25, 10.0)] {
-                let mut d: Vec<f32> = (0..points.len())
-                    .filter(|p| got[p * 48 + 3] > 0.5 && got[p * 48 + offset + 3] > 0.5 && (from..to).contains(&got[p * 48 + 2]))
-                    .map(|p| (0..3).map(|c| (got[p * 48 + 4 + c] - got[p * 48 + offset + 4 + c]).abs()).fold(0.0f32, f32::max))
-                    .collect();
-                d.sort_by(f32::total_cmp);
-                if !d.is_empty() {
-                    report += &format!("  {way}, surface {from} to {to}: {} points, the colour's difference median {:.5}, 99th {:.5}, largest {:.5}
-", d.len(), d[d.len() / 2], d[(d.len() * 99 / 100).min(d.len() - 1)], d[d.len() - 1]);
+            let differ = |a: &[f32], b: &[f32]| a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0f32, f32::max);
+            // Colour and faces only where there's surface to weigh them (with none, both are rock's and nothing).
+            let surfaced = code[2] > 1e-3;
+            let d = [(code[0] - soft[0]).abs(), (code[1] - soft[1]).abs(), if surfaced { differ(&code[4..7], &soft[4..7]) } else { 0.0 }, if surfaced { differ(&code[8..15], &soft[8..15]) } else { 0.0 }];
+            for k in 0..4 {
+                if d[k] > worst[k].0 {
+                    worst[k] = (d[k], p);
                 }
-            }
-            let parts: Vec<String> = names.iter().zip(worst).map(|(n, (d, p))| format!("{n} {d:.5} (cells of {}, at {:.0} {:.0} {:.0})", 1 << points[p][3] as u32, points[p][0], points[p][1], points[p][2])).collect();
-            report += &format!("{way}: the largest differences from the code's blend: {}; known where the code's is unknown, or the other way: {unknown}\n", parts.join(", "));
-            if way == "exact" {
-                exact_worst = worst.iter().map(|w| w.0).fold(0.0, f32::max);
-                assert_eq!(unknown, 0, "the exact way's known and unknown are the code's");
             }
         }
+        // How the colour's differences spread, by how much surface weighs the point.
+        for (from, to) in [(1e-3f32, 0.05f32), (0.05, 0.25), (0.25, 10.0)] {
+            let mut d: Vec<f32> = (0..points.len())
+                .filter(|p| got[p * 32 + 3] > 0.5 && got[p * 32 + 16 + 3] > 0.5 && (from..to).contains(&got[p * 32 + 2]))
+                .map(|p| (0..3).map(|c| (got[p * 32 + 4 + c] - got[p * 32 + 16 + 4 + c]).abs()).fold(0.0f32, f32::max))
+                .collect();
+            d.sort_by(f32::total_cmp);
+            if !d.is_empty() {
+                report += &format!("  surface {from} to {to}: {} points, the colour's difference median {:.5}, 99th {:.5}, largest {:.5}\n", d.len(), d[d.len() / 2], d[(d.len() * 99 / 100).min(d.len() - 1)], d[d.len() - 1]);
+            }
+        }
+        let parts: Vec<String> = names.iter().zip(worst).map(|(n, (d, p))| format!("{n} {d:.5} (cells of {}, at {:.0} {:.0} {:.0})", 1 << points[p][3] as u32, points[p][0], points[p][1], points[p][2])).collect();
+        report += &format!("the largest differences from the code's blend: {}; known where the code's is unknown, or the other way: {unknown}\n", parts.join(", "));
         eprintln!("Change 1's test, {} points at levels 32 to 1,024, {} bricks in the atlas ({:.0} MB):\n{report}", points.len(), atlas.bricks, atlas.bytes as f64 / 1e6);
-        let _ = exact_worst;
-        let surfaced_worst = (0..points.len())
-            .filter(|p| got[p * 48 + 3] > 0.5 && got[p * 48 + 2] >= 0.25)
-            .map(|p| (0..3).map(|c| (got[p * 48 + 4 + c] - got[p * 48 + 16 + 4 + c]).abs()).fold(0.0f32, f32::max))
-            .fold(0.0f32, f32::max);
-        let solid_worst = (0..points.len()).filter(|p| got[p * 48 + 3] > 0.5).map(|p| (got[p * 48] - got[p * 48 + 16]).abs().max((got[p * 48 + 1] - got[p * 48 + 17]).abs())).fold(0.0f32, f32::max);
-        assert!(solid_worst <= 1.0 / 200.0, "the exact way's solid or water differs from the code's by {solid_worst}");
-        assert!(surfaced_worst <= 1.0 / 100.0, "the exact way's colour differs from the code's by {surfaced_worst} where a quarter of a floor's surface shows");
+        assert_eq!(unknown, 0, "the hardware's known and unknown are the code's");
+        let solid_worst = worst[0].0.max(worst[1].0);
+        assert!(solid_worst <= 1.0 / 200.0, "how solid or watery differs from the code's by {solid_worst}");
     }
 }

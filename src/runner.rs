@@ -410,7 +410,7 @@ impl Runner {
             camera: &self.camera,
             captured: self.captured,
             memory: running.memory,
-            blends: running.far.as_ref().map_or([true, false, false], FarEye::blends),
+            blends: running.far.as_ref().map_or([true, false], FarEye::blends),
             far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
         self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look));
@@ -501,7 +501,7 @@ impl Runner {
                 present: running.card.config.present_mode,
                 refresh: running.refresh,
                 marks: &self.marks,
-                far: running.far.as_ref().map_or("none (the doorway couldn't open the world)".to_string(), FarEye::state),
+                far: running.far.as_ref().map_or("none (the doorway couldn't open the world)".to_string(), |far| format!("{}; {}", far.state(), far.settings())),
                 memory: running.card.memory(),
             });
             event_loop.exit();

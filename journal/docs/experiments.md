@@ -1236,3 +1236,34 @@ wherever the bricks can't answer.
     32s and 64s near the eye, which hold 94% of both the pool and the textures.
   - Without the pool (if the textures alone answered), A would be about 2.7 GB and B 1.6.
 - **Still David's eye,** still and flying, the three switched live.
+
+### David's look at build 128, and build 129's pass mark (written before the code)
+
+David's look at the three blends, all three built (his words, 2026-11-12): "as far as the far blend, they all look the
+same. -2 detail looked better, didn't seem to impact the frames. crisp looks better than smooth or sharp skylines." The
+fog line he saw is written down under 2.2 to wait ("we may delete fog and try another way to implement it later").
+
+- **The detail slider ran backwards.** It reads "detail (levels finer)", but its number was added straight to the level
+  (old's level bias), so his -2 was two levels *finer*, each far cell a quarter as wide at a given distance. What he
+  liked is the finer picture.
+
+**Build 129:**
+- **Spread kept, exact taken out.** They look the same, and spread is faster and 1.1 GB lighter. The code's blend
+  stays where the bricks can't answer, and before the textures are in. The code's way stays on the Render page to
+  compare.
+- **The slider turned the right way**, more meaning finer, from -3 to +4, with +2 the default (David's pick).
+  `INCUS_FAR_DETAIL` sets it at launch, for measuring.
+
+**Pass mark:**
+- **The card test, spread against the code's:** how solid and how watery within 1/200 at every point; known and
+  unknown the same at every point; the colour's differences reported by surface, as before (spread differs by design
+  where little surface shows).
+- **The pictures:** high over the spawn at detail 0, the code's and spread's each the same as build 128's, pixel for
+  pixel (only exact's path left the program).
+- **Two flights,** spread at detail 0 (against build 128's B) and at +2 (the new default), with the card's memory.
+  Builder's estimates:
+  - At 0 [medium]: the same as B, or a few % faster with the program smaller.
+  - At +2 [low]: a step is as long as the ray is wide, so finer cells don't multiply the steps. They cost in fetches
+    and cache, and could earn more of the 4 × 4. The spawn about the same (David saw no change); the far marks 10 to
+    50% slower.
+  - The memory [medium]: B's, 2.66 GB in use, within 50 MB.

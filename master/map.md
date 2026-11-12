@@ -189,6 +189,7 @@ flowchart TB
 - **Switch** `INCUS_SIGHT_STEPS`: the steps' view: dark blue few steps, through green, to red 256 or more.
 - **Switch** `INCUS_SIGHT_NO_SHADOWS`: the sun's shadows left out (for measuring).
 - **Switch** `INCUS_SIGHT_NO_SKY`: the sky light left out (for measuring).
+- **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default +2).
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.052, 95th 0.088, 99th 0.124, worst 0.366; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.016.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -275,9 +276,9 @@ flowchart TB
 ### making the far textures
 
 - **A pass** in loading, on the processor.
-- **What it is:** Once every region is in, on a thread of its own: each far brick made again as a 9 x 9 x 9 block of texels (its border the next cells over) in the atlas, the two ways of change 1 (exact: colour and faces times surface, 16-bit; spread: spread into empty neighbours, 8-bit), and sent to the card an atlas layer at a time.
+- **What it is:** Once every region is in, on a thread of its own: each far brick made again as a 9 x 9 x 9 block of texels (its border the next cells over) in the atlas (change 1: how solid and how watery in 16-bit floats; the colour and faces spread into empty neighbours, 8-bit; build 128 flew an exact way too, David saw no difference), and sent to the card an atlas layer at a time.
 - **Reads:** the far cells. **Writes:** the far textures.
-- **Switch** `INCUS_FAR_BLEND`: which ways are made: code (none), exact, spread, or both (unset: both, the code's blend till one is chosen).
+- **Switch** `INCUS_FAR_BLEND`: code: no far textures made, the far cells blended by the code (old's); unset, made and blended by the hardware once they're in.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): not measured.
 - **Files:** src/atlas.rs.
 

@@ -10,7 +10,7 @@
 //! (`bricks::Store`), so the view sharpens in live, raw, with no loading screen [David, 2026-11-06: "id like to see the
 //! sharpening myself, realtime and raw"].
 
-use crate::atlas::{Atlas, Ways};
+use crate::atlas::Atlas;
 use crate::bricks::Store;
 use crate::camera::Camera;
 use crate::far::Lane;
@@ -72,10 +72,12 @@ pub struct FarLook {
     pub fade_2: [f32; 2],
     /// The sky's weight over land at a skyline (0: as old's; 4 David's, build 124: "i maxed it").
     pub sky_weight: f32,
-    /// How the far cells are blended (change 1): 0 by the code (old's), 1 by the texture hardware exactly, 2 spread.
+    /// How the far cells are blended (change 1): 0 by the code (old's), 1 by the texture hardware (the spread way: David
+    /// saw no difference from exact, build 128, "as far as the far blend, they all look the same").
     pub blend: u32,
     /// Detail: the level read at each distance, so many levels finer (more) or coarser (less) than its pixel's size
-    /// (old's level bias).
+    /// (old's level bias, turned round). +2 David's: "-2 detail looked better, didn't seem to impact the frames" (build
+    /// 128, when the slider ran backwards: his -2 was two levels finer).
     pub detail: i32,
     /// How the pyramid is brought up to the screen: 0 crisp, 1 smooth, 2 smooth with sharp skylines.
     pub bring_up: u32,
@@ -105,8 +107,8 @@ impl FarLook {
         fade_4: CELLS_FADES[0],
         fade_2: CELLS_FADES[1],
         sky_weight: SKY_WEIGHT,
-        blend: 0,
-        detail: 0,
+        blend: 1,
+        detail: 2,
         bring_up: 0,
         view: 0,
         sun_from: SUN_FROM,
@@ -157,12 +159,12 @@ pub struct FarEye {
     targets: Option<Targets>,
     /// Its look, as tuned (the Render page).
     pub look: FarLook,
-    /// Change 1: which ways of blending by the texture hardware are built (`INCUS_FAR_BLEND`), the atlas once it's in, and
-    /// its builder's answer on the way; textures of one texel standing in till then.
-    ways: Ways,
+    /// Change 1: whether the far textures are made (`INCUS_FAR_BLEND`), the atlas once it's in, and its builder's answer
+    /// on the way; textures of one texel standing in till then.
+    textures: bool,
     atlas: Option<Atlas>,
     building: Option<mpsc::Receiver<Atlas>>,
-    stand_ins: [wgpu::TextureView; 3],
+    stand_ins: [wgpu::TextureView; 2],
 }
 
 impl FarEye {
@@ -194,9 +196,6 @@ impl FarEye {
                 volume(14),
                 volume(15),
                 volume(16),
-                volume(17),
-                volume(18),
-                volume(19),
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
@@ -244,15 +243,15 @@ impl FarEye {
         };
         look.shadows = !set("INCUS_SIGHT_NO_SHADOWS");
         look.sky_light = !set("INCUS_SIGHT_NO_SKY");
-        // Change 1's ways (`INCUS_FAR_BLEND`): `code` builds none, `exact` or `spread` one (and blends by it from the start,
-        // for flights), `both` or unset both (blending by the code till chosen on the Render page, for David's look).
-        let (ways, blend) = match std::env::var("INCUS_FAR_BLEND").as_deref() {
-            Ok("code") => (Ways { exact: false, spread: false }, 0),
-            Ok("exact") => (Ways { exact: true, spread: false }, 1),
-            Ok("spread") => (Ways { exact: false, spread: true }, 2),
-            _ => (Ways { exact: true, spread: true }, 0),
-        };
-        look.blend = blend;
+        // Change 1 (`INCUS_FAR_BLEND`): `code` makes no far textures and blends by the code (old's); otherwise they're made
+        // and blend once they're in. The detail at launch (`INCUS_FAR_DETAIL`), for measuring.
+        let textures = std::env::var("INCUS_FAR_BLEND").as_deref() != Ok("code");
+        if !textures {
+            look.blend = 0;
+        }
+        if let Some(detail) = std::env::var("INCUS_FAR_DETAIL").ok().and_then(|d| d.parse().ok()) {
+            look.detail = detail;
+        }
         let stand_in = |label: &str, format: wgpu::TextureFormat| {
             device
                 .create_texture(&wgpu::TextureDescriptor {
@@ -267,19 +266,23 @@ impl FarEye {
                 })
                 .create_view(&wgpu::TextureViewDescriptor::default())
         };
-        let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, ways, atlas: None, building: None, stand_ins }
+        let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins }
     }
 
-    /// Whether every region is on the card, and the atlas too if any way of blending by the hardware was asked for.
+    /// Whether every region is on the card, and the far textures too if they're made.
     pub fn whole(&self) -> bool {
-        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !(self.ways.exact || self.ways.spread))
+        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures)
     }
 
-    /// Which blends can be chosen now: the code's, exact, spread.
-    pub fn blends(&self) -> [bool; 3] {
-        let atlas = self.atlas.as_ref();
-        [true, atlas.is_some_and(|a| a.exact.is_some()), atlas.is_some_and(|a| a.spread.is_some())]
+    /// Which blends can be chosen now: the code's, the hardware's (once the far textures are in).
+    pub fn blends(&self) -> [bool; 2] {
+        [true, self.atlas.is_some()]
+    }
+
+    /// The look's settings a flight's numbers depend on, for its report.
+    pub fn settings(&self) -> String {
+        format!("blended by {}, detail {:+}", if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
     }
 
     /// How the far cells are coming in, for the panel and the flight's report.
@@ -290,7 +293,7 @@ impl FarEye {
             format!("{} of {} regions in{eighth}; ", lane.done, lane.total)
         });
         let atlas = match (&self.atlas, &self.building) {
-            (Some(a), _) => format!("; the atlas {} bricks, {:.0} MB of texels (exact {}, spread {}), built and sent in {:.1} s", a.bricks, a.bytes as f64 / 1e6, a.exact.is_some(), a.spread.is_some(), a.seconds),
+            (Some(a), _) => format!("; the atlas {} bricks, {:.0} MB of texels, built and sent in {:.1} s", a.bricks, a.bytes as f64 / 1e6, a.seconds),
             (None, Some(_)) => "; the atlas being built".to_string(),
             (None, None) => String::new(),
         };
@@ -301,14 +304,14 @@ impl FarEye {
     /// cells on the card").
     pub fn put(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         // The atlas, once every region is in: built on a thread of its own from the cells kept, then taken in here.
-        if self.lane.is_none() && self.atlas.is_none() && self.building.is_none() && (self.ways.exact || self.ways.spread) {
+        if self.lane.is_none() && self.atlas.is_none() && self.building.is_none() && self.textures {
             let kept = std::mem::take(&mut self.store.kept);
-            let (device, queue, ways) = (device.clone(), queue.clone(), self.ways);
+            let (device, queue) = (device.clone(), queue.clone());
             let (sender, receiver) = mpsc::channel();
             let _ = std::thread::Builder::new().name("making the far textures".into()).spawn(move || {
-                let _ = sender.send(crate::atlas::build(&device, &queue, &kept, ways));
+                let _ = sender.send(crate::atlas::build(&device, &queue, &kept));
             });
-            log::info!("The far textures: being made (exact {}, spread {})", ways.exact, ways.spread);
+            log::info!("The far textures: being made");
             self.building = Some(receiver);
         }
         if let Some(receiver) = &self.building
@@ -383,12 +386,9 @@ impl FarEye {
                     entry(11, self.atlas.as_ref().map_or(&self.store.index, |a| &a.slots).as_entire_binding()),
                     entry(12, wgpu::BindingResource::Sampler(&self.sampler)),
                     entry(13, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[0], |a| &a.solid))),
-                    entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().and_then(|a| a.exact.as_ref()).map_or(&self.stand_ins[1], |e| &e[0]))),
-                    entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().and_then(|a| a.exact.as_ref()).map_or(&self.stand_ins[1], |e| &e[1]))),
-                    entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().and_then(|a| a.exact.as_ref()).map_or(&self.stand_ins[1], |e| &e[2]))),
-                    entry(17, wgpu::BindingResource::TextureView(self.atlas.as_ref().and_then(|a| a.spread.as_ref()).map_or(&self.stand_ins[2], |s| &s[0]))),
-                    entry(18, wgpu::BindingResource::TextureView(self.atlas.as_ref().and_then(|a| a.spread.as_ref()).map_or(&self.stand_ins[2], |s| &s[1]))),
-                    entry(19, wgpu::BindingResource::TextureView(self.atlas.as_ref().and_then(|a| a.spread.as_ref()).map_or(&self.stand_ins[2], |s| &s[2]))),
+                    entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
+                    entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
+                    entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
                 ],
             });
             worth_above = Some(worth);
@@ -425,7 +425,7 @@ impl FarEye {
         let screen_pixel = 2.0 * tan_half / screen.1.max(1) as f32;
         let look = self.look;
         // The blend as chosen, if its way is built and in; the code's till then.
-        let blend = if self.blends()[look.blend.min(2) as usize] { look.blend.min(2) } else { 0 };
+        let blend = if self.blends()[look.blend.min(1) as usize] { look.blend.min(1) } else { 0 };
         let atlas_size = self.atlas.as_ref().map_or([1.0; 3], |a| a.size.map(|v| v as f32));
         let (from, height) = (look.sun_from.to_radians(), look.sun_height.to_radians());
         let sun = [height.cos() * from.cos(), height.cos() * from.sin(), height.sin()];
@@ -450,7 +450,7 @@ impl FarEye {
                 [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],
                 [layer.size.0 as f32, layer.size.1 as f32, pixel, 1.0],
                 [sun[0], sun[1], sun[2], look.ambient.clamp(0.0, 1.0)],
-                [REACH, look.detail as f32, look.view as f32, self.store.highest],
+                [REACH, -look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
                 [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
@@ -543,7 +543,8 @@ mod tests {
         }
         let format = wgpu::TextureFormat::Rgba8Unorm;
         let mut eye = FarEye::new(&device, format, store, None);
-        // Change 1's blend to draw with, if asked (`FAR_TEST_BLEND`: 1 exact, 2 spread): the atlas made first.
+        // The blend to draw with, if asked (`FAR_TEST_BLEND`: 0 the code's, 1 the hardware's): the atlas made first.
+        // The detail is the default's, or `INCUS_FAR_DETAIL`'s.
         if let Some(blend) = std::env::var("FAR_TEST_BLEND").ok().and_then(|b| b.parse::<u32>().ok()) {
             while !eye.blends()[blend as usize] {
                 eye.put(&device, &queue);
@@ -614,7 +615,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend)), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail)), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");

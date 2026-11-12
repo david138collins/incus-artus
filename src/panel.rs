@@ -32,8 +32,8 @@ pub struct Readings<'a> {
     pub captured: bool,
     /// The card's memory the game holds, MB: in use, and held (none where the card can't say).
     pub memory: Option<(f64, f64)>,
-    /// Which far blends can be chosen now (the code's, exact, spread), and how the far cells are coming in.
-    pub blends: [bool; 3],
+    /// Which far blends can be chosen now (the code's, the hardware's), and how the far cells are coming in.
+    pub blends: [bool; 2],
     pub far: String,
 }
 
@@ -147,16 +147,16 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
             let differs = (look.blend, look.detail, look.bring_up, look.view, look.sky_weight) != (d.blend, d.detail, d.bring_up, d.view, d.sky_weight);
             section_default(ui, look, differs, |l| (l.blend, l.detail, l.bring_up, l.view, l.sky_weight) = (d.blend, d.detail, d.bring_up, d.view, d.sky_weight));
         });
-        // Change 1: the far cells blended by the code (old's) or the texture hardware, each greyed till it's built.
+        // Change 1: the far cells blended by the code (old's) or the texture hardware (greyed till its textures are in).
         ui.horizontal(|ui| {
             ui.label("far blend");
-            for (k, name) in ["old's (code)", "exact (hardware)", "spread (hardware)"].iter().enumerate() {
+            for (k, name) in ["old's (code)", "the hardware's"].iter().enumerate() {
                 ui.add_enabled_ui(readings.blends[k], |ui| {
                     ui.selectable_value(&mut look.blend, k as u32, *name);
                 });
             }
         });
-        ui.add(egui::Slider::new(&mut look.detail, -2..=3).text("detail (levels finer)"));
+        ui.add(egui::Slider::new(&mut look.detail, -3..=4).text("detail (levels finer)"));
         ui.horizontal(|ui| {
             ui.label("brought up");
             ui.selectable_value(&mut look.bring_up, 0, "crisp");
