@@ -1310,6 +1310,11 @@ Reference: `Art/quartile minecraft illustration.png`
   - **Detail back to 0** (David, to Builder, on build 130 from height: "yeah 0 is fine"). The default is old's again
     (2f756a4); +2's 77% from height wasn't bought by anything he could see. Change 1 is done enough to go on: the
     spread kept, the exact way out, detail 0.
+- **[DECIDED 2026-11-12] Bricks of 4, for now** (David, to Builder: "4 sounds good"). Step 3 (build 131): bricks of 4
+  take the game's card memory from 2,656 to 1,555 MB for 5 to 13% more card time, the picture the same. The default
+  since 18d2537; `INCUS_FAR_BRICK=8` keeps 8 a launch away. Why "for now": the window round the eye (step 4) cuts the
+  same memory another way, so the final size is picked after step 4 is flown at both 4 and 8 (Counsel's order, put to
+  him by Builder).
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

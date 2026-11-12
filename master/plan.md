@@ -27,8 +27,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the whole world's far view on the card, which a window round the eye would cut, since the levels near it hold 94%.
   The camera's speed is on the Camera page now (build 130). Step 3 is flown (build 131): bricks of 4 take the
   game's card memory from 2,656 to 1,555 MB for 5 to 13% more card time (low over the sea 2.87 → 3.23 ms); bricks of
-  2, 1,315 MB for 14 to 24% more; the picture the same. Builder recommends 4; David to choose. Next: step 4, the
-  window round the eye. The fog line waits (fog may be redone another way later).
+  2, 1,315 MB for 14 to 24% more; the picture the same. David: "4 sounds good", for now, the final size picked after
+  the window is flown at 4 and 8. Next: step 4, the window round the eye (Builder's estimate: the far view from
+  about 1.4 GB to 0.25 GB), with a first moving flight at a player's 200 blocks a second and faster, to see whether
+  it keeps up. The fog line waits (fog may be redone another way later).
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -47,8 +49,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the brick size (4 for 1.1 GB less, or 8 for speed, perhaps decided after the window); when
-  to take the fog line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** his look when the window is ready; when to take the fog line; whether `CLAUDE.md` points at
+  the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
