@@ -12,14 +12,15 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 - **Working on:** Phase 2, *Restart*, step 2.1. Old is packed into `old\` and still runs there (its tests pass, and
   the check flight matched 1.7's to within 0.3%); the journal is in `journal/`, found through
-  `journal/contents.md`. The new project's skeleton runs from the top of the folder as build 116 (the numbers carry
-  on from old's): a full-screen window, a flying camera on old's keys, the panel (F3), and the clocks. David looked
-  ("looks fine. go ahead"), and the empty frame flew at 0.40 ms a frame and 0.019 ms on the card, the floor every
-  later change is measured from. Build 117 (8283179, running for David's look) adds the wiring: the code's own list of its
-  lanes, passes and stores (two, seven and eight), the frame run in its order, each pass timed; `master/map.md`
-  drawn from it by the build's test; and the new editor (F2), its pages by a drop-down (Software map, Tectonic Sim,
-  World Gen, Registrar), the software map the one that works. Then the doorway and the marks. As the editor fills, every window, setting and control is placed with
-  David (`journal/docs/decisions.md`, 2026-11-12).
+  `journal/contents.md`. The new project runs from the top of the folder (the build numbers carry on from old's):
+  a full-screen window, a flying camera on old's keys, the panel (F3), and the clocks; the empty frame flew at 0.40
+  ms a frame and 0.019 ms on the card (build 116), the floor every later change is measured from. Build 117 added
+  the wiring, the code's own list of its lanes, passes and stores, with each pass timed and `master/map.md` drawn
+  from it; and the new editor (F2), its pages by a drop-down, the software map the one that works. David looked at
+  both ("editor looks about like what i'd expect"), and 117 flew within 4% of the floor. Now: the doorway
+  (read-only, the export behind it, answering the 5,047 reference columns to the block), then the marks as data.
+  As the editor fills, every window, setting and control is placed with David (`journal/docs/decisions.md`,
+  2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
   light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
@@ -30,9 +31,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 117 (the editor and the software map), then a flight to fill the map's
-  costs; the names on the map beyond the ones he agreed (Builder's, his to change); and whether `CLAUDE.md` points
-  at the map now. His desktop has two launchers: "Play Incus Artus" (the new game) and "Play old Incus Artus" (`old\`).
+- **Waiting on David:** whether `CLAUDE.md` points at the map now. His desktop has two launchers: "Play Incus
+  Artus" (the new game) and "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 

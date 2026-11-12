@@ -1124,6 +1124,12 @@ Reference: `Art/quartile minecraft illustration.png`
   - Old's World Compiler and World Interpreter go inside the World Gen page, as a window of their own only if one is
     needed. The world gen stack is laid out afresh at 3.4: its stages in one linear chain, each control placed with
     David.
+- **[DECIDED 2026-11-12] The editor and the software map, looked at** (David, to Builder, on build 117: "editor
+  looks about like what i'd expect. you can go ahead with your tests"). The wiring's first flight then flew within
+  its pass mark: 0.42 ms a frame (the floor's 0.40, +4%), 0.018 ms on the card (`kept logs/flight-1794487642.txt`).
+  With each pass timed, handing the frame to the card and the screen is 0.31 ms of it. The names Builder added to the
+  map (the window, hearing the window, getting the picture, handing over, measuring, the wiring, the flight's
+  report, the session's log) stand as hers, his to change whenever he likes.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
