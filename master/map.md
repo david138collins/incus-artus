@@ -22,6 +22,7 @@ flowchart TB
     pass_laying_out_the_panel["laying out the panel"]
     pass_getting_the_picture["getting the picture"]
     pass_the_far_start["the far start"]
+    pass_the_far_boxes["the far boxes"]
     pass_the_far_8_x_8["the far 8 x 8"]
     pass_the_far_4_x_4["the far 4 x 4"]
     pass_the_far_2_x_2["the far 2 x 2"]
@@ -60,6 +61,7 @@ flowchart TB
   store_the_far_textures[("the far textures")]
   store_the_window_round_the_eye[("the window round the eye")]
   store_the_temperatures[("the temperatures")]
+  store_the_far_boxes__ends[("the far boxes' ends")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -85,19 +87,25 @@ flowchart TB
   store_the_far_bricks --> pass_the_far_start
   store_the_far_eye_s_look --> pass_the_far_start
   pass_the_far_start --> store_the_far_layers
+  store_the_camera --> pass_the_far_boxes
+  store_the_far_bricks --> pass_the_far_boxes
+  pass_the_far_boxes --> store_the_far_boxes__ends
   store_the_far_bricks --> pass_the_far_8_x_8
   store_the_far_textures --> pass_the_far_8_x_8
   store_the_window_round_the_eye --> pass_the_far_8_x_8
+  store_the_far_boxes__ends --> pass_the_far_8_x_8
   store_the_far_layers --> pass_the_far_8_x_8
   pass_the_far_8_x_8 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_4_x_4
   store_the_far_textures --> pass_the_far_4_x_4
   store_the_window_round_the_eye --> pass_the_far_4_x_4
+  store_the_far_boxes__ends --> pass_the_far_4_x_4
   store_the_far_layers --> pass_the_far_4_x_4
   pass_the_far_4_x_4 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_2_x_2
   store_the_far_textures --> pass_the_far_2_x_2
   store_the_window_round_the_eye --> pass_the_far_2_x_2
+  store_the_far_boxes__ends --> pass_the_far_2_x_2
   store_the_far_layers --> pass_the_far_2_x_2
   pass_the_far_2_x_2 --> store_the_far_layers
   store_the_far_layers --> pass_bringing_it_up
@@ -132,7 +140,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, laying out the panel, getting the picture, the far start, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the panel, handing the card its work, showing it and measuring.
+- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, laying out the panel, getting the picture, the far start, the far boxes, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
@@ -221,11 +229,20 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.052, 95th 0.088, 99th 0.124, worst 0.366; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.016.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
+### the far boxes
+
+- **A pass** in the frame, on the card.
+- **What it is:** Change 2: each 256-block column of land drawn as a box by the triangle hardware at the 8 x 8 layer's size, swollen by what a blend can reach at its distance; each pixel keeps the farthest box surface its ray passes. The base layer's rays end there: past it nothing can be met, and a pixel with no box is sky at once.
+- **Reads:** the camera and the far bricks. **Writes:** the far boxes' ends.
+- **Switch** `INCUS_FAR_BOXES`: 0: no far boxes, the base layer's rays marched to the reach as before (2.2, change 2).
+- **Cost, last measured** (`kept logs/flight-1794497402.txt`): not measured.
+- **Files:** src/far_eye.rs and src/far_boxes.wgsl.
+
 ### the far 8 x 8
 
 - **A pass** in the frame, on the card.
 - **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.
-- **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the window round the eye, the far boxes' ends and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.070; on the card median 0.627, 95th 0.641, 99th 0.647, worst 1.362.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -233,7 +250,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.
-- **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the window round the eye, the far boxes' ends and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.139; on the card median 0.008, 95th 0.008, 99th 0.008, worst 0.047.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -241,7 +258,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.
-- **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the window round the eye, the far boxes' ends and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.030; on the card median 0.024, 95th 0.024, 99th 0.025, worst 0.198.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -331,7 +348,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, laying out the panel and the far start.
+- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, laying out the panel, the far start and the far boxes.
 - **Files:** src/camera.rs.
 
 ### the clocks
@@ -419,7 +436,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills.
-- **Written by:** putting the far cells on the card. **Read by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Written by:** putting the far cells on the card. **Read by:** the far start, the far boxes, the far 8 x 8, the far 4 x 4 and the far 2 x 2.
 - **Limit:** levels, cells of 32 to 65,536, 12.
 - **Limit:** cells a brick at most, 512.
 - **Limit:** the largest buffer asked of the card (MB), 2047.
@@ -463,4 +480,12 @@ flowchart TB
 - **Written by:** reading the temperatures. **Read by:** laying out the panel and measuring.
 - **Limit:** seconds between readings, 3.
 - **Files:** src/temperatures.rs.
+
+### the far boxes' ends
+
+- **A store** on the card.
+- **What it is:** Change 2: for each pixel of the far eye's base layer, the farthest far box surface its ray passes, as a share of twice the reach, in a depth picture (0: no box, sky). Drawn each frame.
+- **Written by:** the far boxes. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Limit:** the level whose columns are drawn (cells of 2^this), 8.
+- **Files:** src/far_boxes.wgsl.
 

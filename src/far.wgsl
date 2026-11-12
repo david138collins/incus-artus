@@ -37,7 +37,8 @@ struct Camera {
     // texture hardware: change 1).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
-    // shadows; z: how fast a shadow ray widens (blocks across a block of distance).
+    // shadows; z: how fast a shadow ray widens (blocks across a block of distance); w: 1 if this layer's rays end at the
+    // far boxes (change 2: the base layer).
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's.
     pyramid: vec4<f32>,
@@ -88,6 +89,9 @@ struct Camera {
 @group(0) @binding(14) var t_colour: texture_3d<f32>;
 @group(0) @binding(15) var t_plus: texture_3d<f32>;
 @group(0) @binding(16) var t_minus: texture_3d<f32>;
+// The far boxes' ends (change 2, `far_boxes.wgsl`): the farthest box surface each base layer pixel's ray passes, as a
+// share of twice the reach (0: none, sky).
+@group(0) @binding(17) var ends: texture_depth_2d;
 
 
 const FIRST: i32 = 5;
@@ -475,9 +479,10 @@ struct Seen {
     sky_share: f32,
 }
 
-// A ray from `o` along `d`, from `begin`. `phase`: a pixel's own number from 0 to 1 (`scatter`), where its fine steps
-// fall within a fine step, so their places against the ground don't line up across the screen.
-fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
+// A ray from `o` along `d`, from `begin` to `end` (past `end` nothing can be met: the far boxes, change 2). `phase`: a
+// pixel's own number from 0 to 1 (`scatter`), where its fine steps fall within a fine step, so their places against the
+// ground don't line up across the screen.
+fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     var colour = vec3<f32>(0.0);
     var sunny = vec3<f32>(0.0);
     var through = 1.0;
@@ -508,8 +513,9 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     var bottom_sun = vec3<f32>(0.0);
     var bottom_t = 0.0;
     var bottom_level = -1;
+    let last = min(camera.reach.x, end);
     for (var n = 0; n < 768; n++) {
-        if (t > camera.reach.x || through < 0.01) {
+        if (t > last || through < 0.01) {
             break;
         }
         steps = n + 1;
@@ -940,7 +946,12 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
     let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
-    let seen = march(camera.position.xyz, d, scatter(id.xy * 2u), begin);
+    // Where its ray ends: at the farthest far box it passes (none: sky at once), or the reach.
+    var end = camera.reach.x;
+    if (camera.follow.w > 0.5) {
+        end = textureLoad(ends, vec2<i32>(id.xy), 0) * 2.0 * camera.reach.x;
+    }
+    let seen = march(camera.position.xyz, d, scatter(id.xy * 2u), begin, end);
     // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it).
     let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
     // Its sky light, where it shows or the layer below may take it: its parent's, if that was about as far off (sky

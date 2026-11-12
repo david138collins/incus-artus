@@ -109,7 +109,7 @@ fn overview(ui: &mut egui::Ui, readings: &Readings) {
 }
 
 /// The far eye's passes on the card, in the frame's order.
-const FAR_PASSES: [PassId; 5] = [PassId::TheFarStart, PassId::TheFar8, PassId::TheFar4, PassId::TheFar2, PassId::BringingItUp];
+const FAR_PASSES: [PassId; 6] = [PassId::TheFarStart, PassId::TheFarBoxes, PassId::TheFar8, PassId::TheFar4, PassId::TheFar2, PassId::BringingItUp];
 
 /// A section's Default: greyed while its settings are the defaults; pressed, they go back.
 fn section_default(ui: &mut egui::Ui, look: &mut FarLook, differs: bool, reset: impl FnOnce(&mut FarLook)) {

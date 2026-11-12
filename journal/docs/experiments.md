@@ -1610,3 +1610,15 @@ David's go (2026-11-12), after the plan was put to him: "yes, proceed".
   - High over the spawn and the mountain top: under 5% either way.
   - The boxes' own pass: 0.05 to 0.2 ms (83,000 boxes, 36 corners each).
 - **Memory:** a depth picture at the 8 × 8 layer's size, about 0.3 MB.
+
+### Results: the pictures and the steps
+
+Drawn at 640 × 400 over the whole world, bricks of 8 with the window.
+
+- **The same picture, met:** with the boxes and without, 0 pixels differ at the spawn, the mountain top, the plain,
+  high over the spawn and low over the sea.
+- **The check bites:** boxes left unswollen change 2,880 to 3,008 pixels (about 1%, the skylines) by up to 79 of 255.
+  The swelling is what keeps the picture exact.
+- **The steps' view, met:** the sky over the horizon goes from teal to dark blue. What's left is a band just over the
+  horizon, where rays still pass over far land they could touch. Counted over the whole picture: 23% fewer steps low
+  over the sea and 24% fewer at the plain.
