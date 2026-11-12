@@ -4,6 +4,8 @@ Nsight Graphics GPU traces of Incus Artus, 2026-11-09 and 2026-11-10 (Builder)
 Copied from Builder's session scratchpad so nothing lives only in a temp folder (David: "Yes, copy them").
 logs/ is ignored by git: this is a copy on disk, not a commit. The measured findings are written up in
 docs/dyno.md (the dyno's ledger) and docs/review-2026-11-10.md (the whole-software review).
+Since 2026-11-12 the paths here are as they were then: docs/ is now journal/docs/, and the game they trace is
+old Incus Artus, its code under old/ (the pack and the journal move, plan 2.1).
 
 Machine: David's laptop, NVIDIA GeForce RTX 5070 Ti Laptop GPU (Blackwell GB20x), DirectX 12, driver 32.0.16.2101,
 screen 2560 x 1600 at 240 Hz. Each trace is 3 frames, taken by Nsight's command line ("GPU Trace Profiler",
