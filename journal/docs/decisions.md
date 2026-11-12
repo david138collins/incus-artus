@@ -1212,6 +1212,10 @@ Reference: `Art/quartile minecraft illustration.png`
   sky, and a mountain's own pixels are left nearly as they were, for one power a pixel. David: "that actually works
   great". The value he settles on becomes the default, and Default returns to it. Why: the skyline's darker squares
   were old's unsolved edge; a feather that costs nothing and leaves the land's body alone answers it.
+  - **[LATER] Weighting kinds of pixels, for the polish** (David, the same day): "i think being able to weight
+    different kinds of pixels may be a very cheap and useful tool for a lot of things, once we've got performance
+    where we want it and can spend some time just polishing the look a bit." Nothing built for it now; it waits for
+    the polish, after the speed work.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

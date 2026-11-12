@@ -364,6 +364,8 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Visible flaws cleaned before performance work; the ringing on flat ground and water must go; no pale rim where mountains meet the sky. [decided] (regroup.md:612, 892, 1307; decisions.md:1172-1174)
 - A renderer you can forget about, handling anything new with no special case, good enough that everyone asks how: "freedom from asking how each new thing has to be handled". [wanted] (decisions.md:64-66; proposal:363)
 - An LOD system better than anything out there: "an lod thing thats better than anything out there". [wanted] (watch-list.md:289-290)
+- The sky feathered into skylines: thin skyline squares lean to the sky while a mountain's body is left alone, for next to nothing: "that actually works great". [decided] (decisions.md:1208-1214)
+- Weighting kinds of pixels as a cheap polishing tool, once the speed is where it should be: "may be a very cheap and useful tool for a lot of things". [wanted] (decisions.md:1215-1218)
 - Things must not vanish up close: "chests dissapear at 8 blocks away and that's annoying". [early] (conv:426)
 
 ### How the world is drawn
