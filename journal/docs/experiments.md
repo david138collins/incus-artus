@@ -1756,3 +1756,26 @@ half the rays `-1794523855`, 384 steps `-1794524200`.
 - **What it points to:** the long rays set much of each layer's time. The lean step (each step cheaper) and lazy rays
   (the long ones spread over frames) both aim at it. Shuffling the rays, which helps a busy card, would win the
   smaller share.
+
+### Watts and load at the marks (build 141, with LibreHardwareMonitor)
+
+One flight, 17:25 to 17:31, `kept logs/flight-1794525954.txt`, uncapped as every flight is. Each standing's most:
+
+| | the GPU's watts | its load | the processor's watts, load | its hottest core |
+|---|---|---|---|---|
+| on the ground at the spawn | 99 | 98% | 42 W, 11% | 90 °C |
+| the mountain top | 89 | 100% | 35 W, 6% | 102 °C |
+| the bare plain | 78 | 99% | 37 W, 7% | 100 °C |
+| high over the spawn | 83 | 100% | 36 W, 6% | 102 °C |
+| low over the sea | 58 | 100% | 35 W, 6% | 92 °C |
+| a player's run | 63 | 100% | 34 W, 5% | 98 °C |
+| fast across the world | 103 | 86% | 37 W, 10% | 104 °C |
+
+- **The dearest marks draw the least power.** The card reports itself fully loaded everywhere, yet over the sea it
+  draws 58 W against 99 W at the spawn, the cheapest mark. "Loaded" means only that it always has work queued; the
+  watts say how much of it is working. A card kept waiting on a few long chains of steps looks like this. It's the
+  strongest sign yet for the Oracle's first reading.
+- **The processor is nearly idle:** 5 to 11% load and 34 to 42 W through the flight. There's room there for work
+  that takes load off the card.
+- **Its cores still reach 90 to 104 °C** at that light load: the laptop's shared cooling, heated by the card. Degrees
+  read beside watts, as Counsel said.
