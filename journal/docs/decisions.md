@@ -1285,6 +1285,15 @@ Reference: `Art/quartile minecraft illustration.png`
   - **Corrected in the open: the detail slider ran backwards.** Labelled "detail (levels finer)", but the shader added
     its value to the level, so his -2 was two levels *finer*, not coarser: what he liked was the finer picture.
     Builder flips the slider so right means finer; his pick becomes +2, offered as the default and re-measured.
+  - **His go, and fog** (David, to Counsel): "i was just pointing out to the builder that the camera was not
+    flyable in my tests and wasn't flying in her tests to make sure that was as it is meant to be. i could be wrong,
+    i'll try again next time and see if im actually moving. tell builder to proceed. note that we may delete fog and
+    try another way to implement it later, since it's only for looking nice. i think there are different ways and
+    times to add fog, aren't there? it looked good in old incus artus, so if it's the same, maybe it'll look
+    different once we're back to where we were." So Builder proceeds (the spread and two levels finer as her picks,
+    then bricks of 4 against 8). The fog line waits: fog is for looks only, and may be taken out and done another way
+    later; the finer detail and the near eye may change how it reads first. He checks the camera's "up" (F3, Camera)
+    at his next launch.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

@@ -45,8 +45,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the spread as the blend (Builder's pick); two levels finer as the default; when to take the
-  fog line. Also whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** his look at each step as it's ready ("tell builder to proceed": the spread and two levels
+  finer, then bricks of 4 against 8); the camera's "up" at his next launch; when to take the fog line. Also whether
+  `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -220,7 +221,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         Render page, each with Default
   - [ ] Change 1, soft bricks blended by the texture hardware, both ways (A exact, B spread), switchable live
   - [ ] The fog line: the finer layers earned along edges where neighbouring squares differ, priced by flight (David
-        saw near ridges' 8 × 8 squares against fogged far mountains). A look step; when he says
+        saw near ridges' 8 × 8 squares against fogged far mountains). A look step; when he says. Fog itself is for
+        looks only and may be taken out and done another way later (David: "there are different ways and times to
+        add fog"); finer detail and the near eye may change how it reads first
   - [ ] Bricks of 4 against bricks of 8, chosen at launch
   - [ ] A window round the eye for the 32- and 64-block levels, flown fast
   - [ ] Change 2, rays begun at the drawn boxes
