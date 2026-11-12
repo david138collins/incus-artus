@@ -757,3 +757,35 @@ measured 20 s, about 52,000 frames, every one timed on the card. On the processo
   anything; the frame says it didn't. Several passes' 95th sit near 0.16 ms in turn (getting the picture, recording the
   panel, laying it out), as if one interruption of about that length lands in whichever pass is running. That's to watch, not
   to chase on an empty frame.
+
+
+## The doorway: the test world answered column by column  *(plan 2.1's gate)*
+
+David's go: "go ahead" (2026-11-12). The doorway is the one piece that answers "what's here?" a tile at a time. The
+engine never opens a world file itself. Today the export is behind it (`exports/nice25 test`, old's test world as
+columns, read-only); the tablet comes at 3.1.
+
+### What's built first
+
+Columns as runs of blocks, a tile at a time: each column's ground, its river's or lake's water, and its blocks from
+bedrock up (stone, the layers under the top, the top block, then water to the sea or the river's top), by the export's
+own rule (`exports/nice25 test/README.txt`).
+
+Nothing feeds the doorway's other answers yet: pieces, objects and lights, what changed, and the named fields over the
+land. They come with what first feeds them; David's build arrives as changes with the marks, next. Nothing in the game
+asks the doorway yet either: its tests do, and the far cells' lane will (2.2). So nothing on the screen changes, and no
+flight is flown.
+
+### The pass mark (written before the code)
+
+**The gate passes if** the doorway answers all 5,047 sample columns (`references/columns.txt`, old's `CompiledMap::column`)
+to the block:
+- the ground's Z the same;
+- the river's or lake's water top the same (none where old said none);
+- "past the map" where old said so (one column).
+
+And each column's runs keep the export's rule: stone from bedrock, the top block at the ground's Z, and water from just
+above it to the sea or the water's top, whichever is higher.
+
+**Builder's estimate** *[estimate, low]*: a tile (512 × 512 columns) answered in under 10 ms on the processor, and the
+5,047 columns, nearly one tile each, in under a minute. Measured by the test, written down beside the gate.
