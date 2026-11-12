@@ -3,7 +3,7 @@
 //! Its name and its pages' names are old's, so they're the ones David knows; new pages are named with him.
 
 use crate::camera::Camera;
-use crate::clocks::Spread;
+use crate::clocks::{PassTimes, Spread};
 
 /// The pages, in order.
 const PAGES: [&str; 2] = ["Overview", "Camera"];
@@ -22,9 +22,10 @@ pub struct Readings<'a> {
     pub refresh: f32,
     /// The recent frames.
     pub frame: Spread,
-    /// The card's passes by name, and their recent times with the card's whole last (none: the card can't time).
-    pub passes: &'a [&'a str],
-    pub card_times: Option<Vec<Spread>>,
+    /// Each pass's recent times, by its id (`wiring.rs`).
+    pub passes: &'a [PassTimes],
+    /// The card's whole frame, first pass's start to last pass's end (none: the card can't time its own work).
+    pub card_whole: Option<Spread>,
     pub camera: &'a Camera,
     pub captured: bool,
 }
@@ -68,28 +69,29 @@ fn overview(ui: &mut egui::Ui, readings: &Readings) {
     ui.strong(format!("The frame: {fps:.0} a second"));
     ui.label(format!("ms: median {:.2}, 95th {:.2}, 99th {:.2} (the last {} frames)", frame.median, frame.p95, frame.p99, frame.count));
     ui.separator();
-    ui.strong("The card, pass by pass (ms)");
-    match &readings.card_times {
-        None => {
-            ui.label("This card can't time its own work.");
+    ui.strong("Each pass (ms, median and 99th)");
+    egui::Grid::new("the passes").striped(true).show(ui, |ui| {
+        ui.label("");
+        ui.label("on the processor");
+        ui.label("on the card");
+        ui.end_row();
+        let both = |spread: &Spread| if spread.count == 0 { "-".to_string() } else { format!("{:.3}  {:.3}", spread.median, spread.p99) };
+        for pass in &crate::wiring::PASSES {
+            let times = &readings.passes[pass.id as usize];
+            ui.label(pass.name);
+            ui.label(both(&times.processor));
+            ui.label(times.card.as_ref().map_or(String::new(), both));
+            ui.end_row();
         }
-        Some(times) => {
-            egui::Grid::new("the card's passes").striped(true).show(ui, |ui| {
-                ui.label("");
-                ui.label("median");
-                ui.label("95th");
-                ui.label("99th");
-                ui.end_row();
-                let names = readings.passes.iter().copied().chain(["the card's whole"]);
-                for (name, spread) in names.zip(times) {
-                    ui.label(name);
-                    ui.label(format!("{:.3}", spread.median));
-                    ui.label(format!("{:.3}", spread.p95));
-                    ui.label(format!("{:.3}", spread.p99));
-                    ui.end_row();
-                }
-            });
+        if let Some(whole) = &readings.card_whole {
+            ui.label("the card's whole");
+            ui.label("");
+            ui.label(both(whole));
+            ui.end_row();
         }
+    });
+    if readings.card_whole.is_none() {
+        ui.label("This card can't time its own work.");
     }
 }
 
