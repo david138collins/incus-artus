@@ -172,6 +172,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - [ ] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as
         runs of blocks; pieces, objects and lights; what changed; named fields over the land. The export behind it
         now, the tablet at 3.1. Read-only until the fork. The engine never opens a world file
+        (columns as runs in, `src/doorway.rs`: the 5,047 reference columns answered to the block, a tile in 2.2 ms;
+        `journal/docs/experiments.md`. Pieces, objects and lights, what changed, and the named fields come with what
+        first feeds them: what changed with the build's placings, next)
   - [ ] The marks as data: the spawn; the bare plain; the plain with David's build (its 169 placings from the event
         log, replayed as changes); the mountain top; far marks (high over the spawn, low over the sea, the plain's
         horizon); the scatter dial (random blocks, none to very many)

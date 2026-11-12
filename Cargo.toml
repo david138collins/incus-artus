@@ -23,6 +23,10 @@ pollster = "=0.4.0"
 glam = "=0.33.12"
 # The messages the game and its libraries write to the session's log.
 log = "=0.4.34"
+# Reading the export behind the doorway (src/doorway.rs): its tiles are raw deflate, its world.toml is TOML.
+miniz_oxide = "=0.8.9"
+serde = { version = "=1.0.229", features = ["derive"] }
+toml = "=1.1.8"
 
 # Windows' own calls: DXC's validator loaded by its path (src/card.rs).
 [target.'cfg(windows)'.dependencies]

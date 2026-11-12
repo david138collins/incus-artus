@@ -39,6 +39,7 @@ pub type Switch = (&'static str, &'static str);
 pub enum LaneId {
     Window,
     Frame,
+    Loading,
 }
 
 pub struct Lane {
@@ -61,6 +62,7 @@ pub enum PassId {
     HandingTheCardItsWork,
     ShowingIt,
     Measuring,
+    TheDoorway,
 }
 
 pub struct Pass {
@@ -85,6 +87,8 @@ pub enum StoreId {
     ScreenPicture,
     FlightReport,
     SessionLog,
+    Export,
+    TileColumns,
 }
 
 pub struct Store {
@@ -97,7 +101,7 @@ pub struct Store {
     pub files: &'static [&'static str],
 }
 
-pub const LANES: [Lane; 2] = [
+pub const LANES: [Lane; 3] = [
     Lane {
         id: LaneId::Window,
         name: "the window",
@@ -120,9 +124,17 @@ pub const LANES: [Lane; 2] = [
         ],
         files: &["src/main.rs", "src/runner.rs", "src/card.rs"],
     },
+    Lane {
+        id: LaneId::Loading,
+        name: "loading",
+        runs: "as tiles are asked for",
+        what: "The world, read a tile at a time through the doorway. Nothing in the game asks yet: the doorway's tests do, and the far cells' lane will (2.2).",
+        switches: &[],
+        files: &["src/doorway.rs"],
+    },
 ];
 
-pub const PASSES: [Pass; 8] = [
+pub const PASSES: [Pass; 9] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -213,9 +225,20 @@ pub const PASSES: [Pass; 8] = [
         switches: &[],
         files: &["src/runner.rs", "src/clocks.rs", "src/flight.rs"],
     },
+    Pass {
+        id: PassId::TheDoorway,
+        name: "the doorway",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "Answers \"what's here?\" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs. The engine never opens a world file itself. Read-only.",
+        reads: &[StoreId::Export],
+        writes: &[StoreId::TileColumns],
+        switches: &[],
+        files: &["src/doorway.rs"],
+    },
 ];
 
-pub const STORES: [Store; 8] = [
+pub const STORES: [Store; 10] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -279,6 +302,22 @@ pub const STORES: [Store; 8] = [
         what: "The session's messages and any crash, logs/session-<seconds since 1970>.log. Every part writes to it, so it has no lines on the map.",
         limits: &[],
         files: &["src/session.rs"],
+    },
+    Store {
+        id: StoreId::Export,
+        name: "the export",
+        on: Where::Disk,
+        what: "Old's test world written out as columns, exports/nice25 test: where it lies, the sea's level, every profile, and a file a tile (512 x 512 columns, raw deflate). The tablet takes its place at 3.1.",
+        limits: &[],
+        files: &["src/doorway.rs"],
+    },
+    Store {
+        id: StoreId::TileColumns,
+        name: "a tile's columns",
+        on: Where::Processor,
+        what: "A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.",
+        limits: &[],
+        files: &["src/doorway.rs"],
     },
 ];
 

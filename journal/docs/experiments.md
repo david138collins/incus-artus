@@ -789,3 +789,19 @@ above it to the sea or the water's top, whichever is higher.
 
 **Builder's estimate** *[estimate, low]*: a tile (512 × 512 columns) answered in under 10 ms on the processor, and the
 5,047 columns, nearly one tile each, in under a minute. Measured by the test, written down beside the gate.
+
+### Results
+
+Run by its test, 2026-11-12 (`cargo test --release`, `doorway::tests::the_doorway_answers_old_s_sample_columns`):
+
+- **The gate passes:** all 5,047 sample columns answered as old's, the ground and the river's or lake's water to the
+  block (18 of them with such water). Every column's runs keep the export's rule.
+- **Corrected in the open:** the pass mark said one column was "past the map". There are none: the one line Builder
+  counted was the file's own header, which names "past the map" as a possible answer. Nothing past the map was checked.
+- **The time** *(against the estimate)*: a tile answered in 2.2 ms at the median, 5.5 to 6.3 ms the slowest (under the
+  10 ms guessed), and the 5,047 columns, a tile each, in 11.5 to 11.9 s (under the minute).
+- **Found on the way, by the doorway's own small test:** the layers under a column's top block came out shallowest
+  first, not from bedrock up. The test world's profiles have no such layers, so old's columns couldn't have caught it.
+  Fixed before the commit: each layer is now laid deepest first.
+- **On the map:** a third lane, "loading" ("as tiles are asked for"), holds the doorway. It reads "the export" and
+  writes "a tile's columns". Nothing in the game asks it yet. These names are Builder's, David's to change.

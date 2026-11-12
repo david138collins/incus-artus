@@ -182,7 +182,7 @@ impl Runner {
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
-                PassId::HearingTheWindow => unreachable!("hearing the window is the window's pass, not the frame's"),
+                PassId::HearingTheWindow | PassId::TheDoorway => unreachable!("{} isn't one of the frame's passes", pass.name),
             };
             self.timed(pass.id, started);
             if !carry_on {

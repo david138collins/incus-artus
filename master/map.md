@@ -24,6 +24,10 @@ flowchart TB
     pass_showing_it["showing it"]
     pass_measuring["measuring"]
   end
+  subgraph lane_loading["loading (as tiles are asked for)"]
+    direction LR
+    pass_the_doorway["the doorway"]
+  end
   store_the_keys_held[("the keys held")]
   store_the_camera[("the camera")]
   store_the_clocks[("the clocks")]
@@ -32,6 +36,8 @@ flowchart TB
   store_the_screen_s_picture[("the screen's picture")]
   store_the_flight_s_report[("the flight's report")]
   store_the_session_s_log[("the session's log")]
+  store_the_export[("the export")]
+  store_a_tile_s_columns[("a tile's columns")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_keys_held --> pass_flying
@@ -45,6 +51,8 @@ flowchart TB
   store_the_screen_s_picture --> pass_showing_it
   pass_measuring --> store_the_clocks
   pass_measuring --> store_the_flight_s_report
+  store_the_export --> pass_the_doorway
+  pass_the_doorway --> store_a_tile_s_columns
 ```
 
 ## The lanes
@@ -67,6 +75,13 @@ flowchart TB
 - **Switch** `WGPU_BACKEND`: the card's language (DirectX 12 unless set).
 - **Switch** `WGPU_DX12_COMPILER`: the shader compiler (the Windows SDK's DXC unless set).
 - **Files:** src/main.rs, src/runner.rs and src/card.rs.
+
+### loading
+
+- **Runs:** as tiles are asked for.
+- **What it is:** The world, read a tile at a time through the doorway. Nothing in the game asks yet: the doorway's tests do, and the far cells' lane will (2.2).
+- **Its passes, in order:** the doorway.
+- **Files:** src/doorway.rs.
 
 ## The passes
 
@@ -134,6 +149,14 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor median 0.009, 95th 0.016, 99th 0.147, worst 0.418.
 - **Files:** src/runner.rs, src/clocks.rs and src/flight.rs.
 
+### the doorway
+
+- **A pass** in loading, on the processor.
+- **What it is:** Answers "what's here?" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs. The engine never opens a world file itself. Read-only.
+- **Reads:** the export. **Writes:** a tile's columns.
+- **Cost, last measured** (`kept logs/flight-1794487963.txt`): not measured.
+- **Files:** src/doorway.rs.
+
 ## The stores
 
 ### the keys held
@@ -193,4 +216,18 @@ flowchart TB
 - **What it is:** The session's messages and any crash, logs/session-<seconds since 1970>.log. Every part writes to it, so it has no lines on the map.
 - **Written by:** none. **Read by:** none.
 - **Files:** src/session.rs.
+
+### the export
+
+- **A store** on the disk.
+- **What it is:** Old's test world written out as columns, exports/nice25 test: where it lies, the sea's level, every profile, and a file a tile (512 x 512 columns, raw deflate). The tablet takes its place at 3.1.
+- **Written by:** none. **Read by:** the doorway.
+- **Files:** src/doorway.rs.
+
+### a tile's columns
+
+- **A store** on the processor.
+- **What it is:** A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.
+- **Written by:** the doorway. **Read by:** none.
+- **Files:** src/doorway.rs.
 
