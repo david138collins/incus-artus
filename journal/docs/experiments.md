@@ -1267,3 +1267,39 @@ fog line he saw is written down under 2.2 to wait ("we may delete fog and try an
     and cache, and could earn more of the 4 × 4. The spawn about the same (David saw no change); the far marks 10 to
     50% slower.
   - The memory [medium]: B's, 2.66 GB in use, within 50 MB.
+
+### Results: build 129's two flights
+
+Build 129 (4ad4788), 2026-11-12, 10:55 to 11:05, spread at detail 0 `kept logs/flight-1794502826.txt` and at +2
+`-1794503138`.
+
+**The far eye on the card, whole, median ms:**
+
+| | build 128 B (spread, 0) | 129 at 0 | 129 at +2 |
+|---|---|---|---|
+| on the ground at the spawn | 0.645 | 0.641 | 0.653 (+2%) |
+| the bare plain | 1.140 | 1.142 | 1.263 (+11%) |
+| high over the spawn | 2.173 | 2.180 | 3.854 (+77%) |
+| the mountain top, clear day | 2.146 | 2.149 | 3.801 (+77%) |
+| low over the sea | 2.864 | 2.862 | 3.098 (+8%) |
+
+The layers at +2 against 0:
+- The mountain top: 8 × 8 1.01 → 1.41, 4 × 4 1.00 → 1.16, **2 × 2 0.03 → 1.11**.
+- High over the spawn: 8 × 8 0.89 → 1.33, 4 × 4 1.15 → 1.21, **2 × 2 0.03 → 1.20**.
+- Low over the sea: 8 × 8 1.23 → 1.51, 4 × 4 1.50 → 1.46, the 2 × 2 not earned.
+
+**The card's memory:** 2,656 MB in use and 3,139 held at both, B's to the megabyte. The atlas built in 14.2 and 20.2 s
+(B's flight 6.8 s, David's look 12.7 s with both ways): noted, not chased.
+
+- **At 0, met:** build 128's B within 0.6% at every mark. Taking exact out gave nothing back. The code's blend is still
+  in the program as the fallback.
+- **The memory, met.**
+- **At +2, missed in part:**
+  - The spawn (+2%), the plain (+11%) and the sea (+8%) are within or under the estimate.
+  - The mountain top and high over the spawn are at +77%, over the 10 to 50% I gave.
+  - I'd guessed finer cells might earn more of the 4 × 4. It was the 2 × 2 instead, never earned before at any mark,
+    that the finer cells make worth it there: its rule weighs a pixel against the cells it reads, so cells a quarter
+    as wide earn it where the eye looks down on near land. That's about 1.1 to 1.2 ms. The rest is the 8 × 8 (+0.3
+    to 0.4 ms), reading finer cells.
+- **For David's eye:** whether the 2 × 2 is what he liked at +2, or the finer cells alone. The 2 × 2's crossover (the
+  Render page's "2 × 2 fades in from") can push it back out with +2 kept, its cost read on the gauge as he moves it.
