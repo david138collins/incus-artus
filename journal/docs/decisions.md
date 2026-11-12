@@ -1352,6 +1352,15 @@ Reference: `Art/quartile minecraft illustration.png`
   with 8"). With the window, memory stopped binding (916 MB at 8 against 471 at 4, far under the 4 GB bar) and speed
   still does (the far marks 2 to 3 times the gate), so 8's 6 to 11% is worth more than 445 MB. The default since
   33e48a1; `INCUS_FAR_BRICK` keeps 4 and 2 a launch away.
+- **[DECIDED 2026-11-12] Change 2 tried: rays begun at drawn boxes** (David, to Builder's plan: "yes, proceed").
+  Build 137: each 256-block column of land drawn as a box at the 8 × 8 layer, swollen by what a blend reaches; rays
+  end at the farthest box, and no box means sky at once. The picture the same (0 pixels at five marks). The boxes
+  cut a quarter of the steps, but they were the sky's cheap ones: their pass costs 0.16 to 0.18 ms, the 8 × 8 saves
+  16 to 17% at the plain and the mountain top but 1 to 3% over the sea and high over the spawn, so the far eye whole
+  breaks even at the plain and is 1 to 7.5% *slower* elsewhere (24% at the spawn). The time is where rays meet land
+  near the horizon, which the boxes don't shorten.
+  - **[OPEN] Builder recommends:** off by default, the code kept behind `INCUS_FAR_BOXES` until the Intel flights,
+    then kept or taken out on their numbers. David to say.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

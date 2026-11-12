@@ -34,8 +34,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (fixed, build 133). At a player's 200 blocks a second the window keeps up, but a region swapped in at once spikes
   the worst frames to 7.9 to 9.4 ms; at 2,000 it creaks. David moved at a player's pace and looked at the ridges: "it
   looks good". The temperatures are tracked again, always on, top right (build 136). With the window, bricks of 8
-  (916 MB, 6 to 11% faster than 4's 471): "you can go with 8". Now: change 2, rays begun at the drawn boxes, its pass
-  mark written (c67e9df) and its code under way. The fog line waits.
+  (916 MB, 6 to 11% faster than 4's 471): "you can go with 8". Change 2, rays begun at drawn boxes, is flown (build
+  137): the picture the same, but it doesn't pay on this card (even at the plain, up to 7.5% slower elsewhere),
+  because the steps it cuts are the sky's cheap ones; Builder recommends it off, kept behind a switch till the Intel
+  flights. Where the far eye stands (bricks of 8, the window, the spread): about 1.1 to 2.9 ms at the far marks
+  against the gate's 1 typical and 2 worst. Left: change 3 (light, at most about 0.2 ms), the Intel flights, and the
+  gate. The fog line waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -54,7 +58,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at change 2 when it's built; when to take the fog line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** change 2 off by default and kept behind a switch till the Intel flights (Builder's pick);
+  when to take the fog line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -242,7 +247,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         (f47e006 built, 85d876f the camera's step fixed, 6dc9171 back to 8 storage buffers; the game's card memory 471
         MB at bricks of 4, still time within 3% of the whole world's; at 200 blocks a second it keeps up with spikes,
         at 2,000 it creaks; `journal/docs/experiments.md`; David: "it looks good")
-  - [ ] Change 2, rays begun at the drawn boxes
+  - [ ] Change 2, rays begun at the drawn boxes (flown, build 137: doesn't pay on this card; off or out, by David)
   - [ ] Change 3, light read from the cell, after light's share is measured again
   - [ ] Every mark flown on both cards by one command (carried from 2.1): the Intel card's flight needs the laptop
         switched to "Optimus", put to David a step ahead. Last
