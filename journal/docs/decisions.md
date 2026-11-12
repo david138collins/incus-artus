@@ -1345,6 +1345,13 @@ Reference: `Art/quartile minecraft illustration.png`
   but not on flights; each flight standing reports its hottest readings and the card's slowest clock;
   `INCUS_TEMPERATURES=0` turns them off for measuring. Why: heat was how old's slowdowns first showed, and a flight's
   numbers mean more beside the clocks they ran at.
+  - *Corrected in the open (Builder):* his "i dont need to see the temp readout" answered whether he needed a launch
+    to see it, not whether to show it; Builder took it off the screen (33e48a1), and David asked "why aren't temps
+    shown on the screen". Back on screen, top right, in build 136 (ecb67ef).
+- **[DECIDED 2026-11-12] Bricks of 8, with the window** (David, to Builder, after Counsel recommended 8: "you can go
+  with 8"). With the window, memory stopped binding (916 MB at 8 against 471 at 4, far under the 4 GB bar) and speed
+  still does (the far marks 2 to 3 times the gate), so 8's 6 to 11% is worth more than 445 MB. The default since
+  33e48a1; `INCUS_FAR_BRICK` keeps 4 and 2 a launch away.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
