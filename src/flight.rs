@@ -58,6 +58,8 @@ pub struct About<'a> {
     pub marks: &'a [Mark],
     /// How the far cells came in.
     pub far: String,
+    /// The card's memory the game holds at the end, MB: in use, and held.
+    pub memory: Option<(f64, f64)>,
 }
 
 impl Flight {
@@ -153,6 +155,10 @@ impl Flight {
         switches.sort();
         text += &format!("Switches: {}\n", switches.join(", "));
         text += &format!("The far cells: {} (the first mark held till all were on the card)\n", about.far);
+        text += &match about.memory {
+            Some((used, held)) => format!("The card's memory: {used:.0} MB in use, {held:.0} MB held (the library's allocator; the screen's own pictures not in it)\n"),
+            None => "The card's memory: the card can't say\n".to_string(),
+        };
         text += &format!("The marks: data/marks.toml; {} s settling, then {} s measured at each (the first settling {} s more: the session's warm-up)\n", SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
         let spread = |spread: Spread| format!("median {:.3}, 95th {:.3}, 99th {:.3}, worst {:.3}", spread.median, spread.p95, spread.p99, spread.worst);
         for standing in &self.standings {

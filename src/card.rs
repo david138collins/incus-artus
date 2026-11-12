@@ -75,6 +75,12 @@ impl Card {
         self.surface.configure(&self.device, &self.config);
     }
 
+    /// The card's memory the game holds, MB: in use, and held in blocks (the library's allocator; the screen's own
+    /// pictures, about 50 MB at 2560 x 1600, aren't in it). None where the card can't say.
+    pub fn memory(&self) -> Option<(f64, f64)> {
+        self.device.generate_allocator_report().map(|report| (report.total_allocated_bytes as f64 / 1e6, report.total_reserved_bytes as f64 / 1e6))
+    }
+
     /// The picture set up again as it was (it was lost, or out of date).
     pub fn set_up_again(&self) {
         self.surface.configure(&self.device, &self.config);

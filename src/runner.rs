@@ -93,6 +93,9 @@ struct Running {
     refresh: f32,
     /// The far eye (none if the doorway couldn't open the world).
     far: Option<FarEye>,
+    /// The card's memory, as last asked (once a second while a panel shows it), and when.
+    memory: Option<(f64, f64)>,
+    memory_at: Option<Instant>,
 }
 
 /// What a frame's passes hand on to the passes after them.
@@ -141,6 +144,9 @@ impl Runner {
         let card = Card::new(window.clone(), self.flight.is_some());
         let card_clock = CardClock::new(&card.device, &card.queue, wiring::card_passes().count());
         let egui_ctx = egui::Context::default();
+        // No selecting the panels' text by dragging [David, 2026-11-12: "i can start highlighting text in the panel, and
+        // it never lets go"].
+        egui_ctx.all_styles_mut(|style| style.interaction.selectable_labels = false);
         let egui_state = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, &window, Some(window.scale_factor() as f32), None, Some(card.device.limits().max_texture_dimension_2d as usize));
         let egui_renderer = egui_wgpu::Renderer::new(&card.device, card.config.format, egui_wgpu::RendererOptions::default());
         let refresh = window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz()).map_or(60.0, |millihertz| millihertz as f32 / 1000.0);
@@ -154,7 +160,7 @@ impl Runner {
             let lane = crate::far::Lane::start(crate::doorway::test_world(), near, threads).map_err(|error| log::error!("The far cells couldn't be summed: {error}")).ok();
             FarEye::new(&card.device, card.config.format, store, lane)
         });
-        self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far });
+        self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, memory: None, memory_at: None });
     }
 
     /// The mouse captured for flying, or let go for the panels.
@@ -386,6 +392,10 @@ impl Runner {
             (vec![PassTimes::default(); wiring::PASSES.len()], None, crate::clocks::Spread::default())
         };
         let Some(running) = &mut self.running else { return false };
+        if (self.panel.visible || self.editor.open) && running.memory_at.is_none_or(|at| at.elapsed().as_secs_f32() >= 1.0) {
+            running.memory = running.card.memory();
+            running.memory_at = Some(Instant::now());
+        }
         let ctx = running.egui_ctx.clone();
         ctx.begin_pass(running.egui_state.take_egui_input(&running.window));
         self.editor.show(&ctx, &times);
@@ -399,6 +409,7 @@ impl Runner {
             card_whole,
             camera: &self.camera,
             captured: self.captured,
+            memory: running.memory,
         };
         self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look));
         let output = ctx.end_pass();
@@ -489,6 +500,7 @@ impl Runner {
                 refresh: running.refresh,
                 marks: &self.marks,
                 far: running.far.as_ref().map_or("none (the doorway couldn't open the world)".to_string(), FarEye::state),
+                memory: running.card.memory(),
             });
             event_loop.exit();
         }
@@ -513,7 +525,9 @@ impl ApplicationHandler for Runner {
         // The panels hear the window while the mouse is free, but never Tab (it would move the panel's focus to a
         // button, which Space would then press while flying).
         let is_tab = matches!(&event, WindowEvent::KeyboardInput { event: KeyEvent { physical_key: PhysicalKey::Code(KeyCode::Tab), .. }, .. });
-        if !self.captured
+        // A mouse button let go always reaches them, even while flying, so nothing they started (a drag) is left held.
+        let let_go = matches!(&event, WindowEvent::MouseInput { state: ElementState::Released, .. });
+        if (!self.captured || let_go)
             && !is_tab
             && let Some(running) = &mut self.running
         {

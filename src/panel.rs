@@ -30,6 +30,8 @@ pub struct Readings<'a> {
     pub card_whole: Option<Spread>,
     pub camera: &'a Camera,
     pub captured: bool,
+    /// The card's memory the game holds, MB: in use, and held (none where the card can't say).
+    pub memory: Option<(f64, f64)>,
 }
 
 impl Panel {
@@ -67,6 +69,9 @@ fn overview(ui: &mut egui::Ui, readings: &Readings) {
     }
     ui.label(format!("The card: {}", readings.card));
     ui.label(format!("The picture: {} x {}, {:?}; the screen {:.0} a second", readings.picture.0, readings.picture.1, readings.present, readings.refresh));
+    if let Some((used, held)) = readings.memory {
+        ui.label(format!("The card's memory: {used:.0} MB in use, {held:.0} MB held"));
+    }
     ui.separator();
     let frame = readings.frame;
     let fps = if frame.median > 0.0 { 1000.0 / frame.median } else { 0.0 };
@@ -102,9 +107,18 @@ fn overview(ui: &mut egui::Ui, readings: &Readings) {
 /// The far eye's passes on the card, in the frame's order.
 const FAR_PASSES: [PassId; 5] = [PassId::TheFarStart, PassId::TheFar8, PassId::TheFar4, PassId::TheFar2, PassId::BringingItUp];
 
-/// The Render page: the far eye's card time at the top (its gauge, to watch as the sliders move), then its look's
-/// sliders, and a button back to the defaults [David, 2026-11-12: "a very simple crossover slider set for the
-/// transitions ... i can watch the card time as i adjust it ... and include a default button"].
+/// A section's Default: greyed while its settings are the defaults; pressed, they go back.
+fn section_default(ui: &mut egui::Ui, look: &mut FarLook, differs: bool, reset: impl FnOnce(&mut FarLook)) {
+    if ui.add_enabled(differs, egui::Button::new("Default").small()).clicked() {
+        reset(look);
+    }
+}
+
+/// The Render page: the far eye's card time at the top (its gauge, to watch as the settings move), then its look's
+/// settings in sections, each with its own Default, and all of them back at once at the bottom [David, 2026-11-12: "a
+/// very simple crossover slider set for the transitions ... i can watch the card time as i adjust it ... and include a
+/// default button"; "please expose any interesting or valuable parameters that may be worth adjusting live, with
+/// default switches so i can get back to normal"].
 fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     let card = |id: PassId| readings.passes[id as usize].card.unwrap_or_default();
     let median: f32 = FAR_PASSES.iter().map(|id| card(*id).median).sum();
@@ -112,6 +126,9 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     let frame = readings.frame;
     let fps = if frame.median > 0.0 { 1000.0 / frame.median } else { 0.0 };
     ui.strong(format!("The far eye on the card: {median:.2} ms (99th {p99:.2})"));
+    if let Some((used, held)) = readings.memory {
+        ui.label(format!("The card's memory: {used:.0} MB in use, {held:.0} MB held (the bar: well under 4,000 at worst)"));
+    }
     ui.label(format!("The frame: {:.2} ms, {fps:.0} a second", frame.median));
     ui.label(FAR_PASSES.iter().map(|id| format!("{} {:.2}", crate::wiring::pass(*id).name.trim_start_matches("the far "), card(*id).median)).collect::<Vec<_>>().join(" · "));
     ui.separator();
@@ -119,16 +136,66 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
         ui.label("No far eye (the doorway couldn't open the world).");
         return;
     };
-    ui.strong("Crossovers");
-    ui.add(egui::Slider::new(&mut look.hand_over, 0.3..=0.95).text("levels hand over from"));
-    ui.add(egui::Slider::new(&mut look.fade_4[0], 0.1..=4.0).text("4 × 4 fades in from"));
-    ui.add(egui::Slider::new(&mut look.fade_4[1], 0.05..=3.0).text("4 × 4 fades in over"));
-    ui.add(egui::Slider::new(&mut look.fade_2[0], 0.1..=4.0).text("2 × 2 fades in from"));
-    ui.add(egui::Slider::new(&mut look.fade_2[1], 0.05..=3.0).text("2 × 2 fades in over"));
-    ui.strong("The skyline");
-    ui.add(egui::Slider::new(&mut look.sky_weight, 0.0..=8.0).text("sky weight"));
+    let d = FarLook::DEFAULT;
+    egui::ScrollArea::vertical().max_height(560.0).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            ui.strong("The picture");
+            let differs = (look.detail, look.bring_up, look.view, look.sky_weight) != (d.detail, d.bring_up, d.view, d.sky_weight);
+            section_default(ui, look, differs, |l| (l.detail, l.bring_up, l.view, l.sky_weight) = (d.detail, d.bring_up, d.view, d.sky_weight));
+        });
+        ui.add(egui::Slider::new(&mut look.detail, -2..=3).text("detail (levels finer)"));
+        ui.horizontal(|ui| {
+            ui.label("brought up");
+            ui.selectable_value(&mut look.bring_up, 0, "crisp");
+            ui.selectable_value(&mut look.bring_up, 1, "smooth");
+            ui.selectable_value(&mut look.bring_up, 2, "sharp skylines");
+        });
+        ui.horizontal(|ui| {
+            ui.label("show");
+            ui.selectable_value(&mut look.view, 0, "the picture");
+            ui.selectable_value(&mut look.view, 1, "steps");
+            ui.selectable_value(&mut look.view, 2, "levels");
+        });
+        ui.add(egui::Slider::new(&mut look.sky_weight, 0.0..=8.0).text("sky weight"));
+        ui.separator();
+        ui.horizontal(|ui| {
+            ui.strong("Crossovers");
+            let differs = (look.hand_over, look.fade_4, look.fade_2) != (d.hand_over, d.fade_4, d.fade_2);
+            section_default(ui, look, differs, |l| (l.hand_over, l.fade_4, l.fade_2) = (d.hand_over, d.fade_4, d.fade_2));
+        });
+        ui.add(egui::Slider::new(&mut look.hand_over, 0.3..=0.95).text("levels hand over from"));
+        ui.add(egui::Slider::new(&mut look.fade_4[0], 0.1..=4.0).text("4 × 4 fades in from"));
+        ui.add(egui::Slider::new(&mut look.fade_4[1], 0.05..=3.0).text("4 × 4 fades in over"));
+        ui.add(egui::Slider::new(&mut look.fade_2[0], 0.1..=4.0).text("2 × 2 fades in from"));
+        ui.add(egui::Slider::new(&mut look.fade_2[1], 0.05..=3.0).text("2 × 2 fades in over"));
+        ui.separator();
+        ui.horizontal(|ui| {
+            ui.strong("Light");
+            let differs = (look.sun_from, look.sun_height, look.ambient, look.shadows, look.sky_light, look.sky_strength, look.sky_tint) != (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint);
+            section_default(ui, look, differs, |l| {
+                (l.sun_from, l.sun_height, l.ambient, l.shadows, l.sky_light, l.sky_strength, l.sky_tint) = (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint);
+            });
+        });
+        ui.add(egui::Slider::new(&mut look.sun_from, 0.0..=360.0).text("sun from (degrees, north to east)"));
+        ui.add(egui::Slider::new(&mut look.sun_height, -10.0..=90.0).text("sun height (degrees)"));
+        ui.add(egui::Slider::new(&mut look.ambient, 0.0..=1.0).text("sky's share of the light"));
+        ui.checkbox(&mut look.shadows, "sun shadows");
+        ui.checkbox(&mut look.sky_light, "sky light");
+        ui.add_enabled(look.sky_light, egui::Slider::new(&mut look.sky_strength, 0.0..=1.0).text("sky light strength"));
+        ui.add(egui::Slider::new(&mut look.sky_tint, 0.0..=1.0).text("sky tint"));
+        ui.separator();
+        ui.horizontal(|ui| {
+            ui.strong("Fog");
+            let differs = (look.fog, look.fog_reach, look.fog_height, look.fog_warmth) != (d.fog, d.fog_reach, d.fog_height, d.fog_warmth);
+            section_default(ui, look, differs, |l| (l.fog, l.fog_reach, l.fog_height, l.fog_warmth) = (d.fog, d.fog_reach, d.fog_height, d.fog_warmth));
+        });
+        ui.checkbox(&mut look.fog, "fog");
+        ui.add_enabled(look.fog, egui::Slider::new(&mut look.fog_reach, 500.0..=20_000.0).logarithmic(true).text("fog reach (blocks)"));
+        ui.add_enabled(look.fog, egui::Slider::new(&mut look.fog_height, 25.0..=1_000.0).text("fog thins every (blocks up)"));
+        ui.add_enabled(look.fog, egui::Slider::new(&mut look.fog_warmth, 0.0..=1.0).text("fog warmth towards the sun"));
+    });
     ui.separator();
-    if ui.add_enabled(*look != FarLook::DEFAULT, egui::Button::new("Default")).clicked() {
+    if ui.add_enabled(*look != FarLook::DEFAULT, egui::Button::new("All to default")).clicked() {
         *look = FarLook::DEFAULT;
     }
 }

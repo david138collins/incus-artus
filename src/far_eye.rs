@@ -58,6 +58,9 @@ const CAMERA_ROWS: usize = 16;
 
 /// The far eye's look as David tunes it on the Render page (F3), each with its default.
 #[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// David, 2026-11-12: "please expose any interesting or valuable parameters that may be worth adjusting live, with
+/// default switches so i can get back to normal."
 pub struct FarLook {
     /// Where in a level's stretch its blend with the next begins (old's 0.8: later is a narrower hand-over).
     pub hand_over: f32,
@@ -67,11 +70,52 @@ pub struct FarLook {
     pub fade_2: [f32; 2],
     /// The sky's weight over land at a skyline (0: as old's; 4 David's, build 124: "i maxed it").
     pub sky_weight: f32,
+    /// Detail: the level read at each distance, so many levels finer (more) or coarser (less) than its pixel's size
+    /// (old's level bias).
+    pub detail: i32,
+    /// How the pyramid is brought up to the screen: 0 crisp, 1 smooth, 2 smooth with sharp skylines.
+    pub bring_up: u32,
+    /// What's shown: 0 the picture, 1 the steps' view, 2 the levels' view.
+    pub view: u32,
+    /// The sun: from (degrees from north toward east) and how high (degrees); the sky's share of a face's light.
+    pub sun_from: f32,
+    pub sun_height: f32,
+    pub ambient: f32,
+    /// The sun's shadows and the sky light, on or off, and the sky light's strength and tint.
+    pub shadows: bool,
+    pub sky_light: bool,
+    pub sky_strength: f32,
+    pub sky_tint: f32,
+    /// Fog: on or off, how far off land at sea level is nineteen parts in twenty fog, how fast it thins going up (its
+    /// thickness halves every so many blocks), and how much warmer it is towards the sun.
+    pub fog: bool,
+    pub fog_reach: f32,
+    pub fog_height: f32,
+    pub fog_warmth: f32,
 }
 
 impl FarLook {
-    /// Old's crossovers, as the 2a flight flew them, and David's sky weight.
-    pub const DEFAULT: FarLook = FarLook { hand_over: BLEND_FROM, fade_4: CELLS_FADES[0], fade_2: CELLS_FADES[1], sky_weight: SKY_WEIGHT };
+    /// Old's settings as the flights flew them, and David's sky weight.
+    pub const DEFAULT: FarLook = FarLook {
+        hand_over: BLEND_FROM,
+        fade_4: CELLS_FADES[0],
+        fade_2: CELLS_FADES[1],
+        sky_weight: SKY_WEIGHT,
+        detail: 0,
+        bring_up: 0,
+        view: 0,
+        sun_from: SUN_FROM,
+        sun_height: SUN_HEIGHT,
+        ambient: AMBIENT,
+        shadows: true,
+        sky_light: true,
+        sky_strength: SKY_STRENGTH,
+        sky_tint: SKY_TINT,
+        fog: true,
+        fog_reach: FOG_REACH,
+        fog_height: FOG_HEIGHT,
+        fog_warmth: FOG_WARMTH,
+    };
 }
 
 /// A layer of the pyramid on the card.
@@ -106,11 +150,6 @@ pub struct FarEye {
     targets: Option<Targets>,
     /// Its look, as tuned (the Render page).
     pub look: FarLook,
-    /// 1 the steps' view, 2 the levels' view (`INCUS_SIGHT_STEPS`, `INCUS_SIGHT_LEVELS`), 0 neither.
-    view_mode: f32,
-    /// The light left out, for measuring (`INCUS_SIGHT_NO_SHADOWS`, `INCUS_SIGHT_NO_SKY`: old's switches).
-    no_shadows: bool,
-    no_sky: bool,
 }
 
 impl FarEye {
@@ -169,15 +208,20 @@ impl FarEye {
             cache: None,
         });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("bringing it up"), mag_filter: wgpu::FilterMode::Linear, min_filter: wgpu::FilterMode::Linear, ..Default::default() });
-        let view_mode = if std::env::var_os("INCUS_SIGHT_LEVELS").is_some() {
-            2.0
-        } else if std::env::var_os("INCUS_SIGHT_STEPS").is_some() {
-            1.0
+        // The look starts at its defaults, with old's switches for measuring set at launch: the views
+        // (`INCUS_SIGHT_STEPS`, `INCUS_SIGHT_LEVELS`) and the light left out (`INCUS_SIGHT_NO_SHADOWS`, `INCUS_SIGHT_NO_SKY`).
+        let mut look = FarLook::DEFAULT;
+        let set = |name: &str| std::env::var_os(name).is_some();
+        look.view = if set("INCUS_SIGHT_LEVELS") {
+            2
+        } else if set("INCUS_SIGHT_STEPS") {
+            1
         } else {
-            0.0
+            0
         };
-        let (no_shadows, no_sky) = (std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some(), std::env::var_os("INCUS_SIGHT_NO_SKY").is_some());
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look: FarLook::DEFAULT, view_mode, no_shadows, no_sky }
+        look.shadows = !set("INCUS_SIGHT_NO_SHADOWS");
+        look.sky_light = !set("INCUS_SIGHT_NO_SKY");
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look }
     }
 
     /// Whether every region is on the card.
@@ -294,7 +338,8 @@ impl FarEye {
         let tan_half = (FIELD_OF_VIEW.to_radians() / 2.0).tan();
         let aspect = screen.0 as f32 / screen.1.max(1) as f32;
         let screen_pixel = 2.0 * tan_half / screen.1.max(1) as f32;
-        let (from, height) = (SUN_FROM.to_radians(), SUN_HEIGHT.to_radians());
+        let look = self.look;
+        let (from, height) = (look.sun_from.to_radians(), look.sun_height.to_radians());
         let sun = [height.cos() * from.cos(), height.cos() * from.sin(), height.sin()];
         let (direct, glow) = daylight(sun[2]);
         let water = WATER.map(|c| {
@@ -307,8 +352,8 @@ impl FarEye {
             let below = targets.layers.get(k + 1);
             let fade = match (below.is_some(), k) {
                 (false, _) => [1.0, 1.0],
-                (true, 0) => self.look.fade_4,
-                (true, _) => self.look.fade_2,
+                (true, 0) => look.fade_4,
+                (true, _) => look.fade_2,
             };
             let numbers: [[f32; 4]; CAMERA_ROWS] = [
                 [camera.position.x, camera.position.y, camera.position.z, 0.0],
@@ -316,22 +361,22 @@ impl FarEye {
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
                 [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],
                 [layer.size.0 as f32, layer.size.1 as f32, pixel, 1.0],
-                [sun[0], sun[1], sun[2], AMBIENT],
-                [REACH, 0.0, self.view_mode, self.store.highest],
+                [sun[0], sun[1], sun[2], look.ambient.clamp(0.0, 1.0)],
+                [REACH, look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, 0.0],
-                [1.0, if !self.no_shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
+                [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
                 [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), 0.0, 0.0],
-                [fade[0].max(0.1), fade[1].max(0.05), self.look.hand_over.clamp(0.3, 0.95), self.look.sky_weight.max(0.0)],
-                [if self.no_sky { 0.0 } else { 1.0 }, SKY_STRENGTH, SKY_TINT, SKY_SPREAD],
-                [3.0 / FOG_REACH, std::f32::consts::LN_2 / FOG_HEIGHT, sea_level, FOG_WARMTH],
+                [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
+                [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
+                [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
         let finest = LAYERS[LAYERS.len() - 1];
-        let up_numbers: [f32; 8] = [screen.0 as f32, screen.1 as f32, finest, LAYERS[0], 0.0, 0.0, 0.0, 0.0];
+        let up_numbers: [f32; 8] = [screen.0 as f32, screen.1 as f32, finest, LAYERS[0], look.bring_up.min(2) as f32, 0.0, 0.0, 0.0];
         queue.write_buffer(&targets.up_numbers, 0, &up_numbers.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
     }
 
@@ -476,6 +521,9 @@ mod tests {
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");
+        let memory = device.generate_allocator_report().map(|r| (r.total_allocated_bytes >> 20, r.total_reserved_bytes >> 20));
+        eprintln!("The card's memory for nine regions' far eye: {memory:?} MB (in use, held)");
+        assert!(memory.is_some(), "the card says what memory the game holds");
         if mark.name == marks[0].name {
             assert!(top[2] > top[0] && top[2] > 100, "the top should be sky, blue: {top:?}");
         }
