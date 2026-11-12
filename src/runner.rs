@@ -13,6 +13,7 @@ use crate::card::Card;
 use crate::clocks::{CardClock, FrameClock, PassClock, PassTimes};
 use crate::doorway::Doorway;
 use crate::editor::Editor;
+use crate::far_eye::FarEye;
 use crate::flight::{About, Flight};
 use crate::marks::{Made, Mark};
 use crate::panel::{Panel, Readings};
@@ -48,6 +49,14 @@ pub fn run() {
         log::error!("The marks couldn't be read: {error}");
         Vec::new()
     });
+    // The mark the game starts at: `INCUS_MARK` by its name, else the first.
+    let first_mark = std::env::var("INCUS_MARK").ok().and_then(|name| {
+        let found = marks.iter().position(|mark| mark.name == name);
+        if found.is_none() {
+            log::warn!("INCUS_MARK={name} is no mark's name; the game starts at the first");
+        }
+        found
+    });
     let flight = crate::flight::wanted().then(|| Flight::new(&marks));
     let mut panel = Panel::new();
     panel.visible = flight.is_none();
@@ -62,6 +71,7 @@ pub fn run() {
         captured: false,
         doorway,
         marks,
+        first_mark: first_mark.unwrap_or(0),
         at_first_mark: false,
         flight,
     };
@@ -81,6 +91,8 @@ struct Running {
     to_free: Vec<egui::TextureId>,
     /// The screen's refresh rate, a second.
     refresh: f32,
+    /// The far eye (none if the doorway couldn't open the world).
+    far: Option<FarEye>,
 }
 
 /// What a frame's passes hand on to the passes after them.
@@ -95,6 +107,8 @@ struct FrameWork {
     commands: Vec<wgpu::CommandBuffer>,
     /// The card's times that came back this frame.
     card_frames: Vec<Vec<f32>>,
+    /// Whether the far eye drew the picture (the panels then go over it; else over the sky's colour).
+    far_drew: bool,
 }
 
 struct Runner {
@@ -110,7 +124,8 @@ struct Runner {
     captured: bool,
     doorway: Option<Doorway>,
     marks: Vec<Mark>,
-    /// Whether the game has gone to the first mark yet (it starts there).
+    /// The mark the game starts at, and whether it's gone there yet.
+    first_mark: usize,
     at_first_mark: bool,
     flight: Option<Flight>,
 }
@@ -130,7 +145,16 @@ impl Runner {
         let egui_renderer = egui_wgpu::Renderer::new(&card.device, card.config.format, egui_wgpu::RendererOptions::default());
         let refresh = window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz()).map_or(60.0, |millihertz| millihertz as f32 / 1000.0);
         log::info!("The window: {} x {}, the screen {refresh:.0} a second", card.config.width, card.config.height);
-        self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh });
+        // The far eye, its cells summed on the loading lane nearest the first mark first, on all but two of the
+        // processor's threads (the frame and the window keep theirs).
+        let far = self.doorway.as_ref().map(|doorway| {
+            let store = crate::bricks::Store::new(&card.device, &card.queue, crate::far::regions_of(doorway), doorway.height());
+            let near = self.marks.get(self.first_mark).map_or([0.0, 0.0], |mark| mark.at);
+            let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
+            let lane = crate::far::Lane::start(crate::doorway::test_world(), near, threads).map_err(|error| log::error!("The far cells couldn't be summed: {error}")).ok();
+            FarEye::new(&card.device, card.config.format, store, lane)
+        });
+        self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far });
     }
 
     /// The mouse captured for flying, or let go for the panels.
@@ -206,8 +230,14 @@ impl Runner {
             let carry_on = match pass.id {
                 PassId::GoingToAMark => self.going_to_a_mark(started),
                 PassId::Flying => self.flying(started),
+                PassId::PuttingTheFarCellsOnTheCard => self.putting_the_far_cells_on_the_card(),
                 PassId::LayingOutThePanel => self.laying_out_the_panel(&mut work),
                 PassId::GettingThePicture => self.getting_the_picture(&mut work),
+                PassId::TheFarStart => self.the_far_start(&mut work),
+                PassId::TheFar8 => self.the_far_layer(&mut work, 0, PassId::TheFar8),
+                PassId::TheFar4 => self.the_far_layer(&mut work, 1, PassId::TheFar4),
+                PassId::TheFar2 => self.the_far_layer(&mut work, 2, PassId::TheFar2),
+                PassId::BringingItUp => self.bringing_it_up(&mut work),
                 PassId::ThePanel => self.the_panel(&mut work),
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
@@ -225,9 +255,17 @@ impl Runner {
     fn going_to_a_mark(&mut self, now: Instant) -> bool {
         let target = match &mut self.flight {
             Some(flight) => flight.due(now).map(|standing| (standing.mark, standing.count)),
-            None if !self.at_first_mark => Some((0, None)),
+            None if !self.at_first_mark => Some((self.first_mark, None)),
             None => None,
         };
+        // A flight's first mark isn't measured till the far cells are all on the card (old's marks waited on their
+        // levels too).
+        let far_whole = self.running.as_ref().and_then(|running| running.far.as_ref()).is_none_or(FarEye::whole);
+        if let Some(flight) = &mut self.flight
+            && !far_whole
+        {
+            flight.hold(now);
+        }
         self.at_first_mark = true;
         let Some((k, count)) = target else { return true };
         let (made, eye) = self.go_to(k, count);
@@ -288,6 +326,47 @@ impl Runner {
             made.refused
         );
         (made, eye)
+    }
+
+    fn putting_the_far_cells_on_the_card(&mut self) -> bool {
+        if let Some(running) = &mut self.running
+            && let Some(far) = &mut running.far
+        {
+            far.put(&running.card.device, &running.card.queue);
+        }
+        true
+    }
+
+    /// The far eye's numbers for the frame (on the processor), then its start pass (on the card).
+    fn the_far_start(&mut self, work: &mut FrameWork) -> bool {
+        let Some(running) = &mut self.running else { return false };
+        let Some(far) = &mut running.far else { return true };
+        let sea_level = self.doorway.as_ref().map_or(128.0, |doorway| doorway.sea_level as f32);
+        far.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), &self.camera, sea_level);
+        let Some(encoder) = &mut work.encoder else { return false };
+        let timestamps = wiring::card_slot(PassId::TheFarStart).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.compute_pass(slot)));
+        far.start(encoder, timestamps);
+        true
+    }
+
+    /// The far eye's layer `k` of the pyramid.
+    fn the_far_layer(&mut self, work: &mut FrameWork, k: usize, id: PassId) -> bool {
+        let Some(running) = &mut self.running else { return false };
+        let (Some(far), Some(encoder)) = (&running.far, &mut work.encoder) else { return true };
+        let timestamps = wiring::card_slot(id).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.compute_pass(slot)));
+        far.layer(k, encoder, timestamps);
+        true
+    }
+
+    /// The far eye's pyramid onto the screen's picture.
+    fn bringing_it_up(&mut self, work: &mut FrameWork) -> bool {
+        let Some(running) = &mut self.running else { return false };
+        let (Some(far), Some(texture), Some(encoder)) = (&running.far, &work.texture, &mut work.encoder) else { return true };
+        let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let timestamps = wiring::card_slot(PassId::BringingItUp).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
+        far.bring_up(encoder, &view, timestamps);
+        work.far_drew = true;
+        true
     }
 
     fn flying(&mut self, now: Instant) -> bool {
@@ -361,7 +440,8 @@ impl Runner {
         let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let screen = egui_wgpu::ScreenDescriptor { size_in_pixels: [running.card.config.width, running.card.config.height], pixels_per_point: work.pixels_per_point };
         work.commands = running.egui_renderer.update_buffers(&running.card.device, &running.card.queue, encoder, &work.jobs, &screen);
-        let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(SKY), store: wgpu::StoreOp::Store } };
+        let load = if work.far_drew { wgpu::LoadOp::Load } else { wgpu::LoadOp::Clear(SKY) };
+        let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load, store: wgpu::StoreOp::Store } };
         let timestamp_writes = wiring::card_slot(PassId::ThePanel).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
         let pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some(wiring::pass(PassId::ThePanel).name), color_attachments: &[Some(attachment)], timestamp_writes, ..Default::default() });
         running.egui_renderer.render(&mut pass.forget_lifetime(), &work.jobs, &screen);
@@ -408,6 +488,7 @@ impl Runner {
                 present: running.card.config.present_mode,
                 refresh: running.refresh,
                 marks: &self.marks,
+                far: running.far.as_ref().map_or("none (the doorway couldn't open the world)".to_string(), FarEye::state),
             });
             event_loop.exit();
         }

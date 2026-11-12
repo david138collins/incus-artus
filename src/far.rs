@@ -19,13 +19,16 @@
 //! by block. Here a column's solid blocks are runs (stone, the layers under the top, the top), so its faces against
 //! each neighbour are one range, added in one step.
 //!
-//! A region is one cell column of 1,024 (32 × 32 cell columns of 32), made whole at once, as old's bake made it.
-//! Nothing in the game asks for the far cells yet: their test does, and the far eye will (step 2).
-
-#![cfg_attr(not(test), allow(dead_code))]
+//! A region is one cell column of 1,024 (32 × 32 cell columns of 32), made whole at once, as old's bake made it. The
+//! loading lane (`Lane`) sums them on threads of their own, nearest the eye first, and hands each over as it's done:
+//! the far eye puts it on the card (`bricks.rs`).
 
 use crate::doorway::{Block, Doorway, WATER};
 use serde::Deserialize;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, mpsc};
+use std::time::Instant;
 
 /// The first level: cells of 32 blocks.
 pub const FIRST: usize = 5;
@@ -261,6 +264,99 @@ pub fn parent_of(children: [&CellColumn; 4], child_size: i32) -> CellColumn {
         })
         .collect();
     CellColumn { low, sums }
+}
+
+/// The regions a map covers: the least (north and east), and how many across.
+pub fn regions_of(doorway: &Doorway) -> ([i32; 2], i32) {
+    let (least, _) = doorway.grid();
+    let size = 1 << REGION;
+    let from = [least[0].div_euclid(size), least[1].div_euclid(size)];
+    let to = [(least[0] + doorway.across() - 1).div_euclid(size), (least[1] + doorway.across() - 1).div_euclid(size)];
+    (from, (to[0] - from[0] + 1).max(to[1] - from[1] + 1))
+}
+
+/// A region summed: its place, and its cell columns from 32 to 1,024 (or why it couldn't be).
+pub type Summed = ([i32; 2], Result<Vec<Vec<CellColumn>>, String>);
+
+/// The loading lane's summing: every region, on threads of its own, nearest a place first (square rings, as old's bake
+/// went), each handed over as it's done.
+pub struct Lane {
+    receiver: mpsc::Receiver<Summed>,
+    /// The regions to sum, those handed over, and when it started.
+    pub total: usize,
+    pub done: usize,
+    pub started: Instant,
+    /// When the eighth nearest were all in (seconds from the start), once they are.
+    pub eighth: Option<f32>,
+    order: Arc<Vec<[i32; 2]>>,
+    arrived: Vec<bool>,
+}
+
+impl Lane {
+    /// Starts summing the map behind the doorway in `folder`, nearest `near` (north, east) first, on `threads`.
+    pub fn start(folder: PathBuf, near: [f32; 2], threads: usize) -> Result<Self, String> {
+        let doorway = Doorway::open(&folder)?;
+        let (from, across) = regions_of(&doorway);
+        let size = (1 << REGION) as f32;
+        let middle = [(near[0] / size).floor() as i32, (near[1] / size).floor() as i32];
+        let mut order: Vec<[i32; 2]> = (0..across * across).map(|k| [from[0] + k % across, from[1] + k / across]).collect();
+        order.sort_by_key(|r| ((r[0] - middle[0]).abs().max((r[1] - middle[1]).abs()), r[0], r[1]));
+        let order = Arc::new(order);
+        let next = Arc::new(AtomicUsize::new(0));
+        let (sender, receiver) = mpsc::channel();
+        for _ in 0..threads.max(1) {
+            let (order, next, sender, folder) = (order.clone(), next.clone(), sender.clone(), folder.clone());
+            std::thread::Builder::new()
+                .name("summing the far cells".into())
+                .spawn(move || {
+                    let made = Doorway::open(&folder).and_then(|mut doorway| FarColours::load(&mut doorway).map(|colours| (doorway, colours)));
+                    let (doorway, colours) = match made {
+                        Ok(made) => made,
+                        Err(error) => {
+                            let _ = sender.send(([0, 0], Err(error)));
+                            return;
+                        }
+                    };
+                    loop {
+                        let k = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(&r) = order.get(k) else { break };
+                        if sender.send((r, region(&doorway, &colours, r))).is_err() {
+                            break;
+                        }
+                    }
+                })
+                .map_err(|error| format!("a thread for summing the far cells: {error}"))?;
+        }
+        log::info!("Summing the far cells: {} regions on {} threads, nearest {:.0} {:.0} first", order.len(), threads.max(1), near[0], near[1]);
+        Ok(Self { receiver, total: order.len(), done: 0, started: Instant::now(), eighth: None, arrived: vec![false; order.len()], order })
+    }
+
+    /// Up to `most` regions summed since last asked.
+    pub fn take(&mut self, most: usize) -> Vec<([i32; 2], Vec<Vec<CellColumn>>)> {
+        let mut taken = Vec::new();
+        while taken.len() < most {
+            let Ok((r, summed)) = self.receiver.try_recv() else { break };
+            match summed {
+                Ok(columns) => {
+                    self.done += 1;
+                    if let Some(k) = self.order.iter().position(|o| *o == r) {
+                        self.arrived[k] = true;
+                    }
+                    taken.push((r, columns));
+                }
+                Err(error) => log::error!("A far region ({r:?}) couldn't be summed: {error}"),
+            }
+        }
+        if self.eighth.is_none() && self.arrived[..self.total / 8].iter().all(|a| *a) {
+            let seconds = self.started.elapsed().as_secs_f32();
+            self.eighth = Some(seconds);
+            log::info!("The far cells: the eighth nearest ({} regions) in {seconds:.1} s", self.total / 8);
+        }
+        if !taken.is_empty() && self.done == self.total {
+            log::info!("The far cells: all {} regions in {:.1} s", self.total, self.started.elapsed().as_secs_f32());
+        }
+        taken
+    }
 }
 
 /// A region's cell columns, level by level from 32 to 1,024 (north fastest at each): its 32 × 32 cell columns of 32

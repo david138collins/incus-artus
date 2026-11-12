@@ -306,6 +306,11 @@ impl Doorway {
         (self.least, self.side)
     }
 
+    /// Columns a side of the whole map (its tiles a side, each `grid`'s columns a side).
+    pub fn across(&self) -> i32 {
+        self.tiles * self.side
+    }
+
     /// The world's height in blocks (nothing at or above it).
     pub fn height(&self) -> i32 {
         self.world_height

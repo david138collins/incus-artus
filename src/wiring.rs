@@ -57,8 +57,14 @@ pub enum PassId {
     HearingTheWindow,
     GoingToAMark,
     Flying,
+    PuttingTheFarCellsOnTheCard,
     LayingOutThePanel,
     GettingThePicture,
+    TheFarStart,
+    TheFar8,
+    TheFar4,
+    TheFar2,
+    BringingItUp,
     ThePanel,
     HandingTheCardItsWork,
     ShowingIt,
@@ -94,6 +100,8 @@ pub enum StoreId {
     Marks,
     Changes,
     FarCells,
+    FarBricks,
+    FarLayers,
 }
 
 pub struct Store {
@@ -139,7 +147,7 @@ pub const LANES: [Lane; 3] = [
     },
 ];
 
-pub const PASSES: [Pass; 11] = [
+pub const PASSES: [Pass; 17] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -159,7 +167,7 @@ pub const PASSES: [Pass; 11] = [
         what: "At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter).",
         reads: &[StoreId::Marks, StoreId::TileColumns],
         writes: &[StoreId::Camera, StoreId::Changes],
-        switches: &[],
+        switches: &[("INCUS_MARK", "the mark the game starts at, by its name (the first in data/marks.toml unless set)")],
         files: &["src/marks.rs", "src/runner.rs"],
     },
     Pass {
@@ -172,6 +180,17 @@ pub const PASSES: [Pass; 11] = [
         writes: &[StoreId::Camera],
         switches: &[],
         files: &["src/camera.rs"],
+    },
+    Pass {
+        id: PassId::PuttingTheFarCellsOnTheCard,
+        name: "putting the far cells on the card",
+        lane: LaneId::Frame,
+        on: Where::Processor,
+        what: "The regions summed since the last frame put on the card as bricks, at most 3 ms a frame, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in.",
+        reads: &[StoreId::FarCells],
+        writes: &[StoreId::FarBricks],
+        switches: &[],
+        files: &["src/bricks.rs", "src/far_eye.rs"],
     },
     Pass {
         id: PassId::LayingOutThePanel,
@@ -196,11 +215,66 @@ pub const PASSES: [Pass; 11] = [
         files: &["src/runner.rs"],
     },
     Pass {
+        id: PassId::TheFarStart,
+        name: "the far start",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "One cone down each tile of 8 x 8 screen pixels, skipping over the far cells' tops, to where any of the tile's rays could first touch: they all start there. The layers' numbers for the frame written first, on the processor.",
+        reads: &[StoreId::Camera, StoreId::FarBricks],
+        writes: &[StoreId::FarLayers],
+        switches: &[("INCUS_SIGHT_LEVELS", "the levels' view: each pixel tinted by the level its surface was read from"), ("INCUS_SIGHT_STEPS", "the steps' view: dark blue few steps, through green, to red 256 or more")],
+        files: &["src/far_eye.rs", "src/far.wgsl"],
+    },
+    Pass {
+        id: PassId::TheFar8,
+        name: "the far 8 x 8",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), and where the 4 x 4 is worth it.",
+        reads: &[StoreId::FarBricks, StoreId::FarLayers],
+        writes: &[StoreId::FarLayers],
+        switches: &[],
+        files: &["src/far_eye.rs", "src/far.wgsl"],
+    },
+    Pass {
+        id: PassId::TheFar4,
+        name: "the far 4 x 4",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.",
+        reads: &[StoreId::FarBricks, StoreId::FarLayers],
+        writes: &[StoreId::FarLayers],
+        switches: &[],
+        files: &["src/far_eye.rs", "src/far.wgsl"],
+    },
+    Pass {
+        id: PassId::TheFar2,
+        name: "the far 2 x 2",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.",
+        reads: &[StoreId::FarBricks, StoreId::FarLayers],
+        writes: &[StoreId::FarLayers],
+        switches: &[],
+        files: &["src/far_eye.rs", "src/far.wgsl"],
+    },
+    Pass {
+        id: PassId::BringingItUp,
+        name: "bringing it up",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "The pyramid onto the screen's picture: the 8 x 8 everywhere, each finer layer over it as much as it's worth there, crisp (a layer's pixel a square of screen pixels).",
+        reads: &[StoreId::FarLayers],
+        writes: &[StoreId::ScreenPicture],
+        switches: &[],
+        files: &["src/far_eye.rs", "src/far_up.wgsl"],
+    },
+    Pass {
         id: PassId::ThePanel,
         name: "the panel",
         lane: LaneId::Frame,
         on: Where::Card,
-        what: "The picture cleared to the sky's colour, and the panels drawn over it. Recorded on the processor, run on the card.",
+        what: "The panels drawn over the far eye's picture (the picture cleared to the sky's colour first, where there's no far eye). Recorded on the processor, run on the card.",
         reads: &[StoreId::PanelShapes],
         writes: &[StoreId::ScreenPicture],
         switches: &[],
@@ -265,7 +339,7 @@ pub const PASSES: [Pass; 11] = [
     },
 ];
 
-pub const STORES: [Store; 13] = [
+pub const STORES: [Store; 15] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -369,6 +443,22 @@ pub const STORES: [Store; 13] = [
         what: "The world as the far eye sees it: cubes of 32 blocks and every level above, 16 bytes a cell (old's form: how solid, how wet, which ways its faces look, their colour, how their light and height spread, how much surface shows), only each column's surface band kept. Colours from data/far colours.toml, old's, until the Registrar.",
         limits: &[("blocks a side of the first level's cells", 1 << crate::far::FIRST), ("blocks a side of a region, made at once", 1 << crate::far::REGION)],
         files: &["src/far.rs"],
+    },
+    Store {
+        id: StoreId::FarBricks,
+        name: "the far bricks",
+        on: Where::Card,
+        what: "The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills.",
+        limits: &[("levels, cells of 32 to 65,536", crate::bricks::LEVELS as u64), ("cells a brick at most", 512), ("the largest buffer asked of the card (MB)", 2047)],
+        files: &["src/bricks.rs"],
+    },
+    Store {
+        id: StoreId::FarLayers,
+        name: "the far layers",
+        on: Where::Card,
+        what: "The screen pyramid's pictures (8 x 8, 4 x 4 and 2 x 2 screen pixels a pixel), each with how far its rays first touched anything and how much the layer below is worth; and where each tile's rays start.",
+        limits: &[("layers", crate::far_eye::LAYERS.len() as u64)],
+        files: &["src/far_eye.rs"],
     },
 ];
 

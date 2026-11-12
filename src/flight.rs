@@ -56,6 +56,8 @@ pub struct About<'a> {
     pub present: wgpu::PresentMode,
     pub refresh: f32,
     pub marks: &'a [Mark],
+    /// How the far cells came in.
+    pub far: String,
 }
 
 impl Flight {
@@ -88,6 +90,14 @@ impl Flight {
         };
         self.now = Some((next, now));
         Some(&self.standings[next])
+    }
+
+    /// The first standing held back (its settling begun again) while something it waits for isn't ready yet: the far
+    /// cells all on the card.
+    pub fn hold(&mut self, now: Instant) {
+        if let Some((0, since)) = &mut self.now {
+            *since = now;
+        }
     }
 
     /// Going to the standing now made this through the doorway, put the eye here, and cost this (`going`: its time in
@@ -142,6 +152,7 @@ impl Flight {
             .collect();
         switches.sort();
         text += &format!("Switches: {}\n", switches.join(", "));
+        text += &format!("The far cells: {} (the first mark held till all were on the card)\n", about.far);
         text += &format!("The marks: data/marks.toml; {} s settling, then {} s measured at each (the first settling {} s more: the session's warm-up)\n", SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
         let spread = |spread: Spread| format!("median {:.3}, 95th {:.3}, 99th {:.3}, worst {:.3}", spread.median, spread.p95, spread.p99, spread.worst);
         for standing in &self.standings {

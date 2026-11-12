@@ -11,10 +11,14 @@
 //! - The card's own timestamps where it has them: the card's clock (`clocks.rs`) times each pass.
 //! - The surface isn't sRGB: the panel works its colours out as sRGB and they're shown as made.
 //! - Limits are wgpu's defaults, which every card meets: raised only on purpose, and said so [portable software,
-//!   no per-card tricks: David, 2026-11-08].
+//!   no per-card tricks: David, 2026-11-08]. Raised: the largest buffer, for the far bricks (the whole world's far
+//!   cells on the card, about a gigabyte; both the laptop's cards allow 2 GB).
 
 use std::sync::Arc;
 use winit::window::Window;
+
+/// The largest buffer asked for (2 GB, less a byte: both the laptop's cards allow it).
+const BIGGEST: u64 = (2 << 30) - 1;
 
 /// The card, its window's picture, and how they were chosen.
 pub struct Card {
@@ -46,13 +50,11 @@ impl Card {
         if required_features.is_empty() {
             log::warn!("This card can't time its own work: the card's clock is off");
         }
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("Incus Artus"),
-            required_features,
-            required_limits: wgpu::Limits::default(),
-            ..Default::default()
-        }))
-        .expect("the card's device");
+        let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min(BIGGEST);
+        log::info!("The card's largest buffer, raised on purpose for the far bricks: {} MB (wgpu's default {} MB)", largest >> 20, wgpu::Limits::default().max_storage_buffer_binding_size >> 20);
+        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, required_limits, ..Default::default() }))
+            .expect("the card's device");
         let size = window.inner_size();
         let mut config = surface.get_default_config(&adapter, size.width.max(1), size.height.max(1)).expect("the card can draw to this window");
         config.format = config.format.remove_srgb_suffix();

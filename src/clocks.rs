@@ -129,6 +129,11 @@ impl CardClock {
         self.pending.map(|_| wgpu::RenderPassTimestampWrites { query_set: &self.queries, beginning_of_pass_write_index: Some(2 * pass as u32), end_of_pass_write_index: Some(2 * pass as u32 + 1) })
     }
 
+    /// The timestamps for a compute pass (its slot), if this frame is timed.
+    pub fn compute_pass(&self, pass: usize) -> Option<wgpu::ComputePassTimestampWrites<'_>> {
+        self.pending.map(|_| wgpu::ComputePassTimestampWrites { query_set: &self.queries, beginning_of_pass_write_index: Some(2 * pass as u32), end_of_pass_write_index: Some(2 * pass as u32 + 1) })
+    }
+
     /// After the frame's last pass: its timestamps copied out to this frame's readback.
     pub fn resolve(&self, encoder: &mut wgpu::CommandEncoder) {
         if let Some(k) = self.pending {
