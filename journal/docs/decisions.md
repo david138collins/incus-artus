@@ -1176,7 +1176,9 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED 2026-11-12] The far colours carried from old** (David, to Counsel's pick: "Yes, carry old's"). Each of
   the eight blocks' far colours (top and sides) as old worked them out, its texture shrunk to one pixel as light,
   kept as numbers in a data file until the Registrar (3.2) sets colour properly. Why: the far cells' check against
-  old's bake needs old's colours, and choosing them now would mean choosing twice.
+  old's bake needs old's colours, and choosing them now would mean choosing twice. David, to Builder, the same
+  hour: "the far colors are not important now. i'll go in and regulate everything again once we rebuild the
+  registrar. until the graphics engine is ready to race, everything is just a testing device anyways."
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
