@@ -230,7 +230,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         saw near ridges' 8 × 8 squares against fogged far mountains). A look step; when he says. Fog itself is for
         looks only and may be taken out and done another way later (David: "there are different ways and times to
         add fog"); finer detail and the near eye may change how it reads first
-  - [ ] Bricks of 4 against bricks of 8, chosen at launch
+  - [x] Bricks of 4 against bricks of 8, chosen at launch (build 131, f6958f9: counted first, then flown at 8, 4
+        and 2; the whole game 2,656 MB in use at 8, 1,555 at 4, 1,315 at 2, for 5-13% more far time at 4, 14-24% at
+        2; the picture the same. David: "4 sounds good", the default from 18d2537; the last pick after step 4's
+        flights at 4 and 8. `journal/docs/experiments.md`)
   - [ ] A window round the eye for the 32- and 64-block levels, flown fast
   - [ ] Change 2, rays begun at the drawn boxes
   - [ ] Change 3, light read from the cell, after light's share is measured again
