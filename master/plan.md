@@ -23,8 +23,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   player's run 2.52). David's lead from it: **lazy rays**, long rays marched a little each frame, lazier with
   distance, ramping up when flying. The watts agree (build 141): the card shows full load but draws 58 W over the sea
   against 99 at the spawn, so it's queued, not working; the processor idles at 5 to 11%. David's goal, before
-  answering the Oracle: **no megakernels**, the eye as small passes, each measured alone. Next: the Nsight look, the
-  lean step, light split out, lazy rays. Then the Oracle's looks (the skyline by coverage, plain land as a
+  answering the Oracle: **no megakernels**, the eye as small passes, each measured alone. Nsight confirms "waiting":
+  the far march keeps 1 to 7% of the card in flight over the sea, too few long rays to fill it, so more rays are
+  nearly free and the chain is the time. Next: the writeup for the Oracle with David, then the lean step, light
+  split out, lazy rays. Then the Oracle's looks (the skyline by coverage, plain land as a
   surface, the horizon band over frames), change 3, the Intel card, and the gate. The fog line waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
@@ -241,7 +243,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         doesn't change between steps kept in hand), the picture the same. *In so far (build 140, c15d256):* the map's
         edge kept, 6 to 19% off every far mark; the tests point nearer "waiting". Nsight and the lean step to come
   - [ ] The far eye split into small passes (David's goal: no megakernels), in Builder's order: the Nsight look, the
-        lean step, light split out, then lazy rays on top; each split measured alone
+        lean step, light split out, then lazy rays on top; each split measured alone. *The Nsight look is in*
+        (e2ea8bf): the 8 × 8 and 4 × 4 keep 6.9% and 1.3% of the card in flight over the sea, too few long rays to
+        fill it; the program's size isn't the limit, so the chain is (fewer, cheaper or lazier steps)
   - [ ] Lazy rays (David's lead, 2026-11-12: "spread out any rays that can be lazy"): rays marched a share of their
         steps each frame, resuming, lazier by level and distance, the duty cycle up when moving fast; the settled
         picture equal to the full march's, the lag measured, his eye judging "basically invisible"

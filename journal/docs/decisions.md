@@ -1450,6 +1450,14 @@ Reference: `Art/quartile minecraft illustration.png`
     mountain top and high over the spawn, 58 over the sea and 63 on a player's run (about 100 W is the card fully at
     work). Queued, not working. The processor sits at 5 to 11% load, 34 to 42 W: room there for work that takes
     load off the card.
+  - **Nsight confirms it** (Builder read the exported tables, so David needn't read anything out): low over the sea,
+    the 8 × 8 and 4 × 4 passes keep **6.9% and 1.3%** of the card's room in flight, against 96% for a plain pass; the
+    8 × 8 launches only 1,769 groups, most finishing at once, the layer lasting as long as its few longest. Three signs
+    agree (half the rays, the watts, the room in flight). Unlike old, whose program was too big to fit more in
+    flight, here there are too few long rays to fill the card. So: more rays are nearly free while the long ones run
+    (a finer base layer, fewer layers waiting on each other); the time is the longest chain (fewer steps, cheaper
+    steps, or lazy rays); shuffling has little to win. *For the goal above:* the program's size isn't what holds this
+    march back, so splitting alone won't fix the far eye; it stays the right shape for lazy rays and the near eye.
 - **[DECIDED 2026-11-12] Main memory tracked, and searched for free wins** (David, to Counsel, asking "do you think
   we are under-utilizing system ram? i think basically everyone will have at least 8gb", then: "tell builder to begin
   tracking ram use, and start looking for opportunities where using it is almost a free win or takes some heat/load
