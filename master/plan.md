@@ -32,8 +32,8 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ```mermaid
 flowchart LR
-  P0["0 · Decide the direction"]:::ticked --> P1["1 · Learn, in old"]:::now
-  P1 --> P2["2 · Restart: the eye on old's world"]
+  P0["0 · Decide the direction"]:::ticked --> P1["1 · Learn, in old"]:::ticked
+  P1 --> P2["2 · Restart: the eye on old's world"]:::now
   P2 --> F{"The fork<br/>(the Oracle back)"}
   F --> P2b["2.4 · The eye, whole"]
   P2b --> P3["3 · The world"]
@@ -53,7 +53,7 @@ flowchart LR
 - [x] VS Code set up for Builder (1ab561e)
 - [ ] The spec cut by David (`master/spec.md`), alongside everything below
 
-## Phase 1 · Learn, in old  ← *now*
+## Phase 1 · Learn, in old
 
 Each experiment's pass mark is written down before it flies.
 
@@ -126,10 +126,12 @@ Each experiment's pass mark is written down before it flies.
     cheaper. Placed only as far as old's switches reach: with the blocks or light off, the plain still costs twice the
     spawn, and old can't time a layer alone. So the plain is flown in both eyes' marks, and the new engine's clocks
     place the rest.
+  - *Corrected (Counsel):* the line above says "the march split from light". Light was measured by switching it off
+    (flight J) instead, because old's clock times the whole compute pass as one, so a split wouldn't time light alone.
   - Found on the way: the coarsest layer at 4 × 4 was cheaper than 8 × 8 at all three standing marks (16% at the
     mountain top); a dial for the new eye to measure.
 
-## Phase 2 · Restart: the eye on old's world
+## Phase 2 · Restart: the eye on old's world  ← *now*
 
 Each change in 2.2 and 2.3 flies alone, behind its own switch, on both cards, and each program is priced checked and
 unchecked the first time it flies. Marks are data, flown on both cards by one command.
@@ -138,7 +140,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - [ ] Old moves to `old\`, with its own assets and its own build folder, and still runs
   - [ ] `docs/` and `vision/` become `journal/`, with a contents page; `master/` on top; `CLAUDE.md` points at
         `master/`; memories trimmed to habits and warnings
-  - [ ] The new project: a window that runs, the clock, a flying camera, the instruments
+  - [ ] The new project: a window that runs, the clock, a flying camera, the instruments (the card timed a layer
+        and a stage at a time from the first build: old's one clock couldn't place the bare plain's cost, 1.7)
   - [ ] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
   - [ ] The control room: the same map, live, in the game's panel
   - [ ] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as

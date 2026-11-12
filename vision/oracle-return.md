@@ -127,6 +127,7 @@ The plan is `master/plan.md`.
 | 3 | The library's checks cost 3 to 15%; ship unchecked | Unchecked, sight is **31 to 49% slower** at the three marks and 8.6% faster on the route's median. The world's rules are about 15% faster a piece | Checks stay on in old. In the new engine each program is priced both ways; the world's rules are the candidate for unchecked |
 | 4a | Light is about half the card near the ground | 42% at the spawn, 17% at the mountain top, 17% beside the build, 25% of the route's median | 4b goes ahead. But light alone won't close the gap where it's widest |
 | 8, early | The tablet at 1 to 4 GB a world | The whole test world exported as columns: each column's ground, water and profile number, plus the world's 7 profiles. There are no caves or edits in this world. **5.2 billion columns in 0.11 GB**, 0.02 bytes a column (a sea tile's median 780 bytes, the largest land tile 74 KB, 0.28 bytes a column), written in 8 minutes on 22 threads. Read back one tile in 50: 104.6 million columns and 1,029,963 whole profiles, none differing from old's | The columns are a small part of your 1 to 4 GB. What's left to size is the summed levels, which this doesn't hold, and caves' boxes, which this world doesn't have (question 7) |
+| 1.7, reading | Your second part: the bare plain's cost is the coarse layers' long rays over the sky and along the horizon | Flights I to N (switches only, old as tagged). The plain is **9.66 ms**, and the build adds 2.02. Each switch alone: the blocks off −31%, light off −21%, the finest layer at 4 × 4 −20%, the coarsest at 4 × 4 −4% (all overlapping). The steps' view shows long rays over the open horizon, but sky is marched only in the coarsest layer, and four times its rays made the plain cheaper. Found on the way: the coarsest layer at 4 × 4 was cheaper than 8 × 8 at all three standing marks (16% at the mountain top) | Your guess ruled out. The cost is spread, and the rest isn't placed: old has one clock for the whole pass. The plain goes into both eyes' marks, and the new engine times a layer and a stage at a time (question 8). The coarsest layer's size becomes a dial to measure |
 | 4b | The lane lights each cell once, "about a thousandth of the work". If the lookup costs as much as the rays, light moves into the hit record's read or the bricks' layout is reconsidered | The lookup works and is cheap: the sweep takes 0.00 to 0.01 ms a frame, and the kept light is read across nearly all the far land. But the marks come down only **9%, 3% and 3%** (4a's ceiling: 42, 17, 17), and the route's median is 3% slower. The light's view shows why: the near block faces, lit per face every frame, fill most of every eye-level view | Neither of your two readings. The far half of the light lane holds as drawn, for the far view; David can't tell it from the rays "in a blind test". At eye level light's cost is the near faces'. Your 4.2 has them read light from the air cell in front, which 4b didn't try; experiment 6 does ("light looked up") |
 
 ### Today's gap
@@ -202,8 +203,12 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
   - "near stepping is not the main cost; near light is" (your 4.2) doesn't hold beside builds. There light is 17%,
     and with it free the build mark is still 9.76 ms, 2.3 times the budget: the walk through quarter blocks is most
     of it;
+    - *corrected (your second part, then the reading flight):* the build adds only 2.02 ms to a bare plain that
+      costs 9.66. Your 4.2 isn't contradicted by the build; the plain is the open question (section 4, question 8);
   - light kept for the far pixels is a small win at eye level (9%, 3%, 3%): far pixels are a minority of those views,
-    and their light was already cheap. Light's share there belongs to the near faces.
+    and their light was already cheap. Light's share there belongs to the near faces;
+  - your second part's guess for the bare plain, the long rays over the sky, failed its test (1.7): the sky drawn with
+    four times the rays made the plain 4% cheaper.
 - **Settled by David's eye, as you left it:**
   - crisp or soft: soft, so the texture hardware does the blend (2);
   - light that steps: he can't tell the far cells' kept light from the rays (4b).
@@ -277,6 +282,14 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 
 ---
 
+8. **The bare plain** (the reading flight, 1.7). It costs 9.66 ms with nothing on it, against 5.96 at the spawn.
+   With the blocks off it still costs twice the spawn (6.64 against 3.32), and with light off 7.63 against 3.46.
+   Builder's leading candidate *[estimate, low]* is far land seen grazing along a flat, open horizon the whole width
+   of the screen; at the spawn, nearer mountains stop the rays.
+   - Is that your "rays that skim along the ground" (your 4.8, what would make the budget wrong), met in old already?
+   - Does starting rays at drawn boxes answer grazing rays over flat land, or do they still walk many bricks?
+   - What should the new engine's clocks (a layer and a stage at a time, from 2.1) look at first, at this mark?
+
 ## 5. Still to come
 
 - [x] Experiment 2: one-cell far reads against the blend (David's looks): soft
@@ -290,7 +303,8 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] Old frozen (`old-final`, 7c809d3; David: "so, we'll pack up the old incus artus into old, and just use it
       for looking at and reference")
 - [x] Called early: your second part, "before the first line"; its changes taken (David: "i agree on all counts")
-- [ ] The reading flight in old (1.7): where the bare plain's cost lives
+- [x] The reading flight in old (1.7): the bare plain is 9.66 ms, spread across the blocks, light and the finest
+      layer; your sky guess ruled out; the rest unplaced by old's one clock (question 8)
 - [ ] The packing, the skeleton and the doorway (2.1)
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle
