@@ -1258,6 +1258,23 @@ Reference: `Art/quartile minecraft illustration.png`
   views function and appearance." So the texture hardware's precision is the bar, and a slight difference between
   the NVIDIA and Intel cards' filters matters only if it shows; Builder compares one mark's picture on both cards,
   by the code's blend (the control), exact and spread, at the Intel flights, so it's known rather than assumed.
+- **[DECIDED 2026-11-12] David's look at change 1** (build 128, the three blends switched live, to Builder):
+  - **The blends:** "as far as the far blend, they all look the same." So the numbers decide: Builder recommends the
+    spread (faster, 1.1 GB lighter) and taking the exact way out, to put to him.
+  - **Detail:** "-2 detail looked better, didn't seem to impact the frames." -2 is the slider's coarse end: Builder
+    offers it as the default, the slider widened so it sits mid-knob, and re-flown.
+  - **Skylines:** "crisp looks better than smooth or sharp skylines." Crisp stays the default.
+  - **[OPEN] The fog line:** "the fog kind of makes an ugly line, pics are fog on, fog off. not sure if thats a
+    problem or will resolve itself as we finish out the engine." Builder's reading: a near ridge's outline against a
+    farther, fogged mountain shows the 8 × 8 layer's squares, because the finer layers are earned by distance only,
+    never at edges (with fog off, near and far are one colour; against the sky the feather hides them). It won't
+    resolve itself: the near eye won't reach ridges kilometres off, and nothing in the order changes it. Her fix:
+    earn the finer layers along edges where neighbouring squares differ, priced by flight. A look step; David says
+    when.
+  - **[OPEN] No flying for players:** "oh and btw you know there's no flying at all in the game right?" (The spec
+    had it as an early word, 2026-10: "i don't forsee players being able to fly".) The developer's camera flies; the
+    player doesn't. Builder is asking which he meant. It bears on the far eye's gate, measured at marks a player
+    can't reach (high over the spawn, low over the sea).
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

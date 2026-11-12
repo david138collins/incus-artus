@@ -318,6 +318,14 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
     a big deal ... as long as it fundamentally works right". Builder compares one mark on both cards at the Intel
     flights, the code's blend as the control. Does this sit inside "no per-card tricks" as you meant it (the same
     data and method, the picture within the hardware's rounding)?
+11. **The far marks, now there's no flying for players** (David, 2026-11-12: "you know there's no flying at all in
+    the game right?"). Your far marks (high over the spawn, low over the sea) are views a player can't reach. Should
+    2.2's gate be read at player views (the mountain top, a sea cliff, a shore at eye height), the high ones kept as
+    stress tests?
+12. **The fog line** (David's look at change 1): near ridges against fogged far mountains show the 8 × 8 layer's
+    squares, because the finer layers are earned by distance only. Builder's fix earns them along edges where
+    neighbouring squares differ. Is that the lens's way, or does the drawn-box start (change 2) change where the
+    fine layers are needed?
 
 ## 5. Still to come
 
