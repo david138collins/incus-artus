@@ -1779,3 +1779,31 @@ One flight, 17:25 to 17:31, `kept logs/flight-1794525954.txt`, uncapped as every
   that takes load off the card.
 - **Its cores still reach 90 to 104 °C** at that light load: the laptop's shared cooling, heated by the card. Degrees
   read beside watts, as Counsel said.
+
+### The Nsight look at the new far march (build 141, low over the sea)
+
+GPU Trace Profiler, 20 frames from 80 s in, launched from the command line as in `dyno.md`'s notes; the trace in
+Builder's scratchpad (`nsight/incus_artus_2026_11_12_17_32_41.ngfx-gputrace`). Each pass, averaged over the 20 frames:
+
+| | groups of rays launched | the card's room in flight | instructions run, of its peak |
+|---|---|---|---|
+| the far start | 1,264 | 29.7% | 29% |
+| the 8 × 8 | 1,769 | **6.9%** | 11.5% |
+| the 4 × 4 | 7,367 | **1.3%** | 2.2% |
+| the 2 × 2 (nearly all "not wanted") | 30,447 | 24.8% | 41% |
+| bringing it up (plain pixels) | | 95.6% | 51% |
+
+- **The far march runs with the card nearly empty.** The two passes that take almost all the far eye's time over the
+  sea (about 1.2 ms each) keep 6.9% and 1.3% of the card's room in flight. Bringing it up, a plain pass, fills 96%.
+- **It's the Oracle's first reading, confirmed:** waiting, not working. The 8 × 8 has only 1,769 groups of rays in
+  all; most finish at once, and the layer lasts as long as its few longest. Worse than old's 13 to 17%, and for a
+  different reason: old's program was too big to fit more in flight, where here there are too few long rays to fill
+  the card at all.
+- **So three signs agree:** half the rays (13 to 36% off, not half), the watts (58 W at the dearest mark against 99 at
+  the cheapest), and the card's room in flight (1 to 7%).
+- **What follows:**
+  - More rays would cost almost nothing while the long ones run: the card has 93 to 99% of its room free in those
+    passes. The Oracle's "fewer layers waiting on each other" and a finer base layer are nearly free.
+  - The time is the longest chain: fewer steps on it (the edge, a column-height skip), cheaper steps (the lean step),
+    or the chain spread over frames (lazy rays).
+  - Shuffling rays, which helps a full card, has little to win here.
