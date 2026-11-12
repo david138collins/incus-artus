@@ -12,12 +12,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 - **Working on:** Phase 2, *Restart*, step 2.1. Old is packed into `old\` and still runs there (its tests pass, and
   the check flight matched 1.7's to within 0.3%); the journal is in `journal/`, found through
-  `journal/contents.md`. The new project's skeleton is at the top of the folder (392ae0d): a full-screen window,
-  the frame's clock and the card's clock a pass at a time, a flying camera on old's keys, the panel (F3), and a
-  one-minute flight of the empty frame. It's launching as build 116 for David's first look (c4d102e; the numbers
-  carry on from old's). Next: the rest of 2.1 (everything declared as data and the map, the control room, the
-  doorway, the marks). As the editor fills, every window, setting and control is placed with David
-  (`journal/docs/decisions.md`, 2026-11-12).
+  `journal/contents.md`. The new project's skeleton runs from the top of the folder as build 116 (the numbers carry
+  on from old's): a full-screen window, a flying camera on old's keys, the panel (F3), and the clocks. David looked
+  ("looks fine. go ahead"), and the empty frame flew at 0.40 ms a frame and 0.019 ms on the card, the floor every
+  later change is measured from. Next, with nothing placed on screen: every stage, pass, lane and store declared as
+  data, drawing `master/map.md`; Builder brings the declaration's shape and names to David before it's wired. Then
+  the control room, the doorway and the marks. As the editor fills, every window, setting and control is placed
+  with David (`journal/docs/decisions.md`, 2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
   light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
@@ -28,10 +29,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 116, and the empty frame's flight (about a minute); his desktop "Play
-  Incus Artus.bat", which starts the top of the folder (now the new game): keep it there and add one for old?; and
-  where the control room goes: he said "the control panel will be a page in" the editor, where on 2026-11-11 it was
-  to be a page in the game's panel.
+- **Waiting on David:** his desktop "Play Incus Artus.bat", which starts the top of the folder (now the new game):
+  keep it there and add one for old?; and where the control room goes: he said "the control panel will be a page in"
+  the editor, where on 2026-11-11 it was to be a page in the game's panel.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 

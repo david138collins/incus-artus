@@ -1089,6 +1089,9 @@ Reference: `Art/quartile minecraft illustration.png`
     to be a page in the game's own panel (above, "Old's place, and the control room"). **[OPEN]** Whether "the
     control panel" is the control room, and so whether its page is in the editor rather than the game's panel:
     David to say.
+- **[DECIDED 2026-11-12] The skeleton, looked at** (David, to Builder, on build 116: "looks fine. go ahead"). The
+  empty frame was then flown: 0.40 ms a frame at the median and 0.019 ms on the card, with nothing in the world
+  (`kept logs/flight-1794486371.txt`; `journal/docs/experiments.md`). Every later change is measured from there.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
