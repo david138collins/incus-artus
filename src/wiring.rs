@@ -102,6 +102,7 @@ pub enum StoreId {
     FarCells,
     FarBricks,
     FarLayers,
+    FarLook,
 }
 
 pub struct Store {
@@ -197,9 +198,9 @@ pub const PASSES: [Pass; 17] = [
         name: "laying out the panel",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card.",
+        what: "The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Render page changes the far eye's look.",
         reads: &[StoreId::Camera, StoreId::Clocks, StoreId::Wiring],
-        writes: &[StoreId::PanelShapes],
+        writes: &[StoreId::PanelShapes, StoreId::FarLook],
         switches: &[],
         files: &["src/panel.rs", "src/editor/mod.rs", "src/editor/software_map.rs"],
     },
@@ -220,7 +221,7 @@ pub const PASSES: [Pass; 17] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "One cone down each tile of 8 x 8 screen pixels, skipping over the far cells' tops, to where any of the tile's rays could first touch: they all start there. The layers' numbers for the frame written first, on the processor.",
-        reads: &[StoreId::Camera, StoreId::FarBricks],
+        reads: &[StoreId::Camera, StoreId::FarBricks, StoreId::FarLook],
         writes: &[StoreId::FarLayers],
         switches: &[("INCUS_SIGHT_LEVELS", "the levels' view: each pixel tinted by the level its surface was read from"), ("INCUS_SIGHT_STEPS", "the steps' view: dark blue few steps, through green, to red 256 or more")],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -339,7 +340,7 @@ pub const PASSES: [Pass; 17] = [
     },
 ];
 
-pub const STORES: [Store; 15] = [
+pub const STORES: [Store; 16] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -459,6 +460,14 @@ pub const STORES: [Store; 15] = [
         what: "The screen pyramid's pictures (8 x 8, 4 x 4 and 2 x 2 screen pixels a pixel), each with how far its rays first touched anything and how much the layer below is worth; and where each tile's rays start.",
         limits: &[("layers", crate::far_eye::LAYERS.len() as u64)],
         files: &["src/far_eye.rs"],
+    },
+    Store {
+        id: StoreId::FarLook,
+        name: "the far eye's look",
+        on: Where::Processor,
+        what: "What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline; each with its default (Default puts them all back).",
+        limits: &[],
+        files: &["src/far_eye.rs", "src/panel.rs"],
     },
 ];
 

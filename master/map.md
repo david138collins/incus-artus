@@ -51,6 +51,7 @@ flowchart TB
   store_the_far_cells[("the far cells")]
   store_the_far_bricks[("the far bricks")]
   store_the_far_layers[("the far layers")]
+  store_the_far_eye_s_look[("the far eye's look")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -65,8 +66,10 @@ flowchart TB
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
   pass_laying_out_the_panel --> store_the_panel_s_shapes
+  pass_laying_out_the_panel --> store_the_far_eye_s_look
   store_the_camera --> pass_the_far_start
   store_the_far_bricks --> pass_the_far_start
+  store_the_far_eye_s_look --> pass_the_far_start
   pass_the_far_start --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_8_x_8
   store_the_far_layers --> pass_the_far_8_x_8
@@ -157,8 +160,8 @@ flowchart TB
 ### laying out the panel
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card.
-- **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes.
+- **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Render page changes the far eye's look.
+- **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes and the far eye's look.
 - **Cost, last measured** (`kept logs/flight-1794495630.txt`): on the processor median 0.010, 95th 0.018, 99th 0.054, worst 0.300.
 - **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
@@ -174,7 +177,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** One cone down each tile of 8 x 8 screen pixels, skipping over the far cells' tops, to where any of the tile's rays could first touch: they all start there. The layers' numbers for the frame written first, on the processor.
-- **Reads:** the camera and the far bricks. **Writes:** the far layers.
+- **Reads:** the camera, the far bricks and the far eye's look. **Writes:** the far layers.
 - **Switch** `INCUS_SIGHT_LEVELS`: the levels' view: each pixel tinted by the level its surface was read from.
 - **Switch** `INCUS_SIGHT_STEPS`: the steps' view: dark blue few steps, through green, to red 256 or more.
 - **Cost, last measured** (`kept logs/flight-1794495630.txt`): recording it on the processor median 0.044, 95th 0.084, 99th 0.135, worst 1.771; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.181.
@@ -374,4 +377,11 @@ flowchart TB
 - **Written by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2 and bringing it up.
 - **Limit:** layers, 3.
 - **Files:** src/far_eye.rs.
+
+### the far eye's look
+
+- **A store** on the processor.
+- **What it is:** What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline; each with its default (Default puts them all back).
+- **Written by:** laying out the panel. **Read by:** the far start.
+- **Files:** src/far_eye.rs and src/panel.rs.
 

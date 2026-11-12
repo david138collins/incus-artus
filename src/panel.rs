@@ -4,9 +4,11 @@
 
 use crate::camera::Camera;
 use crate::clocks::{PassTimes, Spread};
+use crate::far_eye::FarLook;
+use crate::wiring::PassId;
 
-/// The pages, in order.
-const PAGES: [&str; 2] = ["Overview", "Camera"];
+/// The pages, in order (old's names; the Render page holds the far eye's look, David 2026-11-12).
+const PAGES: [&str; 3] = ["Overview", "Camera", "Render"];
 
 pub struct Panel {
     pub visible: bool,
@@ -35,7 +37,8 @@ impl Panel {
         Self { visible: true, page: 0 }
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings) {
+    /// The panel, its Render page changing the far eye's look (`look`: none without a far eye).
+    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>) {
         if !self.visible {
             return;
         }
@@ -50,7 +53,8 @@ impl Panel {
             ui.separator();
             match self.page {
                 0 => overview(ui, readings),
-                _ => camera(ui, readings),
+                1 => camera(ui, readings),
+                _ => render(ui, readings, look),
             }
         });
     }
@@ -92,6 +96,40 @@ fn overview(ui: &mut egui::Ui, readings: &Readings) {
     });
     if readings.card_whole.is_none() {
         ui.label("This card can't time its own work.");
+    }
+}
+
+/// The far eye's passes on the card, in the frame's order.
+const FAR_PASSES: [PassId; 5] = [PassId::TheFarStart, PassId::TheFar8, PassId::TheFar4, PassId::TheFar2, PassId::BringingItUp];
+
+/// The Render page: the far eye's card time at the top (its gauge, to watch as the sliders move), then its look's
+/// sliders, and a button back to the defaults [David, 2026-11-12: "a very simple crossover slider set for the
+/// transitions ... i can watch the card time as i adjust it ... and include a default button"].
+fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
+    let card = |id: PassId| readings.passes[id as usize].card.unwrap_or_default();
+    let median: f32 = FAR_PASSES.iter().map(|id| card(*id).median).sum();
+    let p99: f32 = FAR_PASSES.iter().map(|id| card(*id).p99).sum();
+    let frame = readings.frame;
+    let fps = if frame.median > 0.0 { 1000.0 / frame.median } else { 0.0 };
+    ui.strong(format!("The far eye on the card: {median:.2} ms (99th {p99:.2})"));
+    ui.label(format!("The frame: {:.2} ms, {fps:.0} a second", frame.median));
+    ui.label(FAR_PASSES.iter().map(|id| format!("{} {:.2}", crate::wiring::pass(*id).name.trim_start_matches("the far "), card(*id).median)).collect::<Vec<_>>().join(" · "));
+    ui.separator();
+    let Some(look) = look else {
+        ui.label("No far eye (the doorway couldn't open the world).");
+        return;
+    };
+    ui.strong("Crossovers");
+    ui.add(egui::Slider::new(&mut look.hand_over, 0.3..=0.95).text("levels hand over from"));
+    ui.add(egui::Slider::new(&mut look.fade_4[0], 0.1..=4.0).text("4 × 4 fades in from"));
+    ui.add(egui::Slider::new(&mut look.fade_4[1], 0.05..=3.0).text("4 × 4 fades in over"));
+    ui.add(egui::Slider::new(&mut look.fade_2[0], 0.1..=4.0).text("2 × 2 fades in from"));
+    ui.add(egui::Slider::new(&mut look.fade_2[1], 0.05..=3.0).text("2 × 2 fades in over"));
+    ui.strong("The skyline");
+    ui.add(egui::Slider::new(&mut look.sky_weight, 0.0..=4.0).text("sky weight"));
+    ui.separator();
+    if ui.add_enabled(*look != FarLook::DEFAULT, egui::Button::new("Default")).clicked() {
+        *look = FarLook::DEFAULT;
     }
 }
 

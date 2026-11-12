@@ -400,7 +400,7 @@ impl Runner {
             camera: &self.camera,
             captured: self.captured,
         };
-        self.panel.show(&ctx, &readings);
+        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look));
         let output = ctx.end_pass();
         running.egui_state.handle_platform_output(&running.window, output.platform_output);
         work.jobs = ctx.tessellate(output.shapes, output.pixels_per_point);

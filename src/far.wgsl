@@ -40,7 +40,8 @@ struct Camera {
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's.
     pyramid: vec4<f32>,
     // The finer layer's fade in: x where it starts (its pixel so many times its cells), y over how many doublings of
-    // distance; z where in a level's stretch its blend with the next begins (the hand-over).
+    // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
+    // old's; more: a pixel the land only partly covers gives more of itself to the sky).
     fade: vec4<f32>,
     // Sky light (2b): x 1 for it on, y its strength, z the tint (0 white, 1 a sky blue), w its cones' width.
     sky: vec4<f32>,
@@ -742,12 +743,18 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (!hidden) {
         here = shaded(seen, 1.0);
     }
-    // Through the fog to where it first met anything; the sky it went on to past a soft edge stays the sky.
+    // Through the fog to where it first met anything; the sky it went on to past a soft edge stays the sky. The sky's
+    // weight [David, 2026-11-12: "if we could just make sky a bit stronger in the math over land, i think that might
+    // give a basic natural feather at an early stage that will make a clean chamfer"]: the land's share of a pixel it
+    // only partly covers is taken to a power (1 + the weight), so a skyline's part-covered squares lean to the sky;
+    // a pixel the land covers whole is as it was.
     let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
     if (met < camera.reach.x) {
         let behind = seen.sky_share * sky(d);
         let covered = max(1.0 - seen.sky_share, 1e-4);
-        here = behind + fogged((here - behind) / covered, d, met) * covered;
+        let land = fogged((here - behind) / covered, d, met);
+        let shown = pow(covered, 1.0 + camera.fade.w);
+        here = sky(d) * (1.0 - shown) + land * shown;
     }
     if (camera.layer.y > 0.5) {
         worth_out[id.y * size.x + id.x] = u32(round(worth_of(seen.distance, seen.level) * 255.0)) | (NO_SKY << 8u);

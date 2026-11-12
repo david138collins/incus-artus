@@ -54,6 +54,24 @@ const PUTTING_MS: f32 = 3.0;
 /// Numbers in the march's camera (`far.wgsl`'s `Camera`): rows of four.
 const CAMERA_ROWS: usize = 16;
 
+/// The far eye's look as David tunes it on the Render page (F3), each with its default.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FarLook {
+    /// Where in a level's stretch its blend with the next begins (old's 0.8: later is a narrower hand-over).
+    pub hand_over: f32,
+    /// Where the 4 x 4 fades in over the 8 x 8 (its pixel so many times the cells it reads), and over how many
+    /// doublings of distance; the same for the 2 x 2 over the 4 x 4.
+    pub fade_4: [f32; 2],
+    pub fade_2: [f32; 2],
+    /// The sky's weight over land at a skyline (0: as old's).
+    pub sky_weight: f32,
+}
+
+impl FarLook {
+    /// Old's, as the 2a flight flew it.
+    pub const DEFAULT: FarLook = FarLook { hand_over: BLEND_FROM, fade_4: CELLS_FADES[0], fade_2: CELLS_FADES[1], sky_weight: 0.0 };
+}
+
 /// A layer of the pyramid on the card.
 struct Layer {
     factor: f32,
@@ -84,6 +102,8 @@ pub struct FarEye {
     up_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     targets: Option<Targets>,
+    /// Its look, as tuned (the Render page).
+    pub look: FarLook,
     /// 1 the steps' view, 2 the levels' view (`INCUS_SIGHT_STEPS`, `INCUS_SIGHT_LEVELS`), 0 neither.
     view_mode: f32,
 }
@@ -151,7 +171,7 @@ impl FarEye {
         } else {
             0.0
         };
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, view_mode }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look: FarLook::DEFAULT, view_mode }
     }
 
     /// Whether every region is on the card.
@@ -279,7 +299,11 @@ impl FarEye {
             let pixel = 2.0 * tan_half / layer.size.1 as f32;
             let above = (k > 0).then(|| &targets.layers[k - 1]);
             let below = targets.layers.get(k + 1);
-            let fade = below.map_or([1.0, 1.0], |_| CELLS_FADES[k.min(CELLS_FADES.len() - 1)]);
+            let fade = match (below.is_some(), k) {
+                (false, _) => [1.0, 1.0],
+                (true, 0) => self.look.fade_4,
+                (true, _) => self.look.fade_2,
+            };
             let numbers: [[f32; 4]; CAMERA_ROWS] = [
                 [camera.position.x, camera.position.y, camera.position.z, 0.0],
                 [forward[0], forward[1], forward[2], 0.0],
@@ -292,7 +316,7 @@ impl FarEye {
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, 0.0],
                 [1.0, 0.0, SHADOW_SPREAD, 0.0],
                 [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), 0.0, 0.0],
-                [fade[0].max(0.1), fade[1].max(0.05), BLEND_FROM, 0.0],
+                [fade[0].max(0.1), fade[1].max(0.05), self.look.hand_over.clamp(0.3, 0.95), self.look.sky_weight.max(0.0)],
                 [0.0, SKY_STRENGTH, SKY_TINT, SKY_SPREAD],
                 [3.0 / FOG_REACH, std::f32::consts::LN_2 / FOG_HEIGHT, sea_level, FOG_WARMTH],
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
