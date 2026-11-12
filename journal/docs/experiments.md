@@ -903,3 +903,36 @@ Build 120 (2ee6651), the code committed, 2026-11-12: `kept logs/flight-179448953
 - **The marks' line in 2.1 is ticked.** The plain's horizon is the bare plain, marked for both eyes (Builder's reading,
   David's to change). One command flies every mark on one card. Both cards at once waits on the Optimus setting, when
   the Intel card is flown.
+
+
+## The far cells, summed through the doorway  *(plan 2.2, step 1)*
+
+David's go: "the far colors are not important now. i'll go in and regulate everything again once we rebuild the
+registrar" (2026-11-12; carry old's), and "yes, i think we'd be right to use the processor for summing the far cells.
+its a 1 time event, and it's quick." The far eye can't draw until its cells exist, so the first step makes them, with no
+picture yet.
+
+### What's built
+
+`src/far.rs` sums the world into far cells from the doorway's columns, using old's cell unchanged (`old/src/sight/cell.rs`):
+- cubes of 32 blocks, and every level above, each exactly its children added;
+- the compact 16-byte form, and only each column's surface band.
+
+The faces follow old's card rule (`cell.wgsl`): below the world is stone, past the map is air.
+
+It's summed on the processor a region (1,024 blocks a side) at a time, on every thread, nearest the spawn first. A
+column's solid blocks are runs, so its faces against each neighbour are added a range at a time, where old went block
+by block on the card.
+
+The far colours (`data/far colours.toml`) are old's, worked out from old's textures by old's rule. No colour came within
+1% of a rounding step, so they match old's to the 1,024th.
+
+### The pass mark (agreed with Counsel before the code)
+
+- **Every far cell at every level** (32 to 1,024) is the same as old's bake (`old/worlds/nice25 test/sight-bake.bin`,
+  209 MB), byte for byte in its compact form. That covers the cells left out of either band, over the whole world, and
+  each region's 1,024 to its exact sums. If only colours differ, the colours are found first; anything else that
+  differs is placed before step 2.
+- **The first sum's time,** measured. *Builder's estimate [low]:* the eighth round the spawn under 15 s, the whole world
+  under two minutes. Old's bake took 46 to 55 s for its start (the eighth) and about 12 minutes for the whole world, on
+  the card (decisions, 2026-11-06).
