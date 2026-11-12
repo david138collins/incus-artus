@@ -36,6 +36,7 @@ mod marks;
 mod panel;
 mod runner;
 mod session;
+mod temperatures;
 mod wiring;
 
 fn main() {

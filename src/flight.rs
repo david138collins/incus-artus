@@ -10,6 +10,7 @@
 
 use crate::clocks::Spread;
 use crate::marks::{Made, Mark};
+use crate::temperatures::Temperatures;
 use crate::wiring::{self, PASSES, PassId, Where};
 use std::time::{Duration, Instant};
 
@@ -45,6 +46,8 @@ pub struct Standing {
     /// 64s reached round it over the measured frames (blocks; step 4).
     end: Option<[f32; 3]>,
     reach: Option<[f32; 2]>,
+    /// The hottest the CPU area and the GPU read over the measured frames, and the GPU's slowest clock.
+    hottest: Temperatures,
 }
 
 pub struct Flight {
@@ -75,7 +78,7 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default() });
             }
         }
         log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
@@ -155,6 +158,22 @@ impl Flight {
         }
     }
 
+    /// The temperatures as last read: the hottest kept over the measured frames, and the GPU's slowest clock.
+    pub fn heat(&mut self, now: Instant, reading: Temperatures) {
+        if let Some(standing) = self.measuring(now) {
+            let most = |kept: Option<f32>, new: Option<f32>| match (kept, new) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (a, b) => a.or(b),
+            };
+            let least = |kept: Option<f32>, new: Option<f32>| match (kept, new) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            };
+            let h = &mut standing.hottest;
+            *h = Temperatures { cpu_area: most(h.cpu_area, reading.cpu_area), gpu: most(h.gpu, reading.gpu), gpu_clock: least(h.gpu_clock, reading.gpu_clock) };
+        }
+    }
+
     /// Whether the last standing is measured.
     pub fn finished(&self, now: Instant) -> bool {
         matches!(self.now, Some((k, since)) if k + 1 == self.standings.len() && now.duration_since(since) >= Self::settle(k) + MEASURE)
@@ -193,6 +212,11 @@ impl Flight {
             if let (Some(speed), Some(begun), Some(end)) = (mark.speed, standing.eye, standing.end) {
                 let gone = ((end[0] - begun[0]).powi(2) + (end[1] - begun[1]).powi(2) + (end[2] - begun[2]).powi(2)).sqrt();
                 text += &format!("  moving at {speed:.0} blocks a second, straight ahead and level: the eye ended at north {:.1}, east {:.1}, up {:.1}, {gone:.0} blocks from where it began\n", end[0], end[1], end[2]);
+            }
+            let heat = standing.hottest;
+            if heat != Temperatures::default() {
+                let read = |value: Option<f32>, unit: &str| value.map_or("not read".to_string(), |v| format!("{v:.0} {unit}"));
+                text += &format!("  the heat: the CPU area at most {}, the GPU at most {}, its clock at least {}\n", read(heat.cpu_area, "°C"), read(heat.gpu, "°C"), read(heat.gpu_clock, "MHz"));
             }
             if let Some(reach) = standing.reach {
                 text += &format!("  the window round the eye: the usable 32s reached at least {:.0} blocks round it over the measured frames, the 64s {:.0}\n", reach[0], reach[1]);

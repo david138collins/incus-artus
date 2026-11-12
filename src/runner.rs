@@ -74,6 +74,7 @@ pub fn run() {
         first_mark: first_mark.unwrap_or(0),
         at_first_mark: false,
         flight,
+        temperatures: crate::temperatures::Watch::start(),
     };
     event_loop.run_app(&mut runner).expect("the game runs");
     log::info!("Quitting");
@@ -130,6 +131,8 @@ struct Runner {
     /// The mark the game starts at, and whether it's gone there yet.
     first_mark: usize,
     at_first_mark: bool,
+    /// The temperatures, read on a thread of their own (none if `INCUS_TEMPERATURES=0`).
+    temperatures: Option<crate::temperatures::Watch>,
     flight: Option<Flight>,
 }
 
@@ -248,7 +251,7 @@ impl Runner {
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
-                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures => unreachable!("{} isn't one of the frame's passes", pass.name),
+                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
             };
             self.timed(pass.id, started);
             if !carry_on {
@@ -420,6 +423,12 @@ impl Runner {
             far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
         self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), &mut self.camera.pace);
+        // The temperatures, top right, always (not on a flight: what's measured there is the frame alone).
+        if self.flight.is_none()
+            && let Some(watch) = &self.temperatures
+        {
+            crate::temperatures::draw(&ctx, watch.latest());
+        }
         let output = ctx.end_pass();
         running.egui_state.handle_platform_output(&running.window, output.platform_output);
         work.jobs = ctx.tessellate(output.shapes, output.pixels_per_point);
@@ -498,9 +507,13 @@ impl Runner {
         }
         let eye = self.camera.position;
         let reach = self.flight.as_ref().and(self.running.as_ref()).and_then(|running| running.far.as_ref()).and_then(|far| far.usable_reach([eye.x, eye.y]));
+        let heat = self.temperatures.as_ref().map(crate::temperatures::Watch::latest);
         let Some(flight) = &mut self.flight else { return true };
         flight.record(shown, frame_ms, std::mem::take(&mut work.card_frames));
         flight.followed(shown, eye.to_array(), reach);
+        if let Some(heat) = heat {
+            flight.heat(shown, heat);
+        }
         if flight.finished(shown)
             && let Some(running) = &self.running
         {

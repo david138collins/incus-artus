@@ -40,6 +40,7 @@ pub enum LaneId {
     Window,
     Frame,
     Loading,
+    Temperatures,
 }
 
 pub struct Lane {
@@ -72,6 +73,7 @@ pub enum PassId {
     TheDoorway,
     SummingTheFarCells,
     MakingTheFarTextures,
+    ReadingTheTemperatures,
 }
 
 pub struct Pass {
@@ -106,6 +108,7 @@ pub enum StoreId {
     FarLook,
     FarTextures,
     FarWindow,
+    Temperatures,
 }
 
 pub struct Store {
@@ -118,7 +121,7 @@ pub struct Store {
     pub files: &'static [&'static str],
 }
 
-pub const LANES: [Lane; 3] = [
+pub const LANES: [Lane; 4] = [
     Lane {
         id: LaneId::Window,
         name: "the window",
@@ -149,9 +152,17 @@ pub const LANES: [Lane; 3] = [
         switches: &[],
         files: &["src/doorway.rs"],
     },
+    Lane {
+        id: LaneId::Temperatures,
+        name: "the temperatures",
+        runs: "every 3 seconds, on a thread of its own",
+        what: "How hot the computer runs, read as old read it, so the frame never waits for it [David, 2026-11-12: \"i'd like for you to start tracking temperatures again, just as before\"].",
+        switches: &[("INCUS_TEMPERATURES", "0: not read at all (it starts two programs every few seconds), to measure the game without them")],
+        files: &["src/temperatures.rs"],
+    },
 ];
 
-pub const PASSES: [Pass; 18] = [
+pub const PASSES: [Pass; 19] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -205,7 +216,7 @@ pub const PASSES: [Pass; 18] = [
         lane: LaneId::Frame,
         on: Where::Processor,
         what: "The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.",
-        reads: &[StoreId::Camera, StoreId::Clocks, StoreId::Wiring],
+        reads: &[StoreId::Camera, StoreId::Clocks, StoreId::Wiring, StoreId::Temperatures],
         writes: &[StoreId::PanelShapes, StoreId::Camera, StoreId::FarLook],
         switches: &[],
         files: &["src/panel.rs", "src/editor/mod.rs", "src/editor/software_map.rs"],
@@ -323,7 +334,7 @@ pub const PASSES: [Pass; 18] = [
         lane: LaneId::Frame,
         on: Where::Processor,
         what: "The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it.",
-        reads: &[StoreId::FarWindow],
+        reads: &[StoreId::FarWindow, StoreId::Temperatures],
         writes: &[StoreId::Clocks, StoreId::FlightReport],
         switches: &[],
         files: &["src/runner.rs", "src/clocks.rs", "src/flight.rs"],
@@ -361,9 +372,20 @@ pub const PASSES: [Pass; 18] = [
         switches: &[("INCUS_FAR_BLEND", "code: no far textures made, the far cells blended by the code (old's); unset, made and blended by the hardware once they're in")],
         files: &["src/atlas.rs"],
     },
+    Pass {
+        id: PassId::ReadingTheTemperatures,
+        name: "reading the temperatures",
+        lane: LaneId::Temperatures,
+        on: Where::Processor,
+        what: "The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept. Drawn top right while playing, always (green under 70 °C, yellow under 85, red over); on a flight, the hottest and the GPU's slowest clock at each standing in its report.",
+        reads: &[],
+        writes: &[StoreId::Temperatures],
+        switches: &[],
+        files: &["src/temperatures.rs"],
+    },
 ];
 
-pub const STORES: [Store; 18] = [
+pub const STORES: [Store; 19] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -507,6 +529,14 @@ pub const STORES: [Store; 18] = [
         what: "Which regions' 32s and 64s are on the card (step 4): only those within the window round the eye. A word a region at each, 1 where it and its eight neighbours are on (usable), kept after the last level's bands in the far bands' buffer, so the far eye reads wgpu's default 8 storage buffers; the far eye reads the next coarser level where they aren't, so a window behind shows coarser cells, never a hole. Kept on the processor too, with each region's bricks and the places given back for the next to come; a region given back isn't written on the card, the flags guarding it. Later [David, 2026-11-12: \"we will revisit that and ask, what can 16 buffers do for us, if there's anything to gain\"]: what a raised storage-buffer limit could buy on cards that allow it, this 8-buffer way kept as the fallback.",
         limits: &[("the 32s' radius in regions (the 64s' twice it)", crate::bricks::WINDOW as u64)],
         files: &["src/bricks.rs"],
+    },
+    Store {
+        id: StoreId::Temperatures,
+        name: "the temperatures",
+        on: Where::Processor,
+        what: "The latest reading: the CPU area and the GPU (°C), and the GPU's clock (MHz); each left out where the computer doesn't offer it. On the laptop the CPU area is the thermal zone _TZ.TZ01, the motherboard round the processor, not its cores; 105 °C is the cutoff David agreed for long runs.",
+        limits: &[("seconds between readings", 3)],
+        files: &["src/temperatures.rs"],
     },
 ];
 

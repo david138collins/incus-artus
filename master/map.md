@@ -37,6 +37,10 @@ flowchart TB
     pass_summing_the_far_cells["summing the far cells"]
     pass_making_the_far_textures["making the far textures"]
   end
+  subgraph lane_the_temperatures["the temperatures (every 3 seconds, on a thread of its own)"]
+    direction LR
+    pass_reading_the_temperatures["reading the temperatures"]
+  end
   store_the_keys_held[("the keys held")]
   store_the_camera[("the camera")]
   store_the_clocks[("the clocks")]
@@ -55,6 +59,7 @@ flowchart TB
   store_the_far_eye_s_look[("the far eye's look")]
   store_the_far_textures[("the far textures")]
   store_the_window_round_the_eye[("the window round the eye")]
+  store_the_temperatures[("the temperatures")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -72,6 +77,7 @@ flowchart TB
   store_the_camera --> pass_laying_out_the_panel
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
+  store_the_temperatures --> pass_laying_out_the_panel
   pass_laying_out_the_panel --> store_the_panel_s_shapes
   pass_laying_out_the_panel --> store_the_camera
   pass_laying_out_the_panel --> store_the_far_eye_s_look
@@ -100,6 +106,7 @@ flowchart TB
   pass_the_panel --> store_the_screen_s_picture
   store_the_screen_s_picture --> pass_showing_it
   store_the_window_round_the_eye --> pass_measuring
+  store_the_temperatures --> pass_measuring
   pass_measuring --> store_the_clocks
   pass_measuring --> store_the_flight_s_report
   store_the_export --> pass_the_doorway
@@ -109,6 +116,7 @@ flowchart TB
   pass_summing_the_far_cells --> store_the_far_cells
   store_the_far_cells --> pass_making_the_far_textures
   pass_making_the_far_textures --> store_the_far_textures
+  pass_reading_the_temperatures --> store_the_temperatures
 ```
 
 ## The lanes
@@ -138,6 +146,14 @@ flowchart TB
 - **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
 - **Its passes, in order:** the doorway, summing the far cells and making the far textures.
 - **Files:** src/doorway.rs.
+
+### the temperatures
+
+- **Runs:** every 3 seconds, on a thread of its own.
+- **What it is:** How hot the computer runs, read as old read it, so the frame never waits for it [David, 2026-11-12: "i'd like for you to start tracking temperatures again, just as before"].
+- **Its passes, in order:** reading the temperatures.
+- **Switch** `INCUS_TEMPERATURES`: 0: not read at all (it starts two programs every few seconds), to measure the game without them.
+- **Files:** src/temperatures.rs.
 
 ## The passes
 
@@ -180,7 +196,7 @@ flowchart TB
 
 - **A pass** in the frame, on the processor.
 - **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.
-- **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes, the camera and the far eye's look.
+- **Reads:** the camera, the clocks, the wiring and the temperatures. **Writes:** the panel's shapes, the camera and the far eye's look.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.010, 95th 0.018, 99th 0.023, worst 0.313.
 - **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
@@ -265,7 +281,7 @@ flowchart TB
 
 - **A pass** in the frame, on the processor.
 - **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it.
-- **Reads:** the window round the eye. **Writes:** the clocks and the flight's report.
+- **Reads:** the window round the eye and the temperatures. **Writes:** the clocks and the flight's report.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.005, 95th 0.029, 99th 0.039, worst 0.319.
 - **Files:** src/runner.rs, src/clocks.rs and src/flight.rs.
 
@@ -293,6 +309,14 @@ flowchart TB
 - **Switch** `INCUS_FAR_BLEND`: code: no far textures made, the far cells blended by the code (old's); unset, made and blended by the hardware once they're in.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): not measured.
 - **Files:** src/atlas.rs.
+
+### reading the temperatures
+
+- **A pass** in the temperatures, on the processor.
+- **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept. Drawn top right while playing, always (green under 70 °C, yellow under 85, red over); on a flight, the hottest and the GPU's slowest clock at each standing in its report.
+- **Reads:** none. **Writes:** the temperatures.
+- **Cost, last measured** (`kept logs/flight-1794497402.txt`): not measured.
+- **Files:** src/temperatures.rs.
 
 ## The stores
 
@@ -431,4 +455,12 @@ flowchart TB
 - **Written by:** putting the far cells on the card. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2 and measuring.
 - **Limit:** the 32s' radius in regions (the 64s' twice it), 10.
 - **Files:** src/bricks.rs.
+
+### the temperatures
+
+- **A store** on the processor.
+- **What it is:** The latest reading: the CPU area and the GPU (°C), and the GPU's clock (MHz); each left out where the computer doesn't offer it. On the laptop the CPU area is the thermal zone _TZ.TZ01, the motherboard round the processor, not its cores; 105 °C is the cutoff David agreed for long runs.
+- **Written by:** reading the temperatures. **Read by:** laying out the panel and measuring.
+- **Limit:** seconds between readings, 3.
+- **Files:** src/temperatures.rs.
 
