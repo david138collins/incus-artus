@@ -231,11 +231,12 @@ impl Runner {
         self.at_first_mark = true;
         let Some((k, count)) = target else { return true };
         let (made, eye) = self.go_to(k, count);
-        if let Some(flight) = &mut self.flight {
-            flight.arrived(made, eye);
-        }
+        let going = now.elapsed().as_secs_f32() * 1000.0;
         // The doorway's answers on the way, each timed as its own pass.
         let times = self.doorway.as_ref().map(Doorway::take_times).unwrap_or_default();
+        if let Some(flight) = &mut self.flight {
+            flight.arrived(made, eye, (going, times.len(), times.iter().sum()));
+        }
         for ms in times {
             self.ran(PassId::TheDoorway, ms);
         }

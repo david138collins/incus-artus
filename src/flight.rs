@@ -15,6 +15,9 @@ use std::time::{Duration, Instant};
 
 /// How long the frames settle at a mark before they're measured.
 const SETTLE: Duration = Duration::from_secs(5);
+/// How much longer the first mark settles: the session's warm-up [build 119's flight: for about its first 25 s the whole
+/// session ran slower, the card's pass too (0.018 against 0.011 ms), so the first mark read 20% slower than the rest].
+const WARM_UP: Duration = Duration::from_secs(30);
 /// How long they're measured at each (old's standing marks: 20 s).
 const MEASURE: Duration = Duration::from_secs(20);
 
@@ -30,6 +33,8 @@ pub struct Standing {
     /// What was made there through the doorway, and where the eye stood (said by going to the mark).
     made: Made,
     eye: Option<[f32; 3]>,
+    /// What going there cost: its time (ms), and the doorway's tiles answered on the way and their time (ms).
+    going: Option<(f32, usize, f32)>,
     /// The measured frames' lengths, ms.
     frames: Vec<f32>,
     /// Each pass's measured times on the processor, by its id.
@@ -62,29 +67,36 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new() });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new() });
             }
         }
-        log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs());
+        log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
         Self { standings, now: None }
+    }
+
+    /// How long standing `k` settles before it's measured.
+    fn settle(k: usize) -> Duration {
+        if k == 0 { SETTLE + WARM_UP } else { SETTLE }
     }
 
     /// The standing to go to now, if it's time to move: the first at the start, the next once one is measured.
     pub fn due(&mut self, now: Instant) -> Option<&Standing> {
         let next = match self.now {
             None => 0,
-            Some((k, since)) if now.duration_since(since) >= SETTLE + MEASURE && k + 1 < self.standings.len() => k + 1,
+            Some((k, since)) if now.duration_since(since) >= Self::settle(k) + MEASURE && k + 1 < self.standings.len() => k + 1,
             Some(_) => return None,
         };
         self.now = Some((next, now));
         Some(&self.standings[next])
     }
 
-    /// Going to the standing now made this through the doorway, and put the eye here.
-    pub fn arrived(&mut self, made: Made, eye: Option<[f32; 3]>) {
+    /// Going to the standing now made this through the doorway, put the eye here, and cost this (`going`: its time in
+    /// ms, and the doorway's tiles answered on the way and their time in ms).
+    pub fn arrived(&mut self, made: Made, eye: Option<[f32; 3]>, going: (f32, usize, f32)) {
         if let Some((k, _)) = self.now {
             self.standings[k].made = made;
             self.standings[k].eye = eye;
+            self.standings[k].going = Some(going);
         }
     }
 
@@ -92,7 +104,7 @@ impl Flight {
     fn measuring(&mut self, now: Instant) -> Option<&mut Standing> {
         let (k, since) = self.now?;
         let since = now.duration_since(since);
-        (since >= SETTLE && since < SETTLE + MEASURE).then(|| &mut self.standings[k])
+        (since >= Self::settle(k) && since < Self::settle(k) + MEASURE).then(|| &mut self.standings[k])
     }
 
     /// A pass ran for `ms` on the processor.
@@ -112,7 +124,7 @@ impl Flight {
 
     /// Whether the last standing is measured.
     pub fn finished(&self, now: Instant) -> bool {
-        matches!(self.now, Some((k, since)) if k + 1 == self.standings.len() && now.duration_since(since) >= SETTLE + MEASURE)
+        matches!(self.now, Some((k, since)) if k + 1 == self.standings.len() && now.duration_since(since) >= Self::settle(k) + MEASURE)
     }
 
     /// The report, written to `logs/`.
@@ -130,13 +142,16 @@ impl Flight {
             .collect();
         switches.sort();
         text += &format!("Switches: {}\n", switches.join(", "));
-        text += &format!("The marks: data/marks.toml; {} s settling, then {} s measured at each\n", SETTLE.as_secs(), MEASURE.as_secs());
+        text += &format!("The marks: data/marks.toml; {} s settling, then {} s measured at each (the first settling {} s more: the session's warm-up)\n", SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
         let spread = |spread: Spread| format!("median {:.3}, 95th {:.3}, 99th {:.3}, worst {:.3}", spread.median, spread.p95, spread.p99, spread.worst);
         for standing in &self.standings {
             let mark = &about.marks[standing.mark];
             let dial = standing.count.map_or(String::new(), |count| format!(", the scatter at {count}"));
             let eye = standing.eye.map_or("not placed (the doorway couldn't answer)".to_string(), |[north, east, up]| format!("north {north:.1}, east {east:.1}, up {up:.1}"));
             text += &format!("\nAt {}{dial} ({} eye; fog {}): the eye at {eye}, facing {:.0}°, pitch {:.1}°\n", mark.name, mark.eyes.join(" and "), if mark.fog { "on" } else { "off" }, mark.facing, mark.pitch);
+            if let Some((ms, tiles, tiles_ms)) = standing.going {
+                text += &format!("  going there: {ms:.1} ms (the doorway answered {tiles} tiles in {tiles_ms:.1} ms)\n");
+            }
             let made = &standing.made;
             if made.blocks + made.bars + made.refused > 0 {
                 text += &format!("  made through the doorway: {} whole blocks, {} bars, {} refused\n", made.blocks, made.bars, made.refused);

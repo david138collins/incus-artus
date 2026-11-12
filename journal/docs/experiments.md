@@ -872,3 +872,14 @@ Build 119 (b48ddc3), the code committed, 2026-11-12: `kept logs/flight-179448908
   The comparisons between those builds stand (each flew the same way); the floor's number doesn't.
 - **Next:** the first standing settles longer, and the report says what going to each mark cost (its changes, and the
   doorway's tiles), which this flight didn't show. Flown again to see the spawn read as the others do.
+
+### The second flight's pass mark (written before it flies)
+
+Build 120: the first mark settles 30 s more (35 s in all), and each standing's report says what going there cost.
+
+- **The warm-up is the cause if** the spawn, still flown first, now reads within 5% of the other marks' median (about
+  0.34 ms), and its card pass about 0.011 ms like theirs. If the spawn is still slow, it's the first standing itself,
+  not the time since the start, and that's looked into before the marks are ticked.
+- **The marks, as before:** within 10% of each other, every eye and every change as the first flight.
+- **Going there** *[estimate, low]*: a few milliseconds for a plain mark (one tile, 2 ms); the scatter at 100,000 in
+  under a second (its four tiles and a hundred thousand changes). All of it while the frames settle, not measured.
