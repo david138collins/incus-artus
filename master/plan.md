@@ -10,7 +10,8 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
 
 ## Where we are
 
-- **Working on:** 1.7, one reading flight in old (switches only), then Phase 2, *Restart*. Experiments 1, 2, 3, 4a
+- **Working on:** Phase 2, *Restart*. 1.7's reading flight is flown (the bare plain's cost is spread; the sky's long
+  rays ruled out). Experiments 1, 2, 3, 4a
   and 4b (`docs/experiments.md`) gave soft bricks (the blend stays) and light kept a cell at a time, which David
   can't tell from rays ("in a blind test"), though at eye level light's cost is the near faces'. The references
   from old are taken, the test world is exported whole for the new eye to read (5.2 billion columns in 0.11 GB,
@@ -115,10 +116,18 @@ Each experiment's pass mark is written down before it flies.
   - The pictures are kept for reference, not as a yardstick (David: "it'll look good or it won't, idc what the old
     things look like in particular, other than the basic way we're doing things")
   - *Gate:* the references listed here, each with where it's kept
-- [ ] **1.7 The reading flight** (the Oracle's second part; David: "i agree on all counts"): the third mark with old's
+- [x] **1.7 The reading flight** (the Oracle's second part; David: "i agree on all counts"): the third mark with old's
       switches only, no code after `old-final`. The march split from light, and the layers turned off one at a time,
       to find where the bare plain's cost lives (9.51 ms before the build goes in, which adds about 2)
+      (flights I to N, f9e79bc, `kept logs/dyno-1794448108.txt` to `dyno-1794450518.txt`; `docs/experiments.md`)
   - *Gate:* the plain's cost placed in its parts, with the logs
+  - The bare plain is 9.66 ms; the build adds 2.02. The cost is spread: the blocks 31%, light 21%, the finest layer
+    20%, overlapping. The Oracle's guess, the long rays over the sky, is ruled out: four times the sky rays made it 4%
+    cheaper. Placed only as far as old's switches reach: with the blocks or light off, the plain still costs twice the
+    spawn, and old can't time a layer alone. So the plain is flown in both eyes' marks, and the new engine's clocks
+    place the rest.
+  - Found on the way: the coarsest layer at 4 × 4 was cheaper than 8 × 8 at all three standing marks (16% at the
+    mountain top); a dial for the new eye to measure.
 
 ## Phase 2 · Restart: the eye on old's world
 

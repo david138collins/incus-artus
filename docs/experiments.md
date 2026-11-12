@@ -499,3 +499,55 @@ That ordering fits the marks' costs.
 
 Nothing in old changes on any result. The reading decides which eye's marks the plain belongs to and what each eye's
 pass mark is measured on.
+
+### Results
+
+Six flights, build 115's code committed (f9e79bc), 2026-11-11, 19:37 to 20:29; the reports are in `kept logs/`. Every
+header says the code was committed, and every flight stood the plain with "169 placings replayed, 0 cells changed".
+Sight on the card, standing, median ms:
+
+| | I, as the game runs | J, light off | K, no blocks | L, finest 4 × 4 | M, coarsest 4 × 4 |
+|---|---|---|---|---|---|
+| **The bare plain** | **9.66** | 7.63 (−21%) | 6.64 (−31%) | 7.74 (−20%) | 9.31 (−4%) |
+| On the ground at the spawn | 5.96 | 3.46 (−42%) | 3.32 (−44%) | 4.43 (−26%) | 5.81 (−3%) |
+| The mountain top | 6.62 | 5.47 (−17%) | 4.56 (−31%) | 5.33 (−19%) | 5.59 (−16%) |
+
+The logs, in order: I `dyno-1794448108.txt`, J `dyno-1794448613.txt`, K `dyno-1794449077.txt`, L
+`dyno-1794449309.txt`, M `dyno-1794449896.txt`, N `dyno-1794450518.txt`. N (the steps' view) measured the same as I:
+9.66, 5.95 and 6.60.
+
+- **The instruments repeat.** I's spawn read 5.96 against C2's 5.88 (+1.4%), and its mountain top 6.62 against 6.59
+  (+0.5%), both within the 2%. One caveat: in I, J, M and N the spawn's live levels weren't whole after the 180 s cap
+  (I: 7,533 of 8,820 tiles), so the spawn was measured nearly whole. That didn't happen to the plain: after its 180 s
+  the dyno waited on until it was whole (68 s more in I).
+- **The plain's clean number is 9.66 ms.** The Oracle's 9.51, from the settling lines, was right. The build adds 2.02
+  (C2's 11.68), a sixth of the build mark.
+- **The light was measured by switching it off (J), not by the split.** Old's clock times the whole compute pass as one
+  ("passes: march, upscale"), so the split would have flown a different program shape without timing light alone.
+
+**The steps' view** (`kept logs/pictures/reading N - …`):
+- **At the plain** the sky is green, about 128 steps a ray, everywhere. It turns red, 256 or more, in a band above
+  the open horizon about a fifth of the screen high. The near and middle ground is dark blue: few steps. The far land
+  is a thin strip at the horizon.
+- **At the spawn** mountains fill most of the horizon. The red is only where the horizon is open: the right-hand end
+  and a strip on the left.
+
+**Against the pass mark:**
+- **The Oracle's guess fails its test.** The long rays over the sky are there: the red band. But in M the sky was
+  drawn with four times as many rays (sky pixels are only ever marched in the coarsest layer: `worth_of`, "never for
+  sky"), and the plain got 4% cheaper, not dearer. They are long but few (the 8 × 8 layer is 64,000 rays) and cheap.
+  They aren't the plain's cost.
+- **None of the switches takes most of it.** The cost is spread: the blocks 31%, light 21%, the finest layer 20%.
+  These overlap: the blocks are drawn in the finest layer and lit per face.
+- **Not placed:** with the blocks off, the plain still costs twice the spawn (6.64 against 3.32 ms); with light off, 7.63
+  against 3.46. What differs between the two places is neither the sky nor the blocks nor light. Builder's leading
+  candidate *[estimate, low]* is the far land seen grazing along a flat, open horizon the whole width of the screen;
+  at the spawn, nearer mountains stop the rays. Old's switches can't split it further. They can't time a layer alone:
+  one compute pass, one clock.
+- **So by the pass mark, the plain is flown in both eyes' marks.** Its horizon is already one of 2.2's far marks, and the
+  bare plain joins 2.3's ground marks. The new engine's clocks, a layer and a stage at a time, will place the rest.
+
+**Found on the way:** the coarsest layer at 4 × 4 in place of 8 × 8 was cheaper at all three standing marks: 16% at the
+mountain top, 3 to 4% at the plain and the spawn. That's despite marching four times the rays at that level. At these
+views the 8 × 8 layer and its hand-over to the 4 × 4 cost more than they save. The route wasn't flown this way. For
+the new eye, whose layers stand alone, the coarsest layer's size is a dial to measure, not assume.
