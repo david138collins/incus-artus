@@ -22,12 +22,29 @@ Practical things learned the hard way. Each has its reason, so a later session c
 - **A worktree or an older checkout gets its own build folder.** Sharing one let an old program's exe stand in for the
   new, and David was launched into the wrong version.
 
-## Windows
+## Measuring and checking
+
+- **Never measure in a program's first half minute.** Its first 25 seconds or so can run a fifth slower, the card
+  included, while clocks come up and the window settles. Warm up before the first measure; a floor once taken inside
+  the warm-up was wrong and had to be corrected in the open.
+- **Prove a check bites.** When an exact comparison passes, break one input on purpose (one colour, one step) and
+  watch it fail, then put it back. A perfect match is only worth something if a wrong one would show.
+- **Test the edges, not just the middle:** the first and the last, at every level. A test that covered only the
+  middle passed, and the first launch crashed on the last piece of a row at the edge.
+- **Look at the picture yourself before handing it over.** Draw it off the screen in a test, save it and look;
+  compare before and after side by side. It's cheaper than a launch, and it catches what numbers don't.
+- **Medians don't add.** The passes' medians don't sum to the frame's; read the whole from its own clock.
+
+## Windows and tools
 
 - **Edit text with the Edit and Write tools, never PowerShell's `Set-Content`:** Windows PowerShell 5.1 reads UTF-8
   without a BOM as Windows-1252 and mangles dashes, arrows and other symbols. If a shell rewrite is unavoidable, use
   .NET `ReadAllText`/`WriteAllText` with UTF-8.
 - **Bash heredocs mangle backslashes and triple quotes:** write long scripts to the scratchpad with Write first.
+- **Edit scripts in Python use raw strings** (`r"""…"""`): in a plain string `\n` becomes a real line break and the
+  match fails. A script that stops before writing anything is safe, but slow.
+- **Never `rm` through a shell variable** (`rm -f "$P"/*`): the safety check refuses the whole command, and nothing
+  in it runs. Use a literal path, or `"${P:?}"`.
 - Python with `-I` when it reads downloaded or traced data.
 
 ## Rust and builds
@@ -50,6 +67,8 @@ Practical things learned the hard way. Each has its reason, so a later session c
 - Watch for card-hostile arithmetic: division and remainder by values known only at run time, local arrays.
 - Never take a slope as the difference of two nearby rounded values.
 - The graphics library's safety checks can cost a third of the card or more: price each program checked and unchecked.
+- Ask the card for the library's default limits, and raise one only on purpose, saying so in the code and the log
+  (the largest buffer, say, raised for a whole world kept on the card).
 
 ## The laptop
 

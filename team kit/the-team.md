@@ -65,6 +65,8 @@ Session transcripts aren't a store: they're summarised and forget.
   build's tests keeping the map and the code in agreement.
 - Launches only on David's go, with the build number bumped first, and hands him one or two things to look at.
 - Ticks the plan's lines with the commit or log that proved each one; leaves "Where we are" to Counsel.
+- Names new things (passes, stores, sliders) herself only to get going, and says each time that they're David's to
+  change.
 
 ## The Oracle's part
 
