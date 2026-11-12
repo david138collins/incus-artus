@@ -11,8 +11,8 @@
 // The cells (`bricks.rs`): each level's columns' bands (`entries`: the lowest kept cell and how many; solid below,
 // empty above), and the bands' cells in bricks (`index` gives a brick's place in `pool`, by arithmetic).
 //
-// 2b adds the sun's shadows and the sky light (old's `sunlight` and `sky_seen`); until then the pixels are lit as old's
-// were with both switched off.
+// And old's light (2b): the sun's shadow (a widening ray towards the sun through the same cells) and the sky light
+// (five wide cones up), only where a pixel shows.
 
 struct Camera {
     // The eye (game axes: x north, y east, z up).
@@ -35,7 +35,7 @@ struct Camera {
     // z the rule (0 refine everywhere, 1 only where it's earned).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
-    // shadows (2b); z: how fast a shadow ray widens (2b).
+    // shadows; z: how fast a shadow ray widens (blocks across a block of distance).
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's.
     pyramid: vec4<f32>,
@@ -43,7 +43,8 @@ struct Camera {
     // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
     // old's; more: a pixel the land only partly covers gives more of itself to the sky).
     fade: vec4<f32>,
-    // Sky light (2b): x 1 for it on, y its strength, z the tint (0 white, 1 a sky blue), w its cones' width.
+    // Sky light: x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1 a sky
+    // blue), w its cones' width (blocks across a block of distance).
     sky: vec4<f32>,
     // Fog: x its thickness at sea level (a block's worth; 0 none), y how fast it thins going up, z sea level, w how much
     // warmer it is towards the sun.
@@ -582,13 +583,118 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32) -> Seen {
     return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, gathered - sunny, touched, through);
 }
 
-// A ray's colour with its shadow and its sky light (`open`: how much of the sky it sees). In 2a, both off: the sky's
-// part tinted as old's was.
+
+// ── Light (old's 3.4b): the sun's shadow and the sky's light, through the same far cells ──
+//
+// How open the way `s` is from a far surface at `p`, 0 to 1 (old's `cone`, the far cells' part): a ray widening `spread`
+// a block of distance, reading the level as wide as it is. Clear of the surface's own soft edge first: up half a cell
+// and along `s` till a cell higher. Air over a column's top is skipped whole (the ray only climbs), regions not summed
+// are passed whole, and once it's over the highest anything stands nothing more can shade it.
+fn cone(p: vec3<f32>, footprint: f32, s: vec3<f32>, spread: f32, most: i32) -> f32 {
+    let wanted = clamp(i32(floor(log2(max(footprint, 1.0)))), FIRST, TOP);
+    let start = max(exp2(floor(log2(max(footprint, 1.0)))), f32(1 << u32(wanted)));
+    let o = p + vec3<f32>(0.0, 0.0, start * 0.5);
+    var t = start / max(s.z, 0.1);
+    var light = 1.0;
+    let top = world_top() + 1.0;
+    for (var n = 0; n < most; n++) {
+        let q = o + s * t;
+        if (q.z > top || t > camera.reach.x) {
+            break;
+        }
+        let wide = max(footprint, t * spread);
+        let level = clamp(i32(floor(log2(max(wide, 1.0)))), FIRST, TOP);
+        // Over a column's top: on to where it leaves that column, the biggest it's over the top of, tried from the
+        // coarsest level down to two coarser than it reads.
+        var skipped = false;
+        for (var up = TOP; up >= level + 2; up -= 2) {
+            let up_size = f32(1 << u32(up));
+            let cc = floor(q.xy / up_size);
+            let entry = entry_at(up, i32(cc.x), i32(cc.y));
+            if (entry == PAST_MAP) {
+                return light;
+            }
+            if (entry == NOT_SUMMED) {
+                continue;
+            }
+            let low = bitcast<i32>(entry << 16u) >> 16u;
+            let count = i32(entry >> 16u);
+            if (q.z > f32(low + count) * up_size + f32(1 << u32(level))) {
+                t = max(leave2(o.xy, s.xy, cc, up_size), t) + 0.01;
+                skipped = true;
+                break;
+            }
+        }
+        if (skipped) {
+            continue;
+        }
+        // A region not summed yet holds nothing known to shade with: on past it whole.
+        let r = floor(q.xy / f32(1 << u32(REGION)));
+        if (entry_at(REGION, i32(r.x), i32(r.y)) == NOT_SUMMED) {
+            t = max(leave2(o.xy, s.xy, r, f32(1 << u32(REGION))), t) + 0.01;
+            continue;
+        }
+        let look = blend(level, q);
+        let size = f32(1 << u32(level));
+        // A step as long as the ray is wide (never under its cell): what it crosses dims it by how solid it is, once
+        // it's climbed a whole cell of what it reads over where it started.
+        let step = max(size, wide);
+        if (look.known && q.z - p.z >= size) {
+            light *= pow(1.0 - min(look.solid, 0.999), step / size) * exp(-camera.water.w * look.water * step);
+            if (light < 0.02) {
+                return 0.0;
+            }
+        }
+        t += step;
+    }
+    return light;
+}
+
+// The most steps a shadow ray takes (past them it's taken as sunlit), and a sky cone.
+const SHADOW_STEPS: i32 = 160;
+const SKY_STEPS: i32 = 40;
+
+// How much of the sun reaches a far surface at `p` (`footprint` the eye's pixel there, blocks).
+fn sunlight(p: vec3<f32>, footprint: f32) -> f32 {
+    return cone(p, footprint, camera.sun.xyz, camera.follow.z, SHADOW_STEPS);
+}
+
+// How much of the sky a far surface at `p` sees: five wide cones, straight up and four leaning 50° out (north, south,
+// east, west), each weighted by how high it looks. In one loop, its count read from the levels so the compiler can't
+// unroll it into five copies (old's lesson: the instruction cache).
+fn sky_seen(p: vec3<f32>, footprint: f32) -> f32 {
+    let lean = sin(radians(50.0));
+    let rise = cos(radians(50.0));
+    let cones = 5 + min(levels[0] - FIRST, 0);
+    var seen = 0.0;
+    for (var k = 0; k < cones; k++) {
+        var way = vec3<f32>(0.0, 0.0, 1.0);
+        var weight = 1.0;
+        if (k > 0) {
+            let s = select(-lean, lean, (k & 1) == 1);
+            way = select(vec3<f32>(0.0, s, rise), vec3<f32>(s, 0.0, rise), k <= 2);
+            weight = rise;
+        }
+        seen += weight * cone(p, footprint, way, camera.sky.w, SKY_STEPS);
+    }
+    return seen / (1.0 + 4.0 * rise);
+}
+
+// A pixel's sky light as handed down to the layer below: its kind (the far cells' is 0) over its sky seen in
+// 65,535ths.
+fn sky_word(open: f32) -> u32 {
+    return u32(round(clamp(open, 0.0, 1.0) * 65535.0));
+}
+
+// A ray's colour with its shadow and its sky light (`open`: how much of the sky it sees, 0 to 1).
 fn shaded(seen: Seen, open: f32) -> vec3<f32> {
     if (seen.wide <= 0.0) {
         return seen.colour;
     }
-    let colour = seen.colour;
+    var colour = seen.colour;
+    if (camera.follow.y > 0.5) {
+        colour -= seen.sunny * (1.0 - sunlight(seen.at, seen.wide));
+    }
     let sky = select(1.0, mix(1.0, open, camera.sky.y), camera.sky.x > 0.5);
     let tint = mix(vec3<f32>(1.0), SKY_TINT, camera.sky.z);
     return colour + seen.skyish * (sky * tint - 1.0);
@@ -738,10 +844,30 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
     let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
     let seen = march(camera.position.xyz, d, scatter(id.xy * 2u), begin);
+    // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it).
     let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
+    // Its sky light, where it shows or the layer below may take it: its parent's, if that was about as far off (sky
+    // light changes slowly: most finer pixels take it, and only edges and silhouettes look for themselves).
+    var open = 1.0;
+    var handed = NO_SKY;
+    if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
+        var have = false;
+        if (camera.layer.x > 0.0) {
+            let above = worth_in[parent.y * u32(camera.layer.x) + parent.x] >> 8u;
+            let parent_touch = textureLoad(far_above, vec2<i32>(parent), 0).x;
+            if (above != NO_SKY && (above >> 16u) == 0u && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
+                open = f32(above & 0xFFFFu) / 65535.0;
+                have = true;
+            }
+        }
+        if (!have) {
+            open = sky_seen(seen.at, seen.wide);
+        }
+        handed = sky_word(open);
+    }
     var here = seen.colour;
     if (!hidden) {
-        here = shaded(seen, 1.0);
+        here = shaded(seen, open);
     }
     // Through the fog to where it first met anything; the sky it went on to past a soft edge stays the sky. The sky's
     // weight [David, 2026-11-12: "if we could just make sky a bit stronger in the math over land, i think that might
@@ -759,7 +885,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         here = sky(d) * (1.0 - shown) + land * shown;
     }
     if (camera.layer.y > 0.5) {
-        worth_out[id.y * size.x + id.x] = u32(round(worth_of(seen.distance, seen.level) * 255.0)) | (NO_SKY << 8u);
+        worth_out[id.y * size.x + id.x] = u32(round(worth_of(seen.distance, seen.level) * 255.0)) | (handed << 8u);
     }
     var colour = here;
     if (camera.reach.z > 1.5 && seen.level >= 0) {

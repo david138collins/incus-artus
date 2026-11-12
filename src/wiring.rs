@@ -223,7 +223,12 @@ pub const PASSES: [Pass; 17] = [
         what: "One cone down each tile of 8 x 8 screen pixels, skipping over the far cells' tops, to where any of the tile's rays could first touch: they all start there. The layers' numbers for the frame written first, on the processor.",
         reads: &[StoreId::Camera, StoreId::FarBricks, StoreId::FarLook],
         writes: &[StoreId::FarLayers],
-        switches: &[("INCUS_SIGHT_LEVELS", "the levels' view: each pixel tinted by the level its surface was read from"), ("INCUS_SIGHT_STEPS", "the steps' view: dark blue few steps, through green, to red 256 or more")],
+        switches: &[
+            ("INCUS_SIGHT_LEVELS", "the levels' view: each pixel tinted by the level its surface was read from"),
+            ("INCUS_SIGHT_STEPS", "the steps' view: dark blue few steps, through green, to red 256 or more"),
+            ("INCUS_SIGHT_NO_SHADOWS", "the sun's shadows left out (for measuring)"),
+            ("INCUS_SIGHT_NO_SKY", "the sky light left out (for measuring)"),
+        ],
         files: &["src/far_eye.rs", "src/far.wgsl"],
     },
     Pass {
@@ -231,7 +236,7 @@ pub const PASSES: [Pass; 17] = [
         name: "the far 8 x 8",
         lane: LaneId::Frame,
         on: Where::Card,
-        what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), and where the 4 x 4 is worth it.",
+        what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.",
         reads: &[StoreId::FarBricks, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],

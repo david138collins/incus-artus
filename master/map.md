@@ -180,13 +180,15 @@ flowchart TB
 - **Reads:** the camera, the far bricks and the far eye's look. **Writes:** the far layers.
 - **Switch** `INCUS_SIGHT_LEVELS`: the levels' view: each pixel tinted by the level its surface was read from.
 - **Switch** `INCUS_SIGHT_STEPS`: the steps' view: dark blue few steps, through green, to red 256 or more.
+- **Switch** `INCUS_SIGHT_NO_SHADOWS`: the sun's shadows left out (for measuring).
+- **Switch** `INCUS_SIGHT_NO_SKY`: the sky light left out (for measuring).
 - **Cost, last measured** (`kept logs/flight-1794495630.txt`): recording it on the processor median 0.044, 95th 0.084, 99th 0.135, worst 1.771; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.181.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
 ### the far 8 x 8
 
 - **A pass** in the frame, on the card.
-- **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), and where the 4 x 4 is worth it.
+- **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.
 - **Reads:** the far bricks and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794495630.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.228; on the card median 0.316, 95th 0.323, 99th 0.327, worst 0.642.
 - **Files:** src/far_eye.rs and src/far.wgsl.

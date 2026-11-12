@@ -4,7 +4,7 @@
 //! where its rays can start), the pyramid's layers (8 × 8, 4 × 4 and 2 × 2: each finer one only where the one above
 //! says it's worth it, never for sky), then bringing it up to the screen. Old's settings for the dyno, carried as they
 //! were: a field of view of 100° (up and down), the sun from 315° at 40° (noon), fog on, the hand-over from 0.8, the
-//! finer layers' fades as old's preset had them, the layers brought up crisp.
+//! finer layers' fades as old's preset had them, the layers brought up crisp; old's sun shadows and sky light (2b).
 //!
 //! The far cells come from the loading lane (`far::Lane`), nearest the eye first, and go on the card as they come
 //! (`bricks::Store`), so the view sharpens in live, raw, with no loading screen [David, 2026-11-06: "id like to see the
@@ -25,11 +25,11 @@ const REACH: f32 = 150_000.0;
 pub const FIELD_OF_VIEW: f32 = 100.0;
 /// The sky's share of a face's light by day (old's).
 const AMBIENT: f32 = 0.35;
-/// Sky light (2b; its tint is used in 2a too, as old's was with sky light off): strength, tint, its cones' width.
+/// Sky light: strength, tint, its cones' width (old's).
 const SKY_STRENGTH: f32 = 0.8;
 const SKY_TINT: f32 = 0.3;
 const SKY_SPREAD: f32 = 0.6;
-/// How fast a shadow ray widens (2b).
+/// How fast a shadow ray widens (old's: wider than the sun itself, so a far ridge's shadow comes soft).
 const SHADOW_SPREAD: f32 = 0.04;
 /// Fog: land this far off at sea level is nineteen parts in twenty fog; the air's thickness halves every this many blocks
 /// up; a little warmer towards the sun (old's).
@@ -108,6 +108,9 @@ pub struct FarEye {
     pub look: FarLook,
     /// 1 the steps' view, 2 the levels' view (`INCUS_SIGHT_STEPS`, `INCUS_SIGHT_LEVELS`), 0 neither.
     view_mode: f32,
+    /// The light left out, for measuring (`INCUS_SIGHT_NO_SHADOWS`, `INCUS_SIGHT_NO_SKY`: old's switches).
+    no_shadows: bool,
+    no_sky: bool,
 }
 
 impl FarEye {
@@ -173,7 +176,8 @@ impl FarEye {
         } else {
             0.0
         };
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look: FarLook::DEFAULT, view_mode }
+        let (no_shadows, no_sky) = (std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some(), std::env::var_os("INCUS_SIGHT_NO_SKY").is_some());
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look: FarLook::DEFAULT, view_mode, no_shadows, no_sky }
     }
 
     /// Whether every region is on the card.
@@ -316,10 +320,10 @@ impl FarEye {
                 [REACH, 0.0, self.view_mode, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, 0.0],
-                [1.0, 0.0, SHADOW_SPREAD, 0.0],
+                [1.0, if !self.no_shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, 0.0],
                 [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), 0.0, 0.0],
                 [fade[0].max(0.1), fade[1].max(0.05), self.look.hand_over.clamp(0.3, 0.95), self.look.sky_weight.max(0.0)],
-                [0.0, SKY_STRENGTH, SKY_TINT, SKY_SPREAD],
+                [if self.no_sky { 0.0 } else { 1.0 }, SKY_STRENGTH, SKY_TINT, SKY_SPREAD],
                 [3.0 / FOG_REACH, std::f32::consts::LN_2 / FOG_HEIGHT, sea_level, FOG_WARMTH],
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
@@ -410,8 +414,12 @@ mod tests {
             eye.look.sky_weight = weight;
         }
         let marks = crate::marks::load().unwrap();
+        // From the spawn, or another mark if asked (`FAR_TEST_MARK`, its name, for a look).
+        let mark = std::env::var("FAR_TEST_MARK").ok().and_then(|name| marks.iter().find(|m| m.name == name)).unwrap_or(&marks[0]);
         let mut camera = Camera::new();
-        camera.position = crate::marks::eye(&doorway, &marks[0]).unwrap();
+        camera.position = crate::marks::eye(&doorway, mark).unwrap();
+        camera.facing = mark.facing;
+        camera.pitch = mark.pitch;
         let screen = (640u32, 400u32);
         eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let target = device.create_texture(&wgpu::TextureDescriptor {
@@ -464,11 +472,13 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}.rgba", marks[0].name, screen.0, screen.1, eye.look.sky_weight)), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" })), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");
-        assert!(top[2] > top[0] && top[2] > 100, "the top should be sky, blue: {top:?}");
+        if mark.name == marks[0].name {
+            assert!(top[2] > top[0] && top[2] > 100, "the top should be sky, blue: {top:?}");
+        }
         assert_ne!(top, bottom, "the bottom should be ground, not the same as the sky");
     }
 }
