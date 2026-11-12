@@ -1622,3 +1622,34 @@ Drawn at 640 × 400 over the whole world, bricks of 8 with the window.
 - **The steps' view, met:** the sky over the horizon goes from teal to dark blue. What's left is a band just over the
   horizon, where rays still pass over far land they could touch. Counted over the whole picture: 23% fewer steps low
   over the sea and 24% fewer at the plain.
+
+### Results: the two flights
+
+Build 137 (9548078), 14:37 to 14:49, bricks of 8 with the window: the boxes on `kept logs/flight-1794516237.txt`, off
+`-1794516591`.
+
+| | the boxes on | off |
+|---|---|---|
+| the far eye whole: on the ground at the spawn | 0.834 | 0.670 |
+| the mountain top, clear day | 2.020 | 1.999 |
+| the bare plain | 1.122 | 1.122 |
+| high over the spawn | 2.464 | 2.291 |
+| low over the sea | 3.094 | 2.934 |
+| the boxes' pass | 0.164 to 0.177 | |
+| the 8 × 8 layer: the mountain top, the plain | 0.775, 0.813 | 0.919, 0.979 |
+| the 8 × 8 layer: high over the spawn, the sea | 0.840, 1.194 | 0.869, 1.204 |
+
+- **The boxes' pass, met:** 0.16 to 0.18 ms, inside the 0.05 to 0.2 given.
+- **10 to 25% off at the horizon marks, missed:** the plain broke even and the sea is 5% slower. The 8 × 8 layer saved
+  16 to 17% at the plain and the mountain top, but only 1% over the sea and 3% high over the spawn. The pass costs
+  about what the plain and the mountain top save, and more than the rest.
+- **Under 5% either way high up, missed** high over the spawn (+7.5%); met at the mountain top (+1%).
+- **Why:** the steps' view showed a quarter of the steps gone, but they were the sky's cheap ones. A ray through
+  empty sky only reads bands and skips, two reads a step. The time is where rays meet land near the horizon, blending
+  cells step by step, and the boxes don't shorten that. The Oracle's guess (2026-11-07) was right about where the
+  steps are, not about where the time is.
+- **The heat:** the CPU area at 76 to 104 °C through both flights, the GPU at 72 to 85 °C and its clock 2,407 to
+  2,797 MHz at the still marks. One fast run read 1,312 MHz at its slowest: the card idling for a moment, or heat;
+  watched for in the next.
+- **Builder's recommendation:** the boxes off by default (`INCUS_FAR_BOXES`, kept), the code kept behind its switch
+  till the Intel card is flown (step 7), then kept or taken out on its numbers there.
