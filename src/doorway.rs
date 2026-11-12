@@ -4,13 +4,14 @@
 //! Behind it now: an export, a world written out as columns by old Incus Artus (`exports/<name>/`, its `README.txt` the
 //! rule). Read-only. The tablet takes the export's place at 3.1.
 //!
-//! What it answers today: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs.
-//! Its other answers (pieces, objects and lights; what changed; named fields over the land) come with what first feeds
-//! them. Nothing in the game asks it yet: its tests do, and the far cells' lane will (2.2).
-
-#![cfg_attr(not(test), allow(dead_code))]
+//! What it answers today: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs;
+//! and what changed, a tile at a time (a mark's changes: David's build, the scatter). Its other answers (pieces,
+//! objects and lights; named fields over the land) come with what first feeds them. Going to a mark asks it for the
+//! ground under the eye; the far cells' lane will ask for tiles (2.2).
 
 use serde::Deserialize;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// A block, by its place in the world's list of blocks (`Doorway::block_name`): stone first, then water.
@@ -24,6 +25,30 @@ pub struct Run {
     pub block: Block,
     pub from: i32,
     pub to: i32,
+}
+
+/// Which way a bar lies.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Axis {
+    NorthSouth,
+    EastWest,
+    Upright,
+}
+
+/// A change made through the doorway: a whole block placed in a cell, or a bar of a block (half a block across, a whole
+/// block long) from its corner, in half blocks, along an axis, in a cell. As old's event log tells its placings.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Change {
+    Block { cell: [i32; 3], block: Block },
+    Bar { cell: [i32; 3], from: [i32; 3], axis: Axis, block: Block },
+}
+
+impl Change {
+    pub fn cell(&self) -> [i32; 3] {
+        match self {
+            Change::Block { cell, .. } | Change::Bar { cell, .. } => *cell,
+        }
+    }
 }
 
 /// A column: past the map, or its ground (the top block's Z), its river's or lake's water top (none for the sea alone),
@@ -46,6 +71,7 @@ struct WorldFile {
     tile: u32,
     tiles: u32,
     sea_level: i32,
+    world_height: i32,
     stone: String,
     water: String,
     profile: Vec<ProfileFile>,
@@ -73,9 +99,14 @@ pub struct Doorway {
     side: i32,
     tiles: i32,
     pub sea_level: i32,
+    world_height: i32,
     blocks: Vec<String>,
     /// The profiles, by number.
     profiles: Vec<Option<Profile>>,
+    /// What changed, by tile.
+    changes: HashMap<[i32; 2], Vec<Change>>,
+    /// How long each tile asked for took to answer (ms), since they were last taken.
+    times: RefCell<Vec<f32>>,
 }
 
 /// A tile's columns as the export holds them, north fastest (column i north, j east at i + j × side): the ground (−1
@@ -117,12 +148,55 @@ impl Doorway {
             side: world.tile as i32,
             tiles: world.tiles as i32,
             sea_level: world.sea_level,
+            world_height: world.world_height,
             blocks,
             profiles,
+            changes: HashMap::new(),
+            times: RefCell::new(Vec::new()),
         })
     }
 
-    /// A block's name ("incus:stone").
+    /// A block by its name, added to the world's list if it isn't there yet (a change can bring blocks the export
+    /// doesn't use).
+    pub fn block(&mut self, name: &str) -> Block {
+        match self.blocks.iter().position(|known| known == name) {
+            Some(k) => k as Block,
+            None => {
+                self.blocks.push(name.to_string());
+                (self.blocks.len() - 1) as Block
+            }
+        }
+    }
+
+    /// A change made, kept with its tile. Refused if its cell is past the map or outside the world's height.
+    pub fn make(&mut self, change: Change) -> Result<(), String> {
+        let [north, east, z] = change.cell();
+        let (tile, _) = self.place(north, east);
+        if tile[0] < 0 || tile[1] < 0 || tile[0] >= self.tiles || tile[1] >= self.tiles || z < 0 || z >= self.world_height {
+            return Err(format!("{change:?} is outside the world"));
+        }
+        self.changes.entry(tile).or_default().push(change);
+        Ok(())
+    }
+
+    /// Every change forgotten (a mark's changes are taken back when the flight moves on).
+    pub fn forget_changes(&mut self) {
+        self.changes.clear();
+    }
+
+    /// What changed in a tile, in the order it was made. Asked for by the near eye's change path (2.3); today by the tests.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn changes_in(&self, tx: i32, ty: i32) -> &[Change] {
+        self.changes.get(&[tx, ty]).map_or(&[], Vec::as_slice)
+    }
+
+    /// How long each tile asked for since the last call took to answer (ms).
+    pub fn take_times(&self) -> Vec<f32> {
+        std::mem::take(&mut *self.times.borrow_mut())
+    }
+
+    /// A block's name ("incus:stone"). Asked for by the eye (2.2, 2.3); today by the tests.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn block_name(&self, block: Block) -> &str {
         self.blocks.get(block as usize).map_or("unknown", String::as_str)
     }
@@ -137,6 +211,13 @@ impl Doorway {
     /// The tile `tx` tiles north and `ty` east of the least corner. Past the map (outside it, or a tile with no file:
     /// the export writes none where no column is on the map), every column is past.
     pub fn tile(&self, tx: i32, ty: i32) -> Result<Tile, String> {
+        let started = std::time::Instant::now();
+        let tile = self.read_tile(tx, ty);
+        self.times.borrow_mut().push(started.elapsed().as_secs_f32() * 1000.0);
+        tile
+    }
+
+    fn read_tile(&self, tx: i32, ty: i32) -> Result<Tile, String> {
         let side = self.side as usize;
         let n = side * side;
         let past = || Tile { side, grounds: vec![-1; n], waters: vec![0; n], profiles: vec![0; n] };
@@ -174,6 +255,21 @@ impl Doorway {
         let waters = (0..n).map(|_| leb().map(|value| value as i32)).collect::<Result<Vec<_>, _>>()?;
         let profiles = (0..n).map(|_| leb().map(|value| value as u32)).collect::<Result<Vec<_>, _>>()?;
         Ok(Tile { side, grounds, waters, profiles })
+    }
+
+    /// One column (its whole tile is read for it).
+    pub fn column(&self, north: i32, east: i32) -> Result<Column, String> {
+        let (tile, [i, j]) = self.place(north, east);
+        self.tile(tile[0], tile[1])?.column(self, i, j)
+    }
+
+    /// The top of a column's ground or water, whichever is higher: what a player stands on, or floats at (none past the
+    /// map).
+    pub fn surface(&self, column: &Column) -> Option<i32> {
+        match column {
+            Column::Past => None,
+            Column::Here { ground, water, .. } => Some((ground + 1).max(self.sea_level).max(water.unwrap_or(0))),
+        }
     }
 
     /// A column's blocks from bedrock up, by the export's rule (its README): below the ground's deepest layer stone,
@@ -284,8 +380,11 @@ mod tests {
             side: 1,
             tiles: 1,
             sea_level: 128,
+            world_height: 1024,
             blocks: vec!["stone".into(), "water".into(), "grass".into(), "dirt".into(), "clay".into()],
             profiles: vec![Some(Profile { top: 2, under: vec![(3, 3), (4, 5)] })],
+            changes: HashMap::new(),
+            times: RefCell::new(Vec::new()),
         };
         // Ground 200: stone below 195, clay 195 to 197, dirt 197 to 200, grass at 200, nothing over it.
         assert_eq!(doorway.runs(200, 0, 0).unwrap(), vec![Run { block: STONE, from: 0, to: 195 }, Run { block: 4, from: 195, to: 197 }, Run { block: 3, from: 197, to: 200 }, Run { block: 2, from: 200, to: 201 }]);

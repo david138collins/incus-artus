@@ -11,8 +11,10 @@
 use crate::camera::Camera;
 use crate::card::Card;
 use crate::clocks::{CardClock, FrameClock, PassClock, PassTimes};
+use crate::doorway::Doorway;
 use crate::editor::Editor;
 use crate::flight::{About, Flight};
+use crate::marks::{Made, Mark};
 use crate::panel::{Panel, Readings};
 use crate::wiring::{self, LaneId, PassId};
 use std::collections::HashSet;
@@ -30,7 +32,23 @@ const SKY: wgpu::Color = wgpu::Color { r: 0.25, g: 0.34, b: 0.52, a: 1.0 };
 pub fn run() {
     let event_loop = EventLoop::new().expect("an event loop");
     event_loop.set_control_flow(ControlFlow::Poll);
-    let flight = crate::flight::wanted().then(Flight::new);
+    // The world, through the doorway (the engine never opens a world file itself), and the marks.
+    let folder = crate::doorway::test_world();
+    let doorway = match Doorway::open(&folder) {
+        Ok(doorway) => {
+            log::info!("The doorway: open on {}", folder.display());
+            Some(doorway)
+        }
+        Err(error) => {
+            log::error!("The doorway couldn't open the world: {error}");
+            None
+        }
+    };
+    let marks = crate::marks::load().unwrap_or_else(|error| {
+        log::error!("The marks couldn't be read: {error}");
+        Vec::new()
+    });
+    let flight = crate::flight::wanted().then(|| Flight::new(&marks));
     let mut panel = Panel::new();
     panel.visible = flight.is_none();
     let mut runner = Runner {
@@ -42,6 +60,9 @@ pub fn run() {
         editor: Editor::new(),
         held: HashSet::new(),
         captured: false,
+        doorway,
+        marks,
+        at_first_mark: false,
         flight,
     };
     event_loop.run_app(&mut runner).expect("the game runs");
@@ -87,6 +108,10 @@ struct Runner {
     held: HashSet<KeyCode>,
     /// Whether the mouse is captured (flying) or free (the panels can be used).
     captured: bool,
+    doorway: Option<Doorway>,
+    marks: Vec<Mark>,
+    /// Whether the game has gone to the first mark yet (it starts there).
+    at_first_mark: bool,
     flight: Option<Flight>,
 }
 
@@ -160,9 +185,13 @@ impl Runner {
         (times, card.and_then(|card| card.last().copied()))
     }
 
-    /// A pass ran for `ms` on the processor.
+    /// A pass ran from `started` till now, on the processor.
     fn timed(&mut self, pass: PassId, started: Instant) {
-        let ms = started.elapsed().as_secs_f32() * 1000.0;
+        self.ran(pass, started.elapsed().as_secs_f32() * 1000.0);
+    }
+
+    /// A pass ran for `ms` on the processor.
+    fn ran(&mut self, pass: PassId, ms: f32) {
         self.pass_clock.record(pass, ms);
         if let Some(flight) = &mut self.flight {
             flight.pass(Instant::now(), pass, ms);
@@ -175,6 +204,7 @@ impl Runner {
         for pass in wiring::passes_in(LaneId::Frame) {
             let started = Instant::now();
             let carry_on = match pass.id {
+                PassId::GoingToAMark => self.going_to_a_mark(started),
                 PassId::Flying => self.flying(started),
                 PassId::LayingOutThePanel => self.laying_out_the_panel(&mut work),
                 PassId::GettingThePicture => self.getting_the_picture(&mut work),
@@ -189,6 +219,74 @@ impl Runner {
                 return;
             }
         }
+    }
+
+    /// At the start, and on a flight once a mark is measured: the camera taken to the next mark, and its changes made.
+    fn going_to_a_mark(&mut self, now: Instant) -> bool {
+        let target = match &mut self.flight {
+            Some(flight) => flight.due(now).map(|standing| (standing.mark, standing.count)),
+            None if !self.at_first_mark => Some((0, None)),
+            None => None,
+        };
+        self.at_first_mark = true;
+        let Some((k, count)) = target else { return true };
+        let (made, eye) = self.go_to(k, count);
+        if let Some(flight) = &mut self.flight {
+            flight.arrived(made, eye);
+        }
+        // The doorway's answers on the way, each timed as its own pass.
+        let times = self.doorway.as_ref().map(Doorway::take_times).unwrap_or_default();
+        for ms in times {
+            self.ran(PassId::TheDoorway, ms);
+        }
+        true
+    }
+
+    /// The camera at mark `k` (its scatter at `count`), its changes made through the doorway: what was made, and the eye.
+    fn go_to(&mut self, k: usize, count: Option<u32>) -> (Made, Option<[f32; 3]>) {
+        let Some(mark) = self.marks.get(k).cloned() else { return (Made::default(), None) };
+        let Some(doorway) = &mut self.doorway else { return (Made::default(), None) };
+        doorway.forget_changes();
+        let mut made = Made::default();
+        if let Some(name) = &mark.changes {
+            match std::fs::read_to_string(crate::session::project_folder().join(name)) {
+                Ok(log) => made = crate::marks::place(doorway, &log),
+                Err(error) => log::warn!("{}'s changes couldn't be read from {name}: {error}", mark.name),
+            }
+        }
+        if let (Some(scatter), Some(count)) = (&mark.scatter, count) {
+            match crate::marks::scatter(doorway, &mark, scatter, count) {
+                Ok(scattered) => {
+                    made.blocks += scattered.blocks;
+                    made.refused += scattered.refused;
+                }
+                Err(error) => log::warn!("{error}"),
+            }
+        }
+        let eye = match crate::marks::eye(doorway, &mark) {
+            Ok(eye) => {
+                self.camera.position = eye;
+                self.camera.facing = mark.facing;
+                self.camera.pitch = mark.pitch;
+                Some(eye.to_array())
+            }
+            Err(error) => {
+                log::warn!("The camera couldn't go to {}: {error}", mark.name);
+                None
+            }
+        };
+        let dial = count.map_or(String::new(), |count| format!(", the scatter at {count}"));
+        log::info!(
+            "At {}{dial}: the eye at {:.1} {:.1} {:.1}; {} whole blocks and {} bars made through the doorway, {} refused",
+            mark.name,
+            self.camera.position.x,
+            self.camera.position.y,
+            self.camera.position.z,
+            made.blocks,
+            made.bars,
+            made.refused
+        );
+        (made, eye)
     }
 
     fn flying(&mut self, now: Instant) -> bool {
@@ -308,7 +406,7 @@ impl Runner {
                 picture: (running.card.config.width, running.card.config.height),
                 present: running.card.config.present_mode,
                 refresh: running.refresh,
-                camera: &self.camera,
+                marks: &self.marks,
             });
             event_loop.exit();
         }

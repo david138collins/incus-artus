@@ -55,6 +55,7 @@ pub struct Lane {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PassId {
     HearingTheWindow,
+    GoingToAMark,
     Flying,
     LayingOutThePanel,
     GettingThePicture,
@@ -89,6 +90,8 @@ pub enum StoreId {
     SessionLog,
     Export,
     TileColumns,
+    Marks,
+    Changes,
 }
 
 pub struct Store {
@@ -114,9 +117,9 @@ pub const LANES: [Lane; 3] = [
         id: LaneId::Frame,
         name: "the frame",
         runs: "once a frame",
-        what: "Each frame, its passes in order: the camera flies, the panels are laid out, the card draws the picture, and it's handed to the screen.",
+        what: "Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.",
         switches: &[
-            ("INCUS_FLIGHT", "a measured flight: 5 s settling, 20 s measured uncapped with the panel hidden, a report, then quits"),
+            ("INCUS_FLIGHT", "a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits"),
             ("WGPU_ADAPTER_NAME", "the card, by part of its name (intel: the laptop's Intel card)"),
             ("WGPU_POWER_PREF", "the card, by power (low or high)"),
             ("WGPU_BACKEND", "the card's language (DirectX 12 unless set)"),
@@ -128,13 +131,13 @@ pub const LANES: [Lane; 3] = [
         id: LaneId::Loading,
         name: "loading",
         runs: "as tiles are asked for",
-        what: "The world, read a tile at a time through the doorway. Nothing in the game asks yet: the doorway's tests do, and the far cells' lane will (2.2).",
+        what: "The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).",
         switches: &[],
         files: &["src/doorway.rs"],
     },
 ];
 
-pub const PASSES: [Pass; 9] = [
+pub const PASSES: [Pass; 10] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -145,6 +148,17 @@ pub const PASSES: [Pass; 9] = [
         writes: &[StoreId::KeysHeld, StoreId::Camera],
         switches: &[],
         files: &["src/runner.rs", "src/camera.rs"],
+    },
+    Pass {
+        id: PassId::GoingToAMark,
+        name: "going to a mark",
+        lane: LaneId::Frame,
+        on: Where::Processor,
+        what: "At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter).",
+        reads: &[StoreId::Marks, StoreId::TileColumns],
+        writes: &[StoreId::Camera, StoreId::Changes],
+        switches: &[],
+        files: &["src/marks.rs", "src/runner.rs"],
     },
     Pass {
         id: PassId::Flying,
@@ -230,15 +244,15 @@ pub const PASSES: [Pass; 9] = [
         name: "the doorway",
         lane: LaneId::Loading,
         on: Where::Processor,
-        what: "Answers \"what's here?\" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs. The engine never opens a world file itself. Read-only.",
-        reads: &[StoreId::Export],
+        what: "Answers \"what's here?\" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs; and what changed in it. The engine never opens a world file itself. The export is read-only.",
+        reads: &[StoreId::Export, StoreId::Changes],
         writes: &[StoreId::TileColumns],
         switches: &[],
         files: &["src/doorway.rs"],
     },
 ];
 
-pub const STORES: [Store; 10] = [
+pub const STORES: [Store; 12] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -316,6 +330,22 @@ pub const STORES: [Store; 10] = [
         name: "a tile's columns",
         on: Where::Processor,
         what: "A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.",
+        limits: &[],
+        files: &["src/doorway.rs"],
+    },
+    Store {
+        id: StoreId::Marks,
+        name: "the marks",
+        on: Where::Disk,
+        what: "The places every flight stands at, the same each time, data/marks.toml: where, how high, which way, fog, whose marks (near or far), and what's changed there first. The game starts at the first.",
+        limits: &[],
+        files: &["src/marks.rs"],
+    },
+    Store {
+        id: StoreId::Changes,
+        name: "what changed",
+        on: Where::Processor,
+        what: "The changes made through the doorway, by tile: whole blocks and bars, in the order they were made. A mark's are taken back when the flight moves on.",
         limits: &[],
         files: &["src/doorway.rs"],
     },
@@ -504,7 +534,7 @@ mod tests {
         text += "The words: a **lane** is a line of work with its own pace; a **pass** is one piece of a lane's work, on the\n";
         text += "processor or the card; a **stage** is one step of the world's recipe (none yet); a **store** is something held.\n\n";
         let flight_line = match &flight {
-            Some((name, report)) => format!("The costs are the newest kept flight's, `kept logs/{name}`: {}.\n\n", report.lines().next().unwrap_or("").trim_start_matches("The flight: ")),
+            Some((name, report)) => format!("The costs are the newest kept flight's, at its first standing, `kept logs/{name}`: {}.\n\n", report.lines().next().unwrap_or("").trim_start_matches("The flight: ")),
             None => "No flight is kept yet, so no costs.\n\n".to_string(),
         };
         text += &flight_line;

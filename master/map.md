@@ -6,7 +6,7 @@ every build: change the list, never this file. In the game, the same map is live
 The words: a **lane** is a line of work with its own pace; a **pass** is one piece of a lane's work, on the
 processor or the card; a **stage** is one step of the world's recipe (none yet); a **store** is something held.
 
-The costs are the newest kept flight's, `kept logs/flight-1794487963.txt`: Incus Artus, build 118 (29a02df); the code committed.
+The costs are the newest kept flight's, at its first standing, `kept logs/flight-1794487963.txt`: Incus Artus, build 118 (29a02df); the code committed.
 
 ```mermaid
 flowchart TB
@@ -16,6 +16,7 @@ flowchart TB
   end
   subgraph lane_the_frame["the frame (once a frame)"]
     direction LR
+    pass_going_to_a_mark["going to a mark"]
     pass_flying["flying"]
     pass_laying_out_the_panel["laying out the panel"]
     pass_getting_the_picture["getting the picture"]
@@ -38,8 +39,14 @@ flowchart TB
   store_the_session_s_log[("the session's log")]
   store_the_export[("the export")]
   store_a_tile_s_columns[("a tile's columns")]
+  store_the_marks[("the marks")]
+  store_what_changed[("what changed")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
+  store_the_marks --> pass_going_to_a_mark
+  store_a_tile_s_columns --> pass_going_to_a_mark
+  pass_going_to_a_mark --> store_the_camera
+  pass_going_to_a_mark --> store_what_changed
   store_the_keys_held --> pass_flying
   pass_flying --> store_the_camera
   store_the_camera --> pass_laying_out_the_panel
@@ -52,6 +59,7 @@ flowchart TB
   pass_measuring --> store_the_clocks
   pass_measuring --> store_the_flight_s_report
   store_the_export --> pass_the_doorway
+  store_what_changed --> pass_the_doorway
   pass_the_doorway --> store_a_tile_s_columns
 ```
 
@@ -67,9 +75,9 @@ flowchart TB
 ### the frame
 
 - **Runs:** once a frame.
-- **What it is:** Each frame, its passes in order: the camera flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** flying, laying out the panel, getting the picture, the panel, handing the card its work, showing it and measuring.
-- **Switch** `INCUS_FLIGHT`: a measured flight: 5 s settling, 20 s measured uncapped with the panel hidden, a report, then quits.
+- **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
+- **Its passes, in order:** going to a mark, flying, laying out the panel, getting the picture, the panel, handing the card its work, showing it and measuring.
+- **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
 - **Switch** `WGPU_BACKEND`: the card's language (DirectX 12 unless set).
@@ -79,7 +87,7 @@ flowchart TB
 ### loading
 
 - **Runs:** as tiles are asked for.
-- **What it is:** The world, read a tile at a time through the doorway. Nothing in the game asks yet: the doorway's tests do, and the far cells' lane will (2.2).
+- **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
 - **Its passes, in order:** the doorway.
 - **Files:** src/doorway.rs.
 
@@ -92,6 +100,14 @@ flowchart TB
 - **Reads:** none. **Writes:** the keys held and the camera.
 - **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor not run.
 - **Files:** src/runner.rs and src/camera.rs.
+
+### going to a mark
+
+- **A pass** in the frame, on the processor.
+- **What it is:** At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter).
+- **Reads:** the marks and a tile's columns. **Writes:** the camera and what changed.
+- **Cost, last measured** (`kept logs/flight-1794487963.txt`): not measured.
+- **Files:** src/marks.rs and src/runner.rs.
 
 ### flying
 
@@ -152,8 +168,8 @@ flowchart TB
 ### the doorway
 
 - **A pass** in loading, on the processor.
-- **What it is:** Answers "what's here?" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs. The engine never opens a world file itself. Read-only.
-- **Reads:** the export. **Writes:** a tile's columns.
+- **What it is:** Answers "what's here?" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs; and what changed in it. The engine never opens a world file itself. The export is read-only.
+- **Reads:** the export and what changed. **Writes:** a tile's columns.
 - **Cost, last measured** (`kept logs/flight-1794487963.txt`): not measured.
 - **Files:** src/doorway.rs.
 
@@ -170,7 +186,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window and flying. **Read by:** laying out the panel.
+- **Written by:** hearing the window, going to a mark and flying. **Read by:** laying out the panel.
 - **Files:** src/camera.rs.
 
 ### the clocks
@@ -228,6 +244,20 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.
-- **Written by:** the doorway. **Read by:** none.
+- **Written by:** the doorway. **Read by:** going to a mark.
+- **Files:** src/doorway.rs.
+
+### the marks
+
+- **A store** on the disk.
+- **What it is:** The places every flight stands at, the same each time, data/marks.toml: where, how high, which way, fog, whose marks (near or far), and what's changed there first. The game starts at the first.
+- **Written by:** none. **Read by:** going to a mark.
+- **Files:** src/marks.rs.
+
+### what changed
+
+- **A store** on the processor.
+- **What it is:** The changes made through the doorway, by tile: whole blocks and bars, in the order they were made. A mark's are taken back when the flight moves on.
+- **Written by:** going to a mark. **Read by:** the doorway.
 - **Files:** src/doorway.rs.
 
