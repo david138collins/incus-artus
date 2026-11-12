@@ -2,29 +2,33 @@
 
 Where we've decided to go, in order, and where we are on the way. A living document: Counsel keeps it with David,
 Builder ticks a line with the commit or log that proved it, and ticked lines stay. A change of order is David's
-call, made here and recorded in the journal (`docs/decisions.md`, "The rebuild: after the Oracle").
+call, made here and recorded in the journal (`journal/docs/decisions.md`, "The rebuild: after the Oracle").
 
-Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 and 8), as David amended it.
+Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, parts 7 and 8), as David amended it.
 
 ---
 
 ## Where we are
 
-- **Working on:** Phase 2, *Restart*. 1.7's reading flight is flown (the bare plain's cost is spread; the sky's long
-  rays ruled out). Experiments 1, 2, 3, 4a
-  and 4b (`docs/experiments.md`) gave soft bricks (the blend stays) and light kept a cell at a time, which David
-  can't tell from rays ("in a blind test"), though at eye level light's cost is the near faces'. The references
-  from old are taken, the test world is exported whole for the new eye to read (5.2 billion columns in 0.11 GB,
-  checked against old's, kept on the laptop and the USB), and old is frozen (`old-final`, 7c809d3), kept for looking
-  at and reference. The Oracle, called early, answered before the first line (`vision/oracle-review.md`, second
-  part); David agreed its changes, amended by Builder and Counsel (`docs/decisions.md`, "Before the first line").
-  Next, 2.1: old packed into its own folder, the new project's skeleton, and the doorway.
+- **Working on:** Phase 2, *Restart*, step 2.1. Old is packed into `old\` and still runs there (its tests pass, and
+  the check flight matched 1.7's to within 0.3%); the journal is in `journal/`, found through
+  `journal/contents.md`. Next, Builder starts the new project's skeleton at the top of the folder: a window that
+  runs, the clock, a flying camera, and instruments that time the card a layer and a stage at a time.
+- **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
+  and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
+  light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
+  long rays. The references from old are taken, the test world is exported whole for the new eye to read (5.2
+  billion columns in 0.11 GB, checked against old's, kept on the laptop and the USB), and old is frozen
+  (`old-final`, 7c809d3), kept for looking at and reference. The Oracle, called early, answered before the first
+  line (`journal/vision/oracle-review.md`, second part); David agreed its changes, amended by Builder and Counsel
+  (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** nothing. 2.1's two questions are answered ("Yes to both": old in `old\`, the control room in
-  the game's panel).
+- **Waiting on David:** two small answers. His desktop "Play Incus Artus.bat" starts at the top of the folder, where
+  there's no game now: point it at `old\`? And do the new project's build numbers carry on from old's (116 next),
+  or start again?
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
-  what we learn for it as we go, in `vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
+  what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
 ---
 
@@ -46,10 +50,10 @@ flowchart LR
 
 ## Phase 0 · Decide the direction
 
-- [x] Builder's review of the software as it stands (`docs/review-2026-11-10.md`)
-- [x] The Oracle's review, after David answered its questions (`vision/oracle-review.md`)
+- [x] Builder's review of the software as it stands (`journal/docs/review-2026-11-10.md`)
+- [x] The Oracle's review, after David answered its questions (`journal/vision/oracle-review.md`)
 - [x] Rebuild from scratch, old Incus Artus as the reference; experiments first, in old
-      (`docs/decisions.md`, "The rebuild: after the Oracle", de53bb7)
+      (`journal/docs/decisions.md`, "The rebuild: after the Oracle", de53bb7)
 - [x] VS Code set up for Builder (1ab561e)
 - [ ] The spec cut by David (`master/spec.md`), alongside everything below
 
@@ -59,18 +63,18 @@ Each experiment's pass mark is written down before it flies.
 
 - [x] **1.1 The safety copy** (the Oracle's step 0)
   - [x] David's work that wasn't in git: blocks, textures, models, palettes, presets (1e3c21c)
-  - [x] `vision/`, `CLAUDE.md`, the dyno-audit skill (0216222)
+  - [x] `vision/` (now `journal/vision/`), `CLAUDE.md`, the dyno-audit skill (0216222)
   - [x] The logs the record cites, in `kept logs/`; `notes/` and `imgui.ini` kept out of git (a203cdd)
   - [x] Pushed to the private GitHub repository
   - [x] USB copy: `D:\Incus Artus Backups\Incus Artus 2026-11-11 before rebuild`
   - [x] Tagged `before-rebuild` (a203cdd)
   - [x] `Art/`'s new files and `For Claude/` kept off GitHub for now (David 2026-11-11: "Not yet"); both are
         on the USB copy
-- [x] **1.2 Experiment 1, the instruments** (both flights passed: `docs/experiments.md`)
+- [x] **1.2 Experiment 1, the instruments** (both flights passed: `journal/docs/experiments.md`)
   - [x] Flight headers say exactly what flew: every switch, the commit and whether it was clean, the card, the
         present mode (build 110, 090904f; flight A, `kept logs/dyno-1794414666.txt`)
   - [x] The card's time counts the work of making new ground (the lanes' clock; agrees with the build 104 trace:
-        `docs/experiments.md`, flight A)
+        `journal/docs/experiments.md`, flight A)
   - [x] Three standing marks, uncapped: on the ground at the spawn, beside the quarter-block build, a mountain
         top on a clear day (flight A: 5.9, 11.7 and 6.6 ms on the card standing)
   - [x] The choice of card restored; the marks flown once on the Intel card (restored in 090904f; flight B,
@@ -78,19 +82,19 @@ Each experiment's pass mark is written down before it flies.
   - *Gate:* David watches two flights; real baselines for the views that matter; the Intel card runs, or fails
     for a reason we can name
 - [x] **1.3 Experiments 3 and 4a:** the library's safety checks off; light switched off (build 111; flights C, D,
-      E in `kept logs/`; `docs/experiments.md`)
+      E in `kept logs/`; `journal/docs/experiments.md`)
   - *Gate:* two numbers: what the checks cost, and how much of each mark is light
   - The checks: unchecked, sight's march is 31 to 49% *slower* at the three marks (faster only on the light views);
     the world's rules about 15% faster a piece. The checks stay on.
   - Light (sky and shadows): 42% of the spawn mark, 17% of the mountain top and of the build, 25% of the route's
     median.
 - [x] **1.4 Experiment 2, one-cell far reads against today's blend** (builds 112 and 113; David's two looks,
-      `docs/experiments.md`)
+      `journal/docs/experiments.md`)
   - *Gate:* David's look. Decides the bricks' form (crisp: plain, 2.6 × the cells; soft: textures, 5.5 ×)
   - **Soft.** Blended is the look: crisp "doesn't look better", the in-between (smooth in height) "better than
     ziggurat lods but, its not better than blended" (David). Crisp stays a known fallback for a card short of memory.
 - [x] **1.5 Experiment 4b, light stored in the baked cells and looked up** (builds 114 and 115; flights C2 and H,
-      the light's view; `docs/experiments.md`)
+      the light's view; `journal/docs/experiments.md`)
   - *Gate:* what a lookup costs; David's look at light that steps
   - The lookup is almost free and found nearly everywhere far: the spawn 9% faster, the mountain top and the build 3%
     (at eye level light's cost is the near faces'). David on light that steps: "i don't think i could tell the
@@ -119,7 +123,7 @@ Each experiment's pass mark is written down before it flies.
 - [x] **1.7 The reading flight** (the Oracle's second part; David: "i agree on all counts"): the third mark with old's
       switches only, no code after `old-final`. The march split from light, and the layers turned off one at a time,
       to find where the bare plain's cost lives (9.51 ms before the build goes in, which adds about 2)
-      (flights I to N, f9e79bc, `kept logs/dyno-1794448108.txt` to `dyno-1794450518.txt`; `docs/experiments.md`)
+      (flights I to N, f9e79bc, `kept logs/dyno-1794448108.txt` to `dyno-1794450518.txt`; `journal/docs/experiments.md`)
   - *Gate:* the plain's cost placed in its parts, with the logs
   - The bare plain is 9.66 ms; the build adds 2.02. The cost is spread: the blocks 31%, light 21%, the finest layer
     20%, overlapping. The Oracle's guess, the long rays over the sky, is ruled out: four times the sky rays made it 4%
@@ -139,7 +143,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 - [ ] **2.1 Pack, the skeleton, and the doorway**
   - [x] Old moves to `old\`, with its own assets and its own build folder, and still runs
         (daf4e2c, IntelliJ's files with it in c0def46; its tests pass from there, 414; the check flight,
-        `kept logs/dyno-1794475773.txt`, within 0.3% of 1.7's I at all three marks; `docs/experiments.md`)
+        `kept logs/dyno-1794475773.txt`, within 0.3% of 1.7's I at all three marks; `journal/docs/experiments.md`)
   - [ ] `docs/` and `vision/` become `journal/`, with a contents page; `master/` on top; `CLAUDE.md` points at
         `master/`; memories trimmed to habits and warnings
   - [ ] The new project: a window that runs, the clock, a flying camera, the instruments (the card timed a layer
@@ -171,7 +175,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     they pass where rays missed. Both pass and triangles are over 1 ms cheaper at the worst mark: David's call
   - *Gate:* the rule above; David's eye for pops and seams; the scatter's curve (cost should follow the screen)
 - [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
-      fresh, then Counsel's brief, `vision/oracle-return.md`. The design is fixed here, or changed
+      fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - *Gate:* David's eye, on its own terms, the basic way kept; under 4.2 ms at the 99th percentile on the laptop,
     on the flight and at every mark; the Intel card's numbers recorded. **David walks old's world through
@@ -209,7 +213,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 |---|---|
 | `Art/`'s new files and `For Claude/` online? "Not yet" for now | David, any time |
 | ~~Far cells crisp or soft (one cell read, or eight blended)?~~ | Answered at 1.4: soft |
-| The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `docs/decisions.md`). Where the engine meets it is decided: the doorway (2.1), with the exported test world behind it first. Left open: the tablet's own layout | 3.1 |
+| The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `journal/docs/decisions.md`). Where the engine meets it is decided: the doorway (2.1), with the exported test world behind it first. Left open: the tablet's own layout | 3.1 |
 | Seasons: a re-texture (a named field the look reads), a re-block (changes through the doorway), or both. Both are kept possible | Later; nothing to decide now |
 | Digging and placing before the fork? Decided no: read-only until then | Answered 2026-11-11 |
 | ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
@@ -228,7 +232,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 - **A GTX 980 Ti at 1080p:** a smooth 60, loosely. "If you have one, you should be able to play this game."
   Not a floor to design to.
 - Room left in the frame for people, animals, battles of up to 800 figures, and the simulation on the processor.
-- **Today's gap** (experiment 1, build 110, `docs/experiments.md`): on the laptop, standing, the card takes 1.4
+- **Today's gap** (experiment 1, build 110, `journal/docs/experiments.md`): on the laptop, standing, the card takes 1.4
   times the budget at the spawn, 1.6 times on the mountain top and 2.8 times beside the quarter-block build; on
   the route, the worst frames (99th percentile, new ground counted) take 13.9 ms, 3.3 times. The Intel card is 2.5
   to 3.8 times slower than the NVIDIA, standing.

@@ -41,10 +41,10 @@ in flight (the compiler's choices on a big shader are a lottery). So say how to 
 
 ## Phase 1: the code and the measurements, nothing else
 
-Do not open `docs/`, `vision/` or `notes/` in this phase. Write your Phase 1 list into the report before
+Do not open `journal/docs/`, `journal/vision/` or `notes/` in this phase. Write your Phase 1 list into the report before
 you start Phase 2.
 
-**Read** (in `C:\Users\David\Desktop\Incus Artus`):
+**Read** (in `C:\Users\David\Desktop\Incus Artus\old`, old Incus Artus, packed there on 2026-11-12):
 - `src/sight/march.wgsl`: the drawing's compute passes. `start_pass`, `march_hit` (the march: near blocks,
   then far cells), `listed_staged` (lists of live pixels for indirect dispatch), `faces_staged` and
   `face_light_staged` (light per block face near the eye), `shade_staged` (each listed pixel's sun shadow
@@ -124,8 +124,8 @@ switch); your guess at the win, with confidence. Rank by expected win times conf
 
 ## Phase 2: their plan
 
-Now read `docs/dyno.md` (the plan, what was tried and dropped, "Ruled out") and the dyno entries in
-`docs/decisions.md`. Then:
+Now read `journal/docs/dyno.md` (the plan, what was tried and dropped, "Ruled out") and the dyno entries in
+`journal/docs/decisions.md`. Then:
 - Mark each of your leads: **new**, **already planned** (where), **already tried** (and its result), or
   **ruled out** (by which rule). Keep the new ones at the top.
 - Critique the plan: is the order right (the near walk and the far march as separate passes; then texture
@@ -134,7 +134,7 @@ Now read `docs/dyno.md` (the plan, what was tried and dropped, "Ruled out") and 
 
 ## The report
 
-Write it to `vision/dyno-audit-<date>.md`, at most about 400 lines:
+Write it to `journal/vision/dyno-audit-<date>.md`, at most about 400 lines:
 1. **For David,** five lines in plain words, no jargon: the biggest few things you found.
 2. **The leads,** a table: rank, lead, kind (same picture / trade), status (new / planned / tried / ruled
    out), the guessed win and confidence, the flight that prices it.

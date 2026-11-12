@@ -55,7 +55,7 @@ With the repaired instruments (experiment 1), sight on the card in ms, median, s
 | C2, `kept logs/dyno-1794427178.txt` | 114 | 4.07 / 9.71 | 5.88 | 6.59 | 11.68 |
 | B, the Intel card, `kept logs/dyno-1794416695.txt` | 110 | (marks only) | 22.69 | 20.57 | 29.49 |
 
-The rest of the record (light off, unchecked, crisp, the in-between, the light kept) is in `docs/experiments.md`, with
+The rest of the record (light off, unchecked, crisp, the in-between, the light kept) is in `journal/docs/experiments.md`, with
 every log in `kept logs/`.
 
 ## How the new engine is checked against them

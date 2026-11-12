@@ -1,23 +1,23 @@
 # For the Oracle's return  [KEPT BY COUNSEL, from 2026-11-11]
 
 The Oracle asked to be called back after experiment 6 (`master/plan.md`, step 2.3: the fork), "with the flight logs
-and your own look". This file gathers what we learn from its review (`vision/oracle-review.md`) to that day.
+and your own look". This file gathers what we learn from its review (`journal/vision/oracle-review.md`) to that day.
 
 Counsel adds to it after each experiment and each decision of David's. It is sent as it stands at the fork, then left
 as it was, as part of the journal.
 
-**For the Oracle, when you read this:** read `master/` first, then this, then `docs/experiments.md` (each experiment's
+**For the Oracle, when you read this:** read `master/` first, then this, then `journal/docs/experiments.md` (each experiment's
 pass mark, written before it flew, and its results), then the logs it cites in `kept logs/`.
 
 **Called early, 2026-11-11.** David called the Oracle back before 2.1, with this file as it stood after Phase 1. Its
-answer is the second part of `vision/oracle-review.md`, "before the first line". It answered questions 1, 3, 4, 6 and
+answer is the second part of `journal/vision/oracle-review.md`, "before the first line". It answered questions 1, 3, 4, 6 and
 7 below and corrected question 2. This file goes on gathering for the fork after experiment 6, as before.
 
 ---
 
 ## 1. What David decided after your review
 
-All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "Where things are kept" under Platform
+All in his words in `journal/docs/decisions.md`: "The rebuild: after the Oracle", and "Where things are kept" under Platform
 & Workflow.
 
 - **A rebuild from scratch, with old as the reference, step by step.** "to create is human. to duplicate is divine.
@@ -60,7 +60,7 @@ All in his words in `docs/decisions.md`: "The rebuild: after the Oracle", and "W
     of its own.
 - **Where things are kept:**
   - `master/` (map, plan, spec) is what's true now, read first;
-  - `docs/` and `vision/` are the journal;
+  - `docs/` and `vision/` are the journal (since 2.1, under `journal/`);
   - the agents' memory holds only habits and warnings.
 - **Online:** your step 0 is ticked. The private GitHub repository is connected and pushed, and there's a USB copy
   tagged `before-rebuild`. `Art/`'s new files and `For Claude/` stay off GitHub for now.
@@ -86,7 +86,7 @@ The plan is `master/plan.md`.
   - World generation is rebuilt later to write the same format, with the export as its check, column by column.
 - **Your step 4's picture gate is dropped.** "Pictures against old's golden references ... within a stated
   tolerance" becomes David's eye on its own terms, the basic way kept (above).
-- **Your second part's changes, taken (2026-11-11).** David: "i agree on all counts" (`docs/decisions.md`, "Before
+- **Your second part's changes, taken (2026-11-11).** David: "i agree on all counts" (`journal/docs/decisions.md`, "Before
   the first line"). The changes:
   - the reading flight in old (1.7, switches only);
   - the doorway at 2.1, read-only until the fork;
@@ -128,6 +128,7 @@ The plan is `master/plan.md`.
 | 4a | Light is about half the card near the ground | 42% at the spawn, 17% at the mountain top, 17% beside the build, 25% of the route's median | 4b goes ahead. But light alone won't close the gap where it's widest |
 | 8, early | The tablet at 1 to 4 GB a world | The whole test world exported as columns: each column's ground, water and profile number, plus the world's 7 profiles. There are no caves or edits in this world. **5.2 billion columns in 0.11 GB**, 0.02 bytes a column (a sea tile's median 780 bytes, the largest land tile 74 KB, 0.28 bytes a column), written in 8 minutes on 22 threads. Read back one tile in 50: 104.6 million columns and 1,029,963 whole profiles, none differing from old's | The columns are a small part of your 1 to 4 GB. What's left to size is the summed levels, which this doesn't hold, and caves' boxes, which this world doesn't have (question 7) |
 | 1.7, reading | Your second part: the bare plain's cost is the coarse layers' long rays over the sky and along the horizon | Flights I to N (switches only, old as tagged). The plain is **9.66 ms**, and the build adds 2.02. Each switch alone: the blocks off −31%, light off −21%, the finest layer at 4 × 4 −20%, the coarsest at 4 × 4 −4% (all overlapping). The steps' view shows long rays over the open horizon, but sky is marched only in the coarsest layer, and four times its rays made the plain cheaper. Found on the way: the coarsest layer at 4 × 4 was cheaper than 8 × 8 at all three standing marks (16% at the mountain top) | Your guess ruled out. The cost is spread, and the rest isn't placed: old has one clock for the whole pass. The plain goes into both eyes' marks, and the new engine times a layer and a stage at a time (question 8). The coarsest layer's size becomes a dial to measure |
+| 2.1, the pack's check | (Ours, not yours: old moved into `old\` should fly as it did) | Flight I again from `old\`, a day later: the plain 9.63, the spawn 5.94, the mountain top 6.61 ms (I: 9.66, 5.96, 6.62), all within 0.3%; the build's 169 placings changed 0 cells | The pack held. And on this one repeat, a standing mark came back within 0.3%, so a difference of a few percent between switches is likely real, not noise |
 | 4b | The lane lights each cell once, "about a thousandth of the work". If the lookup costs as much as the rays, light moves into the hit record's read or the bricks' layout is reconsidered | The lookup works and is cheap: the sweep takes 0.00 to 0.01 ms a frame, and the kept light is read across nearly all the far land. But the marks come down only **9%, 3% and 3%** (4a's ceiling: 42, 17, 17), and the route's median is 3% slower. The light's view shows why: the near block faces, lit per face every frame, fill most of every eye-level view | Neither of your two readings. The far half of the light lane holds as drawn, for the far view; David can't tell it from the rays "in a blind test". At eye level light's cost is the near faces'. Your 4.2 has them read light from the air cell in front, which 4b didn't try; experiment 6 does ("light looked up") |
 
 ### Today's gap
@@ -305,7 +306,9 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 - [x] Called early: your second part, "before the first line"; its changes taken (David: "i agree on all counts")
 - [x] The reading flight in old (1.7): the bare plain is 9.66 ms, spread across the blocks, light and the finest
       layer; your sky guess ruled out; the rest unplaced by old's one clock (question 8)
-- [ ] The packing, the skeleton and the doorway (2.1)
+- [x] Old packed into `old\` (2.1): its tests pass there, and the check flight matched I within 0.3%. The journal
+      moved into `journal/` (once `docs/` and `vision/`)
+- [ ] The skeleton and the doorway (2.1)
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle
 
@@ -314,10 +317,10 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
 A draft for David to edit when the time comes:
 
 > Oracle, we're back at the fork you named: the new eye has drawn the old world near and far, with numbers from both
-> of the laptop's cards. Please read `master/` first, then `vision/oracle-return.md` (what we learned since your
-> review, and our questions), then `docs/experiments.md` and the logs it cites. Then tell me: is the design right, or
+> of the laptop's cards. Please read `master/` first, then `journal/vision/oracle-return.md` (what we learned since your
+> review, and our questions), then `journal/docs/experiments.md` and the logs it cites. Then tell me: is the design right, or
 > should it change, and how? First reply with your understanding and your questions; when I've answered, write your
-> review to `[a new file in vision/, named by David]`.
+> review to `[a new file in journal/vision/, named by David]`.
 
 Whether to send it to the same Oracle session or a fresh one is David's call at the time. A fresh one reads with no
 memory of the first review except through these files, which is what the Oracle asked for ("I'll read `master/` and

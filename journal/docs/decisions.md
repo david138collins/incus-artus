@@ -1068,6 +1068,11 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED 2026-11-11] Old's place, and the control room** (David, to Counsel's two picks: "Yes to both").
   - Old lives in `old\` inside this folder, with its own assets and its own build folder, and still runs.
   - The control room, the live map, is a page in the game's own panel (egui, as the editor is).
+- **[DECIDED 2026-11-12] IntelliJ's files go with old** (David, to Builder: "go ahead and do the test, and pack away
+  any intellij stuff with old incus"). `.idea` and `Incus Artus.iml` moved into `old\` (c0def46), so old opens in
+  IntelliJ as its own project; the new project uses VS Code. The test was the pack's check flight, which held
+  (`journal/docs/experiments.md`). The journal moved the same day: `docs/` and `vision/` into `journal/` as they
+  were, with `journal/contents.md` (plan 2.1, as the fresh-start proposal set out).
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
