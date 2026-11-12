@@ -551,3 +551,30 @@ The logs, in order: I `dyno-1794448108.txt`, J `dyno-1794448613.txt`, K `dyno-17
 mountain top, 3 to 4% at the plain and the spawn. That's despite marching four times the rays at that level. At these
 views the 8 × 8 layer and its hand-over to the 4 × 4 cost more than they save. The route wasn't flown this way. For
 the new eye, whose layers stand alone, the coarsest layer's size is a dial to measure, not assume.
+
+
+## The pack's check flight: the same game from its new folder  *(plan 2.1)*
+
+David's go: "go ahead and do the test, and pack away any intellij stuff with old incus" (2026-11-12). The pack
+(daf4e2c) moved old Incus Artus into `old/` with its own build folder, worlds, bakes and logs. Its code changed in two
+places only, so it builds from there: `old/Cargo.toml` is its own workspace, and `old/build.rs` finds git from below
+the repository's top. Neither touches what the game does.
+
+### What flies
+
+One flight, I again, from `old\`: the marks alone (`INCUS_DYNO=baked INCUS_DYNO_LAPS=0`), the test world and the
+dyno's presets, on the 5070 Ti in "NVIDIA GPU only". The bare plain stands at the build mark with
+`"kept logs/events-1794341728 unplaced.log"` (old's own copy, `old/kept logs/`).
+
+### The pass mark (written before the flight)
+
+**The pack held if:**
+- all three marks are within 2% of I (sight on the card, standing, median): the bare plain 9.66, the spawn 5.96, the
+  mountain top 6.62 ms;
+- the plain still says "169 placings replayed, 0 cells changed";
+- the header names a commit after the pack with no changes; and the log has no "Path not found", so the shaders, the
+  world, its bakes and the presets were all read from `old\`.
+
+**If a mark is off by more than 2%,** it flies once more before anything is read into it: a single flight can miss by
+that much (the spawn wasn't whole after the 180 s cap in I). **If it's off again,** something the move changed is being
+read differently, and it's found before the new project starts.
