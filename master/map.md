@@ -20,7 +20,8 @@ flowchart TB
     pass_laying_out_the_panel["laying out the panel"]
     pass_getting_the_picture["getting the picture"]
     pass_the_panel["the panel"]
-    pass_handing_over["handing over"]
+    pass_handing_the_card_its_work["handing the card its work"]
+    pass_showing_it["showing it"]
     pass_measuring["measuring"]
   end
   store_the_keys_held[("the keys held")]
@@ -41,7 +42,7 @@ flowchart TB
   pass_laying_out_the_panel --> store_the_panel_s_shapes
   store_the_panel_s_shapes --> pass_the_panel
   pass_the_panel --> store_the_screen_s_picture
-  store_the_screen_s_picture --> pass_handing_over
+  store_the_screen_s_picture --> pass_showing_it
   pass_measuring --> store_the_clocks
   pass_measuring --> store_the_flight_s_report
 ```
@@ -59,7 +60,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** flying, laying out the panel, getting the picture, the panel, handing over and measuring.
+- **Its passes, in order:** flying, laying out the panel, getting the picture, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: 5 s settling, 20 s measured uncapped with the panel hidden, a report, then quits.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
@@ -109,18 +110,26 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794487642.txt`): recording it on the processor median 0.004, 95th 0.014, 99th 0.157, worst 0.294; on the card median 0.018, 95th 0.022, 99th 0.041, worst 0.294.
 - **Files:** src/runner.rs.
 
-### handing over
+### handing the card its work
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The frame's work handed to the card, and the picture to the screen.
+- **What it is:** The frame's work for the card finished and handed to it, with the card's clock asked to copy its times out.
+- **Reads:** none. **Writes:** none.
+- **Cost, last measured** (`kept logs/flight-1794487642.txt`): not measured.
+- **Files:** src/runner.rs.
+
+### showing it
+
+- **A pass** in the frame, on the processor.
+- **What it is:** The picture handed to the screen, waited for if the screen's queue is full (Windows lets the frame run only so far ahead of what the card and the screen have taken).
 - **Reads:** the screen's picture. **Writes:** none.
-- **Cost, last measured** (`kept logs/flight-1794487642.txt`): on the processor median 0.310, 95th 0.470, 99th 0.525, worst 2.202.
+- **Cost, last measured** (`kept logs/flight-1794487642.txt`): not measured.
 - **Files:** src/runner.rs.
 
 ### measuring
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The frame's length, and the card's times as they come back; on a flight, kept for its report.
+- **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report.
 - **Reads:** none. **Writes:** the clocks and the flight's report.
 - **Cost, last measured** (`kept logs/flight-1794487642.txt`): on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.303.
 - **Files:** src/runner.rs, src/clocks.rs and src/flight.rs.
@@ -168,7 +177,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The picture the card draws on and the screen shows, the window's size.
-- **Written by:** the panel. **Read by:** handing over.
+- **Written by:** the panel. **Read by:** showing it.
 - **Files:** src/card.rs.
 
 ### the flight's report

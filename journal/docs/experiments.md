@@ -698,3 +698,34 @@ Each pass on the processor, median ms: flying 0.000, laying out the panel 0.009,
   picture to the screen, waited for on the processor. About 0.09 ms falls outside every pass: the window's own round
   trip between frames, which no pass holds yet.
 - **The map's costs** are filled from this flight (`master/map.md`).
+
+
+## Handing over, split in two: where the empty frame waits  *(plan 2.1)*
+
+David: "go ahead and split it, so later on we can see it and tune it if it ever becomes something that can be
+improved" (2026-11-12). Build 117's flight put 0.31 of the empty frame's 0.42 ms in "handing over". Build 118 splits
+it into old's two names for its parts: **handing the card its work** (the frame's work finished and handed to the card)
+and **showing it** (the picture handed to the screen). The card's times are now read back in "measuring", which
+already said it did that.
+
+### What flies
+
+Build 118, from the top folder, as before: `INCUS_FLIGHT=1`, 20 s measured uncapped, the panel hidden and the editor
+closed, on the 5070 Ti in "NVIDIA GPU only".
+
+### The pass mark (written before the flight)
+
+**Good to read if** the header names build 118 with the code committed, and both new passes have their lines.
+
+**Builder's guess** *[estimate, medium]*: most of the 0.31 ms is in **showing it**. Windows lets the processor run only a
+frame or two ahead of what the card and the screen have taken, and with an empty frame it gets there almost at once.
+Handing the card its work should be well under 0.1 ms. The frame should stay within 10% of 0.420 ms.
+
+**What each result means:**
+- **Showing it holds most of it:** it's the hand-over's own pace, the speed limit of handing pictures to the screen. Nothing
+  to tune while the frame is empty. It's the place to look when the frame's lead over the screen is tuned (smoothness
+  against lag), with David's eye, once the world is drawn.
+- **Handing the card its work holds most of it:** the processor is working, not waiting, in finishing and handing over
+  the card's work. That's worth a look before the eye adds its passes to it.
+- **Split between them, or the frame moved by more than 10%:** written down as it is, and flown once more before it's
+  read into.

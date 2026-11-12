@@ -58,7 +58,8 @@ pub enum PassId {
     LayingOutThePanel,
     GettingThePicture,
     ThePanel,
-    HandingOver,
+    HandingTheCardItsWork,
+    ShowingIt,
     Measuring,
 }
 
@@ -121,7 +122,7 @@ pub const LANES: [Lane; 2] = [
     },
 ];
 
-pub const PASSES: [Pass; 7] = [
+pub const PASSES: [Pass; 8] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -177,12 +178,25 @@ pub const PASSES: [Pass; 7] = [
         switches: &[],
         files: &["src/runner.rs"],
     },
+    // Handing over, in its two parts (old's names), so a wait in either shows which it was in [David, 2026-11-12: "go ahead
+    // and split it, so later on we can see it and tune it if it ever becomes something that can be improved"].
     Pass {
-        id: PassId::HandingOver,
-        name: "handing over",
+        id: PassId::HandingTheCardItsWork,
+        name: "handing the card its work",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The frame's work handed to the card, and the picture to the screen.",
+        what: "The frame's work for the card finished and handed to it, with the card's clock asked to copy its times out.",
+        reads: &[],
+        writes: &[],
+        switches: &[],
+        files: &["src/runner.rs"],
+    },
+    Pass {
+        id: PassId::ShowingIt,
+        name: "showing it",
+        lane: LaneId::Frame,
+        on: Where::Processor,
+        what: "The picture handed to the screen, waited for if the screen's queue is full (Windows lets the frame run only so far ahead of what the card and the screen have taken).",
         reads: &[StoreId::ScreenPicture],
         writes: &[],
         switches: &[],
@@ -193,7 +207,7 @@ pub const PASSES: [Pass; 7] = [
         name: "measuring",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The frame's length, and the card's times as they come back; on a flight, kept for its report.",
+        what: "The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report.",
         reads: &[],
         writes: &[StoreId::Clocks, StoreId::FlightReport],
         switches: &[],

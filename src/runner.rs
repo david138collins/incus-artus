@@ -179,7 +179,8 @@ impl Runner {
                 PassId::LayingOutThePanel => self.laying_out_the_panel(&mut work),
                 PassId::GettingThePicture => self.getting_the_picture(&mut work),
                 PassId::ThePanel => self.the_panel(&mut work),
-                PassId::HandingOver => self.handing_over(&mut work),
+                PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
+                PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
                 PassId::HearingTheWindow => unreachable!("hearing the window is the window's pass, not the frame's"),
             };
@@ -268,18 +269,23 @@ impl Runner {
         true
     }
 
-    fn handing_over(&mut self, work: &mut FrameWork) -> bool {
+    fn handing_the_card_its_work(&mut self, work: &mut FrameWork) -> bool {
         let Some(running) = &mut self.running else { return false };
-        let (Some(texture), Some(mut encoder)) = (work.texture.take(), work.encoder.take()) else { return false };
+        let Some(mut encoder) = work.encoder.take() else { return false };
         if let Some(clock) = &running.card_clock {
             clock.resolve(&mut encoder);
         }
         work.commands.push(encoder.finish());
         running.card.queue.submit(work.commands.drain(..));
-        work.card_frames = running.card_clock.as_mut().map(|clock| clock.after_submit(&running.card.device)).unwrap_or_default();
         for id in running.to_free.drain(..) {
             running.egui_renderer.free_texture(&id);
         }
+        true
+    }
+
+    fn showing_it(&mut self, work: &mut FrameWork) -> bool {
+        let Some(running) = &mut self.running else { return false };
+        let Some(texture) = work.texture.take() else { return false };
         running.window.pre_present_notify();
         running.card.queue.present(texture);
         true
@@ -288,6 +294,10 @@ impl Runner {
     fn measuring(&mut self, work: &mut FrameWork, event_loop: &ActiveEventLoop) -> bool {
         let shown = Instant::now();
         let frame_ms = self.frame_clock.shown(shown);
+        // The card's times, read back from frames it has finished (this frame's asked for, never waited on).
+        if let Some(running) = &mut self.running {
+            work.card_frames = running.card_clock.as_mut().map(|clock| clock.after_submit(&running.card.device)).unwrap_or_default();
+        }
         let Some(flight) = &mut self.flight else { return true };
         flight.record(shown, frame_ms, std::mem::take(&mut work.card_frames));
         if flight.finished(shown)
