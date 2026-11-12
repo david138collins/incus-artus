@@ -55,7 +55,7 @@ struct Camera {
     daylight: vec4<f32>,
     // The world's water: its colour as light, and how fast it dims what's seen through it (a block's worth).
     water: vec4<f32>,
-    // The far bricks' atlas (change 1): its size in texels (1s while there's none).
+    // The far bricks' atlas (change 1): xyz its size in texels (1s while there's none), w a brick's texels a side.
     atlas: vec4<f32>,
 }
 
@@ -249,8 +249,6 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
 }
 
 const NO_SLOT: u32 = 0xFFFFFFFFu;
-// A brick's texels a side in the atlas, its border included.
-const SIDE: f32 = 9.0;
 
 // The eight cells round `p` at `level` blended by the texture hardware (change 1, the spread way). The four columns'
 // bands are read first, as the code's blend reads them (a column not summed: unknown); where the bricks can't answer
@@ -278,7 +276,7 @@ fn blend_soft(level: i32, p: vec3<f32>) -> Look {
     if (slot == NO_SLOT) {
         return blend(level, p);
     }
-    let origin = vec3<f32>(f32(slot & 0xFFu), f32((slot >> 8u) & 0xFFu), f32(slot >> 16u)) * SIDE;
+    let origin = vec3<f32>(f32(slot & 0xFFu), f32((slot >> 8u) & 0xFFu), f32(slot >> 16u)) * camera.atlas.w;
     let local = vec3<f32>(f32(u32(x) & ((1u << wide) - 1u)), f32(u32(y) & ((1u << wide) - 1u)), f32(u32(base.z) & ((1u << tall) - 1u)));
     let at = (origin + local + f + 0.5) / camera.atlas.xyz;
     // How solid and how watery, at every step; the colour and faces only where something's there.

@@ -4,9 +4,10 @@
 //! - **Each cell column's band** (`entries`): its lowest kept cell and how many, as old kept it, or "not summed yet".
 //!   Below the band every cell is solid with no face, above it empty (`far::CellColumn`).
 //! - **The cells of the bands, in bricks** (`pool`): a brick is 8 × 8 cell columns, 8 cells tall, where the level is
-//!   that big. From cells of 256 up to 1,024 a brick stays within its region, so a region's arrival makes its bricks
-//!   whole: 4 × 4 at 256, 2 × 2 at 512, 1 at 1,024. A brick is found by arithmetic, its place in the level's index
-//!   (`index`), and a cell by its place in the brick. Only bricks holding some band are made.
+//!   that big (or 4 or 2 a side, chosen at launch: plan 2.2, step 3, `brick_side`). A brick stays within its region,
+//!   so a region's arrival makes its bricks whole: at 8, 4 × 4 at 256, 2 × 2 at 512, 1 at 1,024. A brick is found by
+//!   arithmetic, its place in the level's index (`index`), and a cell by its place in the brick. Only bricks holding
+//!   some band are made.
 //!
 //! The regions are summed on the loading lane (`far::Lane`), each brought here as it comes and put on the card at once,
 //! so the far view sharpens in live. The levels over 1,024 are made as soon as the regions under a cell are all in.
@@ -26,6 +27,15 @@ pub const TABLE: usize = 12;
 pub const NOT_SUMMED: u32 = 0xFFFF_0000;
 /// No brick at a place in the index.
 pub const NO_BRICK: u32 = u32::MAX;
+
+/// A brick's side in cells: 8, or 4 or 2 at launch for measuring (`INCUS_FAR_BRICK`; plan 2.2, step 3: smaller bricks
+/// hold less beside the bands, so the card holds less).
+pub fn brick_side() -> i32 {
+    match std::env::var("INCUS_FAR_BRICK").ok().and_then(|s| s.parse().ok()) {
+        Some(side @ (2 | 4 | 8)) => side,
+        _ => 8,
+    }
+}
 
 /// A level laid over the map: its columns, how tall it is, its bricks' shape, and where its columns and bricks are kept.
 #[derive(Clone, Copy, Debug)]
@@ -65,8 +75,9 @@ impl Level {
     }
 }
 
-/// The levels laid over a map whose regions run `regions` (least region, north and east, and how many across).
-pub fn levels(regions: ([i32; 2], i32), height: i32) -> Vec<Level> {
+/// The levels laid over a map whose regions run `regions` (least region, north and east, and how many across), in bricks
+/// `side` cells a side.
+pub fn levels(regions: ([i32; 2], i32), height: i32, side: i32) -> Vec<Level> {
     let (from, across) = regions;
     let (mut entries_at, mut index_at) = (0u32, 0u32);
     (FIRST..=TOP)
@@ -81,8 +92,8 @@ pub fn levels(regions: ([i32; 2], i32), height: i32) -> Vec<Level> {
             };
             let size = 1 << level;
             let up = (height + size - 1) / size;
-            let wide = if level <= REGION { 8.min(1 << (REGION - level)) } else { 8 };
-            let tall = 8.min(up);
+            let wide = if level <= REGION { side.min(1 << (REGION - level)) } else { side };
+            let tall = side.min(up);
             let bricks = (across + wide - 1) / wide;
             let bricks_up = (up + tall - 1) / tall;
             let made = Level { level, from, across, up, wide, tall, bricks, bricks_up, entries_at, index_at };
@@ -175,6 +186,8 @@ const FIRST_POOL: u64 = (128 << 20) / CELL_BYTES;
 
 /// The far bricks on the card, and what's kept here to make the levels over 1,024 as their regions come in.
 pub struct Store {
+    /// A brick's side in cells.
+    pub side: i32,
     pub levels: Vec<Level>,
     pub table: wgpu::Buffer,
     pub entries: wgpu::Buffer,
@@ -197,8 +210,8 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, regions: ([i32; 2], i32), height: i32) -> Self {
-        let levels = levels(regions, height);
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, regions: ([i32; 2], i32), height: i32, side: i32) -> Self {
+        let levels = levels(regions, height, side);
         let table = table(&levels);
         let entries_count = levels.last().map_or(0, |l| l.entries_at + (l.across * l.across) as u32) as u64;
         let index_count = levels.last().map_or(0, |l| l.index_at + (l.bricks * l.bricks * l.bricks_up) as u32) as u64;
@@ -218,7 +231,7 @@ impl Store {
             (FIRST_POOL * CELL_BYTES) >> 20
         );
         let kept = crate::atlas::Kept::new(&levels);
-        Self { kept, levels, table: table_buffer, entries, index, pool, capacity: FIRST_POOL, used: 0, generation: 0, tops: HashMap::new(), upper: vec![HashMap::new(); TOP - REGION], regions_in: 0, highest: 0.0, bricks: 0 }
+        Self { side, kept, levels, table: table_buffer, entries, index, pool, capacity: FIRST_POOL, used: 0, generation: 0, tops: HashMap::new(), upper: vec![HashMap::new(); TOP - REGION], regions_in: 0, highest: 0.0, bricks: 0 }
     }
 
     /// The pool's bytes in use, and its size.
@@ -366,7 +379,7 @@ mod tests {
     #[test]
     fn edge_bricks_stay_in_their_rows() {
         let doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
-        let levels = levels(regions_of(&doorway), doorway.height());
+        let levels: Vec<Level> = [2, 4, 8].into_iter().flat_map(|side| levels(regions_of(&doorway), doorway.height(), side)).collect();
         let empty = CellColumn::default();
         for l in &levels {
             let end = l.entries_at + (l.across * l.across) as u32;
@@ -387,13 +400,19 @@ mod tests {
     /// The pass mark (plan 2.2, step 2a): cells read through the bricks on the card, at every level, are the far cells
     /// as summed (step 1's), in their compact form: in their bands, under them (solid), over them (empty), in regions not
     /// summed (unknown), and past the levels (past the map). Four regions round the spawn put on the card, so the first
-    /// level over 1,024 is made for them and the one over that isn't.
+    /// level over 1,024 is made for them and the one over that isn't. At each brick side (plan 2.2, step 3).
     #[test]
     fn the_far_bricks_read_back_as_the_far_cells() {
+        for side in [2, 4, 8] {
+            reads_back(side);
+        }
+    }
+
+    fn reads_back(side: i32) {
         let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
         let colours = FarColours::load(&mut doorway).unwrap();
         let (device, queue) = card();
-        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height());
+        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), side);
         let summed: Vec<([i32; 2], Vec<Vec<CellColumn>>)> = [[0, 0], [1, 0], [0, 1], [1, 1]].iter().map(|r| (*r, region(&doorway, &colours, *r).unwrap())).collect();
         for (r, columns) in &summed {
             store.put_region(&device, &queue, *r, columns);
@@ -497,7 +516,7 @@ fn test_cells(@builtin(global_invocation_id) id: vec3<u32>) {
         device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
         let got: Vec<[u32; 4]> = readback.slice(..).get_mapped_range().unwrap().as_chunks::<16>().0.iter().map(|b| [0, 1, 2, 3].map(|k| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]))).collect();
         let differ: Vec<usize> = (0..asks.len()).filter(|&k| got[k] != wanted[k]).collect();
-        eprintln!("The far bricks: {} cells read back through the bricks on the card ({} bricks, {:.1} MB of cells for four regions), {} not as summed", asks.len(), store.bricks, store.pool_bytes().0 as f64 / 1e6, differ.len());
+        eprintln!("The far bricks of {side}: {} cells read back through the bricks on the card ({} bricks, {:.1} MB of cells for four regions), {} not as summed", asks.len(), store.bricks, store.pool_bytes().0 as f64 / 1e6, differ.len());
         if let Some(&k) = differ.first() {
             panic!("{} cells differ; the first, {:?} (level, north, east, up): the card read {:x?}, the far cells hold {:x?}", differ.len(), asks[k], got[k], wanted[k]);
         }
@@ -519,7 +538,7 @@ mod whole_world {
     fn the_whole_world_s_bricks() {
         let doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
         let (from, across) = regions_of(&doorway);
-        let levels = levels((from, across), doorway.height());
+        let levels = levels((from, across), doorway.height(), 8);
         let next = AtomicUsize::new(0);
         let totals = Mutex::new(vec![(0usize, 0u64); levels.len()]);
         std::thread::scope(|scope| {
@@ -549,5 +568,80 @@ mod whole_world {
             eprintln!("cells of {:>5}: {bricks:>7} bricks, {:>7.1} MB", 1 << (FIRST + l), *bytes as f64 / 1e6);
         }
         eprintln!("all, 32 to 1,024: {} bricks, {:.1} MB", totals.iter().map(|t| t.0).sum::<usize>(), totals.iter().map(|t| t.1).sum::<u64>() as f64 / 1e6);
+    }
+
+    /// Bricks of other sizes counted over the whole world, levels 32 to 1,024 (where nearly all of it is), before any are
+    /// built (plan 2.2, step 3): for each side, the bricks the bands touch, the pool's cells (16 bytes, a whole brick
+    /// each), the atlas's texels (its side and a border, 16 bytes), and the index (4 bytes a brick place). A measure, run
+    /// when asked: `cargo test --release bricks_of_each_size -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn bricks_of_each_size() {
+        use std::collections::HashSet;
+        const SIDES: [i32; 4] = [2, 4, 8, 16];
+        let doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
+        let (from, across) = regions_of(&doorway);
+        let levels = levels((from, across), doorway.height(), 8);
+        let next = AtomicUsize::new(0);
+        let marked: Mutex<Vec<Vec<HashSet<(i32, i32, i32)>>>> = Mutex::new(vec![vec![HashSet::new(); REGION - FIRST + 1]; SIDES.len()]);
+        let band_cells = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            for _ in 0..std::thread::available_parallelism().map_or(4, |n| n.get()) {
+                scope.spawn(|| {
+                    let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
+                    let colours = FarColours::load(&mut doorway).unwrap();
+                    loop {
+                        let k = next.fetch_add(1, Ordering::Relaxed);
+                        if k >= (across * across) as usize {
+                            break;
+                        }
+                        let r = [from[0] + k as i32 % across, from[1] + k as i32 / across];
+                        let columns = region(&doorway, &colours, r).unwrap();
+                        let mut mine: Vec<Vec<HashSet<(i32, i32, i32)>>> = vec![vec![HashSet::new(); REGION - FIRST + 1]; SIDES.len()];
+                        let mut cells = 0;
+                        for level in FIRST..=REGION {
+                            let l = &levels[level - FIRST];
+                            let n = 1i32 << (REGION - level);
+                            for (k, column) in columns[level - FIRST].iter().enumerate() {
+                                let (x, y) = (r[0] * n + k as i32 % n - l.from[0], r[1] * n + k as i32 / n - l.from[1]);
+                                let (low, high) = (column.low.max(0), (column.low + column.sums.len() as i32).min(l.up));
+                                cells += (high - low).max(0) as usize;
+                                for (s, side) in SIDES.iter().enumerate() {
+                                    for bz in (low / side)..=((high - 1).max(low) / side) {
+                                        if high > low {
+                                            mine[s][level - FIRST].insert((x / side, y / side, bz));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        band_cells.fetch_add(cells, Ordering::Relaxed);
+                        let mut marked = marked.lock().unwrap();
+                        for (s, by_level) in mine.into_iter().enumerate() {
+                            for (l, set) in by_level.into_iter().enumerate() {
+                                marked[s][l].extend(set);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        let marked = marked.into_inner().unwrap();
+        let cells = band_cells.into_inner();
+        eprintln!("Levels 32 to 1,024: {cells} cells in the bands ({:.1} MB at 16 bytes)", cells as f64 * 16.0 / 1e6);
+        for (s, side) in SIDES.iter().enumerate() {
+            let bricks: usize = marked[s].iter().map(HashSet::len).sum();
+            let index: i64 = levels[..=REGION - FIRST].iter().map(|l| ((l.across + side - 1) / side) as i64 * ((l.across + side - 1) / side) as i64 * ((l.up + side - 1) / side) as i64).sum();
+            let pool = bricks as f64 * (side * side * side) as f64 * 16.0;
+            let atlas = bricks as f64 * ((side + 1) * (side + 1) * (side + 1)) as f64 * 16.0;
+            eprintln!(
+                "bricks of {side:>2}: {bricks:>8} bricks, the pool {:>7.1} MB ({:.0}% of it band), the atlas {:>7.1} MB, the index {:>6.1} MB; by level {:?}",
+                pool / 1e6,
+                cells as f64 * 16.0 / pool * 100.0,
+                atlas / 1e6,
+                index as f64 * 4.0 / 1e6,
+                marked[s].iter().map(HashSet::len).collect::<Vec<_>>()
+            );
+        }
     }
 }

@@ -282,7 +282,7 @@ impl FarEye {
 
     /// The look's settings a flight's numbers depend on, for its report.
     pub fn settings(&self) -> String {
-        format!("blended by {}, detail {:+}", if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
+        format!("bricks of {}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
     }
 
     /// How the far cells are coming in, for the panel and the flight's report.
@@ -460,7 +460,7 @@ impl FarEye {
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
-                [atlas_size[0], atlas_size[1], atlas_size[2], 0.0],
+                [atlas_size[0], atlas_size[1], atlas_size[2], self.atlas.as_ref().map_or(1.0, |a| a.side as f32)],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -535,7 +535,7 @@ mod tests {
         let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("a test"), required_limits, ..Default::default() })).expect("the card's device");
         let errors = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height());
+        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), crate::bricks::brick_side());
         for ry in -1..=1 {
             for rx in -1..=1 {
                 store.put_region(&device, &queue, [rx, ry], &region(&doorway, &colours, [rx, ry]).unwrap());

@@ -154,7 +154,7 @@ impl Runner {
         // The far eye, its cells summed on the loading lane nearest the first mark first, on all but two of the
         // processor's threads (the frame and the window keep theirs).
         let far = self.doorway.as_ref().map(|doorway| {
-            let store = crate::bricks::Store::new(&card.device, &card.queue, crate::far::regions_of(doorway), doorway.height());
+            let store = crate::bricks::Store::new(&card.device, &card.queue, crate::far::regions_of(doorway), doorway.height(), crate::bricks::brick_side());
             let near = self.marks.get(self.first_mark).map_or([0.0, 0.0], |mark| mark.at);
             let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
             let lane = crate::far::Lane::start(crate::doorway::test_world(), near, threads).map_err(|error| log::error!("The far cells couldn't be summed: {error}")).ok();

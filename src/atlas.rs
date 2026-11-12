@@ -1,8 +1,8 @@
 //! The far bricks as textures (plan 2.2, change 1): soft bricks blended by the texture hardware.
 //!
-//! Each far brick is kept again as a 9 × 9 × 9 block of texels in 3D textures (atlases), its 8 cells a side and a border of
-//! one cell on its high sides holding the next cells over, so the hardware's filter blends the eight cells round a point
-//! in one fetch, across a brick's edge too. Under a band every cell is solid, over it empty, as the bands say.
+//! Each far brick is kept again as a block of texels in 3D textures (atlases), its cells (8 a side, or 4 or 2: step 3)
+//! and a border of one cell on its high sides holding the next cells over, 9 × 9 × 9 at 8, so the hardware's filter
+//! blends the eight cells round a point in one fetch, across a brick's edge too. Under a band every cell is solid, over it empty, as the bands say.
 //!
 //! How solid and how watery (true, unspread, 16-bit floats), and beside them the colour and the six faces' shares the
 //! spread way (the Oracle's): each cell that shows no surface takes the colour and faces of the nearest one that does,
@@ -19,8 +19,6 @@ use crate::bricks::{Level, NOT_SUMMED};
 use crate::far::Cell;
 use std::collections::VecDeque;
 
-/// A brick's texels a side, its border included.
-pub const SIDE: u32 = 9;
 /// Bricks a side of an atlas layer (north and east).
 pub const ACROSS: u32 = 64;
 /// No brick in the atlas at a place.
@@ -37,6 +35,11 @@ pub struct Kept {
 impl Kept {
     pub fn new(levels: &[Level]) -> Self {
         Self { levels: levels.to_vec(), columns: levels.iter().map(|l| vec![(NOT_SUMMED, Vec::new()); (l.across * l.across) as usize]).collect() }
+    }
+
+    /// A brick's texels a side in the atlas: its cells a side (the most of any level's) and a border.
+    pub fn side(&self) -> u32 {
+        self.levels.iter().map(|l| l.wide.max(l.tall)).max().unwrap_or(1) as u32 + 1
     }
 
     /// A column's entry and band kept.
@@ -96,8 +99,9 @@ impl Look {
 
 /// The atlas on the card.
 pub struct Atlas {
-    /// Its size in texels.
+    /// Its size in texels, and a brick's texels a side.
     pub size: [u32; 3],
+    pub side: u32,
     pub solid: wgpu::TextureView,
     /// Spread: colour and surface ÷ 4, plus faces, minus faces.
     pub spread: [wgpu::TextureView; 3],
@@ -173,10 +177,10 @@ fn bricks(kept: &Kept) -> Vec<Brick> {
     list
 }
 
-/// A brick's 9 × 9 × 9 looks (x fastest, then y, then z), its border the next cells over.
-fn texels(kept: &Kept, brick: &Brick) -> Vec<Look> {
+/// A brick's looks, `side` a side (x fastest, then y, then z), its border the next cells over.
+fn texels(kept: &Kept, brick: &Brick, side: u32) -> Vec<Look> {
     let l = &kept.levels[brick.level - crate::far::FIRST];
-    let side = SIDE as i32;
+    let side = side as i32;
     let mut out = Vec::with_capacity((side * side * side) as usize);
     for k in 0..side {
         for j in 0..side {
@@ -190,8 +194,8 @@ fn texels(kept: &Kept, brick: &Brick) -> Vec<Look> {
 
 /// The spread way: each texel with no surface takes the colour and faces of the nearest one with surface (six-way steps
 /// through the brick), its own surface kept (none).
-fn spread(looks: &[Look]) -> Vec<Look> {
-    let side = SIDE as i32;
+fn spread(looks: &[Look], side: u32) -> Vec<Look> {
+    let side = side as i32;
     let mut out = looks.to_vec();
     let mut from: Vec<Option<usize>> = looks.iter().enumerate().map(|(k, l)| (l.surface > 0.0).then_some(k)).collect();
     let mut queue: VecDeque<usize> = (0..looks.len()).filter(|&k| looks[k].surface > 0.0).collect();
@@ -227,7 +231,8 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept) -> Atlas {
     let list = bricks(kept);
     let per_layer = (ACROSS * ACROSS) as usize;
     let layers = list.len().div_ceil(per_layer).max(1) as u32;
-    let size = [ACROSS * SIDE, ACROSS * SIDE, layers * SIDE];
+    let side = kept.side();
+    let size = [ACROSS * side, ACROSS * side, layers * side];
     let texture = |label: &str, format: wgpu::TextureFormat| {
         device.create_texture(&wgpu::TextureDescriptor {
             label: Some(label),
@@ -243,7 +248,7 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept) -> Atlas {
     use wgpu::TextureFormat::{Rg16Float, Rgba8Unorm};
     let solid = texture("the far bricks: solid and watery", Rg16Float);
     let spread_set = [texture("the far bricks: colour", Rgba8Unorm), texture("the far bricks: faces plus", Rgba8Unorm), texture("the far bricks: faces minus", Rgba8Unorm)];
-    let texels_a_layer = (size[0] * size[1] * SIDE) as usize;
+    let texels_a_layer = (size[0] * size[1] * side) as usize;
     let mut slots = vec![NO_SLOT; kept.levels.last().map_or(0, |l| (l.index_at + (l.bricks * l.bricks * l.bricks_up) as u32) as usize)];
     for (layer, chunk) in list.chunks(per_layer).enumerate() {
         let mut solid_bytes = vec![0u8; texels_a_layer * 4];
@@ -251,11 +256,11 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept) -> Atlas {
         for (k, brick) in chunk.iter().enumerate() {
             let (sx, sy) = (k as u32 % ACROSS, k as u32 / ACROSS);
             slots[brick.place as usize] = sx | (sy << 8) | ((layer as u32) << 16);
-            let looks = texels(kept, brick);
-            let spread_looks = spread(&looks);
+            let looks = texels(kept, brick, side);
+            let spread_looks = spread(&looks, side);
             for (t, look) in looks.iter().enumerate() {
-                let (i, j, z) = (t as u32 % SIDE, (t as u32 / SIDE) % SIDE, t as u32 / SIDE / SIDE);
-                let at = ((sx * SIDE + i) + (sy * SIDE + j) * size[0] + z * size[0] * size[1]) as usize;
+                let (i, j, z) = (t as u32 % side, (t as u32 / side) % side, t as u32 / side / side);
+                let at = ((sx * side + i) + (sy * side + j) * size[0] + z * size[0] * size[1]) as usize;
                 for (c, v) in [look.solid, look.water].iter().enumerate() {
                     solid_bytes[at * 4 + c * 2..at * 4 + c * 2 + 2].copy_from_slice(&half(*v).to_le_bytes());
                 }
@@ -270,10 +275,10 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept) -> Atlas {
         }
         let write = |texture: &wgpu::Texture, bytes: &[u8], texel: u32| {
             queue.write_texture(
-                wgpu::TexelCopyTextureInfo { texture, mip_level: 0, origin: wgpu::Origin3d { x: 0, y: 0, z: layer as u32 * SIDE }, aspect: wgpu::TextureAspect::All },
+                wgpu::TexelCopyTextureInfo { texture, mip_level: 0, origin: wgpu::Origin3d { x: 0, y: 0, z: layer as u32 * side }, aspect: wgpu::TextureAspect::All },
                 bytes,
                 wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(size[0] * texel), rows_per_image: Some(size[1]) },
-                wgpu::Extent3d { width: size[0], height: size[1], depth_or_array_layers: SIDE },
+                wgpu::Extent3d { width: size[0], height: size[1], depth_or_array_layers: side },
             );
         };
         write(&solid, &solid_bytes, 4);
@@ -290,6 +295,7 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept) -> Atlas {
     let view = |t: &wgpu::Texture| t.create_view(&wgpu::TextureViewDescriptor::default());
     Atlas {
         size,
+        side,
         solid: view(&solid),
         spread: [view(&spread_set[0]), view(&spread_set[1]), view(&spread_set[2])],
         slots: slots_buffer,
@@ -347,9 +353,15 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
     /// exact way's pass mark of 1/1,000 missed by it), so how solid and how watery are held to 1/200, and known and
     /// unknown must be the code's at every point. The spread way's colour differs by design where little surface shows
     /// (it spreads into empty neighbours where old's weighs by surface): reported by surface, not held to a bar; the
-    /// pictures it makes, and David's look, are its test (`journal/docs/experiments.md`).
+    /// pictures it makes, and David's look, are its test (`journal/docs/experiments.md`). At each brick side (step 3).
     #[test]
     fn the_hardware_blends_as_the_code_does() {
+        for side in [2, 4, 8] {
+            blends_as_the_code_does(side);
+        }
+    }
+
+    fn blends_as_the_code_does(side: i32) {
         let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
         let colours = FarColours::load(&mut doorway).unwrap();
         let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
@@ -360,7 +372,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
         let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("a test"), required_limits, ..Default::default() })).expect("the card's device");
         let errors = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height());
+        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), side);
         let mut summed = Vec::new();
         for ry in -1..=1 {
             for rx in -1..=1 {
@@ -399,6 +411,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
         let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("a test camera"), size: 17 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut numbers = vec![0f32; 17 * 4];
         numbers[16 * 4..16 * 4 + 3].copy_from_slice(&atlas.size.map(|v| v as f32));
+        numbers[16 * 4 + 3] = atlas.side as f32;
         queue.write_buffer(&camera, 0, &numbers.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let points_buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("points"), size: (points.len() * 16) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&points_buffer, 0, &points.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
@@ -472,7 +485,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         let parts: Vec<String> = names.iter().zip(worst).map(|(n, (d, p))| format!("{n} {d:.5} (cells of {}, at {:.0} {:.0} {:.0})", 1 << points[p][3] as u32, points[p][0], points[p][1], points[p][2])).collect();
         report += &format!("the largest differences from the code's blend: {}; known where the code's is unknown, or the other way: {unknown}\n", parts.join(", "));
-        eprintln!("Change 1's test, {} points at levels 32 to 1,024, {} bricks in the atlas ({:.0} MB):\n{report}", points.len(), atlas.bricks, atlas.bytes as f64 / 1e6);
+        eprintln!("Change 1's test, bricks of {side}, {} points at levels 32 to 1,024, {} bricks in the atlas ({:.0} MB):\n{report}", points.len(), atlas.bricks, atlas.bytes as f64 / 1e6);
         assert_eq!(unknown, 0, "the hardware's known and unknown are the code's");
         let solid_worst = worst[0].0.max(worst[1].0);
         assert!(solid_worst <= 1.0 / 200.0, "how solid or watery differs from the code's by {solid_worst}");

@@ -1307,3 +1307,44 @@ The layers at +2 against 0:
 **David's look from height (build 130, 2026-11-12):** he flew up and compared 0 and +2: "yeah 0 is fine". The default
 goes back to 0, old's, which every flight before build 129 measured. At the spawn he'd seen no difference from -1 to +4
 ("as you have the detail set now, everything from -1 to 4 looks the same"). The fog line waits as written.
+
+## Step 3: bricks of 4 against 8  *(plan 2.2)*
+
+Memory is the reason for the step: the whole game under 4 GB on the card at worst, and the far view alone was 2.66 GB in
+use after change 1.
+
+### The count, before any code (2026-11-12)
+
+The whole world's bands counted at four brick sizes, levels 32 to 1,024, where nearly all of it is (`bricks.rs`,
+`bricks_of_each_size`, ignored, run when asked). 11.2 million cells in the bands (180 MB at 16 bytes).
+
+| a brick's side | bricks | the pool (whole bricks) | how much of it is band | the atlas (side + 1 a side) | the index |
+|---|---|---|---|---|---|
+| 2 | 1,830,906 | 234 MB | 77% | 791 MB | 97 MB |
+| 4 | 455,311 | 466 MB | 39% | 911 MB | 12 MB |
+| **8 (now)** | 111,979 | 917 MB | 20% | 1,306 MB | 1.5 MB |
+| 16 | 27,696 | 1,815 MB | 10% | 2,177 MB | 0.2 MB |
+
+- **Bricks of 4:** the pool halves and the atlas loses 30%, about 0.85 GB off the far view.
+- **Bricks of 2:** another 0.27 GB, but each brick's border makes the atlas 3.4 texels a cell, and the index grows to
+  97 MB. It costs one more flight, so it's flown too.
+
+### The pass mark (written before the code)
+
+The brick's side is chosen at launch (`INCUS_FAR_BRICK`: 2, 4 or 8; 8 till flown), for the pool and the atlas both.
+
+- **Tests:**
+  - The far bricks read back as the far cells, at 2, 4 and 8.
+  - Change 1's card test holds at each.
+  - The edge test holds.
+- **The pictures, high over the spawn:**
+  - The code's blend at 4 and 2 is the same as at 8, pixel for pixel: the same cells, found another way.
+  - Spread's is within 8 of 255 [medium]. Its colours spread through a smaller block, so an empty cell can take its
+    colour from a different neighbour.
+- **Three flights,** spread at detail 0, bricks of 8, 4 and 2, with the card's memory. Builder's estimates:
+  - Memory in use [medium]: 2,656 MB at 8. At 4 about 1,650 MB (the pool grows by doubling, so 512 MB held against
+    1,024). At 2 about 1,450.
+  - Card time at 4 [low]: within 10% of 8 at every mark. The start and the march skip by the bands, not the bricks,
+    and a blend reads the same number of things. Smaller bricks scatter the atlas's texels, so the far marks could be
+    up to 10% slower.
+  - At 2 [low]: up to 20% slower.

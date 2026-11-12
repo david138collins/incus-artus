@@ -192,7 +192,7 @@ pub const PASSES: [Pass; 18] = [
         what: "The regions summed since the last frame put on the card as bricks, at most 3 ms a frame, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in.",
         reads: &[StoreId::FarCells],
         writes: &[StoreId::FarBricks],
-        switches: &[],
+        switches: &[("INCUS_FAR_BRICK", "a brick's side in cells: 2, 4 or 8 (unset: 8), for the pool and the far textures both (2.2, step 3)")],
         files: &["src/bricks.rs", "src/far_eye.rs"],
     },
     Pass {
@@ -492,8 +492,8 @@ pub const STORES: [Store; 17] = [
         id: StoreId::FarTextures,
         name: "the far textures",
         on: Where::Card,
-        what: "The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and each way's colour and faces; each brick's slot beside its place in the bricks' index.",
-        limits: &[("texels a side of a brick, its border included", crate::atlas::SIDE as u64), ("bricks a side of an atlas layer", crate::atlas::ACROSS as u64)],
+        what: "The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and the colour and faces spread into empty neighbours (8-bit); each brick's slot beside its place in the bricks' index. A brick's texels a side: its cells a side and a border (9 at bricks of 8).",
+        limits: &[("bricks a side of an atlas layer", crate::atlas::ACROSS as u64)],
         files: &["src/atlas.rs"],
     },
 ];
