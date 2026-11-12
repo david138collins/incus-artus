@@ -845,3 +845,30 @@ makes exactly its count of blocks.
 **The flight** stands at every mark in turn, a section of the report each. *Builder's estimate [medium]:* every mark's frame
 is within 10% of the empty frame's 0.42 ms. Nothing is drawn yet, so the places can't differ. A mark that differs points
 at the marks' own work (going to a mark, the doorway, the changes), which the passes' times will show.
+
+### Results, first flight
+
+Build 119 (b48ddc3), the code committed, 2026-11-12: `kept logs/flight-1794489087.txt`. Nine standings, 25 s each
+(5 settling, 20 measured), in the file's order.
+
+- **The marks are right, by their test and in the flight:** every eye stood where old's did (395.4, 1,025.4, 137.4,
+  795.4, 151.4), facing as old's. The build was made as 23 whole blocks and 146 bars, none refused, and each scatter
+  setting made its count (1,000, 10,000, 100,000), none refused.
+- **The estimate missed, and in the other direction.** The spawn, flown first, read 0.419 ms, the floor as before. Every
+  later mark read 0.336 to 0.341 ms, about 20% faster:
+
+  | | spawn (first) | mountain top | bare plain | build | scatter 1k / 10k / 100k | high over spawn | low over sea |
+  |---|---|---|---|---|---|---|---|
+  | the frame, median ms | 0.419 | 0.337 | 0.340 | 0.341 | 0.339 / 0.338 / 0.339 | 0.338 | 0.336 |
+
+- **It isn't the marks.** Nothing is drawn yet. Going to a mark costs 0.000 at the median (its work is done while the
+  frames settle, before measuring). The scatter at 100,000 blocks reads the same as the bare plain.
+- **It's the time since the game started.** After the first standing, the card's own pass fell too, 0.018 to 0.011 ms,
+  and the slow frames thinned on the processor (recording the panel's 95th, 0.158 to 0.007 ms). So for about its first 25
+  seconds the whole session runs slower. *[Estimate, low:* the card's clocks coming up from idle under so light a load,
+  and Windows settling the new full-screen window.*]*
+- **So the floor needs correcting.** Builds 116 to 118 measured only seconds 5 to 25 after starting, inside that warm-up.
+  Their 0.40 to 0.42 ms is the warmed-up-too-little frame; the settled empty frame is about 0.34 ms, 0.011 on the card.
+  The comparisons between those builds stand (each flew the same way); the floor's number doesn't.
+- **Next:** the first standing settles longer, and the report says what going to each mark cost (its changes, and the
+  doorway's tiles), which this flight didn't show. Flown again to see the spawn read as the others do.

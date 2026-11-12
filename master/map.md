@@ -6,7 +6,7 @@ every build: change the list, never this file. In the game, the same map is live
 The words: a **lane** is a line of work with its own pace; a **pass** is one piece of a lane's work, on the
 processor or the card; a **stage** is one step of the world's recipe (none yet); a **store** is something held.
 
-The costs are the newest kept flight's, at its first standing, `kept logs/flight-1794487963.txt`: Incus Artus, build 118 (29a02df); the code committed.
+The costs are the newest kept flight's, at its first standing, `kept logs/flight-1794489087.txt`: Incus Artus, build 119 (b48ddc3); the code committed.
 
 ```mermaid
 flowchart TB
@@ -98,7 +98,7 @@ flowchart TB
 - **A pass** in the window, on the processor.
 - **What it is:** Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor), F3 (the panel), F11 (window or full screen) and Tab (the mouse).
 - **Reads:** none. **Writes:** the keys held and the camera.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor not run.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor not run.
 - **Files:** src/runner.rs and src/camera.rs.
 
 ### going to a mark
@@ -106,7 +106,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter).
 - **Reads:** the marks and a tile's columns. **Writes:** the camera and what changed.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): not measured.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.199.
 - **Files:** src/marks.rs and src/runner.rs.
 
 ### flying
@@ -114,7 +114,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The camera flies by the keys held (WASD, Space, Ctrl, Shift), on real time. Not while the editor is open.
 - **Reads:** the keys held. **Writes:** the camera.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor median 0.000, 95th 0.000, 99th 0.001, worst 0.217.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor median 0.000, 95th 0.000, 99th 0.001, worst 0.343.
 - **Files:** src/camera.rs.
 
 ### laying out the panel
@@ -122,7 +122,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card.
 - **Reads:** the camera, the clocks and the wiring. **Writes:** the panel's shapes.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor median 0.009, 95th 0.090, 99th 0.165, worst 0.398.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor median 0.008, 95th 0.090, 99th 0.166, worst 0.403.
 - **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
 ### getting the picture
@@ -130,7 +130,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The screen's next picture to draw on, waited for if none is free (capped, this is where the frame waits for the screen).
 - **Reads:** none. **Writes:** none.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor median 0.004, 95th 0.159, 99th 0.340, worst 1.398.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor median 0.004, 95th 0.160, 99th 0.336, worst 0.653.
 - **Files:** src/runner.rs.
 
 ### the panel
@@ -138,7 +138,7 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** The picture cleared to the sky's colour, and the panels drawn over it. Recorded on the processor, run on the card.
 - **Reads:** the panel's shapes. **Writes:** the screen's picture.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): recording it on the processor median 0.004, 95th 0.157, 99th 0.170, worst 0.915; on the card median 0.018, 95th 0.023, 99th 0.042, worst 0.312.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): recording it on the processor median 0.004, 95th 0.158, 99th 0.177, worst 1.634; on the card median 0.018, 95th 0.023, 99th 0.041, worst 0.300.
 - **Files:** src/runner.rs.
 
 ### handing the card its work
@@ -146,7 +146,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The frame's work for the card finished and handed to it, with the card's clock asked to copy its times out.
 - **Reads:** none. **Writes:** none.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor median 0.077, 95th 0.239, 99th 0.317, worst 1.763.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor median 0.076, 95th 0.241, 99th 0.319, worst 1.644.
 - **Files:** src/runner.rs.
 
 ### showing it
@@ -154,7 +154,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The picture handed to the screen, waited for if the screen's queue is full (Windows lets the frame run only so far ahead of what the card and the screen have taken).
 - **Reads:** the screen's picture. **Writes:** none.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor median 0.142, 95th 0.271, 99th 0.323, worst 1.467.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor median 0.142, 95th 0.271, 99th 0.329, worst 1.755.
 - **Files:** src/runner.rs.
 
 ### measuring
@@ -162,7 +162,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report.
 - **Reads:** none. **Writes:** the clocks and the flight's report.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): on the processor median 0.009, 95th 0.016, 99th 0.147, worst 0.418.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor median 0.009, 95th 0.017, 99th 0.090, worst 0.472.
 - **Files:** src/runner.rs, src/clocks.rs and src/flight.rs.
 
 ### the doorway
@@ -170,7 +170,7 @@ flowchart TB
 - **A pass** in loading, on the processor.
 - **What it is:** Answers "what's here?" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs; and what changed in it. The engine never opens a world file itself. The export is read-only.
 - **Reads:** the export and what changed. **Writes:** a tile's columns.
-- **Cost, last measured** (`kept logs/flight-1794487963.txt`): not measured.
+- **Cost, last measured** (`kept logs/flight-1794489087.txt`): on the processor not run.
 - **Files:** src/doorway.rs.
 
 ## The stores
