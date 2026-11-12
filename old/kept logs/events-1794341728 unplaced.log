@@ -1,0 +1,170 @@
+The plain at the build mark (plan 1.7, the reading flight): David's build of 2026-11-10 (events-1794341728.log), its 169 placings with every block renamed unplaced:..., a name no block has. The dyno stands at the same spot facing the same way (dyno::marks takes them from the placings) and places nothing: the bare plain. Only the edit requests are kept.
+tick     9514  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7980 -2381 272 (half blocks) at -3990 -1191 136
+tick     9528  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7978 -2383 272 (half blocks) at -3989 -1192 136
+tick     9539  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7978 -2382 272 (half blocks) at -3989 -1191 136
+tick     9547  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7978 -2380 272 (half blocks) at -3989 -1190 136
+tick     9555  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7975 -2382 272 (half blocks) at -3988 -1191 136
+tick     9565  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2383 272 (half blocks) at -3989 -1192 136
+tick     9574  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7977 -2381 272 (half blocks) at -3989 -1191 136
+tick     9582  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7977 -2380 273 (half blocks) at -3989 -1190 136
+tick     9590  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7978 -2381 273 (half blocks) at -3989 -1191 136
+tick     9598  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7975 -2381 273 (half blocks) at -3988 -1191 136
+tick     9610  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2384 273 (half blocks) at -3989 -1192 136
+tick     9618  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2382 273 (half blocks) at -3989 -1191 136
+tick     9640  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7978 -2380 274 (half blocks) at -3989 -1190 137
+tick     9648  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7976 -2381 273 (half blocks) at -3988 -1191 136
+tick     9660  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7976 -2381 274 (half blocks) at -3988 -1191 137
+tick     9668  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7976 -2380 274 (half blocks) at -3988 -1190 137
+tick     9675  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7977 -2381 275 (half blocks) at -3989 -1191 137
+tick     9683  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7975 -2383 272 (half blocks) at -3988 -1192 136
+tick     9692  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2383 274 (half blocks) at -3989 -1192 137
+tick     9699  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2382 275 (half blocks) at -3989 -1191 137
+tick     9708  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7980 -2382 272 (half blocks) at -3990 -1191 136
+tick     9716  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7979 -2381 274 (half blocks) at -3990 -1191 137
+tick     9726  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7979 -2381 275 (half blocks) at -3990 -1191 137
+tick     9733  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7977 -2380 275 (half blocks) at -3989 -1190 137
+tick     9741  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2381 276 (half blocks) at -3989 -1191 138
+tick     9749  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2381 277 (half blocks) at -3989 -1191 138
+tick     9762  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7978 -2381 278 (half blocks) at -3989 -1191 139
+tick     9769  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2384 275 (half blocks) at -3989 -1192 137
+tick     9777  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2382 279 (half blocks) at -3989 -1191 139
+tick     9796  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7976 -2381 276 (half blocks) at -3988 -1191 138
+tick     9803  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7976 -2381 277 (half blocks) at -3988 -1191 138
+tick     9844  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7975 -2383 273 (half blocks) at -3988 -1192 136
+tick     9851  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7975 -2382 273 (half blocks) at -3988 -1191 136
+tick     9895  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7975 -2383 276 (half blocks) at -3988 -1192 138
+tick     9903  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7976 -2383 276 (half blocks) at -3988 -1192 138
+tick     9910  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2386 275 (half blocks) at -3989 -1193 137
+tick     9920  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7979 -2383 275 (half blocks) at -3990 -1192 137
+tick     9928  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7978 -2383 274 (half blocks) at -3989 -1192 137
+tick     9936  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7978 -2385 274 (half blocks) at -3989 -1193 137
+tick     9960  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7978 -2382 278 (half blocks) at -3989 -1191 139
+tick     9976  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7981 -2382 275 (half blocks) at -3991 -1191 137
+tick     9985  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7980 -2381 274 (half blocks) at -3990 -1191 137
+tick     9994  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7979 -2383 274 (half blocks) at -3990 -1192 137
+tick    10002  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7980 -2380 274 (half blocks) at -3990 -1190 137
+tick    10026  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7979 -2380 277 (half blocks) at -3990 -1190 138
+tick    10034  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7978 -2380 276 (half blocks) at -3989 -1190 138
+tick    10042  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2379 275 (half blocks) at -3989 -1190 137
+tick    10050  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7978 -2379 274 (half blocks) at -3989 -1190 137
+tick    10059  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7979 -2380 273 (half blocks) at -3990 -1190 136
+tick    10067  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7978 -2378 275 (half blocks) at -3989 -1189 137
+tick    10099  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2377 275 (half blocks) at -3989 -1189 137
+tick    10152  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7975 -2378 272 (half blocks) at -3988 -1189 136
+tick    10160  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7977 -2377 272 (half blocks) at -3989 -1189 136
+tick    10170  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7977 -2378 273 (half blocks) at -3989 -1189 136
+tick    10177  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7979 -2379 272 (half blocks) at -3990 -1190 136
+tick    10187  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7979 -2378 272 (half blocks) at -3990 -1189 136
+tick    10195  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7979 -2376 272 (half blocks) at -3990 -1188 136
+tick    10205  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7978 -2377 271 (half blocks) at -3989 -1189 135
+tick    10212  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7977 -2376 272 (half blocks) at -3989 -1188 136
+tick    10220  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7979 -2375 273 (half blocks) at -3990 -1188 136
+tick    10228  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7980 -2376 272 (half blocks) at -3990 -1188 136
+tick    10237  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7982 -2376 272 (half blocks) at -3991 -1188 136
+tick    10245  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7982 -2377 273 (half blocks) at -3991 -1189 136
+tick    10255  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7983 -2375 272 (half blocks) at -3992 -1188 136
+tick    10262  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7983 -2376 272 (half blocks) at -3992 -1188 136
+tick    10270  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7984 -2376 272 (half blocks) at -3992 -1188 136
+tick    10278  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7985 -2377 272 (half blocks) at -3993 -1189 136
+tick    10286  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7985 -2377 272 (half blocks) at -3993 -1189 136
+tick    10295  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7984 -2379 272 (half blocks) at -3992 -1190 136
+tick    10303  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7983 -2379 272 (half blocks) at -3992 -1190 136
+tick    10312  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7984 -2380 272 (half blocks) at -3992 -1190 136
+tick    10320  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7983 -2382 272 (half blocks) at -3992 -1191 136
+tick    10328  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7983 -2383 272 (half blocks) at -3992 -1192 136
+tick    10339  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7983 -2382 272 (half blocks) at -3992 -1191 136
+tick    10349  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7982 -2383 272 (half blocks) at -3991 -1192 136
+tick    10357  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7982 -2385 272 (half blocks) at -3991 -1193 136
+tick    10367  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7981 -2385 272 (half blocks) at -3991 -1193 136
+tick    10374  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7982 -2385 273 (half blocks) at -3991 -1193 136
+tick    10396  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7980 -2385 272 (half blocks) at -3990 -1193 136
+tick    10404  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7979 -2385 272 (half blocks) at -3990 -1193 136
+tick    10412  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7977 -2386 272 (half blocks) at -3989 -1193 136
+tick    10419  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7976 -2385 272 (half blocks) at -3988 -1193 136
+tick    10427  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7974 -2386 272 (half blocks) at -3987 -1193 136
+tick    10435  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7976 -2389 272 (half blocks) at -3988 -1195 136
+tick    10442  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7975 -2390 272 (half blocks) at -3988 -1195 136
+tick    10450  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7974 -2390 272 (half blocks) at -3987 -1195 136
+tick    10464  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7972 -2388 272 (half blocks) at -3986 -1194 136
+tick    10471  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7972 -2385 272 (half blocks) at -3986 -1193 136
+tick    10480  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7974 -2380 273 (half blocks) at -3987 -1190 136
+tick    10488  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7976 -2384 275 (half blocks) at -3988 -1192 137
+tick    10495  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7974 -2383 276 (half blocks) at -3987 -1192 138
+tick    10511  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7976 -2377 273 (half blocks) at -3988 -1189 136
+tick    10518  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7973 -2380 272 (half blocks) at -3987 -1190 136
+tick    10526  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7969 -2379 272 (half blocks) at -3985 -1190 136
+tick    10534  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7970 -2380 272 (half blocks) at -3985 -1190 136
+tick    10541  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7971 -2384 272 (half blocks) at -3986 -1192 136
+tick    10550  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7972 -2387 272 (half blocks) at -3986 -1194 136
+tick    10558  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7967 -2386 272 (half blocks) at -3984 -1193 136
+tick    10565  edit request    player 0 asks to place a upright bar of unplaced:stone_brick from -7968 -2385 272 (half blocks) at -3984 -1193 136
+tick    10573  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7971 -2385 272 (half blocks) at -3986 -1193 136
+tick    10580  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7970 -2384 272 (half blocks) at -3985 -1192 136
+tick    10588  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7969 -2383 272 (half blocks) at -3985 -1192 136
+tick    10885  edit request    player 0 asks to place unplaced:gabbro at -3992 -1188 137
+tick    10893  edit request    player 0 asks to place unplaced:gabbro at -3993 -1189 136
+tick    10901  edit request    player 0 asks to place unplaced:gabbro at -3993 -1188 136
+tick    10908  edit request    player 0 asks to place unplaced:gabbro at -3993 -1187 136
+tick    10916  edit request    player 0 asks to place unplaced:gabbro at -3994 -1189 136
+tick    10928  edit request    player 0 asks to place unplaced:gabbro at -3996 -1191 136
+tick    10936  edit request    player 0 asks to place unplaced:gabbro at -3996 -1190 136
+tick    10944  edit request    player 0 asks to place unplaced:gabbro at -3997 -1190 136
+tick    10951  edit request    player 0 asks to place unplaced:gabbro at -3997 -1189 136
+tick    10959  edit request    player 0 asks to place unplaced:gabbro at -3996 -1189 136
+tick    10967  edit request    player 0 asks to place unplaced:gabbro at -3995 -1189 136
+tick    10974  edit request    player 0 asks to place unplaced:gabbro at -3994 -1187 136
+tick    10982  edit request    player 0 asks to place unplaced:gabbro at -3995 -1186 136
+tick    10990  edit request    player 0 asks to place unplaced:gabbro at -3998 -1185 136
+tick    10997  edit request    player 0 asks to place unplaced:gabbro at -3998 -1186 136
+tick    11005  edit request    player 0 asks to place unplaced:gabbro at -3999 -1186 136
+tick    11012  edit request    player 0 asks to place unplaced:gabbro at -4000 -1187 136
+tick    11020  edit request    player 0 asks to place unplaced:gabbro at -3997 -1188 136
+tick    11087  edit request    player 0 asks to place unplaced:gabbro at -3993 -1195 136
+tick    11110  edit request    player 0 asks to place unplaced:gabbro at -3993 -1200 136
+tick    11117  edit request    player 0 asks to place unplaced:gabbro at -3993 -1197 136
+tick    11125  edit request    player 0 asks to place unplaced:gabbro at -3994 -1197 136
+tick    11133  edit request    player 0 asks to place unplaced:gabbro at -3994 -1197 137
+tick    12013  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7979 -2386 272 (half blocks) at -3990 -1193 136
+tick    12021  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7984 -2384 272 (half blocks) at -3992 -1192 136
+tick    12029  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7985 -2384 273 (half blocks) at -3993 -1192 136
+tick    12036  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7985 -2381 272 (half blocks) at -3993 -1191 136
+tick    12044  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7986 -2382 272 (half blocks) at -3993 -1191 136
+tick    12052  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7986 -2380 272 (half blocks) at -3993 -1190 136
+tick    12059  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7986 -2381 272 (half blocks) at -3993 -1191 136
+tick    12067  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7985 -2385 272 (half blocks) at -3993 -1193 136
+tick    12075  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7986 -2386 272 (half blocks) at -3993 -1193 136
+tick    12099  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7983 -2386 272 (half blocks) at -3992 -1193 136
+tick    12107  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7986 -2384 272 (half blocks) at -3993 -1192 136
+tick    12114  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7986 -2386 273 (half blocks) at -3993 -1193 136
+tick    12122  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7984 -2386 272 (half blocks) at -3992 -1193 136
+tick    12129  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7987 -2390 273 (half blocks) at -3994 -1195 136
+tick    12137  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7986 -2391 274 (half blocks) at -3993 -1196 137
+tick    12149  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7986 -2393 274 (half blocks) at -3993 -1197 137
+tick    12164  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7988 -2390 274 (half blocks) at -3994 -1195 137
+tick    12177  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7988 -2390 275 (half blocks) at -3994 -1195 137
+tick    12191  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7989 -2382 272 (half blocks) at -3995 -1191 136
+tick    12198  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7988 -2383 272 (half blocks) at -3994 -1192 136
+tick    12206  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7988 -2384 272 (half blocks) at -3994 -1192 136
+tick    12213  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7986 -2381 273 (half blocks) at -3993 -1191 136
+tick    12306  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7980 -2380 273 (half blocks) at -3990 -1190 136
+tick    12314  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7978 -2379 273 (half blocks) at -3989 -1190 136
+tick    12321  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7983 -2377 276 (half blocks) at -3992 -1189 138
+tick    12329  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7984 -2376 276 (half blocks) at -3992 -1188 138
+tick    12337  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7986 -2376 276 (half blocks) at -3993 -1188 138
+tick    12352  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7981 -2382 276 (half blocks) at -3991 -1191 138
+tick    12373  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7985 -2375 276 (half blocks) at -3993 -1188 138
+tick    12382  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7978 -2372 273 (half blocks) at -3989 -1186 136
+tick    12390  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7979 -2370 273 (half blocks) at -3990 -1185 136
+tick    12399  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7979 -2374 274 (half blocks) at -3990 -1187 137
+tick    12407  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7980 -2375 274 (half blocks) at -3990 -1188 137
+tick    12414  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7980 -2374 274 (half blocks) at -3990 -1187 137
+tick    12422  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7977 -2375 272 (half blocks) at -3989 -1188 136
+tick    12429  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7981 -2372 274 (half blocks) at -3991 -1186 137
+tick    12437  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7979 -2373 275 (half blocks) at -3990 -1187 137
+tick    12452  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7982 -2377 276 (half blocks) at -3991 -1189 138
+tick    12460  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7982 -2376 276 (half blocks) at -3991 -1188 138
+tick    12617  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7971 -2384 274 (half blocks) at -3986 -1192 137
+tick    12625  edit request    player 0 asks to place a east–west bar of unplaced:stone_brick from -7968 -2386 274 (half blocks) at -3984 -1193 137
+tick    12717  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7976 -2391 273 (half blocks) at -3988 -1196 136
+tick    12731  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7973 -2390 272 (half blocks) at -3987 -1195 136
+tick    12739  edit request    player 0 asks to place a north–south bar of unplaced:stone_brick from -7974 -2391 273 (half blocks) at -3987 -1196 136

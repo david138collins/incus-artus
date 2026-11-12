@@ -31,3 +31,15 @@
 
 # The tools' window layout (Dear ImGui's state file).
 imgui.ini
+
+# Old Incus Artus, packed into old/ (plan 2.1): its build output, worlds, logs, screenshots, exports, bakes, undo
+# steps, David's notes (old's frozen copy) and window layout, as above.
+/old/target/
+/old/worlds/
+/old/logs/
+/old/screenshots/
+/old/exports/
+/old/world bakes/
+/old/registrar undo/
+/old/notes/
+/old/images/

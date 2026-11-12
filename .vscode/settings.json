@@ -5,6 +5,10 @@
     // Builder's builds or makes them wait.
     "rust-analyzer.cargo.targetDir": true,
 
+    // Old Incus Artus lives in old/ since the pack (plan 2.1), its own project: rust-analyzer is told where it is.
+    // The new project's Cargo.toml joins this list when it's made.
+    "rust-analyzer.linkedProjects": ["old/Cargo.toml"],
+
     // Never reformat on save: the project has no rustfmt.toml, and rustfmt would rewrite every file in
     // a style that isn't ours.
     "editor.formatOnSave": false,

@@ -17,9 +17,19 @@ fn main() {
         args.iter().copied().chain(["--"]).chain(CODE).collect()
     }
     let commit = git(&["rev-parse", "--short", "HEAD"]).map(|out| out.trim().to_string());
+    // Where this folder is in the repository ("old/" since the pack, plan 2.1): git's status names files from the
+    // repository's top, so they're named from here by taking it off.
+    let prefix = git(&["rev-parse", "--show-prefix"]).map(|out| out.trim().to_string()).unwrap_or_default();
     // What differs from the commit: changed files, and new ones git doesn't know yet.
     let status = git(&with_code(&["status", "--porcelain", "--untracked-files=all"])).unwrap_or_default();
-    let files: Vec<(bool, String)> = status.lines().filter(|line| line.len() > 3).map(|line| (line.starts_with("??"), line[3..].trim_matches('"').to_string())).collect();
+    let files: Vec<(bool, String)> = status
+        .lines()
+        .filter(|line| line.len() > 3)
+        .map(|line| {
+            let path = line[3..].trim_matches('"');
+            (line.starts_with("??"), path.strip_prefix(prefix.as_str()).unwrap_or(path).to_string())
+        })
+        .collect();
     // The difference itself: the changed files' diff, and the new code files whole (new art is only named).
     let mut patch = git(&with_code(&["diff", "HEAD"])).unwrap_or_default();
     for (_, path) in files.iter().filter(|(new, path)| *new && path.starts_with("src/")) {
@@ -48,9 +58,11 @@ fn main() {
     let number = std::fs::read_to_string("BUILD").map(|text| text.trim().to_string()).unwrap_or_default();
     println!("cargo:rustc-env=INCUS_BUILD_NUMBER={number}");
     println!("cargo:rerun-if-changed=BUILD");
-    // Stamped again when the commit or the code changes.
-    println!("cargo:rerun-if-changed=.git/HEAD");
-    println!("cargo:rerun-if-changed=.git/refs/heads");
+    // Stamped again when the commit or the code changes. The repository's own folder, wherever it is from here (above,
+    // since the pack): a watched file that doesn't exist would build the game afresh every time.
+    let git_dir = git(&["rev-parse", "--git-dir"]).map(|out| out.trim().to_string()).unwrap_or_else(|| ".git".to_string());
+    println!("cargo:rerun-if-changed={git_dir}/HEAD");
+    println!("cargo:rerun-if-changed={git_dir}/refs/heads");
     for path in CODE {
         println!("cargo:rerun-if-changed={path}");
     }

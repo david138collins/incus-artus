@@ -7,6 +7,10 @@ name = "incus_artus"
 version = "0.1.0"
 edition = "2024"
 
+# Old Incus Artus is its own workspace (since the pack, plan 2.1: it lives in `old/` under the new project's folder),
+# so cargo never takes a Cargo.toml above it for its own.
+[workspace]
+
 # ── The dev switch ──────────────────────────────────────────────────────
 # The developer tools are on unless switched off. A player's copy of the game is built with them
 # off: `cargo build --release --no-default-features`. Off, there's no debug panel (F3), no Editor
