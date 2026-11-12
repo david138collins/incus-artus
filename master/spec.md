@@ -504,6 +504,8 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - 240 isn't holy: a budget readout shows when the wall is coming, so art and design can plan round it: "i don't want to treat 240fps as holy". [decided] (WG:1794-1796; msgs:216)
 - The performance budget has to last. [decided] (WG:2428-2429)
 - Keep headroom on a current, not super-powerful PC. [wanted] (proposal:869)
+- Card memory well below 4 GB in the worst case; it may grow with the world's size (giant modded worlds are their makers' responsibility), never with play: "as the player plays the game for days, and weeks, and months, that the burden of memory continues to increase without limit, that's a serious concern". [decided] (decisions.md:1244-1253)
+- Solid at a player's pace; fast developer flight may creak: "if the game creaks at 10,000mph that's fine. as long as its not aggregious and it's solid as a rock when i stop and act more like a player". [decided] (decisions.md:1254-1256)
 - What goes into the "standard look". [open] (decisions.md:1535)
 - (The laptop's target: see To settle.)
 

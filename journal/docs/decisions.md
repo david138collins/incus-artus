@@ -1229,6 +1229,36 @@ Reference: `Art/quartile minecraft illustration.png`
     whether change 3 (light read from the cell) is worth building for the far eye, which can win at most about
     0.2 ms there. Light kept a cell at a time was decided at 4b (2026-11-11) for the rebuild; this asks only when, and
     whether the far eye needs it before the near eye (2.3) does. David to say.
+- **[DECIDED 2026-11-12] Try everything, measure it, and let him look** (David, to Builder, answering the order):
+  "honestly, i think we should try all these things and gather data about the performance impacts they have, and let
+  me take a look at how they look while flying and while still/moving my head." Builder's order from it, each
+  measured, then his eye still and flying:
+  1. the panel fix and the live settings;
+  2. change 1 both ways (A, her exact blend; B, the Oracle's spread), switchable live;
+  3. bricks of 4 against 8 (chosen at launch);
+  4. a window round the eye for the 32- and 64-block levels, with a fast flight;
+  5. change 2 (rays begun at the drawn boxes);
+  6. change 3 (light read from the cell), after light is measured again;
+  7. the Intel card's flights last, with Optimus put to him a step ahead.
+  Why: the costs and the looks are both his to weigh, and data beats guessing which change wins.
+- **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
+  landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
+  think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
+  hardware and can take some responsibility. but if you mean that, as the player plays the game for days, and weeks,
+  and months, that the burden of memory continues to increase without limit, that's a serious concern." Builder: it's
+  set by the world's size at load; only changes accumulate, and they're tiny (his build is a few KB). And: "i think a
+  980ti is 4gb, so if we can keep the running frames well below that in memory in worst cases, i'd say we're fine."
+  (Corrected in the open by Builder: the 980 Ti has 6 GB, the GTX 980 4 GB.) So the bar is his number: the game's
+  card memory well below 4 GB in the worst case, on a world of the standard size. Why: a card of that class should
+  still play; memory that grows with play would break that over time, so it mustn't.
+- **[DECIDED 2026-11-12] Fast flight may creak; play must be solid** (David, to Builder): "if the game creaks at
+  10,000mph that's fine. as long as its not aggregious and it's solid as a rock when i stop and act more like a
+  player." Why: flying at speed is a developer's view; the player's pace is what has to hold.
+- **[DECIDED 2026-11-12] Live settings, with a way back** (David, to Builder): "yes, please expose any interesting or
+  valuable parameters that may be worth adjusting live, with default switches so i can get back to normal." The
+  blend choice is one, on the Render page. And the panel: "the gui in the game still does that thing where i can start
+  highlighting text in the panel, and it never lets go ... I don't think i need to highlight anything to copy it": text
+  selection is turned off in the panels, and they always hear the mouse button let go.
   - **[LATER] Weighting kinds of pixels, for the polish** (David, the same day): "i think being able to weight
     different kinds of pixels may be a very cheap and useful tool for a lot of things, once we've got performance
     where we want it and can spend some time just polishing the look a bit." Nothing built for it now; it waits for

@@ -18,8 +18,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   right, mostly"; "light looks normal ... so proceed"), set the sky's feather at skylines on the Render page (F3)
   ("that actually works great", 4 the default), and named no ring as a seam low over the sea. The baseline (build
   126): 1.4 to 4.0 ms on the card at the far marks, 2 to 4 times the gate; light only 3 to 13% of it, so the cost is
-  the march itself. Next: the three changes, each alone, in an order David picks (Builder's: the two aimed at the
-  march first, light's share measured again before the third).
+  the march itself. Now, by David's word ("try all these things and gather data ... let me take a look"), each tried
+  and measured in turn, then his eye still and flying: the panel fix and live settings; change 1 both ways; bricks
+  of 4 against 8; a window round the eye; change 2; change 3; the Intel card last. Card memory has his bar: well
+  below 4 GB at worst.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -38,9 +40,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the changes' order: soft bricks and the drawn-box start first, light read from the cell
-  decided after them (Builder's pick, Counsel agrees). Also whether `CLAUDE.md` points at the map now. Ahead: at 2.2's gate the Intel card's numbers, which need the
-  laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** nothing now but his looks as each change is ready, and whether `CLAUDE.md` points at the
+  map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -210,8 +211,16 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         world's bricks 911 MB; the baseline, `kept logs/flight-1794497402.txt`: the far marks 1.4 to 4.0 ms on the card,
         light 3 to 13% of it. Found on the way: the sky's weight at a skyline (David's 4) and the Render page
         (`journal/docs/experiments.md`)
+  - [ ] The panel fix (no text selection, the mouse's let-go always heard) and the far eye's settings live on the
+        Render page, each with Default
+  - [ ] Change 1, soft bricks blended by the texture hardware, both ways (A exact, B spread), switchable live
+  - [ ] Bricks of 4 against bricks of 8, chosen at launch
+  - [ ] A window round the eye for the 32- and 64-block levels, flown fast
+  - [ ] Change 2, rays begun at the drawn boxes
+  - [ ] Change 3, light read from the cell, after light's share is measured again
   - [ ] Every mark flown on both cards by one command (carried from 2.1): the Intel card's flight needs the laptop
-        switched to "Optimus", put to David a step ahead
+        switched to "Optimus", put to David a step ahead. Last
+  - *Each:* measured, then David's eye still, moving his head, and flying ("try all these things and gather data")
   - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop, at the far marks; David's look, above all at
     rings where levels hand over; numbers from the Intel card. If they're twice that or more: keep the bricks and
     the light, march far the lean way instead
@@ -289,6 +298,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 - **A GTX 980 Ti at 1080p:** a smooth 60, loosely. "If you have one, you should be able to play this game."
   Not a floor to design to.
 - Room left in the frame for people, animals, battles of up to 800 figures, and the simulation on the processor.
+- **Card memory:** well below 4 GB in the worst case, on a world of the standard size (David, 2026-11-12). It grows
+  with the world's size, which is fine for modders' giant worlds, but never with play: only the changes accumulate.
+- **Speed:** solid as a rock at a player's pace; fast developer flight may creak, as long as it isn't egregious.
 - **Today's gap** (experiment 1, build 110, `journal/docs/experiments.md`): on the laptop, standing, the card takes 1.4
   times the budget at the spawn, 1.6 times on the mountain top and 2.8 times beside the quarter-block build; on
   the route, the worst frames (99th percentile, new ground counted) take 13.9 ms, 3.3 times. The Intel card is 2.5
