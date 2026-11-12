@@ -1653,3 +1653,32 @@ Build 137 (9548078), 14:37 to 14:49, bricks of 8 with the window: the boxes on `
   watched for in the next.
 - **Builder's recommendation:** the boxes off by default (`INCUS_FAR_BOXES`, kept), the code kept behind its switch
   till the Intel card is flown (step 7), then kept or taken out on its numbers there.
+
+### Does the boxes' code cost the march when it's off? (Counsel's question)
+
+Change 1's lesson was that code sitting in the program can slow it even switched off. So build 136 (ecb67ef, the same game
+without change 2) was flown against build 137 with the boxes off (`INCUS_FAR_BOXES=0`), alternating, twice each,
+15:15 to 15:39.
+- Build 136 was flown from a worktree with its own build folder, the world folder linked in, taken down after.
+- The reports: 136 `kept logs/flight-1794518484.txt` and `-1794519192`; 137 off `-1794518831` and `-1794519546`.
+
+| the far eye whole, median ms | 136 | 137, boxes off |
+|---|---|---|
+| on the ground at the spawn | 0.669, 0.673 | 0.679, 0.677 |
+| the mountain top | 1.992, 1.991 | 1.994, 1.998 |
+| the bare plain | 1.118, 1.120 | 1.122, 1.123 |
+| high over the spawn | 2.288, 2.288 | 2.293, 2.294 |
+| low over the sea | 2.927, 2.927 | 2.936, 2.940 |
+| a player's run | 3.256, 3.252 | 3.258, 3.261 |
+
+- **The price, measured:** the code costs 0.2 to 1% even off (at most 0.01 ms), the same way at every mark in both
+  pairs.
+- **The 7.5% hint was noise:** build 137 off against build 133's flight suggested +7.5% high over the spawn and over
+  the sea, but that was between builds and sessions.
+- **How steady flights are:** each build's two flights agree within 0.004 ms. So a 1% difference is real, and
+  comparisons between sessions are worth no more than about 5%.
+- **The card's clock** dipped once a flight at a still mark (1,125 to 1,350 MHz at the slowest) without moving the
+  medians.
+- **Builder's recommendation, still:** off by default and kept till the Intel flights. Its price till then is under
+  1%, and the Intel card's balance of triangles against marching may differ. If David would rather not carry it, take
+  it out now; git keeps it.
