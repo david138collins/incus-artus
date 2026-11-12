@@ -174,7 +174,16 @@ impl Flight {
                 (a, b) => a.or(b),
             };
             let h = &mut standing.hottest;
-            *h = Temperatures { cpu_area: most(h.cpu_area, reading.cpu_area), gpu: most(h.gpu, reading.gpu), gpu_clock: least(h.gpu_clock, reading.gpu_clock) };
+            *h = Temperatures {
+                cpu_area: most(h.cpu_area, reading.cpu_area),
+                gpu: most(h.gpu, reading.gpu),
+                gpu_clock: least(h.gpu_clock, reading.gpu_clock),
+                cpu_core: most(h.cpu_core, reading.cpu_core),
+                cpu_watts: most(h.cpu_watts, reading.cpu_watts),
+                cpu_load: most(h.cpu_load, reading.cpu_load),
+                gpu_watts: most(h.gpu_watts, reading.gpu_watts),
+                gpu_load: most(h.gpu_load, reading.gpu_load),
+            };
         }
     }
 
@@ -233,8 +242,7 @@ impl Flight {
             }
             let heat = standing.hottest;
             if heat != Temperatures::default() {
-                let read = |value: Option<f32>, unit: &str| value.map_or("not read".to_string(), |v| format!("{v:.0} {unit}"));
-                text += &format!("  the heat: the CPU area at most {}, the GPU at most {}, its clock at least {}\n", read(heat.cpu_area, "°C"), read(heat.gpu, "°C"), read(heat.gpu_clock, "MHz"));
+                text += &format!("  the heat, each at its most (the GPU's clock at its least): {}\n", heat.line());
             }
             if let Some(reach) = standing.reach {
                 text += &format!("  the window round the eye: the usable 32s reached at least {:.0} blocks round it over the measured frames, the 64s {:.0}\n", reach[0], reach[1]);

@@ -17,7 +17,11 @@
 //! - **The GPU:** the NVIDIA card's own reading, with its clock (`nvidia-smi`): a card slowed by its heat shows in its
 //!   clock.
 //!
-//! Either is left out if the computer doesn't offer it. `INCUS_TEMPERATURES=0`: not read at all (it starts two programs
+//! - **The processor's cores, its watts and load, and the card's watts and load:** from LibreHardwareMonitor, if it's
+//!   running as administrator with its web server on (Options, Remote Web Server; `localhost:8085`) [David installed it
+//!   2026-11-12, to see "how much the graphics will use the cpu"]. Windows alone gives only the board's reading.
+//!
+//! Each is left out if the computer doesn't offer it. `INCUS_TEMPERATURES=0`: not read at all (it starts two programs
 //! every few seconds), to measure the game without them.
 
 use std::process::Command;
@@ -34,6 +38,30 @@ pub struct Temperatures {
     pub cpu_area: Option<f32>,
     pub gpu: Option<f32>,
     pub gpu_clock: Option<f32>,
+    /// From LibreHardwareMonitor: the hottest core (°C), the processor's watts and load (%), the card's watts and load.
+    pub cpu_core: Option<f32>,
+    pub cpu_watts: Option<f32>,
+    pub cpu_load: Option<f32>,
+    pub gpu_watts: Option<f32>,
+    pub gpu_load: Option<f32>,
+}
+
+impl Temperatures {
+    /// One line of everything read, for a log or a report.
+    pub fn line(&self) -> String {
+        let read = |value: Option<f32>, unit: &str| value.map_or("not read".to_string(), |v| format!("{v:.0} {unit}"));
+        format!(
+            "the CPU area {}, its hottest core {}, {} at {} load; the GPU {} at {}, {} at {} load",
+            read(self.cpu_area, "°C"),
+            read(self.cpu_core, "°C"),
+            read(self.cpu_watts, "W"),
+            read(self.cpu_load, "%"),
+            read(self.gpu, "°C"),
+            read(self.gpu_clock, "MHz"),
+            read(self.gpu_watts, "W"),
+            read(self.gpu_load, "%")
+        )
+    }
 }
 
 /// The temperatures read on a thread of their own, the latest kept.
@@ -55,13 +83,19 @@ impl Watch {
             .spawn(move || {
                 for n in 0u32.. {
                     let (gpu, gpu_clock) = gpu();
-                    let now = Temperatures { cpu_area: cpu_area(), gpu, gpu_clock };
+                    let mut now = Temperatures { cpu_area: cpu_area(), gpu, gpu_clock, ..Default::default() };
+                    if let Some(text) = monitor() {
+                        now.cpu_core = sensor(&text, "/intelcpu/0/temperature/0").or_else(|| sensor(&text, "/amdcpu/0/temperature/0"));
+                        now.cpu_watts = sensor(&text, "/intelcpu/0/power/0").or_else(|| sensor(&text, "/amdcpu/0/power/0"));
+                        now.cpu_load = sensor(&text, "/intelcpu/0/load/0").or_else(|| sensor(&text, "/amdcpu/0/load/0"));
+                        now.gpu_watts = sensor(&text, "/gpu-nvidia/0/power/0");
+                        now.gpu_load = sensor(&text, "/gpu-nvidia/0/load/0");
+                    }
                     if let Ok(mut latest) = shared.lock() {
                         *latest = now;
                     }
                     if n % LOGGED == 0 {
-                        let read = |value: Option<f32>, unit: &str| value.map_or("not read".to_string(), |v| format!("{v:.0} {unit}"));
-                        log::info!("The temperatures: the CPU area {}, the GPU {} at {}", read(now.cpu_area, "°C"), read(now.gpu, "°C"), read(now.gpu_clock, "MHz"));
+                        log::info!("The temperatures: {}", now.line());
                     }
                     std::thread::sleep(EVERY);
                 }
@@ -121,6 +155,26 @@ fn gpu_of(text: &str) -> (Option<f32>, Option<f32>) {
     (hottest.map(|(celsius, _)| celsius), hottest.and_then(|(_, clock)| clock))
 }
 
+/// LibreHardwareMonitor's sensors as it serves them on this machine (`localhost:8085/data.json`), if it's running.
+fn monitor() -> Option<String> {
+    use std::io::{Read, Write};
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], 8085));
+    let mut stream = std::net::TcpStream::connect_timeout(&address, Duration::from_millis(300)).ok()?;
+    stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
+    stream.write_all(b"GET /data.json HTTP/1.0\r\nHost: localhost\r\n\r\n").ok()?;
+    let mut bytes = Vec::new();
+    stream.read_to_end(&mut bytes).ok()?;
+    Some(String::from_utf8_lossy(&bytes).to_string())
+}
+
+/// A sensor's value by its id in LibreHardwareMonitor's answer: the number its "Value" begins with, just before the id.
+fn sensor(text: &str, id: &str) -> Option<f32> {
+    let at = text.find(&format!("\"SensorId\":\"{id}\""))?;
+    let value = text[..at].rfind("\"Value\":\"")? + 9;
+    let number: String = text[value..].chars().take_while(|c| c.is_ascii_digit() || *c == '.' || *c == ',' || *c == '-').collect();
+    number.replace(',', ".").parse().ok()
+}
+
 /// Green while comfortable, yellow when warm, red when hot (old's).
 fn colour(celsius: f32) -> egui::Color32 {
     if celsius < 70.0 {
@@ -134,7 +188,12 @@ fn colour(celsius: f32) -> egui::Color32 {
 
 /// The readings drawn in the top right corner, over everything, a dark edge under each so it reads over sky and snow.
 pub fn draw(ctx: &egui::Context, now: Temperatures) {
-    let lines: Vec<(String, f32)> = [("CPU area", now.cpu_area), ("GPU", now.gpu)].into_iter().filter_map(|(name, reading)| reading.map(|c| (format!("{name} {c:.0} °C"), c))).collect();
+    // Each line its degrees, then its watts and load where LibreHardwareMonitor gives them.
+    let more = |watts: Option<f32>, load: Option<f32>| format!("{}{}", watts.map_or(String::new(), |w| format!("  {w:.0} W")), load.map_or(String::new(), |l| format!("  {l:.0}%")));
+    let lines: Vec<(String, f32)> = [("CPU area", now.cpu_area, String::new()), ("CPU cores", now.cpu_core, more(now.cpu_watts, now.cpu_load)), ("GPU", now.gpu, more(now.gpu_watts, now.gpu_load))]
+        .into_iter()
+        .filter_map(|(name, reading, rest)| reading.map(|c| (format!("{name} {c:.0} °C{rest}"), c)))
+        .collect();
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("temperatures")));
     let top_right = ctx.content_rect().right_top() + egui::vec2(-10.0, 8.0);
     for (k, (text, celsius)) in lines.iter().enumerate() {
@@ -154,6 +213,8 @@ mod tests {
         let typeperf = "\"(PDH-CSV 4.0)\",\"\\\\DTC\\Thermal Zone Information(\\_TZ.TZ01)\\High Precision Temperature\"\r\n\"11/12/2026 13:39:22.332\",\"3742.000000\"\r\nExiting, please wait...\r\n";
         assert!((cpu_area_of(typeperf).unwrap() - 101.05).abs() < 0.01);
         assert_eq!(gpu_of("56.09, 1987\n"), (Some(56.09), Some(1987.0)));
+        let monitor = r#"{"id":31,"Text":"CPU Package","Min":"17.5 W","Value":"34.9 W","Max":"48.7 W","SensorId":"/intelcpu/0/power/0","Type":"Power"},{"id":40,"Text":"Core Max","Min":"50.0 °C","Value":"74.0 °C","Max":"90.0 °C","SensorId":"/intelcpu/0/temperature/0","Type":"Temperature"}"#;
+        assert_eq!((sensor(monitor, "/intelcpu/0/power/0"), sensor(monitor, "/intelcpu/0/temperature/0"), sensor(monitor, "/gpu-nvidia/0/power/0")), (Some(34.9), Some(74.0), None));
         assert_eq!(gpu_of("41, 210\n63, 1650\n"), (Some(63.0), Some(1650.0)), "the hottest card");
         assert_eq!(cpu_area_of("Exiting\n"), None);
         assert_eq!(gpu_of(""), (None, None));
