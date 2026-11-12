@@ -1154,6 +1154,11 @@ Reference: `Art/quartile minecraft illustration.png`
     inside that warm-up. Settled, it's **0.34 ms a frame and 0.012 on the card** (build 120, every mark 0.338 to
     0.344; `kept logs/flight-1794489536.txt`). 116, 117 and 118 flew the same way, so their comparisons stand; only
     the floor's number moves.
+- **[DECIDED 2026-11-12] 2.1 closed, done enough to go on** (David, to Counsel's pick: "yes, close 2.1. let us
+  proceed."). Its gate met: the empty frame measured, the map drawn from the code, the doorway answering the 5,047
+  reference columns to the block. What's left is carried to where it's first fed: the doorway's pieces, objects and
+  lights to 2.4; its named fields to 3.1; every mark flown on both cards by one command to 2.2, whose gate needs
+  the Intel card (the laptop on "Optimus" for that flight). Next: 2.2, the far eye.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

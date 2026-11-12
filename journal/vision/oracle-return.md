@@ -319,7 +319,8 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
       new editor (2.1, build 117; David: "editor looks about like what i'd expect")
 - [x] The doorway's columns (2.1): the 5,047 reference columns answered to the block
 - [x] The marks as data, and what changed through the doorway (2.1): 2.1's gate met
-- [ ] The doorway's pieces, lights and named fields, as they're first fed; both cards by one command
+- [x] 2.1 closed, done enough to go on (David: "yes, close 2.1. let us proceed."). Carried: both cards by one
+      command to 2.2; the doorway's pieces and lights to 2.4, its named fields to 3.1
 - [ ] Experiment 5: the eye, far (2.2)
 - [ ] Experiment 6: the eye, near (2.3). Then this file goes to the Oracle
 

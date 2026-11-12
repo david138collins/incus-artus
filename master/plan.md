@@ -10,18 +10,17 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 ## Where we are
 
-- **Working on:** Phase 2, *Restart*, step 2.1. Old is packed into `old\` and still runs there (its tests pass, and
-  the check flight matched 1.7's to within 0.3%); the journal is in `journal/`, found through
-  `journal/contents.md`. The new project runs from the top of the folder (build 120; the numbers carry on from
-  old's): a full-screen window, a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
-  empty frame measured: 0.34 ms a frame and 0.012 ms on the card once the session has warmed up (build 116's 0.40
-  was inside the warm-up). The wiring, the code's own list of its lanes, passes and stores, draws `master/map.md`;
-  the new editor (F2) has its pages by a drop-down, the software map the one that works (David: "editor looks about
-  like what i'd expect"). The doorway answers all 5,047 reference columns to the block, and the marks are data, the
-  build and the scatter made as changes through it, every mark flown at 0.338 to 0.344 ms. **2.1's gate is met**;
-  the doorway's pieces, lights and named fields, and flying both cards by one command, are still open under it.
-  Next: 2.2, the far eye, the first thing drawn on screen. As the editor fills, every window, setting and control
-  is placed with David (`journal/docs/decisions.md`, 2026-11-12).
+- **Working on:** Phase 2, *Restart*, step 2.2, the far eye (experiment 5): old's far march moved onto bricks, the
+  first thing the new project draws. Builder brings its first step and pass mark to Counsel before any code, and
+  David looks at it before it's flown.
+- **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
+  and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
+  numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
+  empty frame at 0.34 ms and 0.012 ms on the card once warmed up. The wiring draws `master/map.md`; the new editor
+  (F2) has the software map. The doorway answers all 5,047 reference columns to the block, and the marks are data,
+  every one flown at 0.338 to 0.344 ms. What's left of it is carried: both cards by one command to 2.2, the
+  doorway's pieces and lights to 2.4, its named fields to 3.1. As the editor fills, every window, setting and
+  control is placed with David (`journal/docs/decisions.md`, 2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
   light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
@@ -32,9 +31,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** whether 2.1 closes with those open lines carried to where each is first fed (Counsel's
-  pick); whether `CLAUDE.md` points at the map now. Ahead at 2.2's gate: the Intel card's numbers, which need the
-  laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** whether `CLAUDE.md` points at the map now. Ahead: his look at the far eye's first picture,
+  and at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -149,7 +147,8 @@ Each experiment's pass mark is written down before it flies.
 Each change in 2.2 and 2.3 flies alone, behind its own switch, on both cards, and each program is priced checked and
 unchecked the first time it flies. Marks are data, flown on both cards by one command.
 
-- [ ] **2.1 Pack, the skeleton, and the doorway**
+- [x] **2.1 Pack, the skeleton, and the doorway** (closed done enough to go on, David 2026-11-12: "yes, close 2.1.
+      let us proceed."; its gate met; what's left carried to 2.2, 2.4 and 3.1, each where it's first fed)
   - [x] Old moves to `old\`, with its own assets and its own build folder, and still runs
         (daf4e2c, IntelliJ's files with it in c0def46; its tests pass from there, 414; the check flight,
         `kept logs/dyno-1794475773.txt`, within 0.3% of 1.7's I at all three marks; `journal/docs/experiments.md`)
@@ -172,12 +171,13 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         top): black, magenta boxes with a tooltip on hover, joined by lines, inside larger boxes for sections; live
         (David, 2026-11-12)
         (build 117, 1ae278c and 8283179; David: "editor looks about like what i'd expect")
-  - [ ] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as
+  - [x] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as
         runs of blocks; pieces, objects and lights; what changed; named fields over the land. The export behind it
         now, the tablet at 3.1. Read-only until the fork. The engine never opens a world file
         (columns as runs in, `src/doorway.rs`: the 5,047 reference columns answered to the block, a tile in 2.2 ms;
         `journal/docs/experiments.md`. What changed in too, by tile: the build's 146 bars and 23 blocks, and the
-        scatter, b48ddc3. Pieces, objects and lights, and the named fields come with what first feeds them)
+        scatter, b48ddc3. Pieces, objects and lights, and the named fields come with what first feeds them: carried
+        to 2.4 and 3.1 when 2.1 closed)
   - [x] The marks as data: the spawn; the bare plain; the plain with David's build (its 169 placings from the event
         log, replayed as changes); the mountain top; far marks (high over the spawn, low over the sea, the plain's
         horizon); the scatter dial (random blocks, none to very many)
@@ -192,6 +192,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       spread); rays begun at drawn boxes; light read from the cell. The far cells are summed by a lane from what the
       doorway answers (old's far bake checks the sums; the first sum's time is measured). The open-sea shortcut
       waits until a sea mark shows it's needed
+  - [ ] Every mark flown on both cards by one command (carried from 2.1): the Intel card's flight needs the laptop
+        switched to "Optimus", put to David a step ahead
   - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop, at the far marks; David's look, above all at
     rings where levels hand over; numbers from the Intel card. If they're twice that or more: keep the bricks and
     the light, march far the lean way instead
@@ -206,6 +208,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 - [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
+  - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
   - *Gate:* David's eye, on its own terms, the basic way kept; under 4.2 ms at the 99th percentile on the laptop,
     on the flight and at every mark; the Intel card's numbers recorded. **David walks old's world through
     the new eye**
@@ -215,6 +218,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 - [ ] **3.1 The tablet** (experiment 8 sizes it first): the made world on disk, put behind the doorway built at 2.1;
       walking, digging, placing, saving. Filled first from the exported test world. It holds no summed levels:
       those are the eye's
+  - [ ] The doorway's named fields over the land, as the tablet first holds them (carried from 2.1)
   - *Gate:* the same blocks as old's; dig, place, save, load; under 4 GB a world
 - [ ] **3.2 The Registrar,** with its Color Lab and the way we work with HSL
   - *Throughout the editor, from its first page:* every window, setting and control placed with David first; a
