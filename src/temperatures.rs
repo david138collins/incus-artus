@@ -1,7 +1,9 @@
 //! The temperatures: how hot the computer runs, in the top right corner while you play, in the session's log every half
 //! minute, and in a flight's report [David, 2026-11-12: "i'd like for you to start tracking temperatures again, just as
 //! before"; always shown, no switch. His "i dont need to see the temp readout" answered whether he needed a launch to
-//! see it; Builder took it off the screen by mistake, and put it back: "why aren't temps shown on the screen"].
+//! see it; Builder took it off the screen by mistake, and put it back: "why aren't temps shown on the screen". Then:
+//! "in the future, can you make sure that the temp displays are always visible while in the world", flights too, since
+//! he watches them: "id like to know what the temps are at while watching"].
 //!
 //! Read beside the watts, the clocks and the frame rate, not alone: the laptop runs Turbo with its fans full, and its
 //! CPU area touches 100 °C as a matter of course [David, via Counsel]. A card slowed by heat shows first in its clock.

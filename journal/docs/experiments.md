@@ -1682,3 +1682,22 @@ without change 2) was flown against build 137 with the boxes off (`INCUS_FAR_BOX
 - **Builder's recommendation, still:** off by default and kept till the Intel flights. Its price till then is under
   1%, and the Intel card's balance of triangles against marching may differ. If David would rather not carry it, take
   it out now; git keeps it.
+
+## The main memory  *(David, via Counsel: "begin tracking ram use, and start looking for opportunities where using it is almost a free win or takes some heat/load off something else")*
+
+Tracked from build 138: Windows' own count for the game's process, in each flight's report and the session's log.
+
+**The first flight** (build 138, dce3afb, 15:56 to 16:02, `kept logs/flight-1794520968.txt`), bricks of 8 with the window:
+- **The game holds 2,826 MB at the end** (2,829 at most), but only 1,036 MB of it is in memory (1,220 at most). The
+  machine has 33.8 GB, 16.1 GB free.
+- **Through the session's log:**
+  - 1,312 MB at 1.6 s, before the far cells come in;
+  - 1,851 MB at 31.6 s, as they come in;
+  - 2,670 MB at 61.6 s, all in and the atlas built;
+  - then up to 2,804 MB as the flight moves through its marks, and 2,826 MB by the end.
+- **Unexplained:** what the 1.3 GB at the start is, and why only a third of what's held is in memory. Drivers and
+  copies made for the card are likely, but that's unmeasured. A breakdown comes before any free win is priced.
+- **Watched:** about 20 MB more over the last four minutes of marks.
+- **From build 139, the temperatures are drawn on flights too** [David: "while you are running tests, i am sitting
+  here watching, and id like to know what the temps are at while watching"]. A few letters of drawing, so earlier
+  flights compare with later ones a hair less exactly; within a session, as before.
