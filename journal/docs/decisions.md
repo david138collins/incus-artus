@@ -1217,6 +1217,18 @@ Reference: `Art/quartile minecraft illustration.png`
     sliders do much" (from far cells alone the finer layers are rarely earned; the sliders are kept for when the
     near eye brings small cells in); low over the sea, "yeah it goes up if i look around. anyways just noting it"
     (1.3 ms looking up, 4.2 along the horizon). He named no ring as a seam.
+- **[DECIDED 2026-11-12] Old's light on the far view, and the baseline** (David, to Builder, on build 126: "light
+  looks normal. hard to tell as it is, but ive never had an issue with your sun lights looks, so proceed"). Old's far
+  march on bricks with old's light (the sun's shadow ray, the sky's five cones) is the baseline the three changes are
+  measured against: on the card, the spawn 0.77, the bare plain 1.42, high over the spawn 2.38, the mountain top
+  2.74, low over the sea 3.95 ms (`kept logs/flight-1794497402.txt`). Light is only 3 to 13% of it at the far marks
+  (old's eye: 17 to 42%), because it's worked out once a pixel and nearly every far pixel is an 8 × 8 or 4 × 4 square;
+  the cost is the march itself.
+  - **[OPEN] The changes' order:** Builder proposes changes 1 and 2 (soft bricks blended by the texture hardware;
+    rays begun at the drawn boxes), aimed at the march, first; then light's share measured again before deciding
+    whether change 3 (light read from the cell) is worth building for the far eye, which can win at most about
+    0.2 ms there. Light kept a cell at a time was decided at 4b (2026-11-11) for the rebuild; this asks only when, and
+    whether the far eye needs it before the near eye (2.3) does. David to say.
   - **[LATER] Weighting kinds of pixels, for the polish** (David, the same day): "i think being able to weight
     different kinds of pixels may be a very cheap and useful tool for a lot of things, once we've got performance
     where we want it and can spend some time just polishing the look a bit." Nothing built for it now; it waits for

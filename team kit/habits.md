@@ -19,6 +19,10 @@ Practical things learned the hard way. Each has its reason, so a later session c
 - **A long commit message** goes in a file in the scratchpad, then `git commit -F <file> -- paths`. In PowerShell a
   here-string piped to `-F -` can be read as pathspecs.
 - **Push when it suits;** David has said push whenever. Never push someone else's branch.
+- **Hold your commits while the other session is flying.** Each flight runs `cargo run` afresh, so a commit made
+  mid-script changes the build's stamp: the next run rebuilds, and its report names a different commit. The code
+  may be the same, but the reports no longer line up at a glance. Ask to be told when a script of flights starts
+  and ends.
 - **A worktree or an older checkout gets its own build folder.** Sharing one let an old program's exe stand in for the
   new, and David was launched into the wrong version.
 

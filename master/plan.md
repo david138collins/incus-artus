@@ -13,14 +13,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 - **Working on:** Phase 2, *Restart*, step 2.2, the far eye (experiment 5). Step 1 is in: the far cells summed on
   the processor from the doorway, every one of 11.2 million the same as old's bake, byte for byte; the eighth round
   the spawn in 2.6 s and the whole world in 16.9 s (old's bake: 46 to 55 s and about 12 min on the card, though it
-  also made the ground from the recipe, which the export did once, in 8 minutes). Step 2a, the far eye's shape, is
-  in (build 122, after 121 crashed at an edge, fixed in the open): old's far march on bricks, faces lit by the sun,
-  fog and sky, no shadows or sky light yet; 911 MB of bricks for the whole world (old's pool was 384 MB). David
-  looked ("it looks right, mostly"), and its flight read 1.2 to 4.0 ms on the card at the far marks, 2 to 4 times the
-  gate, before light. On the Render page (F3) he set the sky's feather at skylines ("that actually works great", 4
-  the default); low over the sea he named no ring as a seam. Step 2b, old's light (the sun's shadow ray and the
-  sky's five cones), is built (build 126, 4fbd70d). Next: David's look at it high over the spawn, then its flight,
-  which is the baseline for the three changes.
+  also made the ground from the recipe, which the export did once, in 8 minutes). Step 2 is in: old's far march on
+  bricks (911 MB for the whole world; old's pool was 384 MB), with old's light. David looked at both ("it looks
+  right, mostly"; "light looks normal ... so proceed"), set the sky's feather at skylines on the Render page (F3)
+  ("that actually works great", 4 the default), and named no ring as a seam low over the sea. The baseline (build
+  126): 1.4 to 4.0 ms on the card at the far marks, 2 to 4 times the gate; light only 3 to 13% of it, so the cost is
+  the march itself. Next: the three changes, each alone, in an order David picks (Builder's: the two aimed at the
+  march first, light's share measured again before the third).
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -39,8 +38,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 126, old's light on the far view, high over the spawn. Also whether
-  `CLAUDE.md` points at the map now. Ahead: at 2.2's gate the Intel card's numbers, which need the
+- **Waiting on David:** the changes' order: soft bricks and the drawn-box start first, light read from the cell
+  decided after them (Builder's pick, Counsel agrees). Also whether `CLAUDE.md` points at the map now. Ahead: at 2.2's gate the Intel card's numbers, which need the
   laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
