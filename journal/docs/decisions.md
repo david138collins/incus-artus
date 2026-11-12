@@ -1307,6 +1307,9 @@ Reference: `Art/quartile minecraft illustration.png`
     multiplier slider in the camera tab please". Build 130: on the panel's Camera page (F3), "speed (blocks a
     second)" from 1 to 2,000 on a logarithmic slider, and "multiplier (Shift held)" from 1 to 20, defaulting to old's
     20 and 5, with a Default button. The labels are Builder's, his to change.
+  - **Detail back to 0** (David, to Builder, on build 130 from height: "yeah 0 is fine"). The default is old's again
+    (2f756a4); +2's 77% from height wasn't bought by anything he could see. Change 1 is done enough to go on: the
+    spread kept, the exact way out, detail 0.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

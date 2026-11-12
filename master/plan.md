@@ -21,17 +21,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the march itself. Now, by David's word ("try all these things and gather data ... let me take a look"), each tried
   and measured in turn, then his eye still and flying: the panel fix and live settings; change 1 both ways; bricks
   of 4 against 8; a window round the eye; change 2; change 3; the Intel card last. Card memory has his bar: well
-  below 4 GB at worst. Change 1 is flown (build 128): the texture hardware's blend takes 14 to 29% off at every mark
-  (low over the sea 4.0 → 2.9 ms), but with the whole world's far view on the card the exact way uses 3.8 GB, at the
-  bar alone, and the spread 2.7 GB; a window round the eye would keep only the levels near it, which hold 94% of it.
-  David looked: "they all look the same", so the spread is kept and the exact way taken out (build 129); two levels
-  finer looked better (the slider ran backwards, corrected), now the default. At +2 the spawn, the plain and the sea
-  cost 2 to 11% more, but the mountain top and high over the spawn 77% more (3.8 ms), because the 2 × 2 layer, never
-  earned before, is earned there now. At the spawn, the only place his camera lets him look, "everything from -1 to
-  4 looks the same"; so Builder recommends the default back to 0 unless a look from the mountain top says otherwise.
-  His camera does move ("its just too slow to notice at first"): old's 20 blocks a second is too slow to see against
-  far cells; build 130 puts its speed and Shift's multiplier on the Camera page, where he asked. The fog line waits (fog may be
-  redone another way later).
+  below 4 GB at worst. Change 1 is done enough to go on: the texture hardware's spread blend takes 14 to 29% off at
+  every mark (low over the sea 4.0 → 2.9 ms); David saw no difference between the blends, so the exact way is out;
+  detail stays at 0 ("yeah 0 is fine", from height, after +2 cost up to 77% more). Its catch is memory: 2.7 GB with
+  the whole world's far view on the card, which a window round the eye would cut, since the levels near it hold 94%.
+  The camera's speed is on the Camera page now (build 130). Next: step 3, bricks of 4 against 8, counted over the
+  whole world before anything is built. The fog line waits (fog may be redone another way later).
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -50,9 +45,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go to launch build 130 (the camera's speed); detail back to 0, or a look from height
-  first; when to take the fog line. Also whether
-  `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** his look at each step as it's ready; when to take the fog line; whether `CLAUDE.md` points
+  at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -222,9 +216,12 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         world's bricks 911 MB; the baseline, `kept logs/flight-1794497402.txt`: the far marks 1.4 to 4.0 ms on the card,
         light 3 to 13% of it. Found on the way: the sky's weight at a skyline (David's 4) and the Render page
         (`journal/docs/experiments.md`)
-  - [ ] The panel fix (no text selection, the mouse's let-go always heard) and the far eye's settings live on the
-        Render page, each with Default
-  - [ ] Change 1, soft bricks blended by the texture hardware, both ways (A exact, B spread), switchable live
+  - [x] The panel fix (no text selection, the mouse's let-go always heard) and the far eye's settings live on the
+        Render page, each with Default (build 127, ac1a9d8; the card's memory shown beside them)
+  - [x] Change 1, soft bricks blended by the texture hardware, both ways (A exact, B spread), switchable live
+        (build 128, 842f83a: 14 to 29% off at every mark; David: "they all look the same", so the spread is kept and
+        exact taken out, build 129, 4ad4788; memory 2.7 GB with the whole world's far view on the card. Detail +2
+        tried and put back to 0, 2f756a4: "yeah 0 is fine". `journal/docs/experiments.md`)
   - [ ] The fog line: the finer layers earned along edges where neighbouring squares differ, priced by flight (David
         saw near ridges' 8 × 8 squares against fogged far mountains). A look step; when he says. Fog itself is for
         looks only and may be taken out and done another way later (David: "there are different ways and times to
