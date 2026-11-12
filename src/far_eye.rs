@@ -403,6 +403,10 @@ mod tests {
         }
         let format = wgpu::TextureFormat::Rgba8Unorm;
         let mut eye = FarEye::new(&device, format, store, None);
+        // The sky's weight to draw with, if asked (`FAR_TEST_SKY_WEIGHT`, for a look at the skyline).
+        if let Some(weight) = std::env::var("FAR_TEST_SKY_WEIGHT").ok().and_then(|w| w.parse().ok()) {
+            eye.look.sky_weight = weight;
+        }
         let marks = crate::marks::load().unwrap();
         let mut camera = Camera::new();
         camera.position = crate::marks::eye(&doorway, &marks[0]).unwrap();
@@ -458,7 +462,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{}.rgba", marks[0].name, screen.0, screen.1)), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}.rgba", marks[0].name, screen.0, screen.1, eye.look.sky_weight)), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");

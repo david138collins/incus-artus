@@ -746,14 +746,16 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // Through the fog to where it first met anything; the sky it went on to past a soft edge stays the sky. The sky's
     // weight [David, 2026-11-12: "if we could just make sky a bit stronger in the math over land, i think that might
     // give a basic natural feather at an early stage that will make a clean chamfer"]: the land's share of a pixel it
-    // only partly covers is taken to a power (1 + the weight), so a skyline's part-covered squares lean to the sky;
-    // a pixel the land covers whole is as it was.
+    // only partly covers is taken to a power, so a skyline's thinly covered squares lean to the sky. The power fades as
+    // the land covers more (1 + the weight × the sky's share squared): a far mountain's own pixels, which its soft cells
+    // never quite cover, are left nearly as they were [build 123: a plain power washed the mountains out, David: "love
+    // what the weight does to the edges, hate what it does to the mountain *not* on the edges"].
     let met = select(seen.distance, seen.touched, seen.distance >= camera.reach.x);
     if (met < camera.reach.x) {
         let behind = seen.sky_share * sky(d);
         let covered = max(1.0 - seen.sky_share, 1e-4);
         let land = fogged((here - behind) / covered, d, met);
-        let shown = pow(covered, 1.0 + camera.fade.w);
+        let shown = pow(covered, 1.0 + camera.fade.w * seen.sky_share * seen.sky_share);
         here = sky(d) * (1.0 - shown) + land * shown;
     }
     if (camera.layer.y > 0.5) {
