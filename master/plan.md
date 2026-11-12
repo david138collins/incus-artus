@@ -195,6 +195,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       spread); rays begun at drawn boxes; light read from the cell. The far cells are summed by a lane from what the
       doorway answers (old's far bake checks the sums; the first sum's time is measured). The open-sea shortcut
       waits until a sea mark shows it's needed
+  - [x] Step 1, the far cells summed from the doorway on the processor, checked against old's bake (`src/far.rs`,
+        `data/far colours.toml` old's colours; `far::tests::the_far_cells_are_old_s_bake`): all 5,184 regions and 11.2
+        million cells the same as old's, byte for byte, each region's 1,024 to its exact sums. The eighth round the
+        spawn in 2.6 s and the whole world in 16.9 s on 24 threads (old's, on the card: 46 to 55 s and about 12 min);
+        `journal/docs/experiments.md`
   - [ ] Every mark flown on both cards by one command (carried from 2.1): the Intel card's flight needs the laptop
         switched to "Optimus", put to David a step ahead
   - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop, at the far marks; David's look, above all at

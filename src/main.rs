@@ -12,6 +12,7 @@
 //! - `panel`: the developer panel (F3), drawn over the picture.
 //! - `editor`: the editor (F2), its pages reached by the drop-down at the top; the software map is the first.
 //! - `doorway`: the one piece that answers "what's here?" a tile at a time (the export behind it now).
+//! - `far`: the far cells, summed from the doorway's columns (cubes of 32 and every level above).
 //! - `marks`: the places every flight stands at, as data (`data/marks.toml`); the game starts at the first.
 //! - `flight`: a measured flight (`INCUS_FLIGHT=1`) at every mark, written to a report in `logs/`.
 //! - `wiring`: every lane, pass and store, declared in one place; the frame runs in its order, and the software map and
@@ -23,6 +24,7 @@ mod card;
 mod clocks;
 mod doorway;
 mod editor;
+mod far;
 mod flight;
 mod marks;
 mod panel;

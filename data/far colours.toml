@@ -1,0 +1,40 @@
+# Each block's colour from far: old's rule (old/src/look.rs, far_colour: its texture shrunk to one pixel, as light),
+# from old's textures (old/assets/textures/blocks), carried unchanged until the Registrar sets colour again (3.2)
+# [David, 2026-11-12: "the far colors are not important now. i'll go in and regulate everything again once we rebuild
+# the registrar"]. In 1,024ths of linear light (0 to 1,023): red, green, blue. A block's top is its colour looking up;
+# its sides' every other way (old's north side). Water is never a face, so it has none.
+
+[[block]]
+name = "incus:stone"
+top = [88, 88, 88]
+side = [88, 88, 88]
+
+[[block]]
+name = "incus:gabbro"
+top = [133, 122, 82]
+side = [133, 122, 82]
+
+[[block]]
+name = "incus:grass"
+top = [88, 175, 27]
+side = [225, 156, 36]
+
+[[block]]
+name = "incus:gravel"
+top = [63, 61, 54]
+side = [63, 61, 54]
+
+[[block]]
+name = "incus:sand"
+top = [199, 169, 30]
+side = [199, 169, 30]
+
+[[block]]
+name = "incus:snowy_ground"
+top = [558, 604, 725]
+side = [558, 604, 725]
+
+[[block]]
+name = "incus:dry_grass"
+top = [199, 221, 49]
+side = [199, 221, 49]

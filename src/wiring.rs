@@ -64,6 +64,7 @@ pub enum PassId {
     ShowingIt,
     Measuring,
     TheDoorway,
+    SummingTheFarCells,
 }
 
 pub struct Pass {
@@ -92,6 +93,7 @@ pub enum StoreId {
     TileColumns,
     Marks,
     Changes,
+    FarCells,
 }
 
 pub struct Store {
@@ -137,7 +139,7 @@ pub const LANES: [Lane; 3] = [
     },
 ];
 
-pub const PASSES: [Pass; 10] = [
+pub const PASSES: [Pass; 11] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -250,9 +252,20 @@ pub const PASSES: [Pass; 10] = [
         switches: &[],
         files: &["src/doorway.rs"],
     },
+    Pass {
+        id: PassId::SummingTheFarCells,
+        name: "summing the far cells",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "The far cells summed from the doorway's columns, a region (1,024 blocks a side) at a time, nearest the spawn first: cubes of 32 blocks and every level above, each exactly its children added. On the processor, not the card [David, 2026-11-12: \"its a 1 time event, and it's quick\"]: it's the loading lane, not the frame; the doorway's columns are already on the processor; and the card stays free for drawing. Nothing in the game asks yet: its test does, and the far eye will (2.2, step 2).",
+        reads: &[StoreId::TileColumns],
+        writes: &[StoreId::FarCells],
+        switches: &[],
+        files: &["src/far.rs"],
+    },
 ];
 
-pub const STORES: [Store; 12] = [
+pub const STORES: [Store; 13] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -348,6 +361,14 @@ pub const STORES: [Store; 12] = [
         what: "The changes made through the doorway, by tile: whole blocks and bars, in the order they were made. A mark's are taken back when the flight moves on.",
         limits: &[],
         files: &["src/doorway.rs"],
+    },
+    Store {
+        id: StoreId::FarCells,
+        name: "the far cells",
+        on: Where::Processor,
+        what: "The world as the far eye sees it: cubes of 32 blocks and every level above, 16 bytes a cell (old's form: how solid, how wet, which ways its faces look, their colour, how their light and height spread, how much surface shows), only each column's surface band kept. Colours from data/far colours.toml, old's, until the Registrar.",
+        limits: &[("blocks a side of the first level's cells", 1 << crate::far::FIRST), ("blocks a side of a region, made at once", 1 << crate::far::REGION)],
+        files: &["src/far.rs"],
     },
 ];
 

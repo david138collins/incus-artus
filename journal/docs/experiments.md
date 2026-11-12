@@ -936,3 +936,29 @@ The far colours (`data/far colours.toml`) are old's, worked out from old's textu
 - **The first sum's time,** measured. *Builder's estimate [low]:* the eighth round the spawn under 15 s, the whole world
   under two minutes. Old's bake took 46 to 55 s for its start (the eighth) and about 12 minutes for the whole world, on
   the card (decisions, 2026-11-06).
+
+### Results
+
+Run by its test, 2026-11-12 (`cargo test --release`, `far::tests::the_far_cells_are_old_s_bake`), on all 24 of the
+processor's threads:
+
+- **The pass mark holds: every far cell is old's.** All 5,184 regions of old's bake and the 11,231,031 cells kept from
+  32 to 1,024 are the same as old's, byte for byte, the cells left out of either band included. Each region's 1,024
+  matches old's to its exact sums. The far colours carried from old's textures are old's to the 1,024th.
+- **The check bites:** with stone's side colour one step redder (89 in place of 88 of 1,023), 144,659 cells differed
+  and the test failed, naming the first. The colour was put back.
+- **The first sum's time:**
+
+  | | the eighth round the spawn | the whole world |
+  |---|---|---|
+  | Builder's estimate | under 15 s | under 2 min |
+  | **The new far cells** (processor, 24 threads) | **2.6 s** (2.5 again) | **16.9 s** (17.2 again) |
+  | Old's bake (the card, decisions 2026-11-06) | 46 to 55 s | about 12 min |
+
+  The levels above 1,024, up to four cells of 65,536 covering the map, take under a hundredth of a second more.
+- **Why it's this much quicker** *[estimate, medium]:* old summed block by block on the card, in small pieces so as
+  not to hold the frame. Here each column's solid blocks are runs, and its faces against a neighbour are one range,
+  added in one step, on every thread.
+- **On the map:** the loading lane holds a second pass, "summing the far cells", reading "a tile's columns" and writing
+  "the far cells" (Builder's names, David's to change). Its card says why it's on the processor. Nothing in the game
+  asks for the far cells yet: the far eye will, in step 2.

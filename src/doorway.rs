@@ -300,9 +300,32 @@ impl Doorway {
         push(WATER, ground + 1, top);
         Ok(runs)
     }
+
+    /// The least corner's column (north, east), and columns a side of a tile.
+    pub fn grid(&self) -> ([i32; 2], i32) {
+        (self.least, self.side)
+    }
+
+    /// The world's height in blocks (nothing at or above it).
+    pub fn height(&self) -> i32 {
+        self.world_height
+    }
+
+    /// A profile by its number: its top block, and each block under it with the depth it reaches, deepest last.
+    pub fn profile(&self, number: u32) -> Option<(Block, &[(Block, i32)])> {
+        self.profiles.get(number as usize).and_then(Option::as_ref).map(|profile| (profile.top, profile.under.as_slice()))
+    }
 }
 
 impl Tile {
+    /// The column `i` north and `j` east of the tile's least corner as the export holds it: its ground (−1 past the
+    /// map), its river's or lake's water (0 none), and its profile's number. For readers of many columns at once (the
+    /// far cells), where making each column's runs would cost more than the reading.
+    pub fn raw(&self, i: usize, j: usize) -> (i32, i32, u32) {
+        let k = i + j * self.side;
+        (self.grounds[k], self.waters[k], self.profiles[k])
+    }
+
     /// The column `i` north and `j` east of the tile's least corner.
     pub fn column(&self, doorway: &Doorway, i: usize, j: usize) -> Result<Column, String> {
         let k = i + j * self.side;

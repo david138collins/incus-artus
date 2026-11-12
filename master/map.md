@@ -28,6 +28,7 @@ flowchart TB
   subgraph lane_loading["loading (as tiles are asked for)"]
     direction LR
     pass_the_doorway["the doorway"]
+    pass_summing_the_far_cells["summing the far cells"]
   end
   store_the_keys_held[("the keys held")]
   store_the_camera[("the camera")]
@@ -41,6 +42,7 @@ flowchart TB
   store_a_tile_s_columns[("a tile's columns")]
   store_the_marks[("the marks")]
   store_what_changed[("what changed")]
+  store_the_far_cells[("the far cells")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -61,6 +63,8 @@ flowchart TB
   store_the_export --> pass_the_doorway
   store_what_changed --> pass_the_doorway
   pass_the_doorway --> store_a_tile_s_columns
+  store_a_tile_s_columns --> pass_summing_the_far_cells
+  pass_summing_the_far_cells --> store_the_far_cells
 ```
 
 ## The lanes
@@ -88,7 +92,7 @@ flowchart TB
 
 - **Runs:** as tiles are asked for.
 - **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
-- **Its passes, in order:** the doorway.
+- **Its passes, in order:** the doorway and summing the far cells.
 - **Files:** src/doorway.rs.
 
 ## The passes
@@ -173,6 +177,14 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794489536.txt`): on the processor not run.
 - **Files:** src/doorway.rs.
 
+### summing the far cells
+
+- **A pass** in loading, on the processor.
+- **What it is:** The far cells summed from the doorway's columns, a region (1,024 blocks a side) at a time, nearest the spawn first: cubes of 32 blocks and every level above, each exactly its children added. On the processor, not the card [David, 2026-11-12: "its a 1 time event, and it's quick"]: it's the loading lane, not the frame; the doorway's columns are already on the processor; and the card stays free for drawing. Nothing in the game asks yet: its test does, and the far eye will (2.2, step 2).
+- **Reads:** a tile's columns. **Writes:** the far cells.
+- **Cost, last measured** (`kept logs/flight-1794489536.txt`): not measured.
+- **Files:** src/far.rs.
+
 ## The stores
 
 ### the keys held
@@ -244,7 +256,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.
-- **Written by:** the doorway. **Read by:** going to a mark.
+- **Written by:** the doorway. **Read by:** going to a mark and summing the far cells.
 - **Files:** src/doorway.rs.
 
 ### the marks
@@ -260,4 +272,13 @@ flowchart TB
 - **What it is:** The changes made through the doorway, by tile: whole blocks and bars, in the order they were made. A mark's are taken back when the flight moves on.
 - **Written by:** going to a mark. **Read by:** the doorway.
 - **Files:** src/doorway.rs.
+
+### the far cells
+
+- **A store** on the processor.
+- **What it is:** The world as the far eye sees it: cubes of 32 blocks and every level above, 16 bytes a cell (old's form: how solid, how wet, which ways its faces look, their colour, how their light and height spread, how much surface shows), only each column's surface band kept. Colours from data/far colours.toml, old's, until the Registrar.
+- **Written by:** summing the far cells. **Read by:** none.
+- **Limit:** blocks a side of the first level's cells, 32.
+- **Limit:** blocks a side of a region, made at once, 1024.
+- **Files:** src/far.rs.
 
