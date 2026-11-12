@@ -595,3 +595,33 @@ One flight, 2026-11-12, 03:18 to 03:29, from `old\`: `kept logs/dyno-1794475773.
 - **The same caveat as I:** the spawn's live levels weren't whole after the 180 s cap (7,527 of 8,820 tiles; I had
   7,533). The mountain top was whole in 102 s. The plain was whole 68 s after the build, as in I.
 - Old is the same game in its new folder. The new project starts at the root.
+
+
+## The empty frame: the new project's floor  *(plan 2.1's gate)*
+
+David's go: "looks fine. go ahead" (2026-11-12, after his look at build 116, the skeleton). The first measure of the
+new project: the frame with nothing in it. It's the floor that every later change is measured from.
+
+### What flies
+
+Build 116 (c4d102e), from the top folder: `INCUS_FLIGHT=1 cargo run --release -j 4`. It runs on the 5070 Ti in
+"NVIDIA GPU only". The camera stands still, the frames settle for 5 s, then 20 s are measured. The frames are handed
+over uncapped (Immediate) with the panel hidden. One pass on the card: the picture cleared, and the panel (empty) over
+it. The report goes to `logs/flight-<seconds>.txt`.
+
+### The pass mark (written before the flight)
+
+**The flight is good to read if** the report's header names build 116 with the code committed, and the card's clock
+timed the frames (thousands of them, every one with its pass).
+
+**Builder's estimates** *[estimate, low: nothing like it has been measured here]*:
+- the card's pass under 0.1 ms. Clearing a 2560 × 1600 picture is 16 MB written, a small fraction of a millisecond on
+  this card.
+- the frame under 1 ms at the median (above a thousand a second), since only the processor's round trip and the hand-over
+  are in it.
+
+**What each result means:**
+- **Within the estimates:** the floor is written down, and the skeleton's line in 2.1 is ticked.
+- **The card over 0.1 ms, or the frame over 1 ms:** it's still the floor, written down as it is. Before anything is built
+  on it, the time is placed: in the hand-over, the panel's library, or the clocks themselves. An empty frame that costs
+  something costs it under every frame after.
