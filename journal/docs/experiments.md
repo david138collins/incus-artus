@@ -1384,3 +1384,7 @@ The atlas was made and sent in 17.0 s at 8, 3.3 s at 4 and 3.2 s at 2.
   - The memory goes on the near eye and everything else under the 4 GB bar.
 - **Builder's recommendation:** bricks of 4. The window round the eye (step 4) is still to come, and it would take
   most of what's left off the card.
+
+**David's pick (2026-11-12):** "4 sounds good". Bricks of 4 are the default from here. Counsel's point, which David
+took: the window round the eye (step 4) cuts the same memory another way, so the last pick waits on step 4's flights
+at 4 and at 8, and 8 stays a launch switch away (`INCUS_FAR_BRICK=8`).

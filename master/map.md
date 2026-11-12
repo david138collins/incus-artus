@@ -162,7 +162,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The regions summed since the last frame put on the card as bricks, at most 3 ms a frame, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in.
 - **Reads:** the far cells. **Writes:** the far bricks.
-- **Switch** `INCUS_FAR_BRICK`: a brick's side in cells: 2, 4 or 8 (unset: 8), for the pool and the far textures both (2.2, step 3).
+- **Switch** `INCUS_FAR_BRICK`: a brick's side in cells: 2, 4 or 8 (unset: 4), for the pool and the far textures both (2.2, step 3).
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.319.
 - **Files:** src/bricks.rs and src/far_eye.rs.
 

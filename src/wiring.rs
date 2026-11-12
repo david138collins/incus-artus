@@ -192,7 +192,7 @@ pub const PASSES: [Pass; 18] = [
         what: "The regions summed since the last frame put on the card as bricks, at most 3 ms a frame, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in.",
         reads: &[StoreId::FarCells],
         writes: &[StoreId::FarBricks],
-        switches: &[("INCUS_FAR_BRICK", "a brick's side in cells: 2, 4 or 8 (unset: 8), for the pool and the far textures both (2.2, step 3)")],
+        switches: &[("INCUS_FAR_BRICK", "a brick's side in cells: 2, 4 or 8 (unset: 4), for the pool and the far textures both (2.2, step 3)")],
         files: &["src/bricks.rs", "src/far_eye.rs"],
     },
     Pass {
