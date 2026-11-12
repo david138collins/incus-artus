@@ -67,7 +67,12 @@ impl Flight {
         text += &format!("The flight: Incus Artus, {}; {code}\n", crate::session::build_line());
         text += &format!("The card: {}\n", about.card);
         text += &format!("The picture {} x {}, the screen's refresh {:.0}, uncapped; handed to the screen: {:?}; the panel hidden\n", about.picture.0, about.picture.1, about.refresh, about.present);
-        let mut switches: Vec<String> = std::env::vars().filter(|(name, _)| name.starts_with("INCUS_") || name.starts_with("WGPU_")).map(|(name, value)| format!("{name}={value}")).collect();
+        // The switches set for this session. Not the build's own stamp (`INCUS_BUILD...`): `cargo run` hands the build
+        // script's values to the game as it starts, and they're in the first line already.
+        let mut switches: Vec<String> = std::env::vars()
+            .filter(|(name, _)| (name.starts_with("INCUS_") && !name.starts_with("INCUS_BUILD")) || name.starts_with("WGPU_"))
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect();
         switches.sort();
         text += &format!("Switches: {}\n\n", switches.join(", "));
         let camera = about.camera;
