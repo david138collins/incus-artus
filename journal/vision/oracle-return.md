@@ -327,6 +327,16 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
     squares, because the finer layers are earned by distance only. Builder's fix earns them along edges where
     neighbouring squares differ. Is that the lens's way, or does the drawn-box start (change 2) change where the
     fine layers are needed?
+13. **Temporal reuse** (David, 2026-11-12: "what about TAA, is that in the testing/performance pipeline, towards the
+    end, probably?"). His rules of 2026-11-08 stand (anything fast never takes from history; pixels with no history
+    get rays first; edits and light changes drop history; near block faces stay crisp; Playdead's INSIDE as the
+    reference). Your design needs no reuse between frames. With the far eye at 1.1 to 2.9 ms and change 2 not
+    paying, is temporal reuse the lever for the horizon's grazing rays, or does it stay for the speed pass after the
+    eye is whole?
+14. **Main memory** (David: "do you think we are under-utilizing system ram? i think basically everyone will have at
+    least 8gb"). It's now tracked beside the card's. Which parts of your design could lean on the laptop's main
+    memory (31 GB) to take load off the card: prepared bricks kept ready for the window, the tablet's tiles unpacked
+    round the eye?
 
 ## 5. Still to come
 

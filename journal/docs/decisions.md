@@ -1365,6 +1365,23 @@ Reference: `Art/quartile minecraft illustration.png`
     the boxes off, alternating twice in one session: the unused code costs the march 0.2 to 1%, at most 0.01 ms, the
     same at every mark. A first 7.5% hint had been noise between sessions. So "kept till the Intel flights" costs
     under 1%; out now is the other way, since git keeps it.
+- **[DECIDED 2026-11-12] Main memory tracked, and searched for free wins** (David, to Counsel, asking "do you think
+  we are under-utilizing system ram? i think basically everyone will have at least 8gb", then: "tell builder to begin
+  tracking ram use, and start looking for opportunities where using it is almost a free win or takes some heat/load
+  off something else."). Every report and the session's log give the game's main memory beside its card memory, and
+  Builder looks for uses of spare main memory that cost next to nothing or take load off the card or the processor
+  (Counsel's first candidates: prepared far bricks kept ready so refilling the window is a plain copy, which would
+  also spread its hitches; the tiles round the eye kept unpacked; room kept for the simulation). **[OPEN]** The bar:
+  Counsel's proposal is required main memory under about 4 GB, so an 8 GB machine keeps room for everything else,
+  with caches growing on bigger machines, as for the card. Why: his "what can *you* do for me?", for the laptop's 31
+  GB.
+- **[OPEN] Temporal reuse (TAA), and where it goes** (David, to Counsel: "what about TAA, is that in the
+  testing/performance pipeline, towards the end, probably?"). Decided for old on 2026-11-08 with his rules (anything
+  fast never takes from history; pixels with no history get rays first; edits and light changes drop history; near
+  block faces stay crisp; Playdead's INSIDE talk as the reference), as a main candidate for "adding power" after the
+  look is whole and inspected. The new plan doesn't name it yet, and the Oracle's design needs no reuse between
+  frames. Put to the Oracle (question 13): after the eye is whole, or earlier as a lever if the far or near eye misses
+  its gate.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

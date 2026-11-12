@@ -250,6 +250,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         at 2,000 it creaks; `journal/docs/experiments.md`; David: "it looks good")
   - [ ] Change 2, rays begun at the drawn boxes (flown, build 137: doesn't pay on this card; off or out, by David)
   - [ ] Change 3, light read from the cell, after light's share is measured again
+  - [ ] Main memory in every report and the session's log, beside the card's; spare main memory searched for free
+        wins or load taken off the card or the processor (David, 2026-11-12)
   - [ ] Every mark flown on both cards by one command (carried from 2.1): the Intel card's flight needs the laptop
         switched to "Optimus", put to David a step ahead. Last
   - *Each:* measured, then David's eye still, moving his head, and flying ("try all these things and gather data")
@@ -316,6 +318,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
 | ~~The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before?~~ | Answered 2026-11-12: the editor's, as the software map |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
+| Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? | The fork |
+| The game's main memory: a bar of about 4 GB required (Counsel's proposal), caches growing on bigger machines? | David, any time |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |
