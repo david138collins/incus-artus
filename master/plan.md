@@ -146,6 +146,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         `kept logs/dyno-1794475773.txt`, within 0.3% of 1.7's I at all three marks; `journal/docs/experiments.md`)
   - [ ] `docs/` and `vision/` become `journal/`, with a contents page; `master/` on top; `CLAUDE.md` points at
         `master/`; memories trimmed to habits and warnings
+        (the move, 1436bf2: as they were, with history, and `journal/contents.md`; the paths in `master/`,
+        `CLAUDE.md`, the dyno-audit skill and the memories updated. Counsel's memories trimmed: the rivers
+        walkthrough gone, its record in the journal; the fresh-eyes audit moved to the new engine. Ticks when
+        Builder has trimmed hers)
   - [ ] The new project: a window that runs, the clock, a flying camera, the instruments (the card timed a layer
         and a stage at a time from the first build: old's one clock couldn't place the bare plain's cost, 1.7)
   - [ ] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
