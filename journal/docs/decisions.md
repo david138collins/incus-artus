@@ -1173,6 +1173,10 @@ Reference: `Art/quartile minecraft illustration.png`
   should be this way a week ago!" So an old word is quoted with its date and what's changed since, as a reminder,
   and asked about, not held as binding. Words about current or recent work keep their weight. This file is read
   that way too: its older entries are how we got here, and `master/` is what holds now.
+- **[DECIDED 2026-11-12] The far colours carried from old** (David, to Counsel's pick: "Yes, carry old's"). Each of
+  the eight blocks' far colours (top and sides) as old worked them out, its texture shrunk to one pixel as light,
+  kept as numbers in a data file until the Registrar (3.2) sets colour properly. Why: the far cells' check against
+  old's bake needs old's colours, and choosing them now would mean choosing twice.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

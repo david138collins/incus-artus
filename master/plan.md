@@ -31,10 +31,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** 2.2's first step (the far cells summed on the processor from the doorway, his "yes"; checked
-  byte for byte against old's bake; nothing on screen yet) has one choice left in it: the far colours of the eight
-  blocks carried from old unchanged until the Registrar (3.2), or chosen now. Also whether `CLAUDE.md` points at the
-  map now. Ahead: his look at the
+- **Waiting on David:** whether `CLAUDE.md` points at the map now. 2.2's first step has his go: the far cells summed
+  on the processor from the doorway, with old's far colours carried until the Registrar (3.2), checked byte for
+  byte against old's bake; nothing on screen yet. Ahead: his look at the
   far eye's first picture,
   and at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
