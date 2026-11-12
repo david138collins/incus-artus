@@ -1185,6 +1185,26 @@ Reference: `Art/quartile minecraft illustration.png`
   light) and is then the baseline the three changes are measured against. He looks from two marks, high over the
   spawn and low over the sea, reached for now by a launch switch (`INCUS_MARK`), so no key or control is placed. Why
   two looks: the step is big, and the shape and the rings are best judged before the light is added over them.
+- **[DECIDED 2026-11-12] The far eye's first look, and its tuning on the Render page** (David, to Builder, launching
+  it: "ok, lets see"). Build 121 crashed 18 s in (a brick at the edge of the levels over 1,024 wrote past its row;
+  Builder's build 122 fixed it, with a test on every edge, `journal/docs/experiments.md`). High over the spawn: "there's
+  a little bit of blotchiness - idk if thats just the terrain being messy, or if it will be covered by near views ...
+  one thing i had not been able to work in as the last graphics engine was coming apart around us, was the
+  sky-mountain blending. sometimes squares would be kitty corner to the mountain in the sky a bit, darker ... weight
+  the sky a bit more ... it looks right, mostly, and if performance is keeping up with what we'll need, we can
+  proceed". Then: "if we could just make sky a bit stronger in the math over land, i think that might give a basic
+  natural feather ... a very simple crossover slider set for the transitions ... watch the card time as i adjust it
+  ... a default button ... we don't need presets yet ... go ahead and do your tests, and yes, we should keep these
+  things on the render page of the debug panel, with a relevant speed gauge visible nearby."
+  - **Where it goes, his placement:** the Render page of the debug panel (F3), the far eye's card time at its top.
+    Sliders for where the levels hand over (where the 4 × 4 and the 2 × 2 fade in) and for the sky's weight, and a
+    Default button; no presets. The sky's weight starts at old's (none) until he picks a value, which then becomes the
+    default (build 123). The slider labels and the store "the far eye's look" are Builder's names, his to change.
+  - **The blotches,** from the flight: the finest screen layer (2 × 2) is almost never earned from far cells alone,
+    so most of the screen is 8 × 8 and 4 × 4 squares shown crisp, each a slightly different average.
+  - **His condition, "if performance is keeping up":** the far eye as old had it costs 1.2 to 4.0 ms on the card at
+    the far marks, 2 to 4 times 2.2's gate, before light. That's the baseline; by the plan, the three changes come
+    next and the gate is read after them, with the Intel card.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
