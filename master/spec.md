@@ -1090,6 +1090,8 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - The Suite's tabs: Registrar, Graphics Kit, Tectonic Sim, World Compiler, then Civilization; on its own screen (F2), with the physical world paused. [decided] (WG:113-115, 1933-1934; msgs:84, 194-202)
 - Ask David before naming or placing any tab, panel or stage; each word means one thing: "the language we use to describe the sections of the machine". [decided] (toy-factory.md:5-6; WG:595; mem/editor-suite-naming:13-15)
 - The editor may get messy and can be started over later; tabs by stage, repackaged much later: "would wind up in a psych ward". [decided] (WG:26-27, 601-606)
+- Made again, its windows arranged and shaped on purpose, each setting and control placed with David first; no line in a shared top bar that a window doesn't need, none left after what it controlled is gone: "organizing the UI is super important to me". [decided] (decisions.md:1079-1091; mem/editor-suite-naming)
+- The control panel as a page in the editor: "the control panel will be a page in" it. Whether that's the control room, which was to be a page in the game's own panel, is to be said. [open] (decisions.md:1068-1070, 1079-1091)
 - Note buttons on each section, saved to David's notes file. [decided] (handoff.md:276-278)
 - Eventually making a world becomes a fun, attractive process for players; placeholder graphics until then. [wanted] (WG:1935-1936)
 - A world map first: a literal view of the generated world for David that becomes the create-world map; three maps in all (the designer's suite, the create-world map, the in-game literal map with overlays). [idea] (vision.md:671-695)

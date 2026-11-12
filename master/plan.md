@@ -14,8 +14,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the check flight matched 1.7's to within 0.3%); the journal is in `journal/`, found through
   `journal/contents.md`. The new project's skeleton is at the top of the folder (392ae0d): a full-screen window,
   the frame's clock and the card's clock a pass at a time, a flying camera on old's keys, the panel (F3), and a
-  one-minute flight of the empty frame. It builds; it hasn't run yet. Next: David's first look, then the rest of
-  2.1 (everything declared as data and the map, the control room, the doorway, the marks).
+  one-minute flight of the empty frame. It's launching as build 116 for David's first look (c4d102e; the numbers
+  carry on from old's). Next: the rest of 2.1 (everything declared as data and the map, the control room, the
+  doorway, the marks). As the editor fills, every window, setting and control is placed with David
+  (`journal/docs/decisions.md`, 2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
   light's cost is the near faces'. 1.7's reading flight found the bare plain's cost spread, and ruled out the sky's
@@ -26,9 +28,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go to launch the skeleton (a look, and the empty frame's flight, about a minute); whether
-  the new project's build numbers carry on from old's (116 next) or start again; and his desktop "Play Incus
-  Artus.bat", which starts the top of the folder (now the new game): keep it there and add one for old?
+- **Waiting on David:** his look at build 116, and the empty frame's flight (about a minute); his desktop "Play
+  Incus Artus.bat", which starts the top of the folder (now the new game): keep it there and add one for old?; and
+  where the control room goes: he said "the control panel will be a page in" the editor, where on 2026-11-11 it was
+  to be a page in the game's panel.
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
@@ -194,6 +197,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       those are the eye's
   - *Gate:* the same blocks as old's; dig, place, save, load; under 4 GB a world
 - [ ] **3.2 The Registrar,** with its Color Lab and the way we work with HSL
+  - *Throughout the editor, from its first page:* every window, setting and control placed with David first; a
+    line in a shared top bar only if every window under it needs it; a control goes when what it controls goes
+    (David, 2026-11-12: "organizing the UI is super important to me")
 - [ ] **3.3 The Graphics Kit,** built on the Registrar's colour system
 - [ ] **3.4 World generation, stage by stage, with the new editor** (experiment 7 opens it)
   - [ ] Plans: tectonics, climate, rivers and lakes, peaks, cave plans
@@ -223,6 +229,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | Seasons: a re-texture (a named field the look reads), a re-block (changes through the doorway), or both. Both are kept possible | Later; nothing to decide now |
 | Digging and placing before the fork? Decided no: read-only until then | Answered 2026-11-11 |
 | ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
+| The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before? | 2.1, before the control room |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |

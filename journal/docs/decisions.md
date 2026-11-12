@@ -1073,6 +1073,22 @@ Reference: `Art/quartile minecraft illustration.png`
   IntelliJ as its own project; the new project uses VS Code. The test was the pack's check flight, which held
   (`journal/docs/experiments.md`). The journal moved the same day: `docs/` and `vision/` into `journal/` as they
   were, with `journal/contents.md` (plan 2.1, as the fresh-start proposal set out).
+- **[DECIDED 2026-11-12] The new project's build numbers carry on from old's** (David, to Builder: "carry on from
+  116."). The skeleton's first launch is build 116 (c4d102e); old's last was 115. One count for both, so a number
+  never names two programs.
+- **[DECIDED 2026-11-12] The editor's windows arranged on purpose** (David, to Builder): "note that while we're
+  re-constructing the editor, which the control panel will be a page in, we should carefully reconsider how we
+  arrange and shape windows, because it got a little messy last time, with some settings and lines in the top bars
+  of the window becoming pointlessly shared between windows or left after depracated. and organizing the UI is super
+  important to me. ... make sure you know as a working principle to ask where settings and controls should go as we
+  start filling up the editor screen and stuff."
+  - A working principle: before a setting, control or window is placed, Builder asks David where it goes and how
+    it's shaped, as with names (her memory, editor-suite-naming). A line in a shared top bar is there only if every
+    window under it needs it; a control goes when what it controls goes.
+  - *Counsel:* "the control panel will be a page in" the editor. On 2026-11-11 the control room (the live map) was
+    to be a page in the game's own panel (above, "Old's place, and the control room"). **[OPEN]** Whether "the
+    control panel" is the control room, and so whether its page is in the editor rather than the game's panel:
+    David to say.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

@@ -55,7 +55,8 @@ All in his words in `journal/docs/decisions.md`: "The rebuild: after the Oracle"
   test".
 - **Order:**
   - the Registrar (and its Color Lab and HSL handling) before the Graphics Kit;
-  - the editor made again, "more streamlined";
+  - the editor made again, "more streamlined", its windows arranged on purpose and each setting and control placed
+    with David first (2.1): "organizing the UI is super important to me";
   - world generation "we don't have to cling to"; water (sea level, cliffs and beaches, rivers) gets a design step
     of its own.
 - **Where things are kept:**
@@ -112,7 +113,7 @@ The plan is `master/plan.md`.
 | 5 | Leaves far off | Open (2.4). David earlier: leaves partly see-through, "like minecraft" |
 | 6 | The rejector | Open, not needed till 3.5 |
 | 7 | `Art/` online | "Not yet" |
-| 8 | The control room in the game's panel | Open (2.1); Counsel leans yes |
+| 8 | The control room in the game's panel | Yes (2026-11-11). Then at 2.1: "the control panel will be a page in" the editor; whether that moves the control room there, David to say |
 | 9 | The small card | The Core Ultra 9 275HX's integrated Intel graphics; flown in experiment 1 |
 | 10 | The new eye's picture | At this fork |
 
