@@ -142,6 +142,7 @@ The kit's tools are all still pictures today. Give every slider a way to move:
   it moves and what it turns into when it touches another (potion + blood → glowing → more blood; lightning
   turns a pixel into 2 fire and 2 smoke). The elements live in data files, like blocks. **This is the
   spheres' engine:** build it once as a toy, and the HUD runs the same code.
+  *(2026-11-12: one such sim on the card, read for this: `journal/vision/sand-sim-reading.md`.)*
 - **Flow:** push particles and pixels along a field (the kit's warp modes: swirl, push, flow) for smoke curls and eddies.
 
 ### 3. Shapes and masks

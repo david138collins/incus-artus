@@ -104,6 +104,7 @@ when `docs/` was the record.
 | `water-from-the-start.md` | Water regrouped from the start (2026-10-31), done enough to go on. |
 | `ores-by-depth.md` | Ores and minerals of three games side by side, ranked by depth, for the mineralogy talk (2026-10-31). |
 | `dyno-audit-2026-11-10.md` | An outside read of old's speed at build 104. |
+| `sand-sim-reading.md` | A falling-sand sim on the card, read for the life gauges and the FX Lab (2026-11-12): what to take, what to do differently. |
 
 **From before**
 
