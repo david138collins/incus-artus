@@ -732,3 +732,241 @@ Those his answers of 2026-11-11 left open, and the new ones this review raises.
 9. **The small card.** Which one is in the laptop? It decides how much its numbers say about a 980 Ti.
 10. **After experiment 6:** does the new eye's picture of the old world pass his look? That is the gate the rebuild
     hangs on.
+
+---
+---
+
+# The second part: before the first line  [FOR DAVID, COUNSEL AND BUILDER, 2026-11-11]
+
+David called the Oracle back early: experiments 1, 2, 3, 4a and 4b are flown in old, old is tagged `old-final`,
+the test world is exported, and nothing of the new engine is written. Read for this part: `master/plan.md`,
+`vision/oracle-return.md`, `docs/experiments.md`, the rebuild's section of `docs/decisions.md`,
+`master/references.md`, the export and `src/world/export.rs`, with the main numbers checked against `kept logs/`
+and the pictures. The first part above is left as it was. Nothing here is decided. The same marks apply:
+*[checked]*, *[record]*, *[estimate]*.
+
+## For David, in plain words
+
+**What to try first, in order:**
+
+1. **One reading flight in old** (fifteen minutes, no code changed): the third mark with the per-pass timers on,
+   before and after the build goes in. Your dearest standing view turns out to be a bare plain, and nobody yet knows
+   which part of the frame it is.
+2. **The skeleton and the instruments,** as planned.
+3. **The doorway.** One small piece of code that answers "what's here?" for a whole tile at a time. The export
+   sits behind it now. The eye never opens a world file, so your world format can keep growing.
+4. **The far eye:** old's own far march, moved onto bricks, with three changes each behind its own switch so each
+   is priced alone: cells blended by the texture hardware; rays begun at drawn boxes, so the sky costs nothing;
+   light read from the cell.
+5. **The near eye, rays first,** because once the far eye exists they are nearly free to try. Triangles are built
+   only if rays miss a mark.
+
+**Your three questions.**
+
+- *"The bricks are pieces of the world file that the GPU pulls?"* Nearly. They are sized for the card, yes. But
+  they are the eye's own copy, not pieces of the world file. A background lane reads the world through the doorway,
+  sums its blocks into cells, packs the cells into bricks and puts them on the card. The frame reads only bricks.
+  That separation is what lets the world's format change without the eye changing.
+- *"How will we know" which near drawer is best?* By a rule written before the flight (section 5): the same views,
+  both cards, a pass mark, and your eye. Rays keep the job if they pass, since you prefer one compact way.
+  Triangles take it only if rays miss a mark and triangles don't.
+- *Scattering random blocks:* yes, and first. A dial from none to very many gives a curve of cost against clutter,
+  which is the cleanest test there is of "cost follows the screen, not the world". The shaped things (a fence, a
+  cave with lights, a forest, your build) are still needed afterwards, for your eye, because a scatter can't show
+  whether a fence fades well.
+
+**Where I was wrong in the first part,** so you can weigh the rest: the library's checks (I said 3 to 15% faster
+without them; it was 31 to 49% slower at the marks); light as "about half near the ground" (true at the spawn, 42%,
+but 17% elsewhere); and I expected kept far light to win most of light's cost (it won 9%, 3% and 3%). The
+direction held; my numbers did not. So this part gives pass marks, not new guesses.
+
+## 1. What I found checking the record
+
+- **The third mark is mostly a plain, not the quarter blocks** *[checked]*. The logs carry a line for that spot
+  before the build goes in (the settling medians; F's is clean, C's and E's include a little time after):
+
+  | Flight | Before the build | After | The build adds |
+  |---|---|---|---|
+  | C, as the game runs (`kept logs/dyno-1794419654.txt`) | 9.51 ms | 11.71 | 2.2 |
+  | E, light off (`dyno-1794421157.txt`) | 7.60 | 9.76 | 2.2 |
+  | F, crisp (`dyno-1794425205.txt`) | 6.41 | 8.50 | 2.1 |
+
+  The reference picture (`references/pictures/03 … noon.png`) is open grass to the horizon from eye height; in the
+  light's view the build is about 3% of the picture. So the brief's "the walk through quarter blocks is most of it"
+  isn't what the logs show: the place costs 9.5 ms with nothing built on it.
+- **Why the plain is dear is not known.** With light off it costs 7.60 against the spawn's 3.46, though the spawn
+  shows more far land. My guess *[estimate, low]*: the long rays of the coarse layers, over the sky and along the
+  horizon. A ray going up ends only once it is over the world's top (`march.wgsl:1191`), 900 blocks above that
+  plain and none above the mountain mark; and at build 101 the 8 × 8 layer's 64,000 rays alone took 1.9 to 2.9 ms
+  (`kept logs/dyno-1794252008.txt`). The reading flight settles it.
+- **No standing mark is mostly far view** *[checked]*. The mountain mark stands on the flat cut where the peak meets
+  the world's ceiling (the eye at 1,025); half its picture is that near ground.
+- **The export is bare ground and water** *[checked]*: seven profiles, none with a layer under its top block; no
+  trees, caves, builds, glass or lights. Right for the made world; silent on everything the design is hardest on.
+- **A small one:** the export's README says profile 0 means "past the map", but profile 0 is gravel
+  (`export.rs:146-149`). A reader goes by the ground's −1.
+
+## 2. The doorway: where the engine meets the world
+
+Counsel's reading is right. There are two formats and they never touch.
+
+- **The world's store** belongs to generation: the export today, the tablet later, anything after. Its files are
+  private to the world's side.
+- **The eye's store** (bricks, their index, the light in them, its cache of summed cells) belongs to the engine. It
+  can change any day without generation knowing.
+- **The doorway** is the only thing between them. The engine asks; the world answers; a tile at a time, on the
+  lanes, never a block at a time and never in the frame.
+
+**What it answers** (five things, and no more until one is needed):
+
+1. **The world:** where it lies, its height, sea level, the blocks by name.
+2. **A tile of columns,** each column as **runs** from the bottom up (this block for so many, then that), with
+   room for a small state beside each block (a water level, a variant). Plus the tile's pieces, objects and lights,
+   and a version number. A plain column is three or four runs; a cave, an overhang or a tree is simply more runs.
+   Nothing in it favours a heightfield, and nothing in it is about drawing.
+3. **What changed:** a list of boxes whose answers are new, with their versions, so the eye remakes exactly those.
+4. **Named fields over the land** (low-resolution maps the look may read): asked for by name, so new ones can be
+   added without the eye changing until it wants one.
+5. **"What is here now"** already resolved: the made world with the changes laid over it. The eye never learns
+   there are two layers.
+
+**What this buys David.** Generation may grow any way that ends as blocks in columns, pieces, objects, lights and
+named fields: new stages, strata, ores, caves, water redesigned. Those change the answers, never the question.
+
+**The summed levels are the eye's, not the world's.** Each cell is the exact sum of its blocks, worked out by a lane
+from what the doorway answers, and kept in the engine's own cache beside the world. So the brief's last question
+answers itself: the fine levels (cells of 2 to 16) are summed as they load, and only the far ones (32 and up, about
+200 MB in old) are kept, made once per world. The tablet need hold no levels at all.
+
+**Seasons** (David: unsure; wants region re-blocks and re-textures kept possible). Both fit:
+- *A re-texture* (the same block wearing another texture by season) is a named field the look reads. No block
+  changes. The one thing it touches in the eye is a far cell's colour, so the cell's layout should leave room for a
+  second colour. Not needed now; noted so it isn't designed out.
+- *A re-block* (blocks really replaced, snow lying in layers) is changes through the doorway, re-summed where they
+  happen, late if need be.
+
+**Does the world's layout ever matter to the frame?** No. It matters to the lanes: a tile must decode in a few
+milliseconds. The export's tiles (512 a side, at most 74 KB) already do. So yes, the export's columns are a sound
+start for the tablet's columns.
+
+**Build it first, small.** The export behind it; a changes layer that is read-only for now (unless David wants to dig
+before the fork: still his to say); and one test: it answers the 5,047 reference columns to the block.
+
+## 3. Near light
+
+Experiment 4b showed where light's cost is at eye level: the near faces, lit afresh every frame. The answer is the
+same idea as the far light, applied near: **kept by place, made by a lane, read by the frame.**
+
+- **If the near field is rays:** light lives in the air cell in front of each face, as placed light already does. A
+  face reads one cell. About 4 bytes for each air cell beside a surface near the eye: some tens of megabytes
+  *[estimate, medium]*.
+- **If the near field is triangles:** each face carries its light, written by the lane.
+- **Quarter blocks** read the light of the cell their face looks into (their own cell, where the face looks into its
+  empty part). They stop casting a ray per pixel.
+- **The lane's work:** every surface cell near the eye relit on a sun step is about what the frame does now in two
+  or three frames *[estimate, medium]*, spread over a second. Walking adds a few thousand cells a second. An edit
+  relights its own bricks first, the ones it shades after.
+- **Old's kept-face patch, flown again at the standing marks?** I wouldn't. Experiment 4a less 4b already bounds
+  the prize (up to about a third of the spawn mark), and old's mechanism is a table fed from the screen, which is
+  not what's being built. Experiment 6 measures the real thing.
+- **Does the far light lane still earn its place?** Yes, though not for speed in the frame. It is what makes far
+  shading a lookup with no ray code in the frame's programs, and David can't tell it from rays. It goes inside the
+  bricks as two of their numbers, not as a separate word.
+
+## 4. Experiment 5, as I'd fly it now: the far eye
+
+**The principle: change one thing at a time.** The far look is signed off, so move old's far march across as it is
+(the same layers, the same "worth it" rule and fades, the same gathering sums) and change only how it is fed.
+
+Three steps, each behind a switch, each flown alone on both cards:
+
+1. **Soft bricks, blended by the texture hardware.** Flown against the very same march blending in code, in the new
+   engine, so the hardware's win is measured like for like. The ceiling is the 24 to 33% of flights F and G.
+2. **Rays begun at drawn boxes.** The triangle hardware draws the bricks' boxes; a pixel with no box behind it is
+   sky and runs nothing. Flown against a plain full-screen start.
+3. **Light read from the cell.**
+
+**For Builder, on soft bricks:**
+- *The border.* One-sided is enough, and old's count already assumed it (`bake.rs`, `bricks_the_bake_would_take`):
+  5.5 times the cells for bricks of 4, 7.3 for bricks of 8. Fly both sizes.
+- *The weighting.* Old's blend weights colour and faces by how much surface each cell shows. To let plain hardware
+  filtering stand in for that, spread each cell's colour, faces and light into its empty neighbours when the brick
+  is made, and filter them unweighted. The picture will differ from old's by a hair, which David's rule allows.
+- *Thin coverage.* Eight-bit numbers band exactly where a fence fades. Keep "how solid" and "how watery" true and
+  unspread, and look hard at the fading fence before settling the formats.
+- *What's read when.* How solid and how watery at every step (one fetch, with the sun and sky riding along);
+  colour and faces only at covered steps (two or three more).
+- *The hand-over between levels* stays as old's: both levels read and mixed over the last fifth. My first part's
+  argument that it could go rested on crisp cells and no longer holds.
+- *The empty-group mask* waits. If used under blended reads, a group counts as empty only if its neighbours are too.
+- *The open sea needs no bricks.* Where a level is all water below and all air above, the eye can work the soft
+  edge out as a sum. That is most of the world's far surface.
+- *Memory.* Keep only the bands in use on the card, not every level for the whole world: perhaps 0.5 to 0.7 GB
+  soft *[estimate, low]*. Crisp stays the fallback for a card short of memory.
+
+**Marks for the far eye** (none of today's three will do): high over the spawn; low over the sea; the plain's
+horizon; the mountain top; the route's far legs.
+
+**The pass mark stays:** the far layers under 1 ms typical and 2 worst on the laptop; the Intel card's numbers
+recorded; David's look, above all at rings over flat ground and water where levels hand over.
+
+## 5. Experiment 6, as I'd fly it now: the near eye
+
+**Rays first.** Old's near walk moved onto bricks of blocks, begun at the drawn boxes, light read from the air cell,
+pieces walked by their octants. It reuses nearly all of experiment 5.
+
+**The marks:** the plain with nothing on it; the plain with the scatter at three densities; the build; a bigger
+quarter-block building; the spawn; the mountain top; the shaped test places when they exist. Both cards.
+
+**The rule, written beforehand ("how will we know"):**
+- Rays pass every ground mark at 1.5 ms or under on the laptop: **rays keep the near field.** Triangles are not
+  built.
+- Rays miss a mark: **build faces as triangles** (a mesher on a lane, light carried per face) and fly the same
+  marks. Triangles take the near field if they pass where rays missed.
+- Both pass and triangles are more than a millisecond cheaper at the worst mark: David's call, with both numbers
+  and both programs' sizes in front of him.
+- Either way: David's eye for pops and seams, and the scatter's curve. If cost climbs steeply with clutter, that
+  drawer fails "cost follows the screen" whatever its marks say.
+
+A triangle sampled at a pixel's middle draws the same picture as a ray through that middle, so the choice is about
+cost and code, not the look.
+
+## 6. The brief's other questions
+
+- **The checks (question 1).** I don't know why unchecked was slower. The pattern (faster in the light views,
+  slower in the heavy ones) fits a program that came out with fewer instructions but more registers, since heavy
+  views are bound by how much the card keeps in flight. One Nsight reading of the march's registers, checked and
+  unchecked, would say; it isn't needed to go on. **Yes: checked by default, and each program priced both ways the
+  first time it flies and whenever it changes shape.** Small programs make that cheap.
+- **Light out of the program, not just skipped (3).** A small extra at most. In old's staged shape the march never
+  held the light's code. I wouldn't re-guess the budget on it.
+- **The Intel card's enlarging pass (4).** A card that shares the laptop's memory pays for every full-screen pass
+  by the screen's size: nearly 2 ms for one pass at 4 million pixels. So the new eye has one full-screen pass and
+  no more; the layers, being smaller, are cheap. It says little about a 980 Ti, which has its own fast memory and
+  half the pixels at 1080p.
+- **The 980 Ti** *[estimate, low]*. If it is two to three times this Intel card, old's marks would already sit near
+  4 to 8 ms on it at 1080p. The laptop's 240 is the binding target, not the 980 Ti's 60.
+- **Making new ground.** The lanes are 12% of the card on the route and lift its worst frames from 9.8 to 13.9 ms
+  *[record]*, and four fifths of that is the world's rules running on the card. Reading a stored world through the
+  doorway takes that out of play altogether.
+
+## 7. Changes to the plan, for Counsel
+
+- **Move the doorway up** from 3.1 to the start of phase 2, between the skeleton and the far eye. The tablet stays
+  at 3.1; only the doorway moves.
+- **Add the reading flight** in old before 2.1, if David agrees.
+- **Split the third mark** into the plain and the build. Add the far marks and the scatter dial.
+- **2.2 and 2.3 fly their changes one at a time,** each behind a switch, each on both cards, each program priced
+  checked and unchecked.
+- **2.3 is rays first;** triangles only on a missed mark, by the rule in section 5.
+- **Marks are data** (a place, a facing, the settings), flown on both cards by one command, from the first build.
+
+## 8. Still open
+
+1. **The reading flight in old:** yes or no (David).
+2. **Digging before the fork:** is looking and flying enough in phase 2, or should the doorway's changes be
+   writable from the start (David)?
+3. **The shaped test places:** old's "Build the test world here" saved once on a copy of nice25 test, with the
+   quarter-block build, read as the doorway's changes (old's chunk format is written down in `storage.rs`); or
+   rebuilt as data in the new project. Either works; the scatter needs neither.
+4. **Seasons:** nothing to decide now. The doorway's named fields and the cell's spare room keep both forms possible.

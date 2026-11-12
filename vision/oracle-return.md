@@ -9,6 +9,10 @@ as it was, as part of the journal.
 **For the Oracle, when you read this:** read `master/` first, then this, then `docs/experiments.md` (each experiment's
 pass mark, written before it flew, and its results), then the logs it cites in `kept logs/`.
 
+**Called early, 2026-11-11.** David called the Oracle back before 2.1, with this file as it stood after Phase 1. Its
+answer is the second part of `vision/oracle-review.md`, "before the first line". It answered questions 1, 3, 4, 6 and
+7 below and corrected question 2. This file goes on gathering for the fork after experiment 6, as before.
+
 ---
 
 ## 1. What David decided after your review
@@ -206,6 +210,10 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
    - Does the lens's near field (a ray into the box, octant steps at the hit) still answer that?
    - Or does it argue for near faces as triangles from the start?
    - What should step 2.3 show to decide it?
+   - *Corrected (the Oracle, early call; checked by Counsel in flights C, E and F):* the premise was wrong. Before
+     the build goes in, the same spot already costs 9.51 ms (C), 7.60 with light off (E) and 6.41 crisp (F), so the
+     build adds only about 2 ms. Those figures are the settling medians, taken while the live levels were still
+     being made, mostly before the build. The mark is mostly a bare plain; why a plain is dear isn't known yet.
 3. **Light out of the program, not just skipped:** does that change your frame budget's guesses?
 4. **The small card's enlarging pass at ten times the NVIDIA's cost:** what does that say about full-screen passes on
    cards that share memory, and about the 980 Ti's column?
