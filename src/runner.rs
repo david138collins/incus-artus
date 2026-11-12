@@ -75,6 +75,8 @@ pub fn run() {
         at_first_mark: false,
         flight,
         temperatures: crate::temperatures::Watch::start(),
+        memory_read: None,
+        memory_logged: None,
     };
     event_loop.run_app(&mut runner).expect("the game runs");
     log::info!("Quitting");
@@ -133,6 +135,10 @@ struct Runner {
     at_first_mark: bool,
     /// The temperatures, read on a thread of their own (none if `INCUS_TEMPERATURES=0`).
     temperatures: Option<crate::temperatures::Watch>,
+    /// When the main memory was last read (once a second on a flight), and last put in the session's log (every half
+    /// minute).
+    memory_read: Option<Instant>,
+    memory_logged: Option<Instant>,
     flight: Option<Flight>,
 }
 
@@ -518,11 +524,27 @@ impl Runner {
         let eye = self.camera.position;
         let reach = self.flight.as_ref().and(self.running.as_ref()).and_then(|running| running.far.as_ref()).and_then(|far| far.usable_reach([eye.x, eye.y]));
         let heat = self.temperatures.as_ref().map(crate::temperatures::Watch::latest);
+        // The memory: on a flight the main memory once a second, for each standing's most; always, the main memory and
+        // the card's in the session's log every half minute.
+        let second = self.memory_read.is_none_or(|at| shown.duration_since(at).as_secs_f32() >= 1.0);
+        let main_memory = second.then(crate::memory::MainMemory::now).flatten();
+        if second {
+            self.memory_read = Some(shown);
+        }
+        if self.memory_logged.is_none_or(|at| shown.duration_since(at).as_secs() >= 30) {
+            self.memory_logged = Some(shown);
+            let card = self.running.as_ref().and_then(|running| running.card.memory()).map_or("the card can't say".to_string(), |(used, held)| format!("{used:.0} MB in use, {held:.0} MB held"));
+            let main = main_memory.or_else(crate::memory::MainMemory::now).map_or("Windows can't say".to_string(), |m| m.line());
+            log::info!("The memory: the main memory {main}; the card's {card}");
+        }
         let Some(flight) = &mut self.flight else { return true };
         flight.record(shown, frame_ms, std::mem::take(&mut work.card_frames));
         flight.followed(shown, eye.to_array(), reach);
         if let Some(heat) = heat {
             flight.heat(shown, heat);
+        }
+        if let Some(memory) = main_memory {
+            flight.main_memory(shown, memory.in_use);
         }
         if flight.finished(shown)
             && let Some(running) = &self.running
@@ -535,6 +557,7 @@ impl Runner {
                 marks: &self.marks,
                 far: running.far.as_ref().map_or("none (the doorway couldn't open the world)".to_string(), |far| format!("{}; {}", far.state(), far.settings())),
                 memory: running.card.memory(),
+                main_memory: crate::memory::MainMemory::now(),
             });
             event_loop.exit();
         }

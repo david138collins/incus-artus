@@ -28,9 +28,10 @@ miniz_oxide = "=0.8.9"
 serde = { version = "=1.0.229", features = ["derive"] }
 toml = "=1.1.8"
 
-# Windows' own calls: DXC's validator loaded by its path (src/card.rs).
+# Windows' own calls: DXC's validator loaded by its path (src/card.rs); the game's main memory and the machine's
+# (src/memory.rs).
 [target.'cfg(windows)'.dependencies]
-windows = { version = "=0.62.2", features = ["Win32_System_LibraryLoader"] }
+windows = { version = "=0.62.2", features = ["Win32_System_LibraryLoader", "Win32_System_ProcessStatus", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 
 # ── Build speed settings ────────────────────────────────────────────────
 # Libraries optimised fully (they rarely change, so it's a one-time cost), our own code quick to recompile.

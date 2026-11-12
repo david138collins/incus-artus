@@ -346,11 +346,11 @@ pub const PASSES: [Pass; 20] = [
         name: "measuring",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it.",
+        what: "The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it. The memory: the game's main memory (Windows' count for its process: in use, the most, and the machine's) once a second on a flight, for each standing's most and the report; the main memory and the card's in the session's log every half minute [David: \"begin tracking ram use\"].",
         reads: &[StoreId::FarWindow, StoreId::Temperatures],
         writes: &[StoreId::Clocks, StoreId::FlightReport],
         switches: &[],
-        files: &["src/runner.rs", "src/clocks.rs", "src/flight.rs"],
+        files: &["src/runner.rs", "src/clocks.rs", "src/flight.rs", "src/memory.rs"],
     },
     Pass {
         id: PassId::TheDoorway,

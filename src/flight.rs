@@ -48,6 +48,8 @@ pub struct Standing {
     reach: Option<[f32; 2]>,
     /// The hottest the CPU area and the GPU read over the measured frames, and the GPU's slowest clock.
     hottest: Temperatures,
+    /// The most main memory the game held over the measured frames (bytes, read once a second).
+    most_main_memory: Option<u64>,
 }
 
 pub struct Flight {
@@ -67,6 +69,8 @@ pub struct About<'a> {
     pub far: String,
     /// The card's memory the game holds at the end, MB: in use, and held.
     pub memory: Option<(f64, f64)>,
+    /// The main memory the game holds at the end, and the most it has (none where Windows can't say).
+    pub main_memory: Option<crate::memory::MainMemory>,
 }
 
 impl Flight {
@@ -78,7 +82,7 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default() });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), most_main_memory: None });
             }
         }
         log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
@@ -174,6 +178,13 @@ impl Flight {
         }
     }
 
+    /// The main memory the game holds now (read once a second): the most kept over the measured frames.
+    pub fn main_memory(&mut self, now: Instant, in_use: u64) {
+        if let Some(standing) = self.measuring(now) {
+            standing.most_main_memory = Some(standing.most_main_memory.map_or(in_use, |most| most.max(in_use)));
+        }
+    }
+
     /// Whether the last standing is measured.
     pub fn finished(&self, now: Instant) -> bool {
         matches!(self.now, Some((k, since)) if k + 1 == self.standings.len() && now.duration_since(since) >= Self::settle(k) + MEASURE)
@@ -199,6 +210,10 @@ impl Flight {
             Some((used, held)) => format!("The card's memory: {used:.0} MB in use, {held:.0} MB held (the library's allocator; the screen's own pictures not in it)\n"),
             None => "The card's memory: the card can't say\n".to_string(),
         };
+        text += &match about.main_memory {
+            Some(memory) => format!("The main memory: {}\n", memory.line()),
+            None => "The main memory: Windows can't say\n".to_string(),
+        };
         text += &format!("The marks: data/marks.toml; {} s settling, then {} s measured at each (the first settling {} s more: the session's warm-up)\n", SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
         let spread = |spread: Spread| format!("median {:.3}, 95th {:.3}, 99th {:.3}, worst {:.3}", spread.median, spread.p95, spread.p99, spread.worst);
         for standing in &self.standings {
@@ -212,6 +227,9 @@ impl Flight {
             if let (Some(speed), Some(begun), Some(end)) = (mark.speed, standing.eye, standing.end) {
                 let gone = ((end[0] - begun[0]).powi(2) + (end[1] - begun[1]).powi(2) + (end[2] - begun[2]).powi(2)).sqrt();
                 text += &format!("  moving at {speed:.0} blocks a second, straight ahead and level: the eye ended at north {:.1}, east {:.1}, up {:.1}, {gone:.0} blocks from where it began\n", end[0], end[1], end[2]);
+            }
+            if let Some(most) = standing.most_main_memory {
+                text += &format!("  the main memory: at most {:.0} MB in use\n", most as f64 / 1e6);
             }
             let heat = standing.hottest;
             if heat != Temperatures::default() {

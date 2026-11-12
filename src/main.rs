@@ -33,6 +33,7 @@ mod far;
 mod far_eye;
 mod flight;
 mod marks;
+mod memory;
 mod panel;
 mod runner;
 mod session;
