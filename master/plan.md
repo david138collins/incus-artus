@@ -24,8 +24,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   below 4 GB at worst. Change 1 is flown (build 128): the texture hardware's blend takes 14 to 29% off at every mark
   (low over the sea 4.0 → 2.9 ms), but with the whole world's far view on the card the exact way uses 3.8 GB, at the
   bar alone, and the spread 2.7 GB; a window round the eye would keep only the levels near it, which hold 94% of it.
-  David looked: "they all look the same", so the numbers decide (Builder recommends the spread); -2 detail looked
-  better; and he saw a line where near ridges meet fogged far mountains, which needs its own look step.
+  David looked: "they all look the same", so the numbers decide (Builder recommends the spread); two levels finer
+  looked better (the slider ran backwards, corrected); and he saw a line where near ridges meet fogged far
+  mountains, which needs its own look step. His camera turns but doesn't move: Builder is finding why.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -44,8 +45,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the spread as the blend (Builder's pick); -2 detail as the default; when to take the fog
-  line; whether the far gate is measured at views a player can reach. Also whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** the spread as the blend (Builder's pick); two levels finer as the default; when to take the
+  fog line. Also whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -290,7 +291,6 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
 | ~~The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before?~~ | Answered 2026-11-12: the editor's, as the software map |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
-| The far eye's gate measured at marks a player can't reach (high over the spawn, low over the sea), now David says there's no flying in the game: add player views (the mountain top, a sea cliff and a shore at eye height), the high ones kept as stress tests? | 2.2's gate |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |

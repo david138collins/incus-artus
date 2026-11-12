@@ -1275,6 +1275,16 @@ Reference: `Art/quartile minecraft illustration.png`
     had it as an early word, 2026-10: "i don't forsee players being able to fly".) The developer's camera flies; the
     player doesn't. Builder is asking which he meant. It bears on the far eye's gate, measured at marks a player
     can't reach (high over the spawn, low over the sea).
+    - *Corrected in the open (Counsel):* he meant the camera, not the design. David: "i just don't want you to think
+      i can move in the game, or that you ARE moving in the game during your tests... the camera rotates but does not
+      move, so make sure thats what you thought". Builder's flights stand still at each mark and jump between them,
+      so nothing has been measured moving yet; the developer's camera is meant to fly (WASD, Space, Ctrl, Shift five
+      times, 20 blocks a second), so for him it's a bug or too slow to see against the far cells' blur, and Builder
+      is finding which. The question built on the misreading (the far gate at player views) is withdrawn; the early
+      word on players flying stands as it was.
+  - **Corrected in the open: the detail slider ran backwards.** Labelled "detail (levels finer)", but the shader added
+    its value to the level, so his -2 was two levels *finer*, not coarser: what he liked was the finer picture.
+    Builder flips the slider so right means finer; his pick becomes +2, offered as the default and re-measured.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast

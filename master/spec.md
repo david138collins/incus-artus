@@ -585,8 +585,6 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Later: mantling (maybe), a landing slide, a jump lift-off envelope; Athletics, Agility and Speed modulating the start of a sprint. [wanted] (decisions.md:851-853, 872, 882, 887)
 - The Windows Sticky Keys shortcut switched off while the game runs. [wanted] (decisions.md:867-868)
 - Players can't fly in normal play: "i don't forsee players being able to fly". [early] (msgs:213)
-- No flying in the game, said again 2026-11-12: "you know there's no flying at all in the game right?" The developer's camera flies; whether he meant the design or the camera is being asked. [open] (decisions.md:1274-1278)
-
 ### Stats and the three spheres
 - One RPG system for NPCs and the player: Str, Con, End, Int, Wil, Cha, Spd, Dex, Agi, with skills such as Athletics. [decided] (vision.md:247-248)
 - Wil is willpower: "willpower probably, since wisdom is ambiguous against intelligence". [decided] (vision.md:307-308)
