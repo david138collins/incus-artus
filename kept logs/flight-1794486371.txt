@@ -1,0 +1,10 @@
+The flight: Incus Artus, build 116 (182d9e2); the code committed
+The card: NVIDIA GeForce RTX 5070 Ti Laptop GPU (DiscreteGpu, Dx12, driver 32.0.16.2101 ; chosen by the default, high performance)
+The picture 2560 x 1600, the screen's refresh 240, uncapped; handed to the screen: Immediate; the panel hidden
+Switches: INCUS_BUILD=182d9e2, INCUS_BUILD_CHANGED=, INCUS_BUILD_NUMBER=116, INCUS_FLIGHT=1
+
+Standing: the camera at north 0.0, east 0.0, up 0.0, facing 0°, pitch 0.0°; 5 s settling, then 20 s measured
+  the frame: 52879 frames, 2473 a second (median); ms median 0.404, 95th 0.576, 99th 0.748, 99.9th 0.952, worst 2.271
+  the card, pass by pass (52879 frames timed; ms):
+    the panel: median 0.019, 95th 0.023, 99th 0.042, worst 0.242
+    the card's whole: median 0.019, 95th 0.023, 99th 0.042, worst 0.242

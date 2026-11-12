@@ -625,3 +625,22 @@ timed the frames (thousands of them, every one with its pass).
 - **The card over 0.1 ms, or the frame over 1 ms:** it's still the floor, written down as it is. Before anything is built
   on it, the time is placed: in the hand-over, the panel's library, or the clocks themselves. An empty frame that costs
   something costs it under every frame after.
+
+### Results
+
+One flight, 2026-11-12, from the top folder: `kept logs/flight-1794486371.txt`. The header says build 116 (182d9e2:
+c4d102e's code, the commit after it holding only the pass mark), the code committed. 20 s measured:
+
+| | median | 95th | 99th | 99.9th | worst |
+|---|---|---|---|---|---|
+| The frame (ms) | 0.404 | 0.576 | 0.748 | 0.952 | 2.271 |
+| The card's pass, cleared with the panel over it (ms) | 0.019 | 0.023 | 0.042 | | 0.242 |
+
+- **Good to read:** 52,879 frames measured, all 52,879 timed on the card.
+- **Within both estimates:** the card's pass at a fifth of the 0.1 ms, and the frame at 0.40 ms (2,473 a second), under the
+  1 ms. Nearly all of the frame is the processor's round trip and the hand-over: the card is busy for a twentieth of it.
+- **The floor:** 0.02 ms on the card and 0.4 ms a frame, with nothing in the world. Every later change is measured from
+  here.
+- **Found on the way:** the report named the build's own stamp (`INCUS_BUILD`, `INCUS_BUILD_CHANGED`,
+  `INCUS_BUILD_NUMBER`) among the switches: `cargo run` hands the build script's values to the game as it starts. They
+  aren't switches, and are left out from the next build on.

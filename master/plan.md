@@ -155,8 +155,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         `CLAUDE.md`, the dyno-audit skill and the memories updated. Counsel's memories trimmed: the rivers
         walkthrough gone, its record in the journal; the fresh-eyes audit moved to the new engine. Builder's trimmed:
         her habits, the team's ways and the rebuild's direction now hold habits and warnings only)
-  - [ ] The new project: a window that runs, the clock, a flying camera, the instruments (the card timed a layer
+  - [x] The new project: a window that runs, the clock, a flying camera, the instruments (the card timed a layer
         and a stage at a time from the first build: old's one clock couldn't place the bare plain's cost, 1.7)
+        (392ae0d, build 116 c4d102e, David: "looks fine"; the empty frame flown, `kept logs/flight-1794486371.txt`:
+        0.40 ms a frame, 0.019 ms on the card; `journal/docs/experiments.md`)
   - [ ] Every stage, pass, lane and store declared as data; it wires the game and draws `master/map.md`
   - [ ] The control room: the same map, live, in the game's panel
   - [ ] **The doorway** (moved up from 3.1): one small piece that answers "what's here?" a tile at a time: columns as
