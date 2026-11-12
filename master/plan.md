@@ -34,10 +34,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for step 2 as Builder laid it out: two looks, 2a the shape (the bricks, the march,
-  faces lit by the sun, fog, sky) and 2b old's light added (sun shadows, sky light), which is then the baseline; seen
-  from two marks (high over the spawn, low over the sea), reached by a launch switch for now, no new key. Also
-  whether `CLAUDE.md` points at the map now. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop
+- **Waiting on David:** whether `CLAUDE.md` points at the map now. Step 2 has his go ("Yes, go ahead"): two looks,
+  2a the shape and 2b old's light, from high over the spawn and low over the sea; his first look comes when 2a is
+  built. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop
   switched to "Optimus" for that flight.
   His desktop has two launchers: "Play Incus Artus" (the new game) and "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers

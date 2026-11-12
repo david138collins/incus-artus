@@ -1179,6 +1179,12 @@ Reference: `Art/quartile minecraft illustration.png`
   old's bake needs old's colours, and choosing them now would mean choosing twice. David, to Builder, the same
   hour: "the far colors are not important now. i'll go in and regulate everything again once we rebuild the
   registrar. until the graphics engine is ready to race, everything is just a testing device anyways."
+- **[DECIDED 2026-11-12] The far eye's first picture, in two looks** (David, to Builder's plan through Counsel: "Yes,
+  go ahead"). 2.2 step 2 moves old's far march onto bricks as it is. 2a is the shape: the march, faces lit by the
+  sun, fog and sky, the screen pyramid, with no shadows or sky light yet. 2b adds old's light (sun shadows, sky
+  light) and is then the baseline the three changes are measured against. He looks from two marks, high over the
+  spawn and low over the sea, reached for now by a launch switch (`INCUS_MARK`), so no key or control is placed. Why
+  two looks: the step is big, and the shape and the rings are best judged before the light is added over them.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
