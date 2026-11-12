@@ -124,9 +124,12 @@ pub struct Part {
 pub fn part<'a>(level: &Level, cx0: i32, cy0: i32, n: i32, column: impl Fn(i32, i32) -> Option<&'a CellColumn>) -> Part {
     let mut part = Part::default();
     let size = 1u32 << level.level;
+    // The entries, a row at a time, only as far as the level's columns go (a brick at its edge reaches past them: build
+    // 121 wrote those into the next row, and at the last row off the end of the bands, and the card refused it).
+    let last = (cx0 + n).min(level.from[0] + level.across);
     for cy in cy0..cy0 + n {
         let Some(start) = level.entry(cx0, cy) else { continue };
-        let row = (cx0..cx0 + n).map(|cx| column(cx, cy).map_or(NOT_SUMMED, entry_of)).collect();
+        let row = (cx0..last).map(|cx| column(cx, cy).map_or(NOT_SUMMED, entry_of)).collect();
         part.entries.push((start, row));
     }
     let cells = level.brick_cells() as usize;
@@ -341,6 +344,26 @@ mod tests {
     fn words(cell: &Cell) -> [u32; 4] {
         let b = cell_bytes(cell);
         [0, 1, 2, 3].map(|k| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]))
+    }
+
+    /// Every level's bricks at its edges write their bands only within their own rows and the level's columns (build 121
+    /// wrote past them at the levels over 1,024, whose last brick a row reaches past the map's columns).
+    #[test]
+    fn edge_bricks_stay_in_their_rows() {
+        let doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
+        let levels = levels(regions_of(&doorway), doorway.height());
+        let empty = CellColumn::default();
+        for l in &levels {
+            let end = l.entries_at + (l.across * l.across) as u32;
+            for (bx, by) in [(0, 0), (l.bricks - 1, 0), (0, l.bricks - 1), (l.bricks - 1, l.bricks - 1)] {
+                let (cx0, cy0) = (l.from[0] + bx * l.wide, l.from[1] + by * l.wide);
+                let part = part(l, cx0, cy0, l.wide, |cx, cy| l.entry(cx, cy).map(|_| &empty));
+                for (start, row) in &part.entries {
+                    let row_end = l.entries_at + (((start - l.entries_at) / l.across as u32) + 1) * l.across as u32;
+                    assert!(start + row.len() as u32 <= row_end.min(end), "cells of {}: a brick at {bx} {by} writes {} bands from {start}, past its row's end {row_end}", 1 << l.level, row.len());
+                }
+            }
+        }
     }
 
     const UNKNOWN: [u32; 4] = [0xFFFF_FFFF, 0, 0, 0];
