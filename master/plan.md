@@ -137,7 +137,9 @@ Each change in 2.2 and 2.3 flies alone, behind its own switch, on both cards, an
 unchecked the first time it flies. Marks are data, flown on both cards by one command.
 
 - [ ] **2.1 Pack, the skeleton, and the doorway**
-  - [ ] Old moves to `old\`, with its own assets and its own build folder, and still runs
+  - [x] Old moves to `old\`, with its own assets and its own build folder, and still runs
+        (daf4e2c, IntelliJ's files with it in c0def46; its tests pass from there, 414; the check flight,
+        `kept logs/dyno-1794475773.txt`, within 0.3% of 1.7's I at all three marks; `docs/experiments.md`)
   - [ ] `docs/` and `vision/` become `journal/`, with a contents page; `master/` on top; `CLAUDE.md` points at
         `master/`; memories trimmed to habits and warnings
   - [ ] The new project: a window that runs, the clock, a flying camera, the instruments (the card timed a layer

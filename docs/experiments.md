@@ -578,3 +578,20 @@ dyno's presets, on the 5070 Ti in "NVIDIA GPU only". The bare plain stands at th
 **If a mark is off by more than 2%,** it flies once more before anything is read into it: a single flight can miss by
 that much (the spawn wasn't whole after the 180 s cap in I). **If it's off again,** something the move changed is being
 read differently, and it's found before the new project starts.
+
+### Results
+
+One flight, 2026-11-12, 03:18 to 03:29, from `old\`: `kept logs/dyno-1794475773.txt`. The header says build 115
+(18a9b5c), the code committed. Sight on the card, standing, median ms:
+
+| | I (1.7, from the root) | The check (from `old\`) |
+|---|---|---|
+| The bare plain | 9.66 | 9.63 (−0.3%) |
+| On the ground at the spawn | 5.96 | 5.94 (−0.3%) |
+| The mountain top | 6.62 | 6.61 (−0.2%) |
+
+- **The pack held, on every line of the pass mark.** All three marks are within 0.3% of I. The plain says "169
+  placings replayed, 0 cells changed, 0 refused". The log has no "Path not found".
+- **The same caveat as I:** the spawn's live levels weren't whole after the 180 s cap (7,527 of 8,820 tiles; I had
+  7,533). The mountain top was whole in 102 s. The plain was whole 68 s after the build, as in I.
+- Old is the same game in its new folder. The new project starts at the root.
