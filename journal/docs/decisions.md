@@ -1205,6 +1205,13 @@ Reference: `Art/quartile minecraft illustration.png`
   - **His condition, "if performance is keeping up":** the far eye as old had it costs 1.2 to 4.0 ms on the card at
     the far marks, 2 to 4 times 2.2's gate, before light. That's the baseline; by the plan, the three changes come
     next and the gate is read after them, with the Intel card.
+- **[DECIDED 2026-11-12] The sky's feather at skylines** (David, to Builder). On build 123's plain weight: "love what
+  the weight does to the edges, hate what it does to the mountain *not* on the edges. i suppose sky is everywhere
+  behind everything... is there anything that can be done about that that isn't expensive?" Build 124 makes the push
+  fade as the land covers more (the power is 1 + weight × the sky's share squared): thin skyline squares lean to the
+  sky, and a mountain's own pixels are left nearly as they were, for one power a pixel. David: "that actually works
+  great". The value he settles on becomes the default, and Default returns to it. Why: the skyline's darker squares
+  were old's unsolved edge; a feather that costs nothing and leaves the land's body alone answers it.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
