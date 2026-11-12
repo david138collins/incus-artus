@@ -29,8 +29,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   cost 2 to 11% more, but the mountain top and high over the spawn 77% more (3.8 ms), because the 2 × 2 layer, never
   earned before, is earned there now. At the spawn, the only place his camera lets him look, "everything from -1 to
   4 looks the same"; so Builder recommends the default back to 0 unless a look from the mountain top says otherwise.
-  His camera turning without moving now limits every look to its launch mark. The fog line waits (fog may be redone
-  another way later).
+  His camera does move ("its just too slow to notice at first"): old's 20 blocks a second is too slow to see against
+  far cells, and Builder is offering a faster one, its control placed where he says. The fog line waits (fog may be
+  redone another way later).
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -49,8 +50,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** detail back to 0, or a look from the mountain top first (Builder's offer); the camera's "up";
-  when to take the fog line. Also whether
+- **Waiting on David:** detail back to 0, or a look from the mountain top first (Builder's offer); a faster camera
+  and where its control goes; when to take the fog line. Also whether
   `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
