@@ -644,3 +644,36 @@ c4d102e's code, the commit after it holding only the pass mark), the code commit
 - **Found on the way:** the report named the build's own stamp (`INCUS_BUILD`, `INCUS_BUILD_CHANGED`,
   `INCUS_BUILD_NUMBER`) among the switches: `cargo run` hands the build script's values to the game as it starts. They
   aren't switches, and are left out from the next build on.
+
+
+## The wiring's first flight: build 117 against the floor  *(plan 2.1)*
+
+David's go: "editor looks about like what i'd expect. you can go ahead with your tests" (2026-11-12, after his look at
+build 117). Build 117 runs the frame from the wiring (`src/wiring.rs`): its passes in the list's order, each timed on
+the processor as well as on the card. The flight puts each pass's measured cost on the map (`master/map.md`, drawn
+from the newest kept flight).
+
+### What flies
+
+Build 117 (8283179), from the top folder, as the empty frame flew: `INCUS_FLIGHT=1`, the camera still, 5 s settling,
+20 s measured uncapped with the panel hidden and the editor closed, on the 5070 Ti in "NVIDIA GPU only".
+
+### The pass mark (written before the flight)
+
+**The flight is good to read if** the header names build 117 with the code committed, and every pass in the frame
+has its own line with times. "Hearing the window" can read "not run": nothing is pressed during a flight.
+
+**What changed since the floor (build 116: 0.404 ms a frame, 0.019 on the card):**
+- the frame's passes run as a list, each timed on the processor (two clock readings a pass);
+- the panels' textures go to the card while they're laid out;
+- the panels' figures aren't worked out while nothing shows them, so a flight doesn't carry them.
+
+**Builder's estimate** *[estimate, medium]*: the same frame. The card's pass within 0.005 ms of 0.019, and the frame within
+10% of 0.404 ms. A frame this short moves by more than its tenth of a millisecond from flight to flight, and one flight
+of it hasn't been repeated yet.
+
+**What each result means:**
+- **Within it:** the wiring costs the frame nothing that can be measured. The two plan lines (the wiring, and the
+  software map) are ticked, with the map's costs filled from this flight.
+- **Over it:** the frame's passes now each have a time of their own, so the new cost is placed pass by pass before
+  anything more is built on it. If no pass holds it, it's the flight's noise: flown once more, and both written down.
