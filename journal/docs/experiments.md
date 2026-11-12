@@ -1726,3 +1726,33 @@ try 2, 3 and 4", and these first, to answer her with numbers.
   - Builder's guess [low]: half the rays takes 25 to 40% off a layer, between her two readings; 384 steps takes under
     10% off, since few rays reach 768.
 - **Flown in one session:** the edge off, the edge on, half the rays, 384 steps.
+
+### Results: the map's edge and the Oracle's two tests
+
+Build 140 (0425213), 16:33 to 16:56, one session: the edge off `kept logs/flight-1794523158.txt`, on `-1794523509`,
+half the rays `-1794523855`, 384 steps `-1794524200`.
+
+| median ms | edge off | edge on | half the rays | 384 steps |
+|---|---|---|---|---|
+| the spawn, whole | 0.676 | 0.677 | 0.485 | 0.678 |
+| the mountain top, whole | 1.981 | 1.762 | 1.563 | 1.634 |
+| the bare plain, whole | 1.120 | 1.056 | 0.723 | 0.937 |
+| high over the spawn, whole | 2.141 | 1.751 | 1.458 | 1.748 |
+| low over the sea, whole | 2.770 | 2.582 | 1.108 | 2.054 |
+| a player's run, whole | 3.103 | 2.515 | 1.688 | 2.180 |
+| the 8 × 8: plain, sea | 0.976, 1.194 | 0.912, 1.195 | 0.584, 0.970 | 0.792, 1.105 |
+| the 4 × 4: mountain top, sea | 0.910, 1.440 | 0.838, 1.252 | 0.751, 0.008 | 0.711, 0.814 |
+
+- **The map's edge, better than estimated:** 6 to 19% off at every far mark (0 to 5% given), nothing at the spawn. Most
+  of it is in the 4 × 4 layer (high over the spawn 1.137 to 0.779). Rays marching on past the map were dearer than
+  skips: past the map every step is a full blend of nothing.
+- **Half the rays:** the 8 × 8 layer loses 13 to 36%, not half and not nothing (Builder's guess 25 to 40%). So the
+  truth sits between the Oracle's two readings, nearer "waiting": half the rays gone, two thirds or more of the time
+  left.
+  - The 4 × 4 over the sea reads nothing with the right half blank: its land to refine was all on the right. Not
+    a measure there.
+- **384 steps:** 20% off the sea whole and 11% off the plain (under 10% guessed: missed). The 4 × 4 over the sea
+  loses 35%. Rays past 384 steps are few, and they cost a fifth of the dearest mark.
+- **What it points to:** the long rays set much of each layer's time. The lean step (each step cheaper) and lazy rays
+  (the long ones spread over frames) both aim at it. Shuffling the rays, which helps a busy card, would win the
+  smaller share.
