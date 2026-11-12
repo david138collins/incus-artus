@@ -1130,6 +1130,13 @@ Reference: `Art/quartile minecraft illustration.png`
   With each pass timed, handing the frame to the card and the screen is 0.31 ms of it. The names Builder added to the
   map (the window, hearing the window, getting the picture, handing over, measuring, the wiring, the flight's
   report, the session's log) stand as hers, his to change whenever he likes.
+- **[DECIDED 2026-11-12] Handing over split in two** (David, to Builder, after asking how it works and whether it can
+  be streamlined: "go ahead and split it, so later on we can see it and tune it if it ever becomes something that can
+  be improved"). Build 118 (29a02df) times it as two passes under old's names, his to change: *handing the card its
+  work* (0.08 ms, likely the processor checking and translating the frame's work for DirectX; the one to watch as the
+  eye adds passes) and *showing it* (0.14 ms, the picture waiting its turn for the screen; where the frame's lead
+  over the screen is set later, with his eye). Two flights repeat within 1%, the frame as 117's
+  (`kept logs/flight-1794487928.txt`, `-1794487963.txt`; `journal/docs/experiments.md`). Nothing is tuned now.
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."

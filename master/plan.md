@@ -17,7 +17,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   ms a frame and 0.019 ms on the card (build 116), the floor every later change is measured from. Build 117 added
   the wiring, the code's own list of its lanes, passes and stores, with each pass timed and `master/map.md` drawn
   from it; and the new editor (F2), its pages by a drop-down, the software map the one that works. David looked at
-  both ("editor looks about like what i'd expect"), and 117 flew within 4% of the floor. Now: the doorway
+  both ("editor looks about like what i'd expect"), and 117 flew within 4% of the floor. Build 118 splits handing
+  over in two at David's word, so it can be watched and tuned later: handing the card its work 0.08 ms, showing it
+  0.14 ms. Now: the doorway
   (read-only, the export behind it, answering the 5,047 reference columns to the block), then the marks as data.
   As the editor fills, every window, setting and control is placed with David (`journal/docs/decisions.md`,
   2026-11-12).
