@@ -30,7 +30,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   earned before, is earned there now. At the spawn, the only place his camera lets him look, "everything from -1 to
   4 looks the same"; so Builder recommends the default back to 0 unless a look from the mountain top says otherwise.
   His camera does move ("its just too slow to notice at first"): old's 20 blocks a second is too slow to see against
-  far cells, and Builder is offering a faster one, its control placed where he says. The fog line waits (fog may be
+  far cells; build 130 puts its speed and Shift's multiplier on the Camera page, where he asked. The fog line waits (fog may be
   redone another way later).
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
@@ -50,8 +50,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** detail back to 0, or a look from the mountain top first (Builder's offer); a faster camera
-  and where its control goes; when to take the fog line. Also whether
+- **Waiting on David:** his go to launch build 130 (the camera's speed); detail back to 0, or a look from height
+  first; when to take the fog line. Also whether
   `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers

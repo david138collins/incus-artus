@@ -1303,6 +1303,10 @@ Reference: `Art/quartile minecraft illustration.png`
   - **The camera moves, slowly** (David, to Builder): "yes, i did notice i could actually move. its just too slow to
     notice at first." No bug: old's 20 blocks a second (100 with Shift) is too slow to see against far cells. Builder
     offers a faster one, asking him where its control goes before anything is built.
+  - **[DECIDED 2026-11-12] The camera's speed, his placement** (David, to Builder): "yes, i should have a speed and
+    multiplier slider in the camera tab please". Build 130: on the panel's Camera page (F3), "speed (blocks a
+    second)" from 1 to 2,000 on a logarithmic slider, and "multiplier (Shift held)" from 1 to 20, defaulting to old's
+    20 and 5, with a Default button. The labels are Builder's, his to change.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
