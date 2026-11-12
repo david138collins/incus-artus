@@ -21,7 +21,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the march itself. Now, by David's word ("try all these things and gather data ... let me take a look"), each tried
   and measured in turn, then his eye still and flying: the panel fix and live settings; change 1 both ways; bricks
   of 4 against 8; a window round the eye; change 2; change 3; the Intel card last. Card memory has his bar: well
-  below 4 GB at worst.
+  below 4 GB at worst. Change 1 is flown (build 128): the texture hardware's blend takes 14 to 29% off at every mark
+  (low over the sea 4.0 → 2.9 ms), but with the whole world's far view on the card the exact way uses 3.8 GB, at the
+  bar alone, and the spread 2.7 GB; a window round the eye would keep only the levels near it, which hold 94% of it.
+  David is looking at the three blends, switched live.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -40,8 +43,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** nothing now but his looks as each change is ready, and whether `CLAUDE.md` points at the
-  map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** his look at change 1's three blends (build 128, still and flying), and whether `CLAUDE.md`
+  points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
