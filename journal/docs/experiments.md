@@ -967,3 +967,49 @@ processor's threads:
   `old/src/sight/bake.rs`). The new sum reads ground the export already made: that took 8 minutes, once. So 46–55 s against
   2.6 s is both, the recipe left out as well as runs against blocks. What matters for the player stands: in the new design
   the world is made once, and its levels are summed at load in seconds.
+
+
+## The far eye, 2a: old's far march on bricks, the shape  *(plan 2.2, step 2)*
+
+David's go: "Yes, go ahead" (2026-11-12, through Counsel): the two looks (2a the shape, 2b old's light), the two marks
+(high over the spawn, low over the sea), and `INCUS_MARK` as the way there.
+
+### What's built
+
+Old's far march (`old/src/sight/march.wgsl`, its far part), moved onto bricks with its logic as it was:
+- each ray reads the level whose cells are about its pixel's size there;
+- it skips space a coarser cell column says is empty (over its band's top), and regions not summed yet;
+- elsewhere it steps through the trilinear blend of the eight cells round each point, gathering front to back from
+  both ends of each step, walking in from the last air;
+- the last fifth of each level's stretch is blended into the next (old's hand-over from 0.8);
+- it's lit by each cell's faces as they look toward the sun (3.4a), under old's sky and fog;
+- old's screen pyramid: the start pass over 8 × 8 tiles; layers of 8 × 8, 4 × 4 and 2 × 2, a finer one only where it's
+  earned and never for sky; then brought up to the screen crisp.
+
+The settings are old's for the dyno: field of view 100°, the sun from 315° at 40°, noon, fog on.
+
+What moves is where the cells live:
+- each level is cut into bricks of 8 × 8 × 8 cells, where the levels are that big; above cells of 128 a brick stays
+  within its region;
+- a cell is found by arithmetic: its column's band (its lowest cell and how many), then the brick's place in the
+  level's index, then the cell's place in the brick.
+
+The bricks are plain buffers, blended in the shader as old did.
+
+The far cells are summed in the game now, on the loading lane, nearest the spawn first. Each region goes onto the card
+as it comes, so the view sharpens in live.
+
+Left for 2b: the sun's shadows and the sky light. Without them, 2a looks flatter than old. Left for the near eye: blocks,
+pieces, placed light and textures.
+
+### The pass mark (written before the code)
+
+- **A card test:** cells read through the bricks on the card, at every level, equal the far cells (step 1's) in their
+  compact form. That includes the cells under a band (solid), over it (empty), and in regions not summed (unknown).
+- **David's eye,** at the two marks: the shape of the far land, and the rings where levels hand over, flying forward
+  low over the sea.
+- **Measured, at the far marks:** each pass on the card (the start, each layer, bringing it up) and the processor's
+  passes, and the bricks' memory. No speed bar here; the gate is after the three changes.
+- **Builder's estimate** *[medium]:* the bricks for the whole world take 0.9 to 1.3 GB on the card. Mostly the cells of
+  32: a brick is 8 cells tall where a band is 1 or 2. The Oracle's 250 to 450 MB was for windows round the eye, not the
+  whole world. Both cards allow a buffer of up to 2 GB.
