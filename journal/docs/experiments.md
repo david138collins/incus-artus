@@ -1048,3 +1048,16 @@ region was in, then settled 35 s; 20 s measured at each mark. The far eye on the
   measured against (soft bricks, rays begun at drawn boxes, light read from the cell). There's no light in it yet, which
   2b adds.
 - **The build and the scatter cost nothing yet:** the far cells don't hold changes (the near eye's change path is 2.3).
+
+### David's look, builds 123 to 125: the sky's weight, the crossovers, low over the sea
+
+- **The sky's weight** (build 123, on the Render page with the crossovers, the card time beside them, and Default). A plain
+  power washed the far mountains out: "love what the weight does to the edges, hate what it does to the mountain *not*
+  on the edges". Build 124 fades the power as the land covers more: "that actually works great". At the slider's top, "i
+  maxed it": 4 is now the default (build 125), and the slider runs to 8.
+- **The crossovers:** "honestly none of the crossover sliders do much". From far cells alone the picture is soft
+  everywhere, and the finer layers are rarely earned, so moving where they fade in changes little. They're kept for when
+  the near eye brings small cells in.
+- **Low over the sea:** looking up, mostly sky, 1.3 ms; along the horizon, 4.2 ms: "yeah it goes up if i look around. anyways
+  just noting it." He named no ring as a seam.
+- **Next: 2b,** old's light.
