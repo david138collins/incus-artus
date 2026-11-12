@@ -311,6 +311,12 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
      picture it gives is the same and only the time differs?
    - What else sits idle that the design should ask the same of: the card's time between frames, its copy engine,
      the processor's spare threads, the laptop's 31 GB of memory?
+10. **The texture hardware's precision, card by card** (change 1). The card's filter weighs the eight cells to about
+    1/256 on the NVIDIA, and how finely is the card maker's choice, so soft bricks blended by the hardware may differ
+    by a hair between cards while the world's data doesn't. David: "the exact colors at any point or few points isnt
+    a big deal ... as long as it fundamentally works right". Builder compares one mark on both cards at the Intel
+    flights, the code's blend as the control. Does this sit inside "no per-card tricks" as you meant it (the same
+    data and method, the picture within the hardware's rounding)?
 
 ## 5. Still to come
 

@@ -1252,6 +1252,12 @@ Reference: `Art/quartile minecraft illustration.png`
   under the memory bar on every card; what only makes it faster or finer is kept as caches that grow into a card's
   free memory and drop away on a small one, bounded by the card and never growing with play, the picture the same
   either way. Put to the Oracle (`journal/vision/oracle-return.md`, question 9).
+- **[DECIDED 2026-11-12] Change 1's precision: the look, not the last digit** (David, to Builder, after the card's
+  filter missed Builder's 1/1,000 bar by weighing to about 1/256): "the exact colors at any point or few points isnt a
+  big deal. itll all be tuned again anyways. as long as it fundamentally works right and meets our goal for the far
+  views function and appearance." So the texture hardware's precision is the bar, and a slight difference between
+  the NVIDIA and Intel cards' filters matters only if it shows; Builder compares one mark's picture on both cards,
+  by the code's blend (the control), exact and spread, at the Intel flights, so it's known rather than assumed.
 - **[DECIDED 2026-11-12] Memory: a bar, and no growth with play** (David, to Builder): "if i wanted to create a larger
   landmass of continents, that it would scale linearly? a world twice as large would be twice as heavy on the card. i
   think that'd be okay, because anyone messing around with worldgen mods to get giant worlds probably has enthusiast
