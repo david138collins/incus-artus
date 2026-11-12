@@ -154,7 +154,7 @@ impl Runner {
         // The far eye, its cells summed on the loading lane nearest the first mark first, on all but two of the
         // processor's threads (the frame and the window keep theirs).
         let far = self.doorway.as_ref().map(|doorway| {
-            let store = crate::bricks::Store::new(&card.device, &card.queue, crate::far::regions_of(doorway), doorway.height(), crate::bricks::brick_side());
+            let store = crate::bricks::Store::new(&card.device, &card.queue, crate::far::regions_of(doorway), doorway.height(), crate::bricks::brick_side(), crate::bricks::window_regions());
             let near = self.marks.get(self.first_mark).map_or([0.0, 0.0], |mark| mark.at);
             let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
             let lane = crate::far::Lane::start(crate::doorway::test_world(), near, threads).map_err(|error| log::error!("The far cells couldn't be summed: {error}")).ok();
@@ -335,10 +335,11 @@ impl Runner {
     }
 
     fn putting_the_far_cells_on_the_card(&mut self) -> bool {
+        let eye = [self.camera.position.x, self.camera.position.y];
         if let Some(running) = &mut self.running
             && let Some(far) = &mut running.far
         {
-            far.put(&running.card.device, &running.card.queue);
+            far.put(&running.card.device, &running.card.queue, eye);
         }
         true
     }
@@ -379,6 +380,11 @@ impl Runner {
         let step = self.frame_clock.step(now);
         if !self.editor.open {
             self.camera.fly(&self.held, step);
+        }
+        // A moving mark on a flight: straight ahead along its facing, level, at its speed (step 4).
+        if let Some(speed) = self.flight.as_ref().and_then(|flight| flight.speed(&self.marks)) {
+            let (sin, cos) = self.camera.facing.to_radians().sin_cos();
+            self.camera.position += glam::Vec3::new(cos, sin, 0.0) * speed * step;
         }
         true
     }
@@ -490,8 +496,11 @@ impl Runner {
         if let Some(running) = &mut self.running {
             work.card_frames = running.card_clock.as_mut().map(|clock| clock.after_submit(&running.card.device)).unwrap_or_default();
         }
+        let eye = self.camera.position;
+        let reach = self.flight.as_ref().and(self.running.as_ref()).and_then(|running| running.far.as_ref()).and_then(|far| far.usable_reach([eye.x, eye.y]));
         let Some(flight) = &mut self.flight else { return true };
         flight.record(shown, frame_ms, std::mem::take(&mut work.card_frames));
+        flight.followed(shown, eye.to_array(), reach);
         if flight.finished(shown)
             && let Some(running) = &self.running
         {

@@ -57,6 +57,9 @@ struct Camera {
     water: vec4<f32>,
     // The far bricks' atlas (change 1): xyz its size in texels (1s while there's none), w a brick's texels a side.
     atlas: vec4<f32>,
+    // The window round the eye (step 4): x the levels kept only in it (0: none, the whole world on the card), y the map's
+    // regions across, zw its least region.
+    window: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -85,6 +88,9 @@ struct Camera {
 @group(0) @binding(14) var t_colour: texture_3d<f32>;
 @group(0) @binding(15) var t_plus: texture_3d<f32>;
 @group(0) @binding(16) var t_minus: texture_3d<f32>;
+// The window's usable regions (step 4): a word a region, 1 where it and its eight neighbours are on the card, the 32s'
+// then the 64s'.
+@group(0) @binding(17) var<storage, read> usable: array<u32>;
 
 const FIRST: i32 = 5;
 const TOP: i32 = 16;
@@ -298,13 +304,33 @@ fn blend_soft(level: i32, p: vec3<f32>) -> Look {
     return look;
 }
 
-// The eight cells round `p` blended: by the code (old's, `blend`) or the texture hardware, as chosen (`camera.layer.w`:
-// 0 the code, 1 the hardware).
-fn far_blend(level: i32, p: vec3<f32>) -> Look {
-    if (camera.layer.w < 0.5) {
-        return blend(level, p);
+// Whether `level` can be read round `p`: past the window's levels always; in them, where `p`'s region is usable (on the
+// map; off it the bands say past the map).
+fn usable_at(level: i32, p: vec3<f32>) -> bool {
+    let k = level - FIRST;
+    if (k >= i32(camera.window.x)) {
+        return true;
     }
-    return blend_soft(level, p);
+    let n = i32(camera.window.y);
+    let r = vec2<i32>(floor(p.xy / f32(1 << u32(REGION)))) - vec2<i32>(camera.window.zw);
+    if (r.x < 0 || r.y < 0 || r.x >= n || r.y >= n) {
+        return true;
+    }
+    return usable[u32((k * n + r.y) * n + r.x)] != 0u;
+}
+
+// The eight cells round `p` blended: by the code (old's, `blend`) or the texture hardware, as chosen (`camera.layer.w`:
+// 0 the code, 1 the hardware). Where the level isn't on the card round `p` (outside the window, or the window behind),
+// the next coarser that is: coarser cells, never a hole.
+fn far_blend(level: i32, p: vec3<f32>) -> Look {
+    var l = level;
+    while (!usable_at(l, p)) {
+        l += 1;
+    }
+    if (camera.layer.w < 0.5) {
+        return blend(l, p);
+    }
+    return blend_soft(l, p);
 }
 
 // Two looks mixed: `w` of the second.

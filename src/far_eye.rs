@@ -56,7 +56,7 @@ const WATER_CLARITY: f32 = 16.0;
 /// The most a frame spends putting regions on the card (ms), so the view sharpens in without holding the frame up.
 const PUTTING_MS: f32 = 3.0;
 /// Numbers in the march's camera (`far.wgsl`'s `Camera`): rows of four.
-const CAMERA_ROWS: usize = 17;
+const CAMERA_ROWS: usize = 18;
 
 /// The far eye's look as David tunes it on the Render page (F3), each with its default.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -139,8 +139,9 @@ struct Layer {
 struct Targets {
     screen: (u32, u32),
     generation: u32,
-    /// Whether the atlas was in when they were made.
+    /// Whether the atlas was in when they were made, and its generation (bumped when it grows).
     atlas_in: bool,
+    atlas_generation: u32,
     tiles: (u32, u32),
     layers: Vec<Layer>,
     up_numbers: wgpu::Buffer,
@@ -196,6 +197,7 @@ impl FarEye {
                 volume(14),
                 volume(15),
                 volume(16),
+                storage(17, true),
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
@@ -270,9 +272,14 @@ impl FarEye {
         Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins }
     }
 
-    /// Whether every region is on the card, and the far textures too if they're made.
+    /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
     pub fn whole(&self) -> bool {
-        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures)
+        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0
+    }
+
+    /// How far round the eye the usable 32s and 64s reach (blocks; none without a window), for a flight.
+    pub fn usable_reach(&self, eye: [f32; 2]) -> Option<[f32; crate::bricks::WINDOWED]> {
+        self.store.usable_reach(eye)
     }
 
     /// Which blends can be chosen now: the code's, the hardware's (once the far textures are in).
@@ -282,7 +289,8 @@ impl FarEye {
 
     /// The look's settings a flight's numbers depend on, for its report.
     pub fn settings(&self) -> String {
-        format!("bricks of {}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
+        let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
+        format!("bricks of {}, {window}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
     }
 
     /// How the far cells are coming in, for the panel and the flight's report.
@@ -300,16 +308,20 @@ impl FarEye {
         format!("{lane}{} bricks, {:.0} MB of {:.0} MB{atlas}", self.store.bricks, used as f64 / 1e6, size as f64 / 1e6)
     }
 
-    /// The regions summed since the last frame put on the card, for at most `PUTTING_MS` (the pass "putting the far
-    /// cells on the card").
-    pub fn put(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        // The atlas, once every region is in: built on a thread of its own from the cells kept, then taken in here.
+    /// The regions summed since the last frame put on the card, and the window brought to the eye, for at most
+    /// `PUTTING_MS` together (the pass "putting the far cells on the card").
+    pub fn put(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, eye: [f32; 2]) {
+        let started = Instant::now();
+        // The atlas, once every region is in: built on a thread of its own from the cells kept and the window as it is
+        // (held still till it's in), then taken in here.
         if self.lane.is_none() && self.atlas.is_none() && self.building.is_none() && self.textures {
-            let kept = std::mem::take(&mut self.store.kept);
+            let kept = self.store.kept.clone();
+            let window = self.store.window_places();
             let (device, queue) = (device.clone(), queue.clone());
             let (sender, receiver) = mpsc::channel();
             let _ = std::thread::Builder::new().name("making the far textures".into()).spawn(move || {
-                let _ = sender.send(crate::atlas::build(&device, &queue, &kept));
+                let keep = |b: &crate::atlas::Brick| window.as_ref().is_none_or(|places| b.level >= crate::far::FIRST + crate::bricks::WINDOWED || places.contains(&b.place));
+                let _ = sender.send(crate::atlas::build(&device, &queue, &kept, keep));
             });
             log::info!("The far textures: being made");
             self.building = Some(receiver);
@@ -321,23 +333,34 @@ impl FarEye {
             self.atlas = Some(atlas);
             self.building = None;
         }
-        let Some(lane) = &mut self.lane else { return };
-        let started = Instant::now();
-        while started.elapsed().as_secs_f32() * 1000.0 < PUTTING_MS {
-            let taken = lane.take(1);
-            let Some((region, columns)) = taken.into_iter().next() else { break };
-            self.store.put_region(device, queue, region, &columns);
+        if let Some(lane) = &mut self.lane {
+            while started.elapsed().as_secs_f32() * 1000.0 < PUTTING_MS {
+                let taken = lane.take(1);
+                let Some((region, columns)) = taken.into_iter().next() else { break };
+                self.store.put_region(device, queue, region, &columns);
+            }
+            if lane.done == lane.total && self.store.regions_in == lane.total {
+                let (used, _) = self.store.pool_bytes();
+                log::info!("The far bricks: all {} regions in, {} bricks on the card, {:.0} MB of cells", lane.total, self.store.bricks, used as f64 / 1e6);
+                self.lane = None;
+            }
         }
-        if lane.done == lane.total && self.store.regions_in == lane.total {
-            let (used, _) = self.store.pool_bytes();
-            log::info!("The far bricks: all {} regions on the card, {} bricks, {:.0} MB of cells", lane.total, self.store.bricks, used as f64 / 1e6);
-            self.lane = None;
+        // The window brought to the eye with what's left of the pass's time (a millisecond at least), half of it when
+        // the atlas follows too; held still while the atlas is being made from it.
+        if self.building.is_none() {
+            let left = (PUTTING_MS - started.elapsed().as_secs_f32() * 1000.0).max(1.0);
+            let moved = self.store.follow(device, queue, eye, if self.atlas.is_some() { left / 2.0 } else { left });
+            if let Some(atlas) = &mut self.atlas {
+                atlas.remove(queue, &moved.left);
+                atlas.add(device, queue, &self.store.kept, &moved.came);
+            }
         }
     }
 
     /// The layers sized to the screen, and their bind groups made with the bricks as they are.
     fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32)) {
-        if self.targets.as_ref().is_some_and(|t| t.screen == screen && t.generation == self.store.generation && t.atlas_in == self.atlas.is_some()) {
+        let atlas_generation = self.atlas.as_ref().map_or(0, |a| a.generation);
+        if self.targets.as_ref().is_some_and(|t| t.screen == screen && t.generation == self.store.generation && t.atlas_in == self.atlas.is_some() && t.atlas_generation == atlas_generation) {
             return;
         }
         let texture = |label: &str, size: (u32, u32), format: wgpu::TextureFormat| {
@@ -389,6 +412,7 @@ impl FarEye {
                     entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
                     entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
                     entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
+                    entry(17, self.store.usable.as_entire_binding()),
                 ],
             });
             worth_above = Some(worth);
@@ -408,7 +432,7 @@ impl FarEye {
                 wgpu::BindGroupEntry { binding: 5, resource: up_numbers.as_entire_binding() },
             ],
         });
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), tiles, layers, up_numbers, up_group });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, tiles, layers, up_numbers, up_group });
     }
 
     /// The frame's numbers for each layer and for bringing it up, from the camera (done before the card's passes are
@@ -427,6 +451,7 @@ impl FarEye {
         // The blend as chosen, if its way is built and in; the code's till then.
         let blend = if self.blends()[look.blend.min(1) as usize] { look.blend.min(1) } else { 0 };
         let atlas_size = self.atlas.as_ref().map_or([1.0; 3], |a| a.size.map(|v| v as f32));
+        let (regions, window_levels) = (self.store.regions, self.store.window().map_or(0.0, |_| crate::bricks::WINDOWED as f32));
         let (from, height) = (look.sun_from.to_radians(), look.sun_height.to_radians());
         let sun = [height.cos() * from.cos(), height.cos() * from.sin(), height.sin()];
         let (direct, glow) = daylight(sun[2]);
@@ -461,6 +486,7 @@ impl FarEye {
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
                 [atlas_size[0], atlas_size[1], atlas_size[2], self.atlas.as_ref().map_or(1.0, |a| a.side as f32)],
+                [window_levels, regions.1 as f32, regions.0[0] as f32, regions.0[1] as f32],
             ];
             queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -532,22 +558,36 @@ mod tests {
         let instance = wgpu::Instance::new(descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).expect("a graphics card");
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min((2 << 30) - 1);
-        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
+        let storage_buffers = adapter.limits().max_storage_buffers_per_shader_stage.min(crate::card::STORAGE_BUFFERS);
+        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, max_storage_buffers_per_shader_stage: storage_buffers, ..wgpu::Limits::default() };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("a test"), required_limits, ..Default::default() })).expect("the card's device");
         let errors = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), crate::bricks::brick_side());
-        for ry in -1..=1 {
-            for rx in -1..=1 {
+        let marks = crate::marks::load().unwrap();
+        // From the spawn, or another mark if asked (`FAR_TEST_MARK`, its name, for a look).
+        let mark = std::env::var("FAR_TEST_MARK").ok().and_then(|name| marks.iter().find(|m| m.name == name)).unwrap_or(&marks[0]);
+        let mut camera = Camera::new();
+        camera.position = crate::marks::eye(&doorway, mark).unwrap();
+        camera.facing = mark.facing;
+        camera.pitch = mark.pitch;
+        let at = [camera.position.x, camera.position.y];
+        // The regions round the mark's (one each way, or as many as `FAR_TEST_REGIONS` says: for a look at the window
+        // against the whole world, step 4), the window brought to the eye.
+        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), crate::bricks::brick_side(), crate::bricks::window_regions());
+        let around = std::env::var("FAR_TEST_REGIONS").ok().and_then(|r| r.parse::<i32>().ok()).unwrap_or(1);
+        let middle = [(at[0] / 1024.0).floor() as i32, (at[1] / 1024.0).floor() as i32];
+        for ry in middle[1] - around..=middle[1] + around {
+            for rx in middle[0] - around..=middle[0] + around {
                 store.put_region(&device, &queue, [rx, ry], &region(&doorway, &colours, [rx, ry]).unwrap());
             }
         }
+        store.follow(&device, &queue, at, f32::INFINITY);
         let format = wgpu::TextureFormat::Rgba8Unorm;
         let mut eye = FarEye::new(&device, format, store, None);
         // The blend to draw with, if asked (`FAR_TEST_BLEND`: 0 the code's, 1 the hardware's): the atlas made first.
         // The detail is the default's, or `INCUS_FAR_DETAIL`'s.
         if let Some(blend) = std::env::var("FAR_TEST_BLEND").ok().and_then(|b| b.parse::<u32>().ok()) {
             while !eye.blends()[blend as usize] {
-                eye.put(&device, &queue);
+                eye.put(&device, &queue, at);
                 std::thread::sleep(std::time::Duration::from_millis(20));
             }
             eye.look.blend = blend;
@@ -556,13 +596,6 @@ mod tests {
         if let Some(weight) = std::env::var("FAR_TEST_SKY_WEIGHT").ok().and_then(|w| w.parse().ok()) {
             eye.look.sky_weight = weight;
         }
-        let marks = crate::marks::load().unwrap();
-        // From the spawn, or another mark if asked (`FAR_TEST_MARK`, its name, for a look).
-        let mark = std::env::var("FAR_TEST_MARK").ok().and_then(|name| marks.iter().find(|m| m.name == name)).unwrap_or(&marks[0]);
-        let mut camera = Camera::new();
-        camera.position = crate::marks::eye(&doorway, mark).unwrap();
-        camera.facing = mark.facing;
-        camera.pitch = mark.pitch;
         let screen = (640u32, 400u32);
         eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let target = device.create_texture(&wgpu::TextureDescriptor {

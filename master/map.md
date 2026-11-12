@@ -54,6 +54,7 @@ flowchart TB
   store_the_far_layers[("the far layers")]
   store_the_far_eye_s_look[("the far eye's look")]
   store_the_far_textures[("the far textures")]
+  store_the_window_round_the_eye[("the window round the eye")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -61,9 +62,13 @@ flowchart TB
   pass_going_to_a_mark --> store_the_camera
   pass_going_to_a_mark --> store_what_changed
   store_the_keys_held --> pass_flying
+  store_the_marks --> pass_flying
   pass_flying --> store_the_camera
   store_the_far_cells --> pass_putting_the_far_cells_on_the_card
+  store_the_camera --> pass_putting_the_far_cells_on_the_card
   pass_putting_the_far_cells_on_the_card --> store_the_far_bricks
+  pass_putting_the_far_cells_on_the_card --> store_the_far_textures
+  pass_putting_the_far_cells_on_the_card --> store_the_window_round_the_eye
   store_the_camera --> pass_laying_out_the_panel
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
@@ -76,14 +81,17 @@ flowchart TB
   pass_the_far_start --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_8_x_8
   store_the_far_textures --> pass_the_far_8_x_8
+  store_the_window_round_the_eye --> pass_the_far_8_x_8
   store_the_far_layers --> pass_the_far_8_x_8
   pass_the_far_8_x_8 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_4_x_4
   store_the_far_textures --> pass_the_far_4_x_4
+  store_the_window_round_the_eye --> pass_the_far_4_x_4
   store_the_far_layers --> pass_the_far_4_x_4
   pass_the_far_4_x_4 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_2_x_2
   store_the_far_textures --> pass_the_far_2_x_2
+  store_the_window_round_the_eye --> pass_the_far_2_x_2
   store_the_far_layers --> pass_the_far_2_x_2
   pass_the_far_2_x_2 --> store_the_far_layers
   store_the_far_layers --> pass_bringing_it_up
@@ -91,6 +99,7 @@ flowchart TB
   store_the_panel_s_shapes --> pass_the_panel
   pass_the_panel --> store_the_screen_s_picture
   store_the_screen_s_picture --> pass_showing_it
+  store_the_window_round_the_eye --> pass_measuring
   pass_measuring --> store_the_clocks
   pass_measuring --> store_the_flight_s_report
   store_the_export --> pass_the_doorway
@@ -152,17 +161,18 @@ flowchart TB
 ### flying
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The camera flies by the keys held (WASD, Space, Ctrl, Shift), on real time. Not while the editor is open.
-- **Reads:** the keys held. **Writes:** the camera.
+- **What it is:** The camera flies by the keys held (WASD, Space, Ctrl, Shift), on real time, at the speed set on the Camera page. Not while the editor is open. On a flight, a moving mark flies it straight ahead at its speed (step 4).
+- **Reads:** the keys held and the marks. **Writes:** the camera.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.000, 95th 0.000, 99th 0.001, worst 0.198.
-- **Files:** src/camera.rs.
+- **Files:** src/camera.rs and src/runner.rs.
 
 ### putting the far cells on the card
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The regions summed since the last frame put on the card as bricks, at most 3 ms a frame, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in.
-- **Reads:** the far cells. **Writes:** the far bricks.
+- **What it is:** The regions summed since the last frame put on the card as bricks, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in. Then the window round the eye brought to it (step 4): the 32s' and 64s' regions past it given back, those within it made from the far cells kept and put on, nearest first, the far textures following. At most 3 ms a frame for both.
+- **Reads:** the far cells and the camera. **Writes:** the far bricks, the far textures and the window round the eye.
 - **Switch** `INCUS_FAR_BRICK`: a brick's side in cells: 2, 4 or 8 (unset: 4), for the pool and the far textures both (2.2, step 3).
+- **Switch** `INCUS_FAR_WINDOW`: the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4).
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.319.
 - **Files:** src/bricks.rs and src/far_eye.rs.
 
@@ -199,7 +209,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.
-- **Reads:** the far bricks, the far textures and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.070; on the card median 0.627, 95th 0.641, 99th 0.647, worst 1.362.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -207,7 +217,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.
-- **Reads:** the far bricks, the far textures and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.139; on the card median 0.008, 95th 0.008, 99th 0.008, worst 0.047.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -215,7 +225,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.
-- **Reads:** the far bricks, the far textures and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.030; on the card median 0.024, 95th 0.024, 99th 0.025, worst 0.198.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -254,8 +264,8 @@ flowchart TB
 ### measuring
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report.
-- **Reads:** none. **Writes:** the clocks and the flight's report.
+- **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it.
+- **Reads:** the window round the eye. **Writes:** the clocks and the flight's report.
 - **Cost, last measured** (`kept logs/flight-1794497402.txt`): on the processor median 0.005, 95th 0.029, 99th 0.039, worst 0.319.
 - **Files:** src/runner.rs, src/clocks.rs and src/flight.rs.
 
@@ -297,7 +307,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** laying out the panel and the far start.
+- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, laying out the panel and the far start.
 - **Files:** src/camera.rs.
 
 ### the clocks
@@ -362,7 +372,7 @@ flowchart TB
 
 - **A store** on the disk.
 - **What it is:** The places every flight stands at, the same each time, data/marks.toml: where, how high, which way, fog, whose marks (near or far), and what's changed there first. The game starts at the first.
-- **Written by:** none. **Read by:** going to a mark.
+- **Written by:** none. **Read by:** going to a mark and flying.
 - **Files:** src/marks.rs.
 
 ### what changed
@@ -410,7 +420,15 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and the colour and faces spread into empty neighbours (8-bit); each brick's slot beside its place in the bricks' index. A brick's texels a side: its cells a side and a border (9 at bricks of 8).
-- **Written by:** making the far textures. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Written by:** putting the far cells on the card and making the far textures. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
 - **Limit:** bricks a side of an atlas layer, 64.
 - **Files:** src/atlas.rs.
+
+### the window round the eye
+
+- **A store** on the card.
+- **What it is:** Which regions' 32s and 64s are on the card (step 4): only those within the window round the eye. A word a region at each, 1 where it and its eight neighbours are on (usable); the far eye reads the next coarser level where they aren't, so a window behind shows coarser cells, never a hole. Kept on the processor too, with each region's bricks and the places given back for the next to come.
+- **Written by:** putting the far cells on the card. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2 and measuring.
+- **Limit:** the 32s' radius in regions (the 64s' twice it), 10.
+- **Files:** src/bricks.rs.
 

@@ -12,13 +12,17 @@
 //! - The surface isn't sRGB: the panel works its colours out as sRGB and they're shown as made.
 //! - Limits are wgpu's defaults, which every card meets: raised only on purpose, and said so [portable software,
 //!   no per-card tricks: David, 2026-11-08]. Raised: the largest buffer, for the far bricks (the whole world's far
-//!   cells on the card, about a gigabyte; both the laptop's cards allow 2 GB).
+//!   cells on the card, about a gigabyte; both the laptop's cards allow 2 GB); and the storage buffers a pass may
+//!   read, 8 to 16, for the far eye's ninth (the window's usable regions, plan 2.2 step 4; DirectX 12 cards allow 64
+//!   or more).
 
 use std::sync::Arc;
 use winit::window::Window;
 
 /// The largest buffer asked for (2 GB, less a byte: both the laptop's cards allow it).
 const BIGGEST: u64 = (2 << 30) - 1;
+/// The storage buffers a pass may read, asked for (wgpu's default is 8; the far eye reads 9).
+pub const STORAGE_BUFFERS: u32 = 16;
 
 /// The card, its window's picture, and how they were chosen.
 pub struct Card {
@@ -52,7 +56,9 @@ impl Card {
         }
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min(BIGGEST);
         log::info!("The card's largest buffer, raised on purpose for the far bricks: {} MB (wgpu's default {} MB)", largest >> 20, wgpu::Limits::default().max_storage_buffer_binding_size >> 20);
-        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
+        let storage_buffers = adapter.limits().max_storage_buffers_per_shader_stage.min(STORAGE_BUFFERS);
+        log::info!("The storage buffers a pass may read, raised on purpose for the far eye: {storage_buffers} (wgpu's default {})", wgpu::Limits::default().max_storage_buffers_per_shader_stage);
+        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, max_storage_buffers_per_shader_stage: storage_buffers, ..wgpu::Limits::default() };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, required_limits, ..Default::default() }))
             .expect("the card's device");
         let size = window.inner_size();

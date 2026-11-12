@@ -1436,3 +1436,29 @@ David's 2560 × 1600, the 8 × 8 layer reads 32s out to about 9 km and 64s to ab
   10,000mph that's fine. as long as its not aggregious").
 - **Flights:** bricks of 4 and 8 with the window, the still marks and the two moving ones; build 131's give the
   whole world.
+
+### Results: the tests and the pictures
+
+- **Tests, met:**
+  - The window's test brought 49 regions on and off through 11 moves. Once it had been both ways, more moves left the
+    pool's use and room as they were (nothing grows with play).
+  - The usable regions' 159,744 cells read back through the card as summed.
+  - On a first visit, only the middle region at the 32s is usable, so the usable reach is half a region, as worked out.
+  - The read-back test at 2, 4 and 8, change 1's card test and the edge test all hold through the window.
+  - The far eye now reads 9 storage buffers, one past wgpu's default of 8. The limit is raised to 16 on purpose
+    (`card.rs`, said in the log; DirectX 12 cards allow 64 or more).
+- **The pictures, still, missed in part:**
+  - Drawn at 640 × 400 from 13 × 13 regions round each mark, the whole world (`INCUS_FAR_WINDOW=0`) against a
+    window of 3. At a quarter of David's 1,600 rows, a pixel covers four times the ground, so 3 here is about 12 on
+    his screen, a little more than the 10 chosen.
+  - On the ground at the spawn: 0.1% of pixels differ, by 4 of 255 at most. Met.
+  - Low over the sea: 0.4%, by 22 at most.
+  - High over the spawn: 4.5%, by 35.
+  - The mountain top, fog off: 6.5%, by 49 (0.6% by more than 8).
+  - The last three are over the 8 I gave. The differences are all on distant ridges. The 8 × 8 layer reads 32s only
+    out to about 9 km on his screen, but the finer layers read them twice and four times as far, and past the window
+    they read 64s instead.
+  - A window of 1 here (about 4 on his screen) shows what falling behind looks like: the land coarser and blurrier,
+    never a hole.
+  - What's left is for David's eye on his own screen: the window against the whole world at the mountain top and
+    high over the spawn.

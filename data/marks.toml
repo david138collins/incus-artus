@@ -10,6 +10,8 @@
 #   eyes     whose marks it is: "near" (2.3, the near eye) and "far" (2.2, the far eye)
 #   changes  an event log whose placings are made as changes through the doorway before it's flown (optional)
 #   scatter  random blocks round it, flown at each count of the dial (optional)
+#   speed    on a flight, the camera flies straight ahead along its facing, level, at this many blocks a second, through
+#            its settling and its measuring (optional; plan 2.2, step 4: the window round the eye, moving)
 #
 # The places are old's, as its flights stood at them (kept logs/dyno-1794448108.txt, kept logs/dyno-1794433359.txt).
 
@@ -82,3 +84,27 @@ facing = 228.28
 pitch = -2.0
 fog = true
 eyes = ["far"]
+
+# The window round the eye, moving (plan 2.2, step 4). A player's top speed, 200 blocks a second (the spec), from 30
+# over the bare plain, south, level: 5 km in its 25 s. The bar: solid.
+[[mark]]
+name = "a player's run over the plain"
+at = [-3975.0, -1192.0]
+above = 30.0
+facing = 180.0
+pitch = -3.0
+fog = true
+eyes = ["far"]
+speed = 200.0
+
+# Fast, 2,000 blocks a second, from 20 km north of the spawn and 300 over it, south across the world: 50 km in its 25 s.
+# No bar: where it creaks is reported.
+[[mark]]
+name = "fast across the world"
+at = [20000.5, 0.5]
+above = 300.0
+facing = 180.0
+pitch = -5.0
+fog = true
+eyes = ["far"]
+speed = 2000.0

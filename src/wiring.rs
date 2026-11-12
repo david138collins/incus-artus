@@ -105,6 +105,7 @@ pub enum StoreId {
     FarLayers,
     FarLook,
     FarTextures,
+    FarWindow,
 }
 
 pub struct Store {
@@ -178,21 +179,24 @@ pub const PASSES: [Pass; 18] = [
         name: "flying",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The camera flies by the keys held (WASD, Space, Ctrl, Shift), on real time. Not while the editor is open.",
-        reads: &[StoreId::KeysHeld],
+        what: "The camera flies by the keys held (WASD, Space, Ctrl, Shift), on real time, at the speed set on the Camera page. Not while the editor is open. On a flight, a moving mark flies it straight ahead at its speed (step 4).",
+        reads: &[StoreId::KeysHeld, StoreId::Marks],
         writes: &[StoreId::Camera],
         switches: &[],
-        files: &["src/camera.rs"],
+        files: &["src/camera.rs", "src/runner.rs"],
     },
     Pass {
         id: PassId::PuttingTheFarCellsOnTheCard,
         name: "putting the far cells on the card",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The regions summed since the last frame put on the card as bricks, at most 3 ms a frame, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in.",
-        reads: &[StoreId::FarCells],
-        writes: &[StoreId::FarBricks],
-        switches: &[("INCUS_FAR_BRICK", "a brick's side in cells: 2, 4 or 8 (unset: 4), for the pool and the far textures both (2.2, step 3)")],
+        what: "The regions summed since the last frame put on the card as bricks, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in. Then the window round the eye brought to it (step 4): the 32s' and 64s' regions past it given back, those within it made from the far cells kept and put on, nearest first, the far textures following. At most 3 ms a frame for both.",
+        reads: &[StoreId::FarCells, StoreId::Camera],
+        writes: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow],
+        switches: &[
+            ("INCUS_FAR_BRICK", "a brick's side in cells: 2, 4 or 8 (unset: 4), for the pool and the far textures both (2.2, step 3)"),
+            ("INCUS_FAR_WINDOW", "the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4)"),
+        ],
         files: &["src/bricks.rs", "src/far_eye.rs"],
     },
     Pass {
@@ -240,7 +244,7 @@ pub const PASSES: [Pass; 18] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -251,7 +255,7 @@ pub const PASSES: [Pass; 18] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -262,7 +266,7 @@ pub const PASSES: [Pass; 18] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -318,8 +322,8 @@ pub const PASSES: [Pass; 18] = [
         name: "measuring",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report.",
-        reads: &[],
+        what: "The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it.",
+        reads: &[StoreId::FarWindow],
         writes: &[StoreId::Clocks, StoreId::FlightReport],
         switches: &[],
         files: &["src/runner.rs", "src/clocks.rs", "src/flight.rs"],
@@ -359,7 +363,7 @@ pub const PASSES: [Pass; 18] = [
     },
 ];
 
-pub const STORES: [Store; 17] = [
+pub const STORES: [Store; 18] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -495,6 +499,14 @@ pub const STORES: [Store; 17] = [
         what: "The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and the colour and faces spread into empty neighbours (8-bit); each brick's slot beside its place in the bricks' index. A brick's texels a side: its cells a side and a border (9 at bricks of 8).",
         limits: &[("bricks a side of an atlas layer", crate::atlas::ACROSS as u64)],
         files: &["src/atlas.rs"],
+    },
+    Store {
+        id: StoreId::FarWindow,
+        name: "the window round the eye",
+        on: Where::Card,
+        what: "Which regions' 32s and 64s are on the card (step 4): only those within the window round the eye. A word a region at each, 1 where it and its eight neighbours are on (usable); the far eye reads the next coarser level where they aren't, so a window behind shows coarser cells, never a hole. Kept on the processor too, with each region's bricks and the places given back for the next to come.",
+        limits: &[("the 32s' radius in regions (the 64s' twice it)", crate::bricks::WINDOW as u64)],
+        files: &["src/bricks.rs"],
     },
 ];
 

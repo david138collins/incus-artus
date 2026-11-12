@@ -15,7 +15,9 @@
 //! old's bake did.
 
 use crate::far::{Cell, CellColumn, FIRST, REGION};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::time::Instant;
 
 /// The coarsest level: four cells cover the whole map (cells of 65,536).
 pub const TOP: usize = 16;
@@ -37,6 +39,20 @@ pub fn brick_side() -> i32 {
         Some(side @ (2 | 4 | 8)) => side,
         _ => 4,
     }
+}
+
+/// The levels kept only in a window round the eye (plan 2.2, step 4): the 32s and the 64s, which hold 93% of the far
+/// bricks and are read only near the eye.
+pub const WINDOWED: usize = 2;
+
+/// The window's radius at the 32s, in regions (the 64s' is twice it). At detail 0 on David's 2560 × 1600 the 8 × 8 layer
+/// reads 32s out to about 9 km and 64s to about 18.
+pub const WINDOW: i32 = 10;
+
+/// The window's radius at the 32s in regions: `WINDOW`, or as `INCUS_FAR_WINDOW` says; 0 the whole world on the card,
+/// as before.
+pub fn window_regions() -> i32 {
+    std::env::var("INCUS_FAR_WINDOW").ok().and_then(|s| s.parse().ok()).filter(|r: &i32| *r >= 0).unwrap_or(WINDOW)
 }
 
 /// A level laid over the map: its columns, how tall it is, its bricks' shape, and where its columns and bricks are kept.
@@ -132,9 +148,9 @@ pub struct Part {
     pub bricks: Vec<(u32, Vec<Cell>)>,
 }
 
-/// The entries and bricks of the columns `cx0..cx0 + n`, `cy0..cy0 + n` of `level` (they must cover whole bricks), each
-/// column found by `column(cx, cy)` (none: not summed yet).
-pub fn part<'a>(level: &Level, cx0: i32, cy0: i32, n: i32, column: impl Fn(i32, i32) -> Option<&'a CellColumn>) -> Part {
+/// The entries and bricks (if `bricks`) of the columns `cx0..cx0 + n`, `cy0..cy0 + n` of `level` (they must cover whole
+/// bricks), each column found by `column(cx, cy)` (none: not summed yet).
+pub fn part<'a>(level: &Level, cx0: i32, cy0: i32, n: i32, column: impl Fn(i32, i32) -> Option<&'a CellColumn>, bricks: bool) -> Part {
     let mut part = Part::default();
     let size = 1u32 << level.level;
     // The entries, a row at a time, only as far as the level's columns go (a brick at its edge reaches past them: build
@@ -144,6 +160,9 @@ pub fn part<'a>(level: &Level, cx0: i32, cy0: i32, n: i32, column: impl Fn(i32, 
         let Some(start) = level.entry(cx0, cy) else { continue };
         let row = (cx0..last).map(|cx| column(cx, cy).map_or(NOT_SUMMED, entry_of)).collect();
         part.entries.push((start, row));
+    }
+    if !bricks {
+        return part;
     }
     let cells = level.brick_cells() as usize;
     let first = |c0: i32, from: i32| (c0 - from).div_euclid(level.wide);
@@ -170,13 +189,14 @@ pub fn part<'a>(level: &Level, cx0: i32, cy0: i32, n: i32, column: impl Fn(i32, 
     part
 }
 
-/// A region's parts, level by level from 32 to 1,024 (its columns from `far::region`).
-pub fn region_parts(levels: &[Level], region: [i32; 2], columns: &[Vec<CellColumn>]) -> Vec<Part> {
+/// A region's parts, level by level from 32 to 1,024 (its columns from `far::region`), the first `windowed` levels' bands
+/// only.
+pub fn region_parts(levels: &[Level], region: [i32; 2], columns: &[Vec<CellColumn>], windowed: usize) -> Vec<Part> {
     (FIRST..=REGION)
         .map(|level| {
             let n = 1 << (REGION - level);
             let these = &columns[level - FIRST];
-            part(&levels[level - FIRST], region[0] * n, region[1] * n, n, |cx, cy| these.get(((cy - region[1] * n) * n + (cx - region[0] * n)) as usize))
+            part(&levels[level - FIRST], region[0] * n, region[1] * n, n, |cx, cy| these.get(((cy - region[1] * n) * n + (cx - region[0] * n)) as usize), level >= FIRST + windowed)
         })
         .collect()
 }
@@ -186,7 +206,25 @@ const CELL_BYTES: u64 = 16;
 /// The pool's first size: 128 MB.
 const FIRST_POOL: u64 = (128 << 20) / CELL_BYTES;
 
-/// The far bricks on the card, and what's kept here to make the levels over 1,024 as their regions come in.
+/// Blocks a region a side.
+const REGION_BLOCKS: f32 = (1 << REGION) as f32;
+
+/// How far `eye` is from a region's middle (blocks).
+fn region_distance(region: [i32; 2], eye: [f32; 2]) -> f32 {
+    let middle = [(region[0] as f32 + 0.5) * REGION_BLOCKS, (region[1] as f32 + 0.5) * REGION_BLOCKS];
+    ((middle[0] - eye[0]).powi(2) + (middle[1] - eye[1]).powi(2)).sqrt()
+}
+
+/// What the window's move put on the card and gave back, for the atlas to follow: the bricks that came, and the places
+/// of those that left.
+#[derive(Default)]
+pub struct Moved {
+    pub came: Vec<crate::atlas::Brick>,
+    pub left: Vec<u32>,
+}
+
+/// The far bricks on the card, and what's kept here: to make the levels over 1,024 as their regions come in, and to
+/// bring the window's regions onto the card as the eye moves.
 pub struct Store {
     /// A brick's side in cells.
     pub side: i32,
@@ -195,7 +233,7 @@ pub struct Store {
     pub entries: wgpu::Buffer,
     pub index: wgpu::Buffer,
     pub pool: wgpu::Buffer,
-    /// Cells the pool holds, and those used.
+    /// Cells the pool holds, and those used (its places given back included).
     capacity: u64,
     used: u64,
     /// Bumped whenever the pool is made again (bind groups made with the old one are stale).
@@ -203,16 +241,32 @@ pub struct Store {
     /// Each region's 1,024 as it comes in, and each level over 1,024's columns as they're made.
     tops: HashMap<[i32; 2], CellColumn>,
     upper: Vec<HashMap<[i32; 2], CellColumn>>,
-    /// The far cells kept as they come, for the atlas (change 1), taken by its builder once every region is in.
-    pub kept: crate::atlas::Kept,
-    /// Regions in, the highest anything stands (blocks), and the bricks made.
+    /// The far cells kept as they come: the window's regions are made from them as the eye moves, and the atlas
+    /// (change 1). Shared only once every region is in.
+    pub kept: Arc<crate::atlas::Kept>,
+    /// Regions in, the highest anything stands (blocks), and the bricks on the card.
     pub regions_in: usize,
     pub highest: f32,
     pub bricks: usize,
+    /// The map's regions: the least, north and east, and how many across.
+    pub regions: ([i32; 2], i32),
+    /// The window round the eye (step 4): its radius in regions at the 32s and the 64s (none: the whole world on the
+    /// card); each windowed level's regions on the card with their bricks (each its place in the index and in the
+    /// pool); each level's places in the pool given back; the regions summed; and the regions wanted but not yet on the
+    /// card at the last move.
+    window: Option<[i32; WINDOWED]>,
+    on_card: Vec<HashMap<[i32; 2], Vec<(u32, u64)>>>,
+    free: Vec<Vec<u64>>,
+    summed: HashSet<[i32; 2]>,
+    pub behind: usize,
+    /// Each windowed level's regions, usable or not (it and its eight neighbours on the card), as the card reads them
+    /// (`usable`: a word a region, the 32s' then the 64s').
+    flags: Vec<u32>,
+    pub usable: wgpu::Buffer,
 }
 
 impl Store {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, regions: ([i32; 2], i32), height: i32, side: i32) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, regions: ([i32; 2], i32), height: i32, side: i32, window: i32) -> Self {
         let levels = levels(regions, height, side);
         let table = table(&levels);
         let entries_count = levels.last().map_or(0, |l| l.entries_at + (l.across * l.across) as u32) as u64;
@@ -225,26 +279,82 @@ impl Store {
         let index = storage("the far bricks' index", index_count * 4);
         queue.write_buffer(&index, 0, &NO_BRICK.to_le_bytes().repeat(index_count as usize));
         let pool = storage("the far bricks", FIRST_POOL * CELL_BYTES);
+        let window = (window > 0).then_some([window, window * 2]);
+        let flags = vec![u32::from(window.is_none()); WINDOWED * (regions.1 * regions.1) as usize];
+        let usable = storage("the far window's usable regions", flags.len() as u64 * 4);
+        queue.write_buffer(&usable, 0, &flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         log::info!(
-            "The far bricks: {} levels, {:.1} MB of bands and {:.1} MB of index on the card; the pool {} MB to start",
+            "The far bricks: {} levels, bricks of {side}, {:.1} MB of bands and {:.1} MB of index on the card; the pool {} MB to start; {}",
             levels.len(),
             (entries_count * 4) as f64 / 1e6,
             (index_count * 4) as f64 / 1e6,
-            (FIRST_POOL * CELL_BYTES) >> 20
+            (FIRST_POOL * CELL_BYTES) >> 20,
+            window.map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]))
         );
-        let kept = crate::atlas::Kept::new(&levels);
-        Self { side, kept, levels, table: table_buffer, entries, index, pool, capacity: FIRST_POOL, used: 0, generation: 0, tops: HashMap::new(), upper: vec![HashMap::new(); TOP - REGION], regions_in: 0, highest: 0.0, bricks: 0 }
+        let kept = Arc::new(crate::atlas::Kept::new(&levels));
+        Self {
+            side,
+            kept,
+            levels,
+            table: table_buffer,
+            entries,
+            index,
+            pool,
+            capacity: FIRST_POOL,
+            used: 0,
+            generation: 0,
+            tops: HashMap::new(),
+            upper: vec![HashMap::new(); TOP - REGION],
+            regions_in: 0,
+            highest: 0.0,
+            bricks: 0,
+            regions,
+            window,
+            on_card: vec![HashMap::new(); WINDOWED],
+            free: vec![Vec::new(); WINDOWED],
+            summed: HashSet::new(),
+            behind: 0,
+            flags,
+            usable,
+        }
     }
 
-    /// The pool's bytes in use, and its size.
+    /// The window's radius in regions at the 32s and the 64s (none: the whole world on the card).
+    pub fn window(&self) -> Option<[i32; WINDOWED]> {
+        self.window
+    }
+
+    /// The pool's bytes in use (its places given back not counted), and its size.
     pub fn pool_bytes(&self) -> (u64, u64) {
-        (self.used * CELL_BYTES, self.capacity * CELL_BYTES)
+        let given_back: u64 = self.free.iter().enumerate().map(|(k, free)| free.len() as u64 * self.levels[k].brick_cells() as u64).sum();
+        ((self.used - given_back) * CELL_BYTES, self.capacity * CELL_BYTES)
     }
 
-    /// A part put on the card: its entries written, its bricks given places in the pool (grown first if it's full: the
-    /// old pool copied into the new in `encoder`, which is handed over after the queue's writes, so the copy carries
-    /// them too) and written there, and their places written in the index.
-    fn put(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, part: &Part) {
+    /// Room for `cells` more at the pool's end. If it's full it's grown: the old pool copied into the new and handed to
+    /// the card at once, so the writes made before land in the old and are carried over, and those after land in the new.
+    fn reserve(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cells: u64) {
+        if self.used + cells <= self.capacity {
+            return;
+        }
+        let limit = device.limits().max_storage_buffer_binding_size.min(device.limits().max_buffer_size) / CELL_BYTES;
+        let mut capacity = self.capacity;
+        while self.used + cells > capacity && capacity < limit {
+            capacity = (capacity * 2).min(limit);
+        }
+        assert!(self.used + cells <= capacity, "the far bricks don't fit in the card's largest buffer ({} MB)", (limit * CELL_BYTES) >> 20);
+        let pool = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far bricks"), size: capacity * CELL_BYTES, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far bricks, grown") });
+        encoder.copy_buffer_to_buffer(&self.pool, 0, &pool, 0, self.used * CELL_BYTES);
+        queue.submit([encoder.finish()]);
+        log::info!("The far bricks' pool grown to {} MB ({} MB used)", (capacity * CELL_BYTES) >> 20, (self.used * CELL_BYTES) >> 20);
+        self.pool = pool;
+        self.capacity = capacity;
+        self.generation += 1;
+    }
+
+    /// A part put on the card: its entries written, its bricks given places at the pool's end and written there, and
+    /// their places written in the index.
+    fn put(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, part: &Part) {
         for (start, words) in &part.entries {
             queue.write_buffer(&self.entries, *start as u64 * 4, &words.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
@@ -252,21 +362,7 @@ impl Store {
         if cells == 0 {
             return;
         }
-        if self.used + cells > self.capacity {
-            let limit = device.limits().max_storage_buffer_binding_size.min(device.limits().max_buffer_size) / CELL_BYTES;
-            let mut capacity = self.capacity;
-            while self.used + cells > capacity && capacity < limit {
-                capacity = (capacity * 2).min(limit);
-            }
-            assert!(self.used + cells <= capacity, "the far bricks don't fit in the card's largest buffer ({} MB)", (limit * CELL_BYTES) >> 20);
-            let pool = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far bricks"), size: capacity * CELL_BYTES, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
-            // The old pool's writes not yet made go in first (they're the queue's, made before the encoder's copy).
-            encoder.copy_buffer_to_buffer(&self.pool, 0, &pool, 0, self.used * CELL_BYTES);
-            log::info!("The far bricks' pool grown to {} MB ({} MB used)", (capacity * CELL_BYTES) >> 20, (self.used * CELL_BYTES) >> 20);
-            self.pool = pool;
-            self.capacity = capacity;
-            self.generation += 1;
-        }
+        self.reserve(device, queue, cells);
         let mut bytes = Vec::with_capacity((cells * CELL_BYTES) as usize);
         let start = self.used;
         for (place, brick) in &part.bricks {
@@ -282,24 +378,27 @@ impl Store {
     }
 
     /// A region's columns (`far::region`'s, 32 to 1,024) put on the card, and the levels over 1,024 made where all the
-    /// regions under them are in.
+    /// regions under them are in. With a window, the 32s' and 64s' bands are written but not their bricks: those come
+    /// with the window (`follow`).
     pub fn put_region(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 2], columns: &[Vec<CellColumn>]) {
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far bricks, grown") });
-        for part in region_parts(&self.levels, region, columns) {
-            self.put(device, queue, &mut encoder, &part);
+        let windowed = if self.window.is_some() { WINDOWED } else { 0 };
+        for part in region_parts(&self.levels, region, columns, windowed) {
+            self.put(device, queue, &part);
         }
+        let kept = Arc::get_mut(&mut self.kept).expect("the far cells kept are shared only once every region is in");
         for level in FIRST..=REGION {
             let n = 1 << (REGION - level);
             let size = 1u32 << level;
             for (k, column) in columns[level - FIRST].iter().enumerate() {
                 let (cx, cy) = (region[0] * n + k as i32 % n, region[1] * n + k as i32 / n);
-                self.kept.keep(level, cx, cy, entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
+                kept.keep(level, cx, cy, entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
             }
         }
         // The highest anything stands: the top of the highest band among its cells of 32.
         let top = columns[0].iter().map(|c| (c.high() + 1) * (1 << FIRST)).max().unwrap_or(0);
         self.highest = self.highest.max(top as f32);
         self.regions_in += 1;
+        self.summed.insert(region);
         self.tops.insert(region, columns[REGION - FIRST][0].clone());
         let mut place = region;
         for level in REGION + 1..=TOP {
@@ -308,10 +407,9 @@ impl Store {
             let Some(children) = children else { break };
             let made = crate::far::parent_of([&children[0], &children[1], &children[2], &children[3]], 1 << (level - 1));
             self.upper[level - REGION - 1].insert(parent, made);
-            self.put_upper(device, queue, &mut encoder, level, parent);
+            self.put_upper(device, queue, level, parent);
             place = parent;
         }
-        queue.submit([encoder.finish()]);
     }
 
     /// A column at `level` (1,024 or over), for the level over it: as it is if it's in, empty if it's outside the
@@ -325,17 +423,183 @@ impl Store {
 
     /// The brick holding `place` at a level over 1,024 made again from its columns as they are, and put on the card. A
     /// brick made again takes a new place in the pool (its old one is left: a few small bricks at most).
-    fn put_upper(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, level: usize, place: [i32; 2]) {
+    fn put_upper(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, level: usize, place: [i32; 2]) {
         let l = self.levels[level - FIRST];
         let (bx, by) = ((place[0] - l.from[0]).div_euclid(l.wide), (place[1] - l.from[1]).div_euclid(l.wide));
         let columns = std::mem::take(&mut self.upper[level - REGION - 1]);
-        let part = part(&l, l.from[0] + bx * l.wide, l.from[1] + by * l.wide, l.wide, |cx, cy| columns.get(&[cx, cy]));
+        let part = part(&l, l.from[0] + bx * l.wide, l.from[1] + by * l.wide, l.wide, |cx, cy| columns.get(&[cx, cy]), true);
         let size = 1u32 << level;
+        let kept = Arc::get_mut(&mut self.kept).expect("the far cells kept are shared only once every region is in");
         for (at, column) in columns.iter().filter(|(at, _)| (at[0] - l.from[0]).div_euclid(l.wide) == bx && (at[1] - l.from[1]).div_euclid(l.wide) == by) {
-            self.kept.keep(level, at[0], at[1], entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
+            kept.keep(level, at[0], at[1], entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
         }
         self.upper[level - REGION - 1] = columns;
-        self.put(device, queue, encoder, &part);
+        self.put(device, queue, &part);
+    }
+
+    /// The window brought to the eye (step 4), for at most `ms`. First the regions past it are given back (one region
+    /// past its radius, so its edge doesn't flicker in and out): their places in the index emptied, their places in the
+    /// pool kept for the next to come. Then the summed regions within it not on the card are made from the cells kept
+    /// and put there, nearest first, the 32s and the 64s together. The usable flags are written after. What came and
+    /// what left, for the atlas to follow.
+    pub fn follow(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, eye: [f32; 2], ms: f32) -> Moved {
+        let mut moved = Moved::default();
+        let Some(window) = self.window else { return moved };
+        let started = Instant::now();
+        let mut changed = false;
+        let mut wanted: Vec<(f32, usize, [i32; 2])> = Vec::new();
+        let middle = [(eye[0] / REGION_BLOCKS).floor() as i32, (eye[1] / REGION_BLOCKS).floor() as i32];
+        for k in 0..WINDOWED {
+            let reach = window[k] as f32 * REGION_BLOCKS;
+            let leaving: Vec<[i32; 2]> = self.on_card[k].keys().filter(|g| region_distance(**g, eye) > reach + REGION_BLOCKS).copied().collect();
+            for g in leaving {
+                for (place, start) in self.on_card[k].remove(&g).unwrap_or_default() {
+                    queue.write_buffer(&self.index, place as u64 * 4, &NO_BRICK.to_le_bytes());
+                    self.free[k].push(start);
+                    self.bricks -= 1;
+                    moved.left.push(place);
+                }
+                changed = true;
+            }
+            let r = window[k] + 1;
+            for gy in middle[1] - r..=middle[1] + r {
+                for gx in middle[0] - r..=middle[0] + r {
+                    let d = region_distance([gx, gy], eye);
+                    if d <= reach && self.summed.contains(&[gx, gy]) && !self.on_card[k].contains_key(&[gx, gy]) {
+                        wanted.push((d, k, [gx, gy]));
+                    }
+                }
+            }
+        }
+        wanted.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut brought = 0;
+        for &(_, k, g) in &wanted {
+            if started.elapsed().as_secs_f32() * 1000.0 >= ms {
+                break;
+            }
+            let level = FIRST + k;
+            let cells = self.levels[k].brick_cells() as u64;
+            let mut placed = Vec::new();
+            for (place, origin, brick) in self.region_bricks(level, g) {
+                let start = match self.free[k].pop() {
+                    Some(start) => start,
+                    None => {
+                        self.reserve(device, queue, cells);
+                        self.used += cells;
+                        self.used - cells
+                    }
+                };
+                let bytes: Vec<u8> = brick.iter().flat_map(cell_bytes).collect();
+                queue.write_buffer(&self.pool, start * CELL_BYTES, &bytes);
+                queue.write_buffer(&self.index, place as u64 * 4, &(start as u32).to_le_bytes());
+                placed.push((place, start));
+                moved.came.push(crate::atlas::Brick { level, place, origin });
+                self.bricks += 1;
+            }
+            self.on_card[k].insert(g, placed);
+            changed = true;
+            brought += 1;
+        }
+        self.behind = wanted.len() - brought;
+        if changed {
+            self.write_flags(queue);
+        }
+        moved
+    }
+
+    /// A windowed region's bricks at `level`, made from the cells kept: each brick's place in the index, its least
+    /// cell, and its cells (only bricks holding some band, as `part` makes them).
+    fn region_bricks(&self, level: usize, region: [i32; 2]) -> Vec<(u32, [i32; 3], Vec<Cell>)> {
+        let l = &self.levels[level - FIRST];
+        let n = 1 << (REGION - level);
+        let (cx0, cy0) = (region[0] * n, region[1] * n);
+        let cells = l.brick_cells() as usize;
+        let columns = &self.kept.columns[level - FIRST];
+        let mut out = Vec::new();
+        for by in 0..n / l.wide {
+            for bx in 0..n / l.wide {
+                for bz in 0..l.bricks_up {
+                    let (z0, z1) = (bz * l.tall, ((bz + 1) * l.tall).min(l.up));
+                    let mut brick: Option<Vec<Cell>> = None;
+                    for j in 0..l.wide {
+                        for i in 0..l.wide {
+                            let Some(at) = l.entry(cx0 + bx * l.wide + i, cy0 + by * l.wide + j) else { continue };
+                            let (entry, band) = &columns[(at - l.entries_at) as usize];
+                            if *entry == NOT_SUMMED {
+                                continue;
+                            }
+                            let low = (*entry & 0xFFFF) as u16 as i16 as i32;
+                            for cz in low.max(z0)..(low + band.len() as i32).min(z1) {
+                                let at = (i + j * l.wide + (cz - z0) * l.wide * l.wide) as usize;
+                                brick.get_or_insert_with(|| vec![Cell::default(); cells])[at] = band[(cz - low) as usize];
+                            }
+                        }
+                    }
+                    if let Some(brick) = brick {
+                        let (gx, gy) = ((cx0 - l.from[0]) / l.wide + bx, (cy0 - l.from[1]) / l.wide + by);
+                        out.push((l.brick(gx, gy, bz), [l.from[0] + gx * l.wide, l.from[1] + gy * l.wide, bz * l.tall], brick));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// The usable flags worked out again and written: a windowed level's region is usable where it and its eight
+    /// neighbours (those on the map) are on the card, since a blend reaches a cell past its own region.
+    fn write_flags(&mut self, queue: &wgpu::Queue) {
+        let (from, across) = self.regions;
+        let on_map = |g: [i32; 2]| (from[0]..from[0] + across).contains(&g[0]) && (from[1]..from[1] + across).contains(&g[1]);
+        let mut flags = vec![0u32; self.flags.len()];
+        for (k, on_card) in self.on_card.iter().enumerate() {
+            for g in on_card.keys() {
+                let usable = (-1..=1).all(|dy| (-1..=1).all(|dx| {
+                    let n = [g[0] + dx, g[1] + dy];
+                    !on_map(n) || on_card.contains_key(&n)
+                }));
+                if usable && on_map(*g) {
+                    flags[k * (across * across) as usize + ((g[1] - from[1]) * across + (g[0] - from[0])) as usize] = 1;
+                }
+            }
+        }
+        self.flags = flags;
+        queue.write_buffer(&self.usable, 0, &self.flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+    }
+
+    /// Whether a windowed level's region is usable (always, without a window).
+    fn usable_at(&self, k: usize, g: [i32; 2]) -> bool {
+        let (from, across) = self.regions;
+        let (x, y) = (g[0] - from[0], g[1] - from[1]);
+        self.window.is_none() || ((0..across).contains(&x) && (0..across).contains(&y) && self.flags[k * (across * across) as usize + (y * across + x) as usize] != 0)
+    }
+
+    /// The windowed levels' bricks on the card (their places in the index), for the atlas made from the window as it
+    /// is; none without a window (every brick is on the card).
+    pub fn window_places(&self) -> Option<HashSet<u32>> {
+        self.window.map(|_| self.on_card.iter().flat_map(|level| level.values().flatten().map(|(place, _)| *place)).collect())
+    }
+
+    /// How far round the eye the usable regions reach at the 32s and the 64s (blocks): to the nearest edge of a region
+    /// on the map that isn't usable, looked for out to two regions past the window (none without a window).
+    pub fn usable_reach(&self, eye: [f32; 2]) -> Option<[f32; WINDOWED]> {
+        let window = self.window?;
+        let (from, across) = self.regions;
+        let middle = [(eye[0] / REGION_BLOCKS).floor() as i32, (eye[1] / REGION_BLOCKS).floor() as i32];
+        Some(std::array::from_fn(|k| {
+            let r = window[k] + 2;
+            let mut least = r as f32 * REGION_BLOCKS;
+            for gy in middle[1] - r..=middle[1] + r {
+                for gx in middle[0] - r..=middle[0] + r {
+                    let on_map = (from[0]..from[0] + across).contains(&gx) && (from[1]..from[1] + across).contains(&gy);
+                    if !on_map || self.usable_at(k, [gx, gy]) {
+                        continue;
+                    }
+                    let edge = |g: i32, e: f32| (g as f32 * REGION_BLOCKS - e).max(e - (g + 1) as f32 * REGION_BLOCKS).max(0.0);
+                    least = least.min((edge(gx, eye[0]).powi(2) + edge(gy, eye[1]).powi(2)).sqrt());
+                }
+            }
+            least
+        }))
     }
 }
 
@@ -387,7 +651,7 @@ mod tests {
             let end = l.entries_at + (l.across * l.across) as u32;
             for (bx, by) in [(0, 0), (l.bricks - 1, 0), (0, l.bricks - 1), (l.bricks - 1, l.bricks - 1)] {
                 let (cx0, cy0) = (l.from[0] + bx * l.wide, l.from[1] + by * l.wide);
-                let part = part(l, cx0, cy0, l.wide, |cx, cy| l.entry(cx, cy).map(|_| &empty));
+                let part = part(l, cx0, cy0, l.wide, |cx, cy| l.entry(cx, cy).map(|_| &empty), true);
                 for (start, row) in &part.entries {
                     let row_end = l.entries_at + (((start - l.entries_at) / l.across as u32) + 1) * l.across as u32;
                     assert!(start + row.len() as u32 <= row_end.min(end), "cells of {}: a brick at {bx} {by} writes {} bands from {start}, past its row's end {row_end}", 1 << l.level, row.len());
@@ -414,11 +678,13 @@ mod tests {
         let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
         let colours = FarColours::load(&mut doorway).unwrap();
         let (device, queue) = card();
-        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), side);
+        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), side, 10);
         let summed: Vec<([i32; 2], Vec<Vec<CellColumn>>)> = [[0, 0], [1, 0], [0, 1], [1, 1]].iter().map(|r| (*r, region(&doorway, &colours, *r).unwrap())).collect();
         for (r, columns) in &summed {
             store.put_region(&device, &queue, *r, columns);
         }
+        // The window round the spawn brings the 32s and 64s on (all four regions are within it).
+        store.follow(&device, &queue, [1024.0, 1024.0], f32::INFINITY);
         // What's asked (level, column north, column east, cell up), and what's wanted.
         let mut asks: Vec<[i32; 4]> = Vec::new();
         let mut wanted: Vec<[u32; 4]> = Vec::new();
@@ -447,7 +713,16 @@ mod tests {
         wanted.push(UNKNOWN);
         asks.push([FIRST as i32, 100_000, 7, 4]);
         wanted.push(PAST);
-        // The card reads them as the far eye does (`far.wgsl`'s `entry_at` and `cell_word`).
+        let got = read_through_card(&device, &queue, &store, &asks);
+        let differ: Vec<usize> = (0..asks.len()).filter(|&k| got[k] != wanted[k]).collect();
+        eprintln!("The far bricks of {side}: {} cells read back through the bricks on the card ({} bricks, {:.1} MB of cells for four regions), {} not as summed", asks.len(), store.bricks, store.pool_bytes().0 as f64 / 1e6, differ.len());
+        if let Some(&k) = differ.first() {
+            panic!("{} cells differ; the first, {:?} (level, north, east, up): the card read {:x?}, the far cells hold {:x?}", differ.len(), asks[k], got[k], wanted[k]);
+        }
+    }
+    /// Cells read through the bricks on the card as the far eye reads them (`far.wgsl`'s `entry_at` and `cell_word`):
+    /// each ask (level, column north, column east, cell up) answered with its four words, or unknown, or past the map.
+    fn read_through_card(device: &wgpu::Device, queue: &wgpu::Queue, store: &Store, asks: &[[i32; 4]]) -> Vec<[u32; 4]> {
         let source = format!(
             "{}\n{}",
             include_str!("far.wgsl"),
@@ -488,7 +763,7 @@ fn test_cells(@builtin(global_invocation_id) id: vec3<u32>) {
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("the far bricks' test"), layout: None, module: &module, entry_point: Some("test_cells"), compilation_options: Default::default(), cache: None });
         let bytes = |words: &[[i32; 4]]| words.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>();
         let asks_buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("asks"), size: (asks.len() * 16) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        queue.write_buffer(&asks_buffer, 0, &bytes(&asks));
+        queue.write_buffer(&asks_buffer, 0, &bytes(asks));
         let size = (asks.len() * 16) as u64;
         let answers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("answers"), size, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("answers read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
@@ -517,12 +792,92 @@ fn test_cells(@builtin(global_invocation_id) id: vec3<u32>) {
         readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
         let got: Vec<[u32; 4]> = readback.slice(..).get_mapped_range().unwrap().as_chunks::<16>().0.iter().map(|b| [0, 1, 2, 3].map(|k| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]))).collect();
+        got
+    }
+
+    /// The window round the eye (step 4): moved away and back, it gives back the regions it leaves and takes in those
+    /// it comes to; once it has been both ways, more moves leave the pool's use and its room as they were (nothing grows
+    /// with play); and in the usable regions the 32s' and 64s' cells read back through the card as summed.
+    #[test]
+    fn the_window_follows_the_eye_and_gives_back_its_room() {
+        let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let (device, queue) = card();
+        // The 32s within 2 regions of the eye, the 64s within 4; the regions 3 either way of the spawn summed.
+        let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), 4, 2);
+        let mut summed = Vec::new();
+        for ry in -3..=3 {
+            for rx in -3..=3 {
+                let columns = region(&doorway, &colours, [rx, ry]).unwrap();
+                store.put_region(&device, &queue, [rx, ry], &columns);
+                summed.push(([rx, ry], columns));
+            }
+        }
+        let (spawn, east) = ([512.0, 512.0], [512.0 + 2048.0, 512.0]);
+        store.follow(&device, &queue, spawn, f32::INFINITY);
+        assert!(store.on_card[0].contains_key(&[0, 0]) && store.on_card[0].contains_key(&[2, 0]) && !store.on_card[0].contains_key(&[3, 0]), "the 32s within two regions of the spawn on the card, none three off");
+        assert_eq!(store.behind, 0, "every region wanted brought");
+        // On a first visit: 13 regions on at the 32s, and only the middle has all eight neighbours, so the usable 32s
+        // reach to its edges, half a region from the eye.
+        assert!(store.usable_at(0, [0, 0]) && !store.usable_at(0, [1, 0]) && !store.usable_at(0, [1, 1]), "only the spawn's region usable at the 32s");
+        let first_reach = store.usable_reach(spawn).unwrap();
+        assert!((first_reach[0] - 512.0).abs() < 1.0, "the usable 32s reach half a region: {}", first_reach[0]);
+        store.follow(&device, &queue, east, f32::INFINITY);
+        assert!(!store.on_card[0].contains_key(&[-2, 0]) && store.on_card[0].contains_key(&[-1, 0]) && store.on_card[0].contains_key(&[4 - 1, 0]), "the 32s four off given back, three off kept (the edge's region of grace), the new ones in");
+        store.follow(&device, &queue, spawn, f32::INFINITY);
+        let at_spawn = store.pool_bytes().0;
+        store.follow(&device, &queue, east, f32::INFINITY);
+        let (at_east, room) = store.pool_bytes();
+        for _ in 0..3 {
+            store.follow(&device, &queue, spawn, f32::INFINITY);
+            assert_eq!(store.pool_bytes().0, at_spawn, "back at the spawn, the pool's use as before");
+            store.follow(&device, &queue, east, f32::INFINITY);
+            assert_eq!(store.pool_bytes(), (at_east, room), "east again, the pool's use and room as before");
+        }
+        store.follow(&device, &queue, spawn, f32::INFINITY);
+        // Every cell of the usable regions' 32s and 64s, read through the card.
+        let mut asks: Vec<[i32; 4]> = Vec::new();
+        let mut wanted: Vec<[u32; 4]> = Vec::new();
+        let mut usable = [0; WINDOWED];
+        for (r, columns) in &summed {
+            for k in 0..WINDOWED {
+                if !store.usable_at(k, *r) {
+                    continue;
+                }
+                usable[k] += 1;
+                let level = FIRST + k;
+                let n = 1 << (REGION - level);
+                let size = 1u32 << level;
+                for (c, column) in columns[level - FIRST].iter().enumerate() {
+                    let (cx, cy) = (r[0] * n + (c as i32 % n), r[1] * n + (c as i32 / n));
+                    for cz in 0..store.levels[k].up {
+                        asks.push([level as i32, cx, cy, cz]);
+                        wanted.push(words(&column.at(cz, size as i32).compact(size)));
+                    }
+                }
+            }
+        }
+        assert!(usable[0] >= 1 && usable[1] >= 9, "the spawn's 32s and the 64s round it usable: {usable:?}");
+        let got = read_through_card(&device, &queue, &store, &asks);
         let differ: Vec<usize> = (0..asks.len()).filter(|&k| got[k] != wanted[k]).collect();
-        eprintln!("The far bricks of {side}: {} cells read back through the bricks on the card ({} bricks, {:.1} MB of cells for four regions), {} not as summed", asks.len(), store.bricks, store.pool_bytes().0 as f64 / 1e6, differ.len());
+        let reach = store.usable_reach(spawn).unwrap();
+        eprintln!(
+            "The window: {} cells of the usable regions read back after {} moves ({} at the 32s, {} at the 64s), {} not as summed; the pool {:.1} MB used of {:.1} MB; the usable reach round the spawn {:.0} and {:.0} blocks",
+            asks.len(),
+            11,
+            usable[0],
+            usable[1],
+            differ.len(),
+            at_spawn as f64 / 1e6,
+            room as f64 / 1e6,
+            reach[0],
+            reach[1]
+        );
         if let Some(&k) = differ.first() {
-            panic!("{} cells differ; the first, {:?} (level, north, east, up): the card read {:x?}, the far cells hold {:x?}", differ.len(), asks[k], got[k], wanted[k]);
+            panic!("{} cells differ; the first, {:?}: the card read {:x?}, the far cells hold {:x?}", differ.len(), asks[k], got[k], wanted[k]);
         }
     }
+
 }
 
 #[cfg(test)]
@@ -555,7 +910,7 @@ mod whole_world {
                         }
                         let r = [from[0] + k as i32 % across, from[1] + k as i32 / across];
                         let columns = region(&doorway, &colours, r).unwrap();
-                        let parts = region_parts(&levels, r, &columns);
+                        let parts = region_parts(&levels, r, &columns, 0);
                         let mut totals = totals.lock().unwrap();
                         for (l, part) in parts.iter().enumerate() {
                             totals[l].0 += part.bricks.len();

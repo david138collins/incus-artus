@@ -41,6 +41,10 @@ pub struct Standing {
     passes: Vec<Vec<f32>>,
     /// The measured frames' card times: each card slot's ms, the card's whole last.
     card: Vec<Vec<f32>>,
+    /// Where the eye was at the last measured frame (a moving mark's end), and the least the window's usable 32s and
+    /// 64s reached round it over the measured frames (blocks; step 4).
+    end: Option<[f32; 3]>,
+    reach: Option<[f32; 2]>,
 }
 
 pub struct Flight {
@@ -71,7 +75,7 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new() });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None });
             }
         }
         log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
@@ -134,6 +138,23 @@ impl Flight {
         }
     }
 
+    /// The speed the camera flies at now (blocks a second), if the standing's mark moves.
+    pub fn speed(&self, marks: &[crate::marks::Mark]) -> Option<f32> {
+        let (k, _) = self.now?;
+        marks.get(self.standings[k].mark)?.speed
+    }
+
+    /// Where the eye is this frame, and how far the window's usable 32s and 64s reach round it (none without a window).
+    pub fn followed(&mut self, now: Instant, eye: [f32; 3], reach: Option<[f32; 2]>) {
+        if let Some(standing) = self.measuring(now) {
+            standing.end = Some(eye);
+            if let Some(reach) = reach {
+                let least = standing.reach.get_or_insert(reach);
+                *least = [least[0].min(reach[0]), least[1].min(reach[1])];
+            }
+        }
+    }
+
     /// Whether the last standing is measured.
     pub fn finished(&self, now: Instant) -> bool {
         matches!(self.now, Some((k, since)) if k + 1 == self.standings.len() && now.duration_since(since) >= Self::settle(k) + MEASURE)
@@ -168,6 +189,13 @@ impl Flight {
             text += &format!("\nAt {}{dial} ({} eye; fog {}): the eye at {eye}, facing {:.0}°, pitch {:.1}°\n", mark.name, mark.eyes.join(" and "), if mark.fog { "on" } else { "off" }, mark.facing, mark.pitch);
             if let Some((ms, tiles, tiles_ms)) = standing.going {
                 text += &format!("  going there: {ms:.1} ms (the doorway answered {tiles} tiles in {tiles_ms:.1} ms)\n");
+            }
+            if let (Some(speed), Some(begun), Some(end)) = (mark.speed, standing.eye, standing.end) {
+                let gone = ((end[0] - begun[0]).powi(2) + (end[1] - begun[1]).powi(2) + (end[2] - begun[2]).powi(2)).sqrt();
+                text += &format!("  moving at {speed:.0} blocks a second, straight ahead and level: the eye ended at north {:.1}, east {:.1}, up {:.1}, {gone:.0} blocks from where it began\n", end[0], end[1], end[2]);
+            }
+            if let Some(reach) = standing.reach {
+                text += &format!("  the window round the eye: the usable 32s reached at least {:.0} blocks round it over the measured frames, the 64s {:.0}\n", reach[0], reach[1]);
             }
             let made = &standing.made;
             if made.blocks + made.bars + made.refused > 0 {

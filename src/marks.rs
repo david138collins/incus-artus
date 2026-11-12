@@ -29,6 +29,9 @@ pub struct Mark {
     pub eyes: Vec<String>,
     pub changes: Option<String>,
     pub scatter: Option<Scatter>,
+    /// On a flight, the camera flies straight ahead along its facing, level, at this many blocks a second (none: it
+    /// stands still).
+    pub speed: Option<f32>,
 }
 
 /// Random whole blocks round a mark: `counts` of them for each setting of the dial, within `around` columns of it each
@@ -178,7 +181,10 @@ mod tests {
             ("high over the spawn", [0.5, 0.5, 795.4], 0.0),
             ("low over the sea", [-1905.7, -2137.7, 151.4], 228.3),
         ];
-        assert_eq!(marks.len(), old.len());
+        // Then the window's two moving marks (plan 2.2, step 4: new, not old's), each with its speed.
+        assert_eq!(marks.len(), old.len() + 2);
+        assert_eq!(marks[old.len()..].iter().map(|m| (m.name.as_str(), m.speed)).collect::<Vec<_>>(), [("a player's run over the plain", Some(200.0)), ("fast across the world", Some(2000.0))]);
+        assert!(marks[..old.len()].iter().all(|m| m.speed.is_none()), "old's marks stand still");
         for (mark, (name, at, facing)) in marks.iter().zip(old) {
             assert_eq!(mark.name, name);
             let eye = eye(&doorway, mark).unwrap();
