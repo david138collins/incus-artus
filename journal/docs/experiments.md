@@ -1549,3 +1549,28 @@ the spawn 2.267 against 2.262, low over the sea 3.071 against 3.024. Within 3%: 
 - At 2,000 a second: the window kept up (8,072 and 18,303 blocks); frames 99th 8.7, worst 23.6.
 - Next, David's look: the window's distant ridges against the whole world's, and moving at a player's pace with the
   camera at its true speed, for whether the conveyor's spikes can be felt.
+
+## Change 2: rays begun at drawn boxes  *(plan 2.2)*
+
+The Oracle's: "The triangle hardware draws the bricks' boxes; a pixel with no box behind it is sky and runs nothing.
+Flown against a plain full-screen start."
+
+### Where the far eye's steps go now (before any code, 2026-11-12)
+
+The picture test can now load the whole world as the game does (`FAR_TEST_REGIONS=all`, the loading lane). Its loading
+loop hands the card its writes each time round: held, their copies piled up till the card ran out of memory. Each far
+mark was drawn at 640 × 400 with the steps' view, bricks of 4 with the window.
+
+- **Low over the sea and the bare plain:**
+  - The cost is a thin band at the horizon, and the sky just above it, where rays skim the land for tens of
+    kilometres before they're over the highest ground (the Oracle's guess, 2026-11-07).
+  - The ground is cheap.
+- **High over the spawn:** the cost is along the far horizon behind the ridges.
+- **The mountain top:** the sky is nearly free, since rays start above everything. The cost is in the grazing land
+  toward the horizon.
+- **A rough count:** pixels judged sky by their colour take 82% of the steps low over the sea and 67% at the plain.
+  Fogged far land reads as sky to that test, so these are high, and worthless at the mountain top.
+- **Most of the sky's cost is in the 8 × 8 layer.** The finer layers aren't earned over the sky (its worth is
+  nothing). Low over the sea that layer is 1.23 of the 3.07 ms.
+- **What boxes could win:** the sky rays with no box behind them. Rays that skim far land still march, from the box
+  they meet.

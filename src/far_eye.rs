@@ -568,23 +568,41 @@ mod tests {
         camera.pitch = mark.pitch;
         let at = [camera.position.x, camera.position.y];
         // The regions round the mark's (one each way, or as many as `FAR_TEST_REGIONS` says: for a look at the window
-        // against the whole world, step 4), the window brought to the eye.
+        // against the whole world, step 4; `all`: the whole world, summed on the loading lane as the game sums it), the
+        // window brought to the eye.
         let mut store = Store::new(&device, &queue, regions_of(&doorway), doorway.height(), crate::bricks::brick_side(), crate::bricks::window_regions());
-        let around = std::env::var("FAR_TEST_REGIONS").ok().and_then(|r| r.parse::<i32>().ok()).unwrap_or(1);
-        let middle = [(at[0] / 1024.0).floor() as i32, (at[1] / 1024.0).floor() as i32];
-        for ry in middle[1] - around..=middle[1] + around {
-            for rx in middle[0] - around..=middle[0] + around {
-                store.put_region(&device, &queue, [rx, ry], &region(&doorway, &colours, [rx, ry]).unwrap());
+        let asked = std::env::var("FAR_TEST_REGIONS").ok();
+        let lane = if asked.as_deref() == Some("all") {
+            let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(1).max(1);
+            Some(crate::far::Lane::start(crate::doorway::test_world(), at, threads).unwrap())
+        } else {
+            let around = asked.and_then(|r| r.parse::<i32>().ok()).unwrap_or(1);
+            let middle = [(at[0] / 1024.0).floor() as i32, (at[1] / 1024.0).floor() as i32];
+            for ry in middle[1] - around..=middle[1] + around {
+                for rx in middle[0] - around..=middle[0] + around {
+                    store.put_region(&device, &queue, [rx, ry], &region(&doorway, &colours, [rx, ry]).unwrap());
+                }
             }
-        }
-        store.follow(&device, &queue, at, f32::INFINITY);
+            store.follow(&device, &queue, at, f32::INFINITY);
+            None
+        };
         let format = wgpu::TextureFormat::Rgba8Unorm;
-        let mut eye = FarEye::new(&device, format, store, None);
+        let mut eye = FarEye::new(&device, format, store, lane);
+        // The whole world: put on the card as it's summed, till every region and the window round the eye are in, the
+        // writes handed to the card each time round as a frame would (held, their copies pile up till it runs out).
+        while eye.lane.is_some() || eye.store.behind > 0 {
+            eye.put(&device, &queue, at);
+            queue.submit([]);
+            let _ = device.poll(wgpu::PollType::Poll);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
         // The blend to draw with, if asked (`FAR_TEST_BLEND`: 0 the code's, 1 the hardware's): the atlas made first.
         // The detail is the default's, or `INCUS_FAR_DETAIL`'s.
         if let Some(blend) = std::env::var("FAR_TEST_BLEND").ok().and_then(|b| b.parse::<u32>().ok()) {
             while !eye.blends()[blend as usize] {
                 eye.put(&device, &queue, at);
+                queue.submit([]);
+                let _ = device.poll(wgpu::PollType::Poll);
                 std::thread::sleep(std::time::Duration::from_millis(20));
             }
             eye.look.blend = blend;
