@@ -504,7 +504,7 @@ pub const STORES: [Store; 18] = [
         id: StoreId::FarWindow,
         name: "the window round the eye",
         on: Where::Card,
-        what: "Which regions' 32s and 64s are on the card (step 4): only those within the window round the eye. A word a region at each, 1 where it and its eight neighbours are on (usable); the far eye reads the next coarser level where they aren't, so a window behind shows coarser cells, never a hole. Kept on the processor too, with each region's bricks and the places given back for the next to come.",
+        what: "Which regions' 32s and 64s are on the card (step 4): only those within the window round the eye. A word a region at each, 1 where it and its eight neighbours are on (usable), kept after the last level's bands in the far bands' buffer, so the far eye reads wgpu's default 8 storage buffers; the far eye reads the next coarser level where they aren't, so a window behind shows coarser cells, never a hole. Kept on the processor too, with each region's bricks and the places given back for the next to come; a region given back isn't written on the card, the flags guarding it. Later [David, 2026-11-12: \"we will revisit that and ask, what can 16 buffers do for us, if there's anything to gain\"]: what a raised storage-buffer limit could buy on cards that allow it, this 8-buffer way kept as the fallback.",
         limits: &[("the 32s' radius in regions (the 64s' twice it)", crate::bricks::WINDOW as u64)],
         files: &["src/bricks.rs"],
     },

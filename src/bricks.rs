@@ -259,10 +259,11 @@ pub struct Store {
     free: Vec<Vec<u64>>,
     summed: HashSet<[i32; 2]>,
     pub behind: usize,
-    /// Each windowed level's regions, usable or not (it and its eight neighbours on the card), as the card reads them
-    /// (`usable`: a word a region, the 32s' then the 64s').
+    /// Each windowed level's regions, usable or not (it and its eight neighbours on the card): a word a region, the
+    /// 32s' then the 64s', kept on the card after the last level's bands in `entries` (so the far eye reads wgpu's
+    /// default 8 storage buffers, not 9), from `flags_at` words in.
     flags: Vec<u32>,
-    pub usable: wgpu::Buffer,
+    flags_at: u64,
 }
 
 impl Store {
@@ -274,15 +275,14 @@ impl Store {
         let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         let table_buffer = storage("the far levels", table.len() as u64 * 4);
         queue.write_buffer(&table_buffer, 0, &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
-        let entries = storage("the far bands", entries_count * 4);
+        let window = (window > 0).then_some([window, window * 2]);
+        let flags = vec![u32::from(window.is_none()); WINDOWED * (regions.1 * regions.1) as usize];
+        let entries = storage("the far bands, then the window's usable regions", (entries_count + flags.len() as u64) * 4);
         queue.write_buffer(&entries, 0, &NOT_SUMMED.to_le_bytes().repeat(entries_count as usize));
+        queue.write_buffer(&entries, entries_count * 4, &flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let index = storage("the far bricks' index", index_count * 4);
         queue.write_buffer(&index, 0, &NO_BRICK.to_le_bytes().repeat(index_count as usize));
         let pool = storage("the far bricks", FIRST_POOL * CELL_BYTES);
-        let window = (window > 0).then_some([window, window * 2]);
-        let flags = vec![u32::from(window.is_none()); WINDOWED * (regions.1 * regions.1) as usize];
-        let usable = storage("the far window's usable regions", flags.len() as u64 * 4);
-        queue.write_buffer(&usable, 0, &flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         log::info!(
             "The far bricks: {} levels, bricks of {side}, {:.1} MB of bands and {:.1} MB of index on the card; the pool {} MB to start; {}",
             levels.len(),
@@ -315,7 +315,7 @@ impl Store {
             summed: HashSet::new(),
             behind: 0,
             flags,
-            usable,
+            flags_at: entries_count,
         }
     }
 
@@ -438,10 +438,12 @@ impl Store {
     }
 
     /// The window brought to the eye (step 4), for at most `ms`. First the regions past it are given back (one region
-    /// past its radius, so its edge doesn't flicker in and out): their places in the index emptied, their places in the
-    /// pool kept for the next to come. Then the summed regions within it not on the card are made from the cells kept
-    /// and put there, nearest first, the 32s and the 64s together. The usable flags are written after. What came and
-    /// what left, for the atlas to follow.
+    /// past its radius, so its edge doesn't flicker in and out): their places in the pool kept for the next to come. Their
+    /// places in the index aren't written: the flags say they aren't usable, so nothing reads them, and a region
+    /// brought back writes all its bricks' places again [build 132: written one by one, a 22 km jump at bricks of 4 gave
+    /// back 40,000 bricks in a frame, and the stall lost the fast run 4 km]. Then the summed regions within it not on
+    /// the card are made from the cells kept and put there, nearest first, the 32s and the 64s together. The usable
+    /// flags are written after. What came and what left, for the atlas to follow.
     pub fn follow(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, eye: [f32; 2], ms: f32) -> Moved {
         let mut moved = Moved::default();
         let Some(window) = self.window else { return moved };
@@ -454,7 +456,6 @@ impl Store {
             let leaving: Vec<[i32; 2]> = self.on_card[k].keys().filter(|g| region_distance(**g, eye) > reach + REGION_BLOCKS).copied().collect();
             for g in leaving {
                 for (place, start) in self.on_card[k].remove(&g).unwrap_or_default() {
-                    queue.write_buffer(&self.index, place as u64 * 4, &NO_BRICK.to_le_bytes());
                     self.free[k].push(start);
                     self.bricks -= 1;
                     moved.left.push(place);
@@ -563,7 +564,7 @@ impl Store {
             }
         }
         self.flags = flags;
-        queue.write_buffer(&self.usable, 0, &self.flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+        queue.write_buffer(&self.entries, self.flags_at * 4, &self.flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
     }
 
     /// Whether a windowed level's region is usable (always, without a window).

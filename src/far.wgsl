@@ -88,9 +88,7 @@ struct Camera {
 @group(0) @binding(14) var t_colour: texture_3d<f32>;
 @group(0) @binding(15) var t_plus: texture_3d<f32>;
 @group(0) @binding(16) var t_minus: texture_3d<f32>;
-// The window's usable regions (step 4): a word a region, 1 where it and its eight neighbours are on the card, the 32s'
-// then the 64s'.
-@group(0) @binding(17) var<storage, read> usable: array<u32>;
+
 
 const FIRST: i32 = 5;
 const TOP: i32 = 16;
@@ -305,7 +303,8 @@ fn blend_soft(level: i32, p: vec3<f32>) -> Look {
 }
 
 // Whether `level` can be read round `p`: past the window's levels always; in them, where `p`'s region is usable (on the
-// map; off it the bands say past the map).
+// map; off it the bands say past the map). The usable regions (step 4) follow the last level's bands in `entries`: a
+// word a region, 1 where it and its eight neighbours are on the card, the 32s' then the 64s'.
 fn usable_at(level: i32, p: vec3<f32>) -> bool {
     let k = level - FIRST;
     if (k >= i32(camera.window.x)) {
@@ -316,7 +315,8 @@ fn usable_at(level: i32, p: vec3<f32>) -> bool {
     if (r.x < 0 || r.y < 0 || r.x >= n || r.y >= n) {
         return true;
     }
-    return usable[u32((k * n + r.y) * n + r.x)] != 0u;
+    let flags_at = table(TOP, 4) + table(TOP, 3) * table(TOP, 3);
+    return entries[u32(flags_at + (k * n + r.y) * n + r.x)] != 0u;
 }
 
 // The eight cells round `p` blended: by the code (old's, `blend`) or the texture hardware, as chosen (`camera.layer.w`:

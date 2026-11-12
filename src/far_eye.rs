@@ -197,7 +197,6 @@ impl FarEye {
                 volume(14),
                 volume(15),
                 volume(16),
-                storage(17, true),
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
@@ -351,7 +350,7 @@ impl FarEye {
             let left = (PUTTING_MS - started.elapsed().as_secs_f32() * 1000.0).max(1.0);
             let moved = self.store.follow(device, queue, eye, if self.atlas.is_some() { left / 2.0 } else { left });
             if let Some(atlas) = &mut self.atlas {
-                atlas.remove(queue, &moved.left);
+                atlas.remove(&moved.left);
                 atlas.add(device, queue, &self.store.kept, &moved.came);
             }
         }
@@ -412,7 +411,6 @@ impl FarEye {
                     entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
                     entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
                     entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
-                    entry(17, self.store.usable.as_entire_binding()),
                 ],
             });
             worth_above = Some(worth);
@@ -558,8 +556,7 @@ mod tests {
         let instance = wgpu::Instance::new(descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).expect("a graphics card");
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min((2 << 30) - 1);
-        let storage_buffers = adapter.limits().max_storage_buffers_per_shader_stage.min(crate::card::STORAGE_BUFFERS);
-        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, max_storage_buffers_per_shader_stage: storage_buffers, ..wgpu::Limits::default() };
+        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("a test"), required_limits, ..Default::default() })).expect("the card's device");
         let errors = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let marks = crate::marks::load().unwrap();

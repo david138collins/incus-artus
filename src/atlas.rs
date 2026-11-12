@@ -375,13 +375,13 @@ impl Atlas {
         }
     }
 
-    /// Bricks the window left, given back: their places' slots emptied and kept for the next to come.
-    pub fn remove(&mut self, queue: &wgpu::Queue, places: &[u32]) {
+    /// Bricks the window left, given back: their slots kept for the next to come. The card's slots for those places
+    /// aren't written: their regions aren't usable, so nothing reads them, and a region brought back writes them again.
+    pub fn remove(&mut self, places: &[u32]) {
         for &place in places {
             let s = std::mem::replace(&mut self.slot_of[place as usize], NO_SLOT);
             if s != NO_SLOT {
                 self.free.push(s);
-                queue.write_buffer(&self.slots, place as u64 * 4, &NO_SLOT.to_le_bytes());
                 self.bricks -= 1;
             }
         }

@@ -1490,3 +1490,52 @@ the whole world at 4 `-1794510123`.
 - **After the 22 km jump to the fast run's start,** at bricks of 4 the 64s reached only 9.3 km over its measured
   frames (18.3 at 8). The conveyor at 4 hadn't caught up in the 5 s of settling.
 - The moving runs are flown again with the step fixed. Their numbers above aren't the window's.
+
+### Results: the window flown again, moving (build 133)
+
+Build 133 (85d876f), 13:05 to 13:23: the window at bricks of 4 `kept logs/flight-1794510700.txt` and 8 `-1794511049`,
+the whole world at 4 `-1794511399`. The moving marks moved as asked:
+- The player's run went 5,000 blocks each time.
+- The fast run went 50.0 km with the whole world and 49.6 at 8, but 45.6 at 4. The 22 km jump to its start gave
+  back 40,000 bricks in one frame, written one by one; the stall lost the run 2.2 s, since a step is capped at a tenth
+  of a second. Fixed below.
+
+**Memory, in use:** the window at 4 **477 MB**, at 8 916 MB; the whole world at 4, 1,791 MB.
+
+**Still, the card's whole (window at 4 against the whole world at 4):** the mountain top 2.114 against 2.168, high over
+the spawn 2.267 against 2.262, low over the sea 3.071 against 3.024. Within 3%: met.
+
+**Moving, a player's 200 blocks a second, bricks of 4:**
+
+| | the window | the whole world |
+|---|---|---|
+| the usable 32s reached at least (blocks) | 8,070 (8,172 standing on the plain) | (all) |
+| the card's whole, median | 3.209 | 3.180 |
+| the frame: median, 95th, 99th | 3.206, 3.793, 4.489 | 3.190, 3.718, 3.943 |
+| the frame: 99.9th, worst | **6.733, 9.385** | 4.194, 4.400 |
+| the putting pass: 99th, worst (processor) | 3.2, 8.0 | 0.001, 0.002 |
+
+- **Behind by about 100 blocks, so in substance met.** The window falls behind by about 100 blocks against standing at
+  the same place. The bar as I wrote it (8 regions, 8,192 blocks) was tighter than the grid allows even standing
+  still (8,172).
+- **The frames' tail missed.** I said the frames would be like the still marks'. The median is the same, but the 99th
+  is 0.5 ms worse, the 99.9th 2.5 ms, and the worst frame 9.4 ms against 4.4.
+- **The cause is the conveyor's spikes.** The putting pass goes over its 3 ms when one region's bricks and textures
+  are made in a frame, since a region is the smallest piece it does, and the textures' share isn't counted in its
+  time.
+- **Whether that's solid** is David's to feel. If it isn't, the conveyor could do a brick at a time instead of a
+  region, and count the textures.
+
+**Moving fast, 2,000 a second, bricks of 4:**
+- The window kept up: the usable 32s reached at least 8,073 blocks, the 64s 18,289.
+- The frames creaked: median 1.58 against 1.41 for the whole world, 95th 5.2 against 2.3, 99th 9.3 against 2.5,
+  worst 22 ms against 4.4.
+- No bar here. It's not "aggregious": the slowest frame was 45 a second.
+
+**After these flights (build 134):**
+- A region given back no longer writes its bricks' places on the card, one by one. The flags say it isn't usable, so
+  nothing reads them, and a region brought back writes them again.
+- The usable flags now ride after the last level's bands in the bands' buffer. The far eye reads wgpu's default 8
+  storage buffers again, and the raised limit is taken back. Counsel's question: a card that allows only 8 (tier-1
+  DirectX 12) would have refused the far eye.
+- Flown once more at bricks of 4, to see that both cost nothing and the jump's stall is gone.
