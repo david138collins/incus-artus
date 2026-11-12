@@ -36,6 +36,8 @@ const SHADOW_SPREAD: f32 = 0.04;
 const FOG_REACH: f32 = 3200.0;
 const FOG_HEIGHT: f32 = 200.0;
 const FOG_WARMTH: f32 = 0.3;
+/// The sky's weight at a skyline: David's [build 124, the slider at its top, 4: "that actually works great", "i maxed it"].
+const SKY_WEIGHT: f32 = 4.0;
 /// Where in a level's stretch its blend with the next begins (old's since build 109).
 const BLEND_FROM: f32 = 0.8;
 /// Night's light (old's).
@@ -63,13 +65,13 @@ pub struct FarLook {
     /// doublings of distance; the same for the 2 x 2 over the 4 x 4.
     pub fade_4: [f32; 2],
     pub fade_2: [f32; 2],
-    /// The sky's weight over land at a skyline (0: as old's).
+    /// The sky's weight over land at a skyline (0: as old's; 4 David's, build 124: "i maxed it").
     pub sky_weight: f32,
 }
 
 impl FarLook {
-    /// Old's, as the 2a flight flew it.
-    pub const DEFAULT: FarLook = FarLook { hand_over: BLEND_FROM, fade_4: CELLS_FADES[0], fade_2: CELLS_FADES[1], sky_weight: 0.0 };
+    /// Old's crossovers, as the 2a flight flew them, and David's sky weight.
+    pub const DEFAULT: FarLook = FarLook { hand_over: BLEND_FROM, fade_4: CELLS_FADES[0], fade_2: CELLS_FADES[1], sky_weight: SKY_WEIGHT };
 }
 
 /// A layer of the pyramid on the card.

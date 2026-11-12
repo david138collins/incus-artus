@@ -126,7 +126,7 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     ui.add(egui::Slider::new(&mut look.fade_2[0], 0.1..=4.0).text("2 × 2 fades in from"));
     ui.add(egui::Slider::new(&mut look.fade_2[1], 0.05..=3.0).text("2 × 2 fades in over"));
     ui.strong("The skyline");
-    ui.add(egui::Slider::new(&mut look.sky_weight, 0.0..=4.0).text("sky weight"));
+    ui.add(egui::Slider::new(&mut look.sky_weight, 0.0..=8.0).text("sky weight"));
     ui.separator();
     if ui.add_enabled(*look != FarLook::DEFAULT, egui::Button::new("Default")).clicked() {
         *look = FarLook::DEFAULT;
