@@ -20,8 +20,8 @@ Started 2026-11-11 from the Oracle's review (`vision/oracle-review.md`, parts 7 
   Next, 2.1: old packed into its own folder, the new project's skeleton, and the doorway.
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** 2.1's two questions (old's place, the control room), before Builder packs old. The reading
-  flight doesn't wait.
+- **Waiting on David:** nothing. 2.1's two questions are answered ("Yes to both": old in `old\`, the control room in
+  the game's panel).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
 
@@ -198,8 +198,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `docs/decisions.md`). Where the engine meets it is decided: the doorway (2.1), with the exported test world behind it first. Left open: the tablet's own layout | 3.1 |
 | Seasons: a re-texture (a named field the look reads), a re-block (changes through the doorway), or both. Both are kept possible | Later; nothing to decide now |
 | Digging and placing before the fork? Decided no: read-only until then | Answered 2026-11-11 |
-| The control room as a page in the game's own panel? | 2.1 |
-| Old's new place: `old\` inside this folder (the default), or elsewhere? | 2.1 |
+| ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
+| ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |

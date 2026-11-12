@@ -1065,6 +1065,9 @@ Reference: `Art/quartile minecraft illustration.png`
   - **Rays first for the near eye,** by a rule written before the flight. Triangles are built only if rays miss a mark.
   - **Marks are data,** flown on both cards by one command. The third mark is split into the bare plain and the
     build; the far eye gets marks of its own; a scatter dial gives cost against clutter.
+- **[DECIDED 2026-11-11] Old's place, and the control room** (David, to Counsel's two picks: "Yes to both").
+  - Old lives in `old\` inside this folder, with its own assets and its own build folder, and still runs.
+  - The control room, the live map, is a page in the game's own panel (egui, as the editor is).
 - **The Graphics Kit comes after the Registrar:** "we don't need the graphics kit to start. that can come later,
   and SHOULD come after the registrar, so we can copy the color control system over for it, and the way we work
   with HSL." **The editor is made again:** "i think we can do better doing it again, and make it more streamlined."
