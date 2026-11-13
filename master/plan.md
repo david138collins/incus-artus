@@ -17,21 +17,17 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the whole world); the sky's feather at skylines; the Render and Camera pages; temperatures always on; main memory
   tracked (2.8 GB held, 1.0 GB in use). Change 2, the drawn boxes, didn't pay and is out. The far eye stands at 1.1 to
   2.9 ms at the far marks against the gate's 1 typical and 2 worst.
-- **Now:** the Oracle, called midway (its prompt `journal/vision/oracle-prompt-2026-11-12.md`), read the far eye as
-  *waiting, not working*: about a thousand rays skimming the horizon set each layer's time. Builder's tests (build
-  140) point nearer that reading, and ending rays at the map's edge took 6 to 19% off (low over the sea 2.58 ms, a
-  player's run 2.52). David's lead from it: **lazy rays**, long rays marched a little each frame, lazier with
-  distance, ramping up when flying. The watts agree (build 141): the card shows full load but draws 58 W over the sea
-  against 99 at the spawn, so it's queued, not working; the processor idles at 5 to 11%. David's goal, before
-  answering the Oracle: **no megakernels**, the eye as small passes, each measured alone. Nsight confirms "waiting":
-  the far march keeps 1 to 7% of the card in flight over the sea, too few long rays to fill it, so more rays are
-  nearly free and the chain is the time. The Oracle's third part is in (`journal/vision/oracle-review.md`): on a
-  waiting card, work is nearly free and waiting is dear. Its order: instruments and an Intel flight now; the lean
-  step in halves; the layers side by side; light read from the cell, made on the processor; the gate; the cells of 2
-  to 16 with scattered detail before the fork; lazy rays after, by lengths. David took it ("Yes, its order"), and
-  both near drawers flown before the fork ("Yes, fly both"). So far: step 0 in (the Intel card works where the NVIDIA
-  waits; David: the Intel informs, the NVIDIA decides); the lean step's 1a and 1b kept, 1c dropped. Fog is off by
-  default and for looks only ("we are not using fog ... as a performance tool"); every flight is now fog-off.
+- **Now:** the Oracle, called midway, read the far eye as *waiting, not working* (a few hundred rays skimming the
+  horizon set each layer's time while the card sits nearly idle), and the tests, the watts and Nsight agreed. David
+  took its order (`journal/vision/oracle-review.md`, third part). Done enough to go on: step 0 (instruments; the Intel
+  card works where the NVIDIA waits, and per David informs while the NVIDIA decides); step 1, the lean step (1a, 1b, 1d
+  kept, 1c dropped); step 2, the three layers marched by **one dispatch**, overlapping their waits, on the library's
+  default limits. Fog is off and for looks only. The far eye now (build 159): the sea 1.35 ms (nodding 99th 1.54), a
+  player's run 1.38, the mountain top 1.34, high over the spawn 1.30, the plain 0.87, the spawn 0.66; **everything
+  under 2 ms**, David's bar, and his look: "fantastic". Next: the gate's two owed items (his look at the rings where
+  levels hand over; the Intel numbers next time Optimus is on); light read from the cell, made on the processor; the
+  skyline look (haze or cover, talked through with him first); then the cells of 2 to 16 with scattered detail, and
+  lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -50,7 +46,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 159, the far eye finished for now, zooming around, on his go ("then i'll took a look and zoom around a bit"); the skyline look (haze or cover) after that; later, one budget at the fork,
+- **Waiting on David:** the skyline look, talked through with Builder first (haze or cover); the skyline look (haze or cover) after that; later, one budget at the fork,
   haze or cover at the skyline's look, and lazy rays fixed to the world or the screen; whether `CLAUDE.md` points at
   the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).

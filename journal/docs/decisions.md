@@ -1671,6 +1671,9 @@ Reference: `Art/quartile minecraft illustration.png`
       so "small passes" means small in code, not many launches a frame. On fog: "fog will probably become some kind of
       post processing with weather" (each pixel's distance is already kept beside its colour, so it fits the finish).
       On light: "right, we should be able to offload light to the cpu" (the plan's "alongside" item).
+    - **His look at build 159** (on his "hell yeah lets see"): "fantastic". 110 seconds, frames capped, a clean quit,
+      the card at 57 °C and 41 W; no lag and no flash named on arriving at a mark. The lag's look stays owed once the
+      near eye draws.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
