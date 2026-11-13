@@ -2404,3 +2404,20 @@ whole, median ms:
   by a hair (the sea nodding's 99th 2.14). By one dispatch, worst met with room (the most 1.78, its 99th 1.81), typical
   on the line (0.85, 1.00).
 - **The lag was not looked at yet.**
+
+### The one-dispatch form trimmed: the pass mark (written before the code)
+
+- **What's changed, in the one-dispatch form only** (unset and 1 untouched, their shader's text the same):
+  1. No copy: each use of the layer's numbers reads them in place from that layer's row, where build 155 copied all
+     eighteen rows into the invocation's own before anything else, the turned-away ones too.
+  2. The grid turned round: the base and under it the middle layer at the left, the finest to their right, so that
+     if the card takes the grid in order, the layers with the long rays start first.
+- **The picture at 2, standing still, stays pixel for pixel the same from the third frame.**
+- **Flown unset, 2, unset, 2;** the trimmed form is read against build 155's own (sessions have agreed within 0.5%
+  all day). Builder's guess [low]:
+  - The form's own cost at least halves: the spawn 0.77 or less (build 155: 0.85; in turn: 0.69), the plain 0.94 or
+    less (1.00; 0.88), the mountain top 1.68 or less (1.78; 1.57).
+  - The sea and the player's run keep their gain: within 3% of 1.11 and 1.34.
+- **Kept if** nothing is more than 3% slower than one after another; the guess above wouldn't quite make that at the
+  spawn, so a second trim (the grid's empty part, the three-way stores) may follow, or David's choice between the
+  two ends of the gate.
