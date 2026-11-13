@@ -118,7 +118,10 @@ impl FarLook {
         sky_light: true,
         sky_strength: SKY_STRENGTH,
         sky_tint: SKY_TINT,
-        fog: true,
+        // Off by default [David, 2026-11-13: "off by default would be better. it looks nice but is most likely reserved
+        // for final touches"; "we are not using fog or haze or any sort of cover as a performance tool. it is just for
+        // looks"]: the far eye is judged and measured without it.
+        fog: false,
         fog_reach: FOG_REACH,
         fog_height: FOG_HEIGHT,
         fog_warmth: FOG_WARMTH,
@@ -175,9 +178,6 @@ pub struct FarEye {
     /// Whether a blend's pictures are read together (the lean step, 1b: kept, 3 to 7% off the far marks on the NVIDIA,
     /// nothing lost on the Intel; `INCUS_FAR_TOGETHER=0` reads them in turn, as before).
     together: bool,
-    /// Whether the next steps' pictures are fetched ahead through open air (the lean step, 1c; `INCUS_FAR_AHEAD`;
-    /// only with them read together).
-    ahead: bool,
     test_half: bool,
     most_steps: f32,
     /// The longest ray (the Oracle's step 0): the pass that counts a layer's rays' steps, each layer's four counts on the
@@ -290,7 +290,6 @@ impl FarEye {
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
         let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
         let together = std::env::var("INCUS_FAR_TOGETHER").as_deref() != Ok("0");
-        let ahead = std::env::var("INCUS_FAR_AHEAD").as_deref() == Ok("1");
         let test_half = std::env::var_os("INCUS_TEST_HALF").is_some();
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most{}", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" }, if test_half { ", only the left half of each layer marched (INCUS_TEST_HALF)" } else { "" });
@@ -299,7 +298,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, ahead, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -322,9 +321,6 @@ impl FarEye {
         let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
         rays += if self.together { ", a blend's pictures read together" } else { ", a blend's pictures read in turn" };
-        if self.together && self.ahead {
-            rays += ", the next steps fetched ahead";
-        }
         if self.test_half {
             rays += ", only the left half of each layer marched";
         }
@@ -518,7 +514,7 @@ impl FarEye {
                 [forward[0], forward[1], forward[2], 0.0],
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
                 [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],
-                [layer.size.0 as f32, layer.size.1 as f32, pixel, if self.together && self.ahead { 2.0 } else if self.together { 1.0 } else { 0.0 }],
+                [layer.size.0 as f32, layer.size.1 as f32, pixel, if self.together { 1.0 } else { 0.0 }],
                 [sun[0], sun[1], sun[2], look.ambient.clamp(0.0, 1.0)],
                 [REACH, -look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],

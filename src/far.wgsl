@@ -22,7 +22,7 @@ struct Camera {
     right: vec4<f32>,
     up: vec4<f32>,
     // x, y: the layer's size; z: a layer pixel's angle (radians); w: 1 if a blend's pictures are read together (the
-    // lean step, 1b), 0 one after another as each is found wanted, 2 together and the next steps' fetched ahead (1c).
+    // lean step, 1b), 0 one after another as each is found wanted.
     view: vec4<f32>,
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
@@ -738,13 +738,6 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     var lv_from = 1.0;
     var lv_to = 0.0;
     var lv_hand = 0.0;
-    // Fetched ahead (the lean step, 1c): after a step through open air, the next places the ray would stride to at this
-    // level, with their pictures, fetched together; `ahead_i` the next to be used.
-    var ahead_t: array<f32, 3>;
-    var ahead_got: array<Fetched, 3>;
-    var ahead_n = 0;
-    var ahead_i = 0;
-    var ahead_level = -1;
     let last = min(camera.reach.x, end);
     let most = i32(camera.pyramid.z);
     for (var n = 0; n < most; n++) {
@@ -847,14 +840,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             let here = spot_kept(&kept, place, level, p);
             let there = spot_kept(&kept_next, place, level + 1, p);
             if (here.kind == 2 && there.kind == 2) {
-                var got: Fetched;
-                if (ahead_i < ahead_n && ahead_level == level && ahead_t[ahead_i] == t) {
-                    got = ahead_got[ahead_i];
-                    ahead_i += 1;
-                } else {
-                    ahead_n = 0;
-                    got = fetch_together(here.at);
-                }
+                let got = fetch_together(here.at);
                 let got_next = fetch_together(there.at);
                 look = look_of(got);
                 look = mix_looks(look, look_of(got_next), (over - camera.fade.z) / (1.0 - camera.fade.z));
@@ -868,13 +854,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
                 }
             }
         } else {
-            if (ahead_i < ahead_n && ahead_level == level && ahead_t[ahead_i] == t) {
-                look = look_of(ahead_got[ahead_i]);
-                ahead_i += 1;
-            } else {
-                ahead_n = 0;
-                look = far_blend_kept(&kept, place, level, p);
-            }
+            look = far_blend_kept(&kept, place, level, p);
             if (look.known && over > camera.fade.z) {
                 let next = far_blend_kept(&kept_next, place, level + 1, p);
                 if (next.known) {
@@ -910,46 +890,6 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             // Going down, never past the world's floor (under it all is rock).
             if (d.z < 0.0) {
                 dt = min(dt, max(p.z / -d.z, size * 0.25));
-            }
-            // Several steps at once (1c): the next three places, as these same strides would reach them at this
-            // level, found now and their pictures fetched together. Only places the march could come to and read from
-            // the atlas; the march's own tests still decide, step by step, whether each is used.
-            if (camera.view.w > 1.5 && ahead_i >= ahead_n) {
-                ahead_n = 0;
-                ahead_i = 0;
-                ahead_level = level;
-                var spots: array<vec3<f32>, 3>;
-                var ta = t;
-                var dta = dt;
-                var place_ahead = place;
-                for (var a = 0; a < 3; a++) {
-                    ta += dta;
-                    if (ta > last || ta >= lv_to) {
-                        break;
-                    }
-                    let pa = o + d * ta;
-                    if ((pa.z > ceiling && d.z >= 0.0) || (pa.z < -8.0 && d.z <= 0.0)) {
-                        break;
-                    }
-                    keep_place(&place_ahead, pa);
-                    if (!place_ahead.summed) {
-                        break;
-                    }
-                    let spot = spot_kept(&kept, place_ahead, level, pa);
-                    if (spot.kind != 2) {
-                        break;
-                    }
-                    ahead_t[a] = ta;
-                    spots[a] = spot.at;
-                    ahead_n = a + 1;
-                    dta = size * 2.0;
-                    if (d.z < 0.0) {
-                        dta = min(dta, max(pa.z / -d.z, size * 0.25));
-                    }
-                }
-                for (var a = 0; a < ahead_n; a++) {
-                    ahead_got[a] = fetch_together(spots[a]);
-                }
             }
         }
         // The step from the last sample to this one, gathered from both its ends.

@@ -570,6 +570,7 @@ impl Runner {
                 far: running.far.as_ref().map_or("none (the doorway couldn't open the world)".to_string(), |far| format!("{}; {}", far.state(), far.settings())),
                 memory: running.card.memory(),
                 main_memory: crate::memory::MainMemory::now(),
+                fog: running.far.as_ref().is_some_and(|far| far.look.fog),
             });
             event_loop.exit();
         }

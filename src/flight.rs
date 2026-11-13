@@ -74,6 +74,8 @@ pub struct About<'a> {
     pub memory: Option<(f64, f64)>,
     /// The main memory the game holds at the end, and the most it has (none where Windows can't say).
     pub main_memory: Option<crate::memory::MainMemory>,
+    /// Whether the far eye's fog is on (its look's setting; a mark's own `fog` isn't applied yet).
+    pub fog: bool,
 }
 
 impl Flight {
@@ -248,13 +250,14 @@ impl Flight {
             Some(memory) => format!("The main memory: {}\n", memory.line()),
             None => "The main memory: Windows can't say\n".to_string(),
         };
+        text += &format!("Fog: {} at every mark (the far eye's look; fog is for looks only, off by default from build 149. Every flight before build 149 flew with fog on at every mark, whatever its marks' lines said)\n", if about.fog { "on" } else { "off" });
         text += &format!("The marks: data/marks.toml; {} s settling, then {} s measured at each (the first settling {} s more: the session's warm-up)\n", SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
         let spread = |spread: Spread| format!("median {:.3}, 95th {:.3}, 99th {:.3}, worst {:.3}", spread.median, spread.p95, spread.p99, spread.worst);
         for standing in &self.standings {
             let mark = &about.marks[standing.mark];
             let dial = standing.count.map_or(String::new(), |count| format!(", the scatter at {count}"));
             let eye = standing.eye.map_or("not placed (the doorway couldn't answer)".to_string(), |[north, east, up]| format!("north {north:.1}, east {east:.1}, up {up:.1}"));
-            text += &format!("\nAt {}{dial} ({} eye; fog {}): the eye at {eye}, facing {:.0}°, pitch {:.1}°\n", mark.name, mark.eyes.join(" and "), if mark.fog { "on" } else { "off" }, mark.facing, mark.pitch);
+            text += &format!("\nAt {}{dial} ({} eye): the eye at {eye}, facing {:.0}°, pitch {:.1}°\n", mark.name, mark.eyes.join(" and "), mark.facing, mark.pitch);
             if let Some((ms, tiles, tiles_ms)) = standing.going {
                 text += &format!("  going there: {ms:.1} ms (the doorway answered {tiles} tiles in {tiles_ms:.1} ms)\n");
             }

@@ -2093,3 +2093,44 @@ and `-1794586177`.
 - **Estimates.** The Oracle's [low]: a further 20 to 50% off what the long layers still cost. Builder's [low]: 5 to
   20% off the far marks. 1b showed the card overlaps reads only a little, and only the steps that blend (not the
   skips) can be fetched ahead.
+
+### Results: several steps at once, and its verdict
+
+Build 148 on "NVIDIA GPU only", 10:59 to 11:26, off, on, off, on: off `kept logs/flight-1794587590.txt` and
+`-1794588369`; on `-1794587981` and `-1794588757`.
+
+| the far eye whole, median ms | off | on | |
+|---|---|---|---|
+| on the ground at the spawn | 0.866, 0.854 | 0.866, 0.867 | the same |
+| the bare plain | 1.051, 1.047 | 1.251, 1.257 | +19% |
+| the mountain top | 1.854, 1.854 | 2.225, 2.238 | +20% |
+| high over the spawn | 1.904, 1.903 | 2.110, 2.113 | +11% |
+| low over the sea | 2.215, 2.211 | 2.682, 2.703 | +22% |
+| a player's run | 2.286, 2.287 | 2.840, 2.868 | +25% |
+
+- **Dropped: 11 to 25% slower at every far mark,** both pairs agreeing; the longest rays the same step for step. The
+  Oracle's own test said it: "if 1b gives nothing, the card doesn't overlap reads as I believe, and 1c won't pay
+  either". 1b gave a little; 1c pays for fetches the card doesn't overlap, and for those thrown away.
+- **Its code cost the march even switched off:** against build 147 the same day, the spawn 0.86 against 0.70, the
+  mountain top 1.85 against 1.63, the plain 1.05 against 0.95 (the sea the same, 2.21). So it's taken out whole
+  (build 149's march is build 147's); git keeps it at build 148.
+- **The fast run read normally again** in these flights (the card's clock at 2,540 to 2,590 MHz, 1.60 ms): the
+  morning's halved clock was not the code, and passed with nothing changed (Counsel's second guess: Windows finishing
+  its update).
+
+### A correction: every flight so far flew with fog on  *(2026-11-13)*
+
+Found while taking 1c out: a mark's `fog` line was printed in each report ("fog on", "fog off") but never applied. The
+far eye's own look had fog on, so every flight and every test picture before build 149 was fogged at every mark, the
+mountain top "on a clear day" among them. Comparisons between builds stand (both sides were fogged alike); the labels
+were wrong.
+
+- **From build 149 fog is off by default** [David, 2026-11-13: "off by default would be better. it looks nice but is
+  most likely reserved for final touches"; and the rule: "we are not using fog or haze or any sort of cover as a
+  performance tool. it is just for looks"]. The Render page's Fog section turns it on. Reports say in their head
+  whether fog was on, from the far eye's look; the per-mark label is gone.
+- **The window's picture check, done again with fog truly off** (640 × 400, 13 × 13 regions, the whole world against
+  a window of 3): the mountain top 7.2% of pixels differ, by 39 of 255 at most (0.5% by more than 8); high over the
+  spawn 5.5%, by 24; low over the sea 1.0%, by 77 at a few. About what the fogged check found (6.5%, 4.5%, 0.4%). So
+  the window's softer far ridges are there without fog too, and David's look at them fog-off is still owed: his look
+  at build 134 was with fog on.

@@ -25,6 +25,8 @@ pub struct Mark {
     pub above: f32,
     pub facing: f32,
     pub pitch: f32,
+    /// Old's fog for the mark. Kept as the mark's record, not applied: fog is the far eye's look, off by default.
+    #[allow(dead_code)]
     pub fog: bool,
     pub eyes: Vec<String>,
     pub changes: Option<String>,

@@ -219,7 +219,6 @@ flowchart TB
 - **Switch** `INCUS_SIGHT_NO_SKY`: the sky light left out (for measuring).
 - **Switch** `INCUS_FAR_EDGE`: 0: rays marched on past the map's edge toward the reach, as before (unset: ended at the edge).
 - **Switch** `INCUS_FAR_TOGETHER`: 0: a blend's pictures read one after another, as before the lean step's 1b (unset: read together, and both levels' over a hand-over).
-- **Switch** `INCUS_FAR_AHEAD`: 1: through open air, a far ray's next three places found and their pictures fetched together (the lean step, 1c); unset or 0, a step at a time.
 - **Switch** `INCUS_TEST_HALF`: for measuring (the Oracle's test): only the left half of each far layer marched.
 - **Switch** `INCUS_TEST_STEPS`: for measuring (the Oracle's test): the most steps a far ray takes (unset: 768).
 - **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's).
