@@ -2172,3 +2172,28 @@ like it might actually look better, lets try it".
 - **The longest rays get shorter.** The Oracle: "it halves the very longest rays". Builder [low]: the longest by 20
   to 40%, the far marks 5 to 15% faster, the most over the sea.
 - **Flown at 0.5 and 1, alternating twice.** Kept only if David likes the look.
+
+### Results: thin haze by half and whole cells
+
+Build 151, fog off, 11:59 to 12:25, alternating twice: half a cell `kept logs/flight-1794591158.txt` and
+`-1794591938`; a whole cell `-1794591548` and `-1794592330`. Watts and load are back in the reports (the processor 7
+to 8% loaded, the card 87 to 98 W: the machine wasn't shared).
+
+| the far eye whole, median ms | half a cell | a whole cell | |
+|---|---|---|---|
+| on the ground at the spawn | 0.699, 0.703 | 0.694, 0.697 | −1% |
+| the bare plain | 0.946, 0.947 | 0.878, 0.879 | −7% |
+| the mountain top | 1.599, 1.604 | 1.569, 1.569 | −2% |
+| high over the spawn | 1.640, 1.645 | 1.612, 1.612 | −2% |
+| low over the sea | 2.222, 2.221 | **1.777, 1.776** | −20% |
+| a player's run | 2.293, 2.296 | 1.996, 1.998 | −13% |
+| the plain, nodding, 99th | 1.020, 1.025 | 0.928, 0.929 | −9% |
+| the sea, nodding, 99th | 2.712, 2.720 | 2.139, 2.133 | −21% |
+
+- **The sea is under the gate's 2 ms worst for the first time** (1.78, from 4.01 on the 12th), and a player's run at
+  2.00. The sea's nodding 99th, 2.14, is still over it.
+- **The longest rays are shorter, but not halved** (the Oracle's guess): the sea's 558 and 764 steps to 532 and 668;
+  the plain's 467 to 447. The time fell more than the steps, since the steps saved are the dear ones, each a blend.
+- **Builder's guess** (the far marks 5 to 15% faster, the most over the sea): the sea beat it at 20%; the mountain top
+  and high over the spawn came under it at 2%.
+- **The pictures:** nearly the same (above). It waits on David's look in the game.
