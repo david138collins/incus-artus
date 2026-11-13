@@ -526,6 +526,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - The processor never does in a frame what the Steam build wouldn't. [decided] (regroup.md:9; decisions.md:968-970)
 - Cost follows the screen, not the world. [decided] (decisions.md:1499-1500, 1585-1586)
 - A stage that takes whatever is put on it, so performance can be forgotten: "i need to forget performance is a thing at all". [decided] (decisions.md:1548-1556)
+- Fog, haze or any cover is never a performance tool, only a look, and off by default until the final touches: "we are not using fog or haze or any sort of cover as a performance tool. it is just for looks"; "off by default would be better. it looks nice but is most likely reserved for final touches". [decided] (decisions.md, 2026-11-13, "Fog: for looks only")
 - Nothing relies on fog to perform; the renderer is tuned for the clearest day: "nothing should rely on fog in our renderer to perform". [decided] (decisions.md:1397-1401; dyno.md:511)
 - Hardware relaxed but ready: zero wake-up latency, no busy-spinning unless measured, running cool: "relaxed but ready to act instantly without any distraction". [decided] (decisions.md:1043-1046; regroup.md:239)
 - In front, the game takes the PC's full attention, but alt-tab to Discord stays quick: "as long as people can at least tab back to discord quickly". [decided] (decisions.md:1065-1068; regroup.md:242)

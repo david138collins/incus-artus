@@ -29,7 +29,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   waiting card, work is nearly free and waiting is dear. Its order: instruments and an Intel flight now; the lean
   step in halves; the layers side by side; light read from the cell, made on the processor; the gate; the cells of 2
   to 16 with scattered detail before the fork; lazy rays after, by lengths. David took it ("Yes, its order"), and
-  both near drawers flown before the fork ("Yes, fly both"). Builder starts at step 0. The fog line waits.
+  both near drawers flown before the fork ("Yes, fly both"). So far: step 0 in (the Intel card works where the NVIDIA
+  waits; David: the Intel informs, the NVIDIA decides); the lean step's 1a and 1b kept, 1c dropped. Fog is off by
+  default and for looks only ("we are not using fog ... as a performance tool"); every flight is now fog-off.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -48,9 +50,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** a check of the laptop's power mode (the card ran at half its clock this morning, not from
-  heat); later, one budget at the fork, haze or cover at the skyline's look, and lazy rays fixed to the world or
-  the screen; when to take the fog line; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** his look at 1d (thin haze by whole cells) when it's built; later, one budget at the fork,
+  haze or cover at the skyline's look, and lazy rays fixed to the world or the screen; whether `CLAUDE.md` points at
+  the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -226,10 +228,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         (build 128, 842f83a: 14 to 29% off at every mark; David: "they all look the same", so the spread is kept and
         exact taken out, build 129, 4ad4788; memory 2.7 GB with the whole world's far view on the card. Detail +2
         tried and put back to 0, 2f756a4: "yeah 0 is fine". `journal/docs/experiments.md`)
-  - [ ] The fog line: the finer layers earned along edges where neighbouring squares differ, priced by flight (David
-        saw near ridges' 8 × 8 squares against fogged far mountains). A look step; when he says. Fog itself is for
-        looks only and may be taken out and done another way later (David: "there are different ways and times to
-        add fog"); finer detail and the near eye may change how it reads first
+  - [x] ~~The fog line: the finer layers earned along edges where neighbouring squares differ~~. Dropped with fog
+        off by default (build 149; David: "we are not using fog ... it is just for looks"): without fog, near and far
+        are one colour and the squares don't show. Finer layers earned at edges stays an idea for the final touches,
+        if fog comes back
   - [x] Bricks of 4 against bricks of 8, chosen at launch (build 131, f6958f9: counted first, then flown at 8, 4
         and 2; the whole game 2,656 MB in use at 8, 1,555 at 4, 1,315 at 2, for 5-13% more far time at 4, 14-24% at
         2; the picture the same. David: "4 sounds good", the default from 18d2537; the last pick after step 4's
@@ -261,7 +263,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         NVIDIA side to be re-flown on "NVIDIA GPU only", for the record. *1b, read together* (build 146, behind a
         switch): on "NVIDIA GPU only" 2.5 to 7% off every far mark, nothing slower, the Intel losing nothing; **kept,
         on from build 147**. Against the gate now: the sea 2.21 ms (nodding 99th 2.72), the plain 0.95, the mountain
-        top 1.63, high over the spawn 1.65 (a power-mode question to settle first). Next: 1c, several steps at once
+        top 1.63, high over the spawn 1.65. *1c, several steps at once,* dropped (build 148: 11 to 25% slower, its
+        code costing even off; taken out whole). The fog-off baseline (build 149): the sea 2.20 ms (nodding 99th
+        2.69), the plain 0.94, the mountain top 1.59, high over the spawn 1.64. Next: 1d, thin haze by whole cells (a
+        look)
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next

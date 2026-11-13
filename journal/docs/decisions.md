@@ -1537,6 +1537,34 @@ Reference: `Art/quartile minecraft illustration.png`
     pass with the card's clock down near 1,100 MHz at 53 °C (last night 2,500 MHz at 71). The card slowed itself, not
     from heat; the laptop's power mode after the restarts is suspected. Builder asks David to check it; within-session
     comparisons stand, but numbers against the gate want a re-read once the power mode is known.
+    - *Settled:* David confirmed Turbo and full fans on "NVIDIA GPU only" after a fresh restart, with a Windows update
+      overnight; the NVIDIA driver was unchanged (32.0.16.2101, read from the reports). Later flights ran at full clock
+      with nothing changed: Windows finishing its update in the background, starving the card of frames (the
+      Oracle's reading: the card slows itself when it has little to do). A standing whose processor load reads well
+      over its usual 5 to 11% is now treated as suspect, and each standing's heat line says how long the card's clock
+      read under 2,000 MHz (build 150).
+  - **1c, several steps at once, dropped** (build 148, off and on alternating twice): 11 to 25% slower at every far
+    mark (the sea 2.21 → 2.69 ms), and its code cost the march even switched off, so it's taken out whole (git keeps
+    it at build 148). The Oracle's own test had predicted it: 1b gave little, so the card doesn't overlap reads much.
+- **[DECIDED 2026-11-13] Fog: for looks only, off by default** (David, to Counsel, at "the fog line" in a summary: "we
+  are not using fog."; asked whether to take it out or switch it off: "off by default would be better. it looks nice
+  but is most likely reserved for final touches"; and to Builder: "what i mean is we are not using fog or haze or any
+  sort of cover as a performance tool. it is just for looks.").
+  - **A rule, not only a default:** the far eye must look right and meet its gate with fog off; fog never hides a flaw
+    or saves work, and no ray stops early in it (the plan's "nothing relies on fog", in his words). The fog-line step
+    is dropped. Builder retires one argument of hers that leaned on far land being fogged (the window's reach).
+  - **Off by default from build 149,** its code kept, the Render page's Fog section turning it on; every report says
+    whether fog was on, read from the look itself. The fog-off baseline (build 149): the spawn 0.70, the plain 0.94,
+    the mountain top 1.59, high over the spawn 1.64, the sea 2.20 ms (nodding 99th 2.69), a player's run 2.28. Fog
+    had cost 1 to 2%.
+  - *Corrected in the open (Builder):* a mark's fog setting was printed in every report but never applied, so every
+    flight and test picture before build 149 was fogged at every mark, the "clear day" mountain top included.
+    Comparisons between builds stand; the labels were wrong. The window's picture check redone with fog truly off:
+    about the same (the mountain top 7.2% of pixels differ, 0.5% by more than 8 of 255). David on the window without
+    fog: "i know what it looks like without fog its fine."
+  - *Note, so the words don't cross:* the Oracle's "haze or cover" for the skyline's soft edge isn't fog. "Haze" is
+    today's way (rays gathering through part-solid cells), "cover" the alternative (how much of each square the land
+    covers); neither hides anything.
   - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.
