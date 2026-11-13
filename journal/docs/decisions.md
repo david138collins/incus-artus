@@ -1483,8 +1483,14 @@ Reference: `Art/quartile minecraft illustration.png`
     agreed in the second part (triangles only if rays missed a mark): 2.3 builds rays, then faces as triangles, and
     flies both on the same marks. The judging stays: 1.5 ms at every ground mark; over 1 ms apart at the worst mark
     is his call; his eye for pops and seams.
-  - **[OPEN], in the order he'll meet them:** its section 11's changes to 2.2's order, for David to weigh with
-    Builder; one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
+  - **[DECIDED] Its order for the rest of 2.2** (David, after Builder weighed it and agreed: "Yes, its order"): step
+    0's instruments and an early Intel flight; the lean step in halves; the layers side by side; light read from the
+    cell, made on the processor; the gate; then the cells of 2 to 16 with scattered detail; lazy rays after, by
+    lengths. Why lazy rays wait (Builder, put to him): the lean step and the layers keep the same picture and are
+    quicker to prove; the cut-into-lengths fallback shares lazy rays' machinery and prepares it; if the gate is met
+    without them, they become headroom, not a need. Builder's cautions: 1c (several steps at once) flown alone and
+    checked pixel for pixel; the processor's light gets a pass mark on lag.
+  - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.
 - **[DECIDED 2026-11-12] Main memory tracked, and searched for free wins** (David, to Counsel, asking "do you think

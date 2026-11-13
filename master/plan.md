@@ -28,8 +28,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   nearly free and the chain is the time. The Oracle's third part is in (`journal/vision/oracle-review.md`): on a
   waiting card, work is nearly free and waiting is dear. Its order: instruments and an Intel flight now; the lean
   step in halves; the layers side by side; light read from the cell, made on the processor; the gate; the cells of 2
-  to 16 with scattered detail before the fork; lazy rays after, by lengths. David's answer so far: both near drawers
-  flown before the fork ("Yes, fly both"). The fog line waits.
+  to 16 with scattered detail before the fork; lazy rays after, by lengths. David took it ("Yes, its order"), and
+  both near drawers flown before the fork ("Yes, fly both"). Builder starts at step 0. The fog line waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -48,10 +48,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the Oracle's order for the rest of 2.2 (adopt it, as Builder weighs it); the laptop switched
-  to "Optimus" for the Intel flight it wants early; later, one budget at the fork, haze or cover at the skyline's
-  look, and lazy rays fixed to the world or the screen; when to take the fog line; whether `CLAUDE.md` points at the
-  map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** the laptop switched to "Optimus" for step 0's Intel flight, when Builder is ready (a
+  restart); later, one budget at the fork, haze or cover at the skyline's look, and lazy rays fixed to the world or
+  the screen; when to take the fog line; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -241,24 +240,35 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         at 2,000 it creaks; `journal/docs/experiments.md`; David: "it looks good")
   - [x] Change 2, rays begun at the drawn boxes (flown, build 137: the picture the same, but it doesn't pay on this
         card; taken out after the Oracle's mid-2.2 reply, git keeping it; `journal/docs/experiments.md`)
-  - [ ] The Oracle's mid-2.2 steps, before David answers it ("please proceed with them"): rays ended at the map's
-        edge; its two tests (half the rays; the step limit halved) and Nsight on the new march; the lean step (what
-        doesn't change between steps kept in hand), the picture the same. *In so far (build 140, c15d256):* the map's
-        edge kept, 6 to 19% off every far mark; the tests point nearer "waiting". Nsight and the lean step to come
-  - [ ] The far eye split into small passes (David's goal: no megakernels), in Builder's order: the Nsight look, the
-        lean step, light split out, then lazy rays on top; each split measured alone. *The Nsight look is in*
-        (e2ea8bf): the 8 × 8 and 4 × 4 keep 6.9% and 1.3% of the card in flight over the sea, too few long rays to
-        fill it; the program's size isn't the limit, so the chain is (fewer, cheaper or lazier steps)
-  - [ ] Lazy rays (David's lead, 2026-11-12: "spread out any rays that can be lazy"): rays marched a share of their
-        steps each frame, resuming, lazier by level and distance, the duty cycle up when moving fast; the settled
-        picture equal to the full march's, the lag measured, his eye judging "basically invisible"
-  - [ ] Priced beside it: a per-column height skip for rays skimming plain land; rays shuffled or sorted by length
-  - [ ] Then, to be tried by David's word ("we should at least try 2, 3 and 4"), each a look step, the order set by
-        the tests: the skyline made by how much land covers each square; plain land drawn as a surface, rays for the
-        rest; the horizon band refreshed over a few frames
-  - [ ] Change 3, light read from the cell, after light's share is measured again
-  - [ ] Main memory in every report and the session's log, beside the card's; spare main memory searched for free
-        wins or load taken off the card or the processor (David, 2026-11-12)
+  - [x] The Oracle's mid-2.2 tests: rays ended at the map's edge (kept, 6 to 19% off every far mark), half the rays,
+        the step limit halved, the watts, and Nsight (the 8 × 8 and 4 × 4 keep 6.9% and 1.3% of the card in flight
+        over the sea): "waiting, not working", confirmed three ways (builds 140 and 141, c15d256, b516975, e2ea8bf)
+  - *The rest of 2.2 in the Oracle's order* (its third part, section 11; David: "Yes, its order", 2026-11-12):
+  - [ ] Step 0, instruments: the longest ray per layer in every report; a nodding mark at the sea and the plain; one
+        Intel flight now, to learn whether that card waits or works (David on "Optimus", put to him a step ahead)
+  - [ ] Step 1, the lean step, in halves flown apart, each the same picture pixel for pixel: kept in hand; read
+        together (behind a switch, priced on both cards); several steps at once (alone, checked with care); thin haze
+        by whole cells (a look)
+  - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
+        base layer first, as its probe
+  - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
+        made ready; the sky's openness once); change 3 and "light split out" as one; its own pass mark on lag
+  - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into
+        lengths, marched side by side, joined front to back
+  - [ ] The looks (David's "2, 3 and 4"): the skyline by cover, with a column-height table (haze or cover is his);
+        if cover, the sheet (plain far land as rings of mesh) flown as the far levels' rival; the horizon band over
+        frames comes as lazy rays
+  - [ ] The cells of 2 to 16 in the far eye's march, each in its own ring; a scatter stage behind the doorway (a
+        wood, rows of posts, towers, slabs and an arch), off by default; marks from it. Before the fork
+  - [ ] Lazy rays (David's lead: "spread out any rays that can be lazy"), by lengths of distance, under the Oracle's
+        nine rules (a ray in flight always finishes; light and fog put on every frame; the gate read moving); its
+        tests amended (the store, once whole, equals a full march of its own directions; the lag; card time moving,
+        laziness on and off; his eye turning, walking past a ridge, and at the sun's step)
+  - [ ] Rays shuffled or sorted by length: held for the Intel card
+  - [x] Main memory in every report and the session's log, beside the card's (build 138, dce3afb: 2.8 GB held,
+        1.0 GB in use)
+  - [ ] Spare main memory's free wins, priced once the 1.3 GB held at the start is placed: prepared bricks for the
+        window, the tiles round the eye unpacked, the far light's sweeps
   - [ ] Every mark flown on both cards by one command (carried from 2.1): the Intel card's flight needs the laptop
         switched to "Optimus", put to David a step ahead. Last
   - *Each:* measured, then David's eye still, moving his head, and flying ("try all these things and gather data")
@@ -329,7 +339,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
 | Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? Its narrow form, the horizon band refreshed over a few frames, is to be tried in 2.2 | The fork |
 | ~~The cells of 2 to 16 blocks: in the far eye's march before the fork, or in 2.3?~~ | Answered by the Oracle, as David left it: before the fork, after the lean step and the layers side by side |
-| The Oracle's third part's changes to 2.2's order (its section 11): adopt, as Builder and David weigh them? | David, now |
+| ~~The Oracle's third part's changes to 2.2's order (its section 11)?~~ | Answered 2026-11-12: "Yes, its order" |
 | One budget at the fork (the Oracle's split: far 1.2 typical and 2 worst, near 1.5, finishing 0.4, 0.9 left), read moving at the 99th? | The fork |
 | At the skyline's look: haze, as now, or cover (with the column-height table, and the sheet flown as rival if cover)? | Its look in 2.2 |
 | Lazy rays' far squares fixed to the world or to the screen? | When lazy rays are built |
