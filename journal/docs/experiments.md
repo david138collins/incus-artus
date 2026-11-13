@@ -2520,3 +2520,18 @@ Flown unset, 2, unset, 2 (logs/flight-1794604653, -5048, -5439, -5837). The card
   the distances are written, not how many.
 - **Kept if** no mark is more than 1.5% slower than build 157's. Then the measuring switches are cut (build 159) and
   flown alone, for David's "another 1%".
+
+### The result: the same as build 157, on the default limits  *(build 158, c90ff53; NVIDIA only, fog off)*
+
+Flown the one dispatch, in turn, the one dispatch (logs/flight-1794607032, -7427, -7822). The card's whole, median ms,
+build 157's one dispatch then build 158's: the spawn 0.68 / 0.68; the plain 0.88 / 0.88; the mountain top 1.37 /
+1.37; high over the spawn 1.32 / 1.32; the sea 1.38 / 1.39; the player's run 1.41 / 1.41 (99th 1.60 / 1.60); fast
+across the world 1.21 / 1.22; the sea nodding 1.27 / 1.27 (99th 1.58 / 1.57). In turn, as all day (0.70, 0.88, 1.57,
+1.61, 1.78, 2.00).
+
+- **Against the pass mark:** every mark within 1.5% of build 157's: met (the most 0.7%, the plain). The pictures as
+  marked. Kept: the one dispatch is the far eye's march, on the library's default limits.
+- **The card's memory:** 973 MB by the one dispatch, 935 MB in turn (build 157: 968 and 935). So the one dispatch
+  costs 38 MB at 2560 × 1600: its two textures of distances, as tall as the finest layer all the way across. [LATER]
+  the finest layer's distances are read by nothing but the longest-ray count; leaving them out of the texture would
+  give most of it back.
