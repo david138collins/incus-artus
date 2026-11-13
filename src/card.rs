@@ -52,13 +52,7 @@ impl Card {
         }
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min(BIGGEST);
         log::info!("The card's largest buffer, raised on purpose for the far bricks: {} MB (wgpu's default {} MB)", largest >> 20, wgpu::Limits::default().max_storage_buffer_binding_size >> 20);
-        let mut required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
-        // The far eye's one-dispatch form (`INCUS_FAR_SIDE=2`, an experiment): six written textures in one pass, raised
-        // on purpose only while it's asked for (wgpu's default four). If it's kept, its layers are packed or this decided.
-        if std::env::var("INCUS_FAR_SIDE").as_deref() == Ok("2") {
-            required_limits.max_storage_textures_per_shader_stage = 6;
-            log::info!("The written textures a pass may have, raised on purpose for the far eye's one-dispatch form: 6 (wgpu's default {})", wgpu::Limits::default().max_storage_textures_per_shader_stage);
-        }
+        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("Incus Artus"), required_features, required_limits, ..Default::default() }))
             .expect("the card's device");
         let size = window.inner_size();

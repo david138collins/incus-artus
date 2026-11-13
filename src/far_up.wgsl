@@ -7,7 +7,8 @@
 struct Up {
     // x, y: the screen's size; z: the finest layer's factor; w: the coarsest's (the base).
     size: vec4<f32>,
-    // x: the mode (0 crisp, 1 smooth, 2 sharp at skylines).
+    // x: the mode (0 crisp, 1 smooth, 2 sharp at skylines); y, z: the base layer's size (its distances are the left of
+    // `far8`, which the one dispatch shares with the other layers').
     mode: vec4<f32>,
 }
 
@@ -47,7 +48,7 @@ fn brought_up(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
     let coarsest = up.size.w;
     if (mode == 2u) {
         // Sharp at a skyline: the base layer's four pixels round here far apart in distance.
-        let size = vec2<i32>(textureDimensions(far8));
+        let size = vec2<i32>(up.mode.yz);
         let b = vec2<i32>(floor(at.xy / coarsest - 0.5));
         var near = 1e30;
         var far = 0.0;
