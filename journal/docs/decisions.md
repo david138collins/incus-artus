@@ -1528,6 +1528,15 @@ Reference: `Art/quartile minecraft illustration.png`
     spawn 2.01 → 1.82) but the mountain top 8% slower, not yet explained; on the Intel 0 to 3% faster. The Oracle had
     given 15 to 40% off the open-horizon marks: likely a long ray's steps are mostly skips, which read no pictures. Its
     keep-or-drop waits on the "NVIDIA GPU only" flight after David switches back, with 1a's numbers for the gate.
+  - **1b kept, on from build 147** (on "NVIDIA GPU only" after David switched back, off and on alternating twice): 2.5
+    to 7% off every far mark, nothing slower (the sea 2.33 → 2.21 ms, the mountain top 1.76 → 1.63, a player's run 2.42
+    → 2.31); the Intel lost nothing. The mountain top's 8% loss on Optimus didn't hold: Optimus numbers give a
+    direction only. The far eye against the gate now: the sea 2.21 ms (its nodding 99th 2.72), the plain 0.95, the
+    mountain top 1.63, high over the spawn 1.65.
+  - **A watch:** today reads about 4% slower than last night for the same code, and the fast run reads double in every
+    pass with the card's clock down near 1,100 MHz at 53 °C (last night 2,500 MHz at 71). The card slowed itself, not
+    from heat; the laptop's power mode after the restarts is suspected. Builder asks David to check it; within-session
+    comparisons stand, but numbers against the gate want a re-read once the power mode is known.
   - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.

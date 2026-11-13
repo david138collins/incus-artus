@@ -48,8 +48,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the laptop back to "NVIDIA GPU only" now, the Intel flights done (a restart); then Builder
-  flies 1b on and off there for its keep-or-drop, with 1a's numbers for the gate; later, one budget at the fork, haze or cover at the skyline's look, and lazy rays fixed to the world or
+- **Waiting on David:** a check of the laptop's power mode (the card ran at half its clock this morning, not from
+  heat); later, one budget at the fork, haze or cover at the skyline's look, and lazy rays fixed to the world or
   the screen; when to take the fog line; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
@@ -259,8 +259,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         Intel card 1a is 2.5 to 10% slower* (32f4703); a trimmed 1a (build 144) wasn't "just better", so **1a is kept
         as built** (build 145, c89a040's march), by David's rule: "unless its just better than 1, we go 1". The
         NVIDIA side to be re-flown on "NVIDIA GPU only", for the record. *1b, read together* (build 146, behind a
-        switch): a small gain on Optimus (3 to 10% off most far marks, the mountain top 8% slower; the Intel 0 to 3%);
-        its keep-or-drop from the "NVIDIA GPU only" flight after the switch-back
+        switch): on "NVIDIA GPU only" 2.5 to 7% off every far mark, nothing slower, the Intel losing nothing; **kept,
+        on from build 147**. Against the gate now: the sea 2.21 ms (nodding 99th 2.72), the plain 0.95, the mountain
+        top 1.63, high over the spawn 1.65 (a power-mode question to settle first). Next: 1c, several steps at once
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
