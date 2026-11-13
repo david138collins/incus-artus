@@ -2046,3 +2046,31 @@ Build 146, 09:36 to 10:03: the NVIDIA on Optimus off `kept logs/flight-179458301
   there's little for reading together to shorten. By the Oracle's own test ("if 1b gives nothing, the card doesn't
   overlap reads as I believe, and 1c won't pay either") this is between: something, not much.
 - **Its keep-or-drop** waits on the "NVIDIA GPU only" flights after David switches back.
+
+### Results: read together on "NVIDIA GPU only", and its verdict
+
+Build 146, 10:16 to 10:43, off, on, off, on: off `kept logs/flight-1794584998.txt` and `-1794585787`; on `-1794585390`
+and `-1794586177`.
+
+| the far eye whole, median ms | off (1a alone) | on (1a and 1b) | |
+|---|---|---|---|
+| on the ground at the spawn | 0.703, 0.772 | 0.703, 0.696 | the same |
+| the bare plain | 0.974, 0.973 | 0.949, 0.951 | −2.5% |
+| the mountain top | 1.753, 1.760 | 1.631, 1.624 | −7% |
+| high over the spawn | 1.693, 1.694 | 1.651, 1.653 | −2.5% |
+| low over the sea | 2.329, 2.331 | 2.220, 2.211 | −5% |
+| a player's run | 2.426, 2.423 | 2.312, 2.300 | −5% |
+| the plain, nodding, 99th | 1.054, 1.056 | 1.029, 1.023 | −3% |
+| the sea, nodding, 99th | 2.830, 2.853 | 2.728, 2.713 | −4% |
+
+- **Kept:** 2.5 to 7% off every far mark, both pairs agreeing, nothing slower; the Intel lost nothing. Read together
+  is on from build 147 (`INCUS_FAR_TOGETHER=0` reads in turn, as before).
+- **The mountain top's 8% loss on Optimus didn't hold:** here it's the best gain. Counsel's caution about Optimus
+  numbers was right.
+- **Against the guesses:** under both (the Oracle's 15 to 40% at the horizon marks, Builder's 5 to 15%).
+- **Against the gate** (1 ms typical, 2 worst): the sea stands at 2.21 ms, its nodding 99th at 2.72; the plain 0.95;
+  the mountain top and high over the spawn 1.63 and 1.65.
+- **Today reads a little slower than last night** for the same code (1a alone: the sea 2.33 against 2.24, the mountain
+  top 1.76 against 1.68). And **the fast run reads double** in every pass, off and on alike, with the card's clock down
+  to 1,000 to 1,240 MHz there at 52 to 54 °C (last night 2,500 MHz at 71 °C): the card slowed itself, not by heat.
+  Not from the code; asked of David whether the laptop's power mode is as it was.
