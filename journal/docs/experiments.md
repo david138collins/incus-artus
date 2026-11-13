@@ -1944,3 +1944,24 @@ Build 143 on the laptop's Intel card (Optimus, `WGPU_ADAPTER_NAME=intel`), 07:42
   shuffling so no lane idles) helps the Intel and less so the NVIDIA.
 - **Memory:** 933 MB in use, as on the NVIDIA.
 - Next: build 142 against 143 on this card, for 1a's keep-or-drop.
+
+### 1a on the Intel card: build 142 against 143
+
+Flown 07:52 to 08:18, alternating twice: 142 `kept logs/flight-1794578282.txt` and `-1794579087`; 143 `-1794578685` and
+`-1794579480`.
+
+| the far eye whole, median ms | 142 | 143, kept in hand | on Intel | on the NVIDIA |
+|---|---|---|---|---|
+| on the ground at the spawn | 5.811, 5.808 | 5.949, 5.961 | +2.5% | +5% |
+| the bare plain | 6.322, 6.314 | 6.679, 6.671 | +6% | −10% |
+| the mountain top | 10.219, 10.218 | 10.924, 10.933 | +7% | −6% |
+| high over the spawn | 9.557, 9.852 | 10.502, 10.501 | +7 to 10% | −6% |
+| low over the sea | 8.324, 8.778 | 8.655, 8.975 | +2 to 4% | −13% |
+| a player's run | 9.073, 9.074 | 9.615, 9.554 | +6% | −9% |
+
+- **On the Intel card 1a is slower at every mark,** by 2.5 to 10%. On the NVIDIA it's 6 to 13% faster at the far marks.
+- **It's the Oracle's warning, measured:** "on a card that's working, every number held is room lost". The march as
+  built keeps about forty numbers in hand; a working card fits fewer rays in flight for it, and loses more by that than
+  it gains from the reads saved.
+- **Not settled by this:** whether a trimmer 1a, keeping only the handful a skimming step needs (the Oracle's own
+  words), pays on both. On Optimus both cards can be flown in one session, so that can be tried without a restart.
