@@ -2452,3 +2452,21 @@ docs-only commit at take-off, the same code); each pair agrees within 0.5%. The 
   middle layer side by side in the same rows, so neither is first.
 - **Kept by the mark, to go on with,** still owing before anything stands on it: David's look at the one-frame
   lag while turning, and the six written textures packed back under the library's default.
+
+### The one dispatch's grid, a third arrangement: the pass mark (written before the code)
+
+David (2026-11-13), on build 156's numbers: "hell to the yeah claude! ... we've really made strides. im not entirely
+sure i'll be able to see the lag without the near view present. You can go ahead with finishing up and then cutting
+code we won't be using and see if that gives us another 1% just for good measure. then i'll took a look and zoom
+around a bit."
+
+- **What's changed, in the one-dispatch form only:** the base, the middle layer and the finest side by side across
+  the grid, all starting at its top row, so the base's rows and the middle layer's are the same rows and neither
+  goes first (build 155: the middle layer's rows first; build 156: the base's first).
+- **The picture at 2, standing still, stays pixel for pixel the same from the third frame.**
+- **Flown unset, 2, unset, 2,** read against build 156's trimmed numbers. Builder's guess [low]:
+  - The sea gets back some of build 155's: 1.25 or less (156: 1.41; 155: 1.11). The player's run 1.40 or less (1.44).
+  - The mountain top and high over the spawn hold: within 3% of 1.38 and 1.37.
+  - The spawn and the plain within 2% of 0.68 and 0.88.
+- **Kept if** the sea gains 5% or more on build 156 and no mark is more than 2% slower than build 156; else build
+  156's order stays.
