@@ -1573,6 +1573,21 @@ Reference: `Art/quartile minecraft illustration.png`
     the solid field; (3) an even offset for the steps (blue noise); (4) a finer base layer (also step 2's probe); (5)
     the skyline's squares, if they still show. Why it may be cheap: on this card the far passes leave 93 to 99% of the
     card idle while they wait, so more arithmetic per ray costs little there.
+  - **Step 2's probe: a 4 × 4 base is slower at every mark** (David: "alright, tell builder to proceed as indicated";
+    build 153, `INCUS_FAR_BASE`, 8 and 4 alternating, NVIDIA only, fog off). Base 8 then 4, median ms: the spawn 0.69
+    / 1.90, the plain 0.88 / 1.68, the mountain top 1.57 / 3.05, high over the spawn 1.61 / 3.28, the sea 1.78 / 2.11
+    (nodding 99th 2.15 / 2.58), a player's run 2.00 / 2.70. Four times the base's rays cost 1.9 to 3 times its time:
+    a layer's time isn't only its longest ray's wait, and "waiting, not working" holds for today's layers but stops
+    somewhere between 64,000 and 256,000 rays. The Oracle's probe question isn't answered cleanly (the 4 base marches
+    every pixel, today's 4 × 4 only where wanted), but the 8 × 8's culling earns its place. The base stays at 8; the
+    switch stays for the polish list's finer-base look, now priced at 0.3 to 1.7 ms.
+    - **For step 2 proper (the layers side by side):** still untested directly, and Builder's estimate comes down,
+      since layers marched at once share a card this probe shows is partly working. Builder recommends building it
+      anyway, as the order David took says, unless the Oracle reads this as a reason to go to step 3 or 4; she
+      suggests showing the Oracle the table. She designs it and writes its pass mark meanwhile; no flights yet.
+    - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
+      there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
+      sky's weight, not the map's edge); to be found before a finer base is ever kept.
 - **[DECIDED 2026-11-13] Fog: for looks only, off by default** (David, to Counsel, at "the fog line" in a summary: "we
   are not using fog."; asked whether to take it out or switch it off: "off by default would be better. it looks nice
   but is most likely reserved for final touches"; and to Builder: "what i mean is we are not using fog or haze or any

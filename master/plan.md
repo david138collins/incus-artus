@@ -50,7 +50,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at step 2 (the layers side by side) when it's built; later, one budget at the fork,
+- **Waiting on David:** whether to show the Oracle step 2's probe (a 4 × 4 base slower at every mark) before building the layers side by side; later, one budget at the fork,
   haze or cover at the skyline's look, and lazy rays fixed to the world or the screen; whether `CLAUDE.md` points at
   the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
@@ -270,7 +270,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         pictures nearly the same; David: "i don't see anything bad about it. Seems like a good thing.", **kept, on from
         build 152**. Step 1 done enough to go on: 1a, 1b, 1d kept; 1c dropped
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
-        base layer first, as its probe
+        base layer first, as its probe. *The probe* (build 153, 337cc47): a 4 × 4 base is slower at every mark (the
+        sea 1.78 → 2.11 ms, the mountain top 1.57 → 3.05), so ray count matters too, and the 8 × 8 base stays; step 2
+        proper's estimate comes down. Builder designs it meanwhile; whether to show the Oracle the table first is
+        David's
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
         made ready; the sky's openness once); change 3 and "light split out" as one; its own pass mark on lag
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into
