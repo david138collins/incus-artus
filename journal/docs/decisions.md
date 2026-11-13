@@ -1700,6 +1700,15 @@ Reference: `Art/quartile minecraft illustration.png`
     a switch at first, flown against the rays, then his look, since the picture changes.
   - **[OPEN] What it gives up, for David:** the far cells are treated as a surface for light, so shadows under
     overhangs and arches aren't made in the far view.
+    - *His condition* (to Counsel): "far light skipping any small details out there may work if the smaller details
+      can carry their own 'shadow', or absence of light, if they're rendered differently. everything has to look
+      even, and reveal everything accurately though. not sure how that'll work". *Counsel's reading of the ways it
+      could work, for Builder to price:* (1) the column's light as designed, where an overhang's underside still
+      darkens itself, since a cell's faces are counted by the way they look and downward faces see no sun; (2) light
+      kept a cell at a time in 3D, as experiment 4b did (David couldn't tell it from rays), which shadows arches
+      truly at more memory and sweep time; (3) both: the column's light for plain columns, a cell's own light for the
+      few that aren't (overhangs, arches, slabs in the air), the same split the Oracle drew for plain land and the
+      rest.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
