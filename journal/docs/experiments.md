@@ -1854,3 +1854,21 @@ Two flights, 18:09 to 18:23: as it stands `kept logs/flight-1794528905.txt`, and
 - **The nodding marks** (99th of the far eye whole): the plain 1.184 against 1.060 standing; the sea 3.147 against
   2.594. The horizon's worst case is a fifth dearer than the still mark at the sea. These are the numbers the gate is
   read against from here.
+
+### Why it runs hot (David: "id really love to know why its running so hot")
+
+Read from LibreHardwareMonitor, 30 s each, 2026-11-12 evening:
+
+| | the processor | its hottest core, mean (highest) | the busiest core | the card |
+|---|---|---|---|---|
+| no game running | 32 W, 5% load | 77 °C (102) | 37% | 16 W, 44 °C |
+| the game, capped at the screen's rate, its own readings off | 26 W, 3% | 73 °C (76) | 26% | 33 W, 49 °C |
+| the same, its readings on | 26 W, 4% | 70 °C (78) | 41% | 33 W, 48 °C |
+| a flight (uncapped), mid-run | 38 W, 6% | 84 °C, to 104 over a flight | 65%, at 5.15 GHz | 81 W, 70 °C |
+
+- **The game at a player's frame rate isn't the heat:** 26 W and a hottest core in the 70s, no hotter than the desk
+  with no game. Its own temperature readings make no difference.
+- **The flights are:** uncapped, one thread prepares frames as fast as it can, so one core sits near its top turbo
+  speed, with the card's 60 to 100 W in the same cooling.
+- **The spikes past 100 °C come without the game too** (102 °C with nothing but the desk's own programs): short bursts
+  on one core at turbo speed, this laptop's way in its Turbo mode.
