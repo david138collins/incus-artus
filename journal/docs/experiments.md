@@ -2573,3 +2573,12 @@ ms, build 158 then build 159:
 - **Step 2 as it stands, against this morning's build 152** (the layers in turn): the spawn 0.69 to 0.66, the plain
   0.88 to 0.87, the mountain top 1.57 to 1.34, high over the spawn 1.61 to 1.30, the sea 1.78 to 1.35, the player's
   run 2.00 to 1.38, the sea nodding's 99th 2.14 to 1.54. Everything under 2 ms, the most at a player's pace 1.56.
+
+### David's look at build 159
+
+David (2026-11-13), after 110 seconds in it, frames capped (logs/session-1794609556.log: it quit cleanly, no
+warnings; the GPU 57 °C at 41 W, the CPU's hottest core 78 °C): **"fantastic"**. He named no lag and no flash on
+arriving at a mark. By his own word before the look ("im not entirely sure i'll be able to see the lag without the
+near view present") the lag's look is owed again once the near eye draws.
+
+Step 2 is done enough to go on: the one dispatch is the far eye's march.
