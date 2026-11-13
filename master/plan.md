@@ -251,7 +251,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         1.18 and the sea 3.15 ms, are the gate's numbers from here
   - [ ] Step 1, the lean step, in halves flown apart, each the same picture pixel for pixel: kept in hand; read
         together (behind a switch, priced on both cards); several steps at once (alone, checked with care); thin haze
-        by whole cells (a look)
+        by whole cells (a look). *1a, kept in hand, is in* (build 143, c89a040, 63409af): 6 to 13% off the far marks
+        (the sea 2.58 → 2.24 ms, its nodding 99th 3.13 → 2.72), the spawn 5% slower, the picture pixel for pixel;
+        kept, its keep-or-drop after the Intel flight. David chose the lean step before the Intel flight
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next

@@ -1495,6 +1495,11 @@ Reference: `Art/quartile minecraft illustration.png`
     no hotter than the desk with no game; the uncapped flights are the heat (one thread pins a core near top turbo
     speed, beside the card's 60 to 100 W in the same cooling); spikes past 100 °C come with no game at all (102 °C at
     the desk), the laptop's Turbo bursts.
+  - **The lean step before the Intel flight** (David's choice, to Builder; the Intel flight when it suits him). Step
+    1a, kept in hand (build 143), against build 142, alternating twice: 6 to 13% off the far marks (the sea 2.58 →
+    2.24 ms, its nodding 99th 3.13 → 2.72; the plain 1.06 → 0.95; a player's run 2.58 → 2.34), the spawn 5% slower
+    (short rays pay for setting up what they keep), the longest rays step for step the same and the picture pixel for
+    pixel. Kept; its keep-or-drop after the Intel flight, since a working card pays for what's held.
   - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.
