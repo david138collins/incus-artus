@@ -181,12 +181,8 @@ pub struct FarEye {
     building: Option<mpsc::Receiver<Atlas>>,
     stand_ins: [wgpu::TextureView; 2],
     /// Whether rays end at the map's edge (`INCUS_FAR_EDGE=0`: marched on toward the reach, as before), and the Oracle's
-    /// two tests (2026-11-12), for measuring: only the left half of each layer marched (`INCUS_TEST_HALF`), and the most
-    /// steps a ray takes (`INCUS_TEST_STEPS`; 768).
+    /// test (2026-11-12), for measuring: the most steps a ray takes (`INCUS_TEST_STEPS`; 768).
     edge: bool,
-    /// Whether a blend's pictures are read together (the lean step, 1b: kept, 3 to 7% off the far marks on the NVIDIA,
-    /// nothing lost on the Intel; `INCUS_FAR_TOGETHER=0` reads them in turn, as before).
-    together: bool,
     /// The layers' sizes in screen pixels, each half the one above (`INCUS_FAR_BASE`: the first, 8 as old's or 4:
     /// step 2's probe).
     layers: [f32; 3],
@@ -201,7 +197,6 @@ pub struct FarEye {
     /// sea, 13% off a player's run; David, looking at build 151: "i don't see anything bad about it. Seems like a good
     /// thing"), or old's half (0.5).
     haze_step: f32,
-    test_half: bool,
     most_steps: f32,
     /// The longest ray (the Oracle's step 0): the pass that counts a layer's rays' steps, each layer's four counts on the
     /// card, where they're read back, and whether a reading is free (0), on its way (1) or ready (2).
@@ -312,7 +307,6 @@ impl FarEye {
         };
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
         let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
-        let together = std::env::var("INCUS_FAR_TOGETHER").as_deref() != Ok("0");
         let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(1.0);
         let base = if std::env::var("INCUS_FAR_BASE").as_deref() == Ok("4") { 4.0 } else { LAYERS[0] };
         let layers = [base, base / 2.0, base / 4.0];
@@ -352,15 +346,14 @@ impl FarEye {
             let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None });
             (pipeline, layout)
         });
-        let test_half = std::env::var_os("INCUS_TEST_HALF").is_some();
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
-        log::info!("The far rays: {}, {most_steps:.0} steps at most{}", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" }, if test_half { ", only the left half of each layer marched (INCUS_TEST_HALF)" } else { "" });
+        log::info!("The far rays: {}, {most_steps:.0} steps at most", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" });
         let tally_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the longest ray"), source: wgpu::ShaderSource::Wgsl(include_str!("far_tally.wgsl").into()) });
         let tally = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("the longest ray"), layout: None, module: &tally_module, entry_point: Some("tally_pass"), compilation_options: Default::default(), cache: None });
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, layers, one, parity: 0, fresh: false, haze_step, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -382,12 +375,8 @@ impl FarEye {
     pub fn settings(&self) -> String {
         let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
-        rays += if self.together { ", a blend's pictures read together" } else { ", a blend's pictures read in turn" };
         rays += &format!(", thin haze stepped by {} of a cell; the layers {} x {}, {} x {} and {} x {} screen pixels", self.haze_step, self.layers[0], self.layers[0], self.layers[1], self.layers[1], self.layers[2], self.layers[2]);
         rays += if self.one.is_some() { ", marched by one dispatch (a finer layer led by the frame before's coarser)" } else { ", marched one after another" };
-        if self.test_half {
-            rays += ", only the left half of each layer marched";
-        }
         if self.most_steps != 768.0 {
             rays += &format!(", {:.0} steps at most", self.most_steps);
         }
@@ -634,13 +623,13 @@ impl FarEye {
                 [forward[0], forward[1], forward[2], 0.0],
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
                 [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],
-                [layer.size.0 as f32, layer.size.1 as f32, pixel, if self.together { 1.0 } else { 0.0 }],
+                [layer.size.0 as f32, layer.size.1 as f32, pixel, 0.0],
                 [sun[0], sun[1], sun[2], look.ambient.clamp(0.0, 1.0)],
                 [REACH, -look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
                 [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if self.edge { 1.0 } else { 0.0 }],
-                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, if self.test_half { 1.0 } else { 0.0 }],
+                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, 0.0],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
                 [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],

@@ -21,8 +21,7 @@ struct Camera {
     // Scaled so a pixel's direction is forward + x·right + y·up for x, y from −1 to 1.
     right: vec4<f32>,
     up: vec4<f32>,
-    // x, y: the layer's size; z: a layer pixel's angle (radians); w: 1 if a blend's pictures are read together (the
-    // lean step, 1b), 0 one after another as each is found wanted.
+    // x, y: the layer's size; z: a layer pixel's angle (radians).
     view: vec4<f32>,
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
@@ -42,7 +41,7 @@ struct Camera {
     // the map's edge.
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
-    // (the Oracle's tests): z the most steps a ray takes (768), w 1 if only the left half of the layer is marched.
+    // (the Oracle's test): z the most steps a ray takes (768).
     pyramid: vec4<f32>,
     // The finer layer's fade in: x where it starts (its pixel so many times its cells), y over how many doublings of
     // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
@@ -517,26 +516,6 @@ fn spot_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> 
     return spot_soft(k, place, l, p);
 }
 
-// A place in the atlas read one picture after another, each only if the last says it's wanted (as before 1b).
-fn fetch_in_turn(at: vec3<f32>) -> Look {
-    let sw = textureSampleLevel(t_solid, soft, at, 0.0).xy;
-    var look = empty_look(true);
-    look.solid = sw.x;
-    look.water = sw.y;
-    look.colour = ROCK;
-    if (sw.x + sw.y <= 0.0) {
-        return look;
-    }
-    let c = textureSampleLevel(t_colour, soft, at, 0.0);
-    if (c.a > 0.0) {
-        look.colour = c.rgb;
-        look.plus = textureSampleLevel(t_plus, soft, at, 0.0).rgb;
-        look.minus = textureSampleLevel(t_minus, soft, at, 0.0).rgb;
-        look.surface = c.a * 4.0;
-    }
-    return look;
-}
-
 // A place's four pictures as fetched together (1b).
 struct Fetched {
     sw: vec2<f32>,
@@ -549,7 +528,7 @@ fn fetch_together(at: vec3<f32>) -> Fetched {
     return Fetched(textureSampleLevel(t_solid, soft, at, 0.0).xy, textureSampleLevel(t_colour, soft, at, 0.0), textureSampleLevel(t_plus, soft, at, 0.0).rgb, textureSampleLevel(t_minus, soft, at, 0.0).rgb);
 }
 
-// What's used of them, by the very tests `fetch_in_turn` makes.
+// What's used of them: the colour and faces only where there's something there and a surface.
 fn look_of(got: Fetched) -> Look {
     var look = empty_look(true);
     look.solid = got.sw.x;
@@ -572,10 +551,7 @@ fn look_at(spot: Spot, p: vec3<f32>) -> Look {
     if (spot.kind == 1) {
         return blend(spot.level, p);
     }
-    if (camera.view.w > 0.5) {
-        return look_of(fetch_together(spot.at));
-    }
-    return fetch_in_turn(spot.at);
+    return look_of(fetch_together(spot.at));
 }
 
 // `far_blend`, from numbers in hand.
@@ -868,7 +844,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
         }
         var look: Look;
-        if (over > camera.fade.z && camera.view.w > 0.5) {
+        if (over > camera.fade.z) {
             // Read together (1b): both levels' places found first, then both levels' pictures fetched at once.
             let here = spot_kept(&kept, place, level, p);
             let there = spot_kept(&kept_next, place, level + 1, p);
@@ -888,12 +864,6 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             }
         } else {
             look = far_blend_kept(&kept, place, level, p);
-            if (look.known && over > camera.fade.z) {
-                let next = far_blend_kept(&kept_next, place, level + 1, p);
-                if (next.known) {
-                    look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
-                }
-            }
         }
         let size = f32(1 << u32(level));
         let thick = select(0.0, max(look.solid, look.water), look.known);
@@ -1233,15 +1203,6 @@ fn map_end(o: vec3<f32>, d: vec3<f32>) -> f32 {
 fn march_pixel(id: vec2<u32>) {
     let size = vec2<u32>(camera.view.xy);
     if (id.x >= size.x || id.y >= size.y) {
-        return;
-    }
-    // The Oracle's test, for measuring: the right half of the layer not marched.
-    if (camera.pyramid.w > 0.5 && id.x * 2u >= size.x) {
-        put_picture(vec2<i32>(id.xy), vec4<f32>(0.0));
-        put_far(vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
-        if (camera.layer.y > 0.5) {
-            put_worth(id.y * size.x + id.x, NO_SKY << 8u);
-        }
         return;
     }
     var shown = 1.0;
