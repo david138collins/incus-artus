@@ -133,9 +133,11 @@ struct Layer {
     factor: f32,
     size: (u32, u32),
     picture: wgpu::TextureView,
-    far: wgpu::TextureView,
+    /// Its distances and its bind group, twice when the layers are marched side by side (each frame writes one and the
+    /// layer below reads the other, the frame before's); else the same one twice.
+    far: [wgpu::TextureView; 2],
     camera: wgpu::Buffer,
-    group: wgpu::BindGroup,
+    group: [wgpu::BindGroup; 2],
 }
 
 /// What's sized to the screen (made again when the screen's size changes, or the bricks' pool grows).
@@ -147,10 +149,10 @@ struct Targets {
     atlas_generation: u32,
     tiles: (u32, u32),
     /// The longest ray's counting (step 0): a bind group a layer, its steps and its counts.
-    tally_groups: Vec<wgpu::BindGroup>,
+    tally_groups: Vec<[wgpu::BindGroup; 2]>,
     layers: Vec<Layer>,
     up_numbers: wgpu::Buffer,
-    up_group: wgpu::BindGroup,
+    up_group: [wgpu::BindGroup; 2],
 }
 
 pub struct FarEye {
@@ -181,6 +183,10 @@ pub struct FarEye {
     /// The layers' sizes in screen pixels, each half the one above (`INCUS_FAR_BASE`: the first, 8 as old's or 4:
     /// step 2's probe).
     layers: [f32; 3],
+    /// Whether the layers are marched side by side (`INCUS_FAR_SIDE=1`, step 2): one pass, a finer layer led by the
+    /// coarser layer of the frame before. And which of the two copies this frame writes.
+    side: bool,
+    parity: usize,
     /// A ray's step through thin haze, in cells (the lean step, 1d; `INCUS_FAR_HAZE_STEP`): a whole cell (20% off the
     /// sea, 13% off a player's run; David, looking at build 151: "i don't see anything bad about it. Seems like a good
     /// thing"), or old's half (0.5).
@@ -300,6 +306,7 @@ impl FarEye {
         let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(1.0);
         let base = if std::env::var("INCUS_FAR_BASE").as_deref() == Ok("4") { 4.0 } else { LAYERS[0] };
         let layers = [base, base / 2.0, base / 4.0];
+        let side = std::env::var("INCUS_FAR_SIDE").as_deref() == Ok("1");
         let test_half = std::env::var_os("INCUS_TEST_HALF").is_some();
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most{}", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" }, if test_half { ", only the left half of each layer marched (INCUS_TEST_HALF)" } else { "" });
@@ -308,7 +315,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, layers, haze_step, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, layers, side, parity: 0, haze_step, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -332,6 +339,9 @@ impl FarEye {
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
         rays += if self.together { ", a blend's pictures read together" } else { ", a blend's pictures read in turn" };
         rays += &format!(", thin haze stepped by {} of a cell; the layers {} x {}, {} x {} and {} x {} screen pixels", self.haze_step, self.layers[0], self.layers[0], self.layers[1], self.layers[1], self.layers[2], self.layers[2]);
+        if self.side {
+            rays += ", marched side by side (a finer layer led by the frame before's coarser)";
+        }
         if self.test_half {
             rays += ", only the left half of each layer marched";
         }
@@ -432,14 +442,25 @@ impl FarEye {
         let nothing_above = buffer("the far layers' nothing above", 16, storage);
         let no_far = texture("the far layers' no distances above", (1, 1), wgpu::TextureFormat::Rgba32Float);
         let mut layers: Vec<Layer> = Vec::new();
-        let mut worth_above: Option<wgpu::Buffer> = None;
+        let mut worth_above: Option<[wgpu::Buffer; 2]> = None;
+        // Side by side: a second copy of each layer's distances and worth, and a layer reads the copy the layer above
+        // isn't writing this frame.
+        let side = self.side;
         for factor in self.layers {
             let size = ((screen.0 as f32 / factor).ceil().max(1.0) as u32, (screen.1 as f32 / factor).ceil().max(1.0) as u32);
             let picture = texture("a far layer", size, wgpu::TextureFormat::Rgba8Unorm);
-            let far = texture("a far layer's distances", size, wgpu::TextureFormat::Rgba32Float);
-            let worth = buffer("a far layer's worth it", (size.0 * size.1) as u64 * 4, storage);
+            let far = {
+                let first = texture("a far layer's distances", size, wgpu::TextureFormat::Rgba32Float);
+                let second = if side { texture("a far layer's distances", size, wgpu::TextureFormat::Rgba32Float) } else { first.clone() };
+                [first, second]
+            };
+            let worth = {
+                let first = buffer("a far layer's worth it", (size.0 * size.1) as u64 * 4, storage);
+                let second = if side { buffer("a far layer's worth it", (size.0 * size.1) as u64 * 4, storage) } else { first.clone() };
+                [first, second]
+            };
             let camera = buffer("a far layer's camera", CAMERA_ROWS as u64 * 16, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
-            let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            let group = [0usize, 1].map(|p| { let q = if side { 1 - p } else { p }; device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("a far layer"),
                 layout: &self.layout,
                 entries: &[
@@ -449,11 +470,11 @@ impl FarEye {
                     entry(3, self.store.index.as_entire_binding()),
                     entry(4, self.store.pool.as_entire_binding()),
                     entry(5, wgpu::BindingResource::TextureView(&picture)),
-                    entry(6, wgpu::BindingResource::TextureView(&far)),
+                    entry(6, wgpu::BindingResource::TextureView(&far[p])),
                     entry(7, starts.as_entire_binding()),
-                    entry(8, worth_above.as_ref().unwrap_or(&nothing_above).as_entire_binding()),
-                    entry(9, worth.as_entire_binding()),
-                    entry(10, wgpu::BindingResource::TextureView(layers.last().map_or(&no_far, |above| &above.far))),
+                    entry(8, worth_above.as_ref().map_or(&nothing_above, |w| &w[q]).as_entire_binding()),
+                    entry(9, worth[p].as_entire_binding()),
+                    entry(10, wgpu::BindingResource::TextureView(layers.last().map_or(&no_far, |above: &Layer| &above.far[q]))),
                     entry(11, self.atlas.as_ref().map_or(&self.store.index, |a| &a.slots).as_entire_binding()),
                     entry(12, wgpu::BindingResource::Sampler(&self.sampler)),
                     entry(13, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[0], |a| &a.solid))),
@@ -461,28 +482,28 @@ impl FarEye {
                     entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
                     entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
                 ],
-            });
+            }) });
             worth_above = Some(worth);
             layers.push(Layer { factor, size, picture, far, camera, group });
         }
         let up_numbers = buffer("bringing it up's numbers", 32, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
         let view = |k: usize| wgpu::BindingResource::TextureView(&layers[k].picture);
-        let up_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let up_group = [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bringing it up"),
             layout: &self.up_layout,
             entries: &[
                 wgpu::BindGroupEntry { binding: 0, resource: view(0) },
                 wgpu::BindGroupEntry { binding: 1, resource: view(1) },
                 wgpu::BindGroupEntry { binding: 2, resource: view(2) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&layers[0].far) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&layers[0].far[p]) },
                 wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Sampler(&self.sampler) },
                 wgpu::BindGroupEntry { binding: 5, resource: up_numbers.as_entire_binding() },
             ],
-        });
+        }));
         let tally_groups = layers
             .iter()
             .zip(&self.tally_counts)
-            .map(|(layer, counts)| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far)), entry(1, counts.as_entire_binding())] }))
+            .map(|(layer, counts)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding())] })))
             .collect();
         self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, tiles, tally_groups, layers, up_numbers, up_group });
     }
@@ -491,6 +512,9 @@ impl FarEye {
     /// recorded).
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, screen: (u32, u32), camera: &Camera, sea_level: f32) {
         self.targets(device, screen);
+        if self.side {
+            self.parity ^= 1;
+        }
         let Some(targets) = &self.targets else { return };
         let (facing, pitch) = (camera.facing.to_radians(), camera.pitch.to_radians());
         let forward = [pitch.cos() * facing.cos(), pitch.cos() * facing.sin(), pitch.sin()];
@@ -552,18 +576,25 @@ impl FarEye {
         let Some(targets) = &self.targets else { return };
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("the far start"), timestamp_writes: timestamps });
         pass.set_pipeline(&self.start);
-        pass.set_bind_group(0, &targets.layers[0].group, &[]);
+        pass.set_bind_group(0, &targets.layers[0].group[self.parity], &[]);
         pass.dispatch_workgroups(targets.tiles.0.div_ceil(8), targets.tiles.1.div_ceil(8), 1);
     }
 
-    /// Layer `k` of the pyramid (0 the base, 8 × 8).
+    /// Layer `k` of the pyramid (0 the base, 8 × 8). Side by side, all the layers are marched in the first's pass (none
+    /// reads what another writes this frame) and the others' passes are empty, kept for their place in the timing.
     pub fn layer(&self, k: usize, encoder: &mut wgpu::CommandEncoder, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) {
         let Some(targets) = &self.targets else { return };
-        let layer = &targets.layers[k];
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("a far layer"), timestamp_writes: timestamps });
-        pass.set_pipeline(&self.march);
-        pass.set_bind_group(0, &layer.group, &[]);
-        pass.dispatch_workgroups(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8), 1);
+        let marched = match (self.side, k) {
+            (false, _) => k..k + 1,
+            (true, 0) => 0..targets.layers.len(),
+            (true, _) => 0..0,
+        };
+        for layer in &targets.layers[marched] {
+            pass.set_pipeline(&self.march);
+            pass.set_bind_group(0, &layer.group[self.parity], &[]);
+            pass.dispatch_workgroups(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8), 1);
+        }
     }
 
     /// The longest ray counted (step 0), after the layers are marched: each layer's rays' steps into its four counts,
@@ -578,7 +609,7 @@ impl FarEye {
             {
                 let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("the longest ray"), timestamp_writes: None });
                 pass.set_pipeline(&self.tally);
-                pass.set_bind_group(0, &targets.tally_groups[k], &[]);
+                pass.set_bind_group(0, &targets.tally_groups[k][self.parity], &[]);
                 pass.dispatch_workgroups(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8), 1);
             }
             encoder.copy_buffer_to_buffer(&self.tally_counts[k], 0, &self.tally_back, 16 * k as u64, 16);
@@ -613,7 +644,7 @@ impl FarEye {
         let attachment = wgpu::RenderPassColorAttachment { view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store } };
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("bringing it up"), color_attachments: &[Some(attachment)], timestamp_writes: timestamps, ..Default::default() });
         pass.set_pipeline(&self.up);
-        pass.set_bind_group(0, &targets.up_group, &[]);
+        pass.set_bind_group(0, &targets.up_group[self.parity], &[]);
         pass.draw(0..3, 0..1);
     }
 }
@@ -707,7 +738,6 @@ mod tests {
             eye.look.sky_weight = weight;
         }
         let screen = (640u32, 400u32);
-        eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("the far eye's test picture"),
             size: wgpu::Extent3d { width: screen.0, height: screen.1, depth_or_array_layers: 1 },
@@ -721,6 +751,19 @@ mod tests {
         let view = target.create_view(&wgpu::TextureViewDescriptor::default());
         let row = (screen.0 * 4).div_ceil(256) * 256;
         let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the picture read back"), size: (row * screen.1) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        // A frame, or as many as asked (`FAR_TEST_FRAMES`: side by side, a finer layer's lead is the frame before's, so
+        // a still picture is whole from the third); the last one's picture read back.
+        let frames = std::env::var("FAR_TEST_FRAMES").ok().and_then(|n| n.parse::<u32>().ok()).unwrap_or(1).max(1);
+        for _ in 1..frames {
+            eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
+            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
+            eye.start(&mut encoder, None);
+            for k in 0..LAYERS.len() {
+                eye.layer(k, &mut encoder, None);
+            }
+            queue.submit([encoder.finish()]);
+        }
+        eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
         eye.start(&mut encoder, None);
         for k in 0..LAYERS.len() {
