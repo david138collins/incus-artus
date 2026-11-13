@@ -1585,6 +1585,21 @@ Reference: `Art/quartile minecraft illustration.png`
       since layers marched at once share a card this probe shows is partly working. Builder recommends building it
       anyway, as the order David took says, unless the Oracle reads this as a reason to go to step 3 or 4; she
       suggests showing the Oracle the table. She designs it and writes its pass mark meanwhile; no flights yet.
+    - **Step 2 proper flown: nothing gained** (build 154, the layers one after another against side by side, each
+      taking its lead from the frame before; standing still the same picture from the third frame). Median ms: the
+      spawn 0.70 / 0.70, the plain 0.88 / 0.88, the mountain top 1.57 / 1.58, high over the spawn 1.61 / 1.53, the sea
+      1.78 / 1.79, a player's run 1.99 / 1.99, the sea's nodding 99th 2.13 / 2.13. The two waits do add (the Oracle's
+      supposition), but three dispatches in one pass still ran in turn, whether by the driver or the library's own
+      barriers isn't known. Not kept; its code behind a switch meanwhile (unset, the same picture and resources).
+    - **[OPEN] Two ways on** (Builder, for David): (a) the form that overlaps them for certain, one dispatch marching
+      all three layers' pixels, about an hour of hers and four flights; it needs six written textures in one pass
+      against the library's default of four, so either that limit is raised or the layers are packed into shared
+      textures; it carries the one-frame lag, for his look if it pays. Or (b) call step 2 read and go to step 3, the
+      gate: typical met (the spawn 0.70, the plain 0.88), worst not quite (the sea 1.78, its nodding 99th 2.13, a
+      player's run 1.99, against 2), so step 4, the long ray cut into lengths, would follow. Builder recommends (a)
+      first: the one move that could take 30 to 40% off the worst marks, the groundwork in; if it gives nothing too,
+      step 2 is closed with a clear answer. *Counsel:* (a), with the layers packed into shared textures rather than
+      the limit raised, by the rule that what must run stays at the default limits.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
