@@ -2252,3 +2252,42 @@ David's go (via Counsel, 2026-11-13): "alright, tell builder to proceed as indic
   - The plain and the spawn, where today only the 8 × 8 marches: slower at 4, by up to half again, since four times
     the rays must fit through the card where today's layer already half fills it at the spawn.
   - The Intel card would pay in full (four times the base's rays); not flown now.
+
+### The probe's result: missed, both ways; the base stays at 8  *(build 153, f20653a; NVIDIA only, fog off)*
+
+Flown 8, 4, 8, 4 (logs/flight-1794595042, -5434, -5828, -6222); the two flights of each agree within 1%. The card's
+whole, median ms (the first, second and third layer's card time in brackets):
+
+| mark | base 8 | base 4 | |
+|---|---|---|---|
+| on the ground at the spawn | 0.69 (0.53, 0.01, 0.04) | 1.90 (1.59, 0.04, 0.14) | 174% slower |
+| the bare plain | 0.88 (0.73, 0.01, 0.04) | 1.68 (1.37, 0.04, 0.14) | 91% slower |
+| the mountain top | 1.57 (0.66, 0.76, 0.04) | 3.05 (1.44, 1.32, 0.15) | 94% slower |
+| high over the spawn | 1.61 (0.81, 0.65, 0.04) | 3.28 (1.98, 1.03, 0.14) | 103% slower |
+| low over the sea | 1.78 (0.70, 0.93, 0.04) | 2.11 (1.34, 0.50, 0.14) | 19% slower |
+| a player's run over the plain | 2.00 (0.91, 0.91, 0.04) | 2.70 (1.38, 1.04, 0.15) | 35% slower |
+| fast across the world | 1.20 (0.41, 0.63, 0.04) | 2.98 (1.40, 1.28, 0.16) | 149% slower |
+| the sea, nodding (99th) | 1.79 (2.15) | 2.24 (2.58) | 25% slower |
+
+- **The guess missed in the open.** "25 to 40% faster where both layers run long": slower at every one of them (19 to
+  103%). "The plain and the spawn slower by up to half again": slower by 91 and 174%.
+- **What it says. A layer's time is not only its longest ray's wait: the number of rays counts.** Four times the
+  base's rays cost 1.9 times (the plain, the sea) to 3 times (the spawn) the base's time. So at this size the card
+  isn't only waiting; "waiting, not working" holds for the layers as they are, and stops holding somewhere between
+  64,000 rays and 256,000.
+- **The Oracle's question** ("if a 4 × 4 base alone costs about what the 4 × 4 layer does today, the two waits were
+  adding"): it costs more, 1.4 times (the sea) to 3 times (high over the spawn) today's 4 × 4 layer. But it marches
+  every pixel where today's marches only where the 8 × 8 said it was wanted, so the probe doesn't answer it cleanly.
+  What it does show: the 8 × 8's culling earns its place, and marching fewer rays is worth more than one fewer wait.
+- **A layer with nothing to march still costs by its pixels:** the third layer marched no ray in either flight; 0.04 ms
+  at 2 × 2 (a million pixels), 0.14 ms at 1 × 1 (four million).
+- **Not kept as the base; the switch stays** (`INCUS_FAR_BASE=4`) for the polish list's fourth pass, a look only, and
+  now priced: 0.3 to 1.7 ms.
+- **For the layers side by side** (step 2 proper): still untested directly. Builder's estimate comes down [low]: the
+  layers marched at once will share a card that this probe shows is partly working, so less than the Oracle's 30 to
+  45% where both run long.
+
+**[LATER] The thin blue line of sea on the horizon at "low over the sea" is there at 8 and gone at 4** (352 sea-blue
+pixels near the horizon against none). David, watching the flights: "i didnt notice anything". Cause unknown. Ruled
+out, each by a picture that didn't change: the step cap (3072 for 768), the sky's weight (0 for 4), the rays' end at
+the map's edge (off). Not known either which of the two pictures is right. To find before a finer base is ever kept.
