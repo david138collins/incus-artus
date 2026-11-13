@@ -1600,6 +1600,22 @@ Reference: `Art/quartile minecraft illustration.png`
       first: the one move that could take 30 to 40% off the worst marks, the groundwork in; if it gives nothing too,
       step 2 is closed with a clear answer. *Counsel:* (a), with the layers packed into shared textures rather than
       the limit raised, by the rule that what must run stays at the default limits.
+    - **(a) taken** (David: "go on with a"). **One dispatch over all three layers** (build 155, led by the frame
+      before; standing still the same picture from the third frame; six written textures in a pass, a limit raised
+      only while its switch is set, to be packed away if kept). One after another, then one dispatch, median ms: the
+      spawn 0.69 / 0.85, the plain 0.88 / 1.00, the mountain top 1.57 / 1.78, high over the spawn 1.61 / 1.66, the sea
+      1.78 / **1.11**, a player's run 1.99 / **1.34**, the sea's nodding 99th 2.14 / **1.30**. The worst marks 33 to
+      38% faster, the light marks 13 to 23% slower. The waits can be overlapped, worth what the Oracle said where a
+      layer's time is a few long rays (the sea, the run), nothing where it's many (the mountain top, high over the
+      spawn); build 154's nothing was the dispatches kept in turn. The one dispatch has a cost of its own, 0.12 to
+      0.2 ms, not yet placed (Builder's suspects: each invocation copying its layer's numbers before it's turned away;
+      the grid's empty third; choosing between three textures at each store). Not kept as it is, by its pass mark.
+      Against the gate: one after another, typical met and worst missed by a hair; one dispatch, worst met with room
+      (1.81 at most), typical on the line (0.85, 1.00).
+    - **[OPEN] Builder recommends one more round** to find and trim the one dispatch's own cost (each suspect off in
+      turn; about 40 minutes and one or two sets of flights). If it comes off, this form meets the gate at both ends
+      and step 4 isn't needed before going on; if not, David chooses a better worst or a better typical, or it comes
+      out and step 4 follows. The lag when turning is his to look at once the numbers settle.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
