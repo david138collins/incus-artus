@@ -2232,3 +2232,23 @@ Each is a look step with its own pass mark and David's eye, tried one at a time 
 5. **The fog line and skyline squares,** if they still show once 4 is in (the plan's own line).
 
 Not to be mixed with the speed steps: each changes the picture, so none is compared pixel for pixel.
+
+## The Oracle's step 2: the layers side by side. First, its probe: a finer base layer  *(plan 2.2)*
+
+David's go (via Counsel, 2026-11-13): "alright, tell builder to proceed as indicated."
+
+### The probe's pass mark (written before the code)
+
+- **What's built:** the base layer's size as a launch setting (`INCUS_FAR_BASE`: 8 as it is, or 4), the layers under
+  it each half the one above (8, 4, 2; or 4, 2, 1). Bringing it up reads the sizes it's given. The reports' pass
+  names stay "8 x 8, 4 x 4, 2 x 2" and mean the first, second and third layer; the report's head says the sizes.
+- **At 8 the picture is pixel for pixel the same** (nothing but where the sizes come from has changed).
+- **At 4 the picture changes:** every pixel of the 4 × 4 is marched, not only where the 8 × 8 said it was wanted. A
+  picture beside the 8's, for the record; David's look when it matters (it's also the polish list's fourth pass).
+- **The question it answers** (the Oracle's): "If a 4 × 4 base alone costs about what the 4 × 4 layer does today, the
+  two waits were adding." Then the layers side by side will pay, by about the 8 × 8's time where both are long.
+- **Flown at 8 and 4, alternating twice.** Builder's guess [low]:
+  - Where both layers run long (the sea, high over the spawn, the mountain top): the far eye 25 to 40% faster at 4.
+  - The plain and the spawn, where today only the 8 × 8 marches: slower at 4, by up to half again, since four times
+    the rays must fit through the card where today's layer already half fills it at the spawn.
+  - The Intel card would pay in full (four times the base's rays); not flown now.
