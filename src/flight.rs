@@ -50,6 +50,9 @@ pub struct Standing {
     hottest: Temperatures,
     /// The most main memory the game held over the measured frames (bytes, read once a second).
     most_main_memory: Option<u64>,
+    /// The longest rays over the measured frames (step 0): each far layer's most steps, and the most rays at once over
+    /// 256, 384 and 512.
+    longest: Vec<[u32; 4]>,
 }
 
 pub struct Flight {
@@ -82,7 +85,7 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), most_main_memory: None });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), most_main_memory: None, longest: Vec::new() });
             }
         }
         log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
@@ -149,6 +152,28 @@ impl Flight {
     pub fn speed(&self, marks: &[crate::marks::Mark]) -> Option<f32> {
         let (k, _) = self.now?;
         marks.get(self.standings[k].mark)?.speed
+    }
+
+    /// The pitch the camera nods to now (degrees), if the standing's mark nods: up and down through its nod, a turn
+    /// every 8 seconds.
+    pub fn nod(&self, marks: &[crate::marks::Mark], now: Instant) -> Option<f32> {
+        let (k, since) = self.now?;
+        let mark = marks.get(self.standings[k].mark)?;
+        let turn = now.duration_since(since).as_secs_f32() / 8.0;
+        let wave = 1.0 - 4.0 * (turn.fract() - 0.5).abs();
+        Some(mark.pitch + mark.nod? * 0.5 * wave)
+    }
+
+    /// The far layers' longest rays, as last counted: the most of each kept over the measured frames.
+    pub fn longest(&mut self, now: Instant, counts: &[[u32; 4]]) {
+        if let Some(standing) = self.measuring(now) {
+            if standing.longest.len() != counts.len() {
+                standing.longest = vec![[0; 4]; counts.len()];
+            }
+            for (kept, new) in standing.longest.iter_mut().zip(counts) {
+                *kept = std::array::from_fn(|k| kept[k].max(new[k]));
+            }
+        }
     }
 
     /// Where the eye is this frame, and how far the window's usable 32s and 64s reach round it (none without a window).
@@ -236,6 +261,10 @@ impl Flight {
             if let (Some(speed), Some(begun), Some(end)) = (mark.speed, standing.eye, standing.end) {
                 let gone = ((end[0] - begun[0]).powi(2) + (end[1] - begun[1]).powi(2) + (end[2] - begun[2]).powi(2)).sqrt();
                 text += &format!("  moving at {speed:.0} blocks a second, straight ahead and level: the eye ended at north {:.1}, east {:.1}, up {:.1}, {gone:.0} blocks from where it began\n", end[0], end[1], end[2]);
+            }
+            if !standing.longest.is_empty() {
+                let layers: Vec<String> = standing.longest.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} steps ({} rays over 256, {} over 384, {} over 512)", c[0], c[1], c[2], c[3])).collect();
+                text += &format!("  the longest ray: {}\n", layers.join("; "));
             }
             if let Some(most) = standing.most_main_memory {
                 text += &format!("  the main memory: at most {:.0} MB in use\n", most as f64 / 1e6);

@@ -12,6 +12,8 @@
 #   scatter  random blocks round it, flown at each count of the dial (optional)
 #   speed    on a flight, the camera flies straight ahead along its facing, level, at this many blocks a second, through
 #            its settling and its measuring (optional; plan 2.2, step 4: the window round the eye, moving)
+#   nod      on a flight, the camera pitched slowly up and down through this many degrees, a turn every 8 seconds
+#            (optional; the Oracle's step 0: the horizon's worst case always met)
 #
 # The places are old's, as its flights stood at them (kept logs/dyno-1794448108.txt, kept logs/dyno-1794433359.txt).
 
@@ -109,3 +111,25 @@ pitch = -8.0
 fog = true
 eyes = ["far"]
 speed = 2000.0
+
+# The horizon's worst case, always met (the Oracle's step 0): the plain and the sea, the camera pitched slowly through
+# two rows of the 8 x 8 layer (16 screen rows of 1,600 at 100 degrees: about 1.4 degrees). Read at their 99th.
+[[mark]]
+name = "the plain, nodding"
+at = [-3975.0, -1192.0]
+above = 0.0
+facing = 180.0
+pitch = 0.4
+fog = true
+eyes = ["far"]
+nod = 1.4
+
+[[mark]]
+name = "the sea, nodding"
+at = [-1905.7, -2137.7]
+above = 20.0
+facing = 228.28
+pitch = -2.0
+fog = true
+eyes = ["far"]
+nod = 1.4

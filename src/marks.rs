@@ -32,6 +32,9 @@ pub struct Mark {
     /// On a flight, the camera flies straight ahead along its facing, level, at this many blocks a second (none: it
     /// stands still).
     pub speed: Option<f32>,
+    /// On a flight, the camera pitched slowly up and down through this many degrees (none: held still), so a horizon's
+    /// worst case is always met (the Oracle's step 0).
+    pub nod: Option<f32>,
 }
 
 /// Random whole blocks round a mark: `counts` of them for each setting of the dial, within `around` columns of it each
@@ -182,8 +185,9 @@ mod tests {
             ("low over the sea", [-1905.7, -2137.7, 151.4], 228.3),
         ];
         // Then the window's two moving marks (plan 2.2, step 4: new, not old's), each with its speed.
-        assert_eq!(marks.len(), old.len() + 2);
-        assert_eq!(marks[old.len()..].iter().map(|m| (m.name.as_str(), m.speed)).collect::<Vec<_>>(), [("a player's run over the plain", Some(200.0)), ("fast across the world", Some(2000.0))]);
+        assert_eq!(marks.len(), old.len() + 4);
+        assert_eq!(marks[old.len()..].iter().map(|m| (m.name.as_str(), m.speed)).collect::<Vec<_>>(), [("a player's run over the plain", Some(200.0)), ("fast across the world", Some(2000.0)), ("the plain, nodding", None), ("the sea, nodding", None)]);
+        assert!(marks[old.len() + 2..].iter().all(|m| m.nod.is_some()), "the nodding marks nod");
         assert!(marks[..old.len()].iter().all(|m| m.speed.is_none()), "old's marks stand still");
         for (mark, (name, at, facing)) in marks.iter().zip(old) {
             assert_eq!(mark.name, name);

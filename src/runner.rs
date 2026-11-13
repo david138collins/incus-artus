@@ -77,6 +77,7 @@ pub fn run() {
         temperatures: crate::temperatures::Watch::start(),
         memory_read: None,
         memory_logged: None,
+        tally_at: None,
     };
     event_loop.run_app(&mut runner).expect("the game runs");
     log::info!("Quitting");
@@ -115,6 +116,8 @@ struct FrameWork {
     card_frames: Vec<Vec<f32>>,
     /// Whether the far eye drew the picture (the panels then go over it; else over the sky's colour).
     far_drew: bool,
+    /// Whether this frame counted the far layers' longest rays (step 0).
+    tallied: bool,
 }
 
 struct Runner {
@@ -139,6 +142,8 @@ struct Runner {
     /// minute).
     memory_read: Option<Instant>,
     memory_logged: Option<Instant>,
+    /// When the far layers' longest rays were last counted (once a second on a flight).
+    tally_at: Option<Instant>,
     flight: Option<Flight>,
 }
 
@@ -371,6 +376,11 @@ impl Runner {
         let (Some(far), Some(encoder)) = (&running.far, &mut work.encoder) else { return true };
         let timestamps = wiring::card_slot(id).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.compute_pass(slot)));
         far.layer(k, encoder, timestamps);
+        // On a flight, once a second after the last layer: the longest rays counted (step 0), outside the layers' timing.
+        if k + 1 == crate::far_eye::LAYERS.len() && self.flight.is_some() && self.tally_at.is_none_or(|at| at.elapsed().as_secs_f32() >= 1.0) && far.tally(&running.card.queue, encoder) {
+            self.tally_at = Some(Instant::now());
+            work.tallied = true;
+        }
         true
     }
 
@@ -394,6 +404,10 @@ impl Runner {
         if let Some(speed) = self.flight.as_ref().and_then(|flight| flight.speed(&self.marks)) {
             let (sin, cos) = self.camera.facing.to_radians().sin_cos();
             self.camera.position += glam::Vec3::new(cos, sin, 0.0) * speed * step;
+        }
+        // A nodding mark: the camera pitched slowly up and down (the Oracle's step 0).
+        if let Some(pitch) = self.flight.as_ref().and_then(|flight| flight.nod(&self.marks, now)) {
+            self.camera.pitch = pitch;
         }
         true
     }
@@ -510,6 +524,12 @@ impl Runner {
         if let Some(running) = &mut self.running {
             work.card_frames = running.card_clock.as_mut().map(|clock| clock.after_submit(&running.card.device)).unwrap_or_default();
         }
+        // The longest rays (step 0): this frame's count asked for, and any that has come back.
+        let far = self.running.as_ref().and_then(|running| running.far.as_ref());
+        if work.tallied && let Some(far) = far {
+            far.tally_sent();
+        }
+        let longest = far.and_then(FarEye::tally_read);
         let eye = self.camera.position;
         let reach = self.flight.as_ref().and(self.running.as_ref()).and_then(|running| running.far.as_ref()).and_then(|far| far.usable_reach([eye.x, eye.y]));
         let heat = self.temperatures.as_ref().map(crate::temperatures::Watch::latest);
@@ -534,6 +554,9 @@ impl Runner {
         }
         if let Some(memory) = main_memory {
             flight.main_memory(shown, memory.in_use);
+        }
+        if let Some(longest) = longest {
+            flight.longest(shown, &longest);
         }
         if flight.finished(shown)
             && let Some(running) = &self.running

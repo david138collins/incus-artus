@@ -73,7 +73,8 @@ struct Camera {
 @group(0) @binding(3) var<storage, read> index: array<u32>;
 @group(0) @binding(4) var<storage, read> pool: array<vec4<u32>>;
 @group(0) @binding(5) var picture: texture_storage_2d<rgba8unorm, write>;
-@group(0) @binding(6) var how_far: texture_storage_2d<r32float, write>;
+// Each pixel's distance (where it first touched anything), and beside it the steps its ray took (the Oracle's step 0).
+@group(0) @binding(6) var how_far: texture_storage_2d<rgba32float, write>;
 // Where each tile's rays start (the start pass's answers).
 @group(0) @binding(7) var<storage, read_write> starts: array<f32>;
 // The pyramid: how much each of the layer above's pixels says its children are worth (255ths) in its low 8 bits, its
@@ -1038,5 +1039,5 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // Kept with its alpha (premultiplied), so the screen can blend it over the layer above.
     textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
     // Kept for the layer below to start its rays from: where it first touched anything.
-    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(seen.touched, 0.0, 0.0, 0.0));
+    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(seen.touched, seen.steps, 0.0, 0.0));
 }
