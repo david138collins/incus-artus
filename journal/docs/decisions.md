@@ -1717,6 +1717,24 @@ Reference: `Art/quartile minecraft illustration.png`
       Way 2 held as the fallback (36 MB more a copy, 72 for the snap; a sweep over about 36 million cells each sun
       step, seconds across threads; about three hours), only if David finds way 3 uneven. Side-by-side pictures,
       rays against each way, at the four marks and at slabs and an arch, brought to him before anything is flown.
+    - **Pictures first, off the screen, and detail to judge them by** (David, to Counsel): "if she can make me the
+      pictures of those without taking the screen, and then fly them later after looking at them and discarding any
+      that are obviously bad, that'd be good. i suspect that they'll all look OK from just the land. after adding
+      forests, buildings, and caves, there'll be something to look at, particularly in the transition. we may want
+      to consider adding some detail to the world; im sure builder would have fun placing some caves, towers, town
+      buildings, and forests of her own design as test objects. Shouldn't a lot of those exist in the 'edit' layer of
+      the worlds 'tablet', though? tricky to sequence everything to not waste time from being too early or too
+      late."
+      - *Counsel:* the pictures are made off the screen by the picture tests, so his screen stays free; flights only
+        for the ways that survive his look.
+      - *On where test detail lives:* two homes already in the plan, both fed through the doorway, neither world
+        generation. The changes layer ("what changed", already carrying his 169 placings) suits hand-placed objects,
+        kept like a player's builds: Builder's towers, town buildings and carved caves. The scatter stage behind the
+        doorway (the Oracle's third part, section 7) suits wide repeating detail, made from a seed as tiles are
+        answered and costing nothing to keep: woods, rows of posts. Both serve the cells of 2 to 16, the far light's
+        evenness and the near eye's marks (2.3), so made now they're not too early. *Counsel's proposed order:* the
+        light pictures on bare land now; then the test detail; then the light pictures again with detail, and
+        flights only for the ways that survive.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
