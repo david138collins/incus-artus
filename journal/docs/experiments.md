@@ -1895,3 +1895,27 @@ The sun's and the sky's cones are left as they are (their own half, if this one 
 - **Flown against build 142 in one session, alternating** (142 from a worktree, as change 2's check was). Builder's
   estimate [low]: 15 to 35% off the 8 × 8 and 4 × 4 layers at the far marks; little at the spawn.
 - **Its keep-or-drop waits on the Intel flight** (Counsel: on a working card every number held is room lost).
+
+### Results: 1a against build 142
+
+Flown 18:46 to 19:12, alternating twice (142 from a worktree, taken down after): 142 `kept logs/flight-1794531167.txt`
+and `-1794531970`; 143 `-1794531569` and `-1794532362`. Each build's two flights agree within 0.01 ms.
+
+| the far eye whole, median ms | 142 | 143, kept in hand | |
+|---|---|---|---|
+| on the ground at the spawn | 0.671, 0.681 | 0.707, 0.719 | +5% |
+| the bare plain | 1.059, 1.059 | 0.950, 0.950 | −10% |
+| the mountain top | 1.786, 1.784 | 1.679, 1.677 | −6% |
+| high over the spawn | 1.755, 1.749 | 1.655, 1.653 | −6% |
+| low over the sea | 2.583, 2.582 | 2.244, 2.240 | −13% |
+| a player's run | 2.580, 2.573 | 2.335, 2.335 | −9% |
+| the plain, nodding, 99th | 1.179, 1.178 | 1.028, 1.026 | −13% |
+| the sea, nodding, 99th | 3.136, 3.133 | 2.721, 2.715 | −13% |
+
+- **The longest rays the same,** step for step (137, 467, 322 and 481, 286 and 455, 558 and 764): met.
+- **The layers:** the 8 × 8 over the sea 1.195 to 0.959 (−20%), at the plain −13%, the mountain top −8%; the 4 × 4
+  over the sea −9%. Inside the 15 to 35% given at the sea's 8 × 8 only; under it elsewhere: missed in part.
+- **The spawn is 5% slower** (0.04 ms), where "little" was given: its rays are short (137 steps at most), and each
+  pays for setting up what it keeps without the steps to earn it back. The fast run reads 3% slower too.
+- **So it pays where it was aimed:** 6 to 13% off the far marks and the horizon's worst case, for 0.04 ms at the
+  cheapest. Kept for now; its keep-or-drop waits on the Intel flight, as agreed.
