@@ -50,7 +50,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at 1d in the game (thin haze by whole cells: the sea 2.22 → 1.78 ms; a fine speckle high over the spawn to check); later, one budget at the fork,
+- **Waiting on David:** his look at step 2 (the layers side by side) when it's built; later, one budget at the fork,
   haze or cover at the skyline's look, and lazy rays fixed to the world or the screen; whether `CLAUDE.md` points at
   the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
@@ -253,7 +253,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         1.18 and the sea 3.15 ms, are the gate's numbers from here. *The Intel flight* (f8d6b01): the Intel card is
         working, not waiting (cost follows how much is marched; 4 to 8 times the NVIDIA's; dearest the mountain top,
         10.5 ms), so each step after is priced on both cards
-  - [ ] Step 1, the lean step, in halves flown apart, each the same picture pixel for pixel: kept in hand; read
+  - [x] Step 1, the lean step, in halves flown apart, each the same picture pixel for pixel: kept in hand; read
         together (behind a switch, priced on both cards); several steps at once (alone, checked with care); thin haze
         by whole cells (a look). *1a, kept in hand, is in* (build 143, c89a040, 63409af): 6 to 13% off the far marks
         (the sea 2.58 → 2.24 ms, its nodding 99th 3.13 → 2.72), the spawn 5% slower, the picture pixel for pixel;
@@ -267,7 +267,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         code costing even off; taken out whole). The fog-off baseline (build 149): the sea 2.20 ms (nodding 99th
         2.69), the plain 0.94, the mountain top 1.59, high over the spawn 1.64. *1d, thin haze by whole cells* (build
         151, a setting): the sea 2.22 → 1.78 ms (nodding 99th 2.14), a player's run 2.29 → 2.00, the plain 0.88; the
-        pictures nearly the same, a fine speckle high over the spawn; waiting on David's look in the game
+        pictures nearly the same; David: "i don't see anything bad about it. Seems like a good thing.", **kept, on from
+        build 152**. Step 1 done enough to go on: 1a, 1b, 1d kept; 1c dropped
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
@@ -308,6 +309,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
+  - [ ] For the polish, not before: the far view's "splotchy" noise made more "orderly" (David, 2026-11-13); Builder's
+        reading and candidates in `journal/docs/decisions.md` (a rounder blend, light from the solid field's slope, an
+        even step offset, a finer base layer)
   - *Gate:* David's eye, on its own terms, the basic way kept; under 4.2 ms at the 99th percentile on the laptop,
     on the flight and at every mark; the Intel card's numbers recorded. **David walks old's world through
     the new eye**

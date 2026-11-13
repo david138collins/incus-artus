@@ -1554,6 +1554,18 @@ Reference: `Art/quartile minecraft illustration.png`
     shorter, not halved (the sea's 558 and 764 steps to 532 and 668). The pictures nearly the same (the sea within
     13/255; high over the spawn a fine speckle, 5% of pixels by more than 4/255). Still a half cell by default until
     David looks in the game.
+  - **1d kept** (David, on build 151 in the game: "i don't see anything bad about it. Seems like a good thing."), on
+    from build 152. **Step 1 is done enough to go on:** 1a, 1b and 1d kept, 1c dropped. The far eye now: the sea 1.78
+    ms (nodding 99th 2.14), a player's run 2.00, the plain 0.88, the mountain top 1.57, high over the spawn 1.61.
+  - **[LATER] The far view's splotchy noise, for the polish** (David, in the same look): "you can see how splotchy the
+    rendering is; im not sure what would cause this, and i'm also not sure it'll look bad at a distance with near
+    field rendered, but im wondering what can be done about how rays are read that could make the look more
+    'orderly' in its noise. something for you to ponder, not to change our immediate work for right now; but its
+    something that will become more relevant at the end when we're polishing everything". Builder's reading
+    (`journal/docs/experiments.md`): the straight blend between cells (creases, faceted lumps), light from each cell's
+    stored face shares (a patch a cell), where the steps fall (rings and streaks), and the 8 × 8 squares brought up
+    crisp. Candidates for the polish: a rounder blend, light from the slope of the solid field, an even (blue-noise)
+    step offset, a finer base layer. Nothing changes now.
 - **[DECIDED 2026-11-13] Fog: for looks only, off by default** (David, to Counsel, at "the fog line" in a summary: "we
   are not using fog."; asked whether to take it out or switch it off: "off by default would be better. it looks nice
   but is most likely reserved for final touches"; and to Builder: "what i mean is we are not using fog or haze or any
