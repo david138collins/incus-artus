@@ -2006,3 +2006,18 @@ Build 143 (1a) against build 144 (trimmed), 08:29 to 08:56 on Optimus: on the NV
 - **What it taught:** the brick's slot and the next level's numbers kept in hand are what the NVIDIA's gain is made
   of, and what the Intel's room is spent on. There's no one version for both; a setting for weaker cards could choose
   the plain march later, if it's ever wanted.
+
+## The Oracle's step 1b: read together  *(plan 2.2)*
+
+### The pass mark (written before the code)
+
+- **What's built,** behind a switch (`INCUS_FAR_TOGETHER`: 1 on, 0 off; off till flown):
+  - A blend fetches how solid, the colour and both faces' pictures at once, with no `if` between them; what's used of
+    them is chosen after, by the very tests as before.
+  - Over a hand-over, both levels' places are found first, then both levels' pictures fetched together.
+- **The picture pixel for pixel the same,** on and off, at five marks over the whole world. The longest rays the same.
+- **Flown on and off on both cards in one session** (Optimus: direction and the Intel's price). Its keep-or-drop comes
+  from an "NVIDIA GPU only" flight after David switches back (Counsel).
+- **Estimates.** The Oracle's [low]: a further 15 to 40% off the open-horizon marks, nothing or a small loss at the
+  spawn. Builder's [low]: 5 to 15% off the far marks on the NVIDIA, since most of a long ray's steps are skips that
+  read no pictures at all; on the Intel 5 to 15% slower.
