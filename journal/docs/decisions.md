@@ -1746,6 +1746,14 @@ Reference: `Art/quartile minecraft illustration.png`
         with a cave mouth, a short street of buildings), shapes whose right light is known; she asks David where and
         in which world before placing any. Her first picture, high over the spawn: the column light close to the
         rays', the same shadows in the same places, a little crisper.
+      - **His look at the first two pictures** (rays beside the column light, high over the spawn and at the spawn,
+        to Builder): "sounds good. those pics look fine to me." Then, on flights: "yeah hold on for a bit, i've got
+        to take a break from watching the screen. we can try to queue up a bunch of flights, and you can run them
+        while i'm sleeping, maybe." So no flights while he rests: Builder works off the screen (the pictures; the
+        column light committed as build 160 unflown; way 3, each cell's own cover, behind a switch with pictures),
+        and writes a night queue as one build with switches (rays against the column light; with and without the
+        cover; the finer base re-priced now light is cheap), shown to him before he goes and started only on his
+        word.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
