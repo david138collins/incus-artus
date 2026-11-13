@@ -487,6 +487,8 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - No spoken words: David's own grunts and hmms; each kind of person or creature could have its own sound. [idea] (vision.md:932-933)
 - Birds sing and flit about at the start. [idea] (vision.md:730)
 - Music wish list: smooth jazz from Macroblank, Oblique Occasions, or Emancipator & 9 Theory: "a long ways off and dependent on how much buzz we can generate". [idea] (vision.md:934-935)
+- Spectrasonics' samples can't be used in the game as sound, only inside actual music (David asked them, 2026-11-13). So sound effects built from Omnisphere's own patches are out; music written in it is fine; Omnisphere's resynthesis of David's own recordings is to be settled with them. [decided] (vision.md:939-943)
+- Reach out to Alexander Brandon, Deus Ex's composer, "one of my favorite games of all time"; he's reachable through alexanderbrandon.net and his Bandcamp. [idea] (vision.md:944-949)
 - The audio direction beyond these. [open] (vision.md:1005; regroup.md:49)
 
 ## 4 Performance and platforms

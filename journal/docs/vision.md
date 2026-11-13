@@ -936,6 +936,17 @@ bread and a blank diary. Birds sing and flit about.
   - All three are independent and reachable. Macroblank and Oblique Occasions are on Bandcamp and
     already collaborate with each other. Emancipator runs his own label, Loci Records.
   - Anything licensed must be free of uncleared samples.
+  - **Spectrasonics** [David 2026-11-13]: David contacted them. Their samples can't be used in the game as sound;
+    only inside actual music. *Counsel:* that touches the sound plan above. Footsteps and fire made from
+    Omnisphere's own patches (the recorded burning piano) are their samples used as game sound, so they're out.
+    Omnisphere's resynthesis of David's own recordings is a question to settle with them, since the sound would be
+    his. Music David writes in Omnisphere is fine.
+  - **Alexander Brandon** [David 2026-11-13]: reach out to him if he has a public presence. He scored Deus Ex, one
+    of David's favourite games of all time, and "he may not have much going on and be amenable". *Counsel's
+    scouting:* he's public and reachable. His site is alexanderbrandon.net, and his Bandcamp
+    (alexanderbrandon.bandcamp.com) has a contact form. He remixed the Deus Ex score with Michiel van den Bos for its
+    20th anniversary (Conspiravision, on Materia Collective). PC Gamer reported him saying he'd sent 50 résumés in a
+    year for one interview, so he may well be open to work.
 - *Counsel:* ship sounds dry and let the game add the space. The sky light's measure of how much sky a
   place sees could also set how much a sound echoes and how muffled it gets in a cave.
 

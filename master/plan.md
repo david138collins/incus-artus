@@ -24,10 +24,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   kept, 1c dropped); step 2, the three layers marched by **one dispatch**, overlapping their waits, on the library's
   default limits. Fog is off and for looks only. The far eye now (build 159): the sea 1.35 ms (nodding 99th 1.54), a
   player's run 1.38, the mountain top 1.34, high over the spawn 1.30, the plain 0.87, the spawn 0.66; **everything
-  under 2 ms**, David's bar, and his look: "fantastic". Next: the gate's two owed items (his look at the rings where
-  levels hand over; the Intel numbers next time Optimus is on); light read from the cell, made on the processor; the
-  skyline look (haze or cover, talked through with him first); then the cells of 2 to 16 with scattered detail, and
-  lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
+  under 2 ms**, David's bar, and his look: "fantastic". Next: light read from the cell, made on the processor; then
+  the gate's two owed items on the far eye as it then stands (his look at the rings where levels hand over; the Intel
+  numbers next time Optimus is on); the skyline look (haze or cover, talked through with him first); then the cells
+  of 2 to 16 with scattered detail, and lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -46,8 +46,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the skyline look, talked through with Builder first (haze or cover); his look at the rings
-  where levels hand over, for the gate; later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** nothing now while light moves to the processor; then his look at the rings where levels hand
+  over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
@@ -288,7 +288,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into
         lengths, marched side by side, joined front to back. *Met by David's bar* (everything under 2 ms, build 157);
         step 4 not needed. Still owed for the gate's line: his look at the rings where levels hand over, and the Intel
-        card's numbers for the final form, for the record
+        card's numbers for the final form, for the record; both after light moves to the processor ("why don't we
+        skip 1. we're putting light on the processor, probably.")
   - [ ] The looks (David's "2, 3 and 4"): the skyline by cover, with a column-height table (haze or cover is his);
         if cover, the sheet (plain far land as rings of mesh) flown as the far levels' rival; the horizon band over
         frames comes as lazy rays

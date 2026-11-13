@@ -1674,6 +1674,10 @@ Reference: `Art/quartile minecraft illustration.png`
     - **His look at build 159** (on his "hell yeah lets see"): "fantastic". 110 seconds, frames capped, a clean quit,
       the card at 57 °C and 41 W; no lag and no flash named on arriving at a mark. The lag's look stays owed once the
       near eye draws.
+    - **The gate's owed items wait for light on the processor** (David, to Counsel: "why don't we skip 1. we're
+      putting light on the processor, probably."). His look at the rings and the Intel card's numbers would be read
+      on a far eye that's about to change, so they come after light read from the cell, made on the processor, which
+      is next.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
