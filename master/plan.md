@@ -50,7 +50,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at 1d (thin haze by whole cells) when it's built; later, one budget at the fork,
+- **Waiting on David:** his look at 1d in the game (thin haze by whole cells: the sea 2.22 → 1.78 ms; a fine speckle high over the spawn to check); later, one budget at the fork,
   haze or cover at the skyline's look, and lazy rays fixed to the world or the screen; whether `CLAUDE.md` points at
   the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
@@ -265,8 +265,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         on from build 147**. Against the gate now: the sea 2.21 ms (nodding 99th 2.72), the plain 0.95, the mountain
         top 1.63, high over the spawn 1.65. *1c, several steps at once,* dropped (build 148: 11 to 25% slower, its
         code costing even off; taken out whole). The fog-off baseline (build 149): the sea 2.20 ms (nodding 99th
-        2.69), the plain 0.94, the mountain top 1.59, high over the spawn 1.64. Next: 1d, thin haze by whole cells (a
-        look)
+        2.69), the plain 0.94, the mountain top 1.59, high over the spawn 1.64. *1d, thin haze by whole cells* (build
+        151, a setting): the sea 2.22 → 1.78 ms (nodding 99th 2.14), a player's run 2.29 → 2.00, the plain 0.88; the
+        pictures nearly the same, a fine speckle high over the spawn; waiting on David's look in the game
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next

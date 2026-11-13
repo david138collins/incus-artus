@@ -1546,6 +1546,14 @@ Reference: `Art/quartile minecraft illustration.png`
   - **1c, several steps at once, dropped** (build 148, off and on alternating twice): 11 to 25% slower at every far
     mark (the sea 2.21 → 2.69 ms), and its code cost the march even switched off, so it's taken out whole (git keeps
     it at build 148). The Oracle's own test had predicted it: 1b gave little, so the card doesn't overlap reads much.
+  - **1d, thin haze by whole cells, tried** (David, told by Builder that haze is the land's own faint fringe, a blend
+    of 2% solid or less, not fog: "sounds like it might actually look better, lets try it"). Build 151, a setting
+    (`INCUS_FAR_HAZE_STEP`, a half cell as it was, or a whole one), alternating twice: the sea 2.22 → **1.78 ms**
+    (−20%), under the gate's 2 worst for the first time, its nodding 99th 2.72 → 2.14; a player's run 2.29 → 2.00
+    (−13%); the plain 0.95 → 0.88; the mountain top, high over the spawn and the spawn 1 to 2%. The longest rays
+    shorter, not halved (the sea's 558 and 764 steps to 532 and 668). The pictures nearly the same (the sea within
+    13/255; high over the spawn a fine speckle, 5% of pixels by more than 4/255). Still a half cell by default until
+    David looks in the game.
 - **[DECIDED 2026-11-13] Fog: for looks only, off by default** (David, to Counsel, at "the fog line" in a summary: "we
   are not using fog."; asked whether to take it out or switch it off: "off by default would be better. it looks nice
   but is most likely reserved for final touches"; and to Builder: "what i mean is we are not using fog or haze or any
