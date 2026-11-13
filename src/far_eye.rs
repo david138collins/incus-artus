@@ -178,6 +178,9 @@ pub struct FarEye {
     /// Whether a blend's pictures are read together (the lean step, 1b: kept, 3 to 7% off the far marks on the NVIDIA,
     /// nothing lost on the Intel; `INCUS_FAR_TOGETHER=0` reads them in turn, as before).
     together: bool,
+    /// A ray's step through thin haze, in cells (the lean step, 1d; `INCUS_FAR_HAZE_STEP`): half a cell as old's, or
+    /// a whole one.
+    haze_step: f32,
     test_half: bool,
     most_steps: f32,
     /// The longest ray (the Oracle's step 0): the pass that counts a layer's rays' steps, each layer's four counts on the
@@ -290,6 +293,7 @@ impl FarEye {
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
         let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
         let together = std::env::var("INCUS_FAR_TOGETHER").as_deref() != Ok("0");
+        let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(0.5);
         let test_half = std::env::var_os("INCUS_TEST_HALF").is_some();
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most{}", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" }, if test_half { ", only the left half of each layer marched (INCUS_TEST_HALF)" } else { "" });
@@ -298,7 +302,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, haze_step, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -321,6 +325,7 @@ impl FarEye {
         let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
         rays += if self.together { ", a blend's pictures read together" } else { ", a blend's pictures read in turn" };
+        rays += &format!(", thin haze stepped by {} of a cell", self.haze_step);
         if self.test_half {
             rays += ", only the left half of each layer marched";
         }
@@ -510,7 +515,7 @@ impl FarEye {
                 (true, _) => look.fade_2,
             };
             let numbers: [[f32; 4]; CAMERA_ROWS] = [
-                [camera.position.x, camera.position.y, camera.position.z, 0.0],
+                [camera.position.x, camera.position.y, camera.position.z, self.haze_step],
                 [forward[0], forward[1], forward[2], 0.0],
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
                 [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],

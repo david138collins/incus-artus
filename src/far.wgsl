@@ -15,7 +15,7 @@
 // (five wide cones up), only where a pixel shows.
 
 struct Camera {
-    // The eye (game axes: x north, y east, z up).
+    // The eye (game axes: x north, y east, z up); w: a ray's step through thin haze, in cells (the lean step, 1d).
     position: vec4<f32>,
     forward: vec4<f32>,
     // Scaled so a pixel's direction is forward + x·right + y·up for x, y from −1 to 1.
@@ -880,7 +880,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         if (thick > 0.0) {
             in_air = false;
             walking = true;
-            dt = select(size * 0.5, size * surface_step, thick > 0.02);
+            // In thin haze (the land's faint fringe, 2% solid or less): half a cell as it was, or a whole one (1d).
+            dt = select(size * camera.position.w, size * surface_step, thick > 0.02);
         } else if (walking && t < walk_to) {
             in_air = false;
             dt = size * surface_step;
