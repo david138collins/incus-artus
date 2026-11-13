@@ -1982,3 +1982,27 @@ game on an igpu without turning some settings way down ... so try the trimmed ve
   Intel. Otherwise 1a stays as built.
 - Builder's guess [low]: on the NVIDIA it gives back a third of 1a's gain; on the Intel it recovers half of 1a's
   loss. So it likely loses by David's rule.
+
+### Results: the trimmer 1a against 1a, on both cards
+
+Build 143 (1a) against build 144 (trimmed), 08:29 to 08:56 on Optimus: on the NVIDIA `kept logs/flight-1794580581.txt`
+(143) and `-1794580977` (144); on the Intel `-1794581377` (143) and `-1794581774` (144). The NVIDIA's numbers here are
+"NVIDIA on Optimus": fair between the two builds, not set beside earlier NVIDIA flights or the gate.
+
+| the far eye whole, median ms | NVIDIA on Optimus: 143, 144 | | Intel: 143, 144 | |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.690, 0.622 | −10% | 5.933, 5.835 | −2% |
+| the bare plain | 0.963, 1.143 | +19% | 6.640, 6.509 | −2% |
+| the mountain top | 1.838, 2.073 | +13% | 10.500, 10.071 | −4% |
+| high over the spawn | 2.017, 1.897 | −6% | 10.108, 9.781 | −3% |
+| low over the sea | 2.424, 2.606 | +8% | 8.562, 8.186 | −4% |
+| a player's run | 2.505, 2.786 | +11% | 9.427, 9.151 | −3% |
+
+- **The trimmed version isn't just better.** On the Intel it wins back 2 to 4%, about to where build 142 stood. On the
+  NVIDIA it's slower at the plain, the mountain top, the sea and a player's run by 8 to 19%, losing 1a's gain there
+  and more. One flight a build, but the differences are many times a flight's spread.
+- **By David's rule, 1a stays as built.** The trim is taken out (build 145 is 143's march again); git keeps it at
+  build 144.
+- **What it taught:** the brick's slot and the next level's numbers kept in hand are what the NVIDIA's gain is made
+  of, and what the Intel's room is spent on. There's no one version for both; a setting for weaker cards could choose
+  the plain march later, if it's ever wanted.

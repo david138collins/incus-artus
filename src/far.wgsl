@@ -369,7 +369,7 @@ fn entry_in(row: Row, cx: i32, cy: i32) -> u32 {
     return entries[u32(row.entries_at + y * row.across + x)];
 }
 
-// A level's numbers for blending.
+// A level's numbers for blending, and the brick last found in it with its slot in the atlas.
 struct Kept {
     row: Row,
     index_at: i32,
@@ -378,15 +378,17 @@ struct Kept {
     bricks: i32,
     bricks_up: i32,
     up: i32,
+    brick: vec3<i32>,
+    slot: u32,
 }
 
 fn kept_none() -> Kept {
-    return Kept(row_none(), 0, 0u, 0u, 0, 0, 0);
+    return Kept(row_none(), 0, 0u, 0u, 0, 0, 0, vec3<i32>(-1), NO_SLOT);
 }
 
 fn keep_level(k: ptr<function, Kept>, level: i32) {
     if ((*k).row.level != level) {
-        *k = Kept(Row(level, vec2<i32>(table(level, 1), table(level, 2)), table(level, 3), table(level, 4)), table(level, 5), u32(table(level, 6)), u32(table(level, 7)), table(level, 8), table(level, 9), table(level, 10));
+        *k = Kept(Row(level, vec2<i32>(table(level, 1), table(level, 2)), table(level, 3), table(level, 4)), table(level, 5), u32(table(level, 6)), u32(table(level, 7)), table(level, 8), table(level, 9), table(level, 10), vec3<i32>(-1), NO_SLOT);
     }
 }
 
@@ -418,7 +420,8 @@ fn keep_place(place: ptr<function, Place>, p: vec3<f32>) {
 }
 
 // `blend_soft`, from numbers in hand. The four "is it summed" reads are left out while the blend's columns sit inside
-// the summed region in hand (every column of a summed region is summed).
+// the summed region in hand (every column of a summed region is summed); the brick's slot is read only when the brick
+// changes.
 fn blend_soft_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Look {
     let size = f32(1 << u32(level));
     let u = p / size - 0.5;
@@ -445,7 +448,12 @@ fn blend_soft_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32
     }
     let wide = (*k).wide;
     let tall = (*k).tall;
-    let slot = slots[u32((*k).index_at + (i32(u32(y) >> wide) * (*k).bricks + i32(u32(x) >> wide)) * (*k).bricks_up + i32(u32(base.z) >> tall))];
+    let brick = vec3<i32>(i32(u32(x) >> wide), i32(u32(y) >> wide), i32(u32(base.z) >> tall));
+    if (any(brick != (*k).brick)) {
+        (*k).brick = brick;
+        (*k).slot = slots[u32((*k).index_at + (brick.y * (*k).bricks + brick.x) * (*k).bricks_up + brick.z)];
+    }
+    let slot = (*k).slot;
     if (slot == NO_SLOT) {
         return blend(level, p);
     }
@@ -659,11 +667,13 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     var bottom_sun = vec3<f32>(0.0);
     var bottom_t = 0.0;
     var bottom_level = -1;
-    // Kept in hand (the lean step, 1a, trimmed): the region's state; the numbers of the level read; the bands' row of
-    // the coarser level the skipping reads; and the level itself over its stretch of the ray, with where its hand-over
-    // begins.
+    // Kept in hand (the lean step, 1a): the region's state; the numbers of the level read and of the next (the
+    // hand-over's); the bands' rows of the two levels the skipping reads; and the level itself over its stretch of the
+    // ray, with where its hand-over begins.
     var place = Place(vec2<i32>(0), false, false, 0u);
     var kept = kept_none();
+    var kept_next = kept_none();
+    var row_own = row_none();
     var row_up = row_none();
     var lv = FIRST;
     var lv_from = 1.0;
@@ -724,16 +734,15 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             }
             let up_size = f32(1 << u32(up));
             let cc = floor(p.xy / up_size);
-            // The coarser column from its row in hand; the level's own from the blend's numbers when they're its.
-            var entry: u32;
+            var row: Row;
             if (k == 0) {
                 keep_row(&row_up, up);
-                entry = entry_in(row_up, i32(cc.x), i32(cc.y));
-            } else if (kept.row.level == up) {
-                entry = entry_in(kept.row, i32(cc.x), i32(cc.y));
+                row = row_up;
             } else {
-                entry = entry_at(up, i32(cc.x), i32(cc.y));
+                keep_row(&row_own, up);
+                row = row_own;
             }
+            let entry = entry_in(row, i32(cc.x), i32(cc.y));
             if (entry == NOT_SUMMED) {
                 continue;
             }
@@ -766,7 +775,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         if (look.known && level < TOP && (t > lv_hand || level != lv)) {
             let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
             if (over > camera.fade.z) {
-                let next = far_blend(level + 1, p);
+                let next = far_blend_kept(&kept_next, place, level + 1, p);
                 if (next.known) {
                     look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
                 }
