@@ -309,9 +309,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
-  - [ ] For the polish, not before: the far view's "splotchy" noise made more "orderly" (David, 2026-11-13); Builder's
-        reading and candidates in `journal/docs/decisions.md` (a rounder blend, light from the solid field's slope, an
-        even step offset, a finer base layer)
+  - [ ] The polish passes, once the gates are met (David, 2026-11-13: "work the rays into a prettier shape without
+        doing much ... we may have a lot of headroom inside the card for making things prettier"), each a look step:
+        the far view's "splotchy" noise made more "orderly" by a rounder blend, light from the solid field's slope, an
+        even (blue-noise) step offset, a finer base layer; the skyline's squares if they still show
+        (`journal/docs/decisions.md`)
   - *Gate:* David's eye, on its own terms, the basic way kept; under 4.2 ms at the 99th percentile on the laptop,
     on the flight and at every mark; the Intel card's numbers recorded. **David walks old's world through
     the new eye**

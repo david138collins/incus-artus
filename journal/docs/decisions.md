@@ -1566,6 +1566,13 @@ Reference: `Art/quartile minecraft illustration.png`
     stored face shares (a patch a cell), where the steps fall (rings and streaks), and the 8 × 8 squares brought up
     crisp. Candidates for the polish: a rounder blend, light from the slope of the solid field, an even (blue-noise)
     step offset, a finer base layer. Nothing changes now.
+  - **The polish passes, noted for the plan's end** (David, to Builder): "please make a note of those polishing step
+    passes where we can try to work the rays into a prettier shape without doing much ... we may have a lot of
+    headroom inside the card for making things prettier". Each a look step with its own pass mark, once the gate is
+    met: (1) a rounder blend, curved weights so the cells' creases go; (2) light from the shape itself, the slope of
+    the solid field; (3) an even offset for the steps (blue noise); (4) a finer base layer (also step 2's probe); (5)
+    the skyline's squares, if they still show. Why it may be cheap: on this card the far passes leave 93 to 99% of the
+    card idle while they wait, so more arithmetic per ray costs little there.
 - **[DECIDED 2026-11-13] Fog: for looks only, off by default** (David, to Counsel, at "the fog line" in a summary: "we
   are not using fog."; asked whether to take it out or switch it off: "off by default would be better. it looks nice
   but is most likely reserved for final touches"; and to Builder: "what i mean is we are not using fog or haze or any
