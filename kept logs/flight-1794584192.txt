@@ -1,0 +1,391 @@
+The flight: Incus Artus, build 146 (37fff5c); the code committed
+The card: Intel(R) Graphics (IntegratedGpu, Dx12, driver 32.0.101.8132 ; chosen by WGPU_ADAPTER_NAME=intel)
+The picture 2560 x 1600, the screen's refresh 240, uncapped; handed to the screen: Immediate; the panel hidden
+Switches: INCUS_FAR_TOGETHER=1, INCUS_FLIGHT=1, WGPU_ADAPTER_NAME=intel
+The far cells: 35379 bricks, 156 MB of 268 MB; the atlas 33644 bricks, 573 MB of texels, built and sent in 3.7 s; bricks of 8, the 32s within 10 regions of the eye, the 64s within 20, rays ended at the map's edge, a blend's pictures read together, blended by the hardware (spread), detail +0 (the first mark held till all were on the card)
+The card's memory: 933 MB in use, 2013 MB held (the library's allocator; the screen's own pictures not in it)
+The main memory: 2844 MB in use (2893 MB at most), 2826 MB of it in memory (2874 MB at most); the machine 33.8 GB, 15.8 GB free
+The marks: data/marks.toml; 5 s settling, then 20 s measured at each (the first settling 30 s more: the session's warm-up)
+
+At on the ground at the spawn (near eye; fog on): the eye at north 0.5, east 0.5, up 395.4, facing 0°, pitch 0.0°
+  going there: 4.5 ms (the doorway answered 1 tiles in 4.2 ms)
+  the longest ray: the 8 x 8 137 steps (0 rays over 256, 0 over 384, 0 over 512); the 4 x 4 0 steps (0 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2837 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 66 °C, its hottest core not read, not read at not read load; the GPU 36 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8255 blocks round it over the measured frames, the 64s 18460
+  the frame: 3277 frames, 164 a second (median); ms median 6.089, 95th 6.811, 99th 7.124, 99.9th 7.463, worst 7.534
+  each pass (ms; 3277 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.002
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.025
+    putting the far cells on the card: on the processor median 0.034, 95th 0.069, 99th 0.089, worst 0.248
+    laying out the panel: on the processor median 0.019, 95th 0.045, 99th 0.059, worst 0.144
+    getting the picture: on the processor median 5.537, 95th 6.008, 99th 6.222, worst 6.652
+    the far start: recording it on the processor median 0.067, 95th 0.148, 99th 0.196, worst 0.432; on the card median 0.022, 95th 0.023, 99th 0.025, worst 0.027
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.009; on the card median 4.403, 95th 4.456, 99th 4.475, worst 5.136
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.002; on the card median 0.105, 95th 0.109, 99th 0.119, worst 0.188
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.044; on the card median 0.332, 95th 0.338, 99th 0.351, worst 0.546
+    bringing it up: recording it on the processor median 0.005, 95th 0.013, 99th 0.018, worst 0.191; on the card median 1.006, 95th 1.018, 99th 1.040, worst 1.206
+    the panel: recording it on the processor median 0.015, 95th 0.032, 99th 0.038, worst 0.368; on the card median 0.010, 95th 0.011, 99th 0.023, worst 0.028
+    handing the card its work: on the processor median 0.251, 95th 0.480, 99th 0.613, worst 1.004
+    showing it: on the processor median 0.095, 95th 0.158, 99th 0.211, worst 0.362
+    measuring: on the processor median 0.010, 95th 0.024, 99th 0.036, worst 0.571
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 6.007, 95th 6.080, 99th 6.242, worst 6.793
+
+At the mountain top on a clear day (near eye; fog off): the eye at north -605.5, east 78.5, up 1025.4, facing 173°, pitch -5.0°
+  going there: 3.9 ms (the doorway answered 1 tiles in 3.8 ms)
+  the longest ray: the 8 x 8 325 steps (92 rays over 256, 0 over 384, 0 over 512); the 4 x 4 481 steps (2356 rays over 256, 439 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2843 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 55 °C, its hottest core not read, not read at not read load; the GPU 34 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8214 blocks round it over the measured frames, the 64s 18346
+  the frame: 1844 frames, 92 a second (median); ms median 10.820, 95th 11.425, 99th 11.831, 99.9th 12.501, worst 16.219
+  each pass (ms; 1844 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.002
+    flying: on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.024
+    putting the far cells on the card: on the processor median 0.045, 95th 0.075, 99th 0.094, worst 0.271
+    laying out the panel: on the processor median 0.026, 95th 0.054, 99th 0.081, worst 0.223
+    getting the picture: on the processor median 10.133, 95th 10.619, 99th 10.950, worst 15.747
+    the far start: recording it on the processor median 0.088, 95th 0.171, 99th 0.266, worst 0.429; on the card median 0.025, 95th 0.030, 99th 0.031, worst 0.036
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.002, 99th 0.002, worst 0.017; on the card median 3.679, 95th 3.734, 99th 3.767, worst 3.794
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.009; on the card median 5.510, 95th 5.587, 99th 5.632, worst 5.702
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.021, worst 0.046; on the card median 0.337, 95th 0.478, 99th 0.502, worst 0.615
+    bringing it up: recording it on the processor median 0.007, 95th 0.015, 99th 0.022, worst 0.102; on the card median 1.036, 95th 1.236, 99th 1.252, worst 1.328
+    the panel: recording it on the processor median 0.020, 95th 0.034, 99th 0.042, worst 0.143; on the card median 0.014, 95th 0.017, 99th 0.021, worst 0.033
+    handing the card its work: on the processor median 0.338, 95th 0.552, 99th 0.660, worst 0.938
+    showing it: on the processor median 0.105, 95th 0.186, 99th 0.239, worst 0.336
+    measuring: on the processor median 0.014, 95th 0.023, 99th 0.034, worst 0.493
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 10.697, 95th 11.210, 99th 11.296, worst 11.889
+
+At the bare plain (near and far eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 4.0 ms (the doorway answered 1 tiles in 3.9 ms)
+  the longest ray: the 8 x 8 468 steps (296 rays over 256, 164 over 384, 0 over 512); the 4 x 4 0 steps (0 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2851 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 53 °C, its hottest core not read, not read at not read load; the GPU 33 °C at 270 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8172 blocks round it over the measured frames, the 64s 18319
+  the frame: 2885 frames, 145 a second (median); ms median 6.894, 95th 7.647, 99th 8.174, 99.9th 8.835, worst 9.239
+  each pass (ms; 2885 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.002
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.024
+    putting the far cells on the card: on the processor median 0.036, 95th 0.072, 99th 0.095, worst 0.252
+    laying out the panel: on the processor median 0.021, 95th 0.050, 99th 0.077, worst 0.233
+    getting the picture: on the processor median 6.317, 95th 6.891, 99th 7.170, worst 7.814
+    the far start: recording it on the processor median 0.071, 95th 0.159, 99th 0.267, worst 0.379; on the card median 0.023, 95th 0.027, 99th 0.028, worst 0.032
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.002, 99th 0.002, worst 0.013; on the card median 5.174, 95th 5.233, 99th 5.265, worst 6.772
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.002; on the card median 0.106, 95th 0.133, 99th 0.142, worst 0.381
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.050; on the card median 0.333, 95th 0.441, 99th 0.476, worst 0.645
+    bringing it up: recording it on the processor median 0.006, 95th 0.014, 99th 0.022, worst 0.052; on the card median 1.008, 95th 1.212, 99th 1.222, worst 1.336
+    the panel: recording it on the processor median 0.016, 95th 0.034, 99th 0.042, worst 0.213; on the card median 0.011, 95th 0.015, 99th 0.023, worst 0.035
+    handing the card its work: on the processor median 0.266, 95th 0.509, 99th 0.687, worst 1.481
+    showing it: on the processor median 0.095, 95th 0.169, 99th 0.239, worst 0.424
+    measuring: on the processor median 0.011, 95th 0.024, 99th 0.036, worst 0.685
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 6.781, 95th 7.232, 99th 7.311, worst 8.453
+
+At the plain with David's build (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 4.9 ms (the doorway answered 1 tiles in 3.8 ms)
+  the longest ray: the 8 x 8 468 steps (296 rays over 256, 164 over 384, 0 over 512); the 4 x 4 0 steps (0 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2840 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 54 °C, its hottest core not read, not read at not read load; the GPU 32 °C at 270 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8172 blocks round it over the measured frames, the 64s 18319
+  made through the doorway: 23 whole blocks, 146 bars, 0 refused
+  the frame: 2894 frames, 145 a second (median); ms median 6.877, 95th 7.565, 99th 8.062, 99.9th 8.575, worst 8.851
+  each pass (ms; 2894 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.006
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.026
+    putting the far cells on the card: on the processor median 0.034, 95th 0.070, 99th 0.090, worst 0.264
+    laying out the panel: on the processor median 0.019, 95th 0.045, 99th 0.067, worst 0.286
+    getting the picture: on the processor median 6.316, 95th 6.849, 99th 7.088, worst 7.599
+    the far start: recording it on the processor median 0.070, 95th 0.145, 99th 0.211, worst 0.360; on the card median 0.022, 95th 0.027, 99th 0.028, worst 0.034
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.066; on the card median 5.173, 95th 5.229, 99th 5.264, worst 5.494
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.008; on the card median 0.106, 95th 0.132, 99th 0.138, worst 0.232
+    the far 2 x 2: recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.046; on the card median 0.332, 95th 0.438, 99th 0.461, worst 0.581
+    bringing it up: recording it on the processor median 0.005, 95th 0.013, 99th 0.020, worst 0.233; on the card median 1.008, 95th 1.207, 99th 1.220, worst 1.301
+    the panel: recording it on the processor median 0.015, 95th 0.033, 99th 0.041, worst 0.218; on the card median 0.011, 95th 0.015, 99th 0.018, worst 0.035
+    handing the card its work: on the processor median 0.253, 95th 0.495, 99th 0.619, worst 1.214
+    showing it: on the processor median 0.093, 95th 0.159, 99th 0.221, worst 0.306
+    measuring: on the processor median 0.011, 95th 0.024, 99th 0.036, worst 0.516
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 6.778, 95th 7.205, 99th 7.277, worst 7.925
+
+At the scatter, the scatter at 1000 (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 11.3 ms (the doorway answered 3 tiles in 9.4 ms)
+  the longest ray: the 8 x 8 468 steps (296 rays over 256, 164 over 384, 0 over 512); the 4 x 4 0 steps (0 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2840 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 52 °C, its hottest core not read, not read at not read load; the GPU 32 °C at 270 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8172 blocks round it over the measured frames, the 64s 18319
+  made through the doorway: 1000 whole blocks, 0 bars, 0 refused
+  the frame: 2888 frames, 145 a second (median); ms median 6.887, 95th 7.624, 99th 8.110, 99.9th 8.782, worst 15.252
+  each pass (ms; 2888 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.024
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.002
+    putting the far cells on the card: on the processor median 0.034, 95th 0.070, 99th 0.089, worst 0.273
+    laying out the panel: on the processor median 0.020, 95th 0.047, 99th 0.064, worst 0.272
+    getting the picture: on the processor median 6.321, 95th 6.904, 99th 7.182, worst 14.215
+    the far start: recording it on the processor median 0.070, 95th 0.149, 99th 0.222, worst 0.399; on the card median 0.023, 95th 0.027, 99th 0.028, worst 0.033
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.008; on the card median 5.174, 95th 5.233, 99th 5.273, worst 6.239
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.002; on the card median 0.106, 95th 0.133, 99th 0.140, worst 0.207
+    the far 2 x 2: recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.053; on the card median 0.333, 95th 0.441, 99th 0.475, worst 0.645
+    bringing it up: recording it on the processor median 0.005, 95th 0.013, 99th 0.021, worst 0.049; on the card median 1.008, 95th 1.211, 99th 1.222, worst 1.304
+    the panel: recording it on the processor median 0.015, 95th 0.034, 99th 0.042, worst 0.186; on the card median 0.011, 95th 0.015, 99th 0.023, worst 0.035
+    handing the card its work: on the processor median 0.251, 95th 0.495, 99th 0.652, worst 1.439
+    showing it: on the processor median 0.094, 95th 0.165, 99th 0.227, worst 0.378
+    measuring: on the processor median 0.011, 95th 0.024, 99th 0.036, worst 0.397
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 6.780, 95th 7.227, 99th 7.314, worst 7.906
+
+At the scatter, the scatter at 10000 (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 13.0 ms (the doorway answered 3 tiles in 9.7 ms)
+  the longest ray: the 8 x 8 468 steps (296 rays over 256, 164 over 384, 0 over 512); the 4 x 4 0 steps (0 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2840 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 59 °C, its hottest core not read, not read at not read load; the GPU 32 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8172 blocks round it over the measured frames, the 64s 18319
+  made through the doorway: 10000 whole blocks, 0 bars, 0 refused
+  the frame: 2889 frames, 145 a second (median); ms median 6.886, 95th 7.581, 99th 8.109, 99.9th 8.882, worst 9.225
+  each pass (ms; 2889 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.001
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.024
+    putting the far cells on the card: on the processor median 0.034, 95th 0.069, 99th 0.090, worst 0.238
+    laying out the panel: on the processor median 0.019, 95th 0.045, 99th 0.073, worst 0.195
+    getting the picture: on the processor median 6.332, 95th 6.878, 99th 7.200, worst 7.818
+    the far start: recording it on the processor median 0.068, 95th 0.146, 99th 0.220, worst 0.515; on the card median 0.023, 95th 0.027, 99th 0.028, worst 0.033
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.007; on the card median 5.172, 95th 5.230, 99th 5.261, worst 6.531
+    the far 4 x 4: recording it on the processor median 0.000, 95th 0.001, 99th 0.002, worst 0.029; on the card median 0.106, 95th 0.133, 99th 0.138, worst 0.387
+    the far 2 x 2: recording it on the processor median 0.000, 95th 0.001, 99th 0.002, worst 0.046; on the card median 0.332, 95th 0.440, 99th 0.472, worst 0.601
+    bringing it up: recording it on the processor median 0.005, 95th 0.013, 99th 0.021, worst 0.102; on the card median 1.008, 95th 1.210, 99th 1.221, worst 1.300
+    the panel: recording it on the processor median 0.015, 95th 0.033, 99th 0.039, worst 0.294; on the card median 0.011, 95th 0.015, 99th 0.022, worst 0.035
+    handing the card its work: on the processor median 0.242, 95th 0.483, 99th 0.661, worst 0.984
+    showing it: on the processor median 0.092, 95th 0.158, 99th 0.222, worst 0.362
+    measuring: on the processor median 0.011, 95th 0.024, 99th 0.037, worst 0.492
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 6.777, 95th 7.223, 99th 7.304, worst 8.187
+
+At the scatter, the scatter at 100000 (near eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 21.1 ms (the doorway answered 3 tiles in 10.1 ms)
+  the longest ray: the 8 x 8 468 steps (296 rays over 256, 164 over 384, 0 over 512); the 4 x 4 0 steps (0 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2845 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 56 °C, its hottest core not read, not read at not read load; the GPU 31 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8172 blocks round it over the measured frames, the 64s 18319
+  made through the doorway: 100000 whole blocks, 0 bars, 0 refused
+  the frame: 2901 frames, 146 a second (median); ms median 6.868, 95th 7.522, 99th 8.026, 99.9th 8.598, worst 8.874
+  each pass (ms; 2901 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.024
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.026
+    putting the far cells on the card: on the processor median 0.035, 95th 0.069, 99th 0.090, worst 0.182
+    laying out the panel: on the processor median 0.020, 95th 0.046, 99th 0.060, worst 0.095
+    getting the picture: on the processor median 6.311, 95th 6.798, 99th 7.083, worst 7.838
+    the far start: recording it on the processor median 0.071, 95th 0.148, 99th 0.205, worst 0.449; on the card median 0.022, 95th 0.025, 99th 0.028, worst 0.029
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.003; on the card median 5.171, 95th 5.227, 99th 5.254, worst 6.226
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.006; on the card median 0.106, 95th 0.129, 99th 0.135, worst 0.419
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.037; on the card median 0.332, 95th 0.368, 99th 0.443, worst 0.580
+    bringing it up: recording it on the processor median 0.006, 95th 0.013, 99th 0.019, worst 0.084; on the card median 1.008, 95th 1.085, 99th 1.215, worst 1.303
+    the panel: recording it on the processor median 0.015, 95th 0.033, 99th 0.039, worst 0.249; on the card median 0.011, 95th 0.013, 99th 0.022, worst 0.027
+    handing the card its work: on the processor median 0.255, 95th 0.495, 99th 0.626, worst 1.072
+    showing it: on the processor median 0.094, 95th 0.156, 99th 0.221, worst 0.359
+    measuring: on the processor median 0.011, 95th 0.022, 99th 0.034, worst 0.410
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 6.775, 95th 7.027, 99th 7.262, worst 7.876
+
+At high over the spawn (far eye; fog on): the eye at north 0.5, east 0.5, up 795.4, facing 0°, pitch -30.0°
+  going there: 4.2 ms (the doorway answered 1 tiles in 4.0 ms)
+  the longest ray: the 8 x 8 286 steps (196 rays over 256, 0 over 384, 0 over 512); the 4 x 4 455 steps (893 rays over 256, 143 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2851 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 63 °C, its hottest core not read, not read at not read load; the GPU 32 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8255 blocks round it over the measured frames, the 64s 18460
+  the frame: 1945 frames, 97 a second (median); ms median 10.278, 95th 10.637, 99th 10.866, 99.9th 11.228, worst 11.804
+  each pass (ms; 1945 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.001
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.001
+    putting the far cells on the card: on the processor median 0.043, 95th 0.066, 99th 0.077, worst 0.234
+    laying out the panel: on the processor median 0.025, 95th 0.038, 99th 0.048, worst 0.110
+    getting the picture: on the processor median 9.620, 95th 9.910, 99th 10.126, worst 11.071
+    the far start: recording it on the processor median 0.083, 95th 0.124, 99th 0.147, worst 0.210; on the card median 0.024, 95th 0.025, 99th 0.027, worst 0.036
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.009; on the card median 5.330, 95th 5.382, 99th 5.416, worst 6.588
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.016; on the card median 3.355, 95th 3.429, 99th 3.459, worst 3.576
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.019, worst 0.059; on the card median 0.334, 95th 0.345, 99th 0.449, worst 0.478
+    bringing it up: recording it on the processor median 0.007, 95th 0.012, 99th 0.013, worst 0.295; on the card median 1.019, 95th 1.034, 99th 1.181, worst 1.231
+    the panel: recording it on the processor median 0.019, 95th 0.032, 99th 0.037, worst 0.321; on the card median 0.011, 95th 0.013, 99th 0.023, worst 0.054
+    handing the card its work: on the processor median 0.322, 95th 0.470, 99th 0.617, worst 0.988
+    showing it: on the processor median 0.102, 95th 0.144, 99th 0.164, worst 0.250
+    measuring: on the processor median 0.013, 95th 0.021, 99th 0.033, worst 0.456
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 10.169, 95th 10.288, 99th 10.545, worst 11.483
+
+At low over the sea (far eye; fog on): the eye at north -1905.7, east -2137.7, up 151.4, facing 228°, pitch -2.0°
+  going there: 4.9 ms (the doorway answered 1 tiles in 4.8 ms)
+  the longest ray: the 8 x 8 558 steps (422 rays over 256, 218 over 384, 37 over 512); the 4 x 4 764 steps (231 rays over 256, 175 over 384, 88 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2852 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 85 °C, its hottest core not read, not read at not read load; the GPU 32 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8250 blocks round it over the measured frames, the 64s 18465
+  the frame: 2280 frames, 114 a second (median); ms median 8.764, 95th 9.128, 99th 9.259, 99.9th 9.525, worst 10.430
+  each pass (ms; 2280 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.001
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.002
+    putting the far cells on the card: on the processor median 0.032, 95th 0.065, 99th 0.075, worst 0.225
+    laying out the panel: on the processor median 0.020, 95th 0.037, 99th 0.048, worst 0.126
+    getting the picture: on the processor median 8.232, 95th 8.379, 99th 8.540, worst 9.472
+    the far start: recording it on the processor median 0.065, 95th 0.118, 99th 0.137, worst 0.238; on the card median 0.022, 95th 0.023, 99th 0.025, worst 0.026
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.034; on the card median 4.306, 95th 4.349, 99th 4.365, worst 4.389
+    the far 4 x 4: recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.002; on the card median 2.900, 95th 2.928, 99th 2.941, worst 2.957
+    the far 2 x 2: recording it on the processor median 0.000, 95th 0.001, 99th 0.002, worst 0.038; on the card median 0.332, 95th 0.340, 99th 0.362, worst 0.446
+    bringing it up: recording it on the processor median 0.005, 95th 0.011, 99th 0.013, worst 0.026; on the card median 1.005, 95th 1.021, 99th 1.090, worst 1.204
+    the panel: recording it on the processor median 0.015, 95th 0.031, 99th 0.035, worst 0.057; on the card median 0.010, 95th 0.011, 99th 0.013, worst 0.024
+    handing the card its work: on the processor median 0.254, 95th 0.449, 99th 0.532, worst 1.000
+    showing it: on the processor median 0.085, 95th 0.140, 99th 0.164, worst 0.401
+    measuring: on the processor median 0.010, 95th 0.021, 99th 0.034, worst 0.494
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 8.677, 95th 8.748, 99th 8.993, worst 9.101
+
+At a player's run over the plain (far eye; fog on): the eye at north -3975.0, east -1192.0, up 167.4, facing 180°, pitch -3.0°
+  going there: 4.2 ms (the doorway answered 1 tiles in 4.0 ms)
+  moving at 200 blocks a second, straight ahead and level: the eye ended at north -8972.9, east -1192.0, up 167.4, 4998 blocks from where it began
+  the longest ray: the 8 x 8 482 steps (806 rays over 256, 255 over 384, 0 over 512); the 4 x 4 764 steps (1757 rays over 256, 719 over 384, 454 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2853 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 65 °C, its hottest core not read, not read at not read load; the GPU 33 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8070 blocks round it over the measured frames, the 64s 18308
+  the frame: 2034 frames, 102 a second (median); ms median 9.768, 95th 11.034, 99th 11.773, 99.9th 12.689, worst 13.053
+  each pass (ms; 2034 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.025
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.026
+    putting the far cells on the card: on the processor median 0.043, 95th 2.195, 99th 4.870, worst 8.869
+    laying out the panel: on the processor median 0.022, 95th 0.040, 99th 0.056, worst 0.227
+    getting the picture: on the processor median 8.902, 95th 10.190, 99th 10.738, worst 12.156
+    the far start: recording it on the processor median 0.075, 95th 0.131, 99th 0.177, worst 0.317; on the card median 0.024, 95th 0.047, 99th 0.053, worst 0.094
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.003; on the card median 5.184, 95th 5.452, 99th 5.556, worst 5.778
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.262; on the card median 3.285, 95th 3.802, 99th 4.095, worst 4.271
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.044; on the card median 0.335, 95th 0.349, 99th 0.538, worst 1.152
+    bringing it up: recording it on the processor median 0.006, 95th 0.012, 99th 0.016, worst 0.071; on the card median 1.013, 95th 1.038, 99th 1.577, worst 2.530
+    the panel: recording it on the processor median 0.017, 95th 0.033, 99th 0.037, worst 0.305; on the card median 0.011, 95th 0.021, 99th 0.032, worst 0.068
+    handing the card its work: on the processor median 0.314, 95th 0.505, 99th 0.674, worst 1.473
+    showing it: on the processor median 0.098, 95th 0.150, 99th 0.191, worst 0.352
+    measuring: on the processor median 0.012, 95th 0.022, 99th 0.034, worst 0.200
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 9.628, 95th 10.735, 99th 11.077, worst 12.501
+
+At fast across the world (far eye; fog on): the eye at north 20000.5, east 0.5, up 1429.4, facing 180°, pitch -8.0°
+  going there: 3.9 ms (the doorway answered 1 tiles in 3.8 ms)
+  moving at 2000 blocks a second, straight ahead and level: the eye ended at north -29999.2, east 0.5, up 1429.4, 50000 blocks from where it began
+  the longest ray: the 8 x 8 290 steps (49 rays over 256, 0 over 384, 0 over 512); the 4 x 4 288 steps (51 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2859 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 87 °C, its hottest core not read, not read at not read load; the GPU 33 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8073 blocks round it over the measured frames, the 64s 18309
+  the frame: 1762 frames, 86 a second (median); ms median 11.616, 95th 15.209, 99th 18.036, 99.9th 20.420, worst 24.757
+  each pass (ms; 1762 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.001
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.003
+    putting the far cells on the card: on the processor median 0.637, 95th 9.234, 99th 15.776, worst 23.716
+    laying out the panel: on the processor median 0.021, 95th 0.045, 99th 0.060, worst 0.236
+    getting the picture: on the processor median 8.786, 95th 12.758, 99th 14.310, worst 16.884
+    the far start: recording it on the processor median 0.065, 95th 0.126, 99th 0.162, worst 0.288; on the card median 0.021, 95th 0.023, 99th 0.025, worst 0.035
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.003; on the card median 3.600, 95th 4.012, 99th 4.078, worst 5.444
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.004; on the card median 6.203, 95th 7.766, 99th 8.292, worst 8.470
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.019, worst 0.048; on the card median 0.338, 95th 0.355, 99th 0.389, worst 0.496
+    bringing it up: recording it on the processor median 0.006, 95th 0.012, 99th 0.015, worst 0.098; on the card median 1.068, 95th 1.125, 99th 1.183, worst 1.293
+    the panel: recording it on the processor median 0.016, 95th 0.033, 99th 0.040, worst 0.102; on the card median 0.017, 95th 0.022, 99th 0.024, worst 0.033
+    handing the card its work: on the processor median 0.355, 95th 0.946, 99th 1.299, worst 1.805
+    showing it: on the processor median 0.090, 95th 0.157, 99th 0.197, worst 0.569
+    measuring: on the processor median 0.010, 95th 0.022, 99th 0.032, worst 0.198
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 11.364, 95th 13.326, 99th 13.913, worst 14.442
+
+At the plain, nodding (far eye; fog on): the eye at north -3975.0, east -1192.0, up 137.4, facing 180°, pitch 0.4°
+  going there: 3.5 ms (the doorway answered 1 tiles in 3.3 ms)
+  the longest ray: the 8 x 8 469 steps (353 rays over 256, 163 over 384, 0 over 512); the 4 x 4 0 steps (0 rays over 256, 0 over 384, 0 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2863 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 76 °C, its hottest core not read, not read at not read load; the GPU 34 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8172 blocks round it over the measured frames, the 64s 18389
+  the frame: 2915 frames, 146 a second (median); ms median 6.848, 95th 7.339, 99th 7.571, 99.9th 8.156, worst 8.441
+  each pass (ms; 2915 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.035
+    flying: on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.029
+    putting the far cells on the card: on the processor median 0.033, 95th 0.064, 99th 0.072, worst 0.257
+    laying out the panel: on the processor median 0.019, 95th 0.035, 99th 0.042, worst 0.182
+    getting the picture: on the processor median 6.303, 95th 6.724, 99th 6.933, worst 7.768
+    the far start: recording it on the processor median 0.064, 95th 0.125, 99th 0.140, worst 0.305; on the card median 0.022, 95th 0.023, 99th 0.027, worst 0.049
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.002; on the card median 5.165, 95th 5.356, 99th 5.395, worst 6.224
+    the far 4 x 4: recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.004; on the card median 0.106, 95th 0.108, 99th 0.130, worst 0.180
+    the far 2 x 2: recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.037; on the card median 0.332, 95th 0.338, 99th 0.426, worst 0.476
+    bringing it up: recording it on the processor median 0.005, 95th 0.011, 99th 0.012, worst 0.031; on the card median 1.008, 95th 1.020, 99th 1.121, worst 1.224
+    the panel: recording it on the processor median 0.015, 95th 0.030, 99th 0.034, worst 0.229; on the card median 0.011, 95th 0.012, 99th 0.023, worst 0.052
+    handing the card its work: on the processor median 0.229, 95th 0.419, 99th 0.499, worst 1.496
+    showing it: on the processor median 0.084, 95th 0.135, 99th 0.157, worst 0.332
+    measuring: on the processor median 0.010, 95th 0.022, 99th 0.035, worst 0.467
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 6.769, 95th 6.972, 99th 7.200, worst 7.872
+
+At the sea, nodding (far eye; fog on): the eye at north -1905.7, east -2137.7, up 151.4, facing 228°, pitch -2.0°
+  going there: 5.1 ms (the doorway answered 1 tiles in 5.0 ms)
+  the longest ray: the 8 x 8 563 steps (448 rays over 256, 230 over 384, 38 over 512); the 4 x 4 768 steps (280 rays over 256, 203 over 384, 123 over 512); the 2 x 2 0 steps (0 rays over 256, 0 over 384, 0 over 512)
+  the main memory: at most 2855 MB in use
+  the heat, each at its most (the GPU's clock at its least): the CPU area 54 °C, its hottest core not read, not read at not read load; the GPU 32 °C at 277 MHz, not read at not read load
+  the window round the eye: the usable 32s reached at least 8178 blocks round it over the measured frames, the 64s 18392
+  the frame: 2292 frames, 115 a second (median); ms median 8.684, 95th 9.786, 99th 10.229, 99.9th 10.868, worst 11.090
+  each pass (ms; 2292 frames timed on the card):
+    hearing the window: on the processor not run
+    going to a mark: on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.025
+    flying: on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.064
+    putting the far cells on the card: on the processor median 0.041, 95th 0.083, 99th 0.120, worst 0.337
+    laying out the panel: on the processor median 0.024, 95th 0.059, 99th 0.085, worst 0.375
+    getting the picture: on the processor median 7.949, 95th 8.980, 99th 9.380, worst 9.688
+    the far start: recording it on the processor median 0.080, 95th 0.192, 99th 0.291, worst 0.395; on the card median 0.023, 95th 0.029, 99th 0.029, worst 0.031
+    the far 8 x 8: recording it on the processor median 0.001, 95th 0.002, 99th 0.002, worst 0.031; on the card median 4.338, 95th 4.487, 99th 4.597, worst 5.250
+    the far 4 x 4: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.030; on the card median 2.639, 95th 3.454, 99th 3.719, worst 4.192
+    the far 2 x 2: recording it on the processor median 0.001, 95th 0.001, 99th 0.002, worst 0.060; on the card median 0.333, 95th 0.449, 99th 0.491, worst 0.644
+    bringing it up: recording it on the processor median 0.007, 95th 0.018, 99th 0.025, worst 0.125; on the card median 1.011, 95th 1.215, 99th 1.230, worst 1.317
+    the panel: recording it on the processor median 0.018, 95th 0.036, 99th 0.047, worst 0.282; on the card median 0.012, 95th 0.017, 99th 0.023, worst 0.034
+    handing the card its work: on the processor median 0.314, 95th 0.583, 99th 0.782, worst 1.740
+    showing it: on the processor median 0.101, 95th 0.202, 99th 0.267, worst 0.421
+    measuring: on the processor median 0.013, 95th 0.025, 99th 0.035, worst 0.965
+    the doorway: on the processor not run
+    summing the far cells: on the processor not run
+    making the far textures: on the processor not run
+    reading the temperatures: on the processor not run
+  the card's whole: median 8.558, 95th 9.473, 99th 9.831, worst 10.567

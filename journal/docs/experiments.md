@@ -2021,3 +2021,28 @@ Build 143 (1a) against build 144 (trimmed), 08:29 to 08:56 on Optimus: on the NV
 - **Estimates.** The Oracle's [low]: a further 15 to 40% off the open-horizon marks, nothing or a small loss at the
   spawn. Builder's [low]: 5 to 15% off the far marks on the NVIDIA, since most of a long ray's steps are skips that
   read no pictures at all; on the Intel 5 to 15% slower.
+
+### Results: read together, off and on, on both cards (on Optimus)
+
+Build 146, 09:36 to 10:03: the NVIDIA on Optimus off `kept logs/flight-1794583011.txt`, on `-1794583397`; the Intel off
+`-1794583796`, on `-1794584192`. One flight each.
+
+| the far eye whole, median ms | NVIDIA on Optimus: off, on | | Intel: off, on | |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.694, 0.686 | −1% | 6.042, 6.007 | −1% |
+| the bare plain | 0.985, 0.958 | −3% | 6.812, 6.781 | 0% |
+| the mountain top | 1.880, 2.034 | **+8%** | 10.891, 10.697 | −2% |
+| high over the spawn | 2.008, 1.816 | −10% | 10.428, 10.169 | −2% |
+| low over the sea | 2.494, 2.381 | −5% | 8.854, 8.677 | −2% |
+| a player's run | 2.573, 2.447 | −5% | 9.732, 9.628 | −1% |
+| the sea, nodding | 2.464, 2.352 | −5% | 8.783, 8.558 | −3% |
+
+- **A small gain, not the large one guessed.** The Oracle gave a further 15 to 40% off the open-horizon marks; it's 3
+  to 5% there. Builder gave 5 to 15% on the NVIDIA: met only high over the spawn (−10%).
+- **The mountain top is 8% slower on the NVIDIA.** Not explained yet; it's the mark with the fog off and the most
+  rays in its 4 × 4.
+- **The Intel doesn't pay, against both guesses:** 0 to 3% faster with it on.
+- **Why so little, most likely:** a long ray's steps are mostly skips, which read bands and no pictures at all, so
+  there's little for reading together to shorten. By the Oracle's own test ("if 1b gives nothing, the card doesn't
+  overlap reads as I believe, and 1c won't pay either") this is between: something, not much.
+- **Its keep-or-drop** waits on the "NVIDIA GPU only" flights after David switches back.
