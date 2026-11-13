@@ -21,7 +21,8 @@ struct Camera {
     // Scaled so a pixel's direction is forward + x·right + y·up for x, y from −1 to 1.
     right: vec4<f32>,
     up: vec4<f32>,
-    // x, y: the layer's size; z: a layer pixel's angle (radians); w: rays a pixel.
+    // x, y: the layer's size; z: a layer pixel's angle (radians); w: 1 if a blend's pictures are read together (the
+    // lean step, 1b), 0 one after another as each is found wanted.
     view: vec4<f32>,
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
@@ -419,10 +420,18 @@ fn keep_place(place: ptr<function, Place>, p: vec3<f32>) {
     *place = Place(r, true, entry_at(REGION, r.x, r.y) != NOT_SUMMED, usable);
 }
 
-// `blend_soft`, from numbers in hand. The four "is it summed" reads are left out while the blend's columns sit inside
-// the summed region in hand (every column of a summed region is summed); the brick's slot is read only when the brick
-// changes.
-fn blend_soft_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Look {
+// Where a blend reads (the lean step): not summed (`kind` 0: unknown), by the code's blend at `level` (1: where the
+// bricks can't answer), or at a place in the atlas (2).
+struct Spot {
+    kind: i32,
+    level: i32,
+    at: vec3<f32>,
+}
+
+// `blend_soft`'s place, from numbers in hand. The four "is it summed" reads are left out while the blend's columns sit
+// inside the summed region in hand (every column of a summed region is summed); the brick's slot is read only when the
+// brick changes.
+fn spot_soft(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Spot {
     let size = f32(1 << u32(level));
     let u = p / size - 0.5;
     let b = floor(u);
@@ -437,14 +446,14 @@ fn blend_soft_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32
     if (!inside) {
         for (var n = 0; n < 4; n++) {
             if (entry_in(row, base.x + (n & 1), base.y + (n >> 1)) == NOT_SUMMED) {
-                return empty_look(false);
+                return Spot(0, level, vec3<f32>(0.0));
             }
         }
     }
     let x = base.x - row.least.x;
     let y = base.y - row.least.y;
     if (x < 0 || y < 0 || base.z < 0 || x >= row.across || y >= row.across || base.z >= (*k).up) {
-        return blend(level, p);
+        return Spot(1, level, vec3<f32>(0.0));
     }
     let wide = (*k).wide;
     let tall = (*k).tall;
@@ -455,11 +464,28 @@ fn blend_soft_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32
     }
     let slot = (*k).slot;
     if (slot == NO_SLOT) {
-        return blend(level, p);
+        return Spot(1, level, vec3<f32>(0.0));
     }
     let origin = vec3<f32>(f32(slot & 0xFFu), f32((slot >> 8u) & 0xFFu), f32(slot >> 16u)) * camera.atlas.w;
     let local = vec3<f32>(f32(u32(x) & ((1u << wide) - 1u)), f32(u32(y) & ((1u << wide) - 1u)), f32(u32(base.z) & ((1u << tall) - 1u)));
-    let at = (origin + local + f + 0.5) / camera.atlas.xyz;
+    return Spot(2, level, (origin + local + f + 0.5) / camera.atlas.xyz);
+}
+
+// `far_blend`'s place, from numbers in hand: the level that can be read there, and where.
+fn spot_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Spot {
+    var l = level;
+    while (l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
+        l += 1;
+    }
+    if (camera.layer.w < 0.5) {
+        return Spot(1, l, vec3<f32>(0.0));
+    }
+    keep_level(k, l);
+    return spot_soft(k, place, l, p);
+}
+
+// A place in the atlas read one picture after another, each only if the last says it's wanted (as before 1b).
+fn fetch_in_turn(at: vec3<f32>) -> Look {
     let sw = textureSampleLevel(t_solid, soft, at, 0.0).xy;
     var look = empty_look(true);
     look.solid = sw.x;
@@ -478,17 +504,50 @@ fn blend_soft_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32
     return look;
 }
 
+// A place's four pictures as fetched together (1b).
+struct Fetched {
+    sw: vec2<f32>,
+    c: vec4<f32>,
+    plus: vec3<f32>,
+    minus: vec3<f32>,
+}
+
+fn fetch_together(at: vec3<f32>) -> Fetched {
+    return Fetched(textureSampleLevel(t_solid, soft, at, 0.0).xy, textureSampleLevel(t_colour, soft, at, 0.0), textureSampleLevel(t_plus, soft, at, 0.0).rgb, textureSampleLevel(t_minus, soft, at, 0.0).rgb);
+}
+
+// What's used of them, by the very tests `fetch_in_turn` makes.
+fn look_of(got: Fetched) -> Look {
+    var look = empty_look(true);
+    look.solid = got.sw.x;
+    look.water = got.sw.y;
+    look.colour = ROCK;
+    if (got.sw.x + got.sw.y > 0.0 && got.c.a > 0.0) {
+        look.colour = got.c.rgb;
+        look.plus = got.plus;
+        look.minus = got.minus;
+        look.surface = got.c.a * 4.0;
+    }
+    return look;
+}
+
+// A spot's look.
+fn look_at(spot: Spot, p: vec3<f32>) -> Look {
+    if (spot.kind == 0) {
+        return empty_look(false);
+    }
+    if (spot.kind == 1) {
+        return blend(spot.level, p);
+    }
+    if (camera.view.w > 0.5) {
+        return look_of(fetch_together(spot.at));
+    }
+    return fetch_in_turn(spot.at);
+}
+
 // `far_blend`, from numbers in hand.
 fn far_blend_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Look {
-    var l = level;
-    while (l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
-        l += 1;
-    }
-    if (camera.layer.w < 0.5) {
-        return blend(l, p);
-    }
-    keep_level(k, l);
-    return blend_soft_kept(k, place, l, p);
+    return look_at(spot_kept(k, place, level, p), p);
 }
 
 // Two looks mixed: `w` of the second.
@@ -768,13 +827,35 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         if (skipped) {
             continue;
         }
-        var look = far_blend_kept(&kept, place, level, p);
         // Over the last stretch before the next level takes over, the two blended, so the change is gradual, never a
         // seam (seams drew rings round the eye over flat water that moved as it moved: David, build 69). Its logarithm
         // only from where the hand-over could begin.
-        if (look.known && level < TOP && (t > lv_hand || level != lv)) {
-            let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
-            if (over > camera.fade.z) {
+        var over = 0.0;
+        if (level < TOP && (t > lv_hand || level != lv)) {
+            over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
+        }
+        var look: Look;
+        if (over > camera.fade.z && camera.view.w > 0.5) {
+            // Read together (1b): both levels' places found first, then both levels' pictures fetched at once.
+            let here = spot_kept(&kept, place, level, p);
+            let there = spot_kept(&kept_next, place, level + 1, p);
+            if (here.kind == 2 && there.kind == 2) {
+                let got = fetch_together(here.at);
+                let got_next = fetch_together(there.at);
+                look = look_of(got);
+                look = mix_looks(look, look_of(got_next), (over - camera.fade.z) / (1.0 - camera.fade.z));
+            } else {
+                look = look_at(here, p);
+                if (look.known) {
+                    let next = look_at(there, p);
+                    if (next.known) {
+                        look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
+                    }
+                }
+            }
+        } else {
+            look = far_blend_kept(&kept, place, level, p);
+            if (look.known && over > camera.fade.z) {
                 let next = far_blend_kept(&kept_next, place, level + 1, p);
                 if (next.known) {
                     look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
