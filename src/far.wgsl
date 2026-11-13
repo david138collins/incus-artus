@@ -73,17 +73,50 @@ struct Camera {
 @group(0) @binding(2) var<storage, read> entries: array<u32>;
 @group(0) @binding(3) var<storage, read> index: array<u32>;
 @group(0) @binding(4) var<storage, read> pool: array<vec4<u32>>;
+// Where each tile's rays start (the start pass's answers).
+@group(0) @binding(7) var<storage, read_write> starts: array<f32>;
+// ── One layer's outputs: begin ── (the one-dispatch form, `far_all.wgsl`, is put in this part's place by `far_eye.rs`:
+// keep the two marks' lines as they are)
 @group(0) @binding(5) var picture: texture_storage_2d<rgba8unorm, write>;
 // Each pixel's distance (where it first touched anything), and beside it the steps its ray took (the Oracle's step 0).
 @group(0) @binding(6) var how_far: texture_storage_2d<rgba32float, write>;
-// Where each tile's rays start (the start pass's answers).
-@group(0) @binding(7) var<storage, read_write> starts: array<f32>;
 // The pyramid: how much each of the layer above's pixels says its children are worth (255ths) in its low 8 bits, its
 // sky light handed down over them (2b); and this layer's word for the layer below.
 @group(0) @binding(8) var<storage, read> worth_in: array<u32>;
 @group(0) @binding(9) var<storage, read_write> worth_out: array<u32>;
 // The layer above's distances (the base: a placeholder never read).
 @group(0) @binding(10) var far_above: texture_2d<f32>;
+
+fn put_picture(at: vec2<i32>, v: vec4<f32>) {
+    textureStore(picture, at, v);
+}
+
+fn put_far(at: vec2<i32>, v: vec4<f32>) {
+    textureStore(how_far, at, v);
+}
+
+fn put_worth(i: u32, v: u32) {
+    worth_out[i] = v;
+}
+
+fn get_worth(i: u32) -> u32 {
+    return worth_in[i];
+}
+
+fn far_above_edge() -> vec2<i32> {
+    return vec2<i32>(textureDimensions(far_above)) - 1;
+}
+
+fn get_far_above(at: vec2<i32>) -> f32 {
+    return textureLoad(far_above, at, 0).x;
+}
+
+// One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
+@compute @workgroup_size(8, 8)
+fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
+    march_pixel(id.xy);
+}
+// ── One layer's outputs: end ──
 // The far bricks as textures (change 1, `atlas.rs`): each brick place's slot in the atlas, the filter, how solid and
 // how watery, and the colour and faces spread into empty neighbours (with the surface ÷ 4).
 @group(0) @binding(11) var<storage, read> slots: array<u32>;
@@ -1196,32 +1229,31 @@ fn map_end(o: vec3<f32>, d: vec3<f32>) -> f32 {
     return leaves(o.xy, d.xy, lo - s, hi + s);
 }
 
-// One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
-@compute @workgroup_size(8, 8)
-fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
+// A pixel of a layer of the pyramid: its ray, if the layer above said it's worth it.
+fn march_pixel(id: vec2<u32>) {
     let size = vec2<u32>(camera.view.xy);
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }
     // The Oracle's test, for measuring: the right half of the layer not marched.
     if (camera.pyramid.w > 0.5 && id.x * 2u >= size.x) {
-        textureStore(picture, vec2<i32>(id.xy), vec4<f32>(0.0));
-        textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
+        put_picture(vec2<i32>(id.xy), vec4<f32>(0.0));
+        put_far(vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
         if (camera.layer.y > 0.5) {
-            worth_out[id.y * size.x + id.x] = NO_SKY << 8u;
+            put_worth(id.y * size.x + id.x, NO_SKY << 8u);
         }
         return;
     }
     var shown = 1.0;
     let parent = min(vec2<u32>((vec2<f32>(id.xy) + 0.5) * camera.pyramid.x), vec2<u32>(u32(max(camera.layer.x, 1.0)) - 1u, 65535u));
     if (camera.layer.x > 0.0) {
-        let worth = worth_in[parent.y * u32(camera.layer.x) + parent.x] & 0xFFu;
+        let worth = get_worth(parent.y * u32(camera.layer.x) + parent.x) & 0xFFu;
         shown = f32(worth) / 255.0;
         if (worth == 0u) {
-            textureStore(picture, vec2<i32>(id.xy), vec4<f32>(0.0));
-            textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
+            put_picture(vec2<i32>(id.xy), vec4<f32>(0.0));
+            put_far(vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
             if (camera.layer.y > 0.5) {
-                worth_out[id.y * size.x + id.x] = NO_SKY << 8u;
+                put_worth(id.y * size.x + id.x, NO_SKY << 8u);
             }
             return;
         }
@@ -1235,11 +1267,11 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     // A finer layer's rays start a little short of the nearest touch among their parent and its neighbours.
     if (camera.layer.x > 0.0 && camera.follow.x > 0.5) {
         let above = vec2<i32>(parent);
-        let edge = vec2<i32>(textureDimensions(far_above)) - 1;
+        let edge = far_above_edge();
         var nearest = camera.reach.x;
         for (var k = 0; k < 9; k++) {
             let at = clamp(above + vec2<i32>(k % 3 - 1, k / 3 - 1), vec2<i32>(0), edge);
-            nearest = min(nearest, textureLoad(far_above, at, 0).x);
+            nearest = min(nearest, get_far_above(at));
         }
         begin = max(begin, nearest - 2.0 - nearest * camera.view.z * 4.0);
     }
@@ -1260,8 +1292,8 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
         var have = false;
         if (camera.layer.x > 0.0) {
-            let above = worth_in[parent.y * u32(camera.layer.x) + parent.x] >> 8u;
-            let parent_touch = textureLoad(far_above, vec2<i32>(parent), 0).x;
+            let above = get_worth(parent.y * u32(camera.layer.x) + parent.x) >> 8u;
+            let parent_touch = get_far_above(vec2<i32>(parent));
             if (above != NO_SKY && (above >> 16u) == 0u && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
                 open = f32(above & 0xFFFFu) / 65535.0;
                 have = true;
@@ -1292,7 +1324,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         here = sky(d) * (1.0 - shown) + land * shown;
     }
     if (camera.layer.y > 0.5) {
-        worth_out[id.y * size.x + id.x] = u32(round(worth_of(seen.distance, seen.level) * 255.0)) | (handed << 8u);
+        put_worth(id.y * size.x + id.x, u32(round(worth_of(seen.distance, seen.level) * 255.0)) | (handed << 8u));
     }
     var colour = here;
     if (camera.reach.z > 1.5 && seen.level >= 0) {
@@ -1306,7 +1338,7 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         colour = colour * colour;
     }
     // Kept with its alpha (premultiplied), so the screen can blend it over the layer above.
-    textureStore(picture, vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
+    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
     // Kept for the layer below to start its rays from: where it first touched anything.
-    textureStore(how_far, vec2<i32>(id.xy), vec4<f32>(seen.touched, seen.steps, 0.0, 0.0));
+    put_far(vec2<i32>(id.xy), vec4<f32>(seen.touched, seen.steps, 0.0, 0.0));
 }

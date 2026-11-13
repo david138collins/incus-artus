@@ -153,6 +153,8 @@ struct Targets {
     layers: Vec<Layer>,
     up_numbers: wgpu::Buffer,
     up_group: [wgpu::BindGroup; 2],
+    /// The one-dispatch form's: every layer's numbers in one buffer, and its bind group for each of the two copies.
+    one: Option<(wgpu::Buffer, [wgpu::BindGroup; 2])>,
 }
 
 pub struct FarEye {
@@ -187,6 +189,8 @@ pub struct FarEye {
     /// coarser layer of the frame before. And which of the two copies this frame writes.
     side: bool,
     parity: usize,
+    /// The one-dispatch form (`INCUS_FAR_SIDE=2`): its pipeline and its bind group's layout, if asked for.
+    one: Option<(wgpu::ComputePipeline, wgpu::BindGroupLayout)>,
     /// A ray's step through thin haze, in cells (the lean step, 1d; `INCUS_FAR_HAZE_STEP`): a whole cell (20% off the
     /// sea, 13% off a player's run; David, looking at build 151: "i don't see anything bad about it. Seems like a good
     /// thing"), or old's half (0.5).
@@ -306,7 +310,47 @@ impl FarEye {
         let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(1.0);
         let base = if std::env::var("INCUS_FAR_BASE").as_deref() == Ok("4") { 4.0 } else { LAYERS[0] };
         let layers = [base, base / 2.0, base / 4.0];
-        let side = std::env::var("INCUS_FAR_SIDE").as_deref() == Ok("1");
+        let asked_side = std::env::var("INCUS_FAR_SIDE").ok();
+        let side = matches!(asked_side.as_deref(), Some("1") | Some("2"));
+        // The one-dispatch form: `far.wgsl` with one layer's outputs changed for every layer's (`far_all.wgsl`), and its
+        // camera each invocation's own copy of its layer's.
+        let one = (asked_side.as_deref() == Some("2")).then(|| {
+            let whole = include_str!("far.wgsl");
+            let (begin, end) = ("// ── One layer's outputs: begin ──", "// ── One layer's outputs: end ──");
+            let (from, to) = (whole.find(begin).expect("the outputs' first mark"), whole.find(end).expect("the outputs' last mark"));
+            let source = format!("{}{}{}", &whole[..from], include_str!("far_all.wgsl"), &whole[to..]).replace("@group(0) @binding(0) var<uniform> camera: Camera;", "@group(0) @binding(0) var<uniform> cameras: array<Camera, 3>;\nvar<private> camera: Camera;");
+            let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, one dispatch"), source: wgpu::ShaderSource::Wgsl(source.into()) });
+            let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("the far eye, one dispatch"),
+                entries: &[
+                    uniform(0, compute),
+                    storage(1, true),
+                    storage(2, true),
+                    storage(3, true),
+                    storage(4, true),
+                    written(5, wgpu::TextureFormat::Rgba8Unorm),
+                    written(6, wgpu::TextureFormat::Rgba32Float),
+                    storage(7, false),
+                    storage(8, true),
+                    storage(9, false),
+                    read(10, compute, false),
+                    storage(11, true),
+                    wgpu::BindGroupLayoutEntry { binding: 12, visibility: compute, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
+                    volume(13),
+                    volume(14),
+                    volume(15),
+                    volume(16),
+                    written(17, wgpu::TextureFormat::Rgba8Unorm),
+                    written(18, wgpu::TextureFormat::Rgba32Float),
+                    written(19, wgpu::TextureFormat::Rgba8Unorm),
+                    written(20, wgpu::TextureFormat::Rgba32Float),
+                    read(21, compute, false),
+                ],
+            });
+            let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye, one dispatch"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
+            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None });
+            (pipeline, layout)
+        });
         let test_half = std::env::var_os("INCUS_TEST_HALF").is_some();
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most{}", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" }, if test_half { ", only the left half of each layer marched (INCUS_TEST_HALF)" } else { "" });
@@ -315,7 +359,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, layers, side, parity: 0, haze_step, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, together, layers, side, parity: 0, one, haze_step, test_half, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -340,7 +384,7 @@ impl FarEye {
         rays += if self.together { ", a blend's pictures read together" } else { ", a blend's pictures read in turn" };
         rays += &format!(", thin haze stepped by {} of a cell; the layers {} x {}, {} x {} and {} x {} screen pixels", self.haze_step, self.layers[0], self.layers[0], self.layers[1], self.layers[1], self.layers[2], self.layers[2]);
         if self.side {
-            rays += ", marched side by side (a finer layer led by the frame before's coarser)";
+            rays += if self.one.is_some() { ", marched side by side by one dispatch (a finer layer led by the frame before's coarser)" } else { ", marched side by side (a finer layer led by the frame before's coarser)" };
         }
         if self.test_half {
             rays += ", only the left half of each layer marched";
@@ -486,6 +530,45 @@ impl FarEye {
             worth_above = Some(worth);
             layers.push(Layer { factor, size, picture, far, camera, group });
         }
+        // The one-dispatch form's: every layer's numbers in one buffer; the base's and the middle layer's words in one
+        // run, kept twice; and a bind group for each of the two copies (writing one, led by the other).
+        let one = self.one.as_ref().map(|(_, layout)| {
+            let cameras = buffer("the far layers' cameras", (LAYERS.len() * CAMERA_ROWS) as u64 * 16, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
+            let words = (layers[0].size.0 * layers[0].size.1 + layers[1].size.0 * layers[1].size.1) as u64 * 4;
+            let worth = [buffer("the far layers' worth it", words, storage), buffer("the far layers' worth it", words, storage)];
+            let groups = [0usize, 1].map(|p| {
+                let q = 1 - p;
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("the far eye, one dispatch"),
+                    layout,
+                    entries: &[
+                        entry(0, cameras.as_entire_binding()),
+                        entry(1, self.store.table.as_entire_binding()),
+                        entry(2, self.store.entries.as_entire_binding()),
+                        entry(3, self.store.index.as_entire_binding()),
+                        entry(4, self.store.pool.as_entire_binding()),
+                        entry(5, wgpu::BindingResource::TextureView(&layers[0].picture)),
+                        entry(6, wgpu::BindingResource::TextureView(&layers[0].far[p])),
+                        entry(7, starts.as_entire_binding()),
+                        entry(8, worth[q].as_entire_binding()),
+                        entry(9, worth[p].as_entire_binding()),
+                        entry(10, wgpu::BindingResource::TextureView(&layers[0].far[q])),
+                        entry(11, self.atlas.as_ref().map_or(&self.store.index, |a| &a.slots).as_entire_binding()),
+                        entry(12, wgpu::BindingResource::Sampler(&self.sampler)),
+                        entry(13, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[0], |a| &a.solid))),
+                        entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
+                        entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
+                        entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
+                        entry(17, wgpu::BindingResource::TextureView(&layers[1].picture)),
+                        entry(18, wgpu::BindingResource::TextureView(&layers[1].far[p])),
+                        entry(19, wgpu::BindingResource::TextureView(&layers[2].picture)),
+                        entry(20, wgpu::BindingResource::TextureView(&layers[2].far[p])),
+                        entry(21, wgpu::BindingResource::TextureView(&layers[1].far[q])),
+                    ],
+                })
+            });
+            (cameras, groups)
+        });
         let up_numbers = buffer("bringing it up's numbers", 32, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
         let view = |k: usize| wgpu::BindingResource::TextureView(&layers[k].picture);
         let up_group = [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -505,7 +588,7 @@ impl FarEye {
             .zip(&self.tally_counts)
             .map(|(layer, counts)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding())] })))
             .collect();
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, tiles, tally_groups, layers, up_numbers, up_group });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, tiles, tally_groups, layers, up_numbers, up_group, one });
     }
 
     /// The frame's numbers for each layer and for bringing it up, from the camera (done before the card's passes are
@@ -564,7 +647,11 @@ impl FarEye {
                 [atlas_size[0], atlas_size[1], atlas_size[2], self.atlas.as_ref().map_or(1.0, |a| a.side as f32)],
                 [window_levels, regions.1 as f32, regions.0[0] as f32, regions.0[1] as f32],
             ];
-            queue.write_buffer(&layer.camera, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+            let bytes = numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>();
+            queue.write_buffer(&layer.camera, 0, &bytes);
+            if let Some((cameras, _)) = &targets.one {
+                queue.write_buffer(cameras, (k * CAMERA_ROWS) as u64 * 16, &bytes);
+            }
         }
         let finest = self.layers[LAYERS.len() - 1];
         let up_numbers: [f32; 8] = [screen.0 as f32, screen.1 as f32, finest, self.layers[0], look.bring_up.min(2) as f32, 0.0, 0.0, 0.0];
@@ -585,6 +672,18 @@ impl FarEye {
     pub fn layer(&self, k: usize, encoder: &mut wgpu::CommandEncoder, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) {
         let Some(targets) = &self.targets else { return };
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("a far layer"), timestamp_writes: timestamps });
+        // By one dispatch: the finest layer's groups at the left; right of them the middle layer's, and under those
+        // the base's (`far_all.wgsl`).
+        if let (Some((pipeline, _)), Some((_, groups))) = (&self.one, &targets.one) {
+            if k == 0 {
+                let groups_of = |layer: &Layer| (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
+                let (base, middle, fine) = (groups_of(&targets.layers[0]), groups_of(&targets.layers[1]), groups_of(&targets.layers[2]));
+                pass.set_pipeline(pipeline);
+                pass.set_bind_group(0, &groups[self.parity], &[]);
+                pass.dispatch_workgroups(fine.0 + middle.0.max(base.0), fine.1.max(middle.1 + base.1), 1);
+            }
+            return;
+        }
         let marched = match (self.side, k) {
             (false, _) => k..k + 1,
             (true, 0) => 0..targets.layers.len(),
@@ -682,7 +781,10 @@ mod tests {
         let instance = wgpu::Instance::new(descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).expect("a graphics card");
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min((2 << 30) - 1);
-        let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
+        let mut required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
+        if std::env::var("INCUS_FAR_SIDE").as_deref() == Ok("2") {
+            required_limits.max_storage_textures_per_shader_stage = 6;
+        }
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("a test"), required_limits, ..Default::default() })).expect("the card's device");
         let errors = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let marks = crate::marks::load().unwrap();

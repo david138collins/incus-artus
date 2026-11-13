@@ -249,7 +249,7 @@ pub const PASSES: [Pass; 19] = [
             ("INCUS_FAR_TOGETHER", "0: a blend's pictures read one after another, as before the lean step's 1b (unset: read together, and both levels' over a hand-over)"),
             ("INCUS_FAR_HAZE_STEP", "a far ray's step through thin haze (the land's faint fringe), in cells: 1 a whole cell (unset; the lean step, 1d, David's look), 0.5 as old's"),
             ("INCUS_FAR_BASE", "the far eye's first layer in screen pixels: 8 (unset, old's) or 4, the layers under it each half the one above (step 2's probe)"),
-            ("INCUS_FAR_SIDE", "1: the far eye's layers marched side by side in one pass, a finer layer led by the coarser layer of the frame before (step 2); unset, one after another"),
+            ("INCUS_FAR_SIDE", "1: the far eye's layers marched side by side in one pass, a finer layer led by the coarser layer of the frame before (step 2); 2: the same by one dispatch (six written textures in a pass, the limit raised for it); unset, one after another"),
             ("INCUS_TEST_HALF", "for measuring (the Oracle's test): only the left half of each far layer marched"),
             ("INCUS_TEST_STEPS", "for measuring (the Oracle's test): the most steps a far ray takes (unset: 768)"),
             ("INCUS_FAR_DETAIL", "the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's)"),
