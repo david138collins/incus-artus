@@ -1500,6 +1500,17 @@ Reference: `Art/quartile minecraft illustration.png`
     2.24 ms, its nodding 99th 3.13 → 2.72; the plain 1.06 → 0.95; a player's run 2.58 → 2.34), the spawn 5% slower
     (short rays pay for setting up what they keep), the longest rays step for step the same and the picture pixel for
     pixel. Kept; its keep-or-drop after the Intel flight, since a working card pays for what's held.
+  - **The Intel card is working, not waiting** (2026-11-13, on Optimus after David's restart; build 143): its cost
+    follows how much is marched, not the longest ray (the spawn's 8 × 8 costs 4.4 ms, as much as the sea's); its
+    dearest marks are the mountain top (10.5 ms) and high over the spawn (10.1), not the sea (8.6); 4 to 8 times the
+    NVIDIA's time; memory 933 MB as on the NVIDIA. So the two cards want different things, as the Oracle warned: what
+    adds rays for nothing on the NVIDIA (a finer base, the layers side by side) costs the Intel in full; what cuts
+    work helps it more (cheaper steps, fewer rays earned, shuffling, lazy rays).
+  - **1a on the Intel card is slower at every mark,** 2.5 to 10% (the NVIDIA 6 to 13% faster at the far marks): the
+    march as built keeps about forty numbers in hand, and a working card loses more room than it gains in reads.
+    **[OPEN]** Builder's three choices for David: keep it as built (the NVIDIA wins, the Intel loses); drop it; or a
+    trimmer 1a first, keeping only the handful a skimming step needs (the Oracle's own words), flown on both cards in
+    one session on Optimus. Builder and Counsel recommend the trim.
   - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.

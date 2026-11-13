@@ -48,7 +48,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the laptop switched to "Optimus" for step 0's Intel flight, when Builder is ready (a
+- **Waiting on David:** 1a kept, dropped, or trimmed first (Builder and Counsel: trimmed), now the Intel card is
+  known to work where the NVIDIA waits; the laptop back to "NVIDIA GPU only" when the Intel flights are done (a
   restart); later, one budget at the fork, haze or cover at the skyline's look, and lazy rays fixed to the world or
   the screen; when to take the fog line; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
@@ -248,12 +249,16 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         Intel flight now, to learn whether that card waits or works (David on "Optimus", put to him a step ahead).
         *In, but for the Intel flight* (build 142, e496645, 19de6db): a few hundred rays set the dearest marks, and cost
         follows the longest ray (the sea's 558 and 764 steps, 2.59 ms); the nodding marks at their 99th, the plain
-        1.18 and the sea 3.15 ms, are the gate's numbers from here
+        1.18 and the sea 3.15 ms, are the gate's numbers from here. *The Intel flight* (f8d6b01): the Intel card is
+        working, not waiting (cost follows how much is marched; 4 to 8 times the NVIDIA's; dearest the mountain top,
+        10.5 ms), so each step after is priced on both cards
   - [ ] Step 1, the lean step, in halves flown apart, each the same picture pixel for pixel: kept in hand; read
         together (behind a switch, priced on both cards); several steps at once (alone, checked with care); thin haze
         by whole cells (a look). *1a, kept in hand, is in* (build 143, c89a040, 63409af): 6 to 13% off the far marks
         (the sea 2.58 → 2.24 ms, its nodding 99th 3.13 → 2.72), the spawn 5% slower, the picture pixel for pixel;
-        kept, its keep-or-drop after the Intel flight. David chose the lean step before the Intel flight
+        kept, its keep-or-drop after the Intel flight. David chose the lean step before the Intel flight. *On the
+        Intel card 1a is 2.5 to 10% slower* (32f4703): keep, drop, or trim it to the handful a skimming step needs,
+        David's call
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
