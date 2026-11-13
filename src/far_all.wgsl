@@ -68,22 +68,22 @@ fn get_far_above(at: vec2<i32>) -> f32 {
     return textureLoad(far_prev0, at, 0).x;
 }
 
-// The dispatch's grid: the base at the left and under it the middle layer, the finest to their right (each rounded up
-// to whole groups of 8; the layers with the long rays first, if the card takes the grid in order). `march_pixel` turns
-// away what falls outside its layer.
+// The dispatch's grid: the base, the middle layer and the finest side by side across it, each from its top row (each
+// rounded up to whole groups of 8), so the base's rows are the middle layer's too and neither goes first [the grid's
+// order matters: builds 155 and 156]. `march_pixel` turns away what falls outside its layer.
 @compute @workgroup_size(8, 8)
 fn march_all(@builtin(global_invocation_id) id: vec3<u32>) {
-    let left_across = (u32(cameras[1].view.x) + 7u) / 8u * 8u;
-    let base_down = (u32(cameras[0].view.y) + 7u) / 8u * 8u;
+    let base_across = (u32(cameras[0].view.x) + 7u) / 8u * 8u;
+    let middle_across = (u32(cameras[1].view.x) + 7u) / 8u * 8u;
     var at = id.xy;
-    if (id.x >= left_across) {
-        at.x -= left_across;
-        layer_now = 2u;
-    } else if (id.y >= base_down) {
-        at.y -= base_down;
+    if (id.x < base_across) {
+        layer_now = 0u;
+    } else if (id.x < base_across + middle_across) {
+        at.x -= base_across;
         layer_now = 1u;
     } else {
-        layer_now = 0u;
+        at.x -= base_across + middle_across;
+        layer_now = 2u;
     }
     march_pixel(at);
 }

@@ -672,15 +672,15 @@ impl FarEye {
     pub fn layer(&self, k: usize, encoder: &mut wgpu::CommandEncoder, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) {
         let Some(targets) = &self.targets else { return };
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("a far layer"), timestamp_writes: timestamps });
-        // By one dispatch: the base's groups at the left and under them the middle layer's, the finest's to their
-        // right (`far_all.wgsl`).
+        // By one dispatch: the base's groups, the middle layer's and the finest's side by side across the grid
+        // (`far_all.wgsl`).
         if let (Some((pipeline, _)), Some((_, groups))) = (&self.one, &targets.one) {
             if k == 0 {
                 let groups_of = |layer: &Layer| (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
                 let (base, middle, fine) = (groups_of(&targets.layers[0]), groups_of(&targets.layers[1]), groups_of(&targets.layers[2]));
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &groups[self.parity], &[]);
-                pass.dispatch_workgroups(middle.0 + fine.0, fine.1.max(base.1 + middle.1), 1);
+                pass.dispatch_workgroups(base.0 + middle.0 + fine.0, fine.1.max(middle.1).max(base.1), 1);
             }
             return;
         }
