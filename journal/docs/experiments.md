@@ -1807,3 +1807,20 @@ Builder's scratchpad (`nsight/incus_artus_2026_11_12_17_32_41.ngfx-gputrace`). E
   - The time is the longest chain: fewer steps on it (the edge, a column-height skip), cheaper steps (the lean step),
     or the chain spread over frames (lazy rays).
   - Shuffling rays, which helps a full card, has little to win here.
+
+## The Oracle's order, step 0: an instrument, a mark, and one flight  *(plan 2.2)*
+
+David took the Oracle's order for the rest of 2.2 ("Yes, its order", `journal/vision/oracle-review.md`, the third part).
+
+### The pass mark (written before the code)
+
+- **The longest ray, per layer, in every flight's report:** the most steps any ray took, and how many rays took over
+  256, 384 and 512.
+  - Each layer keeps its rays' steps beside their distances (the distances' picture made four numbers wide).
+  - A small pass of its own counts them, once a second on a flight, read back without waiting.
+  - The picture must stay the same pixel for pixel, and a still mark's far time within 1% of before.
+  - Check that it bites: with the step limit at 384, no layer may report more than 384.
+- **Two nodding marks,** at the sea and the plain: the camera pitched slowly up and down through two rows of the
+  8 × 8 layer (16 screen rows), so the horizon's worst case is always met. Read at their 99th.
+- **One flight on the Intel card,** as the far eye stands, for which kind of card it is: waiting or working. It needs
+  the laptop on Optimus, put to David a step ahead.
