@@ -178,8 +178,9 @@ pub struct FarEye {
     /// Whether a blend's pictures are read together (the lean step, 1b: kept, 3 to 7% off the far marks on the NVIDIA,
     /// nothing lost on the Intel; `INCUS_FAR_TOGETHER=0` reads them in turn, as before).
     together: bool,
-    /// A ray's step through thin haze, in cells (the lean step, 1d; `INCUS_FAR_HAZE_STEP`): half a cell as old's, or
-    /// a whole one.
+    /// A ray's step through thin haze, in cells (the lean step, 1d; `INCUS_FAR_HAZE_STEP`): a whole cell (20% off the
+    /// sea, 13% off a player's run; David, looking at build 151: "i don't see anything bad about it. Seems like a good
+    /// thing"), or old's half (0.5).
     haze_step: f32,
     test_half: bool,
     most_steps: f32,
@@ -293,7 +294,7 @@ impl FarEye {
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
         let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
         let together = std::env::var("INCUS_FAR_TOGETHER").as_deref() != Ok("0");
-        let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(0.5);
+        let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(1.0);
         let test_half = std::env::var_os("INCUS_TEST_HALF").is_some();
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most{}", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" }, if test_half { ", only the left half of each layer marched (INCUS_TEST_HALF)" } else { "" });

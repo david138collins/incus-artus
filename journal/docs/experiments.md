@@ -2197,3 +2197,17 @@ to 8% loaded, the card 87 to 98 W: the machine wasn't shared).
 - **Builder's guess** (the far marks 5 to 15% faster, the most over the sea): the sea beat it at 20%; the mountain top
   and high over the spawn came under it at 2%.
 - **The pictures:** nearly the same (above). It waits on David's look in the game.
+
+**David's look at build 151 with whole-cell steps (2026-11-13):** "i don't see anything bad about it. Seems like a good
+thing." Kept: thin haze is stepped by whole cells from build 152 (`INCUS_FAR_HAZE_STEP=0.5` for old's).
+
+**A flaw he saw in the same look, written down for the polish, not for now:** close to the ground the far eye's
+picture is "splotchy": lumps with faceted, ring-like outlines and faint diagonal streaks. His question: "what can be
+done about how rays are read that could make the look more 'orderly' in its noise ... if there's some way to make it
+'even'. it could also just be the terrain being messy." Builder's reading of what it is, by its parts:
+- the straight blend between cells (creases along the cells' grid, faceted lumps);
+- the faces' light taken from each cell's stored shares (a patch of its own brightness a cell);
+- the steps' places (rings where they line up, streaks from the hash that offsets them);
+- the 8 × 8 squares brought up crisp.
+The candidates for the polish: a rounder blend (smooth weights), light from the slope of the solid field itself, an even
+(blue-noise) offset for the steps, a finer base layer. Much of this distance is the near eye's to draw.
