@@ -2470,3 +2470,28 @@ around a bit."
   - The spawn and the plain within 2% of 0.68 and 0.88.
 - **Kept if** the sea gains 5% or more on build 156 and no mark is more than 2% slower than build 156; else build
   156's order stays.
+
+### The third arrangement's result: a little better everywhere, less than the mark asked  *(build 157, de5d9b5; NVIDIA only, fog off)*
+
+Flown unset, 2, unset, 2 (logs/flight-1794604653, -5048, -5439, -5837). The card's whole, median ms:
+
+| mark | one after another | build 156 (base first) | build 157 (side by side) | 157 against 156 |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.70 | 0.68 | 0.68 | level |
+| the bare plain | 0.88 | 0.88 | 0.88 | level |
+| the mountain top | 1.57 | 1.38 | 1.37 | 1% faster |
+| high over the spawn | 1.62 | 1.37 | 1.32 | 3% faster |
+| low over the sea | 1.78 | 1.41 | 1.38 | 2% faster |
+| a player's run over the plain | 2.00 | 1.44 | 1.41 | 2% faster |
+| fast across the world | 1.19 | 1.21 | 1.21 | level |
+| the sea, nodding (99th) | 1.79 (2.14) | 1.32 (1.61) | 1.27 (1.58) | 3% faster (2%) |
+
+- **Against the pass mark:** "the sea 1.25 or less": missed (1.38). "Kept if the sea gains 5% or more on build 156":
+  missed, 2%. The rest held as guessed.
+- **By the mark's letter build 156's order would go back in. Builder leaves build 157's in, and says so:** it is
+  level or 1 to 3% faster at every mark, slower at none, and no more code. The 5% was mine, set to keep from chasing
+  noise; the pairs agree within 0.5%, so 1 to 3% at five marks at once isn't noise. David's or Counsel's to overrule.
+- **Not explained:** build 155's sea (1.11) had the middle layer's rows first and the base's after them, and also
+  the copy. Neither later order has given it back. Build 155's order without the copy was never flown; by its other
+  marks it would have the mountain top and high over the spawn near 1.6, so the most of all the marks would be worse
+  than now (1.41). Left, written down.
