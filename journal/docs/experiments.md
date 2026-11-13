@@ -2211,3 +2211,24 @@ done about how rays are read that could make the look more 'orderly' in its nois
 - the 8 × 8 squares brought up crisp.
 The candidates for the polish: a rounder blend (smooth weights), light from the slope of the solid field itself, an even
 (blue-noise) offset for the steps, a finer base layer. Much of this distance is the near eye's to draw.
+
+### The polish passes, noted for the end  *(David, 2026-11-13)*
+
+David: "please make a note of those polishing step passes where we can try to work the rays into a prettier shape
+without doing much ... the 'card is waiting not working' has made me think that if we go through our whole plan and it
+comes off how we hope, we may have a lot of headroom inside the card for making things prettier."
+
+Each is a look step with its own pass mark and David's eye, tried one at a time once the far eye meets its gate:
+
+1. **A rounder blend.** The cells blended with curved weights, not straight ones, so the creases along the cells'
+   grid go and lumps come out round. The texture hardware's blend is straight; the curve can be put on the place
+   asked for (one fetch still), or made by more fetches. The largest change to the look for the least code.
+2. **Light from the shape itself.** A surface's brightness from the slope of the blended solid field at the point,
+   not from each cell's stored face shares, so it changes smoothly across cells. A few more fetches a surface step.
+3. **An even offset for the steps.** Blue noise in place of the hash that shifts each pixel's steps: the same amount
+   of noise, with no streaks or clumps. A small picture and one read a pixel.
+4. **A finer base layer.** More rays where the card is idle (93 to 99% of its room free in the long passes). Tried
+   first as step 2's probe; here for its look.
+5. **The fog line and skyline squares,** if they still show once 4 is in (the plan's own line).
+
+Not to be mixed with the speed steps: each changes the picture, so none is compared pixel for pixel.
