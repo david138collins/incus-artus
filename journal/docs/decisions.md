@@ -1709,6 +1709,14 @@ Reference: `Art/quartile minecraft illustration.png`
       truly at more memory and sweep time; (3) both: the column's light for plain columns, a cell's own light for the
       few that aren't (overhangs, arches, slabs in the air), the same split the Oracle drew for plain land and the
       rest.
+    - *Builder's prices and order, before any flights:* way 1 first as pictures (about 40 MB on the card, a sweep of a
+      few milliseconds; it's also way 3's base); then way 3 on top, cheaper than it sounds: each far cell carries its
+      own "cover", how much solid stands over it in its column, made once with the far textures and riding in a
+      channel that's empty today, so no memory and no extra fetch; a cell under an overhang, arch or slab dims its own
+      sky and sun, true for what's overhead and approximate for a low sun from the side (about 40 minutes of hers).
+      Way 2 held as the fallback (36 MB more a copy, 72 for the snap; a sweep over about 36 million cells each sun
+      step, seconds across threads; about three hours), only if David finds way 3 uneven. Side-by-side pictures,
+      rays against each way, at the four marks and at slabs and an arch, brought to him before anything is flown.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
