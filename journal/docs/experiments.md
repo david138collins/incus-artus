@@ -2291,3 +2291,26 @@ whole, median ms (the first, second and third layer's card time in brackets):
 pixels near the horizon against none). David, watching the flights: "i didnt notice anything". Cause unknown. Ruled
 out, each by a picture that didn't change: the step cap (3072 for 768), the sky's weight (0 for 4), the rays' end at
 the map's edge (off). Not known either which of the two pictures is right. To find before a finer base is ever kept.
+
+## The Oracle's step 2 proper: the layers side by side  *(plan 2.2)*
+
+### The pass mark (written before the code)
+
+- **What's built:** behind a launch setting (`INCUS_FAR_SIDE=1`), the three layers marched in one pass as three
+  dispatches, none reading what another writes that frame. A finer layer takes its lead (where it's wanted, where
+  its rays start, the sky light handed down) from the coarser layer **of the frame before**: each layer's "worth it"
+  and distances are kept twice and swapped each frame. Unset, the layers go one after another as now.
+- **Unset, the picture is pixel for pixel build 153's.**
+- **Set, standing still, the picture is pixel for pixel the same as unset** from the third frame on (the lead a
+  frame old is the same lead). Moving, a finer layer's lead lags one frame: where the finer layers march trails the
+  view by a frame at edges. The first frame after the window's size changes is the coarse layer alone. Both for
+  David's look, turning fast with the frames capped (a frame's lag is 4 ms at 240, 17 ms at 60).
+- **The card's memory:** about 27 MB more at 2560 × 1600 (the second copies), only when set.
+- **The reports:** when set, the three layers' time is all under the first layer's line ("the far 8 x 8"); the other
+  two read near nothing. The card's whole is what's compared.
+- **Flown unset, set, unset, set.** Builder's guess [low], lowered by the probe:
+  - Where two layers run long (the sea, high over the spawn, the mountain top, the player's run): the card's whole
+    10 to 25% less. Nothing at all is possible: if the card's driver still runs the dispatches one after another.
+  - The plain and the spawn (one layer marching): within 2% either way.
+- **Kept if** the long marks gain 10% or more, nothing else is more than 2% slower, and David sees no lag. If it's
+  kept, the lag gets its own look before anything is built on it.
