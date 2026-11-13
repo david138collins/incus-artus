@@ -336,6 +336,161 @@ fn far_blend(level: i32, p: vec3<f32>) -> Look {
     return blend_soft(l, p);
 }
 
+// ── Kept in hand (the lean step, 1a) ──
+//
+// What doesn't change from one step of a ray to the next is kept by the march and read again only when it changes: a
+// level's numbers, the region's state, the brick's slot. The numbers are the very ones the plain reads give.
+
+// A level's bands' place in the table.
+struct Row {
+    level: i32,
+    least: vec2<i32>,
+    across: i32,
+    entries_at: i32,
+}
+
+fn row_none() -> Row {
+    return Row(-1, vec2<i32>(0), 0, 0);
+}
+
+fn keep_row(row: ptr<function, Row>, level: i32) {
+    if ((*row).level != level) {
+        *row = Row(level, vec2<i32>(table(level, 1), table(level, 2)), table(level, 3), table(level, 4));
+    }
+}
+
+// `entry_at`, from a row in hand.
+fn entry_in(row: Row, cx: i32, cy: i32) -> u32 {
+    let x = cx - row.least.x;
+    let y = cy - row.least.y;
+    if (x < 0 || y < 0 || x >= row.across || y >= row.across) {
+        return PAST_MAP;
+    }
+    return entries[u32(row.entries_at + y * row.across + x)];
+}
+
+// A level's numbers for blending, and the brick last found in it with its slot in the atlas.
+struct Kept {
+    row: Row,
+    index_at: i32,
+    wide: u32,
+    tall: u32,
+    bricks: i32,
+    bricks_up: i32,
+    up: i32,
+    brick: vec3<i32>,
+    slot: u32,
+}
+
+fn kept_none() -> Kept {
+    return Kept(row_none(), 0, 0u, 0u, 0, 0, 0, vec3<i32>(-1), NO_SLOT);
+}
+
+fn keep_level(k: ptr<function, Kept>, level: i32) {
+    if ((*k).row.level != level) {
+        *k = Kept(Row(level, vec2<i32>(table(level, 1), table(level, 2)), table(level, 3), table(level, 4)), table(level, 5), u32(table(level, 6)), u32(table(level, 7)), table(level, 8), table(level, 9), table(level, 10), vec3<i32>(-1), NO_SLOT);
+    }
+}
+
+// The region a point is in: whether it's summed, and which of the window's levels can be read there (a bit a level;
+// off the map, all: the bands say past the map).
+struct Place {
+    region: vec2<i32>,
+    known: bool,
+    summed: bool,
+    usable: u32,
+}
+
+fn keep_place(place: ptr<function, Place>, p: vec3<f32>) {
+    let r = vec2<i32>(floor(p.xy / f32(1 << u32(REGION))));
+    if ((*place).known && all(r == (*place).region)) {
+        return;
+    }
+    var usable = 0u;
+    let n = i32(camera.window.y);
+    let rr = r - vec2<i32>(camera.window.zw);
+    let on_map = rr.x >= 0 && rr.y >= 0 && rr.x < n && rr.y < n;
+    let flags_at = table(TOP, 4) + table(TOP, 3) * table(TOP, 3);
+    for (var k = 0; k < i32(camera.window.x); k++) {
+        if (!on_map || entries[u32(flags_at + (k * n + rr.y) * n + rr.x)] != 0u) {
+            usable |= 1u << u32(k);
+        }
+    }
+    *place = Place(r, true, entry_at(REGION, r.x, r.y) != NOT_SUMMED, usable);
+}
+
+// `blend_soft`, from numbers in hand. The four "is it summed" reads are left out while the blend's columns sit inside
+// the summed region in hand (every column of a summed region is summed); the brick's slot is read only when the brick
+// changes.
+fn blend_soft_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Look {
+    let size = f32(1 << u32(level));
+    let u = p / size - 0.5;
+    let b = floor(u);
+    let f = u - b;
+    let base = vec3<i32>(b);
+    let row = (*k).row;
+    var inside = false;
+    if (level <= REGION && place.summed) {
+        let shift = vec2<u32>(u32(REGION - level));
+        inside = all((base.xy >> shift) == place.region) && all(((base.xy + 1) >> shift) == place.region);
+    }
+    if (!inside) {
+        for (var n = 0; n < 4; n++) {
+            if (entry_in(row, base.x + (n & 1), base.y + (n >> 1)) == NOT_SUMMED) {
+                return empty_look(false);
+            }
+        }
+    }
+    let x = base.x - row.least.x;
+    let y = base.y - row.least.y;
+    if (x < 0 || y < 0 || base.z < 0 || x >= row.across || y >= row.across || base.z >= (*k).up) {
+        return blend(level, p);
+    }
+    let wide = (*k).wide;
+    let tall = (*k).tall;
+    let brick = vec3<i32>(i32(u32(x) >> wide), i32(u32(y) >> wide), i32(u32(base.z) >> tall));
+    if (any(brick != (*k).brick)) {
+        (*k).brick = brick;
+        (*k).slot = slots[u32((*k).index_at + (brick.y * (*k).bricks + brick.x) * (*k).bricks_up + brick.z)];
+    }
+    let slot = (*k).slot;
+    if (slot == NO_SLOT) {
+        return blend(level, p);
+    }
+    let origin = vec3<f32>(f32(slot & 0xFFu), f32((slot >> 8u) & 0xFFu), f32(slot >> 16u)) * camera.atlas.w;
+    let local = vec3<f32>(f32(u32(x) & ((1u << wide) - 1u)), f32(u32(y) & ((1u << wide) - 1u)), f32(u32(base.z) & ((1u << tall) - 1u)));
+    let at = (origin + local + f + 0.5) / camera.atlas.xyz;
+    let sw = textureSampleLevel(t_solid, soft, at, 0.0).xy;
+    var look = empty_look(true);
+    look.solid = sw.x;
+    look.water = sw.y;
+    look.colour = ROCK;
+    if (sw.x + sw.y <= 0.0) {
+        return look;
+    }
+    let c = textureSampleLevel(t_colour, soft, at, 0.0);
+    if (c.a > 0.0) {
+        look.colour = c.rgb;
+        look.plus = textureSampleLevel(t_plus, soft, at, 0.0).rgb;
+        look.minus = textureSampleLevel(t_minus, soft, at, 0.0).rgb;
+        look.surface = c.a * 4.0;
+    }
+    return look;
+}
+
+// `far_blend`, from numbers in hand.
+fn far_blend_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Look {
+    var l = level;
+    while (l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
+        l += 1;
+    }
+    if (camera.layer.w < 0.5) {
+        return blend(l, p);
+    }
+    keep_level(k, l);
+    return blend_soft_kept(k, place, l, p);
+}
+
 // Two looks mixed: `w` of the second.
 fn mix_looks(a: Look, b: Look, w: f32) -> Look {
     let k = clamp(w, 0.0, 1.0);
@@ -512,6 +667,18 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     var bottom_sun = vec3<f32>(0.0);
     var bottom_t = 0.0;
     var bottom_level = -1;
+    // Kept in hand (the lean step, 1a): the region's state; the numbers of the level read and of the next (the
+    // hand-over's); the bands' rows of the two levels the skipping reads; and the level itself over its stretch of the
+    // ray, with where its hand-over begins.
+    var place = Place(vec2<i32>(0), false, false, 0u);
+    var kept = kept_none();
+    var kept_next = kept_none();
+    var row_own = row_none();
+    var row_up = row_none();
+    var lv = FIRST;
+    var lv_from = 1.0;
+    var lv_to = 0.0;
+    var lv_hand = 0.0;
     let last = min(camera.reach.x, end);
     let most = i32(camera.pyramid.z);
     for (var n = 0; n < most; n++) {
@@ -527,7 +694,17 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             floored = true;
             break;
         }
-        var level = level_at(t);
+        // The level, kept over its stretch of the ray: worked out afresh only outside it, and in a sliver at each of its
+        // ends, so it's `level_at`'s own answer at every step.
+        if (t < lv_from || t >= lv_to) {
+            lv = level_at(t);
+            let k = floor(log2(max(t * camera.view.z, 1.0)));
+            lv_from = select(exp2(k) / camera.view.z * 1.00001, 0.0, k < 0.5);
+            lv_to = exp2(k + 1.0) / camera.view.z * 0.99999;
+            lv_hand = exp2(f32(lv) - camera.reach.y + camera.fade.z) / camera.view.z * 0.99999;
+        }
+        var level = lv;
+        keep_place(&place, p);
         // A coarse level not built over here yet (it waits for all its regions): the regions' own level. A region not
         // summed yet holds nothing to draw: skipped whole.
         if (level > REGION) {
@@ -537,9 +714,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             }
         }
         if (level <= REGION) {
-            let r = floor(p.xy / f32(1 << u32(REGION)));
-            if (entry_at(REGION, i32(r.x), i32(r.y)) == NOT_SUMMED) {
-                t = max(leave2(o.xy, d.xy, r, f32(1 << u32(REGION))), t) + 0.01;
+            if (!place.summed) {
+                t = max(leave2(o.xy, d.xy, vec2<f32>(place.region), f32(1 << u32(REGION))), t) + 0.01;
                 last_air = t;
                 walking = false;
                 chained = false;
@@ -558,7 +734,15 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             }
             let up_size = f32(1 << u32(up));
             let cc = floor(p.xy / up_size);
-            let entry = entry_at(up, i32(cc.x), i32(cc.y));
+            var row: Row;
+            if (k == 0) {
+                keep_row(&row_up, up);
+                row = row_up;
+            } else {
+                keep_row(&row_own, up);
+                row = row_own;
+            }
+            let entry = entry_in(row, i32(cc.x), i32(cc.y));
             if (entry == NOT_SUMMED) {
                 continue;
             }
@@ -584,14 +768,17 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         if (skipped) {
             continue;
         }
-        var look = far_blend(level, p);
+        var look = far_blend_kept(&kept, place, level, p);
         // Over the last stretch before the next level takes over, the two blended, so the change is gradual, never a
-        // seam (seams drew rings round the eye over flat water that moved as it moved: David, build 69).
-        let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
-        if (look.known && over > camera.fade.z && level < TOP) {
-            let next = far_blend(level + 1, p);
-            if (next.known) {
-                look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
+        // seam (seams drew rings round the eye over flat water that moved as it moved: David, build 69). Its logarithm
+        // only from where the hand-over could begin.
+        if (look.known && level < TOP && (t > lv_hand || level != lv)) {
+            let over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
+            if (over > camera.fade.z) {
+                let next = far_blend_kept(&kept_next, place, level + 1, p);
+                if (next.known) {
+                    look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
+                }
             }
         }
         let size = f32(1 << u32(level));
