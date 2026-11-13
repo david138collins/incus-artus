@@ -1654,6 +1654,23 @@ Reference: `Art/quartile minecraft illustration.png`
       spawn 1.32; a player's run 1.41). Builder's pass mark asked 5% at the sea and got 2%; she kept build 157's
       order anyway, in the open, since it's better or level everywhere for no more code and her 5% was set too
       coarse. *Counsel:* agreed; the mark guarded against complexity for a small gain, and there's none added.
+    - **Finished and cut** (builds 158 and 159). Build 158: the layers' distances in one texture, so a pass writes
+      four textures and the game is back on the library's default limits; the one dispatch is the far eye's march
+      (`INCUS_FAR_SIDE=0` marches in turn); build 154's form out; the frame the layers are remade in runs the dispatch
+      three times, so there's no coarse frame. The same as build 157 within 0.7%; card memory 973 MB against 935 in
+      turn (two shared textures of distances; a [LATER] to win most of it back). Build 159 cut the closed measuring
+      switches from the march: about **2% at every mark** (Builder guessed 0 to 1%). David: "thats fine, i didnt expect
+      much, just hygiene". **Step 2 done enough to go on**, against this morning's build 152: the spawn 0.69 → 0.66,
+      the plain 0.88 → 0.87, the mountain top 1.57 → 1.34, high over the spawn 1.61 → 1.30, the sea 1.78 → 1.35, a
+      player's run 2.00 → 1.38, the sea's nodding 99th 2.14 → 1.54. Everything under 2 ms; the most at a player's pace
+      1.56.
+    - **His words while it flew** (to Builder): on the one dispatch, "dispatching everything at once seems to have
+      worked out very well, a wholly tonic effect, but isnt that megakernally, i wonder, whats the difference". Builder:
+      one job launched once, not different jobs folded together, so not the megakernel; but the march still marches,
+      lights and shades in one function, which stays open. Today priced splitting: launches in a row add their waits,
+      so "small passes" means small in code, not many launches a frame. On fog: "fog will probably become some kind of
+      post processing with weather" (each pixel's distance is already kept beside its colour, so it fits the finish).
+      On light: "right, we should be able to offload light to the cpu" (the plan's "alongside" item).
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.

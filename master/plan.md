@@ -50,7 +50,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at the finished far eye after builds 158 and 159 ("then i'll took a look and zoom around a bit"); the skyline look (haze or cover) after that; later, one budget at the fork,
+- **Waiting on David:** his look at build 159, the far eye finished for now, zooming around, on his go ("then i'll took a look and zoom around a bit"); the skyline look (haze or cover) after that; later, one budget at the fork,
   haze or cover at the skyline's look, and lazy rays fixed to the world or the screen; whether `CLAUDE.md` points at
   the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
@@ -269,7 +269,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         151, a setting): the sea 2.22 → 1.78 ms (nodding 99th 2.14), a player's run 2.29 → 2.00, the plain 0.88; the
         pictures nearly the same; David: "i don't see anything bad about it. Seems like a good thing.", **kept, on from
         build 152**. Step 1 done enough to go on: 1a, 1b, 1d kept; 1c dropped
-  - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
+  - [x] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe. *The probe* (build 153, 337cc47): a 4 × 4 base is slower at every mark (the
         sea 1.78 → 2.11 ms, the mountain top 1.57 → 3.05), so ray count matters too, and the 8 × 8 base stays; step 2
         proper's estimate comes down. *Step 2 proper* (build 154): nothing gained; three dispatches in one pass still
@@ -281,9 +281,12 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         the mountain top 1.38; high over the spawn 1.37; the plain 0.88; the spawn 0.68). Kept, to go on with. *One more
         arrangement* (build 157, the base and middle layer in the same rows): level or 1 to 3% faster everywhere (the
         sea 1.38, nodding 99th 1.58), kept though under its pass mark's 5%, in the open. David: "hell to the yeah ...
-        You can go ahead with finishing up and then cutting code we won't be using". Owed: the textures packed under
-        the default limit and the one dispatch the default (build 158); the closed measuring switches cut and flown
-        alone (build 159); then his look. The lag look again once the near eye draws
+        You can go ahead with finishing up and then cutting code we won't be using". *Finished* (build 158, c90ff53):
+        the textures packed, the game back on the default limits, the one dispatch the default. *Cut* (build 159,
+        e97aed5): the closed switches out, about 2% at every mark ("just hygiene"). Step 2 done enough to go on: the
+        sea 1.78 → 1.35 ms, its nodding 99th 2.14 → 1.54, the mountain top 1.57 → 1.34, high over the spawn 1.61 →
+        1.30, a player's run 2.00 → 1.38; everything under 2 ms. His look at build 159 next; the lag look again once
+        the near eye draws
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
         made ready; the sky's openness once); change 3 and "light split out" as one; its own pass mark on lag
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into

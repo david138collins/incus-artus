@@ -41,6 +41,8 @@ facts say so, and say which one and why.
 - **No megakernels.** Build card work as small passes over shared per-pixel stores, each timed on its own, not one
   giant program: in a register-bound giant, code added costs every pixel even when switched off, and the compiler's
   layout becomes a lottery. Split one piece at a time and measure each split alone; splitting isn't always faster.
+  "Small" means small in code, not many launches a frame: launches in a row add their waits, and one launch covering
+  several kinds of pixel can overlap waits that separate launches can't.
 - **Read the watts beside the load.** A card can report itself fully loaded while it waits on a few long chains of
   work; its power draw falling as the frame gets dearer says it's queued, not working.
 - **Ask idle hardware what it can do.** If any part of the ordinary hardware sits underused (a fixed-function unit,
