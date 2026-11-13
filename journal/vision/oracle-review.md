@@ -970,3 +970,517 @@ cost and code, not the look.
    quarter-block build, read as the doorway's changes (old's chunk format is written down in `storage.rs`); or
    rebuilt as data in the new project. Either works; the scatter needs neither.
 4. **Seasons:** nothing to decide now. The doorway's named fields and the cell's spare room keep both forms possible.
+
+---
+---
+
+# The third part: waiting, not working  [FOR DAVID, COUNSEL AND BUILDER, 2026-11-12]
+
+David called the Oracle midway through 2.2: the far eye stood at 1.1 to 2.9 ms against a gate of 1 and 2, and the
+drawn boxes had been flown and didn't pay. My first reply gave a reading ("waiting, not working") and five
+questions. David had the tests flown before answering, and this part is written with their results. Read for it:
+`master/plan.md`; Counsel's prompt (`journal/vision/oracle-prompt-2026-11-12.md`) and brief
+(`journal/vision/oracle-return.md`); `journal/docs/experiments.md` from the reading flight on; the decisions of
+2026-11-12; `src/far.wgsl` whole, as it stands after build 141; `src/far_eye.rs`; `data/marks.toml`; the flight logs
+cited. The two parts above are left as they were. Nothing here is decided. The same marks apply: *[checked]*,
+*[record]*, *[estimate]*.
+
+## For David, in plain words
+
+**What your tests showed.** The far eye isn't short of power. It's short of things to do at once. For about a
+millisecond in each of two passes the card runs a few long rays and little else: 1 to 7% of it in use, drawing 58
+watts where it draws 99 when it's busy. Each long ray takes one step at a time, and each step waits for the one
+before.
+
+That turns the usual rule over. On a card that's waiting, **work is nearly free and waiting is dear.** Nearly
+everything tried so far saved work: fewer steps, a cheaper blend, the boxes. What's wanted now is whatever shortens
+the wait, even where it adds work.
+
+**What I'd do, in order.**
+
+1. **The lean step,** as Builder has it, and a second half of it: read together what's now read one after another.
+   The picture the same.
+2. **The layers side by side.** Today the far eye waits for the 8 × 8 layer's longest ray, then waits again for the
+   4 × 4's. Side by side, it waits once.
+3. **The cells of 2 to 16 brought in, with scattered detail to look at.** You left that call to me: before the fork
+   (section 7).
+4. **Two looks from you,** which decide the far eye's lasting shape: the skyline made by cover, and, only if you
+   like that one, plain land drawn as a surface (section 9).
+
+I expect 1 and 2 to bring the far eye to about its gate on this card *[estimate, low to medium]*. My numbers have
+been wrong five times in this review, so each step below carries a pass mark, not a promise.
+
+**Your three questions.**
+
+- *Where could lazy rays go wrong?* Section 3 lists nine ways. The three that change its design:
+  - a ray in flight must always finish, or at a run the far ones never do;
+  - "kept by direction" and "pixel for pixel" can't both be true;
+  - the light has to go on afterwards, every frame, not be kept in the lazy picture.
+
+  The idea itself is sound. It's design E from my first part, which was your idea then too, come back with a better
+  rule, and I think it's likely worth building. Not first. It saves and spreads *work*, and this card's trouble
+  today is *waiting*, which steps 1 and 2 go at with no lag and nothing kept between frames. After them a flight
+  will show how much work is left to spread. I expect the answer to be "plenty" once the cells of 2 to 16 are in.
+- *The column-height skip: before or after lazy rays?* Neither, by itself. The rays that set the time aren't above
+  the ground looking for it. They're inside the last cell over it, adding up the thin haze that makes your soft
+  skyline, and a height table can't let a ray skip the very thing it's summing. The skip pays only together with the
+  skyline made by cover, where there's no haze to sum, so it goes with that look (section 4). In the near eye, where
+  blocks have no haze, it pays alone and should be in from the first build (section 6).
+- *The third part:* this.
+
+**My own design.** The boxes were the wrong tool for the far eye, and I no longer want them for the near eye. What
+held is the store: the doorway, cells summed by a lane, bricks found by arithmetic, the card's own blend, the window
+round the eye. The far eye has become what your gate's fallback already named: the lean march on bricks.
+
+**Where I was wrong this time.** My first reply said a layer's time was "about 768 steps at a little over a
+millionth of a second each". Too neat. Halving the limit took 7 to 35% off a layer, not half, and half the rays took
+13 to 36% off, not nothing. Builder's guess for that test was nearer than either of my readings, and she was right
+that "four times the rays" overstated the 4 × 4. The reading held, three ways. My numbers, again, did not.
+
+## 1. Where the far eye's time is
+
+**From the record** *[record: build 140's four flights, `kept logs/flight-1794523158.txt` to `-1794524200`, and
+build 141's Nsight and watts, all in `journal/docs/experiments.md`]*:
+
+| Sign | What it read |
+|---|---|
+| The card's room in flight, low over the sea | the 8 × 8 pass 6.9%, the 4 × 4 1.3%; a plain full-screen pass 96% |
+| Watts, at full reported load | 58 W over the sea, the dearest mark; 99 W at the spawn, the cheapest |
+| Half the rays | 13 to 36% off the 8 × 8 |
+| The step limit halved, 768 to 384 | 7 to 13% off the 8 × 8, 15 to 35% off the 4 × 4, 20% off the sea whole |
+| Rays ended at the map's edge | 6 to 19% off every far mark |
+
+So a layer lasts about as long as its longest rays, with a smaller share that follows how many rays there are. It
+isn't old's cause, a program too big to keep much in flight. Here there are too few long rays to fill the card.
+That's Builder's reading and I agree with it.
+
+**Why the horizon's rays are long** *[checked in the code; the arithmetic is mine]*:
+
+- Each layer reads cells about as wide as its own pixel at that distance (`far.wgsl:404`, `far_eye.rs:478`). With a
+  100° view over 200 rows, the 8 × 8 layer's pixel is about 1/84 of the distance.
+- So a level ray crosses 84 to 168 cells for every doubling of distance, however far it has come.
+- Within a cell of the ground the blend is part solid: a haze one cell deep. In it the march steps a cell at a time,
+  or half a cell where the haze is thinner than 2% (`far.wgsl:609-614`).
+- A ray a fraction of a pixel above the horizon is, at every distance, about that fraction of a cell above flat
+  ground. So it never leaves the haze.
+- Low over the sea the eye stands 21 blocks over the water, less than one of the smallest cells. Its level rays are
+  in the haze from the first step to the map's edge, 35 to 50 km off: some 400 to 1,500 steps wanted, against a
+  limit of 768. The longest are already cut short today.
+- Which rays are the long ones depends on where the horizon falls within a row of pixels. Over a level sea a whole
+  row shares one answer. So a standing mark has luck in it, and a moving one meets every case: a player's run costs
+  as much as the worst standing mark.
+
+**What a step costs** *[checked by reading; the count is by hand]*: a skimming step makes about forty small reads
+from the tables and one to four texture reads (`far.wgsl:160-174`, `262-336`, `529-595`). Where an `if` stands
+between two reads, the second can't begin until the first is back. Over the last fifth of each level, all of it is
+done twice. Nearly every small read returns the number it returned the step before.
+
+**What I don't know:** how a step's wait divides between the small reads, the texture reads and the arithmetic.
+Step 1's halves, flown apart, will say.
+
+**What the instruments can't say yet:** the longest ray. Total steps misled us twice: the boxes cut a quarter of
+them for nothing, and my first reply leaned on them.
+
+## 2. What I'd do about it, in order
+
+On a waiting card a layer gets shorter three ways: less waiting in each step, fewer layers in a row, fewer steps on
+the longest ray. A fourth, the long ray cut into lengths marched side by side, is held as step 4.
+
+**Step 0: an instrument, a mark, and one flight** (minutes).
+
+- **The longest ray,** per layer, in every report: the most steps any ray took, and how many rays took over 256,
+  384 and 512.
+- **A nodding mark:** at the sea and the plain, the camera pitched slowly through two rows of the 8 × 8, so the
+  horizon's worst case is always met. Read at its 99th.
+- **One flight on the Intel card now,** as the far eye stands. Its numbers aren't the point. Which kind of card it
+  is, is. If it's working where the NVIDIA waits, half of what follows helps one card and costs the other, and that
+  should be known before any of it is built.
+
+**Step 1: the lean step, in halves flown apart.**
+
+- **1a. Kept in hand** (Builder's; pixel for pixel the same):
+  - the level's numbers read once and kept till the level changes;
+  - the "is it summed yet" checks made once a region, not four times a step (`far.wgsl:268-272`, `532-547`);
+  - the window's check once a region;
+  - the brick's place kept till the ray leaves the brick;
+  - the level worked out from the distance to its next change, not by two logarithms a step (`far.wgsl:404`, `589`).
+
+  Keep only the handful a skimming step needs. On a card that's working, every number held is room lost, which was
+  old's lesson. Nsight's registers afterwards, as before.
+- **1b. Read together** (mine; the same picture): how solid, the colour and the faces fetched at once, with no `if`
+  between them (`far.wgsl:294`, `298`); over a hand-over, both levels at once (`far.wgsl:590`). The card does a
+  little more work and waits once where it waited three or four times. On a waiting card that's a good trade. On a
+  working card it's a bad one, so it sits behind a switch and is priced on both.
+- **1c. Several steps at once** (mine; the same picture, written with care): where the next stride is already known
+  (two cells in open air, one cell skimming), read the next three or four places together, then gather them in
+  order, dropping the rest the moment one of them changes the stride or the level. The same places and the same
+  sums, on a chain a third as long.
+- **1d. Thin haze by whole cells** (a look; one line): where the haze is under 2%, steps of one cell, not half. It
+  halves the very longest rays. Yours to look at over the sea; I expect nothing visible *[estimate, medium]*.
+
+*Pass marks, mine, for Builder to set beside her own* *[estimates]*:
+- 1a takes 15 to 35% off the far marks *[medium]*.
+- 1b takes a further 15 to 40% off the open-horizon marks, and nothing or a small loss at the spawn *[low]*.
+- 1c takes a further 20 to 50% off what the long layers still cost *[low]*.
+- If 1a gives under 10%, the small reads weren't the wait, and 1b matters more than I've guessed.
+- If 1b gives nothing, the card doesn't overlap reads as I believe, and 1c won't pay either.
+
+**Step 2: the layers side by side.**
+
+- **Today** the 8 × 8 runs, then the 4 × 4 begins from what it found, then the 2 × 2. Each waits for its own
+  longest ray: low over the sea, 1.20 and then 1.25 ms.
+- **Side by side,** each finer layer takes its lead (where it's wanted, where to start, its sky light) from the
+  coarser layer of the frame before, turned exactly for how the camera has turned. Off the old frame's edge: wanted,
+  and begun from its tile's start. It takes hints from the last frame, never colour.
+- **Then the far eye waits for its longest layer, not their sum** *[estimate, medium: 30 to 45% off where both
+  layers are long (the sea, high over the spawn, the mountain top), nothing at the plain or the spawn]*.
+- **My first part's design D had this:** each layer standing alone, "which also removes the waits between them". It
+  was lost, rightly, when old's march came across as it was. It's time to take it back.
+- **Builder's finer base layer is the quick probe of it,** and worth flying first. If a 4 × 4 base alone costs
+  about what the 4 × 4 layer does today, the two waits were adding.
+- **How:** first three dispatches in one pass that share nothing written. If the clocks still add, one dispatch over
+  one picture that holds all three layers. *[I don't know which of these wgpu and the driver will overlap. The clock
+  says.]*
+- **The look to check:** where a finer layer is newly wanted, it arrives a frame late. At 240 a second that's 4 ms.
+
+**Alongside: light out of the march** (change 3 and Builder's "light split out", as one step).
+
+- Today a ray may run a sun ray of up to 160 steps and five sky rays of up to 40 after its march, in the same
+  thread (`far.wgsl:756-757`): up to 360 more steps on the end of its chain.
+- I wouldn't split that into a ray pass of its own. That's one more wait in the row.
+- I'd go straight to light read from the cell, which David can't tell from rays (4b), and make it on the processor,
+  which sits at 5 to 11%:
+  - the sun's shadow by one sweep across each level along the sun's way, every sun step, the next step made ready
+    before it's shown;
+  - the sky's openness once, when the cells are summed (horizon maps: Max, 1988; Timonen and Westerlund, 2010);
+  - a byte a cell holds both, in the look's own 16 steps.
+- By 2b's flights it's worth 3 to 13% of the far eye. Its real worth is that the frame's far programs hold no light
+  rays at all, and the near eye inherits the lane.
+
+**Step 3: read the gate.** After 1 and 2 *[estimate, low to medium]*: the sea between 0.7 and 1.4 ms, the other far
+marks under 1. If so, the far eye is done enough to go on with on this card, and section 7 is next. If the sea
+alone still leads: the open sea as a sum (my second part's), one closed sum across each stretch of open water,
+exact where the march only approximates.
+
+**Step 4, only if the gate is still missed: the long ray cut into lengths.**
+
+- A ray's gather is a stack of "this much colour, this much let through". Stacks join front to back in any grouping
+  (Porter and Duff's "over", 1984). So one ray can be cut at set distances, say twice a doubling, each length
+  marched by its own thread at the same moment, and the lengths joined afterwards by a small pass.
+- The longest chain falls from 768 steps to about a hundred. Lengths that turn out to lie under the ground or over
+  the land's top end within a few steps, so the extra work is small *[estimate, medium]*.
+- It isn't pixel for pixel: each length begins its own stepping. Equal in kind; looked at.
+- It keeps nothing between frames, so nothing lags. It's David's small passes (march, join, finish). And it's the
+  store lazy rays want.
+
+## 3. Lazy rays
+
+**The idea is sound,** and it has a forebear worth Builder's reading. Regan and Pose's "priority rendering" (1994)
+kept the surroundings as pictures by direction round the head, redrew the far ones less often than the near, and
+read them through the head's turning every frame. David's duty cycle by distance is theirs, found again.
+
+**What it buys, in his terms** *[arithmetic from `far_eye.rs:27` and `478` and the spec's top speed]*. A quarter of
+an 8 × 8 pixel is 6 blocks of travel for land 2 km off, 30 blocks at 10 km, 120 at 40 km. At a player's top speed
+(200 blocks a second, at 240 frames a second) that's a redraw every 7th frame at 2 km, every 36th at 10 km, every
+144th at 40 km. At a walk, some thirty times rarer. Only developer flight reaches every frame, and there creaking
+is accepted.
+
+**Where it could go wrong, beyond your list:**
+
+1. **Restarting starves.** "Restarted when the eye has moved past a tolerance" means that at a steady run a long
+   ray is thrown away before it ends, every time, and the far land never updates. The rule has to be: a ray in
+   flight always finishes, and the next begins from where the eye is then. Two copies of the far picture: the one
+   shown and the one being made.
+2. **"Kept by direction" and "pixel for pixel" can't both hold.** A store fixed to directions isn't the screen's
+   grid. What's shown is the store read at an angle, so it can't equal today's march pixel for pixel even standing
+   still. Test 1 has to become: the store, once whole, equals a full march of the store's own directions.
+3. **The far squares behave differently when turning.** Today they're fixed to the screen and the land slides
+   through them. Kept by direction, they're fixed to the world and turn with it, like a painted backdrop. It may
+   well look better, since nothing shimmers as you look round. It's also your open question from the first part
+   ("screen locked: unsure"). Two ways to show it, for your eye:
+   - the store finer than the screen's squares and summed into them, so edges glide as now;
+   - its squares shown as they are, riding with the world, a little uneven in size.
+4. **A ray is long because it goes far, and only its far end can be lazy.** The near part of the same ray shifts
+   soonest as you move. So laziness goes by stretch of distance, not by ray: every ray cut at set distances, the
+   near lengths marched every frame, the far ones in turn, all joined front to back each frame. That is step 4's
+   cut, which is why I'd build the cut first.
+5. **Light kept in a lazy picture crawls.** The sun's step, the time of day and fog would arrive in patches over
+   many frames. Keep what's there (colour, faces, cover, distance), and put light and fog on every frame in the
+   finish pass.
+6. **What's hidden now is wanted next.** Far land behind a near ridge has to be marched anyway, or it's a hole when
+   the ridge slides aside, and "coarse first, then refined" is a pop. Lazy, it's cheap to march.
+7. **Behind you has to be kept warm.** A full turn takes a tenth of a second. The whole ring of directions is kept,
+   the part out of view at a lower rate.
+8. **Far land moves in steps.** A length redrawn every 36th frame moves 36 frames' worth at once, against a near
+   field that moves every frame. Shown all at once it's even, like animation on twos. Shown as each direction
+   finishes, it boils along edges. Your rule, "even beats irregular", says all at once, with the work itself spread
+   evenly through the frames between. At a quarter pixel a step should be under what the eye catches. The run will
+   say.
+9. **The marks stop measuring.** Standing still, a lazy far eye costs almost nothing, so the standing marks go
+   quiet. The gate has to be read moving (a walk, a run, turning, nodding) at the 99th, and once with laziness
+   switched off, since full duty is still today's march.
+
+Two more to carry. Things that move far off (lights that twinkle, figures, weather) can't live in a lazy picture:
+they're drawn each frame over it, against its kept distance. And a stale picture hides bugs: it needs an age view
+(each pixel tinted by how long since it was made) and a flight that checks the store against a full march at random
+frames.
+
+**Your four tests, amended:**
+
+1. The store, once whole, equals a full march of its own directions.
+2. Lag: the longest any shown result has waited, per length, at a walk, a run, turning and flying. And a count of
+   rays restarted before finishing, which should be none.
+3. Card time on moving marks at the 99th, against today's in one session, laziness on and off. And the frame's
+   evenness while speeding up and slowing down.
+4. Your eye, three looks: turning on the spot; walking with a near ridge sliding across far land; the sun's step
+   arriving.
+
+**"Smallest version first: the 8 × 8's far rays only."** I'd choose a different smallest. Lazy 8 × 8 rays save at
+most the 8 × 8's wait, which step 2 already takes away, and they need the store by direction all the same. The
+smallest version that tests the idea is the farthest one or two lengths of every layer, kept by direction, under
+the rules above. It's small, it's where the tolerance is widest, and it shows you the one thing only your eye can
+judge: far squares that hold still on the world.
+
+## 4. The column-height skip
+
+- **The march already skips over each column's top,** two levels up and at its own level, down to one cell above
+  the land (`far.wgsl:548-582`) *[checked]*.
+- **Below that the blend is part solid, and that's where the long rays are.** They aren't looking for the ground.
+  They're summing the haze over it. A finer height table tells the march nothing it may act on there, since
+  skipping haze changes the picture.
+- **With the skyline made by cover there's no haze.** The land is a surface, where the blend is half solid. A ray
+  meets it or passes it, and a passing ray keeps only its closest miss, measured in pixels, which is the square's
+  cover.
+- **Then the table pays.** Each column's lowest and highest top, kept at every level, lets a skimming ray stride
+  across any stretch that's flat to within a share of a pixel, and step finely only where the ground near it is
+  rough (Tevs, Ihrke and Seidel, "maximum mipmaps", 2008; Dick, Krüger and Westermann, 2009). Hundreds of steps
+  become tens *[estimate, medium]*.
+- **It answers plain columns.** A place that isn't one (an overhang, an arch, a slab in the air) keeps the march it
+  has.
+
+So: with the skyline by cover, as one look step, not as a step of its own.
+
+## 5. Design D: what holds, what changes
+
+| Part of D | Where it stands |
+|---|---|
+| The world behind a doorway; the eye never opens a world file | Held: 5,047 columns to the block, a tile in 2 ms |
+| Far cells summed by a lane from the doorway | Held, and better than I drew: on the processor, the whole world in 17 s, so levels needn't be stored |
+| Bricks found by arithmetic; the card's own blend | Held: 14 to 29% off, and David can't tell the picture apart |
+| Fine levels kept only round the eye | Held: 916 MB against 2.7 GB |
+| Light kept by place | Held for the look (4b); not yet built in the new eye |
+| Each layer standing alone, no waits between them | Lost when old's march came across as it was; step 2 takes it back |
+| Rays begun at drawn boxes, the walk made short | **Didn't hold.** The boxes cut the open air before the land. The cost was inside the last cell over it |
+| No reuse between frames needed | Open again: likely true on this card after steps 1 and 2, likely false on a small card |
+
+**Why I was wrong about the boxes.** I counted steps, and I took the distance before the land for the cost. I listed
+"rays that skim along the ground" as D's first risk and then designed nothing against it. And I wrote of Builder's
+plan, "I would not make the long ray leaner; I would make it short." The boxes didn't make it short, and making it
+leaner is now step 1.
+
+**The verdict.** D's store stands. D's lens goes. The far eye is B's lean march on D's store, as the gate's
+fallback said. E is no longer in reserve: as lazy rays it's next in line once there's work to save. What does make
+the long ray short is in sections 4 and 9: the skyline by cover with its height table, and past it the sheet.
+
+**On small passes** (David's goal of 2026-11-12). Right, and there's a well-known paper behind it: Laine, Karras
+and Aila, "Megakernels considered harmful" (2013), which is old's Nsight finding and David's instinct, measured.
+Two cautions from today's readings:
+
+- Small passes, and packing the live rays between rounds, keep a *working* card full. They don't shorten a chain.
+  A ray of 768 steps takes 768 steps in a row however the program is cut.
+- Passes in a row add their waits. Cut by kind of work (march, join, finish), and let passes that don't need each
+  other run side by side.
+
+## 6. The near eye
+
+**What the far eye taught:**
+
+- A march from the eye waits on its longest ray, and at eye level over open ground the longest rays are the many
+  that skim. Old's bare plain (9.66 ms, the blocks 31% of it) is very likely the same thing, near
+  *[estimate, medium]*.
+- Blocks have no haze. A ray over flat ground is in clear air until it hits. So here a height table pays alone:
+  each column's top, kept at several sizes, lets a ray one block over a plain stride 64 blocks at once.
+- Under a roof (a cave, a hall, a wood's canopy) the height table gives nothing. There a second table is wanted:
+  which small boxes of a brick are empty.
+- Light is cheap where pixels are big, and dear in the near faces (4b). The air cell in front of each face, made by
+  the lane, as my second part has it. That stands for either drawer.
+
+**So, rays:** from the eye, no boxes, both tables in from the first build, light read from the air cell. The first
+flight reports its longest ray.
+
+**A change to my own rule.** The rule David agreed says triangles are built only if rays miss a mark. I'd now build
+and fly both before the fork, rays first. Why:
+
+1. The far eye met every estimate of its work and still missed its gate, by waiting. A rule that stops at "rays
+   pass" never learns what triangles would have cost.
+2. Faces drawn as triangles can't wait on a long ray. Their cost is work, which every card has in plenty, and a
+   small card more of, for this, than it has for long marches.
+3. Figures and things are triangles anyway, so the road gets built.
+4. Builder's hours are small beside the cost of fixing the design on one measurement.
+
+The judging stays as written: 1.5 ms at every ground mark; over 1 ms apart at the worst mark is David's call; his
+eye for pops and seams.
+
+**What I expect,** to be tested and not trusted *[estimate, low]*: triangles for whole blocks' faces, and rays kept
+for what's inside a block's own box (quarter blocks, pieces), where rays are short and triangles would be many.
+
+**Marks to add** (question 11):
+
+- the plain at eye height, nodding;
+- the scattered wood at eye level, where rays skim between trunks;
+- along a long straight wall, and along still water;
+- under a roof with no sky in view;
+- a walk and a run, not only standing.
+
+## 7. The cells of 2 to 16, and something to look at
+
+**My call, as David left it: before the fork,** as the last part of 2.2, after steps 1 and 2.
+
+- **It's where a player looks.** Blocks end about 340 blocks out, and the 32s don't match the finest layer's pixel
+  until about 10 km *[arithmetic from `far_eye.rs:27` and `478`]*. Woods, towns and hills live between. Today that
+  stretch is drawn in 32s.
+- **It changes what kind of pass the far eye is.** With those cells in, the 4 × 4 and 2 × 2 layers are earned over
+  most of the ground: a million short rays. The far eye becomes a working pass as well as a waiting one, and its
+  gate hasn't been read on that.
+- **Lazy rays and the near eye's edge can't be judged without it.**
+
+**How.** The same march with its first level lowered from 5 to 1. Each fine level kept only in its own ring round
+the eye, which is the window five more times. Summed on the processor as the eye moves: the whole world's 32s took
+17 s, and a ring is far less *[estimate, medium]*.
+
+**Detail to look at.** David: "we could add random block detail to an area". Yes, and I'd put it behind the
+doorway, not in as changes: a small scatter stage the doorway applies as it answers a tile (a seed, a density, a
+few shapes). Then a few square kilometres of it cost nothing to keep, and the eye can't tell it from a made world.
+It's an instrument with a dial, off by default, not a stand-in for world generation.
+
+Shapes that test what the far eye is hardest on:
+
+- clumps 4 to 20 high, in patches: a wood;
+- posts one block wide in rows: does a fence fade or pop?
+- a few towers over 100 high;
+- slabs in the air and an arch: columns that aren't plain;
+- a pit with a light in it, once lights exist.
+
+**Marks from it:** eye level in the wood; 100 over it; the towers from 5 km.
+
+## 8. Your twelve questions
+
+1. **Where first for grazing rays?** None of the four named. First the step itself (1a to 1d), then the layers side
+   by side, of which the 4 × 4 base is the probe. The sea as a sum next, if the sea still leads. E, as lazy rays,
+   after. Whole-screen reuse isn't for this.
+2. **Does change 2 change D?** It takes the lens out of D and leaves the store (section 5). The triangle hardware
+   for the near eye: as a drawer of faces, yes, to be flown; as a starter of rays, no (section 6).
+3. **The gate's shape.** One budget, read at the fork, with the far eye judged over its whole distance (the cells of
+   2 to 16 in) and moving. Keep 1 and 2 ms as the far eye's aim. A split to argue with *[a proposal]*: far 1.2
+   typical and 2 worst; near 1.5; finishing and the panel 0.4; at least 0.9 left for figures, water, glass and
+   slack. The worst read on the moving and nodding marks at the 99th.
+4. **Temporal reuse now or later?** Whole-screen reuse stays for the speed pass, by David's rules of 2026-11-08.
+   Its narrow form, lazy lengths kept by direction, may come sooner, when a flight shows work to save (section 3).
+5. **Memory for time, and is a card-sized cache honest?** Best first: the window's reach; light by place with the
+   next sun step made ready; the lazy lengths' store; the height tables, which are tiny; a wider ring of near
+   bricks. Honest on one condition: a cache may change how soon something is ready or how far the finest cells
+   reach, never what a whole picture is at a given setting. The window's reach does change far ridges a little, so
+   it's a named setting on the Render page with the small card's value as its default, not a silent adjustment.
+6. **Main memory.**
+   - Prepared bricks, so the window refills by plain copy and a brick at a time (the 8 to 9 ms spikes at a run).
+   - The tiles round the eye, unpacked.
+   - The far light's sweeps, and the cells of 2 to 16 as they're summed.
+   - Meshes, if triangles come.
+   - The 1.3 GB held at the start is likely the driver, the shader compiler and copies waiting for the card, held
+     but mostly untouched *[estimate, low]*. Break it down before spending any.
+   - Leave most of the processor's threads free. The simulation will want them.
+7. **The filter's precision.** Yes, it fits. The same data and the same method; the rounding is the card's. A
+   per-card trick is a different method or different data for one maker.
+8. **The fog line.** Finer layers earned where neighbouring squares' distances differ sharply: yes, and not only
+   for fog. Without it a near ridge's edge is drawn in the far land's big squares. It's cheap now, since rays are
+   nearly free while the long ones run. With the layers side by side, it's read from the frame before.
+9. **64s past the window.** Honest: coarser cells, still exact sums. David didn't notice. Leave it, and let the
+   reach grow on a big card (question 5).
+10. **The near eye:** section 6.
+11. **The near eye's marks:** section 6's list.
+12. **The earlier questions:**
+    - *the near walk beside builds:* answered in the second part; the plain is the cost.
+    - *near light from the air cell:* stands, for either drawer.
+    - *the small card's full-screen passes:* stands; one full-screen pass, and nothing here adds another.
+    - *the world's format and the tablet:* unchanged. The doorway held. Cells summed on the processor in seconds
+      mean the tablet holds no levels, as the second part hoped.
+
+## 9. The larger alternatives, named
+
+David asked for any algorithm that could change the picture radically. Here they are, with what each buys and costs
+and what I'd do. The papers are named from memory, not looked up in this session; Builder should check each before
+leaning on it.
+
+| The idea | What it buys | What it costs | My advice |
+|---|---|---|---|
+| **The skyline by cover, with a height table,** inside today's march (Tevs and others 2008; Dick and others 2009; cone-step maps, Policarpo and Oliveira 2007) | Skimming rays in tens of steps. Far mountains keep their body, with no washing to correct | The haze look. Plain columns only | **The first look.** About an hour in the march as it is |
+| **The sheet:** plain far land drawn by the triangle hardware as rings of mesh round the eye, each ring's squares one cell of its level, morphing into the next (geometry clipmaps, Losasso and Hoppe 2004; CDLOD, Strugar 2009). Drawn into the layers with sixteen samples a square, so a skyline is the true share the land covers. What isn't plain columns is marched inside its bricks' boxes only | No long rays at all. The far levels' cost follows the screen: perhaps 0.2 to 0.4 ms at every mark, and it's a small card's best case *[estimate, low]* | The haze look. Two drawers. A meshing lane. A seam between sheet and marched places unless both use one rule for where the surface is | **Only if David takes the cover look.** Then flown before the fork as the far levels' rival |
+| **The long ray cut into lengths,** marched side by side, joined after (Porter and Duff 1984) | The longest chain about a seventh, in the same frame, nothing kept | Some extra work. Not pixel for pixel | Step 4 |
+| **Lazy lengths kept by direction** (Regan and Pose 1994; layered depth images, Shade and others 1998; my E) | Far work spread by distance: a seventh to a hundredth at a run | Section 3's nine | After the cut, when there's work to save |
+| **Small programs over a pool of rays, packed between rounds** (Laine, Karras and Aila 2013; Aila and Laine 2009) | A full card, when the card is working | Doesn't shorten a chain | The right shape; not this trouble's cure |
+| **Rays sorted or shuffled by length** | The share that follows ray count: 13 to 36% | Machinery | Hold for the Intel card |
+| **One sweep a screen column** (the floating horizon: Voxel Space, 1992; Cohen-Or and others 1996) | About a hundredth of the work | Still one long chain a column, so it waits the same. No camera roll. Plain columns only | No. It saves what we have plenty of |
+| **Distance fields** (David's question of 2026-11-12) | Big strides in open air | Smallest strides just where rays skim | No. Counsel's and Builder's reading is right |
+| **Far light by sweeps on the processor** (Max 1988; Timonen and Westerlund 2010) | No light rays in the frame's far programs. The processor's first real job | A lane to keep true | Yes: step 2's "alongside" |
+| **The laptop's second card used beside the first** | Idle hardware put to work | Not portable. Fragile | No |
+
+**One note on the march you have.** Rays read through cells summed to the pixel's size are a known family
+(GigaVoxels, Crassin and others 2009), and its known weakness is the one you've met: thin surfaces seen edge-on,
+where the sum turns to haze and the ray runs long.
+
+**How I'd order the looks.** The skyline by cover first. It's cheap, it's in the march as it stands, and it's the
+look that every faster road shares. David's eye on three things:
+
+- Does a skyline still average and glide?
+- Do far mountains keep their body? It should end the washing that the sky's weight was made to correct.
+- Does a wood's edge or a row of posts still fade and never pop? My first part turned triangles down for the world
+  on exactly this: "a triangle is there or not there".
+
+If he prefers the haze, the march stays as it is and the sheet is dropped. If he takes cover, the height table goes
+in with it, and the sheet is flown before the fork for the levels of 32 and up, where nearly every column is plain.
+The cells of 2 to 16 stay marched either way: woods and towns aren't plain columns.
+
+## 10. What I'd stop, and what I'd start
+
+**Stop:**
+
+- **Counting steps as cost.** Count the longest ray, and read the watts and the room in flight beside the clock.
+- **Reading a standing median as the far eye's cost.** The horizon has luck in it.
+- **Saving work where it adds a wait,** on this card. An `if` that skips a read costs a wait.
+- **Light as a ray pass of its own.** Go straight to light read from the cell.
+- **Adding a pass to the row without asking what it waits on.**
+- **Leaving the Intel card to last.**
+
+**Start:**
+
+- **The longest-ray readout and the nodding mark** (step 0).
+- **Each pass mark saying which kind of card it's for:** waiting or working. Most changes help one and cost the
+  other.
+- **The processor's first lane:** far light.
+- **The scatter stage behind the doorway.**
+- **Both near drawers,** if David agrees.
+
+## 11. Changes to the plan, for Counsel
+
+- **2.2's order:** step 0's instruments and the Intel flight; the lean step in halves; the layers side by side,
+  with the finer base as its probe; light read from the cell, made on the processor (change 3 and "light split
+  out" as one line); then the gate read.
+- **Lazy rays:** after those, by lengths, under section 3's rules, its tests amended.
+- **The column-height skip:** moved from "priced beside lazy rays" to go with the skyline by cover.
+- **The cells of 2 to 16 and the scatter stage:** into 2.2, before 2.3.
+- **2.3:** no boxes; the height table and the bricks' empty-box table from the first build; both drawers flown
+  before the fork, if David agrees.
+- **The gate:** one budget at the fork, read moving, at the 99th.
+- **The Open table:** the rows for temporal reuse and for the cells of 2 to 16 can be answered from here.
+
+## 12. Still open, for David
+
+In the order he'll meet them:
+
+1. **Both near drawers before the fork:** yes or no. It changes the rule he agreed.
+   - *Answered, 2026-11-12, David: "Yes, fly both".* So 2.3 builds rays first, then faces as triangles, and flies
+     both on the same marks before the fork. The judging stays as written: 1.5 ms at every ground mark; over 1 ms
+     apart at the worst mark is his call; his eye for pops and seams.
+2. **One budget at the fork,** split as in question 3: yes, or other numbers.
+3. **At the skyline's look:** haze or cover.
+4. **When lazy rays are built:** far squares that hold still on the world, or on the screen as now.

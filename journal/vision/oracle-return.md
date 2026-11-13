@@ -376,7 +376,8 @@ sends it, its answer becomes the third part of `journal/vision/oracle-review.md`
 rays skimming the horizon set each layer's time), at medium confidence, with five questions of its own. David chose
 to run its two tests and the lean step before answering, and to try its skyline by coverage, plain land as a
 surface, and the horizon band over a few frames (`journal/docs/decisions.md`, 2026-11-12). The results go in
-section 2 as they land, for its third part.
+section 2 as they land, for its third part. *The third part, written the same day:* "waiting, not working", in
+`journal/vision/oracle-review.md`. This file goes on gathering for the fork after 2.3.
 
 ## 6. The message to send at the fork
 

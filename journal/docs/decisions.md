@@ -1458,6 +1458,35 @@ Reference: `Art/quartile minecraft illustration.png`
     (a finer base layer, fewer layers waiting on each other); the time is the longest chain (fewer steps, cheaper
     steps, or lazy rays); shuffling has little to win. *For the goal above:* the program's size isn't what holds this
     march back, so splitting alone won't fix the far eye; it stays the right shape for lazy rays and the near eye.
+- **[DECIDED 2026-11-12] The Oracle's third part, "waiting, not working"** (`journal/vision/oracle-review.md`, written
+  with the tests', the watts' and Nsight's results). In short:
+  - **On a waiting card, work is nearly free and waiting is dear:** shorten the wait, even where it adds work.
+  - **Its order for 2.2:** step 0, instruments (the longest ray in every report, a nodding mark, and one flight on the
+    Intel card now, to know which kind of card it is); step 1, the lean step in halves flown apart (kept in hand;
+    read together; several steps at once; thin haze by whole cells, a look); step 2, the layers side by side, each
+    taking its lead from the coarser layer of the frame before, the finer base layer its probe; alongside, light read
+    from the cell, made on the processor by sweeps (change 3 and "light split out" as one); step 3, read the gate;
+    step 4, only if still missed, the long ray cut into lengths marched side by side and joined front to back.
+  - **Lazy rays:** sound (Regan and Pose's "priority rendering", 1994, is its forebear), but after those, by lengths
+    of distance, under nine rules (a ray in flight always finishes; the store, once whole, equals a full march of its
+    own directions; light and fog put on every frame, not kept lazy; the gate read moving).
+  - **The column-height skip** pays only with the skyline made by cover (the long rays are summing haze inside the
+    last cell, which a height table can't skip); in the near eye it pays alone, from the first build.
+  - **Design D:** its store stands (doorway, cells by a lane, bricks, the card's blend, the window); its lens goes
+    (the boxes). The far eye is the lean march on D's store. Small passes are right ("Megakernels considered harmful",
+    Laine, Karras and Aila, 2013), but they don't shorten a chain.
+  - **The cells of 2 to 16:** before the fork, after steps 1 and 2, with a scatter stage behind the doorway to look at
+    (David had left this call to the Oracle).
+  - **The larger alternatives,** named with costs; the one it would fly, if David takes the cover look, is "the sheet"
+    (plain far land as rings of mesh, geometry clipmaps), as the far levels' rival.
+  - **[DECIDED] Both near drawers before the fork** (David, to the Oracle: "Yes, fly both"). It changes the rule he
+    agreed in the second part (triangles only if rays missed a mark): 2.3 builds rays, then faces as triangles, and
+    flies both on the same marks. The judging stays: 1.5 ms at every ground mark; over 1 ms apart at the worst mark
+    is his call; his eye for pops and seams.
+  - **[OPEN], in the order he'll meet them:** its section 11's changes to 2.2's order, for David to weigh with
+    Builder; one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
+    0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
+    rays are built, far squares fixed to the world or to the screen.
 - **[DECIDED 2026-11-12] Main memory tracked, and searched for free wins** (David, to Counsel, asking "do you think
   we are under-utilizing system ram? i think basically everyone will have at least 8gb", then: "tell builder to begin
   tracking ram use, and start looking for opportunities where using it is almost a free win or takes some heat/load

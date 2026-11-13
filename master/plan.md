@@ -25,9 +25,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   against 99 at the spawn, so it's queued, not working; the processor idles at 5 to 11%. David's goal, before
   answering the Oracle: **no megakernels**, the eye as small passes, each measured alone. Nsight confirms "waiting":
   the far march keeps 1 to 7% of the card in flight over the sea, too few long rays to fill it, so more rays are
-  nearly free and the chain is the time. Next: the writeup for the Oracle with David, then the lean step, light
-  split out, lazy rays. Then the Oracle's looks (the skyline by coverage, plain land as a
-  surface, the horizon band over frames), change 3, the Intel card, and the gate. The fog line waits.
+  nearly free and the chain is the time. The Oracle's third part is in (`journal/vision/oracle-review.md`): on a
+  waiting card, work is nearly free and waiting is dear. Its order: instruments and an Intel flight now; the lean
+  step in halves; the layers side by side; light read from the cell, made on the processor; the gate; the cells of 2
+  to 16 with scattered detail before the fork; lazy rays after, by lengths. David's answer so far: both near drawers
+  flown before the fork ("Yes, fly both"). The fog line waits.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -46,9 +48,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his answers to the Oracle once Builder's tests are in, so it can write its third part; where
-  the cells of 2 to 16 blocks go (the far eye before the fork, as the Oracle advises, or 2.3); when to take the fog
-  line; whether `CLAUDE.md` points at the map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
+- **Waiting on David:** the Oracle's order for the rest of 2.2 (adopt it, as Builder weighs it); the laptop switched
+  to "Optimus" for the Intel flight it wants early; later, one budget at the fork, haze or cover at the skyline's
+  look, and lazy rays fixed to the world or the screen; when to take the fog line; whether `CLAUDE.md` points at the
+  map. Ahead: at 2.2's gate the Intel card's numbers, which need the laptop switched to "Optimus" for that flight. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
   what we learn for it as we go, in `journal/vision/oracle-return.md`. It was also called early, after Phase 1 (2026-11-11).
@@ -262,13 +265,15 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop, at the far marks; David's look, above all at
     rings where levels hand over; numbers from the Intel card. If they're twice that or more: keep the bricks and
     the light, march far the lean way instead
-- [ ] **2.3 The eye, near** (experiment 6): rays first: old's near walk on bricks of blocks, begun at the drawn boxes,
-      light kept in the air cell in front of each face, pieces walked by their octants. David's build arrives as
-      changes, testing the eye's change path. Marks: the bare plain, the scatter at three densities, the build, a
-      bigger quarter-block building, the spawn, the mountain top
-  - *The rule, written beforehand:* rays pass every ground mark at 1.5 ms or under on the laptop: rays keep the near
-    field. Rays miss a mark: faces as triangles are built and flown on the same marks, and take the near field if
-    they pass where rays missed. Both pass and triangles are over 1 ms cheaper at the worst mark: David's call
+- [ ] **2.3 The eye, near** (experiment 6): rays first, from the eye with no boxes (the Oracle's third part): a
+      column-height table and a table of each brick's empty boxes from the first build, light kept in the air cell in
+      front of each face, pieces walked by their octants; then faces as triangles; both flown on the same marks
+      before the fork. David's build arrives as changes, testing the eye's change path. Marks: the bare plain (and
+      nodding), the scatter at three densities, the build, a bigger quarter-block building, the spawn, the mountain
+      top; the wood at eye level, along a long wall and still water, under a roof, a walk and a run
+  - *The rule, changed by David's word* ("Yes, fly both", 2026-11-12; it was: triangles only if rays missed a mark):
+    rays and triangles both built and flown; 1.5 ms or under at every ground mark; over 1 ms apart at the worst mark
+    is David's call; his eye for pops and seams
   - *Gate:* the rule above; David's eye for pops and seams; the scatter's curve (cost should follow the screen)
 - [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
@@ -323,7 +328,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | ~~The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before?~~ | Answered 2026-11-12: the editor's, as the software map |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
 | Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? Its narrow form, the horizon band refreshed over a few frames, is to be tried in 2.2 | The fork |
-| The cells of 2 to 16 blocks (between the block field and the 32s, where forests and towns are mostly seen): in the far eye's march before the fork, as the Oracle advises, or in 2.3? | David, before 2.3 |
+| ~~The cells of 2 to 16 blocks: in the far eye's march before the fork, or in 2.3?~~ | Answered by the Oracle, as David left it: before the fork, after the lean step and the layers side by side |
+| The Oracle's third part's changes to 2.2's order (its section 11): adopt, as Builder and David weigh them? | David, now |
+| One budget at the fork (the Oracle's split: far 1.2 typical and 2 worst, near 1.5, finishing 0.4, 0.9 left), read moving at the 99th? | The fork |
+| At the skyline's look: haze, as now, or cover (with the column-height table, and the sheet flown as rival if cover)? | Its look in 2.2 |
+| Lazy rays' far squares fixed to the world or to the screen? | When lazy rays are built |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |
