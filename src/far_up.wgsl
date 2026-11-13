@@ -59,13 +59,14 @@ fn brought_up(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
         smooth_it = !(far > near * 1.5 + 8.0);
     }
     // The base, then each finer layer over it as much as it's worth there (the base is shown whole).
-    var colour = read(layer8, 8.0, at.xy, smooth_it).rgb;
-    if (finest <= 4.0) {
-        let c = read(layer4, 4.0, at.xy, smooth_it);
+    // Each layer half the size of the one above it (8, 4, 2 as old's; or from a finer base: step 2's probe).
+    var colour = read(layer8, coarsest, at.xy, smooth_it).rgb;
+    if (finest <= coarsest * 0.5) {
+        let c = read(layer4, coarsest * 0.5, at.xy, smooth_it);
         colour = mix(colour, c.rgb, c.a);
     }
-    if (finest <= 2.0) {
-        let c = read(layer2, 2.0, at.xy, smooth_it);
+    if (finest <= coarsest * 0.25) {
+        let c = read(layer2, coarsest * 0.25, at.xy, smooth_it);
         colour = mix(colour, c.rgb, c.a);
     }
     return vec4<f32>(colour, 1.0);
