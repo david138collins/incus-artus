@@ -2495,3 +2495,28 @@ Flown unset, 2, unset, 2 (logs/flight-1794604653, -5048, -5439, -5837). The card
   the copy. Neither later order has given it back. Build 155's order without the copy was never flown; by its other
   marks it would have the mountain top and high over the spawn near 1.6, so the most of all the marks would be worse
   than now (1.41). Left, written down.
+
+## The one dispatch finished: packed under the default limit, made the default; build 154's form out  *(plan 2.2)*
+
+### The pass mark (written before the code)
+
+- **What's built:**
+  1. The three layers' distances in one texture (the base, the middle layer and the finest side by side in it), so a
+     pass writes four textures, the library's default: the raised limit comes out of `card.rs`.
+  2. The one dispatch is how the far eye marches unless told otherwise; `INCUS_FAR_SIDE=0` marches the layers one
+     after another (kept: every flight is read against it, and it is the picture's reference). Build 154's form
+     (three dispatches in one pass) is taken out: it gained nothing.
+  3. The first frame after the layers are remade (the window's size changed, the bricks' pool or the far textures
+     grew) is drawn whole: the dispatch is run three times in that one frame, so its lead is this frame's and there
+     is no frame of the coarse layer alone. A frame's lead after a jump of the eye (going to a mark) is still the
+     view before the jump, for that one frame: written down, not built for.
+- **The picture:** at `INCUS_FAR_SIDE=0`, pixel for pixel build 157's. Unset, a single frame from new is pixel for
+  pixel the same picture (the three runs settle it); so is the third frame of the old test.
+- **The card's memory:** up about 15 MB at 2560 × 1600 on build 157's one dispatch (the distances' texture is as
+  tall as the finest layer all the way across), less what the layers one after another no longer hold when they
+  aren't used; Builder's guess within 20 MB either way of build 157's one-dispatch figure.
+- **Flown unset, 0, unset** (one dispatch twice, in turn once to check the session), read against build 157.
+  Builder's guess [low]: every mark within 1.5% of build 157's one dispatch, either way. The packing changes where
+  the distances are written, not how many.
+- **Kept if** no mark is more than 1.5% slower than build 157's. Then the measuring switches are cut (build 159) and
+  flown alone, for David's "another 1%".
