@@ -2074,3 +2074,22 @@ and `-1794586177`.
   top 1.76 against 1.68). And **the fast run reads double** in every pass, off and on alike, with the card's clock down
   to 1,000 to 1,240 MHz there at 52 to 54 °C (last night 2,500 MHz at 71 °C): the card slowed itself, not by heat.
   Not from the code; asked of David whether the laptop's power mode is as it was.
+
+## The Oracle's step 1c: several steps at once  *(plan 2.2)*
+
+### The pass mark (written before the code)
+
+- **What's built,** behind a switch (`INCUS_FAR_AHEAD`: 1 on; off till flown):
+  - After a step through open air, the ray works out its next three places as it would reach them (the same strides,
+    by the same sums) and fetches all three's pictures together.
+  - Each later step that arrives at exactly one of those places, at the same level, uses what was fetched; the march's
+    own tests still run every step. If the ray skips, changes level, meets a surface or a region not summed, what was
+    fetched ahead is dropped and the step reads as before.
+  - So it's the same places, the same sums and the same steps; only when the pictures are asked for changes.
+- **The picture pixel for pixel the same,** on and off, at five marks over the whole world. **The longest rays the
+  same** step for step.
+- **Flown off and on, alternating twice,** on "NVIDIA GPU only". Decided on the NVIDIA; the Intel's price taken at
+  its next flight (it will pay: fetches thrown away are work).
+- **Estimates.** The Oracle's [low]: a further 20 to 50% off what the long layers still cost. Builder's [low]: 5 to
+  20% off the far marks. 1b showed the card overlaps reads only a little, and only the steps that blend (not the
+  skips) can be fetched ahead.
