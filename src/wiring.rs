@@ -73,6 +73,7 @@ pub enum PassId {
     TheDoorway,
     SummingTheFarCells,
     MakingTheFarTextures,
+    MakingTheFarLight,
     ReadingTheTemperatures,
 }
 
@@ -107,6 +108,7 @@ pub enum StoreId {
     FarLayers,
     FarLook,
     FarTextures,
+    FarLight,
     FarWindow,
     Temperatures,
 }
@@ -162,7 +164,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 19] = [
+pub const PASSES: [Pass; 20] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -248,7 +250,8 @@ pub const PASSES: [Pass; 19] = [
             ("INCUS_FAR_EDGE", "0: rays marched on past the map's edge toward the reach, as before (unset: ended at the edge)"),
             ("INCUS_FAR_HAZE_STEP", "a far ray's step through thin haze (the land's faint fringe), in cells: 1 a whole cell (unset; the lean step, 1d, David's look), 0.5 as old's"),
             ("INCUS_FAR_BASE", "the far eye's first layer in screen pixels: 8 (unset, old's) or 4, the layers under it each half the one above (step 2's probe)"),
-            ("INCUS_FAR_SIDE", "0: the far eye\'s layers marched one after another (the baseline flights are read against, and the picture\'s reference); unset, by one dispatch, a finer layer led by the coarser layer of the frame before (step 2)"),
+            ("INCUS_FAR_SIDE", "0: the far eye's layers marched one after another (the baseline flights are read against, and the picture's reference); unset, by one dispatch, a finer layer led by the coarser layer of the frame before (step 2)"),
+            ("INCUS_FAR_LIGHT", "rays: the far eye's light by rays after its march, as before (for flying against); unset, read from the cell (the far light, made on the processor)"),
             ("INCUS_TEST_STEPS", "for measuring (the Oracle's test): the most steps a far ray takes (unset: 768)"),
             ("INCUS_FAR_DETAIL", "the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's)"),
         ],
@@ -260,7 +263,7 @@ pub const PASSES: [Pass; 19] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -271,7 +274,7 @@ pub const PASSES: [Pass; 19] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -282,7 +285,7 @@ pub const PASSES: [Pass; 19] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -378,6 +381,17 @@ pub const PASSES: [Pass; 19] = [
         files: &["src/atlas.rs"],
     },
     Pass {
+        id: PassId::MakingTheFarLight,
+        name: "making the far light",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "Once every region is in, on a thread of its own: each far column's top (how high its solid stands), and from the tops how much sky each top sees (the land's height round it in eight ways, once) and the height the sun's shadow reaches there (one sweep across each level along the sun's way). The shadow is swept again, on a thread, when the sun's setting has changed and stood still a quarter of a second, into the picture that isn't shown, and shown whole when it's in [David, 2026-11-13: snapped, \"smooth it only if its bad\"; sixteenths of a day once there are days]. For light the far land is a surface: nothing shadows what's under itself.",
+        reads: &[StoreId::FarCells],
+        writes: &[StoreId::FarLight],
+        switches: &[],
+        files: &["src/far_light.rs"],
+    },
+    Pass {
         id: PassId::ReadingTheTemperatures,
         name: "reading the temperatures",
         lane: LaneId::Temperatures,
@@ -390,7 +404,7 @@ pub const PASSES: [Pass; 19] = [
     },
 ];
 
-pub const STORES: [Store; 19] = [
+pub const STORES: [Store; 20] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -526,6 +540,14 @@ pub const STORES: [Store; 19] = [
         what: "The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and the colour and faces spread into empty neighbours (8-bit); each brick's slot beside its place in the bricks' index. A brick's texels a side: its cells a side and a border (9 at bricks of 8).",
         limits: &[("bricks a side of an atlas layer", crate::atlas::ACROSS as u64)],
         files: &["src/atlas.rs"],
+    },
+    Store {
+        id: StoreId::FarLight,
+        name: "the far light",
+        on: Where::Card,
+        what: "The far eye's light, read from the cell: two pictures of the whole world, every level's columns side by side in each (the first level at the left, the others down a column to its right; each level's place is the last of its numbers in the levels' table): the height the sun's shadow reaches at each column (16-bit floats, kept twice so a new sweep is swapped in whole) and how much sky its top sees (8-bit). The tops they're made from are kept on the processor.",
+        limits: &[("columns out the sky's horizon is looked for", 16)],
+        files: &["src/far_light.rs"],
     },
     Store {
         id: StoreId::FarWindow,

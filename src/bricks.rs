@@ -126,9 +126,13 @@ pub fn levels(regions: ([i32; 2], i32), height: i32, side: i32) -> Vec<Level> {
 /// The card's table of the levels: `TABLE` numbers each (`far.wgsl` reads them by these places; a brick's width and
 /// height as shifts, both powers of two).
 pub fn table(levels: &[Level]) -> Vec<i32> {
+    // The last: where the level's columns sit in the far light's pictures (`far_light::layout`), north in the low 16
+    // bits and east above them.
+    let (lit_at, _) = crate::far_light::layout(levels);
     let table: Vec<i32> = levels
         .iter()
-        .flat_map(|l| [l.level as i32, l.from[0], l.from[1], l.across, l.entries_at as i32, l.index_at as i32, l.wide.trailing_zeros() as i32, l.tall.trailing_zeros() as i32, l.bricks, l.bricks_up, l.up, 0])
+        .zip(&lit_at)
+        .flat_map(|(l, at)| [l.level as i32, l.from[0], l.from[1], l.across, l.entries_at as i32, l.index_at as i32, l.wide.trailing_zeros() as i32, l.tall.trailing_zeros() as i32, l.bricks, l.bricks_up, l.up, (at[0] | at[1] << 16) as i32])
         .collect();
     debug_assert_eq!(table.len(), levels.len() * TABLE);
     table

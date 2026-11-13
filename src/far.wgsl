@@ -21,7 +21,8 @@ struct Camera {
     // Scaled so a pixel's direction is forward + x·right + y·up for x, y from −1 to 1.
     right: vec4<f32>,
     up: vec4<f32>,
-    // x, y: the layer's size; z: a layer pixel's angle (radians).
+    // x, y: the layer's size; z: a layer pixel's angle (radians); w: 1 once the far light's pictures are in (till
+    // then, read from the cell, everything is taken as lit).
     view: vec4<f32>,
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
@@ -41,7 +42,8 @@ struct Camera {
     // the map's edge.
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
-    // (the Oracle's test): z the most steps a ray takes (768).
+    // (the Oracle's test): z the most steps a ray takes (768). w: 1 if the light is by rays (as before the light read
+    // from the cell), 0 read from the cell.
     pyramid: vec4<f32>,
     // The finer layer's fade in: x where it starts (its pixel so many times its cells), y over how many doublings of
     // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
@@ -124,6 +126,11 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
 @group(0) @binding(14) var t_colour: texture_3d<f32>;
 @group(0) @binding(15) var t_plus: texture_3d<f32>;
 @group(0) @binding(16) var t_minus: texture_3d<f32>;
+// The far light, made on the processor (`far_light.rs`): for every level's columns, side by side in each picture
+// (each level's place is the last of its numbers in `levels`), the height the sun's shadow reaches and how much sky
+// the column's top sees.
+@group(0) @binding(22) var t_shadow: texture_2d<f32>;
+@group(0) @binding(23) var t_sky: texture_2d<f32>;
 
 
 const FIRST: i32 = 5;
@@ -1055,6 +1062,36 @@ fn sky_seen(p: vec3<f32>, footprint: f32) -> f32 {
     return seen / (1.0 + 4.0 * rise);
 }
 
+// ── Light read from the cell (the Oracle's change 3; `far_light.rs` makes it) ──
+//
+// A level's light at `p`: x how much of the sun reaches it (lit at the shadow's height or over, less a half cell for
+// where on a soft surface the ray stopped; dark a cell under that), y how much sky its column sees. Blended between
+// columns by the hardware, never across into another level's part of the pictures.
+fn light_of(level: i32, p: vec3<f32>) -> vec2<f32> {
+    let size = f32(1 << u32(level));
+    let least = vec2<f32>(f32(table(level, 1)), f32(table(level, 2)));
+    let across = f32(table(level, 3));
+    let lay = table(level, 11);
+    let at = vec2<f32>(f32(lay & 0xFFFF), f32(lay >> 16u));
+    let c = clamp(p.xy / size - least, vec2<f32>(0.5), vec2<f32>(across - 0.5));
+    let uv = (c + at) / vec2<f32>(textureDimensions(t_shadow));
+    let shadow = textureSampleLevel(t_shadow, soft, uv, 0.0).x;
+    let sky = textureSampleLevel(t_sky, soft, uv, 0.0).x;
+    return vec2<f32>(clamp((p.z - shadow) / size + 1.5, 0.0, 1.0), sky);
+}
+
+// The light at a far surface at `p` (`footprint` the eye's pixel there, blocks): from the two levels its size falls
+// between, by how far between them it is.
+fn cell_light(p: vec3<f32>, footprint: f32) -> vec2<f32> {
+    let f = clamp(log2(max(footprint, 1.0)), f32(FIRST), f32(TOP));
+    let level = i32(floor(f));
+    let here = light_of(level, p);
+    if (level >= TOP) {
+        return here;
+    }
+    return mix(here, light_of(level + 1, p), f - floor(f));
+}
+
 // A pixel's sky light as handed down to the layer below: its kind (the far cells' is 0) over its sky seen in
 // 65,535ths.
 fn sky_word(open: f32) -> u32 {
@@ -1067,10 +1104,21 @@ fn shaded(seen: Seen, open: f32) -> vec3<f32> {
         return seen.colour;
     }
     var colour = seen.colour;
-    if (camera.follow.y > 0.5) {
-        colour -= seen.sunny * (1.0 - sunlight(seen.at, seen.wide));
+    var sun = 1.0;
+    var sky_open = open;
+    if (camera.pyramid.w > 0.5) {
+        // By rays, as before.
+        if (camera.follow.y > 0.5) {
+            sun = sunlight(seen.at, seen.wide);
+        }
+    } else if (camera.view.w > 0.5) {
+        // Read from the cell.
+        let light = cell_light(seen.at, seen.wide);
+        sun = select(1.0, light.x, camera.follow.y > 0.5);
+        sky_open = light.y;
     }
-    let sky = select(1.0, mix(1.0, open, camera.sky.y), camera.sky.x > 0.5);
+    colour -= seen.sunny * (1.0 - sun);
+    let sky = select(1.0, mix(1.0, sky_open, camera.sky.y), camera.sky.x > 0.5);
     let tint = mix(vec3<f32>(1.0), SKY_TINT, camera.sky.z);
     return colour + seen.skyish * (sky * tint - 1.0);
 }
@@ -1250,7 +1298,8 @@ fn march_pixel(id: vec2<u32>) {
     // light changes slowly: most finer pixels take it, and only edges and silhouettes look for themselves).
     var open = 1.0;
     var handed = NO_SKY;
-    if (camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
+    // (By rays only: read from the cell, `shaded` reads it itself and nothing is handed down.)
+    if (camera.pyramid.w > 0.5 && camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
         var have = false;
         if (camera.layer.x > 0.0) {
             let above = get_worth(parent.y * u32(camera.layer.x) + parent.x) >> 8u;

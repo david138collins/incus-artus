@@ -150,6 +150,8 @@ struct Targets {
     /// Whether the atlas was in when they were made, and its generation (bumped when it grows).
     atlas_in: bool,
     atlas_generation: u32,
+    /// The far light's shadow shown when they were made (none: not made yet).
+    light: Option<u32>,
     tiles: (u32, u32),
     /// The longest ray's counting (step 0): a bind group a layer, its steps and its counts.
     tally_groups: Vec<[wgpu::BindGroup; 2]>,
@@ -180,6 +182,16 @@ pub struct FarEye {
     atlas: Option<Atlas>,
     building: Option<mpsc::Receiver<Atlas>>,
     stand_ins: [wgpu::TextureView; 2],
+    /// The far light read from the cell (`far_light.rs`), unless it's by rays as before (`INCUS_FAR_LIGHT=rays`, for
+    /// flying one against the other): made on a thread of its own once every region is in; a shadow swept on another
+    /// when the sun's setting has changed and stood still a moment, and shown whole when it's in (David's snap).
+    /// Stand-ins of one texel till it's made.
+    light_rays: bool,
+    light: Option<crate::far_light::Light>,
+    lighting: Option<mpsc::Receiver<crate::far_light::Light>>,
+    sweeping: Option<mpsc::Receiver<([f32; 2], f32)>>,
+    sun_asked: ([f32; 2], Instant),
+    light_stand_ins: [wgpu::TextureView; 2],
     /// Whether rays end at the map's edge (`INCUS_FAR_EDGE=0`: marched on toward the reach, as before), and the Oracle's
     /// test (2026-11-12), for measuring: the most steps a ray takes (`INCUS_TEST_STEPS`; 768).
     edge: bool,
@@ -235,6 +247,8 @@ impl FarEye {
                 volume(14),
                 volume(15),
                 volume(16),
+                read(22, compute, true),
+                read(23, compute, true),
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
@@ -306,6 +320,9 @@ impl FarEye {
                 .create_view(&wgpu::TextureViewDescriptor::default())
         };
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
+        let light_rays = std::env::var("INCUS_FAR_LIGHT").as_deref() == Ok("rays");
+        let light_stand_ins = [crate::far_light::stand_in(device, wgpu::TextureFormat::R16Float), crate::far_light::stand_in(device, wgpu::TextureFormat::R8Unorm)];
+        let sun_asked = ([look.sun_from, look.sun_height], Instant::now());
         let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
         let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(1.0);
         let base = if std::env::var("INCUS_FAR_BASE").as_deref() == Ok("4") { 4.0 } else { LAYERS[0] };
@@ -338,6 +355,8 @@ impl FarEye {
                     volume(14),
                     volume(15),
                     volume(16),
+                    read(22, compute, true),
+                    read(23, compute, true),
                     written(17, wgpu::TextureFormat::Rgba8Unorm),
                     written(19, wgpu::TextureFormat::Rgba8Unorm),
                 ],
@@ -353,12 +372,17 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light_rays, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
     pub fn whole(&self) -> bool {
-        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0
+        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0 && self.lit()
+    }
+
+    /// Whether the far light is in (or is by rays, which need nothing made).
+    pub fn lit(&self) -> bool {
+        self.light_rays || self.light.is_some()
     }
 
     /// How far round the eye the usable 32s and 64s reach (blocks; none without a window), for a flight.
@@ -376,6 +400,7 @@ impl FarEye {
         let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
         rays += &format!(", thin haze stepped by {} of a cell; the layers {} x {}, {} x {} and {} x {} screen pixels", self.haze_step, self.layers[0], self.layers[0], self.layers[1], self.layers[1], self.layers[2], self.layers[2]);
+        rays += if self.light_rays { ", light by rays" } else { ", light read from the cell" };
         rays += if self.one.is_some() { ", marched by one dispatch (a finer layer led by the frame before's coarser)" } else { ", marched one after another" };
         if self.most_steps != 768.0 {
             rays += &format!(", {:.0} steps at most", self.most_steps);
@@ -395,7 +420,8 @@ impl FarEye {
             (None, Some(_)) => "; the atlas being built".to_string(),
             (None, None) => String::new(),
         };
-        format!("{lane}{} bricks, {:.0} MB of {:.0} MB{atlas}", self.store.bricks, used as f64 / 1e6, size as f64 / 1e6)
+        let light = self.light.as_ref().map_or(String::new(), |l| format!("; the far light {:.0} MB, its tops and sky made in {:.2} s, its last shadow swept and sent in {:.3} s", l.bytes as f64 / 1e6, l.made_in, l.swept_in));
+        format!("{lane}{} bricks, {:.0} MB of {:.0} MB{atlas}{light}", self.store.bricks, used as f64 / 1e6, size as f64 / 1e6)
     }
 
     /// The regions summed since the last frame put on the card, and the window brought to the eye, for at most
@@ -423,6 +449,7 @@ impl FarEye {
             self.atlas = Some(atlas);
             self.building = None;
         }
+        self.light(device, queue);
         if let Some(lane) = &mut self.lane {
             while started.elapsed().as_secs_f32() * 1000.0 < PUTTING_MS {
                 let taken = lane.take(1);
@@ -447,10 +474,64 @@ impl FarEye {
         }
     }
 
+    /// The far light kept up (read from the cell): made once every region is in, on a thread of its own; and a new
+    /// shadow swept, on a thread too, when the sun's setting has changed and stood still a quarter of a second, shown
+    /// whole when it's in.
+    fn light(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        if self.light_rays {
+            return;
+        }
+        let sun = [self.look.sun_from, self.look.sun_height];
+        if sun != self.sun_asked.0 {
+            self.sun_asked = (sun, Instant::now());
+        }
+        if self.lane.is_none() && self.light.is_none() && self.lighting.is_none() {
+            let kept = self.store.kept.clone();
+            let (device, queue) = (device.clone(), queue.clone());
+            let (sender, receiver) = mpsc::channel();
+            let _ = std::thread::Builder::new().name("making the far light".into()).spawn(move || {
+                let _ = sender.send(crate::far_light::make(&device, &queue, &kept, sun));
+            });
+            log::info!("The far light: being made");
+            self.lighting = Some(receiver);
+        }
+        if let Some(receiver) = &self.lighting
+            && let Ok(light) = receiver.try_recv()
+        {
+            log::info!("The far light: {:.0} MB on the card ({} x {}), its tops and sky made in {:.2} s, its shadow swept and sent in {:.3} s", light.bytes as f64 / 1e6, light.tops.size[0], light.tops.size[1], light.made_in, light.swept_in);
+            self.light = Some(light);
+            self.lighting = None;
+        }
+        if let Some(receiver) = &self.sweeping
+            && let Ok((swept, seconds)) = receiver.try_recv()
+        {
+            if let Some(light) = &mut self.light {
+                light.swept(swept, seconds);
+                log::info!("The far light: the shadow swept for the sun from {:.0} at {:.0} and sent in {:.3} s, shown", swept[0], swept[1], seconds);
+            }
+            self.sweeping = None;
+        }
+        if let Some(light) = &self.light
+            && self.sweeping.is_none()
+            && light.sun != sun
+            && self.sun_asked.1.elapsed().as_secs_f32() >= 0.25
+        {
+            let (tops, into) = light.sweeper();
+            let queue = queue.clone();
+            let (sender, receiver) = mpsc::channel();
+            let _ = std::thread::Builder::new().name("sweeping the far shadow".into()).spawn(move || {
+                let _ = sender.send((sun, crate::far_light::sweep_into(&queue, &tops, &into, sun)));
+            });
+            self.sweeping = Some(receiver);
+        }
+    }
+
     /// The layers sized to the screen, and their bind groups made with the bricks as they are.
     fn targets(&mut self, device: &wgpu::Device, screen: (u32, u32)) -> bool {
         let atlas_generation = self.atlas.as_ref().map_or(0, |a| a.generation);
-        if self.targets.as_ref().is_some_and(|t| t.screen == screen && t.generation == self.store.generation && t.atlas_in == self.atlas.is_some() && t.atlas_generation == atlas_generation) {
+        let light_now = self.light.as_ref().map(|l| l.generation);
+        let (shadow, sky) = self.light.as_ref().map_or((&self.light_stand_ins[0], &self.light_stand_ins[1]), |l| (&l.shadow_views[l.shown], &l.sky));
+        if self.targets.as_ref().is_some_and(|t| t.screen == screen && t.generation == self.store.generation && t.atlas_in == self.atlas.is_some() && t.atlas_generation == atlas_generation && t.light == light_now) {
             return false;
         }
         let texture = |label: &str, size: (u32, u32), format: wgpu::TextureFormat| {
@@ -515,6 +596,8 @@ impl FarEye {
                     entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
                     entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
                     entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
+                    entry(22, wgpu::BindingResource::TextureView(shadow)),
+                    entry(23, wgpu::BindingResource::TextureView(sky)),
                 ],
             });
             worth_above = Some(worth);
@@ -550,6 +633,8 @@ impl FarEye {
                         entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
                         entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
                         entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
+                    entry(22, wgpu::BindingResource::TextureView(shadow)),
+                    entry(23, wgpu::BindingResource::TextureView(sky)),
                         entry(17, wgpu::BindingResource::TextureView(&layers[1].picture)),
                         entry(19, wgpu::BindingResource::TextureView(&layers[2].picture)),
                     ],
@@ -578,7 +663,7 @@ impl FarEye {
             .zip(&tally_parts)
             .map(|((layer, counts), part)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding()), entry(2, part.as_entire_binding())] })))
             .collect();
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one });
         true
     }
 
@@ -623,13 +708,13 @@ impl FarEye {
                 [forward[0], forward[1], forward[2], 0.0],
                 [right[0] * tan_half * aspect, right[1] * tan_half * aspect, right[2] * tan_half * aspect, 0.0],
                 [up[0] * tan_half, up[1] * tan_half, up[2] * tan_half, 0.0],
-                [layer.size.0 as f32, layer.size.1 as f32, pixel, 0.0],
+                [layer.size.0 as f32, layer.size.1 as f32, pixel, if self.light.is_some() { 1.0 } else { 0.0 }],
                 [sun[0], sun[1], sun[2], look.ambient.clamp(0.0, 1.0)],
                 [REACH, -look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
                 [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if self.edge { 1.0 } else { 0.0 }],
-                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, 0.0],
+                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, if self.light_rays { 1.0 } else { 0.0 }],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
                 [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
@@ -823,6 +908,13 @@ mod tests {
             }
             eye.look.blend = blend;
         }
+        // The far light made first too (read from the cell).
+        while !eye.lit() {
+            eye.put(&device, &queue, at);
+            queue.submit([]);
+            let _ = device.poll(wgpu::PollType::Poll);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
         // The sky's weight to draw with, if asked (`FAR_TEST_SKY_WEIGHT`, for a look at the skyline).
         if let Some(weight) = std::env::var("FAR_TEST_SKY_WEIGHT").ok().and_then(|w| w.parse().ok()) {
             eye.look.sky_weight = weight;
@@ -891,10 +983,11 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail)), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else if eye.light_rays { " rays" } else { "" }, eye.look.blend, eye.look.detail)), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");
+        eprintln!("The far eye's state: {}", eye.state());
         let memory = device.generate_allocator_report().map(|r| (r.total_allocated_bytes >> 20, r.total_reserved_bytes >> 20));
         eprintln!("The card's memory for nine regions' far eye: {memory:?} MB (in use, held)");
         assert!(memory.is_some(), "the card says what memory the game holds");

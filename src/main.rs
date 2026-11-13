@@ -31,6 +31,7 @@ mod doorway;
 mod editor;
 mod far;
 mod far_eye;
+mod far_light;
 mod flight;
 mod marks;
 mod memory;

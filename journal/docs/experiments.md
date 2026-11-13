@@ -2665,3 +2665,28 @@ dont have days yet."
 - **Kept if** David likes the look (or likes it after tuning its softness and strength) and the marks land as
   guessed. Then the rays' code is cut from the march, and what the code's own blend (a choice on his panel) does for
   light is put to him.
+
+### The column light built (build 160, unflown): its pictures, David's look at them, its lag
+
+- **David on the land treated as a surface** (via Counsel, before the pictures): "far light skipping any small details
+  out there may work if the smaller details can carry their own 'shadow', or absence of light, if they're rendered
+  differently. everything has to look even, and reveal everything accurately though. not sure how that'll work". So
+  three ways, priced for him: (1) the column light alone, as here; (2) light kept a cell at a time in 3D (true under
+  arches at any sun; about 72 MB, seconds a sun step, three hours of Builder's); (3) both: each far cell also carrying
+  its own cover, how much solid stands over it in its own column, in a channel of the far textures that's empty
+  today. Builder's order: 1 as pictures, then 3 on top of it, 2 held as the fallback.
+- **The pictures, made off the screen as he asked** ("if she can make me the pictures of those without taking the
+  screen, and then fly them later after looking at them and discarding any that are obviously bad"): the rays beside
+  the column light at the spawn, the mountain top, the plain, high over the spawn and the sea, the whole world loaded
+  (scratchpad `pictures/light rays and cell ….png`). Builder's look at all five: the shadows fall in the same places,
+  a little crisper by the column; nothing off in any. The rays' own pictures are pixel for pixel build 159's.
+- **David's look** (the first two): "sounds good. those pics look fine to me."
+- **Its lag, measured:** every level's tops and the sky seen made in 0.19 s (the whole world, 5,184 regions); a shadow
+  swept for every level and sent to the card in 0.05 s. With the quarter second the sun's setting must stand still,
+  a change of the sun shows in about 0.3 s: inside the pass mark's half second. The pictures are 40 MB on the card.
+- **Flights held:** David, 2026-11-13: "hold on for a bit, i've got to take a break from watching the screen. we can
+  try to queue up a bunch of flights, and you can run them while i'm sleeping, maybe."
+- **His thought on test detail** (via Counsel): "we may want to consider adding some detail to the world; im sure
+  builder would have fun placing some caves, towers, town buildings, and forests of her own design as test objects."
+  Builder's view, given to Counsel: with the cells of 2 to 16, not before (a tower is smaller than one of today's
+  far cells); woods from the scatter stage first, then a few hand-placed shapes whose right light is known.
