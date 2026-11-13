@@ -1872,3 +1872,26 @@ Read from LibreHardwareMonitor, 30 s each, 2026-11-12 evening:
   speed, with the card's 60 to 100 W in the same cooling.
 - **The spikes past 100 °C come without the game too** (102 °C with nothing but the desk's own programs): short bursts
   on one core at turbo speed, this laptop's way in its Turbo mode.
+
+## The Oracle's step 1a: the lean step, kept in hand  *(plan 2.2)*
+
+### The pass mark (written before the code)
+
+What doesn't change from step to step is kept in hand by the march, and read again only when it changes:
+- **The level's numbers** (its place in the table): once, till the level changes. Two levels' in hand, the one read
+  and the next for the hand-over, and the bands' part for the two levels the skipping reads.
+- **The region:** whether it's summed, and whether its 32s and 64s are usable, once a region.
+- **The four "is it summed" reads** before each blend: none while the blend's columns sit inside a summed region
+  already in hand; as before at a region's edge.
+- **The brick's slot:** kept till the ray leaves the brick.
+- **The level itself:** kept over its stretch of the ray; the two logarithms a step only in a sliver at each
+  stretch's ends and over the hand-over, so the level and the hand-over's mix are the very numbers as before.
+
+The sun's and the sky's cones are left as they are (their own half, if this one pays).
+
+- **The picture pixel for pixel the same** at five marks over the whole world. Exact by construction; any difference
+  is a mistake.
+- **The longest rays the same** step for step in the reports (the same rays take the same steps).
+- **Flown against build 142 in one session, alternating** (142 from a worktree, as change 2's check was). Builder's
+  estimate [low]: 15 to 35% off the 8 × 8 and 4 × 4 layers at the far marks; little at the spawn.
+- **Its keep-or-drop waits on the Intel flight** (Counsel: on a working card every number held is room lost).
