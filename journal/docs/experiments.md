@@ -2599,3 +2599,34 @@ probably." To Builder: "right, we should be able to offload light to the cpu."
   old's flights was 3 to 13%.
 - **What it decides:** nothing by itself. David has chosen to move the light; this says what to expect from it and
   which marks to watch, and gives the pass mark for the build its numbers.
+
+### What the light costs today: 11 to 56% of the far eye, far more than guessed  *(build 159, e97aed5; NVIDIA only, fog off)*
+
+Flown light on, off, on, off (logs/flight-1794610329, -0724, -1117, -1511); each pair agrees within 1%. The card's
+whole, median ms:
+
+| mark | light on | no shadows, no sky light | the light's share |
+|---|---|---|---|
+| on the ground at the spawn | 0.66 | 0.29 | 56% |
+| the bare plain | 0.87 | 0.77 | 11% |
+| the mountain top | 1.34 | 1.04 | 22% |
+| high over the spawn | 1.30 | 0.82 | 37% |
+| low over the sea | 1.35 | 1.14 | 16% |
+| a player's run over the plain (99th) | 1.38 (1.56) | 1.13 (1.33) | 18% |
+| fast across the world (99th) | 1.19 (1.72) | 0.79 (1.01) | 34% |
+| the sea, nodding (99th) | 1.25 (1.54) | 1.04 (1.32) | 17% |
+
+- **Against the pass mark:** guessed 5 to 15%, the most at the mountain top and high over the spawn. It's 11 to 56%;
+  the most is the spawn (the valley floor: nearly every pixel's sky rays climb the valley's walls), then high over
+  the spawn. The Oracle's 3 to 13% was from old's eye, where the march was most of the cost; the march has since come
+  down and the light hasn't.
+- **What it says:** with the light's rays out of the frame, every mark stands at 1.14 ms or under, less whatever
+  reading a cell's light costs (a fetch or two a pixel). It is now the far eye's biggest single piece.
+
+### David's choices for it (2026-11-13)
+
+Asked how the sun's steps should show and whether shadows should follow his slider live: "i think we should try
+snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its bad.
+that snap may be pretty subtle and act as a little clock for the player. live while dragging would only be for my
+benefit and i dont think itd really benefit me." And, on there being no day in the new engine yet: "yeah, i know we
+dont have days yet."
