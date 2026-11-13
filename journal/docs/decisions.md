@@ -1735,6 +1735,17 @@ Reference: `Art/quartile minecraft illustration.png`
         evenness and the near eye's marks (2.3), so made now they're not too early. *Counsel's proposed order:* the
         light pictures on bare land now; then the test detail; then the light pictures again with detail, and
         flights only for the ways that survive.
+      - *Builder's refinement, which Counsel takes:* the test detail belongs **with** the cells of 2 to 16, not
+        before. At today's far cells (32 blocks and up) a tower, a house or a cave mouth is smaller than one cell, so
+        it can't show as a shape or cast a shadow of its own whatever the light does; building it first would be
+        early by exactly that step. So: the light pictures on bare land now, his look, flights for what survives (the
+        column light's win, up to 0.4 ms at the spawn, in hand); the skyline look where it stands; then the cells of 2
+        to 16 with the scatter stage and the test detail in the same step; then the light pictures again with detail,
+        where way 3 (each cell's own cover) is judged. What she'd build first: woods from the scatter stage, then a
+        few hand-placed objects in a test world's changes (a tower, a free-standing arch, a slab in the air, a cliff
+        with a cave mouth, a short street of buildings), shapes whose right light is known; she asks David where and
+        in which world before placing any. Her first picture, high over the spawn: the column light close to the
+        rays', the same shadows in the same places, a little crisper.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
