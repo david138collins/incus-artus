@@ -2690,3 +2690,34 @@ dont have days yet."
   builder would have fun placing some caves, towers, town buildings, and forests of her own design as test objects."
   Builder's view, given to Counsel: with the cells of 2 to 16, not before (a tower is smaller than one of today's
   far cells); woods from the scatter stage first, then a few hand-placed shapes whose right light is known.
+
+### Way 3 (each cell's own cover) shelved till there's something to judge it on
+
+Builder had meant to build it now behind a switch. Not built: on bare land a cell's cover is nothing, so its picture
+would be the column light's and say nothing about "even"; the first overhang, slab or arch the far view can show
+comes with the cells of 2 to 16 and the test detail. Shelved with its design, to be built then:
+- A cell's cover: going up its own column from it, the most of (the air met so far, the solid then met); so a soft
+  slope's own thickness covers nothing, and solid over a gap covers what's under the gap.
+- Made when the far textures are made, kept in the faces' textures' fourth channel (empty today): no memory, no
+  fetch more. The march dims a covered step's sky light by it, and its sun too.
+- True for what's straight overhead; approximate for a low sun reaching in from the side.
+
+### The night queue: the pass marks (written before the flights; build 160, one build, switches only)
+
+David: "we can try to queue up a bunch of flights, and you can run them while i'm sleeping, maybe." Five standings of
+the same build flown in turn, the round three times over (fifteen flights, about 100 minutes), so a slow hour of
+Windows' own night work shows as one round out of step. A standing whose heat lines show it starved (slow-clock time,
+processor load well over its usual) is set aside, not read. NVIDIA only, fog off.
+
+1. **The column light** (unset): the far eye as it would ship.
+2. **The rays** (`INCUS_FAR_LIGHT=rays`): what it replaces. The guess is the build's pass mark above: each mark
+   within 0.06 ms of its "light off" figure (the spawn 0.35 or less, the plain 0.83, the mountain top 1.10, high over
+   the spawn 0.88, the sea 1.20, the player's run 1.19, the sea nodding's 99th 1.38).
+3. **No light at all** (`INCUS_SIGHT_NO_SHADOWS`, `INCUS_SIGHT_NO_SKY`, with the column light): what reading the
+   cell's light costs. Guess [medium]: 0.02 to 0.06 ms at every mark.
+4. **The layers one after another, with the column light** (`INCUS_FAR_SIDE=0`): what the one dispatch is worth now
+   the light's rays are out of each layer's wait. Guess [low]: still 10 to 25% at the marks where two layers run long,
+   a little less than build 159's 15 to 30%; the spawn and the plain level.
+5. **The finer base, with the column light** (`INCUS_FAR_BASE=4`): the polish list's fourth pass re-priced. With rays
+   it cost 0.3 to 1.7 ms (build 153, before the one dispatch). Guess [low]: 0.2 to 1.0 ms now, the least at the sea;
+   still too dear to be the base, but the price David would weigh for the look.
