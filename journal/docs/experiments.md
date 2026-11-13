@@ -2344,3 +2344,28 @@ whole, median ms; in brackets the layers' card time (three passes unset, the one
   the layers packed into shared textures. The frame-before lead built here is what it would stand on.
 - **The lag was not looked at:** nothing earned David's look. The code stays behind its switch (unset costs nothing,
   the same picture and resources as before) until it's decided whether the one-dispatch form is tried; then out or on.
+
+## Step 2, the one-dispatch form: all three layers' pixels marched by a single dispatch  *(plan 2.2)*
+
+David (2026-11-13), on the choice between this and going straight to the gate: "go on with a".
+
+### The pass mark (written before the code)
+
+- **What's built:** behind the same launch setting at 2 (`INCUS_FAR_SIDE=2`), one dispatch whose every invocation
+  works out which layer's pixel it is (the finest at the left of the grid, the middle layer right of it, the base
+  under that) and marches it. The lead is the frame before's, as built for build 154. Nothing between the layers'
+  work for the card or the library to wait on.
+- **A limit raised on purpose, only when set:** six written textures in one pass (a picture and distances a layer)
+  against the library's default of four. If it's kept, the layers get packed to come back under the default, or
+  the raise is decided on then; not before.
+- **Unset, and at 1, the picture is pixel for pixel build 154's;** the march's code is moved into a function both
+  forms call, so unset's times are checked against build 154's too (within 1%).
+- **At 2, standing still, the picture is pixel for pixel the same from the third frame.** The lag when moving is
+  the same one frame as at 1.
+- **Flown unset, 2, unset, 2.** Builder's guess [low]: the probe says the card is partly working, the last flight
+  says the dispatches ran in turn, and this is the first time the long rays of two layers are on the card at once.
+  - Where two layers run long (the sea, the mountain top, high over the spawn, the player's run): the card's
+    whole 15 to 35% less. Nothing is still possible: if a layer's time is all work and no wait.
+  - The plain and the spawn: within 3% either way (each invocation now copies its layer's numbers first).
+- **Kept if** the long marks gain 10% or more, nothing else is more than 3% slower, and David sees no lag when it's
+  put to his look. If nothing: step 2 is read, both forms come out, and the gate (step 3) is next.
