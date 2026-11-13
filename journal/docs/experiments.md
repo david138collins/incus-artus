@@ -2630,3 +2630,38 @@ snapping light from one of 16 levels every time the sun has moved a 16th of the 
 that snap may be pretty subtle and act as a little clock for the player. live while dragging would only be for my
 benefit and i dont think itd really benefit me." And, on there being no day in the new engine yet: "yeah, i know we
 dont have days yet."
+
+### Light read from the cell: the pass mark (written before the code)
+
+- **What's built,** behind a launch setting at first (`INCUS_FAR_LIGHT=rays` for today's rays; unset, the new way), so
+  the two fly against each other and David can look at both:
+  - **On the processor** (a new part, `far_light.rs`), from the far cells kept as they came, for every column of
+    every level: its top (how high its solid stands); **the height the sun's shadow reaches there** (one sweep across
+    the level along the sun's way: each column takes the shadow of the columns toward the sun, dropped by the sun's
+    slope); and **how much sky its top sees** (from how high the land stands round it in eight directions; once,
+    after every region is in).
+  - **On the card,** two pictures of the whole world, every level side by side in each: the shadow's heights
+    (16-bit, kept twice so a new sweep is swapped in whole: David's snap) and the sky seen (8-bit). About 40 MB.
+  - **In the march,** no light rays: a pixel reads the shadow's height and the sky where it landed, blended by the
+    hardware between columns and by the code between the two levels its size falls between.
+  - **The sun's steps:** a new sweep is made when the sun's setting has changed and stood still a moment, and shows
+    whole at once. No fade. Sixteenths of a day when there are days.
+- **Its lag, the mark Counsel asked for:**
+  - A change of the sun shows within half a second of the slider coming to rest (the sweep itself Builder guesses at
+    under 50 ms for every level; the wait is the settling and sending 16 MB to the card).
+  - The land doesn't change yet in the new engine. When it does (a build, a dig), the columns it touched will want
+    their tops made again and a sweep: not built now, written down as owed with 2.4's edits.
+  - At load the light shows with the far textures, both made after every region is in; till then the far view is
+    unshadowed (today it's shadowed from the first regions). Builder's guess: under 2 s more on the wait at load.
+- **What it gives up, said to David before the look:** the far land is a surface for light. Nothing in the far view
+  shadows what's under itself (overhangs, arches); a shadow's edge is as soft as its level's cells.
+- **The picture changes;** it's a look step. Pictures of the rays' and the cell's light side by side at the four
+  marks before the flights, for David's look after.
+- **The card's memory:** up about 40 MB.
+- **Flown rays, cell, rays, cell.** Builder's guess [medium, from the measuring flight]: each mark within 0.06 ms of
+  its "light off" figure: the spawn 0.35 or less (rays 0.66), the plain 0.83 (0.87), the mountain top 1.10 (1.34),
+  high over the spawn 0.88 (1.30), the sea 1.20 (1.35), the player's run 1.19 (1.38), the sea nodding's 99th 1.38
+  (1.54).
+- **Kept if** David likes the look (or likes it after tuning its softness and strength) and the marks land as
+  guessed. Then the rays' code is cut from the march, and what the code's own blend (a choice on his panel) does for
+  light is put to him.
