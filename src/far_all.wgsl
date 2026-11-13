@@ -1,9 +1,10 @@
 // ── The far eye's layers marched by one dispatch (the Oracle's step 2, its one-dispatch form) ──
 //
 // Not a shader on its own: `far_eye.rs` puts this in `far.wgsl`'s place of one layer's outputs (between its two
-// marks), and the camera there becomes each invocation's own copy of its layer's. Every invocation works out which
-// layer's pixel it is, takes that layer's numbers, and marches it with `far.wgsl`'s own `march_pixel`. A finer layer's
-// lead (where it's wanted, where its rays start, its sky light) is the coarser layer's of the frame before.
+// marks), and every use of the camera there becomes a read of this invocation's layer's row of `cameras` (in place: a
+// copy of the whole row for each invocation cost, build 155). Every invocation works out which layer's pixel it is
+// and marches it with `far.wgsl`'s own `march_pixel`. A finer layer's lead (where it's wanted, where its rays start,
+// its sky light) is the coarser layer's of the frame before.
 
 // A picture and distances for each layer (0 the base).
 @group(0) @binding(5) var picture0: texture_storage_2d<rgba8unorm, write>;
@@ -67,24 +68,22 @@ fn get_far_above(at: vec2<i32>) -> f32 {
     return textureLoad(far_prev0, at, 0).x;
 }
 
-// The dispatch's grid: the finest layer at the left; right of it the middle layer, and under that the base (each
-// rounded up to whole groups of 8). `march_pixel` turns away what falls outside its layer.
+// The dispatch's grid: the base at the left and under it the middle layer, the finest to their right (each rounded up
+// to whole groups of 8; the layers with the long rays first, if the card takes the grid in order). `march_pixel` turns
+// away what falls outside its layer.
 @compute @workgroup_size(8, 8)
 fn march_all(@builtin(global_invocation_id) id: vec3<u32>) {
-    let fine_across = (u32(cameras[2].view.x) + 7u) / 8u * 8u;
-    let middle_down = (u32(cameras[1].view.y) + 7u) / 8u * 8u;
+    let left_across = (u32(cameras[1].view.x) + 7u) / 8u * 8u;
+    let base_down = (u32(cameras[0].view.y) + 7u) / 8u * 8u;
     var at = id.xy;
-    if (id.x < fine_across) {
+    if (id.x >= left_across) {
+        at.x -= left_across;
         layer_now = 2u;
+    } else if (id.y >= base_down) {
+        at.y -= base_down;
+        layer_now = 1u;
     } else {
-        at.x -= fine_across;
-        if (id.y < middle_down) {
-            layer_now = 1u;
-        } else {
-            at.y -= middle_down;
-            layer_now = 0u;
-        }
+        layer_now = 0u;
     }
-    camera = cameras[layer_now];
     march_pixel(at);
 }
