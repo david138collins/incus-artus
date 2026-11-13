@@ -1678,6 +1678,28 @@ Reference: `Art/quartile minecraft illustration.png`
       putting light on the processor, probably."). His look at the rings and the Intel card's numbers would be read
       on a far eye that's about to change, so they come after light read from the cell, made on the processor, which
       is next.
+- **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
+  steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
+  try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
+  bad. that snap may be pretty subtle and act as a little clock for the player. live while dragging would only be for
+  my benefit and i dont think itd really benefit me." So the far shadows are swept for the sun's place at each
+  sixteenth of a day and snap to the new one, no fade unless he finds the snap bad; the next sixteenth is made ready
+  before it's shown. While he drags the sun's slider the shadows catch up after he lets go. With no day in the new
+  engine yet (the sun is two sliders), a sweep runs when the sun's setting changes; the sixteenths apply once time
+  runs. (Inside his word of 2026-11-11: "they can change every 30 seconds for all i care"; a sixteenth is about a
+  minute of a 15-minute day.)
+  - **What light costs the far eye now** (build 159, light on and off alternating): the spawn 0.66 / 0.29, the plain
+    0.87 / 0.77, the mountain top 1.34 / 1.04, high over the spawn 1.30 / 0.82, the sea 1.35 / 1.14, a player's run
+    1.38 / 1.13, the sea's nodding 99th 1.54 / 1.32. **11 to 56%** of the card's whole (Builder guessed 5 to 15%; at
+    2b it was 3 to 13%, before the march got faster), now the far eye's biggest single piece. With the light's rays out
+    of the frame every mark would be 1.14 ms or under, less the cost of reading a cell's light.
+  - **Builder's design, its pass mark next:** on the processor, each far level's columns get two numbers: the height
+    the sun's shadow reaches there (one sweep across the level along the sun's way, a few milliseconds a level), and
+    how much sky the column's top sees (from the horizon in eight directions, once at load). They go to the card as
+    two small pictures (about 40 MB for the whole world), read where a pixel lands: no light rays in the frame. Behind
+    a switch at first, flown against the rays, then his look, since the picture changes.
+  - **[OPEN] What it gives up, for David:** the far cells are treated as a surface for light, so shadows under
+    overhangs and arches aren't made in the far view.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.

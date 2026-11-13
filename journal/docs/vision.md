@@ -947,6 +947,23 @@ bread and a blank diary. Birds sing and flit about.
     (alexanderbrandon.bandcamp.com) has a contact form. He remixed the Deus Ex score with Michiel van den Bos for its
     20th anniversary (Conspiravision, on Materia Collective). PC Gamer reported him saying he'd sent 50 résumés in a
     year for one interview, so he may well be open to work.
+- **Sound libraries cleared for game effects** [David 2026-11-13, after Spectrasonics: "omnisphere would have been
+  a perfect library of random sounds. anything else like that similarly... big and worked that permits full sfx use
+  in commercial games in the purchase license, or, additive engines that have an equally large amount of physically
+  modelled random sounds?"; on processing his own samples: "theres a thousand ways but man... that would be a whole
+  thing ive never done and im not against it"]. *Counsel's scouting, each licence to be checked in its own file
+  before shipping:*
+  - **Sonniss's GameAudioGDC bundles:** free, a yearly professional effects bundle since 2015 (an archive from 2015
+    to 2026, tens of GB a year), reported royalty-free for commercial games with no credit needed; not resold as a
+    pack, not claimed as one's own, the newer bundles not for training AI.
+  - **Splice:** a subscription with a large catalogue including foley and effects; its terms allow sounds in video
+    games, commercially, as effects; not resold alone; packs from other producers to be checked.
+  - **Engines that make sounds rather than play samples:** Applied Acoustics Systems' Chromaphone (pure physical
+    modelling, no samples: impacts, wood, metal, glass, creaks) and Tsugi's GameSynth (procedural, made for games:
+    footsteps, impacts, whooshes, weather, fire, endless variations). Neither's licence for shipping rendered sounds
+    was found; to confirm with the makers.
+  - A habit from the first sound: each sound's data file records where it came from and its licence, so the game
+    is easy to clear for release.
 - *Counsel:* ship sounds dry and let the game add the space. The sky light's measure of how much sky a
   place sees could also set how much a sound echoes and how muffled it gets in a cave.
 
