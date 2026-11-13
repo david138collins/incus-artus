@@ -2582,3 +2582,20 @@ arriving at a mark. By his own word before the look ("im not entirely sure i'll 
 near view present") the lag's look is owed again once the near eye draws.
 
 Step 2 is done enough to go on: the one dispatch is the far eye's march.
+
+## Alongside: light read from the cell, made on the processor  *(plan 2.2)*
+
+David (2026-11-13, via Counsel), on what comes next: "why don't we skip 1. we're putting light on the processor,
+probably." To Builder: "right, we should be able to offload light to the cpu."
+
+### First, what the light costs the far eye today: the pass mark for a measuring flight (no code changed)
+
+- **What's flown:** build 159 as it is, against itself with the sun's shadows and the sky light left out
+  (`INCUS_SIGHT_NO_SHADOWS`, `INCUS_SIGHT_NO_SKY`, old's switches): light on, off, on, off. The difference is the most
+  that taking the light's rays out of the march can win; light read from a cell will cost a fetch of its own, so the
+  real win is a little under it.
+- **Builder's guess [low]:** 5 to 15% of the card's whole at the far marks, the most at the mountain top and high
+  over the spawn (the most land in view, so the most pixels asking); the least at the sea. The Oracle's figure from
+  old's flights was 3 to 13%.
+- **What it decides:** nothing by itself. David has chosen to move the light; this says what to expect from it and
+  which marks to watch, and gives the pass mark for the build its numbers.
