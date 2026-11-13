@@ -1824,3 +1824,33 @@ David took the Oracle's order for the rest of 2.2 ("Yes, its order", `journal/vi
   8 × 8 layer (16 screen rows), so the horizon's worst case is always met. Read at their 99th.
 - **One flight on the Intel card,** as the far eye stands, for which kind of card it is: waiting or working. It needs
   the laptop on Optimus, put to David a step ahead.
+
+### Results: the longest rays (build 142)
+
+Two flights, 18:09 to 18:23: as it stands `kept logs/flight-1794528905.txt`, and with the step limit at 384
+`-1794529296`.
+
+- **The count bites:** with the limit at 384 no layer reports more than 384, and the rays over 384 and 512 are none.
+- **Nothing lost:** the far eye's time is within 1% of build 140's at every still mark (0.677, 1.782, 1.060, 1.757,
+  2.594), and the picture byte for byte the same.
+
+**The longest ray, and the rays over 256, 384 and 512 steps:**
+
+| | the 8 × 8 (64,000 rays) | the 4 × 4 (256,000 at most) |
+|---|---|---|
+| on the ground at the spawn | 137 steps; none | not earned |
+| the bare plain | 467; 296, 164, 0 | not earned |
+| the mountain top | 322; 92, 0, 0 | 481; 2,356, 440, 0 |
+| high over the spawn | 286; 196, 0, 0 | 455; 889, 143, 0 |
+| low over the sea | 558; 422, 217, 37 | 764; 231, 175, 88 |
+| a player's run | 484; 818, 262, 0 | 767; 1,867, 698, 450 |
+
+- **A few hundred rays set the dearest marks.** Over the sea, 37 of the 8 × 8's 64,000 rays go past 512 steps, and
+  88 of the 4 × 4's; its longest reaches the limit of 768. The Oracle's "about a thousand rays" is, if anything,
+  generous.
+- **Cost follows the longest ray, not the count.** The spawn's longest is 137 steps at 0.68 ms; the plain's 467 at
+  1.06; the sea's 558 and 764 at 2.59. The mountain top has ten times the sea's rays over 256 in its 4 × 4 and is
+  cheaper.
+- **The nodding marks** (99th of the far eye whole): the plain 1.184 against 1.060 standing; the sea 3.147 against
+  2.594. The horizon's worst case is a fifth dearer than the still mark at the sea. These are the numbers the gate is
+  read against from here.
