@@ -1615,7 +1615,7 @@ Reference: `Art/quartile minecraft illustration.png`
     - **[OPEN] Builder recommends one more round** to find and trim the one dispatch's own cost (each suspect off in
       turn; about 40 minutes and one or two sets of flights). If it comes off, this form meets the gate at both ends
       and step 4 isn't needed before going on; if not, David chooses a better worst or a better typical, or it comes
-      out and step 4 follows. The lag when turning is his to look at once the numbers settle.
+      out and step 4 follows. The lag when turning is his to look at once the numbers settle. David: "Yes, trim it."
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
