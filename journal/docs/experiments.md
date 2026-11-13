@@ -2369,3 +2369,38 @@ David (2026-11-13), on the choice between this and going straight to the gate: "
   - The plain and the spawn: within 3% either way (each invocation now copies its layer's numbers first).
 - **Kept if** the long marks gain 10% or more, nothing else is more than 3% slower, and David sees no lag when it's
   put to his look. If nothing: step 2 is read, both forms come out, and the gate (step 3) is next.
+
+### The result: the waits do overlap, 33 to 38% at two marks; but it costs 0.05 to 0.2 ms everywhere else  *(build 155, cf3d3ea; NVIDIA only, fog off)*
+
+Flown unset, 2, unset, 2 (logs/flight-1794600304, -0705, -1098, -1493); each pair agrees within 0.5%. The card's
+whole, median ms:
+
+| mark | one after another | by one dispatch | |
+|---|---|---|---|
+| on the ground at the spawn | 0.69 | 0.85 | 23% slower |
+| the bare plain | 0.88 | 1.00 | 14% slower |
+| the mountain top | 1.57 | 1.78 | 13% slower |
+| high over the spawn | 1.61 | 1.66 | 3% slower |
+| low over the sea | 1.78 | 1.11 | **38% faster** |
+| a player's run over the plain | 1.99 | 1.34 | **33% faster** |
+| fast across the world | 1.19 | 1.63 | 37% slower |
+| the plain, nodding (99th) | 0.87 (0.93) | 1.00 (1.06) | 14% slower |
+| the sea, nodding (99th) | 1.79 (2.14) | 1.12 (1.30) | **37% faster (39%)** |
+
+- **Unset is build 154's** (0.69, 0.88, 1.57, 1.61, 1.78, 1.99): moving the march into a function cost nothing.
+- **Against the pass mark:** "15 to 35% where two layers run long": the sea and the player's run, yes and a little
+  over (38, 33%); the mountain top and high over the spawn, no (13 and 3% slower). "The plain and the spawn within
+  3%": missed, 14 and 23% slower. **By the mark it isn't kept as it is** (something else more than 3% slower).
+- **What it says, the first time it's been seen: two layers' waits can be overlapped, and it is worth what the Oracle
+  said** (30 to 45%): at the sea and on the run, where each layer's time is a few long rays, the one dispatch costs
+  about the longer of the two, not their sum. And build 154's nothing was the dispatches kept in turn, not the waits.
+- **Where each layer's time is many rays (the mountain top, high over the spawn), nothing overlaps:** the times
+  add as before. With the probe: a layer's time is part wait (few long rays; overlaps) and part work (many rays; adds).
+- **And a cost of its own, 0.12 to 0.16 ms at the marks where one layer marches** (the spawn, the plain), about the
+  same at the mountain top, 0.45 flying fast. Not yet found which of these it is: each invocation's copy of its
+  layer's numbers before anything else (a million and a third of them, most turned away at once); the grid's empty
+  part (about a third more invocations than pixels); the choosing between three textures at each store.
+- **Against the gate as it stands** (1 typical, 2 worst): one after another, typical met (0.69, 0.88), worst missed
+  by a hair (the sea nodding's 99th 2.14). By one dispatch, worst met with room (the most 1.78, its 99th 1.81), typical
+  on the line (0.85, 1.00).
+- **The lag was not looked at yet.**
