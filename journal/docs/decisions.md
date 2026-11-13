@@ -1523,6 +1523,11 @@ Reference: `Art/quartile minecraft illustration.png`
     no one version suits both. Still owed: the NVIDIA side re-flown on "NVIDIA GPU only", a record for the gate.
     Why: the Intel numbers are worth gathering, but integrated graphics are expected to need settings turned well
     down; the 980 Ti, not the Intel card, is the floor he cares about.
+  - **1b, read together, its direction** (build 146, behind `INCUS_FAR_TOGETHER`, the picture the same): a small gain,
+    far under both guesses. On the NVIDIA on Optimus 3 to 10% off most far marks (the sea 2.49 → 2.38 ms, high over the
+    spawn 2.01 → 1.82) but the mountain top 8% slower, not yet explained; on the Intel 0 to 3% faster. The Oracle had
+    given 15 to 40% off the open-horizon marks: likely a long ray's steps are mostly skips, which read no pictures. Its
+    keep-or-drop waits on the "NVIDIA GPU only" flight after David switches back, with 1a's numbers for the gate.
   - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.
