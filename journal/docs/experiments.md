@@ -1919,3 +1919,28 @@ and `-1794531970`; 143 `-1794531569` and `-1794532362`. Each build's two flights
   pays for setting up what it keeps without the steps to earn it back. The fast run reads 3% slower too.
 - **So it pays where it was aimed:** 6 to 13% off the far marks and the horizon's worst case, for 0.04 ms at the
   cheapest. Kept for now; its keep-or-drop waits on the Intel flight, as agreed.
+
+## Step 0's Intel flight: which kind of card it is  *(2026-11-13)*
+
+Build 143 on the laptop's Intel card (Optimus, `WGPU_ADAPTER_NAME=intel`), 07:42 to 07:48,
+`kept logs/flight-1794577731.txt`. LibreHardwareMonitor wasn't running, so no watts.
+
+| median ms | the far eye whole | the 8 × 8 | the 4 × 4 | NVIDIA's whole (build 143) |
+|---|---|---|---|---|
+| on the ground at the spawn | 5.94 | 4.38 | 0.09 | 0.71 |
+| the bare plain | 6.65 | 5.09 | 0.09 | 0.95 |
+| low over the sea | 8.58 | 4.26 | 2.85 | 2.24 |
+| high over the spawn | 10.10 | 5.31 | 3.32 | 1.65 |
+| the mountain top | 10.50 | 3.64 | 5.37 | 1.68 |
+| the sea, nodding, 99th | 9.78 | | | 2.72 |
+
+- **The Intel card is working, not waiting.** Its cost follows how much there is to march, not the longest ray:
+  - The spawn's 8 × 8, whose longest ray is 137 steps, costs 4.4 ms, as much as the sea's with 558.
+  - The dearest marks are the mountain top and high over the spawn, where the most rays run long (2,356 rays over
+    256 steps in the mountain top's 4 × 4), not the sea, whose few longest rays set the NVIDIA's time.
+  - It's 4 to 8 times the NVIDIA's time, the most where the NVIDIA is cheapest.
+- **So the two cards want different things,** as the Oracle warned. What adds rays for nothing on the NVIDIA (a finer
+  base layer, layers side by side) costs the Intel in full. What cuts work (cheaper steps, fewer rays earned,
+  shuffling so no lane idles) helps the Intel and less so the NVIDIA.
+- **Memory:** 933 MB in use, as on the NVIDIA.
+- Next: build 142 against 143 on this card, for 1a's keep-or-drop.
