@@ -1638,6 +1638,22 @@ Reference: `Art/quartile minecraft illustration.png`
       look at the lag, turning fast at the mountain top and the sea, frames capped; (3) the packing, then the one
       dispatch the default. Or the look first: if he dislikes the lag, (1) is moot. *Counsel:* the look first, for
       that reason.
+    - **[DECIDED 2026-11-13] Finish it, cut what's unused, then his look** (David, to Builder): "hell to the yeah
+      claude! you're a beast. i knew we could do it. we've really made strides. im not entirely sure i'll be able to
+      see the lag without the near view present. You can go ahead with finishing up and then cutting code we won't be
+      using and see if that gives us another 1% just for good measure. then i'll took a look and zoom around a bit.
+      after that, what is next?" And to Counsel, of a frame's rough edges while turning: "i think squares getting
+      rougher for a frame as you whip your head around will probably look organic and be almost impossible to
+      discern. that kind of thing can even have a satisfying feel to it, for some reason. but i'll look for it." The
+      order: the arrangement round; the textures packed under the default limit and the one dispatch the default;
+      build 154's form cut, the in-turn order and the finer base kept as switches; the closed measuring switches
+      taken out of the shader and flown alone for his "another 1%"; then his look. **The lag look is owed again once
+      the near eye draws**, by his doubt it can be judged before.
+    - **The arrangement round** (build 157, the base and middle layer side by side in the same rows): level or 1 to 3%
+      faster at every mark against build 156, slower at none (the sea 1.38 ms, its nodding 99th 1.58; high over the
+      spawn 1.32; a player's run 1.41). Builder's pass mark asked 5% at the sea and got 2%; she kept build 157's
+      order anyway, in the open, since it's better or level everywhere for no more code and her 5% was set too
+      coarse. *Counsel:* agreed; the mark guarded against complexity for a small gain, and there's none added.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
