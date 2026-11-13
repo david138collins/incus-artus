@@ -2552,3 +2552,24 @@ across the world 1.21 / 1.22; the sea nodding 1.27 / 1.27 (99th 1.58 / 1.57). In
   the far marks; the card's compiler will likely have been making little of these tests already. Under 0.5% can't be
   told from the flights' own spread.
 - **Kept either way** (less code to carry), unless a mark is more than 1% slower, which would want explaining.
+
+### The cut's result: about 2% off every mark  *(build 159, e97aed5; NVIDIA only, fog off)*
+
+Flown the one dispatch, in turn, the one dispatch (logs/flight-1794608683, -9075, -9468). The card's whole, median
+ms, build 158 then build 159:
+
+| mark | one dispatch, 158 | one dispatch, 159 | | in turn, 158 | in turn, 159 |
+|---|---|---|---|---|---|
+| on the ground at the spawn | 0.68 | 0.66 | 2.4% | 0.70 | 0.68 |
+| the bare plain | 0.88 | 0.87 | 1.9% | 0.88 | 0.86 |
+| the mountain top | 1.37 | 1.34 | 1.8% | 1.57 | 1.55 |
+| high over the spawn | 1.32 | 1.30 | 1.8% | 1.61 | 1.59 |
+| low over the sea | 1.39 | 1.35 | 2.3% | 1.78 | 1.75 |
+| a player's run over the plain (99th) | 1.41 (1.60) | 1.38 (1.56) | 2.4% | 2.00 | 1.96 |
+| the sea, nodding (99th) | 1.27 (1.57) | 1.25 (1.54) | 1.7% | 1.79 | 1.76 |
+
+- **Against the pass mark:** "0 to 1%, the compiler will likely have been making little of these tests already":
+  it was about 2%, at every mark and both ways of marching; the compiler hadn't. David's "another 1%", twice over.
+- **Step 2 as it stands, against this morning's build 152** (the layers in turn): the spawn 0.69 to 0.66, the plain
+  0.88 to 0.87, the mountain top 1.57 to 1.34, high over the spawn 1.61 to 1.30, the sea 1.78 to 1.35, the player's
+  run 2.00 to 1.38, the sea nodding's 99th 2.14 to 1.54. Everything under 2 ms, the most at a player's pace 1.56.
