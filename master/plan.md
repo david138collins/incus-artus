@@ -50,7 +50,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** nothing now while Builder trims the one dispatch's own cost ("Yes, trim it"); later, one budget at the fork,
+- **Waiting on David:** his look at the one dispatch's one-frame lag while turning (Counsel: before one more arrangement round, since disliking it would make that moot); later, one budget at the fork,
   haze or cover at the skyline's look, and lazy rays fixed to the world or the screen; whether `CLAUDE.md` points at
   the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
@@ -276,7 +276,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         ran in turn, so the waits still add. Its code behind a switch. *One dispatch over all three layers* (build 155,
         David's "go on with a"): the worst marks 33 to 38% faster (the sea 1.78 → 1.11 ms, its nodding 99th 2.14 →
         1.30, a player's run 1.99 → 1.34), the light marks 13 to 23% slower (the spawn 0.85, the plain 1.00), from a
-        cost of its own of 0.12 to 0.2 ms; not kept as it is. Next: a round to find and trim that cost
+        cost of its own of 0.12 to 0.2 ms; not kept as it is. *Trimmed* (build 156, "Yes, trim it"): its cost gone;
+        faster or level at every mark, **everything under 2 ms**, medians and 99ths (the sea 1.41 ms, nodding 99th 1.61;
+        the mountain top 1.38; high over the spawn 1.37; the plain 0.88; the spawn 0.68). Kept, to go on with. Owed:
+        David's look at the one-frame lag while turning; the six written textures packed under the default limit;
+        then the one dispatch the default
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
         made ready; the sky's openness once); change 3 and "light split out" as one; its own pass mark on lag
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into

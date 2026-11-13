@@ -1623,6 +1623,21 @@ Reference: `Art/quartile minecraft illustration.png`
       is everything under 2 ms, worst and irregular frames weighed above the typical's 1 ms. *Counsel's reading:* the
       one dispatch is worth keeping even if the trim takes off only part of its own cost, since it buys the worst
       marks room; the trim still runs, and the six-texture limit is packed away if it's kept.
+    - **The trim: its own cost gone, everything under 2 ms** (build 156: the per-invocation copy read in place, the
+      grid's order with the base and middle layer first). Median ms, one after another / build 155 / build 156: the
+      spawn 0.69 / 0.85 / 0.68, the plain 0.88 / 1.00 / 0.88, the mountain top 1.57 / 1.78 / **1.38**, high over the
+      spawn 1.61 / 1.66 / **1.37**, the sea 1.78 / 1.11 / 1.41, a player's run 2.00 / 1.34 / 1.44, fast across 1.18
+      / 1.63 / 1.21; the sea's nodding 99th 2.14 / 1.30 / 1.61. Faster or level at every mark against one after
+      another; by David's bar, under 2 ms at every mark, medians and 99ths (the most at a player's pace, the run's
+      99th, 1.62). The copy was the cost; the grid's order matters both ways (the base ahead lets the mountain top
+      and high over the spawn overlap for the first time, and the sea overlap less). Kept by its pass mark, to go on
+      with. Owed before anything stands on it: David's look at the one-frame lag while turning, and the six written
+      textures packed under the default limit.
+    - **[OPEN] Next, Builder's order for David:** (1) one more arrangement, the base and middle layer side by side in
+      the same rows, which may give the sea back its 1.11 while keeping the mountain's gain (four flights); (2) his
+      look at the lag, turning fast at the mountain top and the sea, frames capped; (3) the packing, then the one
+      dispatch the default. Or the look first: if he dislikes the lag, (1) is moot. *Counsel:* the look first, for
+      that reason.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
