@@ -2421,3 +2421,34 @@ whole, median ms:
 - **Kept if** nothing is more than 3% slower than one after another; the guess above wouldn't quite make that at the
   spawn, so a second trim (the grid's empty part, the three-way stores) may follow, or David's choice between the
   two ends of the gate.
+
+### The trim's result: its own cost gone; faster or level at every mark, everything under 2 ms  *(build 156, 89bf7b1; NVIDIA only, fog off)*
+
+Flown unset, 2, unset, 2 (logs/flight-1794602542, -2949, -3344, -3740; their headers name 904bd76, Counsel's
+docs-only commit at take-off, the same code); each pair agrees within 0.5%. The card's whole, median ms:
+
+| mark | one after another | one dispatch, build 155 | trimmed, build 156 | trimmed against in turn |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.69 | 0.85 | 0.68 | 2% faster |
+| the bare plain | 0.88 | 1.00 | 0.88 | level |
+| the mountain top | 1.57 | 1.78 | 1.38 | 12% faster |
+| high over the spawn | 1.61 | 1.66 | 1.37 | 15% faster |
+| low over the sea | 1.78 | 1.11 | 1.41 | 21% faster |
+| a player's run over the plain | 2.00 | 1.34 | 1.44 | 28% faster |
+| fast across the world | 1.18 | 1.63 | 1.21 | 2.5% slower |
+| the sea, nodding (99th) | 1.79 (2.14) | 1.12 (1.30) | 1.32 (1.61) | 26% faster (25%) |
+
+- **Against the pass mark:** "its own cost at least halves" (the spawn 0.77 or less, the plain 0.94, the mountain top
+  1.68): better than that, it's gone (0.68, 0.88, 1.38). "The sea and the run keep their gain within 3%": missed, the
+  sea gave back about half of it (1.11 to 1.41), the run a little (1.34 to 1.44). "Kept if nothing is more than 3%
+  slower than one after another": met (the most, flying fast, 2.5%).
+- **David's bar** (via Counsel, on build 155's numbers: "if everything in the far view is under 2ms we should be
+  gold ... the worst frames or irregular frames were more critical than longest frames"): every mark's median and
+  99th is under 2 (the most: flying fast's 99th 1.78; at a player's pace the run's 1.62).
+- **What it says:** the copy was the form's own cost (two changes went in together, but only the copy touches the
+  marks where one layer marches). **And the grid's order matters, both ways:** with the base before the middle
+  layer, the mountain top and high over the spawn now overlap (12 and 15%, nothing in build 155) and the sea
+  overlaps less. Build 155's order had the middle layer's rows before the base's. Not yet tried: the base and the
+  middle layer side by side in the same rows, so neither is first.
+- **Kept by the mark, to go on with,** still owing before anything stands on it: David's look at the one-frame
+  lag while turning, and the six written textures packed back under the library's default.
