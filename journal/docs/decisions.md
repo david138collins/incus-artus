@@ -1616,6 +1616,13 @@ Reference: `Art/quartile minecraft illustration.png`
       turn; about 40 minutes and one or two sets of flights). If it comes off, this form meets the gate at both ends
       and step 4 isn't needed before going on; if not, David chooses a better worst or a better typical, or it comes
       out and step 4 follows. The lag when turning is his to look at once the numbers settle. David: "Yes, trim it."
+    - **[DECIDED 2026-11-13] The far gate, as David reads it now** (to Counsel, on the one dispatch's numbers): "looking
+      at the numbers it seems like a great trade overall. if everything in the far view is under 2ms we should be
+      gold, i think we crossed the point where the worst frames or irregular frames were more critical than longest
+      frames a bit ago. as mind numbing as this entire process is, i can not deny it is working." So the far view's bar
+      is everything under 2 ms, worst and irregular frames weighed above the typical's 1 ms. *Counsel's reading:* the
+      one dispatch is worth keeping even if the trim takes off only part of its own cost, since it buys the worst
+      marks room; the trim still runs, and the six-texture limit is packed away if it's kept.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.

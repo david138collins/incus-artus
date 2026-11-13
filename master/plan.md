@@ -300,7 +300,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - *Each:* measured, then David's eye still, moving his head, and flying ("try all these things and gather data")
   - *Gate:* the far layers under 1 ms typical and 2 worst on the laptop, at the far marks; David's look, above all at
     rings where levels hand over; numbers from the Intel card. If they're twice that or more: keep the bricks and
-    the light, march far the lean way instead
+    the light, march far the lean way instead. *As David reads it now* (2026-11-13): "if everything in the far view
+    is under 2ms we should be gold"; the worst and irregular frames weigh above the typical, read moving and nodding
+    at the 99th
 - [ ] **2.3 The eye, near** (experiment 6): rays first, from the eye with no boxes (the Oracle's third part): a
       column-height table and a table of each brick's empty boxes from the first build, light kept in the air cell in
       front of each face, pieces walked by their octants; then faces as triangles; both flown on the same marks
