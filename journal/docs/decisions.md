@@ -1490,6 +1490,11 @@ Reference: `Art/quartile minecraft illustration.png`
     quicker to prove; the cut-into-lengths fallback shares lazy rays' machinery and prepares it; if the gate is met
     without them, they become headroom, not a need. Builder's cautions: 1c (several steps at once) flown alone and
     checked pixel for pixel; the processor's light gets a pass mark on lag.
+  - **Why it runs hot** (David: "id really love to know why its running so hot. it ran like this with the graphics on
+    the cpu"). Builder's readings: the game capped at the screen's rate draws 26 W with its hottest core in the 70s,
+    no hotter than the desk with no game; the uncapped flights are the heat (one thread pins a core near top turbo
+    speed, beside the card's 60 to 100 W in the same cooling); spikes past 100 °C come with no game at all (102 °C at
+    the desk), the laptop's Turbo bursts.
   - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.

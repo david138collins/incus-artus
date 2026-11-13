@@ -245,7 +245,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         over the sea): "waiting, not working", confirmed three ways (builds 140 and 141, c15d256, b516975, e2ea8bf)
   - *The rest of 2.2 in the Oracle's order* (its third part, section 11; David: "Yes, its order", 2026-11-12):
   - [ ] Step 0, instruments: the longest ray per layer in every report; a nodding mark at the sea and the plain; one
-        Intel flight now, to learn whether that card waits or works (David on "Optimus", put to him a step ahead)
+        Intel flight now, to learn whether that card waits or works (David on "Optimus", put to him a step ahead).
+        *In, but for the Intel flight* (build 142, e496645, 19de6db): a few hundred rays set the dearest marks, and cost
+        follows the longest ray (the sea's 558 and 764 steps, 2.59 ms); the nodding marks at their 99th, the plain
+        1.18 and the sea 3.15 ms, are the gate's numbers from here
   - [ ] Step 1, the lean step, in halves flown apart, each the same picture pixel for pixel: kept in hand; read
         together (behind a switch, priced on both cards); several steps at once (alone, checked with care); thin haze
         by whole cells (a look)
