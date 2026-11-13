@@ -6,7 +6,7 @@ every build: change the list, never this file. In the game, the same map is live
 The words: a **lane** is a line of work with its own pace; a **pass** is one piece of a lane's work, on the
 processor or the card; a **stage** is one step of the world's recipe (none yet); a **store** is something held.
 
-The costs are the newest kept flight's flown as the game runs, at its first standing, `kept logs/flight-1794531970.txt`: Incus Artus, build 142 (e496645); the code committed.
+The costs are the newest kept flight's flown as the game runs, at its first standing, `kept logs/flight-1794589790.txt`: Incus Artus, build 149 (967dc51); the code committed.
 
 ```mermaid
 flowchart TB
@@ -162,7 +162,7 @@ flowchart TB
 - **A pass** in the window, on the processor.
 - **What it is:** Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor), F3 (the panel), F11 (window or full screen) and Tab (the mouse).
 - **Reads:** none. **Writes:** the keys held and the camera.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor not run.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/runner.rs and src/camera.rs.
 
 ### going to a mark
@@ -171,7 +171,7 @@ flowchart TB
 - **What it is:** At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter).
 - **Reads:** the marks and a tile's columns. **Writes:** the camera and what changed.
 - **Switch** `INCUS_MARK`: the mark the game starts at, by its name (the first in data/marks.toml unless set).
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.214.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.206.
 - **Files:** src/marks.rs and src/runner.rs.
 
 ### flying
@@ -179,7 +179,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The camera flies by the keys held (WASD, Space, Ctrl, Shift), on real time, at the speed set on the Camera page. Not while the editor is open. On a flight, a moving mark flies it straight ahead at its speed (step 4).
 - **Reads:** the keys held and the marks. **Writes:** the camera.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.211.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.228.
 - **Files:** src/camera.rs and src/runner.rs.
 
 ### putting the far cells on the card
@@ -189,7 +189,7 @@ flowchart TB
 - **Reads:** the far cells and the camera. **Writes:** the far bricks, the far textures and the window round the eye.
 - **Switch** `INCUS_FAR_BRICK`: a brick's side in cells: 2, 4 or 8 (unset: 8), for the pool and the far textures both (2.2, step 3).
 - **Switch** `INCUS_FAR_WINDOW`: the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4).
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.027, 95th 0.111, 99th 0.227, worst 0.499.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.028, 95th 0.063, 99th 0.166, worst 0.342.
 - **Files:** src/bricks.rs and src/far_eye.rs.
 
 ### laying out the panel
@@ -197,7 +197,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.
 - **Reads:** the camera, the clocks, the wiring and the temperatures. **Writes:** the panel's shapes, the camera and the far eye's look.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.019, 95th 0.041, 99th 0.191, worst 0.638.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.016, 95th 0.033, 99th 0.151, worst 0.341.
 - **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
 ### getting the picture
@@ -205,7 +205,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The screen's next picture to draw on, waited for if none is free (capped, this is where the frame waits for the screen).
 - **Reads:** none. **Writes:** none.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.250, 95th 0.370, 99th 0.693, worst 3.660.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.285, 95th 0.690, 99th 0.851, worst 4.014.
 - **Files:** src/runner.rs.
 
 ### the far start
@@ -222,7 +222,7 @@ flowchart TB
 - **Switch** `INCUS_TEST_HALF`: for measuring (the Oracle's test): only the left half of each far layer marched.
 - **Switch** `INCUS_TEST_STEPS`: for measuring (the Oracle's test): the most steps a far ray takes (unset: 768).
 - **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's).
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): recording it on the processor median 0.048, 95th 0.098, 99th 0.130, worst 1.416; on the card median 0.005, 95th 0.005, 99th 0.005, worst 0.026.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.049, 95th 0.090, 99th 0.171, worst 0.353; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.027.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
 ### the far 8 x 8
@@ -230,7 +230,7 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.
 - **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.080; on the card median 0.529, 95th 0.538, 99th 0.541, worst 0.838.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.149; on the card median 0.536, 95th 0.550, 99th 0.564, worst 1.294.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
 ### the far 4 x 4
@@ -238,7 +238,7 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.
 - **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.080; on the card median 0.010, 95th 0.010, 99th 0.010, worst 0.012.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.177; on the card median 0.011, 95th 0.011, 99th 0.012, worst 0.020.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
 ### the far 2 x 2
@@ -246,7 +246,7 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.
 - **Reads:** the far bricks, the far textures, the window round the eye and the far layers. **Writes:** the far layers.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.094; on the card median 0.030, 95th 0.031, 99th 0.031, worst 0.041.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.139; on the card median 0.036, 95th 0.037, 99th 0.037, worst 0.235.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
 ### bringing it up
@@ -254,7 +254,7 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** The pyramid onto the screen's picture: the 8 x 8 everywhere, each finer layer over it as much as it's worth there, crisp (a layer's pixel a square of screen pixels).
 - **Reads:** the far layers. **Writes:** the screen's picture.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): recording it on the processor median 0.004, 95th 0.008, 99th 0.011, worst 1.634; on the card median 0.097, 95th 0.099, 99th 0.100, worst 0.105.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.004, 95th 0.008, 99th 0.010, worst 0.188; on the card median 0.101, 95th 0.103, 99th 0.105, worst 0.328.
 - **Files:** src/far_eye.rs and src/far_up.wgsl.
 
 ### the panel
@@ -262,7 +262,7 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** The panels drawn over the far eye's picture (the picture cleared to the sky's colour first, where there's no far eye). Recorded on the processor, run on the card.
 - **Reads:** the panel's shapes. **Writes:** the screen's picture.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): recording it on the processor median 0.012, 95th 0.025, 99th 0.032, worst 0.327; on the card median 0.001, 95th 0.001, 99th 0.001, worst 0.007.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.012, 95th 0.025, 99th 0.032, worst 0.429; on the card median 0.001, 95th 0.001, 99th 0.001, worst 0.136.
 - **Files:** src/runner.rs.
 
 ### handing the card its work
@@ -270,7 +270,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The frame's work for the card finished and handed to it, with the card's clock asked to copy its times out.
 - **Reads:** none. **Writes:** none.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.176, 95th 0.368, 99th 0.480, worst 1.720.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.177, 95th 0.359, 99th 0.436, worst 1.918.
 - **Files:** src/runner.rs.
 
 ### showing it
@@ -278,7 +278,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The picture handed to the screen, waited for if the screen's queue is full (Windows lets the frame run only so far ahead of what the card and the screen have taken).
 - **Reads:** the screen's picture. **Writes:** none.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.104, 95th 0.273, 99th 0.344, worst 1.896.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.103, 95th 0.218, 99th 0.283, worst 1.775.
 - **Files:** src/runner.rs.
 
 ### measuring
@@ -286,7 +286,7 @@ flowchart TB
 - **A pass** in the frame, on the processor.
 - **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it. On a flight, once a second, the far layers' longest rays counted by a small pass of its own (the most steps any ray took, and how many took over 256, 384 and 512: the Oracle's step 0). The memory: the game's main memory (Windows' count for its process: in use, the most, and the machine's) once a second on a flight, for each standing's most and the report; the main memory and the card's in the session's log every half minute [David: "begin tracking ram use"].
 - **Reads:** the window round the eye and the temperatures. **Writes:** the clocks and the flight's report.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor median 0.009, 95th 0.032, 99th 0.085, worst 0.699.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.009, 95th 0.026, 99th 0.046, worst 0.734.
 - **Files:** src/runner.rs, src/clocks.rs, src/flight.rs, src/memory.rs and src/far_tally.wgsl.
 
 ### the doorway
@@ -294,7 +294,7 @@ flowchart TB
 - **A pass** in loading, on the processor.
 - **What it is:** Answers "what's here?" a tile at a time: each column's ground, its river's or lake's water, and its blocks from bedrock up as runs; and what changed in it. The engine never opens a world file itself. The export is read-only.
 - **Reads:** the export and what changed. **Writes:** a tile's columns.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor not run.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/doorway.rs.
 
 ### summing the far cells
@@ -302,7 +302,7 @@ flowchart TB
 - **A pass** in loading, on the processor.
 - **What it is:** The far cells summed from the doorway's columns, a region (1,024 blocks a side) at a time, nearest the spawn first: cubes of 32 blocks and every level above, each exactly its children added. On the processor, not the card [David, 2026-11-12: "its a 1 time event, and it's quick"]: it's the loading lane, not the frame; the doorway's columns are already on the processor; and the card stays free for drawing. Nothing in the game asks yet: its test does, and the far eye will (2.2, step 2).
 - **Reads:** a tile's columns. **Writes:** the far cells.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor not run.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/far.rs.
 
 ### making the far textures
@@ -311,7 +311,7 @@ flowchart TB
 - **What it is:** Once every region is in, on a thread of its own: each far brick made again as a 9 x 9 x 9 block of texels (its border the next cells over) in the atlas (change 1: how solid and how watery in 16-bit floats; the colour and faces spread into empty neighbours, 8-bit; build 128 flew an exact way too, David saw no difference), and sent to the card an atlas layer at a time.
 - **Reads:** the far cells. **Writes:** the far textures.
 - **Switch** `INCUS_FAR_BLEND`: code: no far textures made, the far cells blended by the code (old's); unset, made and blended by the hardware once they're in.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor not run.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/atlas.rs.
 
 ### reading the temperatures
@@ -319,7 +319,7 @@ flowchart TB
 - **A pass** in the temperatures, on the processor.
 - **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). With LibreHardwareMonitor running (as administrator, its web server on), the processor's hottest core, watts and load and the card's watts and load too. Drawn top right whenever the world is shown, flights too (green under 70 °C, yellow under 85, red over): David watches the flights. On a flight, the hottest and the GPU's slowest clock at each standing in its report.
 - **Reads:** none. **Writes:** the temperatures.
-- **Cost, last measured** (`kept logs/flight-1794531970.txt`): on the processor not run.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/temperatures.rs.
 
 ## The stores

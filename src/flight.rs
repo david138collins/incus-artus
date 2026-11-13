@@ -21,6 +21,8 @@ const SETTLE: Duration = Duration::from_secs(5);
 const WARM_UP: Duration = Duration::from_secs(30);
 /// How long they're measured at each (old's standing marks: 20 s).
 const MEASURE: Duration = Duration::from_secs(20);
+/// A GPU clock under this (MHz) counts as slow in a standing's heat line (the laptop's card runs 2,400 to 2,800 at work).
+const SLOW_CLOCK: f32 = 2000.0;
 
 /// Whether this session is a flight.
 pub fn wanted() -> bool {
@@ -48,6 +50,10 @@ pub struct Standing {
     reach: Option<[f32; 2]>,
     /// The hottest the CPU area and the GPU read over the measured frames, and the GPU's slowest clock.
     hottest: Temperatures,
+    /// How long the GPU's clock read under `SLOW_CLOCK` over the measured frames (seconds), and when it was last read
+    /// (the Oracle, 2026-11-13: the least alone can't tell a blink from a long stretch).
+    slow_clock: f32,
+    heat_at: Option<Instant>,
     /// The most main memory the game held over the measured frames (bytes, read once a second).
     most_main_memory: Option<u64>,
     /// The longest rays over the measured frames (step 0): each far layer's most steps, and the most rays at once over
@@ -87,7 +93,7 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), most_main_memory: None, longest: Vec::new() });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), slow_clock: 0.0, heat_at: None, most_main_memory: None, longest: Vec::new() });
             }
         }
         log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
@@ -192,6 +198,13 @@ impl Flight {
     /// The temperatures as last read: the hottest kept over the measured frames, and the GPU's slowest clock.
     pub fn heat(&mut self, now: Instant, reading: Temperatures) {
         if let Some(standing) = self.measuring(now) {
+            // The time since the last frame counted as slow if the clock reads slow now (readings come every 3 s).
+            if let Some(last) = standing.heat_at
+                && reading.gpu_clock.is_some_and(|clock| clock < SLOW_CLOCK)
+            {
+                standing.slow_clock += now.duration_since(last).as_secs_f32();
+            }
+            standing.heat_at = Some(now);
             let most = |kept: Option<f32>, new: Option<f32>| match (kept, new) {
                 (Some(a), Some(b)) => Some(a.max(b)),
                 (a, b) => a.or(b),
@@ -274,7 +287,7 @@ impl Flight {
             }
             let heat = standing.hottest;
             if heat != Temperatures::default() {
-                text += &format!("  the heat, each at its most (the GPU's clock at its least): {}\n", heat.line());
+                text += &format!("  the heat, each at its most (the GPU's clock at its least): {}; its clock under {SLOW_CLOCK:.0} MHz for {:.1} s of the {} measured\n", heat.line(), standing.slow_clock, MEASURE.as_secs());
             }
             if let Some(reach) = standing.reach {
                 text += &format!("  the window round the eye: the usable 32s reached at least {:.0} blocks round it over the measured frames, the 64s {:.0}\n", reach[0], reach[1]);

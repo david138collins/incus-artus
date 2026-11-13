@@ -2134,3 +2134,26 @@ were wrong.
   spawn 5.5%, by 24; low over the sea 1.0%, by 77 at a few. About what the fogged check found (6.5%, 4.5%, 0.4%). So
   the window's softer far ridges are there without fog too, and David's look at them fog-off is still owed: his look
   at build 134 was with fog on.
+
+### The baseline with fog off (build 149)
+
+One flight, 11:42 to 11:49, `kept logs/flight-1794589790.txt`: the march is build 147's (1a and 1b), fog off.
+
+| the far eye whole, ms | median | 99th |
+|---|---|---|
+| on the ground at the spawn | 0.697 | 0.733 |
+| the bare plain | 0.942 | 0.952 |
+| the mountain top | 1.592 | 1.620 |
+| high over the spawn | 1.637 | 1.680 |
+| low over the sea | 2.201 | 2.229 |
+| a player's run | 2.275 | 2.463 |
+| the plain, nodding | 0.925 | 1.013 |
+| the sea, nodding | 2.142 | 2.688 |
+
+- **1c's code out, the march is back** where build 147 stood (the spawn 0.70, the mountain top 1.59 against 1.63).
+- **Fog cost 1 to 2%** (the sea 2.21 with it, 2.20 without; the mountain top 1.63 and 1.59).
+- **Against the gate** (1 typical, 2 worst): the sea 2.20, its nodding 99th 2.69.
+- David on the window's far ridges without fog (via Counsel): "i know what it looks like without fog its fine." His
+  look is given.
+- From build 150 a standing's heat line says how long the card's clock read under 2,000 MHz, not only its least (the
+  Oracle: the least can't tell a blink from a long stretch).
