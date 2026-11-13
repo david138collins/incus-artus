@@ -1965,3 +1965,20 @@ Flown 07:52 to 08:18, alternating twice: 142 `kept logs/flight-1794578282.txt` a
   it gains from the reads saved.
 - **Not settled by this:** whether a trimmer 1a, keeping only the handful a skimming step needs (the Oracle's own
   words), pays on both. On Optimus both cards can be flown in one session, so that can be tried without a restart.
+
+### A trimmer 1a: the pass mark (written before the code)
+
+David (2026-11-13): "I'll let you try 3, but i lean towards 1. Keep it. i don't expect someone to be able to play this
+game on an igpu without turning some settings way down ... so try the trimmed version, but unless its just better than
+1, we go 1."
+
+- **Trimmed:** the next level's numbers (the hand-over reads them plainly, as before 1a), the skipping's second row
+  (the level's own, taken from the blend's numbers when they're that level's), and the brick's slot (read each step).
+  About two dozen numbers in hand where 1a keeps about forty.
+- **The picture pixel for pixel the same** at five marks over the whole world.
+- **Flown against build 143 on both cards in one session** (Optimus: the NVIDIA's numbers are "NVIDIA on Optimus",
+  fair between builds, not set beside earlier NVIDIA flights or the gate).
+- **David's rule:** kept only if it's just better than 1a: no slower on the NVIDIA at the far marks, and faster on the
+  Intel. Otherwise 1a stays as built.
+- Builder's guess [low]: on the NVIDIA it gives back a third of 1a's gain; on the Intel it recovers half of 1a's
+  loss. So it likely loses by David's rule.
