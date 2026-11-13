@@ -2314,3 +2314,33 @@ the map's edge (off). Not known either which of the two pictures is right. To fi
   - The plain and the spawn (one layer marching): within 2% either way.
 - **Kept if** the long marks gain 10% or more, nothing else is more than 2% slower, and David sees no lag. If it's
   kept, the lag gets its own look before anything is built on it.
+
+### The result: nothing gained; the card ran the three dispatches one after another  *(build 154, e5c4232; NVIDIA only, fog off)*
+
+Flown unset, set, unset, set (logs/flight-1794597712, -8104, -8498, -8894); each pair agrees within 1%. The card's
+whole, median ms; in brackets the layers' card time (three passes unset, the one pass set):
+
+| mark | one after another | side by side | |
+|---|---|---|---|
+| on the ground at the spawn | 0.70 (0.54 + 0.01 + 0.04) | 0.70 (0.59) | the same |
+| the bare plain | 0.88 (0.72 + 0.01 + 0.04) | 0.88 (0.78) | 0.5% slower |
+| the mountain top | 1.57 (0.66 + 0.76 + 0.04) | 1.58 (1.46) | 0.6% slower |
+| high over the spawn | 1.61 (0.81 + 0.65 + 0.04) | 1.53 (1.42) | 5% faster |
+| low over the sea | 1.78 (0.70 + 0.93 + 0.04) | 1.79 (1.68) | 0.5% slower |
+| a player's run over the plain | 1.99 (0.91 + 0.90 + 0.04) | 1.99 (1.88) | the same |
+| the sea, nodding (99th) | 1.79 (2.13) | 1.79 (2.13) | the same |
+
+- **Against the pass mark:** the guess was 10 to 25% at the long marks, "nothing at all is possible". It was nothing
+  (one mark 5%). Not kept: the mark to keep it was 10%.
+- **What it says: the one pass's time is the three layers' times added.** Freed of each other's results, the
+  dispatches still ran in turn. So the two waits do add, as the Oracle supposed, but putting the dispatches in one
+  pass isn't enough to overlap them.
+- **Not known which holds them in turn:** the card's driver finishing one dispatch before the next, or the
+  library's own barriers between dispatches (it moves each layer's picture and distances from "read" to "written"
+  just before that layer's dispatch). Not separated here.
+- **What would overlap them for certain, untried:** one dispatch that marches all three layers' pixels (each
+  invocation working out which layer it belongs to). It needs six written textures in one pass, over the library's
+  default of four (the cards have more; the limit would be raised, as was once done and undone for the buffers), or
+  the layers packed into shared textures. The frame-before lead built here is what it would stand on.
+- **The lag was not looked at:** nothing earned David's look. The code stays behind its switch (unset costs nothing,
+  the same picture and resources as before) until it's decided whether the one-dispatch form is tried; then out or on.
