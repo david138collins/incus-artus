@@ -46,8 +46,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** whether far light may treat the land as a surface (no shadows under far overhangs and
-  arches); then his look at the processor's light; then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** his word to start the night queue (fifteen flights, about 100 minutes; plugged in, Turbo, kept awake with the screen on); then
+  his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
@@ -289,7 +289,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         mark is 1.14 ms or under. The sun snaps at each sixteenth of a day, smoothed only if bad (David). Builder's
         design: per column, the sun's shadow height and the sky each column's top sees, two small pictures (about 40
         MB); behind a switch, flown against the rays, then his look. It treats far cells as a surface for light (no
-        shadows under far overhangs and arches): his call
+        shadows under far overhangs and arches): his condition, "everything has to look even, and reveal everything
+        accurately". *Built* (build 160, unflown): pictures at all five marks beside the rays, "those pics look fine
+        to me"; a sun change shows in about 0.3 s. Each cell's own cover (for overhangs and arches) shelved until the
+        cells of 2 to 16 and the test detail, which come together. A night queue of fifteen flights waits on his word
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into
         lengths, marched side by side, joined front to back. *Met by David's bar* (everything under 2 ms, build 157);
         step 4 not needed. Still owed for the gate's line: his look at the rings where levels hand over, and the Intel

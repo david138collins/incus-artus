@@ -1754,6 +1754,17 @@ Reference: `Art/quartile minecraft illustration.png`
         and writes a night queue as one build with switches (rays against the column light; with and without the
         cover; the finer base re-priced now light is cheap), shown to him before he goes and started only on his
         word.
+      - **Build 160, the column light, committed unflown.** All five marks drawn off the screen beside the rays: the
+        shadows in the same places, a little crisper, nothing off. Its lag: the whole world's tops and sky made in
+        0.19 s, a shadow swept and sent in 0.05 s, a change of the sun showing in about 0.3 s, inside the pass mark's
+        half second; 40 MB on the card. **Way 3 shelved** with its design until the cells of 2 to 16 and the test
+        detail: on bare land a cell's cover is nothing, so its picture couldn't be judged.
+      - **The night queue** (pass marks ffbd581): build 160, five standings in turn, three rounds, fifteen flights,
+        about 100 minutes: the column light; the rays; no light at all (what reading the cell costs); the layers one
+        after another with the column light (what the one dispatch is worth now); the finer base with the column light
+        (re-priced for the polish list). Each flight stopped if not ended in 15 minutes; rounds repeated so a starved
+        hour shows; reports name the commit. His list: plugged in, Turbo, kept awake with the screen on. Starts on his
+        word.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
