@@ -1511,6 +1511,18 @@ Reference: `Art/quartile minecraft illustration.png`
     **[OPEN]** Builder's three choices for David: keep it as built (the NVIDIA wins, the Intel loses); drop it; or a
     trimmer 1a first, keeping only the handful a skimming step needs (the Oracle's own words), flown on both cards in
     one session on Optimus. Builder and Counsel recommend the trim.
+  - **[DECIDED 2026-11-13] 1a kept as built; the Intel card informs, it doesn't decide** (David, to Builder): "I'll let
+    you try 3, but i lean towards 1. Keep it. i don't expect someone to be able to play this game on an igpu without
+    turning some settings way down. the 980ti is a different story and should perform much differently than an Igpu,
+    and i'm not getting a deep sense of concern over performance on less than current GPU's based on the intel gpu.
+    its valuable information to gather nonetheless. so try the trimmed version, but unless its just better than 1, we
+    go 1." The trim (build 144, about two dozen numbers held where 1a holds forty) won back 2 to 4% on the Intel but was
+    8 to 19% slower on the NVIDIA (flown on Optimus, labelled so) at the plain, the mountain top, the sea and a
+    player's run. Not just better, so 1a stays as built (build 145, c89a040's march; git keeps the trim). What it
+    taught: the brick's slot and the next level's numbers held in hand are the NVIDIA's gain and the Intel's lost room;
+    no one version suits both. Still owed: the NVIDIA side re-flown on "NVIDIA GPU only", a record for the gate.
+    Why: the Intel numbers are worth gathering, but integrated graphics are expected to need settings turned well
+    down; the 980 Ti, not the Intel card, is the floor he cares about.
   - **[OPEN], in the order he'll meet them:** one budget at the fork (its proposal: far 1.2 typical and 2 worst, near 1.5, finishing and the panel
     0.4, at least 0.9 left; read moving and nodding at the 99th); at the skyline's look, haze or cover; when lazy
     rays are built, far squares fixed to the world or to the screen.

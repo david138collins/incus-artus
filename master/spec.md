@@ -499,6 +499,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 ### The targets
 - It must run like a top, or the project can fail. [decided] (decisions.md:42-43; projection.md:21)
 - A 980 Ti is the price of admission at the standard look: a smooth 60 at 1080p on a clean machine, and every card from there up gets that look: "980ti should be the price of admission at standard looks". [decided] (decisions.md:1532-1535; regroup.md:27; WG:1776-1777)
+- Integrated graphics are measured for information, not designed to: "i don't expect someone to be able to play this game on an igpu without turning some settings way down. the 980ti is a different story". [decided] (decisions.md:1514-1527)
 - Stronger desktops: 250+ without question. [decided] (decisions.md:984-989)
 - The heaviest moments (a boss fight while directing two generals of spearmen) may dip below 240 as long as 120 holds. [decided] (decisions.md:1523-1528)
 - 240 isn't holy: a budget readout shows when the wall is coming, so art and design can plan round it: "i don't want to treat 240fps as holy". [decided] (WG:1794-1796; msgs:216)

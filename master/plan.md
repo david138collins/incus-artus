@@ -257,8 +257,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         by whole cells (a look). *1a, kept in hand, is in* (build 143, c89a040, 63409af): 6 to 13% off the far marks
         (the sea 2.58 → 2.24 ms, its nodding 99th 3.13 → 2.72), the spawn 5% slower, the picture pixel for pixel;
         kept, its keep-or-drop after the Intel flight. David chose the lean step before the Intel flight. *On the
-        Intel card 1a is 2.5 to 10% slower* (32f4703): keep, drop, or trim it to the handful a skimming step needs,
-        David's call
+        Intel card 1a is 2.5 to 10% slower* (32f4703); a trimmed 1a (build 144) wasn't "just better", so **1a is kept
+        as built** (build 145, c89a040's march), by David's rule: "unless its just better than 1, we go 1". The
+        NVIDIA side to be re-flown on "NVIDIA GPU only", for the record. Next: 1b, read together
   - [ ] Step 2, the layers side by side, each taking its lead from the coarser layer of the frame before; the finer
         base layer first, as its probe
   - [ ] Alongside: light read from the cell, made on the processor by sweeps (the sun's shadow each sun step, the next
@@ -366,6 +367,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   Its budget: 4.2 ms a frame.
 - **A GTX 980 Ti at 1080p:** a smooth 60, loosely. "If you have one, you should be able to play this game."
   Not a floor to design to.
+- **The laptop's Intel card** (integrated graphics): flown for information, not a target. "i don't expect someone to
+  be able to play this game on an igpu without turning some settings way down" (David, 2026-11-13). A step that
+  helps the NVIDIA and costs the Intel is weighed by the NVIDIA and the 980 Ti.
 - Room left in the frame for people, animals, battles of up to 800 figures, and the simulation on the processor.
 - **Card memory:** well below 4 GB in the worst case, on a world of the standard size (David, 2026-11-12). It grows
   with the world's size, which is fine for modders' giant worlds, but never with play: only the changes accumulate.
