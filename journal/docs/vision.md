@@ -527,6 +527,17 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
 - **How it gets built:** one stage of a swing at a time, each dialled in before the next is added,
   until the structure of an attack exists. It comes after there are creatures that can attack and
   block back, so well after the first dwarf and his behaviors.
+- **[IDEA 2026-11-13] Hits from the weapon itself, and a pull into the swing.** David, after Counsel described
+  *Amid Evil*'s weapons (3D models rendered down to 2D sprites carrying a normal map, lit by the world): "i think i'll
+  want collision based hits from the weapon itself plus the weapon pulls you into the swing to make hitting easier,
+  so i may think more about how to make 3D weapons look 2D than vice versa."
+  - So the held weapon is a real 3D object whose blade's sweep is what hits, and the swing carries the body a little
+    toward its target (his "slight quick movement in the attack's direction", above, made physical).
+  - *Counsel's notes on 3D made to look 2D [PROPOSED]:* the held weapon drawn into a low-resolution picture and
+    enlarged crisp, so its pixels match the far view's squares; its lighting read from the cell it's in and stepped
+    in the look's own 16 levels, so it's blocky like everything else; hand-painted textures with no smoothing, and
+    the Quake flavour's held poses snapping from one to the next (Figures, below); a crisp outline if it helps it
+    read. Whether to snap its movement to the pixel grid, so it doesn't shimmer, is a look for later.
 
 ## Threats and horror  [IDEA]
 
