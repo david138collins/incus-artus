@@ -2157,3 +2157,18 @@ One flight, 11:42 to 11:49, `kept logs/flight-1794589790.txt`: the march is buil
   look is given.
 - From build 150 a standing's heat line says how long the card's clock read under 2,000 MHz, not only its least (the
   Oracle: the least can't tell a blink from a long stretch).
+
+## The Oracle's step 1d: thin haze by whole cells  *(plan 2.2, a look)*
+
+David, asked after "haze" was explained to him (the land's faint fringe, where the blend is 2% solid or less): "sounds
+like it might actually look better, lets try it".
+
+### The pass mark (written before the code)
+
+- **What's built:** where a ray is in thin haze, its step is a whole cell, not half (`INCUS_FAR_HAZE_STEP`, in cells:
+  0.5 as it was, 1 the new; 0.5 till David has looked).
+- **The picture changes,** and that's the point of looking: pictures at the sea, the plain and high over the spawn,
+  side by side and their difference counted, then David's eye on the game.
+- **The longest rays get shorter.** The Oracle: "it halves the very longest rays". Builder [low]: the longest by 20
+  to 40%, the far marks 5 to 15% faster, the most over the sea.
+- **Flown at 0.5 and 1, alternating twice.** Kept only if David likes the look.
