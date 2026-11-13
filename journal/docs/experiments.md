@@ -2535,3 +2535,20 @@ across the world 1.21 / 1.22; the sea nodding 1.27 / 1.27 (99th 1.58 / 1.57). In
   costs 38 MB at 2560 × 1600: its two textures of distances, as tall as the finest layer all the way across. [LATER]
   the finest layer's distances are read by nothing but the longest-ray count; leaving them out of the texture would
   give most of it back.
+
+## The cut: the measuring switches the decisions have closed, out of the march  *(plan 2.2; David: "cutting code we won't be using and see if that gives us another 1% just for good measure")*
+
+### The pass mark (written before the code)
+
+- **What's cut from the march's code,** each a test every ray or every pixel made of a number that is always the same
+  now:
+  - A blend's pictures read in turn (`INCUS_FAR_TOGETHER=0`): 1b's "read together" was kept, and is now the only way.
+  - The Oracle's half-layer test (`INCUS_TEST_HALF`): asked and answered on 2026-11-12.
+  With build 158's (build 154's form) that is what we won't be using. **Kept on purpose:** the layers one after
+  another (the baseline), the finer base and the haze's step (looks on the polish list), the map's edge and the step
+  cap (still measured with), the code's own blend (a choice on David's panel).
+- **The picture is pixel for pixel build 158's,** both ways of marching.
+- **Flown the one dispatch, in turn, the one dispatch,** read against build 158. Builder's guess [low]: 0 to 1% off
+  the far marks; the card's compiler will likely have been making little of these tests already. Under 0.5% can't be
+  told from the flights' own spread.
+- **Kept either way** (less code to carry), unless a mark is more than 1% slower, which would want explaining.
