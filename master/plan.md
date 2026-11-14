@@ -55,7 +55,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 - **Waiting on David:** his look at build 164's "rock switch" (a checkbox in "The picture"; unticked, no more bare
   unlit rock: the flat straight-edged plates he saw mostly go, and the near ground keeps its colour at the sea and the
   plain; the texture making is the step after); at that launch, a reminder he asked for: find a blocky area and try "far
-  blend" on "old's (code)"; a hands-off flight (the mountain top's 99th, and the switch priced); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+  blend" on "initial blend" (once "old's (code)"); a hands-off flight (the mountain top's 99th, and the switch priced); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers

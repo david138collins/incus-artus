@@ -1922,6 +1922,12 @@ Reference: `Art/quartile minecraft illustration.png`
           up while its cheap or we forget". So: the creases judged at the cells of 2 to 16; the rock switch (build
           164, on a flag, its control's name and place his) and then the texture making (borrowing across bricks),
           each with its own look; at his next launch, the reminder: a blocky area, "far blend" on "old's (code)".
+        - **Named and placed by him** (to Builder): "ah, i see about old codes blend. maybe it could be called
+          "initial blend". i think you know what to do, proceed". Build 164 (7f852ab), unflown: the checkbox
+          **"rock switch"** in "The picture" under "far blend", ticked as it was by default (the picture byte for
+          byte build 163's); the far blend's first choice renamed from "old's (code)" to **"initial blend"**, on
+          the panel and in a flight's header. His look first, then a hands-off flight announced to him before it
+          takes off; the texture making after, as its own build.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
