@@ -1795,6 +1795,11 @@ Reference: `Art/quartile minecraft illustration.png`
         The rays matched build 159's afternoon to about 0.01 ms, 99ths too, so the TV is taken as what spoiled the
         night. The column light is kept by its pass mark; the rays' light and its hand-down stay in the march until
         his word to cut them (Builder asking him).
+      - **One last look before the cut** (David, to Builder, asked his word on cutting the rays' light): "i would like
+        to be able to take a look, and a/b column light vs rays one last time." Build 161 (b843d87), launched for
+        him: a live switch, placed and named by him, a checkbox in the panel's Light section under "sky light",
+        called **"light by rays"**. Both ways draw build 160's pictures byte for byte; not flown, as nothing a frame
+        does changed. The switch goes when the rays' light is cut, on his word after the look.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
