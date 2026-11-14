@@ -55,7 +55,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 - **Waiting on David:** his go for a launch of build 167 for his look at the rings where levels hand over (the gate's
   owed item). Build 167 is flown: the rock switch cut, the march back at build 163's figures (0.1 to 0.7% over), the
   flat plates gone, the textures sound and made in 0.5 s. Still owed, a reminder he asked for: find a blocky area and try "far
-  blend" on "initial blend" (once "old's (code)"); a hands-off flight (the mountain top's 99th, and the switch priced); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+  blend" on "initial blend" (once "old's (code)"); then the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
