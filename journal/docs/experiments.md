@@ -3061,3 +3061,38 @@ making"; "i think you know what to do, proceed").
 - **Not looked at yet:** bricks the window brings as the eye moves are made one at a time on the frame's own
   thread, each now reading the cells round it too; "fast across the world" in the flight will show if putting them
   on the card got dearer.
+
+### Build 166 flown, the rock switch off and on (2026-11-14, 12:34 and 12:41, hands off)
+
+David: "go ahead"; told before take-off this time. One screen, on mains, the card idle beforehand; neither flight
+starved. Reports `logs/flight-1794681652` (the switch off, the default) and `-1794682043` (`INCUS_FAR_ROCK=1`),
+beside build 163's (`-1794676498`, 11:08). The card's whole, ms, median and 99th:
+
+| mark | 163 | 166, switch off | 166, switch on |
+|---|---|---|---|
+| the spawn | 0.289, 0.298 | 0.295, 0.306 | 0.295, 0.304 |
+| the mountain top | 1.029, (1.234) | 1.059, 1.089 | 1.062, 1.096 |
+| the bare plain | 0.763, 0.782 | 0.776, 0.795 | 0.776, 0.794 |
+| high over the spawn | 0.815, 0.841 | 0.825, 0.856 | 0.823, 0.847 |
+| low over the sea | 1.134, 1.176 | 1.163, 1.208 | 1.162, 1.208 |
+| a player's run | 1.119, 1.318 | 1.159, 1.356 | 1.159, 1.358 |
+| fast across the world | 0.794, 1.059 | 0.802, 1.068 | 0.795, 1.051 |
+| the plain, nodding | 0.758, 0.811 | 0.771, 0.827 | 0.771, 0.828 |
+| the sea, nodding | 1.037, 1.314 | 1.067, 1.358 | 1.067, 1.356 |
+
+- **Off against on: the same.** Medians within 0.3% at every mark, 99ths within 1.1%. What the switch is set to
+  costs nothing. That half of the pass mark is met.
+- **But both are 1.2 to 3.6% dearer than build 163, and the pass mark's "nothing either way" missed.** It isn't
+  the machine: the bringing up and the start pass stand to the thousandth where they stood in every flight today,
+  the card's clock and power are the same. It's the march alone: 1.8% more on the plain, 2.7% at the sea, 3.4% at
+  the mountain top, 3.2% at the sea nodding, 4.1% on the run. The one change to the march since build 163 is the
+  flag's own compare in `look_of` (a read of the camera and a compare at every fetch), paid ticked or not. The
+  lesson was already on file (in this shader, code added costs every pixel even when switched off); Builder
+  guessed past it. Not proven to be the flag till a build without it flies. Cutting the switch (the hardware's
+  blend always borrows) leaves `look_of` a compare shorter than build 163's: Builder's guess [medium] that it
+  gives the 1.2 to 3.6% back; the cut waits on David's word, as the checkbox is his.
+- **The mountain top's 99th, clean:** 1.089 with the switch off (the median 1.059), the worst frame 1.53. Build
+  163's 1.234 was the disturbance. No frame of either flight over 1.8 ms.
+- **Bricks brought as the eye moves** (the worry noted at build 166): not dearer. Fast across the world, putting
+  the far cells on the card: 95th 1.3 ms, 99th 4.1 (build 163: 1.5 and 6.7).
+- **The textures made and sent in 0.5 s** in both flights (build 163's flight: 3.8 s).
