@@ -17,6 +17,8 @@
 //! the pool (`slots`, the same places as the bricks' index).
 
 use crate::bricks::{Level, NOT_SUMMED};
+use crate::far::REGION;
+use std::collections::HashMap;
 use crate::far::Cell;
 
 /// Bricks a side of an atlas layer (north and east).
@@ -108,6 +110,8 @@ pub struct Atlas {
     pub bytes: u64,
     /// How long it took to build and send at first (seconds).
     pub seconds: f32,
+    /// The windowed levels' bricks by region (their places in the index), to give back when the window leaves it.
+    regions: HashMap<(usize, [i32; 2]), Vec<u32>>,
     /// Bumped whenever the textures are made again (grown): bind groups made with the old ones are stale.
     pub generation: u32,
 }
@@ -189,7 +193,11 @@ fn texel_bytes(look: &Look, spread: &Look) -> [[u8; 4]; 4] {
     [solid, rows[0].map(byte), rows[1].map(byte), rows[2].map(byte)]
 }
 
-/// The bricks the pool holds (those with some band in their own cells), level by level.
+/// The bricks the atlas holds, level by level: one wherever the hardware's blend may read from it. A blend of the
+/// eight cells round a point is read from the brick holding the least of them, so that's every brick with band in its
+/// own cells, or in the cells one past it north, east or up. (Till build 170 only bricks with band of their own, as
+/// the pool's are: just under ground lying at a brick's floor the hardware's blend had no brick, and the march fell
+/// back to the initial blend there. David saw it as a square round the eye in the ring, build 168.)
 fn bricks(kept: &Kept) -> Vec<Brick> {
     let mut list = Vec::new();
     for l in &kept.levels {
@@ -201,14 +209,57 @@ fn bricks(kept: &Kept) -> Vec<Brick> {
             let low = (*entry & 0xFFFF) as u16 as i16 as i32;
             let count = (*entry >> 16) as i32;
             let (x, y) = (at as i32 % l.across, at as i32 / l.across);
-            for cz in low.max(0)..(low + count).min(l.up) {
-                marked[(((y / l.wide) * l.bricks + x / l.wide) * l.bricks_up + cz / l.tall) as usize] = true;
+            // Each band cell, and the cells one before it each way (south, west, down): their bricks.
+            for cz in (low - 1).max(0)..(low + count).min(l.up) {
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    if x >= dx && y >= dy {
+                        marked[((((y - dy) / l.wide) * l.bricks + (x - dx) / l.wide) * l.bricks_up + cz / l.tall) as usize] = true;
+                    }
+                }
             }
         }
         for (k, _) in marked.iter().enumerate().filter(|(_, m)| **m) {
             let k = k as i32;
             let (bz, bx, by) = (k % l.bricks_up, (k / l.bricks_up) % l.bricks, k / l.bricks_up / l.bricks);
             list.push(Brick { level: l.level, place: l.index_at + k as u32, origin: [l.from[0] + bx * l.wide, l.from[1] + by * l.wide, bz * l.tall] });
+        }
+    }
+    list
+}
+
+/// The region a brick of a level up to 1,024 lies in.
+pub fn region_of(brick: &Brick) -> [i32; 2] {
+    let n = 1 << (REGION - brick.level);
+    [brick.origin[0].div_euclid(n), brick.origin[1].div_euclid(n)]
+}
+
+/// A region's bricks at `level` (a windowed level's, as the window brings the region), by the same rule as `bricks`.
+fn region_bricks(kept: &Kept, level: usize, region: [i32; 2]) -> Vec<Brick> {
+    let l = &kept.levels[kept.at(level)];
+    let columns = &kept.columns[kept.at(level)];
+    let n = 1 << (REGION - level);
+    let mut list = Vec::new();
+    // Whether a column has band in the heights `z0..z1`.
+    let band_in = |cx: i32, cy: i32, z0: i32, z1: i32| {
+        let Some(at) = l.entry(cx, cy) else { return false };
+        let entry = columns[(at - l.entries_at) as usize].0;
+        if entry == NOT_SUMMED {
+            return false;
+        }
+        let low = (entry & 0xFFFF) as u16 as i16 as i32;
+        low.max(z0) < (low + (entry >> 16) as i32).min(z1)
+    };
+    for by in 0..n / l.wide {
+        for bx in 0..n / l.wide {
+            let (cx0, cy0) = (region[0] * n + bx * l.wide, region[1] * n + by * l.wide);
+            for bz in 0..l.bricks_up {
+                let (z0, z1) = (bz * l.tall, ((bz + 1) * l.tall).min(l.up));
+                let reach = l.wide + 1;
+                if (0..reach * reach).any(|k| band_in(cx0 + k % reach, cy0 + k / reach, z0, z1 + 1)) {
+                    let (gx, gy) = ((cx0 - l.from[0]) / l.wide, (cy0 - l.from[1]) / l.wide);
+                    list.push(Brick { level, place: l.brick(gx, gy, bz), origin: [cx0, cy0, bz * l.tall] });
+                }
+            }
         }
     }
     list
@@ -409,9 +460,14 @@ fn in_parallel<T: Sync, R: Send>(items: &[T], f: impl Fn(&mut Bench, &T) -> R + 
 /// Builds the atlas from what's kept and sends it to the card, an atlas layer (64 × 64 bricks) at a time: the bricks
 /// `keep` says (with a window, the coarse levels' and the window's as it is), with a quarter again of room and a layer
 /// besides for the window's moves.
-pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, places: usize, keep: impl Fn(&Brick) -> bool) -> Atlas {
+pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, places: usize, windowed: usize, keep: impl Fn(&Brick) -> bool) -> Atlas {
     let started = std::time::Instant::now();
     let list: Vec<Brick> = bricks(kept).into_iter().filter(|b| keep(b)).collect();
+    // The windowed levels' (the first `windowed` kept), by region.
+    let mut regions: HashMap<(usize, [i32; 2]), Vec<u32>> = HashMap::new();
+    for brick in list.iter().filter(|b| kept.at(b.level) < windowed) {
+        regions.entry((brick.level, region_of(brick))).or_default().push(brick.place);
+    }
     let per_layer = (ACROSS * ACROSS) as usize;
     let side = kept.side();
     let layers = ((list.len() * 5 / 4).div_ceil(per_layer) as u32 + 1).min(DEEPEST / side);
@@ -475,21 +531,41 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, places: us
         bricks: list.len(),
         bytes: (size[0] * size[1] * size[2]) as u64 * 16,
         seconds: started.elapsed().as_secs_f32(),
+        regions,
         generation: 0,
     }
 }
 
 impl Atlas {
-    /// Bricks the window brought, made from the cells kept and put in: each in a slot given back if there is one, a
-    /// new one if not (the atlas grown first if it's full).
-    pub fn add(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, bricks: &[Brick]) {
+    /// A region the window brought at a windowed level: its bricks made from the cells kept and put in, each in a slot
+    /// given back if there is one, a new one if not (the atlas grown first if it's full).
+    pub fn add_region(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, level: usize, region: [i32; 2]) {
+        if self.regions.contains_key(&(level, region)) {
+            return;
+        }
         let side = self.side;
         let mut bench = Bench::default();
-        for brick in bricks {
-            let bytes = brick_bytes(kept, brick, side, &mut bench);
+        let mut places = Vec::new();
+        for brick in region_bricks(kept, level, region) {
+            let bytes = brick_bytes(kept, &brick, side, &mut bench);
             let s = self.prepare(device, queue, &bytes);
             self.slot_of[brick.place as usize] = s;
             queue.write_buffer(&self.slots, brick.place as u64 * 4, &s.to_le_bytes());
+            places.push(brick.place);
+        }
+        self.regions.insert((level, region), places);
+    }
+
+    /// A region the window left, its bricks given back: their slots kept for the next to come. The card's slots for
+    /// those places aren't written: the region isn't usable, so nothing reads them, and a region brought back writes
+    /// them again.
+    pub fn remove_region(&mut self, level: usize, region: [i32; 2]) {
+        for place in self.regions.remove(&(level, region)).unwrap_or_default() {
+            let s = std::mem::replace(&mut self.slot_of[place as usize], NO_SLOT);
+            if s != NO_SLOT {
+                self.free.push(s);
+                self.bricks -= 1;
+            }
         }
     }
 
@@ -530,18 +606,6 @@ impl Atlas {
     pub fn release(&mut self, s: u32) {
         self.free.push(s);
         self.bricks -= 1;
-    }
-
-    /// Bricks the window left, given back: their slots kept for the next to come. The card's slots for those places
-    /// aren't written: their regions aren't usable, so nothing reads them, and a region brought back writes them again.
-    pub fn remove(&mut self, places: &[u32]) {
-        for &place in places {
-            let s = std::mem::replace(&mut self.slot_of[place as usize], NO_SLOT);
-            if s != NO_SLOT {
-                self.free.push(s);
-                self.bricks -= 1;
-            }
-        }
     }
 
     /// The atlas made twice as deep (as deep as the card allows at most): the old textures copied into the new and
@@ -771,7 +835,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
         store.follow(&device, &queue, [512.0, 512.0], f32::INFINITY);
-        let atlas = build(&device, &queue, &store.kept, store.index_count as usize, |_| true);
+        let atlas = build(&device, &queue, &store.kept, store.index_count as usize, 0, |_| true);
         // The points: in the nine regions, near each column's band (where blends mix most), at every level from 32 to
         // 1,024, scattered through each cell.
         let mut points: Vec<[f32; 4]> = Vec::new();

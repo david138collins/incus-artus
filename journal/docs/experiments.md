@@ -3251,3 +3251,28 @@ go ahead and launch" (build 169 launched for his look at the ring; this is the b
   and sent in under a second still; the card's time within 1% at every mark (the march is untouched; more texels
   only); bricks brought as the eye moves a third dearer on the frame's own thread, still under build 163's figures
   (95th 1.5 ms, 99th 6.7 at fast across the world).
+
+**David's look at build 169** (2026-11-14): "there was a visible ring of brighter sections before the world had
+finished loading, and it vanished when it loaded. i don't think it's possible for a player to ever see it, so unless
+its indicative of a problem that should be addressed, i think you got it." The square is gone. The bright ring while
+loading, checked off the screen: by the initial blend the ring's edge shows as a brighter line; by the hardware's
+there's none. It's the initial blend's own drawing of the ring's fade (why brighter, not worked out), seen only
+till the textures are in, about half a minute from launch. Written down, not mended: if those seconds come to
+matter, the cure is the textures made as the regions arrive, not once at the end (they take 0.8 s for the whole
+world now).
+
+### Build 170 (unflown): a brick wherever a blend may read from one, in the 32s and up
+
+Built as its pass mark set out: the textures' bricks marked by the ring's rule (`atlas::bricks`), and the 32s' and
+64s' brought and given back by region with the window (`add_region`, `remove_region`; the window's moves now tell
+regions, not bricks).
+- **Builder's estimate of a third more bricks, 160 MB, was wrong, on the high side.** The textures hold 34,049
+  bricks where they held about 33,000: 3% more, and nothing more on the card (the textures stand at 573 MB, their
+  room as it was). At the 32s a brick is 256 blocks tall and most land lies well inside one; the ring's third more
+  came from its bricks being 128 tall, with plains at 130. So the flaw in the 32s and up was real but rare.
+- **What it changes, the ring off, against build 167:** at David's first spot (the mountainside near 500 up) 4% of
+  the pixels, 0.6% by 4 or more of 255 (the most 15), in one patch of straight-edged plates at the view's left: a
+  place the hardware's blend used to fall back. At the five marks next to nothing (at most 0.1% of pixels, by 3 at
+  most).
+- **The textures made and sent in 0.8 s** for the whole world (0.6 before). All 28 tests pass.
+- Not flown: the ring's flights (on against off) price builds 168 to 170 together; the march is build 168's.

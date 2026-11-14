@@ -244,12 +244,12 @@ fn region_distance(region: [i32; 2], eye: [f32; 2]) -> f32 {
     ((middle[0] - eye[0]).powi(2) + (middle[1] - eye[1]).powi(2)).sqrt()
 }
 
-/// What the window's move put on the card and gave back, for the atlas to follow: the bricks that came, and the places
-/// of those that left.
+/// What the window's move put on the card and gave back, for the atlas to follow: the regions that came and those that
+/// left, each with its level (the atlas keeps bricks of its own for a region, more than the pool's: `atlas.rs`).
 #[derive(Default)]
 pub struct Moved {
-    pub came: Vec<crate::atlas::Brick>,
-    pub left: Vec<u32>,
+    pub came: Vec<(usize, [i32; 2])>,
+    pub left: Vec<(usize, [i32; 2])>,
 }
 
 /// The far bricks on the card, and what's kept here: to make the levels over 1,024 as their regions come in, and to
@@ -533,11 +533,11 @@ impl Store {
             let reach = window[k] as f32 * REGION_BLOCKS;
             let leaving: Vec<[i32; 2]> = self.on_card[k].keys().filter(|g| region_distance(**g, eye) > reach + REGION_BLOCKS).copied().collect();
             for g in leaving {
-                for (place, start) in self.on_card[k].remove(&g).unwrap_or_default() {
+                for (_, start) in self.on_card[k].remove(&g).unwrap_or_default() {
                     self.free[k].push(start);
                     self.bricks -= 1;
-                    moved.left.push(place);
                 }
+                moved.left.push((FIRST + k, g));
                 changed = true;
             }
             let r = window[k] + 1;
@@ -559,7 +559,7 @@ impl Store {
             let level = FIRST + k;
             let cells = self.levels[k].brick_cells() as u64;
             let mut placed = Vec::new();
-            for (place, origin, brick) in self.region_bricks(level, g) {
+            for (place, _, brick) in self.region_bricks(level, g) {
                 let start = match self.free[k].pop() {
                     Some(start) => start,
                     None => {
@@ -572,9 +572,9 @@ impl Store {
                 queue.write_buffer(&self.pool, start * CELL_BYTES, &bytes);
                 queue.write_buffer(&self.index, place as u64 * 4, &(start as u32).to_le_bytes());
                 placed.push((place, start));
-                moved.came.push(crate::atlas::Brick { level, place, origin });
                 self.bricks += 1;
             }
+            moved.came.push((level, g));
             self.on_card[k].insert(g, placed);
             changed = true;
             brought += 1;
@@ -652,10 +652,10 @@ impl Store {
         self.window.is_none() || ((0..across).contains(&x) && (0..across).contains(&y) && self.flags[k * (across * across) as usize + (y * across + x) as usize] != 0)
     }
 
-    /// The windowed levels' bricks on the card (their places in the index), for the atlas made from the window as it
-    /// is; none without a window (every brick is on the card).
-    pub fn window_places(&self) -> Option<HashSet<u32>> {
-        self.window.map(|_| self.on_card.iter().flat_map(|level| level.values().flatten().map(|(place, _)| *place)).collect())
+    /// The windowed levels' regions on the card (the 32s', then the 64s'), for the atlas made from the window as it is;
+    /// none without a window (every region is on the card).
+    pub fn window_regions(&self) -> Option<Vec<HashSet<[i32; 2]>>> {
+        self.window.map(|_| self.on_card.iter().map(|level| level.keys().copied().collect()).collect())
     }
 
     /// How far round the eye the usable regions reach at the 32s and the 64s (blocks): to the nearest edge of a region

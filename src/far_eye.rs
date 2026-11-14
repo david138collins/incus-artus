@@ -493,13 +493,14 @@ impl FarEye {
         // (held still till it's in), then taken in here.
         if self.lane.is_none() && self.atlas.is_none() && self.building.is_none() && self.textures {
             let kept = self.store.kept.clone();
-            let window = self.store.window_places();
+            let window = self.store.window_regions();
+            let windowed = if window.is_some() { crate::bricks::WINDOWED } else { 0 };
             let places = self.store.index_count as usize;
             let (device, queue) = (device.clone(), queue.clone());
             let (sender, receiver) = mpsc::channel();
             let _ = std::thread::Builder::new().name("making the far textures".into()).spawn(move || {
-                let keep = |b: &crate::atlas::Brick| window.as_ref().is_none_or(|places| b.level >= crate::far::FIRST + crate::bricks::WINDOWED || places.contains(&b.place));
-                let _ = sender.send(crate::atlas::build(&device, &queue, &kept, places, keep));
+                let keep = |b: &crate::atlas::Brick| window.as_ref().is_none_or(|regions| b.level >= crate::far::FIRST + crate::bricks::WINDOWED || regions[b.level - crate::far::FIRST].contains(&crate::atlas::region_of(b)));
+                let _ = sender.send(crate::atlas::build(&device, &queue, &kept, places, windowed, keep));
             });
             log::info!("The far textures: being made");
             self.building = Some(receiver);
@@ -530,8 +531,12 @@ impl FarEye {
             let left = (PUTTING_MS - started.elapsed().as_secs_f32() * 1000.0).max(1.0);
             let moved = self.store.follow(device, queue, eye, if self.atlas.is_some() { left / 2.0 } else { left });
             if let Some(atlas) = &mut self.atlas {
-                atlas.remove(&moved.left);
-                atlas.add(device, queue, &self.store.kept, &moved.came);
+                for &(level, region) in &moved.left {
+                    atlas.remove_region(level, region);
+                }
+                for &(level, region) in &moved.came {
+                    atlas.add_region(device, queue, &self.store.kept, level, region);
+                }
             }
         }
         // The ring brought to the eye: what its maker has handed over sent on, a little a frame.
