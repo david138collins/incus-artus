@@ -50,7 +50,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the talk with Builder on the whorls close up (making the far cells' shapes more orderly, so
+- **Waiting on David:** his go for build 162's one flight (the cut priced: nothing to 2% less on the card); the talk
+  with Builder on the whorls close up (making the far cells' shapes more orderly, so
   they compress more cleanly into the distance, without much cost); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).

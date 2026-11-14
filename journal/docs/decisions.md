@@ -1807,6 +1807,10 @@ Reference: `Art/quartile minecraft illustration.png`
         and the "light by rays" checkbox): "Yes, cut them". The rays' light, its hand-down and the checkbox go; the
         far view's light is the column light. Relayed to Builder, the cut built once he's done playing build 161.
         To Builder directly, the same look: "column light actually looks better."
+        *Built:* build 162 (4effc9e), unflown: the shadow ray, the five sky cones, the sky light handed down, the blends
+        only they used, the switch and the checkbox gone, 206 lines of the far shader's 1,354; all five marks' pictures
+        byte for byte as before. One check broke on the cut (the blend test called a cut blend) and was mended in the
+        open. One flight owed, on his go (pass mark: nothing to 2% less on the card).
     - **[OPEN 2026-11-14] The whorls close up** (David, to Builder, from the same look, a screenshot close against a
       mountainside, the 32-block cells hundreds of pixels across): "i know that this will be more of a polish thing,
       but its significant enough, close enough to the basic functions of the graphics engine, i'd like to have a talk
