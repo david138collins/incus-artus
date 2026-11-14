@@ -1932,6 +1932,14 @@ Reference: `Art/quartile minecraft illustration.png`
           Builder puts to him next: unticked as the default in build 165, a launch switch for the old way so the two
           fly against each other hands off; the checkbox kept until he says to cut it; the texture making the build
           after.
+        - *Built on his standing "i think you know what to do, proceed"* (Builder; both unflown): **build 165**
+          (ab05594), the rock switch off by default, byte for byte what he saw unticked; the checkbox stays, and
+          `INCUS_FAR_ROCK=1` starts it on to fly against. **Build 166** (7aa8518), the texture making: a cell with no
+          surface borrows from the nearest surfaced cell in the world, not only in its own brick, so bricks agree
+          where they meet; in the pictures it barely shows (3 of 255 at most at his first spot), so it's for
+          soundness, not a look. At load 0.6 s for the whole world, after a first try that took 4.4 s (written up
+          in the open). Owed: fourteen minutes hands off for two flights, the new default against the old way, which
+          also gives the mountain top its clean 99th.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
