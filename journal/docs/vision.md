@@ -962,6 +962,14 @@ bending, to get crazy looking things that happen deep down instantly in the engi
     an aurora.
   - *A datamosh transition:* the old view held and smeared into the new while it arrives, for warping (travel)
     or ghostwalking.
+- **A third, for buffs and altered states** (David, the same day): "if we could somehow make long rays light on
+  fire temporarily and then flash with a quick curve through shorter and shorter rays it could be a neat effect for
+  when you cast a buff or have some kind of magically altered state".
+  - *Counsel's reading:* a front of fire swept by ray length, from the horizon in toward the player on an eased
+    curve, the pixels at the front burning and those behind it cooling. Once per pixel, so about free. By the
+    distance the ray went, the front is a clean ring closing over the land; by its steps, a ragged, living front
+    that follows where the rays work hardest; the two could be mixed. Run outward instead, it's a shockwave leaving
+    the player.
 - Belongs with the FX Lab and the polish passes, after the speed plan settles.
 
 ## Sound  [IDEA, David 2026-11-09]
