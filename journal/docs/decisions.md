@@ -1433,6 +1433,13 @@ Reference: `Art/quartile minecraft illustration.png`
   - *Its pass mark, suggested:* the settled picture equal to the full march's, pixel for pixel; the lag measured
     (frames to settle at each level, walking and flying); his eye judging "basically invisible".
   - Builder drafts a writeup of the tests and lazy rays for the Oracle with David.
+  - **[IDEA 2026-11-14] How rays know to be lazy** (David, to Builder): "ive been thinking about how rays know to be
+    lazy because it would seem we have to reduce the longest rays, one by one in order of length, in order to actually
+    free up warps more rapidly, consistently." Builder: right, since the card runs rays in groups of 32 and a group
+    ends with its longest, only the longest matters. A **step budget** does it without sorting: every ray stops at the
+    budget, which trims the longest first, down to one even length; a ray that ran out carries on next frame from where
+    it stopped. Before building it, an instrument measuring how much waiting there is inside groups today, since that's
+    the most lazy rays can win. It keeps its place in the order, after the cells of 2 to 16.
 - **[DECIDED 2026-11-12] No megakernels: small passes, as an architectural goal** (David, to Builder): "i hope we
   haven't built another megakernal ... if we've made a megakernal, it seems obvious we should start splitting it up
   now and establish an architectural goal that supports the microkernalization of it." And: "lets begin the research
