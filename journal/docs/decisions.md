@@ -1801,6 +1801,12 @@ Reference: `Art/quartile minecraft illustration.png`
     likely). Builder advises the 8s alone next, flown before the 4s and 2s; his word asked.
     - *Counsel, to watch:* the sea nodding's 99th at 1.57 leaves about 0.4 ms under his 2 ms bar for the 8s, 4s and
       2s together, if each costs what the 16s did. Lazy rays come after them and aim at exactly that time.
+  - **The 8s alone next** (David, to Builder, asked whether the 8s come alone and are flown before the 4s and 2s):
+    "yes". Build 171, unflown: the 8s' ring beside the 16s', the ring's code now holding several. Checked off the
+    screen: every 16 exactly its eight 8s; with one ring, byte for byte build 170's; from straight above, no square
+    at either ring's edge (under 1 of 255); a moved pair of rings matches one made in place to a last digit; the
+    sea's far edge whole; at his first spot the small facets smooth into a slope. The 8s' first ring 1.4 to 2.1 s at
+    load. Owed: his look, then fourteen minutes hands off, both rings against the 16s alone.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
