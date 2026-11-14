@@ -46,9 +46,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** two day flights of build 160 with him at the machine (the column light and the rays, fourteen
-  minutes, Turbo seen to be on), to read the 99ths the night queue couldn't; his word to cut the rays' light from the
-  march; then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** his word to cut the rays' light from the march, now the day flights have shown the column
+  light under his bar; then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
@@ -298,7 +297,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         ms under the rays; medians 0.33 to 1.21 ms. The night's 99ths can't be read (something else took the card's
         time from half an hour in, and the machine ran 4 to 18% slow): two day flights owed before the bar is
         shown for build 160. The one dispatch is worth 20 to 35% with the light's rays gone; the finer base costs
-        0.35 to 1.33 ms
+        0.35 to 1.33 ms. *Flown by day* (2026-11-14, the laptop off his TV): the column light's medians 0.29 to
+        1.15 ms, its 99ths 0.30 to 1.34, no frame over 1.56 at any mark; within 0.012 ms of build 159's no light,
+        every pass mark met. The TV taken as the night's cause. The rays' light stays in the march till his word
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into
         lengths, marched side by side, joined front to back. *Met by David's bar* (everything under 2 ms, build 157);
         step 4 not needed. Still owed for the gate's line: his look at the rings where levels hand over, and the Intel

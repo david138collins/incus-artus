@@ -2794,3 +2794,34 @@ Also: "i did close the lid and open it again." It fits what the flights show: wi
 screen and the video's decoding are the same card's work, slipped in between the far eye's passes (each pass's own
 99th tight, the whole's wide), and the card's power shared. Not proven: the day flights, with nothing else plugged
 in, are the check. If their 99ths come back as tight as the afternoon's, this is taken as the cause.
+
+### The day flights (build 160, 294e6ca; 2026-11-14, 09:32 to 09:45): the column light under David's bar
+
+David: "Alright, lets get started". The laptop off his TV (one screen connected, its own), on mains, the card idle
+at 18 W beforehand. The column light, then the rays; reports `logs/flight-1794670752` and `-1794671143`. Neither
+starved. The card's whole, ms, median and 99th, beside build 159's afternoon flights:
+
+| mark | 160 column light | 159 no light | 160 rays | 159 rays |
+|---|---|---|---|---|
+| the spawn | 0.29, 0.30 | 0.29, 0.30 | 0.66, 0.68 | 0.67, 0.69 |
+| the mountain top | 1.04, 1.07 | 1.03, 1.06 | 1.35, 1.39 | 1.34, 1.39 |
+| the bare plain | 0.77, 0.79 | 0.77, 0.78 | 0.87, 0.89 | 0.87, 0.89 |
+| high over the spawn | 0.83, 0.86 | 0.82, 0.85 | 1.30, 1.34 | 1.30, 1.33 |
+| low over the sea | 1.15, 1.19 | 1.14, 1.18 | 1.36, 1.41 | 1.35, 1.40 |
+| a player's run | 1.14, 1.34 | 1.13, 1.32 | 1.38, 1.57 | 1.38, 1.56 |
+| fast across the world | 0.76, 1.01 | 0.78, 1.01 | 1.22, 1.74 | 1.18, 1.72 |
+| the plain, nodding | 0.77, 0.82 | 0.76, 0.81 | 0.87, 0.93 | 0.86, 0.92 |
+| the sea, nodding | 1.05, 1.34 | 1.04, 1.32 | 1.26, 1.55 | 1.25, 1.54 |
+
+- **The night's cause:** the rays by day are build 159's afternoon to within about 0.01 ms at every mark, 99ths
+  too (fast across the world 0.04 off), and the card draws the afternoon's power again. The TV (a second screen and a video on the same card) is
+  taken as what spoiled the night.
+- **The column light's pass mark** (each mark within 0.06 ms of its "light off" figure; the sea nodding's 99th
+  1.38): *met at every mark.* It stands no more than 0.012 ms over build 159's no light anywhere. The sea nodding's 99th
+  1.34.
+- **David's bar** ("if everything in the far view is under 2ms"): the column light's medians 0.29 to 1.15 ms, its
+  99ths 0.30 to 1.34, and no single frame over 1.56 ms at any mark in the flight.
+- **Against the rays:** 0.10 ms less on the plain, 0.2 at the sea and the run, 0.3 at the mountain top, 0.37 at the
+  spawn, 0.47 high over the spawn.
+- By its pass mark the column light is kept ("those pics look fine to me", and the marks landed). The rays' light
+  and its hand-down stay in the march until David's word to cut them.
