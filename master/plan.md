@@ -28,7 +28,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   light, 40 MB): on the card it costs what no light costs, and flown by day everything stays under 2 ms (medians 0.29
   to 1.15 ms, no frame over 1.56); his look, A/B against the rays: "column light is actually cleaner, i prefer it".
   The rays' light is cut from the march (build 162, his word: "Yes, cut them"; the picture unchanged, its flight
-  owed). Next: the talk on the whorls, begun (Builder's ways put to him); then the gate's two owed
+  owed). The whorls talk's first step is built (build 163, unflown): where a ray's steps begin, on the Render page's
+  "Ray start" (scattered as it was, woven, blue noise, or both); his look, then the flights. After it: the eased blend
+  on a switch, the firmer rule as a slider once there's finished content; then the gate's two owed
   items on the far eye as it then stands (his look at the rings where levels hand over; the Intel
   numbers next time Optimus is on); the skyline look (haze or cover, talked through with him first); then the cells
   of 2 to 16 with scattered detail, and lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
@@ -50,9 +52,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for build 162's one flight (the cut priced: nothing to 2% less on the card); the talk
-  with Builder on the whorls close up (making the far cells' shapes more orderly, so
-  they compress more cleanly into the distance, without much cost); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** his look at build 163's "Ray start" patterns (scattered, woven, blue noise, both), then the
+  flights queued behind it (the cut and the switch priced; the pattern he picks against the default); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers

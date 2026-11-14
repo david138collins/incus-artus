@@ -23,6 +23,7 @@
 //! - `runner`: the window and the frame, which use all of the above.
 
 mod atlas;
+mod blue_noise;
 mod bricks;
 mod camera;
 mod card;

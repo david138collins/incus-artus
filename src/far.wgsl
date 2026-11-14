@@ -63,6 +63,10 @@ struct Camera {
     // The window round the eye (step 4): x the levels kept only in it (0: none, the whole world on the card), y the map's
     // regions across, zw its least region.
     window: vec4<f32>,
+    // Where a ray's steps begin (the Render page's "Ray start"): x the pattern (0 scattered, 1 woven, 2 blue noise, 3
+    // woven with blue noise in it); y the weave's side as a power of two (2: 4 x 4); z how much blue noise goes into
+    // the weave (0 to 1); w how far the starts spread, of a step (1: all of it; 0: every ray begins alike).
+    ray_start: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -130,6 +134,8 @@ fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
 // the column's top sees.
 @group(0) @binding(22) var t_shadow: texture_2d<f32>;
 @group(0) @binding(23) var t_sky: texture_2d<f32>;
+// Blue noise (`blue_noise.rs`): a square of numbers spread evenly, one of the ways a ray's steps can begin.
+@group(0) @binding(24) var t_blue: texture_2d<f32>;
 
 
 const FIRST: i32 = 5;
@@ -609,6 +615,40 @@ fn scatter(at: vec2<u32>) -> f32 {
     h = (h ^ (h >> 15u)) * 0x2C1B3C6Du;
     h = h ^ (h >> 12u);
     return f32(h & 0xFFFFu) / 65536.0;
+}
+
+// The weave: a pixel's number from an even pattern `1 << bits` pixels a side (an ordered dither, Bayer's): every
+// number of its square once, neighbours as far apart in number as can be.
+fn weave(at: vec2<u32>, bits: u32) -> f32 {
+    let x = at.x ^ at.y;
+    var v = 0u;
+    for (var b = 0u; b < bits; b++) {
+        v = (v << 2u) | (((x >> b) & 1u) << 1u) | ((at.y >> b) & 1u);
+    }
+    return (f32(v) + 0.5) / f32(1u << (2u * bits));
+}
+
+// Blue noise's number for a pixel (the square repeats).
+fn blue(at: vec2<u32>) -> f32 {
+    let side = textureDimensions(t_blue);
+    return (textureLoad(t_blue, vec2<i32>(at % side), 0).x * 255.0 + 0.5) / 256.0;
+}
+
+// Where a pixel's steps begin within a step, 0 to 1, by the pattern chosen on the Render page's "Ray start" [David,
+// 2026-11-14, of the speckle where rays scattered by chance begin nearly alike: "if these were just more *orderly*,
+// the way they compress into the distance would improve"].
+fn ray_start(at: vec2<u32>) -> f32 {
+    let pattern = u32(camera.ray_start.x);
+    var phase = scatter(at * 2u);
+    if (pattern == 1u || pattern == 3u) {
+        phase = weave(at, u32(camera.ray_start.y));
+        if (pattern == 3u) {
+            phase = fract(phase + camera.ray_start.z * blue(at));
+        }
+    } else if (pattern == 2u) {
+        phase = blue(at);
+    }
+    return phase * camera.ray_start.w;
 }
 
 // ── The march ──
@@ -1105,7 +1145,7 @@ fn march_pixel(id: vec2<u32>) {
     if (camera.follow.w > 0.5) {
         end = map_end(camera.position.xyz, d);
     }
-    let seen = march(camera.position.xyz, d, scatter(id.xy * 2u), begin, end);
+    let seen = march(camera.position.xyz, d, ray_start(id.xy), begin, end);
     // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it).
     let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
     var here = seen.colour;

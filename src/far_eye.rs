@@ -53,7 +53,7 @@ const WATER_CLARITY: f32 = 16.0;
 /// The most a frame spends putting regions on the card (ms), so the view sharpens in without holding the frame up.
 const PUTTING_MS: f32 = 3.0;
 /// Numbers in the march's camera (`far.wgsl`'s `Camera`): rows of four.
-const CAMERA_ROWS: usize = 18;
+const CAMERA_ROWS: usize = 19;
 
 /// The far eye's look as David tunes it on the Render page (F3), each with its default.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -89,6 +89,14 @@ pub struct FarLook {
     pub sky_light: bool,
     pub sky_strength: f32,
     pub sky_tint: f32,
+    /// Where each ray's steps begin within a step (the page's "Ray start"; David, 2026-11-14): the pattern (0
+    /// scattered by chance, as it was; 1 woven, an even pattern; 2 blue noise; 3 woven with blue noise in it), the
+    /// weave's side as a power of two, how much blue noise goes into the weave, and how far the starts spread (of a
+    /// step: at 0 every ray begins alike, and the rings the scatter was for come back).
+    pub start_pattern: u32,
+    pub weave_bits: u32,
+    pub start_blue: f32,
+    pub start_spread: f32,
     /// Fog: on or off, how far off land at sea level is nineteen parts in twenty fog, how fast it thins going up (its
     /// thickness halves every so many blocks), and how much warmer it is towards the sun.
     pub fog: bool,
@@ -115,6 +123,10 @@ impl FarLook {
         sky_light: true,
         sky_strength: SKY_STRENGTH,
         sky_tint: SKY_TINT,
+        start_pattern: 0,
+        weave_bits: 2,
+        start_blue: 0.25,
+        start_spread: 1.0,
         // Off by default [David, 2026-11-13: "off by default would be better. it looks nice but is most likely reserved
         // for final touches"; "we are not using fog or haze or any sort of cover as a performance tool. it is just for
         // looks"]: the far eye is judged and measured without it.
@@ -187,6 +199,9 @@ pub struct FarEye {
     sweeping: Option<mpsc::Receiver<([f32; 2], f32)>>,
     sun_asked: ([f32; 2], Instant),
     light_stand_ins: [wgpu::TextureView; 2],
+    /// The blue noise (`blue_noise.rs`) on the card, and its numbers till they're sent (at the first putting).
+    blue: (wgpu::Texture, wgpu::TextureView),
+    blue_bytes: Option<Vec<u8>>,
     /// Whether rays end at the map's edge (`INCUS_FAR_EDGE=0`: marched on toward the reach, as before), and the Oracle's
     /// test (2026-11-12), for measuring: the most steps a ray takes (`INCUS_TEST_STEPS`; 768).
     edge: bool,
@@ -244,6 +259,7 @@ impl FarEye {
                 volume(16),
                 read(22, compute, true),
                 read(23, compute, true),
+                read(24, compute, false),
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
@@ -317,6 +333,21 @@ impl FarEye {
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
         let light_stand_ins = [crate::far_light::stand_in(device, wgpu::TextureFormat::R16Float), crate::far_light::stand_in(device, wgpu::TextureFormat::R8Unorm)];
         let sun_asked = ([look.sun_from, look.sun_height], Instant::now());
+        let blue_side = crate::blue_noise::SIDE as u32;
+        let blue = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("the blue noise"),
+            size: wgpu::Extent3d { width: blue_side, height: blue_side, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::R8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let blue = (blue.clone(), blue.create_view(&wgpu::TextureViewDescriptor::default()));
+        let blue_made = Instant::now();
+        let blue_bytes = Some(crate::blue_noise::bytes());
+        log::info!("The blue noise: {blue_side} x {blue_side} made in {:.3} s", blue_made.elapsed().as_secs_f32());
         let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
         let haze_step = std::env::var("INCUS_FAR_HAZE_STEP").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (0.25..=2.0).contains(s)).unwrap_or(1.0);
         let base = if std::env::var("INCUS_FAR_BASE").as_deref() == Ok("4") { 4.0 } else { LAYERS[0] };
@@ -351,6 +382,7 @@ impl FarEye {
                     volume(16),
                     read(22, compute, true),
                     read(23, compute, true),
+                read(24, compute, false),
                     written(17, wgpu::TextureFormat::Rgba8Unorm),
                     written(19, wgpu::TextureFormat::Rgba8Unorm),
                 ],
@@ -366,7 +398,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -399,6 +431,20 @@ impl FarEye {
         if self.most_steps != 768.0 {
             rays += &format!(", {:.0} steps at most", self.most_steps);
         }
+        // Where the rays' steps begin, if not as it was (scattered, over a whole step).
+        let look = &self.look;
+        if look.start_pattern != 0 || look.start_spread != 1.0 {
+            let side = 1 << look.weave_bits.clamp(1, 4);
+            rays += &match look.start_pattern {
+                1 => format!(", rays' starts woven {side} x {side}"),
+                2 => ", rays' starts by blue noise".to_string(),
+                3 => format!(", rays' starts woven {side} x {side} with {} of blue noise", look.start_blue),
+                _ => ", rays' starts scattered".to_string(),
+            };
+            if look.start_spread != 1.0 {
+                rays += &format!(" over {} of a step", look.start_spread);
+            }
+        }
         format!("bricks of {}, {window}, {rays}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
     }
 
@@ -422,6 +468,15 @@ impl FarEye {
     /// `PUTTING_MS` together (the pass "putting the far cells on the card").
     pub fn put(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, eye: [f32; 2]) {
         let started = Instant::now();
+        if let Some(bytes) = self.blue_bytes.take() {
+            let side = crate::blue_noise::SIDE as u32;
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo { texture: &self.blue.0, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                &bytes,
+                wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(side), rows_per_image: Some(side) },
+                wgpu::Extent3d { width: side, height: side, depth_or_array_layers: 1 },
+            );
+        }
         // The atlas, once every region is in: built on a thread of its own from the cells kept and the window as it is
         // (held still till it's in), then taken in here.
         if self.lane.is_none() && self.atlas.is_none() && self.building.is_none() && self.textures {
@@ -589,6 +644,7 @@ impl FarEye {
                     entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
                     entry(22, wgpu::BindingResource::TextureView(shadow)),
                     entry(23, wgpu::BindingResource::TextureView(sky)),
+                    entry(24, wgpu::BindingResource::TextureView(&self.blue.1)),
                 ],
             });
             worth_above = Some(worth);
@@ -626,6 +682,7 @@ impl FarEye {
                         entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
                     entry(22, wgpu::BindingResource::TextureView(shadow)),
                     entry(23, wgpu::BindingResource::TextureView(sky)),
+                    entry(24, wgpu::BindingResource::TextureView(&self.blue.1)),
                         entry(17, wgpu::BindingResource::TextureView(&layers[1].picture)),
                         entry(19, wgpu::BindingResource::TextureView(&layers[2].picture)),
                     ],
@@ -713,6 +770,7 @@ impl FarEye {
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
                 [atlas_size[0], atlas_size[1], atlas_size[2], self.atlas.as_ref().map_or(1.0, |a| a.side as f32)],
                 [window_levels, regions.1 as f32, regions.0[0] as f32, regions.0[1] as f32],
+                [look.start_pattern.min(3) as f32, look.weave_bits.clamp(1, 4) as f32, look.start_blue.clamp(0.0, 1.0), look.start_spread.clamp(0.0, 1.0)],
             ];
             let bytes = numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>();
             queue.write_buffer(&layer.camera, 0, &bytes);
@@ -858,6 +916,12 @@ mod tests {
         camera.position = crate::marks::eye(&doorway, mark).unwrap();
         camera.facing = mark.facing;
         camera.pitch = mark.pitch;
+        // Or from anywhere, if asked (`FAR_TEST_EYE`: north, east, up, facing, pitch, as the Camera page shows them;
+        // the mark still says which regions are loaded), for a look at the very view David sent.
+        let eye_asked: Option<Vec<f32>> = std::env::var("FAR_TEST_EYE").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect());
+        if let Some(v) = eye_asked.as_ref().filter(|v| v.len() == 5) {
+            (camera.position.x, camera.position.y, camera.position.z, camera.facing, camera.pitch) = (v[0], v[1], v[2], v[3], v[4]);
+        }
         let at = [camera.position.x, camera.position.y];
         // The regions round the mark's (one each way, or as many as `FAR_TEST_REGIONS` says: for a look at the window
         // against the whole world, step 4; `all`: the whole world, summed on the loading lane as the game sums it), the
@@ -910,7 +974,24 @@ mod tests {
         if let Some(weight) = std::env::var("FAR_TEST_SKY_WEIGHT").ok().and_then(|w| w.parse().ok()) {
             eye.look.sky_weight = weight;
         }
-        let screen = (640u32, 400u32);
+        // Where the rays' steps begin, if asked (`FAR_TEST_START`: the pattern, then the weave's bits, the blue noise
+        // in the weave and the spread, as many as given).
+        let start_asked: Vec<f32> = std::env::var("FAR_TEST_START").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+        if let Some(&v) = start_asked.first() {
+            eye.look.start_pattern = v as u32;
+        }
+        if let Some(&v) = start_asked.get(1) {
+            eye.look.weave_bits = v as u32;
+        }
+        if let Some(&v) = start_asked.get(2) {
+            eye.look.start_blue = v;
+        }
+        if let Some(&v) = start_asked.get(3) {
+            eye.look.start_spread = v;
+        }
+        // The picture's size (640 x 400, or `FAR_TEST_SCREEN`: across, down).
+        let screen_asked: Vec<u32> = std::env::var("FAR_TEST_SCREEN").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+        let screen = if screen_asked.len() == 2 { (screen_asked[0], screen_asked[1]) } else { (640u32, 400u32) };
         let target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("the far eye's test picture"),
             size: wgpu::Extent3d { width: screen.0, height: screen.1, depth_or_array_layers: 1 },
@@ -974,7 +1055,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail)), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");

@@ -60,6 +60,7 @@ flowchart TB
   store_the_far_eye_s_look[("the far eye's look")]
   store_the_far_textures[("the far textures")]
   store_the_far_light[("the far light")]
+  store_the_blue_noise[("the blue noise")]
   store_the_window_round_the_eye[("the window round the eye")]
   store_the_temperatures[("the temperatures")]
   pass_hearing_the_window --> store_the_keys_held
@@ -90,18 +91,21 @@ flowchart TB
   store_the_far_bricks --> pass_the_far_8_x_8
   store_the_far_textures --> pass_the_far_8_x_8
   store_the_far_light --> pass_the_far_8_x_8
+  store_the_blue_noise --> pass_the_far_8_x_8
   store_the_window_round_the_eye --> pass_the_far_8_x_8
   store_the_far_layers --> pass_the_far_8_x_8
   pass_the_far_8_x_8 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_4_x_4
   store_the_far_textures --> pass_the_far_4_x_4
   store_the_far_light --> pass_the_far_4_x_4
+  store_the_blue_noise --> pass_the_far_4_x_4
   store_the_window_round_the_eye --> pass_the_far_4_x_4
   store_the_far_layers --> pass_the_far_4_x_4
   pass_the_far_4_x_4 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_2_x_2
   store_the_far_textures --> pass_the_far_2_x_2
   store_the_far_light --> pass_the_far_2_x_2
+  store_the_blue_noise --> pass_the_far_2_x_2
   store_the_window_round_the_eye --> pass_the_far_2_x_2
   store_the_far_layers --> pass_the_far_2_x_2
   pass_the_far_2_x_2 --> store_the_far_layers
@@ -237,7 +241,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow and sky light read from the cell where it lands (the far light), and where the 4 x 4 is worth it.
-- **Reads:** the far bricks, the far textures, the far light, the window round the eye and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the far light, the blue noise, the window round the eye and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.149; on the card median 0.536, 95th 0.550, 99th 0.564, worst 1.294.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -245,7 +249,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.
-- **Reads:** the far bricks, the far textures, the far light, the window round the eye and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the far light, the blue noise, the window round the eye and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.177; on the card median 0.011, 95th 0.011, 99th 0.012, worst 0.020.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -253,7 +257,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.
-- **Reads:** the far bricks, the far textures, the far light, the window round the eye and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the far light, the blue noise, the window round the eye and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.000, 95th 0.001, 99th 0.001, worst 0.139; on the card median 0.036, 95th 0.037, 99th 0.037, worst 0.235.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -475,6 +479,14 @@ flowchart TB
 - **Written by:** making the far light. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
 - **Limit:** columns out the sky's horizon is looked for, 16.
 - **Files:** src/far_light.rs.
+
+### the blue noise
+
+- **A store** on the card.
+- **What it is:** A square of numbers spread evenly (no clumps, no gaps, and it tiles), made once at load by void and cluster: one of the patterns a ray's steps can begin by (the Render page's "Ray start": scattered by chance, woven, blue noise, or the weave with blue noise in it).
+- **Written by:** none. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Limit:** texels a side, 64.
+- **Files:** src/blue_noise.rs.
 
 ### the window round the eye
 

@@ -520,7 +520,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
         let source = format!("{}\n{}", include_str!("far.wgsl"), KERNEL);
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("change 1's test"), source: wgpu::ShaderSource::Wgsl(source.into()) });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("change 1's test"), layout: None, module: &module, entry_point: Some("test_blends"), compilation_options: Default::default(), cache: None });
-        let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("a test camera"), size: 18 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("a test camera"), size: 19 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut numbers = vec![0f32; 18 * 4];
         numbers[16 * 4..16 * 4 + 3].copy_from_slice(&atlas.size.map(|v| v as f32));
         numbers[16 * 4 + 3] = atlas.side as f32;

@@ -2874,3 +2874,40 @@ rays' two spreads. The worth words now hold a pixel's worth alone.
   of the blends cut. It now reads the hardware's blend the way the march itself does (`spot_soft`, `look_at`), and
   passes: the test now covers the march's own path, which it didn't before.
 - **The flight:** owed, on David's go (it takes the screen seven minutes).
+
+### Build 163: where a ray's steps begin, on a switch (the whorls talk's first step; unflown)
+
+David on the ways put to him (2026-11-14): of the panel's "brought up", "smooth and sharp skylines i may ask you to
+cut at some point. im waiting until i have more things to look at with it"; of the even pattern, "an even pattern with
+a fine weave sounds good. i would like for you to put it on a switch for me"; of the firmer rule, "this also sounds
+promising but i believe i would need some more finished content to judge it by. it sounds like it could be a slider
+of some kind as well"; of the eased blend, "this sounds good, i would like to see this with a switch as well"; of the
+dear ones, "that sounds painful, i would avoid this in favor of simpler fixes. have you heard of blue noise being
+used for this kind of thing?"; "i'm fine with your proposed order of looking into this." Then: "if there's a reason
+the weave and the blue noise can't be used simultaniously, that sounds good to me, if they can work simultaniously
+i'd like to see that as well, and if they have parameters worth exposing i'd like to play with those. you could put
+them under a ray start section or something. If there's no reason to wait, we could try the blue noise and weave,
+and then you can run the tests that you have qeued after i take a look".
+
+- **Built:** a "Ray start" section on the Render page, under "The picture". Pattern: scattered (by chance, as it
+  was, the default), woven (Bayer's ordered pattern; its side 2, 4, 8 or 16 pixels), blue noise (a 64 x 64 square
+  made at load by void and cluster in 0.09 s, 4 KB on the card, one read a ray), and the weave with blue noise in it
+  (a slider: how much). And "spread (of a step)": how far the starts spread, 1 as it was; at 0 every ray begins
+  alike and the rings the scatter was for come back.
+- **They can work together:** the weave's number plus a share of the blue noise's, wrapped round. A little blue
+  noise fills in between the weave's few distinct numbers (sixteen at 4 x 4) and breaks its crosshatch; a lot is
+  blue noise.
+- **Blue noise's own check** (`blue_noise.rs`'s test): every rank once; the lowest sixteenth of its texels stand at
+  least 2.8 apart and 3.3 on average, where the same number picked by chance touch (1.0) and average 1.7. At void
+  and cluster's usual wider reach (1.9) a few of the first points touched; at its own 1.5 none do.
+- **The default's picture:** byte for byte build 162's at all five marks. *Met.*
+- **Builder's look** (the four patterns drawn off the screen at David's own spot and size; a new `FAR_TEST_EYE`,
+  `FAR_TEST_START` and `FAR_TEST_SCREEN` on the picture test): the patterns show only in the speckled patches
+  where a ray grazes land, 8 pixels a speck (the base layer's). Scattered: clumps and gaps; woven: a plain
+  checkerboard; blue noise: specks evenly spread, no pattern; both: a checkerboard broken up. The whorls themselves
+  don't change: they're the blend's (way 4).
+- **Pass mark for its flight** (written now, flown after David's look): at the default, one flight against this
+  morning's column light measures the cut and the switch's standing cost together; Builder's guess [low] as the
+  cut's, nothing to 2% less, a mark more than 1% dearer a miss, and then build 162 is flown alone from its own
+  folder to tell the two apart. The pattern David picks is flown against the default: guess within 1% (blue noise
+  is one read a ray, not a step).

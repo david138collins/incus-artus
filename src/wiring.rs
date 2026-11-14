@@ -109,6 +109,7 @@ pub enum StoreId {
     FarLook,
     FarTextures,
     FarLight,
+    BlueNoise,
     FarWindow,
     Temperatures,
 }
@@ -262,7 +263,7 @@ pub const PASSES: [Pass; 20] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow and sky light read from the cell where it lands (the far light), and where the 4 x 4 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::FarWindow, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::BlueNoise, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -273,7 +274,7 @@ pub const PASSES: [Pass; 20] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 4 x 4 screen pixels, only where the 8 x 8 above said it's worth it (never for sky), starting a little short of the nearest touch above it; and where the 2 x 2 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::FarWindow, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::BlueNoise, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -284,7 +285,7 @@ pub const PASSES: [Pass; 20] = [
         lane: LaneId::Frame,
         on: Where::Card,
         what: "A ray each 2 x 2 screen pixels, only where the 4 x 4 above said it's worth it: the finest layer.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::FarWindow, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::BlueNoise, StoreId::FarWindow, StoreId::FarLayers],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -403,7 +404,7 @@ pub const PASSES: [Pass; 20] = [
     },
 ];
 
-pub const STORES: [Store; 20] = [
+pub const STORES: [Store; 21] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -547,6 +548,14 @@ pub const STORES: [Store; 20] = [
         what: "The far eye's light, read from the cell: two pictures of the whole world, every level's columns side by side in each (the first level at the left, the others down a column to its right; each level's place is the last of its numbers in the levels' table): the height the sun's shadow reaches at each column (16-bit floats, kept twice so a new sweep is swapped in whole) and how much sky its top sees (8-bit). The tops they're made from are kept on the processor.",
         limits: &[("columns out the sky's horizon is looked for", 16)],
         files: &["src/far_light.rs"],
+    },
+    Store {
+        id: StoreId::BlueNoise,
+        name: "the blue noise",
+        on: Where::Card,
+        what: "A square of numbers spread evenly (no clumps, no gaps, and it tiles), made once at load by void and cluster: one of the patterns a ray's steps can begin by (the Render page's \"Ray start\": scattered by chance, woven, blue noise, or the weave with blue noise in it).",
+        limits: &[("texels a side", crate::blue_noise::SIDE as u64)],
+        files: &["src/blue_noise.rs"],
     },
     Store {
         id: StoreId::FarWindow,

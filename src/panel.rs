@@ -172,6 +172,31 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
         });
         ui.add(egui::Slider::new(&mut look.sky_weight, 0.0..=8.0).text("sky weight"));
         ui.separator();
+        // Where each ray's steps begin within a step [David, 2026-11-14: "you could put them under a ray start section
+        // or something"; "if they have parameters worth exposing i'd like to play with those"].
+        ui.horizontal(|ui| {
+            ui.strong("Ray start");
+            let differs = (look.start_pattern, look.weave_bits, look.start_blue, look.start_spread) != (d.start_pattern, d.weave_bits, d.start_blue, d.start_spread);
+            section_default(ui, look, differs, |l| (l.start_pattern, l.weave_bits, l.start_blue, l.start_spread) = (d.start_pattern, d.weave_bits, d.start_blue, d.start_spread));
+        });
+        ui.horizontal(|ui| {
+            ui.label("pattern");
+            for (k, name) in ["scattered", "woven", "blue noise", "woven + blue noise"].iter().enumerate() {
+                ui.selectable_value(&mut look.start_pattern, k as u32, *name);
+            }
+        });
+        let woven = look.start_pattern == 1 || look.start_pattern == 3;
+        ui.add_enabled_ui(woven, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("weave");
+                for bits in 1..=4u32 {
+                    ui.selectable_value(&mut look.weave_bits, bits, format!("{0} × {0}", 1 << bits));
+                }
+            });
+        });
+        ui.add_enabled(look.start_pattern == 3, egui::Slider::new(&mut look.start_blue, 0.0..=1.0).text("blue noise in the weave"));
+        ui.add(egui::Slider::new(&mut look.start_spread, 0.0..=1.0).text("spread (of a step)"));
+        ui.separator();
         ui.horizontal(|ui| {
             ui.strong("Crossovers");
             let differs = (look.hand_over, look.fade_4, look.fade_2) != (d.hand_over, d.fade_4, d.fade_2);
