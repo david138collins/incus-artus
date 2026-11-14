@@ -3317,3 +3317,20 @@ beforehand; neither flight starved. Reports `logs/flight-1794690079` (the ring o
   (4.3 and 4.2 ms against 3.5) in both flights: build 170's bricks by region, most likely (each region the window
   brings now looks round each of its bricks); one flight each, so said with that weight.
 - **The maker kept up:** 367 moves in the flight, the last ring made in 0.47 s (after a mark's jump).
+
+### The 8s' ring (build 171 to come): the pass mark, written before the code
+
+David, advised the 8s alone next and flown before the 4s and 2s: "yes".
+- **To build:** the ring's code made to hold several rings, each its own level, maker and box (the 16s within about
+  1,024 blocks, the 8s within about 512, each 128 cells a side); the march falls from a ring's level to the next
+  one up wherever it's outside that ring's box, and fades at each ring's edge. `INCUS_FAR_RING` says how many
+  rings (0 none, 1 the 16s alone, as build 170).
+- **Checks before any look:** every 16 exactly its eight 8s added; with one ring the picture byte for byte build
+  170's; with both, pictures from the ground and from straight above (the check build 168 lacked): no hole, no
+  square at either ring's edge; a moved ring the same to a last digit; and the sea's far edge looked at for rays
+  out of steps.
+- **Builder's guesses for its flight, the 8s on against the 16s alone** [low; the 16s' guesses mostly missed]: the
+  spawn and the run 10 to 30% dearer again (the finer layers find more to do near the eye); the sea 5 to 15%
+  dearer; the plain within 10% either way; the mountain top and high over the spawn within 5%. Every 99th still
+  under 2 ms. On the card under 60 MB more, likely none allocated (the pool and the textures hold spare room). The
+  8s' first ring made in under 3 s, a move in under a tenth.
