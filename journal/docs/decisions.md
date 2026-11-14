@@ -828,6 +828,16 @@ Reference: `Art/quartile minecraft illustration.png`
     WebAssembly as a later door for heavy mods in any language. Chosen when the first behaviour needs it.
   - *Beside it:* at the regroup he said "the editor is for me until the best use of our time is serving eager
     modders. thats a ways off." That still holds for now; this is where it ends up.
+  - **[DECIDED 2026-11-14, later the same day] His recipe first; room for modders, not modders' tools** (David, to
+    Counsel, on the game being the first mod): "i like how you think with your point in 1. although, it will take
+    some scaffolding to get there in the end. i do think we should make the world gen work this way, as a modular
+    thing; it does not need to work that way at first. priority 1 is shipping incus artus, *my* recipe; but i think
+    we should assemble it so later we can expose parts of it for modification - even if the steam release doesn't
+    expose any of our own code or is 100% modular. we can wait on that, so i just want to architecture that later on
+    can be set up for modders at a later date, once many people are playing it."
+    - So the entry above is the end, not the next step: nothing is built for modders now (no scripting language,
+      no modders' documents, no open stages); each system is assembled so its parts *can* be opened later. Put in
+      the plan's "What every step keeps" as "Room for modders, later".
   - **[IDEA 2026-11-14] Modders' own layers in world gen** (David, straight after): "like, what would we need to do
     to let people create their own topographical layers in the world gen". *Counsel's sketch:* the stages listed in
     data, not in code, so a pack can put its own between two of David's; each stage declaring the named fields it

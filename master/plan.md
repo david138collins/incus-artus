@@ -457,3 +457,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   holds only habits and warnings.
 - **The shape:** no megakernels. The eye is built as small passes over a per-pixel store, each measured alone (David,
   2026-11-12: "establish an architectural goal that supports the microkernalization of it").
+- **Room for modders, later:** David's recipe ships first; nothing is built for modders now, but each system is
+  assembled so its parts can be opened to them later (content as data, his own content through the same door a
+  pack would use, world gen as stages): "i just want to architecture that later on can be set up for modders at a
+  later date, once many people are playing it" (David, 2026-11-14).

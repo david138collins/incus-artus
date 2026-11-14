@@ -936,6 +936,9 @@ bread and a blank diary. Birds sing and flit about.
   game engine for people to do things of their own with". Nothing about the content hardcoded (people's minds,
   effects); the editor extensible without touching the code; scripts to extend the mechanics. The game is the first
   mod. Details and the language question: `decisions.md`, "Data & Modding".
+  - The same day: "priority 1 is shipping incus artus, *my* recipe"; built so it can be opened to modders later,
+    "once many people are playing it", not built for them now. World gen modular in the end, "it does not need to
+    work that way at first".
 
 ## Bending the lens  [IDEA, David 2026-11-14]
 
