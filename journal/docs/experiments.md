@@ -2825,3 +2825,12 @@ starved. The card's whole, ms, median and 99th, beside build 159's afternoon fli
   spawn, 0.47 high over the spawn.
 - By its pass mark the column light is kept ("those pics look fine to me", and the marks landed). The rays' light
   and its hand-down stay in the march until David's word to cut them.
+
+### Build 161: a live switch between the rays and the column light, for David's last look
+
+David, asked for his word on the cut: "i would like to be able to take a look, and a/b column light vs rays one last
+time." Till now the way was set at launch only. Asked where the switch goes and what it's called, he chose a
+checkbox in the panel's Light section, under "sky light", called "light by rays" (unticked, the column light). The
+far light is now made and kept up while the light is by rays too (40 MB, a sweep a sun step), so the switch shows
+at once. Both ways draw build 160's pictures byte for byte (high over the spawn and the mountain top, off the
+screen). Not flown: nothing a frame does has changed. The switch goes when the rays' light is cut.

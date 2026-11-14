@@ -92,6 +92,9 @@ pub struct FarLook {
     pub sky_light: bool,
     pub sky_strength: f32,
     pub sky_tint: f32,
+    /// The light by rays after the march, as before the far light was read from the cell: David's switch on the
+    /// panel for looking at one against the other (build 161). It starts set by `INCUS_FAR_LIGHT=rays`.
+    pub light_rays: bool,
     /// Fog: on or off, how far off land at sea level is nineteen parts in twenty fog, how fast it thins going up (its
     /// thickness halves every so many blocks), and how much warmer it is towards the sun.
     pub fog: bool,
@@ -118,6 +121,7 @@ impl FarLook {
         sky_light: true,
         sky_strength: SKY_STRENGTH,
         sky_tint: SKY_TINT,
+        light_rays: false,
         // Off by default [David, 2026-11-13: "off by default would be better. it looks nice but is most likely reserved
         // for final touches"; "we are not using fog or haze or any sort of cover as a performance tool. it is just for
         // looks"]: the far eye is judged and measured without it.
@@ -182,11 +186,10 @@ pub struct FarEye {
     atlas: Option<Atlas>,
     building: Option<mpsc::Receiver<Atlas>>,
     stand_ins: [wgpu::TextureView; 2],
-    /// The far light read from the cell (`far_light.rs`), unless it's by rays as before (`INCUS_FAR_LIGHT=rays`, for
-    /// flying one against the other): made on a thread of its own once every region is in; a shadow swept on another
-    /// when the sun's setting has changed and stood still a moment, and shown whole when it's in (David's snap).
-    /// Stand-ins of one texel till it's made.
-    light_rays: bool,
+    /// The far light read from the cell (`far_light.rs`): made on a thread of its own once every region is in; a shadow
+    /// swept on another when the sun's setting has changed and stood still a moment, and shown whole when it's in
+    /// (David's snap). Stand-ins of one texel till it's made. Made and kept up while the light is by rays too
+    /// (`look.light_rays`), so the panel's switch between them shows at once.
     light: Option<crate::far_light::Light>,
     lighting: Option<mpsc::Receiver<crate::far_light::Light>>,
     sweeping: Option<mpsc::Receiver<([f32; 2], f32)>>,
@@ -296,6 +299,7 @@ impl FarEye {
         };
         look.shadows = !set("INCUS_SIGHT_NO_SHADOWS");
         look.sky_light = !set("INCUS_SIGHT_NO_SKY");
+        look.light_rays = std::env::var("INCUS_FAR_LIGHT").as_deref() == Ok("rays");
         // Change 1 (`INCUS_FAR_BLEND`): `code` makes no far textures and blends by the code (old's); otherwise they're made
         // and blend once they're in. The detail at launch (`INCUS_FAR_DETAIL`), for measuring.
         let textures = std::env::var("INCUS_FAR_BLEND").as_deref() != Ok("code");
@@ -320,7 +324,6 @@ impl FarEye {
                 .create_view(&wgpu::TextureViewDescriptor::default())
         };
         let stand_ins = [stand_in("no far atlas yet", wgpu::TextureFormat::Rg16Float), stand_in("no far atlas yet", wgpu::TextureFormat::Rgba8Unorm)];
-        let light_rays = std::env::var("INCUS_FAR_LIGHT").as_deref() == Ok("rays");
         let light_stand_ins = [crate::far_light::stand_in(device, wgpu::TextureFormat::R16Float), crate::far_light::stand_in(device, wgpu::TextureFormat::R8Unorm)];
         let sun_asked = ([look.sun_from, look.sun_height], Instant::now());
         let edge = std::env::var("INCUS_FAR_EDGE").as_deref() != Ok("0");
@@ -372,7 +375,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light_rays, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -382,7 +385,7 @@ impl FarEye {
 
     /// Whether the far light is in (or is by rays, which need nothing made).
     pub fn lit(&self) -> bool {
-        self.light_rays || self.light.is_some()
+        self.look.light_rays || self.light.is_some()
     }
 
     /// How far round the eye the usable 32s and 64s reach (blocks; none without a window), for a flight.
@@ -400,7 +403,7 @@ impl FarEye {
         let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
         rays += &format!(", thin haze stepped by {} of a cell; the layers {} x {}, {} x {} and {} x {} screen pixels", self.haze_step, self.layers[0], self.layers[0], self.layers[1], self.layers[1], self.layers[2], self.layers[2]);
-        rays += if self.light_rays { ", light by rays" } else { ", light read from the cell" };
+        rays += if self.look.light_rays { ", light by rays" } else { ", light read from the cell" };
         rays += if self.one.is_some() { ", marched by one dispatch (a finer layer led by the frame before's coarser)" } else { ", marched one after another" };
         if self.most_steps != 768.0 {
             rays += &format!(", {:.0} steps at most", self.most_steps);
@@ -478,9 +481,6 @@ impl FarEye {
     /// shadow swept, on a thread too, when the sun's setting has changed and stood still a quarter of a second, shown
     /// whole when it's in.
     fn light(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        if self.light_rays {
-            return;
-        }
         let sun = [self.look.sun_from, self.look.sun_height];
         if sun != self.sun_asked.0 {
             self.sun_asked = (sun, Instant::now());
@@ -714,7 +714,7 @@ impl FarEye {
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
                 [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if self.edge { 1.0 } else { 0.0 }],
-                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, if self.light_rays { 1.0 } else { 0.0 }],
+                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, if look.light_rays { 1.0 } else { 0.0 }],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
                 [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
@@ -983,7 +983,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else if eye.light_rays { " rays" } else { "" }, eye.look.blend, eye.look.detail)), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else if eye.look.light_rays { " rays" } else { "" }, eye.look.blend, eye.look.detail)), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");

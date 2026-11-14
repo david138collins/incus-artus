@@ -251,7 +251,7 @@ pub const PASSES: [Pass; 20] = [
             ("INCUS_FAR_HAZE_STEP", "a far ray's step through thin haze (the land's faint fringe), in cells: 1 a whole cell (unset; the lean step, 1d, David's look), 0.5 as old's"),
             ("INCUS_FAR_BASE", "the far eye's first layer in screen pixels: 8 (unset, old's) or 4, the layers under it each half the one above (step 2's probe)"),
             ("INCUS_FAR_SIDE", "0: the far eye's layers marched one after another (the baseline flights are read against, and the picture's reference); unset, by one dispatch, a finer layer led by the coarser layer of the frame before (step 2)"),
-            ("INCUS_FAR_LIGHT", "rays: the far eye's light by rays after its march, as before (for flying against); unset, read from the cell (the far light, made on the processor)"),
+            ("INCUS_FAR_LIGHT", "rays: the far eye's light starts by rays after its march, as before (for flying against; the panel's \"light by rays\" switches it live); unset, read from the cell (the far light, made on the processor)"),
             ("INCUS_TEST_STEPS", "for measuring (the Oracle's test): the most steps a far ray takes (unset: 768)"),
             ("INCUS_FAR_DETAIL", "the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's)"),
         ],
