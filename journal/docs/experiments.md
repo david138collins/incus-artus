@@ -2787,3 +2787,10 @@ fourteen minutes. Till then the bar is shown for build 159's rays (the afternoon
 look fine to me"; by its pass mark it's kept once the day flight shows the 99ths. The rays' code isn't cut till
 David says so. For a night queue again: the first flight a throwaway to warm up, and a look beforehand at what
 else is drawing on the card.
+
+**What took the card's time, most likely** (David, 2026-11-14): "i plug the laptop into my TV to play space noise
+sound videos. i bet its just the card running another display. all yesterday it outside with no other display".
+Also: "i did close the lid and open it again." It fits what the flights show: with NVIDIA GPU only, the second
+screen and the video's decoding are the same card's work, slipped in between the far eye's passes (each pass's own
+99th tight, the whole's wide), and the card's power shared. Not proven: the day flights, with nothing else plugged
+in, are the check. If their 99ths come back as tight as the afternoon's, this is taken as the cause.
