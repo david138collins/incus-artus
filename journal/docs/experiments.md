@@ -3153,3 +3153,25 @@ flip: "ah yes. the blocks go away mostly with the hardware blend, after it loads
 with it." So the blocks he saw are mostly the initial blend's (its own rock switch among them), drawn only till the
 textures are in; and the greyed second choice while loading stays as it is, on his word (Builder had offered to
 let either be picked at any time).
+
+### The cells of 2 to 16, first build: the 16s in a ring round the eye (the pass mark, written before the code)
+
+David, asked the order (the cells of 2 to 16 next, the skyline talk after, since the soft skyline is as wide as the
+cells it's read from and near land is read from 32s today) and the first build (the 16s alone, at old's size of 128
+cells a side): "yes and yes, you can proceed. hopefully all this work, being much shorter than the longest rays,
+goes on pretty much alongside everything else and doesn't cost much in time."
+- **The design.** The 16s can't be laid over the whole map as the 32s and up are (their bands alone would be 85 MB,
+  the 2s' 5 GB): a ring of 128 x 128 cell columns round the eye, as old kept (cells within about 1,024 blocks). A
+  thread of its own (the ring's maker) sums the ring's cells from the doorway and makes its bricks and their
+  textures; the frame only sends what it's handed, a little a frame, and moves the ring over at once when the new
+  one is whole on the card, so there's never a hole and the frame makes nothing. Past the ring's edge the march
+  reads the 32s as now; over the ring's outermost cells the two are blended, so its edge is no seam. The light
+  stays the 32s' column light for now (the ring's own light comes with the 8s, 4s and 2s: a shading flaw written
+  down, not a hole).
+- **Checks before any look:** every 32 of a region is exactly its eight 16s added (the standing test old kept);
+  with the ring off (`INCUS_FAR_RING=0`) the picture is byte for byte build 167's; with it on, no hole and no line
+  at the ring's edge in pictures drawn off the screen, still and after a move.
+- **Builder's guesses for its flight** [low, the first of its kind]: the marks that look far (the mountain top,
+  high over the spawn, the sea) within 2% of build 167; the marks on the ground (the spawn, the plain, the run)
+  5 to 15% dearer, as near rays step through cells half the size; moving, the frame's 99th no worse than build
+  167's by more than a tenth (the ring's work is off the frame). On the card under 30 MB for the ring.
