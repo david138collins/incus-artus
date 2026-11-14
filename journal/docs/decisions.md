@@ -1803,6 +1803,18 @@ Reference: `Art/quartile minecraft illustration.png`
       - **His look** (2026-11-14, to Counsel, build 161): "column light is actually cleaner, i prefer it". The column
         light is kept on his eye as well as its pass mark. The cut itself (the rays' light, its hand-down, the
         checkbox) asked of him in so many words before anything goes.
+      - **[DECIDED 2026-11-14] Cut the rays' light** (David, to Counsel, asked whether Builder cuts the rays' light
+        and the "light by rays" checkbox): "Yes, cut them". The rays' light, its hand-down and the checkbox go; the
+        far view's light is the column light. Relayed to Builder, the cut built once he's done playing build 161.
+        To Builder directly, the same look: "column light actually looks better."
+    - **[OPEN 2026-11-14] The whorls close up** (David, to Builder, from the same look, a screenshot close against a
+      mountainside, the 32-block cells hundreds of pixels across): "i know that this will be more of a polish thing,
+      but its significant enough, close enough to the basic functions of the graphics engine, i'd like to have a talk
+      about it; the way that these whorls work out from the average of the rays, even if its hard to see at a
+      distance, if these were just more *orderly* , the way they compress into the distance would improve. im
+      interested in ways that we could get that sort of tuned, ideally without incurring a whole lot of extra costs in
+      the process." Builder is answering him with where the shapes come from and the ways to order them, cheapest
+      first; nothing built. Her reading is in `journal/docs/experiments.md`.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.

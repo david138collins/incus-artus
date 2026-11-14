@@ -26,7 +26,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   player's run 1.38, the mountain top 1.34, high over the spawn 1.30, the plain 0.87, the spawn 0.66; **everything
   under 2 ms**, David's bar, and his look: "fantastic". Light now comes from the processor (build 160, the column
   light, 40 MB): on the card it costs what no light costs, and flown by day everything stays under 2 ms (medians 0.29
-  to 1.15 ms, no frame over 1.56). Next: his word to cut the rays' light from the march; then the gate's two owed
+  to 1.15 ms, no frame over 1.56); his look, A/B against the rays: "column light is actually cleaner, i prefer it".
+  Next: the rays' light cut from the march (his word: "Yes, cut them"); the talk on the whorls; then the gate's two owed
   items on the far eye as it then stands (his look at the rings where levels hand over; the Intel
   numbers next time Optimus is on); the skyline look (haze or cover, talked through with him first); then the cells
   of 2 to 16 with scattered detail, and lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
@@ -48,8 +49,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his last look at the column light against the rays (build 161: "light by rays" on the
-  panel's Light section flips them live), then his word to cut the rays' light from the march; then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** the talk with Builder on the whorls close up (making the far cells' shapes more orderly, so
+  they compress more cleanly into the distance, without much cost); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
