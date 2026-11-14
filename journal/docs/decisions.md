@@ -1780,6 +1780,15 @@ Reference: `Art/quartile minecraft illustration.png`
     - **[DECIDED 2026-11-14] Mend it** (David, to Builder): "yeah 160mb is no biggie. go ahead and launch". Builder's
       next build once he's closed the game, the real figure measured and its pass mark written first. Build 169
       launched for his look meanwhile.
+    - *Built:* build 170, unflown. **A miss, in the open, the good way:** 3% more bricks and nothing more on the card
+      (the textures stay 573 MB), not a third and 160 MB; at the 32s a brick is 256 blocks tall and most land lies
+      inside one (the ring's third came from its bricks being 128 tall, with plains at 130). So he agreed a cost
+      that didn't come. A patch of straight-edged plates at his first spot goes; next to nothing at the marks.
+  - *His look at build 169* (to Builder): "there was a visible ring of brighter sections before the world had
+    finished loading, and it vanished when it loaded. i don't think it's possible for a player to ever see it, so
+    unless its indicative of a problem that should be addressed, i think you got it." Builder, off the screen: the
+    initial blend's own (a brighter line at the ring's edge by it, none by the hardware's), seen only till the
+    textures are in. Written down, not mended.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
