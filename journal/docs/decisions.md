@@ -1787,6 +1787,14 @@ Reference: `Art/quartile minecraft illustration.png`
         work), not proven. **Owed:** two day flights with him at the machine, nothing else plugged in, Turbo on (the
         column light and the rays, fourteen minutes), to read the 99ths; the rays' light code stays in the march until
         his word.
+      - **The day flights, on his word** (2026-11-14, 09:32 to 09:45, "Alright, lets get started"; Builder's write-up
+        in `journal/docs/experiments.md`, 492c2f3; reports `logs/flight-1794670752` and `-1794671143`, checked by
+        Counsel). The laptop off his TV, one screen, on mains, the card idle at 18 W beforehand; Turbo not read. The
+        column light: medians **0.29 to 1.15 ms**, 99ths 0.30 to 1.34, no single frame over 1.56 ms at any mark; no
+        more than 0.012 ms over build 159's no light, every pass mark met. **His 2 ms bar is shown for build 160.**
+        The rays matched build 159's afternoon to about 0.01 ms, 99ths too, so the TV is taken as what spoiled the
+        night. The column light is kept by its pass mark; the rays' light and its hand-down stay in the march until
+        his word to cut them (Builder asking him).
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.

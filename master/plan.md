@@ -24,8 +24,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   kept, 1c dropped); step 2, the three layers marched by **one dispatch**, overlapping their waits, on the library's
   default limits. Fog is off and for looks only. The far eye now (build 159): the sea 1.35 ms (nodding 99th 1.54), a
   player's run 1.38, the mountain top 1.34, high over the spawn 1.30, the plain 0.87, the spawn 0.66; **everything
-  under 2 ms**, David's bar, and his look: "fantastic". Next: light read from the cell, made on the processor; then
-  the gate's two owed items on the far eye as it then stands (his look at the rings where levels hand over; the Intel
+  under 2 ms**, David's bar, and his look: "fantastic". Light now comes from the processor (build 160, the column
+  light, 40 MB): on the card it costs what no light costs, and flown by day everything stays under 2 ms (medians 0.29
+  to 1.15 ms, no frame over 1.56). Next: his word to cut the rays' light from the march; then the gate's two owed
+  items on the far eye as it then stands (his look at the rings where levels hand over; the Intel
   numbers next time Optimus is on); the skyline look (haze or cover, talked through with him first); then the cells
   of 2 to 16 with scattered detail, and lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
