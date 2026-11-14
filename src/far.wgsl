@@ -51,7 +51,7 @@ struct Camera {
     // old's; more: a pixel the land only partly covers gives more of itself to the sky).
     fade: vec4<f32>,
     // Sky light: x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1 a sky
-    // blue). w free.
+    // blue). (w isn't the sky's: for measuring a ray's far length alone, the nearest a ray may begin, blocks; 0 as it is.)
     sky: vec4<f32>,
     // Fog: x its thickness at sea level (a block's worth; 0 none), y how fast it thins going up, z sea level, w how much
     // warmer it is towards the sun.
@@ -1180,6 +1180,8 @@ fn march_pixel(id: vec2<u32>) {
         }
         begin = max(begin, nearest - 2.0 - nearest * camera.view.z * 4.0);
     }
+    // For measuring (a ray's far length alone): no nearer than this.
+    begin = max(begin, camera.sky.w);
     let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
     let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
     // Where its ray ends: at the map's edge, or the reach.

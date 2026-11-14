@@ -237,6 +237,8 @@ flowchart TB
 - **Switch** `INCUS_FAR_BASE`: the far eye's first layer in screen pixels: 8 (unset, old's) or 4, the layers under it each half the one above (step 2's probe).
 - **Switch** `INCUS_FAR_SIDE`: 0: the far eye's layers marched one after another (the baseline flights are read against, and the picture's reference); unset, by one dispatch, a finer layer led by the coarser layer of the frame before (step 2).
 - **Switch** `INCUS_TEST_STEPS`: for measuring (the Oracle's test): the most steps a far ray takes (unset: 768).
+- **Switch** `INCUS_TEST_REACH`: for measuring a ray's near length alone (the deep dive into the rings' cost): the farthest a far ray goes, blocks (unset: the reach as it is).
+- **Switch** `INCUS_TEST_BEGIN`: for measuring a ray's far length alone: the nearest a far ray begins, blocks (unset: where it would).
 - **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.049, 95th 0.090, 99th 0.171, worst 0.353; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.027.
 - **Files:** src/far_eye.rs and src/far.wgsl.

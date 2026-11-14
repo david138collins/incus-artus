@@ -3394,3 +3394,26 @@ build 167's (no ring) and build 170's (the 16s). The card's whole, ms, median (a
   spawn, 1.366 against 1.346 at the sea): the lesson again, a small one.
 - **Moving:** the frame's 99th on the run 2.05 ms with both rings (2.07 with one); fast across the world 4.69
   against 4.56.
+
+### The deep dive: the finer rays in time with the rest (2026-11-14). Its first measurement, the pass mark
+
+David, asked whether to look at the grazing rays or build the 4s and 2s first: "lets take a deep dive into how we
+can get the finer rays working simultaniously in time with the rest of them." And, offering help: "lmk if i need to
+start a testing software for you" (not yet: the flights serve this step; Nsight if the cut is built).
+- **Builder's reading, given to him:** the rings add no short rays; they lengthen rays that were long already. A
+  ray grazing the ground walks 500 blocks of 8s and 500 of 16s in small steps before its far part. The way to have
+  the near work beside the far is the Oracle's step 4, shelved when the gate was met: each ray cut into lengths (the
+  rings' edge is the natural cut), the lengths marched side by side in the one dispatch and joined front to back.
+  The frame then waits for the longest length, not their sum. Its costs: more rays in all; far lengths marched
+  behind near land (they end in a step or two under ground; the frame before can tell them not to start); a join.
+  Whether it pays turns on whether the card is waiting or working on the plain's frame, which no flight so far says.
+- **The first measurement, before anything is built:** two switches for measuring (`INCUS_TEST_REACH`, a ray's near
+  length alone; `INCUS_TEST_BEGIN`, its far length alone; build 172, the default's picture unchanged to a last
+  digit), and three flights of the same build: whole; near alone (rays ended 1,024 blocks out); far alone (rays begun
+  1,024 out).
+- **Builder's guesses** [low]: on the bare plain, the near length alone about 0.45 ms and the far alone about 0.6,
+  adding to about the whole's 0.96: the card working, not waiting, there. At the sea the far alone within a tenth
+  of the whole (its long rays are far ones). If so, the cut should bring the plain to about the larger length's
+  time; if a length alone costs about what the whole does, the cut gives little there.
+- **Noticed on the way:** with two rings a picture repeats only to a last digit (1 of 255 in a few pixels at the
+  spawn; the plain to the byte): the two makers' bricks reach the textures in the order they finish. Written down.
