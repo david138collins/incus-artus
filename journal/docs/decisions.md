@@ -836,6 +836,18 @@ Reference: `Art/quartile minecraft illustration.png`
     pictures), or a script that decides where and what while the engine's pieces do the per-column work; seeded,
     so a seed always makes the same world; each stage's result shown on the World Gen page. David's own stages go
     through the same door. Cheapest if world gen is rebuilt that way from the start.
+  - **[OPEN 2026-11-14] Will others be able to read it?** (David): "i have high confidence i can ship software with you
+    guys that works exactly how i want it to. i have less confidence that the code will be something someone could
+    actually look at and use like we do with minecraft, or if it'll be alien technology. i just don't know".
+    *Counsel:* most modders should never need the engine's code: Minecraft's own code was scrambled for most of
+    its life, and its modding came from doors the community built; Factorio's modders never see its engine, only a
+    well-documented door. So the door (data, the editor, scripts, their documents, the base game as the example)
+    comes first, and the engine is kept readable for the few who go deeper. Its known rough edges for an outsider:
+    the far eye's speed tricks (dense in any engine) and the hand style no formatter knows (a formatter config
+    matching it, or one reformat at a quiet moment, to settle before outsiders read it). A way to know rather than
+    guess: **a newcomer test**, a reader with no history (a fresh session now, a human Rust programmer later) asked to
+    find and change one thing from the documents alone, its stumbles fixed. A cousin of the fresh-eyes audit after
+    the dyno.
 
 ## Saving
 
