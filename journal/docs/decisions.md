@@ -1928,6 +1928,10 @@ Reference: `Art/quartile minecraft illustration.png`
           byte build 163's); the far blend's first choice renamed from "old's (code)" to **"initial blend"**, on
           the panel and in a flight's header. His look first, then a hands-off flight announced to him before it
           takes off; the texture making after, as its own build.
+        - *His look at build 164* (to Builder): "unticked rock switch looks a lot better, with the hardware blend."
+          Builder puts to him next: unticked as the default in build 165, a launch switch for the old way so the two
+          fly against each other hands off; the checkbox kept until he says to cut it; the texture making the build
+          after.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
