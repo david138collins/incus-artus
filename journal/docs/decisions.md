@@ -1740,6 +1740,10 @@ Reference: `Art/quartile minecraft illustration.png`
       putting light on the processor, probably."). His look at the rings and the Intel card's numbers would be read
       on a far eye that's about to change, so they come after light read from the cell, made on the processor, which
       is next.
+      - **His look at the rings, met** (2026-11-14, build 167, to Builder): "i can't see any rings. the crossover
+        section looks nice when i pull it down, but its slower, so i'll save that for last." The gate's line now owes
+        only the Intel card's numbers (next time Optimus is on); a longer hand-over goes on his polish list, priced
+        when he takes it up.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
