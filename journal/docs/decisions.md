@@ -1819,6 +1819,26 @@ Reference: `Art/quartile minecraft illustration.png`
       interested in ways that we could get that sort of tuned, ideally without incurring a whole lot of extra costs in
       the process." Builder is answering him with where the shapes come from and the ways to order them, cheapest
       first; nothing built. Her reading is in `journal/docs/experiments.md`.
+      - **[DECIDED 2026-11-14] The ways, and the order** (David, to Builder, on each): the panel's "brought up",
+        "smooth and sharp skylines i may ask you to cut at some point. im waiting until i have more things to look at
+        with it"; an even pattern for a ray's start, "an even pattern with a fine weave sounds good. i would like for
+        you to put it on a switch for me"; a firmer rule from fullness to cover, "this also sounds promising but i
+        believe i would need some more finished content to judge it by. it sounds like it could be a slider of some
+        kind as well"; a blend eased at the cell centres, "this sounds good, i would like to see this with a switch
+        as well"; the dear ones (eight times the fetches, or cells holding distance), "that sounds painful, i would
+        avoid this in favor of simpler fixes. have you heard of blue noise being used for this kind of thing?"; and
+        "i'm fine with your proposed order of looking into this." On placing and timing: "if they can work
+        simultaniously i'd like to see that as well, and if they have parameters worth exposing i'd like to play with
+        those. you could put them under a ray start section or something. If there's no reason to wait, we could try
+        the blue noise and weave, and then you can run the tests that you have qeued after i take a look".
+        - *So:* the dear ones are out; simpler fixes first. The flights queued (build 162's cut, the switch's
+          standing cost) wait for his look at build 163.
+        - *Built:* build 163 (c608853), unflown: a "Ray start" section on the Render page, under "The picture", as he
+          placed it. Pattern: scattered (as it was, the default, byte for byte build 162's picture), woven (2 to 16
+          pixels a side), blue noise (made at load in 0.09 s, 4 KB), or the weave with blue noise in it (a slider);
+          and a spread slider. Builder's own look off the screen: the patterns change only the speckled patches
+          where rays graze land; **the whorls themselves don't change**, being the blend's, which the eased blend
+          (next) is for.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
