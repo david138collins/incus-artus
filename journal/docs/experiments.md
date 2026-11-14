@@ -3018,3 +3018,9 @@ called \"initial blend\". i think you know what to do, proceed". So: the checkbo
 under "far blend" (ticked by default); the far blend's first choice renamed from "old's (code)" to "initial blend",
 on the panel and in a flight's header. The default's picture still byte for byte build 163's. Unflown; his look
 first, then the hands-off flight.
+
+**David's look at build 164** (2026-11-14): "unticked rock switch looks a lot better, with the hardware blend."
+(The initial blend keeps its own switch: in code there are no borrowed colours to take, and it draws only till the
+textures are in.) Builder's next, put to him: unticked becomes the default in the next build, with a launch switch
+for the old way so the two can be flown against each other, hands off; the checkbox stays till he says to cut it;
+the texture making is the build after.
