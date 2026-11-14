@@ -549,6 +549,22 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   zombies and really strong zombies.
 - Threats must be taken seriously, so they stay engaging, pull you into the combat system, and reward
   taking part in what's happening in the world instead of only being a hermit.
+- **[IDEA 2026-11-14] Dungeons that grow until their boss falls** (David, to Counsel): "ive been thinking about how
+  to put big, interesting dungeons in, and i think we should have dungeons be a kind of imaginary faction that
+  procedurally expand as time goes on or until they're cleared, so dungeons make themselves bigger until the boss at
+  the bottom is cleared. as time goes on, worse traps could appear at all levels, worse enemies, etc. like a
+  procedural roguelike dungeon generator, that has its own little area, and which expands slowly. natural difficulty
+  scaling".
+  - *Counsel's reading:* "Evil grows" (above, and the goblin den at 1 hour against 80) applied to dungeons: the
+    world's age makes it harder, not the player's level, so "no level scaling" still holds; the Temple of Darkness's
+    procedural dungeon could be the largest of the kind.
+  - *Where it lives:* world gen places the seed (an entrance, a boss, a bounded area set aside underground); the
+    growth is the living world's, on the simulation's clock, written into the world as changes like anything
+    dug or built, never fed back into world gen (the linear pipeline). Unvisited, it catches up by time when the
+    player comes near.
+  - *To decide later:* whether new levels grow above the boss or the boss sinks deeper; whether a cleared dungeon
+    stays dead or can be taken over by something else; whether it sends things out, as goblin dens raid. Its
+    rooms, traps, enemies and growth rules as data, with room for modders later.
 
 ## Magic  [IDEA]
 
