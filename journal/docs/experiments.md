@@ -3107,3 +3107,31 @@ switch" checkbox, `INCUS_FAR_ROCK`. The initial blend keeps its own switch (in c
 - **Its flight** (one, hands off, against build 163's and build 166's): Builder's guess [medium]: the march gives
   the 1.2 to 3.6% back, each standing mark at build 163's median or within 1% of it. If it doesn't, the flag
   wasn't the cause and the two builds between (164's texel change, 166's borrowing) are flown apart.
+
+### Build 167 flown: the cut gives back what the checkbox cost (2026-11-14, 12:58)
+
+David: "alright, lets proceed."; told before take-off. One screen, on mains, the card idle beforehand; not starved.
+Report `logs/flight-1794683091`, beside build 163's and build 166's (the switch off). The card's whole, ms, median
+and 99th:
+
+| mark | 163 | 166 | 167 | 167 against 163 |
+|---|---|---|---|---|
+| the spawn | 0.289, 0.298 | 0.295, 0.306 | 0.291, 0.300 | 0.7% more |
+| the mountain top | 1.029, (1.234) | 1.059, 1.089 | 1.030, 1.097 | 0.1% more |
+| the bare plain | 0.763, 0.782 | 0.776, 0.795 | 0.766, 0.786 | 0.4% more |
+| high over the spawn | 0.815, 0.841 | 0.825, 0.856 | 0.816, 0.841 | 0.1% more |
+| low over the sea | 1.134, 1.176 | 1.163, 1.208 | 1.138, 1.180 | 0.4% more |
+| a player's run | 1.119, 1.318 | 1.159, 1.356 | 1.123, 1.325 | 0.4% more |
+| fast across the world | 0.794, 1.059 | 0.802, 1.068 | 0.783, 1.022 | 1.4% less |
+| the plain, nodding | 0.758, 0.811 | 0.771, 0.827 | 0.763, 0.817 | 0.7% more |
+| the sea, nodding | 1.037, 1.314 | 1.067, 1.358 | 1.043, 1.320 | 0.6% more |
+
+- **The pass mark** (each standing mark at build 163's median or within 1% of it): *met*, 0.1 to 0.7% over it, and
+  1.0 to 3.1% under build 166. The flag's compare was the cost; with it gone the march is back where it was, with
+  the plates gone and the textures sound. The lesson, a second time today: in this march a switch isn't free
+  because it's off; a look that's chosen gets its switch cut.
+- **One frame over 2 ms:** at the mountain top, 2.02 ms, the flight's worst; that mark's 99th is 1.10 and the
+  card's clock dipped during it (2,512 MHz at its least, 2,737 to 2,775 at the other marks). David typed a message
+  to Counsel during the flight (Counsel's note; the desktop app draws on the same card), which mark it fell in
+  isn't known. Build 166's two hands-off flights had no frame over 1.8 ms there. Said to David as it is: one frame
+  of some 19,000, in a flight that wasn't quite hands off.
