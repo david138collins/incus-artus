@@ -52,10 +52,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at the rings where levels hand over (the gate's owed item; build 167 launched for it,
-  Builder pointing out what to look for). Build 167 is flown: the rock switch cut, the march back at build 163's
-  figures, the flat plates gone, the textures sound and made in 0.5 s. (His reminder is met: he has tried the
-  "initial blend".); then the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** what he sees with the "initial blend" in a blocky area (build 167, launched again for it). His
+  look at the rings is met: "i can't see any rings"; a longer hand-over "looks nice when i pull it down, but its
+  slower, so i'll save that for last" (the polish list). The gate's line now owes only the Intel card's numbers; then the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
@@ -312,8 +311,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         marks' pictures byte for byte as before; one flight owed for what the cut gives
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into
         lengths, marched side by side, joined front to back. *Met by David's bar* (everything under 2 ms, build 157);
-        step 4 not needed. Still owed for the gate's line: his look at the rings where levels hand over, and the Intel
-        card's numbers for the final form, for the record; both after light moves to the processor ("why don't we
+        step 4 not needed. His look at the rings where levels hand over: *met* (build 167, "i can't see any
+        rings"). Still owed for the gate's line: the Intel card's numbers for the final form, for the record; both after light moves to the processor ("why don't we
         skip 1. we're putting light on the processor, probably.")
   - [ ] The looks (David's "2, 3 and 4"): the skyline by cover, with a column-height table (haze or cover is his);
         if cover, the sheet (plain far land as rings of mesh) flown as the far levels' rival; the horizon band over

@@ -3135,3 +3135,13 @@ and 99th:
   to Counsel during the flight (Counsel's note; the desktop app draws on the same card), which mark it fell in
   isn't known. Build 166's two hands-off flights had no frame over 1.8 ms there. Said to David as it is: one frame
   of some 19,000, in a flight that wasn't quite hands off.
+
+### David's look at the rings where levels hand over (build 167, 2026-11-14): none seen
+
+The gate's owed look. Told what to look for (the changeovers are circles round the eye, at about 5,400, 10,700
+and 21,500 blocks; "show: levels" tints them; a bad ring is a line or band that keeps its distance from the eye as
+the land slides under it), he flew eleven minutes. David: "i can't see any rings. the crossover section looks nice
+when i pull it down, but its slower, so i'll save that for last." So the gate's look is met at the default
+hand-over (0.80); a longer hand-over ("levels hand over from", pulled down) is his for the polish list, priced
+when he takes it up. Still owed for the gate's line: the Intel card's numbers, for the record. He asked for the
+game again at once to try the "initial blend", which he'd forgotten.
