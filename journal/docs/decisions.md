@@ -1910,6 +1910,18 @@ Reference: `Art/quartile minecraft illustration.png`
           the light); with no switch to bare rock nothing changes. What's left is the blend's own creases, which the
           eased blend (way 4) goes after. She asks him whether to build it next, on a switch, and where its control
           goes. His second screenshot (flat plates in a hazy spire) may have another cause; she needs its place.
+        - **A correction, in the open** (Builder, 660180a): the line above is wrong where it says that with no
+          switch to bare rock nothing changes; she had judged it by eye on one side of the view. Measured over the
+          whole of his first view, removing the switch changes 12% of the pixels, and what changes is the flat
+          straight-edged plates; at the sea and the plain marks 17% (the near ground loses a grey cast). The
+          star-shaped facets are still the blend's creases. Counsel had passed the wrong reading on to David too.
+        - *His words, before the correction reached him* (to Builder): "smooth softens them but doesnt change them. i
+          will wait for 2-16 to to judge them. next time i have the game, remind me to find some blonky area and try
+          the old code. id have thought we would have cut that though. but, i think we seriously need to take a look
+          at rock switch and texture making. anything like that is something we dont want to miss the chance to tune
+          up while its cheap or we forget". So: the creases judged at the cells of 2 to 16; the rock switch (build
+          164, on a flag, its control's name and place his) and then the texture making (borrowing across bricks),
+          each with its own look; at his next launch, the reminder: a blocky area, "far blend" on "old's (code)".
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
