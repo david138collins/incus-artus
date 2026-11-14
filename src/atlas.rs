@@ -242,8 +242,12 @@ fn texels(kept: &Kept, brick: &Brick, side: u32) -> Vec<Look> {
     out
 }
 
+/// Rock's colour (`far.wgsl`'s `ROCK`): what a texel holds that no surface in its brick reaches.
+const ROCK: [f32; 3] = [0.25, 0.24, 0.22];
+
 /// The spread way: each texel with no surface takes the colour and faces of the nearest one with surface (six-way steps
-/// through the brick), its own surface kept (none).
+/// through the brick), its own surface kept (none). In a brick where nothing shows surface: rock's colour, no faces
+/// (what the march's rock switch draws there; without the switch it's read from here).
 fn spread(looks: &[Look], side: u32) -> Vec<Look> {
     let side = side as i32;
     let mut out = looks.to_vec();
@@ -270,6 +274,9 @@ fn spread(looks: &[Look], side: u32) -> Vec<Look> {
             out[k].colour = looks[*s].colour;
             out[k].plus = looks[*s].plus;
             out[k].minus = looks[*s].minus;
+        }
+        if source.is_none() {
+            out[k].colour = ROCK;
         }
     }
     out

@@ -2964,3 +2964,49 @@ scatter at all") and the 4 x 4 and 2 x 2 layers at 0.00 ms.
   isn't known. Builder's suspect, unchecked: skipping over a column the bands say is empty passes by the faint
   fringe a neighbouring column's cells blend into it (up to half a cell), so thin haze is cut off at a column's
   straight edge. To be drawn at his spot when he gives it (the Camera page's numbers).
+
+### A correction: the rock switch does draw the flat plates (2026-11-14)
+
+**The entry above is wrong where it says the rock switch changes nothing.** Builder looked at the throwaway
+picture by eye, and only at its right-hand side, where it's true. Measured over the whole view at David's first
+spot: without the switch 12% of the pixels change by 4 or more of 255 (the most 18), and what changes is the
+straight-edged plates across the dark left and middle of his first screenshot; brightened side by side, they're
+there with the switch and mostly gone without (scratchpad `pictures/rock switch base and without.png`). The
+star-shaped facets on the right are untouched by it: those are still the blend's creases. Said to David as a
+correction.
+
+David, before the correction reached him: "smooth softens them but doesnt change them. i will wait for 2-16 to to
+judge them. next time i have the game, remind me to find some blonky area and try the old code. id have thought we
+would have cut that though. but, i think we seriously need to take a look at rock switch and texture making.
+anything like that is something we dont want to miss the chance to tune up while its cheap or we forget".
+
+- **The switch** (`look_of` in `far.wgsl`, and the code's blend's own): a spot none of whose eight cells shows
+  surface is drawn as bare rock, unlit; the change from coloured and lit to rock is all at once, on the straight
+  planes through the cell centres.
+- **Why it shows, Builder's reading** (not proven): thin haze at the land's edge. A cell with a few blocks in it
+  shows so little surface that the textures, which keep surface in 8 bits (a quarter of it, so under 2/256 is
+  none), hold none for it; its haze is then rock, unlit, a box with straight sides beside haze that's coloured.
+  The code's blend keeps surface finer, and draws its plates in other places (the two blends differ by 4 or more
+  of 255 over 1.4% of that view, one clear rectangle among them).
+- **Further off too:** without the switch 17% of the pixels change at the sea and at the bare plain (by 4 to 13 of
+  255), 3% high over the spawn, 0.1% at the mountain top. At the sea and the plain it's the near ground: with the
+  switch a grey-blue cast lies over the green; without it the ground keeps its colour.
+- **The texture making** (`atlas.rs`, `spread`): a cell with no surface borrows the colour and facing of the
+  nearest cell that has some, looked for inside its own brick of 8 (and its border), so two bricks can borrow
+  differently for the cells where they meet; and a brick where nothing shows surface held black. Not yet measured
+  on its own: the next step.
+
+### Build 164 in the making: the rock switch on a flag (the pass mark, written before its flight)
+
+Two steps, each with its own look, put to David: (1) the rock switch; (2) the texture making (borrowing reaching
+across bricks, so neighbours agree; time at load only).
+- **Built for step 1:** `far.wgsl`'s `look_of` takes the borrowed colour and facing wherever there's anything
+  there, when the flag says so (the camera's `pyramid.w`, free since the cut); the look's `rock_switch`, on as it
+  was by default. In the textures a texel no surface in its brick reaches now holds rock's colour in place of
+  black (never read while the switch is on). The picture test takes `FAR_TEST_ROCK=0`. The panel's control waits
+  on David's word for its name and place; the build's number isn't bumped till it's in.
+- **The default's picture:** byte for byte build 163's at all five marks. *Met.* Without the switch, the real
+  build draws the first spot exactly as the throwaway did.
+- **Its flight** (after his look, hands off, with the mountain top's 99th that's owed): Builder's guess [medium]:
+  nothing either way, within 1% at every standing mark with the switch on or off (one compare a step, no reads
+  more).
