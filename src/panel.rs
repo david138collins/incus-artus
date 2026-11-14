@@ -145,8 +145,8 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     egui::ScrollArea::vertical().max_height(560.0).show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.strong("The picture");
-            let differs = (look.blend, look.rock_switch, look.detail, look.bring_up, look.view, look.sky_weight) != (d.blend, d.rock_switch, d.detail, d.bring_up, d.view, d.sky_weight);
-            section_default(ui, look, differs, |l| (l.blend, l.rock_switch, l.detail, l.bring_up, l.view, l.sky_weight) = (d.blend, d.rock_switch, d.detail, d.bring_up, d.view, d.sky_weight));
+            let differs = (look.blend, look.detail, look.bring_up, look.view, look.sky_weight) != (d.blend, d.detail, d.bring_up, d.view, d.sky_weight);
+            section_default(ui, look, differs, |l| (l.blend, l.detail, l.bring_up, l.view, l.sky_weight) = (d.blend, d.detail, d.bring_up, d.view, d.sky_weight));
         });
         // Change 1: the far cells blended by the code (old's: the "initial blend", David's name for it, 2026-11-14, as
         // it's what draws till the textures are in and wherever a brick isn't in them) or the texture hardware (greyed
@@ -159,9 +159,6 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
                 });
             }
         });
-        // The rock switch (ticked, as it was till build 165): bare unlit rock where no cell near shows surface. Placed
-        // and named with David, 2026-11-14; unticked by default from his look at build 164.
-        ui.checkbox(&mut look.rock_switch, "rock switch");
         ui.add(egui::Slider::new(&mut look.detail, -3..=4).text("detail (levels finer)"));
         ui.horizontal(|ui| {
             ui.label("brought up");

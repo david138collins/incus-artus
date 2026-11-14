@@ -42,9 +42,8 @@ struct Camera {
     // shadows; z: free (it was the shadow rays' spread); w: 1 if rays end at the map's edge.
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
-    // (the Oracle's test): z the most steps a ray takes (768). w: 1 if there's no rock switch (a spot with
-    // anything there takes the colour and facing borrowed from the nearest cell that shows surface, however little
-    // surface is near; 0, as it was: bare unlit rock where none of the eight cells round it shows any).
+    // (the Oracle's test): z the most steps a ray takes (768). w: free (it chose the light by rays, then
+    // the rock switch).
     pyramid: vec4<f32>,
     // The finer layer's fade in: x where it starts (its pixel so many times its cells), y over how many doublings of
     // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
@@ -465,17 +464,17 @@ fn fetch_together(at: vec3<f32>) -> Fetched {
     return Fetched(textureSampleLevel(t_solid, soft, at, 0.0).xy, textureSampleLevel(t_colour, soft, at, 0.0), textureSampleLevel(t_plus, soft, at, 0.0).rgb, textureSampleLevel(t_minus, soft, at, 0.0).rgb);
 }
 
-// What's used of them: the colour and faces only where there's something there and a surface (the rock switch:
-// elsewhere bare rock, unlit); or, without the switch, wherever there's something there (the textures hold a borrowed
-// colour and facing in every cell near one that shows surface, and rock where none is near) [David, 2026-11-14, of
-// the flat plates with straight edges the switch draws in thin haze: "i think we seriously need to take a look at rock
-// switch and texture making"].
+// What's used of them: the colour and faces wherever there's something there. The textures hold a borrowed colour and
+// facing in every cell near one that shows surface, and rock where none is near (`atlas.rs`), so nothing is switched
+// here. Till build 165 a spot none of whose eight cells showed surface was drawn as bare unlit rock, all at once on
+// the planes through the cell centres: flat plates with straight edges in thin haze, and a grey cast on near ground
+// [David, 2026-11-14: "unticked rock switch looks a lot better, with the hardware blend"; "yeah, we can cut it"].
 fn look_of(got: Fetched) -> Look {
     var look = empty_look(true);
     look.solid = got.sw.x;
     look.water = got.sw.y;
     look.colour = ROCK;
-    if (got.sw.x + got.sw.y > 0.0 && (got.c.a > 0.0 || camera.pyramid.w > 0.5)) {
+    if (got.sw.x + got.sw.y > 0.0) {
         look.colour = got.c.rgb;
         look.plus = got.plus;
         look.minus = got.minus;

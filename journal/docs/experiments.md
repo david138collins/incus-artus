@@ -3096,3 +3096,14 @@ beside build 163's (`-1794676498`, 11:08). The card's whole, ms, median and 99th
 - **Bricks brought as the eye moves** (the worry noted at build 166): not dearer. Fast across the world, putting
   the far cells on the card: 95th 1.3 ms, 99th 4.1 (build 163: 1.5 and 6.7).
 - **The textures made and sent in 0.5 s** in both flights (build 163's flight: 3.8 s).
+
+### Build 167 (unflown): the rock switch cut (the pass mark, written before its flight)
+
+David, told the checkbox itself had made the march 1.2 to 3.6% dearer and asked for his word: "yeah, we can cut it
+and move on." Gone: the flag and its compare in `look_of` (the hardware's blend takes the borrowed colour and facing
+wherever there's anything there, with no test of surface at all: a compare shorter than build 163's), the "rock
+switch" checkbox, `INCUS_FAR_ROCK`. The initial blend keeps its own switch (in code there's nothing to borrow).
+- **The picture:** byte for byte build 166's at all five marks. *Met.* All 27 tests pass.
+- **Its flight** (one, hands off, against build 163's and build 166's): Builder's guess [medium]: the march gives
+  the 1.2 to 3.6% back, each standing mark at build 163's median or within 1% of it. If it doesn't, the flag
+  wasn't the cause and the two builds between (164's texel change, 166's borrowing) are flown apart.

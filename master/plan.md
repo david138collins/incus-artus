@@ -52,10 +52,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his word to cut the "rock switch" checkbox (flown: off and on cost the same, but the flag
-  itself has made the march 1.2 to 3.6% dearer than build 163, ticked or not; without it the march should get that
-  back), then one hands-off flight to show it. Builds 165 and 166 are flown: every frame under 1.8 ms, the mountain
-  top's 99th clean (1.09), the textures made in 0.5 s. Still owed, a reminder he asked for: find a blocky area and try "far
+- **Waiting on David:** seven minutes hands off for build 167's flight (the rock switch cut on his word, "yeah, we
+  can cut it and move on": to show the march gets back the 1.2 to 3.6% the checkbox cost). The far view always
+  borrows now; the picture is build 166's byte for byte. Still owed, a reminder he asked for: find a blocky area and try "far
   blend" on "initial blend" (once "old's (code)"); a hands-off flight (the mountain top's 99th, and the switch priced); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
