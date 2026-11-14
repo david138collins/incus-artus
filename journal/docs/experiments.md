@@ -2911,3 +2911,56 @@ and then you can run the tests that you have qeued after i take a look".
   cut's, nothing to 2% less, a mark more than 1% dearer a miss, and then build 162 is flown alone from its own
   folder to tell the two apart. The pattern David picks is flown against the default: guess within 1% (blue noise
   is one read a ray, not a step).
+
+### Build 163 flown at its defaults: the cut and the switch priced together (2026-11-14, 11:08)
+
+David's look came first ("then you can run the tests that you have qeued after i take a look"); he closed the game
+after two minutes and the flight took off (report `logs/flight-1794676498`), against this morning's column light
+(build 160, `-1794670752`). One screen, on mains, the card idle beforehand. The card's whole, ms:
+
+| mark | 160 median, 99th | 163 median, 99th | median |
+|---|---|---|---|
+| the spawn | 0.291, 0.300 | 0.289, 0.298 | 0.7% less |
+| the mountain top | 1.043, 1.073 | 1.029, **1.234** | 1.3% less |
+| the bare plain | 0.772, 0.790 | 0.763, 0.782 | 1.2% less |
+| high over the spawn | 0.828, 0.857 | 0.815, 0.841 | 1.6% less |
+| low over the sea | 1.151, 1.191 | 1.134, 1.176 | 1.5% less |
+| a player's run | 1.140, 1.338 | 1.119, 1.318 | 1.8% less |
+| fast across the world | 0.763, 1.013 | **0.794**, 1.059 | 4.1% more |
+| the plain, nodding | 0.766, 0.821 | 0.758, 0.811 | 1.0% less |
+| the sea, nodding | 1.054, 1.338 | 1.037, 1.314 | 1.6% less |
+
+- **The pass mark** (nothing to 2% less; a mark more than 1% dearer a miss to explain): *met at every standing
+  mark*, 0.7 to 1.8% less, the 99ths with them. The cut and the switch together cost nothing and give a little.
+- **Fast across the world, 4% dearer: a miss by the mark's letter, not explained.** The mark loads regions as it
+  flies and has stood at 0.763, 0.784 and 0.794 in three flights of the same no-light picture since yesterday, so
+  one flight can't tell 4% from its own spread. Flagged, not waved away.
+- **The mountain top's 99th, 15% wider, and one frame at 2.03 ms** (the only frame over David's bar in the
+  flight): taken as disturbed, not as the build's. In that mark's 20 seconds the frame clock has a 45.7 ms hitch,
+  the processor reads 100 °C, and the march's own 99th widens where every other mark's is tight; David was typing
+  to Builder as it flew (his message arrived mid-flight), and the editor draws on the same card. So that mark's
+  99th isn't shown for build 163: owed a flight with hands off.
+- **Builder's lapse:** the flight took off before David was told it was up. Told first, from now on.
+- The card's memory 1,015 MB in use, as before.
+
+### The sharp blocky sections (David's look at build 163), and what they aren't
+
+David: "well, the stuff we added didn't hurt. they look good together, but its very subtle. its kind of these sharp
+blocky sections that bother me a little. idk if there's anything that can be done about that." His screenshot: a
+hazy spire close by, flat plates in it with straight edges, every edge in 8-pixel stairs; the panel showing woven +
+blue noise, 2 x 2, the spread at 0.00 (at 0 every ray begins alike and the pattern does nothing: the shot is "no
+scatter at all") and the 4 x 4 and 2 x 2 layers at 0.00 ms.
+- **The 8-pixel stairs** are the base layer brought up crisp: against cells that big the finer layers are told
+  they're not worth it (`worth_of`), so the whole view is the 8 x 8.
+- **The straight-edged facets, at his first spot** (north -959, east -90, up 499; drawn off the screen at 2,560 x
+  1,600, pictures in the scratchpad's `pictures/`):
+  - the code's blend and the hardware's draw them alike: *not* seams between bricks in the far textures;
+  - every face lit alike (a throwaway change to `faces_light`): they stay: *not* the faces' light;
+  - no switch to bare rock where no surface is near (a throwaway change to `look_of`): no change: *not* that switch.
+  What's left is the shape of the blend itself: between cell centres the eight cells are blended in straight lines,
+  which gives flat-ish panels that meet in creases along the planes through the cell centres. That is what way 4
+  (the blend eased at the cell centres) goes after. Both throwaway changes were put back; the shader is as committed.
+- **The flat plates in the hazy spire** (his second shot) may be something else again; not drawn, as its place
+  isn't known. Builder's suspect, unchecked: skipping over a column the bands say is empty passes by the faint
+  fringe a neighbouring column's cells blend into it (up to half a cell), so thin haze is cut off at a column's
+  straight edge. To be drawn at his spot when he gives it (the Camera page's numbers).

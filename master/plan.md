@@ -52,8 +52,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 163's "Ray start" patterns (scattered, woven, blue noise, both), then the
-  flights queued behind it (the cut and the switch priced; the pattern he picks against the default); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** on the sharp blocky sections he saw in build 163 ("they look good together, but its very
+  subtle. its kind of these sharp blocky sections that bother me a little"): his word to build the eased blend now,
+  on a switch (the facets are the blend's own creases: not brick seams, not the light, not the rock switch), where
+  its control goes, and the place of his second screenshot; a hands-off flight for the mountain top's 99th; then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
