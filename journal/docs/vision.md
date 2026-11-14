@@ -954,6 +954,14 @@ bending, to get crazy looking things that happen deep down instantly in the engi
     the shader, costing nothing while unused.
   - *Between frames:* the finer layers led by the frame before, and lazy rays resuming, can be fed stale on purpose:
     smears and trails, like datamoshing.
+- **David's first two uses** (the same day): "adding glows by ray length could look like some kind of aurora
+  borealis on the horizon. smooth datamoshing could also be an interesting kind of transition for warping or
+  ghostwalking".
+  - *An aurora from the rays' work:* the steps counted per pixel are highest along the skyline, so a glow by them
+    hangs over the horizon and shifts as the eye moves; coloured and drifting slowly with time, it could read as
+    an aurora.
+  - *A datamosh transition:* the old view held and smeared into the new while it arrives, for warping (travel)
+    or ghostwalking.
 - Belongs with the FX Lab and the polish passes, after the speed plan settles.
 
 ## Sound  [IDEA, David 2026-11-09]
