@@ -970,6 +970,19 @@ bending, to get crazy looking things that happen deep down instantly in the engi
     distance the ray went, the front is a clean ring closing over the land; by its steps, a ragged, living front
     that follows where the rays work hardest; the two could be mixed. Run outward instead, it's a shockwave leaving
     the player.
+- **One thing bent, not the whole view** (David, the same day): "do you think it will be possibly to create a vfx
+  where something becomes temporarily ray'd so we can bend those rays specifically?"
+  - *Counsel's reading,* three ways, cheapest first: (1) each pixel tagged with what it shows, and the bends applied
+    only where the tag is the thing's: its own picture shimmers, burns or melts within its outline, about free;
+    (2) the thing as a lens, the picture behind it read through a warp: a ripple where a ghost stands, a creature
+    seen as heat; (3) the thing truly made of rays for a while, turned into a small brick of cells and marched like
+    the far land, so its rays can curve, stretch and spill out of its own shape; costed by how much of the screen
+    it covers. Which fits depends on how the near eye draws things (2.3).
+  - And (David, straight after): "or, make a near object individually pixelate, as well as ray bending/lighting
+    ffx". With the tag, a thing's own pixels can be drawn coarser (the far eye already has screen layers of 8, 4
+    and 2 pixels), or its light changed alone: a glow, a rim, a colour of its own.
+  - The per-pixel tag is the same thing his pixel weights want ("being able to weight different kinds of pixels may
+    be a very cheap and useful tool", 2026-11-12).
 - Belongs with the FX Lab and the polish passes, after the speed plan settles.
 
 ## Sound  [IDEA, David 2026-11-09]
