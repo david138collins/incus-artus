@@ -3357,3 +3357,40 @@ says how many rings (0 none, 1 the 16s alone).
 
 **David's look at build 171** (2026-11-14, about a minute in the game, both rings on the card within five seconds):
 "looks pretty good". Its flights (both rings against the 16s alone) wait on his go.
+
+### Build 171 flown: both rings against the 16s alone (2026-11-14, 16:57 and 17:04, hands off)
+
+David: "go ahead"; told before take-off. One screen, on mains, the card idle beforehand; the standing marks not
+starved (fast across the world and the plain nodding stood a second or two on the slow clock in one flight or the
+other). Reports `logs/flight-1794697458` (both rings, the default) and `-1794697843` (`INCUS_FAR_RING=1`), beside
+build 167's (no ring) and build 170's (the 16s). The card's whole, ms, median (and 99th for build 171's):
+
+| mark | 167, no ring | 170, the 16s | 171, the 16s alone | 171, both rings | both against the 16s alone |
+|---|---|---|---|---|---|
+| the spawn | 0.291 | 0.380 | 0.390, 0.396 | 0.425, 0.431 | 9% more |
+| the mountain top | 1.030 | 1.086 | 1.093, 1.125 | 1.051, 1.089 | 4% less |
+| the bare plain | 0.766 | 0.526 | 0.535, 0.547 | 0.964, 1.007 | **80% more** |
+| high over the spawn | 0.816 | 0.914 | 0.907, 0.944 | 1.007, 1.032 | 11% more |
+| low over the sea | 1.138 | 1.346 | 1.366, 1.421 | 1.389, 1.444 | 2% more |
+| a player's run | 1.123 | 1.254 | 1.269, 1.406 | 1.303, 1.422 | 3% more |
+| fast across the world | 0.783 | 0.829 | 0.848, 1.110 | 0.907, 1.174 | 7% more |
+| the plain, nodding | 0.763 | 0.564 | 0.570, 0.618 | 0.966, 1.036 | 70% more |
+| the sea, nodding | 1.043 | 1.296 | 1.318, 1.600 | 1.361, 1.631 | 3% more |
+
+- **The pass mark's guesses.** The spawn "10 to 30% dearer": 9%. The run: 3%, under the guess. The sea "5 to 15%":
+  2%, under it. The mountain top "within 5%": 4% less. High over the spawn "within 5%": 11% more, *missed*. **The
+  plain "within 10% either way": 80% more, missed by far.** Every 99th under 2 ms: met (the most 1.63, the sea
+  nodding; no frame of either flight over 1.76). Under 60 MB more on the card: met, nothing more (1,015 MB in use
+  with one ring or two). The 8s' first ring under 3 s, a move under a tenth: the ring moved 729 times in the
+  flight, the last made in 0.27 s after a mark's jump.
+- **The plain.** The eye stands on the ground there, looking along it. With the 8s the 8 x 8 layer's rays that take
+  over 256 steps go from 130 (the 16s alone; 272 with no ring) to 921, 308 of them over 384, the longest 536: rays
+  grazing the ground walk it in the 8s' small steps for 500 blocks before they reach the 16s. The 16s had made the
+  plain a third cheaper; the 8s take that back and a quarter more. It's the eye on the ground looking level, the
+  view a player has most.
+- **The trend to weigh before the 4s:** each finer ring halves the step of a ray grazing the ground near the eye.
+  If the 4s cost the plain what the 8s did, it stands near 1.7 ms, and the 2s would take it past David's 2.
+- **The several-rings code** costs the 16s alone 1 to 3% over build 170's single ring (0.390 against 0.380 at the
+  spawn, 1.366 against 1.346 at the sea): the lesson again, a small one.
+- **Moving:** the frame's 99th on the run 2.05 ms with both rings (2.07 with one); fast across the world 4.69
+  against 4.56.
