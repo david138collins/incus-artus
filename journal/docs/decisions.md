@@ -1808,6 +1808,16 @@ Reference: `Art/quartile minecraft illustration.png`
     sea's far edge whole; at his first spot the small facets smooth into a slope. The 8s' first ring 1.4 to 2.1 s at
     load. Owed: his look, then fourteen minutes hands off, both rings against the 16s alone.
     - *His look* (to Builder): "looks pretty good". The flights next, on his go.
+    - *Flown* (on "go ahead"; both rings `logs/flight-1794697458`, the 16s alone `-1794697843`; checked by Counsel).
+      Both rings against the 16s alone, the card's whole at the median: the spawn 9% more, high over the spawn 11%,
+      fast across the world 7%, the sea 2%, the run 3%, the mountain top 4% less; **the bare plain 80% more** (0.535
+      → 0.964 ms; nodding 70%), where Builder guessed within 10%: a miss by far, said in the open. The eye stands on
+      the ground there, and rays grazing it walk the 8s' small steps for 500 blocks (921 of the base layer's rays
+      over 256 steps, where none were). Every 99th still under 2 ms (the most 1.63); nothing more on the card.
+    - *The trend, put to him before the 4s* (Builder): each finer ring halves a grazing ray's step near the eye; if
+      the 4s cost the plain what the 8s did it stands near 1.7 ms, and the 2s would take it past his 2. Her advice:
+      look at the grazing rays' steps before building the 4s. Counsel agrees: the per-column height skip for
+      skimming rays has been on the list to price since build 140.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
