@@ -185,9 +185,9 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
         ui.separator();
         ui.horizontal(|ui| {
             ui.strong("Light");
-            let differs = (look.sun_from, look.sun_height, look.ambient, look.shadows, look.sky_light, look.sky_strength, look.sky_tint, look.light_rays) != (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint, d.light_rays);
+            let differs = (look.sun_from, look.sun_height, look.ambient, look.shadows, look.sky_light, look.sky_strength, look.sky_tint) != (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint);
             section_default(ui, look, differs, |l| {
-                (l.sun_from, l.sun_height, l.ambient, l.shadows, l.sky_light, l.sky_strength, l.sky_tint, l.light_rays) = (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint, d.light_rays);
+                (l.sun_from, l.sun_height, l.ambient, l.shadows, l.sky_light, l.sky_strength, l.sky_tint) = (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint);
             });
         });
         ui.add(egui::Slider::new(&mut look.sun_from, 0.0..=360.0).text("sun from (degrees, north to east)"));
@@ -195,9 +195,6 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
         ui.add(egui::Slider::new(&mut look.ambient, 0.0..=1.0).text("sky's share of the light"));
         ui.checkbox(&mut look.shadows, "sun shadows");
         ui.checkbox(&mut look.sky_light, "sky light");
-        // David's switch for looking at the rays against the light read from the cell (build 161; placed and named
-        // with him). It goes when the rays' light is cut from the march.
-        ui.checkbox(&mut look.light_rays, "light by rays");
         ui.add_enabled(look.sky_light, egui::Slider::new(&mut look.sky_strength, 0.0..=1.0).text("sky light strength"));
         ui.add(egui::Slider::new(&mut look.sky_tint, 0.0..=1.0).text("sky tint"));
         ui.separator();

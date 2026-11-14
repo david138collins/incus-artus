@@ -451,7 +451,12 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
     let p = points[n];
     let level = i32(p.w);
     put(n * 8u, blend(level, p.xyz));
-    put(n * 8u + 4u, blend_soft(level, p.xyz));
+    // The hardware's, the march's own way (from numbers in hand: `spot_soft`, then `look_at`).
+    var kept = kept_none();
+    keep_level(&kept, level);
+    var place = Place(vec2<i32>(0), false, false, 0u);
+    keep_place(&place, p.xyz);
+    put(n * 8u + 4u, look_at(spot_soft(&kept, place, level, p.xyz), p.xyz));
 }
 "#;
 

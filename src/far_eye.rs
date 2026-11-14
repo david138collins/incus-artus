@@ -4,7 +4,7 @@
 //! where its rays can start), the pyramid's layers (8 × 8, 4 × 4 and 2 × 2: each finer one only where the one above
 //! says it's worth it, never for sky), then bringing it up to the screen. Old's settings for the dyno, carried as they
 //! were: a field of view of 100° (up and down), the sun from 315° at 40° (noon), fog on, the hand-over from 0.8, the
-//! finer layers' fades as old's preset had them, the layers brought up crisp; old's sun shadows and sky light (2b).
+//! finer layers' fades as old's preset had them, the layers brought up crisp; the sun's shadows and the sky light read from the cell (`far_light.rs`).
 //!
 //! The far cells come from the loading lane (`far::Lane`), nearest the eye first, and go on the card as they come
 //! (`bricks::Store`), so the view sharpens in live, raw, with no loading screen [David, 2026-11-06: "id like to see the
@@ -27,12 +27,9 @@ const REACH: f32 = 150_000.0;
 pub const FIELD_OF_VIEW: f32 = 100.0;
 /// The sky's share of a face's light by day (old's).
 const AMBIENT: f32 = 0.35;
-/// Sky light: strength, tint, its cones' width (old's).
+/// Sky light: strength and tint (old's).
 const SKY_STRENGTH: f32 = 0.8;
 const SKY_TINT: f32 = 0.3;
-const SKY_SPREAD: f32 = 0.6;
-/// How fast a shadow ray widens (old's: wider than the sun itself, so a far ridge's shadow comes soft).
-const SHADOW_SPREAD: f32 = 0.04;
 /// Fog: land this far off at sea level is nineteen parts in twenty fog; the air's thickness halves every this many blocks
 /// up; a little warmer towards the sun (old's).
 const FOG_REACH: f32 = 3200.0;
@@ -92,9 +89,6 @@ pub struct FarLook {
     pub sky_light: bool,
     pub sky_strength: f32,
     pub sky_tint: f32,
-    /// The light by rays after the march, as before the far light was read from the cell: David's switch on the
-    /// panel for looking at one against the other (build 161). It starts set by `INCUS_FAR_LIGHT=rays`.
-    pub light_rays: bool,
     /// Fog: on or off, how far off land at sea level is nineteen parts in twenty fog, how fast it thins going up (its
     /// thickness halves every so many blocks), and how much warmer it is towards the sun.
     pub fog: bool,
@@ -121,7 +115,6 @@ impl FarLook {
         sky_light: true,
         sky_strength: SKY_STRENGTH,
         sky_tint: SKY_TINT,
-        light_rays: false,
         // Off by default [David, 2026-11-13: "off by default would be better. it looks nice but is most likely reserved
         // for final touches"; "we are not using fog or haze or any sort of cover as a performance tool. it is just for
         // looks"]: the far eye is judged and measured without it.
@@ -188,8 +181,7 @@ pub struct FarEye {
     stand_ins: [wgpu::TextureView; 2],
     /// The far light read from the cell (`far_light.rs`): made on a thread of its own once every region is in; a shadow
     /// swept on another when the sun's setting has changed and stood still a moment, and shown whole when it's in
-    /// (David's snap). Stand-ins of one texel till it's made. Made and kept up while the light is by rays too
-    /// (`look.light_rays`), so the panel's switch between them shows at once.
+    /// (David's snap). Stand-ins of one texel till it's made.
     light: Option<crate::far_light::Light>,
     lighting: Option<mpsc::Receiver<crate::far_light::Light>>,
     sweeping: Option<mpsc::Receiver<([f32; 2], f32)>>,
@@ -299,7 +291,6 @@ impl FarEye {
         };
         look.shadows = !set("INCUS_SIGHT_NO_SHADOWS");
         look.sky_light = !set("INCUS_SIGHT_NO_SKY");
-        look.light_rays = std::env::var("INCUS_FAR_LIGHT").as_deref() == Ok("rays");
         // Change 1 (`INCUS_FAR_BLEND`): `code` makes no far textures and blends by the code (old's); otherwise they're made
         // and blend once they're in. The detail at launch (`INCUS_FAR_DETAIL`), for measuring.
         let textures = std::env::var("INCUS_FAR_BLEND").as_deref() != Ok("code");
@@ -383,9 +374,9 @@ impl FarEye {
         self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0 && self.lit()
     }
 
-    /// Whether the far light is in (or is by rays, which need nothing made).
+    /// Whether the far light is in.
     pub fn lit(&self) -> bool {
-        self.look.light_rays || self.light.is_some()
+        self.light.is_some()
     }
 
     /// How far round the eye the usable 32s and 64s reach (blocks; none without a window), for a flight.
@@ -403,7 +394,7 @@ impl FarEye {
         let window = self.store.window().map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]));
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
         rays += &format!(", thin haze stepped by {} of a cell; the layers {} x {}, {} x {} and {} x {} screen pixels", self.haze_step, self.layers[0], self.layers[0], self.layers[1], self.layers[1], self.layers[2], self.layers[2]);
-        rays += if self.look.light_rays { ", light by rays" } else { ", light read from the cell" };
+        rays += ", light read from the cell";
         rays += if self.one.is_some() { ", marched by one dispatch (a finer layer led by the frame before's coarser)" } else { ", marched one after another" };
         if self.most_steps != 768.0 {
             rays += &format!(", {:.0} steps at most", self.most_steps);
@@ -713,10 +704,10 @@ impl FarEye {
                 [REACH, -look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
-                [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, SHADOW_SPREAD, if self.edge { 1.0 } else { 0.0 }],
-                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, if look.light_rays { 1.0 } else { 0.0 }],
+                [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, 0.0, if self.edge { 1.0 } else { 0.0 }],
+                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, 0.0],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
-                [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), SKY_SPREAD],
+                [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), 0.0],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
@@ -983,7 +974,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else if eye.look.light_rays { " rays" } else { "" }, eye.look.blend, eye.look.detail)), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}.rgba", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail)), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");

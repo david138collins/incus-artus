@@ -228,7 +228,6 @@ flowchart TB
 - **Switch** `INCUS_FAR_HAZE_STEP`: a far ray's step through thin haze (the land's faint fringe), in cells: 1 a whole cell (unset; the lean step, 1d, David's look), 0.5 as old's.
 - **Switch** `INCUS_FAR_BASE`: the far eye's first layer in screen pixels: 8 (unset, old's) or 4, the layers under it each half the one above (step 2's probe).
 - **Switch** `INCUS_FAR_SIDE`: 0: the far eye's layers marched one after another (the baseline flights are read against, and the picture's reference); unset, by one dispatch, a finer layer led by the coarser layer of the frame before (step 2).
-- **Switch** `INCUS_FAR_LIGHT`: rays: the far eye's light starts by rays after its march, as before (for flying against; the panel's "light by rays" switches it live); unset, read from the cell (the far light, made on the processor).
 - **Switch** `INCUS_TEST_STEPS`: for measuring (the Oracle's test): the most steps a far ray takes (unset: 768).
 - **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.049, 95th 0.090, 99th 0.171, worst 0.353; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.027.
@@ -237,7 +236,7 @@ flowchart TB
 ### the far 8 x 8
 
 - **A pass** in the frame, on the card.
-- **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow ray towards the sun and its sky cones where it shows, and where the 4 x 4 is worth it.
+- **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow and sky light read from the cell where it lands (the far light), and where the 4 x 4 is worth it.
 - **Reads:** the far bricks, the far textures, the far light, the window round the eye and the far layers. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.149; on the card median 0.536, 95th 0.550, 99th 0.564, worst 1.294.
 - **Files:** src/far_eye.rs and src/far.wgsl.

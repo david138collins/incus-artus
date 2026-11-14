@@ -3,8 +3,8 @@
 // Not a shader on its own: `far_eye.rs` puts this in `far.wgsl`'s place of one layer's outputs (between its two
 // marks), and every use of the camera there becomes a read of this invocation's layer's row of `cameras` (in place: a
 // copy of the whole row for each invocation cost, build 155). Every invocation works out which layer's pixel it is
-// and marches it with `far.wgsl`'s own `march_pixel`. A finer layer's lead (where it's wanted, where its rays start,
-// its sky light) is the coarser layer's of the frame before.
+// and marches it with `far.wgsl`'s own `march_pixel`. A finer layer's lead (where it's wanted, where its rays start)
+// is the coarser layer's of the frame before.
 
 // A picture for each layer (0 the base), and all their distances in one texture: the base, the middle layer and the
 // finest side by side from its left (four written textures in a pass, the library's default most).

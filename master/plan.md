@@ -27,7 +27,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   under 2 ms**, David's bar, and his look: "fantastic". Light now comes from the processor (build 160, the column
   light, 40 MB): on the card it costs what no light costs, and flown by day everything stays under 2 ms (medians 0.29
   to 1.15 ms, no frame over 1.56); his look, A/B against the rays: "column light is actually cleaner, i prefer it".
-  Next: the rays' light cut from the march (his word: "Yes, cut them"); the talk on the whorls; then the gate's two owed
+  The rays' light is cut from the march (build 162, his word: "Yes, cut them"; the picture unchanged, its flight
+  owed). Next: the talk on the whorls, begun (Builder's ways put to him); then the gate's two owed
   items on the far eye as it then stands (his look at the rings where levels hand over; the Intel
   numbers next time Optimus is on); the skyline look (haze or cover, talked through with him first); then the cells
   of 2 to 16 with scattered detail, and lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
@@ -302,7 +303,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         shown for build 160. The one dispatch is worth 20 to 35% with the light's rays gone; the finer base costs
         0.35 to 1.33 ms. *Flown by day* (2026-11-14, the laptop off his TV): the column light's medians 0.29 to
         1.15 ms, its 99ths 0.30 to 1.34, no frame over 1.56 at any mark; within 0.012 ms of build 159's no light,
-        every pass mark met. The TV taken as the night's cause. The rays' light stays in the march till his word
+        every pass mark met. The TV taken as the night's cause. *The rays' light cut* (build 162, "Yes, cut them"):
+        the shadow ray, the sky cones, the sky light handed down and the "light by rays" switch gone; all five
+        marks' pictures byte for byte as before; one flight owed for what the cut gives
   - [ ] Step 3, the gate, read moving and nodding at the 99th. Step 4 only if it's missed: the long ray cut into
         lengths, marched side by side, joined front to back. *Met by David's bar* (everything under 2 ms, build 157);
         step 4 not needed. Still owed for the gate's line: his look at the rings where levels hand over, and the Intel

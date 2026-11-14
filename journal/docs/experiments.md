@@ -2852,3 +2852,25 @@ start along its ray and the layers brought up crisp. Ways put to him, cheapest f
 from fullness to cover (a few sums a step; thin things may suffer); a blend eased at the cell centres with no more
 fetches; and the dear ones (a truly smooth blend at eight times the fetches; a cell holding how far the surface is
 in place of how full). Nothing built; talked through first.
+
+### The rays' light cut from the march (build 162): the pass mark, written before the cut
+
+David, via Counsel: "Yes, cut them" (the rays' light, its hand-down, the "light by rays" checkbox). What goes: the
+shadow ray and the five sky cones after the march, the sky light handed down between layers in the worth words, the
+blends only they used, `INCUS_FAR_LIGHT`, and the checkbox. Old's rays stay in git (build 161, b843d87) and in `old\`.
+- **The picture:** byte for byte build 161's column light at all five marks, off the screen.
+- **The card's time:** one flight against this morning's column light (build 160, the same session). Builder's
+  guess [low]: nothing to 2% less at each mark (build 159's cut of dead branches gave 2%); a mark more than 1%
+  *dearer* would be a miss to explain, since a shader this size can shift either way when code leaves it.
+- **The card's memory:** unchanged (the worth words keep their size).
+
+**The cut made (build 162, unflown).** Out of `far.wgsl`: the shadow ray and the five sky cones (`cone`, `sunlight`,
+`sky_seen`), the sky light handed down in the worth words, and the plain blends only they used (`far_blend`,
+`blend_soft`, `usable_at`): 206 lines of 1,354. Out of the rest: `INCUS_FAR_LIGHT`, the "light by rays" checkbox, the
+rays' two spreads. The worth words now hold a pixel's worth alone.
+- **The picture:** all five marks byte for byte the column light's before the cut (the spawn, the mountain top, the
+  plain, high over the spawn, the sea; off the screen). *Met.*
+- **A check the cut broke, mended:** the test that the hardware's blend matches the code's called `blend_soft`, one
+  of the blends cut. It now reads the hardware's blend the way the march itself does (`spot_soft`, `look_at`), and
+  passes: the test now covers the march's own path, which it didn't before.
+- **The flight:** owed, on David's go (it takes the screen seven minutes).

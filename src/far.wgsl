@@ -11,8 +11,9 @@
 // The cells (`bricks.rs`): each level's columns' bands (`entries`: the lowest kept cell and how many; solid below,
 // empty above), and the bands' cells in bricks (`index` gives a brick's place in `pool`, by arithmetic).
 //
-// And old's light (2b): the sun's shadow (a widening ray towards the sun through the same cells) and the sky light
-// (five wide cones up), only where a pixel shows.
+// And its light, read from the cell where a pixel lands (`far_light.rs` makes it on the processor: the height the
+// sun's shadow reaches and the sky each column's top sees). Old's light by rays after the march (2b) was cut at build
+// 162.
 
 struct Camera {
     // The eye (game axes: x north, y east, z up); w: a ray's step through thin haze, in cells (the lean step, 1d).
@@ -22,7 +23,7 @@ struct Camera {
     right: vec4<f32>,
     up: vec4<f32>,
     // x, y: the layer's size; z: a layer pixel's angle (radians); w: 1 once the far light's pictures are in (till
-    // then, read from the cell, everything is taken as lit).
+    // then everything is taken as lit).
     view: vec4<f32>,
     // xyz: towards the sun; w: the ambient light.
     sun: vec4<f32>,
@@ -38,19 +39,17 @@ struct Camera {
     // texture hardware: change 1).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
-    // shadows; z: how fast a shadow ray widens (blocks across a block of distance); w: 1 if rays end at
-    // the map's edge.
+    // shadows; z: free (it was the shadow rays' spread); w: 1 if rays end at the map's edge.
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
-    // (the Oracle's test): z the most steps a ray takes (768). w: 1 if the light is by rays (as before the light read
-    // from the cell), 0 read from the cell.
+    // (the Oracle's test): z the most steps a ray takes (768). w: free (it chose the light by rays).
     pyramid: vec4<f32>,
     // The finer layer's fade in: x where it starts (its pixel so many times its cells), y over how many doublings of
     // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
     // old's; more: a pixel the land only partly covers gives more of itself to the sky).
     fade: vec4<f32>,
     // Sky light: x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1 a sky
-    // blue), w its cones' width (blocks across a block of distance).
+    // blue), w free (it was the sky cones' width).
     sky: vec4<f32>,
     // Fog: x its thickness at sea level (a block's worth; 0 none), y how fast it thins going up, z sea level, w how much
     // warmer it is towards the sun.
@@ -81,8 +80,8 @@ struct Camera {
 @group(0) @binding(5) var picture: texture_storage_2d<rgba8unorm, write>;
 // Each pixel's distance (where it first touched anything), and beside it the steps its ray took (the Oracle's step 0).
 @group(0) @binding(6) var how_far: texture_storage_2d<rgba32float, write>;
-// The pyramid: how much each of the layer above's pixels says its children are worth (255ths) in its low 8 bits, its
-// sky light handed down over them (2b); and this layer's word for the layer below.
+// The pyramid: how much each of the layer above's pixels says its children are worth (255ths, a word each); and this
+// layer's word for the layer below.
 @group(0) @binding(8) var<storage, read> worth_in: array<u32>;
 @group(0) @binding(9) var<storage, read_write> worth_out: array<u32>;
 // The layer above's distances (the base: a placeholder never read).
@@ -146,8 +145,6 @@ const WORLD_HEIGHT: f32 = 1024.0;
 // Rock's colour, where a cell shows no surface (inside).
 const ROCK: vec3<f32> = vec3<f32>(0.25, 0.24, 0.22);
 const SKY_TINT: vec3<f32> = vec3<f32>(0.84, 1.01, 1.40);
-// A pixel's sky light as handed down (2b): none.
-const NO_SKY: u32 = 0x70000u;
 
 // ── The cells ──
 
@@ -297,85 +294,6 @@ fn blend(level: i32, p: vec3<f32>) -> Look {
 
 const NO_SLOT: u32 = 0xFFFFFFFFu;
 
-// The eight cells round `p` at `level` blended by the texture hardware (change 1, the spread way). The four columns'
-// bands are read first, as the code's blend reads them (a column not summed: unknown); where the bricks can't answer
-// (outside the level, under or over the world, a brick not in the atlas), the code's blend.
-fn blend_soft(level: i32, p: vec3<f32>) -> Look {
-    let size = f32(1 << u32(level));
-    let u = p / size - 0.5;
-    let b = floor(u);
-    let f = u - b;
-    let base = vec3<i32>(b);
-    for (var k = 0; k < 4; k++) {
-        if (entry_at(level, base.x + (k & 1), base.y + (k >> 1)) == NOT_SUMMED) {
-            return empty_look(false);
-        }
-    }
-    let x = base.x - table(level, 1);
-    let y = base.y - table(level, 2);
-    if (x < 0 || y < 0 || base.z < 0 || x >= table(level, 3) || y >= table(level, 3) || base.z >= table(level, 10)) {
-        return blend(level, p);
-    }
-    let wide = u32(table(level, 6));
-    let tall = u32(table(level, 7));
-    let place = table(level, 5) + (i32(u32(y) >> wide) * table(level, 8) + i32(u32(x) >> wide)) * table(level, 9) + i32(u32(base.z) >> tall);
-    let slot = slots[u32(place)];
-    if (slot == NO_SLOT) {
-        return blend(level, p);
-    }
-    let origin = vec3<f32>(f32(slot & 0xFFu), f32((slot >> 8u) & 0xFFu), f32(slot >> 16u)) * camera.atlas.w;
-    let local = vec3<f32>(f32(u32(x) & ((1u << wide) - 1u)), f32(u32(y) & ((1u << wide) - 1u)), f32(u32(base.z) & ((1u << tall) - 1u)));
-    let at = (origin + local + f + 0.5) / camera.atlas.xyz;
-    // How solid and how watery, at every step; the colour and faces only where something's there.
-    let sw = textureSampleLevel(t_solid, soft, at, 0.0).xy;
-    var look = empty_look(true);
-    look.solid = sw.x;
-    look.water = sw.y;
-    look.colour = ROCK;
-    if (sw.x + sw.y <= 0.0) {
-        return look;
-    }
-    let c = textureSampleLevel(t_colour, soft, at, 0.0);
-    if (c.a > 0.0) {
-        look.colour = c.rgb;
-        look.plus = textureSampleLevel(t_plus, soft, at, 0.0).rgb;
-        look.minus = textureSampleLevel(t_minus, soft, at, 0.0).rgb;
-        look.surface = c.a * 4.0;
-    }
-    return look;
-}
-
-// Whether `level` can be read round `p`: past the window's levels always; in them, where `p`'s region is usable (on the
-// map; off it the bands say past the map). The usable regions (step 4) follow the last level's bands in `entries`: a
-// word a region, 1 where it and its eight neighbours are on the card, the 32s' then the 64s'.
-fn usable_at(level: i32, p: vec3<f32>) -> bool {
-    let k = level - FIRST;
-    if (k >= i32(camera.window.x)) {
-        return true;
-    }
-    let n = i32(camera.window.y);
-    let r = vec2<i32>(floor(p.xy / f32(1 << u32(REGION)))) - vec2<i32>(camera.window.zw);
-    if (r.x < 0 || r.y < 0 || r.x >= n || r.y >= n) {
-        return true;
-    }
-    let flags_at = table(TOP, 4) + table(TOP, 3) * table(TOP, 3);
-    return entries[u32(flags_at + (k * n + r.y) * n + r.x)] != 0u;
-}
-
-// The eight cells round `p` blended: by the code (old's, `blend`) or the texture hardware, as chosen (`camera.layer.w`:
-// 0 the code, 1 the hardware). Where the level isn't on the card round `p` (outside the window, or the window behind),
-// the next coarser that is: coarser cells, never a hole.
-fn far_blend(level: i32, p: vec3<f32>) -> Look {
-    var l = level;
-    while (!usable_at(l, p)) {
-        l += 1;
-    }
-    if (camera.layer.w < 0.5) {
-        return blend(l, p);
-    }
-    return blend_soft(l, p);
-}
-
 // ── Kept in hand (the lean step, 1a) ──
 //
 // What doesn't change from one step of a ray to the next is kept by the march and read again only when it changes: a
@@ -467,9 +385,11 @@ struct Spot {
     at: vec3<f32>,
 }
 
-// `blend_soft`'s place, from numbers in hand. The four "is it summed" reads are left out while the blend's columns sit
-// inside the summed region in hand (every column of a summed region is summed); the brick's slot is read only when the
-// brick changes.
+// Where the texture hardware's blend of the eight cells round `p` at `level` reads (change 1, the spread way), from
+// numbers in hand. The four columns' bands must be summed (else unknown); where the bricks can't answer (outside the
+// level, under or over the world, a brick not in the atlas), the code's blend. The four "is it summed" reads are left
+// out while the blend's columns sit inside the summed region in hand (every column of a summed region is summed); the
+// brick's slot is read only when the brick changes.
 fn spot_soft(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Spot {
     let size = f32(1 << u32(level));
     let u = p / size - 0.5;
@@ -510,7 +430,9 @@ fn spot_soft(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> 
     return Spot(2, level, (origin + local + f + 0.5) / camera.atlas.xyz);
 }
 
-// `far_blend`'s place, from numbers in hand: the level that can be read there, and where.
+// Where a blend reads round `p`, from numbers in hand: by the code (old's, `blend`) or the texture hardware, as chosen
+// (`camera.layer.w`: 0 the code, 1 the hardware). Where the level isn't on the card round `p` (outside the window, or
+// the window behind), the next coarser that is: coarser cells, never a hole (the usable regions, step 4: `keep_place`).
 fn spot_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Spot {
     var l = level;
     while (l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
@@ -561,7 +483,7 @@ fn look_at(spot: Spot, p: vec3<f32>) -> Look {
     return look_of(fetch_together(spot.at));
 }
 
-// `far_blend`, from numbers in hand.
+// The eight cells round `p` blended, from numbers in hand.
 fn far_blend_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Look {
     return look_at(spot_kept(k, place, level, p), p);
 }
@@ -966,102 +888,6 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
 }
 
 
-// ── Light (old's 3.4b): the sun's shadow and the sky's light, through the same far cells ──
-//
-// How open the way `s` is from a far surface at `p`, 0 to 1 (old's `cone`, the far cells' part): a ray widening `spread`
-// a block of distance, reading the level as wide as it is. Clear of the surface's own soft edge first: up half a cell
-// and along `s` till a cell higher. Air over a column's top is skipped whole (the ray only climbs), regions not summed
-// are passed whole, and once it's over the highest anything stands nothing more can shade it.
-fn cone(p: vec3<f32>, footprint: f32, s: vec3<f32>, spread: f32, most: i32) -> f32 {
-    let wanted = clamp(i32(floor(log2(max(footprint, 1.0)))), FIRST, TOP);
-    let start = max(exp2(floor(log2(max(footprint, 1.0)))), f32(1 << u32(wanted)));
-    let o = p + vec3<f32>(0.0, 0.0, start * 0.5);
-    var t = start / max(s.z, 0.1);
-    var light = 1.0;
-    let top = world_top() + 1.0;
-    for (var n = 0; n < most; n++) {
-        let q = o + s * t;
-        if (q.z > top || t > camera.reach.x) {
-            break;
-        }
-        let wide = max(footprint, t * spread);
-        let level = clamp(i32(floor(log2(max(wide, 1.0)))), FIRST, TOP);
-        // Over a column's top: on to where it leaves that column, the biggest it's over the top of, tried from the
-        // coarsest level down to two coarser than it reads.
-        var skipped = false;
-        for (var up = TOP; up >= level + 2; up -= 2) {
-            let up_size = f32(1 << u32(up));
-            let cc = floor(q.xy / up_size);
-            let entry = entry_at(up, i32(cc.x), i32(cc.y));
-            if (entry == PAST_MAP) {
-                return light;
-            }
-            if (entry == NOT_SUMMED) {
-                continue;
-            }
-            let low = bitcast<i32>(entry << 16u) >> 16u;
-            let count = i32(entry >> 16u);
-            if (q.z > f32(low + count) * up_size + f32(1 << u32(level))) {
-                t = max(leave2(o.xy, s.xy, cc, up_size), t) + 0.01;
-                skipped = true;
-                break;
-            }
-        }
-        if (skipped) {
-            continue;
-        }
-        // A region not summed yet holds nothing known to shade with: on past it whole.
-        let r = floor(q.xy / f32(1 << u32(REGION)));
-        if (entry_at(REGION, i32(r.x), i32(r.y)) == NOT_SUMMED) {
-            t = max(leave2(o.xy, s.xy, r, f32(1 << u32(REGION))), t) + 0.01;
-            continue;
-        }
-        let look = far_blend(level, q);
-        let size = f32(1 << u32(level));
-        // A step as long as the ray is wide (never under its cell): what it crosses dims it by how solid it is, once
-        // it's climbed a whole cell of what it reads over where it started.
-        let step = max(size, wide);
-        if (look.known && q.z - p.z >= size) {
-            light *= pow(1.0 - min(look.solid, 0.999), step / size) * exp(-camera.water.w * look.water * step);
-            if (light < 0.02) {
-                return 0.0;
-            }
-        }
-        t += step;
-    }
-    return light;
-}
-
-// The most steps a shadow ray takes (past them it's taken as sunlit), and a sky cone.
-const SHADOW_STEPS: i32 = 160;
-const SKY_STEPS: i32 = 40;
-
-// How much of the sun reaches a far surface at `p` (`footprint` the eye's pixel there, blocks).
-fn sunlight(p: vec3<f32>, footprint: f32) -> f32 {
-    return cone(p, footprint, camera.sun.xyz, camera.follow.z, SHADOW_STEPS);
-}
-
-// How much of the sky a far surface at `p` sees: five wide cones, straight up and four leaning 50° out (north, south,
-// east, west), each weighted by how high it looks. In one loop, its count read from the levels so the compiler can't
-// unroll it into five copies (old's lesson: the instruction cache).
-fn sky_seen(p: vec3<f32>, footprint: f32) -> f32 {
-    let lean = sin(radians(50.0));
-    let rise = cos(radians(50.0));
-    let cones = 5 + min(levels[0] - FIRST, 0);
-    var seen = 0.0;
-    for (var k = 0; k < cones; k++) {
-        var way = vec3<f32>(0.0, 0.0, 1.0);
-        var weight = 1.0;
-        if (k > 0) {
-            let s = select(-lean, lean, (k & 1) == 1);
-            way = select(vec3<f32>(0.0, s, rise), vec3<f32>(s, 0.0, rise), k <= 2);
-            weight = rise;
-        }
-        seen += weight * cone(p, footprint, way, camera.sky.w, SKY_STEPS);
-    }
-    return seen / (1.0 + 4.0 * rise);
-}
-
 // ── Light read from the cell (the Oracle's change 3; `far_light.rs` makes it) ──
 //
 // A level's light at `p`: x how much of the sun reaches it (lit at the shadow's height or over, less a half cell for
@@ -1092,27 +918,15 @@ fn cell_light(p: vec3<f32>, footprint: f32) -> vec2<f32> {
     return mix(here, light_of(level + 1, p), f - floor(f));
 }
 
-// A pixel's sky light as handed down to the layer below: its kind (the far cells' is 0) over its sky seen in
-// 65,535ths.
-fn sky_word(open: f32) -> u32 {
-    return u32(round(clamp(open, 0.0, 1.0) * 65535.0));
-}
-
-// A ray's colour with its shadow and its sky light (`open`: how much of the sky it sees, 0 to 1).
-fn shaded(seen: Seen, open: f32) -> vec3<f32> {
+// A ray's colour with its shadow and its sky light, read from the cell where it landed.
+fn shaded(seen: Seen) -> vec3<f32> {
     if (seen.wide <= 0.0) {
         return seen.colour;
     }
     var colour = seen.colour;
     var sun = 1.0;
-    var sky_open = open;
-    if (camera.pyramid.w > 0.5) {
-        // By rays, as before.
-        if (camera.follow.y > 0.5) {
-            sun = sunlight(seen.at, seen.wide);
-        }
-    } else if (camera.view.w > 0.5) {
-        // Read from the cell.
+    var sky_open = 1.0;
+    if (camera.view.w > 0.5) {
         let light = cell_light(seen.at, seen.wide);
         sun = select(1.0, light.x, camera.follow.y > 0.5);
         sky_open = light.y;
@@ -1262,7 +1076,7 @@ fn march_pixel(id: vec2<u32>) {
             put_picture(vec2<i32>(id.xy), vec4<f32>(0.0));
             put_far(vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
             if (camera.layer.y > 0.5) {
-                put_worth(id.y * size.x + id.x, NO_SKY << 8u);
+                put_worth(id.y * size.x + id.x, 0u);
             }
             return;
         }
@@ -1294,29 +1108,9 @@ fn march_pixel(id: vec2<u32>) {
     let seen = march(camera.position.xyz, d, scatter(id.xy * 2u), begin, end);
     // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it).
     let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
-    // Its sky light, where it shows or the layer below may take it: its parent's, if that was about as far off (sky
-    // light changes slowly: most finer pixels take it, and only edges and silhouettes look for themselves).
-    var open = 1.0;
-    var handed = NO_SKY;
-    // (By rays only: read from the cell, `shaded` reads it itself and nothing is handed down.)
-    if (camera.pyramid.w > 0.5 && camera.sky.x > 0.5 && seen.wide > 0.0 && (!hidden || camera.layer.y > 0.5)) {
-        var have = false;
-        if (camera.layer.x > 0.0) {
-            let above = get_worth(parent.y * u32(camera.layer.x) + parent.x) >> 8u;
-            let parent_touch = get_far_above(vec2<i32>(parent));
-            if (above != NO_SKY && (above >> 16u) == 0u && abs(seen.touched - parent_touch) <= 0.1 * seen.touched + 2.0) {
-                open = f32(above & 0xFFFFu) / 65535.0;
-                have = true;
-            }
-        }
-        if (!have) {
-            open = sky_seen(seen.at, seen.wide);
-        }
-        handed = sky_word(open);
-    }
     var here = seen.colour;
     if (!hidden) {
-        here = shaded(seen, open);
+        here = shaded(seen);
     }
     // Through the fog to where it first met anything; the sky it went on to past a soft edge stays the sky. The sky's
     // weight [David, 2026-11-12: "if we could just make sky a bit stronger in the math over land, i think that might
@@ -1334,7 +1128,7 @@ fn march_pixel(id: vec2<u32>) {
         here = sky(d) * (1.0 - shown) + land * shown;
     }
     if (camera.layer.y > 0.5) {
-        put_worth(id.y * size.x + id.x, u32(round(worth_of(seen.distance, seen.level) * 255.0)) | (handed << 8u));
+        put_worth(id.y * size.x + id.x, u32(round(worth_of(seen.distance, seen.level) * 255.0)));
     }
     var colour = here;
     if (camera.reach.z > 1.5 && seen.level >= 0) {
