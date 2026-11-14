@@ -1766,6 +1766,17 @@ Reference: `Art/quartile minecraft illustration.png`
     second), off the frame; a short move 0.06 to 0.12 s. A shading flaw written down: inside the ring the light is
     still the 32s'. Owed: his look, then fourteen minutes hands off for the ring on against off (the card's time
     and memory).
+  - *His look at build 168* (to Builder, with a screenshot looking straight down): "looks good, i think you already
+    know about this in the pic?" and "referring to the square border with the light bleeding around it". **A
+    correction, in the open:** Builder's "no line at the ring's edge" was wrong; none of her pictures looked down.
+    Not the ring's light either. The cause: the hardware's blend reads from the brick holding the least of the eight
+    cells round a point, and bricks were made only where they hold land of their own, so just under ground lying at a
+    brick's floor there was none, and the march fell back to the initial blend with the rock switch's cast. Build 169
+    (e97068f), unflown: the ring's maker makes those bricks too; the square gone off the screen. Also corrected: a
+    moved ring draws "to a last digit" (1 of 255 in 0.1% of pixels), not byte for byte.
+  - **[OPEN] The same flaw in the 32s and up**, wherever land crosses a brick's floor (every 256 blocks up at the
+    32s): mending it wants about a third more bricks in the textures, some 160 MB by Builder's estimate, put to
+    David as a memory call.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
