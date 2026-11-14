@@ -2721,3 +2721,69 @@ processor load well over its usual) is set aside, not read. NVIDIA only, fog off
 5. **The finer base, with the column light** (`INCUS_FAR_BASE=4`): the polish list's fourth pass re-priced. With rays
    it cost 0.3 to 1.7 ms (build 153, before the one dispatch). Guess [low]: 0.2 to 1.0 ms now, the least at the sea;
    still too dear to be the base, but the price David would weigh for the look.
+
+### The night queue flown (build 160, 0f83598; 2026-11-13, 19:41 to 21:20)
+
+David: "ok, go ahead". All fifteen flew and reported; none was stopped. NVIDIA only, fog off, the laptop plugged in.
+Reports `logs/flight-1794620882` to `-1794626427`, in the queue's order; each flight's own log `logs/night-*.err`.
+
+**The machine wasn't in the afternoon's state, in three ways. Said first, as it limits what the night can tell.**
+- **Round 1's column light and rays flew starved** (the card's clock under 2000 MHz for up to 20 of the 20 s, the
+  processor at 98 °C; medians up to double the later rounds'). Both set aside whole.
+- **From about 20:12, half an hour after David left, something else took the card's time now and then.** The 99th
+  of the card's whole went to 1.5 to 2.5 times its median at every mark, in every standing, no light too, and stayed
+  so to the end; each pass's own 99th stayed tight, so the time went between passes. What flew between 19:54 and
+  20:12 has 99ths as tight as the afternoon's. Not the screen going off, sleep or a screen saver (all read as "never" on
+  mains); what it was isn't known. **So the night's 99ths and worsts are read by no one.**
+- **The whole night ran 4 to 18% slower than the afternoon** for the same picture (the rays, pixel for pixel build
+  159's: the mountain top 1.48 against 1.34, the run 1.49 against 1.38), the card drawing 65 to 90 W where it drew
+  75 to 109. So the night's figures are read against each other, not against the afternoon's.
+
+**What's read:** the medians of rounds 2 and 3, which agree with each other within 2% at nearly every mark and
+standing (the spawn in turn 5%, the sea's finer base 3%). Round 1's three clean flights are within 3% of them but at
+the spawn, where they're 9% faster. The card's whole, median ms, the mean of the two rounds:
+
+| mark | column light | rays | no light | in turn | finer base |
+|---|---|---|---|---|---|
+| the spawn | 0.33 | 0.79 | 0.34 | 0.35 | 0.90 |
+| the mountain top | 1.17 | 1.48 | 1.18 | 1.45 | 2.50 |
+| the bare plain | 0.82 | 0.94 | 0.82 | 0.78 | 1.31 |
+| high over the spawn | 0.93 | 1.42 | 0.92 | 1.21 | 1.81 |
+| low over the sea | 1.19 | 1.41 | 1.19 | 1.65 | 1.54 |
+| a player's run | 1.21 | 1.49 | 1.22 | 1.86 | 1.96 |
+| the plain, nodding | 0.82 | 0.94 | 0.83 | 0.78 | 1.38 |
+| the sea, nodding | 1.13 | 1.34 | 1.12 | 1.70 | 1.63 |
+| fast across the world | 0.99 | 1.41 | 0.99 | 0.98 | 2.23 |
+
+(The spawn's column light is round 3's alone: round 2's stood 4 s on the slow clock. Fast across the world stood on
+the slow clock in most flights; shown, not leaned on.)
+
+**Against the pass marks:**
+1. **and 2. The column light against the rays:** 0.12 ms less on the plain, 0.2 to 0.3 at the sea, the run and the
+   mountain top, 0.46 at the spawn, 0.49 high over the spawn: 13 to 58% of the far eye. Against the night's own "no
+   light" it's within 0.02 ms at every mark: *met*, flown side by side. Against the afternoon's figures the mark
+   named (0.35, 0.83, 1.10, 0.88, 1.20, 1.19) the spawn, the plain, the sea and the run land inside, high over the
+   spawn 0.05 over (inside the 0.06), **the mountain top 0.07 over: a miss by a hundredth**, on a night running 4 to
+   18% slow. **The sea nodding's 99th (1.38 guessed) can't be read tonight:** owed.
+3. **What reading the cell's light costs:** nothing the flights can see (0.00 to 0.02 ms either way). Builder
+   guessed 0.02 to 0.06: *missed low*.
+4. **The one dispatch with the column light:** worth 20% at the mountain top, 23% high over the spawn, 28% at the
+   sea, 34% at the sea nodding, 35% at the run. Builder guessed 10 to 25%, "a little less than build 159's":
+   *missed*, it's worth more with the light's rays gone, not less. The spawn is level; **the plain is 5% dearer by
+   the one dispatch** (0.82 against 0.78, nodding the same), where Builder guessed level.
+5. **The finer base with the column light:** 0.35 ms more at the sea, 0.5 on the plain and the sea nodding, 0.57 at
+   the spawn, 0.75 at the run, 0.88 high over the spawn, 1.33 at the mountain top. Builder guessed 0.2 to 1.0, the
+   least at the sea: the least is at the sea; *the top of it missed* (the mountain top). Every median under 2.0
+   but the mountain top's (2.50) and fast across the world's (2.23).
+
+**The card's memory:** 1,015 MB in use with the one dispatch, 977 MB with the layers in turn (the 38 MB noted at
+build 157); the far light's two pictures 40 MB of it.
+
+**Owed, to read the column light's 99ths against David's bar** ("if everything in the far view is under 2ms"): the
+column light and the rays flown again by day, with David at the machine and Turbo seen to be on; two flights,
+fourteen minutes. Till then the bar is shown for build 159's rays (the afternoon) and not yet for build 160.
+
+**Builder's reading:** the column light costs what no light costs, and David's look at its pictures was "those pics
+look fine to me"; by its pass mark it's kept once the day flight shows the 99ths. The rays' code isn't cut till
+David says so. For a night queue again: the first flight a throwaway to warm up, and a look beforehand at what
+else is drawing on the card.
